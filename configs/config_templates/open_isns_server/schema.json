@@ -1,0 +1,130 @@
+{
+  "isns": {
+    "type": "object",
+    "properties": {
+      "listen_address": {
+        "type": "string",
+        "default": "0.0.0.0",
+        "description": "IP address the iSNS server will bind to (e.g., '127.0.0.1' or '0.0.0.0')"
+      },
+      "listen_port": {
+        "type": "number",
+        "default": 3205,
+        "description": "UDP port on which the iSNS server listens (default is 3205)"
+      },
+      "log_level": {
+        "type": "number",
+        "default": 4,
+        "description": "Verbosity of logging (0 = quiet, 9 = very verbose). Recommend 3\u20136 for production."
+      },
+      "log_file": {
+        "type": "string",
+        "default": "",
+        "description": "Path to log file. Leave empty to log to stdout/stderr."
+      },
+      "auth_mode": {
+        "type": "string",
+        "default": "none",
+        "enum": [
+          "none",
+          "psk",
+          "cert"
+        ],
+        "description": "Authentication method: 'none' (no auth), 'psk' (pre-shared key), 'cert' (TLS certificate)"
+      },
+      "psk_file": {
+        "type": "string",
+        "default": "/etc/isnsd.psk",
+        "description": "Path to PSK file (only used when auth_mode = psk)"
+      },
+      "server_cert": {
+        "type": "string",
+        "default": "/etc/isnsd.crt",
+        "description": "Path to server TLS certificate (only used when auth_mode = cert)"
+      },
+      "server_key": {
+        "type": "string",
+        "default": "/etc/isnsd.key",
+        "description": "Path to server TLS private key (only used when auth_mode = cert)"
+      },
+      "ca_cert": {
+        "type": "string",
+        "default": "/etc/isns-ca.crt",
+        "description": "Path to CA certificate for client validation (only used when auth_mode = cert)"
+      },
+      "max_sessions": {
+        "type": "number",
+        "default": 256,
+        "description": "Maximum number of concurrent TCP sessions allowed"
+      },
+      "max_targets": {
+        "type": "number",
+        "default": 128,
+        "description": "Maximum number of targets that may be registered"
+      },
+      "max_initiators": {
+        "type": "number",
+        "default": 128,
+        "description": "Maximum number of initiators that may be registered"
+      },
+      "max_portals": {
+        "type": "number",
+        "default": 512,
+        "description": "Maximum number of portals that may be registered"
+      },
+      "max_nodes": {
+        "type": "number",
+        "default": 256,
+        "description": "Maximum total number of registered nodes (targets + initiators)"
+      },
+      "persistence_enabled": {
+        "type": "boolean",
+        "default": true,
+        "description": "Enable disk persistence of the iSNS database"
+      },
+      "persist_file": {
+        "type": "string",
+        "default": "/var/lib/isns/isnsdb.dat",
+        "description": "Path to persistent database file (only used if persistence_enabled = true)"
+      },
+      "sync_interval": {
+        "type": "number",
+        "default": 300,
+        "description": "Interval (in seconds) between database syncs to disk (0 = sync on every change only)"
+      },
+      "allowed_initiators": {
+        "type": "list",
+        "default": [],
+        "description": "List of allowed initiator IQNs. Empty list means all initiators are allowed.",
+        "items": {
+          "type": "string",
+          "description": "IQN of an allowed iSCSI initiator (e.g., 'iqn.1994-05.com.redhat:myhost')"
+        }
+      },
+      "allowed_targets": {
+        "type": "list",
+        "default": [],
+        "description": "List of allowed target IQNs. Empty list means all targets are allowed.",
+        "items": {
+          "type": "string",
+          "description": "IQN of an allowed iSCSI target (e.g., 'iqn.2003-01.org.example:storage')"
+        }
+      },
+      "heartbeat_interval": {
+        "type": "number",
+        "default": 60,
+        "description": "Interval (in seconds) between iSNS heartbeats to registered nodes (0 = disabled)"
+      },
+      "discovery_domains_enabled": {
+        "type": "boolean",
+        "default": false,
+        "description": "Enable discovery domain filtering (restricts node discovery per domain)"
+      },
+      "cluster_name": {
+        "type": "string",
+        "default": "",
+        "description": "Optional name of this iSNS server in a cluster (used for multi-server sync)"
+      }
+    }
+  }
+}

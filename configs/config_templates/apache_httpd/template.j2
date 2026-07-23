@@ -1,0 +1,112 @@
+# Apache HTTP Server main configuration file (apache2.conf)
+# Server root directory
+ServerRoot "{{ server_root }}"
+
+# Runtime configuration directory for modules and temp files
+RunTimeDir "{{ runtime_dir }}"
+
+# Listen on specified address and port
+{% for listen_addr in listen_addresses %}
+{% if listen_addr.port is defined %}
+Listen {{ listen_addr.address }}:{{ listen_addr.port }}
+{% else %}
+Listen {{ listen_addr }}
+{% endif %}
+{% endfor %}
+
+# User and group for worker processes
+User {{ worker_user }}
+Group {{ worker_group }}
+
+# Server administration email
+ServerAdmin {{ server_admin }}
+
+# Default server name (for virtual hosts without ServerName)
+ServerName {{ server_name | default('localhost') }}
+
+# Timeout settings
+Timeout {{ timeout }}
+KeepAlive {{ 'On' if keepalive else 'Off' }}
+MaxKeepAliveRequests {{ max_keepalive_requests }}
+KeepAliveTimeout {{ keepalive_timeout }}
+
+# Logging configuration
+ErrorLog "{{ error_log_path }}"
+LogLevel {{ log_level }}
+
+# Load modules
+{% for module in modules_to_load %}
+LoadModule {{ module.name }} {{ module.path }}
+{% endfor %}
+
+# Include module-specific configurations
+{% for included_conf in included_configs %}
+{% if included_conf.enabled is not defined or included_conf.enabled %}
+IncludeOptional {{ included_conf.path }}
+{% endif %}
+{% endfor %}
+
+# Default directory permissions and access
+<Directory />
+    Options FollowSymLinks
+    AllowOverride None
+    Require all denied
+</Directory>
+
+<Directory {{ docroot }}>
+    Options {{ docroot_options | join(', ') | default('Indexes FollowSymLinks') }}
+    AllowOverride {{ allow_override | default('None') }}
+    Require all granted
+</Directory>
+
+# Default index files
+DirectoryIndex {{ directory_index | join(', ') }}
+
+# MIME types configuration
+TypesConfig {{ mime_types_config }}
+
+# MPM module settings
+<IfModule mpm_{{ mpm }}_module>
+    StartServers             {{ mpm_start_servers }}
+    MinSpareServers          {{ mpm_min_spare_servers }}
+    MaxSpareServers          {{ mpm_max_spare_servers }}
+    MaxRequestWorkers        {{ mpm_max_request_workers }}
+    MaxConnectionsPerChild   {{ mpm_max_connections_per_child }}
+</IfModule>
+
+# Logging format (if not overridden by modules)
+LogFormat "%h %l %u %t \"%r\" %>s %O \"%{Referer}i\" \"%{User-Agent}i\"" combined
+
+# Enable default server-status and server-info (if enabled)
+{% if server_status_enabled %}
+<Location /server-status>
+    SetHandler server-status
+    Require host {{ server_status_allowed_hosts | join(' ') }}
+</Location>
+{% endif %}
+{% if server_info_enabled %}
+<Location /server-info>
+    SetHandler server-info
+    Require host {{ server_info_allowed_hosts | join(' ') }}
+</Location>
+{% endif %}
+
+# Default virtual host (if needed)
+{% if default_vhost_enabled %}
+<VirtualHost *:{{ default_vhost_port }}>
+    ServerName {{ server_name }}
+    DocumentRoot {{ docroot }}
+    ErrorLog {{ vhost_error_log | default(error_log_path) }}
+    CustomLog {{ vhost_access_log | default(access_log_path | default('/dev/null')) }} combined
+</VirtualHost>
+{% endif %}
+
+# Enable default modules (if not included in modules_to_load)
+{% if include_default_modules %}
+IncludeOptional mods-enabled/*.load
+IncludeOptional mods-enabled/*.conf
+{% endif %}
+
+# Include additional configuration snippets (e.g., sites-enabled)
+IncludeOptional conf-enabled/*.conf
+IncludeOptional sites-enabled/*.conf

@@ -1,0 +1,35 @@
+# IP-over-IP Tunnel Daemon Configuration
+# Enables encapsulation of IPv4/IPv6 packets within IPv4 packets.
+
+# Enable/disable the daemon
+{% if enabled | default(false) %}
+ENABLED=yes
+{% else %}
+ENABLED=no
+{% endif %}
+
+# Tunnel interface prefix
+TUN_PREFIX="{% if tun_prefix %}{{ tun_prefix }}{% else %}ipip{% endif %}"
+
+# Local IPv4 address used as source for tunnels (optional; auto if omitted)
+{% if local_addr %}LOCAL_ADDR="{{ local_addr }}"{% endif %}
+
+# Default MTU for tunnels
+MTU={% if mtu is defined %}{{ mtu }}{% else %}1480{% endif %}
+
+# Enable logging to syslog
+{% if log_to_syslog | default(true) %}LOG_SYSLOG=yes{% else %}LOG_SYSLOG=no{% endif %}
+
+# Log level: 0=silent, 1=errors, 2=warnings, 3=info, 4=debug
+LOG_LEVEL={% if log_level is defined %}{{ log_level }}{% else %}3{% endif %}
+
+# List of tunnels (one per line)
+{% for tunnel in tunnels %}
+# Tunnel: {{ tunnel.name }}
+{% if tunnel.local_ip %}TUN_LOCAL_IP["{{ tunnel.name }}"]="{{ tunnel.local_ip }}"{% endif %}
+{% if tunnel.remote_ip %}TUN_REMOTE_IP["{{ tunnel.name }}"]="{{ tunnel.remote_ip }}"{% endif %}
+{% if tunnel.local_gw %}TUN_LOCAL_GW["{{ tunnel.name }}"]="{{ tunnel.local_gw }}"{% endif %}
+{% if tunnel.remote_gw %}TUN_REMOTE_GW["{{ tunnel.name }}"]="{{ tunnel.remote_gw }}"{% endif %}
+{% if tunnel.description %}# Description: {{ tunnel.description }}{% endif %}
+{% if tunnel.enabled | default(true) %}TUN_ENABLED["{{ tunnel.name }}"]=yes{% else %}TUN_ENABLED["{{ tunnel.name }}"]=no{% endif %}
+{% endfor %}

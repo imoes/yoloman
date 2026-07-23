@@ -1,0 +1,103 @@
+{
+  "host_groups": [
+    {
+      "name": "web_servers",
+      "hosts": [
+        "web1.example.com",
+        "web2.example.com"
+      ],
+      "desc": "Production web tier"
+    },
+    {
+      "name": "db_servers",
+      "hosts": [
+        "db1.example.com",
+        "db2.example.com"
+      ],
+      "desc": "Production database tier"
+    }
+  ],
+  "services": [
+    {
+      "name": "web_http",
+      "type": "http",
+      "host": "web1.example.com",
+      "interval": 120,
+      "timeout": 15,
+      "retry_interval": 60,
+      "max_attempts": 3,
+      "args": [
+        "80",
+        "/health"
+      ],
+      "alert": "email_alert"
+    },
+    {
+      "name": "web_https",
+      "type": "http",
+      "host": "web2.example.com",
+      "interval": 120,
+      "timeout": 15,
+      "args": [
+        "443",
+        "/health",
+        "--ssl"
+      ],
+      "alert": "email_alert"
+    },
+    {
+      "name": "db_ping",
+      "type": "ping",
+      "host": "db1.example.com",
+      "interval": 60,
+      "max_attempts": 2,
+      "alert": "critical_alert"
+    },
+    {
+      "name": "db_tcp_5432",
+      "type": "tcp",
+      "host": "db1.example.com",
+      "args": [
+        "5432"
+      ],
+      "interval": 10,
+      "timeout": 5,
+      "max_attempts": 1,
+      "alert": "critical_alert"
+    }
+  ],
+  "alerts": [
+    {
+      "name": "email_alert",
+      "type": "email",
+      "from": "mon@example.com",
+      "to": [
+        "ops@example.com",
+        "oncall@example.com"
+      ],
+      "subject": "[MON] Alert: {{service}} on {{host}} is {{status}}"
+    },
+    {
+      "name": "critical_alert",
+      "type": "exec",
+      "command": "/usr/local/bin/critical-alert.sh '{{service}}' '{{host}}' '{{status}}'"
+    },
+    {
+      "name": "log_alert",
+      "type": "log",
+      "logfile": "/var/log/mon/alerts.log",
+      "message": "{{service}} on {{host}} is {{status}} at {{timestamp}}"
+    }
+  ],
+  "mon_user": "mon",
+  "mon_group": "mon",
+  "mon_home": "/var/lib/mon",
+  "libdir": "/usr/lib/mon",
+  "logdir": "/var/log/mon",
+  "pidfile": "/run/mon/mon.pid",
+  "poll_interval": 60,
+  "status_interval": 300,
+  "enable_www": true,
+  "www_port": 8888,
+  "www_auth": "none"
+}

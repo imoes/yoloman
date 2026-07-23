@@ -1,0 +1,123 @@
+{
+  "net_interface": {
+    "type": "string",
+    "default": "eth0",
+    "description": "Network interface to use for sniffing and MITM attacks (e.g., 'eth0', 'wlan0')."
+  },
+  "gateway_ip": {
+    "type": "string",
+    "default": "",
+    "description": "Gateway IP address. Leave empty to auto-detect (recommended for dynamic environments)."
+  },
+  "http_proxy_port": {
+    "type": "number",
+    "default": 8080,
+    "description": "Port for the HTTP proxy server."
+  },
+  "https_proxy_port": {
+    "type": "number",
+    "default": 8081,
+    "description": "Port for the HTTPS proxy server."
+  },
+  "transparent_proxy": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable transparent proxying (intercept all HTTP/HTTPS traffic without client configuration)."
+  },
+  "ssl_strip": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable SSL stripping to downgrade HTTPS connections to HTTP (for credential harvesting)."
+  },
+  "dns_spoof": {
+    "type": "object",
+    "items": {
+      "domains": {
+        "type": "list",
+        "default": [],
+        "description": "List of domains to spoof (e.g., ['google.com', 'facebook.com'])."
+      },
+      "addresses": {
+        "type": "list",
+        "default": [],
+        "description": "IP addresses to return for each domain (same order as domains)."
+      }
+    },
+    "default": {
+      "domains": [],
+      "addresses": []
+    },
+    "description": "DNS spoofing configuration: map specific domains to custom IP addresses."
+  },
+  "arp_spoof": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable ARP cache poisoning to position the host as the man-in-the-middle on the LAN."
+  },
+  "icmp_redirects": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable ICMP redirect spoofing for additional stealth on Linux (requires root)."
+  },
+  "credentials_capture_targets": {
+    "type": "list",
+    "default": [
+      "http",
+      "ftp",
+      "telnet",
+      "smtp",
+      "pop3",
+      "imap",
+      "ntlm",
+      "httpauth"
+    ],
+    "description": "List of protocols/services from which to capture credentials (e.g., 'http', 'ntlm')."
+  },
+  "session_hijacking": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable HTTP session hijacking to steal active web sessions."
+  },
+  "log_file": {
+    "type": "string",
+    "default": "/var/log/bettercap/bettercap.log",
+    "description": "Path to the log file for captured data and events."
+  },
+  "log_level": {
+    "type": "number",
+    "default": 2,
+    "description": "Log verbosity: 0=silent, 1=error, 2=warn, 3=info, 4=debug, 5=trace."
+  },
+  "startup_modules": {
+    "type": "list",
+    "items": {
+      "name": {
+        "type": "string",
+        "description": "Name of the Bettercap module (e.g., 'httpProxy', 'dnsProxy', 'tcpProxy')."
+      },
+      "enabled": {
+        "type": "bool",
+        "description": "Whether the module should be enabled at startup."
+      }
+    },
+    "default": [
+      {
+        "name": "httpProxy",
+        "enabled": true
+      },
+      {
+        "name": "dnsProxy",
+        "enabled": true
+      },
+      {
+        "name": "tcpProxy",
+        "enabled": false
+      },
+      {
+        "name": "httpServer",
+        "enabled": false
+      }
+    ],
+    "description": "List of modules to load and configure at startup, with enable/disable toggles."
+  }
+}

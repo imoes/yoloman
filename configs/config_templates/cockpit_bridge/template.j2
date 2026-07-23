@@ -1,0 +1,45 @@
+[WebService]
+# Space-separated list of allowed WebSocket origins (scheme+host); must include all hostnames clients use to reach Cockpit
+Origins = {{ origins | join(' ') }}
+{% if protocol_header %}
+# HTTP header set by a reverse proxy to indicate the forwarded protocol (e.g. X-Forwarded-Proto)
+ProtocolHeader = {{ protocol_header }}
+{% endif %}
+{% if forwarded_for_header %}
+# HTTP header set by a reverse proxy to carry the real client IP address (e.g. X-Forwarded-For)
+ForwardedForHeader = {{ forwarded_for_header }}
+{% endif %}
+# Maximum number of unauthenticated connection attempts permitted in parallel
+MaxStartups = {{ max_startups }}
+# Text displayed as the HTML page title on the Cockpit login screen
+LoginTitle = {{ login_title }}
+# Show the 'Connect to' host-selection field on the login screen (true/false)
+LoginTo = {{ 'true' if login_to else 'false' }}
+# Require the host field to be explicitly filled before login is accepted
+RequireHost = {{ 'true' if require_host else 'false' }}
+# Permit plain HTTP connections; only enable when TLS is terminated by an upstream proxy
+AllowUnencrypted = {{ 'true' if allow_unencrypted else 'false' }}
+# Enable per-message deflate compression on WebSocket connections to reduce bandwidth
+Compression = {{ 'true' if compression else 'false' }}
+# Enable mutual-TLS client-certificate authentication in addition to password login
+ClientCertAuthentication = {{ 'true' if client_cert_auth else 'false' }}
+{% if url_root %}
+# Serve Cockpit under this URL sub-path when placed behind a path-rewriting reverse proxy
+UrlRoot = {{ url_root }}
+{% endif %}
+
+[Log]
+# Minimum severity level treated as fatal and written to stderr; leave empty to suppress
+Fatal = {{ log_fatal }}
+
+[Session]
+# Minutes of inactivity after which a session is forcibly terminated; 0 disables the timeout
+IdleTimeout = {{ idle_timeout }}
+{% if banner_file %}
+# Absolute path to a plain-text file whose contents are shown as a pre-login banner
+Banner = {{ banner_file }}
+{% endif %}
+
+[Machines]
+# Maximum number of simultaneous connections Cockpit maintains to remote managed machines
+MaxConnections = {{ max_connections }}

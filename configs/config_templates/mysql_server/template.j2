@@ -1,0 +1,90 @@
+[mysqld]
+# Basic server identification and operational mode
+bind-address = {{ bind_address }}
+
+# TCP port for client connections
+port = {{ port }}
+
+# Directory for MySQL data files
+basedir = {{ basedir }}
+datadir = {{ datadir }}
+
+# Default authentication plugin
+# (e.g., mysql_native_password, caching_sha2_password)
+default_authentication_plugin = {{ default_authentication_plugin }}
+
+# Logging: general query log (off by default)
+general_log = {{ general_log | lower }}
+general_log_file = {{ general_log_file }}
+
+# Logging: slow query log for performance tuning
+slow_query_log = {{ slow_query_log | lower }}
+slow_query_log_file = {{ slow_query_log_file }}
+long_query_time = {{ long_query_time }}
+
+# Logging: error log file path
+log_error = {{ log_error }}
+
+# Binary logging for replication and point-in-time recovery
+log_bin = {{ log_bin }}
+binlog_format = {{ binlog_format }}
+expire_logs_days = {{ expire_logs_days }}
+max_binlog_size = {{ max_binlog_size }}
+
+# InnoDB storage engine defaults
+innodb_buffer_pool_size = {{ innodb_buffer_pool_size }}
+innodb_log_file_size = {{ innodb_log_file_size }}
+innodb_flush_log_at_trx_commit = {{ innodb_flush_log_at_trx_commit }}
+innodb_file_per_table = {{ innodb_file_per_table | lower }}
+innodb_flush_method = {{ innodb_flush_method }}
+
+# Memory & connection limits
+max_connections = {{ max_connections }}
+max_allowed_packet = {{ max_allowed_packet }}
+tmp_table_size = {{ tmp_table_size }}
+max_heap_table_size = {{ max_heap_table_size }}
+
+# Character set and collation
+character_set_server = {{ character_set_server }}
+collation_server = {{ collation_server }}
+
+# Time zone handling
+time_zone = {{ time_zone }}
+
+# Server UUID (auto-generated; usually not overridden)
+server_id = {{ server_id }}
+
+# Thread caching for connection reuse
+thread_cache_size = {{ thread_cache_size }}
+
+# Table open cache
+open_tables = {{ open_tables }}
+open_table_definitions = {{ open_table_definitions }}
+
+# Replication settings (for master/replica roles)
+{% if replication_role == 'master' %}
+# Enable binary logging for replication
+log_bin = {{ log_bin }}
+server_id = {{ server_id }}
+binlog_do_db = {% for db in replicate_dbs %}{{ db }}{% if not loop.last %}, {% endif %}{% endfor %}
+{% elif replication_role == 'replica' %}
+# Replica configuration
+server_id = {{ server_id }}
+read_only = ON
+relay_log = {{ relay_log }}
+replicate_do_db = {% for db in replicate_dbs %}{{ db }}{% if not loop.last %}, {% endif %}{% endfor %}
+{% endif %}
+
+# TLS/SSL configuration (optional)
+{% if ssl_enabled %}
+ssl_ca = {{ ssl_ca }}
+ssl_cert = {{ ssl_cert }}
+ssl_key = {{ ssl_key }}
+require_secure_transport = ON
+{% endif %}
+
+# Skip name resolution for faster connections (if DNS unreliable)
+skip_name_resolve = {{ skip_name_resolve | lower }}
+
+# Skip grant tables (dangerous; only for recovery)
+skip_grant_tables = {{ skip_grant_tables | lower }}

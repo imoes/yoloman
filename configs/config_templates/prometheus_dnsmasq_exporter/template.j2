@@ -1,0 +1,23 @@
+# /etc/default/prometheus-dnsmasq-exporter
+# Environment variables for the prometheus-dnsmasq-exporter systemd service
+
+# Host address the exporter should listen on
+HOST={{ host }}
+
+# Port the exporter should listen on
+PORT={{ port }}
+
+# Path to dnsmasq's lease file (required for lease stats)
+DNSMASQ_LEASEFILE={{ dnsmasq_leasefile }}
+
+# Path to dnsmasq's DHCP stats file (optional, if available)
+{% if dnsmasq_dhcp_stats_file is defined %}DNSMASQ_DHCP_STATS_FILE={{ dnsmasq_dhcp_stats_file }}{% endif %}
+
+# Timeout for scraping dnsmasq (in seconds)
+SCRAPE_TIMEOUT={{ scrape_timeout }}
+
+# Enable verbose logging
+{% if enable_verbose %}LOG_LEVEL=debug{% else %}LOG_LEVEL=info{% endif %}
+
+# Additional command-line flags passed to the exporter (space-separated)
+{% if extra_flags %}EXTRA_FLAGS={{ extra_flags | join(' ') }}{% endif %}

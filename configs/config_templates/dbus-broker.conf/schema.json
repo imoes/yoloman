@@ -1,0 +1,98 @@
+{
+  "log_level": {
+    "type": "string",
+    "default": "debug",
+    "description": "Log verbosity level; acceptable values are 'error', 'warning', 'info', 'debug'"
+  },
+  "listen_addresses": {
+    "type": "list",
+    "default": [
+      "unix:path=/run/dbus/system_bus_socket",
+      "unix:abstract=/dbus/system_bus_socket"
+    ],
+    "description": "List of transport addresses the broker listens on"
+  },
+  "auth_mechanisms": {
+    "type": "list",
+    "default": [
+      "EXTERNAL",
+      "DBUS_COOKIE_SHA1"
+    ],
+    "description": "Authentication mechanisms the broker supports; values like 'EXTERNAL', 'DBUS_COOKIE_SHA1', 'ANONYMOUS'"
+  },
+  "service_activation": {
+    "type": "object",
+    "default": null,
+    "description": "Service to auto-start on bus initialization (e.g., system-wide service). Optional.",
+    "items": {
+      "name": {
+        "type": "string",
+        "default": "org.freedesktop.systemd1",
+        "description": "Well-known D-Bus name of the service to activate"
+      },
+      "exec": {
+        "type": "string",
+        "default": "/usr/lib/systemd/systemd",
+        "description": "Absolute path to the executable to launch"
+      }
+    }
+  },
+  "user_rules": {
+    "type": "list",
+    "default": [
+      {
+        "user": "root",
+        "max_replies_per_connection": 1024,
+        "max_connections_per_user": 256,
+        "max_services_per_user": 128
+      },
+      {
+        "user": "messagebus",
+        "max_replies_per_connection": 512,
+        "max_connections_per_user": 128,
+        "max_services_per_user": 64
+      }
+    ],
+    "description": "Per-user connection limits and privileges. At least one user rule should be present."
+  },
+  "introspection_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Whether to allow introspection via org.freedesktop.DBus.Introspectable. Disable for production security hardening."
+  },
+  "audit_level": {
+    "type": "number",
+    "default": 0,
+    "description": "Audit logging level: 0 = disabled, 1 = enabled (logs security-relevant events)"
+  },
+  "inactivity_timeout": {
+    "type": "number",
+    "default": 600,
+    "description": "Timeout (in seconds) before closing inactive connections"
+  },
+  "max_outstanding_messages": {
+    "type": "number",
+    "default": 100000,
+    "description": "Maximum number of queued messages per connection"
+  },
+  "max_message_size": {
+    "type": "number",
+    "default": 104857600,
+    "description": "Maximum size (in bytes) of a single message (e.g., 100 MB)"
+  },
+  "max_fds_per_connection": {
+    "type": "number",
+    "default": 256,
+    "description": "Maximum number of file descriptors that may be passed per connection"
+  },
+  "max_fds": {
+    "type": "number",
+    "default": 65536,
+    "description": "Maximum number of file descriptors the broker process may open system-wide"
+  },
+  "listen_backlog": {
+    "type": "number",
+    "default": 1024,
+    "description": "Maximum number of pending connections in the kernel listen queue"
+  }
+}

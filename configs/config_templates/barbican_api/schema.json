@@ -1,0 +1,166 @@
+{
+  "barbican_service_name": {
+    "type": "string",
+    "default": "barbican",
+    "description": "The name of the OpenStack service (used in logs and service registration)."
+  },
+  "debug": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable verbose debug logging for troubleshooting."
+  },
+  "user": {
+    "type": "string",
+    "default": "barbican",
+    "description": "System user account under which the Barbican API process runs."
+  },
+  "group": {
+    "type": "string",
+    "default": "barbican",
+    "description": "System group for the Barbican API process."
+  },
+  "state_path": {
+    "type": "string",
+    "default": "/var/lib/barbican",
+    "description": "Base directory for runtime data (e.g., encryption keys, temporary files)."
+  },
+  "api_bind_host": {
+    "type": "string",
+    "default": "0.0.0.0",
+    "description": "IP address the Barbican API server binds to (e.g., 127.0.0.1 for localhost only)."
+  },
+  "api_bind_port": {
+    "type": "number",
+    "default": 9311,
+    "description": "TCP port the Barbican API server listens on."
+  },
+  "enable_v1_api": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable the legacy v1 API endpoint (recommended to keep enabled for compatibility)."
+  },
+  "cors_allowed_origins": {
+    "type": "list",
+    "default": [],
+    "items": {
+      "type": "string",
+      "description": "Allowed origin URLs for CORS requests (e.g., https://horizon.example.com)."
+    },
+    "description": "List of domains allowed to make cross-origin requests to the API."
+  },
+  "auth_strategy": {
+    "type": "string",
+    "default": "keystone",
+    "description": "Authentication strategy. Use 'keystone' for production; 'noauth' only for testing."
+  },
+  "keystone_public_endpoint": {
+    "type": "string",
+    "default": "https://keystone.example.com:5000",
+    "description": "Public endpoint URL for the Keystone service (used in token introspection and self-service links)."
+  },
+  "keystone_project_domain_name": {
+    "type": "string",
+    "default": "Default",
+    "description": "Keystone domain name containing the Barbican service project."
+  },
+  "keystone_project_name": {
+    "type": "string",
+    "default": "service",
+    "description": "Keystone project (tenant) name for the Barbican service user."
+  },
+  "keystone_user_domain_name": {
+    "type": "string",
+    "default": "Default",
+    "description": "Keystone domain name containing the Barbican service user."
+  },
+  "keystone_username": {
+    "type": "string",
+    "default": "barbican",
+    "description": "Keystone username for the Barbican service."
+  },
+  "keystone_password": {
+    "type": "string",
+    "default": null,
+    "description": "Password for the Barbican Keystone service user \u2014 *must* be set securely (e.g., via secret manager or env override)."
+  },
+  "db_connection_url": {
+    "type": "string",
+    "default": null,
+    "description": "SQLAlchemy database connection string (e.g., 'mysql+pymysql://barbican:pass@dbhost/barbican')."
+  },
+  "db_max_pool_size": {
+    "type": "number",
+    "default": 10,
+    "description": "Maximum number of idle database connections in the pool."
+  },
+  "db_max_overflow": {
+    "type": "number",
+    "default": 20,
+    "description": "Maximum number of additional connections allowed beyond pool size."
+  },
+  "secretstore_plugin": {
+    "type": "string",
+    "default": "store_crypto",
+    "description": "Secret storage plugin to use. 'store_crypto' provides local encrypted storage."
+  },
+  "store_crypto_key": {
+    "type": "string",
+    "default": null,
+    "description": "Base64-encoded 256-bit AES key used to encrypt secrets at rest. *Must* be at least 256 bits and kept secure (e.g., via key rotation)."
+  },
+  "store_crypto_key_wrap": {
+    "type": "string",
+    "default": "AES_WRAP",
+    "description": "Key wrapping algorithm for storing secrets (e.g., 'AES_WRAP', 'RSA_PKCS1v15')."
+  },
+  "worker_processes": {
+    "type": "number",
+    "default": 2,
+    "description": "Number of Gunicorn worker processes (increase under high concurrency)."
+  },
+  "worker_threads": {
+    "type": "number",
+    "default": 1,
+    "description": "Number of threads per worker (set >1 for I/O-bound workloads)."
+  },
+  "worker_timeout": {
+    "type": "number",
+    "default": 300,
+    "description": "Seconds to wait for requests before timing out (increase for slow key generation)."
+  },
+  "worker_access_log": {
+    "type": "string",
+    "default": "-",
+    "description": "Path to access log file (use '-' to log to stdout)."
+  },
+  "worker_error_log": {
+    "type": "string",
+    "default": "/var/log/barbican/barbican-api.log",
+    "description": "Path to error log file."
+  },
+  "worker_log_datefmt": {
+    "type": "string",
+    "default": "%Y-%m-%d %H:%M:%S",
+    "description": "Date/time format for log entries."
+  },
+  "worker_log_format": {
+    "type": "string",
+    "default": "[%(asctime)s] [%(process)d] [%(levelname)s] %(message)s",
+    "description": "Format string for log messages."
+  },
+  "worker_access_log_format": {
+    "type": "string",
+    "default": "%(h)s %(l)s %(u)s %(t)s \"%(r)s\" %(s)s %(b)s \"%(f)s\" \"%(a)s\"",
+    "description": "Format string for access logs (Apache Common Log Format style)."
+  },
+  "disable_private_key_export": {
+    "type": "bool",
+    "default": true,
+    "description": "If true, private keys (e.g., for RSA) cannot be exported \u2014 recommended for security."
+  },
+  "max_secret_data_size": {
+    "type": "number",
+    "default": 131072,
+    "description": "Maximum size (bytes) of secret data allowed per secret (security hardening to limit memory usage)."
+  }
+}

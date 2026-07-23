@@ -1,0 +1,80 @@
+{
+  "defaults": {
+    "ignorip": [
+      "127.0.0.1/8",
+      "::1"
+    ],
+    "bantime": "10m",
+    "findtime": "10m",
+    "maxretry": "5",
+    "backend": "auto",
+    "destemail": "admin@example.com",
+    "sender": "fail2ban@example.com",
+    "mta": "sendmail",
+    "action": [
+      "action_mwl"
+    ]
+  },
+  "jails": [
+    {
+      "name": "sshd",
+      "enabled": true,
+      "filter": "sshd",
+      "logpath": [
+        "/var/log/auth.log",
+        "/var/log/secure"
+      ],
+      "maxretry": 3,
+      "findtime": "5m",
+      "bantime": "1h",
+      "ignorip": [
+        "192.168.1.0/24"
+      ],
+      "action": [
+        "iptables[name=SSH, port=ssh, protocol=tcp]",
+        "sendmail-whois[name=SSH]"
+      ],
+      "backend": "systemd",
+      "options": {
+        "port": "ssh",
+        "protocol": "tcp"
+      }
+    },
+    {
+      "name": "sshd-ddos",
+      "enabled": false,
+      "filter": "sshd-ddos",
+      "logpath": [
+        "/var/log/auth.log"
+      ],
+      "maxretry": 3,
+      "findtime": "5m",
+      "bantime": "1d",
+      "ignorip": [],
+      "action": [],
+      "backend": null,
+      "options": {
+        "port": "ssh",
+        "protocol": "tcp"
+      }
+    },
+    {
+      "name": "recidive",
+      "enabled": true,
+      "filter": "recidive",
+      "logpath": [
+        "/var/log/fail2ban.log"
+      ],
+      "maxretry": 5,
+      "findtime": "1w",
+      "bantime": "1w",
+      "ignorip": [],
+      "action": [
+        "iptables-allports",
+        "recidive"
+      ],
+      "backend": null,
+      "options": {}
+    }
+  ]
+}

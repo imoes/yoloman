@@ -1,0 +1,138 @@
+#!KAMAILIO
+#
+# Kamailio SIP Proxy/Registrar Server Configuration Template
+# Generated for production use with dynamic instance-specific tuning
+#
+
+# Global parameters
+#!define DBENGINE "{{ db_engine }}"
+#!define DBURL "{{ db_url }}"
+#!define PORT_SIP "{{ port_sip }}"
+#!define PORT_SIPS "{{ port_sips }}"
+#!define LISTEN_ADDR "{{ listen_addr }}"
+#!define WORKERS "{{ workers }}"
+#!define FORK_MODE "{{ fork_mode }}"
+#!define LOG_LEVEL "{{ log_level }}"
+#!define ENABLE_TLS "{{ enable_tls }}"
+#!define TLS_CERT "{{ tls_cert }}"
+#!define TLS_KEY "{{ tls_key }}"
+#!define TLS_CA_LIST "{{ tls_ca_list }}"
+#!define TLS_METHOD "{{ tls_method }}"
+#!define ENABLE_MYSQL "{{ enable_mysql }}"
+#!define ENABLE_PGSQL "{{ enable_pgsql }}"
+#!define ENABLE_LDAP "{{ enable_ldap }}"
+
+# Core module parameters
+modparam("corex", "trace_destination", "{{ trace_destination }}")
+modparam("corex", "trace_local", "{{ trace_local }}")
+
+# Load modules
+loadmodule "tm"
+loadmodule "sl"
+loadmodule "rr"
+loadmodule "maxfwd"
+loadmodule "sipmsgops"
+loadmodule "textops"
+loadmodule "pv"
+loadmodule "sanity"
+loadmodule "kex"
+loadmodule "corex"
+{% if enable_mysql %}
+loadmodule "db_mysql"
+{% endif %}
+{% if enable_pgsql %}
+loadmodule "db_postgres"
+{% endif %}
+{% if enable_ldap %}
+loadmodule "ldap"
+{% endif %}
+loadmodule "tm"
+loadmodule "tmx"
+loadmodule "sl"
+loadmodule "rr"
+loadmodule "maxfwd"
+loadmodule "sipmsgops"
+loadmodule "textops"
+loadmodule "pv"
+loadmodule "sanity"
+loadmodule "kex"
+loadmodule "corex"
+loadmodule "auth"
+loadmodule "auth_db"
+{% if enable_tls %}
+loadmodule "tls"
+{% endif %}
+{% for module in extra_modules %}
+loadmodule "{{ module }}"
+{% endfor %}
+
+# Module-specific parameters
+{% if enable_mysql or enable_pgsql %}
+# Database module params
+modparam("auth_db", "db_url", DBURL)
+modparam("auth_db", "calculate_rsa_md5", 1)
+{% endif %}
+{% if enable_tls %}
+# TLS parameters
+tls_config {
+  certificate = "{{ tls_cert }}"
+  private_key = "{{ tls_key }}"
+  ca_list = "{{ tls_ca_list }}"
+  method = {{ tls_method }}
+}
+{% endif %}
+
+# Route blocks
+request_route {
+  # Sanity checks
+  if (!sanity_check("message", "7")) {
+    xlog("L_ERR", "Malformed SIP message from $si:$sp\n");
+    exit;
+  }
+
+  # Record route & max-forwards
+  record_route();
+  if (!maxfwd_process_max_forwards("10")) {
+    sl_send_reply("483", "Too Many Hops");
+    exit;
+  }
+
+  # Process SIP methods
+  if (method == "REGISTER") {
+    # Handle registration
+    if (!auth_process("digest", "{{ auth_realm }}")) {
+      sl_send_reply("401", "Unauthorized");
+      exit;
+    }
+    if (!sl_send_reply("200", "OK")) {
+      xlog("L_ERR", "Failed to send 200 OK for REGISTER\n");
+    }
+    exit;
+  }
+
+  # Forward non-REGISTER requests
+  if (!t_relay()) {
+    sl_send_reply("500", "Internal Server Error");
+  }
+}
+
+onreply_route {
+  # Process in-dialog replies
+  if (nat_uamatch("3")) {
+    append_hf("{{ rport_header }}: {{ rport_value }}\r\n");
+  }
+}
+
+failure_route {
+  if (t_branch_timeout()) {
+    sl_send_reply("408", "Request Timeout");
+  }
+}
+
+# Event routes
+event_route[tm:local-request] {
+  # Handle local requests (e.g., from other modules)
+  if (method == "OPTIONS") {
+    sl_send_reply("200", "OK");
+  }
+}

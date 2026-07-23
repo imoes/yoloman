@@ -1,0 +1,51 @@
+# Listen address for the Node Exporter HTTP server
+listen_address: {{ listen_address }}
+
+# Number of worker threads (default: 10)
+worker_limit: {{ worker_limit }}
+
+# Path to write textfile collector files
+web_config:
+  # TLS and auth settings (optional)
+  # tls_server_config:
+  #   cert_file: {{ tls_cert_file | default('') | quote }}
+  #   key_file: {{ tls_key_file | default('') | quote }}
+{% if enable_metrics_path %}
+# Path under which metrics are exposed
+web.listen-address: {{ metrics_path }}
+{% endif %}
+
+# Enable/disable collectors via boolean flags
+# Full list: https://github.com/prometheus/node_exporter#enabled-by-default
+{% for collector in collectors | default([]) %}
+{% if collector.enabled | default(true) %}--collectors.{{ collector.name }}
+{% else %}--no-collectors.{{ collector.name }}
+{% endif %}
+{% endfor %}
+
+# Additional collector-specific options (if any)
+{% for option in collector_options | default([]) %}
+{{ option }}
+{% endfor %}
+
+# Log level: debug, info, warn, error (default: info)
+log_level: {{ log_level }}
+
+# Log format: logfmt, json (default: logfmt)
+log_format: {{ log_format }}
+
+# Path to write PID file (optional)
+{% if pid_file %}pid_file: {{ pid_file }}
+{% endif %}
+
+# HTTP timeout settings (in seconds)
+web.timeout: {{ web_timeout }}
+
+# Maximum number of concurrent requests (default: 0 = unlimited)
+web.max-requests: {{ web_max_requests }}
+
+# Enable Prometheus API endpoint
+web.enable-lifecycle: {{ web_enable_lifecycle | default(false) }}
+
+# Enable metrics endpoint (always true for Node Exporter; retained for consistency)
+web.enable-admin-api: {{ web_enable_admin_api | default(false) }}

@@ -1,0 +1,188 @@
+{
+  "cluster_name": {
+    "type": "string",
+    "default": "mycluster",
+    "description": "Unique name for this cluster \u2014 must match on all nodes and cannot contain spaces."
+  },
+  "config_version": {
+    "type": "number",
+    "default": 1,
+    "description": "Integer version counter. Increment by 1 on every config change and distribute the new file to all nodes."
+  },
+  "logging_debug": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable verbose debug logging to syslog. Turn on only when diagnosing problems; generates high log volume."
+  },
+  "cman_keyfile": {
+    "type": "string",
+    "default": "/etc/cluster/authkey",
+    "description": "Path to the shared HMAC authentication key file. Must be identical on every node. Generate with 'dd if=/dev/urandom bs=4096 count=1 > /etc/cluster/authkey'."
+  },
+  "expected_votes": {
+    "type": "number",
+    "default": 2,
+    "description": "Total vote count required for quorum. For N nodes each with 1 vote, set to N. Reduces to 1 automatically when two_node is true."
+  },
+  "two_node": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable 2-node quorum mode. Set to true only when the cluster has exactly 2 nodes; avoids split-brain deadlock without a quorum device."
+  },
+  "nodes": {
+    "type": "list",
+    "default": [],
+    "description": "List of cluster nodes. Each node gets a unique nodeid and references one fencing device by name.",
+    "items": {
+      "name": {
+        "type": "string",
+        "description": "Fully-qualified hostname of the node, resolvable from all other nodes."
+      },
+      "votes": {
+        "type": "number",
+        "description": "Quorum votes contributed by this node. Normally 1; increase only for weighted-quorum topologies."
+      },
+      "nodeid": {
+        "type": "number",
+        "description": "Cluster-unique integer ID for this node. Must not change once assigned."
+      },
+      "fence_device": {
+        "type": "string",
+        "description": "Name of the fencedevice entry that can isolate this node (references the 'name' field in fence_devices)."
+      }
+    }
+  },
+  "fence_devices": {
+    "type": "list",
+    "default": [],
+    "description": "STONITH fencing device definitions. Each entry corresponds to an out-of-band management interface (IPMI/iLO/iDRAC) that can power-cycle a node.",
+    "items": {
+      "name": {
+        "type": "string",
+        "description": "Symbolic name referenced by clusternode fence device entries."
+      },
+      "agent": {
+        "type": "string",
+        "description": "Fence agent binary name (e.g. fence_ipmilan, fence_apc, fence_vmware_soap). Must be installed on all nodes."
+      },
+      "ipaddr": {
+        "type": "string",
+        "description": "IP address of the management interface (IPMI BMC, iLO port, etc.)."
+      },
+      "login": {
+        "type": "string",
+        "description": "Username for authenticating to the management interface."
+      },
+      "passwd": {
+        "type": "string",
+        "description": "Password for the management interface. Store securely; this file should be chmod 0600."
+      },
+      "lanplus": {
+        "type": "bool",
+        "description": "Use IPMI v2 LAN+ (RMCP+) protocol. Required for iLO, iDRAC, and most modern BMCs. Set false only for very old IPMI v1 hardware."
+      }
+    }
+  },
+  "failover_domains": {
+    "type": "list",
+    "default": [],
+    "description": "Named groups of nodes that a service may run on, with priority ordering.",
+    "items": {
+      "name": {
+        "type": "string",
+        "description": "Name of the failover domain, referenced by service entries."
+      },
+      "ordered": {
+        "type": "bool",
+        "description": "If true, nodes are tried in ascending priority order. If false, any listed node may be chosen."
+      },
+      "restricted": {
+        "type": "bool",
+        "description": "If true, the service will never relocate to a node not listed in this domain."
+      },
+      "nodes": {
+        "type": "list",
+        "description": "Nodes in this domain, each with a priority value.",
+        "items": {
+          "name": {
+            "type": "string",
+            "description": "FQDN of the node \u2014 must match a clusternode name."
+          },
+          "priority": {
+            "type": "number",
+            "description": "Failover preference; lower number = higher preference. Node with priority 1 is tried first."
+          }
+        }
+      }
+    }
+  },
+  "vip_resources": {
+    "type": "list",
+    "default": [],
+    "description": "Floating IP addresses managed as cluster resources. The active node holds these IPs; they migrate on failover.",
+    "items": {
+      "address": {
+        "type": "string",
+        "description": "IP address (without prefix length) to float between nodes."
+      },
+      "monitor_link": {
+        "type": "bool",
+        "description": "If true, the resource agent monitors NIC carrier state and fails the resource when the link drops."
+      }
+    }
+  },
+  "fs_resources": {
+    "type": "list",
+    "default": [],
+    "description": "Shared filesystem resources (typically on shared storage like SAN/iSCSI) managed by the cluster.",
+    "items": {
+      "name": {
+        "type": "string",
+        "description": "Symbolic name for this filesystem resource, used as the ref value in service entries."
+      },
+      "device": {
+        "type": "string",
+        "description": "Block device path or label (e.g. /dev/sdb1 or LABEL=shared-data)."
+      },
+      "mountpoint": {
+        "type": "string",
+        "description": "Directory where the filesystem is mounted on the active node."
+      },
+      "fstype": {
+        "type": "string",
+        "description": "Filesystem type passed to mount(8) \u2014 e.g. ext4, xfs, gfs2."
+      },
+      "force_unmount": {
+        "type": "bool",
+        "description": "If true, the agent sends SIGKILL to processes with open files before unmounting during failover."
+      }
+    }
+  },
+  "services": {
+    "type": "list",
+    "default": [],
+    "description": "High-availability service definitions. Each service groups IP and filesystem resources and runs within a failover domain.",
+    "items": {
+      "name": {
+        "type": "string",
+        "description": "Unique service name shown in cluster status output."
+      },
+      "domain": {
+        "type": "string",
+        "description": "Name of the failover domain that constrains where this service may run."
+      },
+      "recovery": {
+        "type": "string",
+        "description": "Failure recovery policy: 'relocate' (move to next node), 'restart' (retry on same node), or 'disable' (leave stopped)."
+      },
+      "ip_refs": {
+        "type": "list",
+        "description": "IP addresses (from vip_resources) that belong to this service."
+      },
+      "fs_refs": {
+        "type": "list",
+        "description": "Filesystem resource names (from fs_resources) that belong to this service."
+      }
+    }
+  }
+}

@@ -1,0 +1,233 @@
+{
+  "host": {
+    "type": "string",
+    "default": "0.0.0.0",
+    "description": "Network interface to bind pgagroal to"
+  },
+  "port": {
+    "type": "number",
+    "default": 5432,
+    "description": "Port for pgagroal to listen on"
+  },
+  "unix_socket_dir": {
+    "type": "string",
+    "default": "/var/run/pgagroal",
+    "description": "Directory for Unix domain socket files"
+  },
+  "max_connections": {
+    "type": "number",
+    "default": 200,
+    "description": "Maximum total number of connections pgagroal can open to PostgreSQL servers"
+  },
+  "min_connections": {
+    "type": "number",
+    "default": 10,
+    "description": "Minimum number of connections kept open per pool"
+  },
+  "idle_timeout": {
+    "type": "number",
+    "default": 300,
+    "description": "Idle server connection timeout in seconds"
+  },
+  "auth_type": {
+    "type": "string",
+    "default": "md5",
+    "description": "Authentication method: 'md5', 'scram-sha-256', 'trust', or 'password'"
+  },
+  "auth_query": {
+    "type": "string",
+    "default": "SELECT usename, passwd FROM pg_shadow WHERE usename = $1",
+    "description": "SQL query used to retrieve user credentials when using 'md5' or 'scram-sha-256'"
+  },
+  "log_type": {
+    "type": "string",
+    "default": "file",
+    "description": "Log destination: 'syslog' or 'file'"
+  },
+  "log_file": {
+    "type": "string",
+    "default": "/var/log/pgagroal/pgagroal.log",
+    "description": "Path to log file when log_type is 'file'"
+  },
+  "log_level": {
+    "type": "string",
+    "default": "info",
+    "description": "Log verbosity: 'error', 'warn', 'info', or 'debug'"
+  },
+  "ssl": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable SSL for client connections"
+  },
+  "ssl_cert": {
+    "type": "string",
+    "default": "",
+    "description": "Path to SSL certificate file"
+  },
+  "ssl_key": {
+    "type": "string",
+    "default": "",
+    "description": "Path to SSL private key file"
+  },
+  "ssl_ca": {
+    "type": "string",
+    "default": "",
+    "description": "Path to CA certificate file for client verification"
+  },
+  "ssl_crl": {
+    "type": "string",
+    "default": "",
+    "description": "Path to certificate revocation list (CRL) file"
+  },
+  "pool_mode": {
+    "type": "string",
+    "default": "session",
+    "description": "Default pool mode: 'session', 'transaction', or 'statement'"
+  },
+  "reserved_connections": {
+    "type": "number",
+    "default": 0,
+    "description": "Number of connections reserved for superusers"
+  },
+  "query_timeout": {
+    "type": "number",
+    "default": 0,
+    "description": "Maximum time (seconds) to wait for a query to complete (0 = unlimited)"
+  },
+  "query_wait_timeout": {
+    "type": "number",
+    "default": 60,
+    "description": "Maximum time (seconds) a client query can wait for a backend connection"
+  },
+  "max_client_conn": {
+    "type": "number",
+    "default": 100,
+    "description": "Maximum number of client connections per pool"
+  },
+  "log_connections": {
+    "type": "bool",
+    "default": true,
+    "description": "Log client connection attempts"
+  },
+  "log_disconnections": {
+    "type": "bool",
+    "default": true,
+    "description": "Log client disconnections"
+  },
+  "log_server_messages": {
+    "type": "bool",
+    "default": false,
+    "description": "Log server-side log messages forwarded to clients"
+  },
+  "servers": {
+    "type": "list",
+    "default": [],
+    "description": "List of PostgreSQL servers to pool",
+    "items": {
+      "name": {
+        "type": "string",
+        "default": "",
+        "description": "Unique identifier for the server"
+      },
+      "host": {
+        "type": "string",
+        "default": "localhost",
+        "description": "Host or IP of the PostgreSQL server"
+      },
+      "port": {
+        "type": "number",
+        "default": 5432,
+        "description": "Port of the PostgreSQL server"
+      },
+      "role": {
+        "type": "string",
+        "default": "master",
+        "description": "Server role: 'master', 'replica', or 'any'"
+      },
+      "authentication": {
+        "type": "string",
+        "default": "",
+        "description": "Optional authentication method for this server (if different from global)"
+      }
+    }
+  },
+  "users": {
+    "type": "list",
+    "default": [],
+    "description": "List of PostgreSQL users managed by pgagroal",
+    "items": {
+      "name": {
+        "type": "string",
+        "default": "",
+        "description": "Display name for the user entry (not used for auth)"
+      },
+      "username": {
+        "type": "string",
+        "default": "",
+        "description": "Database username"
+      },
+      "password": {
+        "type": "string",
+        "default": "",
+        "description": "Encrypted password (MD5 or SCRAM)"
+      },
+      "database": {
+        "type": "string",
+        "default": "",
+        "description": "Default database for this user"
+      },
+      "sslmode": {
+        "type": "string",
+        "default": "prefer",
+        "description": "SSL mode for user connections: 'disable', 'allow', 'prefer', 'require', 'verify-ca', or 'verify-full'"
+      },
+      "pool_size": {
+        "type": "number",
+        "default": 10,
+        "description": "Maximum connections in the user-specific pool"
+      }
+    }
+  },
+  "pools": {
+    "type": "list",
+    "default": [],
+    "description": "Connection pools mapping databases/users to server pools",
+    "items": {
+      "name": {
+        "type": "string",
+        "default": "",
+        "description": "Pool identifier"
+      },
+      "database": {
+        "type": "string",
+        "default": "",
+        "description": "Target database name"
+      },
+      "username": {
+        "type": "string",
+        "default": "",
+        "description": "Username to connect as (must exist in users section)"
+      },
+      "pool_size": {
+        "type": "number",
+        "default": 20,
+        "description": "Maximum connections in this pool"
+      },
+      "reserve_pool_size": {
+        "type": "number",
+        "default": 5,
+        "description": "Number of connections reserved for emergency use"
+      },
+      "pool_mode": {
+        "type": "string",
+        "default": "",
+        "description": "Pool-specific mode: 'session', 'transaction', or 'statement' (falls back to global)"
+      },
+      "server": {
+        "type": "string",
+        "default": "",
+        "description": "Optional server name to pin this pool to (must match server: section name)"
+      }
+    }
+  }
+}

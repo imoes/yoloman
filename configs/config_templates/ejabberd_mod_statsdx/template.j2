@@ -1,0 +1,46 @@
+# StatsD metrics reporting via ejabberd_mod_statsdx
+# Enables the ejabberd_mod_statsdx module to send real-time XMPP statistics to StatsD
+modules:
+  # Load the statsd metrics module
+  mod_statsdx:
+    # Hostname or IP of StatsD server
+    host: "{{ statsd.host }}"
+    # Port StatsD listens on (default: 8125)
+    port: {{ statsd.port }}
+    # StatsD protocol: "statsd" (UDP, default) or "datadog" (UDP with tags support)
+    protocol: "{{ statsd.protocol }}"
+    # Prefix for all metrics (e.g., "ejabberd.production")
+    prefix: "{{ statsd.prefix }}"
+    # Flush interval in milliseconds (how often metrics are sent)
+    flush_interval: {{ statsd.flush_interval }}
+    # Enable or disable metrics collection
+    enabled: {{ statsd.enabled | lower }}
+    # Optional: enable additional debug logging for StatsD traffic
+    debug: {{ statsd.debug | lower }}
+    # Optional: custom metric types (counter, timer, gauge, etc.)
+    metric_types:
+      # List of metric types to send; omit or set to [] for defaults
+      {% if statsd.metric_types %}
+      {% for mt in statsd.metric_types %}
+      - {{ mt | to_json }}
+      {% endfor %}
+      {% else %}
+      # Default metric types (leave empty to use module defaults)
+      []
+      {% endif %}
+    # Optional: metric filtering — specify which stats to send (by default, all supported stats are sent)
+    # Example: send only user-related and roster stats
+    {% if statsd.stats_filter.enabled %}
+    stats_filter:
+      enabled: {{ statsd.stats_filter.enabled | lower }}
+      # List of stat categories to include (e.g., "users", "roster", "muc", "s2s")
+      include:
+        {% for cat in statsd.stats_filter.include %}
+        - "{{ cat }}"
+        {% endfor %}
+    {% else %}
+    # Disable filtering (send all stats)
+    stats_filter:
+      enabled: false
+      include: []
+    {% endif %}

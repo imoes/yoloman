@@ -1,0 +1,118 @@
+{
+  "defaults": {
+    "type": "object",
+    "description": "Global Redfish connection defaults applied to all hosts unless overridden",
+    "properties": {
+      "baseurl": {
+        "type": "string",
+        "default": "",
+        "description": "Base URL of the default Redfish service (e.g., https://bmc.example.com)"
+      },
+      "login": {
+        "type": "string",
+        "default": "",
+        "description": "Default username for Redfish authentication"
+      },
+      "password": {
+        "type": "string",
+        "default": "",
+        "description": "Default password for Redfish authentication (prefer secure storage in production)",
+        "secret": true
+      },
+      "identity_file": {
+        "type": "string",
+        "default": "",
+        "description": "Path to SSH private key file for fallback SSH-based authentication (optional)"
+      },
+      "login_timeout": {
+        "type": "number",
+        "default": 60,
+        "description": "Timeout in seconds for login/authentication operations"
+      },
+      "retries": {
+        "type": "number",
+        "default": 3,
+        "description": "Maximum number of retry attempts for failed operations"
+      },
+      "retry_wait": {
+        "type": "number",
+        "default": 2,
+        "description": "Seconds to wait between retries"
+      },
+      "ssl_verify": {
+        "type": "bool",
+        "default": true,
+        "description": "Whether to verify SSL certificates (set to `false` to allow self-signed certs)"
+      },
+      "use_token": {
+        "type": "bool",
+        "default": false,
+        "description": "Use token-based auth (e.g., via SSH proxy or Bearer tokens) instead of password"
+      }
+    }
+  },
+  "hosts": {
+    "type": "list",
+    "description": "List of per-host Redfish configurations (overrides global defaults)",
+    "items": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "default": "",
+          "description": "Hostname (must match cluster node name)"
+        },
+        "baseurl": {
+          "type": "string",
+          "default": "",
+          "description": "Redfish base URL for this host (overrides global default)"
+        },
+        "login": {
+          "type": "string",
+          "default": "",
+          "description": "Redfish username for this host"
+        },
+        "password": {
+          "type": "string",
+          "default": "",
+          "description": "Redfish password for this host (if different from global default)",
+          "secret": true
+        },
+        "identity_file": {
+          "type": "string",
+          "default": "",
+          "description": "SSH identity file path for this host (if SSH fallback is used)"
+        },
+        "login_timeout": {
+          "type": "number",
+          "default": null,
+          "description": "Login timeout in seconds for this host (omit to inherit from global defaults)"
+        },
+        "retries": {
+          "type": "number",
+          "default": null,
+          "description": "Max retries for this host (omit to inherit from global defaults)"
+        },
+        "retry_wait": {
+          "type": "number",
+          "default": null,
+          "description": "Wait time between retries for this host (omit to inherit)"
+        },
+        "ssl_verify": {
+          "type": "bool",
+          "default": null,
+          "description": "Whether to verify SSL certs for this host (omit to inherit)"
+        },
+        "use_token": {
+          "type": "bool",
+          "default": null,
+          "description": "Use token auth for this host (omit to inherit)"
+        }
+      },
+      "required": [
+        "name",
+        "baseurl"
+      ]
+    }
+  }
+}

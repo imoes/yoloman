@@ -1,0 +1,155 @@
+{
+  "debian.suites": {
+    "type": "list",
+    "default": [
+      "bullseye",
+      "bookworm"
+    ],
+    "description": "Debian distribution codenames (suites) to support; builds will target all listed suites."
+  },
+  "debian.architectures": {
+    "type": "list",
+    "default": [
+      "amd64",
+      "i386"
+    ],
+    "description": "CPU architectures to build packages for."
+  },
+  "debian.keyring": {
+    "type": "string",
+    "default": "/usr/share/keyrings/debian-archive-keyring.gpg",
+    "description": "Path to GPG keyring used to verify package signatures."
+  },
+  "repositories": {
+    "type": "list",
+    "default": [
+      {
+        "url": "http://deb.debian.org/debian",
+        "dist": "stable",
+        "components": [
+          "main",
+          "contrib",
+          "non-free"
+        ],
+        "key": "/usr/share/keyrings/debian-archive-keyring.gpg"
+      }
+    ],
+    "items": {
+      "url": {
+        "type": "string",
+        "default": "",
+        "description": "APT repository base URL (e.g., http://deb.debian.org/debian)."
+      },
+      "dist": {
+        "type": "string",
+        "default": "",
+        "description": "Distribution component (e.g., 'stable', 'bullseye')."
+      },
+      "components": {
+        "type": "list",
+        "default": [],
+        "description": "List of components to enable (e.g., 'main', 'contrib')."
+      },
+      "key": {
+        "type": "string",
+        "default": "/usr/share/keyrings/debian-archive-keyring.gpg",
+        "description": "Path to GPG keyring for repository verification."
+      }
+    },
+    "description": "List of APT repositories to add to chroots for builds. Each defines source, distribution, components, and key."
+  },
+  "paths.chroot_base": {
+    "type": "string",
+    "default": "/var/lib/mini-buildd/chroots",
+    "description": "Base directory where chroot environments are stored."
+  },
+  "paths.log_dir": {
+    "type": "string",
+    "default": "/var/log/mini-buildd",
+    "description": "Directory for build logs and daemon logs."
+  },
+  "paths.cache_dir": {
+    "type": "string",
+    "default": "/var/cache/mini-buildd",
+    "description": "Directory for package cache and build artifacts."
+  },
+  "daemon.bind_host": {
+    "type": "string",
+    "default": "127.0.0.1",
+    "description": "IP address or hostname the mini-buildd HTTP API will bind to."
+  },
+  "daemon.api_port": {
+    "type": "number",
+    "default": 8080,
+    "description": "Port number for the HTTP API (admin, status, and job endpoints)."
+  },
+  "daemon.max_builds": {
+    "type": "number",
+    "default": 4,
+    "description": "Maximum number of concurrent builds allowed."
+  },
+  "daemon.worker_count": {
+    "type": "number",
+    "default": 2,
+    "description": "Number of background worker processes for build queuing and cleanup."
+  },
+  "daemon.use_https": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable HTTPS for the API endpoint (requires valid cert/key files)."
+  },
+  "daemon.cert_file": {
+    "type": "string",
+    "default": "/etc/mini-buildd/ssl/cert.pem",
+    "description": "Path to SSL/TLS certificate (used only if use_https is true)."
+  },
+  "daemon.key_file": {
+    "type": "string",
+    "default": "/etc/mini-buildd/ssl/key.pem",
+    "description": "Path to SSL/TLS private key (used only if use_https is true)."
+  },
+  "notifications.email_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable email notifications for build events (success/failure)."
+  },
+  "notifications.email_recipients": {
+    "type": "list",
+    "default": [],
+    "description": "List of email addresses to notify about build results."
+  },
+  "notifications.smtp_host": {
+    "type": "string",
+    "default": "localhost",
+    "description": "SMTP server hostname for sending notifications."
+  },
+  "notifications.smtp_port": {
+    "type": "number",
+    "default": 587,
+    "description": "SMTP server port (typically 25, 465, or 587)."
+  },
+  "notifications.smtp_use_tls": {
+    "type": "bool",
+    "default": true,
+    "description": "Use STARTTLS for SMTP connection (recommended for port 587)."
+  },
+  "build.timeout": {
+    "type": "number",
+    "default": 3600,
+    "description": "Maximum time in seconds allowed per build job before termination."
+  },
+  "build.keep_success_artifacts": {
+    "type": "bool",
+    "default": false,
+    "description": "If true, preserve successful chroot snapshots for reuse; saves time on rebuilds."
+  },
+  "build.default_packages": {
+    "type": "list",
+    "default": [
+      "build-essential",
+      "devscripts",
+      "dpkg-dev"
+    ],
+    "description": "Packages to always install in build chroots (minimum toolchain for package compilation)."
+  }
+}

@@ -1,0 +1,43 @@
+{# Keyboard layout mapping for BRLTTY (Braille Terminal) #}
+{# Defines how physical keyboard keys map to braille commands and characters #}
+# Keyboard Table File (KTI) format
+# Line-based: each line is a key-value pair or comment
+# Supported: # comments, key=action, key=character, and repeated key mappings
+
+# Default keyboard type (e.g., 'usb', 'serial', 'bluetooth', 'at' etc.)
+keyboardType = {{ keyboard_type }}
+
+# Number of braille cells (dots) per cell (typically 6 or 8)
+numBrailleDots = {{ num_braille_dots }}
+
+# Braille character encoding (usually 'utf-8', 'braille', or 'ascii')
+encoding = {{ encoding }}
+
+# Map physical key combinations to braille dot patterns
+{% for mapping in braille_dot_mappings %}
+{{ mapping.key }} = dot{{ mapping.dots | join(',') }}
+{% endfor %}
+
+# Map physical keys to special braille commands (e.g., navigation, cursor movement)
+{% for cmd in command_mappings %}
+{{ cmd.key }} = {{ cmd.command }}
+{% endfor %}
+
+# Map physical keys to direct character output (e.g., alphanumeric keys)
+{% for char_map in character_mappings %}
+{{ char_map.key }} = {{ char_map.char }}
+{% endfor %}
+
+# Optional: define modifier behavior (e.g., 'shift', 'ctrl')
+{% if modifier_definitions %}
+{% for mod in modifier_definitions %}
+{{ mod.name }} = {{ mod.keys | join(' ') }}
+{% endfor %}
+{% endif %}
+
+# Optional: key repeat delay (ms) and rate (ms) — affects typing behavior
+keyRepeatDelay = {{ key_repeat_delay }}
+keyRepeatRate = {{ key_repeat_rate }}
+
+# Optional: enable/disable auto-learn (teaching mode)
+autoLearn = {{ auto_learn | lower }}

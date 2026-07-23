@@ -1,0 +1,69 @@
+{# MooseFS Master Server main configuration file #}
+{# Listen address for incoming client connections (required) #}
+MASTER_HOST = {{ master_host }}
+
+{# Listen port for incoming client connections (default: 9421) #}
+MASTER_PORT = {{ master_port }}
+
+{# Data directory for metadata (chunks metadata, changelog, etc.) #}
+DATA_PATH = {{ data_path }}
+
+{# Path to export rules file (optional, default: /etc/mfs/mfsexports.cfg) #}
+EXPORTS_FILE = {{ exports_file }}
+
+{# Enable or disable the metadata logging to file (default: 1 = enabled) #}
+META_LOGGING = {{ meta_logging }}
+
+{# Maximum number of open file descriptors (0 = use system limit) #}
+MAX_OPEN_FILES = {{ max_open_files }}
+
+{# Number of worker threads for handling client requests (0 = auto-configure based on CPU cores) #}
+WORKER_PROCESSES = {{ worker_processes }}
+
+{# Timeout (in seconds) for chunkserver heartbeats (default: 600) #}
+HEARTBEAT_TIMEOUT = {{ heartbeat_timeout }}
+
+{# Interval (in seconds) between chunkserver heartbeats (default: 60) #}
+HEARTBEAT_INTERVAL = {{ heartbeat_interval }}
+
+{# Enable or disable the access log (default: 0 = disabled) #}
+ACCESS_LOGGING = {{ access_logging }}
+
+{# List of metadata chunkserver replicas (for HA, at least 1 required for recovery) #}
+{# Each entry is: HOST:PORT:WEIGHT (WEIGHT is optional, default 1) #}
+{% for replica in metadata_replicas %}
+METADATA_REPLICA = {{ replica.host }}:{{ replica.port }}{% if 'weight' in replica %}:{{ replica.weight }}{% endif %}
+{% endfor %}
+
+{# Enable or disable the garbage collection for deleted chunks (default: 1 = enabled) #}
+GARBAGE_COLLECTION = {{ garbage_collection }}
+
+{# Maximum age (in seconds) of a deleted chunk before it is purged from the trash (default: 86400) #}
+TRASH_EXPIRE_TIME = {{ trash_expire_time }}
+
+{# Enable or disable the chunk allocation balancing (default: 1 = enabled) #}
+BALANCING = {{ balancing }}
+
+{# Minimum free space (in MB) required on a chunkserver before it stops accepting new chunks (default: 0 = disabled) #}
+MIN_FREE_SPACE_MB = {{ min_free_space_mb }}
+
+{# Maximum size (in MB) of a single file chunk (default: 64 MB) #}
+MAX_CHUNK_SIZE_MB = {{ max_chunk_size_mb }}
+
+{# Enable or disable the HTTP stats server (default: 0 = disabled) #}
+STATS_HTTP_ENABLED = {{ stats_http_enabled }}
+
+{# Listen address for HTTP stats (default: 0.0.0.0) #}
+STATS_HTTP_HOST = {{ stats_http_host }}
+
+{# Listen port for HTTP stats (default: 9420) #}
+STATS_HTTP_PORT = {{ stats_http_port }}
+
+{# Authentication password file for HTTP stats (optional) #}
+STATS_HTTP_PASSWORD_FILE = {{ stats_http_password_file }}
+
+{# Enable or disable the secure mode (requires password for all operations) (default: 0 = disabled) #}
+SECURE_MODE = {{ secure_mode }}
+
+{# Enable or disable the read-only mode (for maintenance) (default: 0 = disabled) #}
+READ_ONLY_MODE = {{ read_only_mode }}

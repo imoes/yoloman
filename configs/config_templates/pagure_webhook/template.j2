@@ -1,0 +1,98 @@
+# Pagure Webhook Server Configuration
+
+# Path to thePagure instance's Git repositories
+GIT_DIR = '{{ git_dir }}'
+
+# Path to thePagure's SQLite database file (for metadata like hook registry)
+DB_PATH = '{{ db_path }}'
+
+# Host and port for the webhook server to bind to
+HOST = '{{ host }}'
+PORT = {{ port }}
+
+# Enable or disable debug mode
+DEBUG = {{ debug | lower }}
+
+# Maximum number of worker threads/processes (depending on server implementation)
+WORKERS = {{ workers }}
+
+# Timeout (in seconds) for webhook delivery attempts
+WEBHOOK_TIMEOUT = {{ webhook_timeout }}
+
+# Number of retry attempts for failed webhooks
+WEBHOOK_RETRIES = {{ webhook_retries }}
+
+# Delay (in seconds) between webhook retry attempts
+WEBHOOK_RETRY_DELAY = {{ webhook_retry_delay }}
+
+# Optional: Enable HTTPS (requires SSL certificate and key)
+{% if ssl_enabled %}
+SSL_ENABLED = True
+SSL_CERT = '{{ ssl_cert }}'
+SSL_KEY = '{{ ssl_key }}'
+{% else %}
+SSL_ENABLED = False
+{% endif %}
+
+# Optional: Allowed hosts for webhook origin verification
+{% if allowed_hosts %}
+ALLOWED_HOSTS = [{{ allowed_hosts | map('quote') | join(', ') }}]
+{% endif %}
+
+# Optional: Log level (CRITICAL, ERROR, WARNING, INFO, DEBUG)
+LOG_LEVEL = '{{ log_level }}'
+
+# Optional: Log file path (defaults to stdout if omitted)
+{% if log_file %}
+LOG_FILE = '{{ log_file }}'
+{% endif %}
+
+# Optional: Webhook delivery endpoint prefix (default: /webhook)
+WEBHOOK_ENDPOINT = '{{ webhook_endpoint }}'
+
+# Optional: List of additional allowed HTTP methods for webhook delivery (default: POST)
+{% if webhook_methods %}
+WEBHOOK_METHODS = [{{ webhook_methods | map('quote') | join(', ') }}]
+{% endif %}
+
+# Optional: Predefined hook triggers (e.g., for push, issue, PR events)
+{% for trigger in triggers %}
+# Enable hook for {{ trigger.event }} events
+TRIGGER_{{ trigger.event | upper }} = {{ trigger.enabled | lower }}
+{% endfor %}
+
+# Optional: Per-event rate limiting (requests per minute)
+{% for rate in rate_limits %}
+# Rate limit for {{ rate.event }} events: {{ rate.requests_per_minute }} req/min
+RATE_LIMIT_{{ rate.event | upper }} = {{ rate.requests_per_minute }}
+{% endfor %}
+
+# Optional: Proxy configuration for outgoing webhook requests
+{% if proxy_url %}
+PROXY_URL = '{{ proxy_url }}'
+{% endif %}
+
+# Optional: Custom headers to attach to outgoing webhook requests
+{% if custom_headers %}
+{% for header, value in custom_headers.items() %}
+# Custom header: {{ header }}
+HEADER_{{ header | upper | replace('-', '_') }} = '{{ value }}'
+{% endfor %}
+{% endif %}
+
+# Optional: Secret token for HMAC signing of webhook payloads
+{% if secret_token %}
+SECRET_TOKEN = '{{ secret_token }}'
+{% endif %}
+
+# Optional: Base URL of the Pagure instance (for self-referential URLs in payloads)
+PAGURE_URL = '{{ pagure_url }}'
+
+# Optional: Enable metrics collection (via Prometheus endpoint)
+{% if metrics_enabled %}
+METRICS_ENABLED = True
+METRICS_PORT = {{ metrics_port }}
+METRICS_ENDPOINT = '{{ metrics_endpoint }}'
+{% else %}
+METRICS_ENABLED = False
+{% endif %}

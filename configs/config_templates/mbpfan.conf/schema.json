@@ -1,0 +1,110 @@
+{
+  "min_fan_speed": {
+    "type": "number",
+    "default": 2000,
+    "description": "Minimum fan speed in RPM (0\u20136200). Prevents fans from stopping completely."
+  },
+  "max_fan_speed": {
+    "type": "number",
+    "default": 6200,
+    "description": "Maximum fan speed in RPM (0\u20136200). Upper bound for fan control."
+  },
+  "automatic": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable automatic fan speed adjustment based on temperature."
+  },
+  "temp_threshold": {
+    "type": "number",
+    "default": 55,
+    "description": "Temperature (\u00b0C) above which fan speed begins to increase (used with automatic mode)."
+  },
+  "interval": {
+    "type": "number",
+    "default": 5,
+    "description": "Polling interval in seconds between temperature and fan speed updates."
+  },
+  "sensors": {
+    "type": "list",
+    "default": [
+      {
+        "enabled": true,
+        "name": "CPU",
+        "min_temp": 40,
+        "max_temp": 85,
+        "fan_offset": 0,
+        "hysteresis": 2
+      }
+    ],
+    "items": {
+      "enabled": {
+        "type": "bool",
+        "default": true,
+        "description": "Enable this sensor for fan control."
+      },
+      "name": {
+        "type": "string",
+        "default": "CPU",
+        "description": "Human-readable sensor name (e.g., CPU, GPU)."
+      },
+      "min_temp": {
+        "type": "number",
+        "default": 40,
+        "description": "Lowest temperature (\u00b0C) mapped to minimum fan speed."
+      },
+      "max_temp": {
+        "type": "number",
+        "default": 85,
+        "description": "Highest temperature (\u00b0C) mapped to maximum fan speed."
+      },
+      "fan_offset": {
+        "type": "number",
+        "default": 0,
+        "description": "RPM offset added to computed fan speed (can be negative)."
+      },
+      "hysteresis": {
+        "type": "number",
+        "default": 2,
+        "description": "Temperature hysteresis (\u00b0C) to prevent fan speed oscillation near thresholds."
+      }
+    },
+    "description": "List of temperature sensors and their control parameters."
+  },
+  "log_level": {
+    "type": "number",
+    "default": 2,
+    "description": "Logging verbosity: 0=none, 1=error, 2=warn, 3=info, 4=debug."
+  },
+  "syslog": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable logging to system log (syslog/journald)."
+  },
+  "fan_curve": {
+    "type": "list",
+    "default": [],
+    "items": {
+      "temp": {
+        "type": "number",
+        "default": 50,
+        "description": "Temperature (\u00b0C) for this curve point."
+      },
+      "rpm": {
+        "type": "number",
+        "default": 3000,
+        "description": "Fan speed (RPM) corresponding to this temperature."
+      }
+    },
+    "description": "Custom fan speed vs temperature curve. Each entry defines (temp, rpm) pairs."
+  },
+  "emergency_max_cpu_temp": {
+    "type": "number",
+    "default": 95,
+    "description": "Emergency fan ramp temperature (\u00b0C) if CPU exceeds this value."
+  },
+  "emergency_max_gpu_temp": {
+    "type": "number",
+    "default": 90,
+    "description": "Emergency fan ramp temperature (\u00b0C) if GPU exceeds this value."
+  }
+}

@@ -1,0 +1,26 @@
+# Load the mod_wrap module to enable TCP Wrappers support
+LoadModule mod_wrap.c
+
+# TCP Wrappers: Enable access control via /etc/hosts.allow and /etc/hosts.deny
+# Set to 'on' to enforce TCP Wrappers rules; 'off' to disable
+TCPWrappers {{ tcp_wrappers_enabled | lower }}
+
+# Optional: Specify custom hosts.allow/hosts.deny paths (defaults to /etc/hosts.{allow,deny})
+# {# Note: Most deployments use defaults; override only if needed #}
+{% if hosts_allow_path is defined %}WrapAllowFiles {{ hosts_allow_path }}{% endif %}
+{% if hosts_deny_path is defined %}WrapDenyFiles {{ hosts_deny_path }}{% endif %}
+
+# Access control by client address or hostname (applied in order)
+{% for rule in access_rules %}# {{ rule.comment | default('Access rule') }}
+<Limit {{ rule.limits | join(', ') }}>
+  {% if rule.allow is defined %}  Allow {{ rule.allow | join(', ') }}{% endif %}
+  {% if rule.deny is defined %}  Deny {{ rule.deny | join(', ') }}{% endif %}
+</Limit>
+{% endfor %}
+
+# Optional: Log access attempts for auditing or debugging
+# Log level: 'none', 'min', 'moderate', 'full'
+{% if wrap_log_level is defined %}WrapLog {{ wrap_log_level }}{% endif %}
+
+# Timeout for TCP Wrappers lookups (in seconds); default is 2
+{% if wrap_timeout is defined %}WrapTimeout {{ wrap_timeout }}{% endif %}

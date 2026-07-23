@@ -1,0 +1,68 @@
+# Configuration file for greylistd (Greylisting daemon for Exim 4)
+# This file is processed by greylistd at startup.
+# See `man greylistd.conf` for full details.
+
+# Path to the greylisting database file
+# Stores IP, sender, recipient triplets and their greylisting timestamps
+{% if db_path %}db {{ db_path }}{% else %}db /var/lib/greylistd/greylist.db{% endif %}
+
+# Socket path for Exim to communicate with greylistd
+# Must match `greylist_socket` in Exim config (e.g., acl_smtp_prepend)
+{% if socket_path %}socket {{ socket_path }}{% else %}socket /var/spool/exim4/greylist_socket{% endif %}
+
+# Time (in seconds) a greylisted entry remains in the database
+# After this period, the entry is expired and may be re-greylisted
+{% if expire_time %}expire {{ expire_time }}{% else %}expire 259200{% endif %}
+
+# Minimum delay (seconds) before first retry is accepted
+# Exim will be told to retry after this delay (typically ≥ 300 for RFC-compliance)
+{% if min_delay %}mindelay {{ min_delay }}{% else %}mindelay 300{% endif %}
+
+# Maximum delay (seconds) for retry window
+# After this, greylisting is no longer enforced (must be ≥ mindelay)
+{% if max_delay %}maxdelay {{ max_delay }}{% else %}maxdelay 43200{% endif %}
+
+# Delay for initial greylisting (seconds) before first retry is allowed
+# Used for first-time senders only; overrides mindelay if lower
+{% if initial_delay %}initial {{ initial_delay }}{% else %}initial 300{% endif %}
+
+# Whitelist CIDR/network ranges (one per line, supports IPv4 and IPv6)
+# These IPs bypass greylisting entirely
+{% for cidr in whitelist %}whitelist {{ cidr }}{% endfor %}
+
+# Whitelist sender addresses (exact match or domain with leading dot)
+# These senders bypass greylisting
+{% for sender in whitelist_senders %}whitelist_sender {{ sender }}{% endfor %}
+
+# Whitelist recipient addresses (exact match or domain with leading dot)
+# Recipients matching these bypass greylisting
+{% for recipient in whitelist_recipients %}whitelist_recipient {{ recipient }}{% endfor %}
+
+# Auto-whitelist IPs that have successfully sent mail multiple times
+# Number of successful deliveries before auto-whitelisting
+{% if auto_whitelist_threshold %}autowhitelist {{ auto_whitelist_threshold }}{% else %}autowhitelist 1{% endif %}
+
+# Enable or disable logging to syslog
+# Set to 0 to disable logging; 1 to enable (default)
+{% if log_syslog is defined %}log {{ 1 if log_syslog else 0 }}{% else %}log 1{% endif %}
+
+# Log level: 0 = errors only, 1 = warnings, 2 = info, 3 = debug
+{% if log_level %}loglevel {{ log_level }}{% else %}loglevel 2{% endif %}
+
+# User/group to drop privileges to (must match Exim's spool user for socket access)
+{% if user %}user {{ user }}{% else %}user Debian-exim{% endif %}
+{% if group %}group {{ group }}{% else %}group Debian-exim{% endif %}
+
+# Enable or disable IPv6 support in database (required for IPv6 networks)
+# Set to 0 to disable; 1 to enable (default)
+{% if ipv6 %}ipv6 {{ 1 if ipv6 else 0 }}{% else %}ipv6 1{% endif %}
+
+# Enable or disable per-recipient greylisting
+# If disabled, greylisting applies only per (IP, sender) — recipient is ignored
+{% if per_recipient is defined %}per_recipient {{ 1 if per_recipient else 0 }}{% else %}per_recipient 1{% endif %}
+
+# Timeout (seconds) for socket communication with Exim
+{% if socket_timeout %}timeout {{ socket_timeout }}{% else %}timeout 5{% endif %}
+
+# Path to PID file
+{% if pidfile %}pidfile {{ pidfile }}{% else %}pidfile /var/run/greylistd.pid{% endif %}

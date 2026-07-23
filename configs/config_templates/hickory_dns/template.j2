@@ -1,0 +1,99 @@
+# Hickory DNS Server configuration
+# Enables logging configuration
+log_level = "{{ log_level }}"
+
+# Sets the server mode: resolver (default), cache-only, or forwarder
+mode = "{{ mode }}"
+
+# Defines the DNS over HTTPS (DoH) listener
+{% if doh_enabled %}
+[doh]
+enabled = true
+address = "{{ doh_address }}"
+# TLS certificate and key paths (required for DoH)
+cert = "{{ doh_cert_path }}"
+key = "{{ doh_key_path }}"
+{% else %}
+[doh]
+enabled = false
+{% endif %}
+
+# Defines the DNS over TLS (DoT) listener
+{% if dot_enabled %}
+[dot]
+enabled = true
+address = "{{ dot_address }}"
+cert = "{{ dot_cert_path }}"
+key = "{{ dot_key_path }}"
+{% else %}
+[dot]
+enabled = false
+{% endif %}
+
+# TCP/UDP DNS listener
+[tcp]
+enabled = true
+address = "{{ tcp_address }}"
+{% if tcp_idle_timeout %}
+idle_timeout = {{ tcp_idle_timeout }}
+{% endif %}
+
+[udp]
+enabled = true
+address = "{{ udp_address }}"
+# Maximum UDP payload size (per RFC 8467 recommendation)
+max_message_size = {{ udp_max_message_size }}
+
+# Recursive resolver settings (applies when mode = "resolver")
+{% if mode == "resolver" %}
+[recursor]
+# Upstream resolvers to forward queries to
+upstreams = [
+{% for upstream in upstreams %}  "{{ upstream }}",{% endfor %}
+]
+# Recursive query timeout (seconds)
+query_timeout = {{ recursor_query_timeout }}
+# Maximum number of concurrent recursive queries
+max_concurrent_queries = {{ recursor_max_concurrent_queries }}
+# Use DNSSEC validation
+validate = {{ recursor_validate | lower }}
+# DNSSEC root trust anchor file (optional; uses built-in if omitted)
+{% if root_ksk_path %}
+root_key_file = "{{ root_ksk_path }}"
+{% endif %}
+{% endif %}
+
+# Zone files and static records
+{% if zones %}
+[zones]
+{% for zone in zones %}
+[zones.{{ zone.name | replace(".", "_") }}]
+file = "{{ zone.file }}"
+type = "{{ zone.type }}"
+{% if zone.axfr_source %}
+axfr_source = "{{ zone.axfr_source }}"
+{% endif %}
+{% endfor %}
+{% endif %}
+
+# Advanced security hardening
+[security]
+# Enables response rate limiting (RRL) if supported by version
+{% if rrld_enabled %}
+response_rate_limiting = true
+max_responses_per_window = {{ rrld_max_responses }}
+{% else %}
+response_rate_limiting = false
+{% endif %}
+# Drop packets exceeding size (prevents amplification)
+drop_quietly = {{ drop_quietly | lower }}
+
+# Server identity (optional, used for EDNS Client Subnet scope and server ID)
+{% if server_id %}
+server_id = "{{ server_id }}"
+{% endif %}
+
+# Hostname to respond with in SOA MNAME (for authoritative zones)
+{% if soa_mname %}
+soa_mname = "{{ soa_mname }}"
+{% endif %}

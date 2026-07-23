@@ -1,0 +1,95 @@
+{
+  "listen_addr": {
+    "type": "list",
+    "default": [
+      "127.0.0.1"
+    ],
+    "description": "IP addresses on which OpenNTPD will listen for NTP queries. Use [0.0.0.0] to listen on all interfaces (\u26a0\ufe0f not recommended for production)."
+  },
+  "allowed_networks": {
+    "type": "list",
+    "default": [],
+    "description": "List of networks allowed to synchronize with this NTP server. Each item defines a network address and optional subnet mask (as CIDR or dotted quad).",
+    "items": {
+      "type": "object",
+      "properties": {
+        "network": {
+          "type": "string",
+          "default": "",
+          "description": "Network address (e.g., 192.168.1.0)"
+        },
+        "mask": {
+          "type": "string",
+          "default": "",
+          "description": "Subnet mask or CIDR suffix (e.g., 255.255.255.0 or /24)"
+        }
+      }
+    }
+  },
+  "ldap_uri": {
+    "type": "string",
+    "default": "ldap://ldap.example.com",
+    "description": "URI of the LDAP server (e.g., ldap://ldap.example.com or ldaps://ldap.example.com:636)"
+  },
+  "ldap_base_dn": {
+    "type": "string",
+    "default": "ou=TimeServers,dc=example,dc=com",
+    "description": "Base DN under which LDAP time source entries are stored."
+  },
+  "ldap_bind_dn": {
+    "type": "string",
+    "default": "cn=ntp,ou=Service,dc=example,dc=com",
+    "description": "DN used to bind to the LDAP server (service account with read access)."
+  },
+  "ldap_bind_pw": {
+    "type": "string",
+    "default": "",
+    "description": "Password for the LDAP bind DN. Leave empty to use external authentication (e.g., SASL/GSSAPI) or read from secure file.",
+    "sensitive": true
+  },
+  "ldap_search_filter": {
+    "type": "string",
+    "default": "(objectClass=ntpServer)(ntpEnabled=TRUE)",
+    "description": "LDAP search filter to find valid time sources (e.g., servers advertising time service)."
+  },
+  "ldap_tls_ca_dir": {
+    "type": "string",
+    "default": "/etc/ssl/certs",
+    "description": "Directory containing CA certificates for LDAP over TLS (ldaps://). Use '' for default system CA store."
+  },
+  "ldap_tls_reqcert": {
+    "type": "string",
+    "default": "demand",
+    "description": "TLS certificate verification level for LDAP: 'never', 'allow', 'try', or 'demand'."
+  },
+  "min_poll_interval": {
+    "type": "number",
+    "default": 60,
+    "description": "Minimum interval (seconds) between queries to LDAP-sourced time servers. Range: 15\u20133600."
+  },
+  "max_poll_interval": {
+    "type": "number",
+    "default": 600,
+    "description": "Maximum interval (seconds) between queries to LDAP-sourced time servers. Range: 60\u201386400."
+  },
+  "step_threshold": {
+    "type": "number",
+    "default": 0.5,
+    "description": "Time offset (seconds) above which the clock will step (jump) instead of slewing. Lower values = gentler corrections. Range: 0.001\u201310.0."
+  },
+  "fallback_servers": {
+    "type": "list",
+    "default": [],
+    "description": "Static NTP server hostnames/IPs used if LDAP returns no sources. Empty list = default pool.ntp.org servers will be used."
+  },
+  "log_level": {
+    "type": "number",
+    "default": 1,
+    "description": "Verbosity of logging: 0 (quiet), 1 (normal), 2 (debug)."
+  },
+  "leapfile": {
+    "type": "string",
+    "default": "",
+    "description": "Path to a leap seconds file (e.g., /usr/share/zoneinfo/leap-seconds.list). If empty, system default is used."
+  }
+}

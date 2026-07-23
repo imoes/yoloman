@@ -1,0 +1,23 @@
+# Server listen address (host:port or just port)
+listen {{ listen_addr }}
+
+# Kerberos keytab file location
+keytab {{ keytab_path }}
+
+# Default Kerberos service name (usually 'host' or 'remctl')
+service {{ service_name }}
+
+# Enable or disable debug logging
+{{ 'debug' if debug else '' }}
+
+# Root directory for the server (for chroot or internal paths)
+{{ 'root ' + root_dir if root_dir else '' }}
+
+# Maximum number of concurrent connections
+{{ 'maxconn ' + maxconn|string if maxconn else '' }}
+
+# ACLs: each line grants a principal permission to run commands
+{% for acl_entry in acls %}
+# ACL entry for principal: {{ acl_entry.principal }}
+acl {{ acl_entry.principal }} {{ acl_entry.commands | join(', ') }}
+{% endfor %}

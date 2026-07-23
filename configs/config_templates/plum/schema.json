@@ -1,0 +1,256 @@
+{
+  "global.name": {
+    "type": "string",
+    "default": "plum-proxy",
+    "description": "Unique name for this Plum instance (used in logs and internal references)"
+  },
+  "global.data_dir": {
+    "type": "string",
+    "default": "/var/lib/plum",
+    "description": "Directory for persistent data (e.g., bot state, module caches)"
+  },
+  "global.log_dir": {
+    "type": "string",
+    "default": "/var/log/plum",
+    "description": "Directory for log files"
+  },
+  "global.user": {
+    "type": "string",
+    "default": "plum",
+    "description": "System user to drop privileges to after startup"
+  },
+  "global.group": {
+    "type": "string",
+    "default": "plum",
+    "description": "System group to drop privileges to after startup"
+  },
+  "global.max_open_files": {
+    "type": "number",
+    "default": 65535,
+    "description": "Maximum number of open file descriptors (ulimit -n)"
+  },
+  "global.max_clients": {
+    "type": "number",
+    "default": 1000,
+    "description": "Maximum concurrent client (user) connections"
+  },
+  "servers": {
+    "type": "list",
+    "default": [],
+    "description": "List of upstream IRC servers to connect to as a proxy",
+    "items": {
+      "name": {
+        "type": "string",
+        "description": "Unique identifier for this server entry"
+      },
+      "host": {
+        "type": "string",
+        "description": "Hostname or IP address of the IRC server"
+      },
+      "port": {
+        "type": "number",
+        "default": 6667,
+        "description": "Port number of the IRC server (typically 6667 for plain, 6697 for SSL)"
+      },
+      "ssl": {
+        "type": "bool",
+        "default": false,
+        "description": "Enable SSL/TLS for this connection"
+      },
+      "ssl_verify": {
+        "type": "bool",
+        "default": true,
+        "description": "Verify server certificate (requires SSL)"
+      },
+      "password": {
+        "type": "string",
+        "default": "",
+        "description": "Password to use when connecting to the IRC server (server auth)"
+      },
+      "nick": {
+        "type": "string",
+        "default": "proxy_%u",
+        "description": "Bot nickname to use when connecting (supports %u placeholder for user)"
+      },
+      "username": {
+        "type": "string",
+        "default": "plum",
+        "description": "Username (ident) to use"
+      },
+      "realname": {
+        "type": "string",
+        "default": "Plum IRC Proxy",
+        "description": "Realname/GECOS field"
+      },
+      "auto_connect": {
+        "type": "bool",
+        "default": true,
+        "description": "Automatically reconnect if disconnected"
+      },
+      "reconnect_delay": {
+        "type": "number",
+        "default": 15,
+        "description": "Seconds to wait before reconnecting (applies if auto_connect=true)"
+      }
+    }
+  },
+  "bots": {
+    "type": "list",
+    "default": [],
+    "description": "List of bot instances to run",
+    "items": {
+      "name": {
+        "type": "string",
+        "description": "Unique name for the bot instance"
+      },
+      "server": {
+        "type": "string",
+        "description": "Name of the server (from `servers`) this bot connects through"
+      },
+      "nick": {
+        "type": "string",
+        "description": "Bot's public nickname on IRC"
+      },
+      "user": {
+        "type": "string",
+        "default": "bot",
+        "description": "Bot's username/ident"
+      },
+      "realname": {
+        "type": "string",
+        "default": "Plum Bot",
+        "description": "Bot's realname"
+      },
+      "identify_password": {
+        "type": "string",
+        "default": "",
+        "description": "Password to send to Nickserv/identify service upon connection (if needed)"
+      },
+      "channels": {
+        "type": "list",
+        "default": [],
+        "description": "Channels the bot should auto-join on startup",
+        "items": {
+          "name": {
+            "type": "string",
+            "description": "Channel name (e.g., #general)"
+          },
+          "key": {
+            "type": "string",
+            "default": "",
+            "description": "Channel key/password (if required)"
+          }
+        }
+      },
+      "modules": {
+        "type": "list",
+        "default": [],
+        "description": "List of bot modules to load",
+        "items": {
+          "name": {
+            "type": "string",
+            "description": "Module name (filename without .so or .py extension)"
+          },
+          "options": {
+            "type": "map",
+            "default": {},
+            "description": "Key-value options passed to the module"
+          }
+        }
+      }
+    }
+  },
+  "logging.level": {
+    "type": "string",
+    "default": "info",
+    "description": "Global log level (debug, info, warn, error, fatal)"
+  },
+  "logging.targets": {
+    "type": "list",
+    "default": [
+      {
+        "name": "main",
+        "path": "/var/log/plum/plum.log",
+        "format": "text",
+        "rotate": true,
+        "max_age_days": 30
+      }
+    ],
+    "description": "Output destinations for logs",
+    "items": {
+      "name": {
+        "type": "string",
+        "description": "Target name (e.g., 'main', 'access')"
+      },
+      "path": {
+        "type": "string",
+        "description": "Absolute path to log file"
+      },
+      "format": {
+        "type": "string",
+        "default": "text",
+        "description": "Log format ('text' or 'json')"
+      },
+      "rotate": {
+        "type": "bool",
+        "default": true,
+        "description": "Enable automatic log rotation"
+      },
+      "max_age_days": {
+        "type": "number",
+        "default": 30,
+        "description": "Rotate logs older than this many days"
+      }
+    }
+  },
+  "station.enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable stationing (IRC operator services like NickServ, ChanServ)"
+  },
+  "station.services_nick": {
+    "type": "string",
+    "default": "Services",
+    "description": "Nickname for the stationing service bot"
+  },
+  "station.services_user": {
+    "type": "string",
+    "default": "services",
+    "description": "Username for the stationing service bot"
+  },
+  "station.services_realname": {
+    "type": "string",
+    "default": "IRC Services",
+    "description": "Realname for the stationing service bot"
+  },
+  "station.auth_backend": {
+    "type": "string",
+    "default": "sqlite",
+    "description": "Backend for user/channel authentication (sqlite or ldap)"
+  },
+  "station.sqlite_db": {
+    "type": "string",
+    "default": "/var/lib/plum/services.db",
+    "description": "Path to SQLite database for authentication (if auth_backend=sqlite)"
+  },
+  "station.ldap_uri": {
+    "type": "string",
+    "default": "ldaps://ldap.example.com",
+    "description": "LDAP server URI (if auth_backend=ldap)"
+  },
+  "station.ldap_base_dn": {
+    "type": "string",
+    "default": "ou=users,dc=example,dc=com",
+    "description": "LDAP base DN for user searches"
+  },
+  "station.ldap_bind_dn": {
+    "type": "string",
+    "default": "cn=admin,dc=example,dc=com",
+    "description": "Bind DN for authenticating to LDAP"
+  },
+  "station.ldap_bind_password": {
+    "type": "string",
+    "default": "",
+    "description": "Password for LDAP bind DN (optional)"
+  }
+}

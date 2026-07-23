@@ -1,0 +1,139 @@
+{
+  "log_file": {
+    "type": "string",
+    "default": "/var/log/masakari/instance-monitor.log",
+    "description": "Path to the log file for the instance monitor service."
+  },
+  "log_dir": {
+    "type": "string",
+    "default": "/var/log/masakari",
+    "description": "Directory where log files are stored."
+  },
+  "use_syslog": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable logging to syslog instead of files."
+  },
+  "syslog_log_facility": {
+    "type": "string",
+    "default": "LOG_USER",
+    "description": "Syslog facility to use when logging via syslog."
+  },
+  "log_level": {
+    "type": "string",
+    "default": "INFO",
+    "description": "Logging level (e.g., DEBUG, INFO, WARNING, ERROR, CRITICAL)."
+  },
+  "transport_url": {
+    "type": "string",
+    "default": "rabbit://guest:guest@localhost:5672/",
+    "description": "Message bus connection URL (e.g., RabbitMQ or other messaging backends)."
+  },
+  "auth_url": {
+    "type": "string",
+    "default": "http://localhost:5000/v3",
+    "description": "Keystone authentication endpoint URL."
+  },
+  "project_domain_name": {
+    "type": "string",
+    "default": "Default",
+    "description": "Keystone project domain name for service user."
+  },
+  "project_name": {
+    "type": "string",
+    "default": "services",
+    "description": "Keystone project name for Masakari service user."
+  },
+  "user_domain_name": {
+    "type": "string",
+    "default": "Default",
+    "description": "Keystone user domain name for service user."
+  },
+  "username": {
+    "type": "string",
+    "default": "masakari",
+    "description": "Username for Masakari service in Keystone."
+  },
+  "password": {
+    "type": "string",
+    "default": "",
+    "description": "Password for Masakari service user in Keystone. *Do not store in plaintext in production.*"
+  },
+  "segment_heartbeat_interval": {
+    "type": "number",
+    "default": 30,
+    "description": "Interval in seconds between heartbeats sent by the instance monitor to signal liveness."
+  },
+  "notification_driver": {
+    "type": "string",
+    "default": "masakari.openstack.common.notifier.rpc_notifier",
+    "description": "Notification driver to use for sending events."
+  },
+  "host_monitor_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable monitoring of host health."
+  },
+  "instance_monitor_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable monitoring of virtual instance health."
+  },
+  "instance_monitor_retry_interval": {
+    "type": "number",
+    "default": 10,
+    "description": "Seconds to wait before retrying instance health check after failure."
+  },
+  "instance_monitor_max_retries": {
+    "type": "number",
+    "default": 3,
+    "description": "Maximum number of retries before declaring instance unhealthy."
+  },
+  "auto_recover": {
+    "type": "bool",
+    "default": true,
+    "description": "Automatically recover failed instances via evacuation or restart."
+  },
+  "recover_method": {
+    "type": "string",
+    "default": "auto",
+    "description": "Recovery method: 'auto' (automatic evacuation or restart), 'stop', 'restart', or 'evacuate'."
+  },
+  "notification_endpoint": {
+    "type": "string",
+    "default": "",
+    "description": "Optional endpoint to send additional notifications (e.g., webhook URL)."
+  },
+  "health_check_uri": {
+    "type": "string",
+    "default": "",
+    "description": "HTTP(S) URI to use for health check of instances (optional)."
+  },
+  "hosts": {
+    "type": "list",
+    "default": [],
+    "description": "List of host-specific monitoring configurations. Each entry defines a host to be monitored with custom settings.",
+    "items": {
+      "name": {
+        "type": "string",
+        "default": "",
+        "description": "Hostname or FQDN to match in this segment."
+      },
+      "enabled": {
+        "type": "bool",
+        "default": true,
+        "description": "Whether monitoring is enabled for this host."
+      },
+      "segment_id": {
+        "type": "string",
+        "default": "",
+        "description": "UUID of the Masakari segment this host belongs to."
+      },
+      "monitoring_uri": {
+        "type": "string",
+        "default": "",
+        "description": "Optional custom URI used for health monitoring of this host (e.g., SSH, HTTP)."
+      }
+    }
+  }
+}

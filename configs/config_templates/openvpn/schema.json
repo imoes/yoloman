@@ -1,0 +1,95 @@
+{
+  "server.port": {
+    "type": "number",
+    "default": 1194,
+    "description": "UDP port on which the OpenVPN server listens for incoming connections."
+  },
+  "server.network": {
+    "type": "string",
+    "default": "10.8.0.0",
+    "description": "VPN subnet network address (e.g., '10.8.0.0'). Clients will be assigned IPs in this range."
+  },
+  "server.netmask": {
+    "type": "string",
+    "default": "255.255.255.0",
+    "description": "Subnet mask for the VPN network (e.g., '255.255.255.0')."
+  },
+  "server.cert_name": {
+    "type": "string",
+    "default": "server",
+    "description": "Common name (CN) of the server certificate (must match the filename in Easy-RSA)."
+  },
+  "server.cipher": {
+    "type": "string",
+    "default": "AES-256-GCM",
+    "description": "Encryption cipher used for VPN traffic (e.g., 'AES-256-GCM', 'AES-128-CBC')."
+  },
+  "server.auth": {
+    "type": "string",
+    "default": "SHA256",
+    "description": "HMAC authentication algorithm for packet integrity (e.g., 'SHA256', 'SHA1')."
+  },
+  "server.allow_duplicate_cn": {
+    "type": "bool",
+    "default": false,
+    "description": "Whether to allow multiple clients with the same certificate common name (use with caution)."
+  },
+  "server.push_routes": {
+    "type": "list",
+    "default": [],
+    "description": "List of internal networks to route to VPN clients (e.g., local subnet access).",
+    "items": {
+      "type": "object",
+      "fields": {
+        "network": {
+          "type": "string",
+          "description": "Network address (e.g., '192.168.1.0')."
+        },
+        "netmask": {
+          "type": "string",
+          "description": "Netmask for the network (e.g., '255.255.255.0')."
+        }
+      }
+    }
+  },
+  "server.push_dns": {
+    "type": "bool",
+    "default": true,
+    "description": "Whether to push DNS settings to clients (e.g., to use internal DNS servers or public DNS)."
+  },
+  "server.dns_servers": {
+    "type": "list",
+    "default": [
+      "8.8.8.8",
+      "8.8.4.4"
+    ],
+    "description": "List of DNS servers to push to clients (e.g., ['1.1.1.1', '9.9.9.9'])."
+  },
+  "server.ldap.enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable LDAP authentication via PAM plugin. Requires openvpn-plugin-auth-pam.so and ldap.conf."
+  },
+  "server.client_options": {
+    "type": "list",
+    "default": [],
+    "description": "Client-specific configuration overrides (e.g., static IPs or access controls).",
+    "items": {
+      "type": "object",
+      "fields": {
+        "common_name": {
+          "type": "string",
+          "description": "Client certificate common name (CN)."
+        },
+        "ip": {
+          "type": "string",
+          "description": "Static IP to assign to this client (must be within server network, e.g., '10.8.0.10')."
+        },
+        "block": {
+          "type": "bool",
+          "description": "If true, disables client-connect script that may be used for access control."
+        }
+      }
+    }
+  }
+}

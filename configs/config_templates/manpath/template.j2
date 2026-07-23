@@ -1,0 +1,13 @@
+# /etc/manpath.config — man-db manual page path configuration
+# Global search paths for manual pages (colon-separated)
+# Each line: MANPATH <path> or MANDATORY_MANPATH <path>
+{% for path in mandatory_manpaths %}MANDATORY_MANPATH {{ path }}{% endfor %}
+{% for path in manpaths %}MANPATH {{ path }}{% endfor %}
+# Optional: set default search behavior if no MANPATH is set in environment
+{% if setenv_manpath %}MANPATH_MAP	{{ manpath_map }}{% endif %}
+# Optional: configure locale-specific manual pages
+{% for locale, paths in locale_manpaths.items() %}# Locale: {{ locale }}
+{% for path in paths %}MANPATH_MAP {{ path }}	{{ locale }}{% endfor %}{% endfor %}
+# Optional: configure system manual page directories
+# System manual pages are usually auto-detected, but can be overridden here:
+{% for dir in system_man_dirs %}SYSTEM_MANPATH	{{ dir }}{% endfor %}

@@ -1,0 +1,110 @@
+# Lightsquid configuration file
+# Main configuration for Lightsquid HTTP traffic log analyzer
+
+[global]
+# Directory containing raw access logs to analyze
+log_dir = {{ log_dir }}
+
+# Directory where generated reports will be stored
+report_dir = {{ report_dir }}
+
+# Base URL for web-based report access (used in generated HTML links)
+base_url = {{ base_url }}
+
+# Time zone for report generation (PHP date timezone string)
+timezone = {{ timezone }}
+
+# Language code for interface and report titles (e.g., 'en', 'ru', 'de')
+lang = {{ lang }}
+
+# Enable detailed per-user analysis
+user_detail = {{ user_detail | lower }}
+
+# Enable detailed per-URL (path) analysis
+url_detail = {{ url_detail | lower }}
+
+# Enable detailed per-extension analysis
+ext_detail = {{ ext_detail | lower }}
+
+# Enable per-user bandwidth summary (MB)
+user_bandwidth = {{ user_bandwidth | lower }}
+
+# Enable per-site (domain) bandwidth summary (MB)
+site_bandwidth = {{ site_bandwidth | lower }}
+
+# Enable per-user time-based reports (daily, weekly, monthly)
+time_report = {{ time_report | lower }}
+
+# Maximum number of days to retain per-day report data (0 = keep forever)
+max_days = {{ max_days }}
+
+# Log format type: 'squid' (default), 'apache', 'combined', 'custom'
+log_format = {{ log_format }}
+
+# Custom log format string if log_format=custom (must match Squid/HTTP log spec)
+# Example: '%ts{%d/%b/%Y:%H:%M:%S} %ui %ur %ru %us %>a %mt %Ss %Sh %Sh %Sh %Ss %tr'
+custom_log_format = {{ custom_log_format }}
+
+# Path to Squid-style access log file(s); supports wildcards
+# If empty or '*', log files are auto-discovered under log_dir
+access_log_path = {{ access_log_path }}
+
+# Enable parser to skip lines not matching expected format (instead of failing)
+ignore_errors = {{ ignore_errors | lower }}
+
+# Number of seconds to wait for database lock (MySQL/SQLite)
+db_timeout = {{ db_timeout }}
+
+# Enable logging to syslog
+syslog = {{ syslog | lower }}
+
+[database]
+# Database backend: 'sqlite' (default), 'mysql'
+type = {{ db_type }}
+
+# Path to SQLite database file (used if type=sqlite)
+db_path = {{ db_path }}
+
+# MySQL/PostgreSQL host (used if type=mysql)
+host = {{ db_host }}
+
+# Port for MySQL/PostgreSQL (default 3306 for MySQL)
+port = {{ db_port }}
+
+# Database name
+name = {{ db_name }}
+
+# Database username
+user = {{ db_user }}
+
+# Database password
+password = {{ db_password }}
+
+[web]
+# Enable built-in web server for report access
+enable = {{ web_enable | lower }}
+
+# IP address to bind to (use 0.0.0.0 for all interfaces)
+bind_ip = {{ web_bind_ip }}
+
+# TCP port for web interface
+port = {{ web_port }}
+
+# Directory for web assets (CSS, JS, images); usually auto-detected
+web_root = {{ web_root }}
+
+# Enable password protection (requires htpasswd file)
+auth_enabled = {{ web_auth_enabled | lower }}
+
+# Path to htpasswd file for basic auth (if auth_enabled=true)
+htpasswd_file = {{ web_htpasswd_file }}
+
+[plugins]
+# Comma-separated list of plugins to enable
+declare = {{ plugins | join(', ') }}
+
+{% for plugin in plugins_config %}# Plugin: {{ plugin.name }}
+[plugin:{{ plugin.name }}]
+{% for key, value in plugin.options.items() %}{{ key }} = {{ value }}
+{% endfor %}
+{% endfor %}

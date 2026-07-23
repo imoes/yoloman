@@ -1,0 +1,175 @@
+{
+  "enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable or disable the MOM daemon (restart required after change)."
+  },
+  "log_level": {
+    "type": "string",
+    "default": "info",
+    "allowed_values": [
+      "debug",
+      "info",
+      "warning",
+      "error"
+    ],
+    "description": "Verbosity of logging."
+  },
+  "state_file": {
+    "type": "string",
+    "default": "/var/lib/mom/mom.state",
+    "description": "Path to MOM runtime state file for persistence between restarts."
+  },
+  "policy_directory": {
+    "type": "string",
+    "default": "/etc/mom/policies.d",
+    "description": "Directory containing additional per-policy configuration files."
+  },
+  "poll_interval": {
+    "type": "number",
+    "default": 10,
+    "description": "Interval (in seconds) between resource evaluations and policy enforcement checks."
+  },
+  "memory_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable dynamic memory overcommitment and ballooning."
+  },
+  "memory_max_overcommit_ratio": {
+    "type": "number",
+    "default": 1.5,
+    "description": "Maximum memory overcommitment ratio (guest total memory / host physical memory)."
+  },
+  "min_free_memory": {
+    "type": "number",
+    "default": 512,
+    "description": "Minimum free memory (MiB) to retain on host to prevent OOM conditions."
+  },
+  "balancer_threshold": {
+    "type": "number",
+    "default": 1024,
+    "description": "Memory pressure threshold (MiB) above which aggressive memory balancing is triggered."
+  },
+  "ballooning_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Allow dynamic memory balloon drivers to be used for guest memory reclamation."
+  },
+  "cpu_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable dynamic CPU overcommitment and throttling."
+  },
+  "cpu_max_overcommit_ratio": {
+    "type": "number",
+    "default": 2.0,
+    "description": "Maximum CPU overcommitment ratio (total vCPUs allocated / physical CPU cores)."
+  },
+  "min_shares_per_vm": {
+    "type": "number",
+    "default": 64,
+    "description": "Minimum CPU shares guaranteed per VM (CFS scheduler weight, range 0\u20131024)."
+  },
+  "cpu_throttling_policy": {
+    "type": "string",
+    "default": "adaptive",
+    "allowed_values": [
+      "none",
+      "constant",
+      "adaptive"
+    ],
+    "description": "Throttling strategy: none (no throttling), constant (fixed shares), adaptive (reactive based on load)."
+  },
+  "disk_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable disk I/O throttling per VM and globally."
+  },
+  "max_total_iops": {
+    "type": "number",
+    "default": 50000,
+    "description": "Maximum total I/O operations per second allowed across all VMs."
+  },
+  "max_per_vm_iops": {
+    "type": "number",
+    "default": 5000,
+    "description": "Maximum I/O operations per second allowed per VM."
+  },
+  "burst_allowed_percent": {
+    "type": "number",
+    "default": 20,
+    "description": "Allowed burst above max limits (as a percentage)."
+  },
+  "network_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable network bandwidth QoS per VM and globally."
+  },
+  "max_total_bandwidth": {
+    "type": "number",
+    "default": 10000,
+    "description": "Maximum total bandwidth (Mbps) allowed across all VMs."
+  },
+  "max_per_vm_bandwidth": {
+    "type": "number",
+    "default": 1000,
+    "description": "Maximum bandwidth (Mbps) allowed per VM."
+  },
+  "network_burst_allowed_percent": {
+    "type": "number",
+    "default": 25,
+    "description": "Allowed network bandwidth burst above limit (as percentage)."
+  },
+  "memory_pressure_cmd": {
+    "type": "string",
+    "default": "",
+    "description": "Command template executed when memory pressure occurs. Supports placeholders: {vm} (VM name), {action} (balloon/balance), {reason}."
+  },
+  "cpu_throttling_cmd": {
+    "type": "string",
+    "default": "",
+    "description": "Command template executed when CPU throttling is applied. Supports {vm}, {limit} (vCPU limit), {reason}."
+  },
+  "migration_cmd": {
+    "type": "string",
+    "default": "",
+    "description": "Command template executed before VM migration (e.g., for preflight checks). Supports {vm}, {target}."
+  },
+  "excluded_vms": {
+    "type": "list",
+    "default": [],
+    "description": "List of VM UUIDs or names to exclude from all MOM resource management."
+  },
+  "vm_policies": {
+    "type": "list",
+    "default": [],
+    "description": "Override policies for specific VMs.",
+    "items": {
+      "vm_name": {
+        "type": "string",
+        "required": true,
+        "description": "VM name or UUID to apply this policy to."
+      },
+      "memory_limit": {
+        "type": "number",
+        "default": null,
+        "description": "Override memory limit (MiB) for this VM (global default: automatic)."
+      },
+      "cpu_shares": {
+        "type": "number",
+        "default": null,
+        "description": "Override CPU shares for this VM (range 1\u20131024)."
+      },
+      "disk_iops_limit": {
+        "type": "number",
+        "default": null,
+        "description": "Override per-VM disk IOPS limit (global default: max_per_vm_iops)."
+      },
+      "network_bandwidth_limit": {
+        "type": "number",
+        "default": null,
+        "description": "Override per-VM network bandwidth limit (Mbps)."
+      }
+    }
+  }
+}

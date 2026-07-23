@@ -1,0 +1,113 @@
+[DEFAULT]
+# Enable or disable the scheduler service
+enabled = {{ enabled }}
+
+# Log level for the scheduler service
+log_level = {{ log_level }}
+
+# Path to the log file
+log_file = {{ log_file }}
+
+# Hostname of this scheduler node
+host = {{ host }}
+
+# Number of worker processes for the scheduler
+workers = {{ workers }}
+
+# Time-to-live (in seconds) for scheduler host state cache
+host_state_cache_ttl = {{ host_state_cache_ttl }}
+
+# Enable or disable filtering of hosts based on resource usage
+# (default: True)
+# filter_toggles = {{ filter_toggles | default(True) }}
+
+# List of scheduler filters to apply (filter classes by module name)
+# Each element defines the filter name and whether it's enabled
+{% for f in scheduler_default_filters %}
+# {{ f.name }}: {{ f.description }}
+scheduler_default_filters = {{ f.name }}{% if f.enabled != True %}{{ ' (disabled)' }}{% endif %}
+{% endfor %}
+
+# List of scheduler weights and their multipliers
+# Each element defines the weight class and its multiplier
+{% for w in scheduler_weight_multiplier %}
+# {{ w.name }}: {{ w.description }}
+scheduler_weight_multiplier = {{ w.name }}:{{ w.multiplier }}
+{% endfor %}
+
+# Comma-separated list of scheduler manager classes to use
+scheduler_manager = {{ scheduler_manager }}
+
+# Maximum number of retries when scheduling a instance
+scheduler_max_retries = {{ scheduler_max_retries }}
+
+# Retry delay (in seconds) between scheduling attempts
+scheduler_retry_delay = {{ scheduler_retry_delay }}
+
+# Enable or disable ram allocation tracking
+ram_allocation_ratio = {{ ram_allocation_ratio }}
+
+# Enable or disable CPU allocation tracking
+cpu_allocation_ratio = {{ cpu_allocation_ratio }}
+
+# Enable or disable disk allocation tracking
+disk_allocation_ratio = {{ disk_allocation_ratio }}
+
+# Enable or disable reserved resource tracking (for system use)
+reserved_host_memory_mb = {{ reserved_host_memory_mb }}
+reserved_host_disk_mb = {{ reserved_host_disk_mb }}
+
+# List of scheduler filters to use for image properties filtering
+image_traits_filter_enabled = {{ image_traits_filter_enabled }}
+
+# Enable or disable filtering based on aggregate instance limits
+aggregate_instance_limit_enabled = {{ aggregate_instance_limit_enabled }}
+
+# Enable or disable filtering based on NUMA topology
+numa_topology_filter_enabled = {{ numa_topology_filter_enabled }}
+
+# Enable or disable trust filtering (for trusted instances)
+trust_filter_enabled = {{ trust_filter_enabled }}
+
+# Enable or disable image type filtering (based on flavor image type)
+image_type_filter_enabled = {{ image_type_filter_enabled }}
+
+# Enable or disable PCI passthrough filtering
+pci_passthrough_filter_enabled = {{ pci_passthrough_filter_enabled }}
+
+# Enable or disable traits-based filtering (for custom resource classes)
+traits_filter_enabled = {{ traits_filter_enabled }}
+
+# Enable or disable aggregate availability zone awareness
+availability_zone_filter_enabled = {{ availability_zone_filter_enabled }}
+
+# Enable or disable I/O weight-based filtering
+io_weight_filter_enabled = {{ io_weight_filter_enabled }}
+
+# Enable or disable server group affinity/anti-affinity filtering
+server_group_affinity_filter_enabled = {{ server_group_affinity_filter_enabled }}
+server_group_anti_affinity_filter_enabled = {{ server_group_anti_affinity_filter_enabled }}
+
+# Enable or disable zone filter for cross-zone scheduling
+zone_filter_enabled = {{ zone_filter_enabled }}
+
+# Comma-separated list of drivers for host capabilities filtering
+host_manager = {{ host_manager }}
+
+# Comma-separated list of drivers for scheduling decision logic
+scheduler_driver = {{ scheduler_driver }}
+
+# Enable or disable use of cached host state (performance optimization)
+use_cached_state = {{ use_cached_state }}
+
+# Enable or disable scheduler driver statistics tracking
+scheduler_stats_driver = {{ scheduler_stats_driver }}
+
+# Enable or disable host state updates (for large deployments)
+update_host_state_interval = {{ update_host_state_interval }}
+
+# Enable or disable scheduler resource usage metrics
+scheduler_metrics_enabled = {{ scheduler_metrics_enabled }}
+
+# Path to scheduler metrics cache
+scheduler_metrics_cache_path = {{ scheduler_metrics_cache_path }}

@@ -1,0 +1,61 @@
+#!/bin/sh
+# Configuration for the Prometheus MongoDB exporter service
+# This file is sourced by the systemd service unit
+
+# MongoDB URI to connect to (required)
+# Supports single server, replica sets, and sharded clusters
+MONGODB_URI="{{ mongodb_uri }}"
+
+# Optional: Database to collect metrics from (default: admin)
+# Use 'all' to collect from all databases (not recommended for production)
+MONGODB_DB="{{ mongodb_db | default('admin') }}"
+
+# Optional: Disable collecting certain metric sets (comma-separated)
+# Valid options: collection, index, dbstats, replset, sharded, diagnostics, serverstatus, top
+DISABLED_METRICS="{{ disabled_metrics | default('') | join(',') }}"
+
+# Optional: Enable collection of diagnostics data (requires MongoDB 4.2+)
+ENABLE_DIAGNOSTICS="{{ enable_diagnostics | default(false) | lower }}"
+
+# Optional: Timeout for MongoDB connections (in seconds)
+METRICS_TIMEOUT="{{ metrics_timeout | default(10) }}"
+
+# Optional: TLS/SSL settings
+# Enable TLS/SSL for connection to MongoDB
+ENABLE_TLS="{{ enable_tls | default(false) | lower }}"
+
+# Optional: Path to CA certificate (required if TLS enabled and using self-signed cert)
+TLS_CA_FILE="{{ tls_ca_file | default('') }}"
+
+# Optional: Path to client certificate (optional, for client cert auth)
+TLS_CERT_FILE="{{ tls_cert_file | default('') }}"
+
+# Optional: Path to client private key (optional, for client cert auth)
+TLS_KEY_FILE="{{ tls_key_file | default('') }}"
+
+# Optional: Skip TLS certificate verification (⚠️ insecure, for testing only)
+TLS_INSECURE_SKIP_VERIFY="{{ tls_insecure_skip_verify | default(false) | lower }}"
+
+# Optional: Server listening address (default: 0.0.0.0:9216)
+WEB_LISTEN_ADDRESS="{{ web_listen_address | default('0.0.0.0:9216') }}"
+
+# Optional: Enable authentication (for MongoDB users with auth)
+# If using SCRAM-SHA-256 or other auth, specify username/password via URI or below
+MONGODB_USER="{{ mongodb_user | default('') }}"
+MONGODB_PASSWORD="{{ mongodb_password | default('') }}"
+MONGODB_AUTH_DB="{{ mongodb_auth_db | default('admin') }}"
+
+# Optional: Collect metrics from hidden nodes in replica sets
+COLLECT_HIDDEN="{{ collect_hidden | default(false) | lower }}"
+
+# Optional: Collect metrics from secondary nodes only (skip primary)
+SECONDARY_ONLY="{{ secondary_only | default(false) | lower }}"
+
+# Optional: Extra labels to attach to all metrics (JSON map, e.g., {"env": "prod", "region": "us-east-1"})
+EXTRA_LABELS="{{ extra_labels | tojson | safe }}"
+
+# Optional: Limit concurrent connections to MongoDB (default: 2)
+MAX_CONNECTIONS="{{ max_connections | default(2) }}"
+
+# Optional: Enable profiling if MongoDB profiling level > 0
+ENABLE_PROFILING="{{ enable_profiling | default(false) | lower }}"

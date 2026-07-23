@@ -1,0 +1,121 @@
+{
+  "server": {
+    "type": "string",
+    "default": "localhost",
+    "description": "Hostname or IP address of the Mandos server to connect to."
+  },
+  "client_port": {
+    "type": "number",
+    "default": 11211,
+    "description": "Port on which the Mandos server listens for client connections."
+  },
+  "timeout": {
+    "type": "number",
+    "default": 30,
+    "description": "Maximum time in seconds to wait for a response from the Mandos server."
+  },
+  "max_retries": {
+    "type": "number",
+    "default": 3,
+    "description": "Number of times to retry a failed key retrieval before giving up."
+  },
+  "reboot_delay": {
+    "type": "number",
+    "default": 10,
+    "description": "Seconds to wait after successfully retrieving decryption keys before rebooting."
+  },
+  "keydir": {
+    "type": "string",
+    "default": "/var/lib/mandos",
+    "description": "Directory where retrieved keys and state are stored persistently."
+  },
+  "tmpdir": {
+    "type": "string",
+    "default": "/run/mandos",
+    "description": "Directory for temporary files (e.g., decrypted keys before moving to keydir)."
+  },
+  "loglevel": {
+    "type": "string",
+    "default": "info",
+    "description": "Verbosity level for logging; one of: debug, info, notice, warning, error, critical, alert, emergency."
+  },
+  "logfile": {
+    "type": "string",
+    "default": "syslog",
+    "description": "Where to send logs: 'syslog', 'stderr', or a file path (e.g., '/var/log/mandos.log')."
+  },
+  "gnupghome": {
+    "type": "string",
+    "default": "/etc/mandos/gnupghome",
+    "description": "GnuPG home directory containing trusted keyrings for verification."
+  },
+  "gpg_keys": {
+    "type": "list",
+    "default": [],
+    "description": "List of GPG key fingerprints (as hex strings) to trust when verifying encrypted key files.",
+    "items": {
+      "type": "string",
+      "description": "GPG key fingerprint (40-character hex string)."
+    }
+  },
+  "verify_signatures": {
+    "type": "bool",
+    "default": true,
+    "description": "Whether to require and verify GPG signatures on key files. Disable only for testing."
+  },
+  "trusted_fingerprints": {
+    "type": "list",
+    "default": [],
+    "description": "List of key fingerprints (for legacy compatibility; prefer gpg-keys).",
+    "items": {
+      "type": "string",
+      "description": "Key fingerprint (hex string)."
+    }
+  },
+  "enable_ipv6": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable IPv6 support for network communication with the Mandos server."
+  },
+  "bind_interfaces": {
+    "type": "list",
+    "default": [],
+    "description": "List of network interfaces to bind to (leave empty to use all interfaces).",
+    "items": {
+      "type": "string",
+      "description": "Network interface name (e.g., 'eth0', 'enp0s3')."
+    }
+  },
+  "allowed_networks": {
+    "type": "list",
+    "default": [
+      "127.0.0.0/8",
+      "::1/128"
+    ],
+    "description": "List of client IP networks allowed to connect to the Mandos server (CIDR notation).",
+    "items": {
+      "type": "string",
+      "description": "Allowed network in CIDR notation (e.g., '192.168.1.0/24')."
+    }
+  },
+  "mdns_enable": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable multicast DNS (mDNS) to discover Mandos servers on the local network."
+  },
+  "mdns_service_name": {
+    "type": "string",
+    "default": "_mandos._tcp",
+    "description": "mDNS service name used for service discovery (usually do not change)."
+  },
+  "journal_socket": {
+    "type": "string",
+    "default": "/run/systemd/journal/stdout",
+    "description": "Path to the systemd journal socket (used only if systemd logging is configured)."
+  },
+  "systemd_integration": {
+    "type": "string",
+    "default": "auto",
+    "description": "Whether to integrate with systemd (values: 'auto', 'true', 'false')."
+  }
+}

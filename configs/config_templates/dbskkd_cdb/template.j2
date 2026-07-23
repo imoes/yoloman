@@ -1,0 +1,44 @@
+# Port on which the SKK dictionary server listens for incoming connections
+port: {{ port }}
+
+# Host address to bind to (e.g., '127.0.0.1' for localhost only, or '0.0.0.0' for all interfaces)
+bind: {{ bind }}
+
+# Path to the CDB dictionary file (generated from SKK JISYO.* files)
+dict_file: {{ dict_file }}
+
+# Maximum number of concurrent connections
+max_connections: {{ max_connections }}
+
+# Enable/Disable verbose logging (true = log requests and errors; false = minimal logging)
+verbose: {{ verbose }}
+
+# Enable/Disable TCP_NODELAY (disables Nagle's algorithm for lower latency)
+tcp_nodelay: {{ tcp_nodelay }}
+
+# Optional: Chroot directory for security isolation (set to empty string to disable chroot)
+chroot_dir: {{ chroot_dir | default('') }}
+
+# Optional: User to drop privileges to after binding to port
+user: {{ user }}
+
+# Optional: Group to drop privileges to after binding to port
+group: {{ group }}
+
+# Optional: PID file path (empty string disables PID file creation)
+pid_file: {{ pid_file | default('') }}
+
+# List of additional dictionary files to include (in order; used for fallback lookups)
+# Each entry must be a path to a valid CDB file
+{% for extra_dict in extra_dicts %}
+extra_dict_file: {{ extra_dict }}
+{% endfor %}
+
+# Optional: Connection timeout in seconds (0 = no timeout)
+timeout: {{ timeout }}
+
+# Enable/Disable IPv6 support
+ipv6: {{ ipv6 }}
+
+# Optional: Listen backlog size (kernel's queue length for pending connections)
+backlog: {{ backlog }}

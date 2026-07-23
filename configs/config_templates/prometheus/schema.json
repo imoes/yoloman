@@ -1,0 +1,294 @@
+{
+  "scrape_interval": {
+    "type": "string",
+    "default": "15s",
+    "description": "How often to scrape targets by default (e.g., '15s', '1m')."
+  },
+  "scrape_timeout": {
+    "type": "string",
+    "default": "10s",
+    "description": "Timeout for each scrape request (e.g., '10s')."
+  },
+  "evaluation_interval": {
+    "type": "string",
+    "default": "15s",
+    "description": "How often to evaluate rule files (e.g., '15s')."
+  },
+  "external_labels": {
+    "type": "object",
+    "default": {},
+    "description": "Labels added to all metrics and alerts to identify the Prometheus instance or cluster (e.g., { region: 'us-east-1' })."
+  },
+  "rule_files": {
+    "type": "list",
+    "default": [],
+    "description": "List of paths to rule files (e.g., ['/etc/prometheus/rules/*.rules.yml'])."
+  },
+  "scrape_configs": {
+    "type": "list",
+    "default": [],
+    "items": {
+      "job_name": {
+        "type": "string",
+        "description": "Unique name for the scrape job (required)."
+      },
+      "metrics_path": {
+        "type": "string",
+        "default": "/metrics",
+        "description": "HTTP path from which to scrape metrics."
+      },
+      "scheme": {
+        "type": "string",
+        "default": "http",
+        "description": "Protocol scheme (http/https) for scraping."
+      },
+      "http_sd_configs": {
+        "type": "list",
+        "default": [],
+        "items": {
+          "url": {
+            "type": "string",
+            "description": "HTTP endpoint providing dynamic target discovery (e.g., 'http://consul:8500/api/discovery')."
+          },
+          "refresh_interval": {
+            "type": "string",
+            "default": "30s",
+            "description": "How often to re-fetch SD data."
+          }
+        }
+      },
+      "static_configs": {
+        "type": "list",
+        "default": [],
+        "items": {
+          "targets": {
+            "type": "list",
+            "description": "List of static targets (host:port)."
+          },
+          "labels": {
+            "type": "object",
+            "default": {},
+            "description": "Labels applied to scraped metrics from these targets."
+          }
+        }
+      },
+      "relabel_configs": {
+        "type": "list",
+        "default": [],
+        "items": {
+          "source_labels": {
+            "type": "list",
+            "description": "Input labels for relabeling (e.g., ['__address__'])."
+          },
+          "target_label": {
+            "type": "string",
+            "description": "Label to set (e.g., 'job')."
+          },
+          "regex": {
+            "type": "string",
+            "default": "(.*)",
+            "description": "Regex to match against source labels."
+          },
+          "replacement": {
+            "type": "string",
+            "default": "$1",
+            "description": "Replacement string (supports $1, $2, ...)."
+          },
+          "action": {
+            "type": "string",
+            "default": "replace",
+            "enum": [
+              "replace",
+              "keep",
+              "drop",
+              "hashmod",
+              "labelmap",
+              "labeldrop",
+              "labelkeep"
+            ],
+            "description": "Relabeling action to take."
+          },
+          "modulus": {
+            "type": "number",
+            "default": 0,
+            "description": "For hashmod: modulus value (used for sharding)."
+          }
+        }
+      },
+      "metric_relabel_configs": {
+        "type": "list",
+        "default": [],
+        "items": {
+          "source_labels": {
+            "type": "list",
+            "description": "Metric label names to match."
+          },
+          "target_label": {
+            "type": "string",
+            "default": "",
+            "description": "Label to set or modify."
+          },
+          "regex": {
+            "type": "string",
+            "default": ".*",
+            "description": "Regex to match metric labels."
+          },
+          "action": {
+            "type": "string",
+            "default": "drop",
+            "enum": [
+              "drop",
+              "keep"
+            ],
+            "description": "Metric relabeling action."
+          }
+        }
+      },
+      "authorization": {
+        "type": "object",
+        "default": {},
+        "items": {
+          "type": {
+            "type": "string",
+            "default": "Bearer",
+            "description": "Authorization type (e.g., 'Bearer', 'Basic')."
+          },
+          "credentials_file": {
+            "type": "string",
+            "default": "",
+            "description": "Path to file containing credentials."
+          },
+          "credentials": {
+            "type": "string",
+            "default": "",
+            "description": "Credentials value (e.g., bearer token)."
+          }
+        }
+      },
+      "bearer_token_file": {
+        "type": "string",
+        "default": "",
+        "description": "Path to file containing bearer token (legacy, prefer 'authorization')."
+      },
+      "basic_auth": {
+        "type": "object",
+        "default": {},
+        "items": {
+          "username": {
+            "type": "string",
+            "description": "Username for basic auth."
+          },
+          "password": {
+            "type": "string",
+            "description": "Password for basic auth."
+          }
+        }
+      },
+      "oauth2": {
+        "type": "object",
+        "default": {},
+        "items": {
+          "client_id": {
+            "type": "string",
+            "description": "OAuth2 client ID."
+          },
+          "client_secret": {
+            "type": "string",
+            "description": "OAuth2 client secret."
+          },
+          "token_url": {
+            "type": "string",
+            "description": "OAuth2 token endpoint URL."
+          },
+          "scopes": {
+            "type": "list",
+            "default": [],
+            "description": "OAuth2 scopes to request."
+          },
+          "endpoint_params": {
+            "type": "object",
+            "default": {},
+            "description": "Additional parameters to send with token request."
+          }
+        }
+      }
+    }
+  },
+  "storage_path": {
+    "type": "string",
+    "default": "/var/lib/prometheus/data",
+    "description": "Local filesystem path for TSDB data storage."
+  },
+  "wal_compression": {
+    "type": "boolean",
+    "default": false,
+    "description": "Enable WAL compression (reduces disk usage, slightly increases CPU)."
+  },
+  "retention_size_limit": {
+    "type": "number",
+    "default": 0,
+    "description": "Maximum size (in bytes) of WAL before compaction; set to 0 for default (no limit)."
+  },
+  "alertmanagers": {
+    "type": "list",
+    "default": [],
+    "items": {
+      "static_configs": {
+        "type": "list",
+        "items": {
+          "targets": {
+            "type": "list",
+            "description": "Alertmanager addresses (host:port)."
+          }
+        }
+      },
+      "scheme": {
+        "type": "string",
+        "default": "http",
+        "description": "Protocol (http/https)."
+      },
+      "timeout": {
+        "type": "string",
+        "default": "10s",
+        "description": "Timeout for notifications (e.g., '10s')."
+      },
+      "enable_http2": {
+        "type": "boolean",
+        "default": true,
+        "description": "Enable HTTP/2 for Alertmanager communication."
+      },
+      "basic_auth": {
+        "type": "object",
+        "default": {},
+        "items": {
+          "username": {
+            "type": "string",
+            "description": "Basic auth username."
+          },
+          "password": {
+            "type": "string",
+            "description": "Basic auth password."
+          }
+        }
+      },
+      "authorization": {
+        "type": "object",
+        "default": {},
+        "items": {
+          "type": {
+            "type": "string",
+            "default": "Bearer"
+          },
+          "credentials_file": {
+            "type": "string",
+            "default": ""
+          },
+          "credentials": {
+            "type": "string",
+            "default": ""
+          }
+        }
+      }
+    }
+  }
+}

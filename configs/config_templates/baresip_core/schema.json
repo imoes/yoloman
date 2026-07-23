@@ -1,0 +1,229 @@
+{
+  "username": {
+    "type": "string",
+    "default": "",
+    "description": "SIP username (local part of SIP URI); leave blank if not using default account"
+  },
+  "password": {
+    "type": "string",
+    "default": "",
+    "description": "SIP authentication password"
+  },
+  "displayname": {
+    "type": "string",
+    "default": "",
+    "description": "Caller ID / display name shown on outgoing calls"
+  },
+  "accounts": {
+    "type": "list",
+    "default": [],
+    "description": "List of SIP accounts (one per line or block)",
+    "items": {
+      "type": "object",
+      "fields": {
+        "display_name": {
+          "type": "string",
+          "default": "",
+          "description": "Human-readable name for this account (used in comments)"
+        },
+        "uri": {
+          "type": "string",
+          "default": "",
+          "description": "Full SIP URI of the account (e.g., sip:user@domain.com)"
+        },
+        "alias": {
+          "type": "string",
+          "default": "",
+          "description": "Optional SIP URI alias (e.g., sip:alias@domain.com)"
+        },
+        "host": {
+          "type": "string",
+          "default": "",
+          "description": "Registrar/SIP server hostname or IP"
+        },
+        "transport": {
+          "type": "string",
+          "default": "",
+          "description": "Preferred transport: udp, tcp, tls (leave blank to auto-select)"
+        },
+        "priority": {
+          "type": "number",
+          "default": 0,
+          "description": "Priority for this account (higher = preferred)"
+        },
+        "pubname": {
+          "type": "string",
+          "default": "",
+          "description": "Public name (for P-Asserted-Identity header)"
+        },
+        "register": {
+          "type": "bool",
+          "default": true,
+          "description": "Whether to register this account with the registrar"
+        },
+        "rtp_ipv6": {
+          "type": "bool",
+          "default": false,
+          "description": "Prefer IPv6 for RTP media (if available)"
+        },
+        "rtp_force_ipv4": {
+          "type": "bool",
+          "default": false,
+          "description": "Force IPv4 for RTP media (disable IPv6)"
+        },
+        "media_ipv4": {
+          "type": "bool",
+          "default": false,
+          "description": "Use IPv4-only media streams"
+        },
+        "sips_contact": {
+          "type": "string",
+          "default": "",
+          "description": "SIPS contact URI to use (e.g., sips:me@proxy.example.com)"
+        }
+      }
+    }
+  },
+  "audio_device": {
+    "type": "string",
+    "default": "pulse,alsa",
+    "description": "Audio input/output device list (comma-separated; e.g., 'pulse,alsa' or 'oss,/dev/dsp')"
+  },
+  "audio_sample_rate": {
+    "type": "number",
+    "default": 0,
+    "description": "Audio sample rate in Hz (0 = auto-detect)"
+  },
+  "audio_channels": {
+    "type": "number",
+    "default": 0,
+    "description": "Audio channels (0 = mono, 1 = mono, 2 = stereo; 0 = auto)"
+  },
+  "audio_buffer_size": {
+    "type": "number",
+    "default": 0,
+    "description": "Audio buffer size in milliseconds (0 = default)"
+  },
+  "video_device": {
+    "type": "string",
+    "default": "v4l2:/dev/video0",
+    "description": "Video capture device (e.g., 'v4l2:/dev/video0', 'avfoundation', 'dshow')"
+  },
+  "video_size": {
+    "type": "string",
+    "default": "640x480",
+    "description": "Video resolution in width x height (e.g., '320x240', '640x480', '1280x720')"
+  },
+  "video_bitrate": {
+    "type": "number",
+    "default": 1000000,
+    "description": "Video encoder bitrate in bits per second"
+  },
+  "video_fps": {
+    "type": "number",
+    "default": 25,
+    "description": "Video frames per second"
+  },
+  "video_display": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable local video preview display"
+  },
+  "video_encode": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable local video encoding/transmission"
+  },
+  "video_decode": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable remote video decoding/reception"
+  },
+  "stun_server": {
+    "type": "string",
+    "default": "",
+    "description": "STUN server URL (e.g., 'stun:stun.l.google.com:19302')"
+  },
+  "natpmp_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable NAT-PMP for port mapping (router must support)"
+  },
+  "upnp_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable UPnP for automatic port forwarding"
+  },
+  "log_level": {
+    "type": "number",
+    "default": 4,
+    "description": "Log verbosity level: 0=quiet, 5=debug (default: 4 = info)"
+  },
+  "log_file": {
+    "type": "string",
+    "default": "",
+    "description": "Path to log file (empty = stdout)"
+  },
+  "log_timestamps": {
+    "type": "bool",
+    "default": true,
+    "description": "Include timestamps in log output"
+  },
+  "modules": {
+    "type": "list",
+    "default": [
+      {
+        "name": "avcodec"
+      },
+      {
+        "name": "v4l2"
+      },
+      {
+        "name": "pulse"
+      },
+      {
+        "name": "alsa"
+      },
+      {
+        "name": "aufile"
+      },
+      {
+        "name": "menu"
+      },
+      {
+        "name": "uag_module"
+      }
+    ],
+    "description": "List of baresip modules to load",
+    "items": {
+      "type": "object",
+      "fields": {
+        "name": {
+          "type": "string",
+          "default": "",
+          "description": "Module name (e.g., 'avcodec', 'v4l2', 'pulse')"
+        },
+        "config": {
+          "type": "string",
+          "default": "",
+          "description": "Optional module-specific configuration line (e.g., 'device=0' for aufile)"
+        }
+      }
+    }
+  },
+  "tls_cert": {
+    "type": "string",
+    "default": "/etc/ssl/certs/baresip.crt",
+    "description": "Path to TLS certificate file (PEM format)"
+  },
+  "tls_cafile": {
+    "type": "string",
+    "default": "/etc/ssl/certs/ca-certificates.crt",
+    "description": "Path to CA certificates bundle (PEM format)"
+  },
+  "tls_verify_server": {
+    "type": "bool",
+    "default": true,
+    "description": "Verify server certificate during TLS handshake (for outbound TLS)"
+  }
+}

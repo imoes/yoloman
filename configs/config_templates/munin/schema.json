@@ -1,0 +1,158 @@
+{
+  "defaults": {
+    "type": "object",
+    "default": {
+      "html_dir": "/var/cache/munin/www",
+      "lib_dir": "/var/lib/munin",
+      "log_dir": "/var/log/munin",
+      "run_dir": "/var/run/munin",
+      "user": "munin",
+      "group": "munin",
+      "interval": 5,
+      "html_strategy": "static",
+      "rrd_strategy": "daily"
+    },
+    "description": "Global runtime and storage settings for Munin master."
+  },
+  "defaults.html_dir": {
+    "type": "string",
+    "default": "/var/cache/munin/www",
+    "description": "Directory where Munin generates HTML output (graphs, indexes)."
+  },
+  "defaults.lib_dir": {
+    "type": "string",
+    "default": "/var/lib/munin",
+    "description": "Directory where RRD files (raw data) are stored."
+  },
+  "defaults.log_dir": {
+    "type": "string",
+    "default": "/var/log/munin",
+    "description": "Directory where Munin logs (e.g., munin-update.log) are stored."
+  },
+  "defaults.run_dir": {
+    "type": "string",
+    "default": "/var/run/munin",
+    "description": "Directory where runtime files (e.g., PID files) are stored."
+  },
+  "defaults.user": {
+    "type": "string",
+    "default": "munin",
+    "description": "Unix user account under which Munin processes run."
+  },
+  "defaults.group": {
+    "type": "string",
+    "default": "munin",
+    "description": "Unix group under which Munin processes run."
+  },
+  "defaults.interval": {
+    "type": "number",
+    "default": 5,
+    "description": "Update interval in minutes for graph generation (minimum recommended: 5)."
+  },
+  "defaults.html_strategy": {
+    "type": "string",
+    "default": "static",
+    "description": "HTML generation strategy: 'static' (preferred for performance) or 'cgi' (for dynamic refresh)."
+  },
+  "defaults.rrd_strategy": {
+    "type": "string",
+    "default": "daily",
+    "description": "RRD update strategy \u2014 determines archival and resolution tradeoffs."
+  },
+  "contact_groups": {
+    "type": "object",
+    "default": {
+      "alerts": {
+        "command": "mail -s 'Munin alert' root",
+        "contacts": []
+      }
+    },
+    "description": "Contact group definitions for alerting (e.g., email or webhook)."
+  },
+  "contact_groups.alerts.command": {
+    "type": "string",
+    "default": "mail -s 'Munin alert' root",
+    "description": "Shell command used to send alerts (e.g., email, curl for webhook)."
+  },
+  "contact_groups.alerts.contacts": {
+    "type": "list",
+    "default": [],
+    "items": {
+      "type": "object",
+      "fields": {
+        "name": {
+          "type": "string",
+          "description": "Unique identifier for the contact (e.g., 'admin_email')."
+        },
+        "value": {
+          "type": "string",
+          "description": "Contact value (e.g., 'admin@example.com' or 'https://hooks.slack.com/...')."
+        }
+      }
+    },
+    "description": "List of named contacts for alert delivery."
+  },
+  "nodes": {
+    "type": "list",
+    "default": [],
+    "items": {
+      "type": "object",
+      "fields": {
+        "name": {
+          "type": "string",
+          "description": "Unique node name (e.g., 'webserver1')."
+        },
+        "address": {
+          "type": "string",
+          "description": "IP address or hostname of the Munin node (client)."
+        },
+        "port": {
+          "type": "number",
+          "default": 4949,
+          "description": "TCP port used by the Munin node (default 4949)."
+        },
+        "group": {
+          "type": "string",
+          "default": "ungrouped",
+          "description": "Logical group to categorize the node (affects HTML grouping)."
+        },
+        "use_node_name": {
+          "type": "string",
+          "default": "yes",
+          "enum": [
+            "yes",
+            "no"
+          ],
+          "description": "Whether to use node name as title in graphs ('yes' recommended)."
+        },
+        "labels": {
+          "type": "object",
+          "default": {},
+          "description": "Optional key-value metadata labels for the node (e.g., location, environment)."
+        }
+      }
+    },
+    "description": "List of Munin nodes (clients) to monitor."
+  },
+  "node_groups": {
+    "type": "list",
+    "default": [],
+    "items": {
+      "type": "object",
+      "fields": {
+        "name": {
+          "type": "string",
+          "description": "Group name (e.g., 'web-servers', 'databases')."
+        },
+        "nodes": {
+          "type": "list",
+          "description": "List of node names to include in this group.",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "description": "Optional groups to organize nodes for web UI grouping (affects HTML 'group' links)."
+  }
+}

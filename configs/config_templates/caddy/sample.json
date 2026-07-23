@@ -1,0 +1,61 @@
+{
+  "global_options": "auto_https off\nadmin off",
+  "sites": [
+    {
+      "address": "example.com",
+      "comment": "Main website \u2014 static files with index fallback",
+      "root": "/var/www/example",
+      "index": "index.html",
+      "tls": {
+        "email": "admin@example.com"
+      },
+      "handlers": [
+        {
+          "name": "encode",
+          "options": {
+            "zstd": "",
+            "gzip": ""
+          }
+        },
+        {
+          "name": "file_server",
+          "options": {
+            "browse": ""
+          }
+        }
+      ],
+      "log": {
+        "path": "/var/log/caddy/example.log",
+        "format": "json"
+      },
+      "errors": {
+        "404": "/errors/404.html"
+      }
+    },
+    {
+      "address": "api.example.com:8080",
+      "root": "/opt/api/public",
+      "handlers": [
+        {
+          "name": "reverse_proxy",
+          "options": {
+            "to": "127.0.0.1:3000",
+            "transport": "http {\n  read_buffer_size 4KiB\n}"
+          }
+        }
+      ],
+      "tls": {
+        "cert": "/etc/caddy/api.crt",
+        "key": "/etc/caddy/api.key"
+      }
+    },
+    {
+      "address": "example.org",
+      "redir": {
+        "from": "*",
+        "to": "https://www.example.org{uri}",
+        "code": "301"
+      }
+    }
+  ]
+}

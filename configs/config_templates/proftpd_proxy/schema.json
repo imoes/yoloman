@@ -1,0 +1,176 @@
+{
+  "server_name": {
+    "type": "string",
+    "default": "ProFTPD Server",
+    "description": "The server name as advertised to clients."
+  },
+  "server_type": {
+    "type": "string",
+    "default": "standalone",
+    "description": "Server mode \u2014 'standalone' or 'inetd'."
+  },
+  "defer_ident": {
+    "type": "bool",
+    "default": false,
+    "description": "Defer IDENT lookups to improve performance. Set to true to skip unnecessary DNS lookups."
+  },
+  "listen_port": {
+    "type": "number",
+    "default": 21,
+    "description": "The port on which the FTP server listens for connections."
+  },
+  "max_clients": {
+    "type": "number",
+    "default": 30,
+    "description": "Maximum number of simultaneous clients allowed."
+  },
+  "host_rules": {
+    "type": "list",
+    "default": [],
+    "description": "List of per-user allow/deny access rules.",
+    "items": {
+      "type": "object",
+      "fields": {
+        "user": {
+          "type": "string",
+          "description": "Username to which this rule applies.",
+          "required": true
+        },
+        "allow": {
+          "type": "bool",
+          "description": "If true, allow access; if false, deny access.",
+          "required": true
+        },
+        "comment": {
+          "type": "string",
+          "description": "Optional comment describing the rule."
+        }
+      }
+    }
+  },
+  "passive_ports": {
+    "type": "object",
+    "default": {
+      "start": 60000,
+      "end": 65535
+    },
+    "description": "Port range for passive FTP data connections.",
+    "fields": {
+      "start": {
+        "type": "number",
+        "description": "First port in the passive range."
+      },
+      "end": {
+        "type": "number",
+        "description": "Last port in the passive range."
+      }
+    }
+  },
+  "tls": {
+    "type": "object",
+    "default": {
+      "enabled": false,
+      "protocol": "TLSv1.2 TLSv1.3",
+      "options": "NoSSLv2 NoSSLv3",
+      "required": false
+    },
+    "description": "TLS/SSL configuration for secure FTP (FTPS).",
+    "fields": {
+      "enabled": {
+        "type": "bool",
+        "description": "Enable TLS encryption for FTP control and data connections."
+      },
+      "protocol": {
+        "type": "string",
+        "description": "Allowed TLS protocol versions (space-separated)."
+      },
+      "options": {
+        "type": "list",
+        "items": {
+          "type": "string"
+        },
+        "description": "TLS options (e.g., 'NoSSLv2 NoSSLv3' or 'NoTLSv1 NoTLSv1.1')."
+      },
+      "required": {
+        "type": "bool",
+        "description": "If true, require TLS for all sessions; otherwise allow plain FTP."
+      },
+      "cert_file": {
+        "type": "string",
+        "description": "Path to the server\u2019s TLS certificate file."
+      },
+      "key_file": {
+        "type": "string",
+        "description": "Path to the server\u2019s TLS private key file."
+      },
+      "ca_file": {
+        "type": "string",
+        "description": "Optional: Path to CA certificate for client verification."
+      }
+    }
+  },
+  "mod_proxy": {
+    "type": "object",
+    "default": {
+      "enabled": false,
+      "timeout": 30,
+      "auth_methods": [
+        "PAM"
+      ],
+      "backends": []
+    },
+    "description": "Enable and configure mod_proxy for proxying FTP requests to remote backends.",
+    "fields": {
+      "enabled": {
+        "type": "bool",
+        "description": "Enable the mod_proxy module."
+      },
+      "timeout": {
+        "type": "number",
+        "description": "Timeout (in seconds) for proxy connections."
+      },
+      "auth_methods": {
+        "type": "list",
+        "items": {
+          "type": "string"
+        },
+        "description": "List of authentication methods supported for proxy connections (e.g., ['PAM', 'Shadow', 'LDAP'])."
+      },
+      "backends": {
+        "type": "list",
+        "description": "List of backend servers to proxy FTP requests to.",
+        "items": {
+          "type": "object",
+          "fields": {
+            "protocol": {
+              "type": "string",
+              "description": "Protocol used by the backend (ftp, http, or https)."
+            },
+            "host": {
+              "type": "string",
+              "description": "Hostname or IP address of the backend server."
+            },
+            "port": {
+              "type": "number",
+              "description": "Port number of the backend server."
+            },
+            "name": {
+              "type": "string",
+              "description": "Optional human-readable name for the backend."
+            }
+          }
+        }
+      }
+    }
+  },
+  "system_log": {
+    "type": "string",
+    "default": "/var/log/proftpd/proftpd.log",
+    "description": "Path to the system (daemon) log file."
+  },
+  "transfer_log": {
+    "type": "string",
+    "default": "/var/log/proftpd/xferlog",
+    "description": "Path to the transfer (file upload/download) log file."
+  }
+}

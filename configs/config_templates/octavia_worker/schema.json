@@ -1,0 +1,317 @@
+{
+  "worker_count": {
+    "type": "number",
+    "default": 2,
+    "description": "Number of worker processes for the Octavia worker service."
+  },
+  "api_worker_count": {
+    "type": "number",
+    "default": 2,
+    "description": "Number of API worker processes to handle incoming REST requests."
+  },
+  "log_dir": {
+    "type": "string",
+    "default": "/var/log/octavia",
+    "description": "Directory where Octavia worker logs are written."
+  },
+  "log_file": {
+    "type": "string",
+    "default": "octavia-worker.log",
+    "description": "Filename for the main worker log file (appended to log_dir)."
+  },
+  "debug_mode": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable debug-level logging for troubleshooting."
+  },
+  "verbose_logging": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable verbose logging (more detailed output at INFO level)."
+  },
+  "audit_logging_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable audit logging for compliance and forensic analysis."
+  },
+  "healthcheck_port": {
+    "type": "number",
+    "default": 8888,
+    "description": "Port for the internal health check listener (used by load balancers to detect service status)."
+  },
+  "healthcheck_host": {
+    "type": "string",
+    "default": "0.0.0.0",
+    "description": "IP address the health check listener binds to (e.g., '127.0.0.1' for localhost-only)."
+  },
+  "amp_driver": {
+    "type": "string",
+    "default": "amphora_haproxy_rest_driver",
+    "description": "Amphora backend driver (e.g., 'amphora_haproxy_rest_driver', 'ovn_driver')."
+  },
+  "provider_driver": {
+    "type": "string",
+    "default": "amphora",
+    "description": "Provider driver (e.g., 'amphora' for amphora-based load balancing, 'ovn' for OVN-based)."
+  },
+  "health_heartbeat_interval": {
+    "type": "number",
+    "default": 10,
+    "description": "Interval (seconds) between health check heartbeats to amphorae."
+  },
+  "health_heartbeat_timeout": {
+    "type": "number",
+    "default": 10,
+    "description": "How long to wait for an amphora heartbeat before marking it as failed."
+  },
+  "health_update_interval": {
+    "type": "number",
+    "default": 30,
+    "description": "Interval (seconds) between health status syncs with the database."
+  },
+  "controller_heartbeat": {
+    "type": "number",
+    "default": 10,
+    "description": "Interval (seconds) between controller heartbeats for self-monitoring."
+  },
+  "amp_failover_heartbeat_threshold": {
+    "type": "number",
+    "default": 3,
+    "description": "Number of missed heartbeats before an amphora is marked dead and triggered for failover."
+  },
+  "db_connection": {
+    "type": "string",
+    "default": "mysql+pymysql://octavia:password@127.0.0.1/octavia?charset=utf8",
+    "description": "Database connection string (SQLAlchemy URI) for the Octavia database."
+  },
+  "db_max_retries": {
+    "type": "number",
+    "default": -1,
+    "description": "Maximum number of database connection retries (set to -1 for infinite)."
+  },
+  "db_retry_interval": {
+    "type": "number",
+    "default": 1,
+    "description": "Delay (seconds) between database connection retries."
+  },
+  "rpc_topic": {
+    "type": "string",
+    "default": "octavia",
+    "description": "RabbitMQ topic used for RPC communication with controllers and amphorae."
+  },
+  "notification_driver": {
+    "type": "string",
+    "default": "messagingv2",
+    "description": "Notification driver for publishing lifecycle events (e.g., 'messagingv2')."
+  },
+  "notify_on_changes": {
+    "type": "string",
+    "default": "error,warning,info,debug",
+    "description": "Event types to publish (comma-separated: error, warning, info, debug, or 'all')."
+  },
+  "rpc_callback_timeout": {
+    "type": "number",
+    "default": 60,
+    "description": "Timeout (seconds) for RPC callbacks (e.g., responses from the controller)."
+  },
+  "keystone_auth_type": {
+    "type": "string",
+    "default": "password",
+    "description": "Keystone authentication type (typically 'password')."
+  },
+  "keystone_auth_url": {
+    "type": "string",
+    "default": "http://keystone:5000/v3",
+    "description": "Keystone endpoint URL for service authentication."
+  },
+  "keystone_project_domain": {
+    "type": "string",
+    "default": "Default",
+    "description": "Keystone project domain name for the Octavia service account."
+  },
+  "keystone_project_name": {
+    "type": "string",
+    "default": "service",
+    "description": "Keystone project (tenant) name where Octavia service account resides."
+  },
+  "keystone_user_domain": {
+    "type": "string",
+    "default": "Default",
+    "description": "Keystone user domain name."
+  },
+  "keystone_username": {
+    "type": "string",
+    "default": "octavia",
+    "description": "Keystone username for the Octavia service account."
+  },
+  "keystone_password": {
+    "type": "string",
+    "default": "",
+    "description": "Password for the Octavia service account in Keystone (leave blank in secure deployments; use secrets management)."
+  },
+  "keystone_insecure": {
+    "type": "bool",
+    "default": false,
+    "description": "Disable TLS certificate verification for Keystone (not recommended for production)."
+  },
+  "ca_certificate_path": {
+    "type": "string",
+    "default": "/etc/octavia/certs/ca_01.pem",
+    "description": "Path to the CA certificate used to verify amphora certificates."
+  },
+  "server_certificate_path": {
+    "type": "string",
+    "default": "/etc/octavia/certs/server.pem",
+    "description": "Path to the server certificate for amphora-to-worker communication."
+  },
+  "server_private_key_path": {
+    "type": "string",
+    "default": "/etc/octavia/certs/private/server_key.pem",
+    "description": "Path to the private key for the server certificate."
+  },
+  "cert_expiry_warning_days": {
+    "type": "number",
+    "default": 30,
+    "description": "Days before certificate expiry to trigger warnings in logs."
+  },
+  "concurrent_process_group": {
+    "type": "number",
+    "default": 2,
+    "description": "Number of concurrent amphora provisioning/deletion operations (per worker)."
+  },
+  "amp_boot_timeout": {
+    "type": "number",
+    "default": 120,
+    "description": "Timeout (seconds) for amphora instance boot before marking as failed."
+  },
+  "amp_image_timeout": {
+    "type": "number",
+    "default": 600,
+    "description": "Timeout (seconds) for building an amphora image (e.g., from Glance)."
+  },
+  "amp_image_retry_interval": {
+    "type": "number",
+    "default": 30,
+    "description": "Minimum interval (seconds) between amphora image build retries."
+  },
+  "amp_threads": {
+    "type": "number",
+    "default": 4,
+    "description": "Number of worker threads for background tasks (e.g., health update batching)."
+  },
+  "pool_size": {
+    "type": "number",
+    "default": 10,
+    "description": "Size of the thread pool for handling concurrent tasks."
+  },
+  "client_timeout": {
+    "type": "number",
+    "default": 60,
+    "description": "Timeout (seconds) for amphora API client calls."
+  },
+  "service_auth_type": {
+    "type": "string",
+    "default": "password",
+    "description": "Authentication type for service-to-service calls (e.g., to Nova, Neutron)."
+  },
+  "service_auth_url": {
+    "type": "string",
+    "default": "http://keystone:5000/v3",
+    "description": "Keystone URL for service-to-service authentication."
+  },
+  "service_project_domain": {
+    "type": "string",
+    "default": "Default",
+    "description": "Domain name for service project (e.g., 'Default')."
+  },
+  "service_project_name": {
+    "type": "string",
+    "default": "service",
+    "description": "Project (tenant) name used for service-to-service auth."
+  },
+  "service_user_domain": {
+    "type": "string",
+    "default": "Default",
+    "description": "User domain for service auth."
+  },
+  "service_username": {
+    "type": "string",
+    "default": "octavia",
+    "description": "Username for service-to-service authentication."
+  },
+  "service_password": {
+    "type": "string",
+    "default": "",
+    "description": "Password for service-to-service authentication (use secrets in production)."
+  },
+  "service_insecure": {
+    "type": "bool",
+    "default": false,
+    "description": "Disable TLS verification for service-to-service calls (testing only)."
+  },
+  "amphora_network": {
+    "type": "string",
+    "default": "amphora-mgmt-net",
+    "description": "Neutron network name for amphora management traffic."
+  },
+  "amphora_subnet": {
+    "type": "string",
+    "default": "amphora-mgmt-subnet",
+    "description": "Neutron subnet name for amphora management traffic."
+  },
+  "amp_floating_ip_pool": {
+    "type": "string",
+    "default": "",
+    "description": "Neutron floating IP pool name for amphora public access (leave blank if not used)."
+  },
+  "amphora_security_groups": {
+    "type": "list",
+    "default": [
+      "amphora-sec-grp"
+    ],
+    "items": {
+      "type": "string"
+    },
+    "description": "List of security group names/IDs to apply to amphora management interfaces."
+  },
+  "ha_network_id": {
+    "type": "string",
+    "default": "",
+    "description": "UUID of HA network for active/standby amphorae (optional; auto-generated if blank)."
+  },
+  "ha_network_name": {
+    "type": "string",
+    "default": "",
+    "description": "Name of HA network (used if ha_network_id is blank)."
+  },
+  "ha_subnet_id": {
+    "type": "string",
+    "default": "",
+    "description": "UUID of HA subnet for active/standby amphorae (optional)."
+  },
+  "ha_subnet_name": {
+    "type": "string",
+    "default": "",
+    "description": "Name of HA subnet (used if ha_subnet_id is blank)."
+  },
+  "compute_driver": {
+    "type": "string",
+    "default": "nova",
+    "description": "Compute driver used for amphora provisioning (e.g., 'nova')."
+  },
+  "vithoria_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable the Vithoria plugin for advanced Octavia features (e.g., SNI, TLS passthrough)."
+  },
+  "vithoria_url": {
+    "type": "string",
+    "default": "http://vithoria:9090",
+    "description": "URL of the Vithoria plugin endpoint."
+  },
+  "vithoria_token": {
+    "type": "string",
+    "default": "",
+    "description": "Authentication token for the Vithoria plugin (use secrets management in production)."
+  }
+}

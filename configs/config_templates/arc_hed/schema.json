@@ -1,0 +1,173 @@
+{
+  "hed.host": {
+    "type": "string",
+    "default": "0.0.0.0",
+    "description": "IP address or hostname to bind the ARC HED service to. Use 0.0.0.0 to listen on all interfaces."
+  },
+  "hed.port": {
+    "type": "number",
+    "default": 5444,
+    "description": "TCP port for the main ARC HED API service (HTTP/HTTPS)."
+  },
+  "hed.pidfile": {
+    "type": "string",
+    "default": "/run/arc/hed.pid",
+    "description": "Path to the file where the daemon writes its process ID."
+  },
+  "hed.loglevel": {
+    "type": "string",
+    "default": "INFO",
+    "description": "Verbosity level for daemon logging."
+  },
+  "hed.logfile": {
+    "type": "string",
+    "default": "/var/log/arc/hed.log",
+    "description": "Path to the log file. Leave empty to log to stdout only."
+  },
+  "hed.max_threads": {
+    "type": "number",
+    "default": 16,
+    "description": "Maximum number of worker threads to handle incoming requests."
+  },
+  "hed.check_interval": {
+    "type": "number",
+    "default": 30,
+    "description": "Interval (in seconds) between periodic health checks of hosting environments."
+  },
+  "hed.ssl_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable SSL/TLS encryption for the main service port (HTTPS)."
+  },
+  "hed.ssl_cert": {
+    "type": "string",
+    "default": "/etc/arc/ssl/server.crt",
+    "description": "Path to the SSL certificate file (PEM format). Required if SSL is enabled."
+  },
+  "hed.ssl_key": {
+    "type": "string",
+    "default": "/etc/arc/ssl/server.key",
+    "description": "Path to the SSL private key file (PEM format). Required if SSL is enabled."
+  },
+  "hed.ssl_ca_cert": {
+    "type": "string",
+    "default": "/etc/arc/ssl/ca.crt",
+    "description": "Path to the CA certificate chain (PEM format) for validating client certificates."
+  },
+  "hed.client_cert_auth": {
+    "type": "bool",
+    "default": false,
+    "description": "Require and verify client certificates for authentication (mTLS)."
+  },
+  "hed.shared_dir": {
+    "type": "string",
+    "default": "/var/lib/arc/hed/shared",
+    "description": "Directory for shared coordination files (e.g., lock files, state sync)."
+  },
+  "hed.exec_timeout": {
+    "type": "number",
+    "default": 300,
+    "description": "Maximum time (in seconds) allowed for external commands (e.g., job submission, status query)."
+  },
+  "hed.debug": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable verbose debugging mode for troubleshooting."
+  },
+  "hed.hetemplates_dir": {
+    "type": "string",
+    "default": "/usr/share/arc/hetemplates",
+    "description": "Directory containing templates for hosting environment configuration files."
+  },
+  "hed.hestate_dir": {
+    "type": "string",
+    "default": "/var/lib/arc/hestate",
+    "description": "Directory to store runtime state of hosting environments."
+  },
+  "hed.environments": {
+    "type": "list",
+    "default": [],
+    "description": "List of ARC hosting environments to manage.",
+    "items": {
+      "name": {
+        "type": "string",
+        "description": "Unique name for the hosting environment.",
+        "required": true
+      },
+      "enabled": {
+        "type": "bool",
+        "description": "Whether the hosting environment is active.",
+        "default": true
+      },
+      "executor": {
+        "type": "string",
+        "description": "Executor plugin to use (e.g., 'local', 'slurm', 'pbs', 'condor').",
+        "required": true
+      },
+      "resources": {
+        "type": "list",
+        "description": "List of resource names (from 'hed.resources') to associate with this hosting environment.",
+        "default": []
+      }
+    }
+  },
+  "hed.resources": {
+    "type": "list",
+    "default": [],
+    "description": "List of computing resources managed by ARC (referenced by hosting environments).",
+    "items": {
+      "name": {
+        "type": "string",
+        "description": "Unique name for the resource.",
+        "required": true
+      },
+      "host": {
+        "type": "string",
+        "description": "Hostname or IP address of the resource's ARC CE or scheduler.",
+        "required": true
+      },
+      "port": {
+        "type": "number",
+        "description": "Port used by the resource's ARC service (e.g., 2811 for gRPC, 8080 for REST).",
+        "default": 2811
+      },
+      "auth_method": {
+        "type": "string",
+        "enum": [
+          "gssapi",
+          "x509",
+          "password"
+        ],
+        "description": "Authentication method to use when connecting to the resource.",
+        "required": true
+      },
+      "proxy_cert": {
+        "type": "string",
+        "description": "Path to the delegation proxy certificate (for GSSAPI or X.509 auth)."
+      },
+      "username": {
+        "type": "string",
+        "description": "Username for password-based authentication (not stored in config by default)."
+      },
+      "password": {
+        "type": "string",
+        "description": "Password (or credential reference) for password-based authentication. Use secure storage in production."
+      }
+    }
+  },
+  "hed.monitoring.enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable the internal HTTP health/status endpoint (for load balancers/monitors)."
+  },
+  "hed.monitoring.port": {
+    "type": "number",
+    "default": 5445,
+    "description": "Port for the monitoring endpoint (HTTP only)."
+  },
+  "hed.monitoring.path": {
+    "type": "string",
+    "default": "/healthz",
+    "description": "URL path for the health check endpoint."
+  }
+}

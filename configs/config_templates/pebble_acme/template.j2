@@ -1,0 +1,37 @@
+{# Configuration directory for Pebble ACME test server #}
+{
+  "pebble": {
+    "listenAddress": "{{ listen_address }}",
+    "managementListenAddress": "{{ management_address }}",
+    "certificate": "{{ certificate_path }}",
+    "privateKey": "{{ private_key_path }}",
+    "caCertificate": "{{ ca_certificate_path }}",
+    "ocspResponderURL": "{{ ocsp_responder_url }}",
+    "mode": "{{ mode }}",
+    "httpPort": {{ http_port }},
+    "httpsPort": {{ https_port }},
+    "managementPort": {{ management_port }},
+    "maxConcurrentRequests": {{ max_concurrent_requests }},
+    "maxMemoryBytes": {{ max_memory_bytes }},
+    "rateLimit": {
+      "maxRequestsPerDomainPerDay": {{ rate_limit_max_requests_per_domain_per_day }},
+      "maxPendingAuthorizationsPerAccount": {{ rate_limit_max_pending_authorizations_per_account }},
+      "maxCertificatesPerDomainPerWeek": {{ rate_limit_max_certificates_per_domain_per_week }}
+    },
+    "features": {
+      "enableCT": {{ features_enable_ct }},
+      "enableSTRICT": {{ features_enable_strict }},
+      "enableNOSCT": {{ features_enable_nosct }}
+    },
+    "domains": [
+{% for domain in domains %}      "{{ domain }}"{% if not loop.last %},{% endif %}
+{% endfor %}    ],
+    "accountKeys": [
+{% for account in account_keys %}      {{ account | tojson }}
+{% endfor %}    ],
+    "webroot": "{{ webroot }}",
+    "revocationEndpoint": "{{ revocation_endpoint }}",
+    "revocationReason": {{ revocation_reason | default(0) }},
+    "logLevel": "{{ log_level }}"
+  }
+}

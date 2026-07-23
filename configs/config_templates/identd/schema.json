@@ -1,0 +1,94 @@
+{
+  "port": {
+    "type": "number",
+    "default": 113,
+    "description": "TCP port the daemon listens on. RFC 1413 reserves port 113; change only if running behind a port-forward."
+  },
+  "bind_address": {
+    "type": "string",
+    "default": "0.0.0.0",
+    "description": "IPv4 address to bind to. Use 0.0.0.0 for all interfaces or a specific address to restrict which NIC accepts connections."
+  },
+  "user": {
+    "type": "string",
+    "default": "nobody",
+    "description": "Unix user account the daemon drops to after binding. Must exist on the system; 'nobody' is a safe least-privilege choice."
+  },
+  "group": {
+    "type": "string",
+    "default": "nogroup",
+    "description": "Unix group the daemon drops to after binding. Pair with the user above; 'nogroup' grants no special filesystem access."
+  },
+  "pid_file": {
+    "type": "string",
+    "default": "/var/run/ident2.pid",
+    "description": "Path where the daemon writes its PID on startup. Used by init systems and monitoring agents for process supervision."
+  },
+  "timeout": {
+    "type": "number",
+    "default": 30,
+    "description": "Seconds to wait for a client to complete an ident query. Lower values protect against slow-loris style connection exhaustion."
+  },
+  "max_connections": {
+    "type": "number",
+    "default": 100,
+    "description": "Maximum simultaneous in-flight ident connections. Size this to your busiest mail/IRC server's concurrency \u2014 50\u2013100 is typical."
+  },
+  "os_type": {
+    "type": "string",
+    "default": "UNIX",
+    "description": "OS type token embedded in ident replies per RFC 1413 \u00a72.7. Standard values are UNIX and OTHER; some clients require UNIX to parse the reply."
+  },
+  "use_syslog": {
+    "type": "bool",
+    "default": true,
+    "description": "Route log output through syslog (recommended). Set false to log to a plain file instead; then set log_file."
+  },
+  "log_file": {
+    "type": "string",
+    "default": "/var/log/ident2.log",
+    "description": "Absolute path to the log file used when use_syslog is false. The directory must be writable by the daemon user."
+  },
+  "log_level": {
+    "type": "string",
+    "default": "info",
+    "description": "Log verbosity: error (quiet), warn, info (recommended for production), or debug (verbose, for troubleshooting only)."
+  },
+  "response_mode": {
+    "type": "string",
+    "default": "real",
+    "description": "Controls what the daemon returns for a successful lookup. real = actual username; masquerade = a fixed fake name; noident = RFC NOIDENT; error = ERROR:UNKNOWN-ERROR. Use masquerade or noident to avoid leaking usernames."
+  },
+  "masquerade_name": {
+    "type": "string",
+    "default": "UNKNOWN",
+    "description": "The fake username returned for every query when response_mode is masquerade. Ignored in all other modes."
+  },
+  "enable_ipv6": {
+    "type": "bool",
+    "default": true,
+    "description": "Open an IPv6 listener alongside the IPv4 one. Required for dual-stack hosts that receive ident queries over IPv6."
+  },
+  "deny_rules": {
+    "type": "list",
+    "default": [],
+    "description": "Networks whose ident queries are rejected before any allow rule is evaluated. Use to block untrusted external ranges.",
+    "items": {
+      "network": {
+        "type": "string",
+        "description": "CIDR block to deny, e.g. 10.0.0.0/8 or 0.0.0.0/0."
+      }
+    }
+  },
+  "allow_rules": {
+    "type": "list",
+    "default": [],
+    "description": "Networks whose ident queries are explicitly allowed. An empty list permits all sources (after deny rules). Populate this to whitelist specific trusted networks.",
+    "items": {
+      "network": {
+        "type": "string",
+        "description": "CIDR block to allow, e.g. 192.168.1.0/24 or 172.16.0.0/12."
+      }
+    }
+  }
+}

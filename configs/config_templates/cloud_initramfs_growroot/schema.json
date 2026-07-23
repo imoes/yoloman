@@ -1,0 +1,38 @@
+{
+  "once_only": {
+    "type": "bool",
+    "default": true,
+    "description": "Grow the root partition only on the first boot. After a successful run a sentinel file is written; all subsequent boots skip the script. Set to false to attempt resize on every boot (not recommended for production images)."
+  },
+  "sentinel_file": {
+    "type": "string",
+    "default": "/etc/growroot-deleted",
+    "description": "Absolute path of the one-time sentinel file written after a successful grow. Only relevant when once_only is true. The file is created inside the real root filesystem, not the initramfs."
+  },
+  "partition_settle_wait_sec": {
+    "type": "number",
+    "default": 1,
+    "description": "Seconds to sleep after growpart exits, giving the kernel time to re-read the updated partition table before the root filesystem is mounted read-write. Increase on slow virtual storage backends."
+  },
+  "growpart_binary": {
+    "type": "string",
+    "default": "/usr/bin/growpart",
+    "description": "Absolute path to the growpart executable (shipped by cloud-guest-utils on Debian/Ubuntu or cloud-utils on RHEL). Change only when growpart is installed in a non-standard location inside the initramfs."
+  },
+  "skip_partitions": {
+    "type": "list",
+    "default": [],
+    "description": "Partition numbers (as strings) that must never be auto-resized. Use this to protect EFI system partitions, BIOS-boot partitions, or reserved swap slots.",
+    "items": {
+      "partition_number": {
+        "type": "string",
+        "description": "Partition number to exclude from automatic grow, e.g. \"2\" or \"15\"."
+      }
+    }
+  },
+  "reboot_after_grow": {
+    "type": "bool",
+    "default": false,
+    "description": "Trigger an immediate kernel reboot via /proc/sysrq-trigger after resizing. Required on some cloud images where the in-memory partition table cannot be updated live. This bypasses normal init-bottom processing \u2014 use only when necessary."
+  }
+}

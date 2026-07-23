@@ -1,0 +1,77 @@
+# Quorum device configuration for corosync-qnetd
+# TLS certificate paths for client/server authentication
+tls: on
+
+# Host address the qnetd daemon will bind to (0.0.0.0 for all interfaces)
+host: {{ host }}
+
+# TCP port used by qnetd for incoming connections
+port: {{ port }}
+
+# Directory containing CA certificate, server certificate, and server key
+# Ensure correct permissions (e.g., 0700) on these files
+certdir: {{ certdir }}
+
+# Certificate file used by qnetd to present itself to clients
+certificate_file: {{ certdir }}/qnetd-certificate.crt
+
+# Private key file used by qnetd for TLS handshake
+key_file: {{ certdir }}/qnetd-key.crt
+
+# CA certificate used to verify client certificates
+ca_file: {{ certdir }}/qnetd-ca-certificate.crt
+
+# CRL (Certificate Revocation List) file — optional; comment out if unused
+crl_file: {{ crl_file | default('') }}
+
+# Algorithm used for TLS cipher suites
+# Allowed: 'high', 'medium', 'low' or explicit OpenSSL cipher string
+tls_algorithm: {{ tls_algorithm }}
+
+# Number of worker threads to handle client requests
+# Set to 0 to auto-detect based on CPU cores
+work_threads: {{ work_threads }}
+
+# Maximum number of pending connections in queue
+max_connections: {{ max_connections }}
+
+# Logging verbosity level
+# Allowed: 'debug', 'info', 'notice', 'warning', 'err', 'crit', 'alert', 'emerg'
+log_level: {{ log_level }}
+
+# Log file path — comment out to log to stdout/syslog
+log_file: {{ log_file | default('') }}
+
+# Algorithm used for quorum device scoring and tie-breaking
+algorithm: {{ algorithm }}
+
+# List of allowed client nodes (by TLS cert CN or IP). If empty, allow all.
+# Use 'client' blocks if per-client configuration is needed
+{% if clients | default([]) | length > 0 %}
+{% for client in clients %}
+# Client configuration for '{{ client.cn }}'
+client {
+  # Common Name (CN) from client certificate, or IP address
+cn: {{ client.cn }}
+  # Optional: override algorithm for this client
+algorithm: {{ client.algorithm | default('') | default('') }}
+  # Optional: custom node ID (must be unique and <= 15 chars)
+node_id: {{ client.node_id | default('') | default('') }}
+}
+{% endfor %}
+{% else %}
+# No per-client rules defined; allow all verified clients
+core_only: on
+{% endif %}
+
+# Timeout (in milliseconds) for quorum device response to client requests
+timeout: {{ timeout }}
+
+# Number of heartbeats missed before a node is considered lost
+max_missed: {{ max_missed }}
+
+# Interval (in milliseconds) between quorum device heartbeats
+interval: {{ interval }}
+
+# Minimum number of active nodes required for the cluster to maintain quorum
+minimum_nodes: {{ minimum_nodes }}

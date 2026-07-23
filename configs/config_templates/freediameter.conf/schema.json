@@ -1,0 +1,160 @@
+{
+  "identity": {
+    "type": "string",
+    "default": "freediameter.example.net",
+    "description": "FQDN (or URI) uniquely identifying this Diameter node."
+  },
+  "realm": {
+    "type": "string",
+    "default": "example.net",
+    "description": "Diameter realm this node belongs to (used for routing and authentication)."
+  },
+  "vendor_id": {
+    "type": "number",
+    "default": 193,
+    "description": "IANA-assigned Vendor ID (193 = freeswitch.org, 0 = default/undefined)."
+  },
+  "product_name": {
+    "type": "string",
+    "default": "FreeDiameter",
+    "description": "Free-form product name string (shown in product-name AVP)."
+  },
+  "fqdn_format": {
+    "type": "bool",
+    "default": true,
+    "description": "Use FQDN format for local hostname resolution (recommended)."
+  },
+  "use_tls": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable TLS for secure Diameter connections (requires certificate files)."
+  },
+  "use_dtls": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable DTLS for Diameter over UDP (less common)."
+  },
+  "tls_certificate_file": {
+    "type": "string",
+    "default": "/etc/freediameter/server.pem",
+    "description": "Path to TLS certificate (PEM format)."
+  },
+  "tls_private_key_file": {
+    "type": "string",
+    "default": "/etc/freediameter/server.key",
+    "description": "Path to TLS private key (PEM format, unencrypted)."
+  },
+  "ca_list": {
+    "type": "string",
+    "default": "/etc/freediameter/cacerts.pem",
+    "description": "Path to CA certificate bundle (PEM format) for peer verification."
+  },
+  "listeners": {
+    "type": "list",
+    "default": [
+      {
+        "address": "0.0.0.0",
+        "port": 3868,
+        "proto": "sctp"
+      },
+      {
+        "address": "127.0.0.1",
+        "port": 3868,
+        "proto": "tcp"
+      }
+    ],
+    "description": "List of network interfaces to listen on (SCTP recommended, TCP fallback).",
+    "items": {
+      "type": "object",
+      "fields": {
+        "address": {
+          "type": "string",
+          "description": "IP address to bind (e.g., 0.0.0.0, 10.0.0.5)."
+        },
+        "port": {
+          "type": "number",
+          "description": "Diameter port (default 3868)."
+        },
+        "proto": {
+          "type": "string",
+          "enum": [
+            "sctp",
+            "tcp",
+            "udp"
+          ],
+          "description": "Transport protocol (sctp recommended)."
+        }
+      }
+    }
+  },
+  "allowed_peers": {
+    "type": "list",
+    "default": [],
+    "description": "List of peer FQDNs permitted to connect (leave empty to disable peer restrictions \u2014 not recommended).",
+    "items": {
+      "type": "string"
+    }
+  },
+  "extensions": {
+    "type": "list",
+    "default": [
+      {
+        "path": "libfreediameter-3gpp.so",
+        "enabled": true
+      },
+      {
+        "path": "libfreediameter-dcca.so",
+        "enabled": true
+      }
+    ],
+    "description": "List of Diameter extension modules to load.",
+    "items": {
+      "type": "object",
+      "fields": {
+        "path": {
+          "type": "string",
+          "description": "Path to the shared library (.so) for the extension."
+        },
+        "enabled": {
+          "type": "bool",
+          "description": "Whether to load this extension."
+        }
+      }
+    }
+  },
+  "log_file": {
+    "type": "string",
+    "default": "/var/log/freediameter/freediameter.log",
+    "description": "Path to log file (or leave empty to log to stdout/syslog)."
+  },
+  "log_level": {
+    "type": "number",
+    "default": 7,
+    "description": "Verbosity level: 0 (none) to 9 (debug). Recommend 7 for production."
+  },
+  "disabled_commands": {
+    "type": "list",
+    "default": [],
+    "description": "List of command codes to disable (e.g., 257 for Capabilities-Exchange)."
+  },
+  "originate_conn": {
+    "type": "bool",
+    "default": true,
+    "description": "Allow this node to originate connections to peers (not just listen)."
+  },
+  "cnx_retry_time": {
+    "type": "number",
+    "default": 30,
+    "description": "Initial retry timeout (seconds) for failed peer connections."
+  },
+  "cnx_max_retry_time": {
+    "type": "number",
+    "default": 300,
+    "description": "Maximum retry timeout (seconds) after exponential backoff."
+  },
+  "cnx_max_retrans": {
+    "type": "number",
+    "default": 3,
+    "description": "Maximum retransmissions for unacknowledged messages before failing."
+  }
+}

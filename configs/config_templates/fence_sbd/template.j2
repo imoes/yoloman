@@ -1,0 +1,29 @@
+# STONITH block device (SBD) fence agent configuration
+# This file defines SBD parameters for use by fence_sbd in cluster environments
+# Must be readable by root and fenced daemon
+
+# Path to the SBD device(s) used for fencing (block devices or loopback files)
+SBD_DEVICE="{{ sbd_devices | join(':') }}"
+
+# Enable SBD daemon for local node fencing (on/off)
+SBDDaemon="{{ sbd_daemon_enabled | lower }}"
+
+# Time in seconds to wait for a node to respond before triggering fence (must be >= 1)
+SBDTimeout="{{ sbd_timeout | default(10) }}"
+
+# Time in seconds between watchdog pings (must be < SBDTimeout / 2)
+SBDWatchdogTimeout="{{ sbd_watchdog_timeout | default(5) }}"
+
+# Number of messages that can be lost before triggering fence
+SBDNumMessages="{{ sbd_num_messages | default(3) }}"
+
+# Delay in seconds before starting SBD daemon after boot (helps with slow storage)
+SBDStartDelay="{{ sbd_start_delay | default(0) }}"
+
+# Enable verbose logging (on/off)
+SBDDebug="{{ sbd_debug | lower }}"
+
+# Optional: additional options passed directly to fence_sbd
+# (e.g., -z for zero-length message mode, -p for partition mode)
+{% if sbd_extra_options %}# Extra options for fence_sbd
+SBDExtraOptions="{{ sbd_extra_options }}"{% endif %}

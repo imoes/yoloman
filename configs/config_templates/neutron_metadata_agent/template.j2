@@ -1,0 +1,92 @@
+[DEFAULT]
+# The host IP address used by the metadata agent to listen for requests
+bind_host = {{ metadata_bind_host }}
+
+# The TCP port used by the metadata agent
+bind_port = {{ metadata_bind_port }}
+
+# Path to the Neutron configuration file for agent-to-core communication
+neutron_config_file = {{ neutron_config_file }}
+
+# Path to the Nova configuration file for metadata proxy authorization (if used)
+nova_metadata_ini = {{ nova_metadata_ini }}
+
+# Shared secret used to sign metadata request headers (must match nova.conf)
+metadata_proxy_shared_secret = {{ metadata_proxy_shared_secret }}
+
+# Whether to enable metadata proxy (required when using neutron metadata proxy)
+enable_metadata_proxy = {{ enable_metadata_proxy | lower }}
+
+# Number of worker processes for handling requests
+workers = {{ workers }}
+
+# Number of RPC worker processes for handling notifications
+rpc_workers = {{ rpc_workers }}
+
+# Logging configuration
+log_file = {{ log_file }}
+log_dir = {{ log_dir }}
+
+# Debug mode
+debug = {{ debug | lower }}
+
+# Verbose logging
+verbose = {{ verbose | lower }}
+
+# Logging format string
+log_format = {{ log_format }}
+
+# Logging date format
+log_date_format = {{ log_date_format }}
+
+{% if debug_loggers %}
+# Additional debug loggers (comma-separated logger names)
+debug_loggers = {{ debug_loggers | join(', ') }}
+{% endif %}
+
+# Timeout (seconds) for metadata requests to the Neutron API
+metadata_workers = {{ metadata_workers }}
+
+# SSL/TLS configuration for metadata service endpoint
+# (used only if metadata_service_ssl is True)
+{% if metadata_service_ssl %}
+metadata_service_ssl = {{ metadata_service_ssl | lower }}
+metadata_service_ca_cert = {{ metadata_service_ca_cert }}
+metadata_service_cert = {{ metadata_service_cert }}
+metadata_service_key = {{ metadata_service_key }}
+{% endif %}
+
+# Metadata proxy health check interval (seconds)
+metadata_proxy_healthcheck_interval = {{ metadata_proxy_healthcheck_interval }}
+
+# Metadata proxy health check timeout (seconds)
+metadata_proxy_healthcheck_timeout = {{ metadata_proxy_healthcheck_timeout }}
+
+# Maximum number of retries for metadata proxy requests
+metadata_proxy_max_retries = {{ metadata_proxy_max_retries }}
+
+# Retry delay (seconds) for metadata proxy requests
+metadata_proxy_retry_delay = {{ metadata_proxy_retry_delay }}
+
+# Use SSL for communication with Nova metadata service
+{% if use_ssl_with_nova %}
+use_ssl_with_nova = {{ use_ssl_with_nova | lower }}
+nova_metadata_insecure = {{ nova_metadata_insecure | lower }}
+nova_metadata_client_cert = {{ nova_metadata_client_cert }}
+nova_metadata_client_key = {{ nova_metadata_client_key }}
+nova_metadata_ca_cert = {{ nova_metadata_ca_cert }}
+{% endif %}
+
+# Cache configuration (e.g., for metadata caching)
+{% if metadata_cache_enabled %}
+metadata_cache_enabled = {{ metadata_cache_enabled | lower }}
+metadata_cache_memcached_servers = {{ metadata_cache_memcached_servers | join(', ') }}
+metadata_cache_ttl = {{ metadata_cache_ttl }}
+{% endif %}
+
+[AGENT]
+# Agent reporting interval (seconds)
+report_interval = {{ agent_report_interval }}
+
+# Agent log level (optional; overrides DEFAULT.log_level)
+# log_level = {{ agent_log_level }}

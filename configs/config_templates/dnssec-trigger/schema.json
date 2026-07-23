@@ -1,0 +1,80 @@
+{
+  "validation": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable DNSSEC validation in the upstream resolver (Unbound/BIND). Required for correct DNSSEC behavior."
+  },
+  "unbound_conf": {
+    "type": "string",
+    "default": "/etc/unbound/unbound.conf",
+    "description": "Path to the Unbound configuration file that dnssec-trigger will modify to enable DNSSEC."
+  },
+  "bind_conf": {
+    "type": "string",
+    "default": "",
+    "description": "Path to the BIND configuration file (e.g., /etc/named.conf). Leave empty if only using Unbound."
+  },
+  "trust_anchor_files": {
+    "type": "list",
+    "default": [
+      "/etc/dnssec-trigger/root-ksk-2017.sha256",
+      "/etc/dnssec-trigger/root-ksk-2017.sha384"
+    ],
+    "items": {
+      "type": "string",
+      "description": "Path to a file containing a root key tag (KSK) for DNSSEC trust anchor validation."
+    },
+    "description": "List of files containing trusted root DNSKEY key tags. Used for initial trust anchor setup and fallback."
+  },
+  "auto_update": {
+    "type": "bool",
+    "default": true,
+    "description": "Allow dnssec-trigger to automatically update the DNSSEC trust anchor (RFC 5011) based on DNSKEY RRs from the root zone."
+  },
+  "hooks": {
+    "type": "list",
+    "default": [],
+    "items": {
+      "type": "object",
+      "fields": {
+        "description": {
+          "type": "string",
+          "description": "Human-readable description of the hook\u2019s purpose (e.g., 'Notify monitoring system')"
+        },
+        "path": {
+          "type": "string",
+          "description": "Absolute path to the executable script or binary to run."
+        }
+      }
+    },
+    "description": "Scripts to run on trust anchor change, validation failure, or other events. Each hook is called with event type and payload on stdout."
+  },
+  "verbose": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable verbose logging for troubleshooting and debugging."
+  },
+  "refresh_interval": {
+    "type": "number",
+    "default": 86400,
+    "description": "Interval (in seconds) between checks for new trust anchors (e.g., root DNSKEY updates). Default is 24 hours."
+  },
+  "modules": {
+    "type": "list",
+    "default": [],
+    "items": {
+      "type": "object",
+      "fields": {
+        "name": {
+          "type": "string",
+          "description": "Logical name for the module (used in logs and messages)."
+        },
+        "path": {
+          "type": "string",
+          "description": "Path to the shared library (.so) or Python script implementing the module."
+        }
+      }
+    },
+    "description": "Optional custom modules to extend dnssec-trigger behavior (e.g., support for non-standard DNSSEC key sources)."
+  }
+}

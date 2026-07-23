@@ -1,0 +1,95 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Default D-Bus system bus configuration -->
+<!DOCTYPE busconfig PUBLIC "-//freedesktop//DTD D-BUS Bus Configuration 1.0//EN"
+ "http://www.freedesktop.org/standards/dbus/1.0/busconfig.dtd">
+<busconfig>
+
+  <!-- Listen on the system bus transport (Unix domain socket by default) -->
+  <listen>{{ listen_address | default('unix:path=/var/run/dbus/system_bus_socket') }}</listen>
+
+  <!-- Enable systemd socket activation if available -->
+  {% if systemd_socket_activation | default(false) %}
+  <!-- Use systemd socket activation for improved startup and resource management -->
+  <listen>systemd:activation=yes</listen>
+  {% endif %}
+
+  <!-- Policy: default deny unless explicitly allowed -->
+  <policy context="default">
+    <!-- Allow everyone to connect -->
+    <allow user="*"/>
+
+    <!-- Allow everyone to send messages to all services -->
+    <allow send_destination="*" send_interface="*"/>
+
+    <!-- Allow everyone to receive broadcast messages -->
+    <allow send_type="signal"/>
+
+    <!-- Allow everyone to register well-known names (subject to name ownership restrictions below) -->
+    <allow own="*"/>
+
+    <!-- Deny unprivileged users from watching security-sensitive signals -->
+    <deny send_destination="org.freedesktop.DBus" send_interface="org.freedesktop.DBus" send_member="Subscribe"/>
+  </policy>
+
+  <!-- Policy for root user (full access) -->
+  <policy context="root">
+    <allow own="*"/>
+    <allow send_destination="*"/>
+    <allow receive_sender="*"/>
+  </policy>
+
+  <!-- Policy for system services (UID range typically ≥ 1000, configurable) -->
+  {% for service in system_services %}
+  <!-- Policy for system service: {{ service.name }} (UID: {{ service.uid | default(service.name) }}) -->
+  <policy user="{{ service.uid | default(service.name) }}">
+    <allow own="{{ service.well_known_name }}"/>
+    <allow send_destination="{{ service.well_known_name }}"/>
+    <allow receive_sender="{{ service.well_known_name }}"/>
+  </policy>
+  {% endfor %}
+
+  <!-- Security policy: restrict high-privilege services -->
+  <policy user="root">
+    <allow own="org.freedesktop.systemd1"/>
+    <allow send_destination="org.freedesktop.systemd1"/>
+    <allow receive_sender="org.freedesktop.systemd1"/>
+  </policy>
+
+  <!-- Whitelist trusted system services that must have guaranteed access -->
+  {% for trusted in trusted_services %}
+  <!-- Trusted service: {{ trusted.name }} -->
+  <policy context="trusted">
+    <allow own="{{ trusted.well_known_name }}"/>
+    <allow send_destination="{{ trusted.well_known_name }}"/>
+    <allow receive_sender="{{ trusted.well_known_name }}"/>
+  </policy>
+  {% endfor %}
+
+  <!-- Include additional configuration fragments from a directory -->
+  <includedir>{{ includedir | default('/etc/dbus-1/system.d') }}</includedir>
+
+  <!-- Logging configuration -->
+  <!-- syslog: log to system log; console: log to stderr (if daemonized in foreground) -->
+  <log{{ log_destination | default('syslog') | lower }}>{{ log_destination | default('syslog') }}</log>
+
+  <!-- Maximum number of pending connections -->
+  <limits connections="{{ limits_connections | default(1024) }}"/>
+
+  <!-- Maximum number of messages per connection -->
+  <limits max_replies_per_connection="{{ limits_max_replies | default(50) }}"/>
+
+  <!-- Maximum time (in milliseconds) a message can remain in the queue -->
+  <limits max_message_size="{{ limits_max_message_size | default(131072) }}"/>
+
+  <!-- Enable systemd activation support -->
+  <extension path="/usr/lib/dbus-1.0/dbus-daemon-extension" type="systemd">
+    <argument name="systemd-activation" value="yes"/>
+  </extension>
+
+  <!-- Shutdown behavior: exit when all clients disconnect? -->
+  {% if shutdown_on_disconnect | default(false) %}
+  <!-- Enable shutdown on idle (dangerous on production systems!) -->
+  <shutdown_idle/>
+  {% endif %}
+
+</busconfig>

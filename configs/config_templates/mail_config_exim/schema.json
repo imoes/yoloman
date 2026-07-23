@@ -1,0 +1,445 @@
+{
+  "primary_hostname": {
+    "type": "string",
+    "default": "mail.example.com",
+    "description": "Primary domain name used for this mail server (e.g., in HELO, envelope sender, and TLS SNI)."
+  },
+  "local_domains": {
+    "type": "list",
+    "items": {
+      "type": "string",
+      "description": "A domain name (or list of domains) this server considers local (mail is accepted and delivered locally)."
+    },
+    "default": [
+      "example.com",
+      "localhost"
+    ],
+    "description": "List of domains for which this server will accept and deliver mail locally."
+  },
+  "relay_domains": {
+    "type": "list",
+    "items": {
+      "type": "string",
+      "description": "A domain name (or list of domains) this server will relay mail for (if the sender is authorized)."
+    },
+    "default": [],
+    "description": "Domains for which this server will relay mail (e.g., for other internal hosts)."
+  },
+  "allow_hosts": {
+    "type": "list",
+    "items": {
+      "type": "string",
+      "description": "IP address or CIDR subnet (e.g., 127.0.0.1, 192.168.1.0/24)."
+    },
+    "default": [
+      "127.0.0.1"
+    ],
+    "description": "Hosts allowed to submit mail without authentication (e.g., localhost and internal network)."
+  },
+  "allow_relay_hosts": {
+    "type": "list",
+    "items": {
+      "type": "string",
+      "description": "IP address or CIDR subnet."
+    },
+    "default": [],
+    "description": "Hosts allowed to relay mail for domains listed in relay_domains (without authentication)."
+  },
+  "enable_tls": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable TLS (STARTTLS) for SMTP connections."
+  },
+  "tls_cert_path": {
+    "type": "string",
+    "default": "/etc/ssl/certs/mail.crt",
+    "description": "Path to the TLS certificate file (PEM format, readable by Debian-exim)."
+  },
+  "tls_key_path": {
+    "type": "string",
+    "default": "/etc/ssl/private/mail.key",
+    "description": "Path to the TLS private key file (PEM format, readable by Debian-exim)."
+  },
+  "auth_mechanisms": {
+    "type": "list",
+    "items": {
+      "type": "object",
+      "fields": {
+        "driver": {
+          "type": "string",
+          "default": "login",
+          "description": "Authentication driver: login, plain, cram_md5, dovecot, etc."
+        },
+        "enabled": {
+          "type": "bool",
+          "default": false,
+          "description": "Enable this authentication mechanism."
+        },
+        "public_name": {
+          "type": "string",
+          "default": "",
+          "description": "Optional public name advertised in AUTH (e.g., 'LOGIN')."
+        },
+        "server_condition": {
+          "type": "string",
+          "default": "",
+          "description": "Condition to validate credentials (e.g., check password)."
+        },
+        "server_set_id": {
+          "type": "string",
+          "default": "",
+          "description": "Macro to set authenticated user identity (e.g., $1 for captured group)."
+        },
+        "client_secret": {
+          "type": "string",
+          "default": "",
+          "description": "Client password (for outbound auth, e.g., to upstream relay)."
+        },
+        "server_prompts": {
+          "type": "list",
+          "items": {
+            "type": "string"
+          },
+          "default": [],
+          "description": "SMTP AUTH prompts (e.g., ['Username:', 'Password:'])."
+        },
+        "server_advertise_conditions": {
+          "type": "list",
+          "items": {
+            "type": "string"
+          },
+          "default": [],
+          "description": "Conditions under which AUTH is advertised (e.g., ['!authenticated: *'])."
+        },
+        "client_name": {
+          "type": "string",
+          "default": "",
+          "description": "SASL client mechanism name (e.g., 'LOGIN')."
+        }
+      }
+    },
+    "default": [
+      {
+        "driver": "login",
+        "enabled": false
+      },
+      {
+        "driver": "plain",
+        "enabled": false
+      }
+    ],
+    "description": "List of SASL authentication mechanisms to support. Only enabled mechanisms are included in config."
+  },
+  "queue_run_timeout": {
+    "type": "number",
+    "default": 300,
+    "description": "Maximum time (in seconds) to wait before giving up on a deferred delivery attempt."
+  },
+  "max_message_size": {
+    "type": "number",
+    "default": 26214400,
+    "description": "Maximum message size (in bytes) the server will accept (including headers and attachments)."
+  },
+  "split_config": {
+    "type": "bool",
+    "default": true,
+    "description": "Use split configuration files (recommended for Debian/Ubuntu exim4-config). If false, all config is in this single file."
+  },
+  "use_spool_directory_as_spool": {
+    "type": "bool",
+    "default": true,
+    "description": "Whether to use the spool directory (set automatically by split_config mode)."
+  },
+  "routers": {
+    "type": "list",
+    "items": {
+      "type": "object",
+      "fields": {
+        "name": {
+          "type": "string",
+          "default": "local_user",
+          "description": "Unique router name (e.g., dnslookup, local_user, manualroute)."
+        },
+        "comment": {
+          "type": "string",
+          "default": "",
+          "description": "Human-readable description (for documentation only)."
+        },
+        "driver": {
+          "type": "string",
+          "default": "accept",
+          "description": "Router driver (e.g., dnslookup, localuser, manualroute)."
+        },
+        "condition": {
+          "type": "string",
+          "default": "",
+          "description": "Conditional expression (e.g., domains = +local_domains)."
+        },
+        "transport": {
+          "type": "string",
+          "default": "",
+          "description": "Name of transport to use if router matches (e.g., local_delivery)."
+        },
+        "domains": {
+          "type": "list",
+          "items": {
+            "type": "string"
+          },
+          "default": [],
+          "description": "Domains to route (if driver supports domains)."
+        },
+        "local_parts": {
+          "type": "list",
+          "items": {
+            "type": "string"
+          },
+          "default": [],
+          "description": "Local parts to route (if driver supports local_parts)."
+        },
+        "hosts": {
+          "type": "list",
+          "items": {
+            "type": "string"
+          },
+          "default": [],
+          "description": "Hosts to route (for remote routers)."
+        },
+        "senders": {
+          "type": "list",
+          "items": {
+            "type": "string"
+          },
+          "default": [],
+          "description": "Senders to route (e.g., domain-based filters)."
+        },
+        "route_data": {
+          "type": "list",
+          "items": {
+            "type": "string"
+          },
+          "default": [],
+          "description": "For manualroute: list of routes (e.g., ['*.example.com::mail.example.com'])."
+        },
+        "ignore_target_hosts": {
+          "type": "list",
+          "items": {
+            "type": "string"
+          },
+          "default": [],
+          "description": "Hosts to ignore for this router (e.g., local IPs)."
+        },
+        "headers_add": {
+          "type": "string",
+          "default": "",
+          "description": "Headers to add (e.g., 'X-Router: dnslookup')."
+        },
+        "address_data": {
+          "type": "string",
+          "default": "",
+          "description": "Arbitrary string to attach to address (e.g., user-specific options)."
+        },
+        "retry_use_local_domain": {
+          "type": "bool",
+          "default": true,
+          "description": "Use local domain in retry database lookup?"
+        },
+        "self": {
+          "type": "string",
+          "default": "",
+          "description": "Special handling: 'pass' to skip self-delivery checks."
+        }
+      }
+    },
+    "default": [
+      {
+        "name": "dnslookup",
+        "comment": "Route mail via DNS MX lookup",
+        "driver": "dnslookup",
+        "domains": "! +local_domains",
+        "transport": "remote_smtp",
+        "retry_use_local_domain": false
+      },
+      {
+        "name": "local_user",
+        "comment": "Deliver mail for local users",
+        "driver": "accept",
+        "domains": "+local_domains",
+        "transport": "local_delivery",
+        "local_parts": "!^.*\\+.*$",
+        "headers_add": "X-Local: yes"
+      }
+    ],
+    "description": "List of routers that determine how incoming mail is handled."
+  },
+  "transports": {
+    "type": "list",
+    "items": {
+      "type": "object",
+      "fields": {
+        "name": {
+          "type": "string",
+          "default": "local_delivery",
+          "description": "Unique transport name (e.g., local_delivery, remote_smtp)."
+        },
+        "comment": {
+          "type": "string",
+          "default": "",
+          "description": "Human-readable description."
+        },
+        "driver": {
+          "type": "string",
+          "default": "appendfile",
+          "description": "Transport driver (e.g., appendfile, maildir, smtp)."
+        },
+        "file_path": {
+          "type": "string",
+          "default": "/var/mail/$domain/$local_part",
+          "description": "File or directory path for file-based transports (appendfile, maildir)."
+        },
+        "append": {
+          "type": "bool",
+          "default": true,
+          "description": "Append to existing file (vs overwrite)."
+        },
+        "delivery_date_add": {
+          "type": "bool",
+          "default": true,
+          "description": "Add Delivered-To and Received headers?"
+        },
+        "envelope_to_add": {
+          "type": "bool",
+          "default": true,
+          "description": "Add X-Envelope-To header?"
+        },
+        "headers_add": {
+          "type": "list",
+          "items": {
+            "type": "string"
+          },
+          "default": [],
+          "description": "Additional headers to add (e.g., ['X-Spam: Yes'])."
+        },
+        "local_part_suffix": {
+          "type": "string",
+          "default": "",
+          "description": "Suffix to strip from local part (e.g., '+*')."
+        },
+        "local_part_suffix_same_case": {
+          "type": "bool",
+          "default": true,
+          "description": "Preserve case of suffix when stripping?"
+        },
+        "return_path_add": {
+          "type": "bool",
+          "default": false,
+          "description": "Add Return-Path header?"
+        },
+        "to_file": {
+          "type": "bool",
+          "default": true,
+          "description": "Treat transport as writing to a file (appendfile/maildir)."
+        },
+        "transport_address_data": {
+          "type": "string",
+          "default": "",
+          "description": "Dynamic path expansion (e.g., $local_part@$domain)."
+        },
+        "unseen": {
+          "type": "bool",
+          "default": false,
+          "description": "Do not mark as delivered (for copy delivery)."
+        }
+      }
+    },
+    "default": [
+      {
+        "name": "local_delivery",
+        "comment": "Deliver to user mailbox",
+        "driver": "appendfile",
+        "file_path": "/var/mail/$domain/$local_part",
+        "append": true,
+        "delivery_date_add": true,
+        "envelope_to_add": true,
+        "file_mode": "0660",
+        "file_owner": "Debian-exim",
+        "file_group": "mail"
+      },
+      {
+        "name": "remote_smtp",
+        "comment": "Deliver via SMTP to remote hosts",
+        "driver": "smtp",
+        "max_parallel": "2",
+        "return_path": "${if def:sender_address{$sender_address}{}{$original_sender_address}}"
+      }
+    ],
+    "description": "List of transports that define how mail is actually delivered (to files, SMTP, etc.)."
+  },
+  "inbound_acls": {
+    "type": "list",
+    "items": {
+      "type": "object",
+      "fields": {
+        "name": {
+          "type": "string",
+          "default": "acl_inbound",
+          "description": "ACL name (e.g., acl_inbound, acl_check_message)."
+        },
+        "comment": {
+          "type": "string",
+          "default": "Inbound message ACL",
+          "description": "Purpose of the ACL."
+        },
+        "statement": {
+          "type": "string",
+          "default": "",
+          "description": "Raw ACL statements (multi-line, indented in config)."
+        }
+      }
+    },
+    "default": [
+      {
+        "name": "acl_inbound",
+        "comment": "Basic inbound ACL \u2014 reject spam and viruses",
+        "statement": "deny\n  message = This system is not configured to receive mail\n  !condition = ${if eq {$domain} {localhost} {no}{yes}}\n\n  # Reject messages from known bad IPs\n  deny\n    hosts = /etc/exim4/blacklist\n    message = Your host is blacklisted\n\n  # Reject oversized messages\n  deny\n    message = Message size exceeds maximum of 25 MB\n    condition = ${if > {$message_size}{25M}{yes}{no}}\n\n  accept"
+      }
+    ],
+    "description": "Inbound ACLs (Access Control Lists) applied to SMTP connections and messages."
+  },
+  "macros": {
+    "type": "list",
+    "items": {
+      "type": "object",
+      "fields": {
+        "name": {
+          "type": "string",
+          "default": "LOCAL_DOMAINS",
+          "description": "Macro name (e.g., LOCAL_DOMAINS, RELAY_DOMAINS)."
+        },
+        "value": {
+          "type": "string",
+          "default": "example.com:localhost",
+          "description": "Value assigned to the macro (e.g., domain list, path)."
+        }
+      }
+    },
+    "default": [
+      {
+        "name": "LOCAL_DOMAINS",
+        "value": "example.com:localhost"
+      },
+      {
+        "name": "RELAY_DOMAINS",
+        "value": "internal.example.com"
+      },
+      {
+        "name": "MAIL_GID",
+        "value": "mail"
+      },
+      {
+        "name": "MAILDIR_OVERSIZE",
+        "value": "true"
+      }
+    ],
+    "description": "Global macros for common values (avoid hardcoding paths, domain lists, etc.)."
+  }
+}

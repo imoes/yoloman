@@ -1,0 +1,60 @@
+# Set environment variables required by RT
+SetEnv PERL5LIB "{{ perl5lib }}"
+SetEnv RT_LIB "{{ rt_lib }}"
+
+# RT-specific environment (if needed)
+{% if environment_vars %}
+{% for key, value in environment_vars.items() %}
+SetEnv {{ key }} "{{ value }}"
+{% endfor %}
+{% endif %}
+
+# ScriptAlias for RT web UI
+ScriptAlias /{{ web_path | default('rt') }}/ "{{ rt_home }}/bin/fastcgi_server"
+
+# Location block for RT
+<Location "/{{ web_path | default('rt') }}/">
+    {% if use_ssl %}
+    # Enable SSL (redirect HTTP to HTTPS)
+    Redirect permanent / {{ ssl_redirect_host | default('https://') }}{{ server_name | default('localhost') }}{{ web_path | default('rt') }}/
+    {% endif %}
+
+    Options +ExecCGI
+    AddHandler fastcgi-script .fcgi
+    
+    # Authentication configuration
+    {% if auth_type == 'ldap' %}
+    AuthType Basic
+    AuthName "{{ auth_realm | default('Request Tracker') }}"
+    AuthBasicProvider ldap
+    AuthLDAPURL "{{ ldap_url }}"
+    AuthLDAPBindDN "{{ ldap_bind_dn }}"
+    AuthLDAPBindPassword "{{ ldap_bind_password }}"
+    Require valid-user
+    {% elif auth_type == 'htaccess' %}
+    AuthType Basic
+    AuthName "{{ auth_realm | default('Request Tracker') }}"
+    AuthUserFile "{{ htpasswd_file }}"
+    Require valid-user
+    {% else %}
+    # No authentication — not recommended in production
+    Require all granted
+    {% endif %}
+
+    # Optional: Enable CORS (e.g., for REST API from external clients)
+    {% if cors_enabled %}
+    Header set Access-Control-Allow-Origin "{{ cors_origin }}"
+    Header set Access-Control-Allow-Methods "GET, POST, PUT, DELETE, OPTIONS"
+    Header set Access-Control-Allow-Headers "Content-Type, Authorization"
+    {% endif %}
+</Location>
+
+# FastCGI configuration (optional, but common)
+{% if fastcgi_config %}
+FastCgiConfig -maxClassProcesses 1 -maxProcesses {{ fastcgi_max_processes | default(10) }}
+{% endif %}
+
+# Optional custom Apache directives (for power users)
+{% if extra_directives %}
+{{ extra_directives | join('\n') }}
+{% endif %}

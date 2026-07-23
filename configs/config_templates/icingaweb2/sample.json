@@ -1,0 +1,72 @@
+{
+  "debug": false,
+  "log_level": 4,
+  "base_path": "/icingaweb2",
+  "log_file": "/var/log/icingaweb2/icingaweb2.log",
+  "auth_backend": "ldap",
+  "ldap": {
+    "host": "ldap.internal.example.com",
+    "port": 389,
+    "bind_dn": "cn=icingaweb,ou=services,dc=internal,dc=example,dc=com",
+    "bind_password": "REDACTED_SECURE_SECRET",
+    "user_base_dn": "ou=users,ou=internal,dc=internal,dc=example,dc=com",
+    "group_base_dn": "ou=groups,ou=internal,dc=internal,dc=example,dc=com",
+    "user_filter": "(&(objectClass=user)(sAMAccountName=%s))",
+    "group_filter": "(&(objectClass=group)(member=%s))",
+    "user_name_attribute": "sAMAccountName",
+    "user_display_name_attribute": "displayName",
+    "user_mail_attribute": "mail",
+    "group_name_attribute": "cn",
+    "group_display_name_attribute": "displayName"
+  },
+  "resources": [
+    {
+      "name": "icingaweb_db",
+      "description": "Database for Icinga Web 2 users and preferences.",
+      "type": "db",
+      "options": {
+        "resource_type": "db",
+        "dbname": "icingaweb",
+        "username": "icingaweb",
+        "password": "icingaweb_secret_123",
+        "host": "db.internal.example.com",
+        "port": 3306,
+        "charset": "utf8"
+      }
+    },
+    {
+      "name": "icinga2",
+      "description": "Icinga 2 API endpoint for monitoring integration.",
+      "type": "icinga2",
+      "options": {
+        "host": "icinga2.internal.example.com",
+        "port": "5665",
+        "username": "icingaweb2",
+        "password": "icinga2_api_secret_456",
+        "verify_certificate": "false",
+        "timeout": 30
+      }
+    }
+  ],
+  "enabled_modules": [
+    "command",
+    "monitoring",
+    "doc"
+  ],
+  "disabled_modules": [
+    "director"
+  ],
+  "hmac_secret_file": "/etc/icingaweb2/hmac_secret",
+  "session_lifetime": 86400,
+  "enforce_https": true,
+  "allowed_hosts": [
+    "icingaweb.internal.example.com"
+  ],
+  "default_language": "en",
+  "default_timezone": "UTC",
+  "datetime_format": "%Y-%m-%d %H:%M:%S",
+  "default_theme": "light",
+  "config_path": "/etc/icingaweb2",
+  "modules_path": "/usr/share/icingaweb2/modules",
+  "validate_config": true
+}

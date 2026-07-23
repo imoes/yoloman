@@ -1,0 +1,139 @@
+{
+  "dnssec_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable DNSSEC validation to verify authenticity of DNS responses."
+  },
+  "worker_count": {
+    "type": "number",
+    "default": 0,
+    "description": "Number of worker threads. Use 0 for automatic detection based on CPU cores."
+  },
+  "listen_addrs": {
+    "type": "list",
+    "default": [
+      {
+        "address": "127.0.0.1",
+        "port": 53
+      },
+      {
+        "address": "::1",
+        "port": 53
+      }
+    ],
+    "description": "List of IP addresses and ports to listen on for DNS queries.",
+    "items": {
+      "type": "object",
+      "fields": {
+        "address": {
+          "type": "string",
+          "default": "127.0.0.1",
+          "description": "IPv4 or IPv6 address to bind to."
+        },
+        "port": {
+          "type": "number",
+          "default": 53,
+          "description": "UDP/TCP port (usually 53)."
+        }
+      }
+    }
+  },
+  "upstream_servers": {
+    "type": "list",
+    "default": [
+      "9.9.9.9",
+      "2620:fe::fe"
+    ],
+    "description": "Upstream DNS resolvers (e.g., Quad9, Cloudflare, or your ISP\u2019s DNS).",
+    "items": {
+      "type": "string",
+      "default": "9.9.9.9",
+      "description": "IP address (IPv4 or IPv6) of an upstream resolver."
+    }
+  },
+  "cache_size_mb": {
+    "type": "number",
+    "default": 64,
+    "description": "Maximum DNS cache size in megabytes."
+  },
+  "cache_ttl_min": {
+    "type": "number",
+    "default": 0,
+    "description": "Minimum TTL (seconds) for cached entries. Prevents overly aggressive caching of short-lived records."
+  },
+  "cache_ttl_max": {
+    "type": "number",
+    "default": 86400,
+    "description": "Maximum TTL (seconds) for cached entries. Caps caching duration to avoid stale data."
+  },
+  "log_level": {
+    "type": "string",
+    "default": "notice",
+    "description": "Verbosity of logs. 'notice' is recommended for production."
+  },
+  "root_hints_path": {
+    "type": "string",
+    "default": "",
+    "description": "Optional custom path to root hints file (e.g., /etc/knot-resolver/root.hints). Leave empty to use default IANA root zone."
+  },
+  "stub_zones": {
+    "type": "list",
+    "default": [],
+    "description": "Stub zones for conditional forwarding to specific upstreams for certain domains.",
+    "items": {
+      "type": "object",
+      "fields": {
+        "domain": {
+          "type": "string",
+          "default": "example.com",
+          "description": "Domain name to configure conditional forwarding for."
+        },
+        "forwarders": {
+          "type": "list",
+          "default": [
+            "192.0.2.1"
+          ],
+          "description": "Upstream resolvers for this domain.",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  },
+  "policy_zones": {
+    "type": "list",
+    "default": [],
+    "description": "Policy zones for domain-level behavior (e.g., block or restrict specific domains).",
+    "items": {
+      "type": "string",
+      "default": "ads.example.com",
+      "description": "Domain pattern (exact or wildcard) to apply policy to."
+    }
+  },
+  "bind_interfaces": {
+    "type": "list",
+    "default": [],
+    "description": "List of network interfaces (e.g., 'eth0', 'lan') to bind to instead of IP addresses.",
+    "items": {
+      "type": "string",
+      "default": "eth0",
+      "description": "Network interface name."
+    }
+  },
+  "ecs_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable EDNS Client Subnet (ECS) to pass client network info to upstream resolvers for geo-aware responses."
+  },
+  "rate_limit_qps": {
+    "type": "number",
+    "default": 100,
+    "description": "Rate limit: max queries per second per client IP. Set to null or omit to disable rate limiting."
+  },
+  "rate_limit_window": {
+    "type": "number",
+    "default": 10,
+    "description": "Time window (seconds) for rate limiting calculation. Used only if rate_limit_qps is set."
+  }
+}

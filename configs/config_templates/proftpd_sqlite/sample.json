@@ -1,0 +1,47 @@
+{
+  "server_name": "MySecureFTP",
+  "port": 21,
+  "listen_address": "0.0.0.0",
+  "daemon_user": "proftpd",
+  "daemon_group": "proftpd",
+  "umask": "022",
+  "sqlite_path": "/etc/proftpd/ftpd.db",
+  "log_file": "/var/log/proftpd/access.log",
+  "log_dir": "/var/log/proftpd",
+  "tls_enabled": true,
+  "tls_cert": "/etc/ssl/certs/proftpd.crt",
+  "tls_key": "/etc/ssl/private/proftpd.key",
+  "require_valid_shell": false,
+  "max_conn_per_ip": 2,
+  "passive_ports_start": 50000,
+  "passive_ports_end": 50100,
+  "timeout_idle": 900,
+  "timeout_nolisten": 180,
+  "allow_groups": [
+    "ftpusers"
+  ],
+  "access_rules": [
+    {
+      "user": "admin",
+      "allow_operations": [
+        "ALL"
+      ],
+      "deny_operations": [],
+      "description": "Admin full access"
+    },
+    {
+      "group": "uploaders",
+      "allow_operations": [
+        "STOR",
+        "NLST"
+      ],
+      "deny_operations": [
+        "DELE",
+        "MKD",
+        "LIST"
+      ],
+      "description": "Upload-only users"
+    }
+  ],
+  "include_dir": "/etc/proftpd/conf.d"
+}

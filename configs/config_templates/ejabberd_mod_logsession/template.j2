@@ -1,0 +1,31 @@
+# Load the ejabberd_mod_logsession module
+modules:
+  mod_logsession:
+    # Path to the log file where session events will be written
+    # Supports strftime formatting (e.g., %Y-%m-%d) for daily rotation
+    log_dir: "{{ log_dir }}"
+
+    # Log format: available placeholders are {user}, {resource}, {ip}, {timestamp}, {action}
+    # {action} = 'open', 'close', 'authenticated'
+    log_format: "{{ log_format }}"
+
+    # Maximum size (in bytes) per log file before rotation
+    # 0 = no rotation (append to same file)
+    max_size: {{ max_size }}
+
+    # Number of rotated log files to keep
+    max_files: {{ max_files }}
+
+    # Whether to log session openings (true/false)
+    log_open: {{ log_open }}
+
+    # Whether to log session closures (true/false)
+    log_close: {{ log_close }}
+
+    # Whether to log authentication events (true/false)
+    log_auth: {{ log_auth }}
+
+    # Optional: list of hosts for which to enable logging (if omitted, logs all hosts)
+    hosts:
+{% for host in log_hosts %}      - "{{ host }}"
+{% endfor %}

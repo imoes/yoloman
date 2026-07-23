@@ -1,0 +1,75 @@
+# Multizone Bidirectional nftables Firewall (foomuuri) Configuration
+# This file is managed by foomuuri; avoid manual edits unless you know nftables syntax.
+# The firewall enforces bidirectional policies across named zones with stateful tracking.
+
+# Global runtime behavior
+[global]
+log_level = "{{ global.log_level }}"  # Log level: emerg|alert|crit|err|warn|notice|info|debug
+
+# nftables table and chain name prefix (must start with a letter or underscore)
+table_prefix = "{{ global.table_prefix }}"
+
+# Default action for unmatched traffic (drop or reject)
+default_action = "{{ global.default_action }}"
+
+# Enable connection tracking (required for stateful filtering)
+enable_conntrack = {{ global.enable_conntrack | lower }}
+
+# Syslog facility for firewall logs (e.g., local0, auth, kern)
+syslog_facility = "{{ global.syslog_facility }}"
+
+# Per-zone definitions
+{% for zone in zones %}
+[zone."{{ zone.name }}"]
+description = "{{ zone.description }}"
+
+# Interfaces bound to this zone (list of interface names)
+interfaces = [
+{% for iface in zone.interfaces %}  "{{ iface }}"{% if not loop.last %},{% endif %}
+{% endfor %}]
+
+# Trust level: internal, external, dmz, guest, etc.
+trust_level = "{{ zone.trust_level }}"
+
+# Enable stateful filtering (in/out established/related)
+enable_stateful = {{ zone.enable_stateful | lower }}
+
+# Default policy for this zone (accept or drop)
+default_policy = "{{ zone.default_policy }}"
+
+# Optional: rate-limit new connections per second (0 = unlimited)
+new_conn_rate_limit = {{ zone.new_conn_rate_limit }}
+
+# Optional: burst limit for new connections
+new_conn_rate_burst = {{ zone.new_conn_rate_burst }}
+
+# Optional: allowlisted hosts (IP/CIDR or MAC) — inbound only
+allowlisted_hosts = [
+{% for host in zone.allowlisted_hosts %}  "{{ host }}"{% if not loop.last %},{% endif %}
+{% endfor %}]
+
+{% endfor %}
+
+# Bidirectional zone-pair policies: define allowed traffic flows between zones
+{% for pair in zone_pairs %}
+[zone_pair."{{ pair.src }}_to_{{ pair.dst }}"]
+src_zone = "{{ pair.src }}"
+dst_zone = "{{ pair.dst }}"
+
+# Allow established/related (always true unless explicitly disabled)
+enable_established = {{ pair.enable_established | lower }}
+
+# Explicitly allowed services/ports (list of service descriptors)
+allowed_services = [
+{% for svc in pair.allowed_services %}  "{{ svc }}"{% if not loop.last %},{% endif %}
+{% endfor %}]
+
+# Optional: log matched rules (true/false)
+log_matches = {{ pair.log_matches | lower }}
+{% endfor %}
+
+# Optional: raw nftables commands (for advanced custom chains/rules)
+{% for cmd in raw_nft_commands %}
+# Raw nft command: {{ cmd.description }}
+nft_raw."{{ loop.index }}" = '''{{ cmd.body | replace("''', "\"''\"" | replace("\n", "\\n")) }}'''
+{% endfor %}

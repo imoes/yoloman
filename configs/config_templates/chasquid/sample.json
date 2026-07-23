@@ -1,0 +1,60 @@
+{
+  "host": "0.0.0.0",
+  "port": 25,
+  "ssl": {
+    "enabled": true,
+    "cert_path": "/etc/chasquid/certs/server.crt",
+    "key_path": "/etc/chasquid/certs/server.key"
+  },
+  "auth": {
+    "enabled": true,
+    "backend": "passwd",
+    "passwd_file": "/etc/chasquid/passwd"
+  },
+  "log": {
+    "enabled": true,
+    "level": "info",
+    "file": "/var/log/chasquid.log"
+  },
+  "domains": [
+    {
+      "name": "example.com",
+      "local": true,
+      "accept_rcpt_to": [
+        "*@example.com",
+        "postmaster@example.com"
+      ],
+      "reject_rcpt_to": [
+        "*@example.com"
+      ]
+    },
+    {
+      "name": "sub.example.com",
+      "local": false,
+      "relay_host": "mx.relay.com",
+      "relay_port": 587,
+      "relay_auth_user": "relay-user",
+      "relay_auth_pass": "secret123",
+      "max_message_size": 50000000
+    },
+    {
+      "name": "example.org",
+      "local": false,
+      "remote_smtp": [
+        "mx1.example.org",
+        "mx2.example.org"
+      ]
+    }
+  ],
+  "max_message_size": 20000000,
+  "max_recipients_per_message": 50,
+  "rate_limit": {
+    "enabled": true,
+    "per_ip": 10,
+    "per_domain": 5
+  },
+  "delivery_timeout": 60,
+  "delivery_threads": 4,
+  "queue_dir": "/var/spool/chasquid/queue",
+  "spool_dir": "/var/spool/chasquid/spool"
+}

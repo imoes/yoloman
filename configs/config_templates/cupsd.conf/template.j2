@@ -1,0 +1,106 @@
+# Listen on the specified address and port
+Listen {{ listen_address }}:{{ listen_port }}
+
+# Server name as advertised via DNS-SD and web interface
+ServerName {{ server_name }}
+
+# ServerAdmin contact email
+ServerAdmin {{ server_admin }}
+
+# Log level: none, fatal, error, warn, info, debug, debug2
+LogLevel {{ log_level }}
+
+# Where logs are stored
+AccessLog {{ access_log_path }}
+ErrorLog {{ error_log_path }}
+PageLog {{ page_log_path }}
+
+# Enable browsing of printers via web interface and DNS-SD
+Browsing {{ browsing_enabled | string | lower }}
+
+# Default shared printer policy: Allow/Deny all or restrict via Allow/Deny directives below
+DefaultShared {{ shared_printers | string | lower }}
+
+# Authentication timeout (in seconds)
+MaxClientsPerHost {{ max_clients_per_host }}
+MaxClients {{ max_clients }}
+MaxHoldTime {{ max_hold_time }}
+MaxJobTime {{ max_job_time }}
+
+# Whether to require authentication for admin operations
+DefaultAuthType {{ default_auth_type }}
+
+# Web interface access control
+WebInterface {{ web_interface_enabled | string | lower }}
+
+# Listen only on localhost for security (if true, overrides Listen)
+ListenLocalSocketOnly {{ listen_local_only | string | lower }}
+
+{% if listen_local_only %}
+# Explicit local socket binding
+Listen /run/cups/cups.sock
+{% endif %}
+
+# Port for IPP over TLS (HTTPS)
+Port {{ https_port }}
+
+{% if server_certificate and server_key %}
+# SSL/TLS configuration
+ServerCertificate {{ server_certificate }}
+ServerKey {{ server_key }}
+{% endif %}
+
+# Trusted root certificates for TLS (optional)
+{% if trusted_certificates %}
+TLSTrustedCAs {{ trusted_certificates | join(', ') }}
+{% endif %}
+
+# Authentication realms (for web and admin access)
+{% for realm in auth_realms %}
+# Authentication realm: {{ realm.name }}
+<Location {{ realm.location }}>
+  Order {{ realm.order | join(', ') }}
+  {% if realm.allow_list %}
+  {% for allow_pattern in realm.allow_list %}
+  Allow {{ allow_pattern }}
+  {% endfor %}
+  {% endif %}
+  {% if realm.deny_list %}
+  {% for deny_pattern in realm.deny_list %}
+  Deny {{ deny_pattern }}
+  {% endfor %}
+  {% endif %}
+  {% if realm.auth_type != 'None' %}
+  Require user {{ realm.require_user | join(', ') }}
+  {% endif %}
+</Location>
+{% endfor %}
+
+# Printer sharing and access policies
+{% for policy in policies %}
+# Policy: {{ policy.name }}
+<Policy {{ policy.name }}>
+  {% if policy.jobs %}
+  {% for job_limit in policy.jobs %}
+  {{ job_limit.type | lower }}JobTime {{ job_limit.value }}
+  {% endfor %}
+  {% endif %}
+  {% if policy.operations %}
+  {% for op in policy.operations %}
+  {{ op | lower }}
+  {% endfor %}
+  {% endif %}
+</Policy>
+{% endfor %}
+
+# Default printer options
+{% for option in default_printer_options %}
+# Default printer option: {{ option.name }}={{ option.value }}
+{{ option.name }} {{ option.value }}
+{% endfor %}
+
+# Logging filters
+{% for filter in log_filters %}
+# Filter for {{ filter.name }}: {{ filter.type }}
+{{ filter.name }} {{ filter.type }} {{ filter.command }}
+{% endfor %}

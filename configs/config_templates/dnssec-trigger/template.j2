@@ -1,0 +1,33 @@
+# dnssec-trigger configuration — controls automated DNSSEC validation via Unbound/BIND
+# Enable/disable DNSSEC validation in upstream resolvers
+validation: {{ validation }}
+
+# Path to the Unbound resolver configuration file (for live modification)
+unbound-conf: {{ unbound_conf }}
+
+# Path to the BIND configuration file (optional; if BIND is used)
+bind-conf: {{ bind_conf }}
+
+# List of root key files for trust anchor management (RFC 5011)
+{% for anchor_file in trust_anchor_files %}# Trust anchor file: {{ anchor_file }}
+root-anchor-file: {{ anchor_file }}
+{% endfor %}
+
+# Enable/disable automatic trust anchor updates (RFC 5011)
+auto-update: {{ auto_update }}
+
+# Optional: List of DNSSEC-trigger hooks (scripts run on key events)
+{% for hook in hooks %}# Hook: {{ hook.description }}
+hook: {{ hook.path }}
+{% endfor %}
+
+# Optional: Enable verbose logging
+verbose: {{ verbose }}
+
+# Optional: Specify interval (seconds) between trust anchor refresh checks
+refresh-interval: {{ refresh_interval }}
+
+# Optional: List of custom DNSSEC-trigger modules (e.g., custom key fetchers)
+{% for module in modules %}# Load module: {{ module.name }}
+module: {{ module.path }}
+{% endfor %}

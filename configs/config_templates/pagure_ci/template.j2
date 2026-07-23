@@ -1,0 +1,90 @@
+# Pagure-CI configuration — main settings for the CI integration service
+[general]
+# Base URL of the Pagure instance this CI service is attached to
+pagure_name = {{ pagure_name }}
+# Database connection string (e.g., postgresql://user:pass@host/dbname)
+db_url = {{ db_url }}
+# Directory where cloned repositories will be stored for CI builds
+git_clone_dir = {{ git_clone_dir }}
+# Directory where artifacts (logs, test results, etc.) are stored
+artifact_dir = {{ artifact_dir }}
+# Log level: DEBUG, INFO, WARNING, ERROR, CRITICAL
+log_level = {{ log_level }}
+# Enable or disable debug mode (affects logging verbosity and error pages)
+debug = {{ debug }}
+
+[worker]
+# Number of worker processes to spawn for building tasks
+num_workers = {{ num_workers }}
+# Maximum number of concurrent builds per project
+max_concurrent_builds = {{ max_concurrent_builds }}
+# Time (in seconds) before a build is considered timed out
+build_timeout = {{ build_timeout }}
+
+[smtp]
+# Enable email notifications on build status changes
+enabled = {{ smtp_enabled }}
+# SMTP server hostname
+server = {{ smtp_server }}
+# SMTP server port
+port = {{ smtp_port }}
+# SMTP username (if auth required)
+username = {{ smtp_username }}
+# SMTP password (if auth required)
+password = {{ smtp_password }}
+# Default sender email address
+from_addr = {{ smtp_from_addr }}
+
+[webhook]
+# Enable webhook-based triggers (e.g., GitHub/GitLab push events)
+enabled = {{ webhook_enabled }}
+# Secret token to validate incoming webhook payloads
+secret_token = {{ webhook_secret_token }}
+
+[github]
+# Enable GitHub integration for commit statuses and PR triggers
+enabled = {{ github_enabled }}
+# GitHub OAuth client ID
+cid = {{ github_cid }}
+# GitHub OAuth client secret
+csecret = {{ github_csecret }}
+# Base URL for GitHub API (e.g., https://api.github.com or custom GHE instance)
+api_url = {{ github_api_url }}
+
+[gitlab]
+# Enable GitLab integration for commit statuses and MR triggers
+enabled = {{ gitlab_enabled }}
+# GitLab OAuth client ID
+cid = {{ gitlab_cid }}
+# GitLab OAuth client secret
+csecret = {{ gitlab_csecret }}
+# Base URL for GitLab API (e.g., https://gitlab.com or custom instance)
+api_url = {{ gitlab_api_url }}
+
+[builders]
+# List of supported builders and their configuration
+{% for builder in builders %}
+[builder:{{ builder.name }}]
+# Type of builder: 'docker' or 'virtualenv'
+type = {{ builder.type }}
+{% if builder.type == 'docker' %}
+# Docker image to use as builder base
+image = {{ builder.image }}
+# Optional: extra Docker run arguments (e.g., '--network=host')
+extra_args = {{ builder.docker_extra_args | default('') }}
+{% endif %}
+{% if builder.type == 'virtualenv' %}
+# Python version to use (e.g., '3.9')
+python_version = {{ builder.python_version }}
+{% endif %}
+# Commands to run on build start
+setup_commands = {{ builder.setup_commands | join('\nsetup_commands = ') }}
+{% endfor %}
+
+[redis]
+# Redis URL for task queue (e.g., redis://localhost:6379/0)
+url = {{ redis_url }}
+
+[cors]
+# Comma-separated list of allowed origins for CORS (e.g., https://pagure.example.com)
+allowed_origins = {{ cors_allowed_origins | join(', ') }}

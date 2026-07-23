@@ -1,0 +1,81 @@
+{
+  "workgroup": "MYCORP",
+  "server_string": "Samba File Server v4",
+  "security_mode": "user",
+  "passdb_backend": "tdbsam",
+  "log_level": 2,
+  "log_file_path": "/var/log/samba/log.%m",
+  "max_log_size_kb": 5000,
+  "bind_interfaces_only": true,
+  "interfaces": [
+    "lo",
+    "eth1"
+  ],
+  "hosts_allow": [
+    "127.0.0.1",
+    "192.168.10.0/24",
+    "10.1.1.0/24"
+  ],
+  "hosts_deny": [
+    "all"
+  ],
+  "server_min_protocol": "SMB2",
+  "server_max_protocol": "SMB3",
+  "max_connections": 50,
+  "max_open_files": 8192,
+  "socket_options": [
+    "SO_RCVBUF=32768",
+    "SO_SNDBUF=32768",
+    "TCP_NODELAY"
+  ],
+  "time_server": false,
+  "timezone": "America/Chicago",
+  "shares": [
+    {
+      "name": "homes",
+      "path": "/home",
+      "description": "User home directories",
+      "browsable": false,
+      "read_only": false,
+      "valid_users": [
+        "%S"
+      ],
+      "create_mask": "0600",
+      "directory_mask": "0700"
+    },
+    {
+      "name": "shared",
+      "path": "/srv/shared",
+      "description": "General collaboration space",
+      "browsable": true,
+      "read_only": true,
+      "write_list": [
+        "alice",
+        "@devs"
+      ],
+      "valid_users": [
+        "alice",
+        "bob",
+        "@team"
+      ],
+      "create_mask": "0644",
+      "directory_mask": "0755",
+      "vfs_objects": [
+        "acl_xattr"
+      ],
+      "vfs_options": {
+        "acl_xattr:ignore system acls": "yes"
+      }
+    },
+    {
+      "name": "public",
+      "path": "/srv/public",
+      "description": "Public read-only downloads",
+      "browsable": true,
+      "read_only": true,
+      "guest_ok": true,
+      "create_mask": "0644",
+      "directory_mask": "0755"
+    }
+  ]
+}

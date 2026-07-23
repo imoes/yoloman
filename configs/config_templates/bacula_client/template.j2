@@ -1,0 +1,57 @@
+# Director (backup server) that is allowed to connect to this File Daemon
+Director {
+  Name = {{ director_name }}
+  DIRport = {{ director_port }}
+  # Password used for authentication (must match Director's Password)
+  Password = "{{ director_password }}"
+}
+
+# Local File Daemon configuration
+FileDaemon {
+  Name = {{ fd_name }}
+  # Unique FD ID (used for identification by Director)
+  FDport = {{ fd_port }}
+  # Working directory for spooling and logs
+  WorkingDirectory = "{{ working_dir }}"
+  # PID file location
+  PidDirectory = "{{ pid_dir }}"
+  # Maximum concurrent jobs
+  MaximumConcurrentJobs = {{ max_concurrent_jobs }}
+  # Local hostname (optional; if omitted, system hostname is used)
+  FDAddress = {{ fd_address | default('localhost') }}
+  # TLS configuration
+  {{ tls_enabled | ternary('TLS Enable = yes', '# TLS Enable = no') }}
+  {{ tls_enabled | ternary('TLS CA Certificate File = "' ~ tls_ca_cert ~ '"', '') }}
+  {{ tls_enabled | ternary('TLS Certificate File = "' ~ tls_cert_file ~ '"', '') }}
+  {{ tls_enabled | ternary('TLS Key File = "' ~ tls_key_file ~ '"', '') }}
+  {{ tls_enabled | ternary('TLS Verify Peer = ' ~ ('yes' if tls_verify_peer else 'no'), '') }}
+  {{ tls_enabled | ternary('TLS Cipher List = "' ~ tls_cipher_list ~ '"', '') }}
+}
+
+# Console (local CLI) access — typically for `bconsole`
+Console {
+  Name = {{ console_name }}
+  # Password for local console access
+  Password = "{{ console_password }}"
+  # ACLs: what the console can do
+  CommandACL = {{ console_commands | join(', ') }}
+}
+
+# Additional directors (optional) — e.g., for redundancy or multi-server setups
+{% for d in extra_directors %}
+Director {
+  Name = {{ d.name }}
+  DIRport = {{ d.port }}
+  Password = "{{ d.password }}"
+}
+{% endfor %}
+
+# Storage Daemon definition (if using direct SD communication — less common)
+{% if storage_daemon %}
+Storage {
+  Name = {{ storage_daemon.name }}
+  Address = {{ storage_daemon.address }}
+  SDport = {{ storage_daemon.port }}
+  Password = "{{ storage_daemon.password }}"
+}
+{% endif %}

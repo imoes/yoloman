@@ -1,0 +1,28 @@
+# System-wide environment variables for accessibility (AT-SPI) and Qt WebEngine
+# Loaded by systemd and shell logins via /etc/environment.d/
+
+# Enable AT-SPI bridge for accessibility support
+AT_SPI_BUS_ADDRESS={{ at_spi_bus_address }}
+
+# Enable AT-SPI D-Bus registration (required for screen readers)
+AT_SPI_REGISTRY={{ 'true' if at_spi_registry else 'false' }}
+
+# Path to ATK bridge shared libraries (for GTK/AT-SPI compatibility)
+ATK_BRIDGE_PATH={{ atk_bridge_path }}
+
+# Disable Wayland accessibility bridge (set to '0' to enable on Wayland)
+QT_QPA_PLATFORM=wayland
+QT_ACCESSIBILITY={{ '1' if qt_accessibility else '0' }}
+
+# Disable Qt WebEngine sandbox for accessibility (required in some containers)
+QTWEBENGINE_CHROMIUM_FLAGS={{ qtwebengine_chromium_flags }}
+
+# Environment overrides for specific applications (e.g., JAWS, NVDA, Orca)
+{% for override in env_overrides %}
+{% if override.name %}
+# Override for {{ override.name }}
+{% for key, value in override.values.items() %}
+{{ key }}={{ value }}
+{% endfor %}
+{% endif %}
+{% endfor %}

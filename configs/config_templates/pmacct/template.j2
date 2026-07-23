@@ -1,0 +1,119 @@
+# Core daemon settings
+# Daemon user and group for privilege separation
+user: {{ pmacct_user }}
+group: {{ pmacct_group }}
+
+# Logging verbosity and facility
+log_file: {{ log_file }}
+log_level: {{ log_level }}
+
+# Daemon identity and PID file
+daemonize: {{ daemonize|lower }}
+pidfile: {{ pidfile }}
+
+# Core network settings
+# Interface for packet capture (use 'any' for all interfaces)
+interface: {{ interface }}
+
+# BPF filter for packet capture
+promisc: {{ promisc|lower }}
+
+# Buffering and capture options
+snaplen: {{ snaplen }}
+
+# Core accounting settings
+# Output plugins (comma-separated list)
+plugins: {{ plugins | join(', ') }}
+
+# Core accounting interval (in seconds)
+aggregate: {{ aggregate }}
+
+# Memory limits and timeouts
+memory_limit: {{ memory_limit }}
+accounting_interval: {{ accounting_interval }}
+
+# SQL backend settings (if enabled)
+{% if sql_enabled %}
+# SQL output plugin settings
+sql_db: {{ sql_db }}
+sql_user: {{ sql_user }}
+sql_pass: {{ sql_pass }}
+sql_host: {{ sql_host }}
+sql_port: {{ sql_port }}
+sql_table: {{ sql_table }}
+sql_refresh_time: {{ sql_refresh_time }}
+{% endif %}
+
+# Kafka output (if enabled)
+{% if kafka_enabled %}
+# Kafka output plugin settings
+kafka_topic: {{ kafka_topic }}
+kafka_brokers: {{ kafka_brokers | join(', ') }}
+kafka_client_id: {{ kafka_client_id }}
+{% endif %}
+
+# Syslog output (if enabled)
+{% if syslog_enabled %}
+# Syslog output plugin settings
+syslog_facility: {{ syslog_facility }}
+syslog_priority: {{ syslog_priority }}
+{% endif %}
+
+# BGP specific settings (if bgp_plugin enabled)
+{% if 'bgp' in plugins %}
+# BGP neighbor settings
+bgp_daemon: {{ bgp_daemon|lower }}
+bgp_peer_as: {{ bgp_peer_as }}
+bgp_local_as: {{ bgp_local_as }}
+bgp_router_id: {{ bgp_router_id }}
+{% endif %}
+
+# Optional: NetFlow/IPFIX input (if enabled)
+{% if netflow_enabled %}
+# NetFlow/IPFIX input settings
+nfv9_listener_port: {{ netflow_port }}
+nfv9_listener_address: {{ netflow_addr }}
+{% endif %}
+
+# Optional: sFlow input (if enabled)
+{% if sflow_enabled %}
+# sFlow input settings
+sflow_listener_port: {{ sflow_port }}
+sflow_listener_address: {{ sflow_addr }}
+{% endif %}
+
+# Optional: IPFIX input (if enabled)
+{% if ipfix_enabled %}
+# IPFIX input settings
+ipfix_listener_port: {{ ipfix_port }}
+{% endif %}
+
+# Optional: Telemetry input (if enabled)
+{% if telemetry_enabled %}
+# Telemetry (gRPC/Streaming) input settings
+telemetry_port: {{ telemetry_port }}
+telemetry_proto: {{ telemetry_proto }}
+{% endif %}
+
+# Optional: custom field selection (if used)
+{% if custom_fields %}
+# Custom field mapping (for extended attributes)
+{% for field in custom_fields %}
+map_{{ field.name }}: {{ field.value }}
+{% endfor %}
+{% endif %}
+
+# Optional: flow sampling rate (if used)
+{% if sampling_rate %}
+sampling: {{ sampling_rate }}
+{% endif %}
+
+# Optional: aggregation map (for detailed accounting)
+{% if aggregation_map %}
+aggregation_map: {{ aggregation_map }}
+{% endif %}
+
+# Optional: prefix list file (for geo/ASN lookup)
+{% if prefix_file %}
+map_file_prefix: {{ prefix_file }}
+{% endif %}

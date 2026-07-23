@@ -1,0 +1,70 @@
+# Main configuration for archvsync — Debian Archive Synchronization Tool
+
+# Enable or disable archvsync daemon
+enabled: {{ enabled | lower }}
+
+# Directory where the mirror is stored
+mirror_root: {{ mirror_root }}
+
+# Number of concurrent rsync jobs
+max_rsync_jobs: {{ max_rsync_jobs }}
+
+# Maximum bandwidth (in KB/s) per rsync job, or 0 for unlimited
+max_bandwidth_per_job_kb: {{ max_bandwidth_per_job_kb }}
+
+# List of architectures to mirror (e.g., ['amd64', 'i386', 'arm64'])
+architectures: [{% for arch in architectures %} '{{ arch }}'{% if not loop.last %},{% endif %}{% endfor %}]
+
+# List of distributions (release suites) to mirror
+# Example: ['bullseye', 'buster', 'stable', 'testing']
+distributions: [{% for dist in distributions %} '{{ dist }}'{% if not loop.last %},{% endfor %}]
+
+# List of components (e.g., main, contrib, non-free)
+components: [{% for comp in components %} '{{ comp }}'{% if not loop.last %},{% endfor %}]
+
+# Whether to sync source packages
+sync_sources: {{ sync_sources | lower }}
+
+# Whether to sync installer images (important for netinst ISOs)
+sync_installer: {{ sync_installer | lower }}
+
+# Whether to delete files on the mirror that are not on the upstream
+# Enable only if you want strict mirroring (not recommended for first-time mirrors)
+delete_missing: {{ delete_missing | lower }}
+
+# Upstream mirror(s) to sync from — one per line, in rsync:// or http:// format
+{% for upstream in upstreams %}upstream: {{ upstream }}
+{% endfor %}
+
+# Path to log file (optional; leave blank to use syslog)
+log_file: {{ log_file | default('') }}
+
+# Email address to send status/error reports
+admin_email: {{ admin_email }}
+
+# Whether to run hourly cron job to check and sync
+run_cron: {{ run_cron | lower }}
+
+# Cron schedule (cron-style) — only used if run_cron is true
+# Default: 0 2 * * * (daily at 02:00)
+cron_schedule: '{{ cron_schedule }}'
+
+# Lock file path to prevent concurrent runs
+lock_file: {{ lock_file }}
+
+# Optional proxy for HTTP/FTP sources (e.g., http://proxy.example.com:8080)
+{% if proxy | length > 0 %}proxy: {{ proxy }}
+{% else %}# proxy not configured
+{% endif %}
+
+# Extra rsync options (e.g., --delete-after, --compress)
+rsync_extra_opts: [{% for opt in rsync_extra_opts %} '{{ opt }}'{% if not loop.last %},{% endif %}{% endfor %}]
+
+# Maximum age (in hours) of mirror metadata before warning
+max_metadata_age_hours: {{ max_metadata_age_hours }}
+
+# Whether to generate Packages, Sources, and Release files (usually yes)
+generate_metaindex: {{ generate_metaindex | lower }}
+
+# Path to custom mirror configuration script (for advanced use)
+post_sync_script: {{ post_sync_script | default('') }}

@@ -1,0 +1,538 @@
+{
+  "serverinfo.name": {
+    "type": "string",
+    "default": "irc.example.net",
+    "description": "Server's host name (FQDN). Must be unique in the network."
+  },
+  "serverinfo.description": {
+    "type": "string",
+    "default": "Hybrid IRC Server",
+    "description": "Short human-readable description of the server."
+  },
+  "serverinfo.network_name": {
+    "type": "string",
+    "default": "ExampleNet",
+    "description": "Name of the IRC network (used in /list, WHOIS, etc.)."
+  },
+  "serverinfo.network_desc": {
+    "type": "string",
+    "default": "A secure and performant IRC network",
+    "description": "Network description shown in network-wide WHOIS."
+  },
+  "serverinfo.max_users": {
+    "type": "number",
+    "default": 5000,
+    "description": "Maximum total users (local + remote) allowed on this server."
+  },
+  "serverinfo.max_accept": {
+    "type": "number",
+    "default": 200,
+    "description": "Maximum number of pending client connections accepted per second."
+  },
+  "serverinfo.kline_address": {
+    "type": "string",
+    "default": "kline@example.net",
+    "description": "Email address for k-lined users to contact for unban requests."
+  },
+  "serverinfo.allow_auto_connect": {
+    "type": "bool",
+    "default": true,
+    "description": "Whether servers may auto-connect using 'link' blocks (without manual oper initiation)."
+  },
+  "serverinfo.enable_dcc_send": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable DCC SEND for file transfers between users."
+  },
+  "listeners": {
+    "type": "list",
+    "default": [
+      {
+        "address": "0.0.0.0",
+        "port": 6667,
+        "tls": {
+          "enabled": false
+        }
+      }
+    ],
+    "description": "List of IP:port pairs the server will accept connections on.",
+    "items": {
+      "type": "object",
+      "fields": {
+        "address": {
+          "type": "string",
+          "default": "0.0.0.0",
+          "description": "IP address or hostname to bind to (e.g., 0.0.0.0, 127.0.0.1, ::)."
+        },
+        "port": {
+          "type": "number",
+          "default": 6667,
+          "description": "Port number to listen on (e.g., 6667, 6697 for TLS)."
+        },
+        "tls": {
+          "type": "object",
+          "default": {
+            "enabled": false
+          },
+          "fields": {
+            "enabled": {
+              "type": "bool",
+              "default": false,
+              "description": "Enable TLS for this listener."
+            },
+            "cert": {
+              "type": "string",
+              "default": "/etc/ircd-hybrid/certs/server.crt",
+              "description": "Path to TLS certificate file."
+            },
+            "key": {
+              "type": "string",
+              "default": "/etc/ircd-hybrid/certs/server.key",
+              "description": "Path to TLS private key file."
+            },
+            "ca": {
+              "type": "string",
+              "default": "",
+              "description": "Optional path to CA certificate bundle for client cert verification."
+            },
+            "dhparam": {
+              "type": "string",
+              "default": "",
+              "description": "Path to DH parameters file (for DHE cipher suites)."
+            },
+            "cipher_list": {
+              "type": "string",
+              "default": "",
+              "description": "TLS cipher list (e.g., HIGH:MEDIUM:!aNULL:!MD5). Leave empty for defaults."
+            },
+            "verify_mode": {
+              "type": "number",
+              "default": 0,
+              "description": "TLS client cert verification mode: 0=none, 1=optional, 2=required."
+            }
+          }
+        }
+      }
+    }
+  },
+  "classes": {
+    "type": "list",
+    "default": [
+      {
+        "name": "staff",
+        "description": "Staff/users with high limits",
+        "ping_time": 120,
+        "connect_freq": 5,
+        "max_users": 100,
+        "sendq": 2097152,
+        "recvq": 8192
+      },
+      {
+        "name": "default",
+        "description": "Standard users",
+        "ping_time": 60,
+        "connect_freq": 40,
+        "max_users": 10,
+        "sendq": 524288,
+        "recvq": 4096
+      }
+    ],
+    "description": "Resource classes defining limits (max users, send/recv queues, ping intervals).",
+    "items": {
+      "type": "object",
+      "fields": {
+        "name": {
+          "type": "string",
+          "default": "default",
+          "description": "Class name (used in allow/deny/link blocks)."
+        },
+        "description": {
+          "type": "string",
+          "default": "Standard users",
+          "description": "Human-readable class description."
+        },
+        "ping_time": {
+          "type": "number",
+          "default": 60,
+          "description": "Interval in seconds before server pings clients/servers in this class."
+        },
+        "connect_freq": {
+          "type": "number",
+          "default": 40,
+          "description": "Minimum seconds between new connections per IP in this class."
+        },
+        "max_users": {
+          "type": "number",
+          "default": 10,
+          "description": "Max simultaneous connections from IPs matched by this class."
+        },
+        "sendq": {
+          "type": "number",
+          "default": 524288,
+          "description": "Max bytes allowed in client send buffer (overflow = kline)."
+        },
+        "recvq": {
+          "type": "number",
+          "default": 4096,
+          "description": "Max bytes allowed in client receive buffer."
+        }
+      }
+    }
+  },
+  "allowed_clients": {
+    "type": "list",
+    "default": [
+      {
+        "mask": "*@*",
+        "class": "default",
+        "password": "",
+        "fingerprint": "",
+        "flags": []
+      }
+    ],
+    "description": "Client allow rules \u2014 who can connect and under which class.",
+    "items": {
+      "type": "object",
+      "fields": {
+        "mask": {
+          "type": "string",
+          "default": "*@*",
+          "description": "User@host mask or CIDR (e.g., 192.168.1.0/24, *@*.edu)."
+        },
+        "class": {
+          "type": "string",
+          "default": "default",
+          "description": "Name of class to assign matched clients."
+        },
+        "password": {
+          "type": "string",
+          "default": "",
+          "description": "Optional connection password (SHA256 hash recommended; empty = no password)."
+        },
+        "fingerprint": {
+          "type": "string",
+          "default": "",
+          "description": "SHA256 fingerprint for certificate-based auth (optional)."
+        },
+        "flags": {
+          "type": "list",
+          "default": [],
+          "description": "Client flags (e.g., 'ssl', 'spoof', 'no_tilde', 'operonly').",
+          "items": {
+            "type": "string",
+            "description": "Flag name (e.g., ssl, spoof, no_tilde)."
+          }
+        }
+      }
+    }
+  },
+  "denied_clients": {
+    "type": "list",
+    "default": [],
+    "description": "Client deny rules \u2014 block specific hosts with optional reason.",
+    "items": {
+      "type": "object",
+      "fields": {
+        "mask": {
+          "type": "string",
+          "default": "badhost.example.com",
+          "description": "Hostmask or IP/CIDR to deny (e.g., 10.0.0.0/8)."
+        },
+        "reason": {
+          "type": "string",
+          "default": "Abuse detected",
+          "description": "Reason shown in KLINE or ERROR to denied users."
+        }
+      }
+    }
+  },
+  "opers": {
+    "type": "list",
+    "default": [
+      {
+        "name": "ircop",
+        "password": "hash:SHA256:abc123...",
+        "type": "default",
+        "flags": [
+          "kline",
+          "unkline",
+          "die",
+          "rehash"
+        ]
+      }
+    ],
+    "description": "IRC operator accounts with elevated privileges.",
+    "items": {
+      "type": "object",
+      "fields": {
+        "name": {
+          "type": "string",
+          "default": "ircop",
+          "description": "Operator nickname (must be unique)."
+        },
+        "password": {
+          "type": "string",
+          "default": "hash:SHA256:abc...",
+          "description": "Password hash (format: 'hash:SHA256:hex', or plain text if unsafe)."
+        },
+        "type": {
+          "type": "string",
+          "default": "default",
+          "description": "Operator type (e.g., 'default', 'netadmin', 'admin', 'services'.)"
+        },
+        "flags": {
+          "type": "list",
+          "default": [],
+          "description": "Privilege flags (e.g., 'kline', 'unkline', 'die', 'rehash', ' oper'.)",
+          "items": {
+            "type": "string",
+            "description": "Operator flag (e.g., kline, die, rehash)."
+          }
+        }
+      }
+    }
+  },
+  "links": {
+    "type": "list",
+    "default": [],
+    "description": "Server links \u2014 upstream/downstream servers for network federation.",
+    "items": {
+      "type": "object",
+      "fields": {
+        "name": {
+          "type": "string",
+          "default": "upstream.example.net",
+          "description": "Remote server\u2019s name (must match its 'server.name' block)."
+        },
+        "address": {
+          "type": "string",
+          "default": "upstream.example.net",
+          "description": "Remote host address (DNS or IP)."
+        },
+        "port": {
+          "type": "number",
+          "default": 7000,
+          "description": "Port to connect to on remote server."
+        },
+        "class": {
+          "type": "string",
+          "default": "server",
+          "description": "Class to use for this server link (must exist in classes block)."
+        },
+        "send_password": {
+          "type": "string",
+          "default": "sendpass",
+          "description": "Password sent to remote server."
+        },
+        "recv_password": {
+          "type": "string",
+          "default": "recvpass",
+          "description": "Password expected from remote server."
+        },
+        "flags": {
+          "type": "list",
+          "default": [],
+          "description": "Link flags (e.g., 'autoconn', 'hidden', 'zip'.)",
+          "items": {
+            "type": "string",
+            "description": "Flag (e.g., autoconn, zip, hidden)."
+          }
+        },
+        "tls": {
+          "type": "object",
+          "default": {
+            "enabled": false
+          },
+          "fields": {
+            "enabled": {
+              "type": "bool",
+              "default": false,
+              "description": "Enable TLS for this server link."
+            },
+            "cert": {
+              "type": "string",
+              "default": "/etc/ircd-hybrid/certs/server.crt",
+              "description": "Path to certificate for server auth."
+            },
+            "key": {
+              "type": "string",
+              "default": "/etc/ircd-hybrid/certs/server.key",
+              "description": "Path to private key."
+            },
+            "ca": {
+              "type": "string",
+              "default": "",
+              "description": "CA cert bundle to verify remote server cert (optional)."
+            },
+            "verify": {
+              "type": "number",
+              "default": 0,
+              "description": "TLS verification mode: 0=none, 1=peer cert required."
+            }
+          }
+        }
+      }
+    }
+  },
+  "modules": {
+    "type": "list",
+    "default": [
+      {
+        "name": "m_swhois.so"
+      },
+      {
+        "name": "m_cloaking.so"
+      }
+    ],
+    "description": "Dynamically loadable modules to extend server functionality.",
+    "items": {
+      "type": "object",
+      "fields": {
+        "name": {
+          "type": "string",
+          "default": "m_swhois.so",
+          "description": "Module filename (e.g., m_swhois.so)."
+        },
+        "path": {
+          "type": "string",
+          "default": "",
+          "description": "Optional absolute path to module (if not in default modules dir)."
+        }
+      }
+    }
+  },
+  "logs": {
+    "type": "list",
+    "default": [
+      {
+        "target": "stderr",
+        "target_path": "",
+        "level": 1
+      },
+      {
+        "target": "file",
+        "target_path": "/var/log/ircd/ircd.log",
+        "maxsize": 10485760,
+        "level": 0
+      }
+    ],
+    "description": "Logging configuration \u2014 where and how to record server events.",
+    "items": {
+      "type": "object",
+      "fields": {
+        "target": {
+          "type": "string",
+          "default": "stderr",
+          "description": "Log destination: 'stdout', 'stderr', or 'file'."
+        },
+        "target_path": {
+          "type": "string",
+          "default": "/var/log/ircd/ircd.log",
+          "description": "File path when target='file'."
+        },
+        "maxsize": {
+          "type": "number",
+          "default": 10485760,
+          "description": "Max log file size in bytes before rotation (ignored for stdout/stderr)."
+        },
+        "level": {
+          "type": "number",
+          "default": 0,
+          "description": "Log verbosity level: 0=info, 1=debug, 2=trace (see docs for full mapping)."
+        }
+      }
+    }
+  },
+  "ssl.cert": {
+    "type": "string",
+    "default": "/etc/ircd-hybrid/certs/server.crt",
+    "description": "Default TLS certificate for non-listener SSL operations (e.g., server links)."
+  },
+  "ssl.key": {
+    "type": "string",
+    "default": "/etc/ircd-hybrid/certs/server.key",
+    "description": "Default TLS private key."
+  },
+  "ssl.dhparam": {
+    "type": "string",
+    "default": "/etc/ircd-hybrid/certs/dhparams.pem",
+    "description": "Path to DH parameters file (required for DHE ciphers)."
+  },
+  "ssl.ca": {
+    "type": "string",
+    "default": "/etc/ircd-hybrid/certs/ca.crt",
+    "description": "CA certificate bundle for verifying client/server certificates."
+  },
+  "ssl.verify_mode": {
+    "type": "number",
+    "default": 0,
+    "description": "Global default TLS verification mode: 0=none, 1=optional, 2=required."
+  },
+  "server.name": {
+    "type": "string",
+    "default": "irc.example.net",
+    "description": "Server's FQDN (must match in serverinfo.name and link blocks)."
+  },
+  "server.description": {
+    "type": "string",
+    "default": "Primary hub server",
+    "description": "Server description for network WHOIS."
+  },
+  "server.sid": {
+    "type": "string",
+    "default": "A00",
+    "description": "Server ID (3-char hex, unique across network; e.g., 'A00', 'B01')."
+  },
+  "server.uplink": {
+    "type": "object",
+    "default": {
+      "host": "upstream.example.net",
+      "port": 7000,
+      "tls": {
+        "enabled": false
+      }
+    },
+    "description": "Uplink server to connect to on startup (if standalone server, may be omitted).",
+    "fields": {
+      "host": {
+        "type": "string",
+        "default": "upstream.example.net",
+        "description": "Uplink server hostname."
+      },
+      "port": {
+        "type": "number",
+        "default": 7000,
+        "description": "Port to connect to (typically 7000+ for servers)."
+      },
+      "tls": {
+        "type": "object",
+        "default": {
+          "enabled": false
+        },
+        "fields": {
+          "enabled": {
+            "type": "bool",
+            "default": false
+          },
+          "cert": {
+            "type": "string",
+            "default": "/etc/ircd-hybrid/certs/server.crt"
+          },
+          "key": {
+            "type": "string",
+            "default": "/etc/ircd-hybrid/certs/server.key"
+          },
+          "ca": {
+            "type": "string",
+            "default": "/etc/ircd-hybrid/certs/ca.crt"
+          }
+        }
+      }
+    }
+  },
+  "server.max_users": {
+    "type": "number",
+    "default": 2000,
+    "description": "Max users this server can handle (local only)."
+  }
+}

@@ -1,0 +1,70 @@
+# IIPImage server configuration file
+# Core settings
+{
+  "Core": {
+    "Verbose": {{ verbose | default(0) }},
+    "LogLevel": "{{ log_level | default('INFO') }}",
+    "MaxImageCacheSize": {{ max_image_cache_size | default(100) }},
+    "CacheExpirationTime": {{ cache_expiration_time | default(3600) }},
+    "MaxSize": {{ max_size | default(8192) }},
+    "JpegQuality": {{ jpeg_quality | default(75) }},
+    "WebpQuality": {{ webp_quality | default(80) }},
+    "MaxJpegSize": {{ max_jpeg_size | default(100) }},
+    "MinZoomLevel": {{ min_zoom_level | default(0) }},
+    "MaxZoomLevel": {{ max_zoom_level | default(20) }},
+    "TileSize": {{ tile_size | default(256) }},
+    "TileOverlap": {{ tile_overlap | default(0) }},
+    "Compression": "{{ compression | default('jpeg') }}",
+    "AllowAnimatedGif": {{ allow_animated_gif | default(false) | lower }},
+    "AllowAnimatedWebp": {{ allow_animated_webp | default(false) | lower }},
+    "UseCaching": {{ use_caching | default(true) | lower }},
+    "UseSharedMemory": {{ use_shared_memory | default(false) | lower }},
+    "SharedMemoryKey": {{ shared_memory_key | default(0x4567) | int }}
+  }
+}
+# Logging configuration
+{
+  "Log": {
+    "File": "{{ log_file | default('/var/log/iipimage/iipimage.log') }}",
+    "Format": "{{ log_format | default('%Y-%m-%d %H:%M:%S') }}"
+  }
+}
+# Server settings
+{
+  "Server": {
+    "BindAddress": "{{ bind_address | default('0.0.0.0') }}",
+    "Port": {{ port | default(80 | int) }},
+    "MaxConnections": {{ max_connections | default(100) }},
+    "Timeout": {{ timeout | default(30) }},
+    "MaxWorkers": {{ max_workers | default(4) }},
+    "MaxThreads": {{ max_threads | default(10) }},
+    "EnableSSL": {{ enable_ssl | default(false) | lower }},
+    "SSLCertFile": "{{ ssl_cert_file | default('/etc/ssl/certs/iipimage.crt') }}",
+    "SSLKeyFile": "{{ ssl_key_file | default('/etc/ssl/private/iipimage.key') }}"
+  }
+}
+# Supported file formats and their loaders
+{
+  "Formats": [
+{% for fmt in formats %}
+    {
+      "Type": "{{ fmt.type }}",
+      "Loader": "{{ fmt.loader }}",
+      "Options": "{{ fmt.options | default('') }}"
+    }{{ ',' if not loop.last else '' }}
+{% endfor %}
+  ]
+}
+# Filesystem paths and aliases
+{
+  "Paths": [
+{% for path in paths %}
+    {
+      "Alias": "{{ path.alias }}",
+      "Path": "{{ path.path }}",
+      "ReadOnly": {{ path.read_only | default(false) | lower }},
+      "Recursive": {{ path.recursive | default(true) | lower }}
+    }{{ ',' if not loop.last else '' }}
+{% endfor %}
+  ]
+}

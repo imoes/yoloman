@@ -1,0 +1,20 @@
+# /etc/crontab: system-wide crontab
+# Unlike any other crontab you don't have to run the `crontab`
+# command to install the new version when you edit this file.
+# 
+# For details see: man 5 crontab
+
+SHELL=/bin/bash
+PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
+
+# m h dom mon dow user  command
+{% for job in cron_jobs %}{{ job.minute }} {{ job.hour }} {{ job.day }} {{ job.month }} {{ job.dow }} {{ job.user }} {{ job.command }}{% endfor %}
+
+# Example of job definition:
+# .---------------- minute (0 - 59)
+# |  .------------- hour (0 - 23)
+# |  |  .---------- day of month (1 - 31)
+# |  |  |  .------- month (1 - 12) OR jan,feb,mar,apr ...
+# |  |  |  |  .---- day of week (0 - 6) (Sunday=0 or 7) OR sun,mon,tue,wed,thu,fri,sat
+# |  |  |  |  |
+# *  *  *  *  * user-name command to be executed

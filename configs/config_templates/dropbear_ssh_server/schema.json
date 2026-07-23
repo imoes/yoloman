@@ -1,0 +1,98 @@
+{
+  "listen_port": {
+    "type": "number",
+    "default": 22,
+    "description": "The port on which Dropbear listens for incoming SSH connections. Use 22 for standard SSH."
+  },
+  "listen_addresses": {
+    "type": "list",
+    "default": [],
+    "description": "List of IP addresses to bind to. Leave empty to bind to all interfaces.",
+    "items": {
+      "type": "string",
+      "description": "A valid IPv4 or IPv6 address (e.g., '127.0.0.1' or '::1')."
+    }
+  },
+  "enable_password_auth": {
+    "type": "bool",
+    "default": false,
+    "description": "Allow password-based login. Disable for key-only authentication (recommended for security)."
+  },
+  "enable_pubkey_auth": {
+    "type": "bool",
+    "default": true,
+    "description": "Allow public key authentication (recommended)."
+  },
+  "host_keys": {
+    "type": "list",
+    "default": [],
+    "description": "List of host key files to load. At least one RSA or Ed25519 key is required.",
+    "items": {
+      "type": "object",
+      "fields": {
+        "path": {
+          "type": "string",
+          "description": "Absolute path to the host key file (e.g., '/etc/dropbear/dropbear_rsa_host_key')."
+        },
+        "type": {
+          "type": "string",
+          "enum": [
+            "RSA",
+            "ECDSA",
+            "Ed25519"
+          ],
+          "description": "Cryptographic algorithm type of the key."
+        }
+      }
+    }
+  },
+  "banner_file": {
+    "type": "string",
+    "default": "",
+    "description": "Path to a file containing the pre-authentication login banner. Empty to disable."
+  },
+  "enable_tcp_forwarding": {
+    "type": "bool",
+    "default": true,
+    "description": "Allow local/remote TCP port forwarding (e.g., for tunneling). Disable if not needed for security."
+  },
+  "enable_x11_forwarding": {
+    "type": "bool",
+    "default": false,
+    "description": "Allow X11 forwarding for graphical applications. Enable only if using GUI over SSH."
+  },
+  "enable_agent_forwarding": {
+    "type": "bool",
+    "default": false,
+    "description": "Allow SSH agent forwarding (use with caution; enables credential theft risk)."
+  },
+  "max_auth_tries": {
+    "type": "number",
+    "default": 6,
+    "description": "Maximum authentication attempts per connection before disconnecting the client."
+  },
+  "idle_timeout": {
+    "type": "number",
+    "default": 0,
+    "description": "Idle session timeout in seconds. 0 = no timeout (sessions persist)."
+  },
+  "disable_ipv6": {
+    "type": "bool",
+    "default": false,
+    "description": "If true, disable IPv6 support (forces IPv4 only)."
+  },
+  "legacy_crypto": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable legacy cryptographic methods for compatibility with old clients. \u26a0\ufe0f Weakens security."
+  },
+  "extra_args": {
+    "type": "list",
+    "default": [],
+    "description": "Additional command-line arguments for dropbear (e.g., ['-w'] to disallow root login). Avoid duplicating flags set above.",
+    "items": {
+      "type": "string",
+      "description": "A single argument (without '--' or '-' prefix; e.g., 'w' for -w)."
+    }
+  }
+}

@@ -1,0 +1,49 @@
+[DEFAULT]
+# Global defaults for all jails
+ignoreip = {{ defaults.ignore_ip | join(', ') }}
+# Ban a host for this many seconds
+bantime  = {{ defaults.ban_time }}
+# How long until a ban is reduced (foundtime)
+findtime  = {{ defaults.find_time }}
+# Max # of failures before ban
+maxretry = {{ defaults.max_retry }}
+# Backend to use for log reading
+backend = {{ defaults.backend }}
+# Log target for fail2ban messages
+logtarget = {{ defaults.log_target }}
+# Protocol to monitor (tcp, udp, or both)
+protocol = {{ defaults.protocol }}
+# Action to take when banning
+action = {{ defaults.action }}
+{% for jail_name, jail_config in jails.items() %}
+{% if jail_config.enabled %}
+
+[{{ jail_name }}]
+# Enabled: {{ jail_config.enabled }}
+enabled  = {{ 'true' if jail_config.enabled else 'false' }}
+# Filter to use (must exist in filter.d/)
+filter   = {{ jail_config.filter }}
+# Action to take for this jail
+action   = {{ jail_config.action | default(action) }}
+# Log path(s) to monitor (comma-separated or list)
+logpath  = {{ jail_config.logpath | join(', ') }}
+# Override global defaults (only set if explicitly defined)
+{% if jail_config.bantime is defined %}bantime  = {{ jail_config.bantime }}
+{% endif %}{% if jail_config.findtime is defined %}findtime = {{ jail_config.findtime }}
+{% endif %}{% if jail_config.maxretry is defined %}maxretry = {{ jail_config.maxretry }}
+{% endif %}{% if jail_config.ignoreip is defined %}ignoreip = {{ jail_config.ignoreip | join(', ') }}
+{% endif %}{% if jail_config.protocol is defined %}protocol = {{ jail_config.protocol }}
+{% endif %}{% if jail_config.backend is defined %}backend  = {{ jail_config.backend }}
+{% endif %}{% if jail_config.port is defined %}port     = {{ jail_config.port }}
+{% endif %}{% if jail_config.chain is defined %}chain    = {{ jail_config.chain }}
+{% endif %}{% if jail_config.sendmail is defined %}sendmail = {{ jail_config.sendmail }}
+{% endif %}{% if jail_config.destemail is defined %}destemail = {{ jail_config.destemail }}
+{% endif %}{% if jail_config.sender is defined %}sender   = {{ jail_config.sender }}
+{% endif %}{% if jail_config.mta is defined %}mta      = {{ jail_config.mta }}
+{% endif %}{% if jail_config.recipient is defined %}recipient = {{ jail_config.recipient }}
+{% endif %}{% if jail_config.mode is defined %}mode     = {{ jail_config.mode }}
+{% endif %}{% if jail_config.ports is defined %}ports    = {{ jail_config.ports | join(', ') }}
+{% endif %}{% if jail_config.ignorecommand is defined %}ignorecommand = {{ jail_config.ignorecommand }}
+{% endif %}
+{% endif %}
+{% endfor %}

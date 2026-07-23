@@ -1,0 +1,57 @@
+[Service]
+# Enable the Google Online Accounts plugin
+Type=simple
+ExecStart=/usr/lib/lomiri-online-accounts-plugin-google/lomiri-online-accounts-plugin-google
+
+# Restart policy: restart on failure for resilience
+Restart=on-failure
+RestartSec=3
+
+# Run as the lomiri user
+User=lomiri
+Group=lomiri
+
+# Limit resource usage: prevent runaway processes
+MemoryLimit=256M
+# Limit number of open file descriptors
+LimitNOFILE=1024
+
+# Ensure secure environment: restrict access to sensitive capabilities
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=read-only
+
+# Allow access to necessary paths
+ReadWritePaths=/var/lib/lomiri-online-accounts
+ReadWritePaths=/run/user/{{ user_runtime }}/lomiri
+ReadWritePaths={{ accounts_cache_path }}
+ReadWritePaths={{ accounts_data_path }}
+
+# Bind to required D-Bus services
+BusName=org.gnome.OnlineAccounts
+
+# Wait for D-Bus and account manager to be ready
+WantedBy=accounts.service
+Requires=accounts.service
+
+# Optional: override default provider name for multi-tenant setups
+{% if provider_name is defined %}# Override provider name
+ProviderName={{ provider_name }}
+{% endif %}
+
+# Optional: enable/disable debug logging
+{% if debug | default(false) %}# Enable debug logging
+Debug=true
+{% else %}Debug=false
+{% endif %}
+
+# Optional: worker configuration for parallel token refresh
+{% if workers is defined %}[Workers]
+{% for worker in workers %}# Worker {{ loop.index }}: handles refresh for provider {{ worker.provider | default('google') }}
+Worker{{ loop.index }}.Provider={{ worker.provider | default('google') }}
+Worker{{ loop.index }}.MinInterval={{ worker.min_interval | default(900) }}
+Worker{{ loop.index }}.MaxInterval={{ worker.max_interval | default(3600) }}
+Worker{{ loop.index }}.BatchSize={{ worker.batch_size | default(10) }}
+Worker{{ loop.index }}.Enabled={{ worker.enabled | default(true) }}
+{% endfor %}{% endif %}

@@ -1,0 +1,30 @@
+# RDMA core userspace infrastructure configuration
+# This file controls RDMA subsystem behavior at boot and runtime.
+# Set the RDMA modules to load (space-separated list)
+{% if rdma_modules_to_load is defined and rdma_modules_to_load %}RDMA_MODULES="{{ rdma_modules_to_load | join(' ') }}"{% else %}RDMA_MODULES="iser rdma_ucm rdma_cm ib_uverbs ib_mad ib_sa ib_core"{% endif %}
+
+# Enable/disable loading of kernel modules at boot
+{% if enable_kernel_module_loading is defined %}LOAD_RDMA_MODULES="{{ 'yes' if enable_kernel_module_loading else 'no' }}"{% else %}LOAD_RDMA_MODULES="yes"{% endif %}
+
+# Path to user-space RDMA provider libraries (not usually changed)
+{% if rdma_provider_lib_dir is defined %}RDMA_PROVIDER_LIB_DIR="{{ rdma_provider_lib_dir }}"{% else %}RDMA_PROVIDER_LIB_DIR="/usr/lib64"{% endif %}
+
+# RDMA device name prefixes to skip during auto-probing
+{% if rdma_skip_device_prefixes is defined and rdma_skip_device_prefixes %}RDMA_SKIP_DEVICE_PREFIXES="{{ rdma_skip_device_prefixes | join(' ') }}"{% else %}RDMA_SKIP_DEVICE_PREFIXES=""{% endif %}
+
+# Set maximum number of RDMA connections per process (0 = use system default)
+{% if max_rdma_connections is defined %}MAX_RDMA_CONNECTIONS="{{ max_rdma_connections }}"{% else %}MAX_RDMA_CONNECTIONS="0"{% endif %}
+
+# Enable/disable automatic creation of RDMA network interfaces
+{% if enable_rdma_netdev is defined %}RDMA_NETDEV_AUTO="{{ 'yes' if enable_rdma_netdev else 'no' }}"{% else %}RDMA_NETDEV_AUTO="yes"{% endif %}
+
+# Per-interface RDMA network settings (for RoCE/iWARP devices)
+{% for iface in rdma_interfaces %}# Interface: {{ iface.name }}
+{% if iface.name is defined %}IFACE_{{ iface.name | upper }}="{% if iface.mode is defined %}mode={{ iface.mode }}{% endif %}{% if iface.mtu is defined %} mtu={{ iface.mtu }}{% endif %}{% if iface.link_layer is defined %} link_layer={{ iface.link_layer }}{% endif %}"{% endif %}
+{% endfor %}
+
+# Optional: Enable/disable InfiniBand subnet manager at boot
+{% if enable_subnet_manager is defined %}SUBNET_MANAGER="{{ 'yes' if enable_subnet_manager else 'no' }}"{% else %}SUBNET_MANAGER="no"{% endif %}
+
+# Subnet manager priority (for systems with multiple SMs)
+{% if subnet_manager_priority is defined %}SUBNET_MANAGER_PRIORITY="{{ subnet_manager_priority }}"{% else %}SUBNET_MANAGER_PRIORITY="0"{% endif %}

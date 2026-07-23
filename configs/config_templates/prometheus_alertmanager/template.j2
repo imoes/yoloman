@@ -1,0 +1,52 @@
+# Global configuration for Alertmanager
+{% if global_smtp_smarthost %}
+smtp_smarthost: '{{ global_smtp_smarthost }}'
+{% endif %}
+{% if global_smtp_from %}
+smtp_from: '{{ global_smtp_from }}'
+{% endif %}
+{% if global_smtp_auth_username %}
+smtp_auth_username: '{{ global_smtp_auth_username }}'
+{% endif %}
+{% if global_smtp_auth_password %}
+smtp_auth_password: '{{ global_smtp_auth_password }}'
+{% endif %}
+{% if global_smtp_require_tls is defined %}
+smtp_require_tls: {{ global_smtp_require_tls | lower }}
+{% endif %}
+{% if global_slack_api_url %}
+slack_api_url: '{{ global_slack_api_url }}'
+{% endif %}
+{% if global_opsgenie_api_key %}
+opsgenie_api_key: '{{ global_opsgenie_api_key }}'
+{% endif %}
+{% if global_opsgenie_api_url %}
+opsgenie_api_url: '{{ global_opsgenie_api_url }}'
+{% endif %}
+{% if global_pagerduty_routing_key %}
+pagerduty_routing_key: '{{ global_pagerduty_routing_key }}'
+{% endif %}
+{% if global_telegram_token %}
+telegram_bot_token: '{{ global_telegram_token }}'
+{% endif %}
+{% if global_telegram_chat_id %}
+telegram_chat_id: '{{ global_telegram_chat_id }}'
+{% endif %}
+{% if global victorops_api_key %}
+victorops_api_key: '{{ global_victorops_api_key }}'
+{% endif %}
+{% if global victorops_routing_key %}
+victorops_routing_key: '{{ global_victorops_routing_key }}'
+{% endif %}
+
+# Templates for notifications
+{% if templates | length > 0 %}
+templates:
+  {%- for tmpl in templates %}
+  - '{{ tmpl }}'
+  {%- endfor %}
+{% endif %}
+
+# Route configuration: how alerts are routed to receivers
+route:
+  group_by: [{{ group_by | map('quote') | join(', ') | default('[

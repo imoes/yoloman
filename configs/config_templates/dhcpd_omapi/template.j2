@@ -1,0 +1,34 @@
+# OMAPI configuration — enables remote administration via OMAPI
+# This key is used for authenticated dynamic DNS updates and remote management
+# Define the OMAPI port and key for secure access
+# The OMAPI port to listen on (default: 7911)
+port {{ omapi_port }};
+
+# Define the OMAPI authentication key
+key {{ omapi_key_name }} {
+  algorithm {{ omapi_key_algorithm }};
+  secret "{{ omapi_key_secret }}";
+};
+
+# Enable OMAPI server
+# This stanza enables the OMAPI server for remote management
+omapi-key {{ omapi_key_name }};
+
+# Optional: OMAPI access control (allow/deny statements)
+{% if omapi_allow_list | length > 0 %}
+# Allow OMAPI connections only from these hosts
+{% for host in omapi_allow_list %}
+allow {{ host | default('') }};
+{% endfor %}
+{% endif %}
+
+# Optional: OMAPI deny list (explicit deny rules)
+{% if omapi_deny_list | length > 0 %}
+# Explicitly deny OMAPI connections from these hosts
+{% for host in omapi_deny_list %}
+deny {{ host | default('') }};
+{% endfor %}
+{% endif %}
+
+# Standard DHCP configuration remains outside OMAPI scope — OMAPI only manages live updates
+# (This template focuses only on the OMAPI-specific directives.)

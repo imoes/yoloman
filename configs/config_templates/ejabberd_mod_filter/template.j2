@@ -1,0 +1,22 @@
+# ejabberd_mod_filter configuration: Define packet filtering rules
+# Each rule filters packets (e.g., MUC presence, IQ stanzas) based on JID, type, or stanza content
+# Rules are evaluated in order; first match wins
+# Use 'access' to tie rules to ejabberd's access control system
+
+{% for rule in rules %}# Rule: {{ rule.name }}
+mod_filter:
+  rules:
+    '{{ rule.name }}':
+      type: {{ rule.type | default('access') }}
+{% if rule.type == 'access' %}      access: {{ rule.access }}
+{% else %}      filter: {{ rule.filter }}
+{% endif %}
+{% endfor %}
+
+# Global toggle: enable/disable packet filtering (default: true)
+mod_filter:
+  enabled: {{ enabled }}
+
+# Optional: Path to external script for custom filtering logic (if used)
+mod_filter:
+  external_script: {{ external_script | default('') | trim }}

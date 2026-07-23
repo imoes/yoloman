@@ -1,0 +1,90 @@
+{
+  "db": {
+    "driver": "postgresql",
+    "host": "db.internal",
+    "port": 5432,
+    "name": "oar_prod",
+    "user": "oar",
+    "password": "s3cur3_p@ssw0rd"
+  },
+  "job_reservation": {
+    "enabled": true,
+    "max_duration": 432000
+  },
+  "monitoring": {
+    "resource_interval": 60,
+    "resource_timeout": 15,
+    "max_failures": 2
+  },
+  "scheduler": {
+    "policy": "fairshare",
+    "max_jobs_per_user": 200,
+    "max_walltime": 604800,
+    "preemption": {
+      "enabled": true
+    }
+  },
+  "logging": {
+    "level": "WARNING",
+    "file": "/var/log/oar/server.log"
+  },
+  "api": {
+    "port": 6667,
+    "host": "0.0.0.0"
+  },
+  "webui": {
+    "enabled": true,
+    "port": 8443,
+    "host": "0.0.0.0",
+    "admin_email": "support@cluster.example.com",
+    "login_message": "Use your institutional account to log in."
+  },
+  "worker_nodes": [
+    "compute-001",
+    "compute-002",
+    "compute-003"
+  ],
+  "queues": [
+    {
+      "name": "batch",
+      "resource_request": "core=1",
+      "max_walltime": 259200,
+      "default_walltime": 43200,
+      "priority": 0
+    },
+    {
+      "name": "interactive",
+      "resource_request": "core=1,mem=4G",
+      "max_walltime": 14400,
+      "default_walltime": 3600,
+      "priority": 5
+    }
+  ],
+  "shared_fs": {
+    "root": "/nfs/shared",
+    "user": "root",
+    "group": "users",
+    "mode": "0775"
+  },
+  "mail": {
+    "enabled": true,
+    "smtp_server": "mail.example.com",
+    "smtp_port": 587,
+    "from_address": "no-reply@cluster.example.com"
+  },
+  "auth": {
+    "backend": "ldap",
+    "ldap": {
+      "uri": "ldaps://ldap.example.com",
+      "base_dn": "ou=people,dc=example,dc=com",
+      "bind_dn": "cn=robind,ou=system,dc=example,dc=com",
+      "bind_password": "s3cur3_bind_p@ss",
+      "user_filter": "(uid=%u)"
+    }
+  },
+  "ssh": {
+    "port": 22,
+    "user": "oarjob",
+    "key_path": "/etc/oar/ssh_key"
+  }
+}

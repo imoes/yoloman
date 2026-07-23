@@ -1,0 +1,57 @@
+# Enable ManageSieve protocol
+protocols = {{ protocols | join(' ') }}
+
+# ManageSieve service configuration
+service managesieve {
+  # Socket listen configuration
+  inet_listener sieve {
+    port = {{ managesieve_port }}
+  }
+  {% if managesieve_ssl_port %}
+  inet_listener sieve-ssl {
+    port = {{ managesieve_ssl_port }}
+  }
+  {% endif %}
+
+  # Process limits
+  # Maximum number of simultaneous ManageSieve connections per user
+  max_clients = {{ managesieve_max_clients }}
+}
+
+# Script storage location
+# Where user scripts are stored (relative to mail_root)
+sieve = {{ sieve_script_path }}
+
+# Default script name (without extension)
+sieve_default = {{ sieve_default_script }}
+
+# Script directory permissions
+sieve_global_dir = {{ sieve_global_dir }}
+
+# Enable ManageSieve extensions
+# List of extensions to enable (comma-separated)
+sieve_extensions = {{ sieve_extensions | join(', ') }}
+
+# Sieve script compilation
+# Compile scripts into bytecode for performance
+sieve_before = {{ sieve_before | join(' ') }}
+sieve_after = {{ sieve_after | join(' ') }}
+
+# ManageSieve logout format string
+# Controls logging of ManageSieve sessions
+managesieve_logout_format = {{ managesieve_logout_format }}
+
+# SSL/TLS configuration for ManageSieve
+# Use Dovecot's global SSL settings unless overridden
+{% if managesieve_ssl != 'yes' %}# {% endif %}ssl = {{ managesieve_ssl }}
+{% if managesieve_ssl == 'yes' %}
+# TLS certificate and key files
+dovecot_ssl_cert = <{{ ssl_cert_path }}
+dovecot_ssl_key = <{{ ssl_key_path }}
+# Minimum SSL protocol version (optional, defaults to system policy)
+dovecot_ssl_min_protocol = {{ ssl_min_protocol }}
+{% endif %}
+
+# ManageSieve login authentication
+# Use Dovecot's authentication framework
+auth_mechanisms = {{ auth_mechanisms | join(' ') }}

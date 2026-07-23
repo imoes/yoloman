@@ -1,0 +1,132 @@
+{
+  "install_routes": {
+    "type": "bool",
+    "default": true,
+    "description": "When false, disable automatic route installation (for manual routing or policy-based routing setups)."
+  },
+  "exclude_interfaces": {
+    "type": "list",
+    "default": [],
+    "description": "List of interface names to exclude from DHCP client management.",
+    "items": {
+      "type": "string",
+      "description": "Interface name (e.g., 'lo', 'br0')"
+    }
+  },
+  "static_ipv4": {
+    "type": "list",
+    "default": [],
+    "description": "Static IPv4 assignments per interface.",
+    "items": {
+      "type": "object",
+      "fields": {
+        "interface": {
+          "type": "string",
+          "description": "Target interface name."
+        },
+        "ip": {
+          "type": "string",
+          "description": "IPv4 address in dotted-decimal (e.g., '192.168.1.100')."
+        },
+        "prefix": {
+          "type": "number",
+          "default": 24,
+          "description": "CIDR prefix length (e.g., 24 \u2192 /24)."
+        },
+        "gateway": {
+          "type": "string",
+          "default": "",
+          "description": "Default IPv4 gateway (optional)."
+        },
+        "dns": {
+          "type": "list",
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "description": "List of IPv4 DNS servers (optional)."
+        },
+        "hostname": {
+          "type": "string",
+          "default": "",
+          "description": "Custom hostname to request via DHCP (optional)."
+        }
+      }
+    }
+  },
+  "static_ipv6": {
+    "type": "list",
+    "default": [],
+    "description": "Static IPv6 assignments per interface.",
+    "items": {
+      "type": "object",
+      "fields": {
+        "interface": {
+          "type": "string",
+          "description": "Target interface name."
+        },
+        "ip": {
+          "type": "string",
+          "description": "IPv6 address in standard notation (e.g., '2001:db8::1')."
+        },
+        "prefixlen": {
+          "type": "number",
+          "default": 64,
+          "description": "IPv6 prefix length (e.g., 64 \u2192 /64)."
+        },
+        "gateway": {
+          "type": "string",
+          "default": "",
+          "description": "IPv6 gateway (optional)."
+        },
+        "dns": {
+          "type": "list",
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "description": "List of IPv6 DNS servers (optional)."
+        }
+      }
+    }
+  },
+  "request_options": {
+    "type": "list",
+    "default": [],
+    "description": "List of additional DHCP options to request (e.g., 'ntp_servers', 'vendor.class', 'host-name').",
+    "items": {
+      "type": "string",
+      "description": "DHCP option name or code (e.g., 'ntp_servers', '120')"
+    }
+  },
+  "ipv6_ra_mode": {
+    "type": "string",
+    "default": "slaac",
+    "description": "IPv6 router advertisement and DHCPv6 behavior mode."
+  },
+  "slaac_wait_seconds": {
+    "type": "number",
+    "default": 5,
+    "description": "Seconds to wait for SLAAC before proceeding with DHCPv6 (only relevant in 'slaac' or 'slaac+dhcpv6' mode)."
+  },
+  "retry_delay": {
+    "type": "number",
+    "default": 30,
+    "description": "Seconds to wait between interface retries after failure."
+  },
+  "use_lease_time": {
+    "type": "bool",
+    "default": true,
+    "description": "Use lease time provided by DHCP server. Disable only for strict, fixed lease renewal intervals."
+  },
+  "log_level": {
+    "type": "string",
+    "default": "",
+    "description": "Logging verbosity (empty = default: warn)."
+  },
+  "hostname": {
+    "type": "string",
+    "default": "",
+    "description": "Global hostname to send in DHCP requests. If empty, system hostname is used."
+  }
+}

@@ -1,0 +1,47 @@
+# Listen interface and port
+listen_address = {{ listen_address }}
+port = {{ port }}
+
+# Server root (document root)
+root = {{ root }}
+
+# Default index files to serve
+default_files = {{ default_files | join(', ') }}
+
+# Maximum number of connections (0 = no limit)
+max_connections = {{ max_connections }}
+
+# Maximum request body size in bytes (0 = no limit)
+max_body_size = {{ max_body_size }}
+
+# Enable or disable directory listings
+directory_listing = {{ directory_listing }}
+
+# Enable or disable SSL/TLS
+ssl_enabled = {{ ssl_enabled }}
+
+# SSL certificate and key paths (only used if ssl_enabled is true)
+ssl_cert = {{ ssl_cert }}
+ssl_key = {{ ssl_key }}
+
+# Virtual hosts — list of host blocks
+{% for host in virtual_hosts %}
+# Virtual host: {{ host.name }}
+host {{ host.name }} {
+  root {{ host.root }}
+  {% if host.index_files is defined %}index {{ host.index_files | join(', ') }}{% endif %}
+  {% if host.ssl_cert is defined %}ssl_cert {{ host.ssl_cert }}{% endif %}
+  {% if host.ssl_key is defined %}ssl_key {{ host.ssl_key }}{% endif %}
+}
+{% endfor %}
+
+# MIME type overrides — map file extensions to MIME types
+{% for ext, mime in mime_types.items() %}
+mime_type .{{ ext }} = {{ mime }}
+{% endfor %}
+
+# Access logging (empty string disables logging)
+access_log = {{ access_log }}
+
+# Error logging (empty string disables logging)
+error_log = {{ error_log }}

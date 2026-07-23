@@ -1,0 +1,65 @@
+# General borgmatic configuration — controls global behavior
+config_version: 1
+
+# Where to store backups
+source_directories:
+{% for dir in source_directories %}  - {{ dir }}
+{% endfor %}
+
+# Where to place backup archives
+repositories:
+{% for repo in repositories %}  - path: {{ repo.path }}
+{% if repo.encryption_mode is defined %}    encryption_mode: {{ repo.encryption_mode }}
+{% endif %}
+{% if repo.location is defined %}    location: {{ repo.location }}
+{% endif %}
+{% endfor %}
+
+# Keep backups per retention policy
+retention:
+  keep_within: {{ retention.keep_within }}
+  keep_hourly: {{ retention.keep_hourly }}
+  keep_daily: {{ retention.keep_daily }}
+  keep_weekly: {{ retention.keep_weekly }}
+  keep_monthly: {{ retention.keep_monthly }}
+  keep_yearly: {{ retention.keep_yearly }}
+
+# Run integrity checks periodically
+consistency:
+  checks:
+    - name: repository
+      frequency: {{ consistency.frequency.repository }}
+    - name: archives
+      frequency: {{ consistency.frequency.archives }}
+
+# Hooks to run before/after backups (optional)
+hooks:
+{% if hooks.before_backup %}  before_backup:
+{% for hook in hooks.before_backup %}    - {{ hook }}
+{% endfor %}{% endif %}
+{% if hooks.after_backup %}  after_backup:
+    - echo "Backup completed"
+{% endif %}
+{% if hooks.on_error %}  on_error:
+    - echo "Backup failed"
+{% endif %}
+
+# Log verbosity (default: info)
+log_level: {{ log_level }}
+
+# Whether to output JSON logs (for integration with log systems)
+log_json: {{ log_json | lower }}
+
+# Whether to include checksums in archive listing (slower but safer)
+checkpoints:
+  checkpoint_interval: {{ checkpoints.checkpoint_interval }}
+  checkpoint_size: {{ checkpoints.checkpoint_size }}
+
+# Compression to apply to backups
+storage:
+  compression: {{ storage.compression }}
+
+# Enable/ disable advanced features
+one_file_system: {{ one_file_system | lower }}
+progress: {{ progress | lower }}
+stats: {{ stats | lower }}

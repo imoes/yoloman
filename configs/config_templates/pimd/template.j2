@@ -1,0 +1,51 @@
+# Configuration for pimd (Multicast Routing Daemon, PIMv2)
+# Enable debugging output to syslog
+{% if debug %}debug{{ debug_level | default('') }}{% endif %}
+
+# Virtual Router ID for VRRP interoperability (if used)
+vrid {{ vrid | default(1) }}
+
+# Enable PIM-SM mode (required for most deployments)
+{% if pimsm_enabled %}pim-sm{% endif %}
+
+# Disable PIM-DM (default is off; enable only if needed)
+{% if not pimdm_enabled %}no pim-dm{% else %}pim-dm{% endif %}
+
+# Multicast boundary filter (inbound ACL name or interface-specific)
+{% for boundary in boundaries %}# Boundary for {{ boundary.interface }}: {{ boundary.acl or 'none' }}
+boundary {{ boundary.interface }}{{ ' ' + boundary.acl if boundary.acl else '' }}
+{% endfor %}
+
+# Register RP address for sparse mode
+rp-address {{ rp_address }}
+
+# Enable C-RP and BSR (Bootstrap Router) if using dynamic RP discovery
+{% if bsr_enabled %}bsr{% endif %}
+
+# Default TTL threshold for multicast packets (0–255)
+cp-threshold {{ cp_threshold | default(0) }}
+
+# Static (*,G) route entries (static multicast routes)
+{% for route in static_routes %}# Static route: {{ route.group }} via {{ route.next_hop }} on {{ route.interface }}
+static-route {{ route.group }} {{ route.next_hop }} {{ route.interface }}
+{% endfor %}
+
+# Interface-specific PIM configuration
+{% for iface in interfaces %}# Interface {{ iface.name }}: PIM mode {{ iface.mode }}, hello interval {{ iface.hello_interval }}, DR priority {{ iface.dr_priority }}
+{% if iface.pim_disabled %}no pim {{ iface.name }}
+{% else %}pim {{ iface.name }} hello {{ iface.hello_interval }} dr-priority {{ iface.dr_priority }}
+{% endif %}
+# IGMP querier for local networks (if acting as querier)
+{% if iface.igmp_querier %}igmp querier {{ iface.name }}
+{% endif %}
+{% endfor %}
+
+# Access-list for restricting which groups can be joined
+{% for acl in access_lists %}# Access-list {{ acl.name }}: permit {{ acl.pattern }}
+access-list {{ acl.name }} permit {{ acl.pattern }}
+{% endfor %}
+
+# Multicast boundary on outgoing interface (e.g., for limiting tunnels)
+{% for boundary_out in boundary_outgoing %}# Boundary for outgoing interface {{ boundary_out.interface }}: {{ boundary_out.acl or 'none' }}
+boundary {{ boundary_out.interface }}{{ ' ' + boundary_out.acl if boundary_out.acl else '' }}
+{% endfor %}

@@ -1,0 +1,76 @@
+# /etc/dhcpcd.conf — dual-stack DHCP client configuration
+
+# Global options
+# Disable default route installation (manual routing preferred)
+{% if not install_routes | default(true) %}nohook run-parts
+{% endif %}
+
+# Prevent dhcpcd from managing specific interfaces (e.g., managed by other tools)
+{% for iface in exclude_interfaces %}
+{% if loop.first %}# Exclude interfaces from DHCP management
+{% endif %}interface {{ iface }}
+{% endfor %}
+
+# Define static IPv4 configuration for known interfaces
+{% for static in static_ipv4 %}
+# Static IPv4 for interface {{ static.interface }}
+interface {{ static.interface }}
+  {% if static.ip %}static ip_address={{ static.ip }}{% if static.prefix %}/{{ static.prefix }}{% endif %}
+  {% endif %}{% if static.gateway %}static routers={{ static.gateway }}
+  {% endif %}{% if static.dns %}static domain_name_servers={{ static.dns | join(', ') }}
+  {% endif %}{% if static.hostname %}static host_name={{ static.hostname }}
+  {% endif %}
+{% endfor %}
+
+# Define static IPv6 configuration (SLAAC, DHCPv6, or manual)
+{% for static6 in static_ipv6 %}
+# Static IPv6 for interface {{ static6.interface }}
+interface {{ static6.interface }}
+  {% if static6.ip %}static ipv6_address={{ static6.ip }}{% if static6.prefixlen %}/{{ static6.prefixlen }}{% endif %}
+  {% endif %}{% if static6.gateway %}static ipv6 routers={{ static6.gateway }}
+  {% endif %}{% if static6.dns %}static ipv6_domain_name_servers={{ static6.dns | join(', ') }}
+  {% endif %}
+{% endfor %}
+
+# DHCPv4-specific options
+# Request custom DHCP options (e.g., NTP servers, vendor options)
+{% for opt in request_options %}
+{% if loop.first %}# Additional DHCP options to request
+{% endif %}request {{ opt }}
+{% endfor %}
+
+# IPv6 SLAAC and DHCPv6 behavior
+# Prefer SLAAC only (default), SLAAC+DHCPv6, or DHCPv6 only
+{% if ipv6_ra_mode == 'slaac' %}noipv6rdnso
+{% elif ipv6_ra_mode == 'dhcpv6' %}noipv6rs
+{% elif ipv6_ra_mode == 'slaac+dhcpv6' %}# SLAAC + DHCPv6 (dual-mode)
+{% endif %}
+
+# Retry behavior and timeouts
+# Network reachability check interval (seconds)
+{% if ipv6_ra_mode == 'slaac' or ipv6_ra_mode == 'slaac+dhcpv6' %}
+{% if slaac_wait_seconds is defined %}slaac wait {{ slaac_wait_seconds }}
+{% else %}slaac wait 5
+{% endif %}{% endif %}
+
+# DHCP retry behavior (fallback to carrier sense after failure)
+{% if retry_delay is defined %}retry {{ retry_delay }}
+{% else %}retry 30
+{% endif %}
+
+# Lease time and renewal hints
+# Use received lease time; fallback to conservative values
+{% if use_lease_time | default(true) %}# Use DHCP-provided lease time
+{% else %}# Do not use DHCP-provided lease time (force conservative renewals)
+declare -x dhcpcd_lease_time=3600
+{% endif %}
+
+# Log verbosity
+{% if log_level is defined %}log-level {{ log_level }}
+{% else %}# log-level not set (default: warn)
+{% endif %}
+
+# Hostname options
+# Use system hostname, or override for specific interface
+{% if hostname is defined %}hostname {{ hostname }}
+{% endif %}

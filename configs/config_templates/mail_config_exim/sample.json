@@ -1,0 +1,98 @@
+{
+  "primary_hostname": "mail.example.com",
+  "local_domains": [
+    "example.com",
+    "example.org",
+    "localhost"
+  ],
+  "relay_domains": [
+    "internal.example.com"
+  ],
+  "allow_hosts": [
+    "127.0.0.1",
+    "10.0.0.0/8"
+  ],
+  "allow_relay_hosts": [
+    "10.0.0.0/8"
+  ],
+  "enable_tls": true,
+  "tls_cert_path": "/etc/ssl/certs/mail.example.com.crt",
+  "tls_key_path": "/etc/ssl/private/mail.example.com.key",
+  "auth_mechanisms": [
+    {
+      "driver": "cram_md5",
+      "enabled": true,
+      "server_condition": "${if crypteq{$3}{${extract{2}{:}{${lookup{$2}lsearch{/etc/exim4/passwd}{$value}{*:*}}}}}{1}{0}}"
+    },
+    {
+      "driver": "login",
+      "enabled": true,
+      "server_set_id": "$1"
+    },
+    {
+      "driver": "plain",
+      "enabled": false
+    }
+  ],
+  "queue_run_timeout": 600,
+  "max_message_size": 52428800,
+  "split_config": true,
+  "use_spool_directory_as_spool": true,
+  "routers": [
+    {
+      "name": "dnslookup",
+      "comment": "Route non-local domains via DNS",
+      "driver": "dnslookup",
+      "domains": "! +local_domains",
+      "transport": "remote_smtp",
+      "retry_use_local_domain": false
+    },
+    {
+      "name": "local_user",
+      "comment": "Deliver to user Maildir",
+      "driver": "accept",
+      "domains": "+local_domains",
+      "transport": "maildir_delivery",
+      "local_parts": "!^.*\\+.*$",
+      "headers_add": "X-Local: yes"
+    }
+  ],
+  "transports": [
+    {
+      "name": "maildir_delivery",
+      "comment": "Deliver to Maildir++",
+      "driver": "maildir",
+      "file_path": "${if eq {${extract{1}{:}{${lookup{$local_part}lsearch{/etc/exim4/valiases/$domain}{$value}}}}} {} {/var/mail/vdomains/$domain/$local_part} {${extract{1}{:}{${lookup{$local_part}lsearch{/etc/exim4/valiases/$domain}{$value}}}}}/Maildir/",
+      "delivery_date_add": true,
+      "envelope_to_add": true
+    },
+    {
+      "name": "remote_smtp",
+      "comment": "Deliver via SMTP",
+      "driver": "smtp",
+      "max_parallel": "2",
+      "return_path": "${if def:sender_address{$sender_address}{}{$original_sender_address}}"
+    }
+  ],
+  "inbound_acls": [
+    {
+      "name": "acl_inbound",
+      "comment": "Inbound message ACL",
+      "statement": "deny\n  message = This system is not configured to receive mail\n  !condition = ${if eq {$domain} {localhost} {no}{yes}}\n\ndeny\n  hosts = /etc/exim4/blacklist\n  message = Your host is blacklisted\n\naccept"
+    }
+  ],
+  "macros": [
+    {
+      "name": "LOCAL_DOMAINS",
+      "value": "example.com:example.org:localhost"
+    },
+    {
+      "name": "RELAY_DOMAINS",
+      "value": "internal.example.com"
+    },
+    {
+      "name": "MAIL_GID",
+      "value": "mail"
+    }
+  ]
+}

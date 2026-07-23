@@ -1,0 +1,54 @@
+# FireHOL configuration — generated template
+# Set default policy for built-in chains (INPUT, OUTPUT, OUTPUT)
+{% if default_policy_input %}DEFAULT_INPUT_POLICY="{{ default_policy_input }}"{% else %}# DEFAULT_INPUT_POLICY="ACCEPT"{% endif %}
+{% if default_policy_output %}DEFAULT_OUTPUT_POLICY="{{ default_policy_output }}"{% else %}# DEFAULT_OUTPUT_POLICY="ACCEPT"{% endif %}
+{% if default_policy_forward %}DEFAULT_FORWARD_POLICY="{{ default_policy_forward }}"{% else %}# DEFAULT_FORWARD_POLICY="DROP"{% endif %}
+
+{% if log_dropped_packets %}# Log dropped packets (requires sysctl: net.netfilter.nf_log_all=1)
+LOG_DROPPED_PACKETS="YES"{% else %}# LOG_DROPPED_PACKETS="NO"{% endif %}
+
+{% if interface_tracking %}# Enable interface tracking for stateful rules
+INTERFACE_TRACKING="YES"{% else %}# INTERFACE_TRACKING="NO"{% endif %}
+
+# Enable stateful connection tracking
+STATE_TRACKING="YES"
+
+# Define server services (interfaces, protection levels, allowed ports)
+{% for service in server_services %}
+# Server: {{ service.name }}
+# Interface: {{ service.interface }}
+# Protection level: {{ service.level }}
+{% if service.level == 'transparent' %}# Transparent: pass all without filtering (dangerous)
+{% elif service.level == 'client' %}# Client: allow only outbound connections from this host
+{% elif service.level == 'loopback' %}# Loopback: allow only localhost traffic
+{% elif service.level == 'refuse' %}# Refuse: drop all incoming and allow only outbound
+{% else %}# Simple: allow specified services (default is 'server')
+{% endif %}
+
+{% if service.level in ['server', 'transparent', 'client', 'refuse', 'loopback'] %}server_{{ service.level }}_ports="{{ service.ports | join(', ') }}"
+interface "{{ service.interface }}" {{ service.level }}
+{% endif %}
+{% endfor %}
+
+{% if client_rules %}# Client-side rules (outbound traffic control)
+{% for rule in client_rules %}# Allow outbound {{ rule.description }}
+client {{ rule.action }} to {{ rule.destination }} port {{ rule.port }}
+{% endfor %}{% endif %}
+
+{% if lan_networks %}# LAN-specific rules (if applicable)
+{% for lan in lan_networks %}# LAN: {{ lan.name }}
+# CIDR: {{ lan.cidr }}
+# Interface: {{ lan.interface }}
+{% if lan.mode == 'trusted' %}# Trusted LAN — allow all traffic
+class LAN_{{ lan.name }} "{{ lan.cidr }}"
+{% endif %}
+{% if lan.mode == 'restricted' %}# Restricted LAN — allow only specific services
+{% for service in lan.allowed_services %}server {{ service }} in "{{ lan.interface }}"
+{% endfor %}{% endif %}
+{% endfor %}{% endif %}
+
+# Apply rules at boot?
+{% if auto_apply %}AUTO_APPLY="YES"{% else %}# AUTO_APPLY="NO"{% endif %}
+
+# Path to iptables-save/restore (usually auto-detected)
+IPTABLES="/usr/sbin/iptables"

@@ -1,0 +1,382 @@
+{
+  "dovecot": {
+    "type": "object",
+    "properties": {
+      "base_dir": {
+        "type": "string",
+        "default": "/var/run/dovecot",
+        "description": "Base directory for runtime files (PID files, socket paths, etc.)."
+      },
+      "protocols": {
+        "type": "list",
+        "default": [
+          "imap",
+          "pop3"
+        ],
+        "description": "Protocols to enable. Options: imap, pop3, lmtp, managesieve, lda.",
+        "items": {
+          "type": "string",
+          "enum": [
+            "imap",
+            "pop3",
+            "lmtp",
+            "managesieve",
+            "lda"
+          ]
+        }
+      },
+      "ssl_mode": {
+        "type": "string",
+        "default": "required",
+        "description": "SSL/TLS behavior: 'off', 'optional', or 'required'. Production should use 'required'.",
+        "enum": [
+          "off",
+          "optional",
+          "required"
+        ]
+      },
+      "ssl_cert_path": {
+        "type": "string",
+        "default": "/etc/ssl/certs/dovecot.pem",
+        "description": "Path to SSL certificate file (PEM format)."
+      },
+      "ssl_key_path": {
+        "type": "string",
+        "default": "/etc/ssl/private/dovecot.pem",
+        "description": "Path to SSL private key file (PEM format)."
+      },
+      "ssl_min_protocol": {
+        "type": "string",
+        "default": "TLSv1.2",
+        "description": "Minimum SSL/TLS protocol version allowed."
+      },
+      "ssl_prefer_server_ciphers": {
+        "type": "boolean",
+        "default": true,
+        "description": "Prefer server cipher order instead of client's during TLS handshake."
+      },
+      "log_path": {
+        "type": "string",
+        "default": "/var/log/dovecot/dovecot.log",
+        "description": "Path to main log file (errors, warnings, verbose auth/auth failures)."
+      },
+      "info_log_path": {
+        "type": "string",
+        "default": "/var/log/dovecot/dovecot-info.log",
+        "description": "Path to info-level log file (connection logs, successful logins)."
+      },
+      "mail_location": {
+        "type": "string",
+        "default": "maildir:~/Maildir",
+        "description": "Mail storage format and path. Common: 'maildir:~/Maildir', 'mbox:~/mbox:INBOX=/var/mail/%u'."
+      },
+      "namespace": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "default": "private",
+            "enum": [
+              "private",
+              "shared",
+              "public"
+            ],
+            "description": "Namespace type."
+          },
+          "separator": {
+            "type": "string",
+            "default": ".",
+            "description": "Hierarchy separator character (e.g., '.' or '/')."
+          },
+          "prefix": {
+            "type": "string",
+            "default": "",
+            "description": "Namespace prefix (e.g., 'INBOX.' for legacy compatibility)."
+          },
+          "inbox": {
+            "type": "boolean",
+            "default": true,
+            "description": "Mark as the user's inbox namespace."
+          }
+        },
+        "default": {
+          "type": "private",
+          "separator": ".",
+          "prefix": "",
+          "inbox": true
+        }
+      },
+      "auth_mechanisms": {
+        "type": "list",
+        "default": [
+          "plain",
+          "login"
+        ],
+        "description": "Authentication mechanisms to enable. Common: plain, login, cram-md5, digest-md5, gssapi, external.",
+        "items": {
+          "type": "string",
+          "enum": [
+            "plain",
+            "login",
+            "cram-md5",
+            "digest-md5",
+            "gssapi",
+            "external",
+            "scram-sha-1",
+            "scram-sha-256"
+          ]
+        }
+      },
+      "passdb": {
+        "type": "object",
+        "properties": {
+          "driver": {
+            "type": "string",
+            "default": "passwd-file",
+            "description": "Password database driver (e.g., passwd-file, sql, ldap)."
+          },
+          "args": {
+            "type": "string",
+            "default": "scheme=sha512crypt /etc/dovecot/passwd",
+            "description": "Arguments for the passdb driver (e.g., file path, SQL query)."
+          }
+        },
+        "default": {
+          "driver": "passwd-file",
+          "args": "scheme=sha512crypt /etc/dovecot/passwd"
+        }
+      },
+      "userdb": {
+        "type": "object",
+        "properties": {
+          "driver": {
+            "type": "string",
+            "default": "passwd-file",
+            "description": "User database driver (e.g., passwd-file, sql, ldap, static)."
+          },
+          "args": {
+            "type": "string",
+            "default": "static uid=vmail gid=vmail home=/var/vmail/%u",
+            "description": "Arguments for the userdb driver (e.g., static values, SQL query, file path)."
+          }
+        },
+        "default": {
+          "driver": "passwd-file",
+          "args": "static uid=vmail gid=vmail home=/var/vmail/%u"
+        }
+      },
+      "mail_max_userip_connections": {
+        "type": "number",
+        "default": 10,
+        "description": "Maximum number of simultaneous connections per user per IP address."
+      },
+      "login_trusted_networks": {
+        "type": "list",
+        "default": [],
+        "description": "List of trusted subnets (no authentication required for services like LMTP).",
+        "items": {
+          "type": "string",
+          "pattern": "^([0-9]{1,3}\\.){3}[0-9]{1,3}/[0-9]+$|^([0-9a-fA-F]*:[0-9a-fA-F]*)+(/[0-9]+)?$"
+        }
+      },
+      "global_mail_plugins": {
+        "type": "list",
+        "default": [],
+        "description": "Global mail plugins (e.g., 'acl', 'quota', 'sieve').",
+        "items": {
+          "type": "string"
+        }
+      },
+      "lda_plugins": {
+        "type": "list",
+        "default": [],
+        "description": "LDA-specific mail plugins (e.g., 'sieve', 'quota').",
+        "items": {
+          "type": "string"
+        }
+      },
+      "quota": {
+        "type": "object",
+        "properties": {
+          "enable": {
+            "type": "boolean",
+            "default": false,
+            "description": "Enable quota enforcement."
+          },
+          "quota_rule": {
+            "type": "string",
+            "default": "storage=1024M",
+            "description": "Default quota rule (e.g., 'storage=1G', 'message=10000')."
+          },
+          "quota_grace": {
+            "type": "number",
+            "default": 10,
+            "description": "Grace percentage over quota (user may exceed quota by this %)."
+          },
+          "quota_max_mailbox": {
+            "type": "string",
+            "default": "",
+            "description": "Maximum per-mailbox quota (optional override)."
+          }
+        },
+        "default": {
+          "enable": false,
+          "quota_rule": "storage=1024M",
+          "quota_grace": 10,
+          "quota_max_mailbox": ""
+        }
+      },
+      "mail_fsync": {
+        "type": "string",
+        "default": "optimal",
+        "description": "FSYNC policy for mail files: 'never', 'always', 'optimal'.",
+        "enum": [
+          "never",
+          "always",
+          "optimal"
+        ]
+      },
+      "post_auth_script": {
+        "type": "string",
+        "default": "",
+        "description": "Optional script to run after successful authentication (e.g., logging to external system)."
+      },
+      "gssapi": {
+        "type": "object",
+        "properties": {
+          "enable": {
+            "type": "boolean",
+            "default": false,
+            "description": "Enable GSSAPI authentication (Kerberos)."
+          },
+          "enabled": {
+            "type": "boolean",
+            "default": true,
+            "description": "Whether GSSAPI is considered enabled (used only if enable=true)."
+          },
+          "hostname": {
+            "type": "string",
+            "default": "",
+            "description": "Fully qualified hostname for GSSAPI (e.g., 'mail.example.com')."
+          },
+          "keytab": {
+            "type": "string",
+            "default": "/etc/krb5.keytab",
+            "description": "Path to Kerberos keytab file."
+          }
+        },
+        "default": {
+          "enable": false,
+          "enabled": true,
+          "hostname": "",
+          "keytab": "/etc/krb5.keytab"
+        }
+      },
+      "services": {
+        "type": "list",
+        "default": [
+          {
+            "name": "imap-login",
+            "listen": "",
+            "chroot": "login",
+            "user": "dovecot",
+            "process_limit": 1,
+            "min_spare": 0,
+            "max_spare": 1
+          },
+          {
+            "name": "pop3-login",
+            "listen": "",
+            "chroot": "login",
+            "user": "dovecot",
+            "process_limit": 1,
+            "min_spare": 0,
+            "max_spare": 1
+          },
+          {
+            "name": "imap",
+            "user": "vmail",
+            "group": "vmail"
+          },
+          {
+            "name": "pop3",
+            "user": "vmail",
+            "group": "vmail"
+          }
+        ],
+        "description": "List of service definitions with process/resource tuning.",
+        "items": {
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string",
+              "description": "Service name (e.g., 'imap-login', 'imap', 'lmtp')."
+            },
+            "listen": {
+              "type": "string",
+              "default": "",
+              "description": "Custom listen address (e.g., '127.0.0.1')."
+            },
+            "chroot": {
+              "type": "string",
+              "default": "",
+              "description": "Chroot directory (e.g., 'login')."
+            },
+            "user": {
+              "type": "string",
+              "default": "",
+              "description": "User under which service runs."
+            },
+            "group": {
+              "type": "string",
+              "default": "",
+              "description": "Group under which service runs."
+            },
+            "process_limit": {
+              "type": "number",
+              "default": null,
+              "description": "Maximum number of processes for this service."
+            },
+            "client_limit": {
+              "type": "number",
+              "default": null,
+              "description": "Maximum number of clients per process."
+            },
+            "min_spare": {
+              "type": "number",
+              "default": null,
+              "description": "Minimum number of spare processes."
+            },
+            "max_spare": {
+              "type": "number",
+              "default": null,
+              "description": "Maximum number of spare processes."
+            },
+            "max_connections": {
+              "type": "number",
+              "default": null,
+              "description": "Maximum number of connections."
+            },
+            "executable": {
+              "type": "string",
+              "default": "",
+              "description": "Executable path (override default)."
+            }
+          },
+          "required": [
+            "name"
+          ]
+        }
+      }
+    },
+    "required": [
+      "protocols",
+      "ssl_mode",
+      "ssl_cert_path",
+      "ssl_key_path",
+      "mail_location",
+      "passdb",
+      "userdb"
+    ]
+  }
+}

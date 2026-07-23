@@ -1,0 +1,55 @@
+{
+  "server": {
+    "listen": "0.0.0.0:5672",
+    "max_connections": 5000,
+    "tls": {
+      "enabled": true,
+      "cert_file": "/etc/garagemq/tls/server.crt",
+      "key_file": "/etc/garagemq/tls/server.key"
+    }
+  },
+  "auth": {
+    "enabled": true,
+    "method": "scram-sha-256",
+    "password_file": "/etc/garagemq/users.yaml",
+    "default_user": {
+      "username": "admin",
+      "permissions": {
+        "vhost": "/",
+        "configure": ".*",
+        "write": ".*",
+        "read": ".*"
+      }
+    }
+  },
+  "vhosts": [
+    {
+      "name": "/"
+    },
+    {
+      "name": "production"
+    },
+    {
+      "name": "staging"
+    }
+  ],
+  "log": {
+    "level": "info",
+    "output": "/var/log/garagemq/garagemq.log"
+  },
+  "storage": {
+    "driver": "disk",
+    "path": "/var/lib/garagemq"
+  },
+  "cluster": {
+    "enabled": false
+  },
+  "metrics": {
+    "enabled": true,
+    "listen": "0.0.0.0:9090"
+  },
+  "heartbeat": 60,
+  "frame_max": 131072,
+  "max_channels": 1024,
+  "queue_ttl": 86400000
+}

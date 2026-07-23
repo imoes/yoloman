@@ -1,0 +1,128 @@
+{
+  "master_host": {
+    "type": "string",
+    "default": "mfsmaster",
+    "description": "Hostname or IP address the master server listens on for client connections."
+  },
+  "master_port": {
+    "type": "number",
+    "default": 9421,
+    "description": "TCP port the master server listens on for client connections."
+  },
+  "data_path": {
+    "type": "string",
+    "default": "/var/lib/mfs",
+    "description": "Directory where metadata (chunks metadata, changelog, session files) is stored."
+  },
+  "exports_file": {
+    "type": "string",
+    "default": "/etc/mfs/mfsexports.cfg",
+    "description": "Path to the file defining exported directories and access permissions."
+  },
+  "meta_logging": {
+    "type": "bool",
+    "default": true,
+    "description": "Whether to log metadata changes (e.g., file operations) to a changelog file for recovery."
+  },
+  "max_open_files": {
+    "type": "number",
+    "default": 0,
+    "description": "Maximum number of open file descriptors (0 means use the system's limit)."
+  },
+  "worker_processes": {
+    "type": "number",
+    "default": 0,
+    "description": "Number of worker threads for handling client requests (0 = automatically set to number of CPU cores)."
+  },
+  "heartbeat_timeout": {
+    "type": "number",
+    "default": 600,
+    "description": "Time in seconds after which a chunkserver is considered dead if no heartbeat is received."
+  },
+  "heartbeat_interval": {
+    "type": "number",
+    "default": 60,
+    "description": "Interval in seconds between chunkserver heartbeat messages."
+  },
+  "access_logging": {
+    "type": "bool",
+    "default": false,
+    "description": "Whether to log all file access operations (read/write/open/close)."
+  },
+  "metadata_replicas": {
+    "type": "list",
+    "default": [],
+    "description": "List of metadata replica servers (for high availability). Each entry includes host, port, and optional weight.",
+    "items": {
+      "host": {
+        "type": "string",
+        "description": "Hostname or IP address of the metadata replica."
+      },
+      "port": {
+        "type": "number",
+        "description": "Port number of the metadata replica (typically 9421)."
+      },
+      "weight": {
+        "type": "number",
+        "optional": true,
+        "default": 1,
+        "description": "Load weight for this replica (used in round-robin)."
+      }
+    }
+  },
+  "garbage_collection": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable or disable garbage collection of deleted chunks (recommended for production)."
+  },
+  "trash_expire_time": {
+    "type": "number",
+    "default": 86400,
+    "description": "Time in seconds before deleted chunks in the trash are permanently removed."
+  },
+  "balancing": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable automatic balancing of chunk distribution across chunkervers."
+  },
+  "min_free_space_mb": {
+    "type": "number",
+    "default": 0,
+    "description": "Minimum free space (in MB) required on a chunkserver before it rejects new writes."
+  },
+  "max_chunk_size_mb": {
+    "type": "number",
+    "default": 64,
+    "description": "Maximum size (in MB) of a single data chunk. Larger chunks improve performance for big files."
+  },
+  "stats_http_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable the built-in HTTP stats server for monitoring cluster status."
+  },
+  "stats_http_host": {
+    "type": "string",
+    "default": "0.0.0.0",
+    "description": "Interface (IP or hostname) the HTTP stats server binds to."
+  },
+  "stats_http_port": {
+    "type": "number",
+    "default": 9420,
+    "description": "Port for the HTTP stats server."
+  },
+  "stats_http_password_file": {
+    "type": "string",
+    "default": "",
+    "description": "Optional path to a file containing username:password for HTTP stats access."
+  },
+  "secure_mode": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable secure mode \u2014 requires password for all administrative operations (e.g., via mfsmount -o password)."
+  },
+  "read_only_mode": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable read-only mode \u2014 no writes allowed (useful during maintenance or recovery)."
+  }
+}

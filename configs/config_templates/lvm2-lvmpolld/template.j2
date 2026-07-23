@@ -1,0 +1,90 @@
+# Global LVM2 configuration
+# This file controls LVM2 behavior and is used by lvm, vgchange, lvcreate, etc.
+# Also read by lvmpolld for monitoring long-running operations
+
+# Global settings
+[global]
+# Enable polling daemon for long-running operations
+use_lvmpolld = {{ use_lvmpolld }}
+
+# Path to the lvmpolld socket for client communication
+# (lvmpolld creates this socket in /run/lvm when started)
+lvmpolld_socket = "{{ lvmpolld_socket }}"
+
+# Maximum time (in seconds) to wait for lvmpolld to respond before giving up
+lvmpolld_timeout = {{ lvmpolld_timeout }}
+
+# Enable/disable logging of lvmpolld activity to syslog
+log_lvmpolld = {{ log_lvmpolld }}
+
+# Polling frequency (in seconds) for long-running operations
+lvmpolld_polling_interval = {{ lvmpolld_polling_interval }}
+
+# Per-process resource limits for lvmpolld
+# These are optional — if omitted, system defaults apply
+{% for limit_name, limit_value in lvmpolld_limits.items() %}
+# Set ulimit for {{ limit_name }} in lvmpolld process
+{{ limit_name }} = {{ limit_value }}
+{% endfor %}
+
+# Device filters — controls which devices LVM scans
+# This section is critical for avoiding accidental metadata overwrites
+# Do NOT modify unless you understand device matching rules
+[devices]
+# Prefer devices with matching metadata areas (e.g., for multipath)
+prefer_metadata_areas = {{ prefer_metadata_areas }}
+
+# List of device paths to scan (empty = scan all)
+# Use glob-style patterns, e.g., ["/dev/disk/by-id/*", "/dev/mapper/*"]
+devicesfile = "{{ devicesfile }}"
+
+# Scan list — override with explicit devices to scan
+# Leave empty to use default scanning behavior
+{% if scan_list %}
+scan = [{{ scan_list | join(', ') | safe }}]
+{% else %}
+scan = []
+{% endif %}
+
+# Filter devices by kernel name (regex match on /dev/<name>)
+# Format: ["a|.*|", "r|/dev/sd[0-9]*|"] (allow all, reject SD partitions)
+filter = [{{ device_filter | join(', ') | safe }}]
+
+# Exclude devices by device-mapper UUID
+# Useful for excluding temporary or virtual devices
+dmfile = "{{ dmfile }}"
+
+# Enable/disable scanning of loop devices
+scan_loop_devices = {{ scan_loop_devices }}
+
+# Logging and reporting configuration
+[log]
+# Verbosity level: 0=error, 1=warn, 2=info, 3=debug
+verbose = {{ log_verbose }}
+
+# Output log to syslog? (true/false)
+syslog = {{ log_syslog }}
+
+# Log file path — empty = no file logging
+file = "{{ log_file }}"
+
+# Log file rotation: keep N old files
+overwrite = {{ log_overwrite }}
+
+# Log levels — which categories to include
+# Options: d, i, n, a, c, e, f, o, r, s, t, u, v, x, y, z
+levels = [{{ log_levels | join(', ') | safe }}]
+
+# Activation settings — controls how LVs are activated
+[activation]
+# Activate LVs in polling mode (required for lvmpolld to track progress)
+monitoring = {{ activation_monitoring }}
+
+# Minimum number of PVs required to activate a VG
+min_recovery_rate = {{ min_recovery_rate }}
+
+# Maximum number of LVs to activate in parallel
+parallel_activation = {{ parallel_activation }}
+
+# Enable background activation (e.g., for thin pool creation)
+background_activation = {{ background_activation }}

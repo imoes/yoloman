@@ -1,0 +1,394 @@
+{
+  "driver": {
+    "type": "string",
+    "default": "FBDev",
+    "description": "The primary driver for the LCD hardware (e.g., FBDev, DFB, PCDisplay, VNC)."
+  },
+  "display": {
+    "type": "list",
+    "default": [],
+    "description": "List of displays to configure; each display has its own name, type, and options.",
+    "items": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "default": "Display1",
+          "description": "Unique name for this display instance."
+        },
+        "type": {
+          "type": "string",
+          "default": "FBDev",
+          "description": "Display type/driver (e.g., FBDev, DFB, VNC, PCDisplay, ST7565)."
+        },
+        "driver_params": {
+          "type": "object",
+          "default": {},
+          "description": "Key-value parameters passed directly to the display driver (e.g., Device, Width, Height)."
+        },
+        "plugins": {
+          "type": "list",
+          "default": [],
+          "description": "List of plugins to attach to this display.",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  },
+  "plugins": {
+    "type": "list",
+    "default": [
+      {
+        "name": "Stat"
+      },
+      {
+        "name": "XMLRPC",
+        "enabled": true,
+        "listen_port": 4411
+      }
+    ],
+    "description": "List of plugins to enable globally, with optional per-plugin settings.",
+    "items": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "default": "",
+          "description": "Plugin name (e.g., Stat, XMLRPC, RSS, Weather, MPD)."
+        },
+        "listen_host": {
+          "type": "string",
+          "default": "127.0.0.1",
+          "description": "(XMLRPC) Host to bind to."
+        },
+        "listen_port": {
+          "type": "number",
+          "default": 4411,
+          "description": "(XMLRPC) Port to bind to."
+        },
+        "listen_path": {
+          "type": "string",
+          "default": "/",
+          "description": "(XMLRPC) URL path for the XML-RPC endpoint."
+        },
+        "enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "(XMLRPC) Whether the XML-RPC interface is active."
+        },
+        "interval": {
+          "type": "number",
+          "default": 5000,
+          "description": "(Stat, loadavg, etc.) Refresh interval in milliseconds."
+        },
+        "driver": {
+          "type": "string",
+          "default": "sqlite3",
+          "description": "(SQL) Database driver name."
+        },
+        "host": {
+          "type": "string",
+          "default": "localhost",
+          "description": "(SQL, MPD, etc.) Hostname or IP of the remote service."
+        },
+        "database": {
+          "type": "string",
+          "default": "/var/lib/lcd4linux/lcd4linux.db",
+          "description": "(SQL) Database file or name."
+        },
+        "user": {
+          "type": "string",
+          "default": "",
+          "description": "(SQL) Database user name."
+        },
+        "password": {
+          "type": "string",
+          "default": "",
+          "description": "(SQL) Database user password."
+        },
+        "port": {
+          "type": "number",
+          "default": 5432,
+          "description": "(SQL, MPD, etc.) Port number."
+        },
+        "refresh_interval": {
+          "type": "number",
+          "default": 1000,
+          "description": "(Curses, udev) Update interval in ms."
+        },
+        "interface": {
+          "type": "string",
+          "default": "eth0",
+          "description": "(Network, NetTraffic) Network interface name."
+        },
+        "url": {
+          "type": "string",
+          "default": "https://rss.cbc.ca/lineup/topstories.xml",
+          "description": "(RSS) URL of the RSS/Atom feed."
+        },
+        "update_interval": {
+          "type": "number",
+          "default": 900,
+          "description": "(RSS) Feed refresh interval in seconds."
+        },
+        "timeout": {
+          "type": "number",
+          "default": 10,
+          "description": "(RSS) HTTP timeout in seconds."
+        },
+        "cache_dir": {
+          "type": "string",
+          "default": "/var/cache/lcd4linux",
+          "description": "(RSS) Directory to cache feeds."
+        },
+        "location": {
+          "type": "string",
+          "default": "New York",
+          "description": "(Weather) Location for weather data (city or ICAO code)."
+        },
+        "unit": {
+          "type": "string",
+          "default": "metric",
+          "description": "(Weather) Units: 'metric' or 'imperial'."
+        },
+        "source": {
+          "type": "string",
+          "default": "owm",
+          "description": "(Weather) Source: 'owm', 'yr', 'wttr.in', etc."
+        },
+        "device": {
+          "type": "string",
+          "default": "/dev/fb0",
+          "description": "(MPEG, Mixer, gpgga, rdm6300) Device path."
+        },
+        "control": {
+          "type": "string",
+          "default": "Master",
+          "description": "(Mixer) Mixer control name (e.g., 'PCM', 'Speaker')."
+        },
+        "server": {
+          "type": "string",
+          "default": "localhost",
+          "description": "(NFS) NFS server hostname."
+        },
+        "export": {
+          "type": "string",
+          "default": "/",
+          "description": "(NFS) Exported directory path."
+        },
+        "mailbox": {
+          "type": "string",
+          "default": "Maildir/INBOX",
+          "description": "(Mail) Mailbox path (local filesystem or IMAP)."
+        },
+        "api_key": {
+          "type": "string",
+          "default": "",
+          "description": "(SABnzbd, etc.) API key for the service."
+        },
+        "username": {
+          "type": "string",
+          "default": "",
+          "description": "(Kodi, XBMC) Username for authenticated connections."
+        },
+        "adapter": {
+          "type": "number",
+          "default": 0,
+          "description": "(DVB) DVB adapter number."
+        },
+        "frontend": {
+          "type": "number",
+          "default": 0,
+          "description": "(DVB) Frontend device number."
+        },
+        "demux": {
+          "type": "number",
+          "default": 0,
+          "description": "(DVB) DVB demux device number."
+        },
+        "baudrate": {
+          "type": "number",
+          "default": 9600,
+          "description": "(gpgga, rdm6300) Serial port baud rate."
+        },
+        "socket": {
+          "type": "string",
+          "default": "/var/run/lirc/lircd",
+          "description": "(LIRC) LIRC socket path."
+        },
+        "speed": {
+          "type": "number",
+          "default": 20,
+          "description": "(MORSE) Morse code speed in WPM."
+        },
+        "serial_device": {
+          "type": "string",
+          "default": "/dev/ttyUSB0",
+          "description": "(gpgga, rdm6300) Serial device path."
+        },
+        "hddtemp": {
+          "type": "string",
+          "default": "localhost",
+          "description": "(Deprecated alias; use hddtemp.Host instead)"
+        },
+        "hddtemp_port": {
+          "type": "number",
+          "default": 7634,
+          "description": "(Deprecated alias; use hddtemp.Port instead)"
+        }
+      },
+      "required": [
+        "name"
+      ]
+    }
+  },
+  "layout": {
+    "type": "list",
+    "default": [
+      {
+        "name": "Main",
+        "type": "Screen",
+        "width": 200,
+        "height": 64,
+        "items": [
+          {
+            "type": "Text",
+            "plugin": "Stat",
+            "plugin_opt": "Uptime"
+          },
+          {
+            "type": "Text",
+            "plugin": "Stat",
+            "plugin_opt": "Load"
+          },
+          {
+            "type": "Text",
+            "plugin": "NetTraffic",
+            "plugin_opt": "eth0:in"
+          },
+          {
+            "type": "Text",
+            "plugin": "MPD",
+            "plugin_opt": "Artist"
+          },
+          {
+            "type": "Text",
+            "plugin": "MPD",
+            "plugin_opt": "Title"
+          }
+        ]
+      }
+    ],
+    "description": "Layouts define the visual arrangement of items on the LCD. Each layout block is a container (e.g., Screen, Panel, Box).",
+    "items": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "default": "Main",
+          "description": "Unique layout name."
+        },
+        "type": {
+          "type": "string",
+          "default": "Screen",
+          "description": "Container type (e.g., Screen, Panel, Box)."
+        },
+        "align": {
+          "type": "string",
+          "default": "left",
+          "description": "Alignment within parent: 'left', 'center', 'right'."
+        },
+        "width": {
+          "type": "number",
+          "default": 200,
+          "description": "Width in pixels or character cells (depends on display type)."
+        },
+        "height": {
+          "type": "number",
+          "default": 64,
+          "description": "Height in pixels or character cells."
+        },
+        "x": {
+          "type": "number",
+          "default": 0,
+          "description": "X-coordinate offset (for absolute positioning)."
+        },
+        "y": {
+          "type": "number",
+          "default": 0,
+          "description": "Y-coordinate offset."
+        },
+        "font": {
+          "type": "string",
+          "default": "Fixed_8x16",
+          "description": "Font name (e.g., Fixed_8x16, Hershey_Tall, DejaVuSans12)."
+        },
+        "wrap": {
+          "type": "boolean",
+          "default": true,
+          "description": "Whether text should wrap within width."
+        },
+        "items": {
+          "type": "list",
+          "default": [],
+          "description": "List of items (text, bar, bitmap) to place in this container.",
+          "items": {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "default": "Text",
+                "description": "Item type: 'Text', 'Bar', 'Bitmap'."
+              },
+              "plugin": {
+                "type": "string",
+                "default": "Stat",
+                "description": "Plugin providing data (e.g., 'Stat', 'MPD', 'RSS', 'Weather')."
+              },
+              "plugin_opt": {
+                "type": "string",
+                "default": "Uptime",
+                "description": "Plugin-specific data field (e.g., 'Uptime', 'Title', 'temp_c')."
+              }
+            },
+            "required": [
+              "type",
+              "plugin"
+            ]
+          }
+        }
+      },
+      "required": [
+        "name",
+        "type"
+      ]
+    }
+  },
+  "refresh_interval": {
+    "type": "number",
+    "default": 2000,
+    "description": "Global layout refresh interval in milliseconds (minimum recommended: 1000 ms)."
+  },
+  "font": {
+    "type": "string",
+    "default": "DejaVuSans12",
+    "description": "Default font for text items if not overridden in layout."
+  },
+  "default_font_size": {
+    "type": "number",
+    "default": 12,
+    "description": "Font size (for bitmap fonts)."
+  },
+  "log_level": {
+    "type": "string",
+    "default": "info",
+    "description": "Logging verbosity: debug, info, warning, error, critical."
+  },
+  "log_file": {
+    "type": "string",
+    "default": "/var/log/lcd4linux.log",
+    "description": "Path to log file (use 'syslog' for syslog)."
+  }
+}

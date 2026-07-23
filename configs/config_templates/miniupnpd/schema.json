@@ -1,0 +1,148 @@
+{
+  "listen_address": {
+    "type": "string",
+    "default": "0.0.0.0",
+    "description": "Local IP address to bind the UPnP/PCP/NAT-PMP service (e.g., 192.168.1.1). Use '0.0.0.0' to listen on all interfaces."
+  },
+  "ext_ifname": {
+    "type": "string",
+    "default": "eth0",
+    "description": "External (WAN) network interface name (e.g., 'ppp0', 'eth1', 'br0'). Must be reachable from the internet."
+  },
+  "listening_ips": {
+    "type": "list",
+    "default": [
+      "192.168.1.1"
+    ],
+    "items": {
+      "type": "string",
+      "description": "Internal IP address to associate with trusted LAN clients (required if multiple LAN interfaces or non-standard setups)."
+    },
+    "description": "List of internal IP addresses for which to enable UPnP port mapping requests."
+  },
+  "upnp_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable UPnP IGD (Internet Gateway Device) functionality. Disable to restrict automatic port forwarding."
+  },
+  "natpmp_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable NAT-PMP support (older protocol used by Apple and some Windows clients)."
+  },
+  "pcp_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable PCP (Port Control Protocol), a modern successor to NAT-PMP with improved features."
+  },
+  "secure_mode": {
+    "type": "bool",
+    "default": true,
+    "description": "Restrict port mappings to traffic from the same subnet and enforce stricter validation. Recommended for security."
+  },
+  "legacy_module": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable legacy behavior for very old UPnP clients (e.g., Windows XP). Disable unless required."
+  },
+  "system_uptime_threshold": {
+    "type": "number",
+    "default": 0,
+    "description": "Time (in seconds) after system reboot to perform port mapping garbage collection. Set to 0 to disable."
+  },
+  "max_ports_per_device": {
+    "type": "number",
+    "default": 0,
+    "description": "Maximum port mappings allowed per device. 0 = unlimited. Prevents resource exhaustion."
+  },
+  "max_total_ports": {
+    "type": "number",
+    "default": 0,
+    "description": "Maximum total port mappings system-wide. 0 = unlimited. Helps prevent exhaustion of port space."
+  },
+  "port_range_min": {
+    "type": "number",
+    "default": 1024,
+    "description": "Lowest port number allowed in auto-allocated mappings. Must be \u2265 1 and \u2264 port_range_max."
+  },
+  "port_range_max": {
+    "type": "number",
+    "default": 65535,
+    "description": "Highest port number allowed in auto-allocated mappings. Must be \u2265 port_range_min."
+  },
+  "lease_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable time-limited (lease-based) port mappings instead of persistent ones."
+  },
+  "lease_duration": {
+    "type": "number",
+    "default": 86400,
+    "description": "Default lease duration (in seconds) for mappings when lease_enabled=true. 0 = infinite."
+  },
+  "igmp_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable IGMP/MLD snooping support to forward multicast traffic (e.g., for IPTV)."
+  },
+  "ssdp_notify_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Broadcast SSDP notifications when mappings change or at startup. Disable for private/quiet networks."
+  },
+  "ssdp_broadcast_interval": {
+    "type": "number",
+    "default": 30,
+    "description": "Interval (in seconds) between SSDP broadcast advertisements. Lower values improve discovery responsiveness but increase network traffic."
+  },
+  "upnp_uuid": {
+    "type": "string",
+    "default": "",
+    "description": "Custom SSDP/UPnP device UUID. If empty, auto-generated from MAC and hostname. Required for stable identification across reboots."
+  },
+  "friendly_name": {
+    "type": "string",
+    "default": "Linux UPnP IGD",
+    "description": "Human-readable name displayed for the UPnP device in client tools (e.g., router GUIs)."
+  },
+  "model_name": {
+    "type": "string",
+    "default": "miniupnpd",
+    "description": "Device model name sent in UPnP descriptions."
+  },
+  "model_number": {
+    "type": "string",
+    "default": "1",
+    "description": "Device model version."
+  },
+  "manufacturer": {
+    "type": "string",
+    "default": "MiniUPnP Project",
+    "description": "Manufacturer name in UPnP device description."
+  },
+  "manufacturer_url": {
+    "type": "string",
+    "default": "http://miniupnp.free.fr/",
+    "description": "Manufacturer\u2019s website URL in UPnP description."
+  },
+  "presentation_url": {
+    "type": "string",
+    "default": "/",
+    "description": "URL path to local web admin UI (e.g., '/admin/' or ''). Use empty string or '/' for root."
+  },
+  "debug": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable verbose debugging output (equivalent to 'yes' or 'debug' level)."
+  },
+  "log_filename": {
+    "type": "string",
+    "default": "/var/log/miniupnpd.log",
+    "description": "Path to log file. Set to '-' to log to stdout/stderr (e.g., for systemd/journald)."
+  },
+  "log_level": {
+    "type": "number",
+    "default": 1,
+    "description": "Logging verbosity: 0=none, 1=errors, 2=warnings, 3=info, 4=debug."
+  }
+}

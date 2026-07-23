@@ -1,0 +1,39 @@
+{
+  "listen_address": "127.0.0.1",
+  "listen_port": 2235,
+  "use_tls": true,
+  "tls_cert_chain": "/etc/ssl/glome-login/fullchain.pem",
+  "tls_private_key": "/etc/ssl/glome-login/privkey.pem",
+  "tls_ca_bundle": "/etc/ssl/certs/ca-certificates.crt",
+  "max_connections": 256,
+  "session_timeout": 1800,
+  "worker_threads": 8,
+  "debug": false,
+  "log_file": "/var/log/glome-login/glome-login.log",
+  "auth_providers": [
+    {
+      "name": "ldap-local",
+      "type": "ldap",
+      "endpoint": "ldap://ldap.internal:389",
+      "options": {
+        "base_dn": "ou=users,dc=internal,dc=example",
+        "bind_dn": "cn=admin,dc=internal,dc=example",
+        "bind_password": "${LDAP_ADMIN_PASS}",
+        "filter": "(uid=%s)",
+        "timeout_ms": 5000
+      }
+    },
+    {
+      "name": "oauth-github",
+      "type": "oauth2",
+      "endpoint": "https://github.com/login/oauth",
+      "options": {
+        "client_id": "gh_1234567890abcdef",
+        "client_secret": "${GITHUB_OAUTH_SECRET}",
+        "redirect_uri": "https://glome.example.com/callback",
+        "scope": "user:email",
+        "token_endpoint": "https://github.com/login/oauth/access_token"
+      }
+    }
+  ]
+}

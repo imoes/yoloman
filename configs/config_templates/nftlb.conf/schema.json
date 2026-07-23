@@ -1,0 +1,148 @@
+{
+  "enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable or disable the nftlb daemon."
+  },
+  "bind_addresses": {
+    "type": "list",
+    "default": [
+      "0.0.0.0"
+    ],
+    "description": "List of addresses the daemon listens on."
+  },
+  "backend_pools": {
+    "type": "list",
+    "default": [],
+    "items": {
+      "name": {
+        "type": "string",
+        "default": "",
+        "description": "Unique name for the backend pool."
+      },
+      "algorithm": {
+        "type": "string",
+        "default": "roundrobin",
+        "description": "Load balancing algorithm (e.g., roundrobin, leastconn, first)."
+      },
+      "enabled": {
+        "type": "bool",
+        "default": true,
+        "description": "Enable or disable this backend pool."
+      },
+      "servers": {
+        "type": "list",
+        "default": [],
+        "items": {
+          "name": {
+            "type": "string",
+            "default": "",
+            "description": "Unique server name (for logging/monitoring)."
+          },
+          "address": {
+            "type": "string",
+            "default": "127.0.0.1",
+            "description": "IP address or hostname of the backend server."
+          },
+          "port": {
+            "type": "number",
+            "default": 80,
+            "description": "Port number of the backend server."
+          },
+          "weight": {
+            "type": "number",
+            "default": 1,
+            "description": "Server weight (higher = more traffic)."
+          },
+          "enabled": {
+            "type": "bool",
+            "default": true,
+            "description": "Enable or disable this specific server."
+          }
+        }
+      }
+    }
+  },
+  "frontends": {
+    "type": "list",
+    "default": [],
+    "items": {
+      "name": {
+        "type": "string",
+        "default": "",
+        "description": "Unique frontend name."
+      },
+      "protocol": {
+        "type": "string",
+        "default": "tcp",
+        "description": "Protocol: tcp, udp, or inet (both)."
+      },
+      "listen_address": {
+        "type": "string",
+        "default": "0.0.0.0",
+        "description": "Address the frontend listens on."
+      },
+      "listen_port": {
+        "type": "number",
+        "default": 80,
+        "description": "Port the frontend listens on."
+      },
+      "default_backend": {
+        "type": "string",
+        "default": "",
+        "description": "Name of the default backend pool for this frontend."
+      },
+      "rules": {
+        "type": "list",
+        "default": [],
+        "items": {
+          "match_type": {
+            "type": "string",
+            "default": "path",
+            "description": "Rule match type: path, host, header, or custom."
+          },
+          "match_value": {
+            "type": "string",
+            "default": "",
+            "description": "Value to match (e.g., '/api', 'api.example.com')."
+          },
+          "backend": {
+            "type": "string",
+            "default": "",
+            "description": "Backend pool to route matching traffic to."
+          }
+        }
+      }
+    }
+  },
+  "max_connections": {
+    "type": "number",
+    "default": 65536,
+    "description": "Maximum number of concurrent connections allowed."
+  },
+  "connection_timeout": {
+    "type": "number",
+    "default": 30,
+    "description": "Idle connection timeout in seconds."
+  },
+  "health_check_interval": {
+    "type": "number",
+    "default": 5,
+    "description": "Interval (in seconds) between health checks for backend servers."
+  },
+  "log_level": {
+    "type": "string",
+    "default": "warning",
+    "description": "Logging level: debug, info, notice, warning, error, critical, alert, emergency."
+  },
+  "stats_socket": {
+    "type": "string",
+    "default": "/run/nftlb/nftlb.sock",
+    "description": "Path to the Unix domain socket for statistics and control interface."
+  },
+  "enable_debug": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable debug mode (includes verbose logging and extra diagnostics)."
+  }
+}

@@ -1,0 +1,63 @@
+[DEFAULT]
+# The name of the L3 agent (must be unique per deployment)
+agent_id = {{ agent_id }}
+
+# Enable debug mode
+debug = {{ debug }}
+
+# How often to sync state (in seconds)
+state_sync_interval = {{ state_sync_interval }}
+
+# Maximum number of routers per agent (0 = unlimited)
+max_routers_per_agent = {{ max_routers_per_agent }}
+
+# External network bridge (empty string for default)
+external_network_bridge = {{ external_network_bridge }}
+
+# Enable NAT for external networks
+enable_nat = {{ enable_nat }}
+
+# Number of router processing workers
+num_router_agents = {{ num_router_agents }}
+
+# Enable HA mode for routers
+ha = {{ ha }}
+
+# Name of the HA network (used if ha=true)
+ha_network_name = {{ ha_network_name }}
+
+# MTU for HA network interfaces
+ha_network_mtu = {{ ha_network_mtu }}
+
+# Gateway external device (e.g., 'eth0')
+gateway_external_device = {{ gateway_external_device }}
+
+# Enable IPv6 router advertisements
+enable_ipv6 = {{ enable_ipv6 }}
+
+[AGENT]
+# Liveness check interval (in seconds)
+report_interval = {{ report_interval }}
+
+# Minimum time between restarts (in seconds)
+min_restart_interval = {{ min_restart_interval }}
+
+[HA]
+# Enable high availability (duplicated in [DEFAULT] but allowed for clarity)
+enabled = {{ ha }}
+
+# Number of keepalived processes
+keepalived_max_retries = {{ keepalived_max_retries }}
+
+# Keepalived restart delay (in seconds)
+keepalived_restart_delay = {{ keepalived_restart_delay }}
+
+{% for network in external_networks %}
+# External network configuration: {{ network.name }}
+[external_network_{{ loop.index }}]
+bridge = {{ network.bridge }}
+gateway = {{ network.gateway }}
+{% if network.vlan %}
+vlan = {{ network.vlan }}
+{% endif %}
+{% endfor %}

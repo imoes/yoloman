@@ -1,0 +1,52 @@
+# The default DHCP server configuration file
+# Define the authoritative flag for this server
+authoritative;
+
+# Default lease time in seconds
+default-lease-time {{ default_lease_time }};
+
+# Maximum lease time in seconds
+max-lease-time {{ max_lease_time }};
+
+# DNS servers to hand out to clients
+ddns-update-style {{ dns_update_style }};
+
+{% if use_logging %}
+# Logging configuration
+log-facility {{ log_facility }};
+{% endif %}
+
+# Global options
+option domain-name "{{ domain_name }}";
+option domain-name-servers {{ name_servers | join(', ') }};
+
+# Subnet declarations
+{% for subnet in subnets %}
+# Subnet {{ subnet.network }}/{{ subnet.cidr }}
+subnet {{ subnet.network }} netmask {{ subnet.netmask }} {
+  range {{ subnet.range_start }} {{ subnet.range_end }};
+  option routers {{ subnet.gateway }};
+  option broadcast-address {{ subnet.broadcast }};
+  default-lease-time {{ subnet.default_lease_time }};
+  max-lease-time {{ subnet.max_lease_time }};
+{% if subnet.options %}
+{% for key, value in subnet.options.items() %}
+  option {{ key }} {{ value | regex_replace('"', '') | regex_replace("'", '') }};
+{% endfor %}
+{% endif %}
+}
+{% endfor %}
+
+# Static host reservations
+{% for host in hosts %}
+# Static host: {{ host.hostname }} ({{ host.mac }})
+host {{ host.hostname }} {
+  hardware ethernet {{ host.mac }};
+  fixed-address {{ host.ip }};
+{% if host.options %}
+{% for key, value in host.options.items() %}
+  option {{ key }} {{ value | regex_replace('"', '') | regex_replace("'", '') }};
+{% endfor %}
+{% endif %}
+}
+{% endfor %}

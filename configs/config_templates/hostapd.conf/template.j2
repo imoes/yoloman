@@ -1,0 +1,89 @@
+# IEEE 802.11 wireless LAN configuration (hostapd)
+# Interface to use for the access point
+interface={{ interface }}
+
+# Driver to use (e.g., nl80211, mac80211, bsd, etc.)
+driver={{ driver }}
+
+# SSID (network name) to broadcast
+ssid={{ ssid }}
+
+# Country code (required for regulatory compliance)
+country_code={{ country_code }}
+
+# Hardware mode: a = 5 GHz, b = 2.4 GHz, g = 2.4 GHz (802.11g), n = 802.11n, ac = 5 GHz
+hw_mode={{ hw_mode }}
+
+# Channel number (1–14 for 2.4 GHz, 36+ for 5 GHz)
+channel={{ channel }}
+
+{% if beacon_rate is defined %}
+# Beacon transmission rate (optional)
+beacon_rate={{ beacon_rate }}
+{% endif %}
+
+{% if hw_mode in ['g', 'n'] %}
+# 802.11n configuration (optional but common for modern APs)
+ieee80211n=1
+# Require HT (802.11n) for stations (optional)
+require_ht=1
+{% endif %}
+
+{% if hw_mode in ['a', 'ac'] %}
+# 802.11ac configuration (5 GHz only)
+{% if hw_mode == 'ac' %}
+ieee80211ac=1
+require_vht=1
+# VHT channel width: 0=20 MHz, 1=40 MHz, 2=80 MHz, 3=160 MHz, 4=80+80 MHz
+vht_oper_chwidth={{ vht_oper_chwidth | default(1) }}
+# Center freq. segment 0 for 80/160 MHz channels (e.g., 42 for 5 GHz channel 36+80)
+vht_oper_centr_freq_seg0_idx={{ vht_oper_centr_freq_seg0_idx }}
+{% endif %}
+{% endif %}
+
+# Authentication & security
+# Enable WPA2-PSK (TKIP+CCMP recommended)
+wpa=2
+wpa_key_mgmt=WPA-PSK
+wpa_pairwise=CCMP
+rsn_pairwise=CCMP
+
+# Pre-shared key (min 8 chars; use wpa_passphrase or wpa_psk)
+{% if wpa_passphrase is defined %}
+wpa_passphrase={{ wpa_passphrase }}
+{% else %}
+wpa_psk={{ wpa_psk }}
+{% endif %}
+
+{% if macaddr_acl is defined and macaddr_acl | length > 0 %}
+# MAC address filtering (0=accept all, 1=accept only listed, 2=reject listed)
+macaddr_acl={{ macaddr_acl_mode }}
+{% for mac in macaddr_acl %}
+accept_mac={{ mac }}
+{% endfor %}
+{% endif %}
+
+# Disable WPS (strongly recommended for security)
+wps_state=2
+ap_setup_locked=1
+
+# Hide SSID (0= broadcast, 1= hide)
+wpa_disable_eapol_key_index_retry={{ 1 if hide_ssid else 0 }}
+ignore_broadcast_ssid={{ 1 if hide_ssid else 0 }}
+
+# Optional: AP isolation (prevent clients from talking to each other)
+#bridge={{ bridge | default('') }}
+# (uncomment above and uncomment bridge= line in values_schema to enable)
+
+# Logging (optional)
+logger_syslog=-1
+logger_stdout=-1
+logger_syslog_level=2
+logger_stdout_level=2
+
+# Optional: IEEE 802.11d (country information element broadcasting)
+dot11d={{ 1 if enable_dot11d else 0 }}
+dot11h={{ 1 if enable_dot11h else 0 }}
+
+# Optional: WDS (Wireless Distribution System)
+wds_sta={{ 1 if enable_wds else 0 }}

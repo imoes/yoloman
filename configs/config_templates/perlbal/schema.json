@@ -1,0 +1,116 @@
+{
+  "pid_file": {
+    "type": "string",
+    "default": "/var/run/perlbal/perlbal.pid",
+    "description": "Path where Perlbal writes its process ID (PID) file."
+  },
+  "enable_ssl": {
+    "type": "bool",
+    "default": false,
+    "description": "If enabled, Perlbal will attempt to use TLS/SSL for incoming and/or outgoing connections. Requires valid ssl_cert and ssl_key."
+  },
+  "ssl_cert": {
+    "type": "string",
+    "default": "/etc/perlbal/ssl.crt",
+    "description": "Path to the SSL certificate file (PEM format). Only used if enable_ssl is true."
+  },
+  "ssl_key": {
+    "type": "string",
+    "default": "/etc/perlbal/ssl.key",
+    "description": "Path to the SSL private key file (PEM format). Only used if enable_ssl is true."
+  },
+  "services": {
+    "type": "list",
+    "default": [],
+    "description": "List of services (reverse proxies or web servers) to configure. Each defines a named Perlbal service instance.",
+    "items": {
+      "name": {
+        "type": "string",
+        "default": "",
+        "description": "Unique name of the Perlbal service (used in CREATE/ENABLE directives)."
+      },
+      "description": {
+        "type": "string",
+        "default": "",
+        "description": "Human-readable description of the service (for documentation only)."
+      },
+      "role": {
+        "type": "string",
+        "default": "reverse_proxy",
+        "description": "Role of the service \u2014 typically 'reverse_proxy' or 'web_server'."
+      },
+      "listen_ip": {
+        "type": "string",
+        "default": "0.0.0.0",
+        "description": "IP address the service should bind to (e.g., 127.0.0.1, 0.0.0.0, or specific interface IP)."
+      },
+      "listen_port": {
+        "type": "number",
+        "default": 80,
+        "description": "Port number the service listens on."
+      },
+      "pool_size": {
+        "type": "number",
+        "default": 100,
+        "description": "Maximum number of concurrent connections to the backend pool."
+      },
+      "backends": {
+        "type": "list",
+        "default": [],
+        "description": "List of backend servers to balance traffic across.",
+        "items": {
+          "host": {
+            "type": "string",
+            "default": "",
+            "description": "Hostname or IP address of the backend server."
+          },
+          "port": {
+            "type": "number",
+            "default": 80,
+            "description": "Port on which the backend service listens."
+          },
+          "weight": {
+            "type": "number",
+            "default": 1,
+            "description": "Relative weight for load distribution (higher = more traffic)."
+          },
+          "status": {
+            "type": "string",
+            "default": "enabled",
+            "description": "Whether the backend is 'enabled' or 'disabled'. Disabled backends are omitted from the ADD directive."
+          }
+        }
+      },
+      "health_check_interval": {
+        "type": "number",
+        "default": 30,
+        "description": "Interval (in seconds) between health checks. Set to 0 or omit to disable."
+      },
+      "health_check_path": {
+        "type": "string",
+        "default": "/health",
+        "description": "Path used for HTTP health checks (e.g., /health or /ping)."
+      },
+      "max_connections": {
+        "type": "number",
+        "default": 1000,
+        "description": "Maximum number of concurrent client connections Perlbal will accept for this service."
+      },
+      "client_timeout": {
+        "type": "number",
+        "default": 30,
+        "description": "Idle timeout (in seconds) for client connections."
+      },
+      "server_timeout": {
+        "type": "number",
+        "default": 60,
+        "description": "Idle timeout (in seconds) for backend server connections."
+      },
+      "vhost": {
+        "type": "string",
+        "default": "",
+        "description": "Virtual hostname this service responds to (used for Host-header-based routing)."
+      }
+    }
+  }
+}

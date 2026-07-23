@@ -1,0 +1,10 @@
+# Enable ejabberd_mod_isolation module for each virtual host that should be isolated
+modules:
+{% for host in isolated_hosts %}
+  "{{ host.vhost }}":
+    mod_isolation:
+      # Block communications between users on this vhost and other vhosts
+      enabled: true
+      # List of vhosts that this vhost is allowed to communicate with (empty = fully isolated)
+      allowed_peers: {{ host.allowed_peers | default([]) | to_json }}
+{% endfor %}

@@ -1,0 +1,117 @@
+[DEFAULT]
+# The name of the OpenStack Heat API server service
+name = heat
+
+# Logging configuration
+# Logging debug level: DEBUG, INFO, WARNING, ERROR, CRITICAL, or TRACE
+log_level = INFO
+# Log directory path for heat-api logs
+log_dir = /var/log/heat
+# Log file name (single log file if use_syslog is false)
+log_file = heat-api.log
+# Use syslog for logging instead of files
+use_syslog = False
+# Syslog facility for logging
+syslog_log_facility = LOG_USER
+
+# Bind address and port for the heat-api service
+# The IP address to bind the heat-api server to
+bind_host = 0.0.0.0
+# The TCP port to listen on for API requests
+bind_port = 8004
+
+# Path to the WSGI application entry point (default: paste.deploy config)
+paste_config = /etc/heat/api-paste.ini
+
+[database]
+# Database connection string (SQLAlchemy URL)
+# Example: mysql+pymysql://heat:heat@localhost/heat
+connection = sqlite:///var/lib/heat/heat.sqlite
+
+[keystone_authtoken]
+# Authentication protocol (http or https)
+auth_protocol = https
+# Auth endpoint host (Keystone admin endpoint)
+auth_host = keystone.example.com
+# Auth port (Keystone admin port)
+auth_port = 35357
+# Auth URI (full keystone auth endpoint URL)
+auth_uri = https://keystone.example.com:5000/v3
+# Project domain name for service user
+project_domain_name = Default
+# User domain name
+user_domain_name = Default
+# Service project name
+project_name = service
+# Service username
+username = heat
+# Service user password
+password = heat_password
+# API endpoint type (admin, internal, or public)
+interface = internal
+# SSL/TLS verification (disable only in development!)
+cafile = /etc/ssl/certs/ca-certificates.crt
+insecure = False
+
+[trustee]
+# Trustee authentication method
+auth_type = password
+
+[clients_keystone]
+# Endpoint type for Keystone client connections
+endpoint_type = internal
+
+[ec2authtoken]
+# EC2-compatible auth URI (Keystone v2 EC2 endpoint)
+auth_uri = https://keystone.example.com:5000/v2.0/ec2tokens
+
+[oslo_messaging_notifications]
+# Notification driver(s); comma-separated list
+driver = messagingv2
+# Topic for notifications
+topic = notifications
+
+[oslo_messaging_rabbit]
+# RabbitMQ hostname
+rabbit_host = rabbitmq.example.com
+# RabbitMQ port
+rabbit_port = 5672
+# RabbitMQ user
+rabbit_userid = openstack
+# RabbitMQ password
+rabbit_password = rabbit_password
+# RabbitMQ virtual host
+rabbit_virtual_host = /
+# Use SSL for RabbitMQ connection
+rabbit_use_ssl = False
+# Heartbeat timeout for RabbitMQ connection
+heartbeat_timeout_threshold = 60
+# Number of heartbeats before considering connection dead
+heartbeat_rate = 2
+
+[oslo_policy]
+# Path to policy file
+policy_file = /etc/heat/policy.json
+# Default rule name
+policy_default_rule = default
+
+[oslo_concurrency]
+# Path to lock directory for file-based locking
+lock_path = /var/lib/heat/tmp
+
+[oslo_versionedobjects]
+# RPC transport URL for Oslo RPC (if using separate RPC transport)
+rpc_transport = rabbit
+# RPC backend (e.g., rabbit, kafka, redis — not used by default)
+rpc_backend = rabbit
+
+[cache]
+# Backend cache library (e.g., dogpile.cache.memory, redis)
+backend = dogpile.cache.memory
+# Cache URL for Redis (if used)
+# Example: redis://user:pass@host:6379/0
+url =
+# TTL (in seconds) for cached items
+expiration_time = 600
+# Enable caching
+enabled = False

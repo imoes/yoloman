@@ -1,0 +1,83 @@
+# Plum configuration file — controls global settings, IRC server pool, logging, and bot behavior
+# Global settings
+[global]
+name = {{ global.name }}
+data_dir = {{ global.data_dir }}
+log_dir = {{ global.log_dir }}
+user = {{ global.user }}
+group = {{ global.group }}
+max_open_files = {{ global.max_open_files }}
+max_clients = {{ global.max_clients }}
+
+# Server pool — define upstream IRC servers for proxying
+{% for server in servers %}
+[server.{{ server.name }}]
+host = {{ server.host }}
+port = {{ server.port }}
+{% if server.ssl %}ssl = true
+ssl_verify = {{ server.ssl_verify }}
+{% endif %}
+{% if server.password %}password = {{ server.password }}
+{% endif %}
+nick = {{ server.nick }}
+username = {{ server.username }}
+realname = {{ server.realname }}
+{% if server.auto_connect %}auto_connect = true
+{% endif %}
+{% if server.reconnect_delay %}reconnect_delay = {{ server.reconnect_delay }}
+{% endif %}
+{% endfor %}
+
+# Bot definitions — per-bot settings and channel subscriptions
+{% for bot in bots %}
+[bot.{{ bot.name }}]
+server = {{ bot.server }}
+nick = {{ bot.nick }}
+user = {{ bot.user }}
+realname = {{ bot.realname }}
+{% if bot.identify_password %}identify_password = {{ bot.identify_password }}
+{% endif %}
+# Channels to auto-join
+{% for channel in bot.channels %}
+join_channel.{{ loop.index0 }} = {{ channel.name }}
+{% if channel.key %}join_key.{{ loop.index0 }} = {{ channel.key }}
+{% endif %}
+{% endfor %}
+# Bot modules (plugins)
+{% for module in bot.modules %}
+load_module.{{ loop.index0 }} = {{ module.name }}
+{% if module.options %}{% for k, v in module.options.items() %}
+opt.{{ module.name }}.{{ k }} = {{ v }}
+{% endfor %}{% endif %}
+{% endfor %}
+{% endfor %}
+
+# Logging configuration
+[logging]
+level = {{ logging.level }}
+{% for target in logging.targets %}
+[logging.{{ target.name }}]
+path = {{ target.path }}
+format = {{ target.format }}
+rotate = {{ target.rotate }}
+{% if target.max_age_days %}max_age_days = {{ target.max_age_days }}
+{% endif %}
+{% endfor %}
+
+# Stationing (IRC operator services) settings
+[station]
+enabled = {{ station.enabled }}
+{% if station.enabled %}# Services nick and user
+services_nick = {{ station.services_nick }}
+services_user = {{ station.services_user }}
+services_realname = {{ station.services_realname }}
+# Authentication
+auth_backend = {{ station.auth_backend }}
+{% if station.auth_backend == 'sqlite' %}sqlite_db = {{ station.sqlite_db }}
+{% elif station.auth_backend == 'ldap' %}ldap_uri = {{ station.ldap_uri }}
+ldap_base_dn = {{ station.ldap_base_dn }}
+ldap_bind_dn = {{ station.ldap_bind_dn }}
+{% if station.ldap_bind_password %}ldap_bind_password = {{ station.ldap_bind_password }}
+{% endif %}
+{% endif %}
+{% endif %}

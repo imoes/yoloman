@@ -1,0 +1,108 @@
+[# Global settings]
+[Global]
+# Logging level: Debug, Info, Notice, Warn, Error, Alert, Crit, Emerg
+LogLevel = {{ log_level }}
+
+# PID file location
+PIDFile = {{ pid_file }}
+
+# Control socket path
+ControlSocket = {{ control_socket }}
+
+# Allow remote management
+AllowRemote = {{ allow_remote }}
+
+# Max number of simultaneous connections
+MaxConnections = {{ max_connections }}
+
+# Timeout for I/O operations (seconds)
+IOTimeout = {{ io_timeout }}
+
+# Preallocate memory for data buffers
+PreallocateMemory = {{ preallocate_memory }}
+
+
+[# Storage devices]
+[StorageUnit1]
+# Logical Unit Name (LUN) identifier
+LUN0 = Disk,Path={{ luns.0.path }},BlockSize={{ luns.0.block_size }},ReadOnly={{ luns.0.read_only | lower }}
+
+{% for lun in luns[1:] %}LUN{{ loop.index }} = Disk,Path={{ lun.path }},BlockSize={{ lun.block_size }},ReadOnly={{ lun.read_only | lower }}
+{% endfor %}
+
+# Backend storage type (Disk, RAM, File, etc.)
+StorageType = Disk
+
+# Device serial number (must be unique per LUN)
+Serial = {{ serial }}
+
+# Vendor ID (up to 8 chars)
+Vendor = {{ vendor }}
+
+# Product ID (up to 16 chars)
+Product = {{ product }}
+
+# Product Revision (up to 4 chars)
+Revision = {{ revision }}
+
+
+[# Network portals]
+[Portal1]
+# Portal name and IP:port(s) binding
+Discovery = {{ portals.0.discovery | lower }}
+
+{% for portal in portals[1:] %}[Portal{{ loop.index + 1 }}]
+Discovery = {{ portal.discovery | lower }}
+{% endfor %}
+
+# List of allowed initiator IQNs (empty = allow all)
+AllowInitiator = {{ allowed_initiators | join(', ') }}
+
+
+[# Authentication (optional)]
+[AuthGroup1]
+# Enable mutual CHAP authentication
+AuthType = CHAP
+{% if auth_users %}User = {{ auth_users[0].user }} {{ auth_users[0].secret }}
+{% for u in auth_users[1:] %}User = {{ u.user }} {{ u.secret }}
+{% endfor %}{% endif %}
+
+
+[# Logical Unit to Portal mapping]
+[LogicalUnit1]
+# LU number and target name
+LUN = 1
+TargetName = {{ target_name }}
+
+# Map LUs to storage units (must exist in [StorageUnit*])
+Mapping = StorageUnit1
+
+# Authentication group (if any)
+AuthGroup = AuthGroup1
+
+# Queue depth
+QueueDepth = {{ queue_depth }}
+
+# Data digest (CRC32C, None)
+DataDigest = {{ data_digest }}
+
+# Header digest (CRC32C, None)
+HeaderDigest = {{ header_digest }}
+
+# Default block size (for auto-detection override)
+DefaultBlockSize = {{ default_block_size }}
+
+
+[# Additional settings (optional, rarely changed)]
+[Connection]
+# Maximum time to wait for login completion
+LoginTimeout = {{ login_timeout }}
+
+# Maximum number of connections per session
+MaxConnectionsPerSession = {{ max_connections_per_session }}
+
+# Send target name in login response
+SendTargetName = {{ send_target_name | lower }}
+
+# Suppress target name in discovery (use only if needed)
+SuppressTargetName = {{ suppress_target_name | lower }}

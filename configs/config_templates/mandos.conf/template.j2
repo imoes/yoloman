@@ -1,0 +1,75 @@
+{# Main server address and port #}
+server: {{ server }}
+
+{# Port for the Mandos client to connect to (optional; defaults to 11211 if not specified) #}
+{% if client_port is defined %}client-port: {{ client_port }}{% else %}# client-port: 11211{% endif %}
+
+{# Timeout for client connections in seconds #}
+timeout: {{ timeout }}
+
+{# Maximum number of key retrieval retries #}
+max-retries: {{ max_retries }}
+
+{# Reboot delay after successful key retrieval (in seconds) #}
+reboot-delay: {{ reboot_delay }}
+
+{# Directory for storing retrieved keys and related state #}
+keydir: {{ keydir }}
+
+{# Directory for temporary files (e.g., during key decryption) #}
+tmpdir: {{ tmpdir }}
+
+{# Log level: one of debug, info, notice, warning, error, critical, alert, emergency #}
+loglevel: {{ loglevel }}
+
+{# Log destination: 'syslog', a file path, or 'stderr' #}
+logfile: {{ logfile }}
+
+{# List of GPG key IDs (as fingerprints) to trust for encrypted keys #}
+gnupghome: {{ gnupghome }}
+
+{# List of GPG key IDs (as fingerprints) to trust for encrypted keys #}
+{% for key_id in gpg_keys %}# Key ID: {{ key_id }}
+{% endfor %}gpg-keys:
+{% for key_id in gpg_keys %}  - {{ key_id }}
+{% endfor %}
+
+{# Enable/disable GPG signature verification for key files #}
+verify-signatures: {{ verify_signatures }}
+
+{# List of trusted RSA/DSA/ECDSA key fingerprints for key files #}
+{% if trusted_fingerprints %}trusted-fingerprints:
+{% for fp in trusted_fingerprints %}  - {{ fp }}
+{% endfor %}{% else %}# trusted-fingerprints: []
+{% endif %}
+
+{# Enable/disable IPv6 support for network communication #}
+{% if enable_ipv6 %}# IPv6 is enabled
+{% else %}# IPv6 is disabled
+{% endif %}
+
+{# List of network interfaces to bind to (if not specified, bind to all) #}
+{% if bind_interfaces %}bind-interfaces:
+{% for iface in bind_interfaces %}  - {{ iface }}
+{% endfor %}{% else %}# bind-interfaces: []
+{% endif %}
+
+{# List of allowed client networks in CIDR notation #}
+allowed-networks:
+{% for cidr in allowed_networks %}  - {{ cidr }}
+{% endfor %}
+
+{# Enable/disable multicast DNS (mDNS) discovery #}
+mdns-enable: {{ mdns_enable }}
+
+{# mDNS service name (default: _mandos._tcp) #}
+{% if mdns_service_name is defined %}mdns-service-name: {{ mdns_service_name }}{% else %}# mdns-service-name: _mandos._tcp
+{% endif %}
+
+{# Path to the systemd journal socket (for logging if using systemd) #}
+{% if journal_socket is defined %}journal-socket: {{ journal_socket }}{% else %}# journal-socket: /run/systemd/journal/stdout
+{% endif %}
+
+{# Enable/disable systemd service manager integration (auto-detects if not set) #}
+{% if systemd_integration is defined %}systemd-integration: {{ systemd_integration }}{% else %}# systemd-integration: auto
+{% endif %}

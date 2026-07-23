@@ -1,0 +1,101 @@
+{
+  "debug": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable verbose debug logging. Only recommended for troubleshooting."
+  },
+  "log_max_entries": {
+    "type": "number",
+    "default": 10,
+    "description": "Maximum number of rotated log files to retain. Set to 0 for unlimited retention."
+  },
+  "num_workers": {
+    "type": "number",
+    "default": 4,
+    "description": "Number of worker threads to handle credential requests. Increase for high-throughput environments."
+  },
+  "cred_ttl": {
+    "type": "number",
+    "default": 600,
+    "description": "Time-to-live (in seconds) for generated credentials. After this period, credentials expire and must be regenerated."
+  },
+  "cred_cache_ttl": {
+    "type": "number",
+    "default": 300,
+    "description": "Time-to-live (in seconds) for cached credentials in the local credential cache."
+  },
+  "peers": {
+    "type": "list",
+    "default": [],
+    "description": "List of hostnames or IP addresses of other Munge servers in the cluster for cross-node credential validation.",
+    "items": {
+      "type": "string",
+      "description": "Hostname or IP address of a peer Munge server."
+    }
+  },
+  "restrict_clients": {
+    "type": "string",
+    "default": "",
+    "description": "Optional UID/GID range restriction for clients (e.g., '1000-1999:1000-1999'). Leave blank for no restriction."
+  },
+  "bind_addr": {
+    "type": "string",
+    "default": "0.0.0.0",
+    "description": "IP address (IPv4 or IPv6) or hostname to bind the daemon to. Use '127.0.0.1' for localhost-only."
+  },
+  "port": {
+    "type": "number",
+    "default": 8737,
+    "description": "TCP port to listen on for network-based credential validation. Only used when SSL or network mode is enabled."
+  },
+  "ssl_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable TLS encryption for inter-node communication. Requires valid certificates."
+  },
+  "ssl_cert": {
+    "type": "string",
+    "default": "/etc/munge/munge.crt",
+    "description": "Path to the server's TLS certificate file (PEM format)."
+  },
+  "ssl_key": {
+    "type": "string",
+    "default": "/etc/munge/munge.key",
+    "description": "Path to the server's TLS private key file (PEM format)."
+  },
+  "ssl_ca_cert": {
+    "type": "string",
+    "default": "/etc/munge/munge.ca",
+    "description": "Path to the CA certificate bundle (PEM format) used to verify peer certificates."
+  },
+  "ssl_strict_hostname": {
+    "type": "bool",
+    "default": false,
+    "description": "Enforce strict hostname verification against certificate SANs/Subject CN. Recommended for production with SSL."
+  },
+  "key_rotation_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Automatically rotate the shared secret key on a schedule. Enables secure key lifecycle management."
+  },
+  "key_rotation_interval": {
+    "type": "number",
+    "default": 86400,
+    "description": "Interval (in seconds) between key rotations when key rotation is enabled."
+  },
+  "key_path": {
+    "type": "string",
+    "default": "/etc/munge/munge.key",
+    "description": "Path to the symmetric secret key file (binary format). Must be readable only by the munge user (mode 0400)."
+  },
+  "socket_mode": {
+    "type": "string",
+    "default": "0700",
+    "description": "Unix socket permissions in octal notation. Restrict to 0700 (owner only) for security."
+  },
+  "socket_path": {
+    "type": "string",
+    "default": "/run/munge/munged.sock",
+    "description": "Path to the Unix domain socket used for local inter-process communication."
+  }
+}

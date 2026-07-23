@@ -1,0 +1,76 @@
+# Listen on specified IPv4/IPv6 address and port
+listen_addr = {{ listen_addr }}
+listen_port = {{ listen_port }}
+
+# Number of worker processes
+worker_processes = {{ worker_processes }}
+
+# Maximum number of simultaneous connections per worker
+max_connections = {{ max_connections }}
+
+# SSL/TLS configuration (optional; if disabled, only HTTP/1.1 is served unless h2c is enabled)
+{% if ssl_enabled %}
+# Path to SSL certificate chain file
+ssl_cert_file = {{ ssl_cert_file }}
+# Path to SSL private key file
+ssl_key_file = {{ ssl_key_file }}
+{% endif %}
+
+# Enable cleartext HTTP/2 (h2c) over TLS-alpnless connections
+{% if h2c_enabled %}
+# Enable h2c (HTTP/2 over cleartext TCP) — NOT RECOMMENDED for production
+h2c_enabled = true
+{% else %}
+h2c_enabled = false
+{% endif %}
+
+# HTTP request/response buffer size (in bytes)
+request_buffer_size = {{ request_buffer_size }}
+response_buffer_size = {{ response_buffer_size }}
+
+# Timeout settings (in seconds)
+timeout_idle = {{ timeout_idle }}
+timeout_request = {{ timeout_request }}
+timeout_response = {{ timeout_response }}
+
+# Logging configuration
+log_level = {{ log_level }}
+log_file = {{ log_file }}
+
+# Access log format (optional; defaults to combined if omitted)
+{% if access_log_format %}
+access_log_format = {{ access_log_format }}
+{% endif %}
+
+# MIME types and directory for static content serving
+{% if static_dirs %}
+# Served static content directories
+{% for dir in static_dirs %}# {{ dir.path }} served at {{ dir.prefix }}
+static_dir = {{ dir.path }} {{ dir.prefix }}
+{% endfor %}
+{% endif %}
+
+# Backend upstreams (for reverse proxy or gateway mode)
+{% if upstreams %}
+# Backend server definitions for reverse proxy
+{% for upstream in upstreams %}# Upstream group: {{ upstream.name }}
+upstream = {{ upstream.name }} {{ upstream.host }}:{{ upstream.port }}
+{% endfor %}
+{% endif %}
+
+# Default backend if reverse proxy is enabled
+{% if default_upstream %}
+default_upstream = {{ default_upstream }}
+{% endif %}
+
+# HTTP/2 SETTINGS frame parameters
+# Initial peer connection window size (in bytes)
+initial_window_size = {{ initial_window_size }}
+# Maximum frame size
+max_frame_size = {{ max_frame_size }}
+# Enable server push (if supported by client)
+{% if server_push_enabled %}
+server_push_enabled = true
+{% else %}
+server_push_enabled = false
+{% endif %}

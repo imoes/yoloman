@@ -1,0 +1,199 @@
+{
+  "timeout": {
+    "type": "number",
+    "default": 5,
+    "description": "Seconds to wait before automatically booting the default OS. Set to 0 for instant boot, -1 for no timeout."
+  },
+  "show_advanced": {
+    "type": "bool",
+    "default": true,
+    "description": "When true, show advanced boot options like kernel parameters, fallback boot, etc."
+  },
+  "sound": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable UI sound effects (beeps) for navigation."
+  },
+  "scan_for": {
+    "type": "list",
+    "default": [
+      "C",
+      "H",
+      "S",
+      "U"
+    ],
+    "description": "List of boot types to scan for. Common values: C (UEFI OS installers), H (internal hard disks), S (removable drives), U (USB/external), M (macOS), N (network/PXE).",
+    "items": {
+      "type": "string",
+      "enum": [
+        "C",
+        "H",
+        "S",
+        "U",
+        "M",
+        "N"
+      ],
+      "description": "Boot type code (uppercase letter) to scan."
+    }
+  },
+  "ignore_uuids": {
+    "type": "list",
+    "default": [],
+    "description": "List of volume UUIDs to ignore during scanning (to prevent booting into unwanted OSes).",
+    "items": {
+      "type": "string",
+      "pattern": "^[0-9A-F]{8}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{12}$",
+      "description": "Volume UUID in standard format (uppercase)."
+    }
+  },
+  "theme_path": {
+    "type": "string",
+    "default": "",
+    "description": "Path (relative to ESP root or absolute) to a theme directory. Leave empty to disable theming."
+  },
+  "icons": {
+    "type": "list",
+    "default": [
+      "icns",
+      "png"
+    ],
+    "description": "Icon file formats to load (e.g., icns, png) \u2014 usually auto-detected by rEFInd, but this can override."
+  },
+  "hide_entries": {
+    "type": "list",
+    "default": [],
+    "description": "List of boot entry names, labels, or UUIDs to hide from the menu. Supports wildcards and regex-like substrings.",
+    "items": {
+      "type": "string",
+      "description": "Boot entry identifier (label, filename, or UUID) to hide."
+    }
+  },
+  "default_selection": {
+    "type": "string",
+    "default": "",
+    "description": "Boot entry to select by default \u2014 specify by label, index (e.g., '2'), or UUID. Empty means auto-select first visible."
+  },
+  "enable_legacy_bios": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable legacy BIOS compatibility (for hybrid MBR/UEFI setups). If true, adds 'H' to ScanFor."
+  },
+  "extra_kernel_options": {
+    "type": "list",
+    "default": [],
+    "description": "Additional kernel command-line arguments to append to every Linux boot entry (e.g., 'splash', 'quiet', 'acpi=force').",
+    "items": {
+      "type": "string",
+      "description": "Kernel option or argument."
+    }
+  },
+  "shell_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable scanning for UEFI shell (e.g., Shell.efi) in the ESP root or subdirs. Adds 'SH' to ScanFor."
+  },
+  "secure_boot": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable UEFI Secure Boot mode. Requires signed binaries and proper signing keys."
+  },
+  "filesystem_drivers": {
+    "type": "list",
+    "default": [],
+    "description": "List of UEFI filesystem driver files (e.g., btrfs_x64.efi, zfs_x64.efi) to load for non-NTFS/FAT filesystems.",
+    "items": {
+      "type": "string",
+      "description": "UEFI driver filename (must be present in ESP/Drivers/ or Drivers64/)."
+    }
+  },
+  "font_path": {
+    "type": "string",
+    "default": "",
+    "description": "Path (relative or absolute) to a UEFI-compatible font (e.g., DejaVuSansB12.pf2). Required for custom UI fonts."
+  },
+  "scan_all": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable scanning for all boot loaders in all ESP subdirectories (including non-standard paths)."
+  },
+  "scan_windows": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable scanning for Microsoft Windows boot loader (Bootmgfw.efi). Disable if Windows is not installed."
+  },
+  "scan_linux": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable scanning for Linux boot loaders (vmlinuz+initrd pairs or EFI stub kernels). Disable if using GRUB or another boot manager."
+  },
+  "scan_macos": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable scanning for macOS boot loader (boot.efi). Disable if macOS is not installed."
+  },
+  "scan_network": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable scanning for UEFI network boot (PXE). Only useful on network-boot-capable hardware."
+  },
+  "show_options": {
+    "type": "bool",
+    "default": true,
+    "description": "Show kernel option editor and advanced boot options on menu."
+  },
+  "text_mode": {
+    "type": "bool",
+    "default": true,
+    "description": "Force text-mode UI instead of graphics/GOP. Useful for low-res or headless systems."
+  },
+  "text_resolution": {
+    "type": "string",
+    "default": "",
+    "description": "Text-mode resolution (e.g., '80x25', '100x30') if text_mode is enabled. Auto-selects if empty."
+  },
+  "use_gop_video": {
+    "type": "bool",
+    "default": true,
+    "description": "Use UEFI GOP video driver (recommended for modern UEFI firmware). Disable only for legacy compatibility."
+  },
+  "screen_resolution": {
+    "type": "string",
+    "default": "",
+    "description": "Screen resolution in GOP mode (e.g., '1920x1080' or GOP mode index like '768x1024'). Auto-selects if empty."
+  },
+  "boot_order": {
+    "type": "list",
+    "default": [],
+    "description": "List of boot entry labels or UUIDs to explicitly set scanning order (other entries appended after).",
+    "items": {
+      "type": "string",
+      "description": "Boot entry identifier (label or UUID)."
+    }
+  },
+  "custom_items": {
+    "type": "list",
+    "default": [],
+    "description": "List of custom boot menu items (for persistent, non-auto-detected entries).",
+    "items": {
+      "type": "object",
+      "properties": {
+        "label": {
+          "type": "string",
+          "description": "Display name of the boot item (e.g., 'MemTest86')."
+        },
+        "icon": {
+          "type": "string",
+          "description": "Path (relative or absolute) to an icon file (e.g., themes/icons/memtest.png). Optional."
+        },
+        "options": {
+          "type": "string",
+          "description": "Boot command line (e.g., 'fs0:\\EFI\\memtest\\memtest64.efi' or 'vmlinuz root=/dev/sda1')."
+        }
+      },
+      "required": [
+        "label",
+        "options"
+      ]
+    }
+  }
+}

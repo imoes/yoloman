@@ -1,0 +1,52 @@
+[global]
+# Clock identity (16-hex-byte identifier, typically derived from MAC)
+clock_identity = {{ clock_identity }}
+
+# Interface to use for PTP traffic
+interface = {{ interface }}
+
+# Transport type: 2 = peer-to-peer (P2P) mode
+transport_specific = 0x0
+
+# PTP domain number (0–127); use 0 for default
+priority1 = {{ priority1 }}
+
+# Clock class (0–255); lower = better clock (e.g., 6 for ordinary clock, 13–14 for TC)
+clock_class = {{ clock_class }}
+
+# Frequency adjustment (ppb, ±1000000); 0 = no manual offset
+frequency_offset = {{ frequency_offset }}
+
+# Logging level (0=quiet, 7=verbose)
+log_level = {{ log_level }}
+
+# Announce interval (s), 2^(-n); -1 = default (1 s, i.e. -0)
+announced_priority1 = -1
+
+# Use Peer-to-Peer delay mechanism
+p2p = 1
+
+# P2P announce interval (s), 2^(-n); default = 1 (i.e. -0)
+# (Only effective when p2p=1)
+p2p_announce_interval = -1
+
+# P2P delay request interval (s), 2^(-n); default = 0 (i.e. 1 s)
+p2p_delay_req_interval = {{ p2p_delay_req_interval }}
+
+# Enable SSM (Source-Specific Multicast) for P2P announcements (optional)
+# Only set if using SSM-based discovery; otherwise leave commented or false
+{% if ssm_enabled %}ssm = 1
+{% endif %}# SSM address (e.g., 232.0.0.1) — only if ssm_enabled=true
+{% if ssm_enabled and ssm_address %}ssm_address = {{ ssm_address }}
+{% endif %}# Network interface for SSM (if different from `interface`)
+{% if ssm_enabled and ssm_interface %}ssm_interface = {{ ssm_interface }}
+{% endif %}
+# Enable hardware timestamping (recommended for low latency)
+{% if hw_timestamping %}hw_timestamping = 1
+{% endif %}# Maximum frequency error (ppm × 1e6); default = 10000000 (10 ppm)
+max_frequency = {{ max_frequency }}
+
+# Path to phc2sys config (for syncing system clock to PTP clock)
+# (Only needed if phc2sys is used separately)
+{% if phc2sys_config_path %}phc2sys_config_path = {{ phc2sys_config_path }}
+{% endif %}

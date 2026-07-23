@@ -1,0 +1,178 @@
+{
+  "transport": {
+    "type": "string",
+    "default": "stomp",
+    "description": "Message broker protocol to use for communication."
+  },
+  "host": {
+    "type": "string",
+    "default": "localhost",
+    "description": "Hostname or IP address of the message broker."
+  },
+  "port": {
+    "type": "number",
+    "default": 61613,
+    "description": "Port number of the message broker (STOMP default)."
+  },
+  "user": {
+    "type": "string",
+    "default": "cumin",
+    "description": "Username for authenticating to the message broker."
+  },
+  "password": {
+    "type": "string",
+    "default": "",
+    "description": "Password for authenticating to the message broker. Leave empty if not needed."
+  },
+  "ssl": {
+    "type": "object",
+    "default": {
+      "enabled": false,
+      "certfile": "",
+      "keyfile": "",
+      "ca_certs": "",
+      "cert_reqs": "CERT_NONE"
+    },
+    "description": "SSL/TLS settings for secure broker connection.",
+    "items": {
+      "enabled": {
+        "type": "bool",
+        "default": false
+      },
+      "certfile": {
+        "type": "string",
+        "default": ""
+      },
+      "keyfile": {
+        "type": "string",
+        "default": ""
+      },
+      "ca_certs": {
+        "type": "string",
+        "default": ""
+      },
+      "cert_reqs": {
+        "type": "string",
+        "default": "CERT_NONE",
+        "description": "Certificate verification mode: NONE, OPTIONAL, or REQUIRED."
+      }
+    }
+  },
+  "loglevel": {
+    "type": "string",
+    "default": "INFO",
+    "description": "Verbosity level for logging: DEBUG, INFO, WARNING, ERROR, or CRITICAL."
+  },
+  "logfile": {
+    "type": "string",
+    "default": "/var/log/cumin/cumin.log",
+    "description": "Path to the log file."
+  },
+  "execution": {
+    "type": "object",
+    "default": {
+      "timeout": 60,
+      "pool_size": 10,
+      "retry_interval": 2,
+      "max_retries": 3
+    },
+    "description": "Execution behavior parameters.",
+    "items": {
+      "timeout": {
+        "type": "number",
+        "default": 60,
+        "description": "Maximum time (seconds) for each command execution."
+      },
+      "pool_size": {
+        "type": "number",
+        "default": 10,
+        "description": "Maximum number of concurrent command workers."
+      },
+      "retry_interval": {
+        "type": "number",
+        "default": 2,
+        "description": "Seconds to wait between retries on transient failures."
+      },
+      "max_retries": {
+        "type": "number",
+        "default": 3,
+        "description": "Number of times to retry failed commands."
+      }
+    }
+  },
+  "default_target": {
+    "type": "string",
+    "default": "*",
+    "description": "Default target pattern when none is specified (e.g., '*' = all hosts)."
+  },
+  "allowed_targets": {
+    "type": "list",
+    "default": [],
+    "description": "List of allowed target patterns (regex or glob). If empty, all targets allowed.",
+    "items": {
+      "type": "string"
+    }
+  },
+  "modules": {
+    "type": "list",
+    "default": [],
+    "description": "List of specific Cumin modules to load. Empty = auto-discover all.",
+    "items": {
+      "type": "string"
+    }
+  },
+  "command_whitelist": {
+    "type": "list",
+    "default": [],
+    "description": "List of permitted commands (e.g., ['ping', 'uptime']). If empty, all commands allowed.",
+    "items": {
+      "type": "string"
+    }
+  },
+  "hooks": {
+    "type": "object",
+    "default": {
+      "pre": "",
+      "post": ""
+    },
+    "description": "Shell commands to run before and after each execution.",
+    "items": {
+      "pre": {
+        "type": "string",
+        "default": ""
+      },
+      "post": {
+        "type": "string",
+        "default": ""
+      }
+    }
+  },
+  "stats": {
+    "type": "object",
+    "default": {
+      "enabled": false,
+      "port": 9090,
+      "path": "/metrics"
+    },
+    "description": "Prometheus metrics endpoint configuration.",
+    "items": {
+      "enabled": {
+        "type": "bool",
+        "default": false
+      },
+      "port": {
+        "type": "number",
+        "default": 9090
+      },
+      "path": {
+        "type": "string",
+        "default": "/metrics"
+      }
+    }
+  },
+  "debug": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable verbose debug logging and disable throttling for troubleshooting."
+  }
+}

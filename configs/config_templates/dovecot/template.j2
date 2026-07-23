@@ -1,0 +1,133 @@
+# Listen on all interfaces (IPv4 and IPv6)
+listen = *, ::
+
+# Base directory for runtime data
+base_dir = {{ dovecot.base_dir }}
+
+# Protocols to enable
+protocols = {{ dovecot.protocols | join(' ') }}
+
+# SSL/TLS configuration
+ssl = {{ dovecot.ssl_mode }}
+ssl_cert = <{{ dovecot.ssl_cert_path }}>
+ssl_key = <{{ dovecot.ssl_key_path }}>
+
+# Minimum SSL parameters
+ssl_min_protocol = {{ dovecot.ssl_min_protocol }}
+ssl_prefer_ciphers = {{ dovecot.ssl_prefer_server_ciphers | string | lower }}
+
+# Logging
+log_path = {{ dovecot.log_path }}
+info_log_path = {{ dovecot.info_log_path }}
+
+# Mail location format for users
+mail_location = {{ dovecot.mail_location }}
+
+# Namespace configuration
+namespace {
+  type = {{ dovecot.namespace.type }}
+  separator = {{ dovecot.namespace.separator }}
+  prefix = {{ dovecot.namespace.prefix }}
+  inbox = {{ dovecot.namespace.inbox | string | lower }}
+}
+
+# Authentication mechanisms
+auth_mechanisms = {{ dovecot.auth_mechanisms | join(' ') }}
+
+# Passdb (password database) backend
+passdb {
+  driver = {{ dovecot.passdb.driver }}
+{% if dovecot.passdb.args %}
+  args = {{ dovecot.passdb.args }}
+{% endif %}
+}
+
+# Userdb (user database) backend
+userdb {
+  driver = {{ dovecot.userdb.driver }}
+{% if dovecot.userdb.args %}
+  args = {{ dovecot.userdb.args }}
+{% endif %}
+}
+
+# Mail processes limits
+mail_max_userip_connections = {{ dovecot.mail_max_userip_connections }}
+
+# Service definitions
+{% for svc in dovecot.services %}
+service {{ svc.name }} {
+{% if svc.listen %}
+  listen = {{ svc.listen }}
+{% endif %}
+{% if svc.chroot %}
+  chroot = {{ svc.chroot }}
+{% endif %}
+{% if svc.user is defined and svc.user != '' %}
+  user = {{ svc.user }}
+{% endif %}
+{% if svc.group is defined and svc.group != '' %}
+  group = {{ svc.group }}
+{% endif %}
+{% if svc.process_limit is defined %}
+  process_limit = {{ svc.process_limit }}
+{% endif %}
+{% if svc.client_limit is defined %}
+  client_limit = {{ svc.client_limit }}
+{% endif %}
+{% if svc.min_spare is defined %}
+  min_spare = {{ svc.min_spare }}
+{% endif %}
+{% if svc.max_spare is defined %}
+  max_spare = {{ svc.max_spare }}
+{% endif %}
+{% if svc.max_connections is defined %}
+  max_connections = {{ svc.max_connections }}
+{% endif %}
+{% if svc.executable is defined %}
+  executable = {{ svc.executable }}
+{% endif %}
+}
+{% endfor %}
+
+# Login process configuration
+login_trusted_networks = {{ dovecot.login_trusted_networks | join(', ') }}
+
+# GSSAPI/SSPI auth (optional)
+{% if dovecot.gssapi.enable %}
+auth_gssapi_enabled = {{ dovecot.gssapi.enabled | string | lower }}
+auth_gssapi_hostname = {{ dovecot.gssapi.hostname }}
+{% if dovecot.gssapi.keytab %}
+auth_gssapi_keytab = {{ dovecot.gssapi.keytab }}
+{% endif %}
+{% endif %}
+
+# LDA (local delivery agent) settings
+{% if 'lda' in dovecot.protocols %}
+protocol lda {
+  mail_plugins = {{ dovecot.lda_plugins | join(' ') }}
+}
+{% endif %}
+
+# Plugin defaults for mailboxes
+mail_plugins = {{ dovecot.global_mail_plugins | join(' ') }}
+
+# Quota plugin config (if enabled)
+{% if dovecot.quota.enable %}
+mail_plugins = {{ dovecot.global_mail_plugins | join(' ') }} quota
+
+plugin {
+  quota = {{ dovecot.quota.quota_rule }}
+  quota_grace = {{ dovecot.quota.quota_grace }}%
+{% if dovecot.quota.quota_max_mailbox %}
+  quota_max_mailbox = {{ dovecot.quota.quota_max_mailbox }}
+{% endif %}
+}
+{% endif %}
+
+# DNS lookups for hostnames
+mail_fsync = {{ dovecot.mail_fsync }}
+
+# Post-auth script (e.g., for logging or custom hooks)
+{% if dovecot.post_auth_script %}
+auth_postauth_script = {{ dovecot.post_auth_script }}
+{% endif %}

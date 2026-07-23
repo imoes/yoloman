@@ -1,0 +1,206 @@
+{
+  "listen_addr": {
+    "type": "string",
+    "default": "0.0.0.0",
+    "description": "IP address on which the proxy listens for incoming IMAP connections."
+  },
+  "listen_port": {
+    "type": "number",
+    "default": 143,
+    "description": "Port on which the proxy listens for incoming IMAP connections."
+  },
+  "backends": {
+    "type": "list",
+    "default": [
+      {
+        "host": "localhost",
+        "port": 143
+      }
+    ],
+    "description": "List of backend IMAP servers to which the proxy will forward client requests.",
+    "items": {
+      "type": "object",
+      "fields": {
+        "host": {
+          "type": "string",
+          "default": "localhost",
+          "description": "Hostname or IP address of the backend IMAP server."
+        },
+        "port": {
+          "type": "number",
+          "default": 143,
+          "description": "Port of the backend IMAP server."
+        }
+      }
+    }
+  },
+  "auth_method": {
+    "type": "string",
+    "default": "none",
+    "description": "Authentication method used to validate user credentials."
+  },
+  "ldap_uri": {
+    "type": "string",
+    "default": "ldap://ldap.example.com",
+    "description": "URI of the LDAP server (used only when auth_method = ldap).",
+    "depends_on": "auth_method",
+    "depends_on_value": "ldap"
+  },
+  "ldap_base_dn": {
+    "type": "string",
+    "default": "dc=example,dc=com",
+    "description": "Base distinguished name (DN) for LDAP searches.",
+    "depends_on": "auth_method",
+    "depends_on_value": "ldap"
+  },
+  "ldap_bind_dn": {
+    "type": "string",
+    "default": "cn=admin,dc=example,dc=com",
+    "description": "DN used to bind to the LDAP directory for user lookup.",
+    "depends_on": "auth_method",
+    "depends_on_value": "ldap"
+  },
+  "ldap_bind_password": {
+    "type": "string",
+    "default": "",
+    "description": "Password for LDAP bind DN (store securely in production).",
+    "depends_on": "auth_method",
+    "depends_on_value": "ldap"
+  },
+  "ldap_filter": {
+    "type": "string",
+    "default": "(&(objectClass=posixAccount)(uid=%u))",
+    "description": "LDAP search filter for authenticating users (replace %u with username).",
+    "depends_on": "auth_method",
+    "depends_on_value": "ldap"
+  },
+  "sql_driver": {
+    "type": "string",
+    "default": "mysql",
+    "description": "SQL driver/backend (used only when auth_method = sql).",
+    "depends_on": "auth_method",
+    "depends_on_value": "sql"
+  },
+  "sql_host": {
+    "type": "string",
+    "default": "localhost",
+    "description": "Hostname or IP of SQL server (used only when auth_method = sql).",
+    "depends_on": "auth_method",
+    "depends_on_value": "sql"
+  },
+  "sql_port": {
+    "type": "number",
+    "default": 3306,
+    "description": "Port of SQL server (used only when auth_method = sql).",
+    "depends_on": "auth_method",
+    "depends_on_value": "sql"
+  },
+  "sql_user": {
+    "type": "string",
+    "default": "imapuser",
+    "description": "Username for SQL connection (used only when auth_method = sql).",
+    "depends_on": "auth_method",
+    "depends_on_value": "sql"
+  },
+  "sql_password": {
+    "type": "string",
+    "default": "",
+    "description": "Password for SQL connection (store securely in production).",
+    "depends_on": "auth_method",
+    "depends_on_value": "sql"
+  },
+  "sql_database": {
+    "type": "string",
+    "default": "imapdb",
+    "description": "Database name for SQL queries (used only when auth_method = sql).",
+    "depends_on": "auth_method",
+    "depends_on_value": "sql"
+  },
+  "sql_query": {
+    "type": "string",
+    "default": "SELECT password FROM users WHERE username = '%u' AND active = 1",
+    "description": "SQL query to fetch user password (replace %u with username).",
+    "depends_on": "auth_method",
+    "depends_on_value": "sql"
+  },
+  "use_cache": {
+    "type": "boolean",
+    "default": true,
+    "description": "Enable caching of IMAP responses to reduce backend load."
+  },
+  "cache_dir": {
+    "type": "string",
+    "default": "/var/spool/imapproxy/cache",
+    "description": "Directory where cache files are stored (used only if use_cache = true)."
+  },
+  "cache_size": {
+    "type": "number",
+    "default": 100000,
+    "description": "Maximum number of cache entries (used only if use_cache = true)."
+  },
+  "log_level": {
+    "type": "string",
+    "default": "info",
+    "description": "Verbosity level for logging (syslog or file)."
+  },
+  "log_facility": {
+    "type": "string",
+    "default": "daemon",
+    "description": "Syslog facility to use when logging to syslog."
+  },
+  "log_file": {
+    "type": "string",
+    "default": "/var/log/imapproxy.log",
+    "description": "Path to log file (used only if logging to file is configured)."
+  },
+  "ssl_enabled": {
+    "type": "boolean",
+    "default": false,
+    "description": "Enable SSL/TLS for client connections (e.g., imaps://)."
+  },
+  "ssl_cert_file": {
+    "type": "string",
+    "default": "/etc/ssl/certs/imapproxy.crt",
+    "description": "Path to SSL certificate file (required if ssl_enabled = true)."
+  },
+  "ssl_key_file": {
+    "type": "string",
+    "default": "/etc/ssl/private/imapproxy.key",
+    "description": "Path to SSL private key file (required if ssl_enabled = true)."
+  },
+  "ssl_protocols": {
+    "type": "string",
+    "default": "TLSv1.2 TLSv1.3",
+    "description": "Allowed SSL/TLS protocols (space-separated list)."
+  },
+  "ssl_ciphers": {
+    "type": "string",
+    "default": "ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256",
+    "description": "Allowed cipher suites (colon-separated or space-separated, depending on OpenSSL version)."
+  },
+  "max_connections": {
+    "type": "number",
+    "default": 1000,
+    "description": "Maximum number of concurrent client connections."
+  },
+  "client_timeout": {
+    "type": "number",
+    "default": 300,
+    "description": "Idle timeout (seconds) for client connections."
+  },
+  "server_timeout": {
+    "type": "number",
+    "default": 120,
+    "description": "Idle timeout (seconds) for backend server connections."
+  },
+  "transparent_proxy": {
+    "type": "boolean",
+    "default": false,
+    "description": "Enable transparent proxy mode (preserves client source IP)."
+  },
+  "use_starttls": {
+    "type": "boolean",
+    "default": true,
+    "description": "Enable STARTTLS support for plain IMAP connections."
+  }
+}

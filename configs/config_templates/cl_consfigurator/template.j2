@@ -1,0 +1,54 @@
+; cl-consfigurator configuration file
+; Declares system packages, sources, and operations in a declarative Lisp syntax
+; See: https://github.com/lyokato/cl-consfigurator
+
+(in-package :consfigurator)
+
+; Define system-wide settings
+(defsystem-config :{{ system_name | default('my-system') }}
+  :description "{{ system_description | default('Managed by cl-consfigurator') }}"
+  :version "{{ version | default('1.0.0') }}")
+
+; Define package sources (repositories or local paths)
+{% if package_sources %}
+{% for src in package_sources %}
+; Add package source: {{ src.type }} — {{ src.path | default('(none)') }}{% if src.description %} ({{ src.description }}){% endif %}
+{% if src.type == 'git' %}
+(add-source :git "{{ src.path }}" :ref "{{ src.ref | default('master') }}"
+{% if src.commit %}            :commit "{{ src.commit }}"{% endif %}
+{% if src.submodules %}            :submodules {{ src.submodules }}{% endif %})
+{% elif src.type == 'local' %}
+(add-source :local "{{ src.path }}")
+{% elif src.type == 'quicklisp" %}
+(add-source :quicklisp)
+{% endif %}
+{% endfor %}
+{% endif %}
+
+; Define packages to install/configure
+{% if packages %}
+{% for pkg in packages %}
+; Install package: {{ pkg.name }}{% if pkg.version %} v{{ pkg.version }}{% endif %}{% if pkg.description %} — {{ pkg.description }}{% endif %}
+(install-package "{{ pkg.name }}"
+{% if pkg.version %}             :version "{{ pkg.version }}"{% endif %}
+{% if pkg.source %}             :source "{{ pkg.source }}"{% endif %}
+{% if pkg.dependencies %}             :dependencies '({{ pkg.dependencies | join(' ') | replace("'", "'") }}){% endif %}
+{% if pkg.post-install %}             :post-install '(lambda () {{ pkg.post-install }})){% endif %})
+{% endfor %}
+{% endif %}
+
+; Define operations to apply after configuration
+{% if operations %}
+{% for op in operations %}
+; {{ op.description | default('Apply operation') }}
+({{ op.command }}{% for arg in op.args %} {{ arg }}{% endfor %})
+{% endfor %}
+{% endif %}
+
+; Optional: system hooks
+{% if hooks %}
+{% for hook in hooks %}
+; Hook: {{ hook.when }} — {{ hook.description | default('Custom hook') }}
+(add-hook '{{ hook.when }} #'(lambda () {{ hook.code }}))
+{% endfor %}
+{% endif %}

@@ -1,0 +1,220 @@
+{
+  "listen_addr": {
+    "type": "string",
+    "default": "127.0.0.1:8443",
+    "description": "Network address and port the daemon listens on. Use 0.0.0.0:8443 for all interfaces."
+  },
+  "socket_path": {
+    "type": "string",
+    "default": "/var/lib/incus/incus.sock",
+    "description": "Unix socket path for local client communication."
+  },
+  "remote_api_enabled": {
+    "type": "boolean",
+    "default": true,
+    "description": "Whether to enable remote API access over HTTPS."
+  },
+  "metrics_enabled": {
+    "type": "boolean",
+    "default": false,
+    "description": "Whether to expose Incus metrics in Prometheus format."
+  },
+  "metrics_interval": {
+    "type": "number",
+    "default": 30,
+    "description": "Interval (seconds) between metrics collection and export (only used if metrics_enabled=true)."
+  },
+  "trust_password": {
+    "type": "string",
+    "default": "",
+    "description": "Password required to add new servers or clients to the trust model. Leave blank to require manual certificate trust."
+  },
+  "storage_backend": {
+    "type": "string",
+    "default": "dir",
+    "description": "Storage backend for instances. Common values: dir, zfs, btrfs, lvm, ceph. Choose 'dir' for single-server, simple setups."
+  },
+  "storage_pool": {
+    "type": "string",
+    "default": "default",
+    "description": "Name of storage pool to use (ignored for 'dir' backend)."
+  },
+  "storage_dir": {
+    "type": "string",
+    "default": "/var/lib/incus/storage",
+    "description": "Directory root for the 'dir' storage backend. Must exist and be writable."
+  },
+  "logging_level": {
+    "type": "string",
+    "default": "info",
+    "description": "Verbosity of daemon logging."
+  },
+  "logging_format": {
+    "type": "string",
+    "default": "text",
+    "description": "Format for daemon logs: human-readable 'text' or structured 'json'."
+  },
+  "log_path": {
+    "type": "string",
+    "default": "/var/log/incus/daemon.log",
+    "description": "Path for daemon log file. Use '-' to log to stdout/stderr."
+  },
+  "max_instances": {
+    "type": "number",
+    "default": 100,
+    "description": "Maximum total number of containers and VMs the daemon will allow."
+  },
+  "instance_limits": {
+    "type": "list",
+    "default": [],
+    "description": "List of instance resource limits (CPU or memory) \u2014 applies globally to all new instances unless overridden.",
+    "items": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": [
+            "cpu",
+            "memory"
+          ],
+          "description": "Resource type: 'cpu' (integer cores) or 'memory' (e.g., '2GiB')."
+        },
+        "name": {
+          "type": "string",
+          "description": "Descriptive name for the limit."
+        },
+        "value": {
+          "type": "string",
+          "description": "Value for the limit: CPU as integer (e.g., 4), memory as string with units (e.g., '2GiB')."
+        }
+      },
+      "required": [
+        "type",
+        "value"
+      ]
+    }
+  },
+  "image_aliases": {
+    "type": "list",
+    "default": [],
+    "description": "Map of image aliases to full image fingerprints or remote:alias.",
+    "items": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Alias name (e.g., 'ubuntu-22.04')."
+        },
+        "target": {
+          "type": "string",
+          "description": "Full image reference (e.g., 'images:ubuntu/22.04/amd64/default' or 'f1a2b3c4...')."
+        }
+      },
+      "required": [
+        "name",
+        "target"
+      ]
+    }
+  },
+  "allowed_image_protocols": {
+    "type": "list",
+    "default": [
+      "https",
+      "http",
+      "simplestreams"
+    ],
+    "description": "List of allowed image transfer protocols. Restricting to 'https' is recommended for security.",
+    "items": {
+      "type": "string",
+      "enum": [
+        "https",
+        "http",
+        "simplestreams"
+      ]
+    }
+  },
+  "allowed_storage_backends": {
+    "type": "list",
+    "default": [],
+    "description": "If non-empty, restricts the backends that new storage pools or instances may use. Leave empty to allow all configured backends.",
+    "items": {
+      "type": "string",
+      "enum": [
+        "dir",
+        "zfs",
+        "btrfs",
+        "lvm",
+        "ceph"
+      ]
+    }
+  },
+  "allowed_image_servers": {
+    "type": "list",
+    "default": [],
+    "description": "Whitelist of image servers allowed for import (e.g., 'images.linuxcontainers.org').",
+    "items": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Friendly name for the server."
+        },
+        "url": {
+          "type": "string",
+          "description": "Server URL (e.g., 'https://images.linuxcontainers.org')."
+        }
+      },
+      "required": [
+        "name",
+        "url"
+      ]
+    }
+  },
+  "features": {
+    "type": "object",
+    "default": {},
+    "description": "Enable or disable experimental or optional features. Keys are feature names (e.g., 'storage_buckets').",
+    "items": {
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Whether the feature is enabled."
+        }
+      },
+      "required": [
+        "enabled"
+      ]
+    }
+  },
+  "cluster_server": {
+    "type": "string",
+    "default": "",
+    "description": "Server address (IP:port) to join an existing cluster. Leave blank for standalone mode."
+  },
+  "cluster_role": {
+    "type": "string",
+    "default": "",
+    "description": "Role of this node in a cluster: 'member', 'database', or empty if standalone."
+  },
+  "cluster_certificate": {
+    "type": "string",
+    "default": "",
+    "description": "Path to cluster certificate file (for cluster joining)."
+  },
+  "cluster_key": {
+    "type": "string",
+    "default": "",
+    "description": "Cluster authentication key (for cluster joining)."
+  },
+  "default_profiles": {
+    "type": "list",
+    "default": [
+      "default"
+    ],
+    "description": "Profiles automatically applied to new containers/VMs if none specified.",
+    "items": {
+      "type": "string"
+    }
+  }
+}

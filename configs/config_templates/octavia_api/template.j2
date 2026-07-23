@@ -1,0 +1,136 @@
+[DEFAULT]
+# Enable debug logging for troubleshooting
+{% if debug %}debug = true{% else %}debug = false{% endif %}
+# Base directory for Octavia runtime files
+state_path = {{ state_path }}
+# Logging configuration file path (optional)
+{% if log_config_append %}log_config_append = {{ log_config_append }}{% endif %}
+# Log dir for log files
+{% if log_dir %}log_dir = {{ log_dir }}{% endif %}
+
+[api_settings]
+# IP address the Octavia API server listens on
+bind_host = {{ api_settings.bind_host }}
+# Port the Octavia API server listens on
+bind_port = {{ api_settings.bind_port }}
+# Enable or disable the API web UI ( Amphora UI ); usually disabled in production
+{% if api_settings.enable_api_web_ui %}enable_api_web_ui = true{% else %}enable_api_web_ui = false{% endif %}
+# Rate limiting: max requests per second per tenant
+{% if api_settings.api_rate_limit is defined %}api_rate_limit = {{ api_settings.api_rate_limit }}{% endif %}
+# List of allowed TLS versions for HTTPS (e.g., ['TLSv1.2', 'TLSv1.3'])
+{% if api_settings.tls_versions is defined %}tls_versions = {{ api_settings.tls_versions | join(', ') }}{% endif %}
+# List of allowed TLS ciphers for HTTPS
+{% if api_settings.tls_ciphers is defined %}tls_ciphers = {{ api_settings.tls_ciphers | join(':') }}{% endif %}
+
+[certificates]
+# Path to the CA certificate file used to sign amphora certificates
+ca_certificate = {{ certificates.ca_certificate }}
+# Path to the private key of the CA certificate
+ca_private_key = {{ certificates.ca_private_key }}
+# Path to the CA private key passphrase (if encrypted); leave empty if unencrypted
+{% if certificates.ca_private_key_passphrase is not none %}ca_private_key_passphrase = {{ certificates.ca_private_key_passphrase }}{% else %}ca_private_key_passphrase = None{% endif %}
+# Path to the directory where amphora certificates are stored
+cert_manager = {{ certificates.cert_manager }}
+
+[health_manager]
+# IP address for health manager to listen on
+bind_host = {{ health_manager.bind_host }}
+# Port health manager listens on
+bind_port = {{ health_manager.bind_port }}
+# Number of health manager worker processes
+workers = {{ health_manager.workers | default(0) }}
+# Interval (in seconds) between health checks
+health_check_interval = {{ health_manager.health_check_interval }}
+
+[driver_agent]
+# Directory where Octavia writes Amphora agent configuration files
+{% if driver_agent.config_file_dir %}config_file_dir = {{ driver_agent.config_file_dir }}{% endif %}
+# Timeout (in seconds) for agent commands
+agent_timeout = {{ driver_agent.agent_timeout }}
+
+[oslo_messaging]
+# RabbitMQ broker host
+{% if oslo_messaging.rabbit_host is defined %}rabbit_host = {{ oslo_messaging.rabbit_host }}{% endif %}
+# RabbitMQ broker port
+{% if oslo_messaging.rabbit_port is defined %}rabbit_port = {{ oslo_messaging.rabbit_port }}{% endif %}
+# RabbitMQ userid
+{% if oslo_messaging.rabbit_userid is defined %}rabbit_userid = {{ oslo_messaging.rabbit_userid }}{% endif %}
+# RabbitMQ password
+{% if oslo_messaging.rabbit_password is defined %}rabbit_password = {{ oslo_messaging.rabbit_password }}{% endif %}
+# RabbitMQ virtual host
+{% if oslo_messaging.rabbit_virtual_host is defined %}rabbit_virtual_host = {{ oslo_messaging.rabbit_virtual_host }}{% endif %}
+# RabbitMQ SSL enabled
+{% if oslo_messaging.rabbit_use_ssl is defined %}rabbit_use_ssl = {{ oslo_messaging.rabbit_use_ssl | lower }}{% endif %}
+
+[keystone_authtoken]
+# Authentication endpoint (e.g., https://keystone.example.com:5000/v3)
+auth_url = {{ keystone_authtoken.auth_url }}
+# Service project domain name
+project_domain_name = {{ keystone_authtoken.project_domain_name }}
+# Service project name
+project_name = {{ keystone_authtoken.project_name }}
+# Service user domain name
+user_domain_name = {{ keystone_authtoken.user_domain_name }}
+# Service username
+username = {{ keystone_authtoken.username }}
+# Service user password
+password = {{ keystone_authtoken.password }}
+# Path to CA cert for validating keystone endpoint
+{% if keystone_authtoken.cafile %}cafile = {{ keystone_authtoken.cafile }}{% endif %}
+# Insecure: skip SSL verification (not recommended for production)
+{% if keystone_authtoken.insecure is defined %}insecure = {{ keystone_authtoken.insecure | lower }}{% endif %}
+
+[nova]
+# Nova auth URL (for metadata proxy)
+{% if nova.auth_url is defined %}auth_url = {{ nova.auth_url }}{% endif %}
+# Nova project domain name
+{% if nova.project_domain_name is defined %}project_domain_name = {{ nova.project_domain_name }}{% endif %}
+# Nova project name
+{% if nova.project_name is defined %}project_name = {{ nova.project_name }}{% endif %}
+# Nova user domain name
+{% if nova.user_domain_name is defined %}user_domain_name = {{ nova.user_domain_name }}{% endif %}
+# Nova username
+{% if nova.username is defined %}username = {{ nova.username }}{% endif %}
+# Nova password
+{% if nova.password is defined %}password = {{ nova.password }}{% endif %}
+# Region name for Nova
+{% if nova.region_name is defined %}region_name = {{ nova.region_name }}{% endif %}
+
+[neutron]
+# Neutron auth URL (for network operations)
+{% if neutron.auth_url is defined %}auth_url = {{ neutron.auth_url }}{% endif %}
+# Neutron project domain name
+{% if neutron.project_domain_name is defined %}project_domain_name = {{ neutron.project_domain_name }}{% endif %}
+# Neutron project name
+{% if neutron.project_name is defined %}project_name = {{ neutron.project_name }}{% endif %}
+# Neutron user domain name
+{% if neutron.user_domain_name is defined %}user_domain_name = {{ neutron.user_domain_name }}{% endif %}
+# Neutron username
+{% if neutron.username is defined %}username = {{ neutron.username }}{% endif %}
+# Neutron password
+{% if neutron.password is defined %}password = {{ neutron.password }}{% endif %}
+# Region name for Neutron
+{% if neutron.region_name is defined %}region_name = {{ neutron.region_name }}{% endif %}
+
+[ amphora ]
+# Amphora image name (for default amphora image lookup)
+{% if amphora.amphora_name is defined %}amphora_name = {{ amphora.amphora_name }}{% endif %}
+# Amphora image tag (for image lookup)
+{% if amphora.amphora_image_tag is defined %}amphora_image_tag = {{ amphora.amphora_image_tag }}{% endif %}
+# Flavor ID for amphora VMs
+{% if amphora.amphora_flavor is defined %}amphora_flavor = {{ amphora.amphora_flavor }}{% endif %}
+# Network ID for amphora management network
+{% if amphora.amphora_network is defined %}amphora_network = {{ amphora.amphora_network }}{% endif %}
+# Subnet ID for amphora management network
+{% if amphora.amphora_subnet is defined %}amphora_subnet = {{ amphora.amphora_subnet }}{% endif %}
+# Security group IDs for amphorae (comma-separated in config, but rendered as list)
+{% if amphora.amphora_secgroup_list is defined %}amphora_secgroup_list = {{ amphora.amphora_secgroup_list | join(', ') }}{% endif %}
+# Number of workers for amphora agent
+{% if amphora.agent_workers is defined %}agent_workers = {{ amphora.agent_workers }}{% endif %}
+
+# Listener configuration: default timeout values (in seconds)
+[listener]
+# Client idle timeout (for client-side inactivity)
+client_idle_timeout = {{ listener.client_idle_timeout }}
+# TLS client renegotiation setting
+client_ca_file = {{ listener.client_ca_file }}

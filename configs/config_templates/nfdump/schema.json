@@ -1,0 +1,107 @@
+{
+  "interfaces": {
+    "type": "list",
+    "default": [],
+    "description": "List of network interfaces to listen on (e.g., ['eth0', 'ens160']). Leave empty to skip auto-detection and use runtime flag `-i`."
+  },
+  "port": {
+    "type": "number",
+    "default": 2055,
+    "description": "UDP port to listen for NetFlow v5/v9, IPFIX, or sFlow data."
+  },
+  "tcp_port": {
+    "type": "number",
+    "default": 0,
+    "description": "TCP port to listen for sFlow over TCP. Set to 0 to disable."
+  },
+  "base_dir": {
+    "type": "string",
+    "default": "/var/cache/nfdump",
+    "description": "Root directory where flow data files (nfcapd.* binaries) are stored. Subdirectories are auto-created by date."
+  },
+  "archive_dir": {
+    "type": "string",
+    "default": "",
+    "description": "Relative subdirectory under base_dir for archived/compressed rotated files. Leave blank to disable archiving."
+  },
+  "retention_days": {
+    "type": "number",
+    "default": 7,
+    "description": "Number of days to retain flow files before automatic deletion."
+  },
+  "bpf_filter": {
+    "type": "string",
+    "default": "",
+    "description": "Optional Berkeley Packet Filter expression (e.g., 'udp portrange 2055-2057') to reduce noise. Leave blank to accept all."
+  },
+  "flush_timeout": {
+    "type": "number",
+    "default": 20,
+    "description": "Seconds of inactivity before flushing pending buffers to disk. Higher values reduce I/O but increase risk of data loss on crash."
+  },
+  "rotate_interval": {
+    "type": "number",
+    "default": 600,
+    "description": "Interval (in seconds) for rotating flow files (e.g., 600 = 10 minutes)."
+  },
+  "compress": {
+    "type": "string",
+    "default": "true",
+    "description": "Whether to compress rotated files with gzip (yes/no or true/false)."
+  },
+  "format": {
+    "type": "string",
+    "default": "standard",
+    "description": "Output format: 'standard' (default) or 'extended' (includes additional metadata such as router IP, if available)."
+  },
+  "pidfile": {
+    "type": "string",
+    "default": "/run/nfcapd.pid",
+    "description": "Path to the PID file for service management (e.g., systemd). Set to empty to disable."
+  },
+  "user": {
+    "type": "string",
+    "default": "nobody",
+    "description": "System user to drop privileges to after binding ports (security best practice)."
+  },
+  "group": {
+    "type": "string",
+    "default": "nogroup",
+    "description": "System group to drop privileges to after binding ports."
+  },
+  "daemonize": {
+    "type": "string",
+    "default": "true",
+    "description": "Whether to run nfcapd in background daemon mode (yes/no or true/false)."
+  },
+  "sflow_extended": {
+    "type": "string",
+    "default": "false",
+    "description": "Enable support for vendor-specific sFlow extensions (e.g., NetApp, Juniper)."
+  },
+  "template_cache": {
+    "type": "string",
+    "default": "true",
+    "description": "Enable NetFlow v9/IPFIX template caching (required for v9/IPFIX support)."
+  },
+  "mempool_size": {
+    "type": "number",
+    "default": 0,
+    "description": "Memory pool size (in MB) for packet buffering. Set >0 (e.g., 32) only if you observe dropped packets under high load."
+  },
+  "max_open_files": {
+    "type": "number",
+    "default": 0,
+    "description": "Maximum number of open file descriptors. Set >0 (e.g., 65535) only if system limit allows and you expect many files."
+  },
+  "skip_stale": {
+    "type": "number",
+    "default": 0,
+    "description": "Skip flow records older than N seconds when reading from a pipe or reprocessing. Set >0 to avoid stale data ingestion."
+  },
+  "extra_opts": {
+    "type": "string",
+    "default": "",
+    "description": "Additional command-line options (e.g., '-z' for gzip compression, '-l' for logging level). Use sparingly \u2014 prefer above settings."
+  }
+}

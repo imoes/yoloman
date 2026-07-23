@@ -1,0 +1,68 @@
+# Pandora FMS Agent configuration file
+# Server address for communication with Pandora FMS Server
+server_ip = {{ server_ip }}
+
+# Server port for communication (default: 41121)
+server_port = {{ server_port }}
+
+# Agent name (must be unique per monitored host)
+agent_name = {{ agent_name }}
+
+# Directory where agent plugins and modules are stored
+plugin_directory = {{ plugin_directory }}
+
+# Directory where agent data is cached
+temp_directory = {{ temp_directory }}
+
+# Interval (in seconds) between data collection cycles
+interval = {{ interval }}
+
+# Enable/Disable debug mode
+debug_mode = {{ debug_mode | lower }}
+
+# Enable/Disable remote configuration
+remote_config = {{ remote_config | lower }}
+
+# List of modules to run
+{% for module in modules %}# {{ module.description }}
+module = {{ module.name }}
+{% if module.param %}module_param = {{ module.param }}
+{% endif %}{% if module.interval is defined %}module_interval = {{ module.interval }}
+{% endif %}{% endfor %}
+
+# Network discovery configuration
+{% if network_discovery.enabled %}network_discovery = 1
+network_discovery_network = {{ network_discovery.network }}
+network_discovery_interval = {{ network_discovery.interval }}
+network_discovery_timeout = {{ network_discovery.timeout }}
+network_discovery_threads = {{ network_discovery.threads }}
+{% else %}network_discovery = 0
+{% endif %}
+
+# SSH scanning configuration (for network discovery)
+{% if ssh_scan.enabled %}ssh_scan = 1
+ssh_scan_user = {{ ssh_scan.user }}
+ssh_scan_password = {{ ssh_scan.password | default('') }}
+ssh_scan_key = {{ ssh_scan.key_file | default('') }}
+ssh_scan_timeout = {{ ssh_scan.timeout }}
+{% else %}ssh_scan = 0
+{% endif %}
+
+# Proxy configuration
+{% if proxy.enabled %}proxy_server = {{ proxy.server }}
+proxy_port = {{ proxy.port }}
+{% else %}# No proxy
+{% endif %}
+
+# TLS/SSL settings
+{% if ssl.enabled %}ssl = 1
+ssl_cert = {{ ssl.cert_file }}
+ssl_key = {{ ssl.key_file }}
+ssl_ca = {{ ssl.ca_file }}
+ssl_verify = {{ ssl.verify | lower }}
+{% else %}ssl = 0
+{% endif %}
+
+# Logging
+log_file = {{ log_file }}
+log_level = {{ log_level }}

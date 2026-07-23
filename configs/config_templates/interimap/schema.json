@@ -1,0 +1,206 @@
+{
+  "log_file": {
+    "type": "string",
+    "default": "",
+    "description": "Path to log file. Leave empty to log only to stderr."
+  },
+  "log_level": {
+    "type": "string",
+    "default": "INFO",
+    "description": "Log verbosity level."
+  },
+  "max_concurrent_accounts": {
+    "type": "number",
+    "default": 3,
+    "minimum": 1,
+    "maximum": 50,
+    "description": "Maximum number of accounts to sync in parallel."
+  },
+  "max_connections_per_account": {
+    "type": "number",
+    "default": 4,
+    "minimum": 1,
+    "maximum": 20,
+    "description": "Max simultaneous connections per account (for parallel folder sync)."
+  },
+  "retry_delay": {
+    "type": "number",
+    "default": 5,
+    "minimum": 1,
+    "maximum": 300,
+    "description": "Seconds to wait before retrying a failed connection or operation."
+  },
+  "dry_run": {
+    "type": "boolean",
+    "default": false,
+    "description": "If enabled, simulate sync without modifying any mailboxes."
+  },
+  "verbose": {
+    "type": "boolean",
+    "default": false,
+    "description": "Enable verbose debug output, including raw IMAP commands/responses."
+  },
+  "qresync": {
+    "type": "boolean",
+    "default": true,
+    "description": "Require QRESYNC capability for fast resynchronization. Recommended for production."
+  },
+  "validate_uidvalidity": {
+    "type": "boolean",
+    "default": true,
+    "description": "Refuse to sync if UIDVALIDITY has changed (prevents data corruption)."
+  },
+  "temp_state_ttl": {
+    "type": "number",
+    "default": 600,
+    "minimum": 60,
+    "maximum": 86400,
+    "description": "Lifetime (seconds) of temporary sync state before cleanup."
+  },
+  "state_dir": {
+    "type": "string",
+    "default": "/var/lib/interimap",
+    "description": "Directory to store temporary state files (e.g., UIDs, timestamps). Must be writable by interimap."
+  },
+  "tls_ca_bundle": {
+    "type": "string",
+    "default": "",
+    "description": "Optional path to custom CA bundle for TLS verification."
+  },
+  "accounts": {
+    "type": "list",
+    "default": [],
+    "description": "List of IMAP accounts to sync. Each entry defines a sync pair (source \u2194 destination).",
+    "items": {
+      "name": {
+        "type": "string",
+        "default": "",
+        "description": "Unique name for this account configuration."
+      },
+      "source_host": {
+        "type": "string",
+        "default": "",
+        "description": "IMAP hostname of the source server."
+      },
+      "source_port": {
+        "type": "number",
+        "default": 993,
+        "minimum": 1,
+        "maximum": 65535,
+        "description": "IMAP port of the source server (typically 993 for SSL, 143 for STARTTLS)."
+      },
+      "source_user": {
+        "type": "string",
+        "default": "",
+        "description": "Username (login) for the source IMAP account."
+      },
+      "source_use_ssl": {
+        "type": "boolean",
+        "default": true,
+        "description": "Use SSL (implicit TLS) on the source server."
+      },
+      "source_tls": {
+        "type": "boolean",
+        "default": true,
+        "description": "Use STARTTLS on the source server (ignored if source_use_ssl is true)."
+      },
+      "source_skip_tls_verify": {
+        "type": "boolean",
+        "default": false,
+        "description": "\u26a0\ufe0f Skip TLS certificate verification on source (insecure \u2014 use only for testing)."
+      },
+      "dest_host": {
+        "type": "string",
+        "default": "",
+        "description": "IMAP hostname of the destination server."
+      },
+      "dest_port": {
+        "type": "number",
+        "default": 993,
+        "minimum": 1,
+        "maximum": 65535,
+        "description": "IMAP port of the destination server."
+      },
+      "dest_user": {
+        "type": "string",
+        "default": "",
+        "description": "Username (login) for the destination IMAP account."
+      },
+      "dest_use_ssl": {
+        "type": "boolean",
+        "default": true,
+        "description": "Use SSL (implicit TLS) on the destination server."
+      },
+      "dest_tls": {
+        "type": "boolean",
+        "default": true,
+        "description": "Use STARTTLS on the destination server (ignored if dest_use_ssl is true)."
+      },
+      "dest_skip_tls_verify": {
+        "type": "boolean",
+        "default": false,
+        "description": "\u26a0\ufe0f Skip TLS certificate verification on destination (insecure)."
+      },
+      "direction": {
+        "type": "string",
+        "default": "both",
+        "enum": [
+          "both",
+          "source_to_dest",
+          "dest_to_source"
+        ],
+        "description": "Sync direction. Use 'both' for bidirectional sync."
+      },
+      "folder_prefix": {
+        "type": "string",
+        "default": "",
+        "description": "Optional prefix to prepend to folder names on the destination (e.g., 'Backup/' for migration)."
+      },
+      "folder_patterns": {
+        "type": "list",
+        "default": [],
+        "items": {
+          "type": "string"
+        },
+        "description": "Folder filtering patterns. '+' for include, '-' for exclude (glob-style, e.g., ['+INBOX.*', '-*Trash*'])."
+      },
+      "folder_mapping": {
+        "type": "object",
+        "default": {},
+        "description": "Manual mapping of source folder names to destination folder names."
+      },
+      "batch_size": {
+        "type": "number",
+        "default": 1000,
+        "minimum": 1,
+        "maximum": 10000,
+        "description": "Maximum messages to process per folder per batch."
+      },
+      "concurrent_folder_sync": {
+        "type": "number",
+        "default": 2,
+        "minimum": 1,
+        "maximum": 10,
+        "description": "Max folders to sync in parallel per account."
+      },
+      "flag_sync": {
+        "type": "string",
+        "default": "both",
+        "enum": [
+          "both",
+          "source_only",
+          "dest_only"
+        ],
+        "description": "Which side\u2019s flags to sync. 'both' preserves flags from both sides."
+      },
+      "ignore_flags": {
+        "type": "list",
+        "default": [],
+        "items": {
+          "type": "string"
+        },
+        "description": "List of flag names to ignore (e.g., ['\\Recent', '\\Seen'])."
+      }
+    }
+  }
+}

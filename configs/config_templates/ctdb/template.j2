@@ -1,0 +1,104 @@
+# CTDB configuration file — use this to configure cluster behavior and node participation
+# This file is processed at startup; changes require `ctdb restart` or `ctdb reloadconfig`
+
+# Global settings
+[global]
+# Node list file — path to file containing one IP per line (one per node)
+NodesFile = {{ nodes_file }}
+
+# Public address configuration — how CTDB manages public IPs for clients
+PublicInterfaces = {{ public_interfaces | join(', ') }}
+
+# Private interface name used for inter-node communication
+PrivateInterface = {{ private_interface }}
+
+# Locking method: 'file' uses local files, 'tdb' uses internal TDB (recommended)
+LockingMethod = {{ locking_method }}
+
+# Enable recovery manager — prevents split-brain by centralizing recovery coordination
+RecoveryManager = {{ recovery_manager }}
+
+# Election timeout (seconds) for recovery manager
+RecoveryTimeout = {{ recovery_timeout }}
+
+# Interval (seconds) between health checks on nodes
+NodeHealthCheckInterval = {{ node_health_check_interval }}
+
+# Maximum time (seconds) a node may be unresponsive before being marked unhealthy
+NodeHealthCheckMaxLatency = {{ node_health_check_max_latency }}
+
+# Failover behavior: 'balanced' or 'manual'
+RecoveryStrategy = {{ recovery_strategy }}
+
+# Logging configuration
+[logging]
+# Log level: 'ERROR', 'WARNING', 'NOTICE', 'INFO', 'DEBUG'
+Level = {{ log_level }}
+
+# Log file path (empty means stdout/stderr during early boot; systemd handles rotation)
+File = {{ log_file }}
+
+# Per-transport settings (TCP, RDMA, etc.)
+# Most deployments use TCP only
+[transports]
+# Transport type: 'tcp', 'rdma', or 'both'
+Transport = {{ transport }}
+
+# TCP-specific: use SO_REUSEPORT for better scaling on multi-core nodes
+UseSocketReusePort = {{ socket_reuse_port }}
+
+# Enable TCP_NODELAY to reduce latency (recommended for databases)
+TCPNoDelay = {{ tcp_no_delay }}
+
+# TCP listen backlog for accept() calls
+TCPBackLog = {{ tcp_backlog }}
+
+# Number of worker threads (per public IP) for handling client requests
+# Set to `0` to auto-size based on CPU cores
+WorkersPerIP = {{ workers_per_ip }}
+
+# Optional per-IP public address definitions (for multi-homed setups)
+# Each entry defines one public address block
+{% for addr in public_addresses %}
+# Public IP block for client access (must be reachable by clients)
+PublicIP{{ loop.index0 }} = {{ addr.ip }}/{{ addr.prefixlen }} {{ addr.interface }}
+{% endfor %}
+
+# Optional event scripts — CTDB executes these on cluster state changes
+# Uncomment and adjust if custom actions are needed (e.g., on recovery start/complete)
+#[events]
+#RecoveryStart = /usr/lib/ctdb/events/legacy/recovery-start
+#RecoveryEnd   = /usr/lib/ctdb/events/legacy/recovery-end
+
+# Optional tuning for high availability
+[ha]
+# Enable high-availability mode (default: yes)
+EnableHA = {{ enable_ha }}
+
+# Script to call to check if local service (e.g., samba) is healthy
+ServiceCheckScript = {{ service_check_script }}
+
+# Delay (seconds) before triggering failover after service failure
+FailoverDelay = {{ failover_delay }}
+
+# Optional: custom heartbeat mechanism for external fencing
+#HeartbeatInterval = {{ heartbeat_interval }}
+#HeartbeatTimeout  = {{ heartbeat_timeout }}
+
+# Performance tuning (advanced)
+# Number of databases to cache in memory per node
+DatabaseCacheSize = {{ database_cache_size }}
+
+# Maximum queue depth for in-flight operations per database
+QueueDepth = {{ queue_depth }}
+
+# Timeout (seconds) for remote TDB operations
+RemoteTDBTimeout = {{ remote_tdb_timeout }}
+
+# Optional: security and authentication
+[security]
+# Enable SASL authentication for inter-node communication
+UseSASL = {{ use_sasl }}
+
+# Path to SASL configuration file (if enabled)
+SASLConfigPath = {{ sasl_config_path }}

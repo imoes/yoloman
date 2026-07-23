@@ -1,0 +1,49 @@
+{
+  "listen_host": "",
+  "pop3_port": 110,
+  "pop3s_port": 995,
+  "imap_port": 143,
+  "imaps_port": 993,
+  "ssl_cert_file": "/etc/ssl/certs/perdition.crt",
+  "ssl_key_file": "/etc/ssl/private/perdition.key",
+  "ssl_protocols": [
+    "TLSv1.2",
+    "TLSv1.3"
+  ],
+  "backend": "ldap",
+  "perdition_map_file": "/etc/perdition/perdition.map",
+  "ldap_url": "ldap://ldap.example.com/",
+  "ldap_bind_dn": "cn=proxyagent,ou=serviceaccounts,dc=example,dc=com",
+  "ldap_bind_password": "secret_password",
+  "ldap_search_base": "ou=users,dc=example,dc=com",
+  "ldap_user_filter": "(&(objectClass=posixAccount)(uid=%u))",
+  "ldap_group_filter": "(memberUid=%u)",
+  "max_clients": 2048,
+  "timeout": 300,
+  "log_level": 4,
+  "log_facility": "/var/log/perdition.log",
+  "chroot": "/var/lib/perdition",
+  "user": "perdition",
+  "group": "perdition",
+  "backend_entries": [
+    {
+      "name": "example.com",
+      "type": "ldap",
+      "ldap_url": "ldap://ldap.example.com/",
+      "ldap_bind_dn": "cn=proxyagent,ou=serviceaccounts,dc=example,dc=com",
+      "ldap_bind_password": "secret_password",
+      "ldap_search_base": "ou=users,dc=example,dc=com",
+      "ldap_user_filter": "(&(objectClass=posixAccount)(uid=%u))"
+    },
+    {
+      "name": "sub.example.org",
+      "type": "mysql",
+      "db_name": "mail",
+      "db_user": "mailuser",
+      "db_password": "mailpass",
+      "db_host": "db.internal",
+      "db_port": 3306,
+      "db_query": "SELECT maildir,uidNumber,gidNumber FROM users WHERE username='%u'"
+    }
+  ]
+}

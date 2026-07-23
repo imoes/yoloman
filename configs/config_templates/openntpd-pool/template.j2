@@ -1,0 +1,23 @@
+{# Allow NTP peers to synchronize this system #}
+servers {{ ntp_servers | join(' ') }}
+
+{# Listen on all interfaces for incoming NTP requests (unless restricted below) #}
+listen on *
+
+{# Restrict NTP clients to specific subnets (empty = allow all) #}
+{% if restrict_subnets %}
+{% for subnet in restrict_subnets %}restrict {{ subnet }}{# newline not needed; one per line #}
+{% endfor %}
+{% else %}
+# restrict #
+{% endif %}
+
+{# Enable leap second handling (required for RFC-compliant operation) #}
+{% if handle_leap_seconds %}leapfile /etc/ntp.leap-seconds
+{% endif %}
+
+{# Logging verbosity level (0–4; 3 is typical for production) #}
+log-level {{ log_level }}
+
+{# Maximum allowed time offset (seconds) before rejecting remote clock #}
+max-offset {{ max_offset }}

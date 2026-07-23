@@ -1,0 +1,193 @@
+# The root of the configuration
+# This file configures the Docker Registry v2 service.
+# Access control and authentication backend.
+version: 0.1
+
+log:
+  # Logging level: debug, info, warning, error, critical
+  # Set to 'debug' for verbose logging.
+  level: {{ log_level }}
+  # Optional: log to file instead of stdout
+  {% if log_file %}
+  formatter: text
+  fields:
+    service: registry
+    environment: {{ log_environment | default('production') }}
+  {% else %}
+  formatter: text
+  fields:
+    service: registry
+    environment: {{ log_environment | default('production') }}
+  {% endif %}
+  {% if log_file %}
+  # Log output to file (use 'accesslog' for access logs)
+  formatter: text
+  fields:
+    service: registry
+    environment: {{ log_environment | default('production') }}
+  {% endif %}
+
+# Storage driver configuration
+storage:
+  # Primary storage driver — filesystem, s3, gcs, azure, swift, etc.
+  driver: {{ storage_driver }}
+  # Filesystem-specific settings
+  {% if storage_driver == 'filesystem' %}
+  filesystem:
+    # Path where images and metadata are stored
+    rootdirectory: {{ storage_filesystem_rootdirectory }}
+  {% endif %}
+  # S3-specific settings
+  {% if storage_driver == 's3' %}
+  s3:
+    region: {{ s3_region }}
+    bucket: {{ s3_bucket }}
+    encrypt: {{ s3_encrypt }}
+    keyid: {{ s3_keyid | default('') }}
+    secure: {{ s3_secure }}
+    v4auth: {{ s3_v4auth }}
+  {% endif %}
+  # GCS-specific settings
+  {% if storage_driver == 'gcs' %}
+  gcs:
+    bucket: {{ gcs_bucket }}
+    keyid: {{ gcs_keyid | default('') }}
+    private_key: {{ gcs_private_key | default('') }}
+    user_project: {{ gcs_user_project | default('') }}
+  {% endif %}
+  # Azure-specific settings
+  {% if storage_driver == 'azure' %}
+  azure:
+    container: {{ azure_container }}
+    accountname: {{ azure_accountname }}
+    accountkey: {{ azure_accountkey | default('') }}
+    realm: {{ azure_realm | default('') }}
+  {% endif %}
+  # Delete enabled?
+  {% if storage_delete_enabled %}
+  delete:
+    enabled: true
+  {% else %}
+  delete:
+    enabled: false
+  {% endif %}
+  # Cache settings
+  {% if storage_cache_blobdescriptor %}
+  cache:
+    blobdescriptor: inmemory
+  {% endif %}
+  # Redirect to backend storage (e.g., S3 presigned URLs)
+  {% if storage_redirect %}
+  redirect:
+    disable: false
+  {% else %}
+  redirect:
+    disable: true
+  {% endif %}
+
+# HTTP server configuration
+http:
+  # Listen address — host:port
+  addr: {{ http_addr }}
+  # TLS/SSL configuration
+  {% if tls_enabled %}
+  tls:
+    address: {{ tls_addr }}
+    keystore: {{ tls_keystore }}
+    key: {{ tls_key }}
+    # Optional: client CA for mutual TLS
+    {% if tls_client_ca %}
+    clientcas:
+      - {{ tls_client_ca }}
+    {% endif %}
+  {% endif %}
+  # Debug endpoint (health, metrics, pprof)
+  debug:
+    addr: {{ debug_addr }}
+    {% if debug_prometheus_enabled %}
+    prometheus:
+      enabled: true
+      path: /metrics
+    {% endif %}
+    {% if debug_pprof_enabled %}
+    pprof:
+      enabled: true
+      address: {{ debug_pprof_addr }}
+    {% endif %}
+    {% if debug_trace_enabled %}
+    trace:
+      enabled: true
+      {% if debug_trace_sampler %}
+      sampler:
+        type: always
+        {% else %}
+        type: jaeger
+        param: {{ debug_trace_sampler_param | default(0.1) }}
+      {% endif %}
+    {% endif %}
+
+# Auth configuration
+auth:
+  # Token-based authentication (e.g., with Docker Registry Auth Daemon,clair, or custom token service)
+  {% if auth_type == 'token' %}
+  token:
+    realm: {{ auth_token_realm }}
+    service: {{ auth_token_service }}
+    issuer: {{ auth_token_issuer }}
+    rootcertbundle: {{ auth_token_rootcertbundle }}
+  {% endif %}
+  # Basic auth (HTPASSWD file)
+  {% if auth_type == 'htpasswd' %}
+  htpasswd:
+    realm: {{ auth_htpasswd_realm }}
+    path: {{ auth_htpasswd_path }}
+  {% endif %}
+  # Anonymous (no auth) — dangerous in production
+  {% if auth_type == 'none' %}
+  {% else %}
+  {% endif %}
+
+# Proxy settings (optional — used when registry acts as pull-through cache)
+{% if proxy_remoteurl %}
+proxy:
+  remoteurl: {{ proxy_remoteurl }}
+  username: {{ proxy_username | default('') }}
+  password: {{ proxy_password | default('') }}
+{% endif %}
+
+# Notifications (webhooks on image push/pull)
+{% if notifications_enabled %}
+notifications:
+  endpoints:
+    {% for endpoint in notifications_endpoints %}
+    - name: {{ endpoint.name }}
+      url: {{ endpoint.url }}
+      headers:
+        {% for key, value in endpoint.headers.items() %}
+        {{ key }}: [{{ value | default('') | tojson }}]
+        {% endfor %}
+      timeout: {{ endpoint.timeout | default('3s') }}
+      {% if endpoint.threshold %}
+      threshold: {{ endpoint.threshold }}
+      {% endif %}
+      {% if endpoint.backoff %}
+      backoff:
+        duration: {{ endpoint.backoff.duration }}
+        interval: {{ endpoint.backoff.interval }}
+        maxinterval: {{ endpoint.backoff.maxinterval }}
+        maxretry: {{ endpoint.backoff.maxretry }}
+      {% endif %}
+      {% if endpoint.disabled %}
+      disabled: true
+      {% endif %}
+    {% endfor %}
+{% endif %}
+
+# Health settings
+{% if health_storagedriver_enabled %}
+health:
+  storagedriver:
+    enabled: true
+    interval: {{ health_storagedriver_interval }}
+    threshold: {{ health_storagedriver_threshold }}
+{% endif %}

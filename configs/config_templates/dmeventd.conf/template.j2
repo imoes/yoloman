@@ -1,0 +1,38 @@
+# Global dmeventd configuration
+# This file controls the behavior of the LVM dmeventd daemon, which monitors device-mapper devices for events.
+
+# Log level: 0=none, 1=normal, 2=verbose, 3=debug
+log_level = {{ log_level }}
+
+# Path to the daemon's PID file
+pid_file = "{{ pid_file }}"
+
+# Maximum number of worker threads handling events
+max_worker_threads = {{ max_worker_threads }}
+
+# Timeout (in seconds) before a monitoring operation is considered failed
+operation_timeout = {{ operation_timeout }}
+
+# Whether to daemonize and detach from the controlling terminal
+daemonize = {{ daemonize | lower }}
+
+# List of devices to monitor
+# Each entry specifies the device path and optional monitoring flags
+{% for device in monitored_devices %}# Device: {{ device.path }}
+monitor_device = "{{ device.path }}"{% if device.flags %} # Flags: {{ device.flags }}{% endif %}
+{% endfor %}
+
+# Path to the LVM2 binary (used for automatic recovery actions)
+lvm2_path = "{{ lvm2_path }}"
+
+# Directory where dmeventd stores runtime state (e.g., recovery logs)
+state_dir = "{{ state_dir }}"
+
+# Whether to use udev for device synchronization
+use_udev = {{ use_udev | lower }}
+
+# Maximum number of retries for failed operations
+max_retries = {{ max_retries }}
+
+# Delay (in seconds) between retry attempts
+retry_delay = {{ retry_delay }}

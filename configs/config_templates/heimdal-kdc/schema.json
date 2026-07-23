@@ -1,0 +1,309 @@
+{
+  "default_realm": {
+    "type": "string",
+    "default": "EXAMPLE.COM",
+    "description": "Default Kerberos realm name (all caps). Used when realm is not specified."
+  },
+  "dns_lookup_realm": {
+    "type": "bool",
+    "default": false,
+    "description": "If true, attempt DNS lookup for realm using TXT records."
+  },
+  "dns_lookup_kdc": {
+    "type": "bool",
+    "default": false,
+    "description": "If true, attempt DNS SRV lookup for KDCs using SRV records."
+  },
+  "dns_fallback": {
+    "type": "bool",
+    "default": true,
+    "description": "If true, fall back to /etc/krb5.conf realms if DNS lookup fails."
+  },
+  "clockskew": {
+    "type": "number",
+    "default": 300,
+    "description": "Maximum accepted time difference (in seconds) between client and KDC."
+  },
+  "kdc_timeout": {
+    "type": "number",
+    "default": 3,
+    "description": "Timeout (in seconds) for KDC contact attempts."
+  },
+  "default_ccache_name": {
+    "type": "string",
+    "default": "FILE:/tmp/krb5cc_%{uid}",
+    "description": "Default credential cache location pattern. %{uid} expands to the user ID."
+  },
+  "ticket_lifetime": {
+    "type": "string",
+    "default": "24h",
+    "description": "Maximum lifetime of initial tickets (e.g., '24h', '1d')."
+  },
+  "renew_lifetime": {
+    "type": "string",
+    "default": "7d",
+    "description": "Maximum renewal window for renewable tickets."
+  },
+  "forwardable": {
+    "type": "bool",
+    "default": true,
+    "description": "Whether to issue forwardable tickets by default."
+  },
+  "proxiable": {
+    "type": "bool",
+    "default": true,
+    "description": "Whether to issue proxiable tickets by default."
+  },
+  "pk_init_anchors": {
+    "type": "list",
+    "items": {
+      "type": "string"
+    },
+    "default": [],
+    "description": "List of paths to PKIX/SPKE KDC certificates for pkinit."
+  },
+  "allow_weak_crypto": {
+    "type": "bool",
+    "default": false,
+    "description": "If true, allow DES and other weak ciphers (not recommended)."
+  },
+  "realms": {
+    "type": "list",
+    "default": [],
+    "description": "List of Kerberos realm configurations.",
+    "items": {
+      "name": {
+        "type": "string",
+        "description": "Realm name (case-insensitive; normalized to uppercase in config)."
+      },
+      "kdcs": {
+        "type": "list",
+        "items": {
+          "type": "string"
+        },
+        "description": "List of KDC hostnames or URIs (e.g., ['kdc1.example.com', 'kdc2.example.com'])."
+      },
+      "admin_server": {
+        "type": "string",
+        "description": "Host running the Kerberos administration service (kadmin)."
+      },
+      "default_domain": {
+        "type": "string",
+        "description": "Default DNS domain associated with the realm."
+      },
+      "pk_init_anchors": {
+        "type": "list",
+        "items": {
+          "type": "string"
+        },
+        "description": "Realm-specific paths to PKIX KDC certificates."
+      },
+      "pk_init_identity": {
+        "type": "string",
+        "description": "PKIX client certificate identity for pkinit (e.g., 'FILE:/etc/krb5kdc/client.pem,FILE:/etc/krb5kdc/client.key')."
+      },
+      "pk_init_eku_checking": {
+        "type": "string",
+        "default": "kpServerAuth",
+        "description": "Extended Key Usage checking mode (e.g., 'kpServerAuth', 'any')."
+      }
+    }
+  },
+  "domain_realm": {
+    "type": "list",
+    "default": [],
+    "description": "Mapping of DNS domains to Kerberos realms.",
+    "items": {
+      "domain": {
+        "type": "string",
+        "description": "DNS domain name (e.g., '.example.com' or 'example.com')."
+      },
+      "realm": {
+        "type": "string",
+        "description": "Kerberos realm to map the domain to."
+      }
+    }
+  },
+  "kdc_listen": {
+    "type": "list",
+    "items": {
+      "type": "string"
+    },
+    "default": [
+      "0.0.0.0:88",
+      "[::]:88"
+    ],
+    "description": "Network interfaces and ports the KDC listens on."
+  },
+  "kdc_bind": {
+    "type": "list",
+    "items": {
+      "type": "string"
+    },
+    "default": [],
+    "description": "Bind addresses for KDC (if different from listen addresses)."
+  },
+  "kdc_threads": {
+    "type": "number",
+    "default": 4,
+    "description": "Number of KDC worker threads."
+  },
+  "kdc_max_time_skew": {
+    "type": "number",
+    "default": 300,
+    "description": "Maximum accepted clock skew (seconds) for KDC operations."
+  },
+  "kdc_profile": {
+    "type": "string",
+    "default": "/etc/krb5.conf",
+    "description": "Path to config file for KDC-specific settings (often self-referential)."
+  },
+  "kdc_database": {
+    "type": "object",
+    "description": "KDC database configuration (required for KDC deployment).",
+    "properties": {
+      "type": {
+        "type": "string",
+        "default": "bdb",
+        "description": "Database backend (e.g., 'bdb', 'hdb')."
+      },
+      "path": {
+        "type": "string",
+        "default": "/var/lib/krb5kdc/principal",
+        "description": "Path to the principal database file."
+      },
+      "acls_file": {
+        "type": "string",
+        "default": "/etc/krb5kdc/kadm5.acl",
+        "description": "ACL file for Kerberos administration permissions."
+      },
+      "key_stash_file": {
+        "type": "string",
+        "default": "/etc/krb5kdc/stash",
+        "description": "File containing the master key stash."
+      },
+      "mkey_file": {
+        "type": "string",
+        "default": "/var/lib/krb5kdc/mkey",
+        "description": "File containing the master key (deprecated in some versions)."
+      },
+      "principal_file": {
+        "type": "string",
+        "default": "/var/lib/krb5kdc/principal",
+        "description": "Legacy principal database path (alias for 'path')."
+      },
+      "log_file": {
+        "type": "string",
+        "default": "/var/log/krb5kdc.log",
+        "description": "Path to KDC operation log."
+      },
+      "lock_file": {
+        "type": "string",
+        "default": "/var/lib/krb5kdc/principal.lock",
+        "description": "Lock file for the database."
+      }
+    }
+  },
+  "capaths": {
+    "type": "list",
+    "default": [],
+    "description": "Cross-realm path definitions (e.g., for realm delegation).",
+    "items": {
+      "from_realm": {
+        "type": "string",
+        "description": "Source realm name."
+      },
+      "to_realm": {
+        "type": "string",
+        "description": "Target realm name."
+      },
+      "path_realm": {
+        "type": "string",
+        "description": "Intermediate realm used to traverse between from_realm and to_realm."
+      }
+    }
+  },
+  "logging": {
+    "type": "list",
+    "default": [
+      {
+        "component": "kdc",
+        "target": "FILE",
+        "level": "INFO"
+      },
+      {
+        "component": "default",
+        "target": "FILE",
+        "level": "INFO"
+      }
+    ],
+    "description": "Component logging configuration.",
+    "items": {
+      "component": {
+        "type": "string",
+        "description": "Kerberos subsystem (e.g., 'kdc', 'kadmin', 'default')."
+      },
+      "target": {
+        "type": "string",
+        "description": "Logging destination (e.g., 'FILE', 'SYSLOG', 'CONSOLE')."
+      },
+      "level": {
+        "type": "string",
+        "default": "INFO",
+        "description": "Logging verbosity (e.g., 'INFO', 'DEBUG', 'ERROR')."
+      }
+    }
+  },
+  "dbmodules": {
+    "type": "list",
+    "default": [],
+    "description": "Database module overrides for advanced multi-backend setups.",
+    "items": {
+      "db_name": {
+        "type": "string",
+        "description": "Database module name (e.g., 'example.com')."
+      },
+      "library": {
+        "type": "string",
+        "default": "kdb5_util",
+        "description": "Database backend library path or alias."
+      },
+      "database_args": {
+        "type": "list",
+        "items": {
+          "type": "string"
+        },
+        "description": "Additional arguments for the database backend."
+      },
+      "acls_file": {
+        "type": "string",
+        "description": "Database-specific ACL file path."
+      }
+    }
+  },
+  "appdefaults": {
+    "type": "list",
+    "default": [],
+    "description": "Application-specific defaults (e.g., for kinit, kadmin).",
+    "items": {
+      "application": {
+        "type": "string",
+        "description": "Target application (e.g., 'kinit', 'kadmin', 'kdb5_util')."
+      },
+      "parameters": {
+        "type": "list",
+        "items": {
+          "name": {
+            "type": "string",
+            "description": "Parameter name (e.g., 'forwardable', 'no_address')."
+          },
+          "value": {
+            "type": "string",
+            "description": "Parameter value (string representation)."
+          }
+        },
+        "description": "List of key-value pairs to configure application behavior."
+      }
+    }
+  }
+}

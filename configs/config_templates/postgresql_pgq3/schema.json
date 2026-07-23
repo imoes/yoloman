@@ -1,0 +1,175 @@
+{
+  "db_conn_string": {
+    "type": "string",
+    "default": "postgresql://pgq:pgq@localhost:5432/pgq",
+    "description": "Database connection string for the PostgreSQL coordinator. Supports libpq-style DSNs (e.g., 'host=localhost port=5432 dbname=pgq user=pgq password=secret')."
+  },
+  "user": {
+    "type": "string",
+    "default": "pgq",
+    "description": "PostgreSQL username used for queue operations (fallback if not embedded in connection string)."
+  },
+  "database": {
+    "type": "string",
+    "default": "pgq",
+    "description": "PostgreSQL database name containing pgq tables and queues."
+  },
+  "host": {
+    "type": "string",
+    "default": "",
+    "description": "PostgreSQL server host (hostname or IP). Leave empty to use Unix socket (if socket_path unset, use default socket dir)."
+  },
+  "port": {
+    "type": "number",
+    "default": 5432,
+    "description": "PostgreSQL server port (ignored if host is a Unix socket path)."
+  },
+  "socket_path": {
+    "type": "string",
+    "default": "",
+    "description": "Path to PostgreSQL Unix domain socket directory (e.g., '/var/run/postgresql'). Overrides host and port."
+  },
+  "log_dir": {
+    "type": "string",
+    "default": "/var/log/pgq",
+    "description": "Directory where pgq log files are written. Must be writable by the pgq user."
+  },
+  "log_file": {
+    "type": "string",
+    "default": "pgq.log",
+    "description": "Base name for log files. Supports strftime patterns (e.g., 'pgq-%Y%m%d.log')."
+  },
+  "log_level": {
+    "type": "string",
+    "default": "INFO",
+    "description": "Logging verbosity level: DEBUG, INFO, WARNING, ERROR, or FATAL."
+  },
+  "worker_count": {
+    "type": "number",
+    "default": 2,
+    "description": "Number of worker threads per queue (applies globally unless overridden per-queue). Set to 0 to disable workers and run only coordinator."
+  },
+  "worker_max_batch": {
+    "type": "number",
+    "default": 100,
+    "description": "Maximum number of items a worker processes per tick."
+  },
+  "worker_tick_delay": {
+    "type": "number",
+    "default": 500,
+    "description": "Delay (ms) between worker ticks when no work is available."
+  },
+  "worker_tick_interval": {
+    "type": "number",
+    "default": 100,
+    "description": "Delay (ms) between worker ticks regardless of work availability."
+  },
+  "worker_conn_timeout": {
+    "type": "number",
+    "default": 10,
+    "description": "Maximum time (seconds) to wait for a database connection."
+  },
+  "worker_query_timeout": {
+    "type": "number",
+    "default": 60,
+    "description": "Maximum time (seconds) to wait for a query to complete."
+  },
+  "auto_create_tables": {
+    "type": "bool",
+    "default": true,
+    "description": "Automatically create required pgq tables and extensions on startup if missing."
+  },
+  "coordinator_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable the coordinator process (required for queue maintenance and ticker tasks)."
+  },
+  "coordinator_tick_interval": {
+    "type": "number",
+    "default": 1,
+    "description": "Coordinator tick interval in seconds."
+  },
+  "coordinator_tick_timeout": {
+    "type": "number",
+    "default": 5,
+    "description": "Coordinator tick timeout in seconds (kills stuck ticks)."
+  },
+  "queues": {
+    "type": "list",
+    "default": [
+      {
+        "name": "default",
+        "enabled": true,
+        "worker_count": 1,
+        "max_batch": 50,
+        "max_lag_ms": 5000
+      }
+    ],
+    "description": "List of queue definitions. Each queue runs independently with its own workers and settings.",
+    "items": {
+      "name": {
+        "type": "string",
+        "description": "Unique name for this queue (alphanumeric + underscores)."
+      },
+      "enabled": {
+        "type": "bool",
+        "default": true,
+        "description": "Whether this queue is active."
+      },
+      "consumer_prefix": {
+        "type": "string",
+        "default": "",
+        "description": "Prefix for auto-generated consumer names. If empty, consumers must register with explicit names."
+      },
+      "worker_count": {
+        "type": "number",
+        "default": 1,
+        "description": "Number of worker threads for this queue (overrides global worker_count)."
+      },
+      "max_batch": {
+        "type": "number",
+        "default": 50,
+        "description": "Max items processed per tick by workers for this queue."
+      },
+      "max_lag_ms": {
+        "type": "number",
+        "default": 5000,
+        "description": "Maximum lag (ms) between event insertion and processing before warning logs are emitted."
+      },
+      "ticker_enabled": {
+        "type": "bool",
+        "description": "Whether the coordinator runs a ticker for this queue. Defaults to coordinator.enabled."
+      }
+    }
+  },
+  "forward_targets": {
+    "type": "list",
+    "default": [],
+    "description": "List of remote queue forwarding rules (multi-tier deployment support).",
+    "items": {
+      "source_queue": {
+        "type": "string",
+        "description": "Name of the local queue to forward."
+      },
+      "dest_db": {
+        "type": "string",
+        "description": "Connection string for the destination database (e.g., 'postgresql://user:pass@remote:5432/pgq')."
+      },
+      "dest_user": {
+        "type": "string",
+        "default": "pgq",
+        "description": "Username for the destination database (optional; fallback)."
+      },
+      "dest_table": {
+        "type": "string",
+        "default": "pgq.queue_data",
+        "description": "Destination table name for forwarded events."
+      }
+    }
+  },
+  "monitor_script": {
+    "type": "string",
+    "default": "",
+    "description": "Absolute path to an executable shell script called after each coordinator tick. Receives queue status as arguments. Use only in trusted environments."
+  }
+}

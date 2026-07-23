@@ -1,0 +1,151 @@
+[DEFAULT]
+# Enable debug logging for troubleshooting
+{% if debug | default(false) %}debug = True{% else %}debug = False{% endif %}
+# Verbosity of logs: 0=INFO, 1=DEBUG, etc.
+{% if verbose | default(false) %}verbose = True{% else %}verbose = False{% endif %}
+# Logging directory
+log_dir = {{ log_dir | default('/var/log/octavia') }}
+# Logging file
+log_file = {{ log_file | default('amphora-agent.log') }}
+
+# Identity (Keystone) authentication settings
+[agent]
+# Unique ID of this amphora instance (set at provisioning)
+{% if amphora_id %}amphora_id = {{ amphora_id }}{% endif %}
+# User-facing name of amphora (e.g., from Nova hostname)
+{% if amphora_name %}amphora_name = {{ amphora_name }}{% endif %}
+# Worker process count for request handling
+{% if worker_count %}worker_count = {{ worker_count }}{% else %}worker_count = 2{% endif %}
+# Maximum number of connections per worker
+max_connections = {{ max_connections | default(8192) }}
+# Maximum concurrent connections per listener
+max_concurrent_connections_per_listener = {{ max_concurrent_connections_per_listener | default(100) }}
+
+# Heartbeat and status update intervals (seconds)
+heartbeat_interval = {{ heartbeat_interval | default(5) }}
+status_update_interval = {{ status_update_interval | default(30) }}
+
+# Backend driver for amphora (e.g., 'keepalivedlvs' or 'haproxy')
+amp_driver = {{ amp_driver | default('keepalivedlvs') }}
+
+# Network driver to use for amphora interfaces
+amp_network_driver = {{ amp_network_driver | default('neutron') }}
+
+# Use secure communication (TLS) to Octavia API
+{% if use_tls | default(true) %}use_tls = True{% else %}use_tls = False{% endif %}
+# CA certificate for TLS
+ca_cert = {{ ca_cert | default('/etc/octavia/certs/ca_01.pem') }}
+# Certificate for amphora TLS authentication
+client_cert = {{ client_cert | default('/etc/octavia/certs/client.pem') }}
+# Private key for amphora TLS certificate
+client_key = {{ client_key | default('/etc/octavia/certs/client.key') }}
+
+# API endpoint(s) — list of Octavia controller endpoints
+{% for endpoint in api_endpoints %}octavia_api_uri = {{ endpoint }}
+{% endfor %}
+
+# TLS verification for API calls
+{% if verify_server_cert | default(true) %}verify_server_cert = True{% else %}verify_server_cert = False{% endif %}
+
+# Security group rules to apply to amphora vNICs (neutron driver only)
+{% if security_group_enabled | default(true) %}security_group_enabled = True
+# Comma-separated list of security group IDs
+security_group_id = {{ security_group_id | default('') }}
+{% else %}security_group_enabled = False
+{% endif %}
+
+# Neutron metadata proxy settings (for amphora SSH/HTTP access)
+[metadata_proxy]
+# Enable metadata proxy
+{% if metadata_proxy_enabled | default(true) %}enabled = True
+{% else %}enabled = False
+{% endif %}
+# Proxy listen address (usually localhost)
+{% if metadata_proxy_enabled | default(true) %}metadata_proxy_host = {{ metadata_proxy_host | default('127.0.0.1') }}
+# Proxy listen port
+metadata_proxy_port = {{ metadata_proxy_port | default(8775) }}
+{% endif %}
+
+# Auth token cache for metadata proxy (seconds)
+{% if metadata_proxy_enabled | default(true) %}auth_cache = {{ metadata_auth_cache | default(300) }}
+{% endif %}
+
+# HTTP proxy settings (optional, for outgoing connections)
+[haproxy_amphora]
+# Base path for HAProxy configuration (if using haproxy driver)
+base_config_path = {{ base_config_path | default('/var/lib/octavia') }}
+# Base path for HAProxy runtime state
+base_runtime_path = {{ base_runtime_path | default('/var/lib/octavia/runtime') }}
+
+# HAProxy service restart command (templateable for systemd/systemctl or init)
+{% if use_systemd | default(true) %}restart_cmd = systemctl restart haproxy-amphora.service
+{% else %}restart_cmd = service haproxy-amphora restart
+{% endif %}
+# HAProxy reload command
+{% if use_systemd | default(true) %}reload_cmd = systemctl reload haproxy-amphora.service
+{% else %}reload_cmd = service haproxy-amphora reload
+{% endif %}
+
+# Timeout for amphora commands (seconds)
+command_timeout = {{ command_timeout | default(30) }}
+
+# Stats socket path (for HAProxy stats via socat)
+stats_socket = {{ stats_socket | default('/var/lib/octavia/haproxy.stats') }}
+stats_timeout = {{ stats_timeout | default(10) }}
+
+# Network namespaces (for LVS driver)
+[namespace_driver]
+# Namespace prefix (e.g., ' Amphora-')
+{% if use_namespaces | default(true) %}namespace_prefix = {{ namespace_prefix | default('octavia-') }}
+{% endif %}
+
+# Systemd service management (for newer amphora images)
+[systemd]
+# Enable systemd-based service control
+{% if systemd_enabled | default(true) %}enabled = True
+{% else %}enabled = False
+{% endif %}
+
+# Keepalived LVS-specific settings (if amp_driver=keepalivedlvs)
+[keepalived_lvs]
+# Keepalived configuration directory
+keepalived_conf_dir = {{ keepalived_conf_dir | default('/etc/keepalived') }}
+# Keepalived sync ID for VRRP groups
+vrrp_sync_group = {{ vrrp_sync_group | default('VG_1') }}
+# VRRP advert interval (seconds)
+vrrp_advert_int = {{ vrrp_advert_int | default(1) }}
+# Priority for VRRP master election
+vrrp_priority = {{ vrrp_priority | default(100) }}
+# Lower priority for failover
+vrrp_low_priority = {{ vrrp_low_priority | default(50) }}
+
+# Floating IP to bind VRRP to (optional)
+{% if vrrp_garp_master_deliver %}vrrp_garp_master_deliver = {{ vrrp_garp_master_deliver }}
+{% else %}vrrp_garp_master_deliver = 0
+{% endif %}
+
+# LVS sync daemon settings
+{% if lvs_sync_daemon_interface %}lvs_sync_daemon_interface = {{ lvs_sync_daemon_interface }}
+{% else %}lvs_sync_daemon_interface = eth1
+{% endif %}
+
+# Health check and stats settings
+[health_manager]
+# IP and port to bind health manager listener
+bind_host = {{ health_bind_host | default('127.0.0.1') }}
+bind_port = {{ health_bind_port | default(5555) }}
+
+# Number of heartbeat receiver threads
+heartbeat_receiver_threads = {{ heartbeat_receiver_threads | default(2) }}
+
+# Interval between health monitor checks (seconds)
+health_check_interval = {{ health_check_interval | default(2) }}
+
+# Maximum time to wait for health check response (seconds)
+health_check_timeout = {{ health_check_timeout | default(1) }}
+
+# Maximum retries before marking pool member down
+max_retries = {{ max_retries | default(3) }}
+
+# Minimum time between retries (seconds)
+min_retry_interval = {{ min_retry_interval | default(2) }}

@@ -1,0 +1,172 @@
+{
+  "system_name": {
+    "type": "string",
+    "default": "my-system",
+    "description": "Identifier for this configuration set; must be a valid Lisp symbol."
+  },
+  "system_description": {
+    "type": "string",
+    "default": "Managed by cl-consfigurator",
+    "description": "Human-readable description of the configuration system."
+  },
+  "version": {
+    "type": "string",
+    "default": "1.0.0",
+    "description": "Version string for the configuration, used for tracking."
+  },
+  "package_sources": {
+    "type": "list",
+    "default": [],
+    "description": "List of source repositories or local paths from which to install packages.",
+    "items": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": [
+            "git",
+            "local",
+            "quicklisp"
+          ],
+          "description": "Source type: Git repo, local directory, or Quicklisp registry."
+        },
+        "path": {
+          "type": "string",
+          "default": null,
+          "description": "URL or filesystem path of the source. Required for `git` and `local`."
+        },
+        "ref": {
+          "type": "string",
+          "default": "master",
+          "description": "Git ref (branch, tag, or commitish) \u2014 used only for `git` sources."
+        },
+        "commit": {
+          "type": "string",
+          "default": null,
+          "description": "Specific Git commit hash to pin \u2014 overrides `ref` if provided."
+        },
+        "submodules": {
+          "type": "boolean",
+          "default": true,
+          "description": "Whether to initialize/update Git submodules when cloning."
+        },
+        "description": {
+          "type": "string",
+          "default": null,
+          "description": "Optional human-readable note about this source."
+        }
+      },
+      "required": [
+        "type"
+      ]
+    }
+  },
+  "packages": {
+    "type": "list",
+    "default": [],
+    "description": "List of Quicklisp or system packages to install and configure.",
+    "items": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Name of the package (as known to Quicklisp or ASDF). Required."
+        },
+        "version": {
+          "type": "string",
+          "default": null,
+          "description": "Optional version constraint or tag."
+        },
+        "source": {
+          "type": "string",
+          "default": null,
+          "description": "Name of the source (from `package_sources`) to use for this package."
+        },
+        "dependencies": {
+          "type": "list",
+          "default": [],
+          "description": "List of package names this package depends on.",
+          "items": {
+            "type": "string"
+          }
+        },
+        "post-install": {
+          "type": "string",
+          "default": null,
+          "description": "Lisp code to run after installation (e.g., `(ql:quickload :my-package)`)."
+        },
+        "description": {
+          "type": "string",
+          "default": null,
+          "description": "Optional description of what this package provides."
+        }
+      },
+      "required": [
+        "name"
+      ]
+    }
+  },
+  "operations": {
+    "type": "list",
+    "default": [],
+    "description": "List of shell-like or Lisp commands to execute (e.g., directory setup, file generation).",
+    "items": {
+      "type": "object",
+      "properties": {
+        "description": {
+          "type": "string",
+          "default": "Apply operation",
+          "description": "Human-readable summary of what the operation does."
+        },
+        "command": {
+          "type": "string",
+          "description": "Lisp function or shell command to execute (e.g., `ensure-directories-exist`, `run`."
+        },
+        "args": {
+          "type": "list",
+          "default": [],
+          "description": "Arguments to pass to the command (strings or quoted symbols).",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "command"
+      ]
+    }
+  },
+  "hooks": {
+    "type": "list",
+    "default": [],
+    "description": "System hooks to run on specific events (e.g., `:after-load`, `:post-config`).",
+    "items": {
+      "type": "object",
+      "properties": {
+        "when": {
+          "type": "string",
+          "description": "Hook event name (e.g., `:after-load`, `:post-config`).",
+          "enum": [
+            ":after-load",
+            ":post-config",
+            ":pre-start",
+            ":post-start"
+          ]
+        },
+        "code": {
+          "type": "string",
+          "description": "Lisp expression (body) to evaluate when the hook fires."
+        },
+        "description": {
+          "type": "string",
+          "default": "Custom hook",
+          "description": "Short explanation of the hook's purpose."
+        }
+      },
+      "required": [
+        "when",
+        "code"
+      ]
+    }
+  }
+}

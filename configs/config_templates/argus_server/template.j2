@@ -1,0 +1,73 @@
+# Network interface to bind to for theArgus server
+host: {{ host }}
+# Port theArgus server listens on for incoming connections
+port: {{ port }}
+# Logging level: debug, info, warn, error
+log_level: {{ log_level }}
+# Directory where audit logs are stored
+log_dir: {{ log_dir }}
+# Enable or disable SSL/TLS for client connections
+ssl_enabled: {{ ssl_enabled }}
+{% if ssl_enabled %}
+# Path to SSL certificate file (required if ssl_enabled is true)
+ssl_cert: {{ ssl_cert }}
+# Path to SSL private key file (required if ssl_enabled is true)
+ssl_key: {{ ssl_key }}
+{% endif %}
+# Maximum number of concurrent client connections
+max_connections: {{ max_connections }}
+# Time in seconds to wait for idle client connections before closing
+idle_timeout: {{ idle_timeout }}
+# Database backend configuration
+[database]
+type: {{ db.type }}
+{% if db.type == 'sqlite' %}
+path: {{ db.path }}
+{% elif db.type == 'postgresql' %}
+host: {{ db.host }}
+port: {{ db.port }}
+name: {{ db.name }}
+user: {{ db.user }}
+{% if db.ssl_mode %}
+ssl_mode: {{ db.ssl_mode }}
+{% endif %}
+{% endif %}
+# Audit rules — define per-protocol transaction logging rules
+[audit_rules]
+{% for rule in audit_rules %}
+# Rule: {{ rule.name }} — {{ rule.description }}
+[rule:{{ rule.name }}]
+enabled: {{ rule.enabled }}
+protocol: {{ rule.protocol }}
+{% if rule.protocol == 'tcp' %}
+listen_ports: {{ rule.ports | join(', ') }}
+{% endif %}
+{% if rule.filters %}
+filters:
+{% for f in rule.filters %}  - {{ f }}
+{% endfor %}
+{% endif %}
+log_to: {{ rule.log_to }}
+{% endfor %}
+# Alerting — define destinations for audit alerts
+[alerts]
+email_enabled: {{ alerts.email_enabled }}
+{% if alerts.email_enabled %}
+smtp_server: {{ alerts.smtp_server }}
+smtp_port: {{ alerts.smtp_port }}
+from_addr: {{ alerts.from_addr }}
+to_addrs: {{ alerts.to_addrs | join(', ') }}
+{% endif %}
+webhook_enabled: {{ alerts.webhook_enabled }}
+{% if alerts.webhook_enabled %}
+{% for wh in alerts.webhooks %}
+[webhook:{{ wh.name }}]
+url: {{ wh.url }}
+method: {{ wh.method }}
+{% if wh.headers %}
+headers:
+{% for k, v in wh.headers.items() %}  {{ k }}: {{ v }}
+{% endfor %}
+{% endif %}
+{% endfor %}
+{% endif %}

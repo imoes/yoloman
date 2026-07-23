@@ -1,0 +1,34 @@
+# Default LDAP server URI (can be ldap://, ldaps://, or ldap://host1 ldap://host2 for failover)
+URI {{ uri }}
+
+# Default LDAP base DN for searches
+BASE {{ base_dn }}
+
+# LDAP protocol version to use (typically 3)
+LDAP_VERSION {{ ldap_version }}
+
+# Network timeout in seconds
+TIMELIMIT {{ timelimit }}
+
+# Search time limit in seconds
+SIZELIMIT {{ sizelimit }}
+
+# Enable SSL/TLS (set to 'yes' or 'no')
+TLS_CACERT {{ tls_ca_cert_path | default('/etc/ssl/certs/ca-certificates.crt') }}
+TLS_REQCERT {{ tls_reqcert | default('demand') }}
+
+# SASL authentication options (if used)
+{% if sasl_enabled %}SASL_MECH {{ sasl_mech }}
+SASL_REALM {{ sasl_realm }}
+SASL_AUTHCID {{ sasl_authcid }}{% endif %}
+
+# referrals handling (set to 'follow' or 'stop')
+REFERRALS {{ referrals }}
+
+# Default bind DN (for tools like ldapsearch, ldapadd, etc.)
+{% if bind_dn %}BINDDN {{ bind_dn }}
+BINDPW {{ bind_pw | default('') }}{% endif %}
+
+# Additional search filters or scope (optional overrides)
+{% for option in extra_options %}# {{ option.comment | default('Custom option') }}
+{{ option.key }} {{ option.value }}{% endfor %}

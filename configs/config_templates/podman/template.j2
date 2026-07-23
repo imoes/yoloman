@@ -1,0 +1,104 @@
+# Default storage driver for image and container storage (e.g., 'overlay', 'vfs', 'btrfs')
+storage_driver = "{{ storage_driver }}"
+
+# Path to the directory where containers store data
+storage_config = "{{ storage_config_path }}"
+
+# Default container runtime engine (e.g., 'runc', 'crun')
+default_runtime = "{{ default_runtime }}"
+
+# Enable support for systemd cgroups (required for rootless systemd integration)
+systemd_cgroup = {{ systemd_cgroup | lower }}
+
+# Log level for Podman (e.g., 'debug', 'info', 'warn', 'error')
+log_level = "{{ log_level }}"
+
+# Default CNI network plugin configuration file (optional; leave empty to use built-in default)
+{% if cni_config_file %}
+cni_config_dir = "{{ cni_config_file }}"
+{% endif %}
+
+# List of additional registries for image lookups
+{% for registry in registries %}
+[registries.search]
+registry = "{{ registry.name }}"
+{% if registry.insecure is defined %}
+insecure = {{ registry.insecure | lower }}
+{% endif %}
+{% if registry.blocked is defined %}
+blocked = {{ registry.blocked | lower }}
+{% endif %}
+{% if registry.prefix is defined %}
+prefix = "{{ registry.prefix }}"
+{% endif %}
+{% endfor %}
+
+# Default image namespace and tag behavior
+{% if default_namespace %}
+default_namespace = "{{ default_namespace }}"
+{% endif %}
+{% if default_tag %}
+default_tag = "{{ default_tag }}"
+{% endif %}
+
+# Runtime-specific configuration blocks
+{% for runtime_name, runtime_config in runtimes.items() %}
+[engine.runtime.{{ runtime_name }}]
+path = "{{ runtime_config.path }}"
+{% if runtime_config.args is defined %}
+args = {{ runtime_config.args | to_json }}
+{% endif %}
+{% if runtime_config.runtime_type is defined %}
+runtime_type = "{{ runtime_config.runtime_type }}"
+{% endif %}
+{% endfor %}
+
+# SELinux support toggles
+{% if selinux_enabled is defined %}
+[engine]
+selinux = {{ selinux_enabled | lower }}
+{% endif %}
+
+# Default volumes configuration
+{% for vol in default_volumes %}
+{% if loop.first %}
+[volumes]
+{% endif %}
+{{ vol.name }} = "{{ vol.path }}"
+{% endfor %}
+
+# Environment variables injected into all containers
+{% if env %}
+[engine.env]
+{% for key, value in env.items() %}
+{{ key }} = "{{ value }}"
+{% endfor %}
+{% endif %}
+
+# Hooks (pre-start/post-stop scripts)
+{% if hooks %}
+[engine.hooks]
+{% for hook in hooks %}
+{% if hook.type == "prestart" %}
+prestart = ["{{ hook.path }}", {{ hook.args | to_json if hook.args else '[]' }}]
+{% elif hook.type == "poststop" %}
+poststop = ["{{ hook.path }}", {{ hook.args | to_json if hook.args else '[]' }}]
+{% endif %}
+{% endfor %}
+{% endif %}
+
+# Network namespace defaults
+netns = "{{ netns }}"
+
+# Default DNS configuration
+{% if dns %}
+[engine.dns]
+{% for server in dns %}
+server = "{{ server }}"
+{% endfor %}
+{% endif %}
+
+# Default user namespace mapping (rootless only)
+{% if userns_mode %}
+userns = "{{ userns_mode }}"
+{% endif %}

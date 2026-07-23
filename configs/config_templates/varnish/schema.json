@@ -1,0 +1,134 @@
+{
+  "backends": {
+    "type": "list",
+    "default": [
+      {
+        "name": "web1",
+        "host": "127.0.0.1",
+        "port": "8080"
+      }
+    ],
+    "description": "List of backend servers (web applications) to proxy to. Each must have at least name, host, and port.",
+    "items": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "default": "web1",
+          "description": "Unique identifier for this backend"
+        },
+        "host": {
+          "type": "string",
+          "default": "127.0.0.1",
+          "description": "IP address or hostname of backend server"
+        },
+        "port": {
+          "type": "string",
+          "default": "8080",
+          "description": "Port the backend service listens on"
+        },
+        "connect_timeout": {
+          "type": "number",
+          "default": null,
+          "description": "Seconds to wait for connection establishment (optional)"
+        },
+        "first_byte_timeout": {
+          "type": "number",
+          "default": null,
+          "description": "Seconds to wait for first byte from backend (optional)"
+        },
+        "between_bytes_timeout": {
+          "type": "number",
+          "default": null,
+          "description": "Seconds to wait between bytes from backend (optional)"
+        },
+        "max_connections": {
+          "type": "number",
+          "default": null,
+          "description": "Maximum concurrent connections to backend (optional)"
+        }
+      }
+    }
+  },
+  "directors": {
+    "type": "list",
+    "default": [],
+    "description": "Backend pools for load balancing (e.g., 'random', 'round-robin'). Each director references backends by name.",
+    "items": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "default": "",
+          "description": "Unique name for the director"
+        },
+        "algorithm": {
+          "type": "string",
+          "default": "random",
+          "description": "Load balancing algorithm; e.g., 'random', 'round-robin', 'hash', 'client'"
+        },
+        "members": {
+          "type": "list",
+          "default": [],
+          "description": "List of backend members in this director",
+          "items": {
+            "type": "object",
+            "properties": {
+              "backend": {
+                "type": "string",
+                "default": "",
+                "description": "Name of the backend to include (must match a backend.name)"
+              },
+              "weight": {
+                "type": "number",
+                "default": 1,
+                "description": "Relative weight for weighted balancing (e.g., 'random' with weights)"
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "default_ttl": {
+    "type": "number",
+    "default": 3600,
+    "description": "Default cache TTL (seconds) for successful responses (2xx/3xx)"
+  },
+  "error_ttl": {
+    "type": "number",
+    "default": 60,
+    "description": "Cache TTL (seconds) for client/server errors (4xx/5xx). Shorter to avoid propagating stale errors."
+  },
+  "debug_headers": {
+    "type": "bool",
+    "default": false,
+    "description": "Include detailed debugging headers in responses (X-Varnish-Debug). Only enable in non-production environments."
+  },
+  "add_x_varnish_headers": {
+    "type": "bool",
+    "default": true,
+    "description": "Add X-Cache (HIT/MISS) and X-Varnish headers to responses. Useful for diagnostics."
+  },
+  "add_age_header": {
+    "type": "bool",
+    "default": false,
+    "description": "Preserve original Age header in a custom header before unsetting it (for debugging)."
+  },
+  "serve_stale_on_error": {
+    "type": "bool",
+    "default": true,
+    "description": "Allow serving stale content on backend errors and enable grace period for revalidation. Improves resilience."
+  },
+  "purge_acl": {
+    "type": "list",
+    "default": [
+      "127.0.0.1",
+      "::1"
+    ],
+    "description": "List of IP addresses authorized to send PURGE requests. Keep minimal for security.",
+    "items": {
+      "type": "string"
+    }
+  }
+}

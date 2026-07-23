@@ -1,0 +1,108 @@
+#!/bin/bash
+# Main configuration file for ldapscripts
+# Source this file to set environment variables used by ldapscripts
+
+# Base DN for LDAP operations
+BASE_DN="{{ base_dn }}"
+
+# LDAP server URI (e.g., ldap://localhost:389 or ldaps://ldap.example.com:636)
+LDAP_URI="{{ ldap_uri }}"
+
+# Bind DN for administrative access
+ADMIN_DN="{{ admin_dn }}"
+
+# Bind password for admin DN (preferably stored in a secure file)
+ADMIN_PASSWD="{{ admin_password }}"
+
+# Password hashing algorithm (e.g., SSHA, SHA, MD5)
+# Used when creating new users/groups
+HASH_PW="{{ hash_password }}"
+
+# Default shell for new Unix users
+DEFAULT_SHELL="{{ default_shell }}"
+
+# Default home directory base path
+DEFAULT_HOME="{{ default_home }}"
+
+# Default UID number start
+# New users get UIDs starting from this value
+DEFAULT_UID_START="{{ default_uid_start }}"
+
+# Default GID number start
+# New groups get GIDs starting from this value
+DEFAULT_GID_START="{{ default_gid_start }}"
+
+# Default user password expiry (in days, 0 = never)
+# Set to 0 to disable password aging
+DEFAULT_PWD_MAX_AGE="{{ default_pwd_max_age }}"
+
+# Default user password minimum age (in days)
+DEFAULT_PWD_MIN_AGE="{{ default_pwd_min_age }}"
+
+# Default user password warning period (in days)
+DEFAULT_PWD_WARN="{{ default_pwd_warn }}"
+
+# Default user account inactivity period (in days after password expiry)
+DEFAULT_INACTIVITY="{{ default_inactivity }}"
+
+# Default user account expiry date (in YYYY-MM-DD format, empty = never)
+DEFAULT_ACCOUNT_EXPIRE="{{ default_account_expire }}"
+
+# LDAP user object classes to use (space-separated list)
+USER_OBJECTCLASS="{{ user_objectclass }}"
+
+# LDAP group object classes to use (space-separated list)
+GROUP_OBJECTCLASS="{{ group_objectclass }}"
+
+# Default primary group for new users (CN of group, not DN)
+DEFAULT_GROUP="{{ default_group }}"
+
+# Path to ldapadd binary
+LDAPADD_BIN="{{ ldapadd_bin }}"
+
+# Path to ldapdelete binary
+LDAPDELETE_BIN="{{ ldapdelete_bin }}"
+
+# Path to ldapmodify binary
+LDAPMODIFY_BIN="{{ ldapmodify_bin }}"
+
+# Path to ldappasswd binary
+LDAPPASSWD_BIN="{{ ldappasswd_bin }}"
+
+# Path to ldapsearch binary
+LDAPSEARCH_BIN="{{ ldapsearch_bin }}"
+
+# Path to ldapcompare binary (optional, if used)
+LDAPCOMPARE_BIN="{{ ldapcompare_bin }}"
+
+# Enable verbose mode (set to 1 for yes, 0 for no)
+VERBOSE="{{ verbose }}"
+
+# Enable debug mode (set to 1 for yes, 0 for no)
+DEBUG="{{ debug }}"
+
+# Optional: Additional LDAP options for all commands (e.g., -H for alternate URI)
+LDAP_OPTS="{{ ldap_opts }}"
+
+# Optional: Path to file containing admin password (overrides ADMIN_PASSWD if set)
+ADMIN_PASSWD_FILE="{{ admin_password_file }}"
+
+# Optional: SSL/TLS settings
+# Enable STARTTLS (set to 1 for yes, 0 for no)
+STARTTLS="{{ starttls }}"
+
+# CA certificate file for SSL verification (if using ldaps)
+CA_CERT_FILE="{{ ca_cert_file }}"
+
+# Client certificate file for SSL (if required by server)
+CLIENT_CERT_FILE="{{ client_cert_file }}"
+
+# Client key file for SSL (if required by server)
+CLIENT_KEY_FILE="{{ client_key_file }}"
+
+# List of additional group mappings (e.g., sudoers, dialout, etc.)
+# Each entry: CN|GIDNumber|MemberAttribute
+# Example: sudo|1001|member
+{% for group_map in group_mappings %}
+GROUP_MAPPING_{{ loop.index }}="{{ group_map.cn }}|{{ group_map.gid }}|{{ group_map.member_attr }}"
+{% endfor %}

@@ -1,0 +1,193 @@
+{
+  "debug_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable verbose debug logging (for troubleshooting only)"
+  },
+  "pidfile_path": {
+    "type": "string",
+    "default": "/run/anyremote/anyremote.pid",
+    "description": "Full path for the daemon's PID file"
+  },
+  "log_level": {
+    "type": "number",
+    "default": 3,
+    "description": "Log verbosity level (0=none, 1=error, 2=warn, 3=info, 4=verbose, 5=debug)"
+  },
+  "log_path": {
+    "type": "string",
+    "default": "/var/log/anyremote/anyremote.log",
+    "description": "Path to the main log file"
+  },
+  "http_port": {
+    "type": "number",
+    "default": 5555,
+    "description": "Port for the HTTP control interface"
+  },
+  "tcp_port": {
+    "type": "number",
+    "default": 5556,
+    "description": "Port for the raw TCP control protocol"
+  },
+  "ws_port": {
+    "type": "number",
+    "default": 5557,
+    "description": "Port for the WebSocket interface"
+  },
+  "bind_address": {
+    "type": "string",
+    "default": "0.0.0.0",
+    "description": "IP address to bind all services to (e.g., 127.0.0.1 for localhost only)"
+  },
+  "bluetooth": {
+    "type": "object",
+    "default": {
+      "enabled": true,
+      "device": "hci0",
+      "channel": 0,
+      "service_name": "anyremote",
+      "allowed_devices": []
+    },
+    "description": "Bluetooth interface settings",
+    "items": {
+      "enabled": {
+        "type": "bool",
+        "default": true,
+        "description": "Enable Bluetooth remote control support"
+      },
+      "device": {
+        "type": "string",
+        "default": "hci0",
+        "description": "Bluetooth HCI device (e.g., hci0)"
+      },
+      "channel": {
+        "type": "number",
+        "default": 0,
+        "description": "RFCOMM channel (0 = auto-assign)"
+      },
+      "service_name": {
+        "type": "string",
+        "default": "anyremote",
+        "description": "Service name broadcasted to remote devices"
+      },
+      "allowed_devices": {
+        "type": "list",
+        "default": [],
+        "description": "List of allowed remote device MAC addresses (empty = allow all)"
+      }
+    }
+  },
+  "wifi": {
+    "type": "object",
+    "default": {
+      "enabled": true,
+      "port": 5558,
+      "allowed_ips": []
+    },
+    "description": "Wi-Fi/TCP remote control settings",
+    "items": {
+      "enabled": {
+        "type": "bool",
+        "default": true,
+        "description": "Enable Wi-Fi remote control support"
+      },
+      "port": {
+        "type": "number",
+        "default": 5558,
+        "description": "Port for Wi-Fi remote control connections"
+      },
+      "allowed_ips": {
+        "type": "list",
+        "default": [],
+        "description": "List of allowed client IPs or CIDR subnets (empty = allow all)"
+      }
+    }
+  },
+  "irda": {
+    "type": "object",
+    "default": {
+      "enabled": false,
+      "device": "/dev/ircomm0"
+    },
+    "description": "Infrared (IrDA) interface settings",
+    "items": {
+      "enabled": {
+        "type": "bool",
+        "default": false,
+        "description": "Enable IrDA remote control support"
+      },
+      "device": {
+        "type": "string",
+        "default": "/dev/ircomm0",
+        "description": "IrDA device path"
+      }
+    }
+  },
+  "applications": {
+    "type": "list",
+    "default": [],
+    "description": "List of application handlers (remote events mapped to app actions)",
+    "items": {
+      "type": "object",
+      "description": "Configuration for a single application handler",
+      "items": {
+        "name": {
+          "type": "string",
+          "required": true,
+          "description": "Unique identifier for the application"
+        },
+        "enabled": {
+          "type": "bool",
+          "default": true,
+          "description": "Enable this application handler"
+        },
+        "binary": {
+          "type": "string",
+          "default": "",
+          "description": "Path to the application binary (for auto-launch)"
+        },
+        "command": {
+          "type": "string",
+          "default": "",
+          "description": "Command to execute or signal to send (e.g., 'pkill -USR1 mpv')"
+        },
+        "keys": {
+          "type": "object",
+          "default": {},
+          "description": "Key mapping: remote button name \u2192 action (e.g., 'PLAY': 'toggle', 'VOL+': 'key:volume_up')"
+        }
+      }
+    }
+  },
+  "input_forwarding": {
+    "type": "object",
+    "default": {
+      "enabled": false,
+      "type": "keyboard",
+      "repeat_delay": 100
+    },
+    "description": "Generic input forwarding (keyboard/mouse) mode",
+    "items": {
+      "enabled": {
+        "type": "bool",
+        "default": false,
+        "description": "Enable input forwarding (remotes as keyboard/mouse)"
+      },
+      "type": {
+        "type": "string",
+        "default": "keyboard",
+        "enum": [
+          "keyboard",
+          "mouse",
+          "both"
+        ],
+        "description": "Type of input device to emulate"
+      },
+      "repeat_delay": {
+        "type": "number",
+        "default": 100,
+        "description": "Delay in milliseconds between repeated key events"
+      }
+    }
+  }
+}

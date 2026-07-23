@@ -1,0 +1,83 @@
+# Phusion Passenger configuration file (Passenger.cfg)
+# Main Passenger configuration
+# Path to the Passenger root directory
+passenger_root {{ passenger_root }};
+
+# Path to the Ruby interpreter used by Passenger
+passenger_ruby {{ passenger_ruby }};
+
+# Enable/disable Ruby support
+passenger_enabled {{ 'on' if passenger_enabled else 'off' }};
+
+# Number of application instances to keep ready (min)
+passenger_min_instances {{ passenger_min_instances }};
+
+# Maximum number of application instances (max)
+passenger_max_instances {{ passenger_max_instances }};
+
+# Maximum number of requests per instance before it restarts (0 = unlimited)
+passenger_max_preloader_idle_time {{ passenger_max_preloader_idle_time }};
+
+# Maximum number of seconds an instance may be idle before it shuts down
+passenger_pool_idle_time {{ passenger_pool_idle_time }};
+
+# Enable/disable the Passenger status server
+passenger_status_display {{ 'on' if passenger_status_display else 'off' }};
+
+# Maximum number of concurrent requests per worker process
+passenger_max_requests {{ passenger_max_requests }};
+
+# Enable/disable request buffering
+passenger_buffer_response {{ 'on' if passenger_buffer_response else 'off' }};
+
+# Enable/disable automatic detection of framework startup files
+passenger_startup_file {{ startup_file | default('') | replace('\n', ' ') }};
+
+# Enable/disable log level (0=error, 1=warn, 2=info, 3=debug)
+passenger_log_level {{ passenger_log_level }};
+
+# Custom environment variables (applied to all apps)
+{% for var in env_vars %}
+passenger_env_var {{ var.name }} {{ var.value }};
+{% endfor %}
+
+# Application groups with custom settings
+{% for app in apps %}
+# Application: {{ app.name }}
+# Document root
+passenger_base_uri {{ app.base_uri }} {{ app.document_root }};
+
+# Ruby/Python/Node interpreter (overrides default if set)
+{% if app.interpreter %}
+passenger_ruby {{ app.interpreter if app.interpreter_type == 'ruby' else '' }};
+passenger_python {{ app.interpreter if app.interpreter_type == 'python' else '' }};
+passenger_nodejs {{ app.interpreter if app.interpreter_type == 'node' else '' }};
+{% endif %}
+
+# Environment (e.g., production, development)
+passenger_app_env {{ app.environment }};
+
+# Startup file (overrides global if set)
+{% if app.startup_file %}
+passenger_startup_file {{ app.startup_file }};
+{% endif %}
+
+# Minimum/maximum instances for this app (overrides global if set)
+{% if app.min_instances is defined %}
+passenger_min_instances {{ app.min_instances }};
+{% endif %}
+{% if app.max_instances is defined %}
+passenger_max_instances {{ app.max_instances }};
+{% endif %}
+
+# Enable/disable buffering for this app
+{% if app.buffer_response is defined %}
+passenger_buffer_response {{ 'on' if app.buffer_response else 'off' }};
+{% endif %}
+
+# Custom environment variables for this app
+{% for var in app.env_vars %}
+passenger_env_var {{ var.name }} {{ var.value }};
+{% endfor %}
+
+{% endfor %}

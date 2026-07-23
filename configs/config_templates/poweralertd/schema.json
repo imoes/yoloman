@@ -1,0 +1,154 @@
+{
+  "log_level": {
+    "type": "string",
+    "default": "info",
+    "description": "Verbosity of logging; choose from debug, info, warning, error"
+  },
+  "pid_file": {
+    "type": "string",
+    "default": "/run/poweralertd/poweralertd.pid",
+    "description": "Path to store the daemon's PID file"
+  },
+  "auto_detect": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable automatic detection and monitoring of newly connected battery devices"
+  },
+  "notification_script": {
+    "type": "string",
+    "default": "/usr/local/bin/poweralert-notify.sh",
+    "description": "Path to script invoked on battery status changes (receives device name, status, and % capacity)"
+  },
+  "tick_interval": {
+    "type": "number",
+    "default": 60,
+    "description": "Number of seconds between battery status polls"
+  },
+  "warning_threshold": {
+    "type": "number",
+    "default": 20,
+    "description": "Battery percentage at or below which a 'warning' alert is triggered"
+  },
+  "critical_threshold": {
+    "type": "number",
+    "default": 10,
+    "description": "Battery percentage at or below which a 'critical' alert is triggered"
+  },
+  "battery_device_patterns": {
+    "type": "list",
+    "default": [
+      "BAT[0-9]*"
+    ],
+    "description": "Glob-style patterns to identify battery devices (e.g., BAT0, BAT1). Leave empty to auto-detect all.",
+    "items": {
+      "type": "string",
+      "description": "Device name pattern (supports wildcards like * and ?)"
+    }
+  },
+  "excluded_devices": {
+    "type": "list",
+    "default": [],
+    "description": "List of exact battery device names to ignore (e.g., BAT1 for secondary battery)",
+    "items": {
+      "type": "string",
+      "description": "Exact battery device name to exclude"
+    }
+  },
+  "notification_timeout": {
+    "type": "number",
+    "default": 10,
+    "description": "Seconds to wait for the notification script before timing out"
+  },
+  "smtp_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable email alerts via SMTP"
+  },
+  "smtp_server": {
+    "type": "string",
+    "default": "smtp.example.com",
+    "description": "SMTP server hostname (used only if email alerts enabled)",
+    "condition": "smtp_enabled"
+  },
+  "smtp_port": {
+    "type": "number",
+    "default": 587,
+    "description": "SMTP server port",
+    "condition": "smtp_enabled"
+  },
+  "smtp_user": {
+    "type": "string",
+    "default": "",
+    "description": "SMTP username (leave blank for unauthenticated SMTP)",
+    "condition": "smtp_enabled"
+  },
+  "smtp_password": {
+    "type": "string",
+    "default": "",
+    "description": "SMTP password (leave blank if no authentication)",
+    "condition": "smtp_enabled"
+  },
+  "smtp_from": {
+    "type": "string",
+    "default": "poweralert@example.com",
+    "description": "Sender email address",
+    "condition": "smtp_enabled"
+  },
+  "smtp_to": {
+    "type": "list",
+    "default": [
+      "admin@example.com"
+    ],
+    "description": "List of recipient email addresses",
+    "condition": "smtp_enabled",
+    "items": {
+      "type": "string",
+      "description": "Single recipient email address"
+    }
+  },
+  "smtp_use_tls": {
+    "type": "bool",
+    "default": true,
+    "description": "Use TLS encryption for SMTP connection",
+    "condition": "smtp_enabled"
+  },
+  "webhooks_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable HTTP webhook alerts"
+  },
+  "webhooks": {
+    "type": "list",
+    "default": [],
+    "description": "List of webhook endpoints to call on battery status changes",
+    "condition": "webhooks_enabled",
+    "items": {
+      "type": "object",
+      "fields": {
+        "url": {
+          "type": "string",
+          "default": "",
+          "description": "Full URL (e.g., https://hooks.example.com/poweralert)"
+        },
+        "method": {
+          "type": "string",
+          "default": "POST",
+          "description": "HTTP method (GET/POST/PUT/PATCH/DELETE)"
+        },
+        "timeout": {
+          "type": "number",
+          "default": 15,
+          "description": "Seconds to wait for webhook response"
+        },
+        "headers": {
+          "type": "object",
+          "default": {},
+          "description": "HTTP headers to send (key-value map)",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}

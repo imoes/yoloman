@@ -1,0 +1,271 @@
+{
+  "interfaces": {
+    "type": "list",
+    "default": [
+      "127.0.0.1"
+    ],
+    "description": "List of IP addresses to bind the DNS resolver interface(s). Use 0.0.0.0 for all IPv4, :: for all IPv6."
+  },
+  "server_port": {
+    "type": "number",
+    "default": 53,
+    "description": "Local port on which the resolver listens for DNS queries."
+  },
+  "do_ip4": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable IPv4 support for DNS queries and responses."
+  },
+  "do_ip6": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable IPv6 support for DNS queries and responses."
+  },
+  "do_udp": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable UDP transport for DNS queries and responses."
+  },
+  "do_tcp": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable TCP transport for DNS queries (required for large DNSSEC responses)."
+  },
+  "tcp_upstream": {
+    "type": "number",
+    "default": 10,
+    "description": "Maximum number of TCP connections allowed per upstream server."
+  },
+  "tcp_downstream": {
+    "type": "number",
+    "default": 100,
+    "description": "Maximum number of TCP connections allowed per local interface."
+  },
+  "num_threads": {
+    "type": "number",
+    "default": 0,
+    "description": "Number of worker threads. Set to 0 to auto-detect CPU count."
+  },
+  "edns_buffer_size": {
+    "type": "number",
+    "default": 1232,
+    "description": "EDNS buffer size in bytes (must be \u2265 512 and \u2264 4096 for best compatibility)."
+  },
+  "msg_cache_size": {
+    "type": "string",
+    "default": "4mb",
+    "description": "Size of the message cache. Supports suffixes like 'kb', 'mb', 'gb'."
+  },
+  "msg_cache_slabs": {
+    "type": "number",
+    "default": 1,
+    "description": "Number of slabs in the message cache (power of two recommended for performance)."
+  },
+  "key_cache_size": {
+    "type": "string",
+    "default": "4mb",
+    "description": "Size of the DNSSEC key cache."
+  },
+  "key_cache_slabs": {
+    "type": "number",
+    "default": 1,
+    "description": "Number of slabs in the key cache."
+  },
+  "rrset_cache_size": {
+    "type": "string",
+    "default": "8mb",
+    "description": "Size of the RRSET (resource record set) cache."
+  },
+  "rrset_cache_slabs": {
+    "type": "number",
+    "default": 1,
+    "description": "Number of slabs in the RRSET cache."
+  },
+  "infra_cache_ttl": {
+    "type": "number",
+    "default": 900,
+    "description": "TTL for infrastructure cache entries (e.g., RTT info, hints), in seconds."
+  },
+  "infra_cache_slabs": {
+    "type": "number",
+    "default": 1,
+    "description": "Number of slabs in the infrastructure cache."
+  },
+  "log_queries": {
+    "type": "bool",
+    "default": false,
+    "description": "Log every incoming query (debugging use only; can generate large logs)."
+  },
+  "log_replies": {
+    "type": "bool",
+    "default": false,
+    "description": "Log every outgoing reply (debugging use only)."
+  },
+  "log_tag": {
+    "type": "bool",
+    "default": true,
+    "description": "Prefix log lines with thread number and time in ISO 8601 format."
+  },
+  "log_time_ascii": {
+    "type": "bool",
+    "default": true,
+    "description": "Use human-readable ASCII timestamp in logs (instead of Unix epoch)."
+  },
+  "access_control": {
+    "type": "list",
+    "default": [
+      "127.0.0.0/8 allow",
+      "::1/128 allow",
+      "0.0.0.0/0 deny"
+    ],
+    "description": "Access control list entries in format: `<subnet> <action>` (e.g., '192.168.1.0/24 allow_sld').",
+    "items": {
+      "type": "list",
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "forward_upstream": {
+    "type": "list",
+    "default": [],
+    "description": "List of forwarding zones. Each zone forwards queries for a domain suffix to upstream resolvers.",
+    "items": {
+      "name": {
+        "type": "string",
+        "default": ".",
+        "description": "Domain name for this forward zone (e.g., '.' for global forward, 'example.com' for zone-specific)."
+      },
+      "forward_first": {
+        "type": "bool",
+        "default": false,
+        "description": "Try forward first; if no response, perform recursive resolution."
+      },
+      "hosts": {
+        "type": "list",
+        "default": [
+          "127.0.0.1@53"
+        ],
+        "description": "List of upstream resolver addresses (may include port: 'host@port').",
+        "items": {
+          "type": "string"
+        }
+      }
+    }
+  },
+  "val_snippet": {
+    "type": "string",
+    "default": "",
+    "description": "Optional DNSSEC validation snippet (e.g., `val-override-date: 1609459200`)."
+  },
+  "auto_trust_anchor_file": {
+    "type": "string",
+    "default": "/var/lib/unbound/root.key",
+    "description": "File containing the auto-generated trust anchor (RFC 5011)."
+  },
+  "trust_anchor_files": {
+    "type": "list",
+    "default": [
+      "/usr/share/dns/root.key"
+    ],
+    "description": "List of static trust anchor files (e.g., IANA's root key).",
+    "items": {
+      "type": "string"
+    }
+  },
+  "trust_anchor_signing": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable DNSSEC signing of local data (only if managing a signing zone)."
+  },
+  "neg_cache_size": {
+    "type": "string",
+    "default": "1mb",
+    "description": "Size of the negative-response cache."
+  },
+  "chroot_dir": {
+    "type": "string",
+    "default": "/var/lib/unbound",
+    "description": "Chroot directory for security hardening."
+  },
+  "username": {
+    "type": "string",
+    "default": "unbound",
+    "description": "User account under which the Unbound process runs after initialization."
+  },
+  "local_zones": {
+    "type": "list",
+    "default": [],
+    "description": "List of local zone definitions (e.g., stub zones, private domains, stub zones).",
+    "items": {
+      "name": {
+        "type": "string",
+        "default": "example.local",
+        "description": "Zone name (domain)."
+      },
+      "type": {
+        "type": "string",
+        "default": "transparent",
+        "description": "Zone behavior type: transparent, deny, reject, static, stub, always_transparent, nodefault, etc."
+      }
+    }
+  },
+  "local_data": {
+    "type": "list",
+    "default": [],
+    "description": "List of inline DNS records (RR data) in Unbound\u2019s local-data format: `<name> <TTL> IN <type> <rdata>`. Example: 'myhost.example.local. 3600 IN A 192.168.1.10'.",
+    "items": {
+      "type": "string"
+    }
+  },
+  "statistics_interval": {
+    "type": "number",
+    "default": 0,
+    "description": "Interval (seconds) for dumping statistics to log (0 = disabled)."
+  },
+  "extended_statistics": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable extended statistics (memory usage, thread stats, etc.)."
+  },
+  "cumulative_statistics": {
+    "type": "bool",
+    "default": false,
+    "description": "Accumulate statistics across restarts (requires persistent storage)."
+  },
+  "control_enable": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable the local control interface (for `unbound-control` admin commands)."
+  },
+  "control_interface": {
+    "type": "string",
+    "default": "127.0.0.1",
+    "description": "IP address for the control interface."
+  },
+  "control_port": {
+    "type": "number",
+    "default": 8953,
+    "description": "Port for the control interface."
+  },
+  "control_server_key_file": {
+    "type": "string",
+    "default": "/var/lib/unbound/unbound_server.key",
+    "description": "Path to the RSA private key for the control server."
+  },
+  "control_server_cert_file": {
+    "type": "string",
+    "default": "/var/lib/unbound/unbound_server.pem",
+    "description": "Path to the RSA certificate for the control server."
+  },
+  "control_client_key_file": {
+    "type": "string",
+    "default": "/var/lib/unbound/unbound_control.key",
+    "description": "Path to the RSA private key used by the control client."
+  },
+  "control_client_cert_file": {
+    "type": "string",
+    "default": "/var/lib/unbound/unbound_control.pem",
+    "description": "Path to the RSA certificate used by the control client."
+  }
+}

@@ -1,0 +1,181 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Virtual machine definition for libvirt (QEMU/KVM) -->
+<domain type='{{ domain_type }}'>
+  <name>{{ name }}</name>
+  <uuid>{{ uuid | default('', true) }}</uuid>
+
+  <!-- Memory and CPU configuration -->
+  <memory unit='{{ memory_unit }}'>{{ memory_size }}</memory>
+  <currentMemory unit='{{ memory_unit }}'>{{ current_memory_size | default(memory_size, true) }}</currentMemory>
+  <vcpu placement='{{ vcpu_placement }}'>{{ vcpu_count }}</vcpu>
+
+  {% if boot_options %}
+  <!-- Boot configuration -->
+  <os>
+    <type arch='{{ boot_options.architecture | default('x86_64', true) }}' machine='{{ boot_options.machine | default('pc-q35-8.2', true) }}'>{{ boot_options.machine_type | default('hvm', true) }}</type>
+    {% if boot_options.bootdevs %}
+    {% for dev in boot_options.bootdevs %}
+    <boot dev='{{ dev }}' />
+    {% endfor %}
+    {% endif %}
+    {% if boot_options.initrd %}
+    <initrd>{{ boot_options.initrd }}</initrd>
+    {% endif %}
+    {% if boot_options.kernel %}
+    <kernel>{{ boot_options.kernel }}</kernel>
+    {% endif %}
+    {% if boot_options.cmdline %}
+    <cmdline>{{ boot_options.cmdline }}</cmdline>
+    {% endif %}
+  </os>
+  {% endif %}
+
+  <!-- Hardware features -->
+  <features>
+    {% if features.acpi | default(true, true) %}<acpi/>{% endif %}
+    {% if features.apic | default(true, true) %}<apic/>{% endif %}
+    {% if features.pae | default(false, true) %}<pae/>{% endif %}
+  </features>
+
+  <!-- CPU model & topology -->
+  <cpu mode='{{ cpu.mode | default('host-model', true) }}' check='{{ cpu.check | default('partial', true) }}'>
+    {% if cpu.model %}<model fallback='{{ cpu.model.fallback | default('allow', true) }}'>{{ cpu.model.name }}</model>{% endif %}
+    {% if cpu.topology %}
+    <topology sockets='{{ cpu.topology.sockets }}' cores='{{ cpu.topology.cores }}' threads='{{ cpu.topology.threads }}'/>
+    {% endif %}
+  </cpu>
+
+  <!-- Clock configuration -->
+  <clock offset='{{ clock.offset | default('utc', true) }}'{% if clock.timezone %} timezone='{{ clock.timezone }}'{% endif %}{% if clock.tickpolicy %} tickpolicy='{{ clock.tickpolicy }}'{% endif %}>
+    {% if clock.timer %}
+    {% for timer in clock.timer %}
+    <timer name='{{ timer.name }}' present='{{ timer.present | default('yes', true) }}'{% if timer.mode %} mode='{{ timer.mode }}'{% endif %}{% if timer.ticks %} ticks='{{ timer.ticks }}'{% endif %}/>
+    {% endfor %}
+    {% endif %}
+  </clock>
+
+  <!-- Power management -->
+  <on_poweroff>{{ lifecycle.on_poweroff | default('destroy', true) }}</on_poweroff>
+  <on_reboot>{{ lifecycle.on_reboot | default('restart', true) }}</on_reboot>
+  <on_crash>{{ lifecycle.on_crash | default('restart', true) }}</on_crash>
+  <devices>
+    <!-- Serial console (commonly used for guest logging) -->
+    <serial type='pty'>
+      <target type='isa-serial' port='0'>
+        <model name='isa-serial'/>
+      </target>
+      <alias name='serial0'/>
+    </serial>
+    <console type='pty'>
+      <target type='serial' port='0'/>
+      <alias name='console0'/>
+    </console>
+
+    <!-- Video device -->
+    <graphics type='{{ graphics.type | default('spice', true) }}' port='{{ graphics.port }}' autoport='{{ graphics.autoport | default('yes', true) }}' listen='{{ graphics.listen | default('127.0.0.1', true) }}'{% if graphics.websocket %} websocket='{{ graphics.websocket }}'{% endif %}>
+      {% if graphics.image_compression %}<image compression='{{ graphics.image_compression }}'/>{% endif %}
+      {% if graphics.jpeg_compression %}<jpeg compression='{{ graphics.jpeg_compression }}'/>{% endif %}
+      {% if graphics.zlib_compression %}<zlib compression='{{ graphics.zlib_compression }}'/>{% endif %}
+      {% if graphics.playback_compression %}<playback compression='{{ graphics.playback_compression }}'/>{% endif %}
+      {% if graphics.locked %}<locked/> {% endif %}
+    </graphics>
+    <video>
+      <model type='{{ video.model | default('qxl', true) }}' vram='{{ video.vram }}' heads='{{ video.heads }}' primary='{{ video.primary | default('yes', true) }}'/>
+    </video>
+
+    <!-- Input devices -->
+    <input type='tablet' bus='usb'>
+      <alias name='input0'/>
+    </input>
+    <input type='mouse' bus='ps2'>
+      <alias name='input1'/>
+    </input>
+
+    <!-- Network interfaces -->
+    {% for nic in nics %}
+    <interface type='{{ nic.type | default('network', true) }}'>
+      <mac address='{{ nic.mac }}'/>
+      {% if nic.source %}<source {{ nic.type }}='{{ nic.source }}'/>{% endif %}
+      {% if nic.model %}<model type='{{ nic.model }}'/>{% endif %}
+      {% if nic.alias %}<alias name='{{ nic.alias }}'/>{% endif %}
+      {% if nic.boot_order %}<boot order='{{ nic.boot_order }}'/>{% endif %}
+    </interface>
+    {% endfor %}
+
+    <!-- Storage devices -->
+    {% for disk in disks %}
+    <disk type='{{ disk.type | default('file', true) }}' device='{{ disk.device | default('disk', true) }}'>
+      <driver name='qemu' type='{{ disk.driver_type | default('qcow2', true) }}' cache='{{ disk.cache_mode | default('writeback', true) }}' discard='{{ disk.discard | default('unmap', true) }}'/>
+      {% if disk.source.file %}<source file='{{ disk.source.file }}'/> {% endif %}
+      {% if disk.source.dev %}<source dev='{{ disk.source.dev }}'/> {% endif %}
+      {% if disk.target.dev %}<target dev='{{ disk.target.dev }}' bus='{{ disk.target.bus | default('virtio', true) }}'/> {% endif %}
+      {% if disk.alias %}<alias name='{{ disk.alias }}'/>{% endif %}
+      {% if disk.boot_order %}<boot order='{{ disk.boot_order }}'/>{% endif %}
+    </disk>
+    {% endfor %}
+
+    <!-- TPM device (optional) -->
+    {% if tpm %}
+    <tpm model='{{ tpm.model | default('tpm-tis', true) }}'>
+      <backend type='emulator' version='{{ tpm.backend.version | default('2.0', true) }}'/>
+    </tpm>
+    {% endif %}
+
+    <!-- RNG device (entropy) -->
+    <rng model='{{ rng.model | default('virtio', true) }}'>
+      <backend model='{{ rng.backend.model | default('random', true) }}'>{{ rng.backend.source }}</backend>
+    </rng>
+
+    <!-- Memory backends -->
+    {% for memdev in memory_backends %}
+    <memory model='{{ memdev.model | default('dimm', true) }}' access='{{ memdev.access | default('shared', true) }}'>
+      <source>
+        <nodemask>{{ memdev.nodemask }}</nodemask>
+        <pagesize unit='{{ memdev.pageunit | default('KiB', true) }}'>{{ memdev.pagesize }}</pagesize>
+      </source>
+      <target>
+        <size unit='{{ memdev.target_size_unit | default('KiB', true) }}'>{{ memdev.target_size }}</size>
+        <node>{{ memdev.node }}</node>
+      </target>
+    </memory>
+    {% endfor %}
+
+    <!-- Redir devices (USB redirection) -->
+    {% for redir in redirdevs %}
+    <redirdev bus='{{ redir.bus | default('usb', true) }}' type='{{ redir.type | default('spicevmc', true) }}'>
+      <alias name='redir{{ loop.index0 }}'/>
+    </redirdev>
+    {% endfor %}
+
+    <!-- Sound device -->
+    {% if sound %}
+    <sound model='{{ sound.model | default('ich9', true) }}'>
+      <alias name='sound0'/>
+    </sound>
+    {% endif %}
+
+    <!-- Watchdog device -->
+    {% if watchdog %}
+    <watchdog model='{{ watchdog.model | default('i6300esb', true) }}' action='{{ watchdog.action | default('reset', true) }}'>
+      <alias name='watchdog0'/>
+    </watchdog>
+    {% endif %}
+
+    {% if channels %}
+    <!-- Guest agent channel -->
+    {% for channel in channels %}
+    <channel type='{{ channel.type }}'>
+      <target type='{{ channel.target.type | default('guestfwd', true) }}' name='{{ channel.target.name }}'/>
+      <alias name='channel{{ loop.index0 }}'/>
+    </channel>
+    {% endfor %}
+    {% endif %}
+
+  </devices>
+  {% if metadata %}
+  <!-- Custom metadata -->
+  <metadata>
+    {{ metadata }}
+  </metadata>
+  {% endif %}
+</domain>

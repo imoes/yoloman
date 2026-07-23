@@ -1,0 +1,114 @@
+# Monitorix main configuration file — global settings
+<config>
+  # Base URL for the web interface
+  base_uri = {{ base_uri }}
+
+  # Hostname or IP to bind the HTTP server to
+  http_host = {{ http_host }}
+
+  # Port to listen on for the web interface
+  http_port = {{ http_port }}
+
+  # Enable or disable the built-in HTTP server
+  use_internal_server = {{ use_internal_server | lower }}
+
+  # Path to the HTML template directory
+  template_dir = {{ template_dir }}
+
+  # Path to the data directory (RRD files)
+  data_dir = {{ data_dir }}
+
+  # Path to the PID file
+  pid_file = {{ pid_file }}
+
+  # Log file path (use '-' for stdout)
+  log_file = {{ log_file }}
+
+  # Log level: 0=quiet, 1=errors, 2=warnings, 3=info (default=3)
+  log_level = {{ log_level }}
+
+  # Timezone for displayed timestamps (e.g., 'UTC', 'Europe/Berlin')
+  timezone = {{ timezone }}
+
+  # Default language (e.g., 'en', 'de', 'fr')
+  lang = {{ lang }}
+
+  # Interval (in seconds) between data collection cycles
+  interval = {{ interval }}
+
+  # Number of hours of history to keep (data retention)
+  history_hours = {{ history_hours }}
+
+  # Enable or disable MySQL/MariaDB monitoring
+  <mysql>
+    enabled = {{ mysql_enabled | lower }}
+    host = {{ mysql_host }}
+    port = {{ mysql_port }}
+    user = {{ mysql_user }}
+    password = {{ mysql_password }}
+    socket = {{ mysql_socket }}
+  </mysql>
+
+  # List of systemd services to monitor
+  {% for svc in monitored_services %}
+  <service_{{ loop.index }}>
+    name = {{ svc.name }}
+    enabled = {{ svc.enabled | lower }}
+    unit = {{ svc.unit }}
+    description = {{ svc.description | default(svc.unit) }}
+  </service_{{ loop.index }}>
+  {% endfor %}
+
+  # List of ports to monitor (TCP/UDP listening)
+  {% for port in monitored_ports %}
+  <port_{{ loop.index }}>
+    name = {{ port.name }}
+    enabled = {{ port.enabled | lower }}
+    port = {{ port.port }}
+    proto = {{ port.proto }}
+  </port_{{ loop.index }}>
+  {% endfor %}
+
+  # List of filesystems to monitor
+  {% for fs in monitored_filesystems %}
+  <fs_{{ loop.index }}>
+    name = {{ fs.name }}
+    enabled = {{ fs.enabled | lower }}
+    mount_point = {{ fs.mount_point }}
+    type = {{ fs.type }}
+  </fs_{{ loop.index }}>
+  {% endfor %}
+
+  # List of network interfaces to monitor
+  {% for iface in monitored_interfaces %}
+  <interface_{{ loop.index }}>
+    name = {{ iface.name }}
+    enabled = {{ iface.enabled | lower }}
+    device = {{ iface.device }}
+  </interface_{{ loop.index }}>
+  {% endfor %}
+
+  # List of processes to monitor
+  {% for proc in monitored_processes %}
+  <process_{{ loop.index }}>
+    name = {{ proc.name }}
+    enabled = {{ proc.enabled | lower }}
+    pattern = {{ proc.pattern }}
+  </process_{{ loop.index }}>
+  {% endfor %}
+
+  # Enable or disable Apache/Nginx status monitoring
+  <webserver>
+    enabled = {{ webserver_enabled | lower }}
+    type = {{ webserver_type }}
+    url = {{ webserver_url }}
+    user = {{ webserver_user }}
+    password = {{ webserver_password }}
+  </webserver>
+
+  # Enable or disable SMART disk monitoring
+  <smart>
+    enabled = {{ smart_enabled | lower }}
+    devices = {{ smart_devices | join(', ') }}
+  </smart>
+</config>

@@ -1,0 +1,41 @@
+# Use NTP servers to synchronize the system clock
+server {{ ntp_servers[0].hostname }} iburst
+{% for server in ntp_servers[1:] %}server {{ server.hostname }} iburst
+{% endfor %}
+
+# Allow NTP clients on the local network
+{% if allow_clients %}# Allow NTP clients from trusted networks
+{% for network in allow_clients %}allow {{ network CIDR }}
+{% endfor %}{% else %}# Allow NTP clients only from localhost
+allow 127.0.0.1
+{% endif %}
+
+# Use local system clock as fallback if all NTP sources fail
+# (stratum 16 = unsynchronized; not used in production but safe fallback)
+refclock PHC /dev/ptp0 poll 3 dpoll -2 offset 0 {
+}
+
+# Logging configuration
+# Log messages to syslog
+log measurements statistics tracking
+
+# Directory for log files (optional, uncomment if needed)
+# logdir /var/log/chrony
+
+# Key file location (for NTS or symmetric key authentication)
+keyfile /etc/chrony/chrony.keys
+
+# Drift file location
+driftfile /var/lib/chrony/chrony.drift
+
+# Enable RTC synchronization (for systems without constant power)
+rtcsync
+
+# Make step correction only in the first 10 updates
+initstepslew {{ max_init_stepslew }} {{ ntp_servers | map(attribute='hostname') | list | join(' ') }}
+
+# Leapseconf file (for leap second handling)
+leapsectz right/UTC
+
+# Make step correction at boot time if needed
+makestep 1.0 3

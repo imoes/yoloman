@@ -1,0 +1,90 @@
+# Heimdal KCM daemon configuration
+# See 'man 5 kcm.conf' for additional options
+
+[daemon]
+# Enable verbose logging (debug level)
+# Set to 'true' to enable extra debugging output
+verbose = {{ verbose | default(false) | lower }}
+
+# PID file location
+pidfile = {{ pidfile | default('/var/run/heimdal-kcm/kcm.pid') }}
+
+# Unix socket path for client communication
+socket_path = {{ socket_path | default('/var/run/heimdal-kcm/kcm.sock') }}
+
+# Maximum number of simultaneous client connections
+max_connections = {{ max_connections | default(64) }}
+
+# Number of worker threads
+worker_threads = {{ worker_threads | default(4) }}
+
+[realm default]
+# Default realm for unqualified principals (if not specified in client request)
+default_realm = {{ default_realm | default('EXAMPLE.COM') }}
+
+# Enable DNS lookups for realm discovery (RFC 6113)
+dns_lookup_realm = {{ dns_lookup_realm | default(false) | lower }}
+
+# Enable DNS SRV record lookups for KDCs
+# (requires dns_lookup_realm = true)
+dns_lookup_kdc = {{ dns_lookup_kdc | default(false) | lower }}
+
+# List of KDCs to try if DNS lookup fails or is disabled
+# Format: hostname[:port]
+kdc =
+{% for kdc in kdc_list -%}
+    {{ kdc | quote }}
+{% endfor %}
+
+# List of KDCs to try for admin operations (kadmin)
+# Format: hostname[:port]
+kadmin =
+{% for kadmin in kadmin_list -%}
+    {{ kadmin | quote }}
+{% endfor %}
+
+# Enable use of TCP for KDC communication (in addition to UDP)
+# Set to 'true' to use TCP fallback or primary
+tcp_hint_kdc = {{ tcp_hint_kdc | default(false) | lower }}
+
+# Maximum lifetime for tickets (in seconds)
+max_ticket_lifetime = {{ max_ticket_lifetime | default(86400) }}
+
+# Maximum renewable lifetime (in seconds)
+max_renewable_lifetime = {{ max_renewable_lifetime | default(604800) }}
+
+# Clock skew tolerance (in seconds)
+clockskew = {{ clockskew | default(300) }}
+
+[logging]
+# Log destination: SYSLOG, FILE, or NONE
+# If FILE, specify file path below
+destination = {{ logging_destination | default('SYSLOG') }}
+
+# File path for log output (used only if destination = FILE)
+file = {{ logging_file | default('/var/log/heimdal-kcm.log') }}
+
+# Log level: 0=none, 1=errors, 2=warnings, 3=info, 4=debug
+level = {{ logging_level | default(1) }}
+
+[database]
+# Database type: 'none' (for KCM-only use) or 'sql'
+type = {{ db_type | default('none') }}
+
+{% if db_type == 'sql' %}
+# SQL connection string (e.g., PostgreSQL or SQLite)
+connection_string = {{ sql_conn_str | default('sqlite:///var/lib/heimdal-kcm/kcm.db') }}
+
+# SQL schema version (auto-managed; do not change manually)
+schema_version = {{ sql_schema_version | default(1) }}
+{% endif %}
+
+[security]
+# Require mutual authentication (mutual-auth) in AS-REQ/AS-REP
+mutual_auth_required = {{ mutual_auth_required | default(false) | lower }}
+
+# Enforce pre-authentication for all AS-REQ requests
+enforce_preauth = {{ enforce_preauth | default(true) | lower }}
+
+# Enforce PAC (Privilege Attribute Certificate) validation on Windows clients
+validate_pac = {{ validate_pac | default(true) | lower }}

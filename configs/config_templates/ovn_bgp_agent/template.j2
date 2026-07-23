@@ -1,0 +1,105 @@
+[DEFAULT]
+# Enables debug logging for troubleshooting
+{% if debug %}debug = true{% else %}debug = false{% endif %}
+# Log file path for the agent
+{% if log_file %}log_file = {{ log_file }}{% endif %}
+# Logging format string
+{% if log_format %}log_format = {{ log_file }}{% endif %}
+# Logging date format string
+{% if log_date_format %}log_date_format = {{ log_date_format }}{% endif %}
+# Maximum number of log files to retain
+{% if log_max_size %}log_max_size = {{ log_max_size }}{% endif %}
+# Maximum number of backup log files to keep
+{% if log_backup_count %}log_backup_count = {{ log_backup_count }}{% endif %}
+
+# Path to the OVSDB socket for local OVS interaction
+ovsdb_socket = {{ ovsdb_socket }}
+
+# Type of BGP speaker implementation to use (e.g., 'go-bgp', 'frr', 'bird')
+bgp_speaker_type = {{ bgp_speaker_type }}
+
+# BGP local AS number
+{% if bgp_as %}bgp_as = {{ bgp_as }}{% endif %}
+
+# BGP router ID (IPv4 address format, or auto-detect via 'auto')
+{% if bgp_router_id %}bgp_router_id = {{ bgp_router_id }}{% endif %}
+
+# Enable graceful restart of BGP sessions
+{% if bgp_graceful_restart %}bgp_graceful_restart = true{% else %}bgp_graceful_restart = false{% endif %}
+
+# Hold time (seconds) for BGP neighbor sessions
+{% if bgp_hold_time %}bgp_hold_time = {{ bgp_hold_time }}{% endif %}
+
+# Keepalive interval (seconds) for BGP neighbor sessions
+{% if bgp_keepalive_interval %}bgp_keepalive_interval = {{ bgp_keepalive_interval }}{% endif %}
+
+# Time (seconds) to wait before announcing routes after BGP session up
+{% if route_advertise_delay %}route_advertise_delay = {{ route_advertise_delay }}{% endif %}
+
+# Enable advertising of local node IPs (e.g., overlay tunnel IPs)
+{% if advertise_node_local_ip %}advertise_node_local_ip = true{% else %}advertise_node_local_ip = false{% endif %}
+
+# Enable advertising of external subnets (e.g., provider subnets)
+{% if advertise_external_ip %}advertise_external_ip = true{% else %}advertise_external_ip = false{% endif %}
+
+# List of BGP neighbors to establish sessions with
+{% for neighbor in bgp_neighbors %}
+[bgp_neighbor:{{ neighbor.name }}]
+# BGP peer address (IPv4 or IPv6)
+address = {{ neighbor.address }}
+# BGP peer AS number
+remote_as = {{ neighbor.remote_as }}
+# Optional: password for BGP authentication
+{% if neighbor.password %}password = {{ neighbor.password }}{% endif %}
+# Optional: local address to use as source for BGP session
+{% if neighbor.local_address %}local_address = {{ neighbor.local_address }}{% endif %}
+{% endfor %}
+
+# Optional: SR-IOV switch configuration for advertising SR-IOV port IPs
+{% if sr_iov_enabled %}[sr_iov]
+# Enable SR-IOV port IP advertisement
+sr_iov_enabled = true
+# Optional: list of PCI addresses for SR-IOV VFs to include
+{% if sr_iov_pci_addresses %}sr_iov_pci_addresses = {{ sr_iov_pci_addresses | join(', ') }}{% endif %}
+{% else %}[sr_iov]
+sr_iov_enabled = false
+{% endif %}
+
+# OVN Southbound DB connection string
+ovn_nb_db = {{ ovn_nb_db }}
+# OVN Southbound DB connection string
+ovn_sb_db = {{ ovn_sb_db }}
+
+# Optional: CA certificate for secure DB connections
+{% if ssl_ca_file %}ssl_ca_file = {{ ssl_ca_file }}{% endif %}
+# Optional: Client certificate for DB TLS
+{% if ssl_cert_file %}ssl_cert_file = {{ ssl_cert_file }}{% endif %}
+# Optional: Client private key for DB TLS
+{% if ssl_key_file %}ssl_key_file = {{ ssl_key_file }}{% endif %}
+
+# Optional: OVS bridge to use for external port discovery (e.g., br-ex)
+{% if ovs_bridge %}ovs_bridge = {{ ovs_bridge }}{% endif %}
+
+# Enable SNMP monitoring for BGP sessions
+{% if snmp_enabled %}snmp_enabled = true{% else %}snmp_enabled = false{% endif %}
+
+# SNMP listen address (IP and port, e.g., 0.0.0.0:161)
+{% if snmp_listen %}snmp_listen = {{ snmp_listen }}{% endif %}
+
+# SNMP community string (if using v2c/v1)
+{% if snmp_community %}snmp_community = {{ snmp_community }}{% endif %}
+
+# Path to custom metrics exporter (e.g., Prometheus) endpoint
+{% if metrics_port %}[metrics]
+metrics_port = {{ metrics_port }}
+{% else %}[metrics]
+# Disable metrics endpoint
+metrics_port =
+{% endif %}
+
+# Optional: Enable health check endpoint on port 8081
+{% if healthcheck_enabled %}[healthcheck]
+healthcheck_port = 8081
+{% else %}[healthcheck]
+healthcheck_port =
+{% endif %}

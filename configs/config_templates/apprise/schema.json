@@ -1,0 +1,102 @@
+{
+  "debug": {
+    "type": "boolean",
+    "default": false,
+    "description": "Enable verbose debug logging to stdout."
+  },
+  "timeout": {
+    "type": "number",
+    "default": 15,
+    "description": "Timeout in seconds for each notification request."
+  },
+  "retry_attempts": {
+    "type": "number",
+    "default": 3,
+    "description": "Number of times to retry sending a failed notification."
+  },
+  "retry_delay": {
+    "type": "number",
+    "default": 2,
+    "description": "Delay (in seconds) between retry attempts."
+  },
+  "log_level": {
+    "type": "string",
+    "default": "info",
+    "description": "Logging verbosity. Recommended: `info` for production; `debug` only for troubleshooting."
+  },
+  "services": {
+    "type": "list",
+    "default": [],
+    "description": "List of notification services (URLs) to use for sending alerts.",
+    "items": {
+      "type": "object",
+      "fields": {
+        "url": {
+          "type": "string",
+          "description": "Full Apprise URL (e.g., `discord://token@webhook`, `mailgun://key@domain`, etc.). See https://github.com/caronc/apprise#supported-notifications"
+        },
+        "tags": {
+          "type": "list",
+          "items": {
+            "type": "string"
+          },
+          "default": [],
+          "description": "Optional tags to group or target this service."
+        },
+        "comment": {
+          "type": "string",
+          "default": "",
+          "description": "Human-readable description for documentation."
+        }
+      }
+    }
+  },
+  "tags": {
+    "type": "object",
+    "default": {},
+    "description": "Named tag definitions for grouping services (e.g., `{ 'prod': 'Production alerts', 'dev': 'Dev/test alerts' }`)."
+  },
+  "inline_services": {
+    "type": "list",
+    "default": [],
+    "description": "Advanced: Custom YAML-based service definitions (e.g., for plugins or extended config).",
+    "items": {
+      "type": "object",
+      "fields": {
+        "name": {
+          "type": "string",
+          "description": "Service name/key (used as YAML key)."
+        },
+        "config": {
+          "type": "object",
+          "description": "Key-value config for the inline service."
+        },
+        "comment": {
+          "type": "string",
+          "default": "",
+          "description": "Description for documentation."
+        }
+      }
+    }
+  },
+  "webhook_defaults": {
+    "type": "object",
+    "default": {},
+    "description": "Default HTTP settings for webhook-based services (e.g., `content_type`, `method`).",
+    "items": {
+      "content_type": {
+        "type": "string",
+        "default": "application/json"
+      },
+      "method": {
+        "type": "string",
+        "default": "POST"
+      }
+    }
+  },
+  "disable_ssl_verification": {
+    "type": "boolean",
+    "default": false,
+    "description": "Disable SSL/TLS certificate verification (\u26a0\ufe0f insecure \u2014 only for testing)."
+  }
+}

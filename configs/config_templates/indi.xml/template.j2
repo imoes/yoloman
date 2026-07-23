@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- INDI configuration file — defines devices, drivers, and global options -->
+<drivers>
+{% for driver in drivers %}
+  <!-- Driver: {{ driver.name }} (enabled: {{ driver.enabled }}) -->
+  <driver name="{{ driver.name }}" enabled="{{ 'true' if driver.enabled else 'false' }}"{% if driver.library %} library="{{ driver.library }}"{% endif %}>
+{% for device in driver.devices %}
+    <!-- Device: {{ device.name }} (unique ID: {{ device.uid }}) -->
+    <device name="{{ device.name }}" uid="{{ device.uid }}"{% if device.model %} model="{{ device.model }}"{% endif %}{% if device.port %} port="{{ device.port }}"{% endif %}{% if device.baud_rate %} baud_rate="{{ device.baud_rate }}"{% endif %}{% if device.connection_type %} connection_type="{{ device.connection_type }}"{% endif %}>
+{% for property in device.properties %}
+      <!-- Property: {{ property.name }} (type: {{ property.type }}) -->
+      <property name="{{ property.name }}

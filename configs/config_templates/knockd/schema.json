@@ -1,0 +1,112 @@
+{
+  "verbose": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable verbose logging (useful for debugging)."
+  },
+  "log_file": {
+    "type": "string",
+    "default": "/var/log/knockd.log",
+    "description": "Path to the log file where knockd will write events."
+  },
+  "sequence_list": {
+    "type": "list",
+    "default": [],
+    "description": "List of port-knock sequences (each sequence defines a name, ports to knock, and action(s) to trigger).",
+    "items": {
+      "name": {
+        "type": "string",
+        "default": "",
+        "description": "Unique name for this sequence (e.g., 'openSSH')."
+      },
+      "sequence": {
+        "type": "list",
+        "default": [],
+        "description": "List of ports to knock in order (e.g., [7000, 8000, 9000]).",
+        "items": {
+          "type": "number"
+        }
+      },
+      "seq_timeout": {
+        "type": "number",
+        "default": 10,
+        "description": "Maximum time (seconds) allowed between knocks before sequence resets."
+      },
+      "start_command": {
+        "type": "string",
+        "default": "",
+        "description": "Command to run when the full sequence is successfully knocked (e.g., `/usr/sbin/iptables -A INPUT -s %IP% -p tcp --dport 22 -j ACCEPT`)."
+      },
+      "stop_command": {
+        "type": "string",
+        "default": "",
+        "description": "Command to run after a delay (if sequence is 'one-shot' or to close access), e.g., `/usr/sbin/iptables -D INPUT -s %IP% -p tcp --dport 22 -j ACCEPT`."
+      },
+      "tcpflags": {
+        "type": "string",
+        "default": "syn",
+        "description": "TCP flags to match for SYN/ACK/FIN packets (e.g., 'syn', 'ack', 'fin')."
+      },
+      "synctime": {
+        "type": "number",
+        "default": 5,
+        "description": "Time (seconds) to wait before considering the knock sequence complete after last packet."
+      },
+      "endtimeout": {
+        "type": "number",
+        "default": 30,
+        "description": "Time (seconds) before clearing the client from the knock state after a successful sequence."
+      },
+      "use_tcp": {
+        "type": "bool",
+        "default": true,
+        "description": "Listen for TCP knock packets on this sequence."
+      },
+      "use_udp": {
+        "type": "bool",
+        "default": false,
+        "description": "Listen for UDP knock packets on this sequence."
+      },
+      "use_http": {
+        "type": "bool",
+        "default": false,
+        "description": "Listen for HTTP GET requests to trigger knock (requires `http_url`)."
+      },
+      "http_url": {
+        "type": "string",
+        "default": "",
+        "description": "URL path (relative or absolute) that triggers this sequence via HTTP GET (e.g., `/knock/secret`)."
+      },
+      "http_timeout": {
+        "type": "number",
+        "default": 5,
+        "description": "Timeout (seconds) for HTTP request processing."
+      },
+      "http_method": {
+        "type": "string",
+        "default": "GET",
+        "description": "HTTP method to expect (currently only 'GET' is supported by knockd)."
+      },
+      "http_body": {
+        "type": "string",
+        "default": "",
+        "description": "Expected body content in the HTTP request (for advanced matching)."
+      },
+      "http_headers": {
+        "type": "object",
+        "default": {},
+        "description": "Key-value pairs of HTTP headers to require (e.g., {'User-Agent': 'knocker/1.0'})."
+      },
+      "interface": {
+        "type": "string",
+        "default": "",
+        "description": "Network interface to bind to (e.g., 'eth0'). If omitted, uses default route interface."
+      },
+      "client_ip": {
+        "type": "string",
+        "default": "",
+        "description": "Restrict knocks to this specific source IP address."
+      }
+    }
+  }
+}

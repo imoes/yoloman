@@ -1,0 +1,274 @@
+{
+  "c2s": {
+    "type": "object",
+    "default": {
+      "port": 5222,
+      "bind": "0.0.0.0",
+      "tls": {
+        "enabled": true,
+        "cert_file": "/etc/jabberd2/certs/server.pem",
+        "key_file": "/etc/jabberd2/certs/server.key",
+        "ciphers": null,
+        "verify_peer": false,
+        "ca_file": null
+      }
+    },
+    "description": "Client-to-server (c2s) listener configuration: port, binding address, and TLS options."
+  },
+  "c2s.port": {
+    "type": "number",
+    "default": 5222,
+    "description": "TCP port on which the server listens for incoming XMPP client connections."
+  },
+  "c2s.bind": {
+    "type": "string",
+    "default": "0.0.0.0",
+    "description": "IP address to bind the c2s listener to (e.g., '127.0.0.1' or '0.0.0.0')."
+  },
+  "c2s.tls": {
+    "type": "object",
+    "default": {
+      "enabled": true,
+      "cert_file": "/etc/jabberd2/certs/server.pem",
+      "key_file": "/etc/jabberd2/certs/server.key",
+      "ciphers": null,
+      "verify_peer": false,
+      "ca_file": null
+    },
+    "description": "TLS/SSL encryption settings for secure client connections."
+  },
+  "c2s.tls.enabled": {
+    "type": "boolean",
+    "default": true,
+    "description": "Enable TLS encryption for client connections (recommended in production)."
+  },
+  "c2s.tls.cert_file": {
+    "type": "string",
+    "default": "/etc/jabberd2/certs/server.pem",
+    "description": "Path to the server certificate file (PEM format)."
+  },
+  "c2s.tls.key_file": {
+    "type": "string",
+    "default": "/etc/jabberd2/certs/server.key",
+    "description": "Path to the server private key file (PEM format)."
+  },
+  "c2s.tls.ciphers": {
+    "type": "string",
+    "default": null,
+    "description": "Optional colon-separated cipher list (e.g., 'HIGH:!aNULL:!MD5'). Leave empty for defaults."
+  },
+  "c2s.tls.verify_peer": {
+    "type": "boolean",
+    "default": false,
+    "description": "Whether to verify client certificates (client-cert auth only)."
+  },
+  "c2s.tls.ca_file": {
+    "type": "string",
+    "default": null,
+    "description": "Optional CA bundle file for validating client certificates."
+  },
+  "authreg": {
+    "type": "object",
+    "default": {
+      "id": "authreg",
+      "driver": "passwd",
+      "params": [
+        {
+          "name": "passwd",
+          "value": "/etc/jabberd2/users/passwd"
+        }
+      ]
+    },
+    "description": "Authentication registry backend \u2014 how users are verified."
+  },
+  "authreg.id": {
+    "type": "string",
+    "default": "authreg",
+    "description": "Identifier for this authreg instance."
+  },
+  "authreg.driver": {
+    "type": "string",
+    "default": "passwd",
+    "description": "Driver type: e.g., 'passwd', 'sql', 'ldap'."
+  },
+  "authreg.params": {
+    "type": "list",
+    "default": [
+      {
+        "name": "passwd",
+        "value": "/etc/jabberd2/users/passwd"
+      }
+    ],
+    "description": "List of key-value parameters for the auth driver (e.g., path to passwd file or SQL config).",
+    "items": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Parameter name (e.g., 'passwd', 'dsn', 'uri')."
+        },
+        "value": {
+          "type": "string",
+          "description": "Parameter value (e.g., file path or connection string)."
+        }
+      }
+    }
+  },
+  "storage": {
+    "type": "object",
+    "default": {
+      "id": "storage",
+      "driver": "sqlite",
+      "params": [
+        {
+          "name": "db",
+          "value": "/var/lib/jabberd2/db/sqlite.db"
+        }
+      ]
+    },
+    "description": "Storage backend for user data (rosters, vCards, private storage, etc.)."
+  },
+  "storage.id": {
+    "type": "string",
+    "default": "storage",
+    "description": "Identifier for this storage instance."
+  },
+  "storage.driver": {
+    "type": "string",
+    "default": "sqlite",
+    "description": "Driver type: e.g., 'sqlite', 'sql', 'cdb'."
+  },
+  "storage.params": {
+    "type": "list",
+    "default": [
+      {
+        "name": "db",
+        "value": "/var/lib/jabberd2/db/sqlite.db"
+      }
+    ],
+    "description": "Storage backend parameters (e.g., database path or connection details).",
+    "items": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Parameter name."
+        },
+        "value": {
+          "type": "string",
+          "description": "Parameter value."
+        }
+      }
+    }
+  },
+  "sm": {
+    "type": "object",
+    "default": {
+      "id": "sm",
+      "log": "/var/log/jabberd2/sm.log",
+      "max_packets": 50,
+      "route_localname": true
+    },
+    "description": "Session manager settings \u2014 core routing engine."
+  },
+  "sm.id": {
+    "type": "string",
+    "default": "sm",
+    "description": "Identifier for the session manager instance."
+  },
+  "sm.log": {
+    "type": "string",
+    "default": "/var/log/jabberd2/sm.log",
+    "description": "Path to the session manager log file."
+  },
+  "sm.max_packets": {
+    "type": "number",
+    "default": 50,
+    "description": "Maximum queued packets per session before throttling."
+  },
+  "sm.route_localname": {
+    "type": "boolean",
+    "default": true,
+    "description": "If true, route packets addressed to local usernames (not FQDNs)."
+  },
+  "register": {
+    "type": "object",
+    "default": {
+      "enabled": false,
+      "set_user_password": true,
+      "max_users_per_ip": 10
+    },
+    "description": "User registration (in-band registration / jabber:iq:register) settings."
+  },
+  "register.enabled": {
+    "type": "boolean",
+    "default": false,
+    "description": "Allow users to register accounts via in-band registration (security-sensitive)."
+  },
+  "register.set_user_password": {
+    "type": "boolean",
+    "default": true,
+    "description": "If true, allow users to set their own password during registration."
+  },
+  "register.max_users_per_ip": {
+    "type": "number",
+    "default": 10,
+    "description": "Rate-limit: max new accounts allowed per IP per session window."
+  },
+  "limits": {
+    "type": "object",
+    "default": {
+      "max_streams": 100,
+      "idle_timeout": 600,
+      "read_rate": 1000,
+      "write_rate": 1000
+    },
+    "description": "Resource and bandwidth limits for client connections."
+  },
+  "limits.max_streams": {
+    "type": "number",
+    "default": 100,
+    "description": "Maximum concurrent client streams per connection (not per user \u2014 usually 1)."
+  },
+  "limits.idle_timeout": {
+    "type": "number",
+    "default": 600,
+    "description": "Idle timeout in seconds before disconnecting a client."
+  },
+  "limits.read_rate": {
+    "type": "number",
+    "default": 1000,
+    "description": "Maximum bytes/second the server will read from a client (0 = unlimited)."
+  },
+  "limits.write_rate": {
+    "type": "number",
+    "default": 1000,
+    "description": "Maximum bytes/second the server will write to a client (0 = unlimited)."
+  },
+  "debug": {
+    "type": "object",
+    "default": null,
+    "description": "Debug logging configuration (enable only for troubleshooting).",
+    "required": false
+  },
+  "debug.level": {
+    "type": "number",
+    "default": 2,
+    "description": "Debug level: 0=none, 1=errors, 2=info, 3=verbose."
+  },
+  "debug.file": {
+    "type": "string",
+    "default": "/var/log/jabberd2/debug.log",
+    "description": "Path to debug log file."
+  },
+  "host": {
+    "type": "string",
+    "default": "localhost",
+    "description": "Server hostname (FQDN) \u2014 must match the domain users log in with (e.g., 'example.com')."
+  },
+  "dns_srv": {
+    "type": "boolean",
+    "default": false,
+    "description": "If true, attempt DNS SRV lookup to locate other servers (for federation)."
+  }
+}

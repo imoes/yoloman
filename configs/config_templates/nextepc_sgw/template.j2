@@ -1,0 +1,98 @@
+# Serving Gateway (SGW) configuration for nextepc-sgw
+# Global network settings
+sgw:
+  # Interface to bind the S1U (user plane) interface
+  interface:
+    name: "{{ sgw.interface.name }}"
+    address: "{{ sgw.interface.address }}"
+    netmask: "{{ sgw.interface.netmask }}"
+
+  # S1-C (control plane) interface (optional; if omitted, same as S1U)
+{% if sgw.s1c %}
+    s1c:
+      name: "{{ sgw.s1c.name }}"
+      address: "{{ sgw.s1c.address }}"
+{% endif %}
+
+  # SGW S11 interface to MME
+{% if sgw.s11 %}
+  s11:
+    name: "{{ sgw.s11.name }}"
+    address: "{{ sgw.s11.address }}"
+{% else %}
+  s11:
+    name: "{{ sgw.interface.name }}"
+    address: "{{ sgw.s11_address | default(sgw.interface.address) }}"
+{% endif %}
+
+  # GW identity (FQDN or IP)
+  gtpu:
+    addr: "{{ sgw.gtpu.addr }}"
+
+  # SGW FQDN for S11 (MME lookup via DNS)
+  fqdn: "{{ sgw.fqdn }}"
+
+  # PGW/SAE-GW selection: static or DNS-based
+{% if sgw.pgw_selection == 'static' %}
+  pgw:
+    addr: "{{ sgw.pgw.addr }}"
+{% else %}
+  pgw:
+    fqdn: "{{ sgw.pgw.fqdn }}"
+{% endif %}
+
+  #Bearer limits & timeouts
+  gtpu:
+    # Max number of active bearers per UE
+    max_bearers_per_ue: {{ sgw.max_bearers_per_ue }}
+{% if sgw.gtpu_timeouts is defined %}
+    # GTP-U keepalive and timeout values (seconds)
+    keepalive: {{ sgw.gtpu_timeouts.keepalive }}
+    no_data_timeout: {{ sgw.gtpu_timeouts.no_data_timeout }}
+{% endif %}
+
+  # Logging
+  log:
+    level: "{{ sgw.log.level }}"
+{% if sgw.log.file %}
+    file: "{{ sgw.log.file }}"
+{% endif %}
+
+  # Mobility Management Entity (MME) list for load balancing
+{% if sgw.mme_list %}
+  mme_list:
+{% for mme in sgw.mme_list %}
+    - ip: "{{ mme.ip }}"
+      fqdn: "{{ mme.fqdn | default('') }}"
+{% endfor %}
+{% endif %}
+
+  # APN configuration (per-APN APN-AMBR, QoS, etc.)
+{% if sgw.apns %}
+  apns:
+{% for apn in sgw.apns %}
+    - apn: "{{ apn.apn }}"
+      smf:
+        addr: "{{ apn.smf.addr }}"
+{% if apn.smf.fqdn is defined %}
+        fqdn: "{{ apn.smf.fqdn }}"
+{% endif %}
+      qos:
+        qci: {{ apn.qos.qci }}
+        arp:
+          priority_level: {{ apn.qos.arp.priority_level }}
+          pre_emption_vulnerability: {{ apn.qos.arp.pre_emption_vulnerability | lower }}
+          pre_emption_capability: {{ apn.qos.arp.pre_emption_capability | lower }}
+{% if apn.ambr is defined %}
+      ambr:
+        uplink: {{ apn.ambr.uplink }}
+        downlink: {{ apn.ambr.downlink }}
+{% endif %}
+{% endfor %}
+{% endif %}
+
+  # Optional: NAT or firewall hints (ignored by SGW but kept for config portability)
+{% if sgw.nat is defined %}
+  nat:
+    enabled: {{ sgw.nat.enabled | lower }}
+{% endif %}

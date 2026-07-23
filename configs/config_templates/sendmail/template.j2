@@ -1,0 +1,115 @@
+# !/usr/bin/sendmail -bs
+# Sendmail Configuration File (sendmail.cf)
+# This is a production-ready template for sendmail.cf, derived from
+# standard sendmail configuration conventions. It separates site-specific
+# values (ports, paths, hosts, toggles) into Jinja2 variables.
+#
+# IMPORTANT: This template generates a minimal but functional configuration.
+# Real-world deployments often require additional options (e.g., auth, TLS,
+# milters), but those are omitted here for simplicity and safety.
+
+# ----------------------------- System Definitions -----------------------------
+# Path to sendmail binary
+O DaemonPortOptions=Port=smtp, Name=MTA
+O PidFile={{ pid_file }}
+O RunAsUser={{ run_as_user }}
+O RunAsGroup={{ run_as_group }}
+
+# ------------------------------ Mail Directories ------------------------------
+# Mail queue directory
+O QueueDirectory={{ queue_directory }}
+
+# Spool directory
+O TempDirectory={{ temp_directory }}
+
+# --------------------------- Network & Listening Settings ---------------------------
+# SMTP listening interface(s) and port(s)
+{% for listener in listeners %}
+O DaemonPortOptions=Port={{ listener.port }}, Name=MTA{{ loop.index }},Addr={{ listener.address }}{% endfor %}
+
+# ------------------------------ Host & Domain Settings ------------------------------
+# My hostname (used in SMTP banner and envelope)
+O MyName={{ my_hostname }}
+
+# Domain masquerading: rewrite local domains for outbound mail
+{% if domain_masquerade %}
+O DomainName={{ domain_masquerade }}
+{% endif %}
+
+# ----------------------------- Delivery & Reliability Settings -----------------------------
+# Maximum number of concurrent deliveries (per host)
+O MaxDaemonChildren={{ max_daemon_children }}
+
+# Queue run interval (seconds) — 0 = only manual or cron-triggered
+O QueueInterval={{ queue_interval }}
+
+# Maximum message size (bytes); 0 = unlimited
+{% if max_message_size > 0 %}
+O MaxMessageSize={{ max_message_size }}
+{% else %}
+O MaxMessageSize=0
+{% endif %}
+
+# ------------------------------ Security & Access Control ------------------------------
+# Reject messages from hosts in blacklists (if defined)
+{% if blacklist_files %}
+{% for bf in blacklist_files %}
+O BlackListFile={{ bf }}{% endfor %}
+{% endif %}
+
+# Allow only listed hosts for relay (if restricted relay is enabled)
+{% if restricted_relay %}
+O RelayFile={{ relay_file }}
+{% endif %}
+
+# ------------------------------ Logging & Diagnostics ------------------------------
+# Verbosity level: 0=minimal, 9=debug
+O LogLevel={{ log_level }}
+
+# Enable logging of SMTP transactions
+{% if log_smtp_transactions %}
+O LogAllTransactions=1
+{% else %}
+O LogAllTransactions=0
+{% endif %}
+
+# ------------------------------ Trusted Users & Groups ------------------------------
+# Users allowed to send mail via `sendmail` command without queueing (root typically)
+O TrustedUser={{ trusted_user }}
+
+# ------------------------------ Alias & Map Settings ------------------------------
+# Path to aliases database
+O AliasFile={{ alias_file }}
+
+# Search order for mailertable, virtuser, etc.
+O Mailertable=hash -o {{ map_directory }}/mailertable
+O VirtuserTable=hash -o {{ map_directory }}/virtuser
+O Genericstable=hash -o {{ map_directory }}/genericstable
+
+# ------------------------------ TLS & Authentication (Minimal) ------------------------------
+# TLS config: enable if paths provided
+{% if tls_cert %}
+O TLSCertFile={{ tls_cert }}
+{% endif %}
+{% if tls_key %}
+O TLSKeyFile={{ tls_key }}
+{% endif %}
+{% if tls_ca %}
+O TLSCAFile={{ tls_ca }}
+{% endif %}
+{% if tls_options is not none %}
+O TLSOptions={{ tls_options }}
+{% endif %}
+
+# Enable STARTTLS on SMTP daemon
+{% if starttls_enabled %}
+O DaemonPortOptions=Port=smtps, Name=MTAS, M=Ea
+{% endif %}
+
+# ------------------------------ Delivery Retry & Backoff ------------------------------
+# Retry interval (seconds) for unreachable hosts
+O DeliveryModeRetryInterval={{ delivery_mode_retry_interval }}
+
+# ------------------------------ Final: Include site-specific sendmail.m4 macros? ------------------------------
+# Uncomment to include macros if built with M4
+# include(`/etc/mail/sendmail.m4')dnl

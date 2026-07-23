@@ -1,0 +1,85 @@
+# Listen for mDNS queries on the specified interfaces
+interfaces: {{ interfaces | join(', ') }}
+
+# Multicast group address to join for mDNS (standard: 224.0.0.251)
+mcast_group: '{{ mcast_group }}'
+
+# UDP port to use for mDNS (standard: 5353)
+port: {{ port }}
+
+# Enable/disable IPv6 support (true/false)
+ipv6_enabled: {{ ipv6_enabled | lower }}
+
+# Optional: IPv6 multicast group (ff02::fb for link-local)
+{% if ipv6_enabled %}
+mcast_group_v6: '{{ mcast_group_v6 }}'
+{% endif %}
+
+# Maximum TTL (in seconds) to cache resolved records
+max_cache_ttl: {{ max_cache_ttl }}
+
+# TTL (in seconds) for negative cache entries
+negative_cache_ttl: {{ negative_cache_ttl }}
+
+# Log level: debug, info, warn, error
+log_level: '{{ log_level }}'
+
+# Optional: custom log file (leave empty for syslog)
+{% if log_file %}
+log_file: '{{ log_file }}'
+{% endif %}
+
+# Number of worker threads (0 = auto, typically 1–4)
+{% if worker_threads == 0 %}
+worker_threads: auto
+{% else %}
+worker_threads: {{ worker_threads }}
+{% endif %}
+
+# Rate limit: max queries per second per source IP (0 = unlimited)
+rate_limit_qps: {{ rate_limit_qps }}
+
+# Per-interface rate limit override list (if not empty)
+{% if rate_limits_by_iface %}
+# Per-interface rate limits (overrides global rate_limit_qps)
+{% for rule in rate_limits_by_iface %}
+{% if rule.interface %}
+rate_limit_iface: {{ rule.interface }}:{{ rule.rate_limit_qps }}
+{% endif %}
+{% endfor %}
+{% endif %}
+
+# List of hosts/domains to blacklist (exact match, case-insensitive)
+{% if blacklist_domains %}
+# Blacklisted domains (no mDNS reflection for these)
+{% for domain in blacklist_domains %}
+deny_domain: {{ domain }}
+{% endfor %}
+{% endif %}
+
+# List of hosts/domains to whitelist (if non-empty, only these are reflected)
+{% if whitelist_domains %}
+# Whitelisted domains (only these are reflected)
+{% for domain in whitelist_domains %}
+allow_domain: {{ domain }}
+{% endfor %}
+{% endif %}
+
+# Enable/disable service reflection (e.g., _http._tcp.local → http.local)
+service_reflection: {{ service_reflection | lower }}
+
+# Enable/disable PTR record reflection (e.g., .in-addr.arpa / .ip6.arpa)
+ptr_reflection: {{ ptr_reflection | lower }}
+
+# TTL (in seconds) for reflected A/AAAA records
+record_ttl: {{ record_ttl }}
+
+# Optional: source address to use for outgoing mDNS packets (e.g., for multi-homed hosts)
+{% if bind_addr %}
+bind_addr: '{{ bind_addr }}'
+{% endif %}
+
+# Optional: TTL (in seconds) for TTL override on all reflected records
+{% if override_ttl %}
+ttl_override: {{ override_ttl }}
+{% endif %}

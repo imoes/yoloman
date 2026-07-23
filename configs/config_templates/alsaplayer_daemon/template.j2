@@ -1,0 +1,99 @@
+# ALSA Player Daemon configuration file
+# This file controls the behavior of alsaplayer-daemon
+
+# General settings
+[general]
+# Enable or disable the daemon mode
+{% if daemon_enabled | default(true) %}daemon = yes{% else %}daemon = no{% endif %}
+
+# User and group to run as (if daemonizing)
+{% if run_as_user %}user = {{ run_as_user }}{% endif %}
+{% if run_as_group %}group = {{ run_as_group }}{% endif %}
+
+# PID file location
+pidfile = {{ pidfile_path | default('/run/alsaplayer/alsaplayer.pid') }}
+
+# Logging level: 0=quiet, 1=error, 2=warn, 3=info, 4=debug
+log_level = {{ log_level | default(2) }}
+
+# Path to log file (empty string = stdout only)
+{% if log_file %}log_file = {{ log_file }}{% endif %}
+
+# Network settings
+[net]
+# Listen address (IPv4/IPv6 or hostname); 0.0.0.0 = all interfaces
+{% if net_listen_address %}listen_address = {{ net_listen_address }}{% else %}listen_address = 0.0.0.0{% endif %}
+
+# TCP port for the HTTP control interface
+http_port = {{ http_port | default(4953) }}
+
+# TCP port for the XML-RPC interface
+xmlrpc_port = {{ xmlrpc_port | default(4954) }}
+
+# Maximum number of simultaneous connections
+max_connections = {{ max_connections | default(10) }}
+
+# Authentication settings (if enabled)
+{% if auth_enabled %}auth_enabled = yes{% else %}auth_enabled = no{% endif %}
+{% if auth_enabled and auth_username %}username = {{ auth_username }}{% endif %}
+{% if auth_enabled and auth_password %}password = {{ auth_password }}{% endif %}
+
+# Output device configuration
+[output]
+# ALSA PCM device name (e.g., hw:0,0; default: default)
+{% if alsa_device %}device = {{ alsa_device }}{% else %}device = default{% endif %}
+
+# ALSA mixer control name (e.g., Master, PCM)
+{% if alsa_mixer %}mixer = {{ alsa_mixer }}{% else %}mixer = Master{% endif %}
+
+# Mixer device (if different from PCM device)
+{% if alsa_mixer_device %}mixer_device = {{ alsa_mixer_device }}{% endif %}
+
+# Volume normalization (0–100)
+{% if default_volume is defined %}default_volume = {{ default_volume }}{% endif %}
+
+# Audio format: 0=auto, 1=16-bit, 2=24-bit, 3=32-bit
+{% if audio_bitdepth is defined %}preferred_bitdepth = {{ audio_bitdepth }}{% endif %}
+
+# Resampling quality: 0=nearest, 1=linear, 2=best (Sinc interpolation)
+resample_quality = {{ resample_quality | default(2) }}
+
+# Output buffer size in milliseconds (0 = use default ALSA buffer)
+buffer_time = {{ buffer_time | default(0) }}
+
+# Prebuffering percentage (0–100)
+prebuffer_percent = {{ prebuffer_percent | default(20) }}
+
+# Optional: multiple output plugins (e.g., for multi-room or fallback)
+{% for plugin in output_plugins %}
+[output:{{ plugin.name }}]
+{% if plugin.enabled | default(true) %}enabled = yes{% else %}enabled = no{% endif %}
+{% if plugin.device %}device = {{ plugin.device }}{% endif %}
+{% if plugin.type %}type = {{ plugin.type }}{% endif %}
+{% endfor %}
+
+# Input/decoder plugins
+[input]
+# Priority list of decoder plugins (by name), or empty = auto
+{% if decoders %}decoders = {{ decoders | join(', ') }}{% endif %}
+
+# Input plugins
+{% for plugin in input_plugins %}
+[input:{{ plugin.name }}]
+{% if plugin.enabled | default(true) %}enabled = yes{% else %}enabled = no{% endif %}
+{% if plugin.priority is defined %}priority = {{ plugin.priority }}{% endif %}
+{% endfor %}
+
+# Playlist handling
+[playlist]
+# Default playlist format: m3u, m3u8, pls, xspf
+{% if default_playlist_format %}default_format = {{ default_playlist_format }}{% endif %}
+
+# Auto-load next track when playlist ends
+{% if autoplay | default(true) %}autoplay = yes{% else %}autoplay = no{% endif %}
+
+# Repeat mode: 0=none, 1=track, 2=playlist, 3=track+playlist
+repeat_mode = {{ repeat_mode | default(0) }}
+
+# Shuffle mode: 0=off, 1=on
+{% if shuffle_enabled %}shuffle = yes{% else %}shuffle = no{% endif %}

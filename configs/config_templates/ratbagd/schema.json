@@ -1,0 +1,77 @@
+{
+  "log_level": {
+    "type": "number",
+    "default": 3,
+    "description": "Verbosity of logging: 0 (none) to 5 (trace). Higher levels help debug issues."
+  },
+  "log_targets": {
+    "type": "list",
+    "default": [
+      "syslog",
+      "file"
+    ],
+    "description": "Where to send logs. Choose from 'syslog', 'file', or both.",
+    "items": {
+      "type": "string",
+      "enum": [
+        "syslog",
+        "file"
+      ],
+      "description": "A log target."
+    }
+  },
+  "polling_rate": {
+    "type": "number",
+    "default": 0,
+    "description": "Default polling rate in Hz. Set to 0 to use the device's native rate."
+  },
+  "report_rate": {
+    "type": "number",
+    "default": 0,
+    "description": "Default report rate in Hz (for devices supporting report rate control). Set to 0 for device default."
+  },
+  "enable_profile_switch": {
+    "type": "bool",
+    "default": true,
+    "description": "Automatically switch to the last active profile when connecting a device."
+  },
+  "supports_dpi": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable DPI (dots per inch) resolution switching via D-Bus."
+  },
+  "supports_buttons": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable button remapping and macro assignment via D-Bus."
+  },
+  "supports_macros": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable macro playback via D-Bus. Requires device support."
+  },
+  "device_quirks": {
+    "type": "list",
+    "default": [],
+    "description": "List of per-device workarounds for hardware-specific issues.",
+    "items": {
+      "type": "object",
+      "fields": {
+        "device_id": {
+          "type": "string",
+          "description": "Vendor:Product ID in hex (e.g., '1532:005b') or udev match pattern.",
+          "example": "1532:005b"
+        },
+        "value": {
+          "type": "string",
+          "description": "Quirk value \u2014 typically a comma-separated list of flags like 'disable-led', 'legacy-report', etc.",
+          "example": "disable-led, legacy-report"
+        },
+        "description": {
+          "type": "string",
+          "description": "Brief human-readable explanation of the quirk\u2019s purpose."
+        }
+      }
+    }
+  }
+}

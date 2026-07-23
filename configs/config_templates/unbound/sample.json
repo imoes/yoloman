@@ -1,0 +1,80 @@
+{
+  "interfaces": [
+    "127.0.0.1",
+    "192.168.1.1"
+  ],
+  "server_port": 53,
+  "do_ip4": true,
+  "do_ip6": true,
+  "do_udp": true,
+  "do_tcp": true,
+  "tcp_upstream": 10,
+  "tcp_downstream": 100,
+  "num_threads": 2,
+  "edns_buffer_size": 1232,
+  "msg_cache_size": "16mb",
+  "msg_cache_slabs": 4,
+  "key_cache_size": "8mb",
+  "key_cache_slabs": 4,
+  "rrset_cache_size": "32mb",
+  "rrset_cache_slabs": 4,
+  "infra_cache_ttl": 600,
+  "infra_cache_slabs": 4,
+  "log_queries": false,
+  "log_replies": false,
+  "log_tag": true,
+  "log_time_ascii": true,
+  "access_control": [
+    [
+      "127.0.0.0/8 allow"
+    ],
+    [
+      "192.168.1.0/24 allow"
+    ],
+    [
+      "0.0.0.0/0 deny"
+    ]
+  ],
+  "forward_upstream": [
+    {
+      "name": ".",
+      "forward_first": true,
+      "hosts": [
+        "8.8.8.8@53",
+        "8.8.4.4@53"
+      ]
+    }
+  ],
+  "auto_trust_anchor_file": "/var/lib/unbound/root.key",
+  "trust_anchor_files": [
+    "/usr/share/dns/root.key"
+  ],
+  "trust_anchor_signing": false,
+  "neg_cache_size": "2mb",
+  "chroot_dir": "/var/lib/unbound",
+  "username": "unbound",
+  "local_zones": [
+    {
+      "name": "example.local",
+      "type": "static"
+    },
+    {
+      "name": "1.168.192.in-addr.arpa",
+      "type": "stub"
+    }
+  ],
+  "local_data": [
+    "myhost.example.local. 3600 IN A 192.168.1.10",
+    "_ldap._tcp.example.local. 3600 IN SRV 0 0 389 ldap.example.local."
+  ],
+  "statistics_interval": 3600,
+  "extended_statistics": true,
+  "cumulative_statistics": false,
+  "control_enable": true,
+  "control_interface": "127.0.0.1",
+  "control_port": 8953,
+  "control_server_key_file": "/var/lib/unbound/unbound_server.key",
+  "control_server_cert_file": "/var/lib/unbound/unbound_server.pem",
+  "control_client_key_file": "/var/lib/unbound/unbound_control.key",
+  "control_client_cert_file": "/var/lib/unbound/unbound_control.pem"
+}

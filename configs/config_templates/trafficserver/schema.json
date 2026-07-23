@@ -1,0 +1,318 @@
+{
+  "server_root": {
+    "type": "string",
+    "default": "/etc/apache2",
+    "description": "Top-level directory where Apache configuration, logs, and modules are stored."
+  },
+  "include_modules": {
+    "type": "list",
+    "default": [
+      {
+        "name": "socache_shmcb",
+        "path": "mod_socache_shmcb.so"
+      },
+      {
+        "name": "ssl",
+        "path": "mod_ssl.so"
+      },
+      {
+        "name": "rewrite",
+        "path": "mod_rewrite.so"
+      },
+      {
+        "name": "cache_disk",
+        "path": "mod_cache_disk.so"
+      },
+      {
+        "name": "proxy",
+        "path": "mod_proxy.so"
+      },
+      {
+        "name": "proxy_http",
+        "path": "mod_proxy_http.so"
+      }
+    ],
+    "items": {
+      "name": {
+        "type": "string",
+        "description": "Module name (e.g., 'rewrite')"
+      },
+      "path": {
+        "type": "string",
+        "description": "Relative or absolute path to module .so file"
+      }
+    },
+    "description": "List of modules to load. Each entry has name and path."
+  },
+  "include_optional_dirs": {
+    "type": "list",
+    "default": [
+      "mods-enabled",
+      "conf-enabled",
+      "sites-enabled"
+    ],
+    "items": {
+      "type": "string",
+      "description": "Directory path to include optional config snippets from"
+    },
+    "description": "Directories whose contents (*.conf) should be automatically included."
+  },
+  "listen_address": {
+    "type": "string",
+    "default": "*",
+    "description": "IP address (or * for all interfaces) to bind to for incoming connections."
+  },
+  "port": {
+    "type": "number",
+    "default": 80,
+    "description": "TCP port to listen on for HTTP traffic."
+  },
+  "user": {
+    "type": "string",
+    "default": "www-data",
+    "description": "System user under which Apache processes run (security best practice: non-root)."
+  },
+  "group": {
+    "type": "string",
+    "default": "www-data",
+    "description": "System group under which Apache processes run."
+  },
+  "server_admin": {
+    "type": "string",
+    "default": "admin@localhost",
+    "description": "Email address shown in server-generated error pages and responses."
+  },
+  "server_name": {
+    "type": "string",
+    "default": "",
+    "description": "Server hostname and optional port (e.g., 'example.com:80'). Leave blank to auto-detect."
+  },
+  "hostname_lookups": {
+    "type": "string",
+    "default": "Off",
+    "description": "Enable DNS reverse lookups for client IPs ('On' or 'Off'). Recommended: 'Off' for performance."
+  },
+  "error_log": {
+    "type": "string",
+    "default": "/var/log/apache2/error.log",
+    "description": "Path to the main error log file."
+  },
+  "log_level": {
+    "type": "string",
+    "default": "warn",
+    "description": "Verbosity of error logs: emerg, alert, crit, error, warn, notice, info, debug."
+  },
+  "error_documents": {
+    "type": "object",
+    "default": {
+      "404": "/errors/404.html",
+      "500": "/errors/500.html"
+    },
+    "description": "Mapping of HTTP status codes to custom error document paths."
+  },
+  "mime_types_config": {
+    "type": "string",
+    "default": "/etc/mime.types",
+    "description": "Path to the system MIME types configuration file."
+  },
+  "directory_index": {
+    "type": "list",
+    "default": [
+      "index.html",
+      "index.php",
+      "index.htm"
+    ],
+    "items": {
+      "type": "string"
+    },
+    "description": "List of filenames Apache serves by default for directory requests."
+  },
+  "document_root": {
+    "type": "string",
+    "default": "/var/www/html",
+    "description": "Path to the directory containing site content."
+  },
+  "directory_options": {
+    "type": "list",
+    "default": [
+      "Indexes",
+      "FollowSymLinks"
+    ],
+    "items": {
+      "type": "string",
+      "description": "Option name (e.g., 'Indexes', 'ExecCGI')"
+    },
+    "description": "Options enabled for the DocumentRoot directory."
+  },
+  "allow_override": {
+    "type": "string",
+    "default": "All",
+    "description": "Which directives in .htaccess files are allowed (e.g., 'All', 'None', 'AuthConfig')."
+  },
+  "require_method": {
+    "type": "string",
+    "default": "all granted",
+    "description": "Default access rule (e.g., 'all granted', 'host example.com')."
+  },
+  "php_handler": {
+    "type": "string",
+    "default": "proxy:unix:/run/php/php-fpm.sock|fcgi://localhost",
+    "description": "Handler for PHP files (e.g., 'proxy:unix:/run/php/php-fpm.sock|fcgi://localhost' for FPM)."
+  },
+  "runtime_dir": {
+    "type": "string",
+    "default": "/var/run/apache2",
+    "description": "Directory for runtime files (mutexes, etc.)."
+  },
+  "pid_file": {
+    "type": "string",
+    "default": "/var/run/apache2/apache2.pid",
+    "description": "File to write the server\u2019s process ID."
+  },
+  "timeout": {
+    "type": "number",
+    "default": 60,
+    "description": "Maximum time (seconds) to receive requests or send responses before aborting."
+  },
+  "keep_alive": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable HTTP persistent connections."
+  },
+  "max_keepalive_requests": {
+    "type": "number",
+    "default": 100,
+    "description": "Maximum number of requests allowed per persistent connection."
+  },
+  "keepalive_timeout": {
+    "type": "number",
+    "default": 5,
+    "description": "Seconds to wait for additional requests on a persistent connection."
+  },
+  "access_file_name": {
+    "type": "string",
+    "default": ".htaccess",
+    "description": "Name of distributed configuration files (e.g., .htaccess)."
+  },
+  "log_format": {
+    "type": "string",
+    "default": "%h %l %u %t \\\"%r\\\" %>s %O \\\"%{Referer}i\\\" \\\"%{User-Agent}i\\\"",
+    "description": "Apache LogFormat string (default = combined)."
+  },
+  "log_format_name": {
+    "type": "string",
+    "default": "combined",
+    "description": "Name/alias for the custom log format."
+  },
+  "access_logs": {
+    "type": "list",
+    "default": [
+      {
+        "path": "/var/log/apache2/access.log",
+        "format": "combined"
+      }
+    ],
+    "items": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string",
+          "description": "Path to access log file"
+        },
+        "format": {
+          "type": "string",
+          "description": "Log format name (must match LogFormat alias)"
+        }
+      }
+    },
+    "description": "Access log configuration entries (one per log file)."
+  },
+  "enable_cache": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable disk-based content caching (mod_cache_disk)."
+  },
+  "cache_root": {
+    "type": "string",
+    "default": "/var/cache/apache2/mod_cache_disk",
+    "description": "Base directory for cached content."
+  },
+  "cache_dir_levels": {
+    "type": "number",
+    "default": 2,
+    "description": "Depth of subdirectory hierarchy under CacheRoot."
+  },
+  "cache_dir_length": {
+    "type": "number",
+    "default": 2,
+    "description": "Number of characters per subdirectory name."
+  },
+  "cache_default_expire": {
+    "type": "number",
+    "default": 3600,
+    "description": "Default cache lifetime in seconds (used when no expiration is specified)."
+  },
+  "cache_max_expire": {
+    "type": "number",
+    "default": 86400,
+    "description": "Maximum cache lifetime in seconds."
+  },
+  "cache_last_modified_factor": {
+    "type": "number",
+    "default": 0.1,
+    "description": "Factor to estimate freshness from last-modified timestamp (0.0\u20131.0)."
+  },
+  "cache_enable": {
+    "type": "list",
+    "default": [
+      {
+        "type": "disk",
+        "url": "/"
+      }
+    ],
+    "items": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "description": "Cache storage module type (e.g., 'disk')"
+        },
+        "url": {
+          "type": "string",
+          "description": "URL path pattern to cache (e.g., '/' for all)"
+        }
+      }
+    },
+    "description": "URL paths to cache, with storage type."
+  },
+  "mime_types_extra": {
+    "type": "object",
+    "default": {
+      ".webp": "image/webp",
+      ".svg": "image/svg+xml",
+      ".woff2": "font/woff2"
+    },
+    "description": "Additional MIME type mappings for file extensions."
+  },
+  "server_signature": {
+    "type": "bool",
+    "default": false,
+    "description": "Include server version and virtual host name in server-generated pages (false = better security)."
+  },
+  "trace_enable": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable HTTP TRACE method (false = recommended to prevent XST attacks)."
+  },
+  "include_vhost_files": {
+    "type": "list",
+    "default": [
+      "sites-enabled/*.conf"
+    ],
+    "items": {
+      "type": "string",
+      "description": "Path pattern for virtual host config files"
+    },
+    "description": "Paths/filenames for virtual host (site) configurations."
+  }
+}

@@ -1,0 +1,88 @@
+# Filebeat configuration - main input, output, and service settings
+# Enables Filebeat to collect logs, process them, and ship to specified output
+
+filebeat.inputs:
+{% for input in inputs %}
+# Input: {{ input.type }} - {{ input.description | default('No description provided') }}
+{% if input.enabled | default(true) %}
+- type: {{ input.type }}
+{% for key, value in input.config.items() %}
+{% if value is not none %}
+  {{ key }}: {{ value | tojson }}
+{% endif %}
+{% endfor %}
+{% if input.paths is defined %}
+  paths:
+{% for path in input.paths %}
+    - {{ path | tojson }}
+{% endfor %}
+{% endif %}
+{% if input.multiline is defined %}
+  multiline:
+{% for key, value in input.multiline.items() %}
+{% if value is not none %}
+    {{ key }}: {{ value | tojson }}
+{% endif %}
+{% endfor %}
+{% endif %}
+{% if input.scan_frequency is defined %}
+  scan_frequency: {{ input.scan_frequency }}
+{% endif %}
+{% if input.close_on_rotate is defined %}
+  close_on_rotate: {{ input.close_on_rotate | tojson }}
+{% endif %}
+{% if input.document_type is defined %}
+  document_type: {{ input.document_type }}
+{% endif %}
+{% endif %}
+{% endfor %}
+
+# Processors to enrich and transform events
+processors:
+{% for processor in processors %}
+{% if processor.enabled | default(true) %}
+- {{ processor.type }}:
+{% for key, value in processor.config.items() %}
+{% if value is not none %}
+    {{ key }}: {{ value | tojson }}
+{% endif %}
+{% endfor %}
+{% endif %}
+{% endfor %}
+
+# Output configuration — either Elasticsearch or Logstash
+output.{{ output.type }}:
+{% for key, value in output.config.items() %}
+{% if value is not none %}
+  {{ key }}: {{ value | tojson }}
+{% endif %}
+{% endfor %}
+
+# Logging configuration
+logging.level: {{ logging.level }}
+logging.to_files: {{ logging.to_files | tojson }}
+logging.files:
+  path: {{ logging.files.path }}
+  name: {{ logging.files.name }}
+  keepfiles: {{ logging.files.keepfiles }}
+  permissions: {{ logging.files.permissions }}
+
+# General Filebeat settings
+filebeat.config:
+  modules:
+    path: ${path.config}/modules.d/*.yml
+    reload.enabled: {{ config_modules_reload_enabled | tojson }}
+
+setup.kibana:
+  host: "{{ kibana_host }}:{{ kibana_port }}"
+{% if kibana_username is defined and kibana_username is not none %}
+  username: {{ kibana_username | tojson }}
+{% endif %}
+{% if kibana_password is defined and kibana_password is not none %}
+  password: {{ kibana_password | tojson }}
+{% endif %}
+
+setup.template.enabled: {{ template_enabled | tojson }}
+setup.template.name: "{{ template_name }}"
+setup.template.pattern: "{{ template_pattern }}"
+setup.template.fields: {{ template_fields | tojson }}

@@ -1,0 +1,71 @@
+[sssd]
+# List of SSSD services to enable
+services = {{ services | join(', ') }}
+
+# Domain configuration list
+config_file_version = 2
+domains = {{ domains | join(', ') }}
+
+{% for domain in domains %}
+[domain/{{ domain }}]
+# LDAP provider type for this domain
+id_provider = ldap
+auth_provider = ldap
+{% if domain == 'default' %}
+# Default domain (used if no domain specified in login)
+# (No extra directive needed; handled by naming)
+{% else %}
+# LDAP URI(s) for directory server access
+ldap_uri = {{ ldap_uris | join(', ') }}
+
+# LDAP server search base (root DSE for domain-specific search)
+ldap_search_base = {{ search_base }}
+
+# LDAP schema to use (rfc2307, rfc2307bis, or apple_mactelnet)
+ldap_schema = {{ ldap_schema }}
+
+# Authentication method: simple (bind DN + password) or sasl
+ldap_default_bind_dn = {{ default_bind_dn }}
+ldap_default_authtok = {{ default_authtok | default('') }}
+
+# TLS configuration
+ldap_tls_reqcert = {{ tls_reqcert }}
+{% if tls_ca_cert_dir %}
+ldap_tls_cacertdir = {{ tls_ca_cert_dir }}
+{% endif %}
+{% if tls_ca_cert_file %}
+ldap_tls_cacert = {{ tls_ca_cert_file }}
+{% endif %}
+
+# User/group name and attribute mapping
+ldap_user_name = {{ user_name_attr }}
+ldap_user_uid_number = {{ user_uid_attr }}
+ldap_user_gid_number = {{ user_gid_attr }}
+ldap_user_home_directory = {{ user_homedir_attr }}
+ldap_user_shell = {{ user_shell_attr }}
+ldap_group_name = {{ group_name_attr }}
+ldap_group_gid_number = {{ group_gid_attr }}
+
+# Cache settings
+cache_credentials = {{ cache_credentials | lower }}
+
+# Authorization (optional, for POSIX ACLs / sudo)
+{% if enable_authorization %}
+ldap_authorization = True
+{% else %}
+ldap_authorization = False
+{% endif %}
+{% endif %}
+{% endfor %}
+
+[sssd]
+# Service startup timeout (seconds)
+reconnection_retries = 3
+sbus_timeout = 30
+
+# SSSD log level (0-9, 9 = verbose debug)
+# 2 = normal operational logging
+debug_level = {{ debug_level }}
+
+# Log file location
+log_file = {{ log_file }}

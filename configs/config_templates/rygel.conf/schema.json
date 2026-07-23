@@ -1,0 +1,131 @@
+{
+  "enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Globally enable or disable the Rygel UPnP media server."
+  },
+  "interface": {
+    "type": "string",
+    "default": "",
+    "description": "Network interface to bind Rygel to. Leave empty to listen on all interfaces."
+  },
+  "device_name": {
+    "type": "string",
+    "default": "Rygel Media Server",
+    "description": "Human-readable name for the device as it appears to UPnP clients."
+  },
+  "min_port": {
+    "type": "number",
+    "default": 7500,
+    "description": "Minimum TCP port number for media streaming connections."
+  },
+  "max_port": {
+    "type": "number",
+    "default": 7700,
+    "description": "Maximum TCP port number for media streaming connections."
+  },
+  "log_level": {
+    "type": "number",
+    "default": 2,
+    "description": "Verbosity level: 0=error, 1=warn, 2=info, 3=debug, 4=verbose."
+  },
+  "media_dir": {
+    "type": "string",
+    "default": "/var/lib/rygel/media",
+    "description": "Absolute path to the directory containing media files to serve."
+  },
+  "trash_dir": {
+    "type": "string",
+    "default": "",
+    "description": "Optional directory where deleted/trashed items are stored. Leave empty to disable."
+  },
+  "enable_transcoding": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable or disable on-the-fly transcoding of unsupported media formats."
+  },
+  "transcode_dir": {
+    "type": "string",
+    "default": "/var/lib/rygel/transcodes",
+    "description": "Directory used to store temporary transcoded files."
+  },
+  "media_export": {
+    "type": "object",
+    "default": {
+      "enabled": false,
+      "uris": []
+    },
+    "description": "MediaExport plugin configuration.",
+    "items": {
+      "enabled": {
+        "type": "bool",
+        "default": false,
+        "description": "Enable the MediaExport plugin to export local directories via UPnP."
+      },
+      "uris": {
+        "type": "list",
+        "default": [],
+        "description": "List of filesystem paths or URIs to export as media shares.",
+        "items": {
+          "type": "string",
+          "description": "Path or URI to export (e.g., /home/user/Music)"
+        }
+      }
+    }
+  },
+  "tracker": {
+    "type": "object",
+    "default": {
+      "enabled": false,
+      "metadata_extract": true
+    },
+    "description": "Tracker (GNOME metadata) plugin configuration.",
+    "items": {
+      "enabled": {
+        "type": "bool",
+        "default": false,
+        "description": "Enable integration with Tracker for metadata indexing."
+      },
+      "metadata_extract": {
+        "type": "bool",
+        "default": true,
+        "description": "Extract metadata using Tracker before serving media."
+      }
+    }
+  },
+  "plugins": {
+    "type": "list",
+    "default": [],
+    "description": "Additional Rygel plugins to enable (beyond built-in defaults).",
+    "items": {
+      "type": "object",
+      "description": "A plugin configuration block.",
+      "items": {
+        "name": {
+          "type": "string",
+          "default": "",
+          "description": "Plugin name (e.g., 'GstLaunch', 'LMS')."
+        },
+        "enabled": {
+          "type": "bool",
+          "default": false,
+          "description": "Enable the plugin."
+        },
+        "description": {
+          "type": "string",
+          "default": "",
+          "description": "Optional human-readable description (used for comment in config)."
+        },
+        "options": {
+          "type": "object",
+          "default": {},
+          "description": "Plugin-specific configuration key-value pairs.",
+          "items": {
+            "type": "any",
+            "description": "Plugin option value (string, number, or boolean)."
+          }
+        }
+      }
+    }
+  }
+}

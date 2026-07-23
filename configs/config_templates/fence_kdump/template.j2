@@ -1,0 +1,28 @@
+# fence_kdump configuration — kdump-based fencing for Red Hat cluster nodes
+# Each entry defines a fencing target node and the kdump settings used to trigger a crash dump
+# The fence agent triggers a crash dump via `fence_kdump_send` on the target node
+# Using the specified delivery method (e.g., IPMI, serial, etc.)
+
+{% for node in nodes %}
+# Fence target: {{ node.name }} (IP: {{ node.ip }})
+{% if node.name %}name={{ node.name }}{% endif %}
+{% if node.ip %}ipaddr={{ node.ip }}{% endif %}
+{% if node.port %}port={{ node.port }}{% endif %}
+{% if node.login %}login={{ node.login }}{% endif %}
+{% if node.password %}passwd={{ node.password }}{% endif %}
+{% if node.ipmi_lan_interface %}lan_interface={{ node.ipmi_lan_interface }}{% endif %}
+{% if node.ipmi_auth_type %}auth_type={{ node.ipmi_auth_type }}{% endif %}
+{% if node.ipmi_priv_level %}priv_level={{ node.ipmi_priv_level }}{% endif %}
+{% if node.ipmi_cipher_suite %}cipher_suite={{ node.ipmi_cipher_suite }}{% endif %}
+# kdump-specific options
+{% if node.ipmi_use_legacy_keys %}use_legacy_keys={{ "1" if node.ipmi_use_legacy_keys else "0" }}{% endif %}
+# Optional: override default timeout and retries
+{% if node.timeout %}timeout={{ node.timeout }}{% endif %}
+{% if node.retries %}retries={{ node.retries }}{% endif %}
+{% if node.delay %}delay={{ node.delay }}{% endif %}
+# Optional: debug mode
+{% if node.debug %}debug=1{% endif %}
+{% if not loop.last %}
+
+{% endif %}
+{% endfor %}

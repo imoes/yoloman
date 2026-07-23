@@ -1,0 +1,55 @@
+{
+  "server": {
+    "bind": "0.0.0.0:8080",
+    "workdir": "/var/lib/debusine/server",
+    "max_workers": 8,
+    "tls": {
+      "enabled": true,
+      "cert_file": "/etc/debusine/cert.pem",
+      "key_file": "/etc/debusine/key.pem"
+    }
+  },
+  "database": {
+    "dsn": "postgresql://debusine:secret@db.example.com:5432/debusine"
+  },
+  "logging": {
+    "level": "info",
+    "file": "-"
+  },
+  "cleanup": {
+    "job_retention_days": 14,
+    "archive_before_delete": true
+  },
+  "toolchains": [
+    {
+      "name": "gcc-13",
+      "version": "13.2.0",
+      "env": {
+        "CC": "/usr/bin/gcc-13",
+        "CXX": "/usr/bin/g++-13"
+      }
+    },
+    {
+      "name": "clang-16",
+      "version": "16.0.0",
+      "env": {
+        "CC": "/usr/bin/clang-16",
+        "CXX": "/usr/bin/clang++-16"
+      }
+    }
+  ],
+  "workers": [
+    {
+      "name": "standard",
+      "max_jobs": 4,
+      "cpu_limit": 2000,
+      "memory_limit": "4G"
+    },
+    {
+      "name": "resource_intensive",
+      "max_jobs": 2,
+      "cpu_limit": 8000,
+      "memory_limit": "16G"
+    }
+  ]
+}

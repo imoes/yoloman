@@ -1,0 +1,42 @@
+#!/run/ebtables --load
+# Load ebtables rules from file on service start
+
+# Flush existing rules
+-A INPUT --jump ACCEPT
+-A OUTPUT --jump ACCEPT
+-A FORWARD --jump ACCEPT
+
+# Flush and set default policies to DROP (security-first stance)
+-P INPUT DROP
+-P OUTPUT DROP
+-P FORWARD DROP
+
+# Allow loopback traffic on bridge (for local containers/VMs)
+-A INPUT -i lo --jump ACCEPT
+-A OUTPUT -o lo --jump ACCEPT
+
+# Allow established/related connections (stateful filtering)
+-A INPUT -m state --state ESTABLISHED,RELATED --jump ACCEPT
+-A FORWARD -m state --state ESTABLISHED,RELATED --jump ACCEPT
+-A OUTPUT -m state --state ESTABLISHED,RELATED --jump ACCEPT
+
+# Explicitly allow ARP (required for bridge operation)
+-A INPUT -p ARP --jump ACCEPT
+-A FORWARD -p ARP --jump ACCEPT
+-A OUTPUT -p ARP --jump ACCEPT
+
+{% for rule in input_rules %}# {{ rule.comment | default('Input rule') }}
+-A INPUT {{ rule.match }} --jump {{ rule.target }}
+{% endfor %}
+
+{% for rule in output_rules %}# {{ rule.comment | default('Output rule') }}
+-A OUTPUT {{ rule.match }} --jump {{ rule.target }}
+{% endfor %}
+
+{% for rule in forward_rules %}# {{ rule.comment | default('Forward rule') }}
+-A FORWARD {{ rule.match }} --jump {{ rule.target }}
+{% endfor %}
+
+# Save ruleset to persistent storage on service stop
+# (ebtables does not auto-save; must be handled by init/systemd or script)
+# /sbin/ebtables --save

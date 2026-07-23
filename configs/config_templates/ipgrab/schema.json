@@ -1,0 +1,104 @@
+{
+  "interface": {
+    "type": "string",
+    "default": "eth0",
+    "description": "Network interface to capture packets from. Use 'any' for all interfaces."
+  },
+  "filter": {
+    "type": "string",
+    "default": "",
+    "description": "Berkeley Packet Filter (BPF) expression to selectively capture packets. Leave empty to capture all."
+  },
+  "max_packets": {
+    "type": "number",
+    "default": 0,
+    "description": "Maximum number of packets to capture. 0 means continue until interrupted."
+  },
+  "output_mode": {
+    "type": "string",
+    "default": "text",
+    "description": "Format of the output. 'text' = decoded headers, 'hex' = raw hex dump, 'combined' = both."
+  },
+  "verbose_data": {
+    "type": "boolean",
+    "default": false,
+    "description": "If true, include full packet payload (as hex) in output even in text mode."
+  },
+  "snaplen": {
+    "type": "number",
+    "default": 0,
+    "description": "Maximum number of bytes to capture per packet. 0 means capture full packet length."
+  },
+  "timestamp_format": {
+    "type": "string",
+    "default": "full",
+    "description": "Format of packet timestamps: 'full' = ISO 8601, 'compact' = Unix epoch, 'relative' = ms since first packet."
+  },
+  "include_link_layer": {
+    "type": "boolean",
+    "default": true,
+    "description": "Include Ethernet header (e.g., MAC addresses) in decoded output."
+  },
+  "rotate_size_mb": {
+    "type": "number",
+    "default": 0,
+    "description": "Maximum size (in MB) of the output file before rotation. 0 disables rotation."
+  },
+  "rotate_count": {
+    "type": "number",
+    "default": 3,
+    "description": "Number of rotated files to retain. Used only when rotate_size_mb > 0."
+  },
+  "output_file": {
+    "type": "string",
+    "default": "",
+    "description": "Path to write captured output. Empty string means standard output (console)."
+  },
+  "daemonize": {
+    "type": "boolean",
+    "default": false,
+    "description": "Run ipgrab in the background as a daemon service."
+  },
+  "pid_file": {
+    "type": "string",
+    "default": "/var/run/ipgrab.pid",
+    "description": "Path to the PID file when daemonized."
+  },
+  "extra_interfaces": {
+    "type": "list",
+    "default": [],
+    "description": "Additional interfaces to capture on (used when multi-interface mode is desired).",
+    "items": {
+      "type": "string",
+      "description": "Interface name (e.g., 'eth1', 'wlan0')."
+    }
+  },
+  "use_buffering": {
+    "type": "boolean",
+    "default": false,
+    "description": "Enable internal packet buffering to reduce CPU usage on high-throughput links."
+  },
+  "buffer_size": {
+    "type": "number",
+    "default": 10000,
+    "description": "Maximum number of packets buffered before flush.",
+    "condition": "when use_buffering is true"
+  },
+  "buffer_timeout_ms": {
+    "type": "number",
+    "default": 100,
+    "description": "Maximum time (ms) to wait before flushing buffer, even if not full.",
+    "condition": "when use_buffering is true"
+  },
+  "use_priority_filter": {
+    "type": "boolean",
+    "default": false,
+    "description": "If supported by the system, filter by packet priority (e.g., from netem or tc)."
+  },
+  "min_priority": {
+    "type": "number",
+    "default": 0,
+    "description": "Minimum packet priority to capture (0 = highest).",
+    "condition": "when use_priority_filter is true"
+  }
+}

@@ -1,0 +1,16 @@
+# SELinux configuration for containerized workloads
+# This file controls the system-wide SELinux mode and policy
+# See `man 5 selinuxconfig` for details
+
+# Enable or disable SELinux enforcement (enforcing, permissive, disabled)
+SELINUX={{ selinux_mode }}
+
+# SELinux policy type to load (e.g., targeted, mls, minimum)
+# For containers, `targeted` is typically recommended
+SELINUXTYPE={{ selinux_policy_type }}
+
+# Optional: Enable SELinux booleans for container runtime compatibility
+# (e.g., `container_t` domain support, network bridging, etc.)
+# These are applied at runtime via `setsebool`, but can be persisted here
+{{ selinux_booleans | default([]) | join('
+') | indent(width=0) }}

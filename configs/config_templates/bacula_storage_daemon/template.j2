@@ -1,0 +1,63 @@
+# Director that is allowed to communicate with this storage daemon
+Director {
+  Name = {{ director_name }}
+  Password = "{{ director_password }}"
+}
+
+# Unique name for this storage daemon
+Storage {
+  Name = {{ storage_name }}
+  SDport = {{ sd_port }}
+  WorkingDirectory = "{{ working_directory }}"
+  PidDirectory = "{{ pid_directory }}"
+  Maximum Concurrent Jobs = {{ max_concurrent_jobs }}
+}
+
+# Listener address and port for connections from Directors and Clients
+SDAddress = {{ sd_address }}
+SDPort = {{ sd_port }}
+
+# Directory where backups are stored
+Device {
+  Name = {{ device_name }}
+  Media Type = {{ media_type }}
+  Archive Device = "{{ archive_device }}"
+  LabelMedia = {{ label_media }}
+  Random Access = {{ random_access }}
+  AutomaticMount = {{ automatic_mount }}
+  RemovableMedia = {{ removable_media }}
+  AlwaysOpen = {{ always_open }}
+{% if devices_extra %}
+{% for dev in devices_extra %}
+  {{ dev | tojson(indent=2) | replace('"', '') | replace('\n      ', '\n  ') }}
+{% endfor %}
+{% endif %}
+}
+
+# Optional: Additional devices (e.g., for tape libraries or multi-device configs)
+{% for device in devices %}
+Device {
+  Name = {{ device.name }}
+  Media Type = {{ device.media_type }}
+  Archive Device = "{{ device.archive_device }}"
+  LabelMedia = {{ device.label_media | string | lower }}
+  Random Access = {{ device.random_access | string | lower }}
+  AutomaticMount = {{ device.automatic_mount | string | lower }}
+  RemovableMedia = {{ device.removable_media | string | lower }}
+  AlwaysOpen = {{ device.always_open | string | lower }}
+{% if device.max_concurrent_jobs is defined %}
+  Maximum Concurrent Jobs = {{ device.max_concurrent_jobs }}
+{% endif %}
+{% if device.dev_extra %}
+{% for extra in device.dev_extra %}
+  {{ extra | tojson(indent=2) | replace('"', '') | replace('\n      ', '\n  ') }}
+{% endfor %}
+{% endif %}
+}
+{% endfor %}
+
+# Optional: Messages to send to Director upon events
+Messages {
+  Name = Standard
+  director = {{ director_name }} = all, !skipped, !saved
+}

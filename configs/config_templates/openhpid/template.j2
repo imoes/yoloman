@@ -1,0 +1,80 @@
+# OpenHPI daemon configuration file
+# This file controls the behavior of the openhpid service
+
+# Daemon user and group to run as (security best practice)
+User {{ openhpi_user }}
+Group {{ openhpi_group }}
+
+# PID file location
+PidFile {{ openhpi_pidfile }}
+
+# Log level: DEBUG, INFO, NOTICE, WARNING, ERROR, CRITICAL, ALERT, EMERGENCY
+LogLevel {{ openhpi_loglevel }}
+
+# Log file path (use '-' for stderr)
+LogFile {{ openhpi_logfile }}
+
+# Maximum number of log files to retain (rotated logs)
+LogRotationCount {{ openhpi_log_rotation_count }}
+
+# Maximum size (in bytes) of a log file before rotation
+LogRotationMaxSize {{ openhpi_log_rotation_max_size }}
+
+# Transport plugin configuration
+{% for plugin in openhpi_transport_plugins %}
+# Transport: {{ plugin.name }}
+{% for key, value in plugin.options.items() %}{{ key }} {{ value }}
+{% endfor %}
+{% endfor %}
+
+# Resource discovery behavior
+AutoLoadResources {{ 'true' if openhpi_auto_load_resources else 'false' }}
+
+# Resource scan interval in seconds (0 = disable periodic scanning)
+ScanInterval {{ openhpi_scan_interval }}
+
+# Enable or disable SNMP-based discovery
+{% if openhpi_snmp_discovery.enabled %}
+# SNMP Discovery settings
+SnmpDiscovery true
+SnmpCommunity {{ openhpi_snmp_discovery.community }}
+{% for subnet in openhpi_snmp_discovery.subnets %}SnmpSubnet {{ subnet }}
+{% endfor %}
+{% else %}
+# SNMP Discovery disabled
+SnmpDiscovery false
+{% endif %}
+
+# Enable or disable IPMI-over-LAN discovery
+{% if openhpi_ipmi_discovery.enabled %}
+# IPMI-over-LAN Discovery settings
+IpmiDiscovery true
+{% for subnet in openhpi_ipmi_discovery.subnets %}IpmiSubnet {{ subnet }}
+{% endfor %}
+{% else %}
+# IPMI-over-LAN Discovery disabled
+IpmiDiscovery false
+{% endif %}
+
+# Enable or disable Redfish discovery
+{% if openhpi_redfish_discovery.enabled %}
+# Redfish Discovery settings
+RedfishDiscovery true
+RedfishSslVerify {{ 'true' if openhpi_redfish_discovery.ssl_verify else 'false' }}
+RedfishTimeout {{ openhpi_redfish_discovery.timeout }}
+{% for host in openhpi_redfish_discovery.hosts %}RedfishHost {{ host }}
+{% endfor %}
+{% else %}
+# Redfish Discovery disabled
+RedfishDiscovery false
+{% endif %}
+
+# HPI session limits
+# Maximum number of concurrent HPI sessions
+MaxSessions {{ openhpi_max_sessions }}
+
+# Maximum sessions per user
+MaxSessionsPerUser {{ openhpi_max_sessions_per_user }}
+
+# Session timeout in seconds (0 = no timeout)
+SessionTimeout {{ openhpi_session_timeout }}

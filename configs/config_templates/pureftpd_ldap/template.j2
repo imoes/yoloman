@@ -1,0 +1,85 @@
+# LDAP server URI
+LDAPServer {{ ldap_server }}
+
+# Base DN for LDAP searches
+LDAPBaseDN {{ ldap_base_dn }}
+
+# LDAP bind DN (for bind operation; leave empty for anonymous bind)
+{% if ldap_bind_dn %}
+LDAPBindDN {{ ldap_bind_dn }}
+{% endif %}
+
+# LDAP bind password
+{% if ldap_bind_password %}
+LDAPBindPass {{ ldap_bind_password }}
+{% endif %}
+
+# LDAP search filter for user lookup (use %u for username, %s for service, %h for hostname)
+LDAPFilter {{ ldap_user_filter }}
+
+# LDAP attribute mapping for UID
+LDAPDefaultUID {{ ldap_uid_attribute }}
+
+# LDAP attribute mapping for GID
+LDAPDefaultGID {{ ldap_gid_attribute }}
+
+# LDAP attribute mapping for home directory
+LDAPHomeDir {{ ldap_home_attribute }}
+
+# LDAP attribute mapping for shell
+{% if ldap_shell_attribute %}
+LDAPDefaultShell {{ ldap_shell_attribute }}
+{% endif %}
+
+# LDAP attribute mapping for password (for auth)
+{% if ldap_password_attribute %}
+LDAPPasswordAttribute {{ ldap_password_attribute }}
+{% endif %}
+
+# Use TLS (startTLS) for LDAP connection
+{% if ldap_use_tls %}
+LDAPTLS {% if ldap_use_tls == true %}1{% else %}0{% endif %}
+{% endif %}
+
+# CA certificate file for LDAP TLS verification
+{% if ldap_ca_cert_file %}
+LDAPCACertFile {{ ldap_ca_cert_file }}
+{% endif %}
+
+# Client certificate for LDAP TLS (optional)
+{% if ldap_client_cert_file %}
+LDAPClientCertFile {{ ldap_client_cert_file }}
+{% endif %}
+
+# Client key for LDAP TLS (optional)
+{% if ldap_client_key_file %}
+LDAPClientKeyFile {{ ldap_client_key_file }}
+{% endif %}
+
+# LDAP version (2 or 3); 3 is recommended
+LDAPVersion {{ ldap_version }}
+
+# Require valid certificate (for LDAP TLS)
+{% if ldap_require_cert %}
+LDAPRequireCert {{ ldap_require_cert }}
+{% endif %}
+
+# Follow referrals (0 = no, 1 = yes)
+{% if ldap_follow_referrals %}
+LDAPFollowReferrals {{ ldap_follow_referrals }}
+{% endif %}
+
+# Maximum number of LDAP connections to pool
+{% if ldap_max_conn %}
+LDAPMaxConn {{ ldap_max_conn }}
+{% endif %}
+
+# Enable debug mode (0 = off, 1 = on)
+{% if ldap_debug %}
+LDAPDebug {{ ldap_debug }}
+{% endif %}
+
+# Additional LDAP search base (multiple allowed; each on new line)
+{% for base in ldap_additional_search_bases %}
+LDAPSearchBase {{ base }}
+{% endfor %}

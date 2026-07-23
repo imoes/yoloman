@@ -1,0 +1,48 @@
+# Directive: Enable monitoring daemon (smartd) to run as a daemon
+DEAMON_INTERVAL={{ daemon_interval }}
+
+{% if logfacility %}
+# Directive: Set syslog facility for logging SMART events
+LOGFACILITY={{ logfacility }}
+{% endif %}
+
+{% if emailaddr %}
+# Directive: Set email address for alert notifications (comma-separated list supported)
+EMAILONERROR {{ emailaddr | join(',') }}
+{% endif %}
+
+{% if mailcmd %}
+# Directive: Custom command to send email alerts (overrides default mail command)
+MAILCMD {{ mailcmd }}
+{% endif %}
+
+{% if configdir %}
+# Directive: Load additional per-device configuration files from this directory
+CONFIGDIR {{ configdir }}
+{% endif %}
+
+{% for device in devices %}
+# Directive: Monitor device {{ device.dev }}
+# Device: {{ device.dev }}
+# Description: {{ device.description | default('Automonitored device') }}
+
+{% if device.ignore %}# Ignored: {{ device.ignore_comment | default('') }}
+{% endif %}
+{% if not device.ignore %}{{ device.dev }} \
+    {% if device.type %}-d {{ device.type }} \
+    {% endif %}{% if device.temperature %}-T {{ device.temperature }} \
+    {% endif %}{% if device.autoinit %}-a{% if device.autoinit == 'off' %} (disabled){% endif %}
+    {% else %}-A {% if device.automaint %}m{% else %}s{% endif %} \
+    {% endif %}{% if device.onoff %}-o {% if device.onoff == 'on' %}on{% else %}off{% endif %} \
+    {% endif %}{% if device.saway %}-S on{% endif %} \
+    {% if device.healthcheck %}-H{% if device.healthcheck == 'off' %} off{% endif %} \
+    {% else %}-h {% endif %}{% if device.test %}-t {{ device.test }} \
+    {% endif %}{% if device.email %}-m {{ device.email | join(',') }} \
+    {% endif %}{% if device.exec %}-M exec {{ device.exec }} \
+    {% endif %}{% if device.nosystem %}-s \
+    {% endif %}{% if device.nopowersave %}-S on{% endif %}
+    {% if device.logfile %}-l {{ device.logfile }}
+    {% endif %}{% if device.comment %}# Note: {{ device.comment }}
+{% endif %}
+{% endif %}
+{% endfor %}

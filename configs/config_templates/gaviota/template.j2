@@ -1,0 +1,22 @@
+# Gaviota chess tablebase configuration
+# Path to the root directory containing Gaviota tablebase files (.gtb)
+path: {{ tablebase_path }}
+
+# Number of tablebase files to preload into memory (0 = load on demand)
+# Adjust based on available RAM; higher values improve speed at cost of memory
+preload_limit: {{ preload_limit }}
+
+# Enable or disable compression support (most .gtb files are uncompressed)
+# Keep enabled unless you use specially compressed tablebases
+compression: {{ compression | string | lower }}
+
+# Optional: Enable debug logging for tablebase loading/lookup
+# Set to true to log detailed diagnostics to stderr
+debug: {{ debug | string | lower }}
+
+# Optional: List of tablebase subsets to preload (by prefix or suffix)
+# Leave empty to preload all found in 'path'
+{% if preload_patterns %}
+# Patterns for selective preloading
+{% for pattern in preload_patterns %}preload_pattern: {{ pattern }}
+{% endfor %}{% endif %}

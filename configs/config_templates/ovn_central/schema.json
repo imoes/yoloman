@@ -1,0 +1,81 @@
+{
+  "max_connections": {
+    "type": "number",
+    "default": 64,
+    "description": "Maximum number of concurrent client connections allowed to the OVN Northbound database."
+  },
+  "max_log_entries": {
+    "type": "number",
+    "default": 1000,
+    "description": "Maximum number of in-memory log entries retained per client connection for debugging and monitoring."
+  },
+  "connection_timeout": {
+    "type": "number",
+    "default": 30,
+    "description": "Idle connection timeout in seconds. Connections not receiving activity for this duration will be closed."
+  },
+  "ssl_enable": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable SSL/TLS encryption for remote connections. Must be true to use SSL certificates."
+  },
+  "ssl_cert": {
+    "type": "string",
+    "default": "/etc/ovn/ovnnb-ssl-cert.pem",
+    "description": "Path to the SSL certificate file used to identify the OVN Northbound database server."
+  },
+  "ssl_key": {
+    "type": "string",
+    "default": "/etc/ovn/ovnnb-ssl-key.pem",
+    "description": "Path to the SSL private key file corresponding to the server certificate."
+  },
+  "ssl_ca_cert": {
+    "type": "string",
+    "default": "/etc/ovn/ovn-ca-cert.pem",
+    "description": "Path to the CA certificate used to verify client certificates when mutual TLS is required."
+  },
+  "ssl_ciphers": {
+    "type": "string",
+    "default": "",
+    "description": "Colon-separated list of allowed SSL cipher suites (e.g., 'ECDHE-RSA-AES256-GCM-SHA384:ECDHE-RSA-AES128-GCM-SHA256'). Leave empty to use OpenSSL defaults."
+  },
+  "local": {
+    "type": "string",
+    "default": "127.0.0.1",
+    "description": "Local IP address the OVN Northbound database server binds to (e.g., 127.0.0.1, 0.0.0.0, or a specific interface IP)."
+  },
+  "peers": {
+    "type": "list",
+    "default": [],
+    "description": "List of other OVN Northbound database servers for clustering (HA mode). Each entry defines a peer node.",
+    "items": {
+      "name": {
+        "type": "string",
+        "description": "Unique name for the peer node (e.g., 'ovnnb0', 'ovnnb1')."
+      },
+      "address": {
+        "type": "string",
+        "description": "IP address or hostname of the peer OVN Northbound database server."
+      },
+      "port": {
+        "type": "number",
+        "description": "TCP port on which the peer node listens (typically 6641 for OVN Northbound DB)."
+      }
+    }
+  },
+  "remote_address": {
+    "type": "string",
+    "default": "127.0.0.1",
+    "description": "Address of the OVN Southbound database server for cross-database lookups (e.g., to resolve chassis information)."
+  },
+  "remote_port": {
+    "type": "number",
+    "default": 6642,
+    "description": "Port of the OVN Southbound database server (default 6642)."
+  },
+  "debug": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable verbose debug logging for troubleshooting. Should be disabled in production for performance."
+  }
+}

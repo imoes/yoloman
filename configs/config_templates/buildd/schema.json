@@ -1,0 +1,126 @@
+{
+  "base_dir": {
+    "type": "string",
+    "default": "/var/lib/buildd",
+    "description": "Base directory where buildd stores build artifacts, logs, and queues."
+  },
+  "port": {
+    "type": "number",
+    "default": 8001,
+    "description": "TCP port the buildd daemon listens on for incoming connections (e.g., from sbuild or dput)."
+  },
+  "bind_addr": {
+    "type": "string",
+    "default": "127.0.0.1",
+    "description": "Network interface address to bind to. Use `0.0.0.0` to allow remote connections (not recommended without firewall)."
+  },
+  "max_jobs": {
+    "type": "number",
+    "default": 2,
+    "description": "Maximum number of simultaneous builds. Set to `0` to disable concurrency limits."
+  },
+  "max_log_size": {
+    "type": "number",
+    "default": 100,
+    "description": "Maximum size (in megabytes) per build log file. Larger logs are truncated at the end."
+  },
+  "log_retention_days": {
+    "type": "number",
+    "default": 30,
+    "description": "Number of days to retain build logs before automatic cleanup."
+  },
+  "debug": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable verbose debug logging (recommended only for troubleshooting)."
+  },
+  "architectures": {
+    "type": "list",
+    "default": [
+      "amd64",
+      "i386"
+    ],
+    "description": "List of CPU architectures this buildd is configured to build for.",
+    "items": {
+      "type": "string",
+      "description": "Architecture name (e.g., amd64, arm64, ppc64el). Must match dpkg architecture codes."
+    }
+  },
+  "suites": {
+    "type": "list",
+    "default": [
+      "unstable",
+      "stable"
+    ],
+    "description": "Distributions (suites) from which this buildd will accept source packages to build.",
+    "items": {
+      "type": "string",
+      "description": "Suite name (e.g., unstable, stable, experimental, a specific release codename like 'bullseye')."
+    }
+  },
+  "upload_host": {
+    "type": "string",
+    "default": "upload.debian.org",
+    "description": "Hostname or address of the upload target (e.g., upload server, FTP master, or local queue directory)."
+  },
+  "upload_keyfile": {
+    "type": "string",
+    "default": "/root/.ssh/id_dsa",
+    "description": "Path to SSH private key used for secure upload of built packages."
+  },
+  "apt_sources": {
+    "type": "list",
+    "default": [],
+    "description": "Optional list of additional APT repository sources to use during build (e.g., for custom or backport repos). Each entry adds an `APT_SOURCE_*` line.",
+    "items": {
+      "type": "object",
+      "fields": {
+        "url": {
+          "type": "string",
+          "default": "",
+          "description": "Repository URL (e.g., `http://deb.debian.org/debian` or `https://example.com/repo`)."
+        },
+        "suite": {
+          "type": "string",
+          "default": "",
+          "description": "Suite/distribution (e.g., stable, unstable, buster-backports)."
+        },
+        "components": {
+          "type": "list",
+          "default": [
+            "main"
+          ],
+          "items": {
+            "type": "string"
+          },
+          "description": "Component(s) (e.g., main, contrib, non-free)."
+        },
+        "keyring": {
+          "type": "string",
+          "default": "/dev/null",
+          "description": "Path to keyring file used to verify repo signatures. Use `/dev/null` to skip verification (not secure)."
+        },
+        "comment": {
+          "type": "string",
+          "default": "custom",
+          "description": "Optional human-readable label for this source (used in comments)."
+        }
+      }
+    }
+  },
+  "keyring_dir": {
+    "type": "string",
+    "default": "/usr/share/keyrings",
+    "description": "Directory containing trusted APT repository keyrings for signature verification."
+  },
+  "auto_accept": {
+    "type": "bool",
+    "default": true,
+    "description": "If true, buildd automatically accepts queued source uploads without manual intervention."
+  },
+  "buildcmd": {
+    "type": "string",
+    "default": "",
+    "description": "Custom command template (e.g., `sbuild --arch-all --no-clean-source`) to override the default build invocation. Leave blank for default."
+  }
+}

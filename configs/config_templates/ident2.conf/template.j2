@@ -1,0 +1,35 @@
+# Main ident2 configuration
+# List of services to expose via the ident2 daemon
+services:
+{% for svc in services %}  - name: {{ svc.name }}
+    host: {{ svc.host }}
+    port: {{ svc.port }}
+{% endfor %}
+
+# Global settings
+server:
+  # Listen address for the ident2 server
+  bind_address: {{ server.bind_address }}
+  # Port for the ident2 HTTP server
+  bind_port: {{ server.bind_port }}
+  # Timeout for client connections (seconds)
+  timeout: {{ server.timeout }}
+  # Maximum simultaneous connections
+  max_connections: {{ server.max_connections }}
+  # Enable TLS (requires cert and key paths below)
+  tls_enabled: {{ server.tls_enabled }}
+{% if server.tls_enabled %}
+  # Path to TLS certificate file
+  cert_file: {{ server.cert_file }}
+  # Path to TLS private key file
+  key_file: {{ server.key_file }}
+{% endif %}
+
+# Logging configuration
+log:
+  # Log level: debug, info, warn, error
+  level: {{ log.level }}
+  # Path to log file (empty string for stdout)
+  file: {{ log.file }}
+  # Rotate logs daily
+  rotate_daily: {{ log.rotate_daily }}

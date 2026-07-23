@@ -1,0 +1,39 @@
+[# hdapsd main configuration file #]
+
+[hdaps]
+# Device to monitor for acceleration changes
+{% if device_path %}device = {{ device_path }}{% else %}device = /dev/input/event0{% endif %}
+
+# Sensitivity threshold for detecting motion (0–100, higher = more sensitive)
+sensitivity = {{ sensitivity }}
+
+# Enable or disable the daemon (0 = off, 1 = on)
+enabled = {{ enabled | int }}
+
+# Hysteresis (backoff) in milliseconds to avoid rapid toggling
+hysteresis = {{ hysteresis }}
+
+# Log level: 0 = none, 1 = error, 2 = warn, 3 = info, 4 = debug
+loglevel = {{ loglevel }}
+
+# Command to execute when laptop is moved (e.g., 'sync; echo 1 > /sys/block/sda/device/force_unit_access')
+protect_cmd = {{ protect_cmd | quote }}
+
+# Command to execute when laptop is stationary again
+relax_cmd = {{ relax_cmd | quote }}
+
+# Sample interval in milliseconds between acceleration readings
+sample_interval = {{ sample_interval }}
+
+# Minimum movement magnitude (raw units) to trigger protection
+min_move = {{ min_move }}
+
+[debounce]
+# Number of consecutive samples above threshold before triggering protection
+raise_count = {{ raise_count }}
+
+# Number of consecutive samples below threshold before releasing protection
+fall_count = {{ fall_count }}
+
+# Per-axis filtering: comma-separated list of axes to monitor
+{% if axes %}axes = {{ axes | join(', ') }}{% else %}axes = x, y{% endif %}

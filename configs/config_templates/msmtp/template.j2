@@ -1,0 +1,30 @@
+# Default account configuration (required for msmtp to function)
+account default
+
+# Hostname of the SMTP relay server
+host {{ relay_host }}
+
+# SMTP port (typically 25, 465 for TLS, or 587 forsubmission)
+port {{ relay_port }}
+
+# Enable/disable TLS encryption
+tls {{ 'on' if use_tls else 'off' }}
+
+# TLS certificate verification mode
+# 'on' = require valid certificate, 'off' = skip verification, 'auto' = verify if possible
+tls_trust_file {{ tls_trust_file if tls_trust_file else '/etc/ssl/certs/ca-certificates.crt' }}
+tls_starttls {{ 'on' if use_starttls else 'off' }}
+
+# Authentication settings (optional)
+auth {{ 'on' if use_auth else 'off' }}
+user {{ auth_user if use_auth else '' }}
+password {{ auth_password if use_auth else '' }}
+
+# Source address for the envelope FROM (optional)
+from {{ default_from }}
+
+# Log file location (optional)
+logfile {{ log_file if log_file else '' }}
+
+# Set system-wide default envelope sender (optional)
+set_sendmail {{ sendmail_path }}

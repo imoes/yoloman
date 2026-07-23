@@ -1,0 +1,194 @@
+{
+  "server": {
+    "type": "object",
+    "properties": {
+      "host": {
+        "type": "string",
+        "default": "0.0.0.0",
+        "description": "IP address or hostname to bind the CalDAV/CardDAV server to."
+      },
+      "port": {
+        "type": "number",
+        "default": 8080,
+        "description": "Port the server listens on."
+      },
+      "ssl_certificate": {
+        "type": "string",
+        "default": "",
+        "description": "Path to SSL certificate (PEM format); leave empty to use HTTP only."
+      },
+      "ssl_key": {
+        "type": "string",
+        "default": "",
+        "description": "Path to SSL private key (PEM format); required if ssl_certificate is set."
+      }
+    },
+    "description": "Network and TLS configuration for the server."
+  },
+  "storage": {
+    "type": "object",
+    "properties": {
+      "path": {
+        "type": "string",
+        "default": "/var/lib/calypso/repositories",
+        "description": "Root directory containing per-user Git repositories."
+      },
+      "tmp_dir": {
+        "type": "string",
+        "default": "/var/lib/calypso/tmp",
+        "description": "Directory for temporary files during sync operations."
+      },
+      "auto_create": {
+        "type": "boolean",
+        "default": true,
+        "description": "Automatically create Git repositories for new users on first access."
+      },
+      "git_template": {
+        "type": "string",
+        "default": "",
+        "description": "Path to a Git template directory used when initializing new repositories (optional)."
+      }
+    },
+    "description": "Storage and repository backend settings."
+  },
+  "auth": {
+    "type": "object",
+    "properties": {
+      "method": {
+        "type": "string",
+        "default": "basic",
+        "enum": [
+          "none",
+          "basic",
+          "digest"
+        ],
+        "description": "Authentication method: 'none' (no auth), 'basic' (htpasswd), or 'digest' (htpasswd + realm)."
+      },
+      "htpasswd_file": {
+        "type": "string",
+        "default": "/etc/calypso/htpasswd",
+        "description": "Path to Apache-compatible htpasswd file (required for 'basic' and 'digest' auth)."
+      },
+      "realm": {
+        "type": "string",
+        "default": "CalDAV/CardDAV",
+        "description": "Auth realm string used in digest authentication."
+      },
+      "ldap_enable": {
+        "type": "boolean",
+        "default": false,
+        "description": "Enable LDAP authentication (requires python-ldap installed)."
+      },
+      "ldap_uri": {
+        "type": "string",
+        "default": "",
+        "description": "LDAP server URI (e.g., 'ldap://ldap.example.com' or 'ldaps://...')."
+      },
+      "ldap_base_dn": {
+        "type": "string",
+        "default": "",
+        "description": "Base DN to search for users (e.g., 'dc=example,dc=com')."
+      },
+      "ldap_user_filter": {
+        "type": "string",
+        "default": "(uid=%s)",
+        "description": "LDAP filter used to locate a user by login; '%s' is substituted with username."
+      },
+      "ldap_bind_dn": {
+        "type": "string",
+        "default": "",
+        "description": "DN to bind as for LDAP searches (empty for anonymous bind)."
+      },
+      "ldap_bind_password": {
+        "type": "string",
+        "default": "",
+        "description": "Password for LDAP bind DN (required only if bind_dn is set)."
+      }
+    },
+    "description": "Authentication configuration (htpasswd and optional LDAP)."
+  },
+  "logging": {
+    "type": "object",
+    "properties": {
+      "level": {
+        "type": "string",
+        "default": "INFO",
+        "enum": [
+          "DEBUG",
+          "INFO",
+          "WARNING",
+          "ERROR",
+          "CRITICAL"
+        ],
+        "description": "Minimum log level."
+      },
+      "file": {
+        "type": "string",
+        "default": "",
+        "description": "Path to log file (empty means log to stderr)."
+      }
+    },
+    "description": "Logging configuration."
+  },
+  "paths": {
+    "type": "object",
+    "properties": {
+      "web_ui_path": {
+        "type": "string",
+        "default": "",
+        "description": "Path prefix for Calypso web UI (e.g., '/calypso'); leave blank to disable."
+      },
+      "default_calendar": {
+        "type": "string",
+        "default": "calendar",
+        "description": "Default calendar name when none is specified in request."
+      },
+      "well_known": {
+        "type": "boolean",
+        "default": true,
+        "description": "Enable /.well-known/caldav and /.well-known/carddav redirection to root path."
+      }
+    },
+    "description": "URL path and default resource naming."
+  },
+  "repositories": {
+    "type": "list",
+    "default": [],
+    "items": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "default": "default",
+          "description": "Unique section identifier; typically same as user name."
+        },
+        "user": {
+          "type": "string",
+          "default": "",
+          "description": "Username (Unix user or LDAP DN) allowed access to this repository."
+        },
+        "displayname": {
+          "type": "string",
+          "default": "",
+          "description": "Human-readable display name (used in WebUI and CalDAV reports)."
+        },
+        "path": {
+          "type": "string",
+          "default": "",
+          "description": "Repository path relative to storage.path (e.g., 'alice.git')."
+        },
+        "acl": {
+          "type": "string",
+          "default": "rw",
+          "enum": [
+            "ro",
+            "rw"
+          ],
+          "description": "Default access control for user: 'ro' (read-only) or 'rw' (read-write)."
+        }
+      },
+      "description": "Repository definition; each entry creates a named section in the config."
+    },
+    "description": "List of per-user (or per-repo) configuration blocks. Each item defines access to a Git-backed calendar or addressbook."
+  }
+}

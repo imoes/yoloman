@@ -1,0 +1,96 @@
+[DEFAULT]
+# Log to syslog and stderr, with debug-level logging if enabled
+{% if debug %}debug = True{% else %}debug = False{% endif %}
+log_dir = /var/log/aodh
+log_file = /var/log/aodh/listener.log
+use_syslog = True
+syslog_log_facility = LOG_LOCAL0
+
+# Logging format string
+logging_exception_prefix = EXCEPTION %%(asctime)s %%(process)d
+logging_default_format_string = %%(asctime)s.%%(msecs)03d %%(process)d %%(levelname)s %%(name)s [%%(filename)s:%%(lineno)d] %%(message)s
+logging_debug_format_suffix = [%%(funcName)s] %%(pathname)s:%%(lineno)d
+logging_short_format_string = %%(asctime)s.%%(msecs)03d %%(process)d %%(levelname)s %%(name)s [%%(filename)s:%%(lineno)d] %%(message)s
+logging_context_format_string = %%(asctime)s.%%(msecs)03d %%(process)d %%(levelname)s %%(name)s [%%(request_id)s %%(user_id)s %%(project_id)s] %%(message)s
+
+# Thread pool size for event processing
+{% if worker_count %}workers = {{ worker_count }}{% endif %}
+
+# Authentication (Keystone) parameters
+auth_strategy = keystone
+
+[alarm_evaluator]
+# Interval (seconds) between alarm evaluation cycles
+evaluation_interval = {{ evaluation_interval }}
+
+[alarm_notifier]
+# Maximum number of notifications to send per batch
+batch_size = {{ batch_size }}
+# Timeout (seconds) for outgoing HTTP notifications
+notification_retries = 3
+notification_retry_delay = {{ notification_retry_delay }}
+
+[api]
+# API endpoint binding
+{% if api_bind_host %}host = {{ api_bind_host }}{% endif %}
+{% if api_port %}port = {{ api_port }}{% endif %}
+# Enable SSL (if true, require ssl_cert and ssl_key)
+{% if api_enable_ssl %}enabled = True
+ssl_cert = {{ api_ssl_cert }}
+ssl_key = {{ api_ssl_key }}{% else %}enabled = False{% endif %}
+
+# REST API auth URL (for keystone auth) — note: used only if auth_strategy=keystone
+auth_url = {{ keystone_auth_url }}
+
+[database]
+# Database connection string
+{% if database_connection %}connection = {{ database_connection }}{% endif %}
+# Maximum database connections in pool
+{% if database_max_retries %}max_retries = {{ database_max_retries }}{% endif %}
+# Interval (seconds) between retry attempts
+{% if database_retry_interval %}retry_interval = {{ database_retry_interval }}{% endif %}
+
+[keystone_authtoken]
+# Identity service (Keystone) auth params
+{% if keystone_auth_url %}auth_url = {{ keystone_auth_url }}{% endif %}
+{% if keystone_auth_type %}auth_type = {{ keystone_auth_type }}{% endif %}
+{% if keystone_project_name %}project_name = {{ keystone_project_name }}{% endif %}
+{% if keystone_user_domain_name %}user_domain_name = {{ keystone_user_domain_name }}{% endif %}
+{% if keystone_project_domain_name %}project_domain_name = {{ keystone_project_domain_name }}{% endif %}
+{% if keystone_username %}username = {{ keystone_username }}{% endif %}
+{% if keystone_password %}password = {{ keystone_password }}{% endif %}
+# Disable TLS verification (only for dev/testing!)
+{% if keystone_disable_ssl_certificate_validation %}insecure = True{% else %}insecure = False{% endif %}
+# Path to CA certificate bundle if using self-signed certs
+{% if keystone_cafile %}cafile = {{ keystone_cafile }}{% endif %}
+
+{% if memcached_servers %}[cache]
+# Memcached servers (comma-separated list)
+backends = aodh.openstack.common.cache._cache
+url = {{ memcached_servers | join(', ') }}{% endif %}
+
+# Event processing pipeline (for listener)
+{% if event_handlers %}[event_handlers]
+{% for handler in event_handlers %}# {{ handler.description | default('Event handler configuration') }}
+enabled = True
+event_type = {{ handler.event_type }}
+action = {{ handler.action }}
+action_options = {{ handler.action_options | default('{}') | tojson }}
+{% endfor %}{% endif %}
+
+# Publisher (e.g., for publishing alarm state changes to messaging bus)
+[publisher]
+# URI to the message bus (e.g., rabbit, redis, kombu+rabbit://...)
+{% if publisher_uri %}telemetry_writer = {{ publisher_uri }}{% endif %}
+
+# Rate limiting (per alarm evaluator run)
+[evaluator]
+# Maximum alarms evaluated per batch
+batch_size = {{ evaluator_batch_size }}
+
+# Alarming service notification settings
+[alarm_notification]
+# Default alarm notification method (e.g., 'log', 'email', 'webhook')
+notification_method = {{ notification_method }}
+# Additional notification methods (list of dicts with 'type' and optional params)
+notification_methods = {{ alarm_notification_methods | default([]) | tojson }}

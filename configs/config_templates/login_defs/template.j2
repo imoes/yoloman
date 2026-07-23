@@ -1,0 +1,47 @@
+# System-wide defaults for user account creation and management
+# Password aging controls
+PASS_MAX_DAYS   {{ password.pass_max_days }}
+PASS_MIN_DAYS   {{ password.pass_min_days }}
+PASS_WARN_AGE   {{ password.pass_warn_age }}
+
+# UID/GID ranges for normal and system accounts
+UID_MIN         {{ ranges.uid_min }}
+UID_MAX         {{ ranges.uid_max }}
+GID_MIN         {{ ranges.gid_min }}
+GID_MAX         {{ ranges.gid_max }}
+
+# System account UID/GID range (reserved for services/daemons)
+SYS_UID_MIN     {{ ranges.sys_uid_min }}
+SYS_UID_MAX     {{ ranges.sys_uid_max }}
+SYS_GID_MIN     {{ ranges.sys_gid_min }}
+SYS_GID_MAX     {{ ranges.sys_gid_max }}
+
+# Default shell and home directory
+DEF_SHELL       {{ defaults.def_shell }}
+DEF_HOME        {{ defaults.def_home }}
+
+# Default umask for new users
+UMASK           {{ defaults.umask }}
+
+# Enforce strict group ownership for user home directories?
+USERGROUPS_ENAB {{ defaults.usergroups_enab | lower }}
+
+# Default login restrictions
+LOGIN_RETRIES   {{ limits.login_retries }}
+LOGIN_TIMEOUT   {{ limits.login_timeout }}
+
+# Logging of failed login attempts
+FAILLOG_ENAB    {{ logging.faillog_enab | lower }}
+LOG_UNKFAIL_ENAB {{ logging.log_unknown_fail | lower }}
+LOG_OK_LOGINS   {{ logging.log_ok_logins | lower }}
+
+# Default groups to add to new users
+{{ for groups_def in defaults.groups_to_add }}
+{{ groups_def.name }}
+{{ endfor }}
+
+# Default mail directory and spool
+SPOOL_DIR       {{ defaults.spool_dir }}
+
+# Enable/disable user private groups (UPG) by default
+USERGROUPS_ENAB {{ defaults.usergroups_enab | lower }}

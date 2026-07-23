@@ -1,0 +1,373 @@
+{
+  "pid_file": {
+    "type": "string",
+    "default": "/var/run/mimedefang/mimedefang.pid",
+    "description": "Path to the PID file for the main MIMEDefang process."
+  },
+  "socket_dir": {
+    "type": "string",
+    "default": "/var/run/mimedefang",
+    "description": "Directory where the main socket and child sockets will be created."
+  },
+  "user": {
+    "type": "string",
+    "default": "mailnull",
+    "description": "Unix user to run MIMEDefang processes as (must be non-root for security)."
+  },
+  "group": {
+    "type": "string",
+    "default": "mailnull",
+    "description": "Unix group to run MIMEDefang processes as."
+  },
+  "temp_dir": {
+    "type": "string",
+    "default": "/var/spool/mimedefang",
+    "description": "Directory for temporary files during message processing."
+  },
+  "max_children": {
+    "type": "number",
+    "default": 10,
+    "description": "Maximum number of child processes to handle incoming mail."
+  },
+  "min_children": {
+    "type": "number",
+    "default": 2,
+    "description": "Minimum number of child processes to keep running."
+  },
+  "min_spare_children": {
+    "type": "number",
+    "default": 1,
+    "description": "Minimum number of idle (spare) child processes to maintain."
+  },
+  "max_spare_children": {
+    "type": "number",
+    "default": 5,
+    "description": "Maximum number of idle (spare) child processes before killing extras."
+  },
+  "max_requests_per_child": {
+    "type": "number",
+    "default": 100,
+    "description": "Number of requests each child process handles before being recycled."
+  },
+  "socket_perms": {
+    "type": "string",
+    "default": "0660",
+    "description": "File permissions (octal) for the main Unix socket."
+  },
+  "socket_owner": {
+    "type": "string",
+    "default": "root",
+    "description": "Owner (username) for the main Unix socket (optional; usually root)."
+  },
+  "socket_group": {
+    "type": "string",
+    "default": "mailnull",
+    "description": "Group for the main Unix socket (must be accessible by MTA)."
+  },
+  "timeout": {
+    "type": "number",
+    "default": 300,
+    "description": "Overall timeout (in seconds) for a single mail transaction."
+  },
+  "connect_timeout": {
+    "type": "number",
+    "default": 60,
+    "description": "Timeout (in seconds) for connecting to external services (e.g., clamd, spamd)."
+  },
+  "idle_timeout": {
+    "type": "number",
+    "default": 600,
+    "description": "Idle timeout (in seconds) before a child process exits."
+  },
+  "transaction_timeout": {
+    "type": "number",
+    "default": 300,
+    "description": "Timeout (in seconds) for the entire mail transaction per message."
+  },
+  "syslog_facility": {
+    "type": "string",
+    "default": "MAIL",
+    "description": "Syslog facility to use for logging (e.g., LOCAL0, MAIL)."
+  },
+  "syslog_level": {
+    "type": "string",
+    "default": "info",
+    "description": "Minimum syslog level to log (e.g., debug, info, notice, warning, err)."
+  },
+  "log_to_file": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable logging to a file (in addition to syslog)."
+  },
+  "log_file": {
+    "type": "string",
+    "default": "/var/log/mimedefang/mimedefang.log",
+    "description": "Path to the file where logs will be written if log_to_file is true."
+  },
+  "log_pid": {
+    "type": "bool",
+    "default": true,
+    "description": "Include PID in each log line."
+  },
+  "log_timestamps": {
+    "type": "bool",
+    "default": true,
+    "description": "Include ISO timestamps in each log line."
+  },
+  "log_level_verbose": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable verbose logging (includes message headers in logs)."
+  },
+  "action": {
+    "type": "string",
+    "default": "accept",
+    "description": "Default action if no filters reject the message (accept, quarantine, delete, discard, rewrite)."
+  },
+  "quarantine_action": {
+    "type": "string",
+    "default": "quarantine",
+    "description": "Action to take when message is quarantined (quarantine, delete, rewrite_headers)."
+  },
+  "quarantine_dir": {
+    "type": "string",
+    "default": "/var/spool/mimedefang/quarantine",
+    "description": "Directory to store quarantined messages."
+  },
+  "quarantine_prefix": {
+    "type": "string",
+    "default": "msg",
+    "description": "Prefix for quarantined filenames (e.g., 'msg-2023-08-01-123456')."
+  },
+  "quarantine_compress": {
+    "type": "bool",
+    "default": true,
+    "description": "Compress quarantined messages with gzip for space savings."
+  },
+  "quarantine_owner": {
+    "type": "string",
+    "default": "mailnull",
+    "description": "Owner (username) for quarantined files."
+  },
+  "quarantine_group": {
+    "type": "string",
+    "default": "mailnull",
+    "description": "Group for quarantined files."
+  },
+  "quarantine_perms": {
+    "type": "string",
+    "default": "0600",
+    "description": "File permissions (octal) for quarantined files (typically restrictive)."
+  },
+  "replace_bad_headers": {
+    "type": "bool",
+    "default": true,
+    "description": "Replace illegal or dangerous headers (e.g., null bytes, excessive length) with safe placeholders."
+  },
+  "strip_attachments": {
+    "type": "bool",
+    "default": false,
+    "description": "Strip all attachments (dangerous for most sites; usually disabled)."
+  },
+  "strip_extensions": {
+    "type": "bool",
+    "default": true,
+    "description": "Remove dangerous file extensions (e.g., .exe, .bat) from attachments."
+  },
+  "strip_extensions_list": {
+    "type": "list",
+    "default": [
+      "exe",
+      "bat",
+      "com",
+      "pif",
+      "scr",
+      "js",
+      "vbs",
+      "wsf",
+      "hta",
+      "cmd",
+      "cpl",
+      "msi",
+      "msp",
+      "lnk"
+    ],
+    "description": "List of file extensions to automatically strip or quarantine.",
+    "items": {
+      "type": "string",
+      "description": "A single file extension (lowercase, no dot)."
+    }
+  },
+  "virus_action": {
+    "type": "string",
+    "default": "quarantine",
+    "description": "Action for messages that contain viruses (quarantine, delete, accept_with_warning)."
+  },
+  "spam_action": {
+    "type": "string",
+    "default": "accept",
+    "description": "Action for messages flagged as spam (accept, quarantine, reject)."
+  },
+  "spam_tag_level": {
+    "type": "number",
+    "default": 2.0,
+    "description": "SpamAssassin score at which to add 'X-Spam-Status' header."
+  },
+  "spam_tag2_level": {
+    "type": "number",
+    "default": 4.0,
+    "description": "Score at which to add 'X-Spam-Flag' header and mark subject."
+  },
+  "spam_kill_level": {
+    "type": "number",
+    "default": 10.0,
+    "description": "Score at which to discard or quarantine (based on spam_action)."
+  },
+  "clamd_socket": {
+    "type": "string",
+    "default": "unix:/var/run/clamav/clamd.ctl",
+    "description": "Path or TCP address:port for ClamAV daemon (e.g., unix:/var/run/clamav/clamd.sock or 127.0.0.1:3310)."
+  },
+  "freshclam_pidfile": {
+    "type": "string",
+    "default": "/var/run/clamav/freshclam.pid",
+    "description": "Path to the freshclam PID file (used to verify ClamAV is updated)."
+  },
+  "spamd_socket": {
+    "type": "string",
+    "default": "unix:/var/run/spamd/spamd.sock",
+    "description": "Path or TCP address:port for SpamAssassin daemon (e.g., unix:/var/run/spamd.sock or 127.0.0.1:783)."
+  },
+  "spamd_host": {
+    "type": "string",
+    "default": "127.0.0.1",
+    "description": "Host for remote SpamAssassin (only used if spamd_socket is not a Unix socket)."
+  },
+  "spamd_port": {
+    "type": "number",
+    "default": 783,
+    "description": "Port for remote SpamAssassin (only used if spamd_socket is not a Unix socket)."
+  },
+  "spamd_user": {
+    "type": "string",
+    "default": "spamd",
+    "description": "User to switch to when running SpamAssassin locally (if used directly)."
+  },
+  "spamd_timeout": {
+    "type": "number",
+    "default": 30,
+    "description": "Timeout (in seconds) for SpamAssassin checks."
+  },
+  "filter": {
+    "type": "list",
+    "default": [
+      "/etc/mimedefang/filter"
+    ],
+    "description": "List of Perl filter scripts to run (semicolon-separated string in INI).",
+    "items": {
+      "type": "string",
+      "description": "Absolute path to a Perl filter script."
+    }
+  },
+  "disable_milter": {
+    "type": "bool",
+    "default": false,
+    "description": "Disable MTA integration (useful for testing; not for production)."
+  },
+  "milter_socket": {
+    "type": "string",
+    "default": "unix:/var/run/mimedefang/mimedefang.sock",
+    "description": "Socket path for MTA to communicate with MIMEDefang (Sendmail/Postfix milter interface)."
+  },
+  "milter_socket_owner": {
+    "type": "string",
+    "default": "mailnull",
+    "description": "Owner of the Milter socket (MTA must be able to access it)."
+  },
+  "milter_socket_group": {
+    "type": "string",
+    "default": "mailnull",
+    "description": "Group of the Milter socket (MTA must be in this group or have permissions)."
+  },
+  "milter_socket_perms": {
+    "type": "string",
+    "default": "0660",
+    "description": "Permissions (octal) for the Milter socket."
+  },
+  "milter_timeout": {
+    "type": "number",
+    "default": 300,
+    "description": "Timeout (in seconds) for MTA milter communication."
+  },
+  "use_ipv6": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable IPv6 support (for network sockets and DNS)."
+  },
+  "dns_timeout": {
+    "type": "number",
+    "default": 10,
+    "description": "Timeout (in seconds) for DNS lookups."
+  },
+  "dns_retries": {
+    "type": "number",
+    "default": 3,
+    "description": "Number of times to retry DNS lookups before failing."
+  },
+  "rate_limit": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable per-IP rate limiting."
+  },
+  "rate_limit_by": {
+    "type": "string",
+    "default": "client_ip",
+    "description": "Rate limit by client IP, sender, or recipient."
+  },
+  "rate_limit_log": {
+    "type": "bool",
+    "default": true,
+    "description": "Log rate-limited connections."
+  },
+  "rate_limit_log_file": {
+    "type": "string",
+    "default": "/var/log/mimedefang/ratelimit.log",
+    "description": "Log file path for rate limiting entries (if rate_limit_log is true)."
+  },
+  "db_path": {
+    "type": "string",
+    "default": "/var/lib/mimedefang",
+    "description": "Base directory for database files (if persistent state is enabled)."
+  },
+  "db_type": {
+    "type": "string",
+    "default": "sqlite",
+    "description": "Database backend (sqlite, mysql, postgresql)."
+  },
+  "db_user": {
+    "type": "string",
+    "default": "mimedefang",
+    "description": "Database username (for mysql/postgresql only)."
+  },
+  "db_pass": {
+    "type": "string",
+    "default": "",
+    "description": "Database password (for mysql/postgresql only).",
+    "secret": true
+  },
+  "db_name": {
+    "type": "string",
+    "default": "mimedefang",
+    "description": "Database name (for mysql/postgresql only)."
+  },
+  "db_host": {
+    "type": "string",
+    "default": "localhost",
+    "description": "Database host (for mysql/postgresql only)."
+  },
+  "db_port": {
+    "type": "number",
+    "default": 3306,
+    "description": "Database port (for mysql/postgresql only)."
+  }
+}

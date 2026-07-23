@@ -1,0 +1,41 @@
+# Listen address and port for the finger daemon
+listen {{ listen_address }}:{{ listen_port }}
+
+# Enable or disable user information display
+userinfo {{ userinfo_enabled }}
+
+# Enable or disable hostname resolution
+hostname {{ hostname_enabled }}
+
+# Enable or disable logging to syslog
+syslog {{ syslog_enabled }}
+
+# Maximum number of concurrent connections
+max_connections {{ max_connections }}
+
+# Path to the fingerd welcome message file
+welcome {{ welcome_file }}
+
+# Path to the fingerd banner file (shown before user info)
+banner {{ banner_file }}
+
+# List of directories to search for user info files (one per line)
+{% for dir in search_dirs %}searchdir {{ dir }}
+{% endfor %}
+
+# List of hosts allowed to connect (optional, if empty, allow all)
+{% if allowed_hosts | length > 0 %}# Allowed hosts (one per line)
+{% for host in allowed_hosts %}allow {{ host }}
+{% endfor %}{% else %}# No host restrictions — allow all hosts
+{% endif %}
+
+# List of hosts denied from connecting (optional)
+{% if denied_hosts | length > 0 %}# Denied hosts (one per line)
+{% for host in denied_hosts %}deny {{ host }}
+{% endfor %}{% endif %}
+
+# Enable or disable the -l (long) listing format
+longformat {{ longformat_enabled }}
+
+# Default timeout (seconds) for idle connections
+timeout {{ timeout_seconds }}

@@ -1,0 +1,132 @@
+# Mir X11 Kiosk main configuration file
+# Enable or disable the kiosk service
+{% if enabled | default(false) %}
+service_enabled = true
+{% else %}
+service_enabled = false
+{% endif %}
+
+# X11 display server to use (e.g., :0)
+display = :{{ display_number | default(0) }}
+
+# Path to the X11 client executable (e.g., a kiosk app)
+app_command = {{ app_command | default('/usr/bin/mir-kiosk-x11') }}
+
+# Optional command-line arguments for the X11 client
+{% if app_args %}
+app_args = {{ app_args | join(' ') }}
+{% endif %}
+
+# Working directory for the app (optional)
+{% if work_dir %}
+work_dir = {{ work_dir }}
+{% endif %}
+
+# User and group to run the kiosk app as
+user = {{ user | default('mir-kiosk') }}
+group = {{ group | default('mir-kiosk') }}
+
+# Environment variables (key=value pairs, one per line)
+{% for env_var in env_vars %}
+env.{{ env_var.name }} = {{ env_var.value }}
+{% endfor %}
+
+# Auto-restart behavior
+{% if auto_restart | default(true) %}
+auto_restart = true
+{% else %}
+auto_restart = false
+{% endif %}
+
+# Restart delay in seconds (used if auto_restart = true)
+restart_delay = {{ restart_delay | default(3) }}
+
+# Log level (debug, info, warn, error)
+log_level = {{ log_level | default('info') }}
+
+# Path to log file (empty = syslog only)
+{% if log_file %}
+log_file = {{ log_file }}
+{% else %}
+log_file = 
+{% endif %}
+
+# Timeout for app startup (in seconds)
+start_timeout = {{ start_timeout | default(30) }}
+
+# Wayland display socket path (used to connect to Mir's Wayland server)
+wayland_display = {{ wayland_display | default('/run/mir_socket') }}
+
+# Optional X11 window class hint (for window manager integration)
+{% if x11_window_class %}
+x11_window_class = {{ x11_window_class }}
+{% endif %}
+
+# Optional X11 window title hint
+{% if x11_window_title %}
+x11_window_title = {{ x11_window_title }}
+{% endif %}
+
+# Mouse cursor policy (visible, hidden)
+cursor_policy = {{ cursor_policy | default('hidden') }}
+
+# Input device policy (all, none, list)
+{% if input_devices | length > 0 %}
+{% for dev in input_devices %}
+input_device = {{ dev.path }}
+{% endfor %}
+{% else %}
+{% if input_policy == 'none' %}
+input_device = none
+{% endif %}
+{% endif %}
+
+# Kiosk-specific input filters
+{% if input_filters %}
+{% for filter in input_filters %}
+input_filter.{{ filter.name }} = {{ filter.value }}
+{% endfor %}
+{% endif %}
+
+# Screen rotation (0, 90, 180, 270)
+rotation = {{ rotation | default(0) }}
+
+# Screen scaling (e.g., 1.0, 1.25)
+scaling = {{ scaling | default(1.0) }}
+
+# Enable or disable multi-display support
+{% if multi_display %}
+multi_display = true
+{% else %}
+multi_display = false
+{% endif %}
+
+# Display order (for multi-display setups)
+{% if display_order | length > 0 %}
+{% for display_name in display_order %}
+display_order = {{ display_name }}
+{% endfor %}
+{% endif %}
+
+# Optional fallback display (if no displays detected)
+{% if fallback_display %}
+fallback_display = {{ fallback_display }}
+{% endif %}
+
+# VSync wait policy (always, never, auto)
+vsync_wait = {{ vsync_wait | default('auto') }}
+
+# Surface buffer count (for double/triple buffering)
+surface_buffer_count = {{ surface_buffer_count | default(2) }}
+
+# Enable hardware-accelerated rendering (true/false)
+{% if hw_accel %}
+hw_accel = true
+{% else %}
+hw_accel = false
+{% endif %}
+
+# Optional GPU device path (e.g., /dev/dri/card0)
+{% if gpu_device %}
+gpu_device = {{ gpu_device }}
+{% endif %}

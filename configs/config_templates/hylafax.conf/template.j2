@@ -1,0 +1,108 @@
+# hylafax.conf - Core HylaFAX configuration
+# Global settings for the fax server
+# Path to the spool directory
+SpoolDir: {{ spool_dir }}
+
+# Path to the configuration directory
+ConfigDir: {{ config_dir }}
+
+# Path to the log directory
+LogDir: {{ log_dir }}
+
+# Path to the var directory
+VarDir: {{ var_dir }}
+
+# System hostname (for identification in fax headers)
+# If empty, system hostname is used
+SystemId: {{ system_id }}
+
+# Default country code for fax calls
+CountryCode: {{ country_code }}
+
+# Default area code for fax calls
+AreaCode: {{ area_code }}
+
+# Default fax number (DID/terminal number)
+# Required for sending faxes
+FaxNumber: {{ fax_number }}
+
+# Time zone for time-stamping received faxes
+TimeZone: {{ time_zone }}
+
+# Modem device(s) to use for sending/receiving faxes
+# Format: Device:<device_path>[:<speed>]
+{% for modem in modems %}Device: {{ modem.device }}{% if modem.speed is defined %}:{{ modem.speed }}{% endif %}
+{% endfor %}
+
+# Number of receive threads (parallel fax receivers)
+ReceiveThreads: {{ receive_threads }}
+
+# Number of send threads (parallel fax senders)
+SendThreads: {{ send_threads }}
+
+# Maximum message size (in KB) for incoming faxes
+MaxMsgSize: {{ max_msg_size }}
+
+# Whether to enable caller ID support (true/false)
+CallerID: {{ caller_id }}
+
+# Whether to enable T.30 auto-negotiation (true/false)
+T30AutoNegotiate: {{ t30_auto_negotiate }}
+
+# T.30 parameters — bit rate and page size defaults
+# Use comma-separated key=value pairs
+T30Parameters: {{ t30_parameters }}
+
+# Pager settings (for email-to-fax or notification integration)
+# Format: Pager:<email_or_url>[:<timeout>]
+{% for pager in pagers %}Pager: {{ pager.destination }}{% if pager.timeout is defined %}:{{ pager.timeout }}{% endif %}
+{% endfor %}
+
+# Access control — allow/deny IP addresses or networks
+{% for rule in access_rules %}{% if rule.action == 'allow' %}Allow: {{ rule.network }}
+{% else %}Deny: {{ rule.network }}
+{% endif %}{% endfor %}
+
+# Path to the HylaFAX admin utility
+AdminUtil: {{ admin_util }}
+
+# Path to sendmail-compatible MTA
+SendMail: {{ sendmail }}
+
+# Whether to enable logging of all fax transactions
+VerboseLogging: {{ verbose_logging }}
+
+# Default page size for outgoing faxes
+# Options: letter, legal, a4, b4, a3, b5, etc.
+PageSize: {{ page_size }}
+
+# Default resolution for outgoing faxes (dots per inch)
+# Options: 98x98, 98x196, 196x196, 196x392, 392x392
+Resolution: {{ resolution }}
+
+# Maximum retry attempts for failed send jobs
+MaxRetries: {{ max_retries }}
+
+# Delay (in minutes) before retrying a failed send
+RetryTime: {{ retry_time }}
+
+# Whether to enable data compression (true/false)
+Compression: {{ compression }}
+
+# Default page margin (in 1/100 inch units)
+PageMargin: {{ page_margin }}
+
+# Whether to enable T.38 fax-over-IP (true/false)
+T38Enable: {{ t38_enable }}
+
+# T.38 UDP port (if T.38 enabled)
+T38UdpPort: {{ t38_udp_port }}
+
+# Whether to enable FAX server in daemon mode
+DialoutEnable: {{ dialout_enable }}
+
+# Whether to enable auto-answer on modems
+AutoAnswer: {{ auto_answer }}
+
+# Modem answer timeout (in seconds)
+AnswerDelay: {{ answer_delay }}

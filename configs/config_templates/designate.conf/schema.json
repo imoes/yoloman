@@ -1,0 +1,370 @@
+{
+  "debug": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable debug mode for verbose logging (not recommended for production)"
+  },
+  "log_level": {
+    "type": "string",
+    "default": "INFO",
+    "description": "Logging level for the service (DEBUG, INFO, WARNING, ERROR, CRITICAL)"
+  },
+  "log_file": {
+    "type": "string",
+    "default": "",
+    "description": "Path to the log file. Leave empty to log to stdout only"
+  },
+  "bind_host": {
+    "type": "string",
+    "default": "0.0.0.0",
+    "description": "IP address to bind the central API server"
+  },
+  "api_port": {
+    "type": "number",
+    "default": 9001,
+    "description": "Port number for the central API server"
+  },
+  "workers": {
+    "type": "number",
+    "default": 1,
+    "description": "Number of worker processes for the central service"
+  },
+  "task_manager_max_concurrent_tasks": {
+    "type": "number",
+    "default": 10,
+    "description": "Maximum number of tasks that can be processed concurrently by the task manager"
+  },
+  "backend_driver": {
+    "type": "string",
+    "default": "designate-mdns",
+    "description": "DNS backend driver. Common values: 'designate-mdns', 'dnsdist', 'nsd', 'bind9'"
+  },
+  "redis_host": {
+    "type": "string",
+    "default": "localhost",
+    "description": "Hostname or IP address of the Redis server used for coordination"
+  },
+  "redis_port": {
+    "type": "number",
+    "default": 6379,
+    "description": "Port of the Redis server"
+  },
+  "default_ttl": {
+    "type": "number",
+    "default": 3600,
+    "description": "Default TTL (Time To Live) for new DNS zones and records (seconds)"
+  },
+  "default_serial": {
+    "type": "number",
+    "default": 1,
+    "description": "Default SOA serial number format: YYYYMMDDnn"
+  },
+  "central_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable the designate-central service"
+  },
+  "max_records_per_zone": {
+    "type": "number",
+    "default": 1000,
+    "description": "Maximum number of DNS records allowed per zone"
+  },
+  "max_zones_per_tenant": {
+    "type": "number",
+    "default": 100,
+    "description": "Maximum number of DNS zones allowed per tenant"
+  },
+  "zone_name_regex": {
+    "type": "string",
+    "default": "^(([a-zA-Z0-9_\\-]*\\.)+[a-zA-Z]{2,})$",
+    "description": "Regular expression for validating zone names"
+  },
+  "pool_manager_cache_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable caching for pool manager data"
+  },
+  "pool_manager_cache_ttl": {
+    "type": "number",
+    "default": 60,
+    "description": "TTL for pool manager cache entries (seconds)"
+  },
+  "db_connection": {
+    "type": "string",
+    "default": "mysql+pymysql://designate:password@localhost/designate",
+    "description": "Database connection string (replace username/password/DB with production values)"
+  },
+  "worker_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable the worker service"
+  },
+  "worker_threads": {
+    "type": "number",
+    "default": 1,
+    "description": "Number of worker threads for the worker service"
+  },
+  "producer_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable the producer service"
+  },
+  "mdns_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable the mDNS service"
+  },
+  "mdns_bind_host": {
+    "type": "string",
+    "default": "0.0.0.0",
+    "description": "IP address to bind the mDNS service"
+  },
+  "mdns_bind_port": {
+    "type": "number",
+    "default": 5354,
+    "description": "Port for the mDNS service"
+  },
+  "allowed_axfr_cidrs": {
+    "type": "list",
+    "default": [
+      "127.0.0.1/32"
+    ],
+    "description": "List of CIDR blocks allowed to perform AXFR requests (comma-separated in config)"
+  },
+  "api_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable the designate-api service"
+  },
+  "api_workers": {
+    "type": "number",
+    "default": 1,
+    "description": "Number of worker processes for the API service"
+  },
+  "api_base_uri": {
+    "type": "string",
+    "default": "http://localhost:9001/v2",
+    "description": "Public base URI for the API (used for self-referential links)"
+  },
+  "auth_strategy": {
+    "type": "string",
+    "default": "keystone",
+    "description": "Authentication strategy for the API. Common: 'keystone', 'none'"
+  },
+  "cors_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable Cross-Origin Resource Sharing (CORS)"
+  },
+  "cors_allowed_origins": {
+    "type": "list",
+    "default": [],
+    "description": "List of allowed origins for CORS (comma-separated in config)"
+  },
+  "endpoint_templates": {
+    "type": "list",
+    "default": [],
+    "description": "List of Keystone endpoint templates (for federation)",
+    "items": {
+      "type": "object",
+      "fields": {
+        "service_name": {
+          "type": "string",
+          "default": "dns",
+          "description": "Service name in Keystone"
+        },
+        "endpoint_template": {
+          "type": "string",
+          "default": "",
+          "description": "Endpoint URL template (e.g., 'http://designate-api:9001/v2')"
+        },
+        "description": {
+          "type": "string",
+          "default": "",
+          "description": "Optional description of this endpoint template"
+        }
+      }
+    }
+  },
+  "pool_servers": {
+    "type": "list",
+    "default": [],
+    "description": "List of nameserver entries for a DNS pool (for mdns/dnsdist backends)",
+    "items": {
+      "type": "object",
+      "fields": {
+        "nameserver": {
+          "type": "string",
+          "default": "",
+          "description": "Fully qualified domain name of the nameserver"
+        },
+        "host": {
+          "type": "string",
+          "default": "127.0.0.1",
+          "description": "IP address of the nameserver host"
+        },
+        "port": {
+          "type": "number",
+          "default": 53,
+          "description": "Port the nameserver listens on"
+        },
+        "pool_id": {
+          "type": "string",
+          "default": "default",
+          "description": "Pool ID this server belongs to"
+        },
+        "hostname": {
+          "type": "string",
+          "default": "ns1.example.com",
+          "description": "Human-readable name of this server"
+        }
+      }
+    }
+  },
+  "notification_driver": {
+    "type": "string",
+    "default": "designate",
+    "description": "Notification driver to use (e.g., 'designate', 'nova', 'neutron')"
+  },
+  "notification_topics": {
+    "type": "list",
+    "default": [
+      "notifications"
+    ],
+    "description": "RabbitMQ/Kafka topics to consume notifications from"
+  },
+  "resolver_ip": {
+    "type": "string",
+    "default": "127.0.0.1",
+    "description": "IP address of the resolver to use for health checks"
+  },
+  "resolver_port": {
+    "type": "number",
+    "default": 53,
+    "description": "Port the resolver listens on"
+  },
+  "resolver_timeout": {
+    "type": "number",
+    "default": 10,
+    "description": "Timeout in seconds for resolver queries"
+  },
+  "pools": {
+    "type": "list",
+    "default": [],
+    "description": "List of predefined DNS pools (used by central/pool manager)",
+    "items": {
+      "type": "object",
+      "fields": {
+        "id": {
+          "type": "string",
+          "default": "default",
+          "description": "Unique ID of the pool"
+        },
+        "name": {
+          "type": "string",
+          "default": "default-pool",
+          "description": "Human-readable name of the pool"
+        },
+        "description": {
+          "type": "string",
+          "default": "",
+          "description": "Optional description"
+        },
+        "ns_records": {
+          "type": "list",
+          "default": [
+            {
+              "hostname": "ns1.example.com",
+              "priority": 1
+            }
+          ],
+          "description": "List of NS record entries",
+          "items": {
+            "type": "object",
+            "fields": {
+              "hostname": {
+                "type": "string",
+                "default": "ns1.example.com",
+                "description": "Hostname of the nameserver"
+              },
+              "priority": {
+                "type": "number",
+                "default": 1,
+                "description": "Priority (lower = higher priority)"
+              }
+            }
+          }
+        },
+        "nameservers": {
+          "type": "list",
+          "default": [
+            {
+              "hostname": "ns1.example.com"
+            }
+          ],
+          "description": "List of nameserver hostnames",
+          "items": {
+            "type": "object",
+            "fields": {
+              "hostname": {
+                "type": "string",
+                "default": "ns1.example.com",
+                "description": "FQDN of nameserver"
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "zones": {
+    "type": "list",
+    "default": [],
+    "description": "List of zone-specific defaults (for reference in comments, not used at runtime)",
+    "items": {
+      "type": "object",
+      "fields": {
+        "name": {
+          "type": "string",
+          "default": "example.com",
+          "description": "Zone name (e.g., 'example.com')"
+        },
+        "default_ttl": {
+          "type": "number",
+          "default": 3600,
+          "description": "Zone-specific TTL (seconds)"
+        },
+        "retry_refresh": {
+          "type": "number",
+          "default": 3600,
+          "description": "SOA retry-refresh interval (seconds)"
+        },
+        "minimum": {
+          "type": "number",
+          "default": 300,
+          "description": "SOA minimum TTL (seconds)"
+        },
+        "refresh": {
+          "type": "number",
+          "default": 7200,
+          "description": "SOA refresh interval (seconds)"
+        },
+        "retry": {
+          "type": "number",
+          "default": 1800,
+          "description": "SOA retry interval (seconds)"
+        },
+        "expire": {
+          "type": "number",
+          "default": 1209600,
+          "description": "SOA expire time (seconds)"
+        },
+        "negative_ttl": {
+          "type": "number",
+          "default": 900,
+          "description": "SOA negative caching TTL (seconds)"
+        }
+      }
+    }
+  }
+}

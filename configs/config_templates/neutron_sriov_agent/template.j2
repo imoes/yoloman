@@ -1,0 +1,46 @@
+[DEFAULT]
+# Log file name for the SR-IOV agent. Set empty to disable logging to file.
+log_file = {{ log_file }}
+
+# Logging directory
+log_dir = {{ log_dir }}
+
+# Logging format string (Python logging format syntax)
+log_format = {{ log_format }}
+
+# Logging date format
+log_date_format = {{ log_date_format }}
+
+# Verbosity level: DEBUG, INFO, WARNING, ERROR, CRITICAL
+verbose = {{ verbose }}
+debug = {{ debug }}
+
+# Path to the OVS bridge used for SR-IOV physical interfaces
+# Must exist and be of type 'ovs'
+physical_device_mappings = {% for item in physical_device_mappings %}{{ item.physical_network }}:{{ item.device_name }}{% if not loop.last %}, {% endif %}{% endfor %}
+
+# List of physical networks that can be used by SR-IOV interfaces
+# If empty, all networks are allowed
+# Example: default,external
+allowed_physical_networks = {% if allowed_physical_networks %}{% for item in allowed_physical_networks %}{{ item }}{% if not loop.last %}, {% endif %}{% endfor %}{% else %}{% endif %}
+
+[agent]
+# Polling interval (seconds) for checking device state
+polling_interval = {{ polling_interval }}
+
+# Enable L2 population support (requires ML2/OVS with L2-pop)
+enable_l2_pop = {{ enable_l2_pop }}
+
+# Enable dynamic segmentation IDs (e.g., for VLAN-based tenant isolation)
+enable_dynamic_segmentation = {{ enable_dynamic_segmentation }}
+
+[securitygroup]
+# Enable security groups (iptables or OVS firewall)
+enable_security_group = {{ enable_security_group }}
+
+# Firewall driver: iptables_hybrid, iptables, or ovs
+firewall_driver = {{ firewall_driver }}
+
+# Enable IPtables drop log for debugging
+# Note: only effective with iptables-based firewall driver
+ip_tables_drop_log = {{ ip_tables_drop_log }}

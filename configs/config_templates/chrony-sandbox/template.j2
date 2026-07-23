@@ -1,0 +1,67 @@
+# Use sandboxed (restricted) mode for enhanced security
+sandbox
+
+# Allow chronyd to bind to privileged port only from localhost
+bindcmdaddress 127.0.0.1
+
+# Listen for NTP requests only on localhost (sandboxed mode)
+bindaddress 127.0.0.1
+
+# Specify time sources (server/peer lines — each as an object in servers list)
+{% for server in servers %}# NTP server {{ server.name | default('server-' + loop.index) }}
+{% if server.pool %}pool {{ server.host }} {{ server.options | join(' ') }}
+{% else %}server {{ server.host }} {{ server.options | join(' ') }}
+{% endif %}{% endfor %}
+
+# Allow specific clients (if any) — each client object defines access rules
+{% for client in clients %}# Client access rule: {{ client.name | default('client-' + loop.index) }}
+allow {{ client.subnet }}
+{% endfor %}
+
+# Logging configuration
+{% if logging.file %}log {{ logging.file }}
+{% endif %}
+logdir {{ logging.dir }}
+{% for level in logging.levels %}log changes {{ level | lower }}
+{% endfor %}
+
+# Drift file and RTC settings (fixed paths for sandboxed mode)
+driftfile /var/lib/chrony/chrony.drift
+rtconutc
+rtcfile /var/lib/chrony/chrony.rtc
+
+# Key and command key files (sandboxed-safe locations)
+keyfile /etc/chrony/chrony.keys
+commandkey 1
+
+# Enable leap smearing if configured
+{% if leapsecmode %}leapsecmode {{ leapsecmode }}
+{% endif %}
+{% if leapseconds %}leapsectz {{ leapseconds.timezone | default('UTC') }}
+{% endif %}
+
+# Initial synchronization (sandboxed: prefer trusted sources)
+initsteps {{ initsteps | join(' ') }}
+
+# Make step on initial sync only if offset > threshold
+makestep {{ makestep.threshold | default(1.0) }} {{ makestep.threshold | default(1.0) > 0 and 'true' or 'false' }}
+
+# Performance tuning (sandboxed: conservative)
+maxsamples {{ maxsamples | default(10) }}
+minsamples {{ minsamples | default(3) }}
+
+# Allow fallback to broadcast/multicast (disabled in sandboxed mode)
+nobroadcast
+nomcast
+
+# Hardware timestamping (sandboxed: off by default)
+{% if enable_hwtimestamp %}hwtimestamp *
+{% endif %}
+
+# NTPsec compatibility (sandboxed: prefer legacy mode unless explicitly enabled)
+{% if ntpsec_compatible %}ntpsec
+{% endif %}
+
+# Source reliability tuning
+maxdistance {{ maxdistance | default(16.0) }}
+crypto proof

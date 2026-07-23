@@ -1,0 +1,51 @@
+<?xml version="1.0"?>
+<!-- loggedfs configuration file -->
+<config>
+  <!-- Mount point to observe (filesystem path) -->
+  <path>{{ mount_point }}</path>
+
+  <!-- Logging backend type: syslog or file -->
+  <backend>{{ backend }}</backend>
+
+  {% if backend == 'file' %}
+  <!-- Path to log file (used when backend is 'file') -->
+  <logfile>{{ log_file_path }}</logfile>
+  {% endif %}
+
+  <!-- Log level: 0=ERROR, 1=WARN, 2=INFO, 3=DEBUG -->
+  <verbose>{{ verbose }}</verbose>
+
+  <!-- Whether to log operations as JSON lines (true/false) -->
+  <json>{{ json_output }}</json>
+
+  <!-- Prefix to prepend to each log line (ignored when json=true) -->
+  <prefix>{{ log_prefix }}</prefix>
+
+  <!-- Maximum size in bytes of a single log file before rotation -->
+  <maxsize>{{ max_log_size }}</maxsize>
+
+  <!-- Maximum number of rotated log files to keep -->
+  <maxfiles>{{ max_log_files }}</maxfiles>
+
+  <!-- List of specific operations to log (all others ignored) -->
+  <operations>
+    {% for op in log_operations %}
+    <!-- Log operation: {{ op }} -->
+    <op>{{ op }}</op>
+    {% endfor %}
+  </operations>
+
+  <!-- List of paths to exclude from logging (supports glob patterns) -->
+  <exclude>
+    {% for pattern in exclude_paths %}
+    <!-- Exclude pattern: {{ pattern }} -->
+    <path>{{ pattern }}</path>
+    {% endfor %}
+  </exclude>
+
+  <!-- Whether to follow symlinks when traversing directories -->
+  <follow_symlinks>{{ follow_symlinks }}</follow_symlinks>
+
+  <!-- Whether to log metadata changes (e.g., chmod, chown) -->
+  <log_metadata>{{ log_metadata }}</log_metadata>
+</config>

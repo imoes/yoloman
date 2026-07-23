@@ -1,0 +1,81 @@
+# Mini-Buildd configuration file — main config for build daemon
+# See: https://mini-buildd.readthedocs.io/en/latest/config.html
+
+[mini-buildd]
+
+# Base directory for all build artifacts and state
+base_dir = {{ base_dir }}
+
+# Log directory; defaults to base_dir/logs if not set
+log_dir = {{ log_dir | default('') | trim or base_dir + '/logs' }}
+
+# Verbosity: 0=error, 1=warn, 2=info, 3=debug
+log_level = {{ log_level }}
+
+# Maximum number of concurrent build jobs
+max_jobs = {{ max_jobs }}
+
+# Listen address and port for the HTTP API and web UI
+bind_address = {{ bind_address }}
+bind_port = {{ bind_port }}
+
+# Enable HTTPS? (requires ssl_cert and ssl_key paths below)
+use_ssl = {{ use_ssl | lower }}
+
+# SSL certificate and key files (only used if use_ssl=true)
+ssl_cert = {{ ssl_cert }}
+ssl_key = {{ ssl_key }}
+
+# Optional: timeout (seconds) for builds
+build_timeout = {{ build_timeout }}
+
+# Optional: minimum free disk space (in MB) to allow new builds
+min_free_disk_mb = {{ min_free_disk_mb }}
+
+# Optional: repository URL template for apt sources (used for chroot setup)
+# {distro}, {suite}, {arch} placeholders may be used
+apt_sources_url = {{ apt_sources_url }}
+
+# Optional: extra APT keys to trust (space-separated file paths)
+extra_apt_keys = {{ extra_apt_keys | default([]) | join(' ') | trim }}
+
+# List of supported distributions and architectures to build for
+{% for dist in distributions %}
+[distribution:{{ dist.name }}]
+{%   for suite in dist.suites %}
+suites = {{ suite }}
+{%   endfor %}
+{%   for arch in dist.architectures %}
+architectures = {{ arch }}
+{%   endfor %}
+{% endfor %}
+
+# List of builders (build hosts) to use
+{% for builder in builders %}
+[builder:{{ builder.name }}]
+host = {{ builder.host }}
+port = {{ builder.port }}
+ssh_user = {{ builder.ssh_user }}
+{%   if builder.ssh_key_file %}
+ssh_key_file = {{ builder.ssh_key_file }}
+{%   endif %}
+{%   if builder.priority is defined %}
+priority = {{ builder.priority }}
+{%   endif %}
+{%   if builder.enabled is defined %}
+enabled = {{ builder.enabled | lower }}
+{%   endif %}
+{% endfor %}
+
+# Optional: repository signing key (for local APT repository)
+# Format: full fingerprint (e.g., ABCD 1234 EFGH 5678 ...)
+repo_sign_key_fingerprint = {{ repo_sign_key_fingerprint | default('') | trim }}
+
+# Optional: repository distribution name (for local APT repo)
+repo_distribution = {{ repo_distribution | default('unstable') }}
+
+# Optional: enable HTTP Basic Auth for the web UI and API
+{% if enable_auth %}
+auth_backend = basic
+auth_users_file = {{ auth_users_file }}
+{% endif %}

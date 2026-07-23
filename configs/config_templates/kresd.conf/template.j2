@@ -1,0 +1,102 @@
+# Default DNSSEC validation mode
+validation: 'auto'
+
+# Number of worker threads (set to 0 to disable multi-threading)
+workers: {{ workers }}
+
+# Root trust anchors file path
+trust_anchors: '{{ trust_anchors_path }}'
+
+# Cache size in bytes (e.g., '128M', '1G')
+cache_size: '{{ cache_size }}'
+
+# Log level: debug, info, notice, warning, error, critical
+log_level: '{{ log_level }}'
+
+# Listen on these addresses and ports (IPv4 and/or IPv6)
+listen:
+{% for addr in listen_addresses %}
+  - address: '{{ addr.address }}'
+{% if addr.port %}    port: {{ addr.port }}{% endif %}
+{% if addr.net == 'tcp' %}    net: tcp{% elif addr.net == 'udp' %}    net: udp{% endif %}
+{% endfor %}
+
+# Forward upstream recursive resolvers (with optional port and protocol)
+forward:
+{% for upstream in upstream_resolvers %}
+  - {{ upstream.hostname }}{% if upstream.port %}:{{ upstream.port }}{% endif %}{% if upstream.protocol == 'tcp' %}#tcp{% elif upstream.protocol == 'udp' %}#udp{% elif upstream.protocol == 'dot' %}#dot{% elif upstream.protocol == 'doh' %}#doh{% endif %}
+{% endfor %}
+
+# Policy zones — block or redirect specific domains
+policy:
+{% for rule in policy_rules %}
+  - matches: ['{{ rule.domain }}']
+    action: {{ rule.action }}
+{% if rule.target %}    target: '{{ rule.target }}'{% endif %}
+{% endfor %}
+
+# Enable DNS over HTTPS (DoH) listener
+{% if doh_enabled %}doh:
+  listen: '{{ doh_listen_address }}:{{ doh_port }}'
+  tls:
+    certificate: '{{ doh_cert_path }}'
+    key: '{{ doh_key_path }}'
+{% endif %}
+
+# Enable DNS over TLS (DoT) listener
+{% if dot_enabled %}dot:
+  listen: '{{ dot_listen_address }}:{{ dot_port }}'
+  tls:
+    certificate: '{{ dot_cert_path }}'
+    key: '{{ dot_key_path }}'
+{% endif %}
+
+# Query log format (json or txt)
+{% if query_log %}log:
+  query: true
+  format: '{{ query_log_format }}'{% endif %}
+
+# Timeout for upstream queries (seconds)
+net.timeout: {{ net_timeout }}
+
+# Maximum number of concurrent queries per client
+net.max_queries_per_client: {{ net_max_queries_per_client }}
+
+# Minimum TTL for negative responses (seconds)
+neg_ttl: {{ neg_ttl }}
+
+# Enable DNSSEC validation (true/false)
+{% if dnssec_enabled %}dnssec: true{% else %}dnssec: false{% endif %}
+
+# Local data overrides (e.g., /etc/hosts style)
+local_data:
+{% for entry in local_data_entries %}
+  - name: '{{ entry.name }}'
+    ttl: {{ entry.ttl }}
+    class: '{{ entry.class }}'
+    type: '{{ entry.type }}'
+    data: '{{ entry.data }}'
+{% endfor %}
+
+# Prefetching behavior
+prefetch: {{ prefetch_enabled }}
+
+# Stale TTL (seconds) — how long to serve stale data when upstream is down
+stale_ttl: {{ stale_ttl }}
+
+# Cache purge interval (seconds)
+cache_purge_interval: {{ cache_purge_interval }}
+
+# Seed random number generator with system entropy (true/false)
+random_seed: {{ random_seed }}
+
+# Enable experimental features
+{% if experimental %}experimental:
+  http_api: true
+{% endif %}
+
+# HTTP management API (optional)
+{% if http_api_enabled %}http_api:
+  listen: '{{ http_api_listen }}:{{ http_api_port }}'
+{% if http_api_token %}  token: '{{ http_api_token }}'{% endif %}
+{% endif %}

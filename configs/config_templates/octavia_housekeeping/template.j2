@@ -1,0 +1,88 @@
+# housekeeping.conf - Octavia Housekeeping Manager configuration
+
+[housekeeping]
+# Interval (in seconds) between housekeeping cycles
+housekeeping_interval = {{ housekeeping_interval }}
+
+# Maximum number of Load Balancers processed per cycle
+max_lbaas_per_housekeeping = {{ max_lbaas_per_housekeeping }}
+
+# Timeout (in seconds) for waiting on amphora API calls during housekeeping
+amphora_agent_timeout = {{ amphora_agent_timeout }}
+
+# Enable/disable the amphora expiry feature
+amphora_expiry_enabled = {{ amphora_expiry_enabled|lower }}
+
+# Minimum age (in seconds) of an amphora before it's considered for expiry
+amphora_expiry_age = {{ amphora_expiry_age }}
+
+# Maximum number of amphorae to process in each expiry batch
+amphora_expiry_batch_size = {{ amphora_expiry_batch_size }}
+
+# Path to the amphora agent certificate (for secure API communication)
+amphora_agent_ca = {{ amphora_agent_ca|default('/etc/octavia/amphora-agent-ca.pem') }}
+
+# Path to the amphora agent client certificate
+amphora_agent_cert = {{ amphora_agent_cert|default('/etc/octavia/amphora-agent.pem') }}
+
+# Path to the amphora agent private key
+amphora_agent_key = {{ amphora_agent_key|default('/etc/octavia/amphora-agent-key.pem') }}
+
+# Network and subnet IDs used for amphora failover communication
+amphora_network = {{ amphora_network|default('') }}
+amphora_subnet = {{ amphora_subnet|default('') }}
+
+# List of load balancer IDs to *exclude* from housekeeping (empty means none excluded)
+{% if exclude_lba_ids %}
+exclude_lba_ids = {{ exclude_lba_ids | join(', ') }}
+{% else %}
+exclude_lba_ids =
+{% endif %}
+
+# Path to the amphora agent heartbeat listener directory
+amphora_agent_heartbeat_dir = {{ amphora_agent_heartbeat_dir|default('/var/lib/octavia/heartbeat') }}
+
+# Enable/disable amphora health status syncing to the database
+enable_health_sync = {{ enable_health_sync|lower }}
+
+# Timeout (in seconds) for amphora health sync RPC calls
+health_sync_timeout = {{ health_sync_timeout }}
+
+# Path to the database connection string (if using separate DB config)
+database_connection = {{ database_connection }}
+
+{% if amphora_agents %}
+# Amphora agent-specific overrides
+{% for agent in amphora_agents %}
+[amphora_agent:{{ agent.name }}]
+# Hostname or IP for amphora agent {{ agent.name }}
+host = {{ agent.host }}
+
+# Port for amphora agent {{ agent.name }}
+port = {{ agent.port }}
+
+# Enable TLS for this agent
+use_tls = {{ agent.use_tls|lower }}
+
+{% endfor %}
+{% endif %}
+
+[oslo_concurrency]
+# Path to the lock directory for inter-process coordination
+lock_path = {{ lock_path|default('/var/lib/octavia/lock') }}
+
+[controller_worker]
+# Worker process count (number of subprocesses to spawn)
+workers = {{ workers }}
+
+# Number of threads per worker
+thread_pool_size = {{ thread_pool_size }}
+
+# Enable/disable eventlet-based concurrency
+use_eventlet = {{ use_eventlet|lower }}
+
+# Path to the driver for amphora management (e.g., 'amphora_haproxy_rest_driver')
+amphora_driver = {{ amphora_driver|default('amphora_haproxy_rest_driver') }}
+
+# Path to the driver for load balancer management (e.g., 'neutron')
+loadbalancer_topology = {{ loadbalancer_topology|default('SINGLE') }}

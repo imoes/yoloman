@@ -1,0 +1,90 @@
+{
+  "listen_port": {
+    "type": "number",
+    "default": 49500,
+    "description": "UDP port to listen on for incoming broadcast/multicast packets."
+  },
+  "multicast_ttl": {
+    "type": "number",
+    "default": 64,
+    "description": "Time-to-live for relayed multicast packets (0\u2013255)."
+  },
+  "enable_ipv6": {
+    "type": "bool",
+    "default": false,
+    "description": "Whether to enable IPv6 support for listening and relaying."
+  },
+  "max_packet_size": {
+    "type": "number",
+    "default": 65535,
+    "description": "Maximum size in bytes of packets to accept and relay. Larger packets are dropped."
+  },
+  "worker_threads": {
+    "type": "number",
+    "default": 2,
+    "description": "Number of worker threads to process incoming packets (1\u201332)."
+  },
+  "interfaces": {
+    "type": "list",
+    "default": [
+      "any"
+    ],
+    "description": "List of network interfaces to bind to. Use ['any'] to listen on all interfaces.",
+    "items": {
+      "type": "string",
+      "description": "Network interface name (e.g., eth0, enp3s0, or 'any')."
+    }
+  },
+  "destinations": {
+    "type": "list",
+    "default": [],
+    "description": "List of relay destinations (IP addresses or hostnames). Optional per-destination port.",
+    "items": {
+      "type": "object",
+      "properties": {
+        "address": {
+          "type": "string",
+          "description": "Destination IP address or hostname."
+        },
+        "port": {
+          "type": "number",
+          "default": null,
+          "description": "Optional destination port (if omitted, uses same as listen_port)."
+        }
+      },
+      "required": [
+        "address"
+      ]
+    }
+  },
+  "rate_limit_pps": {
+    "type": "number",
+    "default": 1000,
+    "description": "Maximum packets per second to relay per source IP. Set to 0 to disable rate limiting."
+  },
+  "log_level": {
+    "type": "string",
+    "default": "info",
+    "description": "Verbosity of logging output."
+  },
+  "pidfile": {
+    "type": "string",
+    "default": "/var/run/bcrelay/bcrelay.pid",
+    "description": "Path to write the daemon's PID file."
+  },
+  "drop_privileges": {
+    "type": "bool",
+    "default": true,
+    "description": "Whether to drop root privileges after opening the listening port."
+  },
+  "privilege_user": {
+    "type": "string",
+    "default": "nobody",
+    "description": "System user to drop to when privileges are enabled."
+  },
+  "privilege_group": {
+    "type": "string",
+    "default": "nogroup",
+    "description": "System group to drop to when privileges are enabled."
+  }
+}

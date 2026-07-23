@@ -1,0 +1,54 @@
+[WebService]
+# Maximum concurrent unauthenticated login negotiations
+MaxStartups = {{ max_startups }}
+
+# Title shown in the browser tab and on the login page
+LoginTitle = {{ login_title }}
+
+{% if allowed_origins %}
+# Allowed request origins; omit to trust whatever the Host header contains
+Origins = {{ allowed_origins | join(' ') }}
+{% endif %}
+
+{% if protocol_header %}
+# HTTP header set by a reverse proxy to signal the original protocol (HTTPS)
+ProtocolHeader = {{ protocol_header }}
+{% endif %}
+
+# Permit plain HTTP connections (false enforces HTTPS)
+AllowUnencrypted = {{ allow_unencrypted | lower }}
+
+{% if url_root %}
+# Serve cockpit under this URL path prefix instead of /
+UrlRoot = {{ url_root }}
+{% endif %}
+
+# Compress web assets with gzip to reduce transfer size
+Compression = {{ compression | lower }}
+
+# Require a valid X.509 client certificate to authenticate (PKI / smart-card)
+ClientCertAuthentication = {{ client_cert_auth | lower }}
+
+{% if login_banner %}
+# Plain-text file whose contents are displayed on the login page
+LoginBanner = {{ login_banner }}
+{% endif %}
+
+[Session]
+# Minutes of inactivity before the session is closed (0 = never)
+IdleTimeout = {{ session_idle_timeout }}
+
+{% if session_banner %}
+# Plain-text file shown as MOTD immediately after a successful login
+Banner = {{ session_banner }}
+{% endif %}
+
+[Log]
+# Sink for fatal-level error messages (stderr or syslog)
+Fatal = {{ log_fatal }}
+{% if oauth_enabled %}
+
+[OAuth]
+# OAuth provider endpoint URL; cockpit redirects unauthenticated users here
+URL = {{ oauth_url }}
+{% endif %}

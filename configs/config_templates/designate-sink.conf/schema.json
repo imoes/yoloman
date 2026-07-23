@@ -1,0 +1,215 @@
+{
+  "worker": {
+    "type": "object",
+    "description": "Worker process configuration",
+    "properties": {
+      "limit": {
+        "type": "number",
+        "default": 0,
+        "description": "Maximum number of concurrent tasks per worker (0 = no limit)"
+      },
+      "workers": {
+        "type": "number",
+        "default": 1,
+        "description": "Number of worker processes to spawn"
+      },
+      "task_timeout": {
+        "type": "number",
+        "default": 600,
+        "description": "Timeout for worker tasks in seconds"
+      }
+    }
+  },
+  "rpc": {
+    "type": "object",
+    "description": "RPC backend configuration",
+    "properties": {
+      "transport_url": {
+        "type": "string",
+        "default": "rabbit://guest:guest@localhost:5672/",
+        "description": "Connection URL for the message broker (e.g., RabbitMQ, Qpid)"
+      },
+      "use_ssl": {
+        "type": "boolean",
+        "default": false,
+        "description": "Enable SSL/TLS for RPC communication"
+      }
+    }
+  },
+  "notifications": {
+    "type": "object",
+    "description": "Notification handling configuration",
+    "properties": {
+      "driver": {
+        "type": "string",
+        "default": "messagingv2",
+        "description": "Driver to use for consuming notifications"
+      },
+      "topic": {
+        "type": "string",
+        "default": "designate",
+        "description": "Topic to listen on for incoming notifications"
+      }
+    }
+  },
+  "pools_target": {
+    "type": "object",
+    "description": "Default target settings applied across all pools (unless overridden)",
+    "properties": {
+      "target_type": {
+        "type": "string",
+        "default": "designate",
+        "description": "The default type of DNS backend this sink supports (e.g., 'designate', 'bind9')"
+      }
+    }
+  },
+  "central": {
+    "type": "object",
+    "description": "Designate central service connection settings",
+    "properties": {
+      "endpoint": {
+        "type": "string",
+        "default": "http://localhost:9001/",
+        "description": "Designate central API endpoint URL"
+      },
+      "auth_url": {
+        "type": "string",
+        "default": "http://localhost:5000/v3",
+        "description": "Keystone auth URL for service-to-service authentication"
+      },
+      "project_name": {
+        "type": "string",
+        "default": "service",
+        "description": "OpenStack service project name"
+      },
+      "username": {
+        "type": "string",
+        "default": "designate",
+        "description": "OpenStack service username"
+      },
+      "password": {
+        "type": "string",
+        "default": "",
+        "description": "Password for the service user (leave empty in production \u2014 use keystoneauth1 adapter or OS_PASSWORD)"
+      },
+      "user_domain_name": {
+        "type": "string",
+        "default": "Default",
+        "description": "OpenStack domain name for the service user"
+      },
+      "project_domain_name": {
+        "type": "string",
+        "default": "Default",
+        "description": "OpenStack domain name for the service project"
+      },
+      "region_name": {
+        "type": "string",
+        "default": "RegionOne",
+        "description": "OpenStack region to use for service lookup"
+      }
+    }
+  },
+  "pools": {
+    "type": "list",
+    "description": "List of DNS pools managed by this sink instance",
+    "items": {
+      "type": "object",
+      "description": "A DNS pool configuration",
+      "properties": {
+        "name": {
+          "type": "string",
+          "default": "default",
+          "description": "Unique identifier for this pool (e.g., 'default', 'internal')"
+        },
+        "description": {
+          "type": "string",
+          "default": "Default pool for Designate sink",
+          "description": "Human-readable description of this pool"
+        },
+        "targets": {
+          "type": "list",
+          "description": "List of DNS targets (backends) for this pool",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string",
+                "default": "target01",
+                "description": "Unique name for the target"
+              },
+              "type": {
+                "type": "string",
+                "default": "designate",
+                "description": "Target type (e.g., 'designate', 'bind9')"
+              },
+              "options": {
+                "type": "object",
+                "description": "Target-specific configuration parameters (e.g., host, port, api_endpoint)",
+                "additionalProperties": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "nameservers": {
+          "type": "list",
+          "description": "List of authoritative nameservers for this pool",
+          "items": {
+            "type": "object",
+            "properties": {
+              "host": {
+                "type": "string",
+                "default": "127.0.0.1",
+                "description": "IP address or hostname of the nameserver"
+              },
+              "port": {
+                "type": "number",
+                "default": 53,
+                "description": "DNS port used by the nameserver"
+              }
+            }
+          }
+        },
+        "record_types": {
+          "type": "list",
+          "default": [
+            "A",
+            "AAAA",
+            "CNAME",
+            "MX",
+            "NS",
+            "PTR",
+            "SOA",
+            "SRV",
+            "TXT"
+          ],
+          "description": "List of DNS record types this pool can handle"
+        },
+        "attributes": {
+          "type": "object",
+          "description": "Additional arbitrary attributes to associate with the pool (e.g., 'serial', 'allow_vanity', 'provisioning_status')",
+          "additionalProperties": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  },
+  "catalog": {
+    "type": "object",
+    "description": "Keystone service catalog lookup settings",
+    "properties": {
+      "use_service_catalog": {
+        "type": "boolean",
+        "default": true,
+        "description": "If true, use Keystone's service catalog to locate endpoints instead of hardcoded URLs"
+      },
+      "service_type": {
+        "type": "string",
+        "default": "dns",
+        "description": "Service type registered in Keystone for Designate"
+      }
+    }
+  }
+}

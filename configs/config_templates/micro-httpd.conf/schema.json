@@ -1,0 +1,125 @@
+{
+  "server": {
+    "type": "object",
+    "properties": {
+      "bind_address": {
+        "type": "string",
+        "default": "0.0.0.0",
+        "description": "IP address the server listens on (e.g., '0.0.0.0' for all interfaces)"
+      },
+      "port": {
+        "type": "number",
+        "default": 8080,
+        "description": "TCP port number the server listens on"
+      },
+      "max_workers": {
+        "type": "number",
+        "default": 4,
+        "description": "Maximum number of worker threads to handle requests"
+      },
+      "https_enabled": {
+        "type": "boolean",
+        "default": false,
+        "description": "Enable HTTPS (requires valid TLS certificate and key)"
+      },
+      "ssl_cert_path": {
+        "type": "string",
+        "default": "/etc/micro-httpd/ssl/cert.pem",
+        "description": "Path to the SSL/TLS certificate file (used only if HTTPS is enabled)"
+      },
+      "ssl_key_path": {
+        "type": "string",
+        "default": "/etc/micro-httpd/ssl/key.pem",
+        "description": "Path to the SSL/TLS private key file (used only if HTTPS is enabled)"
+      },
+      "docroot": {
+        "type": "string",
+        "default": "/var/www/html",
+        "description": "Document root directory for serving static files"
+      },
+      "index_files": {
+        "type": "list",
+        "default": [
+          "index.html",
+          "index.htm",
+          "index.php"
+        ],
+        "description": "List of filenames to try when a directory is requested"
+      }
+    }
+  },
+  "logging": {
+    "type": "object",
+    "properties": {
+      "verbose": {
+        "type": "boolean",
+        "default": false,
+        "description": "Enable verbose debug logging (adds detailed request/response info)"
+      },
+      "level": {
+        "type": "string",
+        "default": "info",
+        "description": "Minimum log level: debug, info, warn, error, critical",
+        "enum": [
+          "debug",
+          "info",
+          "warn",
+          "error",
+          "critical"
+        ]
+      },
+      "path": {
+        "type": "string",
+        "default": "/var/log/micro-httpd/micro-httpd.log",
+        "description": "Path to the main log file"
+      }
+    }
+  },
+  "security": {
+    "type": "object",
+    "properties": {
+      "max_request_size": {
+        "type": "number",
+        "default": 10485760,
+        "description": "Maximum allowed HTTP request size in bytes (0 = no limit)"
+      },
+      "allowed_origins": {
+        "type": "list",
+        "default": [
+          "*"
+        ],
+        "description": "List of allowed Origin hostnames for CORS (use '*' for all)"
+      },
+      "auth_enabled": {
+        "type": "boolean",
+        "default": false,
+        "description": "Enable basic HTTP authentication (requires auth_file)"
+      },
+      "auth_file": {
+        "type": "string",
+        "default": "/etc/micro-httpd/htpasswd",
+        "description": "Path to password file in htpasswd format (used only if auth is enabled)"
+      }
+    }
+  },
+  "limits": {
+    "type": "object",
+    "properties": {
+      "connection_timeout": {
+        "type": "number",
+        "default": 30,
+        "description": "Idle connection timeout in seconds"
+      },
+      "max_connections": {
+        "type": "number",
+        "default": 256,
+        "description": "Maximum number of concurrent connections"
+      },
+      "rate_limit": {
+        "type": "number",
+        "default": 100,
+        "description": "Maximum requests per minute per client IP"
+      }
+    }
+  }
+}

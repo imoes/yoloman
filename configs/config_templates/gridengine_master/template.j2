@@ -1,0 +1,100 @@
+# Grid Engine Master Server configuration
+# Master node configuration for Grid Engine (SGE)
+# This file is auto-generated; site-specific values are injected at install time
+
+# --- Cluster and Queue Manager Settings ---
+{{# Global cluster name }}
+cluster_name {{ cluster_name }}
+
+{{# Path to the Grid Engine root directory }}
+execd_spool_dir {{ spool_dir }}
+
+{{# Path to configuration directory }}
+admin_user {{ admin_user }}
+
+{{# Default shell for job execution }}
+default_shell {{ default_shell }}
+
+{{# Email notification settings }}
+qsub_mail_opts {{ mail_opts }}
+
+{{# Job priority settings }}
+priority_slots {{ priority_slots }}
+
+{{# Maximum number of jobs per user }}
+max_jobs {{ max_jobs_per_user }}
+
+{{# Job retention time (in seconds) }}
+job_priority_retention_time {{ job_retention_time }}
+
+{{# Parallel environment definitions (if any) }}
+{% if penv_list %}
+{% for pe in penv_list %}
+# Parallel environment: {{ pe.name }}
+pe_name {{ pe.name }}
+pe_slots {{ pe.slots }}
+pe_require_hosts {{ pe.require_hosts | default('') }}
+pe_rule {{ pe.rule }}
+{% if loop.last %}
+{% else %}
+{% endif %}
+{% endfor %}
+{% endif %}
+
+{{# Queue configuration — one queue per line (name and options) }}
+{% for queue in queue_list %}
+# Queue: {{ queue.name }}
+qname {{ queue.name }}
+hostlist {{ queue.hostlist | join(',') }}
+seq_no {{ queue.seq_no }}
+{% if queue.priority | default(false) %}priority {{ queue.priority }}{% endif %}
+{% if queueslots %}slots {{ queue.slots | join(',') }}{% endif %}
+{% if queue.enable | default(true) %}start_job_prolog {{ queue.start_job_prolog }}{% endif %}
+{% if queue.end_prolog %}end_job_prolog {{ queue.end_prolog }}{% endif %}
+{% if queue.hold | default(false) %}hold_wjobs {{ queue.hold }}{% endif %}
+{% if queue.submit_hosts %}submit_hosts {{ queue.submit_hosts | join(',') }}{% endif %}
+{% if queue.exclude_hosts %}exclude_hosts {{ queue.exclude_hosts | join(',') }}{% endif %}
+{% if queue.reservation %}reservation_time {{ queue.reservation }}{% endif %}
+{% if queue.load_thresholds %}load_thresholds {{ queue.load_thresholds }}{% endif %}
+{% if queuesuspend_thresholds %}suspend_thresholds {{ queue.suspend_thresholds }}{% endif %}
+{% if queue.suspend_exit_delay %}suspend_exit_delay {{ queue.suspend_exit_delay }}{% endif %}
+{% if queue.resume_thresholds %}resume_thresholds {{ queue.resume_thresholds }}{% endif %}
+{% if queue.ujobs %}ujobs {{ queue.ujobs | join(',') }}{% endif %}
+{% if queue.pjobs %}pjobs {{ queue.pjobs | join(',') }}{% endif %}
+{% if queue.mjobs %}mjobs {{ queue.mjobs | join(',') }}{% endif %}
+{% if queue.maxujobs | default(0) %}max_ujobs {{ queue.maxujobs }}{% endif %}
+{% if queue.maxpjobs | default(0) %}max_pjobs {{ queue.maxpjobs }}{% endif %}
+{% if queue.maxmjobs | default(0) %}max_mjobs {{ queue.maxmjobs }}{% endif %}
+{% if queue.maxjslots | default(1) %}max_jslots {{ queue.max_jslots }}{% endif %}
+{% if queue.minjslots | default(1) %}min_jslots {{ queue.min_jslots }}{% endif %}
+{% if queue.jo %}job_factor {{ queue.job_factor | default(1.0) }}{% endif %}
+{% endfor %}
+
+# --- Network & Communication Settings ---
+{{# Master host name (FQDN) }}
+qmaster_spool_dir {{ qmaster_spool_dir }}
+
+{{# Port for qmaster daemon }}
+qmaster_port {{ qmaster_port }}
+
+{{# Port for execd daemon }}
+execd_port {{ execd_port }}
+
+{{# Port for shadow daemon }}
+shadow_port {{ shadow_port }}
+
+{{# Use SSL for communication }}
+use_ssl {{ use_ssl | string | lower }}
+
+# --- Logging ---
+{{# Log level: 0=silent, 1=fatal, 2=error, 3=warn, 4=info, 5=debug }}
+loglevel {{ log_level }}
+
+{{# Log directory }}
+logdir {{ log_dir }}
+
+{{# Spool directory for logs and temp files }}
+spooldir {{ spool_dir }}
+
+{{# Use syslog for logging }}
+use_syslog {{ use_syslog | string | lower }}

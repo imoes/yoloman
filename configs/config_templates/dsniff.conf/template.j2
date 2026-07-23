@@ -1,0 +1,23 @@
+# dsniff configuration file - controls logging and logging targets
+[global]
+# Enable verbose logging
+verbose = {{ verbose|default(false)|string|lower }}
+# Log directory for captured data
+logdir = {{ logdir|default('/var/log/dsniff') }}
+# Maximum size (in bytes) of a single log file before rotation
+logfile_maxsize = {{ logfile_maxsize|default(10485760) }}
+# Maximum number of rotated log files to keep
+logfile_rotate = {{ logfile_rotate|default(5) }}
+# List of services (protocols) to sniff — leave empty or comment to enable default set
+# Example: ssh, ftp, http, smtp, pop, imap, telnet, nntp, snmp, ldap, dns
+# services = {{ services | join(', ') if services is defined else '' }}
+{% if services is defined and services %}services = {{ services | join(', ') }}{% else %}# services = ssh, ftp, http, smtp, pop, imap, telnet, nntp, snmp, ldap, dns, x11{% endif %}
+# List of network interfaces to sniff on
+{% for iface in interfaces %}# Interface: {{ iface.name }}
+{% if iface.enabled|default(true) %}# Enabled
+{% endif %}interface = {{ iface.name }}{% if iface.enabled is defined and not iface.enabled %} # disabled{% endif %}
+{% endfor %}
+# Optional: override default port mappings (e.g., ftp=2121, http=8080)
+{% if custom_ports is defined and custom_ports %}# Custom port mappings
+{% for svc, port in custom_ports.items() %}port_{{ svc }} = {{ port }}
+{% endfor %}{% endif %}

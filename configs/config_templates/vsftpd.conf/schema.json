@@ -1,0 +1,275 @@
+{
+  "anonymous_enable": {
+    "type": "bool",
+    "default": true,
+    "description": "Allow anonymous FTP logins. Only enable if public file sharing is needed."
+  },
+  "local_enable": {
+    "type": "bool",
+    "default": true,
+    "description": "Allow local system users to log in via FTP."
+  },
+  "write_enable": {
+    "type": "bool",
+    "default": true,
+    "description": "Allow FTP write operations (uploads, deletes, renames). Disable for read-only FTP."
+  },
+  "anon_upload_enable": {
+    "type": "bool",
+    "default": false,
+    "description": "Allow anonymous users to upload files. Requires write_enable and proper directory permissions."
+  },
+  "anon_root": {
+    "type": "string",
+    "default": "/var/ftp",
+    "description": "Directory to serve as root for anonymous users. Must exist and be owned by 'ftp'."
+  },
+  "local_root": {
+    "type": "string",
+    "default": "$USER",
+    "description": "Root directory for local users after login. Use '$USER' for per-user home-based isolation."
+  },
+  "chroot_local_user": {
+    "type": "bool",
+    "default": true,
+    "description": "Chroot local users to their home directories for security. Prevents filesystem escape."
+  },
+  "chroot_list_file": {
+    "type": "string",
+    "default": "/etc/vsftpd/chroot_list",
+    "description": "Path to file containing users who should *not* be chrooted (if chroot_local_user=YES)."
+  },
+  "chroot_list_enable": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable chroot exception list (users listed in chroot_list_file are exempt from chrooting)."
+  },
+  "pasv_enable": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable passive FTP mode (required for clients behind NAT/firewalls)."
+  },
+  "pasv_min_port": {
+    "type": "number",
+    "default": 10090,
+    "description": "Minimum port in the passive port range. Ensure firewall allows this range."
+  },
+  "pasv_max_port": {
+    "type": "number",
+    "default": 10100,
+    "description": "Maximum port in the passive port range. Must be \u2265 pasv_min_port."
+  },
+  "listen": {
+    "type": "bool",
+    "default": true,
+    "description": "Run vsftpd in standalone mode (listening directly on ports)."
+  },
+  "listen_address": {
+    "type": "string",
+    "default": "",
+    "description": "IP address to bind to (empty = all interfaces). Leave blank unless binding to specific interface."
+  },
+  "listen_port": {
+    "type": "number",
+    "default": 21,
+    "description": "FTP control port. Standard FTP uses 21."
+  },
+  "xferlog_enable": {
+    "type": "bool",
+    "default": true,
+    "description": "Log file transfers (uploads/downloads) to xferlog_file."
+  },
+  "xferlog_file": {
+    "type": "string",
+    "default": "/var/log/vsftpd.log",
+    "description": "Path to the transfer log file."
+  },
+  "xferlog_std_format": {
+    "type": "bool",
+    "default": false,
+    "description": "Use standard wu-ftpd-style log format (for compatibility with log analyzers)."
+  },
+  "log_file": {
+    "type": "string",
+    "default": "/var/log/vsftpd.log",
+    "description": "Alternate log file path (used when xferlog_std_format=NO)."
+  },
+  "local_umask": {
+    "type": "string",
+    "default": "022",
+    "description": "Umask for local users' uploaded files (e.g., '022' \u2192 files 644, dirs 755)."
+  },
+  "anon_umask": {
+    "type": "string",
+    "default": "077",
+    "description": "Umask for anonymous uploads (e.g., '077' \u2192 files 600, dirs 700 for security)."
+  },
+  "virtual_user_config_dir": {
+    "type": "string",
+    "default": "/etc/vsftpd/virtual_users",
+    "description": "Directory for per-virtual-user config files (used when guest_enable=YES)."
+  },
+  "guest_enable": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable virtual users (requires PAM config mapping virtual users to system users)."
+  },
+  "guest_username": {
+    "type": "string",
+    "default": "virtual",
+    "description": "System user to map virtual users to (must exist)."
+  },
+  "user_sub_token": {
+    "type": "string",
+    "default": "$USER",
+    "description": "Token used to substitute virtual usernames in paths (e.g., /home/vsftpd/$USER)."
+  },
+  "pam_service_name": {
+    "type": "string",
+    "default": "vsftpd",
+    "description": "Name of PAM service for authentication (must match file in /etc/pam.d/)."
+  },
+  "hide_ids": {
+    "type": "bool",
+    "default": false,
+    "description": "Hide local user/group names in directory listings (shows numeric IDs instead)."
+  },
+  "user_config_dir": {
+    "type": "string",
+    "default": "/etc/vsftpd/user_conf",
+    "description": "Directory containing per-user config files (named by username)."
+  },
+  "virtual_users": {
+    "type": "object",
+    "default": {},
+    "description": "Virtual users and their per-user settings. Each key is a virtual username, value is a dict of config keys.",
+    "items": {
+      "type": "object",
+      "description": "Per-virtual-user configuration",
+      "properties": {
+        "local_root": {
+          "type": "string",
+          "description": "Root directory for this user (override global local_root)."
+        },
+        "write_enable": {
+          "type": "bool",
+          "description": "Allow write operations for this user only."
+        },
+        "anon_world_readable_only": {
+          "type": "bool",
+          "description": "Restrict anonymous permissions to world-readable files."
+        }
+      }
+    }
+  },
+  "ssl_enable": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable FTP over SSL/TLS (FTPS). Strongly recommended for production."
+  },
+  "allow_ssl": {
+    "type": "bool",
+    "default": false,
+    "description": "Allow SSL/TLS but do not require it (plaintext allowed if client declines TLS)."
+  },
+  "rsa_cert_file": {
+    "type": "string",
+    "default": "/etc/ssl/certs/vsftpd.pem",
+    "description": "Path to SSL certificate (PEM format)."
+  },
+  "rsa_private_key_file": {
+    "type": "string",
+    "default": "/etc/ssl/private/vsftpd.key",
+    "description": "Path to SSL private key (PEM format)."
+  },
+  "ssl_protocols": {
+    "type": "string",
+    "default": "TLSv1.2 TLSv1.3",
+    "description": "SSL/TLS protocols to allow. Use spaces or commas to separate. Avoid SSLv3, TLSv1.0, TLSv1.1."
+  },
+  "ssl_ciphers": {
+    "type": "string",
+    "default": "HIGH:MEDIUM:!aNULL:!MD5",
+    "description": "Cipher suites to permit. Restrict to strong ciphers (e.g., AES-GCM, ChaCha20)."
+  },
+  "ssl_session_cache": {
+    "type": "string",
+    "default": "enabled",
+    "description": "SSL session cache behavior: 'enabled', 'disabled', or 'cache_size:timeout'."
+  },
+  "require_ssl": {
+    "type": "bool",
+    "default": false,
+    "description": "Require SSL/TLS for data connections (force encrypted file transfers)."
+  },
+  "syslog_enable": {
+    "type": "bool",
+    "default": false,
+    "description": "Log to syslog instead of file-based logs."
+  },
+  "tcp_wrappers": {
+    "type": "bool",
+    "default": false,
+    "description": "Use TCP Wrappers (/etc/hosts.allow, /etc/hosts.deny) for access control."
+  },
+  "timeout": {
+    "type": "number",
+    "default": 300,
+    "description": "Idle session timeout in seconds (0 = no timeout)."
+  },
+  "data_connection_timeout": {
+    "type": "number",
+    "default": 120,
+    "description": "Timeout for idle data connections (in seconds)."
+  },
+  "max_clients": {
+    "type": "number",
+    "default": 2000,
+    "description": "Maximum number of simultaneous clients. Set to 0 for unlimited."
+  },
+  "max_per_ip": {
+    "type": "number",
+    "default": 10,
+    "description": "Maximum clients allowed per IP address."
+  },
+  "anon_max_rate": {
+    "type": "number",
+    "default": 0,
+    "description": "Max upload rate in bytes/sec for anonymous users (0 = unlimited)."
+  },
+  "local_max_rate": {
+    "type": "number",
+    "default": 0,
+    "description": "Max upload rate in bytes/sec for local users (0 = unlimited)."
+  },
+  "ftpd_banner": {
+    "type": "string",
+    "default": "",
+    "description": "Banner displayed on initial FTP connection (e.g., welcome message)."
+  },
+  "banner_file": {
+    "type": "string",
+    "default": "",
+    "description": "Path to file containing banner message (overrides ftpd_banner if set)."
+  },
+  "ascii_mode_upload": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable ASCII mode uploads (auto-convert line endings)."
+  },
+  "ascii_mode_download": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable ASCII mode downloads."
+  },
+  "utf8_filesystem": {
+    "type": "bool",
+    "default": false,
+    "description": "Assume filesystem uses UTF-8 encoding (helps with international filenames)."
+  },
+  "listen_ipv6": {
+    "type": "bool",
+    "default": false,
+    "description": "Listen on IPv6 instead of IPv4 (if listen=YES and listen_ipv6=YES)."
+  }
+}

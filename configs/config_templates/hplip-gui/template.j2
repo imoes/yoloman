@@ -1,0 +1,75 @@
+[general]
+# Version of the HPLIP configuration file format
+version = {{ version }}
+
+# Device URI discovery method: 'auto', 'udev', 'usb', 'parallel', 'network'
+driver_method = {{ driver_method }}
+
+# Enable or disable automatic device detection
+auto_install = {{ auto_install }}
+
+# Path to the HPLIP data directory
+# (usually auto-detected; override only if needed)
+data_dir = {{ data_dir }}
+
+# Path to the HPLIP runtime directory
+# (usually auto-detected; override only if needed)
+run_dir = {{ run_dir }}
+
+# Path to the HPLIP cache directory (for GUI state, icons, etc.)
+# (defaults to ~/.hplip if unset)
+state_dir = {{ state_dir }}
+
+[settings]
+# Enable or disable GUI updates (check for new versions)
+check_update = {{ check_update }}
+
+# Show tray icon in notification area
+show_tray_icon = {{ show_tray_icon }}
+
+# Delay (in seconds) before tray icon appears after login
+tray_icon_delay = {{ tray_icon_delay }}
+
+[scan]
+# Default scanner resolution (DPI)
+default_resolution = {{ scan_default_resolution }}
+
+# Scan preview enabled? (true/false)
+preview_enabled = {{ scan_preview_enabled }}
+
+[print]
+# Default print quality: 'draft', 'normal', 'best'
+default_quality = {{ print_default_quality }}
+
+# Enable color printing by default
+default_color = {{ print_default_color }}
+
+[fax]
+# Enable fax support in GUI
+enabled = {{ fax_enabled }}
+
+[usb]
+# USB device polling interval (ms) — set higher to reduce CPU usage on slow systems
+poll_interval = {{ usb_poll_interval }}
+
+# Timeout (seconds) for USB operations
+usb_timeout = {{ usb_timeout }}
+
+{% for dev in devices %}
+[device:{{ dev.name }}]
+# Friendly name of the device
+friendly_name = {{ dev.friendly_name }}
+
+# HPLIP device URI (e.g., hp://usb/HP/LaserJet/1234?serial=ABC123)
+device-uri = {{ dev.device_uri }}
+
+# Device type(s): 'printer', 'scanner', 'fax', 'all'
+types = {{ dev.types }}
+
+# Auto-discovered? (true/false; used for UI state)
+is-auto-discovered = {{ dev.is_auto_discovered }}
+
+{% if dev.model %}# Model name (e.g., 'DeskJet 3755')
+model = {{ dev.model }}
+{% endif %}
+{% endfor %}

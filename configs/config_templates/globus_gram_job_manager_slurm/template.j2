@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Configuration for Globus GRAM SLURM Job Manager -->
+<configuration xmlns="http://globus.org/2004/10/gram/config">
+  <!-- SLURM-specific job manager backend -->
+  <service name="gram" version="5.0">
+    <jobmanager type="slurm">
+      <!-- Path to SLURM `srun` command -->
+      <srun path="{{ srun_path }}" />
+      <!-- Path to SLURM `sbatch` command -->
+      <sbatch path="{{ sbatch_path }}" />
+      <!-- Path to SLURM `scancel` command -->
+      <scancel path="{{ scancel_path }}" />
+      <!-- Path to SLURM `squeue` command -->
+      <squeue path="{{ squeue_path }}" />
+      <!-- Path to SLURM `sinfo` command -->
+      <sinfo path="{{ sinfo_path }}" />
+      <!-- Enable use of job arrays if supported by SLURM -->
+      <enable-job-arrays>{{ enable_job_arrays|lower }}</enable-job-arrays>
+      <!-- Maximum number of concurrent jobs per user (0 = unlimited) -->
+      <max-jobs-per-user>{{ max_jobs_per_user }}</max-jobs-per-user>
+      <!-- Default job timeout in seconds -->
+      <default-timeout>{{ default_timeout }}</default-timeout>
+      <!-- Maximum job runtime limit in seconds (0 = no limit) -->
+      <max-runtime>{{ max_runtime }}</max-runtime>
+      <!-- Path to custom SLURM environment setup script (optional) -->
+      <environment-setup-script path="{{ environment_setup_script }}" />
+      <!-- SLURM account and partition defaults per job (if applicable) -->
+      <defaults>
+        {% if slurm_defaults.account %}<account>{{ slurm_defaults.account }}</account>{% endif %}
+        {% if slurm_defaults.partition %}<partition>{{ slurm_defaults.partition }}</partition>{% endif %}
+        {% if slurm_defaults.qos %}<qos>{{ slurm_defaults.qos }}</qos>{% endif %}
+        {% if slurm_defaults.constraint %}<constraint>{{ slurm_defaults.constraint }}</constraint>{% endif %}
+        {% if slurm_defaults.reservation %}<reservation>{{ slurm_defaults.reservation }}</reservation>{% endif %}
+      </defaults>
+      <!-- Extra SLURM `sbatch` options (as a list of strings) -->
+      <extra-sbatch-options>
+        {% for opt in extra_sbatch_options %}        <option>{{ opt }}</option>
+        {% endfor %}      </extra-sbatch-options>
+      <!-- List of allowed SLURM partitions (if restriction is desired); empty = all allowed -->
+      <allowed-partitions>
+        {% for part in allowed_partitions %}        <partition>{{ part }}</partition>
+        {% endfor %}      </allowed-partitions>
+      <!-- List of denied SLURM partitions (overrides allowed-partitions) -->
+      <denied-partitions>
+        {% for part in denied_partitions %}        <partition>{{ part }}</partition>
+        {% endfor %}      </denied-partitions>
+      <!-- Enable logging to syslog (true/false) -->
+      <enable-syslog>{{ enable_syslog|lower }}</enable-syslog>
+      <!-- Log level: debug, info, warn, error -->
+      <log-level>{{ log_level }}</log-level>
+      <!-- Log file path for job manager logs -->
+      <log-file>{{ log_file }}</log-file>
+    </jobmanager>
+  </service>
+</configuration>

@@ -1,0 +1,50 @@
+# Fast and Secure Tunneling Daemon (fastd) configuration
+# Interface configuration for the tunnel interface
+# Interface name and optional MTU (set to 0 to use default)
+interface {{ interface_name }}{% if interface_mtu and interface_mtu != 0 %} mtu {{ interface_mtu }}{% endif %};
+
+# Listen on the specified address and port(s)
+# Use 'any' to listen on all interfaces, or a specific IP/host
+bind {% if listen_addrs | length > 0 %}{{ listen_addrs | join(', ') }}{% else %}'any'{{ port }}{% endif %};
+
+# Peer discovery method(s)
+# Supported: static, dns, upnp, local, remote
+debug method{% for method in peer_discovery_methods %} {{ method.name }}{% if method.name == 'dns' %} {{ method.hostname }}{% elif method.name == 'local' and method.port %} port {{ method.port }}{% elif method.name == 'remote' %} {{ method.url }}{% endif %}{% if not loop.last %},{% endif %}{% endfor %};
+
+# Peer configuration source
+# Use 'file' for static peers, or 'method' for dynamic discovery
+{% if use_static_peers %}peer static file '{{ peers_file_path }}';
+{% else %}peer method;
+{% endif %}
+
+# Method for resolving peer public keys (optional; defaults to 'none')
+{% if peer_public_key_method == 'local' %}peer public key local;
+{% elif peer_public_key_method == 'file' %}peer public key file '{{ peer_public_key_file }}';
+{% endif %}
+
+# Uplink limit (in kbit/s); 0 means unlimited
+{% if uplink_limit %}uplink {{ uplink_limit }} kbit/s;
+{% endif %}
+
+# Log level: debug, info, notice, warn, error
+log level {{ log_level }};
+
+# Path to the method-specific peer configuration file (used if peer method is enabled)
+{% if peer_method_config %}method peer config file '{{ peer_method_config }}';
+{% endif %}
+
+# Optional: Enable/disable IPv6 on the tunnel interface
+{% if not enable_ipv6 %}disable ipv6;
+{% endif %}
+
+# Optional: Set the tunnel interface's MAC address (not recommended unless needed)
+{% if interface_mac %}mac {{ interface_mac }};
+{% endif %}
+
+# Optional: Set the tunnel interface's owner/group (requires root)
+{% if interface_owner or interface_group %}owner {{ interface_owner }}{% if interface_group %}:{{ interface_group }}{% endif %};
+{% endif %}
+
+# Optional: Enable bridge mode for layer-2 bridging
+{% if bridge_mode %}bridge mode;
+{% endif %}

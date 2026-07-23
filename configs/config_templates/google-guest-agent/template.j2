@@ -1,0 +1,43 @@
+# Google Guest Agent configuration
+# Controls runtime behavior of the google-guest-agent service
+# Set to 'true' to enable the agent (on by default)
+ENABLED={{ enabled | string | lower }}
+
+# Log level: DEBUG, INFO, WARNING, ERROR, CRITICAL
+LOG_LEVEL={{ log_level }}
+
+# Directory where guest agent writes logs
+LOG_DIR={{ log_dir }}
+
+# Directory where guest agent writes state (e.g., instance metadata cache)
+STATE_DIR={{ state_dir }}
+
+# Enable optional daemons: guest-ssh, guest-oslogin, guest-account-manager
+# Separate multiple daemons with spaces or set to 'none' to disable all
+DAEMONS={{ daemons | join(' ') }}
+
+# Enable/disable metadata script execution (default: true)
+ENABLE_SCRIPTS={{ enable_scripts | string | lower }}
+
+# Enable/disable OS login (default: depends on DAEMONS, but true if 'guest-oslogin' present)
+# Note: This value is optional; leave empty to defer to DAEMONS detection
+{% if enable_oslogin is defined %}ENABLE_OSLOGIN={{ enable_oslogin | string | lower }}{% endif %}
+
+# Enable/disable SSH key management (default: true unless guest-ssh omitted)
+{% if enable_ssh_keys is defined %}ENABLE_SSH_KEYS={{ enable_ssh_keys | string | lower }}{% endif %}
+
+# Extra command-line arguments passed to the google-guest-agent binary
+# Example: --metadata-server-url=https://metadata.google.internal
+{% if extra_args %}EXTRA_ARGS={{ extra_args }}{% endif %}
+
+# Optional: Set custom metadata server URL (overrides default)
+{% if metadata_server_url %}METADATA_SERVER_URL={{ metadata_server_url }}{% endif %}
+
+# Optional: Set custom API endpoint (for private Google APIs, e.g., VPC-SC environments)
+{% if api_endpoint %}API_ENDPOINT={{ api_endpoint }}{% endif %}
+
+# Optional: Set custom IAM service account email for token generation (overrides default)
+{% if service_account_email %}SERVICE_ACCOUNT_EMAIL={{ service_account_email }}{% endif %}
+
+# Optional: List of custom metadata keys to watch for changes (one per line)
+{% for key in watch_metadata_keys %}WATCH_METADATA_KEY={{ key }}{% endfor %}

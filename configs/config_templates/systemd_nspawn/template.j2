@@ -1,0 +1,89 @@
+[Exec]
+# Hostname assigned to the container
+Hostname={{ hostname }}
+# Boot the container's init system as PID 1 (requires a full OS tree in the container directory)
+Boot={{ boot | lower }}
+# Discard all filesystem changes when the container shuts down
+Ephemeral={{ ephemeral | lower }}
+# User namespace isolation: 'no', 'yes', 'pick', or a numeric UID base such as '100000'
+PrivateUsers={{ private_users }}
+{% if user %}
+# Run the container's main process as this user instead of root
+User={{ user }}
+{% endif %}
+{% if working_directory %}
+# Initial working directory for the container process
+WorkingDirectory={{ working_directory }}
+{% endif %}
+{% if environment_vars %}
+# Environment variables injected into all container processes
+{% for env in environment_vars %}
+Environment={{ env.name }}={{ env.value }}
+{% endfor %}
+{% endif %}
+{% if capabilities %}
+# Additional Linux capabilities granted on top of the default bounding set
+Capability={{ capabilities | join(" ") }}
+{% endif %}
+{% if drop_capabilities %}
+# Linux capabilities removed from the default bounding set
+DropCapability={{ drop_capabilities | join(" ") }}
+{% endif %}
+# Prevent privilege escalation via setuid binaries or file capabilities
+NoNewPrivileges={{ no_new_privileges | lower }}
+# Maximum open file descriptors per process inside the container (ulimit -n)
+LimitNOFILE={{ limit_nofile }}
+# Maximum processes or threads the container may spawn (ulimit -u)
+LimitNPROC={{ limit_nproc }}
+
+[Files]
+# Mount the container root filesystem read-only
+ReadOnly={{ read_only | lower }}
+# Volatile mode: 'no' = fully persistent, 'yes' = tmpfs root, 'state' = tmpfs over /var only
+Volatile={{ volatile }}
+{% if bind_mounts %}
+# Read-write bind mounts from host into container (host-path:container-path)
+{% for mount in bind_mounts %}
+Bind={{ mount.host }}:{{ mount.container }}
+{% endfor %}
+{% endif %}
+{% if bind_read_only_mounts %}
+# Read-only bind mounts from host into container (host-path:container-path)
+{% for mount in bind_read_only_mounts %}
+BindReadOnly={{ mount.host }}:{{ mount.container }}
+{% endfor %}
+{% endif %}
+{% if tmpfs_mounts %}
+# Paths inside the container to mount as fresh ephemeral tmpfs
+{% for path in tmpfs_mounts %}
+TemporaryFileSystem={{ path }}
+{% endfor %}
+{% endif %}
+
+[Network]
+# Place the container in an isolated network namespace
+Private={{ network_private | lower }}
+{% if network_private %}
+# Create a virtual Ethernet pair (veth) linking container to host
+VirtualEthernet={{ virtual_ethernet | lower }}
+{% if bridge %}
+# Host bridge interface to attach the container veth endpoint to
+Bridge={{ bridge }}
+{% endif %}
+{% if network_zone %}
+# systemd-networkd zone; daemon auto-creates a bridge and manages DHCP/routing
+Zone={{ network_zone }}
+{% endif %}
+{% if port_forwards %}
+# Port forwarding rules from host to container: protocol:host-port:container-port
+{% for port in port_forwards %}
+Port={{ port.protocol }}:{{ port.host_port }}:{{ port.container_port }}
+{% endfor %}
+{% endif %}
+{% if macvlan_interfaces %}
+# Host interfaces to clone as MACVLAN links inside the container
+{% for iface in macvlan_interfaces %}
+MACVLAN={{ iface }}
+{% endfor %}
+{% endif %}
+{% endif %}

@@ -1,0 +1,50 @@
+# AFS file server configuration
+# This file controls runtime behavior of the AFS File Server (fileserver)
+# and should be sourced by init scripts or systemd units.
+
+# Enable verbose logging for debugging
+{% if debug | default(false) %}AFS_DEBUG=1{% else %}AFS_DEBUG=0{% endif %}
+
+# Path to the AFS configuration directory (usually /etc/openafs)
+AFS_ETC_DIR={{ etc_dir }}
+
+# Path to the AFS binary directory
+AFS_BIN_DIR={{ bin_dir }}
+
+# Number of file server threads (controls concurrency)
+AFS_NUM_THREADS={{ num_threads }}
+
+# Maximum number of concurrent connections
+AFS_MAX_CONNECTIONS={{ max_connections }}
+
+# Listen address for file server (IP or hostname)
+AFS_LISTEN_ADDR={{ listen_addr }}
+
+# Port for file server communication (typically 7000)
+AFS_PORT={{ fileserver_port }}
+
+# Port for cache manager communication (typically 7001)
+AFS_CMSERVER_PORT={{ cmserver_port }}
+
+# Path to the volumes partition (e.g., /afs) and local storage directories
+AFS_ROOT={{ root_dir }}
+AFS_VOLUMES={{ volumes_dir }}
+AFS_LOG={{ log_dir }}
+AFS_BACKUP={{ backup_dir }}
+
+# Enable backup server integration
+{% if backup_enabled | default(false) %}AFS_BACKUP_ENABLED=1{% else %}AFS_BACKUP_ENABLED=0{% endif %}
+
+# Kerberos principal for authentication (if used)
+{% if kerberos_principal | length > 0 %}AFS_KRB_PRINCIPAL={{ kerberos_principal }}{% endif %}
+
+# List of cell server hosts (one per line)
+{% for host in cell_servers %}AFS_CELL_SERVER_{{ loop.index }}={{ host }}
+{% endfor %}
+
+# List of trusted AFS cells (for cross-cell access)
+{% for cell in trusted_cells %}AFS_TRUSTED_CELL_{{ loop.index }}={{ cell }}
+{% endfor %}
+
+# Optional: Extra arguments passed to fileserver binary
+{% if extra_args | length > 0 %}AFS_EXTRA_ARGS={{ extra_args | join(' ') }}{% endif %}

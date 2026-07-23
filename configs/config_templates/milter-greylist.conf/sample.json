@@ -1,0 +1,57 @@
+{
+  "timeout": 15,
+  "user": "mailnull",
+  "group": "mail",
+  "pidfile": "/var/run/milter-greylist/milter-greylist.pid",
+  "socket": "/var/spool/postfix/milter-greylist/milter-greylist.sock",
+  "socket_mode": "0660",
+  "socket_owner": "postfix",
+  "socket_group": "postfix",
+  "ratelimit": 12,
+  "delay": 10,
+  "autowhitelist": 604800,
+  "autoblacklist": 43200,
+  "greylist": 120,
+  "greylistttl": 1728000,
+  "loglevel": 4,
+  "logfile": "/var/log/milter-greylist.log",
+  "dns_timeout": 5,
+  "dns_retries": 2,
+  "ipv6": true,
+  "chroot": "",
+  "whitelist": [
+    {
+      "comment": "Internal mail servers",
+      "network": "10.0.0.0/8"
+    },
+    {
+      "comment": "Trusted relay",
+      "ip": "192.0.2.53"
+    },
+    {
+      "comment": "Trusted domain",
+      "email": "@example.org"
+    }
+  ],
+  "blacklist": [
+    {
+      "comment": "Known spammer network",
+      "network": "203.0.113.0/24"
+    },
+    {
+      "comment": "Spam email pattern",
+      "regex": "^spam.*@evil\\.com$"
+    }
+  ],
+  "acls": [
+    {
+      "name": "internal",
+      "network": "10.0.0.0/8"
+    },
+    {
+      "name": "trusted_relays",
+      "ip": "192.0.2.53"
+    }
+  ],
+  "default_acl": "permit"
+}

@@ -1,0 +1,88 @@
+# Listen on this host and port for client connections
+bind_address {{ values.bind_address }}
+port {{ values.port }}
+
+# Log file path (set to /dev/stdout to log to stdout)
+logfile {{ values.logfile }}
+
+# Enable or disable daemon mode (run as background process)
+daemon {{ values.daemon | lower }}
+
+# Maximum number of simultaneous client connections
+max_clients {{ values.max_clients }}
+
+# Maximum number of channels to auto-join per connection (per user)
+max_channels {{ values.max_channels }}
+
+# Default nickname if none provided by client
+nick {{ values.default_nick }}
+
+# Default username (ident) for outgoing server connections
+user {{ values.default_user }}
+
+# Default real name (GECOS) for outgoing server connections
+realname {{ values.default_realname }}
+
+# Time (in seconds) before idle client connections are disconnected
+client_timeout {{ values.client_timeout }}
+
+# Time (in seconds) before idle server connections are disconnected
+server_timeout {{ values.server_timeout }}
+
+# Delay (in seconds) between reconnection attempts to IRC servers
+reconnect_delay {{ values.reconnect_delay }}
+
+# Maximum number of reconnection attempts
+max_reconnects {{ values.max_reconnects }}
+
+# Enable or disable SSL for server connections
+ssl {{ values.ssl | lower }}
+
+# SSL certificate file (required if SSL enabled)
+{% if values.ssl %}
+ssl_cert {{ values.ssl_cert }}
+ssl_key {{ values.ssl_key }}
+ssl_cafile {{ values.ssl_cafile }}
+{% endif %}
+
+# Password for authenticating to IRC servers (optional)
+server_password {{ values.server_password | default('') | quote }}
+
+# List of IRC servers to connect to (one per server block)
+{% for server in values.servers %}
+server {
+  host {{ server.host }}
+  port {{ server.port }}
+  {% if server.password %}password {{ server.password | quote }}{% endif %}
+  {% if server.ssl %}ssl {{ server.ssl | lower }}{% endif %}
+  {% if server.ssl_verify %}ssl_verify {{ server.ssl_verify | lower }}{% endif %}
+  {% if server.ssl_cafile %}ssl_cafile {{ server.ssl_cafile }}{% endif %}
+  autojoin {{ server.autojoin | join(', ') }}
+  {% for channel in server.autojoin %}
+  # Set channel key if needed (syntax: channel:key)
+  # channel key {{ channel.split(':')[0] }} {{ channel.split(':')[1] if ':' in channel else '' }}
+  {% endfor %}
+}
+{% endfor %}
+
+# Access control: allow only these clients (optional)
+{% if values.allow_clients | length > 0 %}
+{% for client in values.allow_clients %}
+allow {
+  host {{ client.host }}
+  password {{ client.password | quote }}
+}
+{% endfor %}
+{% endif %}
+
+# Optionally, define a shared admin password for client authentication
+admin_password {{ values.admin_password | default('') | quote }}
+
+# Enable or disable logging of channel messages
+log_channels {{ values.log_channels | lower }}
+
+# Enable or disable logging of private messages
+log_privates {{ values.log_privates | lower }}
+
+# Log line format (strftime-compatible); default is ISO-8601
+log_timestamp_format %Y-%m-%d %H:%M:%S

@@ -1,0 +1,72 @@
+# HTTP listener for the Management Plugin
+# Binds to a specific host and port
+# Set to null to disable HTTP listener
+listeners.management.1 = {{ management_http_port }}
+
+# Optional: custom bind address (default: 127.0.0.1)
+# Set to 0.0.0.0 to listen on all interfaces
+management.tcp.bind_address = {{ management_bind_address }}
+
+# HTTPS listener (optional)
+# Enable only if SSL is configured
+{% if management_ssl_enabled %}
+# HTTPS listener configuration
+listeners.management.ssl.1 = {{ management_https_port }}
+management.ssl.port = {{ management_https_port }}
+management.ssl.bind_address = {{ management_bind_address }}
+
+# TLS configuration
+management.ssl.cacertfile = {{ management_ssl_cacertfile }}
+management.ssl.certfile = {{ management_ssl_certfile }}
+management.ssl.keyfile = {{ management_ssl_keyfile }}
+
+{% if management_ssl_verify == "verify_peer" %}
+management.ssl.verify = verify_peer
+management.ssl.fail_if_no_peer_cert = true
+{% elif management_ssl_verify == "verify_none" %}
+management.ssl.verify = verify_none
+{% endif %}
+
+{% endif %}
+
+# Authentication backend (default: rabbit_mgmt_user_pass)
+# This is rarely changed, but exposed for completeness
+management.agent = {{ management_agent }}
+
+# Number of HTTP worker threads (default: 16)
+management.num_tcp_acceptors = {{ management_num_tcp_acceptors }}
+
+# HTTP request timeout in milliseconds (default: 30000)
+management.http_timeout = {{ management_http_timeout }}
+
+# Enable/disable guest user login via HTTP API/UI
+# Set to false in production for security
+management.disable_guest_login = {{ management_disable_guest_login }}
+
+# Metrics collection settings
+{% for metric in management_metrics %}
+management.{{ metric.key }} = {{ metric.value }}
+{% endfor %}
+
+# Enable verbose logging for the management plugin
+management.log_levels = [{{ management_log_levels | join(', ') }}]
+
+# Optional: custom path prefix (default: /)
+# Useful when reverse proxying with a path prefix
+management.path_prefix = {{ management_path_prefix }}
+
+# Rate limiting (optional, advanced)
+{% if management_rate_limiting_enabled %}
+management.rate_limit.enabled = true
+management.rate_limit.threshold = {{ management_rate_limit_threshold }}
+management.rate_limit.interval = {{ management_rate_limit_interval_ms }}
+{% endif %}
+
+# Cluster name in UI (optional, defaults to node name)
+management.cluster_name = {{ management_cluster_name }}
+
+# Enable PPI (Performance & Predictability Insights) data collection
+management.ppi.enabled = {{ management_ppi_enabled }}
+
+# Cookie file for distributed Erlang (not used directly by management plugin, but required for cluster-aware features)
+# Managed via rabbitmq-env.conf or env vars; not templated here.

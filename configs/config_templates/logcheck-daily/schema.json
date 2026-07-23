@@ -1,0 +1,74 @@
+{
+  "enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable the daily summary rule set. Set to false to disable without deleting the file."
+  },
+  "exclude_patterns": {
+    "type": "list",
+    "default": [
+      "^$",
+      "^$",
+      "^\\s*$",
+      "^[A-Z][a-z]+ [A-Z][a-z]+ [0-9]+ [0-9:]+ [A-Za-z0-9._-]+ (kernel|systemd)[\\s:]+.*$",
+      "^.*\\[notice\\].*$",
+      "^.*\\[debug\\].*$"
+    ],
+    "items": {
+      "type": "string",
+      "description": "A regular expression pattern to exclude from matches. Lines matching ANY exclude pattern are ignored. Patterns are case-insensitive by default."
+    },
+    "description": "List of regex patterns to filter OUT (ignore) from daily reports."
+  },
+  "include_patterns": {
+    "type": "list",
+    "default": [
+      "^.*\\[error\\].*$",
+      "^.*\\[warning\\].*$",
+      "^.*\\[crit\\].*$",
+      "^.*\\[alert\\].*$",
+      "^.*\\[emergency\\].*$",
+      "^.*\\(fail\\).*$",
+      "^.*\\(error\\).*$",
+      "^.*\\(failed\\).*$",
+      "^.*\\(denied\\).*$",
+      "^.*\\(aborted\\).*$"
+    ],
+    "items": {
+      "type": "string",
+      "description": "A regular expression pattern to include in matches. Only lines matching AT LEAST ONE include pattern are reported (unless all excluded first). Patterns are case-sensitive by default."
+    },
+    "description": "List of regex patterns to include in daily reports (only lines matching these are reported)."
+  },
+  "sort_output": {
+    "type": "bool",
+    "default": true,
+    "description": "Sort output by pattern group for stable ordering (recommended for cron reporting)."
+  },
+  "sample_limit": {
+    "type": "number",
+    "default": 10,
+    "description": "Maximum number of sample log lines to show per matched pattern group."
+  },
+  "report_email": {
+    "type": "list",
+    "default": [
+      "root@localhost"
+    ],
+    "items": {
+      "type": "string",
+      "description": "An email address to receive the daily logcheck summary."
+    },
+    "description": "List of recipients for the daily email report."
+  },
+  "report_subject_prefix": {
+    "type": "string",
+    "default": "[logcheck-daily] ",
+    "description": "Prefix added to the subject line of the daily email report."
+  },
+  "verbose": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable verbose logging to syslog (useful for debugging the rule matching logic)."
+  }
+}

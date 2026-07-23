@@ -1,0 +1,71 @@
+# Stereogram Generator configuration file
+# Controls rendering parameters, output paths, and worker behavior
+
+[general]
+# Enable or disable verbose logging
+verbose = {{ verbose }}
+
+# Base directory for temporary and output files
+work_dir = {{ work_dir }}
+
+# Default output directory for generated stereograms
+output_dir = {{ output_dir }}
+
+# Default image format for output
+output_format = {{ output_format }}
+
+[rendering]
+# Number of worker threads for parallel stereogram generation
+worker_threads = {{ rendering.worker_threads }}
+
+# Minimum depth map resolution (in pixels) — lower values speed up generation
+min_depth_res = {{ rendering.min_depth_res }}
+
+# Maximum depth map resolution (in pixels) — higher values improve detail
+max_depth_res = {{ rendering.max_depth_res }}
+
+# Auto-adjust depth scale to avoid clipping
+auto_depth_scale = {{ rendering.auto_depth_scale }}
+
+# Depth scaling factor (0.0–1.0); 1.0 maps full range of depth values to parallax range
+depth_scale = {{ rendering.depth_scale }}
+
+# Horizontal shift (in pixels) between left/right views
+eye_separation = {{ rendering.eye_separation }}
+
+# Focal distance (in pixels); controls perceived depth plane
+focal_distance = {{ rendering.focal_distance }}
+
+[gui]
+# GUI server hostname
+host = {{ gui.host }}
+
+# GUI server port
+port = {{ gui.port }}
+
+# Enable or disable automatic web browser launch
+auto_open_browser = {{ gui.auto_open_browser }}
+
+# API authentication secret (leave empty to disable auth)
+api_secret = {{ gui.api_secret }}
+
+# Allowed origins for CORS (comma-separated list of hostnames)
+allowed_origins = {{ gui.allowed_origins | join(', ') }}
+
+[filters]
+# Optional pre-processing filters (applied in order)
+{% for filter_config in filters %}
+{{ filter_config.name }} = {{ filter_config.enabled }}
+{% if filter_config.enabled %}
+{%   for key, value in filter_config.params.items() %}
+{{ filter_config.name }}_{{ key }} = {{ value }}
+{%   endfor %}
+{% endif %}
+{% endfor %}
+
+[security]
+# Restrict rendering to local input only (no remote URLs)
+local_only = {{ security.local_only }}
+
+# Maximum input image size (in megapixels); larger images are rejected
+max_input_pixels_mpx = {{ security.max_input_pixels_mpx }}

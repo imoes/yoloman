@@ -1,0 +1,41 @@
+# Configuration for owserver — 1-Wire server daemon
+# Listen address and port for the main HTTP/OWFS API
+bind = {{ server.bind }}
+port = {{ server.port }}
+
+# Allow TCP connections from these hosts (comma-separated list)
+# Use '0.0.0.0' to allow all (not recommended for untrusted networks)
+server_allow = {% for host in server.allow %}{{ host }}{% if not loop.last %}, {% endif %}{% endfor %}
+
+# OneWire bus configuration: specify bus device type and connection details
+# Supported types: usb, serial, network, fake
+{% for bus in buses %}# {{ bus.name }}: {{ bus.type }} bus
+{% if bus.type == 'usb' %}usb = {{ bus.device | default('/dev/ttyUSB0') }}
+{% elif bus.type == 'serial' %}serial = {{ bus.device | default('/dev/ttyS0') }}
+{% elif bus.type == 'network' %}server = {{ bus.server }}:{{ bus.port | default(4304) }}
+{% elif bus.type == 'fake' %}fake = 1-wire
+{% endif %}
+{% endfor %}
+
+# Enable/disable specific 1-Wire features
+cache = {% if features.cache %}yes{% else %}no{% endif %}
+allow_set = {% if features.allow_set %}yes{% else %}no{% endif %}
+allow_write = {% if features.allow_write %}yes{% else %}no{% endif %}
+
+# Timeout settings (seconds)
+connection_timeout = {{ timeouts.connection | default(5) }}
+read_timeout = {{ timeouts.read | default(2) }}
+write_timeout = {{ timeouts.write | default(2) }}
+
+# Logging level: debug, info, notice, warning, error, critical, alert, emergency
+log_level = {{ logging.level | default('warning') }}
+
+# Log file path (empty = stdout)
+log_file = {{ logging.file | default('') }}
+
+# Mount point for the OWFS FUSE overlay (empty to disable FUSE)
+mount_point = {{ fuse.mount_point | default('') }}
+
+# FUSE-specific options
+fuse_allow_other = {% if fuse.allow_other %}yes{% else %}no{% endif %}
+fuse_default_permissions = {% if fuse.default_permissions %}yes{% else %}no{% endif %}

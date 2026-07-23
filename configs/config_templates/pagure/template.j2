@@ -1,0 +1,412 @@
+# Pagure configuration file — main settings for the forge
+{% if db_uri is defined %}# Database connection URI (e.g., postgresql://user:pass@host/dbname)
+SQLALCHEMY_DB_URI = '{{ db_uri }}'{% endif %}
+
+# Enable debug mode only in development
+DEBUG = {{ debug | default(false) | lower }}
+
+# Root path for the Git repositories stored by Pagure
+GIT_FOLDER = '{{ git_folder }}'
+
+# Folder for storing HTML documentation (e.g., project READMEs rendered to HTML)
+DOCS_FOLDER = '{{ docs_folder }}'
+
+# Folder for storing uploaded files (e.g., issue attachments, avatar uploads)
+ATTACHMENTS_FOLDER = '{{ attachments_folder }}'
+
+# Folder for storing project avatar images
+AVATARS_FOLDER = '{{ avatars_folder }}'
+
+# Folder for storing SSH public keys for git operations
+SSH_KEYDIR = '{{ ssh_keydir }}'
+
+# Folder for storing hook scripts (e.g., webhooks, git hooks)
+HOOKS_DIR = '{{ hooks_dir }}'
+
+# Folder for storing email templates
+EMAIL_TEMPLATES_DIR = '{{ email_templates_dir }}'
+
+# Folder for static assets (JS/CSS/images served by the web app)
+STATIC_FOLDER = '{{ static_folder }}'
+
+# Folder for HTML templates
+TEMPLATE_FOLDER = '{{ template_folder }}'
+
+# Public URL path for static assets (e.g., '/static/')
+STATIC_URL_PATH = '{{ static_url_path }}'
+
+# Base URL for the Pagure instance (e.g., 'https://pagure.example.com/')
+Pagure_URL = '{{ pagure_url }}'
+
+# Host and port for the internal Flask development server
+HOST = '{{ host }}'
+PORT = {{ port }}
+
+# Enable HTTPS when behind a reverse proxy (sets wsgi.url_scheme = 'https')
+USE_SSL = {{ use_ssl | default(false) | lower }}
+
+# Default number of items per page in paginated UI (e.g., issue lists, PR lists)
+ITEMS_PER_PAGE = {{ items_per_page }}
+
+# Default timeout (seconds) for external HTTP requests (e.g., webhooks, email notifications)
+REQUEST_TIMEOUT = {{ request_timeout }}
+
+# Default timeout (seconds) for Git operations (e.g., clone, push, fetch)
+GIT_TIMEOUT = {{ git_timeout }}
+
+# Whether to require email confirmation for new accounts
+EMAIL_REQUIRE_CONFIRMATION = {{ email_require_confirmation | default(false) | lower }}
+
+# Whether to enable anonymous git read access
+GIT_ANONYMOUS_CLONE = {{ git_anonymous_clone | default(true) | lower }}
+
+# Whether to enable Git over HTTP (GET/POST for clone/pull/push)
+GIT_HTTP = {{ git_http | default(false) | lower }}
+
+# Whether to require SSH key for Git operations (push/pull over SSH)
+GIT_SSH = {{ git_ssh | default(true) | lower }}
+
+# Whether to require authentication for Git operations over HTTP
+GIT_HTTP_AUTH = {{ git_http_auth | default(false) | lower }}
+
+# List of Git hooks to enable globally
+{% if git_hooks_enabled | default([]) | length > 0 %}
+# Git hooks that should be enabled by default on new repositories
+GIT_HOOKS_ENABLED = {% for hook in git_hooks_enabled %}'{{ hook }}'{% if not loop.last %}, {% endif %}{% endfor %}
+{% endif %}
+
+# List of allowed email domains for registration (empty list = allow all)
+{% if email_domain_whitelist | default([]) | length > 0 %}
+# Emails for registration must end with one of these domains
+EMAIL_DOMAIN_WHITELIST = {% for domain in email_domain_whitelist %}'{{ domain }}'{% if not loop.last %}, {% endif %}{% endfor %}
+{% endif %}
+
+# List of allowed email domains to block (e.g., disposable email providers)
+{% if email_domain_blacklist | default([]) | length > 0 %}
+# Emails from these domains are blocked from registration
+EMAIL_DOMAIN_BLACKLIST = {% for domain in email_domain_blacklist %}'{{ domain }}'{% if not loop.last %}, {% endif %}{% endfor %}
+{% endif %}
+
+# Optional: Email settings for outgoing mail
+{% if mail_server is defined %}# SMTP server for email notifications
+MAIL_SERVER = '{{ mail_server }}'
+MAIL_PORT = {{ mail_port }}
+MAIL_USE_TLS = {{ mail_use_tls | default(false) | lower }}
+MAIL_USE_SSL = {{ mail_use_ssl | default(false) | lower }}
+MAIL_USERNAME = '{{ mail_username }}'
+MAIL_PASSWORD = '{{ mail_password }}'
+MAIL_DEFAULT_SENDER = '{{ mail_default_sender }}'{% endif %}
+
+# Optional: LDAP authentication backend
+{% if ldap_uri is defined %}# LDAP server URL
+LDAP_URI = '{{ ldap_uri }}'
+# Base DN for user searches
+LDAP_USER_BASE = '{{ ldap_user_base }}'
+# Search filter for users (e.g., '(uid={{username}})')
+LDAP_USER_FILTER = '{{ ldap_user_filter }}'
+# Attribute to use as username
+LDAP_UID_FIELD = '{{ ldap_uid_field }}'
+# Attribute to use for email
+LDAP_EMAIL_FIELD = '{{ ldap_email_field }}'
+# Optional: bind DN for service account
+LDAP_BINDDN = '{{ ldap_binddn }}'
+# Optional: bind password
+LDAP_BINDPW = '{{ ldap_bindpw }}'{% endif %}
+
+# Optional: OAuth2 providers (GitHub, GitLab, etc.)
+# Format: [{name: 'github', client_id: '...', client_secret: '...', base_url: '...', auth_url: '...', token_url: '...'}]
+{% if oauth_providers | default([]) | length > 0 %}
+# OAuth2 providers to integrate
+OAUTH_PROVIDERS = [
+{% for provider in oauth_providers %}  {
+    'name': '{{ provider.name }}',
+    'client_id': '{{ provider.client_id }}',
+    'client_secret': '{{ provider.client_secret }}',
+    'base_url': '{{ provider.base_url }}',
+    'auth_url': '{{ provider.auth_url }}',
+    'token_url': '{{ provider.token_url }}',
+{% if provider.user_info_url is defined %}    'user_info_url': '{{ provider.user_info_url }}',{% endif %}
+{% if provider.scopes is defined and provider.scopes | length > 0 %}    'scopes': [{{ provider.scopes | map("'{}"|format) | join(', ') }}],{% endif %}
+  }{% if not loop.last %},{% endif %}
+{% endfor %}]
+{% endif %}
+
+# Optional: Redis for caching and async tasks
+{% if redis_url is defined %}# Redis connection URL
+REDIS_URL = '{{ redis_url }}'{% endif %}
+
+# Optional: Webhook delivery timeout (seconds)
+WEBHOOK_DELIVERY_TIMEOUT = {{ webhook_delivery_timeout }}
+
+# Whether to enable notifications via email
+NOTIFICATIONS_ON = {{ notifications_on | default(true) | lower }}
+
+# Whether to send notifications on new issue/PR creation (not just updates)
+NOTIFY_ON_NEW_ISSUE = {{ notify_on_new_issue | default(false) | lower }}
+
+# Whether to require re-authentication for sensitive operations (e.g., deleting a project)
+REAUTH_REQUIRE = {{ reauth_require | default(true) | lower }}
+
+# Optional: custom footer HTML (e.g., copyright, links)
+{% if custom_footer is defined %}# Custom footer HTML — rendered in the page footer
+CUSTOM_FOOTER = '''{{ custom_footer }}'''
+{% endif %}
+
+# Whether to enable project forks
+PROJECT_FORKS = {{ project_forks | default(true) | lower }}
+
+# Whether to require projects to have a README.md (enforced on creation)
+PROJECT_README_MANDATORY = {{ project_readme_mandatory | default(false) | lower }}
+
+# Default branch name for new repositories (e.g., 'main', 'master')
+GIT_DEFAULT_BRANCH = '{{ git_default_branch }}'
+
+# Whether to enforce branch protection rules (e.g., require PR for pushes to main)
+BRANCH_PROTECTION = {{ branch_protection | default(false) | lower }}
+
+# Optional: default group for new projects (if project creation is restricted)
+DEFAULT_GROUP = '{{ default_group }}'
+
+# Whether to enable API tokens for authentication (for CLI/scm tools)
+TOKENS_ENABLED = {{ tokens_enabled | default(true) | lower }}
+
+# Token expiration time (in seconds) — 0 = never expire
+TOKEN_EXPIRY = {{ token_expiry }}
+
+# Optional: rate limiting (e.g., max 100 requests per 60s per IP)
+{% if rate_limit is defined %}# Rate limiting: [max_requests, window_seconds]
+RATE_LIMIT = [{{ rate_limit | join(', ') }}]{% endif %}
+
+# Whether to enable the plugin system
+PLUGINS_ENABLED = {{ plugins_enabled | default(false) | lower }}
+
+# List of enabled plugin names
+{% if enabled_plugins | default([]) | length > 0 %}
+# Plugins to load (by name)
+PLUGINS = [{{ enabled_plugins | map("'{}"|format) | join(', ') }}]
+{% endif %}
+
+# Whether to enable the issue tracker
+ISSUES_ENABLED = {{ issues_enabled | default(true) | lower }}
+
+# Whether to enable pull requests
+PULL_REQUESTS_ENABLED = {{ pull_requests_enabled | default(true) | lower }}
+
+# Whether to enable project wikis
+WIKI_ENABLED = {{ wiki_enabled | default(false) | lower }}
+
+# Whether to enable project docs (MkDocs/Sphinx integration)
+DOCS_ENABLED = {{ docs_enabled | default(false) | lower }}
+
+# Whether to enable project timelines (activity feed)
+TIMELINE_ENABLED = {{ timeline_enabled | default(true) | lower }}
+
+# Whether to enable project avatars (uploaded or Gravatar fallback)
+AVATARS_ENABLED = {{ avatars_enabled | default(true) | lower }}
+
+# Whether to enable project tags
+TAGS_ENABLED = {{ tags_enabled | default(true) | lower }}
+
+# Whether to enable project milestones
+MILESTONES_ENABLED = {{ milestones_enabled | default(true) | lower }}
+
+# Whether to enable project priorities
+PRIORITIES_ENABLED = {{ priorities_enabled | default(false) | lower }}
+
+# Whether to enable project dependencies (e.g., issue A blocks issue B)
+DEPENDENCIES_ENABLED = {{ dependencies_enabled | default(false) | lower }}
+
+# Whether to enable project assignees (e.g., assign issues to users)
+ASSIGNEES_ENABLED = {{ assignees_enabled | default(true) | lower }}
+
+# Whether to enable projectCC (e.g., users get notified on updates)
+CC_ENABLED = {{ cc_enabled | default(true) | lower }}
+
+# Whether to enable project milestone due dates
+MILESTONE_DUE_DATES = {{ milestone_due_dates | default(true) | lower }}
+
+# Whether to allow users to set their own avatar (Gravatar fallback if disabled)
+ALLOW_USER_AVATAR = {{ allow_user_avatar | default(true) | lower }}
+
+# Whether to use Gravatar fallback for users without uploaded avatar
+GRAVATAR_FALLBACK = {{ gravatar_fallback | default(true) | lower }}
+
+# Optional: Gravatar base URL
+GRAVATAR_URL = '{{ gravatar_url }}'
+
+# Whether to enable email digests (daily/weekly summaries)
+EMAIL_DIGESTS_ENABLED = {{ email_digests_enabled | default(false) | lower }}
+
+# Whether to allow project creation by regular users (requires admin if false)
+PROJECT_CREATE = {{ project_create | default(true) | lower }}
+
+# Whether to require projects to be public (no private repos)
+PROJECT_PRIVATE = {{ project_private | default(true) | lower }}
+
+# Whether to allow group creation by regular users
+GROUP_CREATE = {{ group_create | default(false) | lower }}
+
+# Whether to require group membership to view private projects
+PRIVATE_PROJECT_REQUIRE_GROUP = {{ private_project_require_group | default(true) | lower }}
+
+# Whether to allow project transfer ownership
+PROJECT_TRANSFER = {{ project_transfer | default(true) | lower }}
+
+# Whether to allow project deletion
+PROJECT_DELETE = {{ project_delete | default(true) | lower }}
+
+# Whether to allow issue/PR deletion (soft delete by default)
+ISSUE_DELETE = {{ issue_delete | default(true) | lower }}
+ISSUE_SOFT_DELETE = {{ issue_soft_delete | default(true) | lower }}
+
+# Whether to require two-factor authentication (2FA)
+TWO_FACTOR_AUTH = {{ two_factor_auth | default(false) | lower }}
+
+# Whether to enable OpenID Connect (OIDC) support
+OIDC_ENABLED = {{ oidc_enabled | default(false) | lower }}
+
+# Optional: OIDC provider metadata URL
+OIDC_METADATA_URL = '{{ oidc_metadata_url }}'
+
+# Whether to enable OpenID Connect provider discovery
+OIDC_DISCOVERY = {{ oidc_discovery | default(true) | lower }}
+
+# Whether to enable WebAuthn (FIDO2) for 2FA
+WEBAUTHN_ENABLED = {{ webauthn_enabled | default(false) | lower }}
+
+# Whether to enable TOTP (Time-Based One-Time Password) for 2FA
+TOTP_ENABLED = {{ totp_enabled | default(true) | lower }}
+
+# Whether to enable email 2FA as fallback
+EMAIL_2FA_ENABLED = {{ email_2fa_enabled | default(false) | lower }}
+
+# Whether to show a maintenance banner
+MAINTENANCE = {{ maintenance | default(false) | lower }}
+
+# Optional: maintenance message
+{% if maintenance_message is defined %}MAINTENANCE_MESSAGE = '''{{ maintenance_message }}'''
+{% endif %}
+
+# Whether to log SQL queries
+SQLALCHEMY_ECHO = {{ sql_alchemy_echo | default(false) | lower }}
+
+# Whether to use a custom error handler page
+CUSTOM_ERROR_PAGE = {{ custom_error_page | default(false) | lower }}
+
+# Whether to include X-Frame-Options: DENY in responses
+X_FRAME_OPTIONS = '{{ x_frame_options }}'
+
+# Whether to include X-Content-Type-Options: nosniff in responses
+X_CONTENT_TYPE_OPTIONS = '{{ x_content_type_options }}'
+
+# Whether to include Content-Security-Policy header
+{% if content_security_policy is defined %}CONTENT_SECURITY_POLICY = '''{{ content_security_policy }}'''
+{% endif %}
+
+# Whether to enable HTTP Strict Transport Security (HSTS)
+HSTS_ENABLED = {{ hsts_enabled | default(false) | lower }}
+HSTS_MAX_AGE = {{ hsts_max_age }}
+
+# Whether to use secure cookies (only over HTTPS)
+SESSION_COOKIE_SECURE = {{ session_cookie_secure | default(false) | lower }}
+
+# Whether to use HTTP-only cookies (not accessible to JavaScript)
+SESSION_COOKIE_HTTPONLY = {{ session_cookie_http_only | default(true) | lower }}
+
+# Session cookie name
+SESSION_COOKIE_NAME = '{{ session_cookie_name }}'
+
+# Session cookie lifetime (in seconds)
+PERMANENT_SESSION_LIFETIME = {{ permanent_session_lifetime }}
+
+# Whether to enable CSRF protection
+WTF_CSRF_ENABLED = {{ wtf_csrf_enabled | default(true) | lower }}
+
+# Whether to enable login rate limiting
+LOGIN_RATE_LIMIT = {{ login_rate_limit | default(false) | lower }}
+LOGIN_RATE_LIMIT_COUNT = {{ login_rate_limit_count }}
+LOGIN_RATE_LIMIT_WINDOW = {{ login_rate_limit_window }}
+
+# Whether to enable password complexity requirements
+PASSWORD_REQUIRE_COMPLEX = {{ password_require_complex | default(false) | lower }}
+PASSWORD_MIN_LENGTH = {{ password_min_length }}
+PASSWORD_REQUIRE_DIGIT = {{ password_require_digit | default(false) | lower }}
+PASSWORD_REQUIRE_UPPER = {{ password_require_upper | default(false) | lower }}
+PASSWORD_REQUIRE_LOWER = {{ password_require_lower | default(false) | lower }}
+PASSWORD_REQUIRE_SPECIAL = {{ password_require_special | default(false) | lower }}
+
+# Whether to enable email verification on password reset
+EMAIL_VERIFICATION_ON_RESET = {{ email_verification_on_reset | default(true) | lower }}
+
+# Whether to require password reuse check
+PASSWORD_REUSE_CHECK = {{ password_reuse_check | default(false) | lower }}
+PASSWORD_REUSE_COUNT = {{ password_reuse_count }}
+
+# Whether to enable account lockout after failed logins
+ACCOUNT_LOCKOUT = {{ account_lockout | default(false) | lower }}
+ACCOUNT_LOCKOUT_THRESHOLD = {{ account_lockout_threshold }}
+ACCOUNT_LOCKOUT_DURATION = {{ account_lockout_duration }}
+
+# Whether to enable password expiry
+PASSWORD_EXPIRY = {{ password_expiry | default(false) | lower }}
+PASSWORD_EXPIRY_DAYS = {{ password_expiry_days }}
+PASSWORD_EXPIRY_WARNING_DAYS = {{ password_expiry_warning_days }}
+
+# Whether to enable password history
+PASSWORD_HISTORY = {{ password_history | default(false) | lower }}
+PASSWORD_HISTORY_COUNT = {{ password_history_count }}
+
+# Whether to enable self-service password change
+PASSWORD_SELF_SERVICE = {{ password_self_service | default(true) | lower }}
+
+# Whether to enable account deletion by user
+ACCOUNT_SELF_DELETE = {{ account_self_delete | default(true) | lower }}
+
+# Whether to require confirmation for account deletion
+ACCOUNT_DELETE_CONFIRM = {{ account_delete_confirm | default(true) | lower }}
+
+# Whether to send email on account deletion
+ACCOUNT_DELETE_EMAIL = {{ account_delete_email | default(true) | lower }}
+
+# Whether to archive projects on deletion instead of hard delete
+PROJECT_DELETE_ARCHIVE = {{ project_delete_archive | default(true) | lower }}
+
+# Whether to enable audit logging
+AUDIT_LOG = {{ audit_log | default(false) | lower }}
+AUDIT_LOG_FILE = '{{ audit_log_file }}'
+
+# Whether to enable activity logs (e.g., who did what when)
+ACTIVITY_LOG = {{ activity_log | default(true) | lower }}
+
+# Whether to include IP addresses in logs
+LOG_IP_ADDRESS = {{ log_ip_address | default(true) | lower }}
+
+# Whether to include user agent in logs
+LOG_USER_AGENT = {{ log_user_agent | default(false) | lower }}
+
+# Whether to enable request logging
+REQUEST_LOG = {{ request_log | default(false) | lower }}
+REQUEST_LOG_FILE = '{{ request_log_file }}'
+
+# Whether to enable access logging
+ACCESS_LOG = {{ access_log | default(false) | lower }}
+ACCESS_LOG_FILE = '{{ access_log_file }}'
+
+# Whether to enable error logging
+ERROR_LOG = {{ error_log | default(false) | lower }}
+ERROR_LOG_FILE = '{{ error_log_file }}'
+
+# Whether to enable debug logging
+DEBUG_LOG = {{ debug_log | default(false) | lower }}
+DEBUG_LOG_FILE = '{{ debug_log_file }}'
+
+# Whether to enable log rotation
+LOG_ROTATE = {{ log_rotate | default(true) | lower }}
+LOG_ROTATE_MAX_BYTES = {{ log_rotate_max_bytes }}
+LOG_ROTATE_BACKUP_COUNT = {{ log_rotate_backup_count }}
+
+# Whether to use JSON logging format
+JSON_LOG = {{ json_log | default(false) | lower }}
+
+# Whether to enable structured logging
+STRUCTURED_LOG = {{ structured_log | default(false) | lower }}

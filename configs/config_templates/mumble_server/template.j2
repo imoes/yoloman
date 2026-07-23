@@ -1,0 +1,102 @@
+# Mumble server configuration file
+# For documentation, see https://mumble.info
+
+# Server port to listen on
+port: {{ server_port }}
+
+# Interface to bind to (empty = all)
+host: {{ server_host }}
+
+# Password required for clients to connect
+password: {{ server_password }}
+
+# Password required for the superuser (admin)
+superuser_password: {{ superuser_password }}
+
+# Path to SSL certificate chain (PEM format)
+certfile: {{ ssl_certfile }}
+
+# Path to SSL private key (PEM format)
+keyfile: {{ ssl_keyfile }}
+
+# Enable or disable Web interface
+web_enabled: {{ web_enabled }}
+
+# Hostname used for the Web UI
+web_host: {{ web_host }}
+
+# Port for Web UI (0 = disable)
+web_port: {{ web_port }}
+
+# Path to Web UI assets
+web_path: {{ web_path }}
+
+# Maximum bandwidth per user (bps)
+bandwidth: {{ max_bandwidth }}
+
+# Maximum number of concurrent users
+users: {{ max_users }}
+
+# Number of threads for audio processing (0 = auto)
+thr: {{ worker_threads }}
+
+# Enable or disable UDP packet logging
+udptunnel: {{ udptunnel }}
+
+# Logging level: 0=quiet, 1=error, 2=warning, 3=info, 4=debug
+loglevel: {{ log_level }}
+
+# Path to log file (empty = stdout)
+logfile: {{ log_file }}
+
+# Ban list file path
+banfile: {{ ban_file }}
+
+# Enable or disable password-protected channels (by channel creator)
+channel_last_default: {{ channel_last_default }}
+
+# Allow users to register themselves (if false, only superuser can register)
+register: {{ allow_registration }}
+
+# Enable or disable automatic user name normalization
+normalizenames: {{ normalize_names }}
+
+# Time (in minutes) after which unused user registrations expire
+reg_timeout: {{ registration_timeout }}
+
+# Maximum channel depth (0 = unlimited)
+chan_depth: {{ max_channel_depth }}
+
+# Enable or disable RTTI (required for some features on older systems)
+rtti: {{ rtti_enabled }}
+
+# Enable or disable client certificate checking
+cert_required: {{ cert_required }}
+
+# Path to CA certificate for validating client certs (optional)
+ca_certfile: {{ ca_certfile }}
+
+# Enable or disable opus support (modern VoIP codec)
+opus: {{ opus_enabled }}
+
+# List of text messages to display on connect (each entry = one message)
+{% for msg in welcome_messages %}welcomeMessage: {{ msg | e }}
+{% endfor %}
+
+# List of users allowed to be registered automatically (each: username = password)
+{% for user in allowed_users %}{% if user.enabled %}{{ user.username }}={{ user.password | e }}
+{% endif %}{% endfor %}
+
+# List of channels to pre-create (optional)
+{% for channel in static_channels %}[{{ channel.name }}]
+name: {{ channel.display_name | e }}
+description: {{ channel.description | e }}
+position: {{ channel.position }}
+{# Optional per-channel overrides #}
+{% if channel.max_users is defined %}users: {{ channel.max_users }}{% endif %}
+
+{% endfor %}
+
+# Additional server options (pass-through for unsupported or advanced options)
+{% for key, value in extra_config.items() %}{{ key }}: {{ value | e }}
+{% endfor %}

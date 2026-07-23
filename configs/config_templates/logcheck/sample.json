@@ -1,0 +1,65 @@
+{
+  "SENDMAIL": "/usr/sbin/sendmail",
+  "REPORTMAIL": "ops@example.com",
+  "TEMPDIR": "/var/tmp",
+  "WORKDIR": "/etc/logcheck",
+  "LOGFILE": "/var/log/logcheck/logcheck.log",
+  "LINES": 300,
+  "TIMEOUT": 120,
+  "COMPRESS_LOGS": true,
+  "SEND_EMPTY_RESULTS": false,
+  "SERVER_MODE": false,
+  "LOGFILES": [
+    {
+      "path": "/var/log/syslog",
+      "flags": [
+        "tail"
+      ]
+    },
+    {
+      "path": "/var/log/auth.log"
+    },
+    {
+      "path": "/var/log/kern.log",
+      "flags": [
+        "follow"
+      ]
+    }
+  ],
+  "REPORT_HOSTS": [
+    "prod-db-01"
+  ],
+  "CUSTOM_RULES": [
+    {
+      "name": "Ignore systemd-resolved noise",
+      "mode": "ignore",
+      "pattern": "systemd-resolved.*query"
+    },
+    {
+      "name": "High CPU load alert",
+      "mode": "violation",
+      "pattern": "load average.*[3-9]"
+    }
+  ],
+  "LOG_DIRS": [
+    {
+      "path": "/var/log/myapp",
+      "recursive": true
+    },
+    {
+      "path": "/var/log/nginx",
+      "recursive": false
+    }
+  ],
+  "REPORT_CC": [
+    "devops@example.com",
+    "security@example.com"
+  ],
+  "SUPPRESS_RULESETS": [
+    "server"
+  ],
+  "VIOLATION_RULESETS": [
+    "violations",
+    "failures"
+  ]
+}

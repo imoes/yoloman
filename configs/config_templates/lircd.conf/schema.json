@@ -1,0 +1,114 @@
+{
+  "driver_name": {
+    "type": "string",
+    "default": "default",
+    "description": "Name of the LIRC driver to start (used for compatibility with some LIRC versions)."
+  },
+  "device_path": {
+    "type": "string",
+    "default": "/dev/lirc0",
+    "description": "Path to the LIRC device (e.g., /dev/lirc0, /dev/lircd)."
+  },
+  "driver_type": {
+    "type": "string",
+    "default": "default",
+    "description": "Name of the LIRC driver module to use (e.g., 'default', 'lirc_serial', 'gpio_rcv')."
+  },
+  "hardware_types": {
+    "type": "list",
+    "default": [],
+    "description": "List of supported hardware types (e.g., 'default', 'hauppauge', 'atiusb').",
+    "items": {
+      "type": "string",
+      "description": "Hardware type name"
+    }
+  },
+  "remotes": {
+    "type": "list",
+    "default": [],
+    "description": "List of remote controls with their button mappings.",
+    "items": {
+      "type": "object",
+      "description": "Remote control configuration",
+      "fields": {
+        "name": {
+          "type": "string",
+          "default": "unknown",
+          "description": "Human-readable name of the remote (e.g., 'Apple-Remote')."
+        },
+        "protocol": {
+          "type": "string",
+          "default": "nec",
+          "description": "IR protocol used (e.g., 'nec', 'sony', 'raw')."
+        },
+        "bits": {
+          "type": "number",
+          "default": 32,
+          "description": "Number of bits per IR message."
+        },
+        "eps": {
+          "type": "number",
+          "default": 30,
+          "description": "Error tolerance percentage for signal timing."
+        },
+        "aeps": {
+          "type": "number",
+          "default": 100,
+          "description": "Absolute error tolerance (microseconds) for signal timing."
+        },
+        "gap": {
+          "type": "number",
+          "default": 108000,
+          "description": "Gap between repeated signals (microseconds)."
+        },
+        "flags": {
+          "type": "list",
+          "default": [],
+          "description": "Special flags (e.g., 'SPACE_ENC', 'CONST_LENGTH').",
+          "items": {
+            "type": "string",
+            "description": "Flag name"
+          }
+        },
+        "buttons": {
+          "type": "list",
+          "default": [],
+          "description": "List of button definitions.",
+          "items": {
+            "type": "object",
+            "fields": {
+              "key_name": {
+                "type": "string",
+                "default": "UNKNOWN",
+                "description": "Name of the key (e.g., 'KEY_POWER', 'KEY_OK')."
+              },
+              "scan_code": {
+                "type": "string",
+                "default": "0x00000000",
+                "description": "Hexadecimal scan code as reported by the remote."
+              },
+              "raw_timings": {
+                "type": "list",
+                "default": [],
+                "description": "List of raw timing values (microseconds) for raw protocol support.",
+                "items": {
+                  "type": "number",
+                  "description": "Timing value in microseconds (positive for space, negative for pulse)"
+                }
+              }
+            }
+          }
+        },
+        "raw_codes": {
+          "type": "list",
+          "default": [],
+          "description": "Raw timing codes (legacy format, prefer raw_timings per button).",
+          "items": {
+            "type": "string",
+            "description": "Space-separated list of timing values"
+          }
+        }
+      }
+    }
+  }
+}

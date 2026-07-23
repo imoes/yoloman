@@ -1,0 +1,92 @@
+[global]
+; Directory where configuration files for other modules are stored
+config_dir = {{ config_dir }}
+
+; Path to the LDAP server (hostname or IP, optionally with port)
+ldap_host = {{ ldap_host }}
+
+; Port of the LDAP server (389 for LDAP, 636 for LDAPS if not embedded in ldap_host)
+ldap_port = {{ ldap_port }}
+
+; Base DN for the LDAP directory
+ldap_base = {{ ldap_base }}
+
+; Bind DN (user DN) for authentication to LDAP
+ldap_binddn = {{ ldap_binddn }}
+
+; Password for the bind DN
+ldap_bindpw = {{ ldap_bindpw }}
+
+; Use TLS (start_tls) for LDAP connections
+ldap_usetls = {{ ldap_usetls | lower }}
+
+; Path to the CA certificate file for LDAPS/TLS verification (optional)
+ldap_cacertfile = {{ ldap_cacertfile | default('') }}
+
+; Use LDAPv3 protocol (required for modern LDAP servers)
+ldap_version = {{ ldap_version }}
+
+; Number of seconds to wait for LDAP operations
+ldap_timeout = {{ ldap_timeout }}
+
+[language]
+; Default language for the web interface (ISO 639-1 code)
+default_lang = {{ default_lang }}
+
+; Supported languages (comma-separated list of ISO 639-1 codes)
+supported_languages = {{ supported_languages | join(', ') }}
+
+[logging]
+; Log level: 0=none, 1=errors, 2=warnings, 3=info, 4=debug
+log_level = {{ log_level }}
+
+; Log file path (empty = syslog)
+log_file = {{ log_file | default('') }}
+
+[session]
+; Session lifetime in seconds
+session_lifetime = {{ session_lifetime }}
+
+; Enable session cookie secure flag (only if served over HTTPS)
+session_secure = {{ session_secure | lower }}
+
+[security]
+; Require HTTPS for the web interface
+https_required = {{ https_required | lower }}
+
+; Allow only specific IP ranges to access the admin interface (empty = allow all)
+allowed_ips = {{ allowed_ips | join(', ') }}
+
+; Maximum number of login attempts before lockout
+max_login_attempts = {{ max_login_attempts }}
+
+; Lockout duration in seconds after max attempts
+lockout_duration = {{ lockout_duration }}
+
+[password_policy]
+; Enable password policy enforcement
+password_policy_enabled = {{ password_policy_enabled | lower }}
+
+; Minimum password length
+min_password_length = {{ min_password_length }}
+
+; Require at least one uppercase letter
+require_uppercase = {{ require_uppercase | lower }}
+
+; Require at least one lowercase letter
+require_lowercase = {{ require_lowercase | lower }}
+
+; Require at least one digit
+require_digit = {{ require_digit | lower }}
+
+; Require at least one special character
+require_special = {{ require_special | lower }}
+
+[modules]
+; Enable modules (comma-separated list: users, groups, hosts, nfs, smb, sudo, ssh, etc.)
+enabled_modules = {{ enabled_modules | join(', ') }}
+
+{% for module, module_config in modules_config.items() %}; Module-specific configuration for {{ module }}
+[{{ module }}]
+{% for key, value in module_config.items() %}{{ key }} = {{ value }}
+{% endfor %}{% endfor %}

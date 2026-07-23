@@ -1,0 +1,48 @@
+# Service management: Define services Cyrus IMAP/NNTPD should provide
+# Format: <service> <type> <command> [args]
+# <service> = service name (imap, nntp, pop3, etc.)
+# <type> = inet (daemon runs in background listening on socket) or cmd (spawn on demand via libcyrus)
+# <command> = executable to invoke
+# [args] = optional arguments (e.g., config paths, flags)
+
+# NNTP service: listen for incoming NNTP connections on configured host:port
+{% for service in services %}{{ service.name }}	{{ service.type }}	{{ service.command }}{% if service.args %} {{ service.args | join(' ') }}{% endif %}
+{% endfor %}
+
+# Standard IMAP services (required by Cyrus as a whole, even if only NNTP is requested)
+# (These are typically needed for shared mailbox handling, sieve, etc.)
+imap	inet	/usr/lib/cyrus/bin/imapd
+pop3	inet	/usr/lib/cyrus/bin/pop3d
+
+# Administrative and auxiliary services
+# These manage backend tasks like mailbox indexing, job queuing, and shutdown handling
+# Ensure they match your deployment requirements (e.g., enable nntppost for posting via NNTP)
+
+# LMTP for local mail delivery (used by localdelivery transport, required for some NNTP functions)
+lmtp	unix	/usr/lib/cyrus/bin/lmtpd
+
+# Manage mailboxes, quotas, and administrative tasks
+# Used by cyradm, mmdeliver, and internal housekeeping
+# Keep enabled unless you run in a minimal/remote-only setup
+
+# Batch job processing for idle operations (sieve scripts, quota updates)
+# Optional; enable if using Sieve or automated batch tasks
+
+# Specialized NNTP posting service: allows NNTP clients to POST news articles
+{% if enable_nntppost %}nntppost	unix	/usr/lib/cyrus/bin/nntppost{% endif %}
+
+# Idle daemon for async operations (required for many background tasks)
+# Usually always enabled unless you're on a tiny embedded setup
+idle	cmd	/usr/lib/cyrus/bin/idle
+
+# Sieve script management (if Sieve is used for NNTP filtering rules)
+# Required only if NNTP users rely on Sieve filters
+{% if sieve_enabled %}sieve	cmd	/usr/lib/cyrus/bin/sieved{% endif %}
+
+# Optional: SSL/TLS wrappers — uncomment and adjust if TLS is required
+# {% if tls_enabled %}imap-tls	inet	/usr/lib/cyrus/bin/imapd -p 993 -f /etc/ssl/certs/server.crt -k /etc/ssl/private/server.key{% endif %}
+# {% if tls_enabled %}nntp-tls	inet	/usr/lib/cyrus/bin/nntpd -p 563 -f /etc/ssl/certs/server.crt -k /etc/ssl/private/server.key{% endif %}
+
+# Shutdown and restart hook (optional, but recommended for clean restarts)
+# shutdownd manages graceful shutdown and cleanup
+shutdownd	cmd	/usr/lib/cyrus/bin/shutdownd

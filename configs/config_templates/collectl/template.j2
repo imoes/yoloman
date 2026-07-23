@@ -1,0 +1,31 @@
+# Collectl configuration file — global options affecting behavior
+# Run collectl in daemon mode with specified options
+# Use the specified PID file for daemon mode
+# Enable verbose output during startup
+# Log interval in seconds between snapshots
+# Output format: raw, ascii, html, csv, or custom (via -f)
+# Data directory for logs and temporary files
+# Enable compression of old log files (gzip)
+# Retention: keep logs for N days
+# Maximum size of a single log file before rotation (in KB)
+# List of subsystems to collect (cpu, mem, disk, net, proc, etc.)
+# Custom output format string (used when -f is set to 'custom')
+# Optional: include additional per-subsystem options as a list
+# Enable optional features: procstat, numa, cgroup, etc.
+# Optional: disable monitoring of specific devices (e.g., loopback)
+
+[collectl]
+daemon = {{ daemon }}
+pidfile = {{ pidfile }}
+verbose = {{ verbose }}
+interval = {{ interval }}
+format = {{ format }}
+dir = {{ dir }}
+compress = {{ compress }}
+retention = {{ retention }}
+maxSize = {{ maxSize }}
+subsystems = {{ subsystems | join(',') }}
+{% if custom_format %}customFormat = {{ custom_format }}{% endif %}
+{% for item in optional_features %}{{ item }} = yes{% endfor %}
+{% for dev in excluded_devices %}# Excluded device: {{ dev }}
+excludeDev = {{ dev }}{% endfor %}

@@ -1,0 +1,74 @@
+# Main daemon operating mode
+mode: {{ mode }}
+
+# Network binding
+bind_host: {{ bind_host }}
+bind_port: {{ bind_port }}
+
+# Logging configuration
+log_level: {{ log_level }}
+log_file: {{ log_file }}
+
+# Worker pool tuning
+worker_count: {{ worker_count }}
+max_connections: {{ max_connections }}
+
+# Optional TLS settings
+{% if use_tls %}
+tls_enabled: yes
+tls_cert_file: {{ tls_cert_file }}
+tls_key_file: {{ tls_key_file }}
+{% else %}
+tls_enabled: no
+{% endif %}
+
+# Remote Fact Exchange (RFE) endpoints
+{% for endpoint in endpoints %}# RFE endpoint {{ endpoint.name }}
+endpoint:
+  name: {{ endpoint.name }}
+  url: {{ endpoint.url }}
+  method: {{ endpoint.method }}
+  timeout: {{ endpoint.timeout }}
+  retry_count: {{ endpoint.retry_count }}
+  backoff_ms: {{ endpoint.backoff_ms }}
+{% if endpoint.headers %}
+  headers:
+{% for header_name, header_value in endpoint.headers.items() %}
+    {{ header_name }}: {{ header_value }}
+{% endfor %}
+{% endif %}
+{% if endpoint.auth %}
+  auth:
+    type: {{ endpoint.auth.type }}
+{% if endpoint.auth.type == 'basic' %}
+    username: {{ endpoint.auth.username }}
+    password: {{ endpoint.auth.password }}
+{% elif endpoint.auth.type == 'bearer' %}
+    token: {{ endpoint.auth.token }}
+{% endif %}
+{% endif %}
+{% endfor %}
+
+# Fact caching
+{% if cache_enabled %}
+cache:
+  enabled: yes
+  type: {{ cache_type }}
+{% if cache_type == 'file' %}
+  path: {{ cache_file_path }}
+{% elif cache_type == 'redis' %}
+  host: {{ cache_redis_host }}
+  port: {{ cache_redis_port }}
+  db: {{ cache_redis_db }}
+{% endif %}
+  ttl_seconds: {{ cache_ttl_seconds }}
+{% else %}
+cache:
+  enabled: no
+{% endif %}
+
+# Health check endpoint
+health_check:
+  enabled: {{ health_check_enabled }}
+  path: {{ health_check_path }}
+  interval_seconds: {{ health_check_interval_seconds }}

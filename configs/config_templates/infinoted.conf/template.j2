@@ -1,0 +1,79 @@
+[infinoted]
+# Server identifier used in collaborative sessions
+identifier = {{ server_identifier }}
+
+# Hostname or IP address the server listens on
+host = {{ listen_host }}
+
+# TCP port the server listens on
+port = {{ listen_port }}
+
+# Path to the SSL/TLS certificate file (optional, for secure connections)
+{% if ssl_cert %}ssl_cert = {{ ssl_cert }}{% endif %}
+{% if ssl_key %}ssl_key = {{ ssl_key }}{% endif %}
+
+# Path to the GnuTLS priority string (optional, e.g., "NORMAL:%COMPAT")
+{% if gnutls_priority %}gnutls_priority = {{ gnutls_priority }}{% endif %}
+
+# Maximum number of simultaneous connections
+max_connections = {{ max_connections }}
+
+# Enable or disable anonymous guest access
+{% if allow_anonymous %}allow_anonymous = true{% else %}allow_anonymous = false{% endif %}
+
+# Default user role for anonymous guests
+{% if anonymous_role %}anonymous_role = {{ anonymous_role }}{% endif %}
+
+# Path to the shared document directory
+share_path = {{ share_path }}
+
+# Enable or disable automatic document persistence (auto-save)
+{% if auto_save %}auto_save = true{% else %}auto_save = false{% endif %}
+
+# Number of seconds between auto-saves
+auto_save_interval = {{ auto_save_interval }}
+
+# Path to the log file (use '-' for stdout)
+log_file = {{ log_file }}
+
+# Logging verbosity level (0–5, 4 is info)
+log_level = {{ log_level }}
+
+# Enable or disable SSL/TLS
+{% if ssl_enabled %}ssl_enabled = true{% else %}ssl_enabled = false{% endif %}
+
+# Path to the PID file
+pid_file = {{ pid_file }}
+
+# Enable or disable the WebSockets interface
+{% if websocket_enabled %}websocket_enabled = true{% else %}websocket_enabled = false{% endif %}
+
+# Host and port for the WebSocket interface (if enabled)
+{% if websocket_enabled %}websocket_host = {{ websocket_host }}
+websocket_port = {{ websocket_port }}{% endif %}
+
+# Authentication backend: 'none', 'simple', 'ldap'
+auth_backend = {{ auth_backend }}
+
+# Simple auth config (used only if auth_backend = simple)
+{% if auth_backend == 'simple' %}# Simple auth user list
+{% for user in simple_auth_users %}{{ user.username }} = {{ user.password_hash }}{% endfor %}{% endif %}
+
+# LDAP auth config (used only if auth_backend = ldap)
+{% if auth_backend == 'ldap' %}# LDAP server URI
+ldap_uri = {{ ldap_uri }}
+# LDAP base DN
+ldap_base = {{ ldap_base }}
+# LDAP bind DN (optional, for bind authentication)
+{% if ldap_bind_dn %}ldap_bind_dn = {{ ldap_bind_dn }}{% endif %}
+# LDAP bind password (optional)
+{% if ldap_bind_password %}ldap_bind_password = {{ ldap_bind_password }}{% endif %}
+# LDAP user filter
+ldap_user_filter = {{ ldap_user_filter }}
+{% endif %}
+
+# Session timeout in seconds (0 = no timeout)
+session_timeout = {{ session_timeout }}
+
+# Idle timeout in seconds (0 = no timeout)
+idle_timeout = {{ idle_timeout }}

@@ -1,0 +1,42 @@
+{
+  "ssh_rules": [
+    {
+      "port": 22,
+      "source": "192.168.1.0/24",
+      "target": "ACCEPT",
+      "description": "Allow SSH from internal LAN"
+    }
+  ],
+  "icmp_enabled": true,
+  "allow_ports": [
+    {
+      "port": 80,
+      "protocol": "tcp",
+      "source": "0.0.0.0/0",
+      "target": "ACCEPT",
+      "description": "HTTP traffic"
+    },
+    {
+      "port": 443,
+      "protocol": "tcp",
+      "source": "0.0.0.0/0",
+      "target": "ACCEPT",
+      "description": "HTTPS traffic"
+    }
+  ],
+  "nat_enabled": true,
+  "nat_interface": "ens33",
+  "nat_internal_interface": "ens34",
+  "custom_chains": [
+    {
+      "name": "RATE_LIMIT",
+      "description": "Rate-limit brute-force attempts"
+    }
+  ],
+  "custom_jumps": [
+    {
+      "chain": "RATE_LIMIT",
+      "description": "Jump to rate-limiting chain for all new SSH attempts"
+    }
+  ]
+}

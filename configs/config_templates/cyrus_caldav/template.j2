@@ -1,0 +1,62 @@
+# Service activation: enables CalDAV/CardDAV daemon and HTTP backend
+SERVICE {
+    caldav    cmd="caldavd -d" listen="127.0.0.1:8080" proto="tcp" 
+}
+
+# HTTP server configuration for CalDAV/CardDAV (mod_dav_caldav)
+HTTPD {
+    listen = "{{ httpd.listen }}:{{ httpd.port }}"
+    servername = "{{ httpd.servername }}"
+    ssl = {{ httpd.ssl | lower }}
+    cert_file = "{{ httpd.cert_file }}"
+    key_file = "{{ httpd.key_file }}"
+    ca_file = "{{ httpd.ca_file | default('') }}"
+    
+    # Authentication backend: use cyrus-sasl with plaintext if SSL/TLS not enforced
+    sasl_mech_list = "PLAIN LOGIN"
+    
+    # Directory for CalDAV/CardDAV data (per user calendars/addrbooks)
+    dav_dbdir = "{{ dav.dbdir }}"
+    dav_migratedb = {{ dav.migrate | lower }}
+    
+    # Timeouts
+    timeout = {{ dav.timeout }}
+    maxreqsize = {{ dav.maxreqsize }}
+    
+    # Logging level: 0=error, 1=warn, 2=info, 3=debug
+    debug = {{ dav.debug }}
+}
+
+# CalDAV/CardDAV-specific user quota and behavior
+DAV {
+    # Enable per-user calendar/addrbook collections
+    enabled = {{ dav.enabled | lower }}
+    
+    # Default calendar/addrbook timezone
+    default_timezone = "{{ dav.default_timezone }}"
+    
+    # User namespace: calendar/addrbook paths under user mailbox hierarchy
+    user_namespace = {{ dav.user_namespace | lower }}
+    
+    # Enable shared calendars/addrbooks (requires ACLs)
+    shared_enabled = {{ dav.shared_enabled | lower }}
+    
+    # Enable CalDAV alarms/notifications
+    alarms_enabled = {{ dav.alarms_enabled | lower }}
+    
+    # Max size of calendar/addrbook data per user (in bytes)
+    max_user_data_size = {{ dav.max_user_data_size }}
+    
+    # CardDAV: VCard version to emit (2.1 or 3.0)
+    vcard_version = "{{ dav.vcard_version }}"
+    
+    # CalDAV: support for SCHEDULE-IMPLICIT (iCalendar scheduling)
+    implicit_scheduling = {{ dav.implicit_scheduling | lower }}
+}
+
+# SASL configuration (shared with IMAP) — ensure 'cyrus' user can access keytabs
+SASL {
+    pwcheck_method = "saslauthd"
+    saslauthd_path = "{{ sasl.saslauthd_path }}"
+    mech_list = "{{ sasl.mech_list | join(' ') }}"
+}

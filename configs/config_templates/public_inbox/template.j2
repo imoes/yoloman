@@ -1,0 +1,51 @@
+# Public-Inbox configuration file
+# Each mailing list is defined in its own [inbox "name"] section
+{% for inbox in inboxes %}
+[inbox "{{ inbox.name }}"]
+  # Directory where the list's git repository is stored
+  directory = {{ inbox.directory | quote }}
+  # Main email address used for list posts (e.g., for List-Id header)
+  address = {{ inbox.address | quote }}
+  # Human-readable list name (shown in web UI and headers)
+  name = {{ inbox.name | quote }}
+  # Optional: List owner's email address
+  {% if inbox.owner %}owner = {{ inbox.owner | quote }}{% endif %}
+  # Optional: URL of the web interface (if not auto-detected)
+  {% if inbox.url %}url = {{ inbox.url | quote }}{% endif %}
+  # Optional: Public inbox version (usually auto-detected)
+  {% if inbox.version %}version = {{ inbox.version }}{% endif %}
+  # Optional: List archive feed settings
+  {% if inbox.feed %}
+  # Enable Atom/JSON feeds for this list
+  feed = {{ inbox.feed | lower }}
+  # Feed base URL (for generating absolute links in feeds)
+  feedmaxitems = {{ inbox.feedmaxitems | default(20) }}
+  {% endif %}
+{% endfor %}
+
+# Optional: Global settings
+{% if config.http %}
+# HTTP daemon settings (for public-inbox-httpd)
+[httpd]
+  bind = {{ config.http.bind | quote }}
+  port = {{ config.http.port }}
+  {% if config.http.ssl %}
+  sslCert = {{ config.http.ssl.cert | quote }}
+  sslKey = {{ config.http.ssl.key | quote }}
+  {% endif %}
+{% endif %}
+
+# Optional: NNTP daemon settings (for public-inbox-nntpd)
+{% if config.nntp %}
+[nntp]
+  # Enable NNTP daemon
+  enable = {{ config.nntp.enable | lower }}
+  bind = {{ config.nntp.bind | quote }}
+  port = {{ config.nntp.port }}
+{% endif %}
+
+# Optional: Script alias for public-inbox-httpd (e.g., /public-inbox)
+{% if config.script_alias %}
+[public-inbox]
+  scriptAlias = {{ config.script_alias | quote }}
+{% endif %}

@@ -1,0 +1,109 @@
+{
+  "log_level": {
+    "type": "number",
+    "default": 6,
+    "description": "Verbosity of ipmiseld logs (0\u20137). Higher numbers = more verbose."
+  },
+  "log_facility": {
+    "type": "string",
+    "default": "daemon",
+    "description": "Syslog facility to use for logging when syslog is enabled."
+  },
+  "log_to_syslog": {
+    "type": "bool",
+    "default": true,
+    "description": "If true, logs are sent to syslog. If false, logs go to a file."
+  },
+  "log_file": {
+    "type": "string",
+    "default": "/var/log/ipmiseld.log",
+    "description": "Path to the local log file (used only if syslog is disabled)."
+  },
+  "default_host": {
+    "type": "string",
+    "default": "localhost",
+    "description": "Default BMC hostname/IP to use when no per-host override is provided."
+  },
+  "default_username": {
+    "type": "string",
+    "default": "",
+    "description": "Default BMC username (optional, often left blank for IPMI 2.0+ with no-auth)."
+  },
+  "default_password": {
+    "type": "string",
+    "default": "",
+    "description": "Default BMC password (store securely; consider environment variables or ACL-protected files in production)."
+  },
+  "default_interface": {
+    "type": "string",
+    "default": "lanplus",
+    "description": "Default BMC communication interface (e.g., lan, lanplus, kmip)."
+  },
+  "auto_detect": {
+    "type": "bool",
+    "default": true,
+    "description": "If true, ipmiseld will attempt to auto-discover BMCs on the local network."
+  },
+  "hosts": {
+    "type": "list",
+    "default": [],
+    "description": "List of explicitly configured BMCs to monitor. Each entry defines hostname, credentials, and optional overrides.",
+    "items": {
+      "name": {
+        "type": "string",
+        "default": "",
+        "description": "Unique identifier for this host entry (e.g., 'bmc1'). Used as prefix in config keys."
+      },
+      "hostname": {
+        "type": "string",
+        "default": "",
+        "description": "BMC IP address or FQDN."
+      },
+      "username": {
+        "type": "string",
+        "default": "",
+        "description": "BMC username for this host (overrides default_username)."
+      },
+      "password": {
+        "type": "string",
+        "default": "",
+        "description": "BMC password for this host (overrides default_password)."
+      },
+      "interface": {
+        "type": "string",
+        "default": "",
+        "description": "BMC interface type for this host (overrides default_interface, optional)."
+      },
+      "port": {
+        "type": "number",
+        "default": 623,
+        "description": "BMC IPMI UDP port (usually 623; override only if non-standard)."
+      }
+    }
+  },
+  "initial_fetch_limit": {
+    "type": "number",
+    "default": 100,
+    "description": "Maximum number of existing SEL entries to fetch from each BMC at startup."
+  },
+  "poll_interval": {
+    "type": "number",
+    "default": 60,
+    "description": "Seconds between BMC polling for new SEL entries."
+  },
+  "continuous_logging": {
+    "type": "bool",
+    "default": true,
+    "description": "If true, ipmiseld will continuously monitor and log new SEL events."
+  },
+  "sel_log_format": {
+    "type": "string",
+    "default": "text",
+    "description": "Format for SEL log output: text, xml, or csv."
+  },
+  "sel_log_file": {
+    "type": "string",
+    "default": "/var/log/ipmiseld-sel.log",
+    "description": "Path to the SEL event log file (used only when syslog is disabled and LogFormat=text)."
+  }
+}

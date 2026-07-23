@@ -1,0 +1,113 @@
+# Global settings
+[global]
+# Unique identifier for the PTP domain
+# (0–65535; common default: 0)
+domainNumber {{ domain_number }}
+
+# Transport type: 'udp' or 'ieee_1588'
+# 'udp' is recommended for most deployments
+transport {{ transport_mode }}
+
+# Default interface to use if no per-interface sections present
+# (overridden by explicit [eth0], [eth1], etc. below)
+defaultDatastoreId 2
+
+# Clock identity source: 'hw' (default) or 'sw'
+clockIdentitySource {{ clock_identity_source }}
+
+# Number of slave-only ports to wait before starting (for boundary clocks)
+slaveOnly {{ 'true' if slave_only else 'false' }}
+
+# Allow multiple sources; useful for redundant networks
+allow_multiple_sources {{ 'true' if allow_multiple_sources else 'false' }}
+
+# Logging verbosity: 0 (fatal) to 7 (debug)
+logLevel {{ log_level }}
+
+# Log sync messages for diagnostics
+logSyncMessages {{ 'true' if log_sync_messages else 'false' }}
+
+# Announce interval (seconds); typical: 1 or 2
+announceInterval {{ announce_interval }}
+
+# Sync interval (seconds); typical: 1 or -1 (as fast as possible)
+syncInterval {{ sync_interval }}
+
+# Minimum delay request interval (seconds); set to avoid overload
+delayReqInterval {{ delay_req_interval }}
+
+# Primary domain for fallback when domainNumber mismatch occurs
+primaryDomain {{ primary_domain }}
+
+# Use hardware timestamping (recommended for sub-μs accuracy)
+hwTimestamping {{ 'true' if hw_timestamping else 'false' }}
+
+# Path to the PTP device (e.g., /dev/ptp0); auto-detected if omitted
+# (leave empty to rely on auto-detection)
+{% if ptp_device %}ptp_device {{ ptp_device }}{% endif %}
+
+# Network interface configuration blocks
+# One block per interface to participate in PTP
+{% for iface in interfaces %}
+[{{ iface.name }}]
+# Enable this interface
+{% if iface.enabled is defined and not iface.enabled %}# disabled
+{% else %}# enabled
+{% endif %}# Hardware timestamping override (per-interface)
+hwTimestamping {{ 'true' if iface.hw_timestamping is defined and iface.hw_timestamping else 'false' }}
+
+# Priority (lower = preferred for master selection)
+priority1 {{ iface.priority1 | default(128) }}
+priority2 {{ iface.priority2 | default(128) }}
+
+# Clock class (0–255); lower = better quality clock
+# 6 = typical for boundary clock
+# 13 = typical for ordinary clock (slave)
+clockClass {{ iface.clock_class | default(248) }}
+
+# Path to override clock identity (e.g., MAC address)
+clockIdentity {{ iface.clock_identity | default('') }}
+
+# Offset applied to local clock (nanoseconds); for fine-tuning
+clockOffset {{ iface.clock_offset | default(0) }}
+
+# Allow this interface to become master (for boundary clocks)
+{
+{% if iface.master_only is defined %}masterOnly {{ 'true' if iface.master_only else 'false' }}
+{% elif iface.master_only is not defined and slave_only is defined and slave_only %}masterOnly false
+{% else %}# (default: inherit global slaveOnly)
+{% endif %}# Announce interval (seconds) — overrides global if set
+{
+{% if iface.announce_interval is defined %}announceInterval {{ iface.announce_interval }}
+{% endif %}# Sync interval (seconds) — overrides global if set
+{
+{% if iface.sync_interval is defined %}syncInterval {{ iface.sync_interval }}
+{% endif %}# Delay request interval (seconds) — overrides global if set
+{
+{% if iface.delay_req_interval is defined %}delayReqInterval {{ iface.delay_req_interval }}
+{% endif %}# Quality of service (QoS) DSCP marking
+{
+{% if iface.dscp is defined %}dscp {{ iface.dscp }}
+{% endif %}
+{% endfor %}
+
+# Optional: slave-only interface groups for redundant domain
+# (for boundary clocks acting as master on one side, slave on another)
+{% if redundant_interfaces %}[redundant_interface]
+redundant_interface {{ redundant_interfaces | join(',') }}
+{% endif %}
+
+# Optional:unicast negotiation
+{
+{% if unicast_addresses %}# Unicast master addresses to attempt negotiation with
+{% for addr in unicast_addresses %}unicast_addr {{ addr }}
+{% endfor %}{% endif %}
+
+# Optional: delay mechanism (auto, peer-to-peer, or end-to-end)
+delay_mechanism {{ delay_mechanism }}
+
+# Optional: mean path delay (nanoseconds); used when delay_mechanism=peer-to-peer
+delayAsymmetry {{ delay_asymmetry | default(0) }}
+
+# Optional: frequency correction applied at initialization (ppb)
+initial_frequency {{ initial_frequency | default(0) }}

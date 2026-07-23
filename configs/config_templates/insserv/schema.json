@@ -1,0 +1,68 @@
+{
+  "init_d_path": {
+    "type": "string",
+    "default": "/etc/init.d",
+    "description": "Path to the directory containing LSB-compliant init scripts."
+  },
+  "default_runlevel": {
+    "type": "string",
+    "default": "2",
+    "description": "Default runlevel used when LSB headers are ambiguous or missing runlevel info."
+  },
+  "debug": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable verbose output for debugging dependency resolution."
+  },
+  "extra_init_dirs": {
+    "type": "list",
+    "default": [],
+    "description": "Additional directories (beyond /etc/init.d) to scan for LSB header information.",
+    "items": {
+      "type": "string",
+      "description": "Absolute path to an extra init script directory."
+    }
+  },
+  "dependency_overrides": {
+    "type": "list",
+    "default": [],
+    "description": "Custom dependency rule overrides for specific init scripts. Use sparingly\u2014override only when LSB headers are incorrect or need manual tuning.",
+    "items": {
+      "type": "object",
+      "fields": {
+        "script": {
+          "type": "string",
+          "description": "Name of the init script (without path)."
+        },
+        "dependency": {
+          "type": "string",
+          "description": "LSB dependency tag (e.g., `network`, `$local_fs`, `syslog`)."
+        },
+        "action": {
+          "type": "string",
+          "enum": [
+            "+add",
+            "-remove",
+            "*replace"
+          ],
+          "description": "Action to take: `+add` to force inclusion, `-remove` to exclude, `*replace` to override."
+        }
+      }
+    }
+  },
+  "ignore_missing_tags": {
+    "type": "bool",
+    "default": false,
+    "description": "If true, skip scripts that lack required LSB header tags (e.g., `Default-Start`). Otherwise, insserv fails on missing headers."
+  },
+  "database_path": {
+    "type": "string",
+    "default": "/lib/insserv/runlevel.db",
+    "description": "Path to insserv\u2019s runtime dependency database (cache)."
+  },
+  "max_depth": {
+    "type": "number",
+    "default": 100,
+    "description": "Maximum recursion depth during dependency resolution. Prevents stack overflow on circular references."
+  }
+}

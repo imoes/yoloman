@@ -1,0 +1,195 @@
+{
+  "workgroup": {
+    "type": "string",
+    "default": "WORKGROUP",
+    "description": "The Windows workgroup or domain name this server belongs to."
+  },
+  "server_string": {
+    "type": "string",
+    "default": "Samba Server",
+    "description": "The descriptive string displayed when listing the server in network browsing."
+  },
+  "security_mode": {
+    "type": "string",
+    "default": "user",
+    "description": "Security model: 'user' for local SMB user accounts, 'domain' for domain controller, 'ads' for Active Directory."
+  },
+  "passdb_backend": {
+    "type": "string",
+    "default": "tdbsam",
+    "description": "Password database backend (e.g., tdbsam, ldapsam). Only used when security_mode is 'user' or 'domain'."
+  },
+  "log_level": {
+    "type": "number",
+    "default": 1,
+    "description": "Verbosity of logging: 0 (minimal), 3 (normal), 5 (verbose), 10 (debug)."
+  },
+  "log_file_path": {
+    "type": "string",
+    "default": "/var/log/samba/log.%m",
+    "description": "Path to log files. Use %m for per-machine log files."
+  },
+  "max_log_size_kb": {
+    "type": "number",
+    "default": 5000,
+    "description": "Maximum size (in KB) per log file before rotation."
+  },
+  "bind_interfaces_only": {
+    "type": "boolean",
+    "default": true,
+    "description": "If true, only bind to specified interfaces; otherwise bind to all interfaces."
+  },
+  "interfaces": {
+    "type": "list",
+    "default": [
+      "lo",
+      "eth0"
+    ],
+    "description": "List of network interfaces to bind to (e.g., ['eth0', 'br0']). Required if bind_interfaces_only is true."
+  },
+  "hosts_allow": {
+    "type": "list",
+    "default": [
+      "127.0.0.1"
+    ],
+    "description": "List of allowed hosts/networks (e.g., ['192.168.1.0/24', '10.0.0.0/8']). May include hostnames or CIDR."
+  },
+  "hosts_deny": {
+    "type": "list",
+    "default": [
+      "all"
+    ],
+    "description": "List of denied hosts/networks. Use ['all'] for default-deny, but ensure allow rules are set first."
+  },
+  "server_min_protocol": {
+    "type": "string",
+    "default": "SMB2",
+    "description": "Minimum supported SMB protocol version (e.g., 'NT1', 'SMB2', 'SMB3_11'). Leave empty to auto-select."
+  },
+  "server_max_protocol": {
+    "type": "string",
+    "default": "SMB3",
+    "description": "Maximum supported SMB protocol version. Leave empty to auto-select highest."
+  },
+  "max_connections": {
+    "type": "number",
+    "default": 100,
+    "description": "Maximum number of concurrent SMB connections allowed."
+  },
+  "max_open_files": {
+    "type": "number",
+    "default": 16384,
+    "description": "Maximum number of files a single smbd process may have open. Set to match system limits (ulimit -n)."
+  },
+  "socket_options": {
+    "type": "list",
+    "default": [
+      "SO_RCVBUF=65536",
+      "SO_SNDBUF=65536",
+      "TCP_NODELAY"
+    ],
+    "description": "TCP socket tuning options (e.g., buffer sizes, Nagle algorithm)."
+  },
+  "time_server": {
+    "type": "boolean",
+    "default": false,
+    "description": "If true, act as an NTP time server for connected Windows clients."
+  },
+  "timezone": {
+    "type": "string",
+    "default": "UTC",
+    "description": "Timezone string (e.g., 'America/New_York', 'Europe/London'). Defaults to system timezone if omitted."
+  },
+  "shares": {
+    "type": "list",
+    "default": [
+      {
+        "name": "homes",
+        "path": "/home",
+        "description": "Home directories",
+        "browsable": true,
+        "read_only": false,
+        "guest_ok": false,
+        "valid_users": [
+          "%S"
+        ],
+        "create_mask": "0640",
+        "directory_mask": "0750",
+        "force_user": "%U",
+        "force_group": "%U"
+      }
+    ],
+    "items": {
+      "name": {
+        "type": "string",
+        "default": "shared",
+        "description": "Share name (used in \\server\\share path)."
+      },
+      "path": {
+        "type": "string",
+        "default": "/srv/share",
+        "description": "Absolute filesystem path to share."
+      },
+      "description": {
+        "type": "string",
+        "default": "General shared folder",
+        "description": "Description shown in client browsing."
+      },
+      "browsable": {
+        "type": "boolean",
+        "default": true,
+        "description": "Whether the share appears in browse lists."
+      },
+      "read_only": {
+        "type": "boolean",
+        "default": true,
+        "description": "If true, users cannot write to the share (except write list members)."
+      },
+      "guest_ok": {
+        "type": "boolean",
+        "default": false,
+        "description": "If true, allow guest access (requires map to guest = Bad User/Password in [global])."
+      },
+      "valid_users": {
+        "type": "list",
+        "default": [],
+        "description": "List of allowed users/groups (e.g., ['alice', '@admins'])."
+      },
+      "write_list": {
+        "type": "list",
+        "default": [],
+        "description": "List of users/groups with write access when read_only=true."
+      },
+      "create_mask": {
+        "type": "string",
+        "default": "0644",
+        "description": "Octal mask for new files (e.g., '0644' = rw-r--r--)."
+      },
+      "directory_mask": {
+        "type": "string",
+        "default": "0755",
+        "description": "Octal mask for new directories (e.g., '0755' = rwxr-xr-x)."
+      },
+      "force_user": {
+        "type": "string",
+        "default": "",
+        "description": "System username to force for all file operations in this share. Use '%U' for connecting user."
+      },
+      "force_group": {
+        "type": "string",
+        "default": "",
+        "description": "System group to force for all file operations in this share. Use '%G' for user's primary group."
+      },
+      "vfs_objects": {
+        "type": "list",
+        "default": [],
+        "description": "List of VFS modules to load (e.g., ['acl_xattr', 'audit'])."
+      },
+      "vfs_options": {
+        "type": "object",
+        "default": {},
+        "description": "Key-value pairs of VFS module options (e.g., {'acl_xattr:ignore system acls': 'yes'})."
+      }
+    }
+  }
+}

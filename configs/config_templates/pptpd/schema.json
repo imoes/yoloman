@@ -1,0 +1,88 @@
+{
+  "bind_address": {
+    "type": "string",
+    "default": "127.0.0.1",
+    "description": "Local IP address for pptpd to bind to (server interface). Leave at default (127.0.0.1) for localhost-only; set to public IP for remote access."
+  },
+  "device": {
+    "type": "string",
+    "default": "",
+    "description": "Explicit PPP device name (e.g., ppp0). If empty, devices auto-allocated from ppp0 upward."
+  },
+  "timeout": {
+    "type": "number",
+    "default": 120,
+    "description": "Control connection timeout in seconds. Set to 0 for no timeout."
+  },
+  "mppe": {
+    "type": "string",
+    "default": "required",
+    "description": "MPPE encryption policy. 'required' or 'required-128' recommended for security."
+  },
+  "ms_chap_v2": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable MS-CHAPv2 authentication. Required for MPPE. Disable only for legacy client compatibility."
+  },
+  "ip_ranges": {
+    "type": "list",
+    "default": [
+      {
+        "local": "192.168.0.1",
+        "remote": "192.168.0.100-192.168.0.200"
+      }
+    ],
+    "description": "IP address pools: local is the server IP (as seen by clients), remote is the client IP range(s).",
+    "items": {
+      "type": "object",
+      "fields": {
+        "local": {
+          "type": "string",
+          "default": "",
+          "description": "Local (server-side) IP for this pool."
+        },
+        "remote": {
+          "type": "string",
+          "default": "",
+          "description": "Remote (client-side) IP address range (e.g., 10.0.0.10-10.0.0.100, or single IP)."
+        }
+      }
+    }
+  },
+  "dns_servers": {
+    "type": "list",
+    "default": [
+      "8.8.8.8",
+      "8.8.4.4"
+    ],
+    "description": "DNS servers to push to VPN clients (IPv4). Use internal servers for enterprise networks.",
+    "items": {
+      "type": "string",
+      "description": "IPv4 DNS server address."
+    }
+  },
+  "wins_servers": {
+    "type": "list",
+    "default": [],
+    "description": "WINS servers to push to VPN clients (for NetBIOS name resolution). Typically empty for modern networks.",
+    "items": {
+      "type": "string",
+      "description": "IPv4 WINS server address."
+    }
+  },
+  "debug": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable verbose debug logging to syslog."
+  },
+  "logwtmp": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable logging of user logins/logouts to /var/log/wtmp."
+  },
+  "rate_limit": {
+    "type": "number",
+    "default": 0,
+    "description": "Max PPTP connections per source IP per second (0 = unlimited). Use to mitigate brute-force or DoS."
+  }
+}

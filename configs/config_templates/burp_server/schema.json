@@ -1,0 +1,97 @@
+{
+  "bindaddress": {
+    "type": "string",
+    "default": "0.0.0.0",
+    "description": "IP address the Burp server binds to (e.g., 0.0.0.0 for all interfaces, or a specific IP)."
+  },
+  "port": {
+    "type": "number",
+    "default": 4971,
+    "description": "TCP port the server listens on."
+  },
+  "storage_dir": {
+    "type": "string",
+    "default": "/var/lib/burp",
+    "description": "Base directory where client backups are stored. Must be writable by the burp user."
+  },
+  "max_connections": {
+    "type": "number",
+    "default": 10,
+    "description": "Maximum number of simultaneous client connections. Increase for many concurrent backups."
+  },
+  "allow_delete": {
+    "type": "bool",
+    "default": false,
+    "description": "Whether to allow clients to delete their own backups. Set to false in production to prevent accidental data loss."
+  },
+  "compression": {
+    "type": "bool",
+    "default": true,
+    "description": "Whether to compress backup data. Enable to save storage; disable for faster transfers on CPU-limited systems."
+  },
+  "ca_crt": {
+    "type": "string",
+    "default": "/etc/burp/CA/cacert.pem",
+    "description": "Path to the Certificate Authority (CA) certificate for TLS."
+  },
+  "server_crt": {
+    "type": "string",
+    "default": "/etc/burp/CA/burpserver.pem",
+    "description": "Path to the server certificate (signed by the CA)."
+  },
+  "server_key": {
+    "type": "string",
+    "default": "/etc/burp/CA/burpserver_key.pem",
+    "description": "Path to the server private key."
+  },
+  "ca_crl": {
+    "type": "string",
+    "default": "",
+    "description": "Path to the Certificate Revocation List (CRL) file (optional). Leave empty if unused."
+  },
+  "clients": {
+    "type": "list",
+    "default": [],
+    "description": "List of authorized Burp clients. Each client is defined by a name and certificate information.",
+    "items": {
+      "name": {
+        "type": "string",
+        "description": "Unique name/identifier for the client (used in client config as `name = ...`)."
+      },
+      "cert_cn": {
+        "type": "string",
+        "description": "Common Name (CN) in the client's certificate (case-sensitive match required), or IP if using IP-based auth."
+      },
+      "backup_dir": {
+        "type": "string",
+        "default": "",
+        "description": "Optional subdirectory under storage_dir where this client\u2019s backups are isolated. Must be a relative path (e.g., `clients/client1`)."
+      },
+      "password": {
+        "type": "string",
+        "default": "",
+        "description": "Optional plaintext password for non-TLS password auth. Not used if certs are enabled. Prefer certificate auth in production."
+      },
+      "allowed_ips": {
+        "type": "list",
+        "default": [],
+        "description": "List of allowed source IP addresses/CIDR blocks (e.g., ['192.168.1.0/24']). Restricts connections to these networks."
+      }
+    }
+  },
+  "allow_clients": {
+    "type": "list",
+    "default": [],
+    "description": "Fallback list of allowed clients by certificate CN or IP (if no per-client block matches). Useful for simple setups. If empty, defaults to allowing all."
+  },
+  "log_file": {
+    "type": "string",
+    "default": "/var/log/burp/burp.log",
+    "description": "Path to the server log file."
+  },
+  "log_file_level": {
+    "type": "string",
+    "default": "1",
+    "description": "Verbosity of file logging: 0=errors, 1=warnings, 2=info, 3=debug. Recommend 1 for production."
+  }
+}

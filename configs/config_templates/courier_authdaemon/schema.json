@@ -1,0 +1,86 @@
+{
+  "authmodulepath": {
+    "type": "string",
+    "default": "/usr/lib/courier-authlib",
+    "description": "Directory path containing the authentication modules (e.g., authmysql.so, authldap.so)"
+  },
+  "authmodule": {
+    "type": "list",
+    "default": [
+      "authpam"
+    ],
+    "description": "Ordered list of authentication module names to use (must match module filenames without .so)",
+    "items": {
+      "type": "string",
+      "enum": [
+        "authpam",
+        "authmysql",
+        "authldap",
+        "authuserdb"
+      ]
+    }
+  },
+  "minprocs": {
+    "type": "number",
+    "default": 5,
+    "description": "Minimum number of idle authentication daemon processes to maintain"
+  },
+  "maxdaemons": {
+    "type": "number",
+    "default": 20,
+    "description": "Maximum number of authentication daemon processes to spawn"
+  },
+  "daemontimeout": {
+    "type": "number",
+    "default": 600,
+    "description": "Timeout (in seconds) after which idle daemon processes terminate"
+  },
+  "debug": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable verbose debugging output to syslog"
+  },
+  "syslog_facility": {
+    "type": "string",
+    "default": "auth",
+    "description": "Syslog facility to use when logging (e.g., auth, authpriv, local0\u2013local7)"
+  },
+  "usepam": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable PAM-based authentication (required for system users)"
+  },
+  "pam_service": {
+    "type": "string",
+    "default": "courier",
+    "description": "Name of the PAM service configuration file (without .conf extension) \u2014 usually /etc/pam.d/courier",
+    "nullable": true
+  },
+  "logfile": {
+    "type": "string",
+    "default": null,
+    "description": "Absolute path to a dedicated log file (if not using syslog)",
+    "nullable": true
+  },
+  "module_instances": {
+    "type": "list",
+    "default": [],
+    "description": "List of per-module instance configurations (used when non-default module options are needed)",
+    "items": {
+      "type": "object",
+      "properties": {
+        "comment": {
+          "type": "string",
+          "description": "Human-readable description of this module instance (shown as comment in config)"
+        },
+        "config": {
+          "type": "object",
+          "description": "Key-value pairs specific to the module (e.g., MySQL connection options)",
+          "additionalProperties": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}

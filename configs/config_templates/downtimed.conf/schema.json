@@ -1,0 +1,121 @@
+{
+  "log_level": {
+    "type": "string",
+    "default": "info",
+    "description": "Logging verbosity: 'debug', 'info', 'warning', 'error', or 'critical'."
+  },
+  "pid_file": {
+    "type": "string",
+    "default": "/var/run/downtimed/downtimed.pid",
+    "description": "Path to the PID file for the downtimed daemon."
+  },
+  "log_file": {
+    "type": "string",
+    "default": "/var/log/downtimed/downtimed.log",
+    "description": "Path to the log file for downtimed events."
+  },
+  "max_sessions": {
+    "type": "number",
+    "default": 10,
+    "description": "Maximum number of concurrent service checks/downtime sessions allowed."
+  },
+  "check_interval": {
+    "type": "number",
+    "default": 30,
+    "description": "Time (in seconds) between health checks for all services."
+  },
+  "down_threshold": {
+    "type": "number",
+    "default": 5,
+    "description": "Number of consecutive failed checks before marking a service as down."
+  },
+  "up_threshold": {
+    "type": "number",
+    "default": 2,
+    "description": "Number of consecutive successful checks before marking a service as up."
+  },
+  "enable_email": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable email notifications for service state changes."
+  },
+  "email_to": {
+    "type": "string",
+    "default": "",
+    "description": "Recipient email address for downtimed notifications (required if enable_email=true)."
+  },
+  "smtp_server": {
+    "type": "string",
+    "default": "localhost",
+    "description": "SMTP server hostname for sending email notifications."
+  },
+  "smtp_port": {
+    "type": "number",
+    "default": 587,
+    "description": "SMTP server port (commonly 587 for TLS, 465 for SSL, or 25 for unencrypted)."
+  },
+  "smtp_tls": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable TLS encryption for SMTP connection."
+  },
+  "smtp_user": {
+    "type": "string",
+    "default": "",
+    "description": "SMTP username for authentication (leave empty if no auth required)."
+  },
+  "smtp_pass": {
+    "type": "string",
+    "default": "",
+    "description": "SMTP password for authentication (leave empty if no auth required)."
+  },
+  "services": {
+    "type": "list",
+    "default": [],
+    "description": "List of services to monitor. Each service must specify host and port.",
+    "items": {
+      "type": "object",
+      "fields": {
+        "name": {
+          "type": "string",
+          "default": "",
+          "description": "Unique name for the service (used as section key)."
+        },
+        "host": {
+          "type": "string",
+          "default": "localhost",
+          "description": "Hostname or IP address of the service to monitor."
+        },
+        "port": {
+          "type": "number",
+          "default": 80,
+          "description": "Port number of the service to monitor."
+        },
+        "proto": {
+          "type": "string",
+          "default": "tcp",
+          "description": "Protocol to use: 'tcp' or 'udp'.",
+          "enum": [
+            "tcp",
+            "udp"
+          ]
+        },
+        "timeout": {
+          "type": "number",
+          "default": 5,
+          "description": "Connection timeout in seconds for each probe."
+        },
+        "interval": {
+          "type": "number",
+          "default": 30,
+          "description": "How often to check this specific service (seconds)."
+        },
+        "down_after": {
+          "type": "number",
+          "default": 3,
+          "description": "Number of consecutive failures before marking service down (overrides global down_threshold for this service)."
+        }
+      }
+    }
+  }
+}

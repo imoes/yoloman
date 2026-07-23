@@ -1,0 +1,53 @@
+{
+  "debug": false,
+  "policy": "first_ok",
+  "plugin_dir": "/usr/lib/ddupdate",
+  "data_dir": "/var/lib/ddupdate",
+  "network_timeout": 30,
+  "enable_ipv6": true,
+  "services": [
+    {
+      "name": "cloudflare_main",
+      "plugin": "cloudflare",
+      "options": {
+        "api_key": "secret_cloudflare_api_key",
+        "zone": "example.com"
+      }
+    },
+    {
+      "name": "dnsimple_test",
+      "plugin": "dnsimple",
+      "options": {
+        "api_token": "dnsimple_token_123",
+        "account_id": "98765"
+      }
+    }
+  ],
+  "hosts": [
+    {
+      "hostname": "www.example.com",
+      "provider": "cloudflare_main",
+      "plugin": "cloudflare",
+      "address_type": "ipv4",
+      "address_source": "web"
+    },
+    {
+      "hostname": "api.example.com",
+      "provider": "cloudflare_main",
+      "address_type": "ipv6",
+      "address_source": "default"
+    },
+    {
+      "hostname": "test.example.org",
+      "provider": "dnsimple_test",
+      "address_type": "dual",
+      "address_source": "ifconfig"
+    }
+  ],
+  "global_options": {
+    "default_user": "admin@example.com",
+    "default_password": "secure_password_here"
+  },
+  "log_file": "/var/log/ddupdate.log",
+  "log_level": "info"
+}

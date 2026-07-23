@@ -1,0 +1,21 @@
+# SBD (Storage-based Disk) fencing configuration for Pacemaker
+# Path to the shared disk device used for SBD fencing
+SBD_DEVICE={{ sbd_device }}
+# List of SBD devices (space-separated, used if multiple devices are configured)
+{% if sbd_devices %}SBD_DEVICES="{% for dev in sbd_devices %}{{ dev }} {% endfor %}"{% endif %}
+# Number of watchdog ticks before reboot (must match cluster-wide settings)
+SBD_WATCHDOG_TICKS={{ sbd_watchdog_ticks }}
+# Number of retries before giving up (per watchdog tick interval)
+SBD_RETRIES={{ sbd_retries }}
+# Delay (in seconds) before sending first post-mortem dump
+SBD_DELAY_START={{ sbd_delay_start }}
+# Timeout (in seconds) to wait for node to stop after watchdog reset
+SBD_TIMEOUT_START={{ sbd_timeout_start }}
+# Timeout (in seconds) to wait for node to stop after watchdog reset during stop
+SBD_TIMEOUT_STOP={{ sbd_timeout_stop }}
+# Enable SBD (set to 'yes' to enable fencing)
+SBD_ENABLED={{ sbd_enabled | lower }}
+# Path to the SBD PID file (used for status checking)
+SBD_PIDFILE={{ sbd_pidfile }}
+# Path to the SBD debug log file (optional, leave empty to disable)
+{% if sbd_debug_log %}SBD_DEBUG_LOG={{ sbd_debug_log }}{% else %}# SBD_DEBUG_LOG is disabled{% endif %}

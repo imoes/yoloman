@@ -1,0 +1,39 @@
+# OLPC XO Keyboard Support Daemon configuration
+# This file is read by olpc-kbdshim(8) at startup.
+# Enable or disable the daemon.
+{% if enabled | default(true) %}
+# Set the device node for the keyboard.
+{% if keyboard_device is defined %}
+keyboard_device={{ keyboard_device }}
+{% endif %}
+# Comma-separated list of modifier keys to map (e.g., "Alt,Super,Control").
+{% if modifier_keys | default([]) | length > 0 %}
+modifier_keys={{ modifier_keys | join(',') }}
+{% endif %}
+# Log level: 0=error, 1=warn, 2=info, 3=debug
+{% if log_level is defined %}
+log_level={{ log_level }}
+{% endif %}
+# Path to the PID file.
+{% if pidfile is defined %}
+pidfile={{ pidfile }}
+{% endif %}
+# Optional: custom keymap overrides (one per line: old=new)
+{% if keymaps | default([]) | length > 0 %}
+{% for mapping in keymaps %}
+{% if mapping.from_key and mapping.to_key %}
+{{ mapping.from_key }}={{ mapping.to_key }}
+{% endif %}
+{% endfor %}
+{% endif %}
+# Enable or disable special Fn key handling (e.g., volume, brightness).
+{% if enable_fn_handling is defined %}
+enable_fn_handling={{ enable_fn_handling | string | lower }}
+{% endif %}
+# Enable legacy backlight control (for older XO models).
+{% if legacy_backlight is defined %}
+legacy_backlight={{ legacy_backlight | string | lower }}
+{% endif %}
+{% else %}
+# Daemon disabled — no further settings are processed.
+{% endif %}

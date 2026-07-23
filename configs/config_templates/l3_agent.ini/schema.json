@@ -1,0 +1,112 @@
+{
+  "agent_id": {
+    "type": "string",
+    "default": "l3-agent-1",
+    "description": "Unique identifier for this L3 agent instance (must be unique across all agents in the deployment)."
+  },
+  "debug": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable verbose debugging output for troubleshooting."
+  },
+  "state_sync_interval": {
+    "type": "number",
+    "default": 30,
+    "description": "Interval (in seconds) between state syncs with the Neutron server. Lower values improve responsiveness but increase load."
+  },
+  "max_routers_per_agent": {
+    "type": "number",
+    "default": 0,
+    "description": "Maximum number of routers this agent will manage. Set to 0 for unlimited. Helps distribute load across agents."
+  },
+  "external_network_bridge": {
+    "type": "string",
+    "default": "",
+    "description": "Bridge name used for external network traffic. Empty string uses the default bridge (e.g., br-ex)."
+  },
+  "enable_nat": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable NAT for internal-to-external network translation (required for floating IPs and SNAT)."
+  },
+  "num_router_agents": {
+    "type": "number",
+    "default": 1,
+    "description": "Number of parallel worker processes for router processing. Increase under high router load."
+  },
+  "ha": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable high availability (HA) for routers using keepalived. Requires shared storage or database replication."
+  },
+  "ha_network_name": {
+    "type": "string",
+    "default": "ha-network",
+    "description": "Name of the Neutron network used for HA heartbeat traffic when HA mode is enabled."
+  },
+  "ha_network_mtu": {
+    "type": "number",
+    "default": 1450,
+    "description": "MTU (in bytes) for the HA network interface. Should account for overhead (e.g., 1500 - 50 for VXLAN)."
+  },
+  "gateway_external_device": {
+    "type": "string",
+    "default": "",
+    "description": "Physical interface (e.g., 'eth0') bound to gateway router. Required for SNAT/DNAT when not using OVS."
+  },
+  "enable_ipv6": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable IPv6 router advertisements and ND support."
+  },
+  "report_interval": {
+    "type": "number",
+    "default": 30,
+    "description": "Interval (in seconds) between agent heartbeats to the Neutron server. Shorter intervals improve failover detection."
+  },
+  "min_restart_interval": {
+    "type": "number",
+    "default": 5,
+    "description": "Minimum time (in seconds) between agent restarts. Prevents thrashing during rapid failures."
+  },
+  "keepalived_max_retries": {
+    "type": "number",
+    "default": 3,
+    "description": "Max attempts to restart keepalived before marking the router as failed (used only when ha=true)."
+  },
+  "keepalived_restart_delay": {
+    "type": "number",
+    "default": 10,
+    "description": "Delay (in seconds) between keepalived restart attempts (used only when ha=true)."
+  },
+  "external_networks": {
+    "type": "list",
+    "default": [],
+    "description": "List of external network configurations (one per external network). Each defines bridge, gateway, and optional VLAN tag.",
+    "items": {
+      "type": "object",
+      "fields": {
+        "name": {
+          "type": "string",
+          "default": "",
+          "description": "Logical name for this external network (used in comments only)."
+        },
+        "bridge": {
+          "type": "string",
+          "default": "br-ex",
+          "description": "Linux bridge interface name for this external network (e.g., 'br-ex' or 'br-eth0')."
+        },
+        "gateway": {
+          "type": "string",
+          "default": "",
+          "description": "Gateway IP address (CIDR notation) for this external network (e.g., '192.168.1.1/24')."
+        },
+        "vlan": {
+          "type": "number",
+          "default": null,
+          "description": "VLAN ID for trunked external networks (optional)."
+        }
+      }
+    }
+  }
+}

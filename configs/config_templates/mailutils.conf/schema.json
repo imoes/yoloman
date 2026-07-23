@@ -1,0 +1,167 @@
+{
+  "debug": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable very verbose debug logging to stdout (for troubleshooting only)."
+  },
+  "maxconn": {
+    "type": "number",
+    "default": 50,
+    "description": "Maximum number of simultaneous client connections."
+  },
+  "ssl": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable SSL/TLS encryption for secure IMAPS connections."
+  },
+  "ssl_cert": {
+    "type": "string",
+    "default": "/etc/ssl/certs/imapd.pem",
+    "description": "Path to the SSL certificate file (PEM-encoded). Required if SSL is enabled."
+  },
+  "ssl_key": {
+    "type": "string",
+    "default": "/etc/ssl/private/imapd.key",
+    "description": "Path to the SSL private key file (PEM-encoded). Required if SSL is enabled."
+  },
+  "port": {
+    "type": "number",
+    "default": 143,
+    "description": "Port to listen on for unencrypted IMAP (standard IMAP port)."
+  },
+  "ssl_port": {
+    "type": "number",
+    "default": 993,
+    "description": "Port to listen on for IMAPS (IMAP over SSL/TLS)."
+  },
+  "idle_timeout": {
+    "type": "number",
+    "default": 900,
+    "description": "Maximum idle time (in seconds) before a client is disconnected."
+  },
+  "syslog": {
+    "type": "bool",
+    "default": true,
+    "description": "Log messages to the system logger (syslog)."
+  },
+  "allow_plaintext": {
+    "type": "bool",
+    "default": false,
+    "description": "Allow authentication over unencrypted connections (insecure \u2014 only enable if SSL is enforced)."
+  },
+  "auth_mechs": {
+    "type": "list",
+    "default": [
+      "cram-md5",
+      "digest-md5"
+    ],
+    "description": "List of allowed SASL authentication mechanisms. Prefer secure mechanisms (e.g., cram-md5, gssapi); avoid plain/login unless over SSL.",
+    "items": {
+      "type": "string",
+      "enum": [
+        "none",
+        "plain",
+        "login",
+        "cram-md5",
+        "digest-md5",
+        "gssapi",
+        "scram-sha-1",
+        "scram-sha-256"
+      ]
+    }
+  },
+  "sasl_config": {
+    "type": "string",
+    "default": "/etc/sasl2/imapd.conf",
+    "description": "Path to SASL daemon configuration file (used if external SASL auth is configured)."
+  },
+  "ipv6": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable IPv6 listening socket."
+  },
+  "loglevel": {
+    "type": "number",
+    "default": 1,
+    "description": "Logging verbosity: 0 = errors only, 1 = warnings, 2 = info, 3 = debug."
+  },
+  "pidfile": {
+    "type": "string",
+    "default": "/run/imap4d/imap4d.pid",
+    "description": "Path to the PID file for the daemon."
+  },
+  "user": {
+    "type": "string",
+    "default": "mail",
+    "description": "System user account to run the daemon as (for privilege dropping)."
+  },
+  "group": {
+    "type": "string",
+    "default": "mail",
+    "description": "System group to run the daemon as (for privilege dropping)."
+  },
+  "mailbox_default": {
+    "type": "string",
+    "default": "maildir",
+    "description": "Default mailbox format: 'mbox' (single-file) or 'maildir' (directory per message)."
+  },
+  "maildir_dotlock": {
+    "type": "bool",
+    "default": true,
+    "description": "Use dot-locking (fcntl + lock file) for maildir compatibility with older clients."
+  },
+  "client_limits": {
+    "type": "list",
+    "default": [],
+    "description": "Per-client connection limits by IP or hostname pattern (repeatable sections).",
+    "items": {
+      "type": "object",
+      "fields": {
+        "name": {
+          "type": "string",
+          "default": "",
+          "description": "Identifier for this client limit rule."
+        },
+        "match": {
+          "type": "string",
+          "default": "",
+          "description": "IP/CIDR subnet or hostname pattern (supports wildcards like *.example.com)."
+        },
+        "maxconn": {
+          "type": "number",
+          "default": 5,
+          "description": "Maximum connections allowed for matching clients."
+        }
+      }
+    }
+  },
+  "acl_rules": {
+    "type": "list",
+    "default": [],
+    "description": "Access control rules to allow or deny connections by IP/host (repeatable sections).",
+    "items": {
+      "type": "object",
+      "fields": {
+        "name": {
+          "type": "string",
+          "default": "",
+          "description": "Identifier for this ACL rule."
+        },
+        "match": {
+          "type": "string",
+          "default": "",
+          "description": "IP/CIDR subnet or hostname pattern to match clients."
+        },
+        "action": {
+          "type": "string",
+          "default": "deny",
+          "enum": [
+            "allow",
+            "deny"
+          ],
+          "description": "Action: 'allow' to permit, 'deny' to block matching clients."
+        }
+      }
+    }
+  }
+}

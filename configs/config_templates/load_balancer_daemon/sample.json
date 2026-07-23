@@ -1,0 +1,74 @@
+{
+  "listen_addr": "0.0.0.0",
+  "listen_port": 11784,
+  "report_interval": 10,
+  "report_max_age": 30,
+  "cache_ttl": 60,
+  "allowed_subnets": [
+    "10.0.0.0/8",
+    "172.16.0.0/12",
+    "192.168.0.0/16"
+  ],
+  "strict_mode": true,
+  "log_debug": false,
+  "pidfile": "/run/lbcd.pid",
+  "status_file": "/var/run/lbcd_status.json",
+  "max_reporters": 500,
+  "class_weights": [
+    {
+      "class": "cpu",
+      "weight": 0.5,
+      "description": "CPU load factor"
+    },
+    {
+      "class": "mem",
+      "weight": 0.3,
+      "description": "Memory pressure factor"
+    },
+    {
+      "class": "net",
+      "weight": 0.2,
+      "description": "Network I/O factor"
+    }
+  ],
+  "backends": [
+    {
+      "name": "web-1",
+      "host": "10.0.1.10",
+      "port": 80,
+      "protocol": "http",
+      "weight": 1.0,
+      "enabled": true
+    },
+    {
+      "name": "web-2",
+      "host": "10.0.1.11",
+      "port": 80,
+      "protocol": "http",
+      "weight": 1.0,
+      "enabled": true
+    },
+    {
+      "name": "web-3",
+      "host": "10.0.1.12",
+      "port": 80,
+      "protocol": "http",
+      "weight": 0.5,
+      "enabled": true
+    }
+  ],
+  "health_check": {
+    "enabled": true,
+    "timeout": 5,
+    "interval": 15,
+    "max_failures": 2
+  },
+  "alerts": [
+    {
+      "type": "webhook",
+      "endpoint": "https://hooks.slack.com/services/T00000000/B00000000/XXXXXXXXXXXXXXXXXXXXXXXX",
+      "method": "POST",
+      "timeout": 10
+    }
+  ]
+}

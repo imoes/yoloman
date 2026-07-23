@@ -1,0 +1,37 @@
+# nbdkit configuration file — see nbdkit(8) and nbdkit-config-file(7)
+# Global settings — apply to all plugins unless overridden
+
+# Logging configuration: where to log, verbosity, and format
+log=syslog
+loglevel={{ loglevel | default(4) }}
+logfile={{ logfile if logfile else 'syslog' }}
+logflush={{ logflush | default(false) }}
+
+# Server behavior: listening addresses, timeout, and connection limits
+listen={{ listen | default('127.0.0.1') }}
+port={{ port | default(10809) }}
+unixsocket={{ unixsocket if unixsocket else '' }}
+unixsocketperm={{ unixsocketperm | default('0660') }}
+timeout={{ timeout | default(300) }}
+maxconnections={{ maxconnections | default(10) }}
+
+# Security: disable unsafe operations unless explicitly enabled
+allow_disk_create={{ allow_disk_create | default(false) }}
+read_only={{ read_only | default(false) }}
+sync=always
+
+# Plugin paths: where nbdkit looks for plugins (do NOT change unless needed)
+plugin_path={{ plugin_path | default('/usr/lib64/nbdkit/plugins:/usr/lib/nbdkit/plugins') }}
+
+# Per-plugin configuration blocks: define servers and their plugin parameters
+{% for server in servers %}
+# Server: {{ server.name }} — {{ server.description | default('N/A') }}
+[{{ server.name }}]
+plugin={{ server.plugin }}
+{% if server.args %}
+# Arguments passed to the plugin
+{% for key, val in server.args.items() %}
+{{ key }}={{ val }}
+{% endfor %}
+{% endif %}
+{% endfor %}

@@ -1,0 +1,357 @@
+{
+  "bind_address": {
+    "type": "string",
+    "default": "127.0.0.1",
+    "description": "IP address(es) Redis binds to (space-separated). Use '0.0.0.0' for all interfaces (not recommended without firewall)."
+  },
+  "port": {
+    "type": "number",
+    "default": 6379,
+    "description": "TCP port Redis listens on."
+  },
+  "tcp_backlog": {
+    "type": "number",
+    "default": 511,
+    "description": "TCP listen backlog (max pending connections)."
+  },
+  "unix_socket_path": {
+    "type": "string",
+    "default": "",
+    "description": "Unix socket path for local connections. Leave empty to disable."
+  },
+  "unix_socket_perms": {
+    "type": "number",
+    "default": 700,
+    "description": "Unix socket file permissions (octal). Only used if unix_socket_path is set."
+  },
+  "timeout": {
+    "type": "number",
+    "default": 0,
+    "description": "Close connection after N seconds of inactivity (0 = disable timeout)."
+  },
+  "tcp_keepalive": {
+    "type": "number",
+    "default": 300,
+    "description": "Send TCP keepalive every N seconds (0 = disable)."
+  },
+  "daemonize": {
+    "type": "bool",
+    "default": false,
+    "description": "Run as a background daemon (set to true only if managed by supervisor/systemd)."
+  },
+  "pid_file": {
+    "type": "string",
+    "default": "/var/run/redis/redis-server.pid",
+    "description": "Path to PID file."
+  },
+  "log_level": {
+    "type": "string",
+    "default": "notice",
+    "description": "Logging verbosity level."
+  },
+  "log_file": {
+    "type": "string",
+    "default": "/var/log/redis/redis-server.log",
+    "description": "Path to log file (use 'stdout' for console logging)."
+  },
+  "syslog_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable logging to syslog."
+  },
+  "syslog_ident": {
+    "type": "string",
+    "default": "redis",
+    "description": "Syslog program name (only used if syslog_enabled=true)."
+  },
+  "syslog_facility": {
+    "type": "string",
+    "default": "local0",
+    "description": "Syslog facility (only used if syslog_enabled=true)."
+  },
+  "rdb_snapshots": {
+    "type": "list",
+    "default": [
+      {
+        "interval": 900,
+        "keys_changed": 1
+      },
+      {
+        "interval": 300,
+        "keys_changed": 10
+      },
+      {
+        "interval": 60,
+        "keys_changed": 10000
+      }
+    ],
+    "description": "RDB snapshot intervals (save <seconds> <keys>). Each object defines when to persist the dataset to disk.",
+    "items": {
+      "interval": {
+        "type": "number",
+        "description": "Time window in seconds."
+      },
+      "keys_changed": {
+        "type": "number",
+        "description": "Number of key changes required to trigger snapshot."
+      }
+    }
+  },
+  "rdb_filename": {
+    "type": "string",
+    "default": "dump.rdb",
+    "description": "RDB snapshot filename."
+  },
+  "rdb_dir": {
+    "type": "string",
+    "default": "/var/lib/redis",
+    "description": "Directory where RDB files are stored."
+  },
+  "stop_writes_on_bgsave_error": {
+    "type": "bool",
+    "default": true,
+    "description": "Stop accepting writes if background save fails (prevents data loss)."
+  },
+  "rdb_compression": {
+    "type": "bool",
+    "default": true,
+    "description": "Compress RDB files (use 'no' for high-throughput workloads with CPU bottleneck)."
+  },
+  "rdb_checksum": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable RDB file checksum for integrity verification."
+  },
+  "aof_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable Append-Only File (AOF) persistence for durability."
+  },
+  "aof_filename": {
+    "type": "string",
+    "default": "appendonly.aof",
+    "description": "AOF filename."
+  },
+  "aof_fsync_policy": {
+    "type": "string",
+    "default": "everysec",
+    "description": "How often to sync AOF to disk. 'everysec' balances durability and performance."
+  },
+  "no_aof_fsync_on_rewrite": {
+    "type": "bool",
+    "default": false,
+    "description": "Avoid syncing during AOF rewrite (useful for high-load systems)."
+  },
+  "auto_aof_rewrite_percentage": {
+    "type": "number",
+    "default": 100,
+    "description": "Trigger AOF rewrite when size grows by this percentage since last rewrite."
+  },
+  "auto_aof_rewrite_min_size": {
+    "type": "string",
+    "default": "64mb",
+    "description": "Minimum AOF size required to trigger rewrite (supports suffixes: kb, mb, gb)."
+  },
+  "aof_load_truncated": {
+    "type": "bool",
+    "default": true,
+    "description": "Load truncated AOF files on startup (prevents crash on corruption)."
+  },
+  "aof_use_rdb_preamble": {
+    "type": "bool",
+    "default": true,
+    "description": "Use RDB preamble in AOF (improves restart time for large datasets)."
+  },
+  "max_memory": {
+    "type": "string",
+    "default": "0",
+    "description": "Max memory Redis can use (0 = unlimited). Supports suffixes: kb, mb, gb."
+  },
+  "max_memory_policy": {
+    "type": "string",
+    "default": "noeviction",
+    "description": "Eviction policy when max_memory is reached."
+  },
+  "max_memory_samples": {
+    "type": "number",
+    "default": 5,
+    "description": "Number of keys to sample for LRU/LFU eviction (higher = more accurate but slower)."
+  },
+  "lazyfree_lazy_eviction": {
+    "type": "bool",
+    "default": false,
+    "description": "Use lazy free (background thread) for eviction (improves latency under memory pressure)."
+  },
+  "lazyfree_lazy_expire": {
+    "type": "bool",
+    "default": false,
+    "description": "Use lazy free for expired keys."
+  },
+  "lazyfree_lazy_server_del": {
+    "type": "bool",
+    "default": false,
+    "description": "Use lazy free for DEL commands."
+  },
+  "replica_lazy_flush": {
+    "type": "bool",
+    "default": false,
+    "description": "Use lazy flush on replica during sync."
+  },
+  "latency_monitor_threshold": {
+    "type": "number",
+    "default": 0,
+    "description": "Log events with latency > N ms (0 = disable latency monitoring)."
+  },
+  "require_password": {
+    "type": "string",
+    "default": "",
+    "description": "Password for AUTH command (empty = no authentication)."
+  },
+  "client_output_buffer_limits": {
+    "type": "list",
+    "default": [
+      {
+        "class": "normal",
+        "hard": "0",
+        "soft": "0",
+        "seconds": 0
+      },
+      {
+        "class": "replica",
+        "hard": "256mb",
+        "soft": "64mb",
+        "seconds": 60
+      },
+      {
+        "class": "pubsub",
+        "hard": "32mb",
+        "soft": "8mb",
+        "seconds": 60
+      }
+    ],
+    "description": "Per-client-class buffer limits (hard, soft limits in bytes + timeout).",
+    "items": {
+      "class": {
+        "type": "string",
+        "description": "Client class: 'normal', 'replica', or 'pubsub'."
+      },
+      "hard": {
+        "type": "string",
+        "description": "Hard buffer limit (immediate disconnect if exceeded)."
+      },
+      "soft": {
+        "type": "string",
+        "description": "Soft buffer limit (disconnect after N seconds)."
+      },
+      "seconds": {
+        "type": "number",
+        "description": "Time window for soft limit (seconds)."
+      }
+    }
+  },
+  "acl_file": {
+    "type": "string",
+    "default": "",
+    "description": "Path to ACL file (if using Redis ACLs)."
+  },
+  "default_user": {
+    "type": "string",
+    "default": "disabled",
+    "description": "Default user configuration: 'disabled' = off, 'on' = requirepass, 'off' = no auth."
+  },
+  "slowlog_slower_than": {
+    "type": "number",
+    "default": 10000,
+    "description": "Log commands taking > N microseconds (10000 = 10ms)."
+  },
+  "slowlog_max_len": {
+    "type": "number",
+    "default": 128,
+    "description": "Max number of slow log entries to retain."
+  },
+  "notify_keyspace_events": {
+    "type": "string",
+    "default": "",
+    "description": "Event notifications (e.g., 'AKE' = all events, empty = disabled)."
+  },
+  "hash_max_entries": {
+    "type": "number",
+    "default": 512,
+    "description": "Max entries in hash before switching to hashtable."
+  },
+  "hash_max_value": {
+    "type": "string",
+    "default": "64",
+    "description": "Max value size in hash before switching to hashtable (bytes)."
+  },
+  "list_max_size": {
+    "type": "string",
+    "default": "-2",
+    "description": "Max quicklist node size (supports: -5, -4, -3, -2, -1, N)."
+  },
+  "list_compress_depth": {
+    "type": "number",
+    "default": 0,
+    "description": "Number of quicklist nodes to compress (0 = none)."
+  },
+  "set_max_entries": {
+    "type": "number",
+    "default": 512,
+    "description": "Max entries in set before switching to intset."
+  },
+  "zset_max_entries": {
+    "type": "number",
+    "default": 128,
+    "description": "Max entries in sorted set before switching to ziplist."
+  },
+  "zset_max_value": {
+    "type": "string",
+    "default": "64",
+    "description": "Max value size in sorted set before switching to ziplist (bytes)."
+  },
+  "stream_node_max_bytes": {
+    "type": "string",
+    "default": "4096",
+    "description": "Max bytes in stream node before splitting."
+  },
+  "stream_node_max_entries": {
+    "type": "number",
+    "default": 100,
+    "description": "Max entries in stream node before splitting."
+  },
+  "active_rehashing": {
+    "type": "bool",
+    "default": true,
+    "description": "Incrementally rehash keys in background (improves latency)."
+  },
+  "client_query_buffer_limit": {
+    "type": "string",
+    "default": "1gb",
+    "description": "Max query buffer per client (supports suffixes: kb, mb, gb)."
+  },
+  "proto_max_bulk_len": {
+    "type": "string",
+    "default": "512mb",
+    "description": "Max bulk request size (supports suffixes: kb, mb, gb)."
+  },
+  "hz": {
+    "type": "number",
+    "default": 10,
+    "description": "Server frequency for internal tasks (higher = more responsive but more CPU)."
+  },
+  "dynamic_hz": {
+    "type": "bool",
+    "default": true,
+    "description": "Auto-adjust hz based on load (improves CPU efficiency)."
+  },
+  "aof_rewrite_incremental_fsync": {
+    "type": "bool",
+    "default": true,
+    "description": "Sync AOF rewrite in chunks to reduce latency spikes."
+  },
+  "rdb_save_incremental_fsync": {
+    "type": "bool",
+    "default": true,
+    "description": "Sync RDB save in chunks to reduce latency spikes."
+  }
+}

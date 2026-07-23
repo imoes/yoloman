@@ -1,0 +1,116 @@
+[general]
+# Name of the server (used in client UI and network listings)
+{{ "server_name" | default("Mumble Server") }}
+
+# TCP port the server listens on (default: 64738)
+port={{ port | default(64738) }}
+
+# Hostname or IP address the server binds to (empty = all interfaces)
+host={{ host | default('') }}
+
+# SSL certificate path (required for secure connections)
+sslCert={{ ssl_cert_path | default('/etc/ssl/certs/mumble-server.crt') }}
+
+# SSL private key path
+sslKey={{ ssl_key_path | default('/etc/ssl/private/mumble-server.key') }}
+
+# SSL CA certificate chain (optional)
+sslCA={{ ssl_ca_path | default('') }}
+
+# Enable SSLv3/TLSv1.2+ only; disable legacy protocols
+sslVerifyPeers={{ ssl_verify_peers | default(1) }}
+
+# Password required to connect to the server (empty = no password)
+password={{ server_password | default('') }}
+
+# SuperUser password (required for initial admin setup; set blank after first use)
+supervisor_password={{ super_user_password | default('') }}
+
+# Maximum number of concurrent users
+bandwidth={{ max_bandwidth | default(72000) }}
+
+# Number of concurrent users allowed (default: 100)
+users={{ max_users | default(100) }}
+
+# Logging level: 0=none, 1=errors, 2=warnings, 3=info, 4=debug
+loglevel={{ log_level | default(2) }}
+
+# Path to log file (empty = stderr)
+logfile={{ log_file_path | default('') }}
+
+# Enable Web UI (requires mumble-website or similar backend)
+web_enable={{ web_enable | default(false) }}
+web_port={{ web_port | default(0) }}
+web_host={{ web_host | default('127.0.0.1') }}
+web_cert={{ web_cert_path | default('') }}
+web_key={{ web_key_path | default('') }}
+
+# User database backend (sqlite only in standard mumble-server)
+dbDriver=QSQLITE
+
+# Path to SQLite database file
+dbDatabase={{ db_path | default('/var/lib/mumble-server/mumble-server.sqlite') }}
+
+# Database username (not used for SQLite)
+dbUsername={{ db_username | default('') }}
+
+# Database password (not used for SQLite)
+dbPassword={{ db_password | default('') }}
+
+# Database host (not used for SQLite)
+dbHost={{ db_host | default('') }}
+
+# Database port (not used for SQLite)
+dbPort={{ db_port | default(0) }}
+
+# Path to PID file
+pid={{ pid_file_path | default('/run/mumble-server/mumble-server.pid') }}
+
+# Locale (language for messages, e.g., en_US)
+locale={{ locale | default('en_US') }}
+
+# Time zone (IANA name, e.g., UTC, America/New_York)
+tz={{ timezone | default('') }}
+
+# Enable Bonjour/Zeroconf service discovery
+bonjour={{ bonjour_enabled | default(false) }}
+
+# Allow clients to change their own channel permissions (0=never, 1=always, 2=admin-only)
+allow_reload_config_changes={{ config_reload_policy | default(2) }}
+
+# Enable user registration via client (dangerous in public deployments)
+enable_registration={{ enable_registration | default(false) }}
+
+# Enable recording (controls whether recordings are allowed)
+enable_recording={{ enable_recording | default(true) }}
+
+# Opus encoding mode: 0=auto, 1=voice, 2=music
+opus_threshold={{ opus_mode | default(0) }}
+
+# Opus DTX (discontinuous transmission) — saves bandwidth during silence
+opus_dtx={{ opus_dtx | default(false) }}
+
+# Silence suppression threshold (0.0–1.0); lower = more aggressive
+silence_threshold={{ silence_threshold | default(0.03) }}
+
+# UDP packet size limit in bytes (0=auto)
+udpPacketSize={{ udp_packet_size | default(0) }}
+
+# Enable legacy ICE protocol (for very old clients)
+ice_no_tcp={{ ice_no_tcp | default(false) }}
+
+{% for user in static_users %}
+# Static user account: {{ user.name }}
+user_{{ loop.index }}_name={{ user.name }}
+user_{{ loop.index }}_password={{ user.password | default('') }}
+user_{{ loop.index }}_acl={{ user.acl | default([]) | join(',') }}
+{% endfor %}
+
+{% for channel in default_channels %}
+# Default channel: {{ channel.name }}
+channel_{{ loop.index }}_name={{ channel.name }}
+channel_{{ loop.index }}_parent={{ channel.parent | default('') }}
+channel_{{ loop.index }}_description={{ channel.description | default('') }}
+channel_{{ loop.index }}_max_users={{ channel.max_users | default(0) }}
+channel_{{ loop.index }}_temp={{ channel.temp | default(false) }}
+{% endfor %}

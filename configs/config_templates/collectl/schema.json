@@ -1,0 +1,107 @@
+{
+  "daemon": {
+    "type": "bool",
+    "default": false,
+    "description": "Whether to run collectl as a background daemon process"
+  },
+  "pidfile": {
+    "type": "string",
+    "default": "/var/run/collectl.pid",
+    "description": "Path to the PID file used when running in daemon mode"
+  },
+  "verbose": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable verbose logging at startup and for diagnostics"
+  },
+  "interval": {
+    "type": "number",
+    "default": 10,
+    "description": "Time in seconds between successive data snapshots"
+  },
+  "format": {
+    "type": "string",
+    "default": "ascii",
+    "description": "Output format: 'raw', 'ascii', 'html', 'csv', or 'custom'"
+  },
+  "dir": {
+    "type": "string",
+    "default": "/var/log/collectl",
+    "description": "Directory where log files are stored"
+  },
+  "compress": {
+    "type": "bool",
+    "default": true,
+    "description": "Whether to compress old log files using gzip"
+  },
+  "retention": {
+    "type": "number",
+    "default": 7,
+    "description": "Number of days to retain log files before deletion"
+  },
+  "maxSize": {
+    "type": "number",
+    "default": 50000,
+    "description": "Maximum size (in KB) per log file before rotation"
+  },
+  "subsystems": {
+    "type": "list",
+    "default": [
+      "cpu",
+      "mem",
+      "disk",
+      "net"
+    ],
+    "description": "List of subsystems to monitor",
+    "items": {
+      "type": "string",
+      "enum": [
+        "cpu",
+        "mem",
+        "disk",
+        "net",
+        "proc",
+        "slab",
+        "zfs",
+        "nfs",
+        "scsi",
+        "infiniband",
+        "cgroup",
+        "numa",
+        "power"
+      ]
+    }
+  },
+  "custom_format": {
+    "type": "string",
+    "default": "",
+    "description": "Custom output format specification (only used if format = 'custom'). Example: 'H:1000000000:1000000000:1000000000:1000000000'"
+  },
+  "optional_features": {
+    "type": "list",
+    "default": [],
+    "description": "List of optional features to enable (e.g., ['procstat', 'cgroup'])",
+    "items": {
+      "type": "string",
+      "enum": [
+        "procstat",
+        "numa",
+        "cgroup",
+        "zfs",
+        "nfs",
+        "scsi",
+        "infiniband",
+        "power"
+      ]
+    }
+  },
+  "excluded_devices": {
+    "type": "list",
+    "default": [],
+    "description": "List of devices or interfaces to exclude from monitoring (e.g., ['lo', 'docker0'] for network)",
+    "items": {
+      "type": "string",
+      "pattern": "^[a-zA-Z0-9_+-]+$"
+    }
+  }
+}

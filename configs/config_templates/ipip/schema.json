@@ -1,0 +1,77 @@
+{
+  "enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Whether to enable the IP-over-IP daemon at boot."
+  },
+  "tun_prefix": {
+    "type": "string",
+    "default": "ipip",
+    "description": "Prefix for dynamically created tunnel interface names (e.g., ipip0, ipip1)."
+  },
+  "local_addr": {
+    "type": "string",
+    "default": "",
+    "description": "Local IPv4 address to use as the source for outgoing IP-in-IP encapsulated packets. Leave empty to auto-detect."
+  },
+  "mtu": {
+    "type": "number",
+    "default": 1480,
+    "description": "Maximum Transmission Unit (MTU) for tunnel interfaces. Typical value is 1480 to account for IP header overhead."
+  },
+  "log_to_syslog": {
+    "type": "bool",
+    "default": true,
+    "description": "Whether to send daemon log messages to the system logger (syslog)."
+  },
+  "log_level": {
+    "type": "number",
+    "default": 3,
+    "description": "Verbosity of logging: 0=silent, 1=errors only, 2=warnings, 3=info (recommended), 4=debug."
+  },
+  "tunnels": {
+    "type": "list",
+    "default": [],
+    "description": "List of IP-over-IP tunnels to configure.",
+    "items": {
+      "type": "object",
+      "fields": {
+        "name": {
+          "type": "string",
+          "required": true,
+          "description": "Unique identifier for the tunnel (used in variable names and logs)."
+        },
+        "local_ip": {
+          "type": "string",
+          "required": false,
+          "description": "Local endpoint IPv4 address (or FQDN resolved to IPv4) for this tunnel."
+        },
+        "remote_ip": {
+          "type": "string",
+          "required": true,
+          "description": "Remote endpoint IPv4 address (must be reachable via unicast IPv4 routing)."
+        },
+        "local_gw": {
+          "type": "string",
+          "required": false,
+          "description": "Local gateway IP (if different from auto-detected route). Typically not needed."
+        },
+        "remote_gw": {
+          "type": "string",
+          "required": false,
+          "description": "Next-hop gateway to reach remote_ip (advanced; usually omitted)."
+        },
+        "description": {
+          "type": "string",
+          "required": false,
+          "description": "Human-readable description for documentation or UI purposes."
+        },
+        "enabled": {
+          "type": "bool",
+          "default": true,
+          "description": "Enable/disable this specific tunnel without removing its config."
+        }
+      }
+    }
+  }
+}

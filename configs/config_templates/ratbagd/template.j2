@@ -1,0 +1,31 @@
+# ratbagd configuration file — D-Bus daemon for mouse configuration
+# See 'man 5 ratbagd.conf' for detailed options
+
+[Logging]
+# Log level: 0=none, 1=error, 2=warning, 3=info, 4=debug, 5=trace
+level = {{ log_level }}
+# Log targets: file, syslog, or both (comma-separated)
+targets = {{ log_targets | join(', ') }}
+
+[DeviceSettings]
+# Default polling rate for devices (Hz); 0 = use device default
+polling_rate = {{ polling_rate }}
+# Default report rate (Hz); 0 = use device default
+report_rate = {{ report_rate }}
+# Enable/disable automatic profile switching on connect
+enable_profile_switch = {{ enable_profile_switch }}
+
+[Capabilities]
+# Enable support for DPI switching
+supports_dpi = {{ supports_dpi }}
+# Enable support for button remapping
+supports_buttons = {{ supports_buttons }}
+# Enable support for profile macros
+supports_macros = {{ supports_macros }}
+
+# List of device-specific quirks (device quirks apply globally)
+[Quirks]
+{% for quirk in device_quirks %}
+# {{ quirk.description }}
+{{ quirk.device_id }} = {{ quirk.value }}
+{% endfor %}

@@ -1,0 +1,500 @@
+{
+  "nfs_protocols": {
+    "type": "list",
+    "default": [
+      {
+        "version": 3
+      },
+      {
+        "version": 4
+      }
+    ],
+    "description": "List of supported NFS protocol versions. Each item must have a 'version' field (3 or 4).",
+    "items": {
+      "type": "object",
+      "properties": {
+        "version": {
+          "type": "number",
+          "default": 3,
+          "description": "NFS version number (3 or 4)."
+        }
+      }
+    }
+  },
+  "nfs_v3": {
+    "type": "object",
+    "default": {
+      "acl": {
+        "enabled": false
+      },
+      "posix_acl": false
+    },
+    "description": "NFSv3-specific configuration options.",
+    "properties": {
+      "acl": {
+        "type": "object",
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "default": false,
+            "description": "Enable ACL support in NFSv3."
+          }
+        }
+      },
+      "posix_acl": {
+        "type": "boolean",
+        "default": false,
+        "description": "Enable POSIX ACL support in NFSv3."
+      }
+    }
+  },
+  "nfs_v4": {
+    "type": "object",
+    "default": {
+      "minor_versions": [
+        {
+          "version": 0
+        },
+        {
+          "version": 1
+        }
+      ],
+      "drc": {
+        "size_in_mem": 1024,
+        "memory_size": 16
+      },
+      "delegation": false
+    },
+    "description": "NFSv4-specific configuration options.",
+    "properties": {
+      "minor_versions": {
+        "type": "list",
+        "default": [
+          {
+            "version": 0
+          },
+          {
+            "version": 1
+          }
+        ],
+        "description": "List of supported NFSv4 minor versions. Each item must have a 'version' field (0, 1, 2, or 3).",
+        "items": {
+          "type": "object",
+          "properties": {
+            "version": {
+              "type": "number",
+              "default": 0,
+              "description": "NFSv4 minor version number."
+            }
+          }
+        }
+      },
+      "drc": {
+        "type": "object",
+        "properties": {
+          "size_in_mem": {
+            "type": "number",
+            "default": 1024,
+            "description": "Number of DRC entries in memory (DRC = Duplicate Request Cache)."
+          },
+          "memory_size": {
+            "type": "number",
+            "default": 16,
+            "description": "DRC memory pool size in MB."
+          }
+        }
+      },
+      "delegation": {
+        "type": "boolean",
+        "default": false,
+        "description": "Enable NFSv4 delegation (client-side caching of writes)."
+      }
+    }
+  },
+  "exports": {
+    "type": "list",
+    "default": [],
+    "description": "List of exports to configure. Each export defines a directory tree served over NFS.",
+    "items": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "number",
+          "default": 1,
+          "description": "Unique numeric export ID."
+        },
+        "path": {
+          "type": "string",
+          "default": "/export",
+          "description": "Absolute path on the server to export."
+        },
+        "fsid": {
+          "type": "number",
+          "default": null,
+          "description": "FSID for NFSv4 pseudo-root mapping. If omitted, defaults to export ID."
+        },
+        "protocols": {
+          "type": "list",
+          "default": [
+            {
+              "version": 3
+            },
+            {
+              "version": 4
+            }
+          ],
+          "description": "NFS protocol versions to enable for this export.",
+          "items": {
+            "type": "object",
+            "properties": {
+              "version": {
+                "type": "number",
+                "default": 3,
+                "description": "NFS version (3 or 4)."
+              }
+            }
+          }
+        },
+        "transports": {
+          "type": "list",
+          "default": [
+            {
+              "transport": "TCP"
+            }
+          ],
+          "description": "Transport protocols to allow (TCP, UDP, RDMA).",
+          "items": {
+            "type": "object",
+            "properties": {
+              "transport": {
+                "type": "string",
+                "default": "TCP",
+                "description": "Transport protocol."
+              }
+            }
+          }
+        },
+        "access_type": {
+          "type": "string",
+          "default": "RW",
+          "description": "Access type: 'RO' (read-only) or 'RW' (read-write)."
+        },
+        "squash": {
+          "type": "string",
+          "default": "Root_Squash",
+          "description": "Squash behavior: 'Root_Squash' (map root to nobody), 'No_Root_Squash', or 'Root_ID_Squash'."
+        },
+        "security_flavors": {
+          "type": "list",
+          "default": [
+            {
+              "flavor": "sys"
+            }
+          ],
+          "description": "Supported RPC security flavors (AUTH_NONE, AUTH_SYS, RPCSEC_GSS, etc.).",
+          "items": {
+            "type": "object",
+            "properties": {
+              "flavor": {
+                "type": "string",
+                "default": "sys",
+                "description": "Security flavor name (case-insensitive, e.g., 'sys', 'krb5', 'krb5i', 'krb5p')."
+              }
+            }
+          }
+        },
+        "pseudo_path": {
+          "type": "string",
+          "default": "/export",
+          "description": "Path inside NFSv4 pseudo-root where this export appears (e.g., /exports/data)."
+        },
+        "require_krb5": {
+          "type": "boolean",
+          "default": false,
+          "description": "Require Kerberos authentication for this export."
+        },
+        "enable_48_hour_clock": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable 48-hour clock for recovery (required for NFSv4.1 recovery)."
+        },
+        "clients": {
+          "type": "list",
+          "default": [],
+          "description": "List of clients or networks allowed to access this export.",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string",
+                "default": "",
+                "description": "Optional client/group name (for documentation only)."
+              },
+              "type": {
+                "type": "string",
+                "default": "network",
+                "description": "Client type: 'host' (hostname), 'network' (CIDR network), or 'ip' (single IP address)."
+              },
+              "hostname": {
+                "type": "string",
+                "default": "",
+                "description": "Hostname for 'host'-type clients."
+              },
+              "network": {
+                "type": "string",
+                "default": "0.0.0.0/0",
+                "description": "Network in CIDR notation for 'network'-type clients (e.g., '192.168.1.0/24')."
+              },
+              "ip": {
+                "type": "string",
+                "default": "127.0.0.1",
+                "description": "Single IP address for 'ip'-type clients."
+              },
+              "access_type": {
+                "type": "string",
+                "default": "",
+                "description": "Access type override (omit to inherit from export-level setting)."
+              },
+              "squash": {
+                "type": "string",
+                "default": "",
+                "description": "Squash behavior override (omit to inherit from export-level setting)."
+              },
+              "security_flavors": {
+                "type": "list",
+                "default": [],
+                "description": "Security flavors override (omit to inherit from export-level setting).",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "flavor": {
+                      "type": "string",
+                      "default": "sys",
+                      "description": "Security flavor."
+                    }
+                  }
+                }
+              },
+              "protocols": {
+                "type": "list",
+                "default": [],
+                "description": "NFS protocol versions override (omit to inherit from export-level setting).",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "version": {
+                      "type": "number",
+                      "default": 3,
+                      "description": "NFS version."
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "default_permissions": {
+          "type": "number",
+          "default": 511,
+          "description": "File creation mask (octal). E.g., 0o777 (511 decimal)."
+        },
+        "async_enabled": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enable asynchronous writes for this export (may improve performance but reduce reliability)."
+        },
+        "write_through_enabled": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enable write-through caching (bypass client write-back)."
+        }
+      }
+    }
+  },
+  "log": {
+    "type": "object",
+    "default": {
+      "level": "DEFAULT",
+      "file": "/var/log/ganesha/ganesha.log",
+      "purge_enabled": true,
+      "max_log_files": 7
+    },
+    "description": "Global logging configuration.",
+    "properties": {
+      "level": {
+        "type": "string",
+        "default": "DEFAULT",
+        "description": "Log level. Choose from: DEBUG, FULL_DEBUG, TRACE, COMPRESSION, NTLM, AUTH, ACCESS, MAJOR, DEFAULT, MINOR, ERROR, FATAL."
+      },
+      "file": {
+        "type": "string",
+        "default": "/var/log/ganesha/ganesha.log",
+        "description": "Path to log file. Use 'NONE' to disable file logging."
+      },
+      "purge_enabled": {
+        "type": "boolean",
+        "default": true,
+        "description": "Enable automatic log rotation and cleanup."
+      },
+      "max_log_files": {
+        "type": "number",
+        "default": 7,
+        "description": "Number of archived logs to keep."
+      }
+    }
+  },
+  "cache": {
+    "type": "object",
+    "default": {
+      "flush_interval": 5,
+      "cache_size": 1024,
+      "object_caching": true
+    },
+    "description": "NFSv4 state cache configuration.",
+    "properties": {
+      "flush_interval": {
+        "type": "number",
+        "default": 5,
+        "description": "Seconds between cache flushes (0 to disable periodic flushing)."
+      },
+      "cache_size": {
+        "type": "number",
+        "default": 1024,
+        "description": "Maximum number of cache entries (DRC size for NFSv4)."
+      },
+      "object_caching": {
+        "type": "boolean",
+        "default": true,
+        "description": "Enable object attribute caching."
+      }
+    }
+  },
+  "fsals": {
+    "type": "list",
+    "default": [],
+    "description": "List of File System Abstraction Layers (FSALs). Required for non-VFS backends (e.g., Ceph, LIO).",
+    "items": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "default": "PrimaryVFS",
+          "description": "FSAL name (for referencing in exports)."
+        },
+        "driver": {
+          "type": "string",
+          "default": "VFS",
+          "description": "FSAL backend driver: 'VFS', 'CEPH', 'LIO'."
+        },
+        "path": {
+          "type": "string",
+          "default": "/exports",
+          "description": "Local path for VFS FSAL (ignored for other drivers)."
+        },
+        "ceph_conf": {
+          "type": "string",
+          "default": "/etc/ceph/ceph.conf",
+          "description": "Path to Ceph configuration file (for Ceph FSAL)."
+        },
+        "user_id": {
+          "type": "string",
+          "default": "client.admin",
+          "description": "Ceph user ID (for Ceph FSAL)."
+        },
+        "target_name": {
+          "type": "string",
+          "default": "nfs-ganesha",
+          "description": "iSCSI target name for LIO FSAL."
+        }
+      }
+    }
+  },
+  "ha": {
+    "type": "object",
+    "default": {
+      "enabled": false,
+      "mode": "HA_ENABLED",
+      "peers": []
+    },
+    "description": "High Availability (cluster) configuration. Set 'enabled' to true to activate.",
+    "properties": {
+      "enabled": {
+        "type": "boolean",
+        "default": false,
+        "description": "Enable cluster mode."
+      },
+      "mode": {
+        "type": "string",
+        "default": "HA_ENABLED",
+        "description": "Cluster mode. Typically 'HA_ENABLED' or 'HA_DISABLE'."
+      },
+      "peers": {
+        "type": "list",
+        "default": [],
+        "description": "List of HA peers in cluster.",
+        "items": {
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string",
+              "default": "peer1",
+              "description": "Peer node name."
+            },
+            "address": {
+              "type": "string",
+              "default": "10.0.0.2",
+              "description": "Peer node IP or hostname."
+            },
+            "heartbeat": {
+              "type": "object",
+              "properties": {
+                "interval": {
+                  "type": "number",
+                  "default": 2,
+                  "description": "Heartbeat interval in seconds."
+                },
+                "timeout": {
+                  "type": "number",
+                  "default": 6,
+                  "description": "Heartbeat timeout in seconds."
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "rpc": {
+    "type": "object",
+    "default": {
+      "transport": "TCP",
+      "mount_port": 0,
+      "nfs_port": 2049,
+      "threads": 16
+    },
+    "description": "RPC service configuration.",
+    "properties": {
+      "transport": {
+        "type": "string",
+        "default": "TCP",
+        "description": "RPC transport protocol: 'TCP', 'UDP', or 'RDMA'."
+      },
+      "mount_port": {
+        "type": "number",
+        "default": 0,
+        "description": "Port for mountd service. Use 0 to auto-assign (recommended)."
+      },
+      "nfs_port": {
+        "type": "number",
+        "default": 2049,
+        "description": "Port for NFS service. Use 0 for auto-assign."
+      },
+      "threads": {
+        "type": "number",
+        "default": 16,
+        "description": "Number of RPC service threads."
+      }
+    }
+  }
+}

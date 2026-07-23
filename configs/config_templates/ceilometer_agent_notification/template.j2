@@ -1,0 +1,64 @@
+[DEFAULT]
+# Log file path for the Ceilometer notification agent
+log_file = {{ log_file }}
+
+# Logging debug mode toggle
+# Enable verbose/debug logging for troubleshooting
+debug = {{ debug }}
+
+# Logging verbosity level
+# Controls the minimum logging level (INFO, DEBUG, etc.)
+verbose = {{ verbose }}
+
+# Number of worker processes for handling notifications
+# Increase for higher notification throughput
+workers = {{ workers }}
+
+# AMQP / message bus connection URL
+# Used to connect to the OpenStack messaging service (e.g., RabbitMQ, Kafka)
+transport_url = {{ transport_url }}
+
+[pipeline_sources]
+# List of event sources to listen for (e.g., notifications from nova, glance, etc.)
+# Each source name maps to a handler class; keep this list minimal & relevant
+{% for source in sources %}{{ source }}
+{% endfor %}
+
+[notification]
+# List of notification topics to subscribe to
+# Typically includes 'notifications', 'notifications.info', 'notifications.error', etc.
+{% for topic in topics %}topics = {{ topic }}
+{% endfor %}
+
+# Rate limit for notifications (events per second per worker)
+# Prevents overwhelming the system during high-load bursts
+rate_limit = {{ rate_limit }}
+
+# Maximum batch size for event storage writes
+# Larger batches improve DB write efficiency but increase memory use
+batch_size = {{ batch_size }}
+
+[storage]
+# Backend storage URL for event data
+# E.g., 'mongodb://user:pass@host:27017', 'mysql+pymysql://user:pass@host/ceilometer', etc.
+# For production, use a dedicated database (e.g., MongoDB or SQLAlchemy-compatible)
+url = {{ storage_url }}
+
+# Enable or disable event data TTL (time-to-live)
+# Set to true to automatically expire old events (requires storage support)
+enable_ttl = {{ enable_ttl }}
+
+# Number of seconds after which events are purged (if TTL enabled)
+# Adjust based on retention policy requirements
+time_to_live = {{ time_to_live }}
+
+[keystone_authtoken]
+# Authentication credentials for Ceilometer to access other OpenStack services
+# Required for identity lookup, project/resource mapping, and policy enforcement
+auth_url = {{ keystone_auth_url }}
+auth_type = {{ keystone_auth_type }}
+project_domain_name = {{ keystone_project_domain }}
+project_name = {{ keystone_project_name }}
+user_domain_name = {{ keystone_user_domain }}
+username = {{ keystone_username }}
+password = {{ keystone_password }}

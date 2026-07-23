@@ -1,0 +1,68 @@
+# Miredo IPv6 tunneling client configuration
+# Enable automatic configuration via Teredo
+{% if enable_teredo %}
+TeredoEnabled yes
+{% else %}
+TeredoEnabled no
+{% endif %}
+
+# Teredo server hostname (primary)
+TeredoServer {{ teredo_server_primary }}
+
+# Optional backup Teredo servers
+{% if teredo_server_backup is defined and teredo_server_backup | length > 0 %}
+{% for server in teredo_server_backup %}
+TeredoServer {{ server }}
+{% endfor %}
+{% endif %}
+
+# Local interface to bind to (auto-detected if empty)
+{% if teredo_interface | length > 0 %}
+TeredoInterface {{ teredo_interface }}
+{% else %}
+# (auto)
+{% endif %}
+
+# Teredo port (UDP)
+TeredoPort {{ teredo_port }}
+
+# Miredo client bind address (IPv6)
+{% if client_bind_address | length > 0 %}
+ClientBindAddress {{ client_bind_address }}
+{% else %}
+# (auto, typically ::1)
+{% endif %}
+
+# Prefix for the IPv6 tunnel (e.g., 2001:0:1::/48)
+{% if tunnel_prefix | length > 0 %}
+TunnelPrefix {{ tunnel_prefix }}
+{% else %}
+# (auto)
+{% endif %}
+
+# Maximum number of concurrent tunnels
+TeredoMaxTunnels {{ teredo_max_tunnels }}
+
+# Logging level: debug, info, warning, error, critical
+TeredoLogLevel {{ teredo_log_level }}
+
+# Enable/disable stateless address autoconfiguration
+{% if enable_stateless_addrconf %}
+StatelessAddressAutoconf yes
+{% else %}
+StatelessAddressAutoconf no
+{% endif %}
+
+# Enable/disable NAT traversal optimization (for symmetric NATs)
+{% if enable_nat_traversal %}
+NATTraversal yes
+{% else %}
+NATTraversal no
+{% endif %}
+
+# Additional IPv6 addresses for clients (if any)
+{% if client_ipv6_addresses | length > 0 %}
+{% for addr in client_ipv6_addresses %}
+ClientAddress {{ addr }}
+{% endfor %}
+{% endif %}

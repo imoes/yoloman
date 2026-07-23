@@ -1,0 +1,140 @@
+{
+  "profile_name": {
+    "type": "string",
+    "default": "default",
+    "description": "Name of the duply profile (also the directory name under /etc/duply/)."
+  },
+  "target_url": {
+    "type": "string",
+    "default": "",
+    "description": "Backup target URL (e.g., s3://my-bucket/duply, file:///mnt/backup). Required."
+  },
+  "source_dir": {
+    "type": "string",
+    "default": "/home",
+    "description": "Top-level directory or file to back up."
+  },
+  "gpg_key_id": {
+    "type": "string",
+    "default": "",
+    "description": "GnuPG key ID (e.g., 0x1234ABCD) for encrypting/decrypting backups."
+  },
+  "gpg_passphrase": {
+    "type": "string",
+    "default": "",
+    "description": "GPG passphrase (plaintext). Use only in secure, local deployments. Prefer `gpg_passphrase_file` instead."
+  },
+  "gpg_passphrase_file": {
+    "type": "string",
+    "default": "",
+    "description": "Absolute path to a file containing only the GPG passphrase (more secure)."
+  },
+  "max_age": {
+    "type": "string",
+    "default": "",
+    "description": "Maximum age of backups to retain (e.g., '1Y' for one year, '3M' for three months). Empty = no automatic cleanup."
+  },
+  "max_count": {
+    "type": "string",
+    "default": "",
+    "description": "Maximum number of backup sets to keep. Empty = no limit."
+  },
+  "volsize": {
+    "type": "string",
+    "default": "",
+    "description": "Maximum size (in MB) of each volume in a multipart backup. Example: '200' (200 MB)."
+  },
+  "max_parallel": {
+    "type": "string",
+    "default": "",
+    "description": "Number of parallel file operations for cloud backends (0 = auto-detect)."
+  },
+  "verbosity": {
+    "type": "string",
+    "default": "3",
+    "description": "Duply/duplicity log verbosity (0\u20139). Recommended: 3 (info) or 4 (debug)."
+  },
+  "duplicity_include": {
+    "type": "string",
+    "default": "",
+    "description": "Space-separated duplicity include patterns (e.g., '+ /etc + /var/www - /**'). Uses duplicity\u2019s include/exclude syntax."
+  },
+  "duplicity_exclude": {
+    "type": "string",
+    "default": "",
+    "description": "Space-separated duplicity exclude patterns (e.g., '- /proc - /sys - /tmp')."
+  },
+  "exclude_patterns": {
+    "type": "list",
+    "default": [],
+    "description": "List of file/directory patterns to exclude using glob-style wildcards (e.g., '*.log', '/var/cache/*'). Each pattern becomes a separate `--exclude` rule.",
+    "items": {
+      "type": "string",
+      "default": "",
+      "description": "Glob or path pattern to exclude."
+    }
+  },
+  "pre_backup_cmd": {
+    "type": "string",
+    "default": "",
+    "description": "Shell command to run before backup (e.g., `mysqldump --all-databases > /tmp/db.sql`)."
+  },
+  "post_backup_cmd": {
+    "type": "string",
+    "default": "",
+    "description": "Shell command to run after backup (e.g., `notify-send 'Backup done'`)."
+  },
+  "cleanup_only": {
+    "type": "bool",
+    "default": false,
+    "description": "If true, skip backup and run only cleanup actions."
+  },
+  "full_backup": {
+    "type": "bool",
+    "default": false,
+    "description": "If true, force a full backup (overrides automatic incremental logic)."
+  },
+  "full_backup_days": {
+    "type": "string",
+    "default": "30",
+    "description": "Force a full backup every N days (if not already done)."
+  },
+  "no_full": {
+    "type": "bool",
+    "default": false,
+    "description": "If true, disable automatic full backups \u2014 only incrementals."
+  },
+  "verify": {
+    "type": "bool",
+    "default": false,
+    "description": "If true, verify the last backup before running cleanup."
+  },
+  "duplicity_options_file": {
+    "type": "string",
+    "default": "",
+    "description": "Path to a file with additional duplicity options (one per line)."
+  },
+  "env_vars": {
+    "type": "object",
+    "default": {},
+    "description": "Key-value pairs of environment variables to export before backup (e.g., for cloud provider credentials).",
+    "items": {
+      "type": "object",
+      "properties": {
+        "key": {
+          "type": "string",
+          "description": "Variable name (e.g., 'AWS_ACCESS_KEY_ID')"
+        },
+        "value": {
+          "type": "string",
+          "description": "Value (e.g., 'AKIA...')"
+        }
+      }
+    }
+  },
+  "duplicity_extra_opts": {
+    "type": "string",
+    "default": "",
+    "description": "Additional duplicity command-line options (e.g., '--no-encryption --allow-source-mismatch')."
+  }
+}

@@ -1,0 +1,89 @@
+{
+  "debug": false,
+  "state_dir": "/var/lib/receptor",
+  "work_dir": "/var/lib/receptor",
+  "tls": {
+    "cert_file": "/etc/receptor/node.crt",
+    "key_file": "/etc/receptor/node.key",
+    "ca_file": "/etc/receptor/ca.crt"
+  },
+  "listener": {
+    "listen_addr": "0.0.0.0:8080",
+    "advertise_addr": "10.0.0.5:8080"
+  },
+  "max_conns": 100,
+  "result_ttl": 86400,
+  "nodes": [
+    {
+      "name": "controller",
+      "address": "10.0.0.1:8080",
+      "role": "controller",
+      "cert_name": "controller.mesh.local"
+    },
+    {
+      "name": "worker-2",
+      "address": "10.0.0.2:8080",
+      "role": "worker"
+    }
+  ],
+  "workers": [
+    {
+      "name": "echo",
+      "type": "exec",
+      "command": "/usr/bin/echo",
+      "env": {
+        "PATH": "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+      },
+      "max_jobs": 5
+    },
+    {
+      "name": "python-runner",
+      "type": "python",
+      "command": "python3",
+      "work_dir": "/opt/workers",
+      "env": {
+        "PYTHONPATH": "/opt/workers"
+      },
+      "max_jobs": 20
+    }
+  ],
+  "services": [
+    {
+      "name": "web-proxy",
+      "type": "tcp",
+      "listen": "0.0.0.0:8000",
+      "forward_to": "127.0.0.1:3000"
+    }
+  ],
+  "acls": [
+    {
+      "name": "readonly",
+      "allow_peers": [
+        "controller",
+        "worker-*"
+      ],
+      "allow_commands": [],
+      "deny_peers": [],
+      "deny_commands": [
+        "rm",
+        "shutdown"
+      ]
+    },
+    {
+      "name": "admin",
+      "allow_peers": [
+        "controller"
+      ],
+      "allow_commands": [
+        "*"
+      ],
+      "deny_peers": [],
+      "deny_commands": []
+    }
+  ],
+  "log": {
+    "level": "info",
+    "format": "text",
+    "file": "/var/log/receptor/receptor.log"
+  }
+}

@@ -1,0 +1,129 @@
+{
+  "global_options": {
+    "type": "string",
+    "default": "",
+    "description": "Optional global options (e.g., `auto_https off`, `admin off`) for the Caddy server instance."
+  },
+  "sites": {
+    "type": "list",
+    "default": [],
+    "description": "List of site blocks (virtual hosts or address directives). Each defines a domain, path, or port to serve.",
+    "items": {
+      "address": {
+        "type": "string",
+        "default": "",
+        "description": "Site address \u2014 e.g., `example.com`, `localhost:8080`, or `*.example.com`."
+      },
+      "comment": {
+        "type": "string",
+        "default": "",
+        "description": "Optional human-readable comment describing this site block (included as comment in config)."
+      },
+      "root": {
+        "type": "string",
+        "default": "",
+        "description": "Root filesystem path for file serving (e.g., `/var/www/example`); applies to all requests under this site."
+      },
+      "index": {
+        "type": "string",
+        "default": "",
+        "description": "Filename to serve as index (e.g., `index.html`), enables `try_files` fallback."
+      },
+      "tls": {
+        "type": "object",
+        "default": {},
+        "description": "TLS configuration for HTTPS. If omitted, automatic Let's Encrypt is used.",
+        "items": {
+          "email": {
+            "type": "string",
+            "default": "",
+            "description": "Email for Let\u2019s Encrypt / ACME registration (used only if cert/key not provided)."
+          },
+          "cert": {
+            "type": "string",
+            "default": "",
+            "description": "Path to TLS certificate file (for manual cert)."
+          },
+          "key": {
+            "type": "string",
+            "default": "",
+            "description": "Path to TLS private key file (for manual cert)."
+          }
+        }
+      },
+      "handlers": {
+        "type": "list",
+        "default": [],
+        "description": "Ordered list of Caddy handlers (e.g., `file_server`, `reverse_proxy`, `encode`, `route`).",
+        "items": {
+          "name": {
+            "type": "string",
+            "default": "",
+            "description": "Handler name (e.g., `encode zstd gzip`, `reverse_proxy`, `php_fastcgi`)."
+          },
+          "options": {
+            "type": "object",
+            "default": {},
+            "description": "Handler-specific options as key-value pairs (values may contain multi-line content)."
+          }
+        }
+      },
+      "rewrite": {
+        "type": "object",
+        "default": {},
+        "description": "Simple rewrite rule \u2014 redirects all requests to a target path.",
+        "items": {
+          "to": {
+            "type": "string",
+            "default": "",
+            "description": "Target path for rewrite (e.g., `/index.html`)."
+          }
+        }
+      },
+      "redir": {
+        "type": "object",
+        "default": {},
+        "description": "HTTP redirect (3xx) rule.",
+        "items": {
+          "from": {
+            "type": "string",
+            "default": "*",
+            "description": "Pattern to match (e.g., `/old-path/*`)."
+          },
+          "to": {
+            "type": "string",
+            "default": "",
+            "description": "Redirect destination (e.g., `/new-path/{uri}`)."
+          },
+          "code": {
+            "type": "string",
+            "default": "301",
+            "description": "HTTP status code for redirect (e.g., `301`, `302`)."
+          }
+        }
+      },
+      "log": {
+        "type": "object",
+        "default": {},
+        "description": "Access logging configuration for this site.",
+        "items": {
+          "path": {
+            "type": "string",
+            "default": "",
+            "description": "File path where access logs are written (e.g., `/var/log/caddy/example.log`)."
+          },
+          "format": {
+            "type": "string",
+            "default": "",
+            "description": "Log format preset (e.g., `json`, `common`) or custom format string."
+          }
+        }
+      },
+      "errors": {
+        "type": "object",
+        "default": {},
+        "description": "Custom error pages by HTTP status code (e.g., `404 /errors/404.html`)."
+      }
+    }
+  }
+}

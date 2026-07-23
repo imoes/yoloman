@@ -1,0 +1,73 @@
+# Configuration file for the Avahi mDNS/DNS-SD Daemon
+[server]
+# Enable or disable mDNS/DNS-SD functionality
+use-ipv4={{ server.use_ipv4 | default(true) | string | lower }}
+use-ipv6={{ server.use_ipv6 | default(true) | string | lower }}
+# Advertise local hostname and services
+publish-hinfo={{ server.publish_hinfo | default(true) | string | lower }}
+publish-workstation={{ server.publish_workstation | default(true) | string | lower }}
+# Publish domain (e.g., .local)
+publish-domain={{ server.publish_domain | default('local') }}
+# Enable publishing of resolved unicast DNS upstream
+publish-resolved={{ server.publish_resolved | default(true) | string | lower }}
+# Publish PTR records for reverse lookups
+publish-addr={{ server.publish_addr | default(true) | string | lower }}
+# Publish canonical names
+publish-cname={{ server.publish_cname | default(true) | string | lower }}
+# TTL for published records (seconds)
+rr-ttl={{ server.rr_ttl | default(7200) }}
+
+[reflector]
+# Enable reflector mode (forward mDNS between network interfaces)
+enable-reflector={{ server.reflector.enabled | default(false) | string | lower }}
+# TTL for forwarded records
+reflector-rr-ttl={{ server.reflector.rr_ttl | default(7200) }}
+# Allow forwarding to/from network namespaces
+reflector-network-namespace={{ server.reflector.network_namespace | default(false) | string | lower }}
+
+[lua]
+# Enable Lua scripting support (disabled by default)
+enable-lua={{ server.lua.enabled | default(false) | string | lower }}
+# Path to Lua script(s) (comma-separated or list in template logic)
+lua-directory={{ server.lua.directory | default('/etc/avahi/services') }}
+
+[watcher]
+# Watch for changes in config and reload automatically
+watch-config={{ server.watch_config | default(true) | string | lower }}
+
+[host-info]
+# Host name to advertise (if empty, use system hostname)
+host-name={{ server.host_name | default('') }}
+
+[wide-area]
+# Enable Wide Area Discovery (requires mDNS reflection infrastructure)
+enable-wide-area={{ server.wide_area.enabled | default(false) | string | lower }}
+
+[dbus]
+# Allow D-Bus clients to control the daemon
+system-pub-sub={{ server.dbus.system_pub_sub | default(true) | string | lower }}
+
+{% if server.rate_limiting.enabled | default(false) %}
+[rate-limiting]
+enable-rate-limiting=yes
+{% else %}
+[rate-limiting]
+enable-rate-limiting=no
+{% endif %}
+# Number of packets per interval before throttling
+rate-interval-sec={{ server.rate_limiting.interval_sec | default(30) }}
+# Max packets per interval
+rate-max={{ server.rate_limiting.max_packets | default(50) }}
+
+{% for service in server.publish_services %}
+# Publish custom service: {{ service.name }}
+{% if service.type %}publish-service={{ service.name }},{{ service.type }},{{ service.port }}{% if service.txt %},{{ service.txt }}{% endif %}
+{% else %}publish-service={{ service.name }},{{ service.port }}{% endif %}
+{% endfor %}
+
+{% for domain in server.publish_domains %}
+# Announce domain: {{ domain.name }}
+publish-domain={{ domain.name }}{% if domain.ttl %}:{{ domain.ttl }}{% endif %}
+{% endfor %}
+
+# End of configuration

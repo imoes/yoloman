@@ -1,0 +1,19 @@
+# /etc/netplug/netplug.conf — netplug network link monitor configuration
+# This file controls which interfaces netplug should monitor and what scripts to run on link changes.
+# Interfaces to monitor — each entry is a network interface name (e.g., eth0, wlan0)
+{% for iface in interfaces %}INTERFACE {{ iface }}
+{% endfor %}
+# Optional: set a default script to run for *all* interfaces (if not per-interface override)
+{% if default_script %}SCRIPT {{ default_script }}
+{% endif %}
+# Optional: per-interface script overrides — each interface may specify its own up/down scripts
+{% for iface_config in interfaces %}{% if iface_config.up_script or iface_config.down_script %}INTERFACE {{ iface_config.name }}
+{% if iface_config.up_script %}  SCRIPT {{ iface_config.up_script }}
+{% endif %}{% if iface_config.down_script %}  SCRIPT {{ iface_config.down_script }}
+{% endif %}{% endif %}{% endfor %}
+# Optional: delay (in seconds) to wait before considering link stable after change
+{% if link_stable_delay is defined %}LINK_STABLE_DELAY {{ link_stable_delay }}
+{% endif %}
+# Optional: timeout (in seconds) to wait for a script to complete before killing it
+{% if script_timeout is defined %}SCRIPT_TIMEOUT {{ script_timeout }}
+{% endif %}

@@ -1,0 +1,44 @@
+# Use NTP servers from pool for time synchronization
+pool {{ ntp_pool }} iburst
+
+# Use specific NTP servers as fallback or preferred sources
+{% for server in ntp_servers %}
+server {{ server.hostname }} {{ 'iburst' if server.iburst else '' }} {{ 'prefer' if server.prefer else '' }}
+{% endfor %}
+
+# Enable hardware timestamping if supported and enabled
+{% if enable_hwtimestamping %}
+hwclockfile /var/lib/chrony/hwclock
+hwclockslew yes
+{% endif %}
+
+# Make the client only — do NOT accept NTP connections from other hosts
+# (chronyd runs in client-only mode; no server port listening)
+bindcmdaddress 127.0.0.1
+
+# Logging configuration
+{% for loglevel in logging_levels %}
+log {{ loglevel }}
+{% endfor %}
+
+# Allow chronyd to run as unprivileged user
+user chrony
+
+# Directory for runtime state
+makestep 1.0 3
+rtcsync
+
+# Key file and command authentication (optional — disabled by default)
+{% if enable_cmdauth %}
+cmdallow 127.0.0.1
+{% endif %}
+
+# Drift file location
+driftfile /var/lib/chrony/drift
+
+# Leap seconds file (optional, usually default is fine)
+leapsecmode slew
+maxslewrate 1000
+
+# Enable NTP client mode strictly
+nodaemon

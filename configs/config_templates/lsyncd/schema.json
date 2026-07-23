@@ -1,0 +1,228 @@
+{
+  "log_file": {
+    "type": "string",
+    "default": "/var/log/lsyncd/lsyncd.log",
+    "description": "Path to the lsyncd log file."
+  },
+  "log_level": {
+    "type": "number",
+    "default": 4,
+    "description": "Logging verbosity: 1=none, 2=error, 3=warning, 4=info (default), 5=debug."
+  },
+  "max_processes": {
+    "type": "number",
+    "default": 10,
+    "description": "Maximum number of parallel sync processes. Prevents system overload."
+  },
+  "use_delay": {
+    "type": "boolean",
+    "default": true,
+    "description": "Enable event batching delay (recommended)."
+  },
+  "delay": {
+    "type": "number",
+    "default": 15,
+    "description": "Seconds to wait after first change before triggering sync (debounce)."
+  },
+  "use_inotify_events": {
+    "type": "boolean",
+    "default": false,
+    "description": "Override default inotify event set (modify, move, create, delete) with custom list."
+  },
+  "inotify_events": {
+    "type": "list",
+    "default": [],
+    "description": "List of inotify event types to monitor.",
+    "items": {
+      "type": "string",
+      "enum": [
+        "access",
+        "modify",
+        "attrib",
+        "close_write",
+        "close_nowrite",
+        "open",
+        "moved_from",
+        "moved_to",
+        "create",
+        "delete",
+        "delete_self",
+        "unmount"
+      ]
+    }
+  },
+  "use_recursive": {
+    "type": "boolean",
+    "default": false,
+    "description": "Enable recursive directory watching (watch subdirectories)."
+  },
+  "has_excludes": {
+    "type": "boolean",
+    "default": false,
+    "description": "Enable pattern-based exclusion of files/directories."
+  },
+  "excludes": {
+    "type": "list",
+    "default": [],
+    "description": "List of glob patterns to exclude from sync.",
+    "items": {
+      "type": "string"
+    }
+  },
+  "has_rsync_options": {
+    "type": "boolean",
+    "default": false,
+    "description": "Customize rsync options for local or remote sync."
+  },
+  "rsync_options": {
+    "type": "list",
+    "default": [],
+    "description": "Extra command-line arguments passed to rsync.",
+    "items": {
+      "type": "string"
+    }
+  },
+  "targets": {
+    "type": "list",
+    "default": [],
+    "description": "List of sync targets. Each defines a source \u2192 destination mapping.",
+    "items": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Human-readable label for this sync target (used only for comments)."
+        },
+        "enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable or disable this sync target."
+        },
+        "mode": {
+          "type": "string",
+          "enum": [
+            "rsync",
+            "rsyncssh"
+          ],
+          "default": "rsyncssh",
+          "description": "Sync method: rsync (local/SSHless remote) or rsyncssh (explicit SSH)."
+        },
+        "source": {
+          "type": "string",
+          "description": "Local source directory path (absolute, trailing slash optional)."
+        },
+        "rsync": {
+          "type": "object",
+          "properties": {
+            "host": {
+              "type": "string",
+              "description": "Remote host (for rsync:// or SSH-based syntax)."
+            },
+            "user": {
+              "type": "string",
+              "description": "Remote user (optional)."
+            },
+            "path": {
+              "type": "string",
+              "description": "Remote destination path (absolute)."
+            },
+            "archive": {
+              "type": "boolean",
+              "default": true,
+              "description": "Archive mode (preserves permissions, times, etc)."
+            },
+            "compress": {
+              "type": "boolean",
+              "default": true,
+              "description": "Compress data during transfer."
+            },
+            "hardlinks": {
+              "type": "boolean",
+              "default": true,
+              "description": "Preserve hard links."
+            },
+            "sparse": {
+              "type": "boolean",
+              "default": true,
+              "description": "Handle sparse files efficiently."
+            },
+            "whole_file": {
+              "type": "boolean",
+              "default": false,
+              "description": "Transfer whole files (disable delta sync)."
+            },
+            "extra_args": {
+              "type": "list",
+              "items": {
+                "type": "string"
+              },
+              "description": "Additional rsync flags."
+            }
+          },
+          "required": [
+            "host",
+            "path"
+          ]
+        },
+        "rsyncssh": {
+          "type": "object",
+          "properties": {
+            "host": {
+              "type": "string",
+              "description": "SSH hostname or IP."
+            },
+            "user": {
+              "type": "string",
+              "default": "root",
+              "description": "SSH user (optional, defaults to root)."
+            },
+            "port": {
+              "type": "number",
+              "default": 22,
+              "description": "SSH port."
+            },
+            "identity": {
+              "type": "string",
+              "description": "Path to SSH private key (optional)."
+            },
+            "path": {
+              "type": "string",
+              "description": "Remote destination path (absolute)."
+            },
+            "archive": {
+              "type": "boolean",
+              "default": true,
+              "description": "Archive mode (preserves permissions, times, etc)."
+            },
+            "compress": {
+              "type": "boolean",
+              "default": true,
+              "description": "Enable SSH/rsync compression."
+            },
+            "extra_args": {
+              "type": "list",
+              "items": {
+                "type": "string"
+              },
+              "description": "Additional rsync flags."
+            }
+          },
+          "required": [
+            "host",
+            "path"
+          ]
+        }
+      },
+      "required": [
+        "name",
+        "enabled",
+        "source",
+        "mode"
+      ],
+      "one_of": [
+        "rsync",
+        "rsyncssh"
+      ]
+    }
+  }
+}

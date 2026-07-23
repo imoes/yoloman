@@ -1,0 +1,26 @@
+# Global options block — applies to all sites
+{{ global_options | trim | e }}
+
+# Dynamic sites configuration — each entry defines a site and its routes
+{% for site in sites %}
+# Site address and options
+{{ site.address }} {
+  {{ site.options | default('') | trim | e }}
+
+  # Routes — each defines a matcher and one or more handlers
+  {% for route in site.routes %}
+  # Route {{ loop.index }}: {{ route.matcher | default('(implicit default route)') }}
+  {{ route.matcher | default('') }} {
+    {% for handler in route.handlers %}
+    {{ handler | trim | e }}
+    {% endfor %}
+  }
+  {% endfor %}
+
+  # Optional: Directives at site scope (outside route blocks)
+  {% for directive in site.site_directives %}
+  {{ directive | trim | e }}
+  {% endfor %}
+}
+
+{% endfor %}

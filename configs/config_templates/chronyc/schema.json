@@ -1,0 +1,181 @@
+{
+  "servers": {
+    "type": "list",
+    "default": [],
+    "description": "List of NTP servers/peers to synchronize with. At least one server is recommended for production.",
+    "items": {
+      "type": "object",
+      "fields": {
+        "host": {
+          "type": "string",
+          "default": "",
+          "description": "Hostname or IP address of the NTP server."
+        },
+        "iburst": {
+          "type": "bool",
+          "default": true,
+          "description": "If true, send a burst of packets initially for faster synchronization."
+        },
+        "prefer": {
+          "type": "bool",
+          "default": false,
+          "description": "If true, this server is preferred over others (only one recommended)."
+        },
+        "key_id": {
+          "type": "number",
+          "default": null,
+          "description": "Optional key ID for server authentication. Requires authentication.enabled=true."
+        }
+      }
+    }
+  },
+  "local_stratum": {
+    "type": "object",
+    "default": {
+      "enabled": false,
+      "level": 10
+    },
+    "description": "Use local clock as time source when external sources are unavailable.",
+    "fields": {
+      "enabled": {
+        "type": "bool",
+        "default": false,
+        "description": "Enable local stratum source."
+      },
+      "level": {
+        "type": "number",
+        "default": 10,
+        "description": "Stratum level of local clock (1\u201315). Higher = less trusted."
+      }
+    }
+  },
+  "access_rules": {
+    "type": "list",
+    "default": [
+      {
+        "allow": true,
+        "net": "192.168.0.0/16"
+      },
+      {
+        "allow": true,
+        "net": "fd00::/8"
+      }
+    ],
+    "description": "Access control rules for NTP clients or chronyc command access.",
+    "items": {
+      "type": "object",
+      "fields": {
+        "allow": {
+          "type": "bool",
+          "default": true,
+          "description": "true = allow, false = deny."
+        },
+        "net": {
+          "type": "string",
+          "default": "",
+          "description": "IPv4 or IPv6 network (CIDR or dotted-decimal)."
+        },
+        "mask": {
+          "type": "string",
+          "default": "",
+          "description": "Optional netmask for IPv4 dotted-decimal notation."
+        }
+      }
+    }
+  },
+  "bind_interfaces": {
+    "type": "list",
+    "default": [],
+    "description": "List of network interfaces to bind for NTP traffic (e.g., ['eth0', 'enp0s3']). Leave empty to bind all interfaces."
+  },
+  "max_update_skew": {
+    "type": "number",
+    "default": 100,
+    "description": "Maximum rate of time updates per second to prevent excessive client load. Units: Hz."
+  },
+  "paths": {
+    "type": "object",
+    "default": {
+      "driftfile": "/var/lib/chrony/drift",
+      "rtcoutc": "/etc/chrony/rtc",
+      "logdir": "/var/log/chrony",
+      "keyfile": "/etc/chrony/keys"
+    },
+    "description": "File paths used by chronyd.",
+    "fields": {
+      "driftfile": {
+        "type": "string",
+        "default": "/var/lib/chrony/drift",
+        "description": "File storing long-term clock drift (persisted between restarts)."
+      },
+      "rtcoutc": {
+        "type": "string",
+        "default": "/etc/chrony/rtc",
+        "description": "File storing RTC offset (empty = disabled)."
+      },
+      "logdir": {
+        "type": "string",
+        "default": "/var/log/chrony",
+        "description": "Directory for log files."
+      },
+      "keyfile": {
+        "type": "string",
+        "default": "/etc/chrony/keys",
+        "description": "File containing NTP authentication keys."
+      }
+    }
+  },
+  "hardware_timestamping": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable hardware-assisted timestamping for high-precision timing (requires compatible NIC)."
+  },
+  "authentication": {
+    "type": "object",
+    "default": {
+      "enabled": false,
+      "trusted_keys": []
+    },
+    "description": "Enable NTP authentication (RFC 5905) for secure time sources.",
+    "fields": {
+      "enabled": {
+        "type": "bool",
+        "default": false,
+        "description": "Enable authentication (requires keyfile + trustedkey directives)."
+      },
+      "trusted_keys": {
+        "type": "list",
+        "default": [],
+        "description": "List of key IDs trusted for server authentication (must exist in keyfile).",
+        "items": {
+          "type": "number"
+        }
+      }
+    }
+  },
+  "cmdport_disabled": {
+    "type": "bool",
+    "default": false,
+    "description": "If true, disable the chronyd command port (no remote management)."
+  },
+  "cmd_port": {
+    "type": "number",
+    "default": 323,
+    "description": "Port for chronyd command interface (used by chronyc). Only active if cmdport_disabled=false."
+  },
+  "step_threshold": {
+    "type": "number",
+    "default": 1.0,
+    "description": "Maximum initial time offset (seconds) to correct via step (vs. slew). Beyond this, step is skipped until next boot."
+  },
+  "max_steps": {
+    "type": "number",
+    "default": 12,
+    "description": "Maximum number of steps allowed during initial synchronization (prevents large jumps)."
+  },
+  "leap_sec_tz": {
+    "type": "string",
+    "default": "right/UTC",
+    "description": "Timezone file for leap second handling (e.g., 'right/UTC', 'UTC')."
+  }
+}

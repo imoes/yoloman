@@ -1,0 +1,61 @@
+# Log facility for heartbeat messages
+logfacility	audit
+
+# Enable logging to stdout (set to '0' to disable)
+logfile	/var/log/ha-log
+
+# Location of the CIB (cluster information base) file
+# (Note: modern heartbeat uses CIB via XML or corosync; this is legacy for crm-based setups)
+# cib_file	/etc/ha.d/cib.xml
+
+# Timeout (in seconds) for node to respond to heartbeat packets
+keepalive	2
+
+# Time (in seconds) after which a node is considered dead if no heartbeat received
+deadtime	10
+
+# Time (in seconds) before the node attempts to take over resources after becoming active
+warntime	6
+
+# Initial delay (in seconds) before heartbeats start being sent
+initdead	12
+
+# Comma-separated list of primary communication interfaces (e.g., 'eth0, eth1')
+ucast	{% for iface in interfaces %}{{ iface }}{% if not loop.last %}, {% endif %}{% endfor %}
+
+# Alternative multicast communication (uncomment to use instead of ucast)
+# mcast eth0 239.192.66.66 694 1 0
+
+# Use UDP broadcast instead of unicast/multicast
+# bcast eth0
+
+# Use serial line for heartbeat (set device, baud rate, timeout)
+# serial	/dev/ttyS0	115200
+
+# Node names as seen by heartbeat (must match /etc/ha.d/haresources or CIB definitions)
+node	{% for node in nodes %}{{ node }}{% if not loop.last %}
+node	{% endif %}{% endfor %}
+
+# Optional: explicit node aliases (e.g., for hostname mismatches)
+# ping	192.168.1.1
+# ping_group	192.168.1.0/24
+
+# Auto failback: whether to return resources to primary node when it recovers
+# Options: 'on' or 'off'
+auto_failback	on
+
+# watchdog device (optional, for automatic reboots on hang)
+# watchdog	/dev/watchdog
+
+# Graceful shutdown timeout (seconds) before forcing resource shutdown
+# respawn_hup	auth
+respawn	/usr/lib/heartbeat/ipfail
+
+# Authentication: password or key file (legacy — modern setups use CIB with authkeys)
+authkey	/etc/ha.d/authkey
+
+# Permission mode for the authkey file
+# auth 1200
+
+# IPMI-based failover (optional)
+# ipmi_boot	IPMI

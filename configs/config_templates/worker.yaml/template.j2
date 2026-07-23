@@ -1,0 +1,63 @@
+# Main worker configuration for Debusine worker
+worker:
+  # Unique identifier for this worker within the Debusine ecosystem
+  id: {{ worker_id }}
+
+  # Network address to bind the worker's HTTP server
+  listen:
+    host: "{{ worker.listen.host }}"
+    port: {{ worker.listen.port }}
+
+  # Path to the directory where worker artifacts (build outputs, logs, etc.) are stored
+  workdir: {{ worker.workdir }}
+
+  # Maximum number of concurrent build tasks this worker can run
+  max_concurrent_tasks: {{ worker.max_concurrent_tasks }}
+
+  # Timeout (in seconds) for individual build tasks before they are considered failed
+  task_timeout: {{ worker.task_timeout }}
+
+  # Debusine server URL — where this worker registers and receives jobs
+  server:
+    url: {{ worker.server.url }}
+    # Optional: TLS verification toggle (set to false only for testing)
+    verify_tls: {{ worker.server.verify_tls }}
+
+  # Logging configuration
+  logging:
+    # Level: debug, info, warning, error, critical
+    level: {{ worker.logging.level }}
+    # Path to the log file (use '-' for stdout)
+    file: {{ worker.logging.file }}
+
+  # Resource limits for build tasks
+  resource_limits:
+    # Maximum memory (in MB) allowed per build task
+    memory_mb: {{ worker.resource_limits.memory_mb }}
+    # Maximum CPU cores (as integer or fractional) allowed per build task
+    cpus: {{ worker.resource_limits.cpus }}
+
+  # Optional: Docker daemon connection (used for containerized builds)
+  {% if worker.docker %}
+  docker:
+    # URL of the Docker daemon (e.g., 'unix:///var/run/docker.sock' or 'tcp://localhost:2375')
+    host: {{ worker.docker.host }}
+  {% endif %}
+
+  # Optional: Custom environment variables passed to build tasks
+  {% if worker.environment %}
+  environment:
+    {% for key, value in worker.environment.items() %}
+    {{ key }}: {{ value | tojson }}
+    {% endfor %}
+  {% endif %}
+
+  # Optional: Trusted CA bundle path (for self-signed TLS in server connection)
+  {% if worker.tls_ca_path %}
+  tls_ca_path: {{ worker.tls_ca_path }}
+  {% endif %}
+
+  # Optional: OAuth2 token file for authenticating to the Debusine server
+  {% if worker.auth_token_file %}
+  auth_token_file: {{ worker.auth_token_file }}
+  {% endif %}

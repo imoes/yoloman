@@ -1,0 +1,54 @@
+# yaws.conf - Main configuration file for Yaws web server
+# Global server settings
+logdir = {{ logdir }}
+docroot = {{ docroot }}
+listen = {{ listen }}
+port = {{ port }}
+# IPv6 support toggle
+ipv6 = {{ ipv6 }}
+# Directory listing toggle
+dir listings = {{ dir_listings }}
+# Set user/group to run as (requires root start)
+user = {{ user }}
+# Maximum number of connections
+max_connections = {{ max_connections }}
+# Number of acceptor processes
+num_acceptors = {{ num_acceptors }}
+
+{% for server in servers %}
+# Virtual host configuration block: {{ server.name }}
+<server {{ server.name }}>
+    listen = {{ server.listen }}
+    port = {{ server.port }}
+    {% if server.ipv6 is defined and server.ipv6 %}    ipv6 = {{ server.ipv6 }}{% endif %}
+    docroot = {{ server.docroot }}
+    {% if server.dir_listings is defined %}    dir listings = {{ server.dir_listings }}{% endif %}
+    {% if server.index_files is defined and server.index_files %}    index_files = {{ server.index_files | join(', ') }}{% endif %}
+    {% if server.extra_headers is defined and server.extra_headers %}
+    # Add custom HTTP response headers
+    <header name="{{ server.extra_headers[0].name }}">
+        value = {{ server.extra_headers[0].value }}
+    </header>
+    {% endif %}
+    {% if server.access_log is defined %}    access_log = {{ server.access_log }}{% endif %}
+    {% if server.error_log is defined %}    error_log = {{ server.error_log }}{% endif %}
+
+    {% if server.apps is defined and server.apps %}
+    # Embedded applications (CGI, SCGI, etc.)
+    {% for app in server.apps %}
+    <appdir {{ app.name or 'app' }}>
+        scgi = {{ app.scgi | default('false') }}
+        cgi = {{ app.cgi | default('false') }}
+        dir = {{ app.dir }}
+        {% if app.extra_params is defined and app.extra_params %}
+        # Extra parameters for app handler (e.g., PHP settings)
+        <param>
+            key = {{ app.extra_params[0].key }}
+            value = {{ app.extra_params[0].value }}
+        </param>
+        {% endif %}
+    </appdir>
+    {% endfor %}
+    {% endif %}
+</server>
+{% endfor %}

@@ -1,0 +1,57 @@
+# Remote Boot Daemon configuration file
+# This file controls rbootd's behavior for serving PXE/HTTP/SYSLOG boot services
+
+# Network interface to bind to for boot traffic (e.g., 'eth0' or '0.0.0.0' for all)
+listen_interface = {{ listen_interface }}
+
+# IP address to bind the HTTP boot service to
+http_listen_addr = {{ http_listen_addr }}
+
+# TCP port for the HTTP boot service
+http_port = {{ http_port }}
+
+# Root directory containing boot assets (kernels, initrds, configs)
+boot_root = {{ boot_root }}
+
+# Subdirectory under boot_root for kernel images
+kernels_dir = {{ kernels_dir }}
+
+# Subdirectory under boot_root for initrd images
+initrds_dir = {{ initrds_dir }}
+
+# Default kernel command line arguments appended to all boot entries
+# May be overridden per-host
+kernel_args_default = {{ kernel_args_default }}
+
+# Maximum time (in seconds) to wait for a client to download a file before timing out
+download_timeout = {{ download_timeout }}
+
+# Enable or disable syslog-based logging
+syslog_enabled = {{ syslog_enabled }}
+
+# Syslog facility to use (e.g., 'local0', 'daemon')
+syslog_facility = {{ syslog_facility }}
+
+# Syslog server address (empty string means local syslog only)
+syslog_server = {{ syslog_server }}
+
+# List of supported boot protocols (lowercase, comma-separated)
+supported_protocols = {{ supported_protocols | join(', ') }}
+
+# Per-host configuration entries
+{% for host in hosts %}
+{% if host.name %}
+# Host: {{ host.name }} ({{ host.ip }})
+host {{ host.name }} {
+    ip = {{ host.ip }}
+    mac = {{ host.mac | default('') }}
+    kernel = {{ host.kernel }}
+    initrd = {{ host.initrd | default('') }}
+    {% if host.kernel_args %}
+    kernel_args = {{ host.kernel_args }}
+    {% else %}
+    kernel_args = {{ kernel_args_default }}
+    {% endif %}
+}
+{% endif %}
+{% endfor %}

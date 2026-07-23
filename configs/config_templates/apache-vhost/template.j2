@@ -1,0 +1,34 @@
+<VirtualHost *:{{ port }}>
+  # Server identification and document root
+  ServerName {{ server_name }}
+{% if server_aliases %}
+  ServerAlias {{ server_aliases | join(' ') }}
+{% endif %}
+  DocumentRoot {{ document_root }}
+
+{% if directories %}
+  <Directory {{ document_root }}>
+{% for dir in directories %}
+{% if dir.path != document_root %}
+    <Directory {{ dir.path }}>
+{% endif %}
+      Options {{ dir.options | default('-Indexes +FollowSymLinks') }}
+      AllowOverride {{ dir.allow_override | default('All') }}
+      Require {{ dir.require | default('all granted') }}
+{% if dir.path != document_root %}
+    </Directory>
+{% endif %}
+{% endfor %}
+  </Directory>
+{% endif %}
+
+{% if ssl_enabled %}
+  # TLS configuration
+  SSLEngine on
+  SSLCertificateFile {{ ssl_cert_file }}
+  SSLCertificateKeyFile {{ ssl_cert_key_file }}
+{% if ssl_chain_file %}
+  SSLCertificateChainFile {{ ssl_chain_file }}
+{% endif %}
+{% endif %}
+</VirtualHost>

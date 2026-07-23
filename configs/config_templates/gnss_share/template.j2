@@ -1,0 +1,53 @@
+# GNSS location data sharing daemon configuration
+# Enable or disable the daemon
+{% if enabled | default(false) %}
+enabled=true
+{% else %}
+enabled=false
+{% endif %}
+
+# Bind address for the local HTTP API
+bind_address={{ api.bind_address | default('127.0.0.1') }}
+
+# Port for the HTTP API
+api_port={{ api.port | default(8080) }}
+
+# Path to the GNSS device (e.g., GPS serial device or NMEA source)
+gnss_device={{ gnss.device_path | default('/dev/ttyUSB0') }}
+
+# Baud rate for serial connection to GNSS device
+baud_rate={{ gnss.baud_rate | default(9600) }}
+
+# NMEA sentence types to accept and share (comma-separated list)
+accepted_nmea_types={{ gnss.accepted_nmea_types | join(', ') }}
+
+# Minimum required satellites for valid location fix
+min_satellites={{ gnss.min_satellites | default(4) }}
+
+# Maximum age (seconds) of position data before considered stale
+max_position_age={{ gnss.max_position_age | default(30) }}
+
+# Path to store position history log
+position_log_path={{ logging.position_log_path | default('/var/log/gnss-share/positions.log') }}
+
+# Log level: debug, info, warn, error
+log_level={{ logging.log_level | default('info') }}
+
+# List of peers to share location data with (each: hostname:port)
+{% for peer in sharing.peers %}sharing_peer={{ peer.hostname }}:{{ peer.port }}
+{% endfor %}
+
+# Enable or disable TLS for peer communication
+tls_enabled={{ sharing.tls.enabled | default(false) }}
+
+# TLS certificate path
+tls_cert_path={{ sharing.tls.cert_path | default('/etc/gnss-share/tls/gnss-share.crt') }}
+
+# TLS key path
+tls_key_path={{ sharing.tls.key_path | default('/etc/gnss-share/tls/gnss-share.key') }}
+
+# Path to shared data cache (JSON format)
+cache_path={{ sharing.cache_path | default('/var/lib/gnss-share/cache.json') }}
+
+# Interval (seconds) between position sharing attempts
+sharing_interval={{ sharing.interval | default(10) }}

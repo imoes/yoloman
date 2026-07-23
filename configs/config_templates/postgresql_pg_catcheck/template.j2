@@ -1,0 +1,54 @@
+# pg_catcheck configuration file — validates system catalog consistency
+# Path to the PostgreSQL installation's binary directory (where pg_ctl, psql, etc. are located)
+bin_dir = '{{ bin_dir }}'
+
+# Hostname or IP of the PostgreSQL server to connect to
+host = '{{ host }}'
+
+# Port number PostgreSQL listens on
+port = {{ port }}
+
+# Database to connect to (typically 'postgres' or 'template1')
+database = '{{ database }}'
+
+# Username for authentication
+username = '{{ username }}'
+
+# Authentication method: 'trust', 'password', 'scram-sha-256', etc.
+auth_method = '{{ auth_method }}'
+
+# Path to the password file (for password-based auth); empty = use .pgpass or prompt
+password_file = '{{ password_file }}'
+
+# Timeout (seconds) for connection attempts
+connect_timeout = {{ connect_timeout }}
+
+# Comma-separated list of catalog checks to run; empty = run all
+# Valid checks: catalog, index, sequence, toast, trigger, view, dependency, inheritance, partition
+check_names = '{{ check_names | join(", ") }}'
+
+# Enable verbose output (true/false)
+verbose = {{ verbose | lower }}
+
+# Enable dry-run (true/false): show what would be checked without making changes
+# (pg_catcheck itself doesn’t do writes, but this toggles extra diagnostics)
+dry_run = {{ dry_run | lower }}
+
+# Skip checks for specific object types (comma-separated, lowercase)
+skip_types = '{{ skip_types | join(", ") }}'
+
+# Maximum number of errors to report before aborting
+max_errors = {{ max_errors }}
+
+# Exit with code 0 even if issues found (true/false) — useful for CI
+tolerant = {{ tolerant | lower }}
+
+# List of additional per-check options (if supported by the tool version)
+# Each entry defines override behavior for a specific check
+{% for check in check_options %}# Check: {{ check.check_name }}
+#   - Description: {{ check.description }}
+#   - Enabled: {{ check.enabled | lower }}
+{% endfor %}
+
+# Legacy mode: allow older catalog structures (true/false)
+legacy_mode = {{ legacy_mode | lower }}

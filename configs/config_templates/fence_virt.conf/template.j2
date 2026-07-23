@@ -1,0 +1,54 @@
+# Global fence_virtd configuration
+multicast:
+  # Multicast address for fence_virtd communication
+  address: {{ multicast.address }}
+  # Multicast port (default: 1229)
+  port: {{ multicast.port }}
+  # Network interface to bind to (e.g., 'eth0', 'br0')
+  interface: {{ multicast.interface }}
+
+# Listener configuration
+listeners:
+  # Listeners define how fence_virtd accepts connections (e.g., via libvirt or KVM)
+{% for listener in listeners %}  - type: {{ listener.type }}
+    # Path to the socket or device (if applicable)
+    path: {{ listener.path }}
+    # Mode (e.g., '0660') for socket permissions
+    mode: {{ listener.mode }}
+    # Optional group ownership
+{% if listener.group is defined %}    group: {{ listener.group }}{% endif %}
+{% if listener.user is defined %}    user: {{ listener.user }}{% endif %}
+{% if listener.timeout is defined %}    # Connection timeout in seconds
+    timeout: {{ listener.timeout }}{% endif %}
+{% endfor %}
+
+# Authentication module (e.g., 'plain', 'keyfile')
+auth:
+  type: {{ auth.type }}
+{% if auth.type == 'keyfile' %}
+  # Path to the keyfile used for authentication
+  keyfile: {{ auth.keyfile }}
+{% elif auth.type == 'plain' %}
+  # Path to the plain-text credentials file
+  credentials: {{ auth.credentials }}
+{% endif %}
+
+# Logging configuration
+logging:
+  # Log level: 'debug', 'info', 'warning', 'error'
+  level: {{ logging.level }}
+  # Path to log file (use 'syslog' to send to syslog)
+  file: {{ logging.file }}
+
+# Driver module (e.g., 'libvirt', 'kvm')
+drivers:
+  # Default driver backend for fencing operations
+  - name: {{ drivers[0].name }}
+{% if drivers[0].timeout is defined %}    # Operation timeout in seconds
+    timeout: {{ drivers[0].timeout }}{% endif %}
+{% if drivers[0].retry is defined %}    # Number of retries on failure
+    retry: {{ drivers[0].retry }}{% endif %}
+{% if drivers[0].retry_sleep is defined %}    # Seconds to wait between retries
+    retry_sleep: {{ drivers[0].retry_sleep }}{% endif %}
+{% if drivers[0].namespace is defined %}    # Optional libvirt namespace
+    namespace: {{ drivers[0].namespace }}{% endif %}

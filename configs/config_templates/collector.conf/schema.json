@@ -1,0 +1,84 @@
+{
+  "listen_address": {
+    "type": "string",
+    "default": "0.0.0.0",
+    "description": "IP address the collector binds to. Use 0.0.0.0 for all interfaces, or a specific IP to restrict."
+  },
+  "port": {
+    "type": "number",
+    "default": 8080,
+    "description": "TCP port on which the collector service accepts incoming HTTP requests."
+  },
+  "workers": {
+    "type": "number",
+    "default": 4,
+    "description": "Number of worker processes to handle incoming requests. Set higher for high throughput."
+  },
+  "artifacts_dir": {
+    "type": "string",
+    "default": "/var/lib/debci/collector/artifacts",
+    "description": "Path to the directory where collected test artifacts (logs, reports, binaries) are stored."
+  },
+  "max_artifact_size_mb": {
+    "type": "number",
+    "default": 256,
+    "description": "Maximum allowed size (in MiB) for a single artifact. Larger artifacts are rejected."
+  },
+  "max_connections": {
+    "type": "number",
+    "default": 1000,
+    "description": "Maximum number of simultaneous open connections allowed."
+  },
+  "compress_artifacts": {
+    "type": "bool",
+    "default": true,
+    "description": "Whether to compress artifacts (gzip) before saving them to disk to reduce storage usage."
+  },
+  "relays": {
+    "type": "list",
+    "default": [],
+    "description": "List of trusted upstream debci relays to fetch job definitions and metadata from.",
+    "items": {
+      "host": {
+        "type": "string",
+        "default": "relay.example.com",
+        "description": "Hostname or IP address of the upstream relay."
+      },
+      "port": {
+        "type": "number",
+        "default": 443,
+        "description": "Port number of the upstream relay (typically 80 or 443)."
+      },
+      "use_tls": {
+        "type": "bool",
+        "default": true,
+        "description": "Whether to use TLS (HTTPS) when connecting to this relay."
+      }
+    }
+  },
+  "log_level": {
+    "type": "string",
+    "default": "info",
+    "description": "Verbosity of application logging."
+  },
+  "log_file": {
+    "type": "string",
+    "default": "/var/log/debci/collector.log",
+    "description": "Path to the log file. Use '-' for standard error."
+  },
+  "metrics_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Whether to expose Prometheus-compatible metrics endpoint."
+  },
+  "metrics_port": {
+    "type": "number",
+    "default": 9102,
+    "description": "Port on which the metrics endpoint is served (if enabled)."
+  },
+  "health_endpoint": {
+    "type": "string",
+    "default": "/healthz",
+    "description": "HTTP path for the health check endpoint (e.g., used by Kubernetes liveness/readiness probes)."
+  }
+}

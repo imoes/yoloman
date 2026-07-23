@@ -1,0 +1,58 @@
+# Allow NTP clients from this subnet
+allow {{ network_cidr }}
+
+# Disable online source (fallback to local reference)
+# Use the radio-controlled time source (e.g., WWVB, GPS) as primary reference
+refclock PHC /dev/ptp0 poll 3 dpoll -2 offset 0 \
+    {{ 'true' if gps_refclock_enable else 'false' }}
+
+{% if radio_model == 'wwvb' %}
+# Configure WWVB radio receiver
+refclock PPS /dev/pps0 poll 3 dpoll -2 offset 0 \
+    {{ 'true' if wwvb_pps_enable else 'false' }}
+{% elif radio_model == 'gps' %}
+# Configure GPS receiver via serial or NMEA
+refclock NMEA /dev/ttyUSB0 poll 3 dpoll -2 offset 0 \
+    {{ 'true' if gps_nmea_enable else 'false' }} \
+    nmea {% for line in gps_nmea_sentences %}{{ line | join(':') }}{% endfor %}
+{% endif %}
+
+# Set maximum allowed time deviation before panic
+maxslewrate 1000
+
+# Initial step correction only (no slewing for large offsets)
+initstepslew 30 {{ hostname | join(', ') }}
+
+# Logging settings
+logdir /var/log/chrony
+log measurements statistics tracking
+
+# Make the system step first, then slew
+makestep 1.0 3
+
+# Specify RTTY or GPS device latency (in microseconds)
+rtty {{ rtty_latency_us }}
+
+# Bind to specific interfaces (optional)
+bindcmdaddress {{ bind_cmd_address }}
+bindaddress {{ bind_address }}
+
+# Driftfile & RTC settings
+driftfile /var/lib/chrony/chrony.drift
+rtcref /sys/class/rtc/rtc0
+rtcfile /var/lib/chrony/chrony.rtc
+
+# Enable command socket for chronyc
+commandkey 1
+keyfile /etc/chrony/chrony.keys
+
+# NTP server pool fallback (optional)
+{% if ntp_servers %}
+server {{ ntp_servers[0] }} iburst
+{% for server in ntp_servers[1:] %}
+server {{ server }} iburst
+{% endfor %}
+{% endif %}
+
+# Hardware timestamping (for PTP/PPS)
+hwtimestampinterface {{ ptp_interface }}

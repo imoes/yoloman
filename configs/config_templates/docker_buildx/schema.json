@@ -1,0 +1,115 @@
+{
+  "debug": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable verbose debug logging."
+  },
+  "root_dir": {
+    "type": "string",
+    "default": "/var/lib/buildkit",
+    "description": "Root directory for BuildKit state and metadata."
+  },
+  "cache_dir": {
+    "type": "string",
+    "default": "/var/lib/buildkit/default-cache",
+    "description": "Directory where BuildKit stores its cache data."
+  },
+  "cache_size": {
+    "type": "number",
+    "default": 10737418240,
+    "description": "Maximum cache size in bytes (0 = unlimited)."
+  },
+  "cache_disabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Disable cache entirely (useful for ephemeral CI builders)."
+  },
+  "builders": {
+    "type": "list",
+    "default": [],
+    "description": "List of named BuildKit builders for multi-platform support.",
+    "items": {
+      "name": {
+        "type": "string",
+        "description": "Unique name of the builder (e.g., 'default', 'arm64')."
+      },
+      "driver": {
+        "type": "string",
+        "default": "docker-container",
+        "description": "BuildKit driver type (e.g., 'docker-container', 'kubernetes', 'remote')."
+      },
+      "config": {
+        "type": "object",
+        "default": {},
+        "description": "Driver-specific configuration key-value pairs (e.g., { 'network': 'host' })."
+      },
+      "platforms": {
+        "type": "list",
+        "default": [
+          "linux/amd64"
+        ],
+        "description": "List of target platforms (e.g., ['linux/amd64', 'linux/arm64'])."
+      }
+    }
+  },
+  "dns": {
+    "type": "list",
+    "default": null,
+    "description": "Custom DNS servers to use inside build containers (e.g., ['8.8.8.8', '1.1.1.1'])."
+  },
+  "network_external": {
+    "type": "bool",
+    "default": true,
+    "description": "Allow builds to access external networks (disable for air-gapped environments)."
+  },
+  "registry_mirrors": {
+    "type": "list",
+    "default": null,
+    "description": "Registry mirror definitions to accelerate image pulls.",
+    "items": {
+      "registry": {
+        "type": "string",
+        "description": "Source registry domain (e.g., 'docker.io')."
+      },
+      "http": {
+        "type": "bool",
+        "default": false,
+        "description": "Use HTTP instead of HTTPS for mirror communication."
+      },
+      "tls": {
+        "type": "bool",
+        "default": true,
+        "description": "Enable TLS verification for mirror connections."
+      },
+      "endpoints": {
+        "type": "list",
+        "description": "Ordered list of mirror endpoint URLs (e.g., ['https://mirror.example.com'])."
+      }
+    }
+  },
+  "log_format": {
+    "type": "string",
+    "default": "text",
+    "description": "Format for build logs (text or JSON)."
+  },
+  "gc_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable automatic garbage collection of unused build data."
+  },
+  "gc_min_age": {
+    "type": "string",
+    "default": "24h0m0s",
+    "description": "Minimum age of unused data before garbage collection (Go duration format)."
+  },
+  "gc_max_size": {
+    "type": "string",
+    "default": "10GB",
+    "description": "Maximum total cache size (e.g., '20GB', '100GB')."
+  },
+  "gc_policies": {
+    "type": "list",
+    "default": [],
+    "description": "Custom garbage collection policies (advanced). Each policy has a 'key' (e.g., 'ref') and 'rules' (e.g., [{key: 'ref', value: 'keep-last-5'}])."
+  }
+}

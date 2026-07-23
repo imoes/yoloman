@@ -1,0 +1,81 @@
+# arno-iptables-firewall configuration (Jinja2 template)
+# This file is sourced by /usr/sbin/iptables-firewall
+
+# Enable/disable verbose logging to syslog
+VERBOSE={{ verbose }}
+
+# Enable/disable kernel logging of dropped packets
+LOG_DROPS={{ log_drops }}
+
+# Enable/disable logging of refused connections
+LOG_REFUSED={{ log_refused }}
+
+# Syslog facility for firewall messages
+LOG_FACILITY={{ log_facility }}
+
+# Enable/disable Masquerading (NAT) for outbound traffic
+NAT={{ nat_enabled }}
+
+# Internal network(s) (space-separated, CIDR or hostnames)
+# For multi-homed setups, separate internal and external interfaces explicitly
+INTERNAL_HOSTS="{% for host in internal_hosts %}{{ host }}{% if not loop.last %} {% endif %}{% endfor %}"
+
+# External interface (WAN/uplink) — single-homed default
+EXTERNAL_IF={{ external_interface }}
+
+# Enable/disable DMZ (demilitarized zone) support
+DMZ={{ dmz_enabled }}
+
+# DMZ subnet(s) (space-separated)
+DMZ_HOSTS="{% for host in dmz_hosts %}{{ host }}{% if not loop.last %} {% endif %}{% endfor %}"
+
+# DMZ interface (required if DMZ is enabled)
+DMZ_IF={{ dmz_interface }}
+
+# Enable/disable ADSL support (PPPoE-specific optimizations)
+ADSL={{ adsl_enabled }}
+
+# PPPoE interface name (if ADSL is enabled)
+PPPOE_IF={{ pppoe_interface }}
+
+# Enable/disable TCP SYN flood protection
+SYN_FLOOD_PROTECT={{ syn_flood_protect }}
+
+# Rate limit for ICMP ping responses (packets per second)
+ICMP_PING_RATE_LIMIT={{ icmp_ping_rate_limit }}
+
+# Allowed inbound services (comma-separated list of ports or service names)
+# Example: ssh,http,https,22,80,443
+INBOUND_PORTS="{% for svc in inbound_services %}{{ svc }}{% if not loop.last %},{% endif %}{% endfor %}"
+
+# Allow inbound SSH from external? (true/false)
+ALLOW_INBOUND_SSH={{ allow_inbound_ssh }}
+
+# Allow inbound SSH only from internal network? (true/false)
+SSH_ONLY_FROM_INTERNAL={{ ssh_only_from_internal }}
+
+# Enable/disable forwarding for DMZ hosts
+FORWARD_DMZ={{ forward_dmz }}
+
+# Enable/disable forwarding between internal networks (multi-homed only)
+FORWARD_INTERNAL={{ forward_internal }}
+
+# Enable/disable logging of forwarded packets
+LOG_FORWARD={{ log_forward }}
+
+# Additional custom iptables rules (one rule per line, no comments)
+# Example: -A INPUT -p tcp --dport 8080 -j ACCEPT
+CUSTOM_RULES="{% for rule in custom_rules %}
+{{ rule }}{% endfor %}"
+
+# Enable/disable IPv6 firewall (if ip6tables available)
+IPV6={{ ipv6_enabled }}
+
+# Enable/disable stateful packet inspection (state tracking)
+STATEFUL={{ stateful }}
+
+# Enable/disable randomization of source port ranges for outbound NAT
+RANDOMIZE_OUTBOUND_PORTS={{ randomize_outbound_ports }}
+
+# DNS servers to allow inbound DNS responses (for DNS servers running locally)
+ALLOW_DNS_INBOUND={{ allow_dns_inbound }}

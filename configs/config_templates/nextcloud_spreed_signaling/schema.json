@@ -1,0 +1,118 @@
+{
+  "listen_ip": {
+    "type": "string",
+    "default": "0.0.0.0",
+    "description": "IP address of the network interface(s) to bind to (e.g., 0.0.0.0 for all, or specific IP)."
+  },
+  "port": {
+    "type": "number",
+    "default": 8080,
+    "description": "UDP/TCP STUN/TURN listening port."
+  },
+  "tls_port": {
+    "type": "number",
+    "default": 8443,
+    "description": "TLS-enabled TURN listening port."
+  },
+  "realm": {
+    "type": "string",
+    "default": "nextcloud.local",
+    "description": "STUN/TURN authentication realm (usually your Nextcloud domain)."
+  },
+  "cert_path": {
+    "type": "string",
+    "default": "/etc/ssl/turn/cert.pem",
+    "description": "Path to TLS certificate in PEM format (required for TLS)."
+  },
+  "key_path": {
+    "type": "string",
+    "default": "/etc/ssl/turn/key.pem",
+    "description": "Path to TLS private key in PEM format (required for TLS)."
+  },
+  "use_turn": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable TURN relay functionality for media traversal through NATs."
+  },
+  "use_stun": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable STUN for NAT discovery."
+  },
+  "max_bandwidth": {
+    "type": "number",
+    "default": 0,
+    "description": "Maximum bandwidth (bytes/sec) per TURN allocation. Set to 0 for unlimited."
+  },
+  "log_level": {
+    "type": "number",
+    "default": 3,
+    "description": "Logging verbosity: 0=none, 1=errors, 2=warnings, 3=info (recommended), 4=debug."
+  },
+  "anonymous_auth": {
+    "type": "bool",
+    "default": false,
+    "description": "Allow anonymous TURN access (\u26a0\ufe0f disable in production for security)."
+  },
+  "allowed_peer_ips": {
+    "type": "list",
+    "default": [],
+    "description": "List of allowed client IP ranges (CIDR notation) that may use the TURN server."
+  },
+  "allowed_origins": {
+    "type": "list",
+    "default": [],
+    "description": "List of allowed origins (e.g., https://your-nextcloud.site) for TURN REST API and CORS."
+  },
+  "turn_credentials": {
+    "type": "list",
+    "default": [],
+    "items": {
+      "username": {
+        "type": "string",
+        "description": "Username for static TURN credential (e.g., 'nextcloud-turn')."
+      },
+      "password": {
+        "type": "string",
+        "description": "Password for the TURN user. Must be strong and securely generated."
+      }
+    },
+    "description": "Static TURN credentials for Nextcloud to authenticate with the signaling server. Required unless using long-term credentials with HMAC."
+  },
+  "no_ipv6": {
+    "type": "bool",
+    "default": true,
+    "description": "Disable IPv6 support (set to false if IPv6 is available and desired)."
+  },
+  "use_tcp_relay": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable TCP relay for TURN (required in many restrictive NAT/firewall environments)."
+  },
+  "use_udp_relay": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable UDP relay for TURN (more efficient but blocked by some firewalls)."
+  },
+  "worker_threads": {
+    "type": "number",
+    "default": 2,
+    "description": "Number of worker threads. Recommended: number of CPU cores."
+  },
+  "pidfile_path": {
+    "type": "string",
+    "default": "/run/turnserver.pid",
+    "description": "Path to PID file for service management."
+  },
+  "extra_lines": {
+    "type": "list",
+    "default": [],
+    "items": {
+      "line": {
+        "type": "string",
+        "description": "Any additional unparsed configuration line to append verbatim."
+      }
+    },
+    "description": "Raw configuration lines to append at the end of the file (for advanced tuning)."
+  }
+}

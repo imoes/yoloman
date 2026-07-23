@@ -1,0 +1,128 @@
+{
+  "daemonize": {
+    "type": "bool",
+    "default": true,
+    "description": "Whether to run JupyterHub as a background daemon process."
+  },
+  "cwd": {
+    "type": "string",
+    "default": "/etc/jupyterhub",
+    "description": "Base directory for JupyterHub configuration, logs, and data files."
+  },
+  "db_url": {
+    "type": "string",
+    "default": "sqlite:///jupyterhub.sqlite",
+    "description": "Database connection string. Use SQLite for single-node deployments; PostgreSQL or MySQL for production scaling."
+  },
+  "authenticator_class": {
+    "type": "string",
+    "default": "jupyterhub.auth.PAMAuthenticator",
+    "description": "Authenticator backend class to handle user login (e.g., PAM, OAuth, LDAP, or custom)."
+  },
+  "spawner_class": {
+    "type": "string",
+    "default": "jupyterhub.spawner.LocalProcessSpawner",
+    "description": "Spawner backend to launch user servers (e.g., local process, Docker, Kubernetes)."
+  },
+  "concurrent_spawn_limit": {
+    "type": "number",
+    "default": 100,
+    "description": "Maximum number of user servers that may be spawned concurrently."
+  },
+  "db_archive_max_age": {
+    "type": "number",
+    "default": 0,
+    "description": "Maximum age (in seconds) for database entries before archiving. Set to 0 to disable."
+  },
+  "proxy_api_ip": {
+    "type": "string",
+    "default": "127.0.0.1",
+    "description": "IP address for the ConfigurableHTTPProxy's internal API."
+  },
+  "proxy_api_port": {
+    "type": "number",
+    "default": 8001,
+    "description": "Port for the ConfigurableHTTPProxy's internal API."
+  },
+  "hub_ip": {
+    "type": "string",
+    "default": "127.0.0.1",
+    "description": "IP address the Hub binds to (usually localhost or internal network)."
+  },
+  "hub_port": {
+    "type": "number",
+    "default": 8081,
+    "description": "Port the Hub binds to for internal communication."
+  },
+  "base_url": {
+    "type": "string",
+    "default": "/",
+    "description": "Public base URL path for the JupyterHub (e.g., '/hub/' or 'https://hub.example.com/')"
+  },
+  "ssl_certfile": {
+    "type": "string",
+    "default": "",
+    "description": "Path to SSL certificate file. Leave empty to disable HTTPS."
+  },
+  "ssl_keyfile": {
+    "type": "string",
+    "default": "",
+    "description": "Path to SSL private key file. Required if using SSL/TLS."
+  },
+  "idle_timeout": {
+    "type": "number",
+    "default": 0,
+    "description": "Seconds of inactivity before an idle user server is stopped. 0 = disabled."
+  },
+  "docker_image": {
+    "type": "string",
+    "default": "jupyter/base-notebook",
+    "description": "Default Docker image used to spawn single-user servers (used only if spawner supports Docker)."
+  },
+  "oauth_configs": {
+    "type": "list",
+    "default": [],
+    "items": {
+      "type": "object",
+      "description": "OAuth configuration key-value pairs (e.g., for GitHub, Google).",
+      "properties": {
+        "config_var": {
+          "type": "string",
+          "description": "Python config variable name (e.g., 'OAuthenticator.client_id')"
+        },
+        "value": {
+          "type": "string",
+          "description": "Configuration value as valid Python literal (e.g., '\"abc123\"', 'True', '[\"a\", \"b\"]')"
+        }
+      }
+    },
+    "description": "List of OAuth configuration overrides (e.g., client ID, secret, allowed domains)."
+  },
+  "services": {
+    "type": "list",
+    "default": [],
+    "items": {
+      "type": "object",
+      "description": "JupyterHub service definition (for external integrations).",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Unique service name (e.g., 'prometheus', 'cull-idle')"
+        },
+        "url": {
+          "type": "string",
+          "description": "Service base URL (e.g., 'http://localhost:9000')"
+        },
+        "admin": {
+          "type": "bool",
+          "description": "Whether this service has admin access to JupyterHub API"
+        },
+        "api_token": {
+          "type": "string",
+          "description": "API token for service authentication"
+        }
+      }
+    },
+    "description": "List of JupyterHub services to register (e.g., culling, metrics)."
+  }
+}

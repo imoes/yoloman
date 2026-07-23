@@ -1,0 +1,67 @@
+# Configuration for ldap2dns: LDAP-based DNS zone management
+# Connect to LDAP server with bind credentials and base DN
+bind_url: {{ ldap.url }}
+bind_dn: {{ ldap.bind_dn }}
+bind_password: {{ ldap.bind_password | mandatory }}
+
+# LDAP search base and filter for DNS zones and records
+base_dn: {{ ldap.base_dn }}
+zone_filter: {{ ldap.zone_filter }}
+record_filter: {{ ldap.record_filter }}
+
+# How often to refresh zones from LDAP (in seconds)
+refresh_interval: {{ refresh.interval }}
+
+# DNS server target (NSD, PowerDNS, BIND via AXFR/TSIG, etc.)
+dns_backend: {{ backend.type }}
+
+{% if backend.type == 'nsd' %}
+# NSD-specific settings
+nsd:
+  config_file: {{ backend.nsd.config_file }}
+  control_sock: {{ backend.nsd.control_sock }}
+{% elif backend.type == 'powerdns' %}
+# PowerDNS API settings
+powerdns:
+  url: {{ backend.powerdns.url }}
+  api_key: {{ backend.powerdns.api_key | mandatory }}
+  ttl: {{ backend.powerdns.ttl }}
+{% elif backend.type == 'bind' %}
+# BIND (ISC) via AXFR/TSIG settings
+bind:
+  servers:
+{% for server in backend.bind.servers %}
+    - host: {{ server.host }}
+      port: {{ server.port }}
+      tsig_key_name: {{ server.tsig_key_name }}
+      tsig_algorithm: {{ server.tsig_algorithm }}
+      tsig_secret: {{ server.tsig_secret | mandatory }}
+{% endfor %}
+  zone_dir: {{ backend.bind.zone_dir }}
+{% endif %}
+
+# Default TTL for generated records (if not specified in LDAP)
+default_ttl: {{ defaults.ttl }}
+
+# Default SOA parameters
+soa:
+  primary: {{ defaults.soa.primary }}
+  email: {{ defaults.soa.email | replace('@', '.') }}
+  refresh: {{ defaults.soa.refresh }}
+  retry: {{ defaults.soa.retry }}
+  expire: {{ defaults.soa.expire }}
+  minimum: {{ defaults.soa.minimum }}
+
+# Zone naming convention: domain -> zone mapping
+zone_naming:
+  format: {{ zone_naming.format }}
+  separator: {{ zone_naming.separator }}
+  reverse_zone_suffix: {{ zone_naming.reverse_zone_suffix }}
+
+# Logging configuration
+log:
+  level: {{ log.level }}
+  file: {{ log.file }}
+
+# Optional: dry-run mode (no changes to DNS backend)
+dry_run: {{ dry_run }}

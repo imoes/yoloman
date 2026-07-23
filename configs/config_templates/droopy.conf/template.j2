@@ -1,0 +1,62 @@
+# droopy configuration file
+# Server address to listen on (host:port)
+host: {{ host }}
+
+# TCP port to listen on
+port: {{ port }}
+
+# Directory to serve files from
+webdir: {{ webdir }}
+
+# Enable HTTPS? (requires certificate and key files)
+ssl: {{ ssl.enabled | lower }}
+
+# Path to SSL certificate file (only used if ssl is enabled)
+ssl_cert: {{ ssl.cert_path | default('') }}
+
+# Path to SSL private key file (only used if ssl is enabled)
+ssl_key: {{ ssl.key_path | default('') }}
+
+# Maximum file upload size in bytes
+max_upload_size: {{ max_upload_size }}
+
+# Enable directory listing (true/false)
+dir_listing: {{ dir_listing | lower }}
+
+# Authentication method: none, basic, digest
+auth_method: {{ auth_method }}
+
+# Basic auth credentials: list of users (format: username:password)
+{% for user in auth_users %}# {{ user.username }} ({{ user.description | default('user') }})
+auth_user_{{ loop.index }}: {{ user.username }}:{{ user.password }}
+{% endfor %}
+
+# List of allowed MIME types for upload (empty = all allowed)
+{% if allowed_mimetypes %}# Allowed MIME types (space-separated list)
+allowed_mimetypes: {% for mt in allowed_mimetypes %}{{ mt }} {% endfor %}
+{% else %}# No MIME type restrictions
+allowed_mimetypes: 
+{% endif %}
+
+# Log level: debug, info, warn, error
+log_level: {{ log_level }}
+
+# Path to log file (empty = stderr)
+log_file: {{ log_file | default('') }}
+
+# Enable CORS? (sets Access-Control-Allow-Origin: *)
+cors: {{ cors | lower }}
+
+# Custom HTML header (raw HTML, optional)
+{% if html_header %}# Custom HTML header (inserted in <head>)
+html_header: |
+{% for line in html_header.split('\n') %}  {{ line }}
+{% endfor %}
+{% endif %}
+
+# Custom HTML footer (raw HTML, optional)
+{% if html_footer %}# Custom HTML footer (inserted before </body>)
+html_footer: |
+{% for line in html_footer.split('\n') %}  {{ line }}
+{% endfor %}
+{% endif %}

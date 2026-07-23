@@ -1,0 +1,124 @@
+# rEFInd configuration file — main settings and boot options
+# https://www.rodsbooks.com/refind/
+
+# Timeout (in seconds) before automatically booting the default entry
+Timeout {{ values.timeout }}
+
+# Show advanced boot options (e.g., fallback boot, kernel options)
+ShowAdvanced {{ values.show_advanced | lower }}
+
+# Enable UI sounds (beeps for menu navigation)
+Sound {{ values.sound | lower }}
+
+# Scan for boot loaders in these directories (relative to ESP root)
+ScanFor {% for item in values.scan_for %} {{ item | upper }}{% if not loop.last %}, {% endif %}{% endfor %}
+
+# Ignore boot loaders with these UUIDs (e.g., from unwanted OS installations)
+Ignore {% for uuid in values.ignore_uuids %} {{ uuid }}{% if not loop.last %}, {% endif %}{% endfor %}
+
+# Enable UI theme (path relative to ESP root or absolute)
+{% if values.theme_path %}Theme {{ values.theme_path }}
+{% else %}# Theme not configured
+{% endif %}
+
+# Use custom icons for these file types or OS families (format: icon=<path>,<name>=<icon_file>)
+Icons {{ values.icons | join(', ') }}
+
+# Boot entries to hide from menu (by filename, label, or UUID)
+{% if values.hide_entries %}HideEntries {% for entry in values.hide_entries %}{{ entry }}{% if not loop.last %}, {% endif %}{% endfor %}
+{% else %}# No hidden entries
+{% endif %}
+
+# Default boot entry (by label, index, or UUID)
+DefaultSelection {% if values.default_selection %}{{ values.default_selection }}{% else %}%
+{% endif %}
+
+# Enable booting from internal hard disks via legacy BIOS (if supported)
+{% if values.enable_legacy_bios %}ScanFor H {{ values.enable_legacy_bios | upper }}
+{% else %}# Legacy BIOS scanning disabled
+{% endif %}
+
+# Extra kernel options to append to Linux boot entries (e.g., for secure boot or debugging)
+{% if values.extra_kernel_options %}AddOptions "{{ values.extra_kernel_options | join(' ') }}"
+{% else %}# No extra kernel options
+{% endif %}
+
+# Enable scanning for custom UEFI shell (useful for advanced troubleshooting)
+ScanFor {% if values.shell_enabled %}SH{% else %}# SH{% endif %}
+
+# Use UEFI Secure Boot with signed binaries (enables auto-validation)
+{% if values.secure_boot %}SecureBoot on
+{% else %}SecureBoot off
+{% endif %}
+
+# Filesystem drivers to load (for non-default filesystems like Btrfs, ZFS, etc.)
+{% if values.filesystem_drivers %}Drivers {% for driver in values.filesystem_drivers %}{{ driver }}{% if not loop.last %}, {% endif %}{% endfor %}
+{% else %}# No extra filesystem drivers
+{% endif %}
+
+# Enable UI font (path relative to ESP root or absolute)
+{% if values.font_path %}Font {{ values.font_path }}
+{% else %}# Font not configured
+{% endif %}
+
+# Scan for additional boot managers (e.g., GRUB) in ESP subdirs
+{% if values.scan_all %}ScanAll {% else %}# ScanAll disabled
+{% endif %}
+
+# Disable scanning for Windows boot manager (useful if Windows is unwanted)
+{% if not values.scan_windows %}# ScanFor disabled for Windows
+{% else %}ScanFor H
+{% endif %}
+
+# Disable scanning for Linux boot loaders (e.g., if using GRUB instead)
+{% if not values.scan_linux %}# ScanFor disabled for Linux
+{% else %}ScanFor C
+{% endif %}
+
+# Disable scanning for macOS boot loaders (e.g., if not installed)
+{% if not values.scan_macos %}# ScanFor disabled for macOS
+{% else %}ScanFor M
+{% endif %}
+
+# Disable scanning for UEFI network boot (PXE)
+{% if not values.scan_network %}# ScanFor disabled for network boot
+{% else %}ScanFor N
+{% endif %}
+
+# Show verbose output during boot (useful for debugging)
+ShowOptions {{ values.show_options | lower }}
+
+# Enable GUI mode (text-only if disabled)
+{% if not values.text_mode %}# Text mode enabled
+{% else %}# GUI mode enabled
+{% endif %}
+
+# Default text mode resolution (e.g., 80x25, 100x30)
+{% if values.text_resolution %}TextMode {{ values.text_resolution }}
+{% else %}# Text mode resolution not specified
+{% endif %}
+
+# Use UEFI GOP video driver instead of legacy VESA
+{% if values.use_gop_video %}UseGOPVideo on
+{% else %}# GOP video disabled
+{% endif %}
+
+# Set screen resolution (GOP mode index or WxH format, e.g., 1920x1080)
+{% if values.screen_resolution %}Resolution {{ values.screen_resolution }}
+{% else %}# Screen resolution not specified (use GOP default)
+{% endif %}
+
+# Boot entries ordering (list of labels or UUIDs to define order)
+{% if values.boot_order %}ScanOnly {{ values.boot_order | join(', ') }}
+{% else %}# Boot order not explicitly specified (auto-scan)
+{% endif %}
+
+# Custom menu items (each item is a block: label, icon, and option to boot)
+{% for item in values.custom_items %}
+# Custom boot item: {{ item.label }}
+{% if item.icon %}Icon {{ item.icon }}
+{% endif %}{{ item.label | upper }} "{{ item.options }}"
+{% endfor %}
+
+# Sample custom boot block (uncomment and edit to add persistent entries)
+# menuitem load_vmlinuz 

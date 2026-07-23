@@ -1,0 +1,62 @@
+# PokerTH Game Server configuration file
+# Path to log file (empty = stderr)
+log_file = {{ log_file }}
+
+# Path to PID file
+pid_file = {{ pid_file }}
+
+# Server port (TCP)
+server_port = {{ server_port }}
+
+# Bind address (0.0.0.0 for all interfaces)
+bind_address = "{{ bind_address }}"
+
+# Maximum number of concurrent players
+max_players = {{ max_players }}
+
+# Enable TLS/SSL
+enable_ssl = {{ 'true' if enable_ssl else 'false' }}
+
+# Path to SSL certificate file (required if enable_ssl=true)
+ssl_cert = "{{ ssl_cert }}"
+
+# Path to SSL private key file (required if enable_ssl=true)
+ssl_key = "{{ ssl_key }}"
+
+# Maximum message size in bytes
+max_message_size = {{ max_message_size }}
+
+# Time limit per hand in milliseconds
+hand_timeout = {{ hand_timeout }}
+
+# Time limit for player actions in milliseconds
+action_timeout = {{ action_timeout }}
+
+# Enable logging of player actions
+log_actions = {{ 'true' if log_actions else 'false' }}
+
+# Database backend (sqlite|mysql)
+db_backend = "{{ db_backend }}"
+
+{% for db_param in db_params %}# {{ db_param.description }}
+{{ db_param.key }} = {{ db_param.value }}
+{% endfor %}
+
+# List of banned IP addresses (CIDR notation or single IP)
+{% if banned_ips | length > 0 %}# Banned IPs
+{% for ip in banned_ips %}banned_ip = "{{ ip }}"
+{% endfor %}{% endif %}
+
+# Admin users (username:sha256(password))
+{% if admin_users | length > 0 %}# Admins
+{% for admin in admin_users %}admin = {{ admin.username }}:{{ admin.password_hash }}
+{% endfor %}{% endif %}
+
+# Server name (displayed to clients)
+server_name = "{{ server_name }}"
+
+# Server location (e.g., US, EU, Asia)
+server_location = "{{ server_location }}"
+
+# Enable server listing on public server list
+public_listing = {{ 'true' if public_listing else 'false' }}

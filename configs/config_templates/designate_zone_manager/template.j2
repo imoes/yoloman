@@ -1,0 +1,199 @@
+[DEFAULT]
+# Enable debug logging (true/false)
+log_debug = {{ log_debug }}
+
+# Log file path (empty = stdout)
+log_file = {{ log_file }}
+
+# Maximum number of log files to rotate
+log_max_bytes = {{ log_max_bytes }}
+
+# Number of backups to keep
+log_backup_count = {{ log_backup_count }}
+
+# Logging level
+log_level = {{ log_level }}
+
+# Bind address for the service
+bind_host = {{ bind_host }}
+
+# Port for the service to listen on
+bind_port = {{ bind_port }}
+
+# Number of worker processes
+workers = {{ workers }}
+
+# RPC backend transport (e.g., 'rabbit', 'kombu')
+transport_url = {{ transport_url }}
+
+# Authentication strategy (e.g., 'keystone', 'noauth')
+auth_strategy = {{ auth_strategy }}
+
+# Path to the configuration file used to authenticate with keystone
+keystone_auth_uri = {{ keystone_auth_uri }}
+
+# Keyston auth URL (for token validation)
+keystone_auth_url = {{ keystone_auth_url }}
+
+# Region name for keystone
+keystone_region_name = {{ keystone_region_name }}
+
+# Username for service auth (if using static credentials)
+keystone_username = {{ keystone_username }}
+
+# Password for service auth
+keystone_password = {{ keystone_password }}
+
+# Project name for service auth
+keystone_project_name = {{ keystone_project_name }}
+
+# Domain name for service auth
+keystone_user_domain_name = {{ keystone_user_domain_name }}
+
+# Domain name for project
+keystone_project_domain_name = {{ keystone_project_domain_name }}
+
+# Path to SSL certificate
+ssl_cert_file = {{ ssl_cert_file }}
+
+# Path to SSL private key
+ssl_key_file = {{ ssl_key_file }}
+
+# Enable SSL/TLS
+enable_ssl = {{ enable_ssl }}
+
+[service:main]
+# Enable service endpoint (true/false)
+enabled = {{ enabled }}
+
+# API prefix (e.g., /dns or empty for no prefix)
+api_base_uri = {{ api_base_uri }}
+
+# Maximum allowed zone name length
+max_zone_name_len = {{ max_zone_name_len }}
+
+# Maximum recordset name length
+max_recordset_name_len = {{ max_recordset_name_len }}
+
+[storage:sql]
+# SQLAlchemy connection string
+connection = {{ storage_sql_connection }}
+
+# Pool size for connections
+connection_recycle_time = {{ storage_sql_connection_recycle_time }}
+
+# Pool size (number of connections)
+pool_size = {{ storage_sql_pool_size }}
+
+# Max overflow in pool
+pool_max_overflow = {{ storage_sql_pool_max_overflow }}
+
+[zone_file]
+# Directory for zone files (if using file-based backend)
+dir = {{ zone_file_dir }}
+
+# Format for zone files (e.g., bind, tinydns)
+format = {{ zone_file_format }}
+
+# TTL for SOA minimum field (seconds)
+soa_ttl = {{ soa_ttl }}
+
+# TTL for NS records
+ns_ttl = {{ ns_ttl }}
+
+# Email for SOA (use @ for domain placeholder)
+soa_email = {{ soa_email }}
+
+# Refresh interval (seconds)
+soa_refresh = {{ soa_refresh }}
+
+# Retry interval (seconds)
+soa_retry = {{ soa_retry }}
+
+# Expire time (seconds)
+soa_expire = {{ soa_expire }}
+
+# Default TTL for records without explicit TTL
+default_rrset_ttl = {{ default_rrset_ttl }}
+
+# Default SOA serial number offset
+soa_serial_offset = {{ soa_serial_offset }}
+
+[agent]
+# Enable agent mode (true/false)
+enabled = {{ agent_enabled }}
+
+# RPC queue name for agent messages
+rpc_queue = {{ agent_rpc_queue }}
+
+# Zone action queue name
+zone_action_queue = {{ agent_zone_action_queue }}
+
+# Number of zone actions to process per cycle
+actions_per_cycle = {{ agent_actions_per_cycle }}
+
+# Delay between polling cycles (seconds)
+poll_interval = {{ agent_poll_interval }}
+
+# Maximum zone actions to queue before dropping
+max_queue_length = {{ agent_max_queue_length }}
+
+# Timeout for RPC calls (seconds)
+rpc_timeout = {{ agent_rpc_timeout }}
+
+[service:worker]
+# Enable worker mode (true/false)
+enabled = {{ worker_enabled }}
+
+# Number of worker threads
+workers = {{ worker_num_workers }}
+
+# RPC queue name
+rpc_queue = {{ worker_rpc_queue }}
+
+[service:api]
+# Enable API (true/false)
+enabled = {{ api_enabled }}
+
+# API bind host
+bind_host = {{ api_bind_host }}
+
+# API bind port
+bind_port = {{ api_bind_port }}
+
+# API root URI
+api_base_uri = {{ api_base_uri }}
+
+# Maximum request body size (bytes)
+max_request_body_size = {{ api_max_request_body_size }}
+
+# Enable CORS (true/false)
+enable_cors = {{ api_enable_cors }}
+
+# Allowed origins for CORS (comma-separated list)
+cors_allowed_origins = {{ api_cors_allowed_origins | join(', ') }}
+
+# Enforce SSL (true/false)
+enforce_ssl = {{ api_enforce_ssl }}
+
+# Enable secure cookies (true/false)
+secure_proxy_ssl_header = {{ api_secure_proxy_ssl_header }}
+
+# Rate limiting (requests per second)
+rate_limit = {{ api_rate_limit }}
+
+# Rate limit burst
+rate_limit_burst = {{ api_rate_limit_burst }}
+
+# Timeout for API requests (seconds)
+rpc_timeout = {{ api_rpc_timeout }}
+
+[service:worker]
+# Enable zone transfers (AXFR/IXFR) (true/false)
+enable_zone_transfer = {{ zone_transfer_enabled }}
+
+# Secondary servers allowed for zone transfers
+axfr_secondary_ips = {{ axfr_secondary_ips | join(', ') }}
+
+# Zone transfer timeout (seconds)
+zone_transfer_timeout = {{ zone_transfer_timeout }}

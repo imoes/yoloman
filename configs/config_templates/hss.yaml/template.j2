@@ -1,0 +1,56 @@
+# HSS (Home Subscriber Server) configuration for NextEPC
+# Root logging configuration
+logging:
+  level: {{ log_level }}
+  file: {{ log_file }}
+
+# HSS database settings
+# Database connection parameters
+mongodb:
+  host: {{ mongodb_host }}
+  port: {{ mongodb_port }}
+  name: {{ mongodb_name }}
+  username: {{ mongodb_username }}
+  password: {{ mongodb_password }}
+
+# HSS identity and realm
+# Operator identity and realm configuration
+hss:
+  realm: {{ hss_realm }}
+  fqdn: {{ hss_fqdn }}
+  cc: {{ hss_cc }}
+  mnc: {{ hss_mnc }}
+
+# S6a interface configuration
+# S6a (Diameter) server settings for MME interaction
+s6a:
+  listen_addr: {{ s6a_listen_addr }}
+  listen_port: {{ s6a_listen_port }}
+  # Optional: disable TLS (default: false)
+  tls_enabled: {{ s6a_tls_enabled }}
+  tls_cert: {{ s6a_tls_cert }}
+  tls_key: {{ s6a_tls_key }}
+  tls_ca: {{ s6a_tls_ca }}
+  # Peer configuration (MMEs, etc.)
+  peers:
+{% for peer in s6a_peers %}    - name: {{ peer.name }}
+      hostname: {{ peer.hostname }}
+      dest_host: {{ peer.dest_host }}
+      dest_realm: {{ peer.dest_realm }}
+{% endfor %}
+
+# Subscription and service settings
+# Default subscription limits and features
+subscriptions:
+  max_subscriptions_per_imsi: {{ max_subscriptions_per_imsi }}
+  default_apn: {{ default_apn }}
+  default_qci: {{ default_qci }}
+  default_ambr_uplink_mbps: {{ default_ambr_uplink_mbps }}
+  default_ambr_downlink_mbps: {{ default_ambr_downlink_mbps }}
+
+# Optional: enable periodic subscription updates (e.g., SDR)
+  enable_sdr: {{ enable_sdr }}
+  sdr_interval_sec: {{ sdr_interval_sec }}
+
+# Optional: enable HSS to send ULR/ULA on subscriber registration
+  send_ulr_on_registration: {{ send_ulr_on_registration }}

@@ -1,0 +1,125 @@
+{
+  "router_id": {
+    "type": "string",
+    "default": "127.0.0.1",
+    "description": "Router ID for BIRD (must be an IPv4 address, typically loopback)."
+  },
+  "static_routes": {
+    "type": "list",
+    "default": [],
+    "items": {
+      "type": "object",
+      "properties": {
+        "prefix": {
+          "type": "string",
+          "description": "IPv4 prefix in CIDR notation (e.g., 192.0.2.0/24)."
+        },
+        "gateway": {
+          "type": "string",
+          "description": "Next-hop IPv4 address for the static route."
+        }
+      },
+      "required": [
+        "prefix",
+        "gateway"
+      ]
+    },
+    "description": "List of static IPv4 routes to inject into BIRD."
+  },
+  "bgp_peers": {
+    "type": "list",
+    "default": [],
+    "items": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "default": "",
+          "description": "Optional BGP protocol name (auto-generated if omitted)."
+        },
+        "ip": {
+          "type": "string",
+          "description": "IP address of BGP peer."
+        },
+        "local_as": {
+          "type": "number",
+          "description": "Local AS number."
+        },
+        "remote_as": {
+          "type": "number",
+          "description": "Remote AS number of the peer."
+        },
+        "description": {
+          "type": "string",
+          "default": "",
+          "description": "Human-readable description for this peer."
+        },
+        "in_prefix_filter": {
+          "type": "list",
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "description": "List of IPv4 prefixes allowed for import (e.g., [0.0.0.0/0])."
+        },
+        "out_prefix_filter": {
+          "type": "list",
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "description": "List of IPv4 prefixes allowed for export."
+        }
+      },
+      "required": [
+        "ip",
+        "local_as",
+        "remote_as"
+      ]
+    },
+    "description": "List of BGP peer sessions to configure."
+  },
+  "enable_ospf": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable OSPFv2 protocol instance (optional)."
+  },
+  "ospf_instance_name": {
+    "type": "string",
+    "default": "ospf1",
+    "description": "Name of the OSPF instance (ignored unless enable_ospf=true)."
+  },
+  "ospf_area_id": {
+    "type": "string",
+    "default": "0.0.0.0",
+    "description": "OSPF area ID (numeric or dotted decimal, e.g., '0.0.0.0')."
+  },
+  "ospf_interface": {
+    "type": "string",
+    "default": "eth0",
+    "description": "Interface name to run OSPF on."
+  },
+  "ospf_cost": {
+    "type": "number",
+    "default": 10,
+    "description": "OSPF interface cost."
+  },
+  "bgp_rr_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable BGP route reflection (for RR clients)."
+  },
+  "bgp_rr_name": {
+    "type": "string",
+    "default": "rr",
+    "description": "Name for the route reflector BGP protocol."
+  },
+  "bgp_rr_local_as": {
+    "type": "number",
+    "description": "Local AS number for the route reflector."
+  },
+  "bgp_rr_cluster_id": {
+    "type": "string",
+    "description": "Cluster ID for BGP route reflection (IPv4 format)."
+  }
+}

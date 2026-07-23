@@ -1,0 +1,130 @@
+# Graphite-Web Django settings (for /etc/graphite/webapp.conf)
+# See https://graphite.readthedocs.io/en/latest/config-webapp.html
+
+# Debug mode: set to True only for development
+{% if debug %}DEBUG = True{% else %}DEBUG = False{% endif %}
+
+# Enable or disable the login form (anonymous read-only access if False)
+{# 'allow_anonymous_view' controls anonymous read-only access; login_required forces auth #}
+ALLOW_ANONYMOUS_VIEW = {{ allow_anonymous_view }}
+
+# Force login for all views (overrides ALLOW_ANONYMOUS_VIEW)
+LOGIN_REQUIRED = {{ login_required }}
+
+# Time zone for UI and graph generation (Django format)
+TIME_ZONE = '{{ timezone }}'
+
+# Language code for UI localization
+LANGUAGE_CODE = '{{ language_code }}'
+
+# Secret key for Django — *must* be changed in production
+SECRET_KEY = '{{ secret_key }}'
+
+# Database configuration — default is SQLite
+DATABASES = {
+    'default': {
+        'ENGINE': 'django.db.backends.{{ db_engine }}',
+        'NAME': '{{ db_name }}',
+        {% if db_engine == 'postgresql' or db_engine == 'mysql' %}
+        'USER': '{{ db_user }}',
+        'PASSWORD': '{{ db_password }}',
+        'HOST': '{{ db_host }}',
+        'PORT': '{{ db_port }}',
+        {% endif %}
+        # SQLite uses local file; PostgreSQL/MySQL need credentials above
+    }
+}
+
+# Cache configuration (default: local memory cache)
+CACHES = {
+    'default': {
+        'BACKEND': 'django.core.cache.backends.{{ cache_backend }}',
+        'LOCATION': '{{ cache_location }}',
+        {% if cache_backend == 'filebased' %}
+        'TIMEOUT': {{ cache_timeout }},
+        {% endif %}
+    }
+}
+
+# Authentication backends
+AUTHENTICATION_BACKENDS = [
+    {% for backend in auth_backends %}
+    '{{ backend }}',
+    {% endfor %}
+]
+
+# LDAP settings (if using LDAPAuthBackend)
+{% if ldap_enabled %}
+import ldap
+from django_auth_ldap.config import LDAPSearch, GroupOfNamesType
+
+AUTH_LDAP_SERVER_URI = '{{ ldap_server_uri }}'
+AUTH_LDAP_BIND_DN = '{{ ldap_bind_dn }}'
+AUTH_LDAP_BIND_PASSWORD = '{{ ldap_bind_password }}'
+AUTH_LDAP_USER_SEARCH = LDAPSearch(
+    '{{ ldap_user_base_dn }}',
+    ldap.SCOPE_SUBTREE,
+    '(&({{ ldap_user_obj_class }}={{ ldap_user_cn_attr }})(uid={{ ldap_user_uid_attr }}))'
+)
+AUTH_LDAP_USER_ATTR_MAP = {
+    'first_name': '{{ ldap_user_first_name_attr }}',
+    'last_name': '{{ ldap_user_last_name_attr }}',
+    'email': '{{ ldap_user_email_attr }}',
+}
+AUTH_LDAP_GROUP_SEARCH = LDAPSearch(
+    '{{ ldap_group_base_dn }}',
+    ldap.SCOPE_SUBTREE,
+    '(objectClass={{ ldap_group_obj_class }})'
+)
+AUTH_LDAP_GROUP_TYPE = GroupOfNamesType()
+AUTH_LDAP_USER_FLAGS_BY_GROUP = {
+    'is_staff': '{{ ldap_staff_group }}',
+    'is_superuser': '{{ ldap_superuser_group }}',
+}
+{% endif %}
+
+# Email configuration (for notifications, e.g., alerting)
+EMAIL_BACKEND = '{{ email_backend }}'
+EMAIL_HOST = '{{ email_host }}'
+EMAIL_PORT = {{ email_port }}
+EMAIL_HOST_USER = '{{ email_host_user }}'
+EMAIL_HOST_PASSWORD = '{{ email_host_password }}'
+EMAIL_USE_TLS = {{ email_use_tls }}
+DEFAULT_FROM_EMAIL = '{{ default_from_email }}'
+
+# Graphite storage backend ( Whisper, Ceres, etc.)
+# Carbon host and port for metric ingestion (default: local)
+GRAPHITE_UI_CONFIG = {
+    'carbon': {
+        'host': '{{ carbon_host }}',
+        'port': {{ carbon_port }},
+    }
+}
+
+# Storage directory for local Whisper data (if not using remote storage)
+STORAGE_DIR = '{{ storage_dir }}'
+
+# Web UI timeouts and limits
+MAX_RETENTION = {{ max_retention }}
+MIN_RETENTION = {{ min_retention }}
+MAX_VALUES_PER_METRIC = {{ max_values_per_metric }}
+
+# Allow remote graphing of local metrics (e.g., from remote dashboards)
+ALLOW_PRIVATE_IPS = {{ allow_private_ips }}
+
+# Logging verbosity
+LOG_RENDERING_PERFORMANCE = {{ log_rendering_performance }}
+LOG_CACHE_PERFORMANCE = {{ log_cache_performance }}
+LOG_METRICS = {{ log_metrics }}
+
+# Optional: enable CSRF cookie security (recommended for production)
+{% if enable_csrf_cookie_secure %}CSRF_COOKIE_SECURE = True{% else %}CSRF_COOKIE_SECURE = False{% endif %}
+{% if enable_session_cookie_secure %}SESSION_COOKIE_SECURE = True{% else %}SESSION_COOKIE_SECURE = False{% endif %}
+
+# Optional: enable secure headers
+SECURE_HSTS_SECONDS = {{ secure_hsts_seconds }}
+SECURE_CONTENT_TYPE_NOSNIFF = {{ secure_content_type_nosniff }}
+SECURE_BROWSER_XSS_FILTER = {{ secure_browser_xss_filter }}
+
+# Optional: custom URL prefix (if behind proxy with prefix)
+{% if url_prefix %}URL_PREFIX = '{{ url_prefix }}'{% endif %}

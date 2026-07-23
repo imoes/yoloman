@@ -1,0 +1,68 @@
+{
+  "listen_port": {
+    "type": "number",
+    "default": 1130,
+    "description": "TCP port on which comsatd listens for incoming mail notifications."
+  },
+  "bind_host": {
+    "type": "string",
+    "default": "127.0.0.1",
+    "description": "Network address to bind the service to (IPv4 or IPv6)."
+  },
+  "enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Whether the comsatd service is active."
+  },
+  "max_connections": {
+    "type": "number",
+    "default": 100,
+    "description": "Maximum number of simultaneous client connections allowed."
+  },
+  "mail_spool_dir": {
+    "type": "string",
+    "default": "/var/spool/mail",
+    "description": "Directory containing user mailboxes (e.g., /var/spool/mail or /var/mail)."
+  },
+  "exec_cmd": {
+    "type": "string",
+    "default": "/usr/bin/mailnotify %s",
+    "description": "Shell command template to invoke when new mail arrives. '%s' is replaced with the recipient username."
+  },
+  "allowed_senders": {
+    "type": "list",
+    "default": [],
+    "description": "List of permitted sender domains (e.g., ['example.com', 'myorg.org']). Leave empty to accept mail from any sender.",
+    "items": {
+      "type": "string"
+    }
+  },
+  "user_overrides": {
+    "type": "list",
+    "default": [],
+    "description": "Per-user command overrides. Each entry specifies a user and a custom exec_cmd for them.",
+    "items": {
+      "type": "object",
+      "fields": {
+        "user": {
+          "type": "string",
+          "description": "Username for which to override the command."
+        },
+        "exec_cmd": {
+          "type": "string",
+          "description": "Custom command template for this user."
+        }
+      }
+    }
+  },
+  "log_level": {
+    "type": "number",
+    "default": 1,
+    "description": "Logging verbosity: 0=error, 1=warn, 2=info, 3=debug."
+  },
+  "log_file": {
+    "type": "string",
+    "default": "/var/log/mailutils/comsatd.log",
+    "description": "Path to the service log file."
+  }
+}

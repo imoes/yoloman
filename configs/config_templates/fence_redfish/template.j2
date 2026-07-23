@@ -1,0 +1,53 @@
+# Redfish fence agent configuration
+# This file defines connection parameters for Redfish-enabled hardware
+# used by the fence_redfish agent in a Red Hat cluster environment.
+
+# Global defaults (can be overridden per host)
+[defaults]
+# Base URL for the Redfish service (e.g., https://bmc.example.com)
+baseurl = {{ defaults.baseurl }}
+
+# Username for Redfish authentication
+login = {{ defaults.login }}
+
+# Password for Redfish authentication (use secrets manager in production; here for compatibility)
+password = {{ defaults.password }}
+
+# SSH identity file (if using key-based auth via SSH tunnel fallback; optional)
+identity_file = {{ defaults.identity_file | default('') }}
+
+# Power operation timeout (seconds)
+login_timeout = {{ defaults.login_timeout }}
+
+# Connection retry limit
+retries = {{ defaults.retries }}
+
+# Delay between retries (seconds)
+retry_wait = {{ defaults.retry_wait }}
+
+# Whether to skip SSL certificate verification (not recommended for production)
+# Set to 'on' to disable verification, 'off' or omit for strict validation
+ssl_verify = {{ 'on' if defaults.ssl_verify == false else 'off' }}
+
+# Optional: Use secure token (e.g., from token auth or SSH proxy)
+use_token = {{ 'on' if defaults.use_token else 'off' }}
+
+# Per-host overrides: each [hostname] section overrides global defaults
+# Hostnames are typically the same as in the cluster node list
+{% for host in hosts %}[{{ host.name }}]
+# Redfish base URL for {{ host.name }}
+baseurl = {{ host.baseurl }}
+
+# Credentials (if different from global)
+login = {{ host.login | default(defaults.login) }}
+password = {{ host.password | default(defaults.password) }}
+
+# Optional per-host overrides
+# (Only non-default values need to be specified; omitted values inherit from [defaults])
+{% if host.identity_file %}identity_file = {{ host.identity_file }}{% endif %}
+{% if host.login_timeout is defined and host.login_timeout != defaults.login_timeout %}login_timeout = {{ host.login_timeout }}{% endif %}
+{% if host.retries is defined and host.retries != defaults.retries %}retries = {{ host.retries }}{% endif %}
+{% if host.retry_wait is defined and host.retry_wait != defaults.retry_wait %}retry_wait = {{ host.retry_wait }}{% endif %}
+{% if host.ssl_verify is defined and host.ssl_verify != defaults.ssl_verify %}ssl_verify = {{ 'on' if host.ssl_verify == false else 'off' }}{% endif %}
+{% if host.use_token is defined and host.use_token != defaults.use_token %}use_token = {{ 'on' if host.use_token else 'off' }}{% endif %}
+{% endfor %}

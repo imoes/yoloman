@@ -1,0 +1,119 @@
+# Default iSCSI session settings
+# Controls whether to start discovery sessions automatically
+{% if node discovery_start == 'true' %}
+discovery.startup = automatic
+{% else %}
+discovery.startup = manual
+{% endif %}
+
+# Default iSCSI login timeout (in seconds)
+timeout.login_timeout = {{ timeout_login_timeout }}
+
+# Default iSCSI logout timeout (in seconds)
+timeout.logout_timeout = {{ timeout_logout_timeout }}
+
+# Default iSCSI authentication retry limit
+auth.retry = {{ auth_retry }}
+
+# Default iSCSI CHAP algorithm (for mutual authentication)
+{% if discovery_auth_method == 'CHAP' %}
+discovery.auth.method = CHAP
+discovery.auth.username = {{ discovery_auth_username }}
+discovery.auth.password = {{ discovery_auth_password }}
+discovery.auth.username_in = {{ discovery_auth_username_in }}
+discovery.auth.password_in = {{ discovery_auth_password_in }}
+{% elif discovery_auth_method == 'Mutual CHAP' %}
+discovery.auth.method = Mutual CHAP
+discovery.auth.username = {{ discovery_auth_username }}
+discovery.auth.password = {{ discovery_auth_password }}
+discovery.auth.username_in = {{ discovery_auth_username_in }}
+discovery.auth.password_in = {{ discovery_auth_password_in }}
+{% else %}
+discovery.auth.method = None
+{% endif %}
+
+# Default iSCSI CHAP settings for discovered targets
+{% for target in targets %}
+# CHAP credentials for {{ target.name | default(target.portal + ':' + target.port|string) }}
+{% if target.chap.enabled %}
+{{ target.name | default(target.portal + ':' + target.port|string) }}.auth.authmethod = {{ target.chap.method }}
+{{ target.name | default(target.portal + ':' + target.port|string) }}.auth.username = {{ target.chap.username }}
+{{ target.name | default(target.portal + ':' + target.port|string) }}.auth.password = {{ target.chap.password }}
+{% if target.chap.method == 'Mutual CHAP' %}
+{{ target.name | default(target.portal + ':' + target.port|string) }}.auth.username_in = {{ target.chap.username_in }}
+{{ target.name | default(target.portal + ':' + target.port|string) }}.auth.password_in = {{ target.chap.password_in }}
+{% endif %}
+{% else %}
+{{ target.name | default(target.portal + ':' + target.port|string) }}.auth.authmethod = None
+{% endif %}
+{% endfor %}
+
+# Default iSCSI network interface to bind (empty = auto-select)
+iface.transport_name = {{ iface_transport_name }}
+
+# Default iSCSI interface IP (empty = use default routing)
+{% if iface_ip %}
+iface.ipaddress = {{ iface_ip }}
+{% endif %}
+
+# Default iSCSI interface hardware address (optional, e.g., 'eth0')
+{% if iface_hwaddress %}
+iface.hwaddress = {{ iface_hwaddress }}
+{% endif %}
+
+# Default iSCSI interface netdev name (optional, e.g., 'ib0')
+{% if iface_netdev %}
+iface.netdev = {{ iface_netdev }}
+{% endif %}
+
+# Default iSCSI interface header digest setting
+{% if iface_header_digest == 'CRC32C' %}
+iface header digest = CRC32C
+{% elif iface_header_digest == 'NONE' %}
+iface header digest = None
+{% else %}
+iface header digest = CRC32C,None
+{% endif %}
+
+# Default iSCSI data digest setting
+{% if iface_data_digest == 'CRC32C' %}
+iface data digest = CRC32C
+{% elif iface_data_digest == 'NONE' %}
+iface data digest = None
+{% else %}
+iface data digest = None
+{% endif %}
+
+# Default iSCSI max connections per session
+{% if session_max_connections is defined %}
+node.session.max_connections = {{ session_max_connections }}
+{% endif %}
+
+# Default iSCSI initial login retry count
+node.session.initial_login_retry_max = {{ node_session_initial_login_retry_max }}
+
+# Default iSCSI timeout for commands
+node.session.cmds_max = {{ node_session_cmds_max }}
+
+# Default iSCSI queue depth per LUN
+node.conn.max_xmit_data_length = {{ node_conn_max_xmit_data_length }}
+
+# Default iSCSI max receive data segment length
+node.conn.max_recv_data_length = {{ node_conn_max_recv_data_length }}
+
+# Default iSCSI offload mode (true = use HW iSCSI offload)
+{% if iscsi_offload == true %}
+node.conn.iscsi_offload = true
+{% else %}
+node.conn.iscsi_offload = false
+{% endif %}
+
+# Default iSCSI error recovery settings
+node.session.err_timeo.abort_timeout = {{ node_session_err_timeo_abort_timeout }}
+node.session.err_timeo.reset_timeout = {{ node_session_err_timeo_reset_timeout }}
+
+# Default iSCSI fast io fail timeout (in seconds)
+node.session.err_timeo.fast_io_fail_timeout = {{ node_session_err_timeo_fast_io_fail_timeout }}
+
+# Default iSCSI recovery delay (in seconds)
+node.session.recovery_tmo = {{ node_session_recovery_tmo }}

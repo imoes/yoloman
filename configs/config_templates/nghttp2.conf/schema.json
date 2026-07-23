@@ -1,0 +1,241 @@
+{
+  "backends": {
+    "type": "list",
+    "default": [],
+    "description": "List of upstream backend servers in 'host:port' format (HTTP or HTTPS)",
+    "items": {
+      "type": "string",
+      "description": "Backend server address, e.g., '127.0.0.1:8080' or 'backend.local:443'"
+    }
+  },
+  "max_concurrent_streams": {
+    "type": "number",
+    "default": 100,
+    "description": "Maximum number of concurrent HTTP/2 streams per upstream connection"
+  },
+  "connect_timeout": {
+    "type": "number",
+    "default": 5000,
+    "description": "Timeout (in milliseconds) for establishing a connection to an upstream backend"
+  },
+  "idle_timeout": {
+    "type": "number",
+    "default": 30000,
+    "description": "Idle timeout (in milliseconds) for upstream connections"
+  },
+  "tls": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable TLS (HTTPS) for connections to upstream backends"
+  },
+  "tls_ca_cert": {
+    "type": "string",
+    "default": "",
+    "description": "Path to CA certificate for validating upstream TLS; leave empty to use system store"
+  },
+  "tls_client_cert": {
+    "type": "string",
+    "default": "",
+    "description": "Path to client certificate for mutual TLS authentication to upstream backends"
+  },
+  "tls_client_key": {
+    "type": "string",
+    "default": "",
+    "description": "Path to private key for client certificate (used with mutual TLS)"
+  },
+  "mutual_tls": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable mutual TLS (client certificate authentication) with upstream backends"
+  },
+  "tls_verify_hostname": {
+    "type": "bool",
+    "default": true,
+    "description": "Verify that upstream TLS certificate matches its hostname (SNI)"
+  },
+  "fallback": {
+    "type": "bool",
+    "default": true,
+    "description": "Fall back to HTTP/1.1 if HTTP/2 negotiation with upstream fails"
+  },
+  "retry_on_failure": {
+    "type": "bool",
+    "default": true,
+    "description": "Retry failed requests (only safe for idempotent methods like GET, HEAD, PUT, DELETE)"
+  },
+  "retry_count": {
+    "type": "number",
+    "default": 3,
+    "description": "Maximum number of retries per failed request"
+  },
+  "retry_interval": {
+    "type": "number",
+    "default": 500,
+    "description": "Delay between retries (in milliseconds)"
+  },
+  "retry_on_status": {
+    "type": "string",
+    "default": "502,503,504",
+    "description": "Comma-separated list of HTTP status codes that trigger a retry"
+  },
+  "fronted.listen": {
+    "type": "string",
+    "default": "",
+    "description": "IP address or hostname to bind the front-facing listener (e.g., '0.0.0.0'); leave empty to use '::' or '0.0.0.0' depending on family"
+  },
+  "fronted.port": {
+    "type": "number",
+    "default": 8443,
+    "description": "Port number for the front-facing listener"
+  },
+  "fronted.server_cert": {
+    "type": "string",
+    "default": "/etc/nghttp2/server.crt",
+    "description": "Path to server TLS certificate for the front-facing listener"
+  },
+  "fronted.server_private_key": {
+    "type": "string",
+    "default": "/etc/nghttp2/server.key",
+    "description": "Path to server private key for TLS"
+  },
+  "fronted.tls": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable TLS on the front-facing listener (required for HTTP/2)"
+  },
+  "fronted.tls_min_version": {
+    "type": "string",
+    "default": "1.2",
+    "description": "Minimum TLS version to accept (e.g., '1.2' or '1.3')"
+  },
+  "fronted.ciphers": {
+    "type": "string",
+    "default": "ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384",
+    "description": "TLS cipher suites in OpenSSL format (colon-separated), ordered by preference"
+  },
+  "fronted.alpn": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable ALPN negotiation to support HTTP/2 over TLS"
+  },
+  "fronted.client_max_concurrent_streams": {
+    "type": "number",
+    "default": 100,
+    "description": "Maximum number of concurrent HTTP/2 streams per client connection"
+  },
+  "fronted.request_header_buffer_size": {
+    "type": "number",
+    "default": 8192,
+    "description": "Initial buffer size for incoming request headers (in bytes)"
+  },
+  "fronted.max_request_header_size": {
+    "type": "number",
+    "default": 65536,
+    "description": "Maximum total size of request headers allowed (in bytes)"
+  },
+  "fronted.proxy_protocol": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable HAProxy PROXY protocol on front-facing listener (for preserving client IP)"
+  },
+  "fronted.http1_upgrade": {
+    "type": "bool",
+    "default": true,
+    "description": "Allow HTTP/1.1 clients to upgrade to HTTP/2 via TLS ALPN or HTTP Upgrade"
+  },
+  "fronted.access_log": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable logging of successful requests"
+  },
+  "fronted.access_log_path": {
+    "type": "string",
+    "default": "/var/log/nghttp2/access.log",
+    "description": "Path to access log file"
+  },
+  "fronted.access_log_format": {
+    "type": "string",
+    "default": "",
+    "description": "Optional custom access log format; leave empty to use combined format"
+  },
+  "fronted.error_log": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable logging of errors and warnings"
+  },
+  "fronted.error_log_path": {
+    "type": "string",
+    "default": "/var/log/nghttp2/error.log",
+    "description": "Path to error log file"
+  },
+  "fronted.log_level": {
+    "type": "string",
+    "default": "WARN",
+    "description": "Minimum log level: 'DEBUG', 'INFO', 'WARN', 'ERROR', or 'OFF'"
+  },
+  "workers": {
+    "type": "number",
+    "default": 4,
+    "description": "Number of worker threads to spawn"
+  },
+  "daemon": {
+    "type": "bool",
+    "default": false,
+    "description": "Run nghttp2 as a background daemon process"
+  },
+  "daemon_pid_file": {
+    "type": "string",
+    "default": "/run/nghttp2/nghttp2.pid",
+    "description": "Path to PID file when running in daemon mode"
+  },
+  "daemon_user": {
+    "type": "string",
+    "default": "nghttp2",
+    "description": "User account to drop privileges to after binding to privileged ports"
+  },
+  "daemon_group": {
+    "type": "string",
+    "default": "nghttp2",
+    "description": "Group to drop privileges to after binding to privileged ports"
+  },
+  "strict_frame_size": {
+    "type": "bool",
+    "default": true,
+    "description": "Enforce strict RFC-compliant HTTP/2 frame size limits (default: 16 MiB)"
+  },
+  "server_push": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable HTTP/2 server push (experimental and generally discouraged)"
+  },
+  "fronted.ocsp_stapling": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable OCSP stapling for enhanced TLS certificate validation"
+  },
+  "fronted.ocsp_responder_cert": {
+    "type": "string",
+    "default": "",
+    "description": "Path to certificate for OCSP responder (if using a non-system CA)"
+  },
+  "fronted.hpkp": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable HTTP Public Key Pinning (HPKP) headers; strongly discouraged for new deployments"
+  },
+  "fronted.hsts": {
+    "type": "number",
+    "default": 31536000,
+    "description": "HSTS max-age in seconds (0 to disable)"
+  },
+  "fronted.hsts_include_subdomains": {
+    "type": "bool",
+    "default": true,
+    "description": "Include subdomains in HSTS policy"
+  },
+  "fronted.hsts_preload": {
+    "type": "bool",
+    "default": false,
+    "description": "Add 'preload' directive to HSTS header (required for browser preload lists)"
+  }
+}

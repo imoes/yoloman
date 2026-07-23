@@ -1,0 +1,65 @@
+{
+  "chroot_path": "/home/sftp",
+  "enable_acl": true,
+  "umask": "027",
+  "max_sessions": 20,
+  "log_level": "NOTICE",
+  "log_path": "/var/log/mysecureshell.log",
+  "listen_address": "192.168.1.10",
+  "port": 2222,
+  "use_pam": true,
+  "use_tls": true,
+  "tls_cert_file": "/etc/mysecureshell/tls/sftp.example.com.crt",
+  "tls_key_file": "/etc/mysecureshell/tls/sftp.example.com.key",
+  "virtual_users": [
+    {
+      "name": "alice",
+      "password_hash": "{SHA512}$6$rounds=5000$salt$hashed",
+      "chroot_path": "alice",
+      "shell": "/bin/false",
+      "permissions": "RWL",
+      "max_upload_size": 1024,
+      "ip_whitelist": [
+        "192.168.1.0/24"
+      ]
+    },
+    {
+      "name": "bob",
+      "password_hash": "",
+      "chroot_path": "bob",
+      "shell": "/bin/false",
+      "permissions": "RL",
+      "max_upload_size": 0,
+      "ip_whitelist": []
+    }
+  ],
+  "directory_acls": [
+    {
+      "description": "Allow alice to read/write logs directory",
+      "path": "logs",
+      "user": "alice",
+      "permissions": "RL",
+      "inherit": true
+    },
+    {
+      "description": "Group access: developers can upload to shared dir",
+      "path": "shared",
+      "user": "sftp-devs",
+      "permissions": "RWL",
+      "inherit": false
+    }
+  ],
+  "bandwidth_limits": {
+    "global_upload_limit": 5000,
+    "global_download_limit": 10000,
+    "user_limits": [
+      {
+        "user_name": "alice",
+        "upload_limit": 1000,
+        "download_limit": 2000
+      }
+    ]
+  },
+  "idle_timeout": 600,
+  "enable_compression": false
+}

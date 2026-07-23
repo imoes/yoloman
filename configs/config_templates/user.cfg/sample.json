@@ -1,0 +1,63 @@
+{
+  "debug_mode": false,
+  "log_level": "info",
+  "runtime_dir": "/var/lib/myapp/runtime",
+  "config_dir": "/etc/myapp",
+  "pid_file": "/run/myapp.pid",
+  "service_name": "myapp",
+  "bind_address": "127.0.0.1",
+  "port": 8080,
+  "max_connections": 500,
+  "connection_timeout": 60,
+  "backend_timeout": 30,
+  "retry_attempts": 2,
+  "retry_delay": 100,
+  "worker_count": 4,
+  "worker_graceful_reload": true,
+  "worker_idle_timeout": 900,
+  "worker_memory_limit": 1024,
+  "enable_https": true,
+  "enable_compression": true,
+  "enable_access_log": true,
+  "enable_error_log": true,
+  "ssl_enabled": true,
+  "ssl_cert_file": "/etc/myapp/ssl/server.crt",
+  "ssl_key_file": "/etc/myapp/ssl/server.key",
+  "ssl_ca_file": "/etc/myapp/ssl/ca-bundle.crt",
+  "ssl_protocols": [
+    "TLSv1.2",
+    "TLSv1.3"
+  ],
+  "ssl_prefer_server_ciphers": true,
+  "ssl_session_cache_size": 20000,
+  "ssl_session_timeout": 3600,
+  "backends": [
+    {
+      "name": "primary",
+      "address": "127.0.0.1",
+      "port": 3000,
+      "weight": 100,
+      "health_check": true,
+      "health_check_interval": 15,
+      "health_check_uri": "/healthz",
+      "healthy_threshold": 2,
+      "unhealthy_threshold": 3
+    },
+    {
+      "name": "secondary",
+      "address": "10.0.1.10",
+      "port": 3000,
+      "weight": 50,
+      "health_check": false
+    }
+  ],
+  "rate_limit_enabled": true,
+  "rate_limit_requests_per_second": 20,
+  "rate_limit_burst": 30,
+  "request_body_limit": 20480,
+  "origin_validation_enabled": true,
+  "allowed_origins": [
+    "https://example.com",
+    "https://app.example.com"
+  ]
+}

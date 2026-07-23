@@ -1,0 +1,64 @@
+# Configuration for Low Memory Monitor
+# Enable or disable the monitor
+{% if enabled %}
+enabled = yes
+{% else %}
+enabled = no
+{% endif %}
+
+# Interval (in seconds) between memory checks
+interval = {{ interval }}
+
+# Minimum free memory (in MB) required to avoid triggering alert
+min_free_mb = {{ min_free_mb }}
+
+# Minimum free memory percentage (0–100) required to avoid triggering alert
+min_free_percent = {{ min_free_percent }}
+
+# Action to take when low memory is detected
+# Supported actions: log, notify, kill, reboot
+{% for action in actions %}
+action_{{ loop.index }} = {{ action.type }}:{{ action.target }}{% if action.args %}:{{ action.args }}{% endif %}
+{% endfor %}
+
+# Log file path (use - for stdout)
+log_file = {{ log_file }}
+
+# Enable verbose logging
+{% if verbose %}
+verbose = yes
+{% else %}
+verbose = no
+{% endif %}
+
+# Kill threshold (OOM score adj) for processes considered for termination
+kill_threshold = {{ kill_threshold }}
+
+# Maximum number of processes to kill on low memory (0 = no limit)
+max_kills = {{ max_kills }}
+
+# Whitelist of PIDs to never kill (comma-separated list of PIDs)
+{% if pid_whitelist | length > 0 %}
+pid_whitelist = {{ pid_whitelist | join(',') }}
+{% else %}
+pid_whitelist = none
+{% endif %}
+
+# List of process name patterns (regex) to protect from being killed
+{% for pattern in protected_patterns %}
+protected_pattern_{{ loop.index }} = {{ pattern }}
+{% endfor %}
+
+# Memory pressure threshold (in kbps) — triggers aggressive actions above this rate
+{% if memory_pressure_threshold is defined %}
+memory_pressure_threshold = {{ memory_pressure_threshold }}
+{% else %}
+memory_pressure_threshold = 0
+{% endif %}
+
+# Enable system-wide OOM killer bypass (dangerous!)
+{% if disable_oom_killer %}
+disable_oom_killer = yes
+{% else %}
+disable_oom_killer = no
+{% endif %}

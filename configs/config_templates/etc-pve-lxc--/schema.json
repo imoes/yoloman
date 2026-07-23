@@ -1,0 +1,215 @@
+{
+  "name": {
+    "type": "string",
+    "default": "container-100",
+    "description": "Hostname and LXC container name (must be unique, alphanumeric + hyphens)."
+  },
+  "ctid": {
+    "type": "number",
+    "default": 100,
+    "description": "Container ID (100\u2013999999), must be unique within the cluster."
+  },
+  "rootfs": {
+    "type": "object",
+    "default": {
+      "path": "/var/lib/lxc/100/rootfs"
+    },
+    "description": "Root filesystem configuration.",
+    "items": {
+      "path": {
+        "type": "string",
+        "default": "/var/lib/lxc/100/rootfs",
+        "description": "Path to the rootfs (directory, image, or LVM/Btrfs device)."
+      },
+      "options": {
+        "type": "list",
+        "items": {
+          "type": "string",
+          "default": "defaults"
+        },
+        "default": [
+          "defaults"
+        ],
+        "description": "List of mount options for rootfs (e.g., 'rw', 'bind')."
+      }
+    }
+  },
+  "network": {
+    "type": "object",
+    "default": {
+      "interfaces": []
+    },
+    "description": "Network interface configuration.",
+    "items": {
+      "interfaces": {
+        "type": "list",
+        "items": {
+          "type": "object",
+          "description": "Single network interface definition.",
+          "items": {
+            "type": {
+              "type": "string",
+              "default": "veth",
+              "description": "Interface type (e.g., 'veth', 'macvlan', 'none')."
+            },
+            "name": {
+              "type": "string",
+              "default": "eth0",
+              "description": "Interface name inside container."
+            },
+            "link": {
+              "type": "string",
+              "default": "vmbr0",
+              "description": "Host bridge or interface to connect to."
+            },
+            "flags": {
+              "type": "string",
+              "default": "up",
+              "description": "Interface flags (e.g., 'up')."
+            },
+            "hwaddr": {
+              "type": "string",
+              "default": "",
+              "description": "MAC address (auto-generated if omitted)."
+            },
+            "ip": {
+              "type": "list",
+              "items": {
+                "type": "string"
+              },
+              "default": [],
+              "description": "IPv4 addresses (CIDR format, e.g., '192.168.1.100/24')."
+            },
+            "gateway": {
+              "type": "string",
+              "default": "",
+              "description": "IPv4 gateway (must be in same subnet)."
+            },
+            "ipv6": {
+              "type": "list",
+              "items": {
+                "type": "string"
+              },
+              "default": [],
+              "description": "IPv6 addresses (CIDR format, e.g., '2001:db8::100/64')."
+            },
+            "ipv6_gateway": {
+              "type": "string",
+              "default": "",
+              "description": "IPv6 gateway."
+            }
+          }
+        },
+        "default": [
+          {
+            "type": "veth",
+            "link": "vmbr0",
+            "flags": "up",
+            "ip": [
+              "10.0.0.100/24"
+            ],
+            "gateway": "10.0.0.1"
+          }
+        ]
+      }
+    }
+  },
+  "memory": {
+    "type": "string",
+    "default": "1G",
+    "description": "Memory limit (supports suffixes: K, M, G, T; e.g., '512M', '2G')."
+  },
+  "cpu_cores": {
+    "type": "number",
+    "default": 2,
+    "description": "Number of CPU cores to assign (0 = unlimited; sets cpuset.cpus to 0-(N-1))."
+  },
+  "cpu_weight": {
+    "type": "number",
+    "default": 100,
+    "description": "CPU weight (1\u201310000), used for proportional weight-based scheduling. Higher = more CPU share."
+  },
+  "mounts": {
+    "type": "list",
+    "items": {
+      "type": "object",
+      "items": {
+        "source": {
+          "type": "string",
+          "default": "",
+          "description": "Host path to bind-mount."
+        },
+        "dest": {
+          "type": "string",
+          "default": "",
+          "description": "Destination path inside container."
+        },
+        "options": {
+          "type": "list",
+          "items": {
+            "type": "string"
+          },
+          "default": [
+            "rbind",
+            "ro"
+          ],
+          "description": "Mount options (e.g., 'rbind', 'ro', 'noexec')."
+        }
+      }
+    },
+    "default": [],
+    "description": "Additional bind mounts (list of source\u2192dest+options)."
+  },
+  "limits": {
+    "type": "object",
+    "default": {},
+    "description": "Resource limits beyond memory and CPU.",
+    "items": {
+      "memory_low": {
+        "type": "string",
+        "default": "0",
+        "description": "Memory low watermark (soft limit); falls back to 'memory.max' if omitted."
+      },
+      "memory_min": {
+        "type": "string",
+        "default": "0",
+        "description": "Memory minimum guarantee (hard protection)."
+      },
+      "pids_max": {
+        "type": "number",
+        "default": 1024,
+        "description": "Maximum number of processes/threads inside container."
+      }
+    }
+  },
+  "privileged": {
+    "type": "boolean",
+    "default": false,
+    "description": "Run in privileged mode? Set to 'true' only if absolutely needed (disables many security features)."
+  },
+  "start_auto": {
+    "type": "boolean",
+    "default": false,
+    "description": "Start automatically on host boot?"
+  },
+  "start_delay": {
+    "type": "number",
+    "default": 5,
+    "description": "Delay (seconds) before starting next container during boot."
+  },
+  "start_order": {
+    "type": "number",
+    "default": 0,
+    "description": "Startup order priority (higher = starts later)."
+  },
+  "log_level": {
+    "type": "string",
+    "default": "WARN",
+    "description": "Logging verbosity level for the container."
+  },
+  "log_file": {
+    "type": "string",
+    "default": "/var/log/lxc/lxc-<name>.log",
+    "description": "Log file path. Uses container name if omitted."
+  }
+}

@@ -1,0 +1,97 @@
+{
+  "bind_address": {
+    "type": "string",
+    "default": "0.0.0.0",
+    "description": "IP address the daemon will bind to (e.g., 127.0.0.1 for localhost only, 0.0.0.0 for all interfaces)."
+  },
+  "bind_port": {
+    "type": "number",
+    "default": 3050,
+    "description": "TCP port on which the daemon listens for client connections."
+  },
+  "max_connections": {
+    "type": "number",
+    "default": 10,
+    "description": "Maximum number of simultaneous client connections allowed."
+  },
+  "use_ssl": {
+    "type": "bool",
+    "default": false,
+    "description": "Whether to enable SSL/TLS encryption for client communication."
+  },
+  "ssl_cert": {
+    "type": "string",
+    "default": "/etc/iiod/ssl/server.crt",
+    "description": "Path to the SSL certificate file (required if use_ssl is true)."
+  },
+  "ssl_key": {
+    "type": "string",
+    "default": "/etc/iiod/ssl/server.key",
+    "description": "Path to the SSL private key file (required if use_ssl is true)."
+  },
+  "devices": {
+    "type": "list",
+    "default": [],
+    "description": "List of specific IIO devices to expose. If omitted or empty, all devices are exposed.",
+    "items": {
+      "type": "object",
+      "fields": {
+        "name": {
+          "type": "string",
+          "default": "",
+          "description": "Name of the IIO device (e.g., iio:device0)."
+        },
+        "description": {
+          "type": "string",
+          "default": "",
+          "description": "Optional human-readable description of the device."
+        }
+      }
+    }
+  },
+  "transports": {
+    "type": "list",
+    "default": [
+      {
+        "name": "ip",
+        "options": "family=ipv4"
+      }
+    ],
+    "description": "List of transport protocols to enable. Common: ip, serial, usb, etc.",
+    "items": {
+      "type": "object",
+      "fields": {
+        "name": {
+          "type": "string",
+          "default": "",
+          "description": "Transport name (e.g., ip, serial, usb)."
+        },
+        "options": {
+          "type": "string",
+          "default": "",
+          "description": "Optional transport-specific parameters (e.g., 'port=/dev/ttyUSB0', 'family=ipv6')."
+        }
+      }
+    }
+  },
+  "auth_mode": {
+    "type": "string",
+    "default": "none",
+    "description": "Authentication method for client access: none (open), passwd (password file), or cert (TLS client certificate)."
+  },
+  "passwd_file": {
+    "type": "string",
+    "default": "/etc/iiod/passwd",
+    "description": "Path to the password file for user authentication (only used when auth_mode = passwd)."
+  },
+  "log_level": {
+    "type": "string",
+    "default": "info",
+    "description": "Verbosity level for log messages."
+  },
+  "log_file": {
+    "type": "string",
+    "default": "",
+    "description": "Path to the log file. Empty string means logs go to stderr."
+  }
+}

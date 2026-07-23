@@ -1,0 +1,38 @@
+# Global settings
+hostname = {{ hostname }}
+port = {{ port }}
+{% if database_path %}# Path to SQLite database for persistent state
+path_to_db = {{ database_path }}
+{% endif %}# Path to the certificate file for TLS (optional)
+{% if tls_cert %}certfile = {{ tls_cert }}
+{% endif %}# Path to the private key file for TLS (optional)
+{% if tls_key %}keyfile = {{ tls_key }}
+{% endif %}
+# Enable or disable TLS (default: false)
+use_tls = {{ use_tls|lower }}
+# Enable or disable STARTTLS (default: true if TLS is enabled)
+{% if starttls is defined %}starttls = {{ starttls|lower }}
+{% endif %}
+# Maximum number of concurrent IRC connections per XMPP user
+max_connections_per_user = {{ max_connections_per_user }}
+# Maximum number of channels per IRC connection
+max_channels_per_server = {{ max_channels_per_server }}
+# Time (in seconds) before an idle IRC connection is closed
+idle_timeout = {{ idle_timeout }}
+# JID of the service admin (for notifications)
+admin_jid = {{ admin_jid }}
+
+# Logging configuration
+log_file = {{ log_file }}
+log_level = {{ log_level }}
+
+# Default IRC server options (applied to all servers unless overridden)
+{% for server in irc_servers %}# IRC server: {{ server.hostname }}
+[{{ server.hostname }}]
+port = {{ server.port }}
+password = {{ server.password }}
+use_tls = {{ server.use_tls|lower }}
+autojoin = {{ server.autojoin|lower }}
+{% for channel in server.channels %}# Autojoin channel: {{ channel.name }} with modes: {{ channel.modes }}
+{{ channel.name }} = {{ channel.modes }}
+{% endfor %}{% endfor %}

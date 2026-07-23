@@ -1,0 +1,207 @@
+{
+  "logger.level": {
+    "type": "string",
+    "default": "info",
+    "description": "Log level: debug, info, warn, error, fatal, panic"
+  },
+  "db.uri": {
+    "type": "string",
+    "default": "mongodb://localhost:27017/nextepc",
+    "description": "MongoDB connection URI for the PCRF database"
+  },
+  "pcrf.plmns": {
+    "type": "list",
+    "default": [],
+    "description": "List of PLMNs (networks) served by this PCRF instance",
+    "items": {
+      "type": "object",
+      "fields": {
+        "plmn_id.mcc": {
+          "type": "string",
+          "default": "",
+          "description": "Mobile Country Code (3 digits)"
+        },
+        "plmn_id.mnc": {
+          "type": "string",
+          "default": "",
+          "description": "Mobile Network Code (2 or 3 digits)"
+        },
+        "apn": {
+          "type": "list",
+          "default": [],
+          "description": "List of APNs supported for this PLMN"
+        }
+      }
+    }
+  },
+  "pcrf.policy.charging_rules": {
+    "type": "list",
+    "default": [],
+    "description": "List of static QoS/charging rules for traffic treatment",
+    "items": {
+      "type": "object",
+      "fields": {
+        "rule_name": {
+          "type": "string",
+          "default": "",
+          "description": "Unique identifier for the rule (e.g., 'rule-1')"
+        },
+        "qci": {
+          "type": "number",
+          "default": 9,
+          "description": "QoS Class Identifier (standard 3GPP values 1\u20139)"
+        },
+        "max_bitrate_ul": {
+          "type": "number",
+          "default": 1000000000,
+          "description": "Maximum bitrate upstream (kbps)"
+        },
+        "max_bitrate_dl": {
+          "type": "number",
+          "default": 1000000000,
+          "description": "Maximum bitrate downstream (kbps)"
+        },
+        "gbr_ul": {
+          "type": "number",
+          "default": 0,
+          "description": "Guaranteed bitrate upstream (kbps); 0 for best-effort"
+        },
+        "gbr_dl": {
+          "type": "number",
+          "default": 0,
+          "description": "Guaranteed bitrate downstream (kbps); 0 for best-effort"
+        },
+        "arp.priority_level": {
+          "type": "number",
+          "default": 15,
+          "description": "Allocation and Retention Priority (ARP) priority level (1\u201315, lower = higher priority)"
+        },
+        "arp.preemption_capability": {
+          "type": "bool",
+          "default": false,
+          "description": "Whether this bearer can preempt lower-priority bearers"
+        },
+        "arp.preemption_vulnerability": {
+          "type": "bool",
+          "default": true,
+          "description": "Whether this bearer can be preempted by higher-priority bearers"
+        },
+        "monitoring_time": {
+          "type": "string",
+          "default": "null",
+          "description": "Optional time (in seconds) for usage monitoring; 'null' disables monitoring"
+        }
+      }
+    }
+  },
+  "pcrf.policy.qos_profiles": {
+    "type": "list",
+    "default": [],
+    "description": "List of default QoS profiles for new subscriptions",
+    "items": {
+      "type": "object",
+      "fields": {
+        "profile_id": {
+          "type": "string",
+          "default": "",
+          "description": "Unique name for the QoS profile (e.g., 'default-voip')"
+        },
+        "qci": {
+          "type": "number",
+          "default": 9,
+          "description": "QCI for this profile (1\u20139)"
+        },
+        "priority_level": {
+          "type": "number",
+          "default": 15,
+          "description": "Bearer priority level (1\u201315)"
+        },
+        "max_bitrate_ul": {
+          "type": "number",
+          "default": 1000000000,
+          "description": "Max upstream bitrate (kbps)"
+        },
+        "max_bitrate_dl": {
+          "type": "number",
+          "default": 1000000000,
+          "description": "Max downstream bitrate (kbps)"
+        },
+        "gbr_ul": {
+          "type": "number",
+          "default": 0,
+          "description": "Guaranteed upstream bitrate (kbps)"
+        },
+        "gbr_dl": {
+          "type": "number",
+          "default": 0,
+          "description": "Guaranteed downstream bitrate (kbps)"
+        }
+      }
+    }
+  },
+  "pcrf.sgw.addr": {
+    "type": "string",
+    "default": "127.0.0.1",
+    "description": "IP address of the local S-GW to connect to"
+  },
+  "pcrf.sgw.port": {
+    "type": "number",
+    "default": 3868,
+    "description": "Diameter port of the S-GW"
+  },
+  "pcrf.pgw.addr": {
+    "type": "string",
+    "default": "127.0.0.1",
+    "description": "IP address of the local P-GW to connect to"
+  },
+  "pcrf.pgw.port": {
+    "type": "number",
+    "default": 3868,
+    "description": "Diameter port of the P-GW"
+  },
+  "pcrf.diameter.hostname": {
+    "type": "string",
+    "default": "pcrf.example.com",
+    "description": "Local Diameter hostname (FQDN)"
+  },
+  "pcrf.diameter.realm": {
+    "type": "string",
+    "default": "example.com",
+    "description": "Diameter realm (e.g., home domain)"
+  },
+  "pcrf.diameter.peers": {
+    "type": "list",
+    "default": [],
+    "description": "List of Diameter peers (e.g., HSS, OCS, OFCS)",
+    "items": {
+      "type": "object",
+      "fields": {
+        "hostname": {
+          "type": "string",
+          "default": "",
+          "description": "Peer Diameter hostname (FQDN)"
+        },
+        "realm": {
+          "type": "string",
+          "default": "",
+          "description": "Peer Diameter realm"
+        }
+      }
+    }
+  },
+  "system.listen.addr": {
+    "type": "string",
+    "default": "0.0.0.0",
+    "description": "Interface address for Diameter listen (e.g., 0.0.0.0 for all)"
+  },
+  "system.listen.port": {
+    "type": "number",
+    "default": 3868,
+    "description": "Diameter listen port (standard is 3868)"
+  },
+  "system.workers": {
+    "type": "number",
+    "default": 4,
+    "description": "Number of worker goroutines to handle concurrent Diameter messages"
+  }
+}

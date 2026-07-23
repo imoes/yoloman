@@ -1,0 +1,787 @@
+{
+  "db_uri": {
+    "type": "string",
+    "default": "sqlite:////var/lib/pagure/pagure.db",
+    "description": "Database connection URI (e.g., sqlite, PostgreSQL, MySQL). Default is SQLite for standalone instances."
+  },
+  "debug": {
+    "type": "boolean",
+    "default": false,
+    "description": "Enable detailed error pages and debug logging. Disable in production."
+  },
+  "git_folder": {
+    "type": "string",
+    "default": "/var/lib/pagure/git/",
+    "description": "Absolute path to the directory where Git repositories are stored."
+  },
+  "docs_folder": {
+    "type": "string",
+    "default": "/var/lib/pagure/docs/",
+    "description": "Absolute path to directory for rendered documentation (e.g., HTML versions of READMEs)."
+  },
+  "attachments_folder": {
+    "type": "string",
+    "default": "/var/lib/pagure/attachments/",
+    "description": "Absolute path to directory for user-uploaded attachments (issues, PRs, etc.)."
+  },
+  "avatars_folder": {
+    "type": "string",
+    "default": "/var/lib/pagure/avatars/",
+    "description": "Absolute path to directory for user and project avatar images."
+  },
+  "ssh_keydir": {
+    "type": "string",
+    "default": "/etc/pagure/authorized_keys/",
+    "description": "Directory where Pagure writes SSH public keys for Git access control."
+  },
+  "hooks_dir": {
+    "type": "string",
+    "default": "/usr/share/pagure/hooks/",
+    "description": "Directory containing Git hooks used by Pagure for integration (e.g., webhooks)."
+  },
+  "email_templates_dir": {
+    "type": "string",
+    "default": "/usr/share/pagure/email_templates/",
+    "description": "Directory with Jinja2 templates for email notifications."
+  },
+  "static_folder": {
+    "type": "string",
+    "default": "/usr/share/pagure/static/",
+    "description": "Directory containing static assets (CSS, JS, images) served by Pagure."
+  },
+  "template_folder": {
+    "type": "string",
+    "default": "/usr/share/pagure/templates/",
+    "description": "Directory with Jinja2 templates for the web UI."
+  },
+  "static_url_path": {
+    "type": "string",
+    "default": "/static/",
+    "description": "URL prefix under which static assets are served (must begin and end with '/')."
+  },
+  "pagure_url": {
+    "type": "string",
+    "default": "http://localhost:5000/",
+    "description": "Public-facing URL of the Pagure instance (e.g., https://pagure.example.com/). Required for email links and redirects."
+  },
+  "host": {
+    "type": "string",
+    "default": "127.0.0.1",
+    "description": "IP address to bind the internal Flask server to (e.g., 0.0.0.0 for all interfaces)."
+  },
+  "port": {
+    "type": "number",
+    "default": 5000,
+    "description": "Port number for the internal Flask server."
+  },
+  "use_ssl": {
+    "type": "boolean",
+    "default": false,
+    "description": "When behind a reverse proxy with HTTPS, set to true to force secure scheme."
+  },
+  "items_per_page": {
+    "type": "number",
+    "default": 25,
+    "description": "Default number of items (issues, PRs, commits) per page in paginated views."
+  },
+  "request_timeout": {
+    "type": "number",
+    "default": 10,
+    "description": "Timeout (seconds) for outgoing HTTP requests (e.g., webhooks, email SMTP)."
+  },
+  "git_timeout": {
+    "type": "number",
+    "default": 60,
+    "description": "Timeout (seconds) for Git operations (clone, fetch, push)."
+  },
+  "email_require_confirmation": {
+    "type": "boolean",
+    "default": false,
+    "description": "Require new users to confirm email address before full access."
+  },
+  "git_anonymous_clone": {
+    "type": "boolean",
+    "default": true,
+    "description": "Allow anonymous Git clone (read-only) for public projects."
+  },
+  "git_http": {
+    "type": "boolean",
+    "default": false,
+    "description": "Enable Git operations over HTTP (GET/POST). Usually disabled; use SSH or Git over HTTPS instead."
+  },
+  "git_ssh": {
+    "type": "boolean",
+    "default": true,
+    "description": "Enable Git operations over SSH (push/pull via ssh:// or git@host)."
+  },
+  "git_http_auth": {
+    "type": "boolean",
+    "default": false,
+    "description": "Require authentication for Git HTTP operations (e.g., using basic auth headers)."
+  },
+  "git_hooks_enabled": {
+    "type": "list",
+    "default": [
+      "post-receive",
+      "pre-receive",
+      "update"
+    ],
+    "description": "List of Git hook names to enable by default on all new repositories."
+  },
+  "email_domain_whitelist": {
+    "type": "list",
+    "default": [],
+    "description": "List of allowed email domains for registration (e.g., ['example.com']). Empty = allow any domain."
+  },
+  "email_domain_blacklist": {
+    "type": "list",
+    "default": [],
+    "description": "List of blocked email domains (e.g., for disposable providers like 'tempmail.com')."
+  },
+  "mail_server": {
+    "type": "string",
+    "default": "",
+    "description": "SMTP server hostname for sending email notifications (required for email alerts)."
+  },
+  "mail_port": {
+    "type": "number",
+    "default": 587,
+    "description": "SMTP server port."
+  },
+  "mail_use_tls": {
+    "type": "boolean",
+    "default": true,
+    "description": "Whether to use STARTTLS when connecting to the SMTP server."
+  },
+  "mail_use_ssl": {
+    "type": "boolean",
+    "default": false,
+    "description": "Whether to use SSL when connecting to the SMTP server."
+  },
+  "mail_username": {
+    "type": "string",
+    "default": "",
+    "description": "SMTP username (optional if using auth)."
+  },
+  "mail_password": {
+    "type": "string",
+    "default": "",
+    "description": "SMTP password (optional if using auth)."
+  },
+  "mail_default_sender": {
+    "type": "string",
+    "default": "noreply@localhost",
+    "description": "Email address used as sender for Pagure-generated emails."
+  },
+  "ldap_uri": {
+    "type": "string",
+    "default": "",
+    "description": "LDAP server URI (e.g., 'ldap://ldap.example.com:389' or 'ldaps://ldap.example.com:636')."
+  },
+  "ldap_user_base": {
+    "type": "string",
+    "default": "",
+    "description": "Base DN for user searches (e.g., 'ou=users,dc=example,dc=com')."
+  },
+  "ldap_user_filter": {
+    "type": "string",
+    "default": "(uid={{username}})",
+    "description": "LDAP search filter (supports `{{username}}` placeholder)."
+  },
+  "ldap_uid_field": {
+    "type": "string",
+    "default": "uid",
+    "description": "LDAP attribute to use as the username."
+  },
+  "ldap_email_field": {
+    "type": "string",
+    "default": "mail",
+    "description": "LDAP attribute to use for the user email address."
+  },
+  "ldap_binddn": {
+    "type": "string",
+    "default": "",
+    "description": "Bind DN for service account (optional, for read access to LDAP directory)."
+  },
+  "ldap_bindpw": {
+    "type": "string",
+    "default": "",
+    "description": "Password for the service account."
+  },
+  "oauth_providers": {
+    "type": "list",
+    "default": [],
+    "items": {
+      "type": "object",
+      "fields": {
+        "name": {
+          "type": "string",
+          "description": "Provider name (e.g., 'github', 'gitlab')"
+        },
+        "client_id": {
+          "type": "string",
+          "description": "OAuth client ID"
+        },
+        "client_secret": {
+          "type": "string",
+          "description": "OAuth client secret"
+        },
+        "base_url": {
+          "type": "string",
+          "description": "Base URL for API endpoints"
+        },
+        "auth_url": {
+          "type": "string",
+          "description": "OAuth authorization endpoint URL"
+        },
+        "token_url": {
+          "type": "string",
+          "description": "OAuth token endpoint URL"
+        },
+        "user_info_url": {
+          "type": "string",
+          "description": "User info endpoint (optional)"
+        },
+        "scopes": {
+          "type": "list",
+          "items": {
+            "type": "string"
+          },
+          "description": "OAuth scopes requested (optional)"
+        }
+      }
+    },
+    "description": "List of OAuth2 providers to integrate (e.g., GitHub, GitLab)."
+  },
+  "redis_url": {
+    "type": "string",
+    "default": "",
+    "description": "Redis connection URL for caching and async tasks (e.g., 'redis://localhost:6379/0')."
+  },
+  "webhook_delivery_timeout": {
+    "type": "number",
+    "default": 5,
+    "description": "Timeout (seconds) for each webhook delivery attempt."
+  },
+  "notifications_on": {
+    "type": "boolean",
+    "default": true,
+    "description": "Enable email notifications for activity in projects and issues."
+  },
+  "notify_on_new_issue": {
+    "type": "boolean",
+    "default": false,
+    "description": "Send notifications on new issue/PR creation (not just updates)."
+  },
+  "reauth_require": {
+    "type": "boolean",
+    "default": true,
+    "description": "Require re-authentication for sensitive actions (e.g., delete project)."
+  },
+  "custom_footer": {
+    "type": "string",
+    "default": "",
+    "description": "Custom HTML to render in the page footer (e.g., copyright, links)."
+  },
+  "project_forks": {
+    "type": "boolean",
+    "default": true,
+    "description": "Enable project forking."
+  },
+  "project_readme_mandatory": {
+    "type": "boolean",
+    "default": false,
+    "description": "Require projects to include a README.md upon creation."
+  },
+  "git_default_branch": {
+    "type": "string",
+    "default": "main",
+    "description": "Default branch name for new repositories."
+  },
+  "branch_protection": {
+    "type": "boolean",
+    "default": false,
+    "description": "Enable branch protection rules (e.g., require PR to merge to protected branches)."
+  },
+  "default_group": {
+    "type": "string",
+    "default": "",
+    "description": "Default group assigned to new projects (if project creation is restricted to groups)."
+  },
+  "tokens_enabled": {
+    "type": "boolean",
+    "default": true,
+    "description": "Enable API tokens for authenticating with CLI tools and scripts."
+  },
+  "token_expiry": {
+    "type": "number",
+    "default": 0,
+    "description": "Token expiration time in seconds (0 = never expire)."
+  },
+  "rate_limit": {
+    "type": "list",
+    "default": [],
+    "items": {
+      "type": "number"
+    },
+    "description": "Rate limit for general API/web requests: [max_requests, window_seconds]."
+  },
+  "plugins_enabled": {
+    "type": "boolean",
+    "default": false,
+    "description": "Enable plugin system (requires plugins to be installed)."
+  },
+  "enabled_plugins": {
+    "type": "list",
+    "default": [],
+    "items": {
+      "type": "string"
+    },
+    "description": "List of plugin names to load (e.g., ['pagure_ci', 'pagure_hook_deploy'])."
+  },
+  "issues_enabled": {
+    "type": "boolean",
+    "default": true,
+    "description": "Enable issue tracker."
+  },
+  "pull_requests_enabled": {
+    "type": "boolean",
+    "default": true,
+    "description": "Enable pull requests."
+  },
+  "wiki_enabled": {
+    "type": "boolean",
+    "default": false,
+    "description": "Enable project wikis."
+  },
+  "docs_enabled": {
+    "type": "boolean",
+    "default": false,
+    "description": "Enable built-in documentation viewer (MkDocs/Sphinx)."
+  },
+  "timeline_enabled": {
+    "type": "boolean",
+    "default": true,
+    "description": "Enable activity timeline (e.g., commit history, issue updates)."
+  },
+  "avatars_enabled": {
+    "type": "boolean",
+    "default": true,
+    "description": "Enable avatars (user and project)."
+  },
+  "tags_enabled": {
+    "type": "boolean",
+    "default": true,
+    "description": "Enable project tags."
+  },
+  "milestones_enabled": {
+    "type": "boolean",
+    "default": true,
+    "description": "Enable project milestones."
+  },
+  "priorities_enabled": {
+    "type": "boolean",
+    "default": false,
+    "description": "Enable issue priorities."
+  },
+  "dependencies_enabled": {
+    "type": "boolean",
+    "default": false,
+    "description": "Enable issue/PR dependency tracking (e.g., blocks, related to)."
+  },
+  "assignees_enabled": {
+    "type": "boolean",
+    "default": true,
+    "description": "Enable issue/PR assignees."
+  },
+  "cc_enabled": {
+    "type": "boolean",
+    "default": true,
+    "description": "Enable CC list for issue/PR notifications."
+  },
+  "milestone_due_dates": {
+    "type": "boolean",
+    "default": true,
+    "description": "Allow setting due dates on milestones."
+  },
+  "allow_user_avatar": {
+    "type": "boolean",
+    "default": true,
+    "description": "Allow users to upload custom avatars."
+  },
+  "gravatar_fallback": {
+    "type": "boolean",
+    "default": true,
+    "description": "Fall back to Gravatar if no custom avatar exists."
+  },
+  "gravatar_url": {
+    "type": "string",
+    "default": "https://www.gravatar.com/avatar/",
+    "description": "Base URL for Gravatar avatars."
+  },
+  "email_digests_enabled": {
+    "type": "boolean",
+    "default": false,
+    "description": "Enable daily/weekly email digests of project activity."
+  },
+  "project_create": {
+    "type": "boolean",
+    "default": true,
+    "description": "Allow regular users to create new projects."
+  },
+  "project_private": {
+    "type": "boolean",
+    "default": true,
+    "description": "Allow projects to be private (restricted access)."
+  },
+  "group_create": {
+    "type": "boolean",
+    "default": false,
+    "description": "Allow regular users to create groups."
+  },
+  "private_project_require_group": {
+    "type": "boolean",
+    "default": true,
+    "description": "Require group membership to view private projects (bypasses user access)."
+  },
+  "project_transfer": {
+    "type": "boolean",
+    "default": true,
+    "description": "Allow users to transfer project ownership."
+  },
+  "project_delete": {
+    "type": "boolean",
+    "default": true,
+    "description": "Allow users to delete their projects."
+  },
+  "issue_delete": {
+    "type": "boolean",
+    "default": true,
+    "description": "Allow users to delete issues."
+  },
+  "issue_soft_delete": {
+    "type": "boolean",
+    "default": true,
+    "description": "Mark issues as deleted (soft delete) instead of hard-deleting."
+  },
+  "two_factor_auth": {
+    "type": "boolean",
+    "default": false,
+    "description": "Enable two-factor authentication (2FA) for all users."
+  },
+  "oidc_enabled": {
+    "type": "boolean",
+    "default": false,
+    "description": "Enable OpenID Connect (OIDC) authentication."
+  },
+  "oidc_metadata_url": {
+    "type": "string",
+    "default": "",
+    "description": "OIDC provider metadata URL (for auto-discovery)."
+  },
+  "oidc_discovery": {
+    "type": "boolean",
+    "default": true,
+    "description": "Enable automatic OIDC provider discovery using metadata URL."
+  },
+  "webauthn_enabled": {
+    "type": "boolean",
+    "default": false,
+    "description": "Enable WebAuthn (FIDO2/U2F) for 2FA."
+  },
+  "totp_enabled": {
+    "type": "boolean",
+    "default": true,
+    "description": "Enable TOTP-based 2FA (e.g., Google Authenticator)."
+  },
+  "email_2fa_enabled": {
+    "type": "boolean",
+    "default": false,
+    "description": "Enable email-based 2FA codes as fallback."
+  },
+  "maintenance": {
+    "type": "boolean",
+    "default": false,
+    "description": "Enable maintenance mode (show maintenance banner)."
+  },
+  "maintenance_message": {
+    "type": "string",
+    "default": "",
+    "description": "Custom message to display during maintenance."
+  },
+  "sql_alchemy_echo": {
+    "type": "boolean",
+    "default": false,
+    "description": "Log SQL statements (for debugging)."
+  },
+  "custom_error_page": {
+    "type": "boolean",
+    "default": false,
+    "description": "Enable custom HTML error pages (e.g., 404, 500)."
+  },
+  "x_frame_options": {
+    "type": "string",
+    "default": "DENY",
+    "description": "X-Frame-Options header value to prevent clickjacking."
+  },
+  "x_content_type_options": {
+    "type": "string",
+    "default": "nosniff",
+    "description": "X-Content-Type-Options header value."
+  },
+  "content_security_policy": {
+    "type": "string",
+    "default": "",
+    "description": "Content-Security-Policy header value (e.g., \"default-src 'self'\")."
+  },
+  "hsts_enabled": {
+    "type": "boolean",
+    "default": false,
+    "description": "Enable HTTP Strict Transport Security (HSTS)."
+  },
+  "hsts_max_age": {
+    "type": "number",
+    "default": 31536000,
+    "description": "HSTS max-age in seconds (e.g., 31536000 = 1 year)."
+  },
+  "session_cookie_secure": {
+    "type": "boolean",
+    "default": false,
+    "description": "Set session cookies to secure-only (HTTPS)."
+  },
+  "session_cookie_http_only": {
+    "type": "boolean",
+    "default": true,
+    "description": "Prevent JavaScript access to session cookies."
+  },
+  "session_cookie_name": {
+    "type": "string",
+    "default": "pagure_session",
+    "description": "Name of the session cookie."
+  },
+  "permanent_session_lifetime": {
+    "type": "number",
+    "default": 31536000,
+    "description": "Session lifetime in seconds (default = 1 year)."
+  },
+  "wtf_csrf_enabled": {
+    "type": "boolean",
+    "default": true,
+    "description": "Enable CSRF protection on forms."
+  },
+  "login_rate_limit": {
+    "type": "boolean",
+    "default": false,
+    "description": "Enable rate limiting for login attempts."
+  },
+  "login_rate_limit_count": {
+    "type": "number",
+    "default": 10,
+    "description": "Max login attempts per window."
+  },
+  "login_rate_limit_window": {
+    "type": "number",
+    "default": 300,
+    "description": "Rate limit window in seconds (e.g., 300 = 5 min)."
+  },
+  "password_require_complex": {
+    "type": "boolean",
+    "default": false,
+    "description": "Enforce password complexity rules."
+  },
+  "password_min_length": {
+    "type": "number",
+    "default": 8,
+    "description": "Minimum password length."
+  },
+  "password_require_digit": {
+    "type": "boolean",
+    "default": false,
+    "description": "Require at least one digit."
+  },
+  "password_require_upper": {
+    "type": "boolean",
+    "default": false,
+    "description": "Require at least one uppercase letter."
+  },
+  "password_require_lower": {
+    "type": "boolean",
+    "default": false,
+    "description": "Require at least one lowercase letter."
+  },
+  "password_require_special": {
+    "type": "boolean",
+    "default": false,
+    "description": "Require at least one special character."
+  },
+  "email_verification_on_reset": {
+    "type": "boolean",
+    "default": true,
+    "description": "Require email verification before password reset."
+  },
+  "password_reuse_check": {
+    "type": "boolean",
+    "default": false,
+    "description": "Check password history to prevent reuse."
+  },
+  "password_reuse_count": {
+    "type": "number",
+    "default": 5,
+    "description": "Number of previous passwords to remember."
+  },
+  "account_lockout": {
+    "type": "boolean",
+    "default": false,
+    "description": "Lock account after failed login attempts."
+  },
+  "account_lockout_threshold": {
+    "type": "number",
+    "default": 5,
+    "description": "Failed attempts before lockout."
+  },
+  "account_lockout_duration": {
+    "type": "number",
+    "default": 900,
+    "description": "Lockout duration in seconds (e.g., 900 = 15 min)."
+  },
+  "password_expiry": {
+    "type": "boolean",
+    "default": false,
+    "description": "Require periodic password changes."
+  },
+  "password_expiry_days": {
+    "type": "number",
+    "default": 90,
+    "description": "Password validity period in days."
+  },
+  "password_expiry_warning_days": {
+    "type": "number",
+    "default": 14,
+    "description": "Days before expiry to warn user."
+  },
+  "password_history": {
+    "type": "boolean",
+    "default": false,
+    "description": "Track password history."
+  },
+  "password_history_count": {
+    "type": "number",
+    "default": 5,
+    "description": "Number of previous passwords to store."
+  },
+  "password_self_service": {
+    "type": "boolean",
+    "default": true,
+    "description": "Allow users to change their own passwords."
+  },
+  "account_self_delete": {
+    "type": "boolean",
+    "default": true,
+    "description": "Allow users to delete their own accounts."
+  },
+  "account_delete_confirm": {
+    "type": "boolean",
+    "default": true,
+    "description": "Require confirmation before account deletion."
+  },
+  "account_delete_email": {
+    "type": "boolean",
+    "default": true,
+    "description": "Send email notification on account deletion."
+  },
+  "project_delete_archive": {
+    "type": "boolean",
+    "default": true,
+    "description": "Archive project data instead of deleting it on project deletion."
+  },
+  "audit_log": {
+    "type": "boolean",
+    "default": false,
+    "description": "Enable audit logging (who did what, when)."
+  },
+  "audit_log_file": {
+    "type": "string",
+    "default": "/var/log/pagure/audit.log",
+    "description": "Path to audit log file."
+  },
+  "activity_log": {
+    "type": "boolean",
+    "default": true,
+    "description": "Log user and system activity (e.g., pushes, issue updates)."
+  },
+  "log_ip_address": {
+    "type": "boolean",
+    "default": true,
+    "description": "Include client IP address in logs."
+  },
+  "log_user_agent": {
+    "type": "boolean",
+    "default": false,
+    "description": "Include user agent string in logs."
+  },
+  "request_log": {
+    "type": "boolean",
+    "default": false,
+    "description": "Log all HTTP requests."
+  },
+  "request_log_file": {
+    "type": "string",
+    "default": "/var/log/pagure/request.log",
+    "description": "Path to request log file."
+  },
+  "access_log": {
+    "type": "boolean",
+    "default": false,
+    "description": "Enable access log (e.g., for monitoring)."
+  },
+  "access_log_file": {
+    "type": "string",
+    "default": "/var/log/pagure/access.log",
+    "description": "Path to access log file."
+  },
+  "error_log": {
+    "type": "boolean",
+    "default": false,
+    "description": "Log unhandled errors."
+  },
+  "error_log_file": {
+    "type": "string",
+    "default": "/var/log/pagure/error.log",
+    "description": "Path to error log file."
+  },
+  "debug_log": {
+    "type": "boolean",
+    "default": false,
+    "description": "Log debug-level messages (verbose)."
+  },
+  "debug_log_file": {
+    "type": "string",
+    "default": "/var/log/pagure/debug.log",
+    "description": "Path to debug log file."
+  },
+  "log_rotate": {
+    "type": "boolean",
+    "default": true,
+    "description": "Enable log rotation."
+  },
+  "log_rotate_max_bytes": {
+    "type": "number",
+    "default": 10485760,
+    "description": "Max log file size before rotation (bytes)."
+  },
+  "log_rotate_backup_count": {
+    "type": "number",
+    "default": 5,
+    "description": "Number of rotated log files to retain."
+  },
+  "json_log": {
+    "type": "boolean",
+    "default": false,
+    "description": "Output logs in JSON format (machine-readable)."
+  },
+  "structured_log": {
+    "type": "boolean",
+    "default": false,
+    "description": "Enable structured logging fields."
+  }
+}

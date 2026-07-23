@@ -1,0 +1,81 @@
+# Path to the root of the news spool
+path.spool: {{ spool_path }}
+
+# Path to the configuration directory
+path.etc: {{ etc_path }}
+
+# Path to the binaries
+path.bin: {{ bin_path }}
+
+# Path to the locks directory
+path.lock: {{ lock_path }}
+
+# Path to the run-time PID files
+path.run: {{ run_path }}
+
+# Path to the log directory
+path.log: {{ log_path }}
+
+# Hostname of this machine (used in Message-IDs and other headers)
+host: {{ hostname }}
+
+# Domain name to append to short hostnames
+mailhost: {{ mailhost }}
+
+# Maximum size (in bytes) of an article body
+maxarticlebody: {{ max_article_body }}
+
+# Maximum number of articles to hold in the spool (0 = unlimited)
+maxartcount: {{ max_article_count }}
+
+# Maximum number of groups allowed
+maxgroupcount: {{ max_group_count }}
+
+# Maximum number of active threads
+maxthreads: {{ max_threads }}
+
+# Maximum number of connections per IP (0 = unlimited)
+maxconnectionsperip: {{ max_connections_per_ip }}
+
+# Maximum number of simultaneous incoming connections
+maxincoming: {{ max_incoming }}
+
+# Maximum number of simultaneous outgoing connections
+maxoutgoing: {{ max_outgoing }}
+
+# Enable or disable local-only mode
+localonly: {{ local_only }}
+
+# Enable or disable logging of incoming connections
+logincoming: {{ log_incoming }}
+
+# Enable or disable logging of outgoing connections
+logoutgoing: {{ log_outgoing }}
+
+# Enable or disable logging of article storage
+logstorage: {{ log_storage }}
+
+# Enable or disable logging of errors
+logerrors: {{ log_errors }}
+
+# List of news servers to which this host will attempt to connect (inbound/outbound feeds)
+{% for peer in peers %}news.peer.{{ peer.name }}: {{ peer.host }}
+{% if peer.user is defined %}news.user.{{ peer.name }}: {{ peer.user }}
+{% endif %}{% endfor %}
+
+# List of IP ranges allowed to connect as news clients (in feed syntax: IP/bits)
+{% for allowed_ip in allowed_ips %}access.ip.{{ loop.index }}: {{ allowed_ip }}
+{% endfor %}
+
+# List of newsgroups to be created automatically at startup (groupname, description, Moderated flag, default policy)
+{% for group in auto_groups %}newsgroup.{{ group.name }}: {{ group.name }} {{ group.description }} {{ 'y' if group.moderated else 'n' }} {{ group.default_policy }}
+{% endfor %}
+
+# Storage method (storage system backend)
+storage.method: {{ storage_method }}
+
+# Path for storage backend (if applicable)
+{% if storage_method == 'inn' %}path.storage: {{ storage_path }}
+{% elif storage_method == 'storagefile' %}path.storage: {{ storage_path }}
+{% elif storage_method == 'storagelockfile' %}path.storage: {{ storage_path }}
+{% endif %}

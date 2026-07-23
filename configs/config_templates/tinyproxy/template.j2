@@ -1,0 +1,69 @@
+# TinyProxy Configuration File
+# Default settings for a production-ready lightweight HTTP/HTTPS proxy
+
+# Listen on a specific IP address (use 0.0.0.0 for all interfaces)
+Listen {{ listen_ip }}
+
+# Port on which TinyProxy listens for incoming connections
+Port {{ port }}
+
+# Hostname shown in error messages and headers
+# Leave commented to use system hostname
+{% if hostname %}#Hostname {{ hostname }}{% endif %}
+
+# Log level: DEBUG, INFO, NOTICE, WARNING, ERR, CRIT, ALERT, EMERG
+Log{{ log_level }}
+
+# Path to log file; use /dev/stdout for console logging
+LogFile "{{ log_file }}"
+
+# Maximum number of open file descriptors (affects max connections)
+MaxClients {{ max_clients }}
+
+# Minimum number of idle servers to keep running
+MinSpareServers {{ min_spare_servers }}
+
+# Maximum number of idle servers
+MaxSpareServers {{ max_spare_servers }}
+
+# Number of servers to start initially
+StartServers {{ start_servers }}
+
+# Maximum time (in seconds) a request can take
+Timeout {{ timeout }}
+
+# Enable/disable reverse proxy mode (not recommended for general proxy use)
+{% if reverse_proxy %}ReverseProxy{% else %}#ReverseProxy{% endif %}
+
+# Enable/disable transparent mode (does not add Via header)
+{% if transparent %}Transparent{% else %}#Transparent{% endif %}
+
+# Allow connections only from these IPs/CIDR ranges
+# If no Allow directives, all IPs are allowed (dangerous!)
+{% for rule in access_rules %}
+{% if rule.type == 'allow' %}Allow {{ rule.source }}{% elif rule.type == 'deny' %}Deny {{ rule.source }}{% endif %}
+{% endfor %}
+
+# Enable/disable basic authentication (per-user login)
+{% if auth_enabled %}BasicAuth username password{% else %}#BasicAuth user pass{% endif %}
+
+# Upstream proxy configuration (chain proxies)
+{% for upstream in upstream_proxies %}Upstream {{ upstream.protocol }}:{{ upstream.host }}:{{ upstream.port }}{% endfor %}
+
+# Bypass proxy for these domains/IPs (direct connection only)
+{% for bypass in no_proxy %}NoProxy {{ bypass }}{% endfor %}
+
+# Set proxy user agent string (or leave commented for default)
+{% if user_agent %}UserAgent "{{ user_agent }}"{% endif %}
+
+# Disable X-TinyProxy header to reduce fingerprinting
+{% if hide_info_header %}#AddHeader X-TinyProxy{% else %}AddHeader X-TinyProxy{% endif %}
+
+# Disable connecting to ports used by common malicious services
+{% if filter_ports %}Port {{ filtered_port_range }}{% else %}#Port {{ filtered_port_range }}{% endif %}
+
+# SSL/TLS options for HTTPS proxying
+{% if ssl_support %}
+SSLPort {{ ssl_port }}
+SSLCert "{{ ssl_cert }}"
+{% endif %}

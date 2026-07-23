@@ -1,0 +1,312 @@
+{
+  "module_load_pgsql": {
+    "type": "boolean",
+    "default": true,
+    "description": "Whether to load and enable the PostgreSQL authentication module."
+  },
+  "server_name": {
+    "type": "string",
+    "default": "ProFTPD Server",
+    "description": "Public name of the FTP server as announced in banners."
+  },
+  "server_type": {
+    "type": "string",
+    "default": "standalone",
+    "description": "Server mode \u2014 'standalone' (daemon) or 'inetd' (managed by inetd/xinetd)."
+  },
+  "server_ident": {
+    "type": "string",
+    "default": "off",
+    "description": "Whether to show server version in greeting; 'on' or 'off' (recommended for security)."
+  },
+  "daemon_user": {
+    "type": "string",
+    "default": "proftpd",
+    "description": "System user under which the ProFTPD daemon runs."
+  },
+  "daemon_group": {
+    "type": "string",
+    "default": "proftpd",
+    "description": "System group under which the ProFTPD daemon runs."
+  },
+  "listen_port": {
+    "type": "number",
+    "default": 21,
+    "description": "Default FTP control port."
+  },
+  "listen_addresses": {
+    "type": "list",
+    "default": [],
+    "description": "List of addresses to bind to. Each entry has IP, optional port, and optional comment.",
+    "items": {
+      "ip": {
+        "type": "string",
+        "required": true,
+        "description": "IPv4 or IPv6 address"
+      },
+      "port": {
+        "type": "number",
+        "required": false,
+        "default": null,
+        "description": "Override port for this binding (defaults to listen_port)"
+      },
+      "v6": {
+        "type": "boolean",
+        "required": false,
+        "default": false,
+        "description": "Treat IP as IPv6 (adds brackets)"
+      },
+      "comment": {
+        "type": "string",
+        "required": false,
+        "default": null,
+        "description": "Optional note (not rendered in config)"
+      },
+      "enabled": {
+        "type": "boolean",
+        "required": false,
+        "default": true,
+        "description": "If false, skip this binding"
+      }
+    }
+  },
+  "timeout_no_transfer": {
+    "type": "number",
+    "default": 300,
+    "description": "Seconds before disconnect if no data transfer starts."
+  },
+  "timeout_idle": {
+    "type": "number",
+    "default": 600,
+    "description": "Seconds of inactivity before disconnect."
+  },
+  "timeout_session": {
+    "type": "number",
+    "default": 1800,
+    "description": "Maximum session duration."
+  },
+  "max_clients": {
+    "type": "number",
+    "default": 30,
+    "description": "Maximum concurrent client connections."
+  },
+  "max_clients_per_host": {
+    "type": "number",
+    "default": 5,
+    "description": "Maximum connections per client IP."
+  },
+  "max_login_attempts": {
+    "type": "number",
+    "default": 3,
+    "description": "Maximum failed login attempts before disconnect."
+  },
+  "max_transfer_rate": {
+    "type": "number",
+    "default": 0,
+    "description": "Maximum transfer rate in bytes/sec (0 = unlimited)."
+  },
+  "log_level": {
+    "type": "string",
+    "default": "info",
+    "description": "Log verbosity level: debug, info, warn, error, etc."
+  },
+  "log_auth_format": {
+    "type": "string",
+    "default": "%h %l %u %t \"%r\" %s",
+    "description": "Format string for auth logs (percent-escaped variables)."
+  },
+  "chroot_home": {
+    "type": "boolean",
+    "default": true,
+    "description": "If true, chroot users to their home directories (recommended)."
+  },
+  "allow_store_pwd": {
+    "type": "boolean",
+    "default": false,
+    "description": "Allow clients to store passwords via SITE UPTIME (rarely needed, disable for security)."
+  },
+  "umask": {
+    "type": "string",
+    "default": "022",
+    "description": "Default umask for uploaded files (octal)."
+  },
+  "paths": {
+    "type": "list",
+    "default": [],
+    "description": "Global directory access rules (applied before virtual hosts).",
+    "items": {
+      "local": {
+        "type": "string",
+        "required": true,
+        "description": "Local filesystem path (e.g., /var/ftp)"
+      },
+      "owner": {
+        "type": "string",
+        "required": false,
+        "default": null,
+        "description": "Owner for permissions"
+      },
+      "group": {
+        "type": "string",
+        "required": false,
+        "default": null,
+        "description": "Group for permissions"
+      },
+      "mode": {
+        "type": "string",
+        "required": false,
+        "default": "0755",
+        "description": "Umask or permission mode (octal string)"
+      },
+      "allow_override": {
+        "type": "string",
+        "required": false,
+        "default": null,
+        "description": "Whether to allow .ftpaccess overrides: 'on' or 'off'"
+      },
+      "allow_read": {
+        "type": "boolean",
+        "required": false,
+        "default": true,
+        "description": "Allow reading from this directory"
+      },
+      "allow_write": {
+        "type": "boolean",
+        "required": false,
+        "default": false,
+        "description": "Allow writing/creating files in this directory"
+      },
+      "comment": {
+        "type": "string",
+        "required": false,
+        "default": null,
+        "description": "Optional comment"
+      },
+      "enabled": {
+        "type": "boolean",
+        "required": false,
+        "default": true,
+        "description": "If false, skip this rule"
+      }
+    }
+  },
+  "pgsql_connect_info": {
+    "type": "string",
+    "default": "localhost 5432 proftpd proftpd password",
+    "description": "PostgreSQL connection string: 'host port db user password'. Must match pg_hba.conf entries."
+  },
+  "virtual_hosts": {
+    "type": "list",
+    "default": [],
+    "description": "List of virtual hosts (per-domain FTP sites). Each binds to a hostname and may override global settings.",
+    "items": {
+      "hostname": {
+        "type": "string",
+        "required": true,
+        "description": "DNS hostname or IP this vhost responds to"
+      },
+      "enabled": {
+        "type": "boolean",
+        "required": false,
+        "default": true,
+        "description": "If false, disable this vhost"
+      },
+      "comment": {
+        "type": "string",
+        "required": false,
+        "default": null,
+        "description": "Optional description"
+      },
+      "address": {
+        "type": "string",
+        "required": false,
+        "default": null,
+        "description": "Specific IP to bind this vhost (defaults to all)"
+      },
+      "port": {
+        "type": "number",
+        "required": false,
+        "default": null,
+        "description": "Port override for this vhost"
+      },
+      "server_name": {
+        "type": "string",
+        "required": false,
+        "default": null,
+        "description": "Server name override (defaults to hostname)"
+      },
+      "description": {
+        "type": "string",
+        "required": false,
+        "default": null,
+        "description": "Server info banner"
+      },
+      "chroot_dir": {
+        "type": "string",
+        "required": false,
+        "default": "~",
+        "description": "Chroot directory (supports variables like ~ for user home)"
+      },
+      "pgsql_connect_info": {
+        "type": "string",
+        "required": false,
+        "default": null,
+        "description": "Optional per-vhost DB connection string"
+      },
+      "pgsql_auth_user": {
+        "type": "string",
+        "required": false,
+        "default": null,
+        "description": "SQL query for user lookup (e.g., \"SELECT passwd FROM ftpuser WHERE userid='%U'\")"
+      },
+      "pgsql_auth_group": {
+        "type": "string",
+        "required": false,
+        "default": null,
+        "description": "SQL query for group lookup"
+      },
+      "log_dir": {
+        "type": "string",
+        "required": false,
+        "default": null,
+        "description": "Directory for vhost-specific transfer logs"
+      },
+      "paths": {
+        "type": "list",
+        "required": false,
+        "default": [],
+        "description": "Per-vhost directory access rules (same schema as top-level paths)",
+        "items": {
+          "local": {
+            "type": "string",
+            "required": true,
+            "description": "Local filesystem path"
+          },
+          "allow_write": {
+            "type": "boolean",
+            "required": false,
+            "default": false,
+            "description": "Allow writing"
+          },
+          "comment": {
+            "type": "string",
+            "required": false,
+            "default": null,
+            "description": "Optional note"
+          },
+          "enabled": {
+            "type": "boolean",
+            "required": false,
+            "default": true,
+            "description": "If false, skip this rule"
+          }
+        }
+      }
+    }
+  },
+  "include_conf.d": {
+    "type": "string",
+    "default": "/etc/proftpd/conf.d/*.conf",
+    "description": "Glob pattern to include additional configuration files (e.g., /etc/proftpd/conf.d/*.conf)"
+  }
+}

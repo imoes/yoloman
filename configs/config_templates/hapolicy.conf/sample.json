@@ -1,0 +1,49 @@
+{
+  "global": {
+    "log_socket": "/dev/log",
+    "user": "hapolicy",
+    "worker": 2,
+    "maxconn": 8192
+  },
+  "defaults": {
+    "mode": "http",
+    "opt": [
+      "httplog",
+      "forwardfor"
+    ],
+    "timeout_connect": "3s",
+    "timeout_client": "30s",
+    "timeout_server": "30s"
+  },
+  "proxies": [
+    {
+      "name": "web",
+      "description": "Public-facing HTTP frontend",
+      "bind": "0.0.0.0:80",
+      "opt": [
+        "httplog",
+        "forwardfor"
+      ],
+      "timeout_connect": "4s",
+      "timeout_client": "25s",
+      "timeout_server": "25s",
+      "server": [
+        "web1 10.0.1.10:8080 check",
+        "web2 10.0.1.11:8080 check"
+      ]
+    },
+    {
+      "name": "admin",
+      "description": "Admin API access",
+      "mode": "http",
+      "bind": "127.0.0.1:8404",
+      "opt": [
+        "httplog",
+        "forwardfor"
+      ],
+      "server": [
+        "admin-api 127.0.0.1:8405 check"
+      ]
+    }
+  ]
+}

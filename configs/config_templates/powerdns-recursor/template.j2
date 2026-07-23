@@ -1,0 +1,138 @@
+# Listen for incoming UDP queries on this IPv4 address
+bind-address={{ bind_address }}
+
+# Listen for incoming TCP queries on this IPv4 address (set to empty string to disable)
+bind-address-ipv6={{ bind_address_ipv6 }}
+
+# Port to listen for DNS queries
+port={{ port }}
+
+# Number of worker threads (0 = auto-detect based on CPU cores)
+threads={{ threads }}
+
+# Maximum number of simultaneous client connections
+max-concurrent-connections={{ max_concurrent_connections }}
+
+# Maximum number of packets in the packet cache
+packetcache-size={{ packetcache_size }}
+
+# Time-to-live for entries in the packet cache (seconds)
+packetcache-ttl={{ packetcache_ttl }}
+
+# Do not answer DNS queries for these domains (list of patterns)
+# (Each entry is a domain or suffix to block — supports wildcards like *.example.com)
+{% for domain in block_domains %}
+allow-query-cache={{ domain | replace('*', '.*') }}
+{% endfor %}
+
+# Allow queries from these networks (CIDR notation); if empty, allow all (but see allow-from below)
+allow-from={{ allow_from | join(', ') }}
+
+# Forward recursive queries to these upstream resolvers
+forward-zones={{ forward_zones | to_json | safe }}
+
+# Whether to use DNSSEC validation
+dnssec={{ dnssec | string | lower }}
+
+# Log level: 0=quiet, 1=error, 2=warning, 3=notice, 4=info, 5=debug
+loglevel={{ loglevel }}
+
+# Log file path (empty string = log to stderr)
+logfile={{ logfile | default('') }}
+
+# Query log file (if enabled)
+query-log-file={{ query_log_file | default('') }}
+
+# Whether to log queries
+query-log={{ query_log | string | lower }}
+
+# Timeout for outgoing queries (seconds)
+query-local-address-timeout={{ query_local_address_timeout }}
+
+# Minimum TTL for negative responses (NXDOMAIN/NODATA)
+neg-cache-ttl={{ neg_cache_ttl }}
+
+# Enable TCP-only mode (for firewall testing, etc.)
+tcp-outgoing=127.0.0.1
+
+# Use this local address as source for outgoing queries
+query-local-address={{ query_local_address }}
+
+# Enable DNS64 (IPv6 synthesis from IPv4 A records)
+dns64={{ dns64 | string | lower }}
+
+# Prefix for synthesized IPv6 addresses (e.g., 64:ff9b::/96)
+dns64-prefix={{ dns64_prefix }}
+
+# Enable EDNS Client Subnet (ECS) support
+edns-subnet-processing={{ edns_subnet_processing | string | lower }}
+
+# Maximum ECS subnet mask for IPv4 (0 = disabled, 32 = full precision)
+edns-subnet-allow={{ edns_subnet_allow }}
+
+# Rate limit for responses per second (0 = unlimited)
+rate-limit={{ rate_limit }}
+
+# Maximum number of packets to keep in the rate-limit slip list
+slip-rate-limit={{ slip_rate_limit }}
+
+# Enable API (Web UI / REST API)
+api={{ api | string | lower }}
+
+# API key (base64-encoded); must be set if API enabled
+api-key={{ api_key }}
+
+# API listening address (if enabled)
+api-listen={{ api_listen }}
+
+# API port
+api-port={{ api_port }}
+
+# Whether to enable the webserver (for API and stats)
+webserver={{ webserver | string | lower }}
+
+# Webserver listening address
+webserver-address={{ webserver_address }}
+
+# Webserver port
+webserver-port={{ webserver_port }}
+
+# Webserver password (if set)
+webserver-password={{ webserver_password }}
+
+# Local zone definitions (e.g., "example.com static", "internal.lan forward 10.0.0.1")
+{% for zone in local_zones %}
+local-zone={{ zone.zone | quote }} {{ zone.type }}
+{% endfor %}
+
+# Local data records (e.g., A, AAAA, TXT, etc.)
+{% for record in local_data %}
+local-data={{ record.name }} {{ record.type }} {{ record.data | replace('"', '\\"') | quote }}
+{% endfor %}
+
+# Whether to enable the recursor control interface (for pdns_control)
+control-console=disabled
+
+# Directory for control socket
+control-output-directory=/var/run/powerdns
+
+# Do not answer ID SERVER queries (for privacy)
+serve-rfc1918={{ serve_rfc1918 | string | lower }}
+
+# Whether to use the packet cache
+packet-cache={{ packet_cache | string | lower }}
+
+# Whether to use theNegCache
+neg-cache={{ neg_cache | string | lower }}
+
+# Maximum qps per source IP (0 = disabled)
+max-qps-per-ip={{ max_qps_per_ip }}
+
+# Whether to perform CPU-intensive tasks in a separate thread pool
+CPU-affinity={{ cpu_affinity }}
+
+# Listen for mDNS queries (multicast DNS)
+mdns-mode={{ mdns_mode | default('disabled') }}
+
+# Whether to enable the stub resolver for internal lookups
+stub-resolver={{ stub_resolver | string | lower }}

@@ -1,0 +1,59 @@
+{# Kerberos realm definition — global KDC configuration for realm(s) #}
+[libdefaults]
+  default_realm = {{ realm }}
+
+{# DNS/krb5.conf lookup settings — enable DNS realm lookup if configured #}
+{% if dns_lookup_realm|default(false) %}  dns_lookup_realm = true
+{% else %}  dns_lookup_realm = false
+{% endif %}
+
+{# DNS/krb5.conf lookup settings — enable DNS KDC lookup if configured #}
+{% if dns_lookup_kdc|default(false) %}  dns_lookup_kdc = true
+{% else %}  dns_lookup_kdc = false
+{% endif %}
+
+{# Ticket lifetime settings — default and maximum ticket lifetimes #}
+  default_tkt_enctypes = {{ default_tkt_enctypes | join(' ') }}
+  default_tgs_enctypes = {{ default_tgs_enctypes | join(' ') }}
+  permitted_enctypes    = {{ permitted_enctypes | join(' ') }}
+
+{# Clock skew tolerance — seconds to allow for clock skew between client & KDC #}
+  max_skew = {{ max_skew }}
+
+{# Default cache type (e.g., FILE: or DIR:) #}
+{% if default_ccache_name %}  default_ccache_name = {{ default_ccache_name }}
+{% endif %}
+
+{# Per-realm KDC configuration #}
+[realms]
+{% for r in realms %}  {{ r.name }} = {
+    kdc = {{ r.kdc_host }}:{{ r.kdc_port }}
+    admin_server = {{ r.kdc_host }}:{{ r.admin_port }}
+    default_domain = {{ r.default_domain }}
+{% if r.database %}    database = {
+      dbname = {{ r.database.dbname }}
+      master_key_type = {{ r.database.master_key_type }}
+      stashes = {
+        {{ r.database.master_key | tojson(indent=6, ensure_ascii=False) | replace('\n', '\n      ') }}
+      }
+    }
+{% endif %}
+{% if r.acls %}    acl_file = {{ r.acls.acl_file }}
+    admin_acl = {{ r.acls.admin_acl }}
+    kadmin_acl = {{ r.acls.kadmin_acl }}
+{% endif %}
+{% if r.support_enctypes %}    supported_enctypes = {{ r.support_enctypes | join(' ') }}
+{% endif %}
+  }
+{% endfor %}
+
+{# Domain-to-realm mapping #}
+[domain_realm]
+{% for map in domain_realm %}  {{ map.domain }} = {{ map.realm }}
+{% endfor %}
+
+{# Logging configuration #}
+[logging]
+  kdc = FILE:{{ log.kdc_path }}
+  admin_server = FILE:{{ log.admin_server_path }}
+  default = FILE:{{ log.default_path }}

@@ -1,0 +1,31 @@
+[daemon]
+# Enable or disable the daemon mode (accepts connections from remote hosts)
+enable_daemon = {{ enable_daemon | lower }}
+
+# TCP port on which distccd listens for incoming connections
+port = {{ port }}
+
+# Directory where compiled outputs (temporary files) are stored
+tempdir = {{ tempdir }}
+
+# Maximum number of concurrent compilation jobs (workers)
+max_connections = {{ max_connections }}
+
+# List of clients allowed to connect (empty = allow none; * = allow all; CIDR or hostname)
+allow = {%- for host in allow_hosts %}
+{{ '  ' ~ host }}{%- endfor %}
+
+# Log level: 0=error, 1=warn, 2=info, 3=debug
+log_level = {{ log_level }}
+
+# Path to log file (use 'stdout' or 'stderr' for console output)
+log_file = {{ log_file }}
+
+# Optional: username to drop privileges to after binding to port
+user = {{ user | default('') }}
+
+# Optional: compression level for network traffic (0=off, 1=fast, 9=best)
+compression = {{ compression | default('') }}
+
+# Optional: maximum time (seconds) to wait for a compile job to complete
+compile_timeout = {{ compile_timeout | default('') }}

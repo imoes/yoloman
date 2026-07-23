@@ -1,0 +1,98 @@
+# Listen on this IPv4 address (empty = all interfaces)
+host = {{ listen_host }}
+
+# Listen on this port for POP3 connections
+pop3_port = {{ pop3_port }}
+
+# Listen on this port for POP3S (POP3 over SSL) connections
+pop3s_port = {{ pop3s_port }}
+
+# Listen on this port for IMAP connections
+imap_port = {{ imap_port }}
+
+# Listen on this port for IMAPS (IMAP over SSL) connections
+imaps_port = {{ imaps_port }}
+
+# SSL/TLS certificate file for POP3S/IMAPS
+ssl_cert_file = {{ ssl_cert_file }}
+
+# SSL/TLS private key file for POP3S/IMAPS
+ssl_key_file = {{ ssl_key_file }}
+
+# Enable SSL/TLS protocol versions (comma-separated list of protocols)
+ssl_protocols = {{ ssl_protocols | join(', ') }}
+
+# Backend lookup method: 'file', 'mysql', 'postgresql', 'ldap'
+backend = {{ backend }}
+
+# File backend: path to perdition map file
+perdition_map_file = {{ perdition_map_file }}
+
+# LDAP backend settings
+{% if backend == 'ldap' %}
+ldap_url = {{ ldap_url }}
+ldap_bind_dn = {{ ldap_bind_dn }}
+ldap_bind_password = {{ ldap_bind_password }}
+ldap_search_base = {{ ldap_search_base }}
+ldap_user_filter = {{ ldap_user_filter }}
+ldap_group_filter = {{ ldap_group_filter }}
+{% endif %}
+
+# MySQL/PostgreSQL backend settings (common fields)
+{% if backend in ['mysql', 'postgresql'] %}
+db_name = {{ db_name }}
+db_user = {{ db_user }}
+db_password = {{ db_password }}
+db_host = {{ db_host }}
+db_port = {{ db_port }}
+{% endif %}
+
+{% if backend == 'mysql' %}
+db_driver = 'mysql'
+db_query = {{ db_query }}
+{% elif backend == 'postgresql' %}
+db_driver = 'pg'
+db_query = {{ db_query }}
+{% endif %}
+
+# Maximum number of concurrent client connections
+max_clients = {{ max_clients }}
+
+# Timeout for client connections (in seconds)
+timeout = {{ timeout }}
+
+# Log level: 0 (fatal) to 9 (debug)
+log_level = {{ log_level }}
+
+# Log facility (syslog) or file path
+log_facility = {{ log_facility }}
+
+# Chroot directory (empty = no chroot)
+chroot = {{ chroot }}
+
+# Run as this user
+user = {{ user }}
+
+# Run as this group
+group = {{ group }}
+
+# Optional: additional backend-specific per-user backends
+{% for backend_entry in backend_entries %}
+{% if backend_entry.type == 'mysql' %}
+[backend:{{ backend_entry.name }}]
+db_driver = 'mysql'
+db_name = {{ backend_entry.db_name }}
+db_user = {{ backend_entry.db_user }}
+db_password = {{ backend_entry.db_password }}
+db_host = {{ backend_entry.db_host }}
+db_port = {{ backend_entry.db_port }}
+db_query = {{ backend_entry.db_query }}
+{% elif backend_entry.type == 'ldap' %}
+[backend:{{ backend_entry.name }}]
+ldap_url = {{ backend_entry.ldap_url }}
+ldap_bind_dn = {{ backend_entry.ldap_bind_dn }}
+ldap_bind_password = {{ backend_entry.ldap_bind_password }}
+ldap_search_base = {{ backend_entry.ldap_search_base }}
+ldap_user_filter = {{ backend_entry.ldap_user_filter }}
+{% endif %}
+{% endfor %}

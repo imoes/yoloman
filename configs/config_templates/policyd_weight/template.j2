@@ -1,0 +1,90 @@
+# Listen address and port for the policyd-weight service
+listen = "{{ listen_addr }}:{{ listen_port }}"
+
+# Maximum number of simultaneous connections
+max_children = {{ max_children }}
+
+# Log level: 0=quiet, 1=normal, 2=verbose, 3=debug
+log_level = {{ log_level }}
+
+# Path to the log file
+log_file = "{{ log_file }}"
+
+# Enable or disable logging to syslog
+log_syslog = {{ log_syslog | lower }}
+
+# Enable or disable chroot operation
+chroot = {{ chroot | lower }}
+
+# Path to the PID file
+pid_file = "{{ pid_file }}"
+
+# Delay between checks (in seconds) for stale connections
+connection_timeout = {{ connection_timeout }}
+
+# Enable DNS lookups
+use_dns = {{ use_dns | lower }}
+
+# Timeout for DNS lookups (in seconds)
+dns_timeout = {{ dns_timeout }}
+
+# Minimum time (in seconds) between same-source connection attempts
+rate_limit_interval = {{ rate_limit_interval }}
+
+# Maximum connection attempts per source within rate_limit_interval
+max_connections_per_source = {{ max_connections_per_source }}
+
+# Enable or disable SPF checking
+check_spf = {{ check_spf | lower }}
+
+# Enable or disable DNSBL (blacklist) checking
+check_dnsbl = {{ check_dnsbl | lower }}
+
+# Enable or disable HELO/EHLO reputation checks
+check_helo = {{ check_helo | lower }}
+
+# Enable or disable sender address reputation checks
+check_sender = {{ check_sender | lower }}
+
+# Enable or disable client IP reputation checks
+check_client_ip = {{ check_client_ip | lower }}
+
+# Enable or disable greylisting
+use_greylist = {{ use_greylist | lower }}
+
+# Greylist delay (in seconds)
+greylist_delay = {{ greylist_delay }}
+
+# Greylist expiry (in seconds)
+greylist_expiry = {{ greylist_expiry }}
+
+# Path to the greylist database
+greylist_db_path = "{{ greylist_db_path }}"
+
+# Path to the DNSBL configuration file (one entry per line: host,tcode,rcode)
+dnsbl_conf = "{{ dnsbl_conf }}"
+
+# Path to the SPF configuration file (optional)
+spf_conf = "{{ spf_conf }}"
+
+# Path to the HELO configuration file (optional)
+helo_conf = "{{ helo_conf }}"
+
+# Path to the sender configuration file (optional)
+sender_conf = "{{ sender_conf }}"
+
+# Path to the client IP configuration file (optional)
+client_ip_conf = "{{ client_ip_conf }}"
+
+# Permitted senders (comma-separated list of domains or IPs)
+permitted_senders = [ {{- permitted_senders | map("quote") | join(", ") -}} ]
+
+# Permitted clients (comma-separated list of domains or IPs)
+permitted_clients = [ {{- permitted_clients | map("quote") | join(", ") -}} ]
+
+# Weight adjustments for matched rules (applied in order)
+# Each entry defines a condition and its weight penalty/bonus
+{% for rule in weight_rules %}
+# {{ rule.description | default('Weight rule') }}
+{{ rule.name }} = {{ rule.weight }}{% if rule.condition %} # if {{ rule.condition }}{% endif %}
+{% endfor %}

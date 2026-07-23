@@ -1,0 +1,97 @@
+# Enable or disable the firmware update daemon
+Enabled={{ enabled }}
+
+# Directory where firmware updates are staged
+StagingDir={{ staging_dir }}
+
+# Directory for cached firmware metadata
+CacheDir={{ cache_dir }}
+
+# Directory for plugin logs and diagnostics
+LogDir={{ log_dir }}
+
+# Directory for firmware blobs (if not using system firmware repos)
+# {# Note: typically left blank; fwupd fetches firmware from upstream repos #}
+FirmwareDir={{ firmware_dir }}
+
+# List of firmware release channels
+{% for channel in firmware_channels %}# Firmware release channel: {{ channel.name }}
+{% if channel.name == 'stable' %}RemoteStable={{ channel.remote }}
+{% elif channel.name == 'testing' %}RemoteTesting={{ channel.remote }}
+{% elif channel.name == 'unstable' %}RemoteUnstable={{ channel.remote }}
+{% endif %}{% endfor %}
+
+# Show firmware version in GUI notifications (if supported by frontend)
+ShowVersionInGUI={{ show_version_in_gui }}
+
+# Enable or disable firmware verification (required for secure updates)
+{% if firmware_verification %}FirmwareVerification=true
+{% else %}FirmwareVerification=false
+{% endif %}
+
+# Minimum battery percentage required to allow updates (0 = no limit)
+MinPower={{ min_power }}
+
+# Minimum battery time remaining (seconds) required for updates (0 = no limit)
+MinTime={{ min_time }}
+
+# Maximum number of concurrent update attempts
+MaxAttempts={{ max_attempts }}
+
+# Delay (seconds) before retrying failed updates
+RetryDelay={{ retry_delay }}
+
+# Enable or disable automatic background updates
+{% if automatic_background_updates %}AutomaticBackgroundUpdates=true
+{% else %}AutomaticBackgroundUpdates=false
+{% endif %}
+
+# Enable or disable automatic power-screen update suppression
+{% if suppress_power_screen %}SuppressPowerScreen=true
+{% else %}SuppressPowerScreen=false
+{% endif %}
+
+# List of device flags to ignore (e.g., for known-bad firmware)
+{% for flag in ignored_device_flags %}IgnoreDeviceFlags={{ flag }}
+{% endfor %}
+
+# List of device GIds to ignore (full hardware IDs)
+{% for gId in ignored_device_gids %}IgnoreDevice={{ gId }}
+{% endfor %}
+
+# Enable or disable debug logging
+{% if debug_logging %}Debug=true
+{% else %}Debug=false
+{% endif %}
+
+# Logging verbosity (0=error, 1=warning, 2=info, 3=debug)
+LogLevel={{ log_level }}
+
+# Enable or disable local metadata signing (advanced)
+{% if local_metadata_signing %}LocalMetadataSigning=true
+{% else %}LocalMetadataSigning=false
+{% endif %}
+
+# Path to local metadata signing key (if enabled)
+LocalMetadataKey={{ local_metadata_key }}
+
+# Enable or disable LVFS testing (for firmware developers)
+{% if lvfs_testing %}LVFSTesting=true
+{% else %}LVFSTesting=false
+{% endif %}
+
+# Maximum firmware size (bytes); 0 = no limit
+MaxFirmwareSize={{ max_firmware_size }}
+
+# Enable or disable device re-enumeration after update
+{% if device_reenumerate %}DeviceReenumerate=true
+{% else %}DeviceReenumerate=false
+{% endif %}
+
+# Enable or disable offline updates (used in OEM imaging flows)
+{% if offline_updates %}OfflineUpdates=true
+{% else %}OfflineUpdates=false
+{% endif %}
+
+# Path to offline update lock file (if offline updates enabled)
+OfflineUpdateLockFile={{ offline_update_lock_file }}

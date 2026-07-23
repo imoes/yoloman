@@ -1,0 +1,169 @@
+{
+  "multicast": {
+    "type": "object",
+    "default": {
+      "address": "239.192.148.15",
+      "port": 1229,
+      "interface": "eth0"
+    },
+    "description": "Multicast group and interface used by fence_virtd to communicate with cluster nodes.",
+    "items": {
+      "address": {
+        "type": "string",
+        "default": "239.192.148.15",
+        "description": "Multicast IP address (must be in range 224.0.0.0\u2013239.255.255.255)."
+      },
+      "port": {
+        "type": "number",
+        "default": 1229,
+        "description": "UDP port for multicast communication (1\u201365535)."
+      },
+      "interface": {
+        "type": "string",
+        "default": "eth0",
+        "description": "Network interface to bind to (e.g., 'eth0', 'bond0')."
+      }
+    }
+  },
+  "listeners": {
+    "type": "list",
+    "default": [
+      {
+        "type": "libvirt",
+        "path": "/var/run/fence_virt.sock",
+        "mode": "0660"
+      }
+    ],
+    "description": "List of listener endpoints for incoming fence requests. Common types: 'libvirt', 'kvm'.",
+    "items": {
+      "type": {
+        "type": "string",
+        "default": "libvirt",
+        "description": "Listener type ('libvirt' for libvirt daemon, 'kvm' for KVM-based fencing)."
+      },
+      "path": {
+        "type": "string",
+        "default": "/var/run/fence_virt.sock",
+        "description": "Socket path or device path (e.g., '/dev/kvm') for this listener."
+      },
+      "mode": {
+        "type": "string",
+        "default": "0660",
+        "description": "Octal file permissions for socket (e.g., '0660')."
+      },
+      "group": {
+        "type": "string",
+        "default": "qemu",
+        "description": "Group ownership of socket (optional)."
+      },
+      "user": {
+        "type": "string",
+        "default": "root",
+        "description": "User ownership of socket (optional)."
+      },
+      "timeout": {
+        "type": "number",
+        "default": 30,
+        "description": "Maximum seconds to wait for a connection response (optional)."
+      }
+    }
+  },
+  "auth": {
+    "type": "object",
+    "default": {
+      "type": "keyfile",
+      "keyfile": "/etc/fence_virt.key"
+    },
+    "description": "Authentication method for fence_virtd. Options: 'keyfile' (recommended for production), 'plain'.",
+    "items": {
+      "type": {
+        "type": "string",
+        "default": "keyfile",
+        "enum": [
+          "keyfile",
+          "plain"
+        ],
+        "description": "Authentication mechanism."
+      },
+      "keyfile": {
+        "type": "string",
+        "default": "/etc/fence_virt.key",
+        "description": "Path to the binary keyfile (required if type='keyfile')."
+      },
+      "credentials": {
+        "type": "string",
+        "default": "/etc/fence_virt/passwd",
+        "description": "Path to the plain-text credentials file (required if type='plain')."
+      }
+    }
+  },
+  "logging": {
+    "type": "object",
+    "default": {
+      "level": "info",
+      "file": "/var/log/fence_virtd.log"
+    },
+    "description": "Logging behavior for fence_virtd.",
+    "items": {
+      "level": {
+        "type": "string",
+        "default": "info",
+        "enum": [
+          "debug",
+          "info",
+          "warning",
+          "error"
+        ],
+        "description": "Minimum log level to emit."
+      },
+      "file": {
+        "type": "string",
+        "default": "/var/log/fence_virtd.log",
+        "description": "Log file path (use 'syslog' to log via rsyslog)."
+      }
+    }
+  },
+  "drivers": {
+    "type": "list",
+    "default": [
+      {
+        "name": "libvirt",
+        "timeout": 30,
+        "retry": 3,
+        "retry_sleep": 5
+      }
+    ],
+    "description": "Fence driver backends (e.g., libvirt, kvm). Typically one driver is enabled at a time.",
+    "items": {
+      "name": {
+        "type": "string",
+        "default": "libvirt",
+        "enum": [
+          "libvirt",
+          "kvm"
+        ],
+        "description": "Driver name ('libvirt' uses libvirt daemon for VM control; 'kvm' uses direct KVM ioctls)."
+      },
+      "timeout": {
+        "type": "number",
+        "default": 30,
+        "description": "Timeout in seconds for driver operations (e.g., power-cycle)."
+      },
+      "retry": {
+        "type": "number",
+        "default": 3,
+        "description": "Number of times to retry failed operations."
+      },
+      "retry_sleep": {
+        "type": "number",
+        "default": 5,
+        "description": "Seconds to wait between retries."
+      },
+      "namespace": {
+        "type": "string",
+        "default": "",
+        "description": "Optional libvirt namespace (e.g., 'user-ns')."
+      }
+    }
+  }
+}

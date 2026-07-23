@@ -1,0 +1,36 @@
+# conman.conf — Conserver master configuration file
+# List of consoles managed by conman
+consoles { % for console in consoles %}
+  {{ console.name }} {
+    # Hostname or IP of the serial console server
+    host {{ console.host }};
+    
+    # Port for the console connection (e.g., telnet, rsh, ssh, etc.)
+    port {{ console.port }};
+    
+    # Protocol used for connection (telnet, rsh, ssh, etc.)
+    protocol {{ console.protocol }};
+    
+    # Optional: login username for non-telnet protocols
+    { % if console.username is defined %}    username {{ console.username }};{% endif %}
+    
+    # Optional: login password for non-telnet protocols
+    { % if console.password is defined %}    password {{ console.password }};{% endif %}
+    
+    # Optional: baud rate for serial consoles (if applicable)
+    { % if console.baud is defined %}    baud {{ console.baud }};{% endif %}
+    
+    # Optional: extra arguments passed to the protocol command
+    { % if console.args is defined %}    args {{ console.args }};{% endif %}
+    
+    # Optional: enable/disable console logging
+    { % if console.log is defined %}    log {{ console.log }};{% endif %}
+  }
+{% endfor %}
+}
+
+# Global default settings (optional overrides)
+{ % if defaults %}defaults {
+{ % for key, value in defaults.items() %}  {{ key }} {{ value }};
+{% endfor %}}
+{% endif %}

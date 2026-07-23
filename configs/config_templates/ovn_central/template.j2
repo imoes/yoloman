@@ -1,0 +1,41 @@
+# OVN Northbound database server configuration
+[Database]
+# Maximum number of connections allowed
+max_connections={{ max_connections }}
+
+# Maximum number of in-memory log entries per connection
+max_log_entries={{ max_log_entries }}
+
+# Timeout (in seconds) before idle connections are closed
+connection_timeout={{ connection_timeout }}
+
+# Enable SSL for external connections (true/false)
+ssl_enable={{ ssl_enable }}
+
+# Path to SSL certificate file
+ssl_cert={{ ssl_cert }}
+
+# Path to SSL private key file
+ssl_key={{ ssl_key }}
+
+# Path to CA certificate for verifying clients
+ssl_ca_cert={{ ssl_ca_cert }}
+
+# List of allowed SSL ciphers (colon-separated), or empty for defaults
+ssl_ciphers={{ ssl_ciphers | default('') }}
+
+# Local address to bind to (e.g., 127.0.0.1 or 0.0.0.0)
+local={{ local }}
+
+# List of cluster peers for HA (each entry: name, address, port)
+{% for peer in peers %}
+# Peer {{ peer.name }}: {{ peer.address }}:{{ peer.port }}
+cluster_{{ peer.name }}_address={{ peer.address }}
+cluster_{{ peer.name }}_port={{ peer.port }}
+{% endfor %}
+
+# OVN Southbound database address (for cross-db queries)
+remote={{ remote_address }}:{{ remote_port }}
+
+# Enable debugging log level (true/false)
+debug={{ debug }}

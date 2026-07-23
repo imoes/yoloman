@@ -1,0 +1,47 @@
+# Configuration for crmsh (Pacemaker Cluster Shell)
+# Enable or disable interactive mode by default
+set interactive {{ interactive | string | lower }}
+
+# Set default editor for configuration editing
+set editor {{ editor }}
+
+# Set default pager for command output
+set pager {{ pager }}
+
+# Set the default shell (for non-interactive use)
+set shell {{ shell }}
+
+# Enable or disable command logging to ~/.crm/shellhistory
+set history {{ history | string | lower }}
+
+# Timeout (in seconds) for interactive commands
+set timeout {{ timeout }}
+
+# Enable or disable automatic confirmation of dangerous operations
+set noconfirm {{ noconfirm | string | lower }}
+
+# Enable or disable color output (if terminal supports it)
+set color {{ color | string | lower }}
+
+# Default location for cluster configuration backups
+set backupdir {{ backupdir }}
+
+# List of plugins (e.g., for extended commands or integration)
+{% for plugin in plugins %}
+use {{ plugin.name }}
+{% if plugin.options %}
+# Options for plugin '{{ plugin.name }}'
+{% for key, val in plugin.options.items() %}
+set {{ plugin.name }}.{{ key }} {{ val | string | lower if val is bool else val }}
+{% endfor %}
+{% endif %}
+{% endfor %}
+
+# Default cluster name (used by some commands if cluster is not explicitly specified)
+set cluster {{ cluster_name }}
+
+# Default CIB source (e.g., 'live', 'file:/path/to/cib.xml', 'xml' for raw XML)
+set crm_cibsh {{ crm_cibsh }}
+
+# Default log level (0–7, higher = more verbose)
+set crm_logfile_level {{ crm_logfile_level }}

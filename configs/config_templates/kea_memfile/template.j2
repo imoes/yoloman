@@ -1,0 +1,53 @@
+{# DHCP server identifier (server-id) — identifies this server on the network #}
+{
+  "Dhcp4": {
+    "lease-database": {
+      "type": "memfile",
+      "lfc-interval": {{ lease_database_lfc_interval }},
+      "persist": {{ lease_database_persist }},
+      "name": "{{ lease_database_name }}"
+    },
+    "hooks-libraries": [
+      {% for lib in hooks_libraries %}{# Load a hook library (e.g., for logging, statistics, etc.) #}
+      {
+        "library": "{{ lib.library }}",
+        {% if lib.parameters %}{# Hook-specific parameters #}
+        "parameters": {{ lib.parameters | to_json }}
+        {% else %}{# No parameters #}
+        "parameters": {}
+        {% endif %}
+      }{% if not loop.last %},{% endif %}
+      {% endfor %}
+    ],
+    "reconnect-wait-time": {{ reconnect_wait_time }},
+    {% if db_interval %}{# Periodic database write interval for durability (seconds) #}
+    "database-interval": {{ db_interval }},
+    {% endif %}
+    {% if auth %}{# Optional authentication configuration for database access #}
+    "auth": {{ auth | to_json }},
+    {% endif %}
+    "loggers": [
+      {% for logger in loggers %}{# Logging configuration for a logger #}
+      {
+        "name": "{{ logger.name }}",
+        "output_options": [
+          {
+            "output": "{{ logger.output | default('stdout') }}"
+            {% if logger.max_size is defined %},{% if logger.max_size %}{# Maximum log file size (bytes) #}
+            , "max-size": {{ logger.max_size }}
+            {% endif %}{% endif %}
+            {% if logger.max_versions is defined %},{% if logger.max_versions %}{# Maximum number of rotated log files to keep #}
+            , "max-versions": {{ logger.max_versions }}
+            {% endif %}{% endif %}
+            {% if logger.flush is defined %},{% if logger.flush is true %}{# Force flush after each write #}
+            , "flush": true
+            {% endif %}{% endif %}
+          }
+        ],
+        "severity": "{{ logger.severity | default('INFO') }}",
+        "debuglevel": {{ logger.debuglevel | default(0) }}
+      }{% if not loop.last %},{% endif %}
+      {% endfor %}
+    ]
+  }
+}

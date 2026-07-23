@@ -1,0 +1,37 @@
+# Floppy Remote Access Daemon configuration
+# Listen address and port for incoming connections
+bind: {{ bind_host }}:{{ bind_port }}
+
+# Path to the directory containing floppy images
+image_root: {{ image_root }}
+
+# Maximum number of concurrent connections
+max_connections: {{ max_connections }}
+
+# Enable or disable write access to floppy images
+allow_write: {{ allow_write }}
+
+# Logging level: debug, info, warn, error
+log_level: {{ log_level }}
+
+# Log file path (empty string for stdout)
+log_file: {{ log_file }}
+
+# Trusted client entries
+{% for client in trusted_clients %}# Allow access from {{ client.name }} ({{ client.host }})
+{% if client.password %}client: {{ client.host }} password={{ client.password }}
+{% else %}client: {{ client.host }}
+{% endif %}{% endfor %}
+
+# Supported floppy types (order matters for auto-detection)
+{% for ftype in floppy_types %}floppy_type: {{ ftype.name }} {{ ftype.size_kb }}KB {{ ftype.sectors }}sectors {{ ftype.heads }}heads
+{% endfor %}
+
+# Optional TLS configuration (set tls_cert and tls_key to enable)
+{% if tls_cert and tls_key %}# TLS encryption settings
+tls_cert: {{ tls_cert }}
+tls_key: {{ tls_key }}
+{% endif %}
+
+# Session timeout in seconds
+session_timeout: {{ session_timeout }}

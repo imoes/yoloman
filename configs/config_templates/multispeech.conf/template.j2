@@ -1,0 +1,37 @@
+[global]
+# Application-wide settings
+app_name = multispeech
+log_level = {{ log_level }}
+max_workers = {{ max_workers }}
+
+# Runtime behavior and resource limits
+timeout_ms = {{ timeout_ms }}
+max_buffer_size = {{ max_buffer_size }}
+
+[backend]
+# Backend server configuration
+host = {{ backend.host }}
+port = {{ backend.port }}
+
+[speech]
+# Speech synthesis settings
+engine = {{ speech.engine }}
+default_language = {{ speech.default_language }}
+# Voice options (list of voice definitions)
+{% for voice in speech.voices %}voice = {{ voice.name }}|{{ voice.lang }}|{{ voice.gender }}|{{ voice.stability }}|{{ voice.similarity_boost }}
+{% endfor %}
+
+[audio]
+# Audio output configuration
+sample_rate = {{ audio.sample_rate }}
+output_format = {{ audio.output_format }}
+# Enable optional features
+{% if audio.enable_denoising %}denoise = true
+{% else %}denoise = false
+{% endif %}
+
+[logging]
+# Logging configuration
+file = {{ logging.file }}
+max_size_mb = {{ logging.max_size_mb }}
+max_backup_count = {{ logging.max_backup_count }}

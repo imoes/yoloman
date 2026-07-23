@@ -1,0 +1,102 @@
+# LDAP server URI(s) — space- or comma-separated list of LDAP URLs
+uris = {{ uris | join(' ') }}
+
+# LDAP base DN for searches
+base = {{ base_dn }}
+
+# Scope of LDAP search: sub, one, base, or children
+scope = {{ search_scope }}
+
+# LDAP bind DN (if using authenticated bind)
+dn = {{ bind_dn | default('', true) }}
+
+# LDAP bind password (if using authenticated bind)
+dnpass = {{ bind_password | default('', true) }}
+
+# TLS: enable or not
+tls = {{ enable_tls | lower }}
+
+# TLS: CA certificate file path (optional)
+cacert = {{ ca_cert_path | default('', true) }}
+
+# TLS: client certificate file (optional)
+client_cert = {{ client_cert_path | default('', true) }}
+
+# TLS: client key file (optional)
+client_key = {{ client_key_path | default('', true) }}
+
+# LDAP filter for user lookup
+user_filter = {{ user_filter }}
+
+# LDAP attribute mapping: local field = ldap_attr
+user_attrs = \
+  homeDirectory=home, \
+  mailMessageStore=mail, \
+  uidNumber=uid, \
+  gidNumber=gid, \
+  mailUser=maildrop, \
+  mailQuota=mailQuota
+
+# LDAP attribute mapping for group lookups (optional)
+group_filter = {{ group_filter | default('', true) }}
+group_attrs = \
+  cn=group, \
+  memberUid=members
+
+# Password scheme used in LDAP (e.g., SSHA, MD5, PLAIN)
+pass_attrs = uid=userPassword
+pass_filter = (uid=%u)
+
+# Password scheme to use when authenticating (matches LDAP stored scheme)
+password_scheme = {{ password_scheme }}
+
+# Iterate over additional user-specific attributes (e.g., custom fields)
+{% for attr in extra_user_attrs %}
+user_attr{{ loop.index }} = {{ attr.ldap_attr }}={{ attr.local_name }}{% endfor %}
+
+# Enable or disable LDAP referral chasing
+referrals = {{ enable_referrals | lower }}
+
+# Timeout (in seconds) for LDAP operations
+timelimit = {{ ldap_timeout }}
+
+# Idle timeout (in seconds) for LDAP connections
+idle_timelimit = {{ ldap_idle_timeout }}
+
+# Reconnect retry delay (in seconds) after connection failure
+reconnect_delay = {{ ldap_reconnect_delay }}
+
+# Maximum number of parallel LDAP connections
+max_pending_ops = {{ max_pending_ops }}
+
+# Use LDAP v3 protocol (always true in modern setups)
+version = 3
+
+# Start TLS (if not already using ldaps://)
+stls = {{ enable_starttls | lower }}
+
+# Require valid server certificate (only for TLS/ldaps)
+cert_req = {{ cert_requirement | default('demand', true) }}
+
+# LDAP base DN for group lookups (optional)
+group_base = {{ group_base_dn | default('', true) }}
+
+# LDAP group scope
+group_scope = {{ group_search_scope | default('sub', true) }}
+
+# Enable LDAP debugging in Dovecot logs
+debug = {{ enable_debug | lower }}
+
+# TLS cipher list (optional, system default if omitted)
+tls_cipher_list = {{ tls_cipher_list | default('', true) }}
+
+# LDAP base DN for email alias expansion (optional)
+aliases_filter = {{ aliases_filter | default('', true) }}
+aliases_attrs = \
+  rfc822MailMember=alias
+
+# Optional: LDAP SASL mechanism (e.g., GSSAPI)
+sasl_mech = {{ sasl_mech | default('', true) }}
+
+# Optional: SASL service name
+sasl_realm = {{ sasl_realm | default('', true) }}

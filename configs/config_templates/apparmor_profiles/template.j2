@@ -1,0 +1,80 @@
+#include <tunables/global>
+
+/usr/bin/docker {# Profile for Docker daemon binary #}
+  #include <abstractions/base>
+  #include <abstractions/nameservice>
+  #include <abstractions/openssl>
+  #include <abstractions/ssl_keys>
+
+  # Docker needs access to its config and state directories
+  /etc/docker/** r,
+  /var/lib/docker/** rw,
+  /run/docker.sock rw,
+
+  # Docker uses seccomp filters; allow reading default profile
+  /etc/docker/seccomp-profile.json r,
+  /usr/share/docker/seccomp*.json r,
+
+  # Allow container rootfs mounts (read-only by default, unless overridden)
+  / rw,
+  /usr/ r,
+  /bin/ r,
+  /sbin/ r,
+  /lib/ r,
+  /lib64/ r,
+  /etc/ r,
+  /dev/ r,
+
+  # Docker needs to manage network namespaces and devices
+  /proc/sys/kernel/pid_max r,
+  /proc/sys/kernel/keys/ r,
+  /proc/sys/kernel/random/entropy_avail r,
+  /sys/kernel/mm/transparent_hugepage/enabled r,
+  /sys/kernel/mm/transparent_hugepage/defrag r,
+  /dev/kmsg w,
+  /dev/net/tun rw,
+
+  # Allow container exec and attach (e.g., via `docker exec`)
+  /proc/*/fd/ r,
+  /proc/*/ns/ r,
+  /sys/fs/cgroup/ r,
+  /sys/fs/cgroup/** r,
+
+  # Allow Docker to create and manage namespaces and cgroups
+  /sys/kernel/cgroup* w,
+
+  # Allow loading of AppArmor profile (if using docker-apparmor-utils)
+  capability setuid,
+  capability setgid,
+  capability sys_admin,
+  capability sys_ptrace,
+  capability net_admin,
+  capability net_raw,
+  capability sys_chroot,
+  capability mknod,
+  capability setpcap,
+  capability audit_write,
+  capability sys_resource,
+
+  # Allow mount/umount for container rootfs
+  mount,
+  umount,
+
+  # Allow pivot_root (used in containers)
+  pivot_root,
+
+  # Allow ptrace for container introspection (e.g., `docker top`, `docker inspect`)
+  ptrace,
+
+  # Allow signal handling between host and containers
+  signal,
+
+  # Optional: deny certain dangerous operations by default (comment out if needed)
+  # deny /proc/*/mem w,
+  # deny /proc/*/kmem w,
+  # deny /sys/kernel/btf/ w,
+  # deny /boot/** w,
+
+  # Allow access to user-specified volumes (handled via profiles per container in practice)
+  # This is usually managed dynamically via include statements per profile
+}

@@ -1,0 +1,57 @@
+# ESMTP Relay MTA configuration file
+# This file is processed by esmtpd at startup.
+# Only relay-mode configuration is supported.
+
+# Listen on these addresses and ports
+listen {{ listen_addresses | join(', ') }}
+
+# Domain this MTA is authorized to relay for (relaying only for these domains)
+# Format: domain[:port] (port defaults to 25 if omitted)
+{% for route in routes %}route {{ route.domain }}:{{ route.port }} {{ route.next_hop }}
+{% endfor %%}
+
+# Optional: Enable TLS for outbound connections (requires valid certificates)
+{% if tls_enabled %}tls
+{% endif %}
+
+# Optional: TLS certificate chain file (required if tls_enabled)
+{% if tls_enabled and tls_cert_chain %}tls_cert_chain {{ tls_cert_chain }}
+{% endif %}
+
+# Optional: TLS private key file (required if tls_enabled)
+{% if tls_enabled and tls_key %}tls_key {{ tls_key }}
+{% endif %}
+
+# Optional: Trusted CA certificates file (for verifying remote certs)
+{% if tls_enabled and tls_ca_file %}tls_ca_file {{ tls_ca_file }}
+{% endif %}
+
+# Optional: Enable STARTTLS negotiation (default: yes)
+{% if starttls_enabled is not defined or starttls_enabled %}starttls yes
+{% else %}starttls no
+{% endif %}
+
+# Optional: Timeout settings (in seconds)
+timeout connect {{ connect_timeout }}
+timeout data {{ data_timeout }}
+timeout session {{ session_timeout }}
+
+# Optional: Retry and backoff settings
+retry_max {{ retry_max }}
+retry_interval {{ retry_interval }}
+retry_backoff {{ retry_backoff }}
+
+# Optional: Logging verbosity (0-3)
+verbose {{ verbosity }}
+
+# Optional: Local hostname override (defaults to FQDN)
+{% if local_hostname %}localname {{ local_hostname }}
+{% endif %}
+
+# Optional: Sender address rewriting rules (for masquerading)
+{% for rule in sender_maps %}sendermap {{ rule.pattern }} {{ rule.replacement }}
+{% endfor %}
+
+# Optional: Envelope sender for undeliverable mail (bounce address)
+{% if bounce_sender %}bouncemail {{ bounce_sender }}
+{% endif %}

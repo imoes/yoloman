@@ -1,0 +1,53 @@
+# Server identity and certificate paths
+identity_cert = {{ identity_cert_path }}
+identity_key = {{ identity_key_path }}
+
+# CA certificate and revocation list paths
+cacert_dir = {{ cacert_dir }}
+ca_cert = {{ ca_cert_path }}
+ca_revocation_list = {{ ca_revocation_list_path }}
+
+# Network settings
+listen_address = {{ listen_address }}
+listen_port = {{ listen_port }}
+
+# Credential lifetime and renewal settings
+credential_lifetime = {{ credential_lifetime_hours }}
+renewal_threshold = {{ renewal_threshold_hours }}
+
+# Access control
+authorized_users = {{ authorized_users | join(', ') }}
+authorized_groups = {{ authorized_groups | join(', ') }}
+
+# Logging
+log_level = {{ log_level }}
+log_file = {{ log_file }}
+
+# Security toggles
+require_proxy_cert = {{ require_proxy_cert | lower }}
+enforce_renewal = {{ enforce_renewal | lower }}
+
+# Working directory
+working_dir = {{ working_dir }}
+
+# GridFTP support (optional)
+{% if enable_gridftp %}
+gridftp_port = {{ gridftp_port }}
+{% endif %}
+
+# Number of worker threads
+num_threads = {{ num_threads }}
+
+# Allowed VO (Virtual Organization) list
+{% for vo in allowed_vos %}
+vo = {{ vo.name }}
+{% if vo.dn %}
+vo_dn = {{ vo.dn }}
+{% endif %}
+{% endfor %}
+
+# Max number of stored credentials per user
+max_credentials_per_user = {{ max_credentials_per_user }}
+
+# Credential cleanup interval (in seconds)
+cleanup_interval = {{ cleanup_interval_seconds }}

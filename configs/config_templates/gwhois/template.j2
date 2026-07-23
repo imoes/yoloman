@@ -1,0 +1,61 @@
+# WHOIS server configuration for gwhois
+# Listening interface and port
+listen_address = "{{ listen_address }}"
+listen_port = {{ listen_port }}
+
+# Server identity
+server_name = "{{ server_name }}"
+server_contact = "{{ server_contact }}"
+
+# Logging
+log_level = "{{ log_level }}"
+log_file = "{{ log_file }}"
+
+# Backend database configuration
+# Use file-based WHOIS database
+use_file_backend = {{ use_file_backend | lower }}
+whois_db_file = "{{ whois_db_file }}"
+
+# Optional: enable batch mode (multi-query support)
+{% if batch_mode %}
+batch_mode = true
+batch_max_queries = {{ batch_max_queries }}
+batch_timeout = {{ batch_timeout }}
+{% endif %}
+
+# Optional: enable reverse lookups (e.g., by IP)
+{% if enable_reverse %}
+enable_reverse = true
+reverse_prefix_file = "{{ reverse_prefix_file }}"
+{% endif %}
+
+# Optional: enable rate limiting
+{% if rate_limit_enabled %}
+rate_limit_enabled = true
+rate_limit_requests_per_ip = {{ rate_limit_requests_per_ip }}
+rate_limit_window_seconds = {{ rate_limit_window_seconds }}
+{% endif %}
+
+# Optional: custom WHOIS response suffixes (appended after each reply)
+{% for suffix in response_suffixes %}
+response_suffix += "{{ suffix }}"
+{% endfor %}
+
+# Optional: domain-specific overrides (e.g., for legacy domains)
+{% for domain, config in domain_configs.items() %}
+domain "{{ domain }}" {
+  server = "{{ config.server }}"
+  port = {{ config.port }}
+{% if config.query_prefix %}
+  query_prefix = "{{ config.query_prefix }}"
+{% endif %}
+}
+{% endfor %}
+
+# Optional: custom header for responses
+{% if custom_header %}
+response_header = "{{ custom_header }}"
+{% endif %}
+
+# Optional: enable verbose mode (includes metadata in response)
+verbose = {{ verbose | lower }}

@@ -1,0 +1,74 @@
+{
+  "services": {
+    "type": "list",
+    "default": [
+      {
+        "name": "replica",
+        "type": "cmd",
+        "command": "cyrus replicator",
+        "args": [
+          "-C",
+          "/etc/imapd.conf"
+        ]
+      },
+      {
+        "name": "replicator-manager",
+        "type": "cmd",
+        "command": "cyrus replicator-manager",
+        "args": []
+      }
+    ],
+    "description": "List of Cyrus replication services to start. Each object defines the service name, type (e.g. 'unix' or 'cmd'), command to run, and optional arguments.",
+    "items": {
+      "name": {
+        "type": "string",
+        "description": "Service name as referenced in Cyrus startup scripts (e.g., 'replica', 'replicator-manager')"
+      },
+      "type": {
+        "type": "string",
+        "enum": [
+          "unix",
+          "tcp",
+          "cmd"
+        ],
+        "description": "Service type. 'cmd' means run as a standalone process."
+      },
+      "command": {
+        "type": "string",
+        "description": "Executable command to launch the service (e.g. 'cyrus replicator')"
+      },
+      "args": {
+        "type": "list",
+        "items": {
+          "type": "string"
+        },
+        "description": "Command-line arguments to pass (e.g. config file path)"
+      }
+    }
+  },
+  "tls_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable TLS for secure replication connections between master and replica servers."
+  },
+  "tls_ca_file": {
+    "type": "string",
+    "default": "/etc/ssl/certs/ca-certificates.crt",
+    "description": "Path to CA certificate bundle used to verify replica/master certificates."
+  },
+  "tls_cert_file": {
+    "type": "string",
+    "default": "/etc/cyrus/tls/replica.crt",
+    "description": "Path to TLS certificate for this replica server (used when acting as TLS client or server)."
+  },
+  "tls_key_file": {
+    "type": "string",
+    "default": "/etc/cyrus/tls/replica.key",
+    "description": "Path to private key corresponding to tls_cert_file."
+  },
+  "debug_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable verbose debugging output in logs for troubleshooting replication issues."
+  }
+}

@@ -1,0 +1,67 @@
+# Global configuration settings
+[global]
+# Log level: 0=quiet, 1=normal, 2=verbose, 3=debug
+log_level = {{ log_level }}
+
+# Maximum number of lines to show in the HTML status page
+max_lines = {{ max_lines }}
+
+# Enable/disable HTML status page generation
+html_status = {{ html_status }}
+
+# Path to write the HTML status page
+html_output = {{ html_output }}
+
+# Path to write the JSON status page (if enabled)
+json_output = {{ json_output }}
+
+# Enable/disable JSON status page generation
+json_status = {{ json_status }}
+
+# Path to write the CSV summary
+# (if enabled, empty string disables CSV output)
+csv_output = {{ csv_output }}
+
+# Enable/disable CSV summary generation
+csv_status = {{ csv_status }}
+
+# Time zone offset (e.g., '+0000' for UTC)
+tz_offset = {{ tz_offset }}
+
+# Hostname or FQDN for status page links (optional)
+hostname = {{ hostname }}
+
+# Interface to listen on for status HTTP server (empty = no HTTP server)
+listen_iface = {{ listen_iface }}
+
+# HTTP port for status server (ignored if listen_iface empty)
+listen_port = {{ listen_port }}
+
+# Interval in seconds between status updates
+update_interval = {{ update_interval }}
+
+# Enable/disable SNMP polling
+snmp_enable = {{ snmp_enable }}
+
+# SNMP community string for polling
+snmp_community = {{ snmp_community }}
+
+# List of subnets and pools to monitor
+# Each subnet block defines a range to track
+{% for subnet in subnets %}
+[{{ subnet.name }}]
+# Network address in CIDR notation
+network = {{ subnet.network }}
+# Netmask (optional; if omitted, derived from CIDR)
+netmask = {{ subnet.netmask | default('') | trim | default('') | default('') }}
+# Start of the DHCP address pool
+start = {{ subnet.start }}
+# End of the DHCP address pool
+end = {{ subnet.end }}
+# Lease time in seconds
+lease_time = {{ subnet.lease_time }}
+# Enable/disable tracking for this subnet
+enabled = {{ subnet.enabled }}
+# Optional description
+# comment = {{ subnet.comment | default('') | trim }}
+{% endfor %}

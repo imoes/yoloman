@@ -1,0 +1,83 @@
+{
+  "origins": {
+    "type": "list",
+    "default": [
+      "https://localhost:9090"
+    ],
+    "description": "Allowed WebSocket origins. Add every hostname or IP (with scheme and port) that clients use to open Cockpit \u2014 including any public FQDN behind a reverse proxy. Each entry is a URL string.",
+    "items": {
+      "type": "string",
+      "description": "A single allowed origin URL, e.g. https://cockpit.example.com"
+    }
+  },
+  "protocol_header": {
+    "type": "string",
+    "default": "",
+    "description": "Name of the HTTP header injected by an upstream reverse proxy to signal the original protocol (e.g. X-Forwarded-Proto). Leave empty if Cockpit terminates TLS directly."
+  },
+  "forwarded_for_header": {
+    "type": "string",
+    "default": "",
+    "description": "Name of the HTTP header carrying the real client IP address set by a reverse proxy (e.g. X-Forwarded-For). Leave empty if Cockpit is not behind a proxy."
+  },
+  "max_startups": {
+    "type": "number",
+    "default": 10,
+    "description": "Maximum simultaneous unauthenticated connection attempts. Increase on busy servers; lower to harden against connection floods."
+  },
+  "login_title": {
+    "type": "string",
+    "default": "Cockpit",
+    "description": "Text shown as the browser page title on the Cockpit login page. Typically set to the organisation or server name."
+  },
+  "login_to": {
+    "type": "bool",
+    "default": true,
+    "description": "Whether to display the 'Connect to' host field on the login screen. Set to false for single-host deployments."
+  },
+  "require_host": {
+    "type": "bool",
+    "default": false,
+    "description": "Require the operator to specify a target host before login is accepted. Useful in jump-host / gateway deployments."
+  },
+  "allow_unencrypted": {
+    "type": "bool",
+    "default": false,
+    "description": "Allow plain HTTP access. Enable only when TLS is terminated by an upstream reverse proxy that already enforces encryption."
+  },
+  "compression": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable WebSocket per-message deflate compression. Reduces bandwidth at the cost of additional CPU. Recommended on slow or metered links."
+  },
+  "client_cert_auth": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable mutual-TLS authentication using client X.509 certificates. Requires the reverse proxy to forward the client certificate."
+  },
+  "url_root": {
+    "type": "string",
+    "default": "",
+    "description": "URL path prefix under which Cockpit is served (e.g. /cockpit). Required when a path-rewriting reverse proxy places Cockpit at a sub-path. Leave empty for root."
+  },
+  "log_fatal": {
+    "type": "string",
+    "default": "",
+    "description": "Severity level threshold written as a fatal log entry to stderr (e.g. 'criticals'). Leave empty to disable fatal-log escalation."
+  },
+  "idle_timeout": {
+    "type": "number",
+    "default": 15,
+    "description": "Minutes of session inactivity before Cockpit forcibly terminates the session. Set to 0 to disable the idle timeout entirely."
+  },
+  "banner_file": {
+    "type": "string",
+    "default": "",
+    "description": "Absolute path to a plain-text file shown as a login banner before the credentials form. Leave empty to show no banner."
+  },
+  "max_connections": {
+    "type": "number",
+    "default": 16,
+    "description": "Maximum number of simultaneous connections Cockpit keeps open to remote managed machines. Raise for large environments; lower to conserve resources."
+  }
+}

@@ -1,0 +1,61 @@
+{
+  "config_storage": {
+    "type": "File",
+    "options": {
+      "directory": "/var/lib/lemonldap-ng/conf"
+    }
+  },
+  "portal_url": "https://auth.example.com",
+  "log_level": "info",
+  "log_priority": "info",
+  "log_backend": "stderr",
+  "session_storage": {
+    "type": "Redis",
+    "options": {
+      "redisHost": "127.0.0.1",
+      "redisPort": 6379,
+      "redisDb": 0
+    }
+  },
+  "apps_storage": {
+    "type": "File",
+    "options": {
+      "directory": "/var/lib/lemonldap-ng/apps"
+    }
+  },
+  "secret_key": "supersecret32charslongstringfortokenhmac",
+  "cookie_domain": ".example.com",
+  "cookie_secure": true,
+  "cookie_lifetime": 3600,
+  "maintenance": false,
+  "debug": false,
+  "enable_portal": true,
+  "custom_js": "/static/custom.js",
+  "custom_css": "/static/custom.css",
+  "oidc_enabled": true,
+  "saml_enabled": true,
+  "oauth2_enabled": true,
+  "webfinger_enabled": true,
+  "handlers": [
+    {
+      "name": "api-gateway",
+      "description": "Protect internal APIs with LemonLDAP-NG",
+      "config": {
+        "location": "/api/",
+        "auth": "any",
+        "denyRule": "user.uid eq ''",
+        "exportHeaders": "true"
+      }
+    },
+    {
+      "name": "sso-proxy",
+      "description": "Single Sign-On reverse proxy",
+      "config": {
+        "location": "/",
+        "auth": "any",
+        "exportHeaders": "true",
+        "addHostHeader": "true"
+      }
+    }
+  ]
+}

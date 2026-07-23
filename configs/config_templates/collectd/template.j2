@@ -1,0 +1,83 @@
+# Collectd global options
+LoadPlugin logfile
+<Plugin logfile>
+  LogLevel "info"
+  File "{{ plugin_logfile_file }}"
+</Plugin>
+
+LoadPlugin syslog
+<Plugin syslog>
+  LogLevel "info"
+</Plugin>
+
+# Hostname for this node (used in metric paths and remote writes)
+Hostname "{{ hostname }}"
+
+# FQDN lookup behavior
+FQDNLookup {{ "true" if fqdn_lookup else "false" }}
+
+# Base directory for plugin data (e.g., RRD files)
+BaseDir "{{ basedir }}"
+
+# PID file location
+PIDFile "{{ pidfile }}"
+
+# Interval (seconds) for data collection
+Interval {{ interval }}
+
+# Timeout (seconds) for plugin read/write operations
+Timeout {{ timeout }}
+
+{% if plugins %}
+# Load specified plugins and configure them
+{% for plugin in plugins %}# Plugin: {{ plugin.name }}
+LoadPlugin {{ plugin.name }}
+{% if plugin.config %}<Plugin {{ plugin.name }}>{% for key, value in plugin.config.items() %}
+{% if key.startswith('@') %}# Skip meta keys
+{% elif value is mapping %}<{{ key }}>{% for k, v in value.items() %}
+  {{ k }} "{{ v }}"
+{% endfor %}</{{ key }}>
+{% else %}  {{ key }} "{{ value }}"
+{% endif %}{% endfor %}
+</Plugin>
+{% endif %}
+{% endfor %}{% endif %}
+
+{% if collectd_users %}
+# Authentication users (for auth plugin and remote writes)
+{% for user in collectd_users %}<User {{ user.name }}>
+  Secret "{{ user.secret }}"
+  SecretHash "{{ user.secret_hash }}"
+</User>
+{% endfor %}{% endif %}
+
+{% if destinations %}
+# Remote destinations for sending metrics (e.g., via network plugin)
+{% for dest in destinations %}<Destination {{ dest.host | replace('.', '_') | replace(':', '_') }}>
+  Host "{{ dest.host }}"
+  Port {{ dest.port }}
+  Protocol "{{ dest.protocol | default('tcp') }}"
+  {{ "" if dest.protocol == 'tcp' else 'KeepAlive ' ~ ("true" if dest.keepalive else "false") }}
+  TTL {{ dest.ttl | default(64) }}
+  {{ "" if dest.timeout is none else 'Timeout ' ~ dest.timeout }}
+</Destination>
+{% endfor %}{% endif %}
+
+{% if plugins | selectattr('name', 'equalto', 'network') | list %}
+# Network listening (for network plugin when used as server)
+{% for listener in network_listeners %}<Listen "{{ listener.address | default('0.0.0.0') }}">
+  Port {{ listener.port | default(25826) }}
+  Protocol "{{ listener.protocol | default('tcp') }}"
+  {{ "" if listener.securitylevel == 'none' else 'SecurityLevel ' ~ listener.securitylevel }}
+  {{ "" if listener.securitylevel == 'none' else 'EncryptionFile "' ~ listener.encryption_file ~ '"' if listener.encryption_file }}
+  {{ "" if listener.securitylevel == 'none' else 'AuthenticationFile "' ~ listener.auth_file ~ '"' if listener.auth_file }}
+</Listen>
+{% endfor %}{% endif %}
+
+# Disable automatic plugin loading (safe for production)
+LoadPlugin "false"
+
+# Include additional config snippets (if any)
+{% for include in includes %}# Include config from {{ include }}
+Include "{{ include }}"
+{% endfor %}

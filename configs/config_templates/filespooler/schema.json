@@ -1,0 +1,117 @@
+{
+  "mode": {
+    "type": "string",
+    "default": "single",
+    "description": "Operation mode: 'single' (standalone) or 'distributed' (multi-node cluster)."
+  },
+  "base_dir": {
+    "type": "string",
+    "default": "/var/lib/filespooler",
+    "description": "Absolute path to the root working directory for job spools, metadata, and logs."
+  },
+  "listen_addr": {
+    "type": "string",
+    "default": "0.0.0.0",
+    "description": "Network interface address to bind the server socket to (ignored in single mode)."
+  },
+  "port": {
+    "type": "number",
+    "default": 9222,
+    "description": "TCP port for incoming client and peer connections."
+  },
+  "worker_threads": {
+    "type": "number",
+    "default": 4,
+    "description": "Number of worker threads per job queue slot to process incoming jobs concurrently."
+  },
+  "max_queue_depth": {
+    "type": "number",
+    "default": 10000,
+    "description": "Maximum number of jobs that may be queued before blocking new job submissions."
+  },
+  "job_timeout": {
+    "type": "number",
+    "default": 300,
+    "description": "Maximum time in seconds a job may remain in 'running' state before being marked as failed and requeued."
+  },
+  "log_level": {
+    "type": "string",
+    "default": "INFO",
+    "description": "Verbosity of logging output (case-insensitive)."
+  },
+  "log_file": {
+    "type": "string",
+    "default": "/var/log/filespooler/filespooler.log",
+    "description": "Path to the log file (use '-' to log to stdout)."
+  },
+  "enable_tls": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable mutual TLS authentication for inter-node and client communication."
+  },
+  "tls_cert_file": {
+    "type": "string",
+    "default": "/etc/filespooler/tls/server.crt",
+    "description": "Absolute path to the server certificate chain file (required if TLS enabled)."
+  },
+  "tls_key_file": {
+    "type": "string",
+    "default": "/etc/filespooler/tls/server.key",
+    "description": "Absolute path to the server private key file (required if TLS enabled)."
+  },
+  "tls_ca_file": {
+    "type": "string",
+    "default": "/etc/filespooler/tls/ca.crt",
+    "description": "Optional absolute path to the CA certificate for verifying peers."
+  },
+  "tls_server_name": {
+    "type": "string",
+    "default": "",
+    "description": "Optional server name for TLS verification (overrides peer hostname check)."
+  },
+  "peers": {
+    "type": "list",
+    "default": [],
+    "description": "List of peer nodes in a distributed cluster. Each peer defines host and port.",
+    "items": {
+      "host": {
+        "type": "string",
+        "description": "Hostname or IP of the peer node."
+      },
+      "port": {
+        "type": "number",
+        "description": "TCP port of the peer node (must match its 'port' setting)."
+      }
+    }
+  },
+  "queues": {
+    "type": "list",
+    "default": [
+      {
+        "name": "default",
+        "retry_limit": 3,
+        "max_retries_before_dlq": 5,
+        "dead_letter_queue": "deadletter"
+      }
+    ],
+    "description": "Job queue configurations. Each queue defines its behavior, retry policy, and optional DLQ.",
+    "items": {
+      "name": {
+        "type": "string",
+        "description": "Unique name of the job queue."
+      },
+      "retry_limit": {
+        "type": "number",
+        "description": "Maximum number of immediate retries after a transient failure."
+      },
+      "max_retries_before_dlq": {
+        "type": "number",
+        "description": "Number of total retries after which a job is moved to the dead-letter queue."
+      },
+      "dead_letter_queue": {
+        "type": "string",
+        "description": "Optional name of the queue to which permanently failed jobs are moved."
+      }
+    }
+  }
+}

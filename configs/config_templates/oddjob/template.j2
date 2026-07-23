@@ -1,0 +1,46 @@
+# Main oddjobd configuration file
+# Controls the behavior of the oddjob D-Bus service daemon
+
+[general]
+# Path to the directory containing oddjob helper programs
+LibDir={{ lib_dir }}
+
+# Path to the PID file for the daemon
+PIDFile={{ pid_file }}
+
+# Maximum number of worker threads (0 = unlimited, but limited by system resources)
+MaxThreads={{ max_threads }}
+
+# Whether to log debug messages (true/false)
+Debug={{ debug }}
+
+# Directory for transient runtime files (e.g., temporary sockets or state)
+RunDir={{ run_dir }}
+
+# Whether to chroot into LibDir (true/false) — not recommended for most deployments
+Chroot={{ chroot }}
+
+# User under which the daemon runs (typically 'oddjobd' or 'root')
+User={{ user }}
+
+# Group under which the daemon runs
+Group={{ group }}
+
+{% for service in services %}
+# Service: {{ service.name }}
+# Path to the executable for this service
+{{ service.name }}.Path={{ service.path }}
+
+{% if service.enabled is defined %}# Whether this service is enabled (true/false)
+{{ service.name }}.Enabled={{ service.enabled }}{% endif %}
+
+{% if service.timeout is defined %}# Timeout in seconds before service execution is considered failed
+{{ service.name }}.Timeout={{ service.timeout }}{% endif %}
+
+{% if service.user is defined %}# User under which this service runs (overrides global User)
+{{ service.name }}.User={{ service.user }}{% endif %}
+{% endfor %}
+
+[session]
+# Whether to enable session tracking (true/false)
+SessionTracking={{ session_tracking }}

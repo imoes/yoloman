@@ -1,0 +1,91 @@
+# Main ErgoChat IRCd configuration file
+# Set the server's hostname (must match DNS/SSL certificate)
+hostname: {{ hostname }}
+
+# Network-wide settings
+network:
+  name: {{ network_name }}
+  description: {{ network_description }}
+
+# Listening sockets for clients and servers
+listen:
+{% for listener in listeners %}
+  - address: {{ listener.address | default('0.0.0.0') }}
+    port: {{ listener.port }}
+    ssl: {{ listener.ssl.enabled | default(false) }}
+    tls_cert: {{ listener.ssl.cert_path | default('') }}
+    tls_key: {{ listener.ssl.key_path | default('') }}
+    protocol: {{ listener.protocol | default('ircs') if listener.ssl.enabled else 'irc' }}
+{% endfor %}
+
+# Maximum concurrent connections per IP (DoS mitigation)
+max_connections_per_ip: {{ max_connections_per_ip }}
+
+# Maximum message rate per client (messages/second)
+max_messages_per_second: {{ max_messages_per_second }}
+
+# Enable or disable SSL certificate verification for server-to-server links
+ssl_verify: {{ ssl_verify }}
+
+# SASL authentication backend (e.g., 'external', 'memory', 'sql')
+sasl_backend: {{ sasl_backend }}
+
+# SQL connection (used only if sasl_backend == 'sql')
+{% if sasl_backend == 'sql' %}
+sql:
+  driver: {{ sql_driver }}
+  dsn: {{ sql_dsn }}
+  table: {{ sql_table }}
+{% endif %}
+
+# TLS configuration for server-to-server (TLSv1.2+ recommended)
+tls:
+  min_version: {{ tls_min_version }}
+  ciphers: {{ tls_ciphers | join(', ') }}
+  prefer_server_ciphers: {{ tls_prefer_server_ciphers }}
+
+# Logging configuration
+log:
+  level: {{ log_level }}
+  format: {{ log_format }}
+{% if log_file %}
+  file: {{ log_file }}
+{% else %}
+  file: stderr
+{% endif %}
+
+# Server-to-server links (IRCnet-style uplinks)
+links:
+{% for link in links %}
+  - name: {{ link.name }}
+    address: {{ link.address }}
+    port: {{ link.port }}
+    password: {{ link.password }}
+    cert_fp: {{ link.cert_fp | default('') }}
+{% endfor %}
+
+# Server settings
+server:
+  description: {{ server_description }}
+  sid: {{ server_sid }}
+
+# Oper (IRCop) definitions
+opers:
+{% for oper in opers %}
+  - name: {{ oper.name }}
+    password_hash: {{ oper.password_hash }}
+    flags: {{ oper.flags | join(', ') }}
+    global: {{ oper.global | default(true) }}
+{% endfor %}
+
+# Channel registration settings
+chanserv:
+  registration_enabled: {{ chanserv_registration_enabled }}
+  default_keep_time: {{ chanserv_default_keep_time }}
+  require_email: {{ chanserv_require_email }}
+
+# Idle timeout (seconds before auto-quit if no activity)
+idle_timeout: {{ idle_timeout }}
+
+# Enable or disable legacy protocol extensions (e.g., ZNC's bounce)
+legacy_protocol_extensions: {{ legacy_protocol_extensions }}

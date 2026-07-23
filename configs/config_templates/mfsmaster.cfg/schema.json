@@ -1,0 +1,107 @@
+{
+  "master_host": {
+    "type": "string",
+    "default": "0.0.0.0",
+    "description": "IP address or hostname the MFS master server listens on. Use 0.0.0.0 for all interfaces."
+  },
+  "master_port": {
+    "type": "number",
+    "default": 9420,
+    "description": "TCP port for client (mfsmount) connections."
+  },
+  "metalogger_port": {
+    "type": "number",
+    "default": 9419,
+    "description": "TCP port for metalogger connections."
+  },
+  "worker_port": {
+    "type": "number",
+    "default": 9422,
+    "description": "TCP port for chunkserver connections."
+  },
+  "data_path": {
+    "type": "string",
+    "default": "/var/lib/mfs",
+    "description": "Directory where master metadata, logs, and transaction journal are stored. Must be writable by the 'mfs' user."
+  },
+  "worker_threads": {
+    "type": "number",
+    "default": 4,
+    "description": "Number of worker threads to handle chunkserver communication."
+  },
+  "max_open_files": {
+    "type": "number",
+    "default": 65536,
+    "description": "Maximum number of file descriptors allowed per worker thread."
+  },
+  "chunkserver_reconnect_interval": {
+    "type": "number",
+    "default": 30,
+    "description": "Seconds to wait before attempting to reconnect to a chunkserver after network failure."
+  },
+  "access_log": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable or disable logging of client access operations."
+  },
+  "transaction_log": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable or disable detailed transaction logging (required for metadata recovery)."
+  },
+  "statistics_log": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable or disable periodic statistics logging (e.g., usage, throughput)."
+  },
+  "read_only": {
+    "type": "bool",
+    "default": false,
+    "description": "Start master in read-only mode (useful for maintenance or disaster recovery)."
+  },
+  "quota_support": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable or disable POSIX-style quota enforcement for directories."
+  },
+  "exports_interval": {
+    "type": "number",
+    "default": 3600,
+    "description": "Interval (in seconds) between periodic full metadata exports (snapshots)."
+  },
+  "chunkservers": {
+    "type": "list",
+    "default": [],
+    "description": "List of chunkservers to register with the master. Each entry must include a hostname and unique numeric ID.",
+    "items": {
+      "type": "object",
+      "fields": {
+        "hostname": {
+          "type": "string",
+          "default": "",
+          "description": "Fully-qualified hostname or IP address of the chunkserver."
+        },
+        "id": {
+          "type": "number",
+          "default": 1,
+          "description": "Numeric ID (1\u201365535) uniquely identifying this chunkserver."
+        }
+      }
+    }
+  },
+  "allowed_hosts": {
+    "type": "list",
+    "default": [],
+    "description": "List of allowed hostnames/IPs for client connections (e.g., ['*.internal', '10.0.0.0/8']). Empty list = allow all."
+  },
+  "allowed_metalogger_hosts": {
+    "type": "list",
+    "default": [],
+    "description": "List of allowed hosts for metalogger connections. Empty list = allow all."
+  },
+  "allowed_chunkserver_hosts": {
+    "type": "list",
+    "default": [],
+    "description": "List of allowed hosts for chunkserver connections. Empty list = allow all."
+  }
+}

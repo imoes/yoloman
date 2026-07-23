@@ -1,0 +1,58 @@
+# Enable input method framework
+[ibus]
+enabled=true
+
+# Default input method engine
+engine=ibus:setup
+
+# Keyboard layout for the setup dialog
+keyboard-layout=us
+
+# Enable xmodmap support for compatibility
+xmodmap-enabled=false
+
+# Show icon in system tray
+show-icon-in-tray=true
+
+# Use system language settings
+use-system-language=true
+
+# List of input methods ( engines ) to load
+{% for engine in engines %}# {{ engine.description }}
+engine={{ engine.name }}
+{% endfor %}
+
+# List of input methods to activate on startup
+{% for engine in active_engines %}# {{ engine.description }}
+{% if loop.first %}# First engine is default
+engine={{ engine.name }}
+{% else %}engine={{ engine.name }}
+{% endif %}
+{% endfor %}
+
+# Hotkey to toggle input method
+hotkey={{ hotkey_toggle | join(',') | default('') }}
+
+# Hotkey to switch to next input method
+next-engine-hotkey={{ hotkey_next | join(',') | default('') }}
+
+# Hotkey to switch to previous input method
+previous-engine-hotkey={{ hotkey_prev | join(',') | default('') }}
+
+# Delay (in ms) before showing the candidate window
+lookup-table-page-size={{ candidate_page_size }}
+
+# Show auxiliary UI (e.g., emoji picker)
+show-auxiliary=true
+
+# Show input method indicator in application windows
+show-input-indicator=true
+
+# Enable Unicode control character handling
+unicode-control-enabled=true
+
+# Default language code for input context (e.g., 'en_US.UTF-8')
+default-language={{ default_language }}
+
+# Use Pinyin mode by default (if applicable to engine)
+use-pinyin-mode=true

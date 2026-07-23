@@ -1,0 +1,181 @@
+{
+  "chroot_path": {
+    "type": "string",
+    "default": "/home/sftp",
+    "description": "Absolute path to the root directory for all SFTP users (chroot jail)."
+  },
+  "enable_acl": {
+    "type": "boolean",
+    "default": true,
+    "description": "Enable support for file/directory ACLs (required for fine-grained permissions)."
+  },
+  "umask": {
+    "type": "string",
+    "default": "022",
+    "description": "Default umask for uploaded files (octal format)."
+  },
+  "max_sessions": {
+    "type": "number",
+    "default": 10,
+    "description": "Maximum number of concurrent SFTP sessions allowed."
+  },
+  "log_level": {
+    "type": "string",
+    "default": "INFO",
+    "description": "Verbosity of server logging."
+  },
+  "log_path": {
+    "type": "string",
+    "default": "",
+    "description": "Path to log file (leave empty to use syslog)."
+  },
+  "listen_address": {
+    "type": "string",
+    "default": "0.0.0.0",
+    "description": "IP address or hostname the server will bind to. Use '0.0.0.0' for all interfaces."
+  },
+  "port": {
+    "type": "number",
+    "default": 2222,
+    "description": "TCP port for SFTP connections (must be >1024 for non-root users)."
+  },
+  "use_pam": {
+    "type": "boolean",
+    "default": true,
+    "description": "Enable PAM authentication (required to authenticate system users)."
+  },
+  "use_tls": {
+    "type": "boolean",
+    "default": false,
+    "description": "Enable TLS/SSL encryption for SFTP (requires valid cert/key paths)."
+  },
+  "tls_cert_file": {
+    "type": "string",
+    "default": "/etc/mysecureshell/tls/server.crt",
+    "description": "Path to TLS certificate file (PEM format)."
+  },
+  "tls_key_file": {
+    "type": "string",
+    "default": "/etc/mysecureshell/tls/server.key",
+    "description": "Path to TLS private key file (PEM format)."
+  },
+  "virtual_users": {
+    "type": "list",
+    "default": [],
+    "description": "List of virtual (non-system) users with custom SFTP access rules.",
+    "items": {
+      "name": {
+        "type": "string",
+        "description": "Username."
+      },
+      "password_hash": {
+        "type": "string",
+        "description": "Password hash (e.g., {SHA512}xxxxx or {CRYPT}xxxxx). Leave empty to disable login.",
+        "default": ""
+      },
+      "chroot_path": {
+        "type": "string",
+        "description": "User-specific subdirectory (relative to global chroot_path).",
+        "default": ""
+      },
+      "shell": {
+        "type": "string",
+        "description": "Login shell (usually /bin/false or /usr/sbin/nologin for SFTP-only).",
+        "default": "/bin/false"
+      },
+      "permissions": {
+        "type": "string",
+        "description": "Permissions string: R (read), W (write), M (modify), D (delete), L (list), A (all).",
+        "default": "RL"
+      },
+      "max_upload_size": {
+        "type": "number",
+        "description": "Maximum upload size (MB) per session. 0 = unlimited.",
+        "default": 0
+      },
+      "ip_whitelist": {
+        "type": "list",
+        "items": {
+          "type": "string"
+        },
+        "description": "List of allowed IP addresses or CIDR blocks. Leave empty to allow all.",
+        "default": []
+      }
+    }
+  },
+  "directory_acls": {
+    "type": "list",
+    "default": [],
+    "description": "List of directory-specific ACL rules for fine-grained access control.",
+    "items": {
+      "description": {
+        "type": "string",
+        "default": "",
+        "description": "Optional human-readable description of the rule."
+      },
+      "path": {
+        "type": "string",
+        "description": "Absolute or relative path to the directory (relative to chroot if no leading slash)."
+      },
+      "user": {
+        "type": "string",
+        "description": "User or group name (e.g., 'alice' or 'sftp-group')."
+      },
+      "permissions": {
+        "type": "string",
+        "description": "Permissions: R, W, M, D, L. Omit for no access."
+      },
+      "inherit": {
+        "type": "boolean",
+        "default": false,
+        "description": "Whether this ACL inherits permissions from parent directory."
+      }
+    }
+  },
+  "bandwidth_limits": {
+    "type": "object",
+    "default": null,
+    "description": "Bandwidth throttling rules.",
+    "items": {
+      "global_upload_limit": {
+        "type": "number",
+        "description": "Global upload limit (KB/s). 0 = unlimited.",
+        "default": 0
+      },
+      "global_download_limit": {
+        "type": "number",
+        "description": "Global download limit (KB/s). 0 = unlimited.",
+        "default": 0
+      },
+      "user_limits": {
+        "type": "list",
+        "description": "Per-user bandwidth limits.",
+        "items": {
+          "user_name": {
+            "type": "string",
+            "description": "User name."
+          },
+          "upload_limit": {
+            "type": "number",
+            "description": "Upload limit (KB/s) for this user."
+          },
+          "download_limit": {
+            "type": "number",
+            "description": "Download limit (KB/s) for this user."
+          }
+        },
+        "default": []
+      }
+    }
+  },
+  "idle_timeout": {
+    "type": "number",
+    "default": 900,
+    "description": "Idle session timeout (seconds). 0 = no timeout."
+  },
+  "enable_compression": {
+    "type": "boolean",
+    "default": false,
+    "description": "Enable directory listing compression (experimental)."
+  }
+}

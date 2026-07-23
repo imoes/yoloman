@@ -1,0 +1,51 @@
+[kcm]
+# Enable debug output to stderr and syslog
+debug = {{ debug | default(false) | lower }}
+
+# Maximum number of simultaneous client connections
+max_connections = {{ max_connections | default(100) }}
+
+# Path to the Kerberos keytab file used for service tickets
+keytab = {{ keytab | default('/etc/krb5.keytab') }}
+
+# Path to the socket used for client communication
+socket_path = {{ socket_path | default('/var/run/heimdal-kcm/socket') }}
+
+# Enable or disable Kerberos credential cache (ccache) persistence across reboots
+persistent_cache = {{ persistent_cache | default(false) | lower }}
+
+# Maximum lifetime (in seconds) of cached credentials
+max_ticket_lifetime = {{ max_ticket_lifetime | default(86400) }}
+
+# Maximum renew lifetime (in seconds) of cached tickets
+max_renew_lifetime = {{ max_renew_lifetime | default(604800) }}
+
+# List of acceptable encryption types (as comma-separated strings); order matters
+# Leave empty to use system defaults (typically all modern enctype suites)
+enctypes = {%- if enctypes %}
+{{ enctypes | join(', ') }}
+{%- else %}
+# (empty = system default)
+{%- endif %}
+
+# Restrict access to socket to these Unix groups (optional)
+# If empty, only root/admin can connect
+allowed_groups = {%- if allowed_groups %}
+{{ allowed_groups | join(', ') }}
+{%- else %}
+# (empty = no group restrictions)
+{%- endif %}
+
+# Log level: 0=error, 1=warn, 2=info, 3=debug, 4=trace
+log_level = {{ log_level | default(2) }}
+
+# Path to the system log target (syslog facility is always 'auth')
+syslog_facility = {{ syslog_facility | default('auth') }}
+
+# Enable support for Windows KDC referrals (experimental)
+windows_referrals = {{ windows_referrals | default(false) | lower }}
+
+# List of trusted realm referrals (each: { realm, kdc })
+{% for referral in referrals %}# Referral for realm '{{ referral.realm }}' to KDC '{{ referral.kdc }}'
+referral_{{ loop.index0 }} = {{ referral.realm }} = {{ referral.kdc }}
+{% endfor %}

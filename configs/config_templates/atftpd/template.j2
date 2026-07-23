@@ -1,0 +1,30 @@
+# Enable the TFTP server
+USE_INETD={{ use_inetd | lower }}
+
+# Listening address (empty = all interfaces)
+ADDR={{ addr }}
+
+# Listening port
+PORT={{ port }}
+
+# Root directory for TFTP files
+ROOT={{ root_dir }}
+
+# Timeout (seconds) before idle connection closes
+TIMEOUT={{ timeout }}
+
+# Maximum number of concurrent threads (0 = unlimited)
+MAXTHREADS={{ max_threads }}
+
+# Enable verbose logging
+VERBOSE={{ verbose | lower }}
+
+# Extra options passed to the atftpd daemon
+OPTIONS="{{ options | join(' ') }}"
+
+{% for share in shares %}# Share path: {{ share.description | default('custom directory') }}
+SHAREDIR_{{ loop.index }}="{{ share.path }}{% if share.readonly %}:ro{% endif %}"
+{% endfor %}
+
+# Enable IPv6 support (if compiled with IPv6)
+USE_IPV6={{ use_ipv6 | lower }}

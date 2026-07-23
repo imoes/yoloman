@@ -1,0 +1,50 @@
+{
+  "at_spi_bus_address": {
+    "type": "string",
+    "default": "unix:path=/run/user/{{ ansible_user_id | default(1000) }}/at-spi/bus",
+    "description": "D-Bus session bus address used by AT-SPI. Usually auto-detected; set only if non-standard session."
+  },
+  "at_spi_registry": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable AT-SPI registry daemon. Required for assistive technologies to discover accessibility services."
+  },
+  "atk_bridge_path": {
+    "type": "string",
+    "default": "/usr/lib/x86_64-linux-gnu/libatk-bridge-2.0.so",
+    "description": "Absolute path to the ATK bridge shared library. Adjust for your architecture or distro."
+  },
+  "qt_accessibility": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable Qt accessibility support. Set to false only if accessibility features conflict with your setup."
+  },
+  "qtwebengine_chromium_flags": {
+    "type": "string",
+    "default": "--enable-accessibility",
+    "description": "Chromium flags passed to Qt WebEngine. Include accessibility flags if required by your assistive tech."
+  },
+  "env_overrides": {
+    "type": "list",
+    "default": [],
+    "description": "Per-application environment overrides (e.g., for custom AT clients or containers). Each entry defines a name and key=value pairs.",
+    "items": {
+      "type": "object",
+      "fields": {
+        "name": {
+          "type": "string",
+          "required": true,
+          "description": "Human-readable identifier for the override (e.g., 'JAWS', 'Orca')."
+        },
+        "values": {
+          "type": "object",
+          "required": true,
+          "description": "Environment variable key-value pairs to apply for this application.",
+          "items": {
+            "type": "keyvalue"
+          }
+        }
+      }
+    }
+  }
+}

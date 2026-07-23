@@ -1,0 +1,54 @@
+# opentracker configuration file — listens on specified ports and manages access control
+# listen on IPv4 and/or IPv6 ports
+{{ "listen_ipv4 =" ~ " " ~ listen_ipv4 }}
+{{ "listen_ipv6 =" ~ " " ~ listen_ipv6 }}
+
+# bind to specific interfaces (optional, empty = all)
+{{ "bind_address =" ~ " " ~ bind_address | default('') }}
+
+# maximum number of simultaneous connections per IP (0 = unlimited)
+max_connections_per_ip = {{ max_connections_per_ip }}
+
+# maximum number of peers per torrent (0 = unlimited)
+max_peers_per_torrent = {{ max_peers_per_torrent }}
+
+# path to the data directory for storing torrent state (optional, disabled if empty)
+{{ "data_dir =" ~ " " ~ data_dir | default('') }}
+
+# path to the access control list file (optional, disabled if empty)
+{{ "acl_file =" ~ " " ~ acl_file | default('') }}
+
+# enable support for announce intervals in seconds
+announce_interval = {{ announce_interval }}
+
+# minimum announce interval (seconds) — clients must wait at least this long between announces
+min_announce_interval = {{ min_announce_interval }}
+
+# enable peer ID scrambling detection (helps reduce spam bots)
+scramble_peers = {{ "true" if scramble_peers else "false" }}
+
+# enable support for compact peer lists (saves bandwidth)
+compact_list = {{ "true" if compact_list else "false" }}
+
+# enable support for partial peers (for magnet links)
+partial_peers = {{ "true" if partial_peers else "false" }}
+
+# enable support for scraping (/scrape endpoint)
+scrape_enabled = {{ "true" if scrape_enabled else "false" }}
+
+# enable SSL/TLS support (requires ssl_cert and ssl_key paths)
+{{ "ssl_cert =" ~ " " + ssl_cert if ssl_enabled else "" }}
+{{ "ssl_key =" ~ " " + ssl_key if ssl_enabled else "" }}
+
+# log level: 0=quiet, 1=normal, 2=verbose, 3=debug
+log_level = {{ log_level }}
+
+# path to log file (empty = stderr)
+{{ "log_file =" ~ " " ~ log_file | default('') }}
+
+# additional announce URLs (whitelist of allowed trackers; empty = allow all)
+{% for url in allowed_announce_urls %}allowed_announce_url = {{ url }}
+{% endfor %}
+
+# rate limit for announce requests per IP (0 = no limit)
+announce_rate_limit = {{ announce_rate_limit }}

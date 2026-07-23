@@ -1,0 +1,274 @@
+{
+  "defaults": {
+    "type": "object",
+    "description": "Global default settings applied to all jails unless overridden.",
+    "properties": {
+      "ignore_ip": {
+        "type": "list",
+        "description": "List of IP addresses or CIDR ranges to ignore (whitelist).",
+        "items": {
+          "type": "string"
+        }
+      },
+      "ban_time": {
+        "type": "number",
+        "description": "Duration (in seconds) a host remains banned."
+      },
+      "find_time": {
+        "type": "number",
+        "description": "Time window (in seconds) during which failures are counted."
+      },
+      "max_retry": {
+        "type": "number",
+        "description": "Maximum number of failures before a host is banned."
+      },
+      "backend": {
+        "type": "string",
+        "description": "Log reading backend (e.g., auto, poll, gamin, systemd)."
+      },
+      "log_target": {
+        "type": "string",
+        "description": "Target for fail2ban logs (SYSLOG, FILE, STDERR, or path)."
+      },
+      "protocol": {
+        "type": "string",
+        "description": "Protocol to monitor (tcp, udp, or both)."
+      },
+      "action": {
+        "type": "string",
+        "description": "Default action to execute when banning (e.g., %(action_mw)s)."
+      }
+    },
+    "required": [
+      "ignore_ip",
+      "ban_time",
+      "find_time",
+      "max_retry",
+      "backend",
+      "log_target",
+      "protocol",
+      "action"
+    ]
+  },
+  "jails": {
+    "type": "object",
+    "description": "Dictionary of jail configurations. Each key is a jail name; values define its behavior.",
+    "additionalProperties": false,
+    "properties": {
+      "sshd": {
+        "type": "object",
+        "properties": {
+          "enabled": {
+            "type": "bool",
+            "default": true
+          },
+          "filter": {
+            "type": "string",
+            "default": "sshd"
+          },
+          "action": {
+            "type": "string",
+            "default": "%(action_mw)s"
+          },
+          "logpath": {
+            "type": "list",
+            "default": [
+              "/var/log/auth.log",
+              "/var/log/secure"
+            ]
+          },
+          "bantime": {
+            "type": "number",
+            "default": 600
+          },
+          "findtime": {
+            "type": "number",
+            "default": 600
+          },
+          "maxretry": {
+            "type": "number",
+            "default": 6
+          },
+          "ignoreip": {
+            "type": "list",
+            "default": []
+          },
+          "port": {
+            "type": "string",
+            "default": "ssh"
+          },
+          "protocol": {
+            "type": "string",
+            "default": "tcp"
+          }
+        },
+        "required": [
+          "enabled",
+          "filter",
+          "logpath"
+        ]
+      },
+      "pam-generic": {
+        "type": "object",
+        "properties": {
+          "enabled": {
+            "type": "bool",
+            "default": false
+          },
+          "filter": {
+            "type": "string",
+            "default": "pam-generic"
+          },
+          "action": {
+            "type": "string",
+            "default": "%(action)s"
+          },
+          "logpath": {
+            "type": "list",
+            "default": [
+              "/var/log/auth.log"
+            ]
+          },
+          "maxretry": {
+            "type": "number",
+            "default": 6
+          },
+          "bantime": {
+            "type": "number",
+            "default": 600
+          },
+          "findtime": {
+            "type": "number",
+            "default": 600
+          }
+        },
+        "required": [
+          "enabled",
+          "filter",
+          "logpath"
+        ]
+      },
+      "fail2ban-ssh": {
+        "type": "object",
+        "properties": {
+          "enabled": {
+            "type": "bool",
+            "default": false
+          },
+          "filter": {
+            "type": "string",
+            "default": "fail2ban-ssh"
+          },
+          "action": {
+            "type": "string",
+            "default": "%(action)s"
+          },
+          "logpath": {
+            "type": "list",
+            "default": [
+              "/var/log/fail2ban.log"
+            ]
+          },
+          "maxretry": {
+            "type": "number",
+            "default": 5
+          },
+          "bantime": {
+            "type": "number",
+            "default": 3600
+          },
+          "findtime": {
+            "type": "number",
+            "default": 600
+          }
+        },
+        "required": [
+          "enabled",
+          "filter",
+          "logpath"
+        ]
+      }
+    },
+    "patternProperties": {
+      "^(?!defaults|DEFAULT|ssh|pam-generic|fail2ban-ssh).+": {
+        "type": "object",
+        "properties": {
+          "enabled": {
+            "type": "bool",
+            "default": false
+          },
+          "filter": {
+            "type": "string",
+            "default": ""
+          },
+          "action": {
+            "type": "string",
+            "default": ""
+          },
+          "logpath": {
+            "type": "list",
+            "items": {
+              "type": "string"
+            }
+          },
+          "bantime": {
+            "type": "number",
+            "default": null
+          },
+          "findtime": {
+            "type": "number",
+            "default": null
+          },
+          "maxretry": {
+            "type": "number",
+            "default": null
+          },
+          "ignoreip": {
+            "type": "list",
+            "items": {
+              "type": "string"
+            }
+          },
+          "port": {
+            "type": "string",
+            "default": ""
+          },
+          "chain": {
+            "type": "string",
+            "default": ""
+          },
+          "sendmail": {
+            "type": "bool",
+            "default": true
+          },
+          "destemail": {
+            "type": "string",
+            "default": "fail2ban@localhost"
+          },
+          "sender": {
+            "type": "string",
+            "default": "fail2ban"
+          },
+          "mta": {
+            "type": "string",
+            "default": "sendmail"
+          },
+          "mode": {
+            "type": "string",
+            "default": ""
+          },
+          "ports": {
+            "type": "list",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "filter",
+          "logpath"
+        ]
+      }
+    }
+  }
+}

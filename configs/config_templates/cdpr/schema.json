@@ -1,0 +1,111 @@
+{
+  "global_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable or disable CDP reporting globally. When disabled, cdpr starts but does not process any CDP packets."
+  },
+  "log_file": {
+    "type": "string",
+    "default": "/var/log/cdpr/cdpr.log",
+    "description": "Absolute path to the log file. Ensure the directory exists and is writable."
+  },
+  "pid_file": {
+    "type": "string",
+    "default": "/run/cdpr/cdpr.pid",
+    "description": "Absolute path to the PID file. Used for service management (stop/restart)."
+  },
+  "update_interval": {
+    "type": "number",
+    "default": 60,
+    "description": "How often (in seconds) to refresh internal state and flush pending outputs. Minimum 5 seconds."
+  },
+  "max_neighbors": {
+    "type": "number",
+    "default": 256,
+    "description": "Maximum number of CDP neighbors to cache per interface. Older entries are evicted when exceeded."
+  },
+  "listen_interfaces": {
+    "type": "list",
+    "default": [],
+    "description": "List of network interfaces (e.g., eth0, GigabitEthernet1/0/1) to monitor for CDP packets. If empty, all interfaces are monitored.",
+    "items": {
+      "type": "string",
+      "description": "Interface name as recognized by the OS (e.g., 'eth0', 'en0')"
+    }
+  },
+  "plugins": {
+    "type": "list",
+    "default": [],
+    "description": "List of output plugins to send CDP data to. Each plugin defines a destination (file, HTTP endpoint, InfluxDB, etc.).",
+    "items": {
+      "name": {
+        "type": "string",
+        "description": "Unique identifier for this plugin (e.g., 'file_output', 'prometheus_push')"
+      },
+      "enabled": {
+        "type": "bool",
+        "description": "Enable or disable this plugin. Disabled plugins are skipped during updates."
+      },
+      "type": {
+        "type": "string",
+        "description": "Plugin type: 'file', 'http', or 'influxdb'"
+      },
+      "path": {
+        "type": "string",
+        "description": "[file only] Path to the output file. Auto-created if directory exists."
+      },
+      "format": {
+        "type": "string",
+        "description": "[file only] Output format: 'json' or 'csv'. Defaults to 'json'.",
+        "default": "json"
+      },
+      "rotation_max_size": {
+        "type": "number",
+        "description": "[file only] Max file size (in bytes) before rotation. Set to 0 to disable rotation.",
+        "default": 10485760
+      },
+      "rotation_max_files": {
+        "type": "number",
+        "description": "[file only] Number of rotated files to retain.",
+        "default": 5
+      },
+      "endpoint": {
+        "type": "string",
+        "description": "[http only] Full HTTP(S) endpoint URL to POST CDP data to."
+      },
+      "method": {
+        "type": "string",
+        "description": "[http only] HTTP method to use: 'POST' or 'PUT'.",
+        "default": "POST"
+      },
+      "headers": {
+        "type": "object",
+        "description": "[http only] Key\u2013value pairs for HTTP headers (e.g., Authorization, Content-Type).",
+        "default": {}
+      },
+      "timeout": {
+        "type": "number",
+        "description": "[http only] Request timeout in seconds.",
+        "default": 10
+      },
+      "url": {
+        "type": "string",
+        "description": "[influxdb only] InfluxDB server URL (including port, e.g., 'http://localhost:8086')."
+      },
+      "database": {
+        "type": "string",
+        "description": "[influxdb only] InfluxDB database name to write to."
+      },
+      "retention_policy": {
+        "type": "string",
+        "description": "[influxdb only] Retention policy name. Defaults to 'autogen' if empty.",
+        "default": "autogen"
+      },
+      "username": {
+        "type": "string",
+        "description": "[influxdb only] Optional InfluxDB username. Leave empty for no auth.",
+        "default": ""
+      }
+    }
+  }
+}

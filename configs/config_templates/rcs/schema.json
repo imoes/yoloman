@@ -1,0 +1,163 @@
+{
+  "rcS_env_file": {
+    "type": "string",
+    "default": "/etc/default/rcS",
+    "description": "Path to optional environment configuration file sourced at boot."
+  },
+  "mount_points": {
+    "type": "list",
+    "default": [
+      {
+        "target": "/proc",
+        "type": "proc"
+      },
+      {
+        "target": "/sys",
+        "type": "sysfs"
+      },
+      {
+        "target": "/dev",
+        "type": "devtmpfs"
+      }
+    ],
+    "description": "List of filesystems to mount during early boot.",
+    "items": {
+      "type": "object",
+      "fields": {
+        "target": {
+          "type": "string",
+          "description": "Mount point path."
+        },
+        "type": {
+          "type": "string",
+          "description": "Filesystem type (e.g., proc, sysfs, devtmpfs)."
+        }
+      }
+    }
+  },
+  "hostname": {
+    "type": "string",
+    "default": "",
+    "description": "System hostname to set during boot. Leave empty to skip hostname configuration."
+  },
+  "system_clock": {
+    "type": "object",
+    "default": {
+      "mode": "auto"
+    },
+    "description": "System clock configuration.",
+    "items": {
+      "type": "object",
+      "fields": {
+        "mode": {
+          "type": "string",
+          "enum": [
+            "auto",
+            "manual"
+          ],
+          "description": "'auto' (leave to NTP/hardware), 'manual' to set specific time."
+        },
+        "datetime": {
+          "type": "string",
+          "default": "2024-01-01 00:00:00",
+          "description": "Date/time string (e.g., 'YYYY-MM-DD HH:MM:SS') for manual mode."
+        }
+      }
+    }
+  },
+  "modules": {
+    "type": "list",
+    "default": [],
+    "description": "List of kernel modules to load at boot.",
+    "items": {
+      "type": "object",
+      "fields": {
+        "name": {
+          "type": "string",
+          "description": "Module name (e.g., 'e1000e')."
+        },
+        "options": {
+          "type": "string",
+          "default": "",
+          "description": "Optional module parameters (e.g., 'Option1=1 Option2=2')."
+        }
+      }
+    }
+  },
+  "swap_enabled": {
+    "type": "boolean",
+    "default": true,
+    "description": "Enable swap activation during boot."
+  },
+  "swap_devices": {
+    "type": "list",
+    "default": [
+      "/swapfile",
+      "/dev/sda2"
+    ],
+    "description": "List of swap devices/files to activate.",
+    "items": {
+      "type": "string"
+    }
+  },
+  "fsck_force": {
+    "type": "boolean",
+    "default": false,
+    "description": "Force filesystem check even if filesystems appear clean."
+  },
+  "tmp_setup": {
+    "type": "object",
+    "default": {
+      "mode": "clean"
+    },
+    "description": "Configuration for /tmp directory setup.",
+    "items": {
+      "type": "object",
+      "fields": {
+        "mode": {
+          "type": "string",
+          "enum": [
+            "clean",
+            "size_limited"
+          ],
+          "description": "'clean' removes all contents; 'size_limited' trims oversized files."
+        },
+        "max_size_mb": {
+          "type": "number",
+          "default": 100,
+          "description": "Maximum size (in MB) for files in /tmp when using 'size_limited' mode."
+        }
+      }
+    }
+  },
+  "sysctl_params": {
+    "type": "list",
+    "default": [
+      "kernel/sysrq = 1",
+      "vm.swappiness = 60",
+      "net.ipv4.ip_forward = 1"
+    ],
+    "description": "List of sysctl key=value pairs to apply (as 'key=value' strings).",
+    "items": {
+      "type": "string"
+    }
+  },
+  "default_runlevel": {
+    "type": "string",
+    "default": "2",
+    "description": "Default SysV runlevel (e.g., '2' for multi-user, '5' for GUI). Ignored on systemd systems unless in compatibility mode."
+  },
+  "s_scripts": {
+    "type": "list",
+    "default": [],
+    "description": "List of scripts in /etc/init.d/ to execute with 'start' argument before runlevel switching.",
+    "items": {
+      "type": "string"
+    }
+  },
+  "use_sysv_init": {
+    "type": "boolean",
+    "default": false,
+    "description": "If true, attempt to switch to the default runlevel after initialization (only on SysV-only systems)."
+  }
+}

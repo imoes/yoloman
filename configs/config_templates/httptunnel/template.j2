@@ -1,0 +1,53 @@
+# Start HTTP tunneling daemon
+# Bind to the specified host and port for incoming connections
+bind_address = {{ bind_address }}
+bind_port = {{ bind_port }}
+
+# Maximum number of simultaneous connections
+max_connections = {{ max_connections }}
+
+# Enable or disable compression (gzip) of tunneled data
+# Default: off
+{% if compression %}compress = on{% else %}compress = off{% endif %}
+
+# Path to the log file; use '-' for stderr
+log_file = {{ log_file }}
+
+# Log level: 0 (none) to 5 (debug)
+log_level = {{ log_level }}
+
+# Timeout for idle connections (in seconds)
+idle_timeout = {{ idle_timeout }}
+
+# Optional authentication method and file
+# If auth_type is 'file', credentials are read from auth_file (line-based: user:password)
+{% if auth_type == 'file' %}auth_type = file
+auth_file = {{ auth_file }}
+{% elif auth_type == 'none' %}auth_type = none
+{% endif %}
+
+# Forward target: where to forward the tunneled data stream
+forward_address = {{ forward_address }}
+forward_port = {{ forward_port }}
+
+# Optional: allow only specific source IPs (one per line, or empty for all)
+{% for ip in allowed_ips %}allow_ip = {{ ip }}
+{% endfor %}
+
+# Optional: deny specific source IPs
+{% for ip in denied_ips %}deny_ip = {{ ip }}
+{% endfor %}
+
+# Use SSL/TLS for the server-side connection (if true, cert and key required)
+{% if ssl_enabled %}ssl = on
+ssl_cert = {{ ssl_cert }}
+ssl_key = {{ ssl_key }}
+ssl_ciphers = {{ ssl_ciphers }}
+{% else %}ssl = off
+{% endif %}
+
+# Process background (daemonize)
+{% if daemonize %}daemonize = on{% else %}daemonize = off{% endif %}
+
+# PID file location (only used if daemonize = on)
+pid_file = {{ pid_file }}

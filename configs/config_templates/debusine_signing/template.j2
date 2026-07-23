@@ -1,0 +1,43 @@
+# Listen on the specified host and port
+bind_address: "{{ bind_address }}"
+port: {{ port }}
+
+# Number of worker processes for handling signing requests
+workers: {{ workers }}
+
+# Path to the GPG keyring directory
+keyring_path: "{{ keyring_path }}"
+
+# Default key ID to use for signing (if not overridden per-request)
+default_key_id: "{{ default_key_id }}"
+
+# Timeout (in seconds) for signing operations
+timeout: {{ timeout }}
+
+# Enable debug logging
+# Set to `true` to emit verbose logs (for development/troubleshooting)
+debug: {{ debug }}
+
+# Allowed HMAC secret for request authentication (shared with upstream clients)
+# Leave empty to disable HMAC validation
+hmac_secret: "{{ hmac_secret }}"
+
+# List of trusted upstream client IPs/networks (CIDR notation)
+# Requests from non-trusted IPs will be rejected unless HMAC-validated
+trusted_clients:
+{% for client in trusted_clients %}  - "{{ client }}"
+{% endfor %}
+
+# Signing policies: which file types or patterns to sign automatically
+signing_policies:
+{% for policy in signing_policies %}  - name: "{{ policy.name }}"
+    pattern: "{{ policy.pattern }}"
+    key_id: "{{ policy.key_id | default(default_key_id) }}"
+    description: "{{ policy.description | default('') }}"
+{% endfor %}
+
+# Log rotation: max log file size (in MB) before rotation
+log_max_size_mb: {{ log_max_size_mb }}
+
+# Number of rotated log files to retain
+log_rotate_count: {{ log_rotate_count }}

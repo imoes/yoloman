@@ -1,0 +1,45 @@
+# httptunnel configuration — server mode settings
+[server]
+# Port to listen on for HTTP tunnel connections
+port = {{ port }}
+
+# Maximum number of simultaneous client connections
+max_connections = {{ max_connections }}
+
+# Path to the directory where tunneled files are stored (if file forwarding is enabled)
+tunnel_dir = {{ tunnel_dir }}
+
+# Enable/disable file forwarding (pass-through mode)
+forward_files = {{ forward_files | lower }}
+
+# Optional: bind to a specific interface (e.g., '127.0.0.1' or 'eth0')
+{% if bind_interface %}
+bind_interface = {{ bind_interface }}
+{% endif %}
+
+# Optional: TLS/SSL support
+{% if tls_enabled %}
+tls_enabled = true
+tls_cert = {{ tls_cert_path }}
+tls_key = {{ tls_key_path }}
+{% else %}
+tls_enabled = false
+{% endif %}
+
+# Optional: custom HTTP response headers (e.g., for CORS or security headers)
+{% if http_headers %}
+[headers]
+{% for header in http_headers %}{{ header.name }} = {{ header.value }}
+{% endfor %}
+{% endif %}
+
+# Optional: per-client rate limiting (in bytes/sec)
+{% if rate_limit_enabled %}
+[rate_limit]
+enabled = true
+upload_rate = {{ upload_rate }}
+download_rate = {{ download_rate }}
+{% else %}
+[rate_limit]
+enabled = false
+{% endif %}

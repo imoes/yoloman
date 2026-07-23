@@ -1,0 +1,74 @@
+{
+  "server": {
+    "name": "irc.ergo.network",
+    "description": "ErgoChat Modern IRC Server",
+    "network": "ErgoNet",
+    "network_id": "ergonet"
+  },
+  "limits": {
+    "max_nick_length": 32,
+    "max_channel_length": 50,
+    "max_topic_length": 390,
+    "max_message_length": 512,
+    "max_bans": 100,
+    "max_modes": 20
+  },
+  "operators": [
+    {
+      "name": "admin",
+      "password_hash": "$argon2id$v=19$m=65536,t=3,p=2$...$...",
+      "type": "admin",
+      "mask": "admin!*@*",
+      "flags": [
+        "can_ban",
+        "can_kick",
+        "can_override",
+        "can_globops"
+      ]
+    },
+    {
+      "name": "netadmin",
+      "password_hash": "$argon2id$v=19$m=65536,t=3,p=2$...$...",
+      "type": "netadmin",
+      "mask": "netadmin!*@*",
+      "flags": [
+        "can_ban",
+        "can_kick",
+        "can_globops"
+      ]
+    }
+  ],
+  "listeners": [
+    {
+      "bind": "0.0.0.0",
+      "port": 6667,
+      "tls": false,
+      "tls_cert": "",
+      "tls_key": ""
+    },
+    {
+      "bind": "0.0.0.0",
+      "port": 6697,
+      "tls": true,
+      "tls_cert": "/etc/ergochat/certs/fullchain.pem",
+      "tls_key": "/etc/ergochat/certs/privkey.pem"
+    }
+  ],
+  "tls": {
+    "enabled": true,
+    "cert": "/etc/ergochat/certs/fullchain.pem",
+    "key": "/etc/ergochat/certs/privkey.pem"
+  },
+  "log": {
+    "level": "info",
+    "format": "logfmt",
+    "output": "stderr"
+  },
+  "advanced": {
+    "enable_webirc": true,
+    "enable_ban_reasons": true,
+    "enable_sts": true,
+    "sts_duration": 2592000,
+    "sts_preload": true
+  }
+}

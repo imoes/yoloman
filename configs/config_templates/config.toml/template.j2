@@ -1,0 +1,96 @@
+[plugins]
+  # Plugin directories and default runtime settings
+  [plugins."io.containerd.grpc.v1.cri"]
+    # Disable CRI sandbox image pull verification for local images (if needed)
+    sandbox_image = "{{ sandbox_image }}"
+    
+    # Containerd CRI plugin: maximum number of running containers
+    max_container_log_line_size = {{ max_container_log_line_size }}
+    
+    # Container runtime: enable systemd cgroup driver
+    systemd_cgroup = {{ systemd_cgroup | lower }}
+    
+    # Container runtime: enable stream server (for exec/attach)
+    enable_streaming = {{ enable_streaming }}
+    
+    # Container runtime: streaming server bind address and port
+    streaming_server_address = "{{ streaming_server_address }}"
+    streaming_server_port = "{{ streaming_server_port }}"
+    
+    # Container runtime: streaming server TLS configuration (optional)
+    {% if enable_tls_streaming %}
+    [plugins."io.containerd.grpc.v1.cri".streaming_server]
+      enable_tls_streaming = true
+      stream_server_tls_cert = "{{ stream_server_tls_cert }}"
+      stream_server_tls_key = "{{ stream_server_tls_key }}"
+      stream_server_tls_ca = "{{ stream_server_tls_ca }}"
+    {% else %}
+    [plugins."io.containerd.grpc.v1.cri".streaming_server]
+      enable_tls_streaming = false
+    {% endif %}
+    
+    # Container runtime: snapshotter to use (e.g., "overlayfs", "native")
+    snapshotter = "{{ snapshotter }}"
+    
+    # Container runtime: default runtime (e.g., "runc")
+    [plugins."io.containerd.grpc.v1.cri".containerd]
+      default_runtime_name = "{{ default_runtime_name }}"
+      
+      # Runtime configurations: list of registered runtimes
+      [plugins."io.containerd.grpc.v1.cri".containerd.runtimes]
+        {% for rt in runtimes %}
+        [plugins."io.containerd.grpc.v1.cri".containerd.runtimes."{{ rt.name }}"]
+          runtime_type = "{{ rt.runtime_type }}"
+          {% if rt.engine %}engine = "{{ rt.engine }}"{% endif %}
+          {% if rt.privileged_without_host_devices %}privileged_without_host_devices = {{ rt.privileged_without_host_devices | lower }}{% endif %}
+          {% if rt.runtime_engine %}runtime_engine = "{{ rt.runtime_engine }}"{% endif %}
+          {% if rt.runtime_root %}runtime_root = "{{ rt.runtime_root }}"{% endif %}
+          {% if rt.options %}
+          [plugins."io.containerd.grpc.v1.cri".containerd.runtimes."{{ rt.name }}".options]
+            {% for opt_key, opt_val in rt.options.items() %}
+            {{ opt_key | replace("_", "") | upper }} = "{{ opt_val }}"
+            {% endfor %}
+          {% endif %}
+        {% endfor %}
+    
+    # Registry mirrors and auth configuration
+    [plugins."io.containerd.grpc.v1.cri".registry]
+      {% if registry_mirrors %}
+      config_path = "{{ registry_config_path }}"
+      {% else %}
+      config_path = ""
+      {% endif %}
+      
+      {% for mirror in registry_mirrors %}
+      [plugins."io.containerd.grpc.v1.cri".registry.mirrors."{{ mirror.namespace }}"]
+        endpoint = [{{ mirror.endpoints | map('quote') | join(', ') | safe }}]
+      {% endfor %}
+      
+      {% if registry_configs %}
+      {% for cfg in registry_configs %}
+      [plugins."io.containerd.grpc.v1.cri".registry.configs."{{ cfg.hostname }}".auth]
+        username = "{{ cfg.auth_username }}"
+        password = "{{ cfg.auth_password }}"
+      {% endfor %}
+      {% endif %}
+    
+    # Image decryption configuration (optional)
+    {% if enable_image_decryption %}
+    [plugins."io.containerd.grpc.v1.cri".x509_key_pair_streaming]
+      tls_cert_file = "{{ tls_cert_file }}"
+      tls_key_file = "{{ tls_key_file }}"
+    {% endif %}
+
+  # GRPC service settings
+  [plugins."io.containerd.grpc.v1.cri".containerd]
+    discard_unpacked_layers = {{ discard_unpacked_layers }}
+
+# Global settings
+[debug]
+  level = "{{ debug_level }}"
+
+[metrics]
+  address = "{{ metrics_address }}"
+
+[plugins."io.containerd.internal.v1.opt"]
+  path = "{{ plugins_opt_path }}"

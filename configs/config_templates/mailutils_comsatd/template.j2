@@ -1,0 +1,39 @@
+# /etc/mailutils/comsatd.conf — GNU Mailutils comsatd configuration
+# Listen address and port for incoming connections
+listen {{ listen_address }}:{{ listen_port }};
+
+# Maximum number of simultaneous connections
+max-connections {{ max_connections }};
+
+# Enable/Disable debug logging
+{% if debug %}debug{% endif %};
+
+# Path to the syslog facility
+{% if syslog_facility %}facility {{ syslog_facility }};{% endif %}
+
+# Path to the PID file
+pidfile {{ pidfile_path }};
+
+# User and group to drop privileges to
+{% if drop_user %}user {{ drop_user }};{% endif %}
+{% if drop_group %}group {{ drop_group }};{% endif %};
+
+# Enable/Disable verbose mode
+{% if verbose %}verbose{% endif %};
+
+# List of allowed hosts (CIDR notation or hostname)
+{% for host in allowed_hosts %}allow {{ host }};
+{% endfor %}
+
+# List of denied hosts
+{% for host in denied_hosts %}deny {{ host }};
+{% endfor %}
+
+# Enable/Disable IPv6 support
+{% if ipv6_enabled %}ipv6{% endif %};
+
+# Timeout for idle connections (in seconds)
+timeout {{ timeout_seconds }};
+
+# Path to the mail spool directory
+maildir {{ maildir_path }};

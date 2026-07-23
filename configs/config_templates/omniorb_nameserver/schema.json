@@ -1,0 +1,100 @@
+{
+  "log_file": {
+    "type": "string",
+    "default": "/var/log/omniORB/nameserver.log",
+    "description": "Absolute path to the main log file for the naming service."
+  },
+  "log_max_size": {
+    "type": "number",
+    "default": 10485760,
+    "description": "Maximum size (in bytes) of the log file before rotation (0 = no limit)."
+  },
+  "log_max_backup_index": {
+    "type": "number",
+    "default": 5,
+    "description": "Maximum number of rotated log files to keep (before oldest is deleted)."
+  },
+  "name_service_port": {
+    "type": "number",
+    "default": 2809,
+    "description": "TCP port on which the Naming Service listens. Standard CORBA port 2809 is recommended."
+  },
+  "stdout": {
+    "type": "bool",
+    "default": false,
+    "description": "If true, log output is also written to standard output (useful for containerized deployments)."
+  },
+  "debug_level": {
+    "type": "number",
+    "default": 0,
+    "description": "Debug verbosity level (0 = none, 10 = very verbose). Higher values increase log verbosity."
+  },
+  "ior_file": {
+    "type": "string",
+    "default": "/var/lib/omniORB/naming.ior",
+    "description": "Absolute path to the default IOR (Inter-ORB Reference) file used by clients to locate the Naming Service."
+  },
+  "ior_files": {
+    "type": "list",
+    "default": [],
+    "description": "List of additional IOR files (e.g., for multi-homed or HA setups). Each entry defines a purpose and path.",
+    "items": {
+      "type": "object",
+      "fields": {
+        "description": {
+          "type": "string",
+          "description": "Short description of the IOR file purpose (e.g., 'backup', 'public interface')."
+        },
+        "path": {
+          "type": "string",
+          "description": "Absolute path to the IOR file."
+        }
+      }
+    }
+  },
+  "max_connections": {
+    "type": "number",
+    "default": 0,
+    "description": "Maximum number of concurrent client connections (0 = unlimited). Set a limit to protect against resource exhaustion."
+  },
+  "persistent_state": {
+    "type": "bool",
+    "default": false,
+    "description": "If true, the naming context is persisted to disk so it survives restarts."
+  },
+  "persistent_state_file": {
+    "type": "string",
+    "default": "/var/lib/omniORB/naming.state",
+    "description": "Absolute path to the file where persistent naming context data is stored (only used if persistent_state=true)."
+  },
+  "shutdown_delay": {
+    "type": "number",
+    "default": 0,
+    "description": "Seconds to wait after receiving SIGTERM before terminating (allows graceful drain of pending requests)."
+  },
+  "use_ssl": {
+    "type": "bool",
+    "default": false,
+    "description": "If true, SSL/TLS is enabled for secure Naming Service communication."
+  },
+  "ssl_cert_file": {
+    "type": "string",
+    "default": "/etc/omniORB4/certs/nameserver.crt",
+    "description": "Absolute path to the X.509 certificate file (PEM format) for SSL."
+  },
+  "ssl_key_file": {
+    "type": "string",
+    "default": "/etc/omniORB4/certs/nameserver.key",
+    "description": "Absolute path to the private key file (PEM format) for SSL."
+  },
+  "host": {
+    "type": "string",
+    "default": "0.0.0.0",
+    "description": "IP address (IPv4 or IPv6) or hostname the Naming Service binds to (e.g., '127.0.0.1', '::')."
+  },
+  "ipv6": {
+    "type": "bool",
+    "default": false,
+    "description": "If true, enable IPv6 support (required if binding to an IPv6 address)."
+  }
+}

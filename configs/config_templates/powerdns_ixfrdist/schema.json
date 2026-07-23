@@ -1,0 +1,109 @@
+{
+  "api_bind_address": {
+    "type": "string",
+    "default": "127.0.0.1",
+    "description": "IP address on which the API/control interface listens."
+  },
+  "api_bind_port": {
+    "type": "number",
+    "default": 8083,
+    "description": "Port for the API/control interface (must be between 1 and 65535)."
+  },
+  "zone_dir": {
+    "type": "string",
+    "default": "/var/lib/pdns-ixfrdist/zones",
+    "description": "Directory where the distributor stores transferred zone files (must exist and be writable by the service)."
+  },
+  "journal_dir": {
+    "type": "string",
+    "default": "/var/lib/pdns-ixfrdist/journals",
+    "description": "Directory where journal files for incremental transfers are stored."
+  },
+  "max_concurrent_transfers": {
+    "type": "number",
+    "default": 10,
+    "description": "Maximum number of concurrent AXFR/IXFR transfers per peer."
+  },
+  "transfer_timeout": {
+    "type": "number",
+    "default": 30,
+    "description": "Timeout (in seconds) for individual AXFR/IXFR transfers."
+  },
+  "validate_dnssec": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable DNSSEC validation of transferred zones before distribution."
+  },
+  "zones": {
+    "type": "list",
+    "default": [],
+    "description": "List of DNS zones to distribute. Each entry defines a zone name, its authoritative source server, and optional access/transfer settings.",
+    "items": {
+      "name": {
+        "type": "string",
+        "default": "",
+        "description": "Fully qualified domain name (FQDN) of the zone to distribute (e.g., example.com)."
+      },
+      "source": {
+        "type": "string",
+        "default": "",
+        "description": "IP address or hostname and optional port of the primary DNS server (e.g., 192.0.2.1 or 192.0.2.1:53)."
+      },
+      "allowed_peers": {
+        "type": "list",
+        "default": [],
+        "description": "List of IP addresses or CIDR subnets allowed to request transfers. If empty, all peers may request.",
+        "items": {
+          "type": "string"
+        }
+      },
+      "prefer_ixfr": {
+        "type": "bool",
+        "default": true,
+        "description": "If true, prefer IXFR if the source supports it; otherwise, fall back to AXFR."
+      }
+    }
+  },
+  "log_level": {
+    "type": "string",
+    "default": "INFO",
+    "allowed_values": [
+      "DEBUG",
+      "INFO",
+      "WARNING",
+      "ERROR",
+      "CRITICAL"
+    ],
+    "description": "Verbosity of the logging output."
+  },
+  "log_file": {
+    "type": "string",
+    "default": "",
+    "description": "Path to a log file. If empty, logs go to stdout."
+  },
+  "zone_cache_size": {
+    "type": "number",
+    "default": 256,
+    "description": "Maximum size (in MiB) of zone data cached in memory (0 means unlimited)."
+  },
+  "check_interval": {
+    "type": "number",
+    "default": 300,
+    "description": "Interval (in seconds) between zone change checks (IXFR queries) for active zones."
+  },
+  "stats_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable the HTTP stats endpoint."
+  },
+  "stats_bind_address": {
+    "type": "string",
+    "default": "127.0.0.1",
+    "description": "IP address for the stats endpoint (only used if stats are enabled)."
+  },
+  "stats_bind_port": {
+    "type": "number",
+    "default": 8084,
+    "description": "Port for the stats endpoint (only used if stats are enabled)."
+  }
+}

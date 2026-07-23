@@ -1,0 +1,131 @@
+[server]
+# Server hostname or IP to bind to
+host = "{{ host }}"
+
+# Port to listen on
+port = {{ port }}
+
+# Maximum number of clients
+maxclients = {{ maxclients }}
+
+# Map to load on startup
+map = "{{ map }}"
+
+# Whether to enable dedicated server mode
+dedicated = {{ dedicated | lower }}
+
+[net]
+# Network interface to bind to (e.g., 'eth0' or '0.0.0.0' for all)
+bind = "{{ bind }}"
+
+# UDP port for client connections (must match main port unless using proxy)
+net_port = {{ net_port }}
+
+# Maximum packet rate per client (in packets/sec)
+maxrate = {{ maxrate }}
+
+[rcon]
+# Remote console password (leave empty to disable RCON)
+password = "{{ rcon_password }}"
+
+# RCON interface (e.g., '0.0.0.0' for all, or specific IP)
+address = "{{ rcon_address }}"
+
+# RCON port
+port = {{ rcon_port }}
+
+# Enable RCON over TCP (on/off)
+enable_tcp = {{ rcon_tcp_enabled | lower }}
+
+[game]
+# Game type (e.g., 'dm', 'tdm', 'ctf')
+game_type = "{{ game_type }}"
+
+# Time limit per match in minutes
+timelimit = {{ timelimit }}
+
+# Frag limit (0 = disabled)
+fraglimit = {{ fraglimit }}
+
+# Round limit (0 = disabled)
+roundlimit = {{ roundlimit }}
+
+# Enable friendly fire
+friendlyfire = {{ friendlyfire | lower }}
+
+# Enable team balancing
+teambalance = {{ teambalance | lower }}
+
+# Minimum number of players to start a match
+minplayers = {{ minplayers }}
+
+# Custom server name shown in server browser
+hostname = "{{ hostname }}"
+
+# Server URL (for server browser and downloads)
+url = "{{ url }}"
+
+# Log level (0=silent, 1=error, 2=warn, 3=info, 4=debug)
+loglevel = {{ loglevel }}
+
+[sv]
+# Allow downloads from server
+allow_download = {{ allow_download | lower }}
+
+# Path to custom player models and skins (relative to base dir)
+# e.g., 'custom' -> /usr/share/games/mvdsv/custom
+modelpath = "{{ modelpath }}"
+
+# Path to custom sounds (relative to base dir)
+soundpath = "{{ soundpath }}"
+
+# Path to custom maps (relative to base dir)
+# e.g., 'maps' -> /usr/share/games/mvdsv/maps
+mappath = "{{ mappath }}"
+
+# Enable sv_pausable (allows pause in dedicated mode if enabled)
+pausable = {{ sv_pausable | lower }}
+
+# Enable sv_unlag (anti-lag compensation)
+unlag = {{ sv_unlag | lower }}
+
+# Time window for antilag prediction (in seconds)
+unlag_lagtime = {{ sv_unlag_lagtime }}
+
+[log]
+# Enable logging to file
+file_logging = {{ log_file_enabled | lower }}
+
+# Path to log file
+logfile = "{{ log_filepath }}"
+
+# Rotate logs when size exceeds this (in bytes)
+# Set to 0 to disable rotation
+max_log_size = {{ log_max_size }}
+
+# Number of old logs to keep
+max_log_files = {{ log_max_files }}
+
+# Log to console
+console_logging = {{ log_console_enabled | lower }}
+
+[plugins]
+# List of plugins to load (empty = none)
+{% for plugin in plugins %}
+# Load plugin: {{ plugin.name }}
+{{ plugin.name | replace('.', '_') }} = "{{ plugin.path }}"
+{% if plugin.options %}
+# Plugin options: {{ plugin.options | tojson() }}
+{{ plugin.name | replace('.', '_') }}_options = "{{ plugin.options | tojson() }}"
+{% endif %}
+{% endfor %}
+
+[admin]
+# Enable admin system
+enabled = {{ admin_enabled | lower }}
+
+# Admin file path (INI file with users/permissions)
+file = "{{ admin_file }}"
+
+# Enable automatic ban file sync
+autosync = {{ admin_autosync | lower }}

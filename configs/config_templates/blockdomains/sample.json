@@ -1,0 +1,39 @@
+{
+  "mode": "block",
+  "rules_file": "/etc/blockdomains/rules.txt",
+  "allowlist_file": "/etc/blockdomains/allowlist.txt",
+  "log_level": "warn",
+  "log_file": "/var/log/blockdomains/blockdomains.log",
+  "max_connections": 5000,
+  "connection_timeout_ms": 3000,
+  "use_system_dns": true,
+  "custom_dns": [],
+  "tls_inspection": "enabled",
+  "tls_ca_cert": "/etc/blockdomains/ca.crt",
+  "tls_ca_key": "/etc/blockdomains/ca.key",
+  "rate_limit_rules": [
+    {
+      "ip_pattern": "10.0.0.0/8",
+      "requests_per_second": 100
+    },
+    {
+      "ip_pattern": "192.168.0.*",
+      "requests_per_second": 10
+    }
+  ],
+  "blocked_headers": [
+    {
+      "name": "X-Internal",
+      "match_type": "exact"
+    },
+    {
+      "name": "X-",
+      "match_type": "prefix"
+    }
+  ],
+  "blocked_user_agents": [
+    "^curl/.*",
+    "python-requests/[0-9.]+$",
+    "nikto/[0-9.]+$"
+  ]
+}

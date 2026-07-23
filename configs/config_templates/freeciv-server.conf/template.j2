@@ -1,0 +1,41 @@
+[# General server settings]
+[server]
+host={{ server_host }}
+port={{ server_port }}
+maxplayers={{ server_maxplayers }}
+maxconns={{ server_maxconns }}
+maxgames={{ server_maxgames }}
+nickname={{ server_nickname }}
+email={{ server_email }}
+admin={{ server_admin }}
+loglevel={{ server_loglevel }}
+logfile={{ server_logfile }}
+
+[# Game rules]
+[ruleset]
+default={{ ruleset_default }}
+path={{ ruleset_path }}
+
+[# Networking and connection options]
+networking
+maxping={{ networking_maxping }}
+maxidle={{ networking_maxidle }}
+allownewgames={{ 'yes' if networking_allownewgames else 'no' }}
+
+[# Game saving]
+saving
+autosave={{ saving_autosave }}
+savegamesdir={{ saving_savegamesdir }}
+savereplays={{ 'yes' if saving_savereplays else 'no' }}
+
+[# AI players]
+ai
+ai_count={{ ai_count }}
+ai_names={{ ai_names | join(', ') }}
+
+[# Server access control]
+[# Each entry is a host pattern with optional access level: full, read, none]
+[# Use 'all' as host pattern to allow everyone]
+hosts
+{% for host_rule in hosts %}{{ host_rule.host }} {{ host_rule.access }}
+{% endfor %}

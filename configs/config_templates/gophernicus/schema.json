@@ -1,0 +1,123 @@
+{
+  "host": {
+    "type": "string",
+    "default": "0.0.0.0",
+    "description": "IP address to bind the server to (e.g., '0.0.0.0' for all interfaces, or '127.0.0.1' for localhost only)."
+  },
+  "port": {
+    "type": "number",
+    "default": 70,
+    "description": "TCP port to listen on (standard Gopher port is 70)."
+  },
+  "gopher_root": {
+    "type": "string",
+    "default": "/var/gopher",
+    "description": "Absolute filesystem path to the Gopher content root directory."
+  },
+  "user": {
+    "type": "string",
+    "default": "nobody",
+    "description": "Unix username to drop privileges to after binding to the port."
+  },
+  "group": {
+    "type": "string",
+    "default": "nogroup",
+    "description": "Unix group name to drop privileges to after binding to the port."
+  },
+  "directory_index": {
+    "type": "bool",
+    "default": true,
+    "description": "If enabled, automatically generate a directory index when a directory is requested and no gophermap is present."
+  },
+  "syslog": {
+    "type": "bool",
+    "default": true,
+    "description": "If enabled, log to the system syslog facility; otherwise, log to stderr (useful for containerized deployments)."
+  },
+  "max_connections": {
+    "type": "number",
+    "default": 100,
+    "description": "Maximum number of concurrent client connections allowed."
+  },
+  "timeout": {
+    "type": "number",
+    "default": 300,
+    "description": "Idle connection timeout in seconds. A connection is closed if no request is received within this time."
+  },
+  "charset": {
+    "type": "string",
+    "default": "UTF-8",
+    "description": "Default character set advertised in the server response header (e.g., 'UTF-8', 'ISO-8859-1')."
+  },
+  "gophermap_fallback": {
+    "type": "string",
+    "default": "text",
+    "description": "Fallback mode for rendering directory listings when a gophermap is missing: 'none' (no listing), 'text' (plain text), or 'html' (HTML-formatted listing)."
+  },
+  "path_prefix": {
+    "type": "string",
+    "default": "",
+    "description": "Optional path prefix prepended to all requested paths (e.g., '/gopher' for reverse-proxy setups)."
+  },
+  "log_client_ip": {
+    "type": "bool",
+    "default": false,
+    "description": "If enabled, include client IP addresses in access logs (may affect privacy)."
+  },
+  "mime_overrides": {
+    "type": "object",
+    "default": {},
+    "items": {
+      "type": "object",
+      "properties": {
+        "extension": {
+          "type": "string",
+          "description": "File extension (e.g., 'pdf', 'txt') \u2014 without leading dot."
+        },
+        "mime_type": {
+          "type": "string",
+          "description": "MIME type to associate with files having this extension."
+        }
+      },
+      "required": [
+        "extension",
+        "mime_type"
+      ]
+    },
+    "description": "Dictionary mapping file extensions to MIME types (for use in INFO type 9 responses)."
+  },
+  "access_rules": {
+    "type": "list",
+    "default": [
+      "ALLOW:0.0.0.0/0",
+      "DENY:127.0.0.1/32"
+    ],
+    "items": {
+      "type": "string",
+      "description": "Access control rule in format 'ACTION:CIDR' (e.g., 'ALLOW:10.0.0.0/8', 'DENY:192.168.100.0/24')."
+    },
+    "description": "List of IP/network allow/deny rules. Rules are evaluated in order; first match wins."
+  },
+  "virtual_hosts": {
+    "type": "list",
+    "default": [],
+    "items": {
+      "type": "object",
+      "properties": {
+        "host": {
+          "type": "string",
+          "description": "Client-requested hostname (for virtual hosting support)."
+        },
+        "root": {
+          "type": "string",
+          "description": "Alternative filesystem path to serve for this host."
+        }
+      },
+      "required": [
+        "host",
+        "root"
+      ]
+    },
+    "description": "List of virtual hosts, mapping hostname to content root directory."
+  }
+}

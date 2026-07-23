@@ -1,0 +1,48 @@
+# Configuration for Pacemaker Remote — proxy daemon for remote nodes
+# Enables a remote node to participate in a Pacemaker cluster without full cluster stack
+# Path to the cluster's CA certificate (for TLS verification)
+ca_cert: {{ ca_cert }}
+
+# Path to this node's TLS certificate (signed by cluster CA)
+cert: {{ cert }}
+
+# Path to this node's TLS private key
+key: {{ key }}
+
+# Optional: trusted CAs (additional to ca_cert), as a list of paths
+{% if trusted_certs %}
+trusted_certs: {{ trusted_certs | join(':') }}
+{% endif %}
+
+# Address the daemon listens on (IP or hostname); use 0.0.0.0 for all interfaces
+listen_addr: {{ listen_addr }}
+
+# TCP port the daemon listens on (default: 3128)
+listen_port: {{ listen_port }}
+
+# Maximum number of client connections (e.g., from pacemaker-controld)
+max_connections: {{ max_connections }}
+
+# Enable or disable TLS; set to false only for testing (insecure)
+{% if enable_tls %}enable_tls: true{% else %}enable_tls: false{% endif %}
+
+# Authentication method: 'none' or 'pam'
+auth: {{ auth }}
+
+# Optional: PAM service name (used only if auth='pam')
+{% if pam_service %}pam_service: {{ pam_service }}{% endif %}
+
+# Logging configuration: level (debug|info|notice|warning|error|critical|alert|emergency)
+log_level: {{ log_level }}
+
+# Log destination: syslog or path to file
+{% if log_dest %}log_dest: {{ log_dest }}{% endif %}
+
+# List of remote resources managed by this daemon (if any static definitions needed)
+# Each entry maps a remote resource name to its local service/script
+{% for resource in resources %}
+resource: {{ resource.name }} {{ resource.exec }}{% if resource.user %} {{ resource.user }}{% endif %}
+{% endfor %}
+
+# Optional: shutdown timeout (seconds) for graceful shutdown
+{% if shutdown_timeout %}shutdown_timeout: {{ shutdown_timeout }}{% endif %}

@@ -1,0 +1,195 @@
+{
+  "port": {
+    "type": "number",
+    "default": 2055,
+    "description": "UDP port on which to listen for incoming NetFlow/sFlow/IPFIX flows"
+  },
+  "host": {
+    "type": "string",
+    "default": "0.0.0.0",
+    "description": "IP address to bind to; use 0.0.0.0 to listen on all interfaces"
+  },
+  "base_dir": {
+    "type": "string",
+    "default": "/var/cache/nfdump",
+    "description": "Root directory where flow files are stored"
+  },
+  "subdir": {
+    "type": "string",
+    "default": "current",
+    "description": "Subdirectory under base_dir for live flow files"
+  },
+  "retention": {
+    "type": "number",
+    "default": 3600,
+    "description": "How long to retain flow files (seconds) before deletion"
+  },
+  "compress_after": {
+    "type": "number",
+    "default": 300,
+    "description": "Seconds after which to auto-compress completed flow files (0 = disable)"
+  },
+  "compress_program": {
+    "type": "string",
+    "default": "gzip",
+    "description": "Compression program to use: 'gzip', 'bzip2', or 'none'"
+  },
+  "flush_interval": {
+    "type": "number",
+    "default": 0,
+    "description": "Seconds to force buffer flush (0 = kernel default)"
+  },
+  "pipe_program": {
+    "type": "string",
+    "default": "",
+    "description": "Command to pipe live flows into for real-time processing (e.g., 'nfreplay -h 10.0.0.5:2055')"
+  },
+  "user": {
+    "type": "string",
+    "default": "nobody",
+    "description": "System user to drop privileges to after startup"
+  },
+  "group": {
+    "type": "string",
+    "default": "nobody",
+    "description": "System group to drop privileges to after startup"
+  },
+  "extended": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable extended record format for NetFlow v9/IPFIX headers"
+  },
+  "ipv6": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable IPv6 flow support (required for IPv6 flows)"
+  },
+  "loglevel": {
+    "type": "string",
+    "default": "warning",
+    "description": "Verbosity of logging; choose from: debug, info, notice, warning, error, critical"
+  },
+  "logfile": {
+    "type": "string",
+    "default": "-",
+    "description": "Log file path; '-' means standard error (or use '/var/log/nfcapd.log')"
+  },
+  "pidfile": {
+    "type": "bool",
+    "default": true,
+    "description": "Create a PID file to enable safe restarts and monitoring"
+  },
+  "accept_versions": {
+    "type": "list",
+    "default": [
+      5,
+      9,
+      10
+    ],
+    "description": "List of NetFlow versions to accept (5=Legacy, 9=NetFlow v9, 10=IPFIX)"
+  },
+  "bgp": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable BGP daemon integration (adds AS, next-hop, and community metadata)"
+  },
+  "formats": {
+    "type": "list",
+    "default": [
+      "nfcapd"
+    ],
+    "description": "Output formats; 'nfcapd' for standard flow files, 'nfstat' for stats, 'nffile' for raw binary"
+  },
+  "ssl": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable SSL/TLS encryption for IPFIX-TLS collectors"
+  },
+  "ssl_cert": {
+    "type": "string",
+    "default": "",
+    "description": "Path to SSL certificate (required if SSL enabled)"
+  },
+  "ssl_key": {
+    "type": "string",
+    "default": "",
+    "description": "Path to SSL private key (required if SSL enabled)"
+  },
+  "ssl_ca_cert": {
+    "type": "string",
+    "default": "",
+    "description": "Path to CA certificate for verifying remote collector (optional)"
+  },
+  "no_padding": {
+    "type": "bool",
+    "default": false,
+    "description": "Disable NetFlow v5 header padding (fixes compatibility with broken exporters)"
+  },
+  "idle_timeout": {
+    "type": "number",
+    "default": 300,
+    "description": "Idle timeout for flow records (seconds); used for IPFIX session tracking"
+  },
+  "active_timeout": {
+    "type": "number",
+    "default": 1800,
+    "description": "Active flow timeout (seconds) \u2014 flow ends after this duration"
+  },
+  "read_buffer": {
+    "type": "number",
+    "default": 8192,
+    "description": "Size of UDP read buffer in bytes (min 1472 for standard MTU)"
+  },
+  "max_open_files": {
+    "type": "number",
+    "default": 1024,
+    "description": "Maximum number of concurrently open flow files"
+  },
+  "no_dns": {
+    "type": "bool",
+    "default": true,
+    "description": "Disable DNS lookups on IP addresses (improves performance)"
+  },
+  "cpu_affinity": {
+    "type": "list",
+    "default": [],
+    "description": "CPU core IDs to bind process to (e.g., [0, 1]); empty = no affinity"
+  },
+  "nanoseconds": {
+    "type": "bool",
+    "default": false,
+    "description": "Use nanosecond timestamp resolution (requires hardware support)"
+  },
+  "sample_infer": {
+    "type": "bool",
+    "default": true,
+    "description": "Infer flow sampling rates from sFlow header (essential for accurate traffic stats)"
+  },
+  "no_coalesce": {
+    "type": "bool",
+    "default": false,
+    "description": "Disable coalescing of similar flows into single records"
+  },
+  "forward": {
+    "type": "list",
+    "default": [],
+    "description": "List of collectors to forward flows to; each has host, port, and optional proto",
+    "items": {
+      "host": {
+        "type": "string",
+        "default": "",
+        "description": "Hostname or IP of forward target"
+      },
+      "port": {
+        "type": "number",
+        "default": 2055,
+        "description": "Port number of forward target"
+      },
+      "proto": {
+        "type": "string",
+        "default": "udp",
+        "description": "Protocol: 'udp' (default) or 'tcp'"
+      }
+    }
+  }
+}

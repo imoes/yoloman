@@ -1,0 +1,112 @@
+{
+  "listen_address": {
+    "type": "string",
+    "default": "0.0.0.0",
+    "description": "Network interface IP address to bind the relay service (e.g., 0.0.0.0 for all interfaces, or 127.0.0.1 for localhost only)."
+  },
+  "listen_port": {
+    "type": "number",
+    "default": 22067,
+    "description": "TCP port number for incoming relay connections (standard Syncthing relay port)."
+  },
+  "tls_address": {
+    "type": "string",
+    "default": "0.0.0.0",
+    "description": "IP address for TLS-secured relay connections (usually same or different interface)."
+  },
+  "tls_port": {
+    "type": "number",
+    "default": 22070,
+    "description": "TCP port for TLS relay connections (default 22070)."
+  },
+  "tls_cert_path": {
+    "type": "string",
+    "default": "/etc/ssl/certs/syncthing-relay.crt",
+    "description": "File path to the TLS certificate (PEM format). Required if TLS is enabled."
+  },
+  "tls_key_path": {
+    "type": "string",
+    "default": "/etc/ssl/private/syncthing-relay.key",
+    "description": "File path to the TLS private key (PEM format). Required if TLS is enabled."
+  },
+  "max_conns_per_ip": {
+    "type": "number",
+    "default": 100,
+    "description": "Maximum concurrent relay connections allowed per client IP address."
+  },
+  "max_conns_per_device": {
+    "type": "number",
+    "default": 50,
+    "description": "Maximum concurrent relay connections allowed per Syncthing device ID."
+  },
+  "max_total_conns": {
+    "type": "number",
+    "default": 10000,
+    "description": "Maximum total concurrent relay connections across all clients."
+  },
+  "rate_limit_bps": {
+    "type": "number",
+    "default": 100000000,
+    "description": "Per-connection bandwidth limit in bytes per second (0 = no limit). Example: 100 MB/s = 100000000."
+  },
+  "log_level": {
+    "type": "string",
+    "default": "info",
+    "description": "Verbosity level for logs: 'debug', 'info', 'warn', or 'error'."
+  },
+  "log_file_path": {
+    "type": "string",
+    "default": "/var/log/syncthing-relaysrv/syncthing-relaysrv.log",
+    "description": "File path where relay server logs are written."
+  },
+  "auth_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable password-based authentication for relay administration endpoints (e.g., /admin/status)."
+  },
+  "auth_password_hash": {
+    "type": "string",
+    "default": "",
+    "description": "BCrypt hash of the admin password (use `syncthing-relaysrv hash-password`). Empty if auth disabled."
+  },
+  "stun_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable STUN server support to provide NAT traversal hints to connecting clients."
+  },
+  "stun_servers": {
+    "type": "list",
+    "default": [],
+    "description": "List of public STUN server host:port strings to query for NAT traversal info.",
+    "items": {
+      "type": "string",
+      "default": "stun.l.google.com:19302",
+      "description": "STUN server address (e.g., 'stun.l.google.com:19302' or 'stun1.l.google.com:19302')."
+    }
+  },
+  "announce_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable announcing this relay to public relay directories (e.g., announce.syncthing.net)."
+  },
+  "announce_interval": {
+    "type": "number",
+    "default": 300,
+    "description": "Interval (in seconds) between automatic relay announcements to public directories."
+  },
+  "metrics_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable Prometheus-compatible metrics endpoint (e.g., for Grafana or Prometheus scraping)."
+  },
+  "metrics_address": {
+    "type": "string",
+    "default": "127.0.0.1",
+    "description": "IP address to bind the metrics endpoint (localhost only recommended for security)."
+  },
+  "metrics_port": {
+    "type": "number",
+    "default": 8080,
+    "description": "Port number for the metrics endpoint (e.g., 8080)."
+  }
+}

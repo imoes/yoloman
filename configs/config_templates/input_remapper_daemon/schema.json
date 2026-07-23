@@ -1,0 +1,57 @@
+{
+  "mappings": {
+    "type": "list",
+    "default": [],
+    "description": "List of input-to-output mapping rules. Each rule defines how an input event from a device should be transformed.",
+    "items": {
+      "type": "object",
+      "properties": {
+        "device_path": {
+          "type": "string",
+          "default": "/dev/input/event0",
+          "description": "Absolute path to the input device (e.g., /dev/input/event0). Must exist and be readable by the daemon."
+        },
+        "input_type": {
+          "type": "string",
+          "default": "EV_KEY",
+          "enum": [
+            "EV_KEY",
+            "EV_ABS",
+            "EV_REL"
+          ],
+          "description": "Type of the input event: EV_KEY for buttons/keys, EV_ABS for absolute axes (e.g., joysticks), EV_REL for relative axes (e.g., mouse movement)."
+        },
+        "input_code": {
+          "type": "string",
+          "default": "KEY_A",
+          "description": "Input event code (e.g., 'KEY_A', 'BTN_LEFT', 'ABS_X'). Must match the input device\u2019s event code naming (see linux/input-event-codes.h)."
+        },
+        "target_type": {
+          "type": "string",
+          "default": "EV_KEY",
+          "enum": [
+            "EV_KEY",
+            "EV_ABS",
+            "EV_REL",
+            "CLEAR",
+            "IGNORE",
+            "SYNC",
+            "NOP"
+          ],
+          "description": "Target event type. Use special values like 'CLEAR', 'IGNORE', 'SYNC', or 'NOP' for control actions instead of remapping."
+        },
+        "target_code": {
+          "type": "string",
+          "default": "KEY_B",
+          "description": "Target event code (e.g., 'KEY_B', 'BTN_RIGHT', 'ABS_Y') or empty for special targets like 'CLEAR' and 'IGNORE'."
+        }
+      },
+      "required": [
+        "device_path",
+        "input_type",
+        "input_code",
+        "target_type"
+      ]
+    }
+  }
+}

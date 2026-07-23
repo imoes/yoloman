@@ -1,0 +1,68 @@
+{
+  "listeners": [
+    {
+      "name": "localhost",
+      "interface": "127.0.0.1",
+      "port": 25
+    },
+    {
+      "name": "submission",
+      "interface": "0.0.0.0",
+      "port": 587,
+      "tls": true,
+      "hostname": "mail.example.com"
+    }
+  ],
+  "domains": [
+    {
+      "name": "example.com"
+    },
+    {
+      "name": "example.org"
+    }
+  ],
+  "tables": [
+    {
+      "name": "aliases",
+      "type": "file",
+      "source": "/etc/aliases"
+    },
+    {
+      "name": "mailboxes",
+      "type": "sqlite",
+      "source": "sqlite:///etc/mail/mailboxes.db"
+    }
+  ],
+  "routes": [
+    {
+      "name": "local_mail",
+      "condition": "accept from any for domain \"example.com\" or domain \"example.org\"",
+      "action": "deliver",
+      "for_type": "local",
+      "destination": "mailbox"
+    },
+    {
+      "name": "relay_outbound",
+      "condition": "accept from any for any",
+      "action": "relay",
+      "for_type": "domain",
+      "destination": "smtps://smtp.upstream.com:465"
+    }
+  ],
+  "default_domain": "example.com",
+  "relay_hosts": [
+    "smtps://smtp.upstream.com:465"
+  ],
+  "tls": {
+    "enabled": true,
+    "certificate": "/etc/ssl/certs/mail.example.com.crt",
+    "key": "/etc/ssl/private/mail.example.com.key",
+    "ciphers": "ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256"
+  },
+  "rate_limit": {
+    "enabled": true,
+    "connections": 50,
+    "period": "minute"
+  },
+  "log_level": "info"
+}

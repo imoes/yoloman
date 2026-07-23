@@ -1,0 +1,106 @@
+{
+  "general.enabled": {
+    "type": "boolean",
+    "default": true,
+    "description": "Whether to start the jamnntpd daemon automatically."
+  },
+  "general.interface": {
+    "type": "string",
+    "default": "0.0.0.0",
+    "description": "Network interface or IP address to bind the server to. Use '0.0.0.0' to listen on all interfaces."
+  },
+  "general.log_level": {
+    "type": "number",
+    "default": 3,
+    "description": "Verbosity of logs: 0 = quiet, 5 = debug. Recommended: 3 (info)."
+  },
+  "general.sync_interval": {
+    "type": "number",
+    "default": 60,
+    "description": "Interval (in seconds) between automatic time synchronization attempts."
+  },
+  "server.port": {
+    "type": "number",
+    "default": 123,
+    "description": "UDP port to listen on for NTP client requests. Must be 123 for standard NTP."
+  },
+  "server.max_connections": {
+    "type": "number",
+    "default": 1000,
+    "description": "Maximum number of simultaneous client connections allowed."
+  },
+  "server.broadcast_enabled": {
+    "type": "boolean",
+    "default": false,
+    "description": "Enable or disable broadcast/multicast time announcements to local subnet."
+  },
+  "server.broadcast_peers": {
+    "type": "list",
+    "default": [],
+    "description": "List of broadcast/multicast peer groups (e.g., subnet addresses) to announce time to.",
+    "items": {
+      "name": {
+        "type": "string",
+        "default": "",
+        "description": "Descriptive label for this peer group."
+      },
+      "address": {
+        "type": "string",
+        "default": "",
+        "description": "IPv4 broadcast or multicast address (e.g., 224.0.1.1, 255.255.255.255)."
+      },
+      "interval": {
+        "type": "number",
+        "default": 60,
+        "description": "Interval (seconds) between broadcasts to this group."
+      }
+    }
+  },
+  "server.peers": {
+    "type": "list",
+    "default": [],
+    "description": "List of trusted NTP peers (servers) to synchronize with.",
+    "items": {
+      "name": {
+        "type": "string",
+        "default": "",
+        "description": "Descriptive label for this peer."
+      },
+      "host": {
+        "type": "string",
+        "default": "",
+        "description": "Hostname or IP address of the NTP peer server."
+      },
+      "key_id": {
+        "type": "number",
+        "default": 0,
+        "description": "Key ID used for cryptographic authentication with this peer (0 = none)."
+      }
+    }
+  },
+  "security.auth_enabled": {
+    "type": "boolean",
+    "default": false,
+    "description": "Enable cryptographic authentication for client and peer connections."
+  },
+  "security.keys_file": {
+    "type": "string",
+    "default": "/etc/jamnntpd/ntp.keys",
+    "description": "Absolute path to the NTP keys file (used only if auth is enabled)."
+  },
+  "security.trusted_key": {
+    "type": "number",
+    "default": 1,
+    "description": "Key ID to trust for server authentication (must exist in keys_file)."
+  },
+  "leap_seconds.leapfile": {
+    "type": "string",
+    "default": "/etc/jamnntpd/leap-seconds.list",
+    "description": "Absolute path to leap seconds data file (optional, auto-downloaded if empty)."
+  },
+  "leap_seconds.auto_leap": {
+    "type": "boolean",
+    "default": true,
+    "description": "Automatically insert leap seconds at 23:59:60 UTC on designated dates."
+  }
+}

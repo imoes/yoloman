@@ -1,0 +1,47 @@
+# Pen load balancer configuration
+# Listen on this IP and port for incoming connections
+listen = {{ listen_ip }}:{{ listen_port }}
+
+# Backend servers to load balance across (TCP or UDP)
+{% for server in servers %}# Server: {{ server.name | default('unnamed') }}
+{% if server.protocol == 'udp' %}server = udp:{{ server.host }}:{{ server.port }}
+{% else %}server = {{ server.host }}:{{ server.port }}
+{% endif %}{% endfor %}
+
+# Load balancing method (roundrobin|leastconn|first|iphash|urihash|urlhash|sourceiphash)
+method = {{ method }}
+
+# Health check interval in seconds (0 to disable)
+healthcheck = {{ healthcheck_interval }}
+
+# Timeout for backend connections (in seconds)
+timeout = {{ timeout }}
+
+# Maximum number of connections per backend (0 = unlimited)
+maxconn = {{ max_connections }}
+
+# Enable client IP preservation (transparent proxy)
+{% if transparent %}transparent = yes
+{% else %}transparent = no
+{% endif %}
+
+# Log to this file (use syslog if empty)
+{% if log_file %}log = {{ log_file }}
+{% endif %}
+
+# Enable access logging with timestamps
+{% if log_timestamps %}logtimestamps = yes
+{% else %}logtimestamps = no
+{% endif %}
+
+# Log level: 0 (quiet) to 3 (verbose)
+loglevel = {{ log_level }}
+
+# Optional: bind to a specific local IP for outgoing connections
+{% if outbound_ip %}outbound_ip = {{ outbound_ip }}
+{% endif %}
+
+# Optional: sticky sessions (client IP hash for persistence)
+{% if sticky %}sticky = yes
+{% else %}sticky = no
+{% endif %}

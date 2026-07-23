@@ -1,0 +1,95 @@
+# URI of LDAP server(s) to connect to
+uri {{ ldap_uris | join(' ') }}
+
+# Base DN for LDAP searches
+base {{ ldap_base }}
+
+# LDAP protocol version
+ldap_version {{ ldap_version }}
+
+# Bind DN (optional, for anonymous or authenticated binds)
+{%- if ldap_bind_dn %}
+binddn {{ ldap_bind_dn }}
+bindpw {{ ldap_bind_pw | default('', true) }}
+{%- else %}
+# Using anonymous bind
+{%- endif %}
+
+# LDAP scope for searches
+scope {{ ldap_scope }}
+
+# TLS configuration
+{%- if tls_cacertdir %}
+tls_cacertdir {{ tls_cacertdir }}
+{%- endif %}
+{%- if tls_cacertfile %}
+tls_cacertfile {{ tls_cacertfile }}
+{%- endif %}
+{%- if tls_reqcert is defined %}
+tls_reqcert {{ tls_reqcert }}
+{%- else %}
+# Default: 'never' is insecure but sometimes needed in dev
+# tls_reqcert never
+{%- endif %}
+
+# Connection timeout (seconds)
+timelimit {{ timelimit }}
+
+# Search timeout (seconds)
+scope_search_timeout {{ scope_search_timeout }}
+
+# Reconnect retry settings
+{%- if reconnect_retry %}
+reconnect_retry {{ reconnect_retry }}
+{%- endif %}
+
+# NSS map configuration (user, group, shadow)
+map passwd {{ nss_map_passwd }}
+map group {{ nss_map_group }}
+map shadow {{ nss_map_shadow }}
+
+# Additional filter expressions for entity lookups
+{%- if user_filter %}
+filter passwd ({{ user_filter }})
+{%- endif %}
+{%- if group_filter %}
+filter group ({{ group_filter }})
+{%- endif %}
+{%- if shadow_filter %}
+filter shadow ({{ shadow_filter }})
+{%- endif %}
+
+# PAM session support (optional)
+{%- if pam_login_attribute %}
+pam_login_attribute {{ pam_login_attribute }}
+{%- endif %}
+{%- if pam_filter %}
+pam_filter {{ pam_filter }}
+{%- endif %}
+
+# Minimum and maximum UIDs to consider for NSS
+{%- if nss_initgroups_ignoreusers is defined %}
+nss_initgroups_ignoreusers {{ nss_initgroups_ignoreusers | join(',') }}
+{%- endif %}
+{%- if nss_min_uid is defined %}
+nss_min_uid {{ nss_min_uid }}
+{%- endif %}
+{%- if nss_max_uid is defined %}
+nss_max_uid {{ nss_max_uid }}
+{%- endif %}
+
+# SSL/TLS options (legacy names supported)
+ssl {{ nslcd_ssl }}
+
+# SASL options (optional)
+{%- if sasl_mech %}
+sasl_mech {{ sasl_mech }}
+{%- endif %}
+{%- if sasl_realm %}
+sasl_realm {{ sasl_realm }}
+{%- endif %}
+
+# Base for PAM lookups (if different from NSS)
+{%- if pam_authc_search_base %}
+pam_authc_search_base {{ pam_authc_search_base }}
+{%- endif %}

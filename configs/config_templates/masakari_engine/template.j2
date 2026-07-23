@@ -1,0 +1,85 @@
+[DEFAULT]
+# Enable or disable debug logging
+{% if debug %}debug = true{% else %}debug = false{% endif %}
+
+# Log directory path
+{% if log_dir %}log_dir = {{ log_dir }}{% endif %}
+
+# Log file name
+{% if log_file %}log_file = {{ log_file }}{% endif %}
+
+# API server bind host
+host = {{ api_bind_host }}
+
+# API server bind port
+port = {{ api_bind_port }}
+
+# Number of API worker processes
+{% if api_workers is defined %}workers = {{ api_workers }}{% else %}workers = 1{% endif %}
+
+# Authentication backend (e.g., 'keystone')
+auth_strategy = {{ auth_strategy }}
+
+# Path to the WSGI config (if any)
+{% if wsgi_config_path %}wsgi_config_path = {{ wsgi_config_path }}{% endif %}
+
+# Enable CORS (Cross-Origin Resource Sharing)
+{% if enable_cors %}allow_cors = true{% else %}allow_cors = false{% endif %}
+
+# Allowed CORS origins (comma-separated list or use `*` for all)
+{% if cors_allowed_origins %}cors_allowed_origins = {{ cors_allowed_origins | join(', ') }}{% endif %}
+
+# Maximum request body size in bytes
+{% if max_request_body_size %}max_request_body_size = {{ max_request_body_size }}{% endif %}
+
+# Enable SSL/TLS
+{% if use_ssl %}use_ssl = true{% else %}use_ssl = false{% endif %}
+
+# SSL certificate file path
+{% if cert_file %}cert_file = {{ cert_file }}{% endif %}
+
+# SSL key file path
+{% if key_file %}key_file = {{ key_file }}{% endif %}
+
+# Path to trusted CA certificate bundle (for mutual TLS)
+{% if ca_file %}ca_file = {{ ca_file }}{% endif %}
+
+# Health check endpoint path
+{% if health_check_path %}health_check_path = {{ health_check_path }}{% endif %}
+
+# Timeout for upstream connections (seconds)
+{% if upstream_connect_timeout %}upstream_connect_timeout = {{ upstream_connect_timeout }}{% endif %}
+
+# Maximum number of HTTP connections per upstream host
+{% if upstream_max_connections %}upstream_max_connections = {{ upstream_max_connections }}{% endif %}
+
+# Rate limit settings (requests per second per client IP)
+{% if rate_limit_enabled %}rate_limit_enabled = true{% else %}rate_limit_enabled = false{% endif %}
+{% if rate_limit_requests_per_second is defined %}rate_limit_requests_per_second = {{ rate_limit_requests_per_second }}{% endif %}
+
+# Delay between retries for upstream (ms)
+{% if upstream_retry_delay %}upstream_retry_delay = {{ upstream_retry_delay }}{% endif %}
+
+# Enable access logging
+{% if access_log %}access_log = {{ access_log }}{% else %}access_log = /var/log/masakari/masakari-engine/access.log{% endif %}
+
+# Access log format (gunicorn-style or similar)
+access_log_format = {{ access_log_format }}
+
+# PID file path
+{% if pid_file %}pid_file = {{ pid_file }}{% endif %}
+
+[keystone_authtoken]
+# Keystone authentication parameters
+{% if keystone_auth_uri %}auth_uri = {{ keystone_auth_uri }}{% endif %}
+{% if keystone_auth_url %}auth_url = {{ keystone_auth_url }}{% endif %}
+{% if keystone_project_domain_name %}project_domain_name = {{ keystone_project_domain_name }}{% endif %}
+{% if keystone_user_domain_name %}user_domain_name = {{ keystone_user_domain_name }}{% endif %}
+{% if keystone_project_name %}project_name = {{ keystone_project_name }}{% endif %}
+{% if keystone_username %}username = {{ keystone_username }}{% endif %}
+{% if keystone_password %}password = {{ keystone_password }}{% endif %}
+{% if keystone_region_name %}region_name = {{ keystone_region_name }}{% endif %}
+{% if keystone_insecure %}insecure = {{ keystone_insecure }}{% else %}insecure = false{% endif %}
+{% if keystone_cafile %}cafile = {{ keystone_cafile }}{% endif %}
+{% if keystone_certfile %}certfile = {{ keystone_certfile }}{% endif %}
+{% if keystone_keyfile %}keyfile = {{ keystone_keyfile }}{% endif %}

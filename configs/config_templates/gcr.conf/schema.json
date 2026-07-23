@@ -1,0 +1,222 @@
+{
+  "enabled": {
+    "type": "boolean",
+    "default": true,
+    "description": "Enable or disable the GCR service on startup."
+  },
+  "work_dir": {
+    "type": "string",
+    "default": "/var/lib/gcr",
+    "description": "Working directory for temporary and runtime files."
+  },
+  "pid_file": {
+    "type": "string",
+    "default": "/run/gcr.pid",
+    "description": "Path to the PID file used to track the daemon process."
+  },
+  "log_level": {
+    "type": "string",
+    "default": "info",
+    "description": "Minimum log level to output. Set to 'debug' for verbose diagnostics."
+  },
+  "log_file": {
+    "type": "string",
+    "default": "",
+    "description": "Path to log file. Empty value logs to stdout/stderr instead."
+  },
+  "listen_port": {
+    "type": "number",
+    "default": 8080,
+    "description": "TCP port on which the GCR service listens for client connections."
+  },
+  "worker_count": {
+    "type": "number",
+    "default": 4,
+    "description": "Number of worker threads handling client requests."
+  },
+  "max_connections": {
+    "type": "number",
+    "default": 1024,
+    "description": "Maximum number of simultaneous client connections allowed."
+  },
+  "idle_timeout": {
+    "type": "number",
+    "default": 60,
+    "description": "Seconds of inactivity before a client connection is closed."
+  },
+  "tls_enabled": {
+    "type": "boolean",
+    "default": false,
+    "description": "Enable TLS for encrypted client communication."
+  },
+  "tls_cert_file": {
+    "type": "string",
+    "default": "/etc/gcr/tls/server.crt",
+    "description": "Path to the server TLS certificate file. Required if TLS is enabled."
+  },
+  "tls_key_file": {
+    "type": "string",
+    "default": "/etc/gcr/tls/server.key",
+    "description": "Path to the server TLS private key file. Required if TLS is enabled."
+  },
+  "tls_ca_cert_file": {
+    "type": "string",
+    "default": "",
+    "description": "Path to CA certificate for mutual TLS (mTLS) client verification. Leave blank to disable client cert authentication."
+  },
+  "tls_sni_hostname": {
+    "type": "string",
+    "default": "",
+    "description": "Optional hostname to present in TLS SNI during handshake. If empty, the system hostname is used."
+  },
+  "rate_limit.enabled": {
+    "type": "boolean",
+    "default": true,
+    "description": "Enable per-client request rate limiting."
+  },
+  "rate_limit.max_requests": {
+    "type": "number",
+    "default": 100,
+    "description": "Maximum number of requests allowed per client per interval before throttling."
+  },
+  "rate_limit.window_seconds": {
+    "type": "number",
+    "default": 60,
+    "description": "Time window (in seconds) over which rate limiting is applied."
+  },
+  "acls": {
+    "type": "list",
+    "default": [
+      {
+        "name": "allow_all",
+        "action": "allow",
+        "network": "0.0.0.0/0",
+        "description": "Allow all connections by default"
+      }
+    ],
+    "description": "Access control rules \u2014 each entry defines an action (allow/deny) and optional IP range (CIDR).",
+    "items": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "default": "",
+          "description": "Unique name for the ACL rule."
+        },
+        "action": {
+          "type": "string",
+          "enum": [
+            "allow",
+            "deny"
+          ],
+          "default": "allow",
+          "description": "Whether to allow or deny matching clients."
+        },
+        "network": {
+          "type": "string",
+          "default": "0.0.0.0/0",
+          "description": "IP network (CIDR notation) to match against client IP."
+        },
+        "description": {
+          "type": "string",
+          "default": "",
+          "description": "Optional human-readable description for documentation."
+        }
+      }
+    }
+  },
+  "upstreams": {
+    "type": "list",
+    "default": [
+      {
+        "name": "backend1",
+        "host": "127.0.0.1",
+        "port": 9000,
+        "weight": 100
+      }
+    ],
+    "description": "Upstream backend servers to which GCR proxies requests. Each entry defines a backend name, host, port, and routing weight.",
+    "items": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "default": "",
+          "description": "Unique identifier for the upstream (used for logging and management)."
+        },
+        "host": {
+          "type": "string",
+          "default": "127.0.0.1",
+          "description": "Hostname or IP address of the backend server."
+        },
+        "port": {
+          "type": "number",
+          "default": 9000,
+          "description": "Port on which the backend server listens."
+        },
+        "weight": {
+          "type": "number",
+          "default": 100,
+          "minimum": 1,
+          "maximum": 1000,
+          "description": "Relative weight for load balancing (higher = more traffic)."
+        },
+        "max_connections": {
+          "type": "number",
+          "default": 100,
+          "description": "Maximum concurrent connections to this upstream. If omitted, defaults to global max_connections."
+        },
+        "description": {
+          "type": "string",
+          "default": "",
+          "description": "Optional human-readable description."
+        }
+      }
+    }
+  },
+  "cache.enabled": {
+    "type": "boolean",
+    "default": true,
+    "description": "Enable in-memory caching of responses."
+  },
+  "cache.capacity": {
+    "type": "number",
+    "default": 10000,
+    "description": "Maximum number of entries the cache can hold."
+  },
+  "cache.default_ttl": {
+    "type": "number",
+    "default": 300,
+    "description": "Default time-to-live for cached entries (in seconds)."
+  },
+  "cache.policy": {
+    "type": "string",
+    "default": "lru",
+    "description": "Cache eviction policy when capacity is exceeded."
+  },
+  "health_check.enabled": {
+    "type": "boolean",
+    "default": true,
+    "description": "Enable periodic health checks on upstream backends."
+  },
+  "health_check.interval": {
+    "type": "number",
+    "default": 10,
+    "description": "Seconds between consecutive health checks."
+  },
+  "health_check.timeout": {
+    "type": "number",
+    "default": 5,
+    "description": "Seconds to wait for a health check response before marking unhealthy."
+  },
+  "health_check.failures": {
+    "type": "number",
+    "default": 3,
+    "description": "Consecutive failed checks required to mark an upstream as unhealthy."
+  },
+  "health_check.successes": {
+    "type": "number",
+    "default": 2,
+    "description": "Consecutive successful checks required to mark an upstream as healthy again."
+  }
+}

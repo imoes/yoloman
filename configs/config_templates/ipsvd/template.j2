@@ -1,0 +1,39 @@
+# /etc/ipsvd/ipsvd.conf — Main configuration for Internet Protocol Service Daemons (ipsvd)
+# Load-order: read from top to bottom; directives are processed in order
+# Each line defines a service, with optional per-service settings
+
+# Enable verbose logging (overrides default log level)
+{% if verbose %}verbose{% endif %}
+
+# Maximum number of concurrent connections per service
+maxconn {{ maxconn }}
+
+# Default user and group for services not explicitly overridden
+default_user {{ default_user }}
+default_group {{ default_group }}
+
+# DNS lookup timeout in seconds
+timeout_dns {{ timeout_dns }}
+
+# TCP connection idle timeout in seconds
+timeout_idle {{ timeout_idle }}
+
+# Enable TCP wrappers support
+{% if tcp_wrappers %}tcp_wrappers{% endif %}
+
+# Enable IPv6 support
+{% if ipv6 %}ipv6{% endif %}
+
+# List of services to manage, each with optional per-service overrides
+{% for service in services %}
+# Service: {{ service.name }}
+# Port: {{ service.port }}
+# Protocol: {{ service.protocol }}
+{% if service.chroot %}chroot {{ service.chroot }}{% endif %}
+{% if service.user %}user {{ service.user }}{% endif %}
+{% if service.group %}group {{ service.group }}{% endif %}
+{% if service.log_prefix %}log_prefix {{ service.log_prefix }}{% endif %}
+{% if service.maxconn is defined %}maxconn {{ service.maxconn }}{% endif %}
+{% if service.timeout_idle is defined %}timeout_idle {{ service.timeout_idle }}{% endif %}
+{% if service.cmd %}cmd {{ service.cmd | join(' ') }}{% endif %}
+{% endfor %}

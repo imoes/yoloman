@@ -1,0 +1,48 @@
+# Configuration for prometheus-openstack-exporter
+# Environment variables to configure the exporter's behavior
+
+# OpenStack authentication parameters
+OS_AUTH_URL={{ os_auth_url }}
+OS_REGION_NAME={{ os_region_name }}
+OS_USERNAME={{ os_username }}
+OS_PASSWORD={{ os_password }}
+OS_PROJECT_NAME={{ os_project_name }}
+OS_USER_DOMAIN_NAME={{ os_user_domain_name }}
+OS_PROJECT_DOMAIN_NAME={{ os_project_domain_name }}
+{% if os_application_credential_id %}
+OS_APPLICATION_CREDENTIAL_ID={{ os_application_credential_id }}
+{% endif %}
+{% if os_application_credential_name %}
+OS_APPLICATION_CREDENTIAL_NAME={{ os_application_credential_name }}
+{% endif %}
+{% if os_application_credential_secret %}
+OS_APPLICATION_CREDENTIAL_SECRET={{ os_application_credential_secret }}
+{% endif %}
+
+# Optional: API versions and endpoint type
+{% if os_interface %}OS_INTERFACE={{ os_interface }}{% endif %}
+{% if os_identity_api_version %}OS_IDENTITY_API_VERSION={{ os_identity_api_version }}{% endif %}
+
+# Exporter-specific settings
+EXPORTER_LISTEN_ADDRESS={{ exporter_listen_address }}
+EXPORTER_PORT={{ exporter_port }}
+EXPORTER_TIMEOUT={{ exporter_timeout }}
+EXPORTER_INSECURE_SKIP_VERIFY={{ exporter_insecure_skip_verify }}
+
+# Enable/disable specific collectors
+{% for collector_name, enabled in collectors.items() %}
+OS_EXPORTER_ENABLE_{{ collector_name | upper }}={{ 'true' if enabled else 'false' }}
+{% endfor %}
+
+# Optional: logging level
+{% if log_level %}LOG_LEVEL={{ log_level }}{% endif %}
+
+# Optional: OpenStack service types to exclude (comma-separated list)
+{% if exclude_services %}OS_EXPORTER_EXCLUDE_SERVICES={{ exclude_services | join(',') }}{% endif %}
+
+# Optional: TLS cert/key paths (for HTTPS endpoint)
+{% if tls_cert_file %}TLS_CERT_FILE={{ tls_cert_file }}{% endif %}
+{% if tls_key_file %}TLS_KEY_FILE={{ tls_key_file }}{% endif %}
+
+# Optional: Metrics path prefix
+{% if metrics_path_prefix %}METRICS_PATH_PREFIX={{ metrics_path_prefix }}{% endif %}

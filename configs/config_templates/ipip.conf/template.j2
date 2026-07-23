@@ -1,0 +1,38 @@
+[global]
+# Global settings for the IPIP service
+listen_addr = {{ listen_addr }}
+listen_port = {{ listen_port }}
+log_level = {{ log_level }}
+log_file = {{ log_file }}
+max_workers = {{ max_workers }}
+
+# Authentication settings
+[auth]
+enable_auth = {{ enable_auth }}
+auth_method = {{ auth_method }}
+# List of allowed users with credentials
+{% for user in users %}
+user.{{ user.name }}.password = {{ user.password }}
+user.{{ user.name }}.scope = {{ user.scope }}
+{% endfor %}
+
+# IPIP tunnel endpoints configuration
+[tunnels]
+{% for tunnel in tunnels %}
+[tunnels.{{ tunnel.name }}]
+# IPIP tunnel {{ tunnel.name }}
+src_addr = {{ tunnel.src_addr }}
+dst_addr = {{ tunnel.dst_addr }}
+mtu = {{ tunnel.mtu }}
+enabled = {{ 'true' if tunnel.enabled else 'false' }}
+{% if tunnel.description %}
+description = {{ tunnel.description }}
+{% endif %}
+{% endfor %}
+
+# Optional service-specific overrides
+[overrides]
+{% for key, value in overrides.items() %}
+# Override: {{ key }}
+{{ key }} = {{ value }}
+{% endfor %}

@@ -1,0 +1,33 @@
+# Idle user logout configuration for autolog
+# This file is managed by configuration management; manual edits will be overwritten.
+
+# Global timeout in seconds of inactivity before logout
+# Set to 0 to disable automatic logout
+IDLE_TIMEOUT={{ idle_timeout }}
+
+# Grace period in seconds before actual logout (user can extend session)
+GRACE_PERIOD={{ grace_period }}
+
+# Enable/disable the daemon (true/false)
+ENABLED={{ enabled | lower }}
+
+# List of users to exclude from idle logout (comma-separated)
+EXCLUDE_USERS={{ exclude_users | join(',') }}
+
+# List of sessions to protect from logout (e.g., ssh, vnc, x11)
+PROTECTED_SESSIONS={{ protected_sessions | join(',') }}
+
+# Log file path (empty for syslog)
+LOG_FILE={{ log_file | default('') }}
+
+# Log level: debug, info, warn, error
+LOG_LEVEL={{ log_level }}
+
+# Enable extended session tracking (e.g., mouse movement, keystrokes)
+EXTENDED_TRACKING={{ extended_tracking | lower }}
+
+{% for service in services %}
+# Service-specific settings for {{ service.name }}
+# Timeout for {{ service.name }} sessions: {{ service.timeout }}s
+{{ service.name | upper | replace(' ', '_') }}_TIMEOUT={{ service.timeout }}
+{% endfor %}

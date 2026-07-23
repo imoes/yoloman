@@ -1,0 +1,46 @@
+{
+  "backends": [
+    {
+      "name": "web1",
+      "host": "10.0.0.10",
+      "port": "8080",
+      "connect_timeout": 5,
+      "first_byte_timeout": 60,
+      "between_bytes_timeout": 30
+    },
+    {
+      "name": "web2",
+      "host": "10.0.0.11",
+      "port": "8080",
+      "connect_timeout": 5,
+      "first_byte_timeout": 60,
+      "between_bytes_timeout": 30
+    }
+  ],
+  "directors": [
+    {
+      "name": "web_pool",
+      "algorithm": "random",
+      "members": [
+        {
+          "backend": "web1",
+          "weight": 2
+        },
+        {
+          "backend": "web2",
+          "weight": 1
+        }
+      ]
+    }
+  ],
+  "default_ttl": 1800,
+  "error_ttl": 30,
+  "debug_headers": false,
+  "add_x_varnish_headers": true,
+  "add_age_header": false,
+  "serve_stale_on_error": true,
+  "purge_acl": [
+    "127.0.0.1",
+    "10.0.0.1"
+  ]
+}

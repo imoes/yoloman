@@ -1,0 +1,41 @@
+{
+  "server": {
+    "host": "0.0.0.0",
+    "port": 8080,
+    "log_level": "info",
+    "log_file": "/var/log/mbtserver/mbtserver.log",
+    "max_workers": 4,
+    "worker_timeout": 30,
+    "data_dir": "/var/lib/mbtserver",
+    "temp_dir": "/tmp/mbtserver",
+    "tls": {
+      "enabled": false
+    },
+    "backends": [
+      {
+        "name": "primary-api",
+        "url": "http://127.0.0.1:3001",
+        "weight": 100,
+        "health_check": {
+          "enabled": true,
+          "interval": 10,
+          "timeout": 5
+        }
+      },
+      {
+        "name": "backup-api",
+        "url": "http://127.0.0.1:3002",
+        "weight": 50,
+        "health_check": {
+          "enabled": true,
+          "interval": 15,
+          "timeout": 8
+        }
+      }
+    ],
+    "enable_caching": true,
+    "enable_rate_limiting": true,
+    "rate_limit_requests": 100,
+    "rate_limit_window_seconds": 60
+  }
+}

@@ -1,0 +1,45 @@
+{
+  "qdevice_host": "qdevice.example.com",
+  "qdevice_port": 5403,
+  "tls_ca_file": "/etc/corosync/qdevice/net/ssl/qdevice-ca.crt",
+  "tls_cert_file": "/etc/corosync/qdevice/net/ssl/qdevice.crt",
+  "tls_key_file": "/etc/corosync/qdevice/net/ssl/qdevice.key",
+  "algorithm": "ffsplit",
+  "tie_breaker_node_id": 2,
+  "heuristics_mode": "sync",
+  "heuristics": [
+    {
+      "name": "ping_cluster",
+      "interval": 1000,
+      "timeout": 500,
+      "program": "/usr/bin/ping",
+      "args": [
+        "-c",
+        "1",
+        "-W",
+        "1",
+        "192.168.1.1"
+      ],
+      "score": 1
+    },
+    {
+      "name": "check_nfs",
+      "interval": 3000,
+      "timeout": 2000,
+      "program": "/usr/local/bin/check-nfs.sh",
+      "args": [
+        "--timeout",
+        "1"
+      ],
+      "score": -1
+    }
+  ],
+  "qnetd_host": "qdevice.example.com",
+  "qnetd_port": 5403,
+  "tls_mode": "on",
+  "logging_level": 2,
+  "connect_timeout": 3000,
+  "reconnect_interval": 5,
+  "quorum_votes": 1,
+  "heuristics_votes": true
+}

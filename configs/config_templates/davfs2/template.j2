@@ -1,0 +1,60 @@
+# WebDAV client configuration for davfs2
+# Enable WebDAV server certificate verification (set to 0 to disable)
+use_cert_verification  {{ dav_cert_verification }}
+
+# Path to custom CA certificates file for HTTPS verification
+# (leave commented to use system defaults)
+ca_cert_file  {{ dav_ca_cert_file }}
+
+# Path to client certificate (PEM format, optional)
+client_cert  {{ dav_client_cert }}
+
+# Path to private key for client certificate (optional)
+client_key  {{ dav_client_key }}
+
+# Enable/Disable compression of requests
+use_compression  {{ dav_compression }}
+
+# Timeout for WebDAV requests (seconds)
+cache_timeout  {{ dav_cache_timeout }}
+
+# Maximum number of concurrent connections per server
+max_conns  {{ dav_max_conns }}
+
+# Minimum space (in KB) to keep free on cache directory
+cache_size  {{ dav_cache_size_kb }}
+
+# Directory used for local caching of file contents
+# (set to empty string to disable caching)
+cache_dir  {{ dav_cache_dir }}
+
+# Enable/Disable use of local cache for metadata
+use_mmap  {{ dav_use_mmap }}
+
+# Enable/Disable locking (set to 0 for read-only mounts or problematic servers)
+use_locks  {{ dav_use_locks }}
+
+# Enable/Disable use of HTTP/1.1 persistent connections
+keep_alive  {{ dav_keep_alive }}
+
+# Default file permissions for newly created files (octal)
+file_mode  {{ dav_file_mode }}
+
+# Default directory permissions for newly created directories (octal)
+dir_mode  {{ dav_dir_mode }}
+
+# User and group to use for cache file ownership (if caching enabled)
+cache_owner  {{ dav_cache_owner }}
+cache_group  {{ dav_cache_group }}
+
+# Optional HTTP headers to send with every request (one per line)
+# Format: header_name: header_value
+{% for header in dav_extra_headers %}
+add_header  {{ header.name }}: {{ header.value }}
+{% endfor %}
+
+# Optional proxy server (host:port); leave empty to disable
+proxy  {{ dav_proxy }}
+
+# Enable/Disable WebDAV protocol debug logging (to syslog)
+debug  {{ dav_debug }}

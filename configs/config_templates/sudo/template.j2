@@ -1,0 +1,27 @@
+# /etc/sudoers: sudo privilege configuration
+
+# Allow root to run any commands anywhere
+root	ALL=(ALL:ALL) ALL
+
+# Allow members of group 'wheel' to execute any command
+{% for group in sudo_groups %}# Members of group '{{ group.name }}' may {{ 'run any command' if group.full_access else 'run specific commands' }}
+%{{ group.name }}	ALL=(ALL:ALL) {% if group.full_access %}ALL{% else %}{{ group.commands | join(', ') }}{% endif %}
+{% endfor %}
+
+# Include sudoers.d directory for modular configuration
+{% if include_sudoers_d %}# Include individual sudo configurations from /etc/sudoers.d
+@includedir /etc/sudoers.d
+{% endif %}
+
+# Optional: Default settings
+{% if enable_passwd_prompt %}# Require password for sudo (default behavior)
+Defaults	!tty_tickets
+{% else %}# Allow passwordless sudo (security-sensitive — use only in trusted environments)
+Defaults	!authenticate
+{% endif %}
+
+# Logging configuration
+{% if enable_logging %}# Log sudo activity for auditing
+Defaults	logfile=/var/log/sudo.log
+Defaults	log_input,log_output
+{% endif %}

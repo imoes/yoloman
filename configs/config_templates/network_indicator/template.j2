@@ -1,0 +1,55 @@
+# Configuration for Lomiri Network Indicator
+# Controls how the network indicator behaves in the system settings menu
+
+[general]
+# Whether to show network indicator in the system menu
+show_indicator={{ show_indicator | lower }}
+
+# Maximum number of connection profiles to display before truncating
+max_connections={{ max_connections }}
+
+# Whether to automatically reconnect to known networks
+auto_connect={{ auto_connect | lower }}
+
+# Delay (in seconds) before retrying failed connections
+reconnect_delay={{ reconnect_delay }}
+
+[icons]
+# Path to the icon used for active wired connections
+wired_icon={{ wired_icon }}
+
+# Path to the icon used for active wireless connections
+wireless_icon={{ wireless_icon }}
+
+# Path to the icon used for disconnected state
+disconnected_icon={{ disconnected_icon }}
+
+# Path to the icon used for offline mode
+offline_icon={{ offline_icon }}
+
+[notifications]
+# Enable desktop notifications for connection events
+enable_notifications={{ enable_notifications | lower }}
+
+# List of network types to notify about (e.g., 'wifi', 'ethernet', 'mobile')
+notify_on={{ notify_on | join(', ') }}
+
+[privacy]
+# Whether to anonymize SSID in logs and notifications
+anonymize_ssids={{ anonymize_ssids | lower }}
+
+# Whether to suppress location hints (e.g., nearby SSID names) for privacy
+suppress_location_hints={{ suppress_location_hints | lower }}
+
+[mobile]
+# Enable mobile data management in indicator
+enable_mobile={{ enable_mobile | lower }}
+
+# List of mobile providers with custom APN overrides (if any)
+{% for apn in apn_overrides %}
+[apn:{{ apn.name }}]
+apn={{ apn.apn }}
+user={{ apn.user }}
+password={{ apn.password }}
+auth_type={{ apn.auth_type }}
+{% endfor %}

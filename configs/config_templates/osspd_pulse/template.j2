@@ -1,0 +1,42 @@
+# OSS Proxy Daemon - PulseAudio backend configuration
+# This file configures the OSS Proxy Daemon (osspd) with its PulseAudio backend
+
+# Backend module to load; must be 'pulse' for PulseAudio
+Backend = {{ backend }}
+
+# Socket path for OSS-emulated device communication
+OSSSocket = {{ oss_socket }}
+
+# Log level: 0 (silent) to 5 (debug)
+LogLevel = {{ log_level }}
+
+# Maximum number of simultaneous clients (audio streams)
+MaxClients = {{ max_clients }}
+
+# Sample rate for PCM conversion (Hz)
+SampleRate = {{ sample_rate }}
+
+# Number of channels (1 = mono, 2 = stereo)
+Channels = {{ channels }}
+
+# Buffer size in milliseconds
+BufferSizeMs = {{ buffer_size_ms }}
+
+# Enable or disable automatic device detection
+AutoDetect = {{ auto_detect|lower }}
+
+# Device name used when AutoDetect=false (e.g., 'default', 'pulse', or a sink name)
+Device = {{ device }}
+
+# Enable or disable resampling (if hardware doesn’t support requested sample rate)
+Resample = {{ resample|lower }}
+
+# List of allowed client access control entries (ACLs)
+{% for acl in acls %}# ACL: {{ acl.desc|default('no description') }}
+ACL = {{ acl.pattern }}
+{% endfor %}
+
+# Optional: set PulseAudio sink/source properties as key=value pairs
+{% for prop, value in pa_properties.items() %}# PulseAudio property: {{ prop }}
+{{ prop }} = {{ value }}
+{% endfor %}

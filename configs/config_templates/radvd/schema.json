@@ -1,0 +1,162 @@
+{
+  "interface_name": {
+    "type": "string",
+    "default": "eth0",
+    "description": "Network interface on which to advertise router advertisements (e.g., 'eth0', 'wlan0')."
+  },
+  "send_advertisements": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable or disable sending of router advertisements on this interface."
+  },
+  "min_interval": {
+    "type": "number",
+    "default": 3,
+    "description": "Minimum time (in seconds) between unsolicited router advertisements."
+  },
+  "max_interval": {
+    "type": "number",
+    "default": null,
+    "description": "Maximum time (in seconds) between router advertisements. If omitted, defaults to min_interval."
+  },
+  "hop_limit": {
+    "type": "number",
+    "default": 64,
+    "description": "Default hop limit for packets (typically 64 or 255)."
+  },
+  "prefixes": {
+    "type": "list",
+    "default": [],
+    "description": "List of IPv6 prefixes to advertise on this interface.",
+    "items": {
+      "type": "object",
+      "fields": {
+        "prefix": {
+          "type": "string",
+          "default": "2001:db8::",
+          "description": "IPv6 prefix (e.g., '2001:db8:1::')."
+        },
+        "prefix_length": {
+          "type": "number",
+          "default": 64,
+          "description": "Length of the prefix mask (typically 64)."
+        },
+        "valid_lifetime": {
+          "type": "number",
+          "default": 86400,
+          "description": "How long (in seconds) the prefix is valid for address configuration."
+        },
+        "preferred_lifetime": {
+          "type": "number",
+          "default": 14400,
+          "description": "How long (in seconds) the prefix is preferred for new address assignments."
+        },
+        "onlink": {
+          "type": "bool",
+          "default": true,
+          "description": "Indicates whether the prefix is on-link (reachable directly)."
+        },
+        "autonomous": {
+          "type": "bool",
+          "default": true,
+          "description": "Enable stateless address autoconfiguration (SLAAC) using this prefix."
+        },
+        "router_address": {
+          "type": "bool",
+          "default": false,
+          "description": "Include the router's address as the source address in the prefix (rarely needed)."
+        }
+      }
+    }
+  },
+  "route_descriptors": {
+    "type": "list",
+    "default": [],
+    "description": "List of route information (RFC 4191) to advertise.",
+    "items": {
+      "type": "object",
+      "fields": {
+        "destination": {
+          "type": "string",
+          "default": "",
+          "description": "Route destination prefix (e.g., '2001:db8:2::')."
+        },
+        "prefix_length": {
+          "type": "number",
+          "default": 64,
+          "description": "Length of the route prefix mask (typically 64)."
+        },
+        "lifetime": {
+          "type": "number",
+          "default": 30,
+          "description": "Lifetime (in seconds) of the route."
+        },
+        "preference": {
+          "type": "number",
+          "default": 0,
+          "description": "Route preference: -1 (low), 0 (medium), 1 (high)."
+        },
+        "router_address": {
+          "type": "bool",
+          "default": false,
+          "description": "Include the router's own address as a next-hop hint."
+        }
+      }
+    }
+  },
+  "rdnss_list": {
+    "type": "list",
+    "default": [],
+    "description": "List of recursive DNS servers (RDNSS) to advertise.",
+    "items": {
+      "type": "object",
+      "fields": {
+        "address": {
+          "type": "string",
+          "default": "2001:db8::1",
+          "description": "IPv6 address of a DNS server."
+        },
+        "lifetime": {
+          "type": "number",
+          "default": 3600,
+          "description": "Lifetime (in seconds) for the RDNSS entry."
+        }
+      }
+    }
+  },
+  "dnssl_list": {
+    "type": "list",
+    "default": [],
+    "description": "List of DNS search domains (DNSSL) to advertise.",
+    "items": {
+      "type": "object",
+      "fields": {
+        "domain": {
+          "type": "string",
+          "default": "example.com",
+          "description": "DNS search domain (e.g., 'home.lan')."
+        },
+        "lifetime": {
+          "type": "number",
+          "default": 3600,
+          "description": "Lifetime (in seconds) for the DNSSL entry."
+        }
+      }
+    }
+  },
+  "managed_config": {
+    "type": "bool",
+    "default": false,
+    "description": "Set Managed Address Configuration flag (indicating DHCPv6 is available for addresses)."
+  },
+  "other_config": {
+    "type": "bool",
+    "default": false,
+    "description": "Set Other Configuration flag (indicating DHCPv6 is available for non-address info, e.g., DNS)."
+  },
+  "link_mtu": {
+    "type": "number",
+    "default": null,
+    "description": "Advertised link MTU (if not automatically derived from interface)."
+  }
+}

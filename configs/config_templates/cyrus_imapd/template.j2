@@ -1,0 +1,110 @@
+# Service startup control: define services, ports, and launch mechanisms
+# See 'man cyrus.conf' for full documentation
+
+# Global options
+configfile: {{ config.configfile }}
+
+# Server identification (used in banners and logs)
+servername: {{ config.servername }}
+
+# Authentication mechanism and auxiliary DB path
+sasl_pwcheck_path: {{ config.sasl_pwcheck_path }}
+auxprop_plugin: {{ config.auxprop_plugin }}
+
+# Main process control services
+# LDA (Local Delivery Agent) viaLMTP for incoming mail
+# Note: 'lmtpunix' is required for 'ctl_mboxlist', 'mboxlist_validate', etc.
+
+{% if config.services.lmtpunix.enabled %}
+lmtpunix   cmd="lmtpd" listen="/var/lib/imap/socket/lmtp" prefork=1
+{% endif %}
+
+{% if config.services.lmtpunix_zm.enabled %}
+lmtpunixzm cmd="lmtpd -z" listen="/var/lib/imap/socket/lmtp_zm" prefork=1
+{% endif %}
+
+# IMAP and secure IMAP services
+{% if config.services.imap.enabled %}
+imap       cmd="imapd" listen="imap" prefork=0
+{% endif %}
+
+{% if config.services.imaps.enabled %}
+imaps      cmd="imapd -s" listen="imaps" prefork=0
+{% endif %}
+
+# POP3 and secure POP3 (optional; disabled by default)
+{% if config.services.pop3.enabled %}
+pop3       cmd="pop3d" listen="pop3" prefork=0
+{% endif %}
+
+{% if config.services.pop3s.enabled %}
+pop3s      cmd="pop3d -s" listen="pop3s" prefork=0
+{% endif %}
+
+# Sieve script delivery (for mail filtering)
+{% if config.services.sieve.enabled %}
+sieve      cmd="timsieved" listen="sieve" prefork=0
+{% endif %}
+
+# SASL authentication helper (required for login)
+{% if config.services.saslauthd.enabled %}
+saslauthd  cmd="saslauthd -r" listen="/var/run/saslauthd/mux" prefork=1
+{% endif %}
+
+# Cyrus admin and mailbox management services
+# Note: ctl_mboxlist, ctl_deliver, etc. require lmtpunix
+{% if config.services.ctl_mboxlist.enabled %}
+ctl_mboxlist cmd="ctl_mboxlist" listen="/var/lib/imap/socket/lmtp" prefork=1
+{% endif %}
+
+{% if config.services.ctl_deliver.enabled %}
+ctl_deliver cmd="ctl_deliver" listen="/var/lib/imap/socket/lmtp" prefork=1
+{% endif %}
+
+{% if config.services.ctl_cyrusdb.enabled %}
+ctl_cyrusdb cmd="ctl_cyrusdb" listen="/var/lib/imap/socket/lmtp" prefork=1
+{% endif %}
+
+# Optional: MTA integration (e.g., with sendmail via 'submit' socket)
+{% if config.services.submit.enabled %}
+submit     cmd="submit" listen="/var/lib/imap/socket/submit" prefork=1
+{% endif %}
+
+# Batch/management tasks (typically run via cron or systemctl, but may be preforked)
+# These are often managed by separate systemd timers/cron — commented out unless needed at runtime
+# cyr_expire    cmd="cyr_expire" interval=3600
+# etimeout      cmd="etimeout" interval=3600
+
+# Logging: syslog facility and verbosity
+# 'debug' logs all commands; 'info' normal; 'err' minimal
+loglevel: {{ config.loglevel }}
+
+# Locking and file paths
+lock_path: {{ config.lock_path }}
+work_path: {{ config.work_path }}
+
+# TLS/SSL configuration (server certificate and key)
+# TLS is required for secure ports (imaps, pop3s, sieves)
+ssl_cert_file: {{ config.ssl_cert_file }}
+ssl_key_file: {{ config.ssl_key_file }}
+ssl_ca_file: {{ config.ssl_ca_file }}
+
+# TLS cipher list (override default if desired)
+ssl_cipher_list: {{ config.ssl_cipher_list }}
+
+# Memory and performance tuning
+mboxlist_db: {{ config.mboxlist_db }}
+unique_name_db: {{ config.unique_name_db }}
+
+# Timeout limits (seconds)
+timelimit: {{ config.timelimit }}
+idletimelimit: {{ config.idletimelimit }}
+
+# Quota enforcement
+defaultdomain: {{ config.defaultdomain }}
+quota_default: {{ config.quota_default }}
+quota_warning: {{ config.quota_warning }}
+
+# Admin and user ACL support
+admin_sasl_name: {{ config.admin_sasl_name }}
+allowplaintext: {{ config.allowplaintext | lower }}

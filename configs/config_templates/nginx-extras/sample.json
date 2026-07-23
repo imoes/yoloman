@@ -1,0 +1,84 @@
+{
+  "nginx_user": "www-data",
+  "nginx_group": "www-data",
+  "nginx_worker_processes": "auto",
+  "nginx_pid_file": "/run/nginx.pid",
+  "nginx_error_log_path": "/var/log/nginx/error.log",
+  "nginx_error_log_level": "warn",
+  "nginx_events_worker_connections": 1024,
+  "nginx_events_use": "epoll",
+  "nginx_mimetypes_file": "/etc/nginx/mime.types",
+  "nginx_default_type": "application/octet-stream",
+  "nginx_access_log_path": "/var/log/nginx/access.log",
+  "nginx_sendfile": true,
+  "nginx_tcp_nopush": true,
+  "nginx_keepalive_timeout": 65,
+  "nginx_gzip_compression_level": 4,
+  "nginx_gzip_min_length": 256,
+  "nginx_gzip_types": [
+    "text/plain",
+    "text/css",
+    "application/json",
+    "application/javascript",
+    "text/xml",
+    "application/xml"
+  ],
+  "nginx_client_max_body_size": "10m",
+  "nginx_client_body_buffer_size": "128k",
+  "nginx_open_file_cache_max": 10000,
+  "nginx_open_file_cache_inactive": "60s",
+  "nginx_open_file_cache_valid": "30s",
+  "nginx_open_file_cache_min": 2,
+  "nginx_conf_d_path": "/etc/nginx/conf.d",
+  "nginx_custom_servers": [
+    {
+      "description": "Health check endpoint for load balancer",
+      "listen": "80",
+      "server_name": [
+        "_"
+      ],
+      "root": "/var/www/health",
+      "locations": [
+        {
+          "path": "/healthz",
+          "try_files": [
+            "$uri",
+            "=200"
+          ]
+        }
+      ]
+    },
+    {
+      "description": "Monitoring dashboard with basic auth",
+      "listen": "443 ssl",
+      "server_name": [
+        "metrics.example.com"
+      ],
+      "ssl": true,
+      "ssl_certificate": "/etc/nginx/ssl/metrics.crt",
+      "ssl_certificate_key": "/etc/nginx/ssl/metrics.key",
+      "ssl_protocols": [
+        "TLSv1.2",
+        "TLSv1.3"
+      ],
+      "ssl_ciphers": "ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256",
+      "locations": [
+        {
+          "path": "/",
+          "auth_basic": "Restricted Area",
+          "auth_basic_user_file": "/etc/nginx/.htpasswd",
+          "extra_config": [
+            {
+              "name": "limit_req",
+              "value": "zone=api_limit burst=10"
+            },
+            {
+              "name": "stub_status",
+              "value": "on"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

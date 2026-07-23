@@ -1,0 +1,66 @@
+# Enable debugging for amavisd-new (set to 0 for production)
+$debug_loglevel = {{ debug_loglevel }};
+
+# Enable spamassassin checks
+$sa_spam_subject_tag = '*** SPAM *** ';
+$sa_tag_level_deflt = {{ spam_tag_level }};
+$sa_tag2_level_deflt = {{ spam_tag2_level }};
+$sa_kill_level_deflt = {{ spam_kill_level }};
+
+# Enable virus scanning
+$virus_admin = 'postmaster@{{ domain }}';
+
+# Paths to clamav daemons
+$clamd_sock = '/var/run/clamav/clamd.ctl';
+
+# Temporary directory for quarantine and temp files
+$TEMPBASE = '/var/amavis/tmp';
+
+# Queue directory (must match MTA's queue path)
+$QUARANTINE = '/var/quarantine/amavis';
+
+# Network listen interfaces (IP:port pairs)
+@lookup_sql_dsn = ( ['DBI:mysql:database={{ sql_database }};host={{ sql_host }}:{{ sql_port }}', '{{ sql_user }}', '{{ sql_pass }}' ] );
+
+# Database for mail address lookup (SQL or internal)
+$interface_policy{'10024'} = 'AM.PDP-SOCK';
+
+# Maximum size of scanned message (bytes)
+$max_message_size = {{ max_message_size }};
+
+# Number of worker processes (preforking)
+$max_workers = {{ max_workers }};
+
+# Timeout for external scanners (seconds)
+$timeout_fork = {{ timeout_fork }};
+
+# Enable bypassing of internal loopback (for mail that should skip scanning)
+$bypass_virus_checks_maps = {
+  '127.0.0.1' => 1,
+  '::1' => 1,
+};
+
+# Enable bypassing of spam checks for trusted networks
+$bypass_spam_checks_maps = {
+  '127.0.0.1' => 1,
+  '::1' => 1,
+{% for trusted_net in trusted_networks %}
+  '{{ trusted_net }}' => 1,
+{% endfor %}
+};
+
+# Quarantine methods: 'local', 'sql', 'null' (discard), or 'mail'
+$final_virus_destiny = D_DISCARD;     # change to D_BOUNCE or D_REJECT for stricter policy
+$final_spam_destiny = D_DISCARD;
+$final_banned_destiny = D_DISCARD;
+$final_bad_header_destiny = D_PASS;
+
+# Logging format: 0 = syslog only, 1 = syslog + per-request file
+$log_templating = 0;
+
+# Enable SQL for policy banks (e.g., per-domain rules)
+@policy_bank{'SQL'} = (
+  'originating' => 1,
+  'allow_disclaimers' => 1,
+  'allow_amish_scripts' => 1,
+);

@@ -1,0 +1,72 @@
+{
+  "log_file": "/var/log/glance/api.log",
+  "log_dir": "/var/log/glance",
+  "debug": false,
+  "workers": 4,
+  "database": {
+    "connection": "mysql+pymysql://glance:Glance123@10.0.0.11/glance"
+  },
+  "keystone": {
+    "auth_uri": "http://controller:5000",
+    "auth_url": "http://controller:5000",
+    "project_domain_name": "Default",
+    "project_name": "service",
+    "user_domain_name": "Default",
+    "username": "glance",
+    "password": "Glance123",
+    "insecure": false
+  },
+  "glance_store": {
+    "stores": [
+      {
+        "name": "file",
+        "filesystem_store_datadir": "/var/lib/glance/images/"
+      },
+      {
+        "name": "swift",
+        "endpoint": "http://swift.example.com:8080",
+        "username": "glance:swift",
+        "password": "SwiftSecret",
+        "project_name": "service",
+        "auth_url": "http://controller:5000",
+        "container": "glance_images"
+      }
+    ],
+    "default_store": "file",
+    "filesystem_store_datadir": "/var/lib/glance/images/"
+  },
+  "quota": {
+    "images": 25
+  },
+  "image_cache": {
+    "enabled": true,
+    "cache_dir": "/var/lib/glance/image-cache/",
+    "max_cache_size": 21474836480
+  },
+  "notification": {
+    "driver": "messagingv2",
+    "topics": [
+      "notifications",
+      "glance.update"
+    ]
+  },
+  "ssl": {
+    "enabled": true,
+    "certfile": "/etc/ssl/certs/glance-api.crt",
+    "keyfile": "/etc/ssl/private/glance-api.key",
+    "ca_certs": "/etc/ssl/certs/ca-bundle.crt"
+  },
+  "paste_deploy": {
+    "flavor": "keystone"
+  },
+  "service_credentials": {
+    "auth_type": "password",
+    "auth_url": "http://controller:5000",
+    "username": "glance",
+    "password": "Glance123",
+    "project_name": "service",
+    "user_domain_name": "Default",
+    "project_domain_name": "Default",
+    "insecure": false
+  }
+}

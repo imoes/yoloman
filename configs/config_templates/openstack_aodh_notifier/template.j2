@@ -1,0 +1,114 @@
+# Main configuration file for OpenStack Aodh Notifier service
+
+[DEFAULT]
+# Log to stdout and specify log format
+log_file = {{ default_log_file }}
+log_dir = {{ default_log_dir }}
+logging_context_format_string = {{ default_logging_context_format_string }}
+logging_default_format_string = {{ default_logging_default_format_string }}
+logging_debug_format_suffix = {{ default_logging_debug_format_suffix }}
+
+# RPC messaging configuration (used to communicate with other services)
+transport_url = {{ rpc_transport_url }}
+
+# Authentication (keystone auth_uri and credentials)
+auth_strategy = keystone
+
+[keystone_authtoken]
+# Keystone authentication details for the notifier service
+auth_type = password
+project_domain_name = {{ keystone_authtoken_project_domain_name }}
+user_domain_name = {{ keystone_authtoken_user_domain_name }}
+project_name = {{ keystone_authtoken_project_name }}
+username = {{ keystone_authtoken_username }}
+password = {{ keystone_authtoken_password }}
+auth_url = {{ keystone_authtoken_auth_url }}
+
+[oslo_concurrency]
+# Lock path for concurrent operations
+lock_path = {{ oslo_concurrency_lock_path }}
+
+[alarm]
+# Alarm evaluation and notification settings
+api_version = 2
+# Whether to enable the notifier service
+enabled = {{ alarm_enabled }}
+# Number of worker processes for event processing
+workers = {{ alarm_workers }}
+# Alarm storage backend configuration (typically shared with Aodh evaluator)
+evaluation_service = {{ alarm_evaluation_service }}
+# Timeout for notification delivery (seconds)
+notification_retries = {{ alarm_notification_retries }}
+notification_retry_delay = {{ alarm_notification_retry_delay }}
+
+# Repeated notification rules for alarms
+{% for rule in alarm_notification_rules %}
+# Notification rule {{ loop.index }}
+[alarm-notifier-{{ loop.index }}]
+name = {{ rule.name }}
+type = {{ rule.type }}
+threshold = {{ rule.threshold }}
+alarm_id = {{ rule.alarm_id }}
+severity = {{ rule.severity }}
+enabled = {{ rule.enabled | lower }}
+{% endfor %}
+
+# Reusable notification endpoint definitions
+{% for endpoint in notification_endpoints %}
+# Notification endpoint {{ loop.index }}
+[notification-{{ loop.index }}]
+name = {{ endpoint.name }}
+method = {{ endpoint.method }}
+url = {{ endpoint.url }}
+{% if endpoint.project_domain_name %}project_domain_name = {{ endpoint.project_domain_name }}{% endif %}
+{% if endpoint.user_domain_name %}user_domain_name = {{ endpoint.user_domain_name }}{% endif %}
+{% if endpoint.project_name %}project_name = {{ endpoint.project_name }}{% endif %}
+{% if endpoint.username %}username = {{ endpoint.username }}{% endif %}
+{% if endpoint.password %}password = {{ endpoint.password }}{% endif %}
+{% if endpoint.auth_url %}auth_url = {{ endpoint.auth_url }}{% endif %}
+{% endfor %}
+
+# Optional: alarm actions per state (e.g., OK, ALARM, INSUFFICIENT_DATA)
+{% for action in alarm_actions %}
+# Alarm action for state '{{ action.state }}'
+[alarm-action-{{ action.state }}]
+state = {{ action.state }}
+actions = {{ action.actions | join(', ') }}
+{% endfor %}
+
+# Rate limiting and throttling (optional but recommended in production)
+[oslo_messaging_notifications]
+# Driver(s) for sending notifications (e.g., 'messagingv2', 'log', 'test')
+drivers = {{ oslo_messaging_notifications_drivers | join(', ') }}
+# Topic for notifications (default: notifications)
+topic = {{ oslo_messaging_notifications_topic }}
+# Retry on failure
+retry = {{ oslo_messaging_notifications_retry | lower }}
+
+# MySQL database (optional — usually shared with Aodh evaluator)
+{% if database_connection %}
+[database]
+# Database connection string for alarm storage
+connection = {{ database_connection }}
+{% endif %}
+
+# Optional: TLS/SSL for HTTPS endpoints
+{% if tls_enabled %}
+[ssl]
+enabled = true
+cert_file = {{ tls_cert_file }}
+key_file = {{ tls_key_file }}
+ca_file = {{ tls_ca_file }}
+{% endif %}
+
+# Service endpoint registration (for internal/external API access)
+[service_credentials]
+auth_type = password
+project_domain_name = {{ service_credentials_project_domain_name }}
+user_domain_name = {{ service_credentials_user_domain_name }}
+project_name = {{ service_credentials_project_name }}
+username = {{ service_credentials_username }}
+password = {{ service_credentials_password }}
+auth_url = {{ service_credentials_auth_url }}
+interface = {{ service_credentials_interface }}
+region_name = {{ service_credentials_region_name }}

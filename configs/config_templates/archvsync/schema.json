@@ -1,0 +1,143 @@
+{
+  "enabled": {
+    "type": "boolean",
+    "default": true,
+    "description": "Enable or disable the archvsync service. Set to false to pause mirroring without uninstalling."
+  },
+  "mirror_root": {
+    "type": "string",
+    "default": "/srv/mirror/debian",
+    "description": "Absolute path to the root directory where the Debian mirror will be stored. Ensure sufficient disk space (\u22651TB recommended)."
+  },
+  "max_rsync_jobs": {
+    "type": "number",
+    "default": 4,
+    "description": "Maximum number of concurrent rsync jobs. Higher values increase speed but use more CPU and network bandwidth."
+  },
+  "max_bandwidth_per_job_kb": {
+    "type": "number",
+    "default": 0,
+    "description": "Per-job bandwidth limit in KB/s. Set to 0 for unlimited. Use e.g., 1024 for 1 MB/s per job."
+  },
+  "architectures": {
+    "type": "list",
+    "default": [
+      "amd64",
+      "i386"
+    ],
+    "description": "List of CPU architectures to mirror. Common choices: amd64, i386, arm64, armhf. Add only what you need to save space.",
+    "items": {
+      "type": "string",
+      "description": "Architecture name (e.g., 'amd64', 'arm64')"
+    }
+  },
+  "distributions": {
+    "type": "list",
+    "default": [
+      "bullseye",
+      "bullseye-updates",
+      "bullseye-security"
+    ],
+    "description": "List of Debian releases and suites to mirror (e.g., stable, testing, version codenames). Use 'stable' only if you want automatic updates.",
+    "items": {
+      "type": "string",
+      "description": "Distribution name (e.g., 'bullseye', 'testing', 'stable')"
+    }
+  },
+  "components": {
+    "type": "list",
+    "default": [
+      "main",
+      "contrib",
+      "non-free"
+    ],
+    "description": "Debian repository components to include. 'main' is free software only; add 'contrib' and 'non-free' for firmware and non-free drivers.",
+    "items": {
+      "type": "string",
+      "description": "Component name (e.g., 'main', 'contrib')"
+    }
+  },
+  "sync_sources": {
+    "type": "boolean",
+    "default": false,
+    "description": "Whether to download source packages. Source mirrors require significantly more disk space and bandwidth."
+  },
+  "sync_installer": {
+    "type": "boolean",
+    "default": true,
+    "description": "Include installer images (e.g., netinst ISOs). Recommended for full public mirrors."
+  },
+  "delete_missing": {
+    "type": "boolean",
+    "default": false,
+    "description": "Delete files from the local mirror if they no longer exist upstream. Enable only for strict mirrors after initial sync."
+  },
+  "upstreams": {
+    "type": "list",
+    "default": [
+      "rsync://ftp.debian.org/debian/"
+    ],
+    "description": "List of upstream mirrors to sync from. Prefer rsync over HTTP for efficiency. Add mirrors geographically close to you.",
+    "items": {
+      "type": "string",
+      "description": "Upstream mirror URL (e.g., 'rsync://ftp.us.debian.org/debian/', 'http://deb.debian.org/debian/')"
+    }
+  },
+  "log_file": {
+    "type": "string",
+    "default": "",
+    "description": "Optional path to log file (e.g., '/var/log/archvsync.log'). Leave blank to use syslog instead."
+  },
+  "admin_email": {
+    "type": "string",
+    "default": "mirror-admin@example.com",
+    "description": "Email address for status and error notifications (e.g., sync failures)."
+  },
+  "run_cron": {
+    "type": "boolean",
+    "default": true,
+    "description": "Enable the background cron job to check for updates and run sync periodically."
+  },
+  "cron_schedule": {
+    "type": "string",
+    "default": "0 2 * * *",
+    "description": "Cron schedule in standard cron format (5 fields: minute hour day month weekday). Default runs daily at 02:00."
+  },
+  "lock_file": {
+    "type": "string",
+    "default": "/var/lock/archvsync.lock",
+    "description": "Path to lock file used to prevent multiple concurrent sync runs."
+  },
+  "proxy": {
+    "type": "string",
+    "default": "",
+    "description": "HTTP/FTP proxy URL for outbound connections (e.g., 'http://proxy.company.com:8080'). Leave blank if no proxy is needed."
+  },
+  "rsync_extra_opts": {
+    "type": "list",
+    "default": [
+      "--delete-after",
+      "--compress"
+    ],
+    "description": "Additional rsync options to include in sync commands. Customize for performance or debugging.",
+    "items": {
+      "type": "string",
+      "description": "Rsync flag (e.g., '--delete', '--compress', '--stats')"
+    }
+  },
+  "max_metadata_age_hours": {
+    "type": "number",
+    "default": 72,
+    "description": "Alert if metadata (e.g., Release files) are older than this many hours. Helps detect sync failures."
+  },
+  "generate_metaindex": {
+    "type": "boolean",
+    "default": true,
+    "description": "Generate Packages, Sources, and Release index files (required for apt clients to use the mirror)."
+  },
+  "post_sync_script": {
+    "type": "string",
+    "default": "",
+    "description": "Path to an optional script that runs after each successful sync (e.g., to trigger CDN purge or send custom notifications)."
+  }
+}

@@ -1,0 +1,50 @@
+[general]
+# Arc AREX service general settings
+service_name = {{ service_name }}
+version = {{ version }}
+log_level = {{ log_level }}
+work_dir = {{ work_dir }}
+
+# Authentication and authorization
+authz = {{ authz }}
+
+[arex]
+# AREX service configuration
+port = {{ arex.port }}
+host = {{ arex.host }}
+use_ssl = {{ arex.use_ssl }}
+
+# Worker configuration
+max_workers = {{ arex.max_workers }}
+worker_timeout = {{ arex.worker_timeout }}
+
+# Execution backend
+executor = {{ arex.executor }}
+
+# Path to job working directory
+job_root = {{ arex.job_root }}
+
+[storage]
+# Local storage configuration
+path = {{ storage.path }}
+max_size = {{ storage.max_size }}
+
+# LDAP or other identity source (optional)
+{% if storage.ldap_url %}
+# LDAP connection for user/group lookup
+ldap_url = {{ storage.ldap_url }}
+{% endif %}
+{% if storage.ldap_basedn %}
+ldap_basedn = {{ storage.ldap_basedn }}
+{% endif %}
+
+{% for service in services %}
+# Service-specific configuration for: {{ service.name }}
+[{{ service.name }}]
+{% if service.enabled is defined %}enabled = {{ service.enabled }}{% else %}enabled = true{% endif %}
+{% if service.port is defined %}port = {{ service.port }}{% endif %}
+{% if service.host is defined %}host = {{ service.host }}{% endif %}
+{% if service.use_ssl is defined %}use_ssl = {{ service.use_ssl }}{% endif %}
+{% if service.log_level is defined %}log_level = {{ service.log_level }}{% endif %}
+{% if service.work_dir is defined %}work_dir = {{ service.work_dir }}{% endif %}
+{% endfor %}

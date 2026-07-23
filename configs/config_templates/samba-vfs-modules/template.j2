@@ -1,0 +1,46 @@
+[global]
+# Global Samba settings
+workgroup = {{ workgroup }}
+server string = Samba Server %v
+security = {{ security }}
+map to guest = {{ map_to_guest }}
+log file = {{ log_file }}
+max log size = {{ max_log_size }}
+
+# DNS update settings (for AD integration)
+{% if dns_update_enabled %}
+dns proxy = no
+dns update command = /usr/bin/samba-dnsupdate
+dns zone update script = /usr/bin/samba-dnsupdate
+{% endif %}
+
+# VFS modules global defaults (applied unless overridden per-share)
+{% if vfs_modules_global %}
+vfs objects = {{ vfs_modules_global | join(' ') }}
+{% endif %}
+
+{% for share in shares %}
+[{{ share.name }}]
+# Share: {{ share.name }} — {{ share.comment | default('No comment') }}
+path = {{ share.path }}
+browseable = {{ share.browseable | string | lower }}
+read only = {{ share.read_only }}
+{% if share.guest_ok is defined %}guest ok = {{ share.guest_ok | string | lower }}{% endif %}
+{% if share.create_mask is defined %}create mask = {{ share.create_mask }}{% endif %}
+{% if share.directory_mask is defined %}directory mask = {{ share.directory_mask }}{% endif %}
+{% if share.force_user is defined %}force user = {{ share.force_user }}{% endif %}
+{% if share.force_group is defined %}force group = {{ share.force_group }}{% endif %}
+{% if share.vfs_modules is defined %}# Custom VFS modules for this share
+vfs objects = {{ share.vfs_modules | join(' ') }}{% endif %}
+
+{% if share.vfs_options %}# VFS module options
+{% for module, options in share.vfs_options.items() %}# Options for {{ module }} VFS module
+{{ module }}:{{ options | join('\n' + module + ':') }}
+{% endfor %}{% endif %}
+
+{% endfor %}
+
+# Optional include for additional configs (e.g., AD-specific or per-site)
+{% if include_files %}# Include additional config snippets
+include = {{ include_files | join('\ninclude = ') }}
+{% endif %}

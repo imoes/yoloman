@@ -1,0 +1,99 @@
+[global]
+# Directory where completed downloads are moved
+completed_directory = {{ values.global.completed_directory }}
+
+# Directory where incomplete downloads are stored
+download_directory = {{ values.global.download_directory }}
+
+# Maximum number of simultaneous downloads (0 = unlimited)
+max_downloads = {{ values.global.max_downloads }}
+
+# Maximum total upload bandwidth in KB/s (0 = unlimited)
+max_upload_rate = {{ values.global.max_upload_rate }}
+
+# Maximum total download bandwidth in KB/s (0 = unlimited)
+max_download_rate = {{ values.global.max_download_rate }}
+
+# Maximum number of peers per torrent
+max_peers_per_torrent = {{ values.global.max_peers_per_torrent }}
+
+# Enable UPnP port mapping
+enable_upnp = {{ 'true' if values.global.enable_upnp else 'false' }}
+
+# Enable NAT-PMP port mapping
+enable_natpmp = {{ 'true' if values.global.enable_natpmp else 'false' }}
+
+# Listen port for incoming connections
+listen_port = {{ values.global.listen_port }}
+
+[http]
+# Enable HTTP interface (web UI)
+enable_http = {{ 'true' if values.http.enable_http else 'false' }}
+
+# Host to bind HTTP server to
+http_host = {{ values.http.http_host }}
+
+# Port for HTTP interface
+http_port = {{ values.http.http_port }}
+
+# Username for HTTP authentication
+http_username = {{ values.http.http_username }}
+
+# Password for HTTP authentication
+http_password = {{ values.http.http_password }}
+
+# Enable HTTPS (requires certificate and key)
+enable_https = {{ 'true' if values.http.enable_https else 'false' }}
+
+{% if values.http.tls_cert %}
+# Path to TLS certificate
+https_cert = {{ values.http.tls_cert }}
+{% endif %}
+
+{% if values.http.tls_key %}
+# Path to TLS private key
+https_key = {{ values.http.tls_key }}
+{% endif %}
+
+[logging]
+# Enable detailed logging
+enable_logging = {{ 'true' if values.logging.enable_logging else 'false' }}
+
+# Log level: 0=quiet, 1=error, 2=warn, 3=info, 4=debug
+log_level = {{ values.logging.log_level }}
+
+# Path to log file
+log_file = {{ values.logging.log_file }}
+
+# Maximum size of log file in MB before rotation (0 = disable rotation)
+log_max_size_mb = {{ values.logging.log_max_size_mb }}
+
+# Number of rotated log files to keep
+log_backup_count = {{ values.logging.log_backup_count }}
+
+[tracker]
+# List of default trackers to announce to (if none specified in torrent)
+# Format: one tracker per line, each as `tracker = url`
+{% for tracker in values.tracker.urls %}
+tracker = {{ tracker }}
+{% endfor %}
+
+# Enable DHT (distributed hash table)
+enable_dht = {{ 'true' if values.tracker.enable_dht else 'false' }}
+
+# Enable Peer Exchange (PEX)
+enable_pex = {{ 'true' if values.tracker.enable_pex else 'false' }}
+
+[bandwidth]
+# Per-torrent upload limit (KB/s, 0 = global max)
+per_torrent_upload_limit = {{ values.bandwidth.per_torrent_upload_limit }}
+
+# Per-torrent download limit (KB/s, 0 = global max)
+per_torrent_download_limit = {{ values.bandwidth.per_torrent_download_limit }}
+
+# Seed ratio target (e.g., 1.0 = upload same as downloaded)
+# 0 = disable seeding after download completes
+seed_ratio = {{ values.bandwidth.seed_ratio }}
+
+# Seed time target in minutes (0 = disable time-based seeding)
+seed_time = {{ values.bandwidth.seed_time }}

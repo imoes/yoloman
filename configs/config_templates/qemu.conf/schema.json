@@ -1,0 +1,255 @@
+{
+  "user": {
+    "type": "string",
+    "default": "qemu",
+    "description": "User account under which QEMU processes run. Use 'qemu' or a dedicated non-root user for security."
+  },
+  "group": {
+    "type": "string",
+    "default": "qemu",
+    "description": "Group ownership for QEMU processes."
+  },
+  "vnc_tls": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable TLS encryption for VNC remote desktop connections. Required for secure access."
+  },
+  "vnc_listen": {
+    "type": "string",
+    "default": "127.0.0.1",
+    "description": "IP address on which VNC servers listen. '127.0.0.1' restricts to local host; '0.0.0.0' allows all interfaces."
+  },
+  "spice_listen": {
+    "type": "string",
+    "default": "127.0.0.1",
+    "description": "IP address on which SPICE servers listen. Similar to VNC, restrict to '127.0.0.1' for security."
+  },
+  "spice_tls": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable TLS encryption for SPICE remote desktop connections."
+  },
+  "io_threads": {
+    "type": "number",
+    "default": 2,
+    "description": "Number of dedicated I/O worker threads. Higher values may improve I/O throughput on multi-core systems."
+  },
+  "migration": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable or disable VM live migration capability."
+  },
+  "migration_address": {
+    "type": "string",
+    "default": "0.0.0.0",
+    "description": "IP address for incoming migration traffic. Use '0.0.0.0' to listen on all interfaces."
+  },
+  "migration_port": {
+    "type": "number",
+    "default": 49152,
+    "description": "Base port for migration traffic. Migrating VMs use sequential ports in the range."
+  },
+  "migration_ports": {
+    "type": "number",
+    "default": 64,
+    "description": "Number of ports (starting from migration_port) reserved for concurrent migrations."
+  },
+  "auto_memory_tune": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable automatic memory tuning (e.g., hugepages, NUMA placement). Disable for manual control."
+  },
+  "memory_backing": {
+    "type": "string",
+    "default": "default",
+    "description": "Memory backing mode for VMs. 'hugepages' improves performance on large guests."
+  },
+  "image_paths": {
+    "type": "list",
+    "default": [
+      "/var/lib/libvirt/images",
+      "/var/lib/libvirt/qemu/images"
+    ],
+    "description": "Search paths for VM disk images. Add custom paths as needed.",
+    "items": {
+      "type": "string",
+      "description": "Absolute path to image directory"
+    }
+  },
+  "emulator": {
+    "type": "string",
+    "default": "",
+    "description": "Override the default QEMU emulator binary (e.g., 'qemu-system-aarch64'). Leave empty to auto-detect."
+  },
+  "sandbox": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable seccomp sandboxing to restrict system calls. Keep enabled for security."
+  },
+  "use_cgroups": {
+    "type": "bool",
+    "default": true,
+    "description": "Use cgroups v2 for CPU and memory resource control. Required for advanced QoS."
+  },
+  "max_vcpus": {
+    "type": "number",
+    "default": 255,
+    "description": "Maximum virtual CPUs allowed per guest. Adjust based on host CPU topology."
+  },
+  "default_cpu_model": {
+    "type": "string",
+    "default": "host-passthrough",
+    "description": "Default CPU model exposed to guests. 'host-passthrough' exposes host features for best performance."
+  },
+  "hotplug": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable hotplug for disks and NICs. Required for dynamic resource scaling."
+  },
+  "monitor_stdin": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable QEMU monitor on stdin. Disable to prevent accidental console access."
+  },
+  "monitor_protocol": {
+    "type": "string",
+    "default": "json",
+    "description": "Protocol used for QEMU monitor communication. 'json' is recommended for automation."
+  },
+  "nvme_hotplug": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable hotplug for NVMe devices."
+  },
+  "scsi_hotplug": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable hotplug for SCSI devices."
+  },
+  "usb_hotplug": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable hotplug for USB devices."
+  },
+  "default_video_model": {
+    "type": "string",
+    "default": "qxl",
+    "description": "Default graphics adapter for VMs. 'qxl' works well with SPICE; 'virtio' for minimal overhead."
+  },
+  "numa_auto_allocation": {
+    "type": "bool",
+    "default": true,
+    "description": "Automatically allocate guest memory to NUMA nodes. Disable for manual NUMA pinning."
+  },
+  "uefi_firmware": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable UEFI firmware support (OVMF/AAVMF). Required for UEFI guests."
+  },
+  "uefi_firmware_paths": {
+    "type": "list",
+    "default": [
+      {
+        "path": "/usr/share/OVMF/OVMF_CODE.fd",
+        "description": "x86_64 UEFI firmware"
+      },
+      {
+        "path": "/usr/share/AAVMF/AAVMF_CODE.fd",
+        "description": "AArch64 UEFI firmware"
+      }
+    ],
+    "description": "Paths to UEFI firmware binaries. Order matters if multiple architectures supported.",
+    "items": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string",
+          "description": "Absolute path to firmware binary"
+        },
+        "description": {
+          "type": "string",
+          "description": "Human-readable description"
+        }
+      },
+      "required": [
+        "path",
+        "description"
+      ]
+    }
+  },
+  "netns": {
+    "type": "bool",
+    "default": false,
+    "description": "Run QEMU processes in a private network namespace. Isolates network stack for security."
+  },
+  "default_dns": {
+    "type": "string",
+    "default": "8.8.8.8",
+    "description": "DNS server used by guest VMs when using user-mode networking."
+  },
+  "auto_bridge": {
+    "type": "bool",
+    "default": false,
+    "description": "Automatically create a bridge interface (e.g., virbr0) for NAT networking."
+  },
+  "auto_bridge_name": {
+    "type": "string",
+    "default": "virbr0",
+    "description": "Name of the auto-created bridge interface."
+  },
+  "seccomp_sandbox": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable seccomp filters to restrict system calls. Keep enabled unless troubleshooting."
+  },
+  "vhost_user": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable vhost-user (userspace virtio backend) support for high-performance networking."
+  },
+  "vhost_user_socket_dir": {
+    "type": "string",
+    "default": "/var/run/vhost-user",
+    "description": "Directory for vhost-user socket files."
+  },
+  "tee": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable support for Trusted Execution Environment (TEE) devices (e.g., Intel TDX)."
+  },
+  "tpm": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable TPM (Trusted Platform Module) support in guests."
+  },
+  "default_tpm_backend": {
+    "type": "string",
+    "default": "emulator",
+    "description": "Default TPM backend: 'emulator' uses software TPM, 'passthrough' uses host hardware TPM."
+  },
+  "live_snapshot": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable taking snapshots of running VMs without downtime."
+  },
+  "shared_block": {
+    "type": "bool",
+    "default": false,
+    "description": "Allow multiple VMs to share the same block device. Requires external coordination (e.g., GFS2)."
+  },
+  "log_level": {
+    "type": "number",
+    "default": 1,
+    "description": "Logging verbosity: 0=none, 1=error, 2=info, 3=debug. Use 2 for general troubleshooting."
+  },
+  "log_output": {
+    "type": "string",
+    "default": "file",
+    "description": "Where to send QEMU logs: 'file', 'syslog', or 'stderr'."
+  },
+  "log_file": {
+    "type": "string",
+    "default": "/var/log/qemu/qemu.log",
+    "description": "Path to the log file when log_output is set to 'file'."
+  }
+}

@@ -1,0 +1,150 @@
+<?xml version="1.0"?>
+<!-- Icecast configuration file -->
+<icecast>
+    <!-- Location and admin contact for the server -->
+    <location>{{ location }}</location>
+    <admin>{{ admin }}</admin>
+
+    <!-- Hostname / virtual host identification -->
+    <hostname>{{ hostname }}</hostname>
+
+    <!-- Networking and listening ports -->
+    <listen-socket>
+        <bind-address>{{ bind_address }}</bind-address>
+        <port>{{ port }}</port>
+    </listen-socket>
+
+    {% for ssl_socket in ssl_sockets %}
+    <!-- SSL/TLS socket configuration -->
+    <listen-socket>
+        <ssl>1</ssl>
+        <bind-address>{{ ssl_socket.bind_address }}</bind-address>
+        <port>{{ ssl_socket.port }}</port>
+        <ssl-certificate>{{ ssl_socket.ssl_certificate }}</ssl-certificate>
+        {% if ssl_socket.ssl_private_key %}<ssl-private-key>{{ ssl_socket.ssl_private_key }}</ssl-private-key>{% endif %}
+    </listen-socket>
+    {% endfor %}
+
+    <!-- URLs for web interface and admin features -->
+    <webroot>{{ webroot }}</webroot>
+    <adminroot>{{ adminroot }}</adminroot>
+
+    <!-- Authentication for admin and source clients -->
+    <authentication>
+        <!-- Admin user(s) for administrative access -->
+        <admin-user>
+            <username>{{ admin_username }}</username>
+            <password>{{ admin_password }}</password>
+        </admin-user>
+
+        <!-- Source client authentication (for encoders) -->
+        <source-password>{{ source_password }}</source-password>
+        <relay-password>{{ relay_password }}</relay-password>
+        {% for relay in relays %}
+        <!-- Relay server configuration (pull/push relays) -->
+        <relay>
+            <server>{{ relay.server }}</server>
+            <port>{{ relay.port }}</port>
+            <mount>{{ relay.mount }}</mount>
+            <local-mount>{{ relay.local_mount }}</local-mount>
+            <relay-shoutcast-metadata>{{ relay.relay_shoutcast_metadata | lower }}</relay-shoutcast-metadata>
+        </relay>
+        {% endfor %}
+    </authentication>
+
+    <!-- Paths and file storage -->
+    <fileserve>{{ fileserve | lower }}</fileserve>
+    <paths>
+        <basedir>{{ basedir }}</basedir>
+        <logdir>{{ logdir }}</logdir>
+        <webroot>{{ webroot }}</webroot>
+        <adminroot>{{ adminroot }}</adminroot>
+        {% if pidfile %}<pidfile>{{ pidfile }}</pidfile>{% endif %}
+        <alias source="/">{{ alias }}</alias>
+    </paths>
+
+    <!-- Logging configuration -->
+    <logging>
+        <accesslog>{{ logdir }}/access.log</accesslog>
+        <errorlog>{{ logdir }}/error.log</errorlog>
+        <accessformat>{{ accessformat }}</accessformat>
+        <errorformat>{{ errorformat }}</errorformat>
+        <loglevel>{{ loglevel }}</loglevel>
+        <logsize>{{ logsize }}</logsize>
+    </logging>
+
+    <!-- Security and rate limiting -->
+    <security>
+        <chroot>{{ chroot | lower }}</chroot>
+        <changeowner>
+            <user>{{ changeowner_user }}</user>
+            <group>{{ changeowner_group }}</group>
+        </changeowner>
+    </security>
+
+    <!-- Client connection limits -->
+    <clients>
+        <maxclients>{{ maxclients }}</maxclients>
+        <maxclientpulls>{{ maxclientpulls }}</maxclientpulls>
+    </clients>
+
+    <!-- Queue and buffer sizing -->
+    <queues>
+        <maxqueueSize>{{ maxqueueSize }}</maxqueueSize>
+        <queueoutgoing>{{ queueoutgoing }}</queueoutgoing>
+    </queues>
+
+    <!-- Stream timeouts -->
+    <timeout>{{ timeout }}</timeout>
+
+    <!-- Fallback configuration for mountpoints -->
+    <fallbacks>
+        {% for fallback in fallbacks %}
+        <!-- Fallback for mountpoint '{{ fallback.mount }' -->
+        <mount>
+            <mount-name>{{ fallback.mount }}</mount-name>
+            <fallback-mount>{{ fallback.fallback_mount }}</fallback-mount>
+            <fallback-override>{{ fallback.fallback_override | lower }}</fallback-override>
+            <fallback-when-full>{{ fallback.fallback_when_full | lower }}</fallback-when-full>
+        </mount>
+        {% endfor %}
+    </fallbacks>
+
+    <!-- Mountpoint-specific defaults -->
+    <mounts>
+        <mount-defaults>
+            <public>{{ mount_public | lower }}</public>
+            <stream-name>{{ mount_stream_name }}</stream-name>
+            <stream-description>{{ mount_stream_description }}</stream-description>
+            <stream-url>{{ mount_stream_url }}</stream-url>
+            <genre>{{ mount_genre }}</genre>
+            <bitrate>{{ mount_bitrate }}</bitrate>
+            <type>{{ mount_type }}</type>
+            <hidden>{{ mount_hidden | lower }}</hidden>
+            <burst-size>{{ mount_burst_size }}</burst-size>
+            <mp3-meta-interval>{{ mount_mp3_meta_interval }}</mp3-meta-interval>
+            <audio-info>
+                {% for key, value in mount_audio_info.items() %}
+                <{{ key }}>{{ value }}</{{ key }}>
+                {% endfor %}
+            </audio-info>
+        </mount-defaults>
+
+        <!-- Per-mount overrides -->
+        {% for mount_override in mount_overrides %}
+        <mount>
+            <mount-name>{{ mount_override.mount_name }}</mount-name>
+            <public>{{ mount_override.public | lower }}</public>
+            <stream-name>{{ mount_override.stream_name }}</stream-name>
+            <stream-description>{{ mount_override.stream_description }}</stream-description>
+            <stream-url>{{ mount_override.stream_url }}</stream-url>
+            <genre>{{ mount_override.genre }}</genre>
+            <bitrate>{{ mount_override.bitrate }}</bitrate>
+            <type>{{ mount_override.type }}</type>
+            <hidden>{{ mount_override.hidden | lower }}</hidden>
+            <burst-size>{{ mount_override.burst_size }}</burst-size>
+            <mp3-meta-interval>{{ mount_override.mp3_meta_interval }}</mp3-meta-interval>
+        </mount>
+        {% endfor %}
+    </mounts>
+</icecast>

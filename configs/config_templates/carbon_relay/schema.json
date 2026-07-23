@@ -1,0 +1,333 @@
+{
+  "log_debug": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable verbose debug logging (for troubleshooting only)."
+  },
+  "log_file": {
+    "type": "string",
+    "default": "/var/log/carbon/carbon-relay.log",
+    "description": "Path to the carbon-relay daemon log file."
+  },
+  "pid_file": {
+    "type": "string",
+    "default": "/var/run/carbon-relay.pid",
+    "description": "Path to the PID file used to track the daemon process."
+  },
+  "max_open_files": {
+    "type": "number",
+    "default": 10000,
+    "description": "Maximum number of open file descriptors (adjust for high-traffic deployments)."
+  },
+  "log_buffer_size": {
+    "type": "number",
+    "default": 10240,
+    "description": "Size (in bytes) of the log buffer before forced flush."
+  },
+  "log_flush_interval": {
+    "type": "number",
+    "default": 5,
+    "description": "Seconds between forced log flushes (if buffer not full)."
+  },
+  "listeners": {
+    "type": "object",
+    "default": {
+      "tcp": {
+        "enabled": true,
+        "bind_address": "127.0.0.1",
+        "port": 2003,
+        "max_metric_length": 65535,
+        "tcp_keepalive": true
+      },
+      "udp": {
+        "enabled": false,
+        "bind_address": "127.0.0.1",
+        "port": 2003,
+        "max_metric_length": 65535
+      }
+    },
+    "description": "Network listeners for incoming metrics.",
+    "items": {
+      "tcp": {
+        "type": "object",
+        "default": null,
+        "description": "TCP listener settings (required for Graphite line protocol).",
+        "items": {
+          "enabled": {
+            "type": "bool",
+            "default": true,
+            "description": "Enable TCP listener."
+          },
+          "bind_address": {
+            "type": "string",
+            "default": "127.0.0.1",
+            "description": "IP to bind the TCP listener (use `0.0.0.0` for all interfaces)."
+          },
+          "port": {
+            "type": "number",
+            "default": 2003,
+            "description": "Port to listen on (default 2003)."
+          },
+          "max_metric_length": {
+            "type": "number",
+            "default": 65535,
+            "description": "Maximum allowed length (bytes) for a single metric line."
+          },
+          "tcp_keepalive": {
+            "type": "bool",
+            "default": true,
+            "description": "Enable TCP keep-alive packets."
+          }
+        }
+      },
+      "udp": {
+        "type": "object",
+        "default": null,
+        "description": "UDP listener settings (optional, rarely used).",
+        "items": {
+          "enabled": {
+            "type": "bool",
+            "default": false,
+            "description": "Enable UDP listener (not recommended for production due to reliability)."
+          },
+          "bind_address": {
+            "type": "string",
+            "default": "127.0.0.1",
+            "description": "IP to bind the UDP listener."
+          },
+          "port": {
+            "type": "number",
+            "default": 2003,
+            "description": "UDP port to listen on."
+          },
+          "max_metric_length": {
+            "type": "number",
+            "default": 65535,
+            "description": "Maximum allowed length (bytes) for a single UDP metric packet."
+          }
+        }
+      }
+    }
+  },
+  "relay_rules": {
+    "type": "list",
+    "default": [],
+    "description": "Ordered list of routing rules to forward metrics to destination clusters.",
+    "items": {
+      "type": "object",
+      "items": {
+        "name": {
+          "type": "string",
+          "default": "default",
+          "description": "Rule name (must be unique; used for identification)."
+        },
+        "match": {
+          "type": "string",
+          "default": ".*",
+          "description": "Regex pattern to match metric names (case-sensitive by default)."
+        },
+        "destinations": {
+          "type": "list",
+          "default": [
+            "*"
+          ],
+          "description": "List of destination cluster names, or `*` to forward to all enabled clusters."
+        },
+        "replicate": {
+          "type": "bool",
+          "default": false,
+          "description": "Set to `true` to replicate all matched metrics to all destinations (for fan-out)."
+        }
+      }
+    }
+  },
+  "destination_clusters": {
+    "type": "list",
+    "default": [],
+    "description": "List of destination clusters (Graphite backends) to forward metrics to.",
+    "items": {
+      "type": "object",
+      "items": {
+        "name": {
+          "type": "string",
+          "default": "default",
+          "description": "Cluster name (used by relay rules in `destinations`)."
+        },
+        "enabled": {
+          "type": "bool",
+          "default": true,
+          "description": "Enable this cluster."
+        },
+        "servers": {
+          "type": "list",
+          "default": [
+            "127.0.0.1"
+          ],
+          "description": "List of backend hostnames/IPs (e.g., `[\"graphite1.local\", \"graphite2.local\"]`)."
+        },
+        "port": {
+          "type": "number",
+          "default": 2003,
+          "description": "Port used on all backend servers (typically 2003 for plaintext)."
+        },
+        "protocol": {
+          "type": "string",
+          "default": "tcp",
+          "enum": [
+            "tcp",
+            "udp"
+          ],
+          "description": "Protocol to use (`tcp` is strongly recommended)."
+        },
+        "replication_factor": {
+          "type": "number",
+          "default": 1,
+          "description": "Number of copies to send (requires consistent hashing)."
+        },
+        "connect_timeout": {
+          "type": "number",
+          "default": 5,
+          "description": "Seconds to wait for connection establishment before retrying."
+        },
+        "consistent_hashing": {
+          "type": "bool",
+          "default": false,
+          "description": "Enable consistent hashing for even distribution across backends (required for replication >1)."
+        },
+        "hash_function": {
+          "type": "string",
+          "default": "md5",
+          "enum": [
+            "md5",
+            "sha256",
+            "murmur"
+          ],
+          "description": "Hash algorithm for consistent hashing (use `murmur` for better performance with many servers)."
+        }
+      }
+    }
+  },
+  "cache": {
+    "type": "object",
+    "default": {
+      "enabled": true,
+      "max_size": 1000000,
+      "write_strategy": "max",
+      "max_updates_before_flush": 1000,
+      "flush_interval": 60,
+      "flush_max_packs": 1000
+    },
+    "description": "Local buffering settings to reduce backend load.",
+    "items": {
+      "enabled": {
+        "type": "bool",
+        "default": true,
+        "description": "Enable local metric cache (recommended)."
+      },
+      "max_size": {
+        "type": "number",
+        "default": 1000000,
+        "description": "Maximum number of metrics held in cache before blocking writers."
+      },
+      "write_strategy": {
+        "type": "string",
+        "default": "max",
+        "enum": [
+          "max",
+          "min",
+          "avg",
+          "sum",
+          "count",
+          "last"
+        ],
+        "description": "Strategy for merging updates in the cache (see official docs for details)."
+      },
+      "max_updates_before_flush": {
+        "type": "number",
+        "default": 1000,
+        "description": "Max buffered updates before forcing a flush to backends."
+      },
+      "flush_interval": {
+        "type": "number",
+        "default": 60,
+        "description": "Seconds between periodic flushes (even if buffer not full)."
+      },
+      "flush_max_packs": {
+        "type": "number",
+        "default": 1000,
+        "description": "Max metric packs to flush in one batch (prevents overwhelming backends)."
+      }
+    }
+  },
+  "aggregations": {
+    "type": "list",
+    "default": [],
+    "description": "Optional metric aggregation rules (e.g., compute per-minute averages).",
+    "items": {
+      "type": "object",
+      "items": {
+        "name": {
+          "type": "string",
+          "default": "default",
+          "description": "Aggregation rule name (must be unique)."
+        },
+        "match": {
+          "type": "string",
+          "default": "statsd.*",
+          "description": "Regex pattern for metric names to aggregate."
+        },
+        "function": {
+          "type": "string",
+          "default": "avg",
+          "enum": [
+            "sum",
+            "avg",
+            "min",
+            "max",
+            "count",
+            "last",
+            "rate"
+          ],
+          "description": "Function to apply over the interval."
+        },
+        "interval": {
+          "type": "number",
+          "default": 60,
+          "description": "Aggregation interval in seconds (must be a divisor of 3600 for nice Graphite aggregation)."
+        },
+        "prefix": {
+          "type": "string",
+          "default": "aggregate.",
+          "description": "Prefix to prepend to the aggregated metric name."
+        }
+      }
+    }
+  },
+  "forward_rules": {
+    "type": "list",
+    "default": [],
+    "description": "Legacy forward rules (deprecated in newer versions; prefer `relay_rules`).",
+    "items": {
+      "type": "object",
+      "items": {
+        "name": {
+          "type": "string",
+          "default": "default",
+          "description": "Rule name."
+        },
+        "match": {
+          "type": "string",
+          "default": ".*",
+          "description": "Regex pattern for metric names."
+        },
+        "destinations": {
+          "type": "list",
+          "default": [
+            "*"
+          ],
+          "description": "Destination clusters (same as relay rules)."
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,51 @@
+{
+  "worker_connections": 1024,
+  "keepalive_timeout": 65,
+  "stream_upstreams": [
+    {
+      "name": "grpc-backends",
+      "servers": [
+        {
+          "host": "10.0.0.10",
+          "port": 50051,
+          "options": [
+            "weight=5",
+            "max_fails=3"
+          ]
+        },
+        {
+          "host": "10.0.0.11",
+          "port": 50051,
+          "options": [
+            "weight=5",
+            "max_fails=3"
+          ]
+        },
+        {
+          "host": "10.0.0.12",
+          "port": 50051,
+          "options": [
+            "backup"
+          ]
+        }
+      ],
+      "extra_directives": [
+        "least_conn;"
+      ]
+    }
+  ],
+  "stream_servers": [
+    {
+      "name": "main-grpc-proxy",
+      "listen": {
+        "port": 50051,
+        "options": [
+          "so_keepalive=on"
+        ]
+      },
+      "proxy_timeout": 60,
+      "proxy_responses": 1,
+      "upstream": "grpc-backends"
+    }
+  ]
+}

@@ -1,0 +1,175 @@
+{
+  "listen_address": {
+    "type": "string",
+    "default": "0.0.0.0",
+    "description": "IP address (IPv4 or IPv6) on which the DNS server listens for incoming queries."
+  },
+  "listen_port": {
+    "type": "number",
+    "default": 53,
+    "description": "UDP/TCP port number to bind for DNS queries (typically 53)."
+  },
+  "max_udp_size": {
+    "type": "number",
+    "default": 4096,
+    "description": "Maximum size in bytes of UDP responses (EDNS0 buffer size hint)."
+  },
+  "tcp_fallback": {
+    "type": "boolean",
+    "default": true,
+    "description": "If true, fall back to TCP for responses exceeding UDP size limits."
+  },
+  "min_negative_ttl": {
+    "type": "number",
+    "default": 60,
+    "description": "Minimum TTL (seconds) for negative caching (e.g., NXDOMAIN responses)."
+  },
+  "max_connections": {
+    "type": "number",
+    "default": 0,
+    "description": "Maximum concurrent client connections (0 = no limit)."
+  },
+  "chroot_dir": {
+    "type": "string",
+    "default": "/var/lib/gdnsd",
+    "description": "Path to chroot directory after startup (empty string to disable chroot)."
+  },
+  "user": {
+    "type": "string",
+    "default": "gdnsd",
+    "description": "System user account to drop privileges to after startup."
+  },
+  "group": {
+    "type": "string",
+    "default": "gdnsd",
+    "description": "System group to drop privileges to after startup."
+  },
+  "tls.enabled": {
+    "type": "boolean",
+    "default": false,
+    "description": "Enable DNS over TLS (DoT) on a dedicated port."
+  },
+  "tls.listen_address": {
+    "type": "string",
+    "default": "",
+    "description": "IP address for TLS listener (empty = reuse main listen_address)."
+  },
+  "tls.listen_port": {
+    "type": "number",
+    "default": 853,
+    "description": "Port for DNS over TLS (standard: 853)."
+  },
+  "tls.cert_file": {
+    "type": "string",
+    "default": "/etc/ssl/certs/gdnsd.crt",
+    "description": "Path to TLS certificate file (PEM format)."
+  },
+  "tls.key_file": {
+    "type": "string",
+    "default": "/etc/ssl/private/gdnsd.key",
+    "description": "Path to TLS private key file (PEM format)."
+  },
+  "tls.protocols": {
+    "type": "list",
+    "default": [
+      "TLSv1.2",
+      "TLSv1.3"
+    ],
+    "description": "List of allowed TLS protocols."
+  },
+  "tls.ciphers": {
+    "type": "string",
+    "default": "ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256",
+    "description": "Cipher list for TLS (OpenSSL-style format)."
+  },
+  "log.syslog": {
+    "type": "boolean",
+    "default": true,
+    "description": "Whether to send logs to syslog."
+  },
+  "log.file": {
+    "type": "string",
+    "default": "",
+    "description": "Optional path to a log file (empty = log only to stderr/syslog)."
+  },
+  "log.level": {
+    "type": "string",
+    "default": "warn",
+    "description": "Minimum log level (debug, info, notice, warn, error, crit, alert, emerg)."
+  },
+  "zones": {
+    "type": "list",
+    "default": [],
+    "description": "List of DNS zones served by this server.",
+    "items": {
+      "name": {
+        "type": "string",
+        "description": "Zone name (e.g., 'example.com')."
+      },
+      "file": {
+        "type": "string",
+        "description": "Path to zone data file (relative to zonefile directory, e.g., /var/lib/gdnsd/zones/)."
+      },
+      "allow_axfr": {
+        "type": "list",
+        "default": [],
+        "description": "List of client IP addresses or prefixes allowed to request zone transfers (AXFR)."
+      },
+      "allow_notify": {
+        "type": "list",
+        "default": [],
+        "description": "List of secondary server IPs allowed to send zone update notifications."
+      },
+      "dnssec": {
+        "type": "boolean",
+        "default": false,
+        "description": "Whether to sign this zone with DNSSEC."
+      },
+      "soa": {
+        "type": "object",
+        "optional": true,
+        "description": "Optional custom SOA parameters (defaults used if omitted).",
+        "items": {
+          "refresh": {
+            "type": "number",
+            "default": 3600,
+            "description": "SOA refresh interval (seconds)."
+          },
+          "retry": {
+            "type": "number",
+            "default": 600,
+            "description": "SOA retry interval (seconds)."
+          },
+          "expire": {
+            "type": "number",
+            "default": 604800,
+            "description": "SOA expiration time (seconds)."
+          },
+          "minimum": {
+            "type": "number",
+            "default": 300,
+            "description": "SOA minimum TTL (seconds)."
+          },
+          "ttl": {
+            "type": "number",
+            "default": 600,
+            "description": "SOA default TTL for records (seconds)."
+          }
+        }
+      }
+    }
+  },
+  "dynamic_updates": {
+    "type": "boolean",
+    "default": false,
+    "description": "Enable dynamic DNS updates (RFC 2136) for specified zones."
+  },
+  "dynamic_update_zones": {
+    "type": "list",
+    "default": [],
+    "description": "List of zone names allowed to receive dynamic updates.",
+    "items": {
+      "type": "string"
+    }
+  }
+}

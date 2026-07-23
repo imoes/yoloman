@@ -1,0 +1,69 @@
+# Use hardware timestamping for high-precision time synchronization
+hwtimestamp *{{ hw_timestamp_interface | default('all') }}
+
+# Specify the rate at which the system checks for hardware timestamp availability
+# (in seconds); increase if system logs show timestamping failures
+hwtimestamp_minpoll {{ hw_timestamp_minpoll | default(6) }}
+
+# Disable the default kernel PTP clock if using hardware timestamping (optional)
+# This avoids conflicts when hardware timestamping is active
+# rtcsync
+
+# Enable kernel PTP support if needed alongside NIC timestamping
+# (only if using PTP devices, not just generic hardware timestamping)
+# phc_index {{ phc_index | default(0) }}
+
+# NTP servers (primary and fallback)
+{% for server in ntp_servers %}# NTP server {{ server.name | default('') }}{{ ' (' + server.description + ')' if server.description else '' }}
+server {{ server.host }} iburst{{ ' prefer' if server.prefer else '' }}{{ ' key ' + server.key | string if server.key else '' }}
+{% endfor %}
+
+# Pool fallback (if no explicit servers needed or as backup)
+{% if ntp_pool %}# NTP pool for fallback sources
+pool {{ ntp_pool }} iburst
+{% endif %}
+
+# Local reference if no external sources available (e.g., for isolated systems)
+{% if local_reference_enable %}# Allow local reference clock as time source when offline
+refclock PHC {{ hw_timestamp_interface | default('all') }} poll 3 dpoll 2 offset 0.0
+{
+{% endif %}
+
+# Allow time to be stepped only within the first few updates (avoids large jumps after long downtime)
+# This is safe for hardware-timestamped setups due to sub-microsecond precision
+makestep 1.0 3
+
+# Logging configuration
+# Increase verbosity for debugging hardware timestamping issues
+logdir /var/log/chrony
+{% if debug_logging %}# Enable detailed logging for troubleshooting
+log measurements statistics tracking
+{% endif %}
+
+# Drift file and RTC tracking
+# These persist calibration across reboots
+driftfile /var/lib/chrony/drift
+rtconutc
+
+# Security: restrict access to NTP service
+# Allow only localhost for control (e.g., chronyc commands)
+allow 127.0.0.1
+# deny all by default (optional but recommended for hardened setups)
+deny all
+
+# Optional: bind to specific interfaces (useful when hardware timestamping is NIC-specific)
+{% if bind_interface %}# Bind to specific interface for hardware timestamping
+bindaddress {{ bind_interface }}
+{% endif %}
+
+# Synchronization rate and performance tuning
+# Adjust if high CPU usage or timestamping latency observed
+maxslewrate 1000
+
+# Source switching behavior
+# Prevent flapping between servers (adjust based on network stability)
+sourceswitchingdelay 10
+
+# NTP packet size (120 bytes default; increase if needed for extensions)
+# Not typically changed but included for completeness
+maxpacketsize 120

@@ -1,0 +1,297 @@
+{
+  "server_name": {
+    "type": "string",
+    "default": "c-icap-server",
+    "description": "The server name reported in HTTP headers and logs."
+  },
+  "server_ident": {
+    "type": "string",
+    "default": "c-icap/{{ c_icap_version }}",
+    "description": "Server identification string (e.g., product name and version) shown in the Server header."
+  },
+  "server_admin": {
+    "type": "string",
+    "default": "webmaster@localhost",
+    "description": "Email address of the server administrator, used in error pages and headers."
+  },
+  "server_ip": {
+    "type": "string",
+    "default": "*",
+    "description": "IP address the server binds to (e.g., '0.0.0.0' or a specific interface IP). Use '*' for all interfaces."
+  },
+  "server_port": {
+    "type": "number",
+    "default": 1344,
+    "description": "TCP port on which the ICAP server listens for incoming connections."
+  },
+  "timeout": {
+    "type": "number",
+    "default": 300,
+    "description": "Maximum idle time (seconds) before closing a connection."
+  },
+  "connect_timeout": {
+    "type": "number",
+    "default": 30,
+    "description": "Timeout (seconds) for establishing a connection to a remote service or peer."
+  },
+  "connect_retry_interval": {
+    "type": "number",
+    "default": 10,
+    "description": "Time (seconds) to wait before retrying a failed connection to a remote service."
+  },
+  "max_keepalive_requests": {
+    "type": "number",
+    "default": 100,
+    "description": "Maximum number of requests allowed over a single persistent (keep-alive) connection."
+  },
+  "keepalive_timeout": {
+    "type": "number",
+    "default": 300,
+    "description": "Time (seconds) to keep a keep-alive connection open before closing."
+  },
+  "log_dir": {
+    "type": "string",
+    "default": "/var/log/c-icap",
+    "description": "Directory where log files are stored."
+  },
+  "debug_level": {
+    "type": "number",
+    "default": 0,
+    "description": "Debug verbosity level (0=none, 10=max); typically 0 in production."
+  },
+  "log_level": {
+    "type": "string",
+    "default": "info",
+    "description": "Minimum severity level for logging messages: 'emerg', 'alert', 'crit', 'error', 'warn', 'notice', 'info', 'debug'."
+  },
+  "pid_file": {
+    "type": "string",
+    "default": "/var/run/c-icap/c-icap.pid",
+    "description": "Full path to the PID file used to track the main server process."
+  },
+  "threads_per_child": {
+    "type": "number",
+    "default": 10,
+    "description": "Number of worker threads created per server process."
+  },
+  "max_servers": {
+    "type": "number",
+    "default": 5,
+    "description": "Maximum number of server processes to spawn."
+  },
+  "min_spare_threads": {
+    "type": "number",
+    "default": 10,
+    "description": "Minimum number of idle threads to maintain across all processes."
+  },
+  "max_spare_threads": {
+    "type": "number",
+    "default": 50,
+    "description": "Maximum number of idle threads allowed before killing extra threads."
+  },
+  "max_requests_per_child": {
+    "type": "number",
+    "default": 10000,
+    "description": "Maximum number of requests a worker thread will serve before terminating and being replaced."
+  },
+  "access_control_list": {
+    "type": "string",
+    "default": "allow all",
+    "description": "Default access control policy: 'deny all' or 'allow all' or custom ACL references."
+  },
+  "modules": {
+    "type": "list",
+    "default": [],
+    "items": {
+      "type": "object",
+      "description": "Loadable c-icap modules (e.g., services, filters, modules).",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Module name (used in config references)."
+        },
+        "path": {
+          "type": "string",
+          "description": "Full path to the shared object (.so) file."
+        },
+        "description": {
+          "type": "string",
+          "description": "Human-readable description for documentation."
+        }
+      },
+      "required": [
+        "name",
+        "path",
+        "description"
+      ]
+    },
+    "description": "List of modules to load at startup (e.g., antivirus, content scanning)."
+  },
+  "services": {
+    "type": "list",
+    "default": [],
+    "items": {
+      "type": "object",
+      "description": "ICAP service definitions (e.g., for AV scanning or content modification).",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Unique service name (must match service directives in ACLs/rules)."
+        },
+        "type": {
+          "type": "string",
+          "description": "Service type: 'service', 'service-reqmod', 'service-respmod'."
+        },
+        "module": {
+          "type": "string",
+          "description": "Name of the module providing the service (must match a loaded module)."
+        },
+        "options": {
+          "type": "list",
+          "description": "Key-value config options specific to this service.",
+          "items": {
+            "type": "object",
+            "properties": {
+              "key": {
+                "type": "string",
+                "description": "Configuration option name (e.g., 'Timeout', 'MaxContentLength')."
+              },
+              "value": {
+                "type": "string",
+                "description": "Option value (string representation, e.g., '10', '2048'."
+              }
+            },
+            "required": [
+              "key",
+              "value"
+            ]
+          }
+        }
+      },
+      "required": [
+        "name",
+        "type",
+        "module",
+        "options"
+      ]
+    },
+    "description": "List of ICAP services to register (e.g., clamav, dummy)."
+  },
+  "request_headers": {
+    "type": "list",
+    "default": [],
+    "items": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "HTTP header name (e.g., 'X-Forwarded-For')."
+        },
+        "value": {
+          "type": "string",
+          "description": "Header value (supports macros like '%a' for client IP)."
+        }
+      },
+      "required": [
+        "name",
+        "value"
+      ]
+    },
+    "description": "Custom HTTP request headers to inject into requests sent to ICAP services."
+  },
+  "response_headers": {
+    "type": "list",
+    "default": [],
+    "items": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "HTTP header name to add to responses."
+        },
+        "value": {
+          "type": "string",
+          "description": "Header value (supports macros and static strings)."
+        }
+      },
+      "required": [
+        "name",
+        "value"
+      ]
+    },
+    "description": "Custom HTTP response headers to inject into client responses."
+  },
+  "acls": {
+    "type": "list",
+    "default": [],
+    "items": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "ACL name used in service rules (e.g., 'localnet')."
+        },
+        "match_type": {
+          "type": "string",
+          "description": "ACL match type: 'src', 'dst', 'method', etc."
+        },
+        "pattern": {
+          "type": "string",
+          "description": "Pattern to match (e.g., '192.168.0.0/24', 'CONNECT')."
+        }
+      },
+      "required": [
+        "name",
+        "match_type",
+        "pattern"
+      ]
+    },
+    "description": "Access control lists for use in service routing and security rules."
+  },
+  "rules": {
+    "type": "list",
+    "default": [],
+    "items": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Rule description label."
+        },
+        "condition": {
+          "type": "string",
+          "description": "Optional ACL condition (e.g., 'acl localnet src 192.168.0.0/24')."
+        },
+        "action": {
+          "type": "string",
+          "description": "Action: 'allow', 'deny', 'service', 'redirect'."
+        },
+        "service_name": {
+          "type": "string",
+          "description": "Name of the ICAP service to route to (if action is 'service')."
+        }
+      },
+      "required": [
+        "name",
+        "action",
+        "service_name"
+      ]
+    },
+    "description": "Service routing rules: map traffic to ICAP services based on conditions."
+  },
+  "enable_safe_mode": {
+    "type": "bool",
+    "default": true,
+    "description": "If enabled, runs the server in a restricted mode (e.g., no unsafe features, stricter permissions)."
+  },
+  "enable_chroot": {
+    "type": "bool",
+    "default": false,
+    "description": "If enabled, the server drops into a chroot jail at startup for security isolation."
+  },
+  "chroot_dir": {
+    "type": "string",
+    "default": "/var/lib/c-icap",
+    "description": "Directory to use as the chroot jail if chroot is enabled."
+  }
+}

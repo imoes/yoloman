@@ -1,0 +1,122 @@
+#!/bin/sh
+# /etc/init.d/rcS: System V initialization script (SysVinit)
+# This script is executed during early boot to run system initialization tasks.
+# It sources environment settings, mounts filesystems, sets hostname, and invokes runlevel-specific scripts.
+
+set -e
+
+# Source configuration (if present)
+{% if rcS_env_file %}
+[ -f "{{ rcS_env_file }}" ] && . "{{ rcS_env_file }}"
+{% endif %}
+
+# Set default PATH if not already set
+[ -z "${PATH}" ] && export PATH="/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin"
+
+# Mount virtual filesystems (proc, sysfs, devtmpfs, etc.)
+{% for fs in mount_points %}
+# Mount {{ fs.target }} filesystem ({{ fs.type }})
+[ -d "{{ fs.target }}" ] && mount -t {{ fs.type }} {{ fs.type }} {{ fs.target }} 2>/dev/null || true
+{% endfor %}
+
+# Configure hostname (if specified and not already set)
+{% if hostname %}
+if [ -z "$(hostname 2>/dev/null || true)" ]; then
+  hostname "{{ hostname }}"
+fi
+{% endif %}
+
+# Set system clock (if NTP not used and time needs setting)
+{% if system_clock %}
+# Configure system clock: {{ system_clock.mode }}
+{% if system_clock.mode == 'manual' %}
+date -s "{{ system_clock.datetime }}" 2>/dev/null || true
+{% endif %}
+{% endif %}
+
+# Load kernel modules (if any specified)
+{% if modules %}
+# Load kernel modules
+{% for mod in modules %}
+{% if mod.options %}
+modprobe {{ mod.name }} {{ mod.options }} 2>/dev/null || true
+{% else %}
+modprobe {{ mod.name }} 2>/dev/null || true
+{% endif %}
+{% endfor %}
+{% endif %}
+
+# Configure swap (if enabled)
+{% if swap_enabled %}
+# Activate swap devices/files
+{% for swap_dev in swap_devices %}
+swapon "{{ swap_dev }}" 2>/dev/null || true
+{% endfor %}
+{% endif %}
+
+# Filesystem checks and repair (if enabled)
+{% if fsck_force %}
+# Force filesystem check
+{% else %}
+# Check filesystems only if needed (based on mount count or time)
+{% endif %}
+
+# Set up temporary files in /tmp (if configured)
+{% if tmp_setup %}
+# Initialize/clean /tmp
+{% if tmp_setup.mode == 'clean' %}
+rm -rf /tmp/* 2>/dev/null || true
+{% elif tmp_setup.mode == 'size_limited' %}
+# Ensure /tmp does not exceed {{ tmp_setup.max_size_mb }} MB
+find /tmp -type f -size +{{ tmp_setup.max_size_mb }}M -delete 2>/dev/null || true
+{% endif %}
+mkdir -p /tmp/.ICE-unix /tmp/.X11-unix 2>/dev/null || true
+chmod 1777 /tmp 2>/dev/null || true
+{% endif %}
+
+# Apply sysctl parameters (if any)
+{% if sysctl_params %}
+# Apply kernel parameters
+for key in "{{ sysctl_params | join('" "') }}"; do
+  echo "$key" > /proc/sys/$(echo "$key" | tr '/' '.') 2>/dev/null || true
+done
+{% endif %}
+
+# Set hostname again (in case DNS changed it)
+{% if hostname %}
+if [ -f /etc/hostname ]; then
+  hostname -F /etc/hostname 2>/dev/null || true
+fi
+{% endif %}
+
+# Mount remaining filesystems (from /etc/fstab)
+mount -a -t nonfs,noproc,nosysfs,nodevtmpfs 2>/dev/null || true
+
+# Configure pseudo-terminal devices (if devtmpfs not used)
+{% if not using_devtmpfs %}
+mknod -m 666 /dev/ptmx c 5 2 2>/dev/null || true
+{% endif %}
+
+# Set default runlevel (if specified and init is SysV init)
+{% if default_runlevel %}
+# Set default runlevel (ignored by systemd; safe for hybrid setups)
+[ -x /usr/sbin/invoke-rc.d ] && /usr/sbin/invoke-rc.d --force set-default {{ default_runlevel }} 2>/dev/null || true
+{% endif %}
+
+# Run S-level scripts (from /etc/init.d/) before multi-user mode
+# Note: On systemd systems, these are mostly ignored unless compatibility mode is used.
+{% if s_scripts %}
+{% for script in s_scripts %}
+if [ -x "/etc/init.d/{{ script }}" ]; then
+  "/etc/init.d/{{ script }}" start 2>/dev/null || true
+fi
+{% endfor %}
+{% endif %}
+
+# Finally, switch to the appropriate runlevel (if using SysV init)
+{% if use_sysv_init %}
+exec /sbin/runlevel --single
+{% else %}
+# On systemd systems, this script is typically used only for compatibility
+echo "[rcS] SysV init script executed for compatibility (systemd may be managing services)" > /dev/kmsg 2>/dev/null || true
+{% endif %}

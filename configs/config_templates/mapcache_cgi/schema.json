@@ -1,0 +1,212 @@
+{
+  "cache.disk.directory": {
+    "type": "string",
+    "default": "/var/cache/mapcache",
+    "description": "Filesystem path where tile cache is stored on disk."
+  },
+  "cache.disk.cleanup.enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable background cleanup of expired tiles."
+  },
+  "cache.disk.cleanup.interval": {
+    "type": "number",
+    "default": 3600,
+    "description": "Seconds between cleanup runs (if enabled)."
+  },
+  "cache.disk.cleanup.ttl": {
+    "type": "number",
+    "default": 86400,
+    "description": "Time-to-live (seconds) for tiles before cleanup."
+  },
+  "cache.db.type": {
+    "type": "string",
+    "default": null,
+    "description": "Database backend for tile storage (optional: use for distributed setups)."
+  },
+  "cache.db.sqlite.path": {
+    "type": "string",
+    "default": "/var/lib/mapcache/tiles.db",
+    "description": "Path to SQLite database file (if using SQLite cache)."
+  },
+  "cache.db.postgres.host": {
+    "type": "string",
+    "default": "localhost",
+    "description": "PostgreSQL server host (if using PostgreSQL cache)."
+  },
+  "cache.db.postgres.port": {
+    "type": "number",
+    "default": 5432,
+    "description": "PostgreSQL server port."
+  },
+  "cache.db.postgres.database": {
+    "type": "string",
+    "default": "mapcache",
+    "description": "PostgreSQL database name."
+  },
+  "cache.db.postgres.user": {
+    "type": "string",
+    "default": "mapcache",
+    "description": "PostgreSQL username."
+  },
+  "cache.db.postgres.password": {
+    "type": "string",
+    "default": "",
+    "description": "PostgreSQL password (leave empty for peer auth or external credential)."
+  },
+  "cache.db.postgres.table": {
+    "type": "string",
+    "default": "tiles",
+    "description": "PostgreSQL table name for tile storage."
+  },
+  "tilesets": {
+    "type": "list",
+    "default": [],
+    "items": {
+      "name": {
+        "type": "string",
+        "description": "Unique tileset name (used as layer identifier in WMS/WMTS)."
+      },
+      "source.name": {
+        "type": "string",
+        "description": "Name of the source (defined in <sources>) used by this tileset."
+      },
+      "format": {
+        "type": "string",
+        "default": "png",
+        "description": "Tile image format \u2014 e.g., 'png', 'jpeg', 'webp'."
+      },
+      "meta_tiles": {
+        "type": "bool",
+        "default": true,
+        "description": "Enable meta-tiling to reduce edge-artifacts (reduces tile count by factor of n\u00b2)."
+      },
+      "grid": {
+        "type": "string",
+        "default": "global-mercator",
+        "description": "Tile grid profile \u2014 e.g., 'global-mercator', 'global-geodetic', or custom grid name."
+      },
+      "metadata": {
+        "type": "object",
+        "default": {},
+        "description": "Optional tileset metadata (e.g., title, abstract, keywords)."
+      },
+      "expires": {
+        "type": "number",
+        "default": 3600,
+        "description": "Tile cache expiry time in seconds (per tileset)."
+      },
+      "acl.allow": {
+        "type": "list",
+        "default": [],
+        "items": {
+          "type": "string"
+        },
+        "description": "List of allowed IP subnets/CIDRs (leave empty for unrestricted access)."
+      }
+    },
+    "description": "List of tilesets (layers) to cache, each referencing a source and defining cache behavior."
+  },
+  "sources": {
+    "type": "list",
+    "default": [],
+    "items": {
+      "name": {
+        "type": "string",
+        "description": "Source identifier \u2014 must match the source.name in tilesets."
+      },
+      "type": {
+        "type": "string",
+        "enum": [
+          "wms",
+          "mapserver",
+          "tilesource"
+        ],
+        "description": "Type of upstream source."
+      },
+      "wms.url": {
+        "type": "string",
+        "description": "Base WMS endpoint (e.g., https://example.com/geoserver/wms)."
+      },
+      "wms.headers": {
+        "type": "object",
+        "default": {},
+        "description": "Optional HTTP headers for WMS requests (e.g., 'Authorization', 'User-Agent')."
+      },
+      "wms.params": {
+        "type": "object",
+        "default": {},
+        "description": "WMS request parameters (e.g., layers=world, transparent=true)."
+      },
+      "mapserver.mapfile": {
+        "type": "string",
+        "description": "Path to MapServer mapfile (e.g., /etc/mapserver/project.map)."
+      },
+      "tilesource.url": {
+        "type": "string",
+        "description": "Base tile source URL template (e.g., https://tiles.example.com/{z}/{x}/{y}.png)."
+      },
+      "timeout": {
+        "type": "number",
+        "default": 30,
+        "description": "Request timeout in seconds for upstream fetches."
+      },
+      "retries": {
+        "type": "number",
+        "default": 3,
+        "description": "Number of retries for failed upstream requests."
+      }
+    },
+    "description": "Upstream data sources used by tilesets."
+  },
+  "services.wms.enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable WMS (Web Map Service) endpoint."
+  },
+  "services.tms.enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable TMS (Tile Map Service) endpoint."
+  },
+  "services.kml.enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable KML (Keyhole Markup Language) endpoint for Google Earth."
+  },
+  "services.wmts.enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable WMTS (Web Map Tile Service) endpoint."
+  },
+  "services.ve.enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable Virtual Earth (Bing) endpoint."
+  },
+  "errors.report": {
+    "type": "string",
+    "default": "true",
+    "description": "Whether to return detailed error messages in responses (set to 'false' for security in production)."
+  },
+  "log.level": {
+    "type": "string",
+    "default": "info",
+    "description": "Logging verbosity level \u2014 'debug', 'info', 'warn', 'error'."
+  },
+  "log.filepath": {
+    "type": "string",
+    "default": "/var/log/mapcache/mapcache.log",
+    "description": "Path to log file."
+  },
+  "defaults.expires": {
+    "type": "number",
+    "default": 3600,
+    "description": "Global default tile cache expiry (seconds), used if tileset doesn't specify."
+  },
+  "defaults.tile_cache": {
+    "type": "string",
+    "default": "disk",
+    "description": "Name of the default tile cache to use if not set per tileset."
+  }
+}

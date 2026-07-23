@@ -1,0 +1,67 @@
+{
+  "smtp_banner": "Debian Exim server 4.97",
+  "primary_hostname": "mail.example.com",
+  "tls_disable_on_connect": false,
+  "smtp_ports": [
+    25,
+    587
+  ],
+  "local_interfaces": [
+    "192.168.1.10",
+    "::1"
+  ],
+  "queue_run_timeout": 300,
+  "queue_max_max_size": 500,
+  "log_selector": [
+    "+all_transfer",
+    "+all_delivery",
+    "+connection_reject"
+  ],
+  "routers": [
+    {
+      "name": "accept_local",
+      "driver": "accept",
+      "domains": "+local_domains",
+      "transport": "local_delivery"
+    },
+    {
+      "name": "relay_to_domains",
+      "driver": "manualroute",
+      "domains": "!+local_domains",
+      "transport": "remote_smtp",
+      "route_data": "${domain}"
+    }
+  ],
+  "transports": [
+    {
+      "name": "local_delivery",
+      "driver": "maildir",
+      "directory": "/var/mail/vhosts/$domain/$local_part",
+      "user": "vmail",
+      "group": "vmail",
+      "file_permissions": "0600",
+      "maildir_format": true,
+      "delivery_date_add": true
+    },
+    {
+      "name": "remote_smtp",
+      "driver": "smtp"
+    }
+  ],
+  "authenticators": [
+    {
+      "name": "cram_md5",
+      "driver": "cram_md5",
+      "public_name": "CRAM-MD5",
+      "server_condition": "${if eq{${md5:{${lookup ldap{ldap:/etc/exim4/ldap.conf} {$auth2}{$value}}}}{${md5:{${substr{0}{16}{$auth3}}}}}{$value}{0}}",
+      "server_set_id": "$auth2"
+    },
+    {
+      "name": "plain",
+      "driver": "plain",
+      "public_name": "PLAIN",
+      "server_condition": "${if eq{$auth2}{admin}{1}{0}}",
+      "server_set_id": "$auth2"
+    }
+  ]
+}

@@ -1,0 +1,49 @@
+{
+  "verbose": true,
+  "log_file": "/var/log/knockd.log",
+  "sequence_list": [
+    {
+      "name": "openSSH",
+      "sequence": [
+        7000,
+        8000,
+        9000
+      ],
+      "seq_timeout": 10,
+      "start_command": "/usr/sbin/iptables -A INPUT -s %IP% -p tcp --dport 22 -j ACCEPT",
+      "stop_command": "/usr/sbin/iptables -D INPUT -s %IP% -p tcp --dport 22 -j ACCEPT",
+      "use_tcp": true,
+      "use_udp": false,
+      "tcpflags": "syn",
+      "synctime": 5,
+      "endtimeout": 30
+    },
+    {
+      "name": "openHTTP",
+      "sequence": [
+        10000,
+        10001
+      ],
+      "seq_timeout": 15,
+      "start_command": "/usr/bin/systemctl start nginx",
+      "stop_command": "/usr/bin/systemctl stop nginx",
+      "use_tcp": true,
+      "use_udp": false,
+      "synctime": 3,
+      "endtimeout": 60
+    },
+    {
+      "name": "httpOpen",
+      "sequence": [
+        30000
+      ],
+      "seq_timeout": 5,
+      "start_command": "/usr/local/bin/unlock-api.sh",
+      "use_http": true,
+      "http_url": "/knock/api",
+      "http_timeout": 3,
+      "interface": "eth1",
+      "client_ip": "10.0.0.5"
+    }
+  ]
+}

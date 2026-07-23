@@ -1,0 +1,278 @@
+# Global configuration section for Ceilometer Compute Agent
+[DEFAULT]
+
+# Logging configuration
+{% if log_dir %}# Log directory
+log_dir = {{ log_dir }}
+{% endif %}
+{% if log_file %}# Log file path
+log_file = {{ log_file }}
+{% endif %}
+
+# Logging level
+{% if log_level %}# Logging verbosity level
+log_level = {{ log_level }}
+{% endif %}
+
+# Polling configuration
+{% if pollsters %}# Pollsters to enable (comma-separated list)
+pollsters = {{ pollsters | join(', ') }}
+{% endif %}
+
+# Polling interval (seconds)
+{% if polling_interval is defined %}# Interval between polling cycles
+polling_interval = {{ polling_interval }}
+{% endif %}
+
+# Per-poll interval for resource discovery (seconds)
+{% if polling_interval_resource is defined %}# Interval between resource discovery cycles
+polling_interval_resource = {{ polling_interval_resource }}
+{% endif %}
+
+# Compute driver to use (e.g., libvirt.LibvirtDriver)
+{% if compute_driver %}# Hypervisor driver to use
+compute_driver = {{ compute_driver }}
+{% endif %}
+
+# Enable or disable instance disk usage polling
+{% if instance_discovery_method is defined %}# Method for discovering instances for metering
+instance_discovery_method = {{ instance_discovery_method }}
+{% endif %}
+
+# Credentials for accessing libvirt (if applicable)
+{% if libvirt %}# Libvirt-specific settings
+{% for key, value in libvirt.items() %}{% if key not in ['connection_username', 'connection_password'] %}{{ key }} = {{ value }}
+{% endif %}{% endfor %}{% endif %}
+{% if libvirt_connection_username %}# Libvirt connection username
+libvirt_connection_username = {{ libvirt_connection_username }}
+{% endif %}
+{% if libvirt_connection_password is defined %}# Libvirt connection password
+libvirt_connection_password = {{ libvirt_connection_password }}
+{% endif %}
+
+# Inspector to use for instance metrics (nova, libvirt, xenapi, vmwareapi)
+{% if inspector_uri is defined %}# Inspector URI (e.g., 'qemu://localhost/system')
+inspector_uri = {{ inspector_uri }}
+{% endif %}
+{% if inspector_type %}# Inspector type
+inspector_type = {{ inspector_type }}
+{% endif %}
+
+# Notification configuration
+{% if notification_topics %}# Notification topics to listen on
+notification_topics = {{ notification_topics | join(', ') }}
+{% endif %}
+
+# Message bus connection (e.g., rabbitmq://user:pass@host:5672/)
+{% if rabbit_host %}# RabbitMQ host
+rabbit_host = {{ rabbit_host }}
+{% endif %}
+{% if rabbit_port is defined %}# RabbitMQ port
+rabbit_port = {{ rabbit_port }}
+{% endif %}
+{% if rabbit_user %}# RabbitMQ username
+rabbit_user = {{ rabbit_user }}
+{% endif %}
+{% if rabbit_password is defined %}# RabbitMQ password
+rabbit_password = {{ rabbit_password }}
+{% endif %}
+{% if rabbit_virtual_host %}# RabbitMQ virtual host
+rabbit_virtual_host = {{ rabbit_virtual_host }}
+{% endif %}
+
+# Authentication to use (keystone, none)
+{% if auth_strategy %}# Authentication strategy
+auth_strategy = {{ auth_strategy }}
+{% endif %}
+
+# Keystone endpoint type (publicURL, internalURL, adminURL)
+{% if endpoint_type %}# Endpoint type for Keystone service
+endpoint_type = {{ endpoint_type }}
+{% endif %}
+
+# Use SSL for Keystone communication
+{% if auth_ssl_verify is defined %}# Verify SSL certificates for Keystone
+auth_ssl_verify = {{ auth_ssl_verify | lower }}
+{% endif %}
+
+# Optional Keystone CA certificate bundle
+{% if auth_ssl_ca_cert %}# CA certificate file for Keystone SSL
+auth_ssl_ca_cert = {{ auth_ssl_ca_cert }}
+{% endif %}
+
+# Service credentials for authentication (if using keystone)
+{% if service_credentials %}# Service credentials section
+{% for key, value in service_credentials.items() %}{{ key }} = {{ value }}
+{% endfor %}{% endif %}
+
+# Transport URL for message bus (overrides rabbit_* settings)
+{% if transport_url %}# Message bus connection string
+transport_url = {{ transport_url }}
+{% endif %}
+
+# Pipeline configuration (for telemetry data processing)
+{% if pipeline_cfg_file %}# Path to pipeline configuration file
+pipeline_cfg_file = {{ pipeline_cfg_file }}
+{% endif %}
+
+# Sample transformation configuration
+{% if transform_cfg_file %}# Path to sample transformation configuration file
+transform_cfg_file = {{ transform_cfg_file }}
+{% endif %}
+
+# Interval to refresh credentials (seconds)
+{% if credential_refresh_interval is defined %}# Credential refresh interval
+credential_refresh_interval = {{ credential_refresh_interval }}
+{% endif %}
+
+# Use local instance metadata (e.g., from libvirt XML)
+{% if use_local %}# Use local metadata instead of Nova API
+use_local = {{ use_local | lower }}
+{% endif %}
+
+# Enable or disable CPU time polling for instances
+{% if cpu_polling_enabled is defined %}# Enable CPU polling
+cpu_polling_enabled = {{ cpu_polling_enabled | lower }}
+{% endif %}
+
+# Enable or disable network polling for instances
+{% if network_polling_enabled is defined %}# Enable network polling
+network_polling_enabled = {{ network_polling_enabled | lower }}
+{% endif %}
+
+# Enable or disable disk I/O polling for instances
+{% if disk_polling_enabled is defined %}# Enable disk I/O polling
+disk_polling_enabled = {{ disk_polling_enabled | lower }}
+{% endif %}
+
+# Enable or disable memory polling for instances
+{% if memory_polling_enabled is defined %}# Enable memory polling
+memory_polling_enabled = {{ memory_polling_enabled | lower }}
+{% endif %}
+
+# Enable or disable instance disk usage polling
+{% if instance_disk_polling_enabled is defined %}# Enable instance disk usage polling
+instance_disk_polling_enabled = {{ instance_disk_polling_enabled | lower }}
+{% endif %}
+
+# Enable or disable instance network polling
+{% if instance_network_polling_enabled is defined %}# Enable instance network polling
+instance_network_polling_enabled = {{ instance_network_polling_enabled | lower }}
+{% endif %}
+
+# Maximum number of workers for polling
+{% if polling_workers is defined %}# Number of polling worker processes
+polling_workers = {{ polling_workers }}
+{% endif %}
+
+# Timeout for polling operations (seconds)
+{% if polling_timeout is defined %}# Polling operation timeout
+polling_timeout = {{ polling_timeout }}
+{% endif %}
+
+# Maximum retries for polling operations
+{% if polling_retries is defined %}# Number of polling retries before failure
+polling_retries = {{ polling_retries }}
+{% endif %}
+
+# Retry delay (seconds)
+{% if polling_retry_delay is defined %}# Delay between polling retries
+polling_retry_delay = {{ polling_retry_delay }}
+{% endif %}
+
+# Enable or disable discovery of new instances
+{% if instance_discovery_enabled is defined %}# Enable instance discovery
+instance_discovery_enabled = {{ instance_discovery_enabled | lower }}
+{% endif %}
+
+# Discovery interval (seconds)
+{% if instance_discovery_interval is defined %}# Interval between instance discovery
+instance_discovery_interval = {{ instance_discovery_interval }}
+{% endif %}
+
+# Discovery method for instances (libvirt, nova, etc.)
+{% if instance_discovery_method %}# Instance discovery method
+instance_discovery_method = {{ instance_discovery_method }}
+{% endif %}
+
+# Libvirt event callback timeout (seconds)
+{% if libvirt_event_callback_timeout is defined %}# Libvirt event callback timeout
+libvirt_event_callback_timeout = {{ libvirt_event_callback_timeout }}
+{% endif %}
+
+# Libvirt event callback retry count
+{% if libvirt_event_callback_retries is defined %}# Libvirt event callback retry count
+libvirt_event_callback_retries = {{ libvirt_event_callback_retries }}
+{% endif %}
+
+# Libvirt event callback retry delay (seconds)
+{% if libvirt_event_callback_retry_delay is defined %}# Libvirt event callback retry delay
+libvirt_event_callback_retry_delay = {{ libvirt_event_callback_retry_delay }}
+{% endif %}
+
+# Libvirt event callback buffer size
+{% if libvirt_event_callback_buffer_size is defined %}# Libvirt event callback buffer size
+libvirt_event_callback_buffer_size = {{ libvirt_event_callback_buffer_size }}
+{% endif %}
+
+# Libvirt event callback max events per cycle
+{% if libvirt_event_callback_max_events is defined %}# Max events processed per cycle
+libvirt_event_callback_max_events = {{ libvirt_event_callback_max_events }}
+{% endif %}
+
+# Libvirt event callback stream buffer size
+{% if libvirt_event_callback_stream_buffer_size is defined %}# Stream buffer size for events
+libvirt_event_callback_stream_buffer_size = {{ libvirt_event_callback_stream_buffer_size }}
+{% endif %}
+
+# Libvirt event callback stream timeout (seconds)
+{% if libvirt_event_callback_stream_timeout is defined %}# Stream timeout for events
+libvirt_event_callback_stream_timeout = {{ libvirt_event_callback_stream_timeout }}
+{% endif %}
+
+# Libvirt event callback stream retry count
+{% if libvirt_event_callback_stream_retries is defined %}# Stream retry count for events
+libvirt_event_callback_stream_retries = {{ libvirt_event_callback_stream_retries }}
+{% endif %}
+
+# Libvirt event callback stream retry delay (seconds)
+{% if libvirt_event_callback_stream_retry_delay is defined %}# Stream retry delay for events
+libvirt_event_callback_stream_retry_delay = {{ libvirt_event_callback_stream_retry_delay }}
+{% endif %}
+
+# Libvirt event callback stream max events per cycle
+{% if libvirt_event_callback_stream_max_events is defined %}# Max events per cycle for stream
+libvirt_event_callback_stream_max_events = {{ libvirt_event_callback_stream_max_events }}
+{% endif %}
+
+# Libvirt event callback stream buffer size
+{% if libvirt_event_callback_stream_buffer_size is defined %}# Stream buffer size for events
+libvirt_event_callback_stream_buffer_size = {{ libvirt_event_callback_stream_buffer_size }}
+{% endif %}
+
+# Libvirt event callback stream timeout (seconds)
+{% if libvirt_event_callback_stream_timeout is defined %}# Stream timeout for events
+libvirt_event_callback_stream_timeout = {{ libvirt_event_callback_stream_timeout }}
+{% endif %}
+
+# Libvirt event callback stream retry count
+{% if libvirt_event_callback_stream_retries is defined %}# Stream retry count for events
+libvirt_event_callback_stream_retries = {{ libvirt_event_callback_stream_retries }}
+{% endif %}
+
+# Libvirt event callback stream retry delay (seconds)
+{% if libvirt_event_callback_stream_retry_delay is defined %}# Stream retry delay for events
+libvirt_event_callback_stream_retry_delay = {{ libvirt_event_callback_stream_retry_delay }}
+{% endif %}
+
+# Libvirt event callback stream max events per cycle
+{% if libvirt_event_callback_stream_max_events is defined %}# Max events per cycle for stream
+libvirt_event_callback_stream_max_events = {{ libvirt_event_callback_stream_max_events }}
+{% endif %}
+
+# Additional settings (unstructured) — kept as-is in config
+{% if additional_settings %}{% for section, items in additional_settings.items() %}
+[{{ section }}]
+{% for key, value in items.items() %}{{ key }} = {{ value }}
+{% endfor %}
+{% endfor %}{% endif %}

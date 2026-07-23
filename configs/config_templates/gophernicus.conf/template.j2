@@ -1,0 +1,63 @@
+# Gophernicus server configuration
+# Sets the TCP port the server listens on
+PORT={{ port }}
+
+# Sets the hostname or IP address the server binds to
+HOST={{ host }}
+
+# Sets the root directory served by Gophernicus
+ROOT={{ root }}
+
+# Maximum number of client connections (0 = no limit)
+MAXCONN={{ maxconn }}
+
+# Timeout (in seconds) for idle connections
+TIMEOUT={{ timeout }}
+
+# Enables or disables logging to syslog
+SYSLOG={{ syslog }}
+
+# Enables or disables logging to a file
+LOG_TO_FILE={{ log_to_file }}
+
+# Path to the log file (used only if LOG_TO_FILE is true)
+LOGFILE={{ logfile }}
+
+# Enables or disables directory indexing (list files/dirs in browsable directories)
+DIRINDEX={{ dirindex }}
+
+# List of user-facing server descriptions (shown in server info page)
+{% for desc in server_descriptions %}# {{ desc }}
+{% endfor %}
+# Server name (used in banners, info, etc.)
+SERVERNAME={{ servername }}
+
+# Gophermap generation mode: 0=none, 1=automatic, 2=strict
+GMAPMODE={{ gmapmode }}
+
+# Prefix for virtual hosts (if supported by compiled version)
+# (Leave empty for none)
+VHOSTPREFIX={{ vhostprefix }}
+
+# List of MIME type overrides: format = 'extension:mime/type'
+{% for rule in mime_overrides %}MIME_{{ rule.ext | replace('.', '_') }}={{ rule.mime }}
+{% endfor %}
+
+# Default MIME type for unknown files
+DEFAULT_MIME={{ default_mime }}
+
+# List of banned IP ranges (CIDR notation or single IP)
+{% for ip in banned_ips %}BANIP={{ ip }}
+{% endfor %}
+
+# If true, bans by default and only allow listed IPs (whitelist mode)
+WHITELIST_MODE={{ whitelist_mode }}
+
+# If true, disables directory listing even if DIRINDEX is true
+NO_DIRLIST={{ no_dirlist }}
+
+# If true, hides files/dirs starting with '.' in listings
+HIDE_DOTFILES={{ hide_dotfiles }}
+
+# If true, logs client IPs in log output
+LOG_IP={{ log_ip }}

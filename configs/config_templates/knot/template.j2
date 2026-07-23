@@ -1,0 +1,72 @@
+# Main Knot DNS configuration file
+# See https://gitlab.nic.cz/knot/knot-dns/-/wikis/home for reference
+
+# Global settings
+config:
+  # Listen on these network interfaces/addresses and ports
+  {{- "listen:" if listen | length > 0 else "# listen:" }}
+  {{- "\n" }}
+  {% for addr in listen %}
+  - addr: {{ addr.addr | default('127.0.0.1') }}
+    port: {{ addr.port | default(53) }}
+    protocol: {{ addr.protocol | default('dns') }}
+    {% if addr.interface is defined %}interface: {{ addr.interface }}{% endif %}
+  {% endfor %}
+
+  # Number of worker threads (0 = auto-detect based on CPU cores)
+  workers: {{ workers }}
+
+  # Identity string (optional, used in server identification)
+  {% if identity is defined and identity != "" %}identity: {{ identity }}{% endif %}
+
+  # Logging configuration
+  log:
+    # Log level: critical, error, warning, notice, info, debug
+    level: {{ log.level | default('notice') }}
+    # Log target: stderr, syslog, file
+    target: {{ log.target | default('syslog') }}
+    # File path if target = file
+    {% if log.target == 'file' and log.file is defined %}file: {{ log.file }}{% endif %}
+
+# Modules to load (e.g., 'acl', 'control', 'geoip')
+{% if modules | length > 0 %}modules:
+  {% for mod in modules %}  - {{ mod }}{% endfor %}
+{% endif %}
+
+# Zone definitions
+zones:
+  {% for zone in zones %}  - domain: {{ zone.domain }}
+    # Data source type: file, memory, remote, etc.
+    file: {{ zone.file }}
+    # Optional: storage directory (defaults to /var/lib/knot/zones/)
+    {% if zone.storage is defined %}storage: {{ zone.storage }}{% endif %}
+    # ACL rules (optional)
+    {% if zone.acl is defined and zone.acl | length > 0 %}    acl: {% for rule in zone.acl %}
+      - {% if rule.action is defined %}action: {{ rule.action }}{% endif %}
+        {% if rule.name is defined %}name: {{ rule.name }}{% endif %}
+        {% if rule.address is defined %}address: {{ rule.address }}{% endif %}
+        {% if rule.tsig is defined %}tsig: {{ rule.tsig }}{% endif %}
+    {% endfor %}{% endif %}
+{% endfor %}
+
+# Optional: Control socket (for knotc CLI management)
+{% if control is defined and (control.path or control.listen) is defined %}control:
+  listen: {% if control.listen is defined %}{{ control.listen }}{% else %}"{% if control.path is defined %}{{ control.path }}{% else %}/run/knot/control.sock{% endif %}"{% endif %}
+{% endif %}
+
+# Optional: Remote servers for AXFR/notify (used with replication)
+{% if remotes is defined and remotes | length > 0 %}remotes:
+  {% for rem in remotes %}  - id: {{ rem.id }}
+    address: {{ rem.address }}
+    {% if rem.key is defined %}key: {{ rem.key }}{% endif %}
+  {% endfor %}
+{% endif %}
+
+# Optional: ACL definitions (can be referenced from zones)
+{% if acl is defined and acl | length > 0 %}acl:
+  {% for rule in acl %}  - id: {{ rule.id }}
+    action: {{ rule.action }}
+    {% if rule.address is defined %}address: {{ rule.address }}{% endif %}
+    {% if rule.tsig is defined %}tsig: {{ rule.tsig }}{% endif %}
+  {% endfor %}
+{% endif %}

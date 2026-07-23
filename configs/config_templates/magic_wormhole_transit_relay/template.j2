@@ -1,0 +1,35 @@
+{# Listen address and port for the transit relay #}
+bind_address = "{{ bind_address }}:{{ port }}"
+
+{# Maximum number of concurrent connections per client #}
+max_connections_per_client = {{ max_connections_per_client }}
+
+{# Maximum total number of simultaneous connections (0 = no limit) #}
+max_total_connections = {{ max_total_connections }}
+
+{# Maximum bytes per connection per second (0 = no limit) #}
+rate_limit_bytes_per_sec = {{ rate_limit_bytes_per_sec }}
+
+{# TLS certificate and key paths (optional) #}
+{% if tls_enabled %}
+{% if tls_cert_path %}
+tls_cert = "{{ tls_cert_path }}"
+{% endif %}
+{% if tls_key_path %}
+tls_key = "{{ tls_key_path }}"
+{% endif %}
+{% endif %}
+
+{# Logging level: "debug", "info", "warn", or "error" #}
+log_level = "{{ log_level }}"
+
+{# Optional: Relay hostname for external clients (e.g., public DNS) #}
+{% if relay_hostname %}
+relay_hostname = "{{ relay_hostname }}"
+{% endif %}
+
+{# Optional: Per-namespace rate limits (list of {namespace, rate_limit_bytes_per_sec}) #}
+{% for ns in rate_limit_namespaces %}
+[rate_limits.{{ ns.namespace | replace(".", "_") | replace("-", "_") }}]
+bytes_per_sec = {{ ns.rate_limit_bytes_per_sec }}
+{% endfor %}

@@ -1,0 +1,92 @@
+# gcr.conf — main configuration file for GCR daemon (gcr4)
+# Enable or disable the GCR service
+enabled = {{ enabled | lower }}
+
+# Path to the GCR data directory
+work_dir = {{ work_dir }}
+
+# Path to the PID file
+pid_file = {{ pid_file }}
+
+# Logging level: debug, info, warn, error
+log_level = {{ log_level }}
+
+# Path to log file; empty string means log to stdout
+log_file = {{ log_file }}
+
+# TCP port to listen on for incoming connections
+listen_port = {{ listen_port }}
+
+# Number of worker threads
+worker_count = {{ worker_count }}
+
+# Maximum number of concurrent client connections
+max_connections = {{ max_connections }}
+
+# Timeout for idle client connections (in seconds)
+idle_timeout = {{ idle_timeout }}
+
+# Enable TLS support
+tls_enabled = {{ tls_enabled | lower }}
+
+# Path to TLS certificate file (required if tls_enabled)
+tls_cert_file = {{ tls_cert_file }}
+
+# Path to TLS private key file (required if tls_enabled)
+tls_key_file = {{ tls_key_file }}
+
+# Optional CA certificate for client verification (leave blank to disable mTLS)
+tls_ca_cert_file = {{ tls_ca_cert_file | default('') }}
+
+# Hostname to use in TLS SNI (leave blank to use system hostname)
+tls_sni_hostname = {{ tls_sni_hostname | default('') }}
+
+# Rate limiting configuration
+[rate_limit]
+# Enable rate limiting
+enabled = {{ rate_limit.enabled | lower }}
+# Maximum requests per client per interval
+max_requests = {{ rate_limit.max_requests }}
+# Time window in seconds for rate limiting
+window_seconds = {{ rate_limit.window_seconds }}
+
+# Access control list — allow/deny by IP
+{% for acl in acls %}# ACL: {{ acl.description }}
+[{{ acl.name }}]
+action = {{ acl.action }}
+{% if acl.network %}network = {{ acl.network }}{% endif %}
+{% if acl.description %}# description = {{ acl.description }}{% endif %}
+{% endfor %}
+
+# Upstream backend servers — one per line: host:port
+{% for upstream in upstreams %}# Upstream: {{ upstream.description | default('') }}
+[upstream:{{ upstream.name }}]
+host = {{ upstream.host }}
+port = {{ upstream.port }}
+weight = {{ upstream.weight }}
+{% if upstream.max_connections is defined %}max_connections = {{ upstream.max_connections }}{% endif %}
+{% endfor %}
+
+# Cache configuration
+[cache]
+# Enable in-memory cache
+enabled = {{ cache.enabled | lower }}
+# Maximum number of cached entries
+capacity = {{ cache.capacity }}
+# Default TTL (in seconds)
+default_ttl = {{ cache.default_ttl }}
+# Eviction policy: lru, fifo, random
+policy = {{ cache.policy }}
+
+# Health check configuration
+[health_check]
+# Enable periodic health checks of upstreams
+enabled = {{ health_check.enabled | lower }}
+# Interval between checks (in seconds)
+interval = {{ health_check.interval }}
+# Timeout for each health check (in seconds)
+timeout = {{ health_check.timeout }}
+# Number of failures before marking upstream unhealthy
+failures = {{ health_check.failures }}
+# Number of successes after failure to mark upstream healthy again
+successes = {{ health_check.successes }}

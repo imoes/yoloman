@@ -1,0 +1,45 @@
+// Enable DNSSEC validation
+options {
+    // Forwarders for recursive queries
+    forwarders {
+{% for forwarder in forwarders %}        {{ forwarder }};
+{% endfor %}    };
+
+    // DNSSEC validation settings
+{% if dnssec_enabled %}    dnssec-validation auto;
+{% else %}    dnssec-validation no;
+{% endif %}
+
+    // Listen interfaces and ports
+    listen-on port {{ dns_port }} { {{ listen_on | join(', ') }}; };
+    listen-on-v6 port {{ dns_port }} { {{ listen_on_v6 | join(', ') }}; };
+
+    // Allow query and transfer restrictions
+    allow-query { {{ allow_query | join(', ') }}; };
+{% if allow_transfer is defined %}    allow-transfer { {{ allow_transfer | join(', ') }}; };
+{% endif %}
+
+    // recursion and cache settings
+{% if recursion_enabled %}    recursion yes;
+{% else %}    recursion no;
+{% endif %}
+    max-cache-size {{ max_cache_size }};
+
+    // DNS rate limiting
+{% if ratelimit_enabled %}    rate-limit {
+        responses-per-second {{ ratelimit_rps }};
+        window {{ ratelimit_window }};
+    };
+{% endif %}
+
+    // Additional security hardening
+    version "not disclosed";
+{% if edns_enabled %}    edns { version 0; };
+{% else %}    edns no;
+{% endif %}
+    minimal-responses yes;
+
+    // Directory and files
+    directory "{{ working_dir }}";
+    pid-file "{{ pid_file }}";
+};

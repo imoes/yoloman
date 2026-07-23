@@ -1,0 +1,114 @@
+# Interface configuration block
+interface {{ interface_name }}
+{
+{% if send_advertisements | default(true) %}
+  # Advertise this interface
+  AdvSendAdvert on;
+{% else %}
+  AdvSendAdvert off;
+{% endif %}
+
+  # Minimum time between advertisements
+  AdvMinInterval {{ min_interval | default(3) }};
+{% if max_interval is defined and max_interval != min_interval %}
+  # Maximum time between advertisements
+  AdvMaxInterval {{ max_interval }};
+{% endif %}
+
+  # Default hop limit for packets
+  AdvHopLimit {{ hop_limit | default(64) }};
+
+  # Prefix configuration
+  AdvPrefixList
+  {
+{% for prefix in prefixes %}
+    # Prefix: {{ prefix.prefix }} (valid: {{ prefix.valid_lifetime }}s, preferred: {{ prefix.preferred_lifetime }}s)
+    {
+      AdvLifetime {{ prefix.valid_lifetime | default(86400) }};
+      AdvPreferredLifetime {{ prefix.preferred_lifetime | default(14400) }};
+      AdvOnLink {{ 'on' if prefix.onlink | default(true) else 'off' }};
+      AdvAutonomous {{ 'on' if prefix.autonomous | default(true) else 'off' }};
+{% if prefix.router_address | default(false) %}
+      AdvRouterAddress on;
+{% endif %}
+{% if prefix.prefix | default('') | length > 0 %}
+      {% if prefix.prefix | count('.') > 0 %}
+      # IPv4 prefix — note: radvd is IPv6-only, but some distros support IPv4 via NDP extension
+      # This is nonstandard and usually not recommended. Use only if needed.
+      # IPv4: {{ prefix.prefix }}/{{ prefix.prefix_length | default(24) }}
+      # Ignored by standard radvd; treat as comment
+      # IPv4Prefix {{ prefix.prefix }}/{{ prefix.prefix_length | default(24) }};
+      {% else %}
+      # IPv6 prefix
+      Prefix {{ prefix.prefix }}
+      {
+        AdvMaskLength {{ prefix.prefix_length | default(64) }};
+      };
+      {% endif %}
+{% endif %}
+    };
+{% endfor %}
+  };
+
+{% if route_descriptors is defined and route_descriptors | length > 0 %}
+  # Route information configuration
+  AdvRouteList
+  {
+{% for route in route_descriptors %}
+    # Route to {{ route.destination }} via {{ route.router_address | default('self') }}
+    {
+      AdvLifetime {{ route.lifetime | default(30) }};
+      RoutePreference {{ route.preference | default(0) | string | lower }};
+{% if route.prefix | default('') | length > 0 %}
+      RouteDestination {{ route.prefix }}/{{ route.prefix_length | default(64) }};
+{% endif %}
+{% if route.router_address | default('') | length > 0 %}
+      AdvRouterAddr on;
+{% endif %}
+    };
+{% endfor %}
+  };
+{% endif %}
+
+{% if rdnss_list is defined and rdnss_list | length > 0 %}
+  # Recursive DNS Server configuration
+  AdvRDNSSList
+  {
+{% for rdnss in rdnss_list %}
+    {
+      AdvRDNSSLifetime {{ rdnss.lifetime | default(3600) }};
+      RDNSS {{ rdnss.address }};
+    };
+{% endfor %}
+  };
+{% endif %}
+
+{% if dnssl_list is defined and dnssl_list | length > 0 %}
+  # DNS Search List configuration
+  AdvDNSSLList
+  {
+{% for dnssl in dnssl_list %}
+    {
+      AdvDNSSLLifetime {{ dnssl.lifetime | default(3600) }};
+      DNSSL {{ dnssl.domain }};
+    };
+{% endfor %}
+  };
+{% endif %}
+
+{% if managed_config | default(false) %}
+  # Managed address configuration (DHCPv6)
+  AdvManagedFlag on;
+{% endif %}
+
+{% if other_config | default(false) %}
+  # Other configuration (e.g., via DHCPv6 options)
+  AdvOtherConfigFlag on;
+{% endif %}
+
+{% if link_mtu is defined %}
+  # Advertised MTU
+  AdvLinkMTU {{ link_mtu }};
+{% endif %}
+
+};

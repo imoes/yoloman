@@ -1,0 +1,41 @@
+# Log level: 0=none, 1=error, 2=warning, 3=info, 4=debug
+LogLevel = {{ log_level }}
+
+# Maximum number of concurrent requests per client
+MaxRequestsPerClient = {{ max_requests_per_client }}
+
+# Interface to bind to (e.g., 'eth0' or 'any' for all)
+Interface = "{{ interface }}"
+
+# List of UPnP root device UUIDs to explicitly allow (empty = allow all)
+{% if allowed_devices | length == 0 %}
+AllowedDevices = []
+{% else %}
+AllowedDevices = [
+{% for uuid in allowed_devices %}  "{{ uuid }}"{% if not loop.last %},{% endif %}
+{% endfor %}]
+{% endif %}
+
+# List of UPnP root device UUIDs to explicitly deny
+{% if denied_devices | length == 0 %}
+DeniedDevices = []
+{% else %}
+DeniedDevices = [
+{% for uuid in denied_devices %}  "{{ uuid }}"{% if not loop.last %},{% endif %}
+{% endfor %}]
+{% endif %}
+
+# Maximum depth for recursive directory scanning (0 = unlimited)
+MaxScanDepth = {{ max_scan_depth }}
+
+# Timeout (in seconds) for device discovery and communication
+DiscoveryTimeout = {{ discovery_timeout }}
+
+# Enable or disable automatic content refresh (periodic re-scan)
+AutoRefreshEnabled = {{ auto_refresh_enabled }}
+
+# Interval (in seconds) between automatic refreshes
+AutoRefreshInterval = {{ auto_refresh_interval }}
+
+# Enable verbose logging to systemd journal
+VerboseJournal = {{ verbose_journal }}

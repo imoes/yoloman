@@ -1,0 +1,64 @@
+# FireHOL - IPv4 stateful packet filter for Linux
+# Defines interface rules, allowed services, and security policies
+
+# Define the default policy for incoming and outgoing traffic
+{% if default_policy_in != '' %}# Default incoming policy: {{ default_policy_in }}
+{% endif %}{{ 'start' }}{% if default_policy_in %}# Default incoming policy: {{ default_policy_in }}
+{% endif %}
+{% if default_policy_out != '' %}# Default outgoing policy: {{ default_policy_out }}
+{% endif %}{{ 'start' }}{% if default_policy_out %}# Default outgoing policy: {{ default_policy_out }}
+{% endif %}
+
+# Global interface rules: per-interface security policies
+{% for iface in interfaces %}# Interface: {{ iface.name }} — traffic direction: {{ iface.direction }}
+{% if iface.comment %}# {{ iface.comment }}
+{% endif %}{{ 'start' }}interface {{ iface.direction }} {{ iface.name }} {
+{%   if iface.mode %}  mode "{{ iface.mode }}"
+{%   endif %}
+{%   if iface.policy %}  policy {{ iface.policy }}
+{%   endif %}
+{%   if iface.routed %}  routed {{ 'yes' if iface.routed == True else 'no' }}
+{%   endif %}
+{%   if iface.dns %}  dns accept
+{%   endif %}
+{%   if iface.https %}  https accept
+{%   endif %}
+{%   if iface.http %}  http accept
+{%   endif %}
+{%   for service in iface.services %}  service {{ service.name }} {{ service.action }}
+{%   endfor %}
+}
+
+{% endfor %}
+
+# Advanced rules: explicit service definitions
+{% for svc in services %}# Custom service: {{ svc.name }} — protocol: {{ svc.protocol }}, ports: {{ svc.ports | join(', ') }}
+{% if svc.comment %}# {{ svc.comment }}
+{% endif %}{{ 'start' }}server {{ svc.name }} accept src {{ svc.src | default('any') }} port {{ svc.ports | join(', ') }} proto {{ svc.protocol }}
+
+{% endfor %}
+
+# IP sets: block/allow lists
+{% for ipset in ipsets %}# IP set: {{ ipset.name }} — type: {{ ipset.type }}
+{% if ipset.comment %}# {{ ipset.comment }}
+{% endif %}{{ 'start' }}ipset --type {{ ipset.type }} {{ ipset.name }}
+{% for entry in ipset.entries %}ipset add {{ ipset.name }} {{ entry }}
+{% endfor %}
+
+{% endfor %}
+
+# Logging options
+{% if log_level != '' %}# Logging level: {{ log_level }}
+{% endif %}{{ 'start' }}{% if log_level %}log_level {{ log_level }}
+{% endif %}
+
+# Enable/disable packet forwarding
+{% if ip_forward != '' %}# IP forwarding: {{ 'enabled' if ip_forward == True else 'disabled' }}
+{% endif %}{{ 'start' }}{% if ip_forward is true %}ip_forward yes
+{% elif ip_forward is false %}ip_forward no
+{% endif %}
+
+# Additional options (passed directly)
+{% for line in extra_lines %}# {{ line }}
+{% endfor %}{{ 'start' }}{% for line in extra_lines %}{{ line }}
+{% endfor %}

@@ -1,0 +1,51 @@
+{
+  "broker_url": "redis://redis.internal:6379/0",
+  "result_backend": "redis://redis.internal:6379/1",
+  "task_serializer": "json",
+  "result_serializer": "json",
+  "accept_content": [
+    "json"
+  ],
+  "task_time_limit": 300,
+  "task_soft_time_limit": 240,
+  "worker_max_tasks_per_child": 10000,
+  "worker_concurrency": 4,
+  "worker_prefetch_multiplier": 1,
+  "task_default_queue": "celery",
+  "task_routes": [
+    {
+      "exchange": "",
+      "queue": "high_priority",
+      "routing_key": "priority.high"
+    },
+    {
+      "exchange": "",
+      "queue": "low_priority",
+      "routing_key": "priority.low"
+    }
+  ],
+  "task_result_expires": 86400,
+  "task_rate_limit": "50/m",
+  "timezone": "UTC",
+  "worker_send_events": true,
+  "worker_log_level": "INFO",
+  "beat_schedule": {
+    "daily-report": {
+      "task": "app.tasks.generate_daily_report",
+      "schedule": "0 2 * * *",
+      "args": [],
+      "kwargs": {
+        "report_type": "summary"
+      }
+    },
+    "cleanup": {
+      "task": "app.tasks.cleanup_stale_sessions",
+      "schedule": 3600,
+      "args": [],
+      "kwargs": {}
+    }
+  },
+  "task_eager_propagates": false,
+  "task_acks_late": true,
+  "task_reject_on_worker_lost": true
+}

@@ -1,0 +1,43 @@
+# fence_virtd configuration
+# Listen on these network interfaces (IPv4 or IPv6)
+# Supports multiple interfaces for redundancy
+interface = [
+{% for iface in listen_interfaces %}
+  "{{ iface.name }}"{% if iface.address %} address = "{{ iface.address }}"{% endif %}{% if iface.port %} port = {{ iface.port }}{% endif %}
+{% if not loop.last %},{% endif %}
+{% endfor %}
+];
+
+# Authentication key file for secure communication
+key_file = "{{ key_file }}";
+
+# Backend modules to use (e.g., libvirt, xen, etc.)
+backend = [
+{% for mod in backends %}
+  "{{ mod.name }}"{% if mod.timeout %} timeout = {{ mod.timeout }}{% endif %}
+{% if not loop.last %},{% endif %}
+{% endfor %}
+];
+
+# Logging configuration
+log_level = {{ log_level }};
+log_facility = "{{ log_facility }}";
+
+# Enable IPv6 support?
+ipv6 = {{ ipv6 | lower }};
+
+# Maximum number of concurrent client connections
+max_connections = {{ max_connections }};
+
+# PEM certificate and key files for TLS (optional)
+{% if tls_enabled %}
+tls_cert = "{{ tls_cert }}";
+tls_key = "{{ tls_key }}";
+tls_ca_cert = "{{ tls_ca_cert }}";
+{% endif %}
+
+# Domain socket path for local agent communication
+socket_path = "{{ socket_path }}";
+
+# Default timeout for operations (seconds)
+default_timeout = {{ default_timeout }};

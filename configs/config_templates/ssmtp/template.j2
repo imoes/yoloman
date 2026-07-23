@@ -1,0 +1,58 @@
+# The user or machine that receives root mail (required)
+# Used as 'From: root@...' in root's outgoing mail
+root={{ root_user }}
+
+# The mail server (SMTP relay) to use for outbound mail
+# Format: host[:port]; port defaults to 25 if omitted
+mailhub={{ mailhub }}
+
+# Whether to use TLS/SSL encryption for the connection
+# Set to 'YES' if the relay supports STARTTLS or SSL
+UseTLS={{ use_tls | string | upper }}
+
+# Whether to use STARTTLS explicitly (if UseTLS is YES, this may be optional)
+UseSTARTTLS={{ use_starttls | string | upper }}
+
+# Hostname to present in the SMTP HELO/EHLO command
+# If empty, the system's hostname is used
+Hostname={{ hostname | default('') }}
+
+# Whether to rewrite the 'From:' header to match the relay's domain
+# Set to 'YES' to replace local addresses (e.g., root@localhost) with user@domain
+FromLineOverride={{ from_line_override | string | upper }}
+
+# Optional: Auth credentials for the mail hub (if required by relay)
+# Format: username:password
+AuthUser={{ auth_user | default('') }}
+AuthPass={{ auth_pass | default('') }}
+
+# Optional: Override the email address used in 'From:' for non-root users
+# If not set, defaults to 'username@hostname'
+# Example: AuthUser=mailuser@mydomain.com
+#          # (this is typically handled by FromLineOverride=NO and mailhub config)
+
+# Optional: Add additional SMTP options (e.g., TLS options, debug)
+# Values: DEBUG, TLS_VERSION=..., CIPHERS=..., etc.
+# (Note: ssmtp has limited options; only supported ones are listed here)
+#{{ debug | if('') }}# Debug=TRUE
+#{{ debug | endif }}
+
+# Optional: Certificate verification (only when UseTLS=YES)
+# Set to 'NO' to skip CA cert verification (insecure, for testing only)
+TLSCertCheck={{ tls_cert_check | string | upper }}
+
+# Optional: Allow rewriting of 'From:' header for all users (not just root)
+# Set to 'YES' to force all outgoing mail to appear from the configured mailhub domain
+# (Note: FromLineOverride above applies only to root by default; this extends it)
+RewriteDomain={{ rewrite_domain | default('') }}
+
+# Optional: Default domain to append to addresses missing a domain part
+# E.g., 'localhost' or 'example.com'
+# If empty, no domain is appended (addresses must be fully qualified)
+RewriteDomain={{ default_domain | default('') }}
+
+# Optional: Set the location of the CA certificate bundle for TLS verification
+# Common: /etc/ssl/certs/ca-certificates.crt (Debian/Ubuntu) or /etc/pki/tls/certs/ca-bundle.crt (RHEL)
+{% if ca_cert_file %}
+TLSCAInfo={{ ca_cert_file }}
+{% endif %}

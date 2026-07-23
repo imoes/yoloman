@@ -1,0 +1,38 @@
+# Use NTP servers for fallback synchronization
+{% for server in ntp_servers %}server {{ server.host }} iburst{% endfor %}
+
+# Allow NTP clients on the local network
+{% if allow_ntp_clients %}allow {{ allow_ntp_clients_subnet }}{% endif %}
+
+# USB GPS reference clock via NMEA driver
+refclock USB /dev/ttyACM0 refid USB precision 1e-3 noselect
+
+# Enable hardware timestamping if supported (optional)
+{% if enable_hwtimestamp %}hwtimestamp *{% endif %}
+
+# Logging configuration
+log measurements statistics tracking
+logdir {{ log_dir }}
+maxlogage {{ max_log_age_hours }}h
+
+# Step first few boots to correct large offsets quickly
+initstepslew {{ init_stepslew_threshold }} {{ init_stepslew_servers | join(' ') }}
+
+# RTI (Rate Timing Interface) for smooth rate estimation
+rti {{ rti_interval }}
+
+# Set system clock to UTC
+makestep {{ makestep_threshold }} {{ max_steps }}
+
+# Key file and command socket
+keyfile {{ keyfile_path }}
+commandkey {{ command_key }}
+commandport {{ command_port }}
+
+# Drift file and RTC settings
+driftfile {{ drift_file_path }}
+rtcfile {{ rtc_file_path }}
+rtcsync
+
+# Leap seconds file
+leapsectz {{ leap_seconds_tz }}

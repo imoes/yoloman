@@ -1,0 +1,269 @@
+{
+  "enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable or disable the scheduler service. When disabled, the scheduler will not accept jobs."
+  },
+  "log_level": {
+    "type": "string",
+    "default": "INFO",
+    "description": "Logging level for scheduler logs. Common values: DEBUG, INFO, WARNING, ERROR, CRITICAL."
+  },
+  "log_file": {
+    "type": "string",
+    "default": "/var/log/nova/nova-scheduler.log",
+    "description": "Path to the scheduler log file."
+  },
+  "host": {
+    "type": "string",
+    "default": "controller",
+    "description": "Hostname of the host running the scheduler service. Must be resolvable by other services."
+  },
+  "workers": {
+    "type": "number",
+    "default": 1,
+    "description": "Number of worker processes for the scheduler. Increase for higher throughput or concurrency."
+  },
+  "host_state_cache_ttl": {
+    "type": "number",
+    "default": 300,
+    "description": "Time-to-live (in seconds) for cached host state. Reduces database load but may delay visibility of host changes."
+  },
+  "scheduler_default_filters": {
+    "type": "list",
+    "default": [
+      {
+        "name": "RetryFilter",
+        "description": "Retry hosts that previously failed",
+        "enabled": true
+      },
+      {
+        "name": "AvailabilityZoneFilter",
+        "description": "Filter based on availability zone",
+        "enabled": true
+      },
+      {
+        "name": "RamFilter",
+        "description": "Filter based on available RAM",
+        "enabled": true
+      },
+      {
+        "name": "DiskFilter",
+        "description": "Filter based on available disk space",
+        "enabled": true
+      },
+      {
+        "name": "CoreFilter",
+        "description": "Filter based on available CPU cores",
+        "enabled": true
+      },
+      {
+        "name": "ImagePropertiesFilter",
+        "description": "Filter based on image properties (e.g., architecture)",
+        "enabled": true
+      },
+      {
+        "name": "ServerGroupAffinityFilter",
+        "description": "Respects server group anti-affinity",
+        "enabled": true
+      },
+      {
+        "name": "ServerGroupAntiAffinityFilter",
+        "description": "Respects server group anti-affinity",
+        "enabled": true
+      }
+    ],
+    "description": "List of scheduler filter classes to apply by default. Each element defines the filter name, description, and whether it\u2019s enabled.",
+    "items": {
+      "name": {
+        "type": "string",
+        "description": "Fully-qualified filter class name (e.g., nova.scheduler.filters.retry_filter.RetryFilter)"
+      },
+      "description": {
+        "type": "string",
+        "description": "Short human-readable description of the filter's purpose"
+      },
+      "enabled": {
+        "type": "bool",
+        "default": true,
+        "description": "Whether this filter is active"
+      }
+    }
+  },
+  "scheduler_weight_multiplier": {
+    "type": "list",
+    "default": [
+      {
+        "name": "AvailabilityZoneFilter",
+        "description": "Boost or penalize hosts based on zone proximity",
+        "multiplier": 1.0
+      },
+      {
+        "name": "RamFilter",
+        "description": "Prefer hosts with more free RAM",
+        "multiplier": 1.0
+      },
+      {
+        "name": "DiskFilter",
+        "description": "Prefer hosts with more free disk",
+        "multiplier": 1.0
+      },
+      {
+        "name": "CoreFilter",
+        "description": "Prefer hosts with fewer used vCPUs",
+        "multiplier": 1.0
+      }
+    ],
+    "description": "List of scheduler weights and their multiplier values (used to bias selection after filtering).",
+    "items": {
+      "name": {
+        "type": "string",
+        "description": "Fully-qualified weight class name (e.g., nova.scheduler.weights.availability_zone.AvailabilityZoneWeigher)"
+      },
+      "description": {
+        "type": "string",
+        "description": "Purpose of the weigher"
+      },
+      "multiplier": {
+        "type": "number",
+        "default": 1.0,
+        "description": "Multiplier for this weigher (can be negative to penalize)"
+      }
+    }
+  },
+  "scheduler_manager": {
+    "type": "string",
+    "default": "nova.scheduler.manager.SchedulerManager",
+    "description": "Scheduler manager class (controls how scheduler logic is invoked)."
+  },
+  "scheduler_max_retries": {
+    "type": "number",
+    "default": 3,
+    "description": "Maximum number of attempts the scheduler will make to find a suitable host before failing."
+  },
+  "scheduler_retry_delay": {
+    "type": "number",
+    "default": 2,
+    "description": "Delay (in seconds) between scheduler retries. Helps avoid transient failures."
+  },
+  "ram_allocation_ratio": {
+    "type": "number",
+    "default": 1.5,
+    "description": "RAM overcommit ratio (physical RAM \u00d7 ratio = available RAM for instances). Values >1 enable overcommit."
+  },
+  "cpu_allocation_ratio": {
+    "type": "number",
+    "default": 16.0,
+    "description": "CPU overcommit ratio (physical cores \u00d7 ratio = available vCPUs for instances). Values >1 enable overcommit."
+  },
+  "disk_allocation_ratio": {
+    "type": "number",
+    "default": 1.0,
+    "description": "Disk overcommit ratio. Usually 1.0 (no overcommit) for predictable disk use."
+  },
+  "reserved_host_memory_mb": {
+    "type": "number",
+    "default": 512,
+    "description": "Amount of RAM (in MB) reserved for the host OS and system processes."
+  },
+  "reserved_host_disk_mb": {
+    "type": "number",
+    "default": 1024,
+    "description": "Amount of disk space (in MB) reserved for the host OS and system processes."
+  },
+  "image_traits_filter_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable filtering based on image traits (e.g., hardware requirements like GPU or firmware)."
+  },
+  "aggregate_instance_limit_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable limiting per-availability-zone or per-host instance counts via aggregates."
+  },
+  "numa_topology_filter_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable NUMA-aware scheduling (matches guest NUMA topology to host NUMA layout)."
+  },
+  "trust_filter_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable trust-aware scheduling (e.g., for trusted computing or secure boot support)."
+  },
+  "image_type_filter_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable filtering by image type (e.g., baremetal vs virtual machine)."
+  },
+  "pci_passthrough_filter_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable filtering based on PCI passthrough device availability."
+  },
+  "traits_filter_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable custom resource class / trait-based scheduling."
+  },
+  "availability_zone_filter_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable filtering by availability zones specified in the request."
+  },
+  "io_weight_filter_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable I/O-based scheduling (e.g., for high-throughput or low-latency workloads)."
+  },
+  "server_group_affinity_filter_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Respect server group affinity rules (schedule together when possible)."
+  },
+  "server_group_anti_affinity_filter_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Respect server group anti-affinity rules (schedule on different hosts when required)."
+  },
+  "zone_filter_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable cross-zone scheduling (allow scheduling to hosts outside the requested zone)."
+  },
+  "host_manager": {
+    "type": "string",
+    "default": "nova.scheduler.host_manager.HostManager",
+    "description": "Class responsible for managing host state and capabilities."
+  },
+  "scheduler_driver": {
+    "type": "string",
+    "default": "nova.scheduler.filter_scheduler.FilterScheduler",
+    "description": "Scheduler driver class (e.g., FilterScheduler, RetryScheduler, ChanceScheduler)."
+  },
+  "use_cached_state": {
+    "type": "bool",
+    "default": true,
+    "description": "Use cached host state for scheduling decisions instead of querying the database each time."
+  },
+  "scheduler_stats_driver": {
+    "type": "string",
+    "default": "nova.scheduler.stats.StatsDriver",
+    "description": "Driver class for collecting and reporting scheduler statistics."
+  },
+  "update_host_state_interval": {
+    "type": "number",
+    "default": 60,
+    "description": "Interval (in seconds) between host state updates. Increase for large deployments to reduce load."
+  },
+  "scheduler_metrics_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable scheduler metrics collection (used for monitoring and analysis)."
+  },
+  "scheduler_metrics_cache_path": {
+    "type": "string",
+    "default": "/var/lib/nova/scheduler_metrics",
+    "description": "Path to store scheduler metrics cache (used when metrics are enabled)."
+  }
+}

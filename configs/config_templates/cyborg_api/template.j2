@@ -1,0 +1,73 @@
+[DEFAULT]
+# Global debug mode (verbose logging)
+{% if debug %}debug = true{% else %}debug = false{% endif %}
+
+# Logging level
+log_level = {{ log_level }}
+
+# Log file path (empty for stderr)
+{% if log_file %}log_file = {{ log_file }}{% endif %}
+
+# Hostname/IP the API service listens on
+bind_host = {{ bind_host }}
+
+# Port the API service listens on
+bind_port = {{ bind_port }}
+
+# Maximum number of workers for the API service
+{% if api_workers %}workers = {{ api_workers }}{% endif %}
+
+# Enable SSL/TLS for the API endpoint
+{% if enable_ssl %}ssl_cert_file = {{ ssl_cert_file }}
+ssl_key_file = {{ ssl_key_file }}{% endif %}
+
+[api]
+# Enable CORS headers (for cross-origin requests)
+enable_cors = {{ enable_cors }}
+
+# Allowed origins for CORS (comma-separated list or wildcard)
+{% if cors_allowed_origins | length > 0 %}cors_allowed_origins = {{ cors_allowed_origins | join(', ') }}{% endif %}
+
+# Rate limiting settings
+{% if rate_limiting_enabled %}rate_limit_enable = true
+rate_limit_threshold = {{ rate_limit_threshold }}
+rate_limit_period = {{ rate_limit_period }}{% else %}rate_limit_enable = false{% endif %}
+
+[keystone_authtoken]
+# Identity service (Keystone) authentication configuration
+auth_type = {{ keystone_auth_type }}
+auth_url = {{ keystone_auth_url }}
+project_domain_name = {{ keystone_project_domain_name }}
+user_domain_name = {{ keystone_user_domain_name }}
+project_name = {{ keystone_project_name }}
+username = {{ keystone_username }}
+password = {{ keystone_password }}
+{% if keystone_interface %}interface = {{ keystone_interface }}{% endif %}
+
+# TLS verification settings for Keystone
+{% if keystone_cafile %}cafile = {{ keystone_cafile }}{% endif %}
+{% if keystone_insecure | lower == 'true' %}insecure = true{% else %}insecure = false{% endif %}
+
+[driver]
+# Default acceleration device driver
+{% if default_driver %}default_driver = {{ default_driver }}{% endif %}
+
+[resource_tracker]
+# Resource tracking refresh interval (seconds)
+{% if resource_tracker_interval %}resource_tracker_interval = {{ resource_tracker_interval }}{% endif %}
+
+[accelerator]
+# Accelerator device discovery and management settings
+{% if accelerator_discovery_auto %}auto_discovery = true{% else %}auto_discovery = false{% endif %}
+
+# List of known accelerators (manually configured devices)
+{% for dev in known_accelerators %}# Device: {{ dev.name }}
+{{ dev.name }}_device_id = {{ dev.device_id }}
+{{ dev.name }}_vendor = {{ dev.vendor }}
+{{ dev.name }}_model = {{ dev.model }}
+{{ dev.name }}_accel_type = {{ dev.accel_type }}
+{% endfor %}
+
+[database]
+# Database connection string (SQLAlchemy format)
+connection = {{ db_connection }}

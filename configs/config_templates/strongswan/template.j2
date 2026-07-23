@@ -1,0 +1,58 @@
+# /etc/ipsec.conf - StrongSwan IPsec configuration file
+#
+# This file configures IPsec connections. StrongSwan uses a simple,
+# hierarchical syntax to define tunnels, authentication, and policies.
+
+config setup
+    # Virtual IP pool forroadcast clients (used in IKEv2 mode)
+    virtual_private=%v4:10.0.0.0/8,%v4:192.168.0.0/16,%v4:172.16.0.0/12,%v6:fd00::/8,%v6:fe80::/10
+    # Enable CRL checking (off = disabled, pem = check CRLs in PEM format)
+    crlcheckinterval={{ values.crl_check_interval }}
+    # Log level: 0=none, 1=basic, 2=more, 3=all, 4=raw (max)
+    charondebug="{{ values.charon_debug }}"
+    # Strict IKE SA rekeying (yes = strict enforcement, no = lenient)
+    strictcrlpolicy={{ values.strict_crl_policy | lower }}
+    # Enable NAT traversal
+    nat_traversal={{ values.nat_traversal | lower }}
+    # Disable dead peer detection by default (per-conn override recommended)
+    dpdaction={{ values.dpd_action }}
+    dpddelay={{ values.dpd_delay }}
+    dpdtimeout={{ values.dpd_timeout }}
+    # Disable IKEv1 support if not needed
+    ikelifetime={{ values.ike_lifetime }}
+    keylife={{ values.key_lifetime }}
+
+{% for conn in values.connections %}
+# Connection: {{ conn.name }}
+conn {{ conn.name }}
+    # Connection type: roadwarrior (client-to-site), site-to-site (host-to-host)
+    type={{ conn.type }}
+    # IKE version to use: 1, 2, or 0 (auto)
+    ike={{ conn.ike_version }}
+    # ESP cipher suite (e.g., aes256-sha256-modp2048)
+    esp={{ conn.esp_suite }}
+    # Authentication method: pubkey, psk, eap-[tls|md5|pwd|mschapv2], hybrid
+    authby={{ conn.auth_by }}
+    # Local identity (host or user FQDN); e.g., %defaultroute, @vpn.example.com
+    left={{ conn.left }}
+    leftid={{ conn.left_id }}
+    leftsubnet={{ conn.left_subnet | join(', ') }}
+    leftcert={{ conn.left_cert }}
+    # Remote identity / gateway
+    right={{ conn.right }}
+    rightid={{ conn.right_id }}
+    rightsubnet={{ conn.right_subnet | join(', ') }}
+    # For EAP clients: allow all or restrict to specific EAP method
+{% if conn.right_sourceip %}
+    rightsourceip={{ conn.right_sourceip }}
+{% endif %}
+{% if conn.eap_identity %}
+    eap_identity={{ conn.eap_identity }}
+{% endif %}
+    # Dead peer detection (per-connection override)
+    dpdaction={{ conn.dpd_action | default(values.dpd_action) }}
+    dpddelay={{ conn.dpd_delay | default(values.dpd_delay) }}
+    dpdtimeout={{ conn.dpd_timeout | default(values.dpd_timeout) }}
+    # Auto-start behavior: start, add, route, ignore
+    auto={{ conn.auto }}
+{% endfor %}

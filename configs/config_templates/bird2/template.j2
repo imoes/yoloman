@@ -1,0 +1,104 @@
+# BIRD v2 configuration — automatically generated; do not edit manually
+# Global router ID (used in BGP, OSPF, etc.)
+bird {
+  router id {{ router_id }};
+}
+
+# Enable protocol logging to syslog
+log syslog all;
+
+# IPv4 protocol — manages kernel routing table
+protocol direct {
+  ipv4;
+  # Routes installed via kernel interface (e.g., local subnets)
+  interface "*";
+}
+
+# Kernel protocol — imports kernel routes into BIRD
+protocol kernel {
+  ipv4 {
+    import all;
+    export all;
+  };
+}
+
+# Static routes
+{% for route in static_routes %}
+protocol static {
+  ipv4 {
+    route {{ route.prefix }} {{ route.gateway }};
+  };
+}
+{% endfor %}
+
+# BGP sessions
+{% for bgp in bgp_peers %}
+protocol bgp {{ bgp.name | default('bgp_' ~ loop.index) }} {
+  local as {{ bgp.local_as }};
+  neighbor {{ bgp.ip }} as {{ bgp.remote_as }};
+  {
+    {
+      {
+        description "{{ bgp.description | default('BGP peer ' ~ bgp.ip) }}";
+      }
+    };
+  };
+  ipv4 {
+    import filter {
+      # Only accept prefixes matching allowed list
+      if (net ~ {{ bgp.in_prefix_filter | default('[]') | join(', ') }}) then accept;
+      else reject;
+    };
+    export filter {
+      if (net ~ {{ bgp.out_prefix_filter | default('[]') | join(', ') }}) then accept;
+      else reject;
+    };
+  };
+  {
+    {
+      {
+        next hop self;
+      }
+    };
+  };
+}
+{% endfor %}
+
+# OSPF areas (if enabled)
+{% if enable_ospf %}
+protocol ospf {{ ospf_instance_name | default('ospf1') }} {
+  ipv4 {
+    area {{ ospf_area_id | default('0.0.0.0') }} {
+      interface "{{ ospf_interface }}" {
+        cost {{ ospf_cost }};
+      };
+    };
+  };
+}
+{% endif %}
+
+# BGP route reflection (optional)
+{% if bgp_rr_enabled %}
+protocol bgp {{ bgp_rr_name | default('rr') }} {
+  local as {{ bgp_rr_local_as }};
+  {
+    {
+      {
+        description "BGP Route Reflector";
+      }
+    };
+  };
+  ipv4 {
+    import all;
+    export all;
+    {
+      {
+        {
+          next hop self;
+          rr cluster id {{ bgp_rr_cluster_id }};
+        };
+      };
+    };
+  };
+}
+{% endif %}

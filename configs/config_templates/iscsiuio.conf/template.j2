@@ -1,0 +1,62 @@
+# iSCSI User Mode Initiator daemon configuration
+# This file controls the behavior of iscsiuio, the user-space iSCSI target service.
+# See `man iscsiuio.conf` for full documentation.
+
+[general]
+# Enable verbose logging
+# Set logging level: 0=silent, 1=error, 2=warn, 3=info, 4=debug
+loglevel = {{ loglevel }}
+
+# Directory where runtime PID files are stored
+# Path must be writable by the iscsiuio user
+pidfile = {{ pidfile }}
+
+# Number of worker threads for handling I/O and sessions
+# Increasing improves throughput on multi-core systems
+num_threads = {{ num_threads }}
+
+# TCP port for the management interface (0 to disable)
+# Allows external tools (e.g., `iscsiadm`) to query runtime state
+mgmt_port = {{ mgmt_port }}
+
+# Hostname bound to for the management interface
+# Use `0.0.0.0` to listen on all interfaces
+mgmt_host = "{{ mgmt_host }}"
+
+[defaults]
+# Default discovery address for sendtargets operations
+default_discovery_addr = "{{ default_discovery_addr }}"
+
+# Default discovery port
+default_discovery_port = {{ default_discovery_port }}
+
+# Enable auto-login after successful discovery
+# If true, sessions are logged in automatically on discovery
+default_autologin = {{ default_autologin | lower }}
+
+# Default timeout for login operations (seconds)
+default_login_timeout = {{ default_login_timeout }}
+
+# Default reconnection attempts before giving up
+default_max_reconnect = {{ default_max_reconnect }}
+
+# Default reconnection backoff interval (seconds)
+default_reconnect_interval = {{ default_reconnect_interval }}
+
+# Enable delayed startup (to wait for network devices)
+delay_start = {{ delay_start | lower }}
+
+# Delay duration if `delay_start` is true (seconds)
+delay_start_seconds = {{ delay_start_seconds }}
+
+# Optional: per-session defaults (optional section)
+# Define common parameters for dynamically discovered targets
+# Each item is applied to any newly discovered session unless overridden
+{% for session in session_defaults %}
+[session.{{ loop.index }}]
+# Description: {{ session.description | default('No description') }}
+node.session.timeo.replacement_timeout = {{ session.replacement_timeout }}
+node.session.err_timeo.abort_timeout = {{ session.abort_timeout }}
+node.session.err_timeo.reset_timeout = {{ session.reset_timeout }}
+node.session.iscsi.MaxRecvDataSegmentLength = {{ session.max_recv_data_segment_length }}
+{% endfor %}

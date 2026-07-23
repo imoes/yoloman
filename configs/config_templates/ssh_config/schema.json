@@ -1,0 +1,185 @@
+{
+  "connect_timeout": {
+    "type": "number",
+    "default": 10,
+    "description": "Maximum time (in seconds) to wait for connection establishment before giving up."
+  },
+  "password_authentication": {
+    "type": "bool",
+    "default": true,
+    "description": "Whether to permit password authentication (yes/no)."
+  },
+  "gssapi_authentication": {
+    "type": "bool",
+    "default": true,
+    "description": "Whether to enable GSSAPI-based authentication (e.g., Kerberos)."
+  },
+  "kex_algorithms": {
+    "type": "list",
+    "default": [
+      "curve25519-sha256",
+      "curve25519-sha256@libssh.org",
+      "ecdh-sha2-nistp256",
+      "ecdh-sha2-nistp384",
+      "ecdh-sha2-nistp521",
+      "diffie-hellman-group-exchange-sha256"
+    ],
+    "description": "Ordered list of key exchange algorithms to attempt, in preference order.",
+    "items": {
+      "type": "string",
+      "description": "A supported key exchange algorithm name."
+    }
+  },
+  "ciphers": {
+    "type": "list",
+    "default": [
+      "chacha20-poly1305@openssh.com",
+      "aes256-gcm@openssh.com",
+      "aes128-gcm@openssh.com",
+      "aes256-ctr",
+      "aes192-ctr",
+      "aes128-ctr"
+    ],
+    "description": "Ordered list of symmetric encryption algorithms to use, in preference order.",
+    "items": {
+      "type": "string",
+      "description": "A supported cipher algorithm name."
+    }
+  },
+  "macs": {
+    "type": "list",
+    "default": [
+      "umac-128-etm@openssh.com",
+      "hmac-sha2-512-etm@openssh.com",
+      "hmac-sha2-256-etm@openssh.com",
+      "umac-128@openssh.com",
+      "hmac-sha2-512",
+      "hmac-sha2-256"
+    ],
+    "description": "Ordered list of message authentication code algorithms, in preference order.",
+    "items": {
+      "type": "string",
+      "description": "A supported MAC algorithm name."
+    }
+  },
+  "compression": {
+    "type": "string",
+    "default": "auto",
+    "description": "Compression mode: 'yes' (zlib), 'no', or 'auto' (compress only if server supports)."
+  },
+  "forward_x11": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable X11 forwarding (for GUI applications over SSH)."
+  },
+  "forward_agent": {
+    "type": "bool",
+    "default": false,
+    "description": "Forward SSH authentication agent connection to the remote host."
+  },
+  "identity_files": {
+    "type": "list",
+    "default": [
+      "~/.ssh/id_rsa",
+      "~/.ssh/id_ecdsa",
+      "~/.ssh/id_ed25519",
+      "~/.ssh/id_xmss"
+    ],
+    "description": "List of identity (private key) files to try when authenticating."
+  },
+  "default_user": {
+    "type": "string",
+    "default": "",
+    "description": "Default username to use when connecting without specifying one. Leave blank to require user specification."
+  },
+  "dynamic_forward_port": {
+    "type": "number",
+    "default": 0,
+    "description": "Port to use for dynamic application-level port forwarding (SOCKS proxy). Set to 0 to disable."
+  },
+  "strict_host_key_checking": {
+    "type": "string",
+    "default": "ask",
+    "description": "Host key verification policy: 'yes' (reject unknown), 'no' (accept any), or 'ask' (prompt)."
+  },
+  "update_host_keys": {
+    "type": "string",
+    "default": "ask",
+    "description": "How to handle host key updates: 'yes', 'no', or 'ask'. Use 'ask' to preserve security while allowing operator review."
+  },
+  "server_alive_interval": {
+    "type": "number",
+    "default": 60,
+    "description": "Seconds between client-to-server keepalive messages to detect dead connections."
+  },
+  "server_alive_count_max": {
+    "type": "number",
+    "default": 3,
+    "description": "Number of keepalive messages without response before terminating the connection."
+  },
+  "log_level": {
+    "type": "string",
+    "default": "INFO",
+    "description": "Verbosity of logging (e.g., INFO, DEBUG, VERBOSE). Use DEBUG for troubleshooting."
+  },
+  "host_entries": {
+    "type": "list",
+    "default": [],
+    "description": "Per-host configuration blocks to override global defaults. Each entry defines settings for matching hosts.",
+    "items": {
+      "type": "object",
+      "fields": {
+        "host_pattern": {
+          "type": "string",
+          "required": true,
+          "description": "Pattern (e.g., `*.example.com`, `prod-*`) or exact hostname to match."
+        },
+        "user": {
+          "type": "string",
+          "required": false,
+          "description": "Username for this host (overrides default user)."
+        },
+        "hostname": {
+          "type": "string",
+          "required": false,
+          "description": "Actual hostname (if different from pattern)."
+        },
+        "port": {
+          "type": "number",
+          "required": false,
+          "description": "SSH port (default: 22)."
+        },
+        "identity_file": {
+          "type": "string",
+          "required": false,
+          "description": "Custom identity file for this host."
+        },
+        "forward_agent": {
+          "type": "bool",
+          "required": false,
+          "description": "Forward agent for this host."
+        },
+        "forward_x11": {
+          "type": "bool",
+          "required": false,
+          "description": "Forward X11 for this host."
+        },
+        "password_auth": {
+          "type": "bool",
+          "required": false,
+          "description": "Enable password auth for this host."
+        },
+        "proxy_jump": {
+          "type": "string",
+          "required": false,
+          "description": "Jump host(s) to connect through (format: `user@host:port` or nested with commas)."
+        },
+        "local_forward": {
+          "type": "string",
+          "required": false,
+          "description": "Local port forwarding rule (format: `local_port:remote_host:remote_port`)."
+        }
+      }
+    }
+  }
+}

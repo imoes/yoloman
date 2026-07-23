@@ -1,0 +1,58 @@
+# pyroman - Fast Firewall Configuration Tool
+# Global settings for the firewall engine
+set mode {{ mode }}
+set stateful {{ stateful | lower }}
+
+# Default policies
+set default.input {{ default_policy.input | lower }}
+set default.output {{ default_policy.output | lower }}
+set default.forward {{ default_policy.forward | lower }}
+
+# Resource limits
+set connection.table.size {{ conn_table_size }}
+set connection.tracking.max {{ conn_tracking_max }}
+set packet.buffer.size {{ packet_buffer_size }}
+
+# Logging
+set log.level {{ log_level }}
+{% if log_facility %}set log.facility {{ log_facility }}{% endif %}
+
+# Interfaces
+{% for iface in interfaces %}
+# Interface: {{ iface.name }}
+add interface {{ iface.name }} zone={{ iface.zone }} {% if iface.mtu %}mtu={{ iface.mtu }}{% endif %} {% if iface.comment %}# {{ iface.comment }}{% endif %}
+{% endfor %}
+
+# Zones
+{% for zone in zones %}
+# Zone: {{ zone.name }}
+add zone {{ zone.name }} {% if zone.description %}# {{ zone.description }}{% endif %}
+{% endfor %}
+
+# Zone assignments
+{% for assignment in zone_assignments %}
+# Assign interface {{ assignment.interface }} to zone {{ assignment.zone }}
+add zone assignment interface={{ assignment.interface }} zone={{ assignment.zone }}
+{% endfor %}
+
+# NAT rules
+{% for nat in nat_rules %}
+# NAT: {{ nat.name }}
+add nat {{ nat.type }} interface={{ nat.interface }} src={{ nat.source | default('any') }} dst={{ nat.destination | default('any') }}{% if nat.comment %} # {{ nat.comment }}{% endif %}
+{% endfor %}
+
+# Filter rules
+{% for rule in filter_rules %}
+# Rule: {{ rule.name }}
+add filter {{ rule.chain }} action={{ rule.action }} proto={{ rule.protocol | default('any') }} src={{ rule.source | default('any') }} dst={{ rule.destination | default('any') }} port={{ rule.port | default('any') }}{% if rule.comment %} # {{ rule.comment }}{% endif %}
+{% endfor %}
+
+# Time-based rules
+{% for time_rule in time_based_rules %}
+# Time rule: {{ time_rule.name }}
+add time rule {{ time_rule.name }} zone={{ time_rule.zone }} start={{ time_rule.start }} end={{ time_rule.end }} action={{ time_rule.action }}
+{% endfor %}
+
+# DNS-specific settings
+set dns.spoof.protection {{ dns_spoof_protection | lower }}
+set dns.log.queries {{ dns_log_queries | lower }}

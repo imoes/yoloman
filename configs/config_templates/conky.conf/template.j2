@@ -1,0 +1,148 @@
+# conky configuration file — main settings
+[settings]
+# Whether to run as a background daemon
+daemon = {{ daemon }}
+
+# Update interval in seconds
+update_interval = {{ update_interval }}
+
+# Total number of updates between re-draws (set to 0 to disable double buffering)
+total_run_times = {{ total_run_times }}
+
+# Use X11 or wayland (if supported)
+use_x11 = {{ use_x11|lower }}
+
+# Use wayland (for modern compositors)
+use_wayland = {{ use_wayland|lower }}
+
+# Font to use for text rendering
+font = {{ font }}
+
+# Show supported fonts (for debugging)
+show_graph_scale = {{ show_graph_scale|lower }}
+show_graph_range = {{ show_graph_range|lower }}
+
+# Text alignment: left, right, center
+alignment = {{ alignment }}
+
+# Gap between text and window edges (in pixels)
+gap_x = {{ gap_x }}
+gap_y = {{ gap_y }}
+
+# Minimum width and height of the window
+minimum_width = {{ minimum_width }}
+minimum_height = {{ minimum_height }}
+
+# Maximum width and height of the window (0 = unlimited)
+maximum_width = {{ maximum_width }}
+maximum_height = {{ maximum_height }}
+
+# Whether to draw borders, outlines, or boxes
+draw_borders = {{ draw_borders|lower }}
+draw_graph_borders = {{ draw_graph_borders|lower }}
+draw_outline = {{ draw_outline|lower }}
+draw_shades = {{ draw_shades|lower }}
+draw_window_borders = {{ draw_window_borders|lower }}
+
+# Border thickness in pixels
+border_width = {{ border_width }}
+border_margin = {{ border_margin }}
+border_inner_margin = {{ border_inner_margin }}
+
+# Background color (hex or named)
+background = {{ background }}
+
+# Foreground text color (hex or named)
+text_color = {{ text_color }}
+
+# Background text color (for shadowing)
+text_shadow_color = {{ text_shadow_color }}
+
+# Color used for graphs (hex or named)
+graph_color = {{ graph_color }}
+graph_filled = {{ graph_filled|lower }}
+
+# Default color for bar graphs
+bar_fill = {{ bar_fill }}
+bar_outline = {{ bar_outline }}
+bar_bg = {{ bar_bg }}
+
+# Default color for bevels (if drawn)
+bevel_color = {{ bevel_color }}
+bevel_width = {{ bevel_width }}
+
+# Title bar
+use_title_bar = {{ use_title_bar|lower }}
+title_text = {{ title_text }}
+title_bar_bg_color = {{ title_bar_bg_color }}
+title_bar_border_color = {{ title_bar_border_color }}
+title_bar_height = {{ title_bar_height }}
+
+# Window management
+own_window = {{ own_window|lower }}
+own_window_type = {{ own_window_type }}
+own_window_class = {{ own_window_class }}
+own_window_title = {{ own_window_title }}
+own_window_hints = {{ own_window_hints }}
+
+# Transparency (0 = opaque, 1 = fully transparent)
+own_window_transparent = {{ own_window_transparent|lower }}
+own_window_argb = {{ own_window_argb|lower }}
+own_window_argb_value = {{ own_window_argb_value }}
+
+# Override dynamic colors with static ones (if needed)
+override_utf8_locale = {{ override_utf8_locale }}
+
+# Lua initialization (if used)
+lua_load = {{ lua_load }}
+lua_draw_function_prefix = {{ lua_draw_function_prefix }}
+
+# Separator between sections
+separator_char = {{ separator_char }}
+
+# Format numbers with commas
+use_spacer = {{ use_spacer }}
+
+# Disable automatic font scaling
+no_buffers = {{ no_buffers|lower }}
+
+# Round CPU usage to integers
+int_sample = {{ int_sample|lower }}
+
+# Use 24-hour clock
+twenty_four_hour_clock = {{ twenty_four_hour_clock|lower }}
+
+# Enable or disable timezones
+timezone = {{ timezone }}
+
+# Enable Unicode support
+use_utf8 = {{ use_utf8|lower }}
+
+# Extra spacing above/below lines
+extra_newline = {{ extra_newline|lower }}
+
+# Enable or disable Lua functions (if loaded)
+lua_font = {{ lua_font }}
+lua_font_size = {{ lua_font_size }}
+lua_color = {{ lua_color }}
+
+# Disable warnings (not recommended)
+no_updates = {{ no_updates|lower }}
+
+# Preload Lua libraries for advanced features
+lua_code_cache = {{ lua_code_cache }}
+
+# User-defined custom variables (for Lua or template interpolation)
+{% for var in custom_vars %}#{% if var.description %} {{ var.description }}{% endif %}
+{{ var.name }} = {{ var.value | quote_value }}
+{% endfor %}
+
+# Conky sections — each defines a block of information
+{% for section in sections %}
+# {{ section.name }}: {{ section.description or 'section body' }}
+{{ section.name | upper }}
+{
+{% for line in section.body_lines %}  {{ line }}
+{% endfor %}}
+
+{% endfor %}

@@ -1,0 +1,157 @@
+# OsmoBTS configuration file — generated via Jinja2 template
+# Global configuration parameters
+
+# Global BTS configuration block
+bts 0
+  type {{ bts_type }}
+  band {{ band }}
+  arfcn {{ arfcn_start }}{% if arfcn_range > 1 %}
+  arfcn range {{ arfcn_start }} {{ arfcn_start + arfcn_range - 1 }}{% endif %}
+  ms power max {{ ms_power_max }}
+  ms power step {{ ms_power_step }}{% if location_area_code is defined %}
+  location area code {{ location_area_code }}{% endif %}{% if cell_identity is defined %}
+  cell identity {{ cell_identity }}{% endif %}
+  trx 0
+    rf arfcn {{ arfcn_start }}
+    max_power_red {{ power_reduction }}
+    tx power {{ tx_power }}
+  e1_line 0
+    e1_line {{ e1_line_id }}
+    e1_port {{ e1_port_id }}{% if e1_timeslot is defined %}
+    e1_timeslot {{ e1_timeslot }}{% endif %}{% if e1_subslot is defined %}
+    e1_subslot {{ e1_subslot }}{% endif %}
+  ipa unit-id {{ unit_id }}
+  ipa site-id {{ site_id }}
+  ipa bts-id {{ bts_id }}
+  rsl e1 {{ e1_line_id }}/{{ e1_port_id }}/{{ e1_timeslot|default(1) }}
+  oml e1 {{ e1_line_id }}/{{ e1_port_id }}/{{ e1_oml_timeslot|default(0) }}
+  
+  # Scheduler configuration
+  scheduler {{ scheduler_type }}{% if scheduler_tchh_enabled %}
+  scheduler tch/h enabled{% endif %}
+  
+  # Abis/IP transport (if using Abis over IP)
+{% if abis_ip is defined %}  ip
+    bind {{ abis_ip.bind_addr }}
+    remote {{ abis_ip.remote_addr }}
+{% endif %}
+  
+  # LAC/CI override (if per-cell settings needed)
+  lac {{ lac_override|default(location_area_code) }}
+  ci {{ ci_override|default(cell_identity) }}
+  
+  # Timing Advance configuration
+  ta {{ ta_offset }}
+  
+  # Handover parameters
+  ho a3_offset {{ ho_a3_offset }}
+  ho hysteresis {{ ho_hysteresis }}
+  
+  # Power control
+  pwrctl max_delta_dl {{ power_control_max_delta_dl }}
+  pwrctl max_delta_ul {{ power_control_max_delta_ul }}
+  
+  # SI2quater support (for UMTS邻区 in GSM cells)
+  si2quater {{ si2quater_enabled }}{% if si2quater_extra is defined %}
+  si2quater extra {{ si2quater_extra }}{% endif %}
+  
+  # Cell selection/reselection
+  csg {{ csg_enabled }}
+  csg-id {{ csg_id|default(0) }}
+  
+  # TCH/F TCH/H mixed mode
+{% if tch_mixed_mode is defined %}  tch/f tch/h mixed-mode {{ tch_mixed_mode }}{% endif %}
+  
+  # AMR configuration (if used)
+  amr {{ amr_enabled }}{% if amr_thresholds is defined %}
+  amr threshold {{ amr_thresholds.threshold1 }}/{{ amr_thresholds.threshold2 }}{% endif %}
+  
+  # OML/ABIS link keepalive
+  oml keepalive {{ oml_keepalive }}
+  abis keepalive {{ abis_keepalive }}
+
+# BTS-specific logging (if required)
+log level all {{ log_level_all }}
+log level l1 {{ log_level_l1 }}
+log level l2 {{ log_level_l2 }}
+log level l apdu {{ log_level_apdu }}
+log level rsl {{ log_level_rsl }}
+log level oml {{ log_level_oml }}
+log level bssgp {{ log_level_bssgp }}
+log level nsvc {{ log_level_nsvc }}
+log level mgcp {{ log_level_mgmt }}
+log level db {{ log_level_db }}
+
+# BTS-specific timing alignment
+bts 0
+  timing advance {{ ta_offset }}
+  timing alignment {{ timing_alignment }}
+
+# BTS-specific cell reselection parameters (if per-BTS overrides needed)
+# (Some variants place these inside bts N block, others globally —此处按常见实践内嵌)
+# Cell reselection hysteresis
+bts 0
+  cell reselect hysteresis {{ cell_resel_hyst }}
+  cell reselect offset {{ cell_resel_offset }}
+
+# RACH configuration (if non-default)
+bts 0
+  rach tx integer {{ rach_tx_int }}
+  rach max burst {{ rach_max_burst }}
+
+# SDCCH configuration (if non-default)
+bts 0
+  sdcch/full {{ sdcch_full }}
+  sdcch/half {{ sdcch_half }}
+  
+# TCH configuration (if per-BTS overrides needed)
+bts 0
+  tch/f {{ tch_f }}
+  tch/h {{ tch_h }}
+
+# PACCH sharing
+bts 0
+  pacch sharing {{ pacch_sharing_enabled }}
+  
+# GPRS/EDGE support (optional)
+{% if gprs_enabled %}bts 0
+  gprs mode {{ gprs_mode }}
+  egprs mode {{ egprs_enabled }}
+  
+  # BSSGP configuration
+  bssgp
+    nse {{ nse_id }}
+    vbe {{ vbe_id }}
+    bvi {{ bvi_id }}
+    nsvc {{ nsvc_id }}
+  
+  # CELL configuration
+  cell
+    ccch conf {{ ccch_conf }}
+    ccch copies {{ ccch_copies }}
+    bs pa mfrms {{ bs_pa_mfrms }}
+    t3122 {{ t3122 }}
+    bs ag chans {{ bs_ag_chans }}
+    
+  # RLC configuration
+  rlc
+    tdl {{ tdl }}
+    tdu {{ tdu }}
+    bler target {{ bler_target }}
+{% endif %}
+
+# BTS-specific scheduling parameters (e.g., for multi-slot classes)
+bts 0
+  ms multiclass {{ ms_multiclass }}
+  ms power class {{ ms_power_class }}
+  ms rxlev access min {{ ms_rxlev_access_min }}
+
+# BTS-specific neighbor cell lists (if configured manually)
+{% if neighbor_cells is defined %}bts 0
+{% for nc in neighbor_cells %}  neighbor {{ nc.bcc }}/{{ nc.ncc }}/{{ nc.arfcn }}
+{% endfor %}{% endif %}
+
+# BTS-specific Cell Reselection Offset list (if per-BTS)
+{% if csg_cells is defined %}bts 0
+{% for csgc in csg_cells %}  csg-cell {{ csgc.bcc }}/{{ csgc.ncc }}/{{ csgc.arfcn }}/{{ csgc.csg_id }}
+{% endfor %}{% endif %}

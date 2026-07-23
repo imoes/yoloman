@@ -1,0 +1,91 @@
+{# General-Purpose Mail Filter Daemon (mailfromd) configuration file #}
+{# Listen address and port for SMTP connection #}
+SET SMTP_PORT={{ smtp_port }}
+
+{# Network interface(s) to bind to (empty string = all interfaces) #}
+SET SMTP_BINDTO="{{ smtp_bindto | default('') }}"
+
+{# Maximum number of simultaneous connections #}
+SET MAX_CONNECTIONS={{ max_connections }}
+
+{# Timeout values (in seconds) #}
+SET CONNECT_TIMEOUT={{ connect_timeout }}
+SET MAIL_TIMEOUT={{ mail_timeout }}
+SET DATA_TIMEOUT={{ data_timeout }}
+SET COMMAND_TIMEOUT={{ command_timeout }}
+
+{# Maximum message size (in bytes, 0 = unlimited) #}
+SET MAX_MESSAGE_SIZE={{ max_message_size }}
+
+{# Maximum recipients per message #}
+SET MAX_RECIPIENTS={{ max_recipients }}
+
+{# Logging verbosity level: 0=silent, 1=minimal, 2=normal, 3=verbose, 4=debug #}
+SET VERBOSITY={{ verbosity }}
+
+{# PID file location #}
+SET PIDFILE="{{ pidfile }}"
+
+{# Run user and group (must exist) #}
+SET USER="{{ run_user }}"
+SET GROUP="{{ run_group }}"
+
+{# chroot directory (empty string = disabled) #}
+SET CHROOT="{{ chroot }}"
+
+{# Enable/disable TLS support #}
+{% if tls_enabled %}
+SET TLS="yes"
+SET TLS_CERT="{{ tls_cert }}"
+SET TLS_KEY="{{ tls_key }}"
+{% else %}
+SET TLS="no"
+{% endif %}
+
+{# Enable/disable SPF checking #}
+{% if spf_enabled %}
+SET SPF="yes"
+{% else %}
+SET SPF="no"
+{% endif %}
+
+{# Enable/disable greylisting #}
+{% if greylisting_enabled %}
+SET GREYLIST="yes"
+SET GREYLIST_DIR="{{ greylisting_dir }}"
+SET GREYLIST_DELAY={{ greylisting_delay }}
+{% else %}
+SET GREYLIST="no"
+{% endif %}
+
+{# DNSBL (RBL) lists to query — one per line, each as a quoted string #}
+{% for rbl in dnsbl_lists %}
+DNSBL_ADD("{{ rbl }}")
+{% endfor %}
+
+{# MTA relay host (empty string = direct delivery) #}
+SET RELAY="{{ relay_host | default('') }}"
+
+{# Enable/disable SMTP authentication (SASL) #}
+{% if sasl_enabled %}
+SET SASL="yes"
+SET SASL_MECH="{{ sasl_mech | default('PLAIN LOGIN') }}"
+{% else %}
+SET SASL="no"
+{% endif %}
+
+{# Enable/disable rate limiting #}
+{% if rate_limiting_enabled %}
+SET RATE_LIMIT="yes"
+SET RATE_LIMIT_PER_IP={{ rate_limit_per_ip }}
+SET RATE_LIMIT_WINDOW={{ rate_limit_window }}
+{% else %}
+SET RATE_LIMIT="no"
+{% endif %}
+
+{# Additional custom directives (raw text, e.g., macro definitions) #}
+{% if extra_directives %}
+{% for directive in extra_directives %}
+{{ directive }}
+{% endfor %}
+{% endif %}

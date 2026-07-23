@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- GridFTP server configuration for Globus Grid Engine (SGE) job polling via GRAM -->
+<GridFTPConfig xmlns="http://www.globus.org/2007/06/GridFTPConfig">
+  <!-- Enable SGE job polling support for GRAM -->
+  <GridEnginePoll>
+    <!-- Enable SGE job manager polling -->
+    <Enabled>{{ enabled | lower }}</Enabled>
+    <!-- Polling interval in seconds -->
+    <PollInterval>{{ poll_interval }}</PollInterval>
+    <!-- Maximum jobs to fetch per poll cycle -->
+    <MaxJobsPerPoll>{{ max_jobs_per_poll }}</MaxJobsPerPoll>
+    <!-- SGE qmaster hostname or FQDN -->
+    <QmasterHost>{{ qmaster_host }}</QmasterHost>
+    <!-- SGE cell name -->
+    <CellName>{{ cell_name }}</CellName>
+    <!-- SGE root directory (typically /opt/sge or /usr/sge) -->
+    <Sgeroot>{{ sgeroot }}</Sgeroot>
+    <!-- SGE binary directory (usually $SGE_ROOT/bin/lx-amd64 or similar) -->
+    <SgeBin>{{ sge_bin }}</SgeBin>
+    <!-- Path to SGE qstat binary (optional; if omitted, will infer from Sgeroot/SgeBin) -->
+    {% if qstat_path %}<QstatPath>{{ qstat_path }}</QstatPath>{% endif %}
+    <!-- Path to SGE qacct binary (optional; if omitted, will infer from Sgeroot/SgeBin) -->
+    {% if qacct_path %}<QacctPath>{{ qacct_path }}</QacctPath>{% endif %}
+    <!-- List of execution hosts to restrict polling (leave empty for all) -->
+    <ExecutionHosts>
+      {% for host in exec_hosts %}      <Host>{{ host }}</Host>
+      {% endfor %}    </ExecutionHosts>
+    <!-- Enable verbose job status logging (true/false) -->
+    <VerboseJobStatus>{{ verbose_job_status | lower }}</VerboseJobStatus>
+    <!-- Path to job state cache file -->
+    <JobStateCacheFile>{{ job_state_cache_file }}</JobStateCacheFile>
+    <!-- Job state cache TTL in seconds -->
+    <JobStateCacheTTL>{{ job_state_cache_ttl }}</JobStateCacheTTL>
+    <!-- Enable use of SGE pe (parallel environment) info for job matching -->
+    <UsePeInfo>{{ use_pe_info | lower }}</UsePeInfo>
+    <!-- SGE resource limits to map to GRAM job resources (e.g., h_vmem, h_cpu) -->
+    <ResourceLimits>
+      {% for lim in resource_limits %}      <ResourceLimit>
+        <Name>{{ lim.name }}</Name>
+        <Type>{{ lim.type }}</Type>
+        <GlobusAttribute>{{ lim.globus_attr }}</GlobusAttribute>
+      </ResourceLimit>
+      {% endfor %}    </ResourceLimits>
+    <!-- Enable job cleanup after completion (kill orphan SGE jobs on GLOBUS_FAILED) -->
+    <EnableCleanup>{{ enable_cleanup | lower }}</EnableCleanup>
+    <!-- Maximum number of concurrent poll operations -->
+    <MaxConcurrentPolls>{{ max_concurrent_polls }}</MaxConcurrentPolls>
+  </GridEnginePoll>
+</GridFTPConfig>

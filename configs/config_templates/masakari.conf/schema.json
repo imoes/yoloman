@@ -1,0 +1,325 @@
+{
+  "log_file": {
+    "type": "string",
+    "default": "/var/log/masakari/masakari.log",
+    "description": "Path to the Masakari log file."
+  },
+  "debug": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable verbose debug logging."
+  },
+  "host": {
+    "type": "string",
+    "default": "localhost",
+    "description": "Hostname of this Masakari node (must be unique in the cluster)."
+  },
+  "rpc_backend": {
+    "type": "string",
+    "default": "rabbit",
+    "description": "Messaging backend (e.g., rabbit, rabbitmq)."
+  },
+  "rabbit": {
+    "type": "object",
+    "default": {
+      "host": "localhost",
+      "port": 5672,
+      "user": "guest",
+      "password": "guest",
+      "virtual_host": "/",
+      "ssl_enabled": false,
+      "ssl_version": "TLSv1_2",
+      "ssl_ca_certs": "/etc/ssl/certs/ca-certificates.crt"
+    },
+    "description": "RabbitMQ connection settings. Used when rpc_backend = rabbit.",
+    "items": {
+      "host": {
+        "type": "string",
+        "default": "localhost",
+        "description": "RabbitMQ server hostname."
+      },
+      "port": {
+        "type": "number",
+        "default": 5672,
+        "description": "RabbitMQ server port."
+      },
+      "user": {
+        "type": "string",
+        "default": "guest",
+        "description": "RabbitMQ username."
+      },
+      "password": {
+        "type": "string",
+        "default": "guest",
+        "description": "RabbitMQ password."
+      },
+      "virtual_host": {
+        "type": "string",
+        "default": "/",
+        "description": "RabbitMQ virtual host."
+      },
+      "ssl_enabled": {
+        "type": "bool",
+        "default": false,
+        "description": "Enable SSL/TLS for RabbitMQ connection."
+      },
+      "ssl_version": {
+        "type": "string",
+        "default": "TLSv1_2",
+        "description": "SSL/TLS version to use (e.g., TLSv1_2, SSLv23)."
+      },
+      "ssl_ca_certs": {
+        "type": "string",
+        "default": "/etc/ssl/certs/ca-certificates.crt",
+        "description": "Path to CA certificate bundle for SSL verification."
+      }
+    }
+  },
+  "keystone": {
+    "type": "object",
+    "default": {
+      "auth_uri": "http://controller:5000",
+      "auth_url": "http://controller:35357",
+      "auth_type": "password",
+      "project_domain_name": "Default",
+      "user_domain_name": "Default",
+      "project_name": "service",
+      "username": "masakari",
+      "password": "SERVICE_PASSWORD"
+    },
+    "description": "Keystone authentication credentials for Masakari service.",
+    "items": {
+      "auth_uri": {
+        "type": "string",
+        "default": "http://controller:5000",
+        "description": "Public identity endpoint URL."
+      },
+      "auth_url": {
+        "type": "string",
+        "default": "http://controller:35357",
+        "description": "Admin identity endpoint URL."
+      },
+      "auth_type": {
+        "type": "string",
+        "default": "password",
+        "description": "Authentication type (e.g., password, token)."
+      },
+      "project_domain_name": {
+        "type": "string",
+        "default": "Default",
+        "description": "Keystone project domain name."
+      },
+      "user_domain_name": {
+        "type": "string",
+        "default": "Default",
+        "description": "Keystone user domain name."
+      },
+      "project_name": {
+        "type": "string",
+        "default": "service",
+        "description": "Project (tenant) name for service account."
+      },
+      "username": {
+        "type": "string",
+        "default": "masakari",
+        "description": "Keystone service username."
+      },
+      "password": {
+        "type": "string",
+        "default": "SERVICE_PASSWORD",
+        "description": "Keystone service user password."
+      }
+    }
+  },
+  "notification_driver": {
+    "type": "string",
+    "default": "masakari.openstack.common.notifier.rpc_notifier.Notifier",
+    "description": "Primary notification driver to use (e.g., log, noop, rpc)."
+  },
+  "database": {
+    "type": "object",
+    "default": {
+      "connection": "mysql+pymysql://masakari:DATABASE_PASSWORD@controller/masakari"
+    },
+    "description": "Database connection string.",
+    "items": {
+      "connection": {
+        "type": "string",
+        "default": "mysql+pymysql://masakari:DATABASE_PASSWORD@controller/masakari",
+        "description": "SQLAlchemy database connection URI."
+      }
+    }
+  },
+  "ha": {
+    "type": "object",
+    "default": {
+      "enabled": true,
+      "segment_driver": "masakari.ha.driver.nova.NovaHA"
+    },
+    "description": "High Availability configuration.",
+    "items": {
+      "enabled": {
+        "type": "bool",
+        "default": true,
+        "description": "Enable Masakari HA service."
+      },
+      "segment_driver": {
+        "type": "string",
+        "default": "masakari.ha.driver.nova.NovaHA",
+        "description": "Driver to manage HA segments (e.g., nova, host)."
+      }
+    }
+  },
+  "notification_drivers": {
+    "type": "list",
+    "default": [],
+    "description": "Additional notification drivers (list of driver configs). Each driver has its own section in config.",
+    "items": {
+      "name": {
+        "type": "string",
+        "default": "",
+        "description": "Unique identifier for this driver config section."
+      },
+      "class": {
+        "type": "string",
+        "default": "",
+        "description": "Fully qualified class path for the notification driver."
+      },
+      "options": {
+        "type": "object",
+        "default": {},
+        "description": "Driver-specific configuration key-value pairs."
+      }
+    }
+  },
+  "failover_segments": {
+    "type": "list",
+    "default": [
+      {
+        "name": "default",
+        "segment_type": "host",
+        "hosts": [],
+        "auto_create": true,
+        "recovery_method": "auto",
+        "notification_destination": "masakari.notifications.host_failover.HostFailoverNotification"
+      }
+    ],
+    "description": "HA failover segments \u2014 groups of hosts monitored together. Each segment defines recovery policy and associated hosts.",
+    "items": {
+      "name": {
+        "type": "string",
+        "default": "",
+        "description": "Unique name of the failover segment."
+      },
+      "segment_type": {
+        "type": "string",
+        "default": "host",
+        "description": "Type of segment: 'host' or 'vm'."
+      },
+      "hosts": {
+        "type": "list",
+        "default": [],
+        "description": "List of hostnames included in this segment.",
+        "items": {
+          "type": "string"
+        }
+      },
+      "auto_create": {
+        "type": "bool",
+        "default": true,
+        "description": "If true, new hosts are automatically added to this segment."
+      },
+      "recovery_method": {
+        "type": "string",
+        "default": "auto",
+        "description": "Recovery method: 'auto', 'remote_shell', 'api', etc."
+      },
+      "notification_destination": {
+        "type": "string",
+        "default": "",
+        "description": "Class path for segment-specific notifications."
+      }
+    }
+  },
+  "api": {
+    "type": "object",
+    "default": {
+      "host": "0.0.0.0",
+      "port": 15868,
+      "ssl": {
+        "enabled": false,
+        "cert_file": "/etc/masakari/ssl/cert.pem",
+        "key_file": "/etc/masakari/ssl/key.pem"
+      },
+      "rate_limit": 10,
+      "cors": {
+        "enabled": false,
+        "allow_origin": "*"
+      }
+    },
+    "description": "Masakari API server configuration.",
+    "items": {
+      "host": {
+        "type": "string",
+        "default": "0.0.0.0",
+        "description": "Bind API to this host (IP or hostname)."
+      },
+      "port": {
+        "type": "number",
+        "default": 15868,
+        "description": "Port to bind API service."
+      },
+      "ssl": {
+        "type": "object",
+        "default": {
+          "enabled": false,
+          "cert_file": "",
+          "key_file": ""
+        },
+        "description": "HTTPS/SSL settings for API.",
+        "items": {
+          "enabled": {
+            "type": "bool",
+            "default": false,
+            "description": "Enable HTTPS."
+          },
+          "cert_file": {
+            "type": "string",
+            "default": "",
+            "description": "Path to SSL certificate file."
+          },
+          "key_file": {
+            "type": "string",
+            "default": "",
+            "description": "Path to SSL private key file."
+          }
+        }
+      },
+      "rate_limit": {
+        "type": "number",
+        "default": 10,
+        "description": "Maximum requests per second per client."
+      },
+      "cors": {
+        "type": "object",
+        "default": {
+          "enabled": false,
+          "allow_origin": ""
+        },
+        "description": "Cross-Origin Resource Sharing settings.",
+        "items": {
+          "enabled": {
+            "type": "bool",
+            "default": false,
+            "description": "Enable CORS."
+          },
+          "allow_origin": {
+            "type": "string",
+            "default": "",
+            "description": "Allowed origin (e.g., '*' or 'https://example.com')."
+          }
+        }
+      }
+    }
+  }
+}

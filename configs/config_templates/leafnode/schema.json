@@ -1,0 +1,195 @@
+{
+  "fqdn": {
+    "type": "string",
+    "default": "localhost.localdomain",
+    "description": "Fully qualified domain name this server advertises. Must resolve to this server\u2019s public IP."
+  },
+  "listen_address": {
+    "type": "string",
+    "default": "0.0.0.0",
+    "description": "IP address to bind to. Use '127.0.0.1' for loopback-only, or '0.0.0.0' for all interfaces."
+  },
+  "port": {
+    "type": "number",
+    "default": 119,
+    "description": "NNTP service port. Standard unencrypted NNTP port is 119."
+  },
+  "nntps_enabled": {
+    "type": "boolean",
+    "default": false,
+    "description": "Enable NNTPS (NNTP over TLS/SSL) service on a dedicated port."
+  },
+  "nntps_port": {
+    "type": "number",
+    "default": 563,
+    "description": "Port for NNTPS (NNTP over TLS). Standard port is 563."
+  },
+  "max_connections": {
+    "type": "number",
+    "default": 50,
+    "description": "Maximum number of concurrent client connections allowed."
+  },
+  "max_articles": {
+    "type": "number",
+    "default": 10000,
+    "description": "Maximum number of articles to retain per newsgroup (0 = keep all)."
+  },
+  "max_age": {
+    "type": "number",
+    "default": 30,
+    "description": "Maximum age of articles in days (0 = keep forever). Older articles are expired."
+  },
+  "spool_directory": {
+    "type": "string",
+    "default": "/var/spool/news",
+    "description": "Directory where NNTP articles and metadata are stored."
+  },
+  "config_directory": {
+    "type": "string",
+    "default": "/etc/leafnode",
+    "description": "Directory for configuration files (e.g., active, newsgroups)."
+  },
+  "interactive": {
+    "type": "boolean",
+    "default": false,
+    "description": "Enable interactive mode (used for batch article imports or maintenance tasks)."
+  },
+  "server": {
+    "type": "boolean",
+    "default": true,
+    "description": "Enable serving of articles to clients (required for NNTP server mode)."
+  },
+  "debug": {
+    "type": "boolean",
+    "default": false,
+    "description": "Enable verbose debugging output to syslog."
+  },
+  "peers": {
+    "type": "list",
+    "default": [],
+    "description": "List of upstream NNTP peers to fetch articles from.",
+    "items": {
+      "type": "object",
+      "fields": {
+        "name": {
+          "type": "string",
+          "default": "",
+          "description": "Friendly name for this peer (e.g., 'news.example.com')."
+        },
+        "host": {
+          "type": "string",
+          "default": "",
+          "description": "Hostname or IP of the upstream NNTP server."
+        },
+        "port": {
+          "type": "number",
+          "default": 119,
+          "description": "Port of the upstream NNTP server (default 119)."
+        },
+        "username": {
+          "type": "string",
+          "default": "",
+          "description": "Optional authentication username for the peer."
+        },
+        "password": {
+          "type": "string",
+          "default": "",
+          "description": "Optional authentication password for the peer (stored in plain text)."
+        },
+        "groups": {
+          "type": "list",
+          "default": [],
+          "description": "Optional list of specific newsgroups to subscribe to from this peer.",
+          "items": {
+            "type": "string",
+            "description": "Newsgroup name (e.g., 'comp.os.linux.development')."
+          }
+        }
+      }
+    }
+  },
+  "allow_read": {
+    "type": "list",
+    "default": [
+      "127.0.0.0/8",
+      "::1/128"
+    ],
+    "description": "List of IP addresses or CIDR subnets allowed to read articles (subscribe, fetch, etc.).",
+    "items": {
+      "type": "string",
+      "description": "CIDR or IP (e.g., '192.168.1.0/24', '2001:db8::/32')."
+    }
+  },
+  "allow_post": {
+    "type": "list",
+    "default": [
+      "127.0.0.0/8"
+    ],
+    "description": "List of IP addresses or CIDR subnets allowed to post articles to this server."
+  },
+  "default_group": {
+    "type": "string",
+    "default": "",
+    "description": "Optional default group to auto-subscribe new users to (e.g., 'news.announce.misc')."
+  },
+  "posting_enabled": {
+    "type": "boolean",
+    "default": false,
+    "description": "Enable posting of new articles from local or remote clients."
+  },
+  "post_filter": {
+    "type": "string",
+    "default": "",
+    "description": "Path to an external command/script that processes each article before storage (e.g., spam filter or moderation hook)."
+  },
+  "lockfile": {
+    "type": "string",
+    "default": "/var/lock/leafnode.lock",
+    "description": "Path to the lockfile used to prevent concurrent processes."
+  },
+  "listgroups": {
+    "type": "boolean",
+    "default": true,
+    "description": "Enable listing of all available newsgroups (LISTGROUPS command). Disable if exposing group names is a concern."
+  },
+  "xover": {
+    "type": "boolean",
+    "default": true,
+    "description": "Enable XOVER support (required for modern NNTP clients like Thunderbird)."
+  },
+  "max_article_size": {
+    "type": "number",
+    "default": 1048576,
+    "description": "Maximum article size in bytes (0 = unlimited). Default: 1 MiB."
+  },
+  "localgroups_config": {
+    "type": "string",
+    "default": "",
+    "description": "Path to a localgroups file (e.g., '/etc/leafnode/localgroups') that defines local-only newsgroups."
+  },
+  "capabilities": {
+    "type": "boolean",
+    "default": true,
+    "description": "Enable RFC 3977 capability advertisement (e.g., STARTTLS, MODE-READER)."
+  },
+  "tls_enabled": {
+    "type": "boolean",
+    "default": false,
+    "description": "Enable TLS support for NNTPS or STARTTLS (requires certificate and key)."
+  },
+  "tls_cert_path": {
+    "type": "string",
+    "default": "/etc/leafnode/cert.pem",
+    "description": "Path to TLS certificate file (PEM format)."
+  },
+  "tls_key_path": {
+    "type": "string",
+    "default": "/etc/leafnode/key.pem",
+    "description": "Path to TLS private key file (PEM format, unencrypted)."
+  },
+  "tls_min_version": {
+    "type": "string",
+    "default": "TLSv1.2",
+    "description": "Minimum allowed TLS protocol version (e.g., 'TLSv1.2', 'TLSv1.3')."
+  }
+}

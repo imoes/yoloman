@@ -1,0 +1,153 @@
+{
+  "listeners": {
+    "type": "list",
+    "default": [],
+    "description": "List of endpoints for Condure to listen on (HTTP and/or WebSocket). Each entry defines an address, port, and optional TLS.",
+    "items": {
+      "type": "object",
+      "properties": {
+        "address": {
+          "type": "string",
+          "default": "0.0.0.0",
+          "description": "IP address to bind to (e.g., 0.0.0.0, 127.0.0.1, ::)."
+        },
+        "port": {
+          "type": "number",
+          "default": 8080,
+          "description": "TCP port to listen on."
+        },
+        "tls": {
+          "type": "object",
+          "default": null,
+          "description": "TLS configuration. If omitted, plain HTTP/WebSocket is used.",
+          "properties": {
+            "cert_file": {
+              "type": "string",
+              "default": "",
+              "description": "Path to the TLS certificate file (PEM format)."
+            },
+            "key_file": {
+              "type": "string",
+              "default": "",
+              "description": "Path to the TLS private key file (PEM format)."
+            }
+          }
+        }
+      }
+    }
+  },
+  "trusted_proxies": {
+    "type": "list",
+    "default": [
+      "127.0.0.1",
+      "::1"
+    ],
+    "description": "List of trusted proxy IP addresses or CIDRs. Enables X-Forwarded-* header parsing only from these sources."
+  },
+  "http2": {
+    "type": "object",
+    "default": {
+      "enabled": true
+    },
+    "description": "HTTP/2 protocol settings. Enable only if downstream supports it.",
+    "properties": {
+      "enabled": {
+        "type": "bool",
+        "default": true,
+        "description": "Enable HTTP/2 support."
+      },
+      "max_concurrent_streams": {
+        "type": "number",
+        "default": 100,
+        "description": "Maximum number of concurrent streams per HTTP/2 connection."
+      },
+      "initial_connection_window_size": {
+        "type": "number",
+        "default": 65535,
+        "description": "Initial flow control window size for HTTP/2 connections (bytes)."
+      },
+      "initial_stream_window_size": {
+        "type": "number",
+        "default": 65535,
+        "description": "Initial flow control window size for HTTP/2 streams (bytes)."
+      }
+    }
+  },
+  "websocket": {
+    "type": "object",
+    "default": {
+      "ping_interval": 30,
+      "idle_timeout": 600,
+      "max_frame_size": 65536
+    },
+    "description": "WebSocket session and framing behavior.",
+    "properties": {
+      "ping_interval": {
+        "type": "number",
+        "default": 30,
+        "description": "Seconds between WebSocket ping frames to keep connections alive."
+      },
+      "idle_timeout": {
+        "type": "number",
+        "default": 600,
+        "description": "Seconds of idle time before closing a WebSocket connection."
+      },
+      "max_frame_size": {
+        "type": "number",
+        "default": 65536,
+        "description": "Maximum size (bytes) of a WebSocket frame. Larger frames are rejected."
+      }
+    }
+  },
+  "log": {
+    "type": "object",
+    "default": {
+      "level": "info",
+      "format": "json"
+    },
+    "description": "Logging configuration.",
+    "properties": {
+      "level": {
+        "type": "string",
+        "default": "info",
+        "description": "Minimum log level: debug, info, warn, error, fatal."
+      },
+      "format": {
+        "type": "string",
+        "default": "json",
+        "description": "Output format: json or text."
+      },
+      "output": {
+        "type": "string",
+        "default": "/var/log/condure/condure.log",
+        "description": "Path to log file. Omit to log to stderr."
+      }
+    }
+  },
+  "rate_limit": {
+    "type": "object",
+    "default": {
+      "requests_per_second": 100,
+      "burst_size": 200,
+      "connections_per_ip": 50
+    },
+    "description": "Rate-limiting behavior for incoming traffic.",
+    "properties": {
+      "requests_per_second": {
+        "type": "number",
+        "default": 100,
+        "description": "Max requests per second per client IP (for HTTP/WebSocket)."
+      },
+      "burst_size": {
+        "type": "number",
+        "default": 200,
+        "description": "Maximum burst allowance before rate limiting kicks in."
+      },
+      "connections_per_ip": {
+        "type": "number",
+        "default": 50,
+        "description": "Maximum concurrent connections allowed per client IP."
+      }
+    }
+  }
+}

@@ -1,0 +1,85 @@
+# Infinote collaborative editing server configuration
+# Enable debug logging (0–5, higher = more verbose)
+log_level={{ log_level }}
+
+# Path to the PID file
+pid_file={{ pid_file }}
+
+# Network interface to bind to (empty string = all interfaces)
+interface={{ interface }}
+
+# TCP port to listen on
+port={{ port }}
+
+# Enable SSL/TLS
+{% if ssl_enabled %}
+ssl_certificate={{ ssl_certificate_path }}
+ssl_private_key={{ ssl_private_key_path }}
+ssl_ca_certificate={{ ssl_ca_certificate_path }}
+{% else %}
+ssl_enabled=false
+{% endif %}
+
+# Maximum number of simultaneous connections
+max_connections={{ max_connections }}
+
+# Maximum document size in bytes (0 = no limit)
+max_document_size={{ max_document_size }}
+
+# Timeout (seconds) for idle client connections
+client_timeout={{ client_timeout }}
+
+# Authentication backend (e.g., 'none', 'simple', 'ldap')
+auth_backend={{ auth_backend }}
+
+{% if auth_backend == 'simple' %}
+# Simple auth: list of users in format 'username:sha256:hash'
+# Each user line: username:sha256:hash
+{% for user in auth_users %}
+user={{ user.username }}:sha256:{{ user.password_hash }}
+{% endfor %}
+{% endif %}
+
+{% if auth_backend == 'ldap' %}
+# LDAP configuration
+ldap_uri={{ ldap_uri }}
+ldap_base_dn={{ ldap_base_dn }}
+ldap_bind_dn={{ ldap_bind_dn }}
+ldap_bind_password={{ ldap_bind_password }}
+ldap_filter={{ ldap_filter }}
+ldap_user_attribute={{ ldap_user_attribute }}
+{% endif %}
+
+# Document storage backend (e.g., 'file', 'memory')
+storage_backend={{ storage_backend }}
+
+{% if storage_backend == 'file' %}
+# Path to document storage directory
+storage_path={{ storage_path }}
+{% endif %}
+
+# Enable auto-save of documents (in seconds)
+auto_save_interval={{ auto_save_interval }}
+
+# Default session timeout (seconds)
+session_timeout={{ session_timeout }}
+
+# Enable history tracking for collaborative editing
+{% if history_enabled %}
+history_enabled=true
+{% else %}
+history_enabled=false
+{% endif %}
+
+# Maximum history entries per document (0 = no limit)
+history_max_entries={{ history_max_entries }}
+
+# Hostname used in advertised service URI (if different from interface)
+service_hostname={{ service_hostname }}
+
+# Enable WebSocket support
+{% if websocket_enabled %}
+websocket_enabled=true
+{% else %}
+websocket_enabled=false
+{% endif %}

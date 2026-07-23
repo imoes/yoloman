@@ -1,0 +1,93 @@
+log stderr
+log file /var/log/osmocom/osmo-ggsn.log
+
+! Global settings
+! GGSN identity and context for logging/mgmt
+id ggsn 1
+! IP address of the GGSN for GTP-U/GTP-C (must be reachable by SGSNs)
+gtp0 local-ip {{ gtp0_local_ip }}
+gtp0 remote-ip {{ gtp0_remote_ip }}
+
+! VTY/CLI access — bind to localhost by default; change for remote management
+vtl vty
+ bind {{ vty_bind_addr }}
+ port {{ vty_port }}
+
+! GSUP interface — connects to HLR (e.g., osmo-hlr or osmo-msc)
+gsup server
+ local-ip {{ gsup_local_ip }}
+ local-port {{ gsup_local_port }}
+ remote-ip {{ gsup_remote_ip }}
+ remote-port {{ gsup_remote_port }}
+
+! IP pool definitions — each pool corresponds to a subscriber APN
+{% for pool in ip_pools %}
+ip pool {{ pool.name }}
+ {{ pool.subnet }}
+ gateway {{ pool.gateway }}
+ dns1 {{ pool.dns1 | default('0.0.0.0') | default('') | trim if pool.dns1 | length > 0 else '' }}
+ dns2 {{ pool.dns2 | default('') | trim if pool.dns2 | length > 0 else '' }}
+{% if pool.sntp %}
+ sntp {{ pool.sntp }}
+{% endif %}
+{% if pool.wins1 %}
+ wins1 {{ pool.wins1 }}
+{% endif %}
+{% if pool.wins2 %}
+ wins2 {{ pool.wins2 }}
+{% endif %}
+{% endfor %}
+
+! APN definitions — each APN ties a pool and SGW/PGW context
+{% for apn in apns %}
+apn {{ apn.name }}
+ ip-pool {{ apn.pool_name }}
+{% if apn.type %}
+ type {{ apn.type }}
+{% endif %}
+{% if apn.qos %}
+ qos {{ apn.qos }}
+{% endif %}
+{% if apn.pco %}
+ pco {{ apn.pco }}
+{% endif %}
+{% endfor %}
+
+! GPRS routing area (optional, used for inter-SGSN routing)
+{% if gprs_ran %}
+rann {{ gprs_ran.mcc }} {{ gprs_ran.mnc }} {{ gprs_ran.lac }} {{ gprs_ran.rac }}
+{% endif %}
+
+! SGSN peers — typically one per SGSN in the network
+{% for peer in sgsn_peers %}
+sgsn
+ peer-ip {{ peer.ip }}
+ peer-port {{ peer.port | default(2123) }}
+{% if peer.local_ip %}
+ local-ip {{ peer.local_ip }}
+{% endif %}
+{% if peer.local_port %}
+ local-port {{ peer.local_port | default(2123) }}
+{% endif %}
+{% if peer.apn %}
+ apn {{ peer.apn }}
+{% endif %}
+{% if peer.tft %}
+ tft {{ peer.tft }}
+{% endif %}
+{% endfor %}
+
+! SGW/PGW interface — GTP-C port 2152 for S5/S8 (if used with EPC core)
+{% if s5_s8_enabled %}
+gtp0 interface {{ s5_s8_interface }}
+gtp0 local-ip {{ s5_s8_local_ip }}
+gtp0 remote-ip {{ s5_s8_remote_ip }}
+{% endif %}
+
+! Statistics and metrics
+stats
+ interval {{ stats_interval }}
+
+! Keepalives & timeouts
+keepalive 30
+no timeout 0

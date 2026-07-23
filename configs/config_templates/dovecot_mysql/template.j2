@@ -1,0 +1,116 @@
+# Database driver (mysql, postgres, sqlite, etc.)
+driver = {{ sql_driver }}
+
+# Database connection string
+# Format: host=<host> user=<user> password=<pass> dbname=<name> [options...]
+connect = {{ sql_connect }}
+
+# Query to retrieve user's password (for authentication)
+# Returns password hash in a single column; supports plain, crypt, md5, sha512, etc.
+password_query = {{ password_query }}
+
+# Query to retrieve user's mailbox information (for mail location, UID/GID, etc.)
+# Must return: username, password, userdb_home, userdb_mail, userdb_uid, userdb_gid
+user_query = {{ user_query }}
+
+# Query to verify password (optional; if not set, password_query is used directly)
+# Useful for legacy systems or when password hashing requires special handling
+# password_verify = {{ password_verify }}
+
+# Query to get list of mailboxes for a user (for ACL or shared mailboxes)
+# Optional — comment out if not needed
+{% if enable_mailboxes_query %}
+mailboxes_query = {{ mailboxes_query }}
+{% endif %}
+
+# Query to check if a user exists (e.g., for catch-all or domain validation)
+# Optional — used for user existence checks
+{% if enable_user_exists_query %}
+iterate_query = {{ iterate_query }}
+{% endif %}
+
+# Enable debug logging for SQL queries (useful for troubleshooting)
+{% if enable_debug %}
+debug = yes
+{% else %}
+debug = no
+{% endif %}
+
+# TLS/SSL settings for database connection (optional)
+{% if sql_tls %}
+ssl = {{ sql_tls }}
+{% endif %}
+
+# TLS/CA certificate for database connection (optional)
+{% if sql_tls_ca_file %}
+ssl_ca = {{ sql_tls_ca_file }}
+{% endif %}
+
+# TLS/Client certificate for database connection (optional)
+{% if sql_tls_cert %}
+ssl_cert = {{ sql_tls_cert }}
+{% endif %}
+
+# TLS/Client private key (optional)
+{% if sql_tls_key %}
+ssl_key = {{ sql_tls_key }}
+{% endif %}
+
+# Password hashing scheme (if not embedded in SQL function)
+# e.g., SHA512-CRYPT, BLF-CRYPT, MD5-CRYPT, PLAIN, etc.
+{% if default_pass_scheme %}
+default_pass_scheme = {{ default_pass_scheme }}
+{% endif %}
+
+# Number of preconnects (for connection pooling)
+{% if sql_preconnects is defined %}
+{% if sql_preconnects > 0 %}
+preconnects = {{ sql_preconnects }}
+{% endif %}
+{% endif %}
+
+# Max number of simultaneous SQL connections
+{% if sql_max_connections is defined %}
+max_connections = {{ sql_max_connections }}
+{% endif %}
+
+# Optional: per-query timeout (seconds)
+{% if sql_query_timeout is defined %}
+{% if sql_query_timeout > 0 %}
+query_timeout = {{ sql_query_timeout }}
+{% endif %}
+{% endif %}
+
+# Optional: SQL username mapping (for virtual users with different login names)
+{% if username_map %}
+username_map = {{ username_map }}
+{% endif %}
+
+# Optional: password field name override (if not 'password')
+{% if password_field %}
+password_field = {{ password_field }}
+{% endif %}
+
+# Optional: userdb fields override
+userdb_prefix = {{ userdb_prefix }}
+userdb_iterate = {{ userdb_iterate }}
+
+# Optional: password query prefix (for advanced query customization)
+password_prefix = {{ password_prefix }}
+
+# Optional: default domain to append if user login lacks one
+{% if default_domain %}
+default_domain = {{ default_domain }}
+{% endif %}
+
+# Optional: hash iterations for password verification (e.g., for PBKDF2)
+{% if password_hash_iterations is defined %}
+{% if password_hash_iterations > 0 %}
+password_hash_iterations = {{ password_hash_iterations }}
+{% endif %}
+{% endif %}
+
+# Optional: enable result caching (for high-load servers)
+{% if enable_result_cache %}
+result_cache_ttl = {{ result_cache_ttl }}
+{% endif %}

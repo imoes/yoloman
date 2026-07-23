@@ -1,0 +1,49 @@
+# Enable or disable the cups-browsed daemon
+LocalOnly {{ local_only | lower }}
+
+# Timeout (in seconds) before declaring a remote printer unavailable
+Timeout {{ timeout }}
+
+# Maximum number of retries when trying to contact a remote printer
+MaxRetries {{ max_retries }}
+
+# Time (in seconds) to wait before retrying a failed printer
+RetryInterval {{ retry_interval }}
+
+# Enable or disable automatic discovery of remote CUPS printers
+BrowseRemoteProtocols {{ browse_remote_protocols | join(', ') }}
+
+# Enable or disable local printer discovery (e.g., via DNS-SD, CUPS-Browsing)
+BrowseLocalProtocols {{ browse_local_protocols | join(', ') }}
+
+# Enable or disable creation of local PPD files for remote printers
+CreateRemotePPDs {{ create_remote_ppds | lower }}
+
+# Default printer options (e.g., media, sides, etc.)
+# May be overridden by per-printer configuration
+DefaultOptions "{{ default_options | join(' ') }}"
+
+# List of printer-specific configurations
+{% for printer in printers %}
+# Printer: {{ printer.name }}
+# Description: {{ printer.description }}
+{% if printer.uri %}PrinterURI {{ printer.uri }}{% endif %}
+{% if printer.location %}Location {{ printer.location }}{% endif %}
+{% if printer.make_and_model %}MakeModel {{ printer.make_and_model }}{% endif %}
+{% if printer.options %}Options {{ printer.options | join(' ') }}{% endif %}
+{% endfor %}
+
+# Enable or disable automatic conversion of PCL to PostScript (for compatibility)
+ConvertPCLToPS {{ convertpcltops | lower }}
+
+# Enable or disable automatic creation of PDF printer (for print-to-file)
+CreateIPPPrinterQueues {{ create_ipp_printer_queues | lower }}
+
+# IP address of the local CUPS server (usually 127.0.0.1 or localhost)
+CUPSLocalServer {{ cups_local_server }}
+
+# Log level: none, error, warn, info, debug
+LogLevel {{ log_level }}
+
+# Path to the log file (if empty, logs to syslog)
+# LogFile {{ log_file | default('') }}

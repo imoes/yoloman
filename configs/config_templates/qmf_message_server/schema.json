@@ -1,0 +1,196 @@
+{
+  "server": {
+    "type": "object",
+    "properties": {
+      "host": {
+        "type": "string",
+        "default": "0.0.0.0",
+        "description": "Network interface to bind to for client connections."
+      },
+      "port": {
+        "type": "number",
+        "default": 5672,
+        "description": "TCP port to listen on for client connections (standard QMF port is 5672)."
+      },
+      "max_connections": {
+        "type": "number",
+        "default": 1000,
+        "description": "Maximum number of simultaneous client connections."
+      },
+      "auth_mode": {
+        "type": "string",
+        "default": "simple",
+        "enum": [
+          "none",
+          "simple",
+          "scram-sha-256"
+        ],
+        "description": "Authentication method for client connections."
+      },
+      "client_ca_file": {
+        "type": "string",
+        "default": "",
+        "description": "Path to a CA bundle file for verifying client certificates (mutual TLS). Leave blank to disable client cert verification."
+      },
+      "tls_cert_file": {
+        "type": "string",
+        "default": "",
+        "description": "Path to server TLS certificate file (PEM format). Required to enable TLS."
+      },
+      "tls_key_file": {
+        "type": "string",
+        "default": "",
+        "description": "Path to server TLS private key file (PEM format, unencrypted). Required to enable TLS."
+      },
+      "force_tls": {
+        "type": "boolean",
+        "default": false,
+        "description": "If true, reject non-TLS connections. Only effective if TLS is enabled."
+      }
+    }
+  },
+  "workers": {
+    "type": "object",
+    "properties": {
+      "thread_count": {
+        "type": "number",
+        "default": 4,
+        "description": "Number of worker threads for message processing (recommended: 2\u20138, depending on CPU cores)."
+      },
+      "max_queue_depth": {
+        "type": "number",
+        "default": 10000,
+        "description": "Maximum pending messages per worker before backpressure kicks in."
+      },
+      "process_timeout_ms": {
+        "type": "number",
+        "default": 30000,
+        "description": "Maximum time (ms) a worker may spend processing a message before it\u2019s retried or moved to a dead-letter queue."
+      }
+    }
+  },
+  "storage": {
+    "type": "object",
+    "properties": {
+      "backend": {
+        "type": "string",
+        "default": "file",
+        "enum": [
+          "memory",
+          "file",
+          "redis"
+        ],
+        "description": "Storage backend for messages and metadata."
+      },
+      "file_path": {
+        "type": "string",
+        "default": "/var/lib/qmf/messages.db",
+        "description": "File path for the local message database (used only with `file` backend)."
+      },
+      "redis_url": {
+        "type": "string",
+        "default": "redis://localhost:6379/0",
+        "description": "Redis connection URL (e.g., `redis://user:pass@host:6379/0`) for Redis backend."
+      },
+      "redis_password": {
+        "type": "string",
+        "default": "",
+        "description": "Redis authentication password (optional). If omitted and Redis requires auth, connection will fail."
+      },
+      "max_messages_per_queue": {
+        "type": "number",
+        "default": 100000,
+        "description": "Maximum number of messages retained per queue (0 means unlimited)."
+      },
+      "durable": {
+        "type": "boolean",
+        "default": true,
+        "description": "If true, ensure writes are synced to disk (file) or replicated (Redis). Reduces throughput for increased reliability."
+      }
+    }
+  },
+  "logging": {
+    "type": "object",
+    "properties": {
+      "level": {
+        "type": "string",
+        "default": "info",
+        "enum": [
+          "debug",
+          "info",
+          "warn",
+          "error"
+        ],
+        "description": "Minimum log level to emit."
+      },
+      "path": {
+        "type": "string",
+        "default": "/var/log/qmf/server.log",
+        "description": "Path to the log file. Use `-` to log to stdout."
+      },
+      "json_output": {
+        "type": "boolean",
+        "default": false,
+        "description": "If true, emit structured JSON log lines instead of human-readable text."
+      }
+    }
+  },
+  "queues": {
+    "type": "object",
+    "properties": {
+      "default_ttl_seconds": {
+        "type": "number",
+        "default": 86400,
+        "description": "Time-to-live (seconds) for messages in a queue if not explicitly overridden."
+      },
+      "default_max_size_bytes": {
+        "type": "number",
+        "default": 104857600,
+        "description": "Maximum total size (bytes) a queue may grow to, per queue."
+      },
+      "per_queues": {
+        "type": "list",
+        "default": [],
+        "description": "List of named queues with custom configuration overrides. Each entry defines a queue name and optional per-queue TTL/size limits.",
+        "items": {
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string",
+              "default": "",
+              "description": "Unique name of the queue."
+            },
+            "ttl_seconds": {
+              "type": "number",
+              "default": 86400,
+              "description": "Message TTL (seconds) for this queue. If omitted, defaults to `queues.default_ttl_seconds`."
+            },
+            "max_size_bytes": {
+              "type": "number",
+              "default": 104857600,
+              "description": "Max queue size (bytes) for this queue. If omitted, defaults to `queues.default_max_size_bytes`."
+            }
+          },
+          "required": [
+            "name"
+          ]
+        }
+      }
+    }
+  },
+  "health": {
+    "type": "object",
+    "properties": {
+      "http_port": {
+        "type": "number",
+        "default": 8080,
+        "description": "Port for the HTTP health-check endpoint (`/healthz`)."
+      },
+      "liveness_check_interval_seconds": {
+        "type": "number",
+        "default": 30,
+        "description": "Interval (seconds) between internal liveness checks (e.g., connection pool health)."
+      }
+    }
+  }
+}

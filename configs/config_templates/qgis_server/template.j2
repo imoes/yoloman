@@ -1,0 +1,25 @@
+# QGIS Server configuration file — sets environment variables for the QGIS Server CGI/FCGI process
+# Note: This file is typically sourced by the web server (Apache/Nginx) or FCGI wrapper
+# QGIS project search path (colon-separated directories)
+# Allows QGIS Server to find .qgs and .qgz projects dynamically
+QGIS_SERVER_PROJECT_FILE={{ qgis_project_file | default('') }}
+
+# Cache directory for rendered maps and tiles
+QGIS_SERVER_CACHE_DIRECTORY={{ cache_directory | default('/var/cache/qgis-server') }}
+
+# Maximum cache size in MB (0 = unlimited)
+QGIS_SERVER_CACHE_SIZE={{ cache_size_mb | default(512) }}
+
+# Enable/disable logging to syslog
+QGIS_SERVER_LOG_LEVEL={{ log_level | default('0') }}
+# 0=none, 1=error, 2=warning, 3=info, 4=debug
+
+# Maximum number of parallel rendering threads
+QGIS_SERVER_PARALLEL_RENDERING={{ parallel_rendering | default('false') }}
+QGIS_SERVER_MAX_THREADS={{ max_threads | default(2) }}
+
+# Enable/disable authentication (QGIS Server authentication plugin support)
+QGIS_SERVER_AUTH_DATABASE={{ auth_database_path | default('/etc/qgis/qgis-server/auth.db') }}
+
+# Optional: Additional environment variables (e.g., custom plugin paths, project settings)
+{% for var_name, var_value in extra_env.items() %}{{ var_name }}={{ var_value }}{% endfor %}

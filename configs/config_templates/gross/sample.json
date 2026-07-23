@@ -1,0 +1,55 @@
+{
+  "listen_addr": "0.0.0.0",
+  "listen_port": 2525,
+  "worker_count": 6,
+  "max_concurrent_connections": 2048,
+  "log_level": "info",
+  "log_file": "/var/log/gross/gross.log",
+  "db_type": "sqlite",
+  "db_path": "/var/lib/gross/greylist.db",
+  "db_max_idle_conns": 10,
+  "db_max_open_conns": 30,
+  "db_conn_max_lifetime": "4h",
+  "dnsbl_enabled": true,
+  "dnsbl_timeout": "1s",
+  "dnsbl_providers": [
+    {
+      "name": "spamhaus",
+      "description": "Spamhaus SBL/DBL/ZEN \u2014 authoritative blocklist",
+      "servers": [
+        "zen.spamhaus.org"
+      ],
+      "ttl_pass": 7200,
+      "ttl_fail": 900,
+      "weight": 10
+    },
+    {
+      "name": "bl-spam",
+      "description": "Community-based list for aggressive spammers",
+      "servers": [
+        "bl.spamcop.net"
+      ],
+      "ttl_pass": 3600,
+      "ttl_fail": 1800,
+      "weight": 2
+    }
+  ],
+  "policy_min_delay_sec": 60,
+  "policy_max_delay_sec": 7200,
+  "policy_accept_after_pass_count": 1,
+  "policy_reject_after_fail_count": 5,
+  "whitelist_networks": [
+    "127.0.0.0/8",
+    "::1/128",
+    "10.0.0.0/8",
+    "172.16.0.0/12"
+  ],
+  "exception_domains": [
+    "mail.example.com",
+    "internal.local"
+  ],
+  "exception_greylist": [
+    false,
+    true
+  ]
+}

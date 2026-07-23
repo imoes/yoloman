@@ -1,0 +1,39 @@
+# IMAPFilter configuration file
+# Each server definition configures a connection to an IMAP server
+servers = {
+{% for server in servers %}  {{ server.name }} = {
+    server = {{ server.host | quote }},
+    port   = {{ server.port }},
+{% if server.ssl %}    ssl    = "auto",{% else %}    ssl    = false,{% endif %}
+    user   = {{ server.username | quote }},
+    password = {{ server.password | quote }}{% if server.auth_type %},
+    auth_type = {{ server.auth_type | quote }}{% endif %}
+  }{% if not loop.last %},{% endif %}
+{% endfor %}}
+
+# Define global options
+options {
+  logfile   = {{ logfile | quote }},
+  timeout   = {{ timeout }},
+  poll      = {{ poll }},
+{% if subscribe %}  subscribe = true,{% endif %}
+{% if create_folders %}  create  = true{% endif %}
+}
+
+# Define rules (per-account filtering rules)
+{% for account in accounts %}account_{{ account.server_name }}_rules = function()
+{% for rule in account.rules %}  -- {{ rule.description | default('Filter rule') }}
+  if {{ rule.condition }} then
+{% if rule.move_to %}    move_to_servers({{ rule.move_to | quote }}, {{ account.server_name }})
+{% endif %}{% if rule.delete %}    delete_messages()
+{% endif %}{% if rule.mark_seen %}    mark_seen()
+{% endif %}{% if rule.mark_flagged %}    mark_flagged()
+{% endif %}{% if rule.forward_to %}    forward_messages({% for addr in rule.forward_to | list %}{{ addr | quote }}{% if not loop.last %}, {% endif %}{% endfor %})
+{% endif %}{% if rule.copy_to %}    copy_messages({{ rule.copy_to | quote }}, {{ account.server_name }})
+{% endif %}{% if rule.set_flags %}    set_flags({% for flag in rule.set_flags %}{{ flag | quote }}{% if not loop.last %}, {% endif %}{% endfor %})
+{% endif %}  end
+{% endfor %}end
+
+# Execute rules for each account
+{% for account in accounts %}account_{{ account.server_name }}_rules()
+{% endfor %}

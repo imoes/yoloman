@@ -1,0 +1,144 @@
+{
+  "listen_addr": {
+    "type": "string",
+    "default": "127.0.0.1",
+    "description": "IP address the server will bind to. Use `0.0.0.0` for all interfaces."
+  },
+  "listen_port": {
+    "type": "number",
+    "default": 2525,
+    "description": "SMTP listener port (typically 2525 for greylisting; avoid 25 to prevent conflict with MTA)."
+  },
+  "worker_count": {
+    "type": "number",
+    "default": 4,
+    "description": "Number of worker threads/processes handling incoming connections."
+  },
+  "max_concurrent_connections": {
+    "type": "number",
+    "default": 1024,
+    "description": "Maximum simultaneous client connections allowed."
+  },
+  "log_level": {
+    "type": "string",
+    "default": "info",
+    "description": "Minimum log level: one of `debug`, `info`, `warn`, `error`, `fatal`."
+  },
+  "log_file": {
+    "type": "string",
+    "default": "/var/log/gross/gross.log",
+    "description": "Path to the log file. Use `-` for stdout."
+  },
+  "db_type": {
+    "type": "string",
+    "default": "sqlite",
+    "description": "Database backend: currently only `sqlite` is supported."
+  },
+  "db_path": {
+    "type": "string",
+    "default": "/var/lib/gross/greylist.db",
+    "description": "Path to the SQLite database file storing greylisting state."
+  },
+  "db_max_idle_conns": {
+    "type": "number",
+    "default": 10,
+    "description": "Maximum number of idle connections in the DB pool."
+  },
+  "db_max_open_conns": {
+    "type": "number",
+    "default": 20,
+    "description": "Maximum number of open connections to the database."
+  },
+  "db_conn_max_lifetime": {
+    "type": "string",
+    "default": "2h",
+    "description": "Maximum lifetime of a DB connection before reuse. Accepts duration suffixes like `h`, `m`, `s`."
+  },
+  "dnsbl_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable DNS-based real-time blackhole list lookups to pre-filter obvious spammers."
+  },
+  "dnsbl_timeout": {
+    "type": "string",
+    "default": "2s",
+    "description": "Timeout for DNSBL queries. Accepts duration suffixes."
+  },
+  "dnsbl_providers": {
+    "type": "list",
+    "default": [],
+    "description": "List of DNSBL providers to query. Each item configures a provider's servers and behavior.",
+    "items": {
+      "name": {
+        "type": "string",
+        "description": "Unique identifier for this DNSBL provider (e.g., `spamhaus`, `bl-spam`)"
+      },
+      "description": {
+        "type": "string",
+        "description": "Human-readable description for documentation purposes."
+      },
+      "servers": {
+        "type": "list",
+        "default": [],
+        "description": "List of DNSBL domain names to query.",
+        "items": {
+          "type": "string",
+          "description": "FQDN of a DNSBL server (e.g., `zen.spamhaus.org`)."
+        }
+      },
+      "ttl_pass": {
+        "type": "number",
+        "default": 3600,
+        "description": "Cache positive (clean) result for this many seconds."
+      },
+      "ttl_fail": {
+        "type": "number",
+        "default": 1800,
+        "description": "Cache negative (listed) result for this many seconds."
+      },
+      "weight": {
+        "type": "number",
+        "default": 1,
+        "description": "Priority weight for weighted DNS queries (higher = queried earlier)."
+      }
+    }
+  },
+  "policy_min_delay_sec": {
+    "type": "number",
+    "default": 30,
+    "description": "Minimum delay (seconds) before accepting a retry from a new sender."
+  },
+  "policy_max_delay_sec": {
+    "type": "number",
+    "default": 3600,
+    "description": "Maximum acceptable delay (seconds); greylisting expires after this if no retry."
+  },
+  "policy_accept_after_pass_count": {
+    "type": "number",
+    "default": 1,
+    "description": "Number of successful retries (passes) before permanently accepting the sender."
+  },
+  "policy_reject_after_fail_count": {
+    "type": "number",
+    "default": 3,
+    "description": "Number of failed retries (bounces) after which the sender is rejected permanently."
+  },
+  "whitelist_networks": {
+    "type": "list",
+    "default": [
+      "127.0.0.0/8",
+      "::1/128"
+    ],
+    "description": "List of IP ranges (CIDR) that bypass greylisting entirely."
+  },
+  "exception_domains": {
+    "type": "list",
+    "default": [],
+    "description": "List of domains with per-domain greylisting override."
+  },
+  "exception_greylist": {
+    "type": "list",
+    "default": [],
+    "description": "Parallel list: for each domain in `exception_domains`, set to `true` to *force* greylisting, or `false` to *skip* greylisting."
+  }
+}

@@ -1,0 +1,47 @@
+# 1-Wire FTP Server Configuration (owftpd.conf)
+# This file configures the owftpd daemon, which provides FTP access to 1-Wire buses.
+# For full documentation, see `man owftpd` or https://owfs.org
+
+# Bind to this hostname or IP address (use 0.0.0.0 for all interfaces)
+server = {{ server_host }}
+
+# Listen on this port
+port = {{ port }}
+
+# Timeout for idle connections (in seconds)
+timeout = {{ timeout_seconds }}
+
+# Enable SSL/TLS for secure connections? (true/false)
+ssl = {{ ssl_enabled | lower }}
+
+# Path to SSL certificate (required if ssl = true)
+ssl_certificate = {{ ssl_cert_path }}
+
+# Path to SSL private key (required if ssl = true)
+ssl_key = {{ ssl_key_path }}
+
+# Root directory to expose via FTP (relative to 1-Wire root; often /)
+root = {{ ftp_root_path }}
+
+# Allow anonymous FTP? (true/false)
+anonymous = {{ allow_anonymous | lower }}
+
+# Enable write access for authenticated users? (true/false)
+allow_write = {{ allow_write | lower }}
+
+# Maximum number of simultaneous connections
+max_connections = {{ max_connections }}
+
+# Comma-separated list of allowed 1-Wire bus devices (e.g., /dev/w1_bus_master1)
+# Use 'auto' to auto-discover
+bus = {{ bus_devices | join(', ') }}
+
+# Optional: log to this file; leave empty or comment out to use syslog
+# log_file = {{ log_file_path | default('', true) }}
+{% if log_file_path %}log_file = {{ log_file_path }}{% endif %}
+
+# Optional: chroot users (recommended for security)
+chroot = {{ chroot_enabled | lower }}
+
+# Optional: allow debug output (true/false)
+debug = {{ debug_enabled | lower }}

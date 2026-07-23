@@ -1,0 +1,260 @@
+{
+  "bind_address": {
+    "type": "string",
+    "default": "*",
+    "description": "IP address Prosody binds to for all incoming connections (e.g., '*' for all, '127.0.0.1' for local-only)."
+  },
+  "ports": {
+    "type": "list",
+    "default": [
+      {
+        "number": 5222,
+        "address": null
+      },
+      {
+        "number": 5269,
+        "address": null
+      },
+      {
+        "number": 5280,
+        "address": null
+      },
+      {
+        "number": 5281,
+        "address": null
+      }
+    ],
+    "items": {
+      "type": "object",
+      "fields": {
+        "number": {
+          "type": "number",
+          "description": "Port number."
+        },
+        "address": {
+          "type": "string",
+          "nullable": true,
+          "description": "Optional binding IP address for this port (e.g., '0.0.0.0' or '127.0.0.1'). If null, binds to all interfaces."
+        }
+      }
+    },
+    "description": "List of ports to listen on for client connections (XMPP, HTTP, BOSH, etc.)."
+  },
+  "ssl_protocol": {
+    "type": "string",
+    "default": "tlsv1_2+",
+    "description": "TLS protocol version to use (e.g., 'tlsv1_2+', 'auto')."
+  },
+  "ssl_verify": {
+    "type": "bool",
+    "default": true,
+    "description": "Whether to verify client certificates (recommended: true for client-to-server)."
+  },
+  "ssl_cafile": {
+    "type": "string",
+    "default": "/etc/prosody/certs/ca.pem",
+    "description": "Path to CA certificate bundle for TLS verification."
+  },
+  "virtual_hosts": {
+    "type": "list",
+    "default": [
+      {
+        "hostname": "localhost",
+        "enabled": true
+      }
+    ],
+    "items": {
+      "type": "object",
+      "fields": {
+        "hostname": {
+          "type": "string",
+          "description": "XMPP domain (virtual host) name (e.g., 'example.com'). Must match certificate CN/SAN."
+        },
+        "enabled": {
+          "type": "bool",
+          "description": "Whether this host is active."
+        }
+      }
+    },
+    "description": "List of virtual hosts (XMPP domains) to serve. Each must have a matching certificate."
+  },
+  "authentication": {
+    "type": "object",
+    "default": {
+      "type": "internal",
+      "passwords_path": "/var/lib/prosody/auth.db"
+    },
+    "fields": {
+      "type": {
+        "type": "string",
+        "enum": [
+          "internal",
+          "cram-md5",
+          "plain",
+          "digest-md5",
+          "external"
+        ],
+        "description": "Authentication backend type. Use 'internal' for Prosody\u2019s built-in user management."
+      },
+      "passwords_path": {
+        "type": "string",
+        "nullable": true,
+        "description": "Path to password file or database (for external backends)."
+      }
+    },
+    "description": "Authentication method and credentials backend configuration."
+  },
+  "data_path": {
+    "type": "string",
+    "default": "/var/lib/prosody",
+    "description": "Base directory for data storage (user rosters, vCards, etc.)."
+  },
+  "log_levels": {
+    "type": "list",
+    "default": [
+      {
+        "name": "info",
+        "target": "info"
+      },
+      {
+        "name": "warn",
+        "target": "warn"
+      },
+      {
+        "name": "error",
+        "target": "error"
+      }
+    ],
+    "items": {
+      "type": "object",
+      "fields": {
+        "name": {
+          "type": "string",
+          "enum": [
+            "debug",
+            "info",
+            "warn",
+            "error"
+          ],
+          "description": "Log level name."
+        },
+        "target": {
+          "type": "string",
+          "description": "Log target: 'info' (stdout/stderr), 'warn', 'error', or a file path (e.g., '/var/log/prosody/prosody.log')."
+        }
+      }
+    },
+    "description": "Per-log-level routing and verbosity settings."
+  },
+  "modules_enabled": {
+    "type": "list",
+    "default": [
+      {
+        "name": "roster",
+        "options": {}
+      },
+      {
+        "name": "saslauth",
+        "options": {}
+      },
+      {
+        "name": "tls",
+        "options": {}
+      },
+      {
+        "name": "dialback",
+        "options": {}
+      },
+      {
+        "name": "disco",
+        "options": {}
+      }
+    ],
+    "items": {
+      "type": "object",
+      "fields": {
+        "name": {
+          "type": "string",
+          "description": "Module name (without '.lua' extension)."
+        },
+        "options": {
+          "type": "object",
+          "default": {},
+          "description": "Module-specific configuration key-value pairs."
+        }
+      }
+    },
+    "description": "List of modules to load at startup (e.g., roster, saslauth, muc)."
+  },
+  "allow_registration": {
+    "type": "bool",
+    "default": false,
+    "description": "Whether to allow new user registration via in-band registration (XEP-0077). Disable in production."
+  },
+  "max_idle_time": {
+    "type": "number",
+    "default": 300,
+    "description": "Maximum idle time (seconds) for client connections before disconnection."
+  },
+  "max_stanza_size": {
+    "type": "number",
+    "default": 65536,
+    "description": "Maximum stanza (XML element) size in bytes allowed from clients."
+  },
+  "s2s_ports": {
+    "type": "list",
+    "default": [
+      {
+        "number": 5269,
+        "address": null
+      }
+    ],
+    "items": {
+      "type": "object",
+      "fields": {
+        "number": {
+          "type": "number",
+          "description": "Port for server-to-server connections (XMPP S2S)."
+        },
+        "address": {
+          "type": "string",
+          "nullable": true,
+          "description": "Optional binding IP address for S2S."
+        }
+      }
+    },
+    "description": "Ports to bind for server-to-server (S2S) XMPP traffic."
+  },
+  "s2s_require_encryption": {
+    "type": "bool",
+    "default": true,
+    "description": "Whether to enforce encryption (TLS) for outgoing S2S connections (recommended)."
+  },
+  "s2s_ssl": {
+    "type": "object",
+    "default": {
+      "protocol": "tlsv1_2+",
+      "verify": false
+    },
+    "fields": {
+      "protocol": {
+        "type": "string",
+        "description": "TLS protocol for S2S (e.g., 'tlsv1_2+', 'auto')."
+      },
+      "verify": {
+        "type": "bool",
+        "description": "Whether to verify certificates of connecting servers (false by default for backward compatibility)."
+      }
+    },
+    "description": "TLS settings for server-to-server (S2S) connections."
+  },
+  "trusted_proxies": {
+    "type": "list",
+    "default": [],
+    "items": {
+      "type": "string",
+      "description": "IP address or CIDR subnet allowed to act as trusted proxies (e.g., for components or load balancers)."
+    },
+    "description": "List of trusted proxy addresses for components or external services."
+  }
+}

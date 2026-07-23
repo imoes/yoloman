@@ -1,0 +1,65 @@
+# Osmocom HLR configuration
+#
+# This file configures the Osmocom Home Location Register (HLR)
+# See: https://osmocom.org/projects/osmo-hlr/wiki
+#
+
+# Enable debug output for more verbose logging
+debug {{ debug | lower }}
+
+# Path to SQLite database file
+sqlite {{ sqlite_db_path }}
+
+# Listen address and port for the A-bis interface (BSC/NAS)
+# Note: For production, bind to internal IP, not 0.0.0.0
+msc {{ msc_listen_addr }} {{ msc_listen_port }}
+
+# Authentication algorithm preference
+# Valid: comp128v1, comp128v2, comp128v3 (or 'none' to disable)
+auth_policy {{ auth_policy }}
+
+# APN used for GPRS/IMSI lookup (e.g., for SMSC, SGs, or S4)
+# Must match the APN configured in the HLR database or used for subscriber provisioning
+apn {{ apn }}
+
+# Maximum number of concurrent connections to the MSC
+max_connections {{ max_msc_connections }}
+
+# Enable TLS for secure MSC connections (requires cert/key files)
+{% if tls_enabled %}
+tls
+  cert {{ tls_cert_path }}
+  key {{ tls_key_path }}
+{% endif %}
+
+# Logging configuration
+log
+  # Logging level per subsystem
+  # Subsystems: DHLR, DIUC, DMNCC, DREF, DSP, DSTK, DGSUP, DLU, DLAC, DREF, DSP, DSTK, DGSUP
+{% for sub, level in log_levels.items() %}
+  subsystem {{ sub }} level {{ level }}
+{% endfor %}
+
+# GPRS support (SGSN interconnection)
+{% if gprs_enabled %}
+gprs
+  # SGSN configuration
+  sgsn
+    # GGSN address (for APN resolution)
+    ggsn {{ sgsn_ggsn_addr }}
+    # APN for GPRS context setup
+    apn {{ sgsn_apn }}
+{% endif %}
+
+# GSUP (Generic Subscriber Update Protocol) server for inter-HLR communication
+{% for server in gsup_servers %}
+gsup server {{ server.name }} {{ server.host }} {{ server.port }}
+{% endfor %}
+
+# CLI (Command Line Interface) for remote management
+# Bind to localhost by default for security
+cli
+  telnet {{ cli_telnet_port }}
+{% if cli_telnet_password is defined and cli_telnet_password != '' %}
+  password {{ cli_telnet_password }}
+{% endif %}

@@ -1,0 +1,25 @@
+# Enable the chat logging module
+modules:
+  mod_log_chat: "{{ mod_log_chat.module_path | default('mod_log_chat') }}"
+
+# Log format: "text" or "html"
+mod_log_chat:
+  # Directory where log files are stored
+  log_dir: "{{ log_dir }}"
+  # Format of the log files (text or html)
+  format: "{{ format }}"
+  # Maximum number of days to keep logs (0 = keep forever)
+  max_days: {{ max_days }}
+  # Whether to log room (MUC) chats
+  muc_log: {{ muc_log | lower }}
+  # Whether to log private one-on-one chats
+  private_log: {{ private_log | lower }}
+  # Whether to compress old logs with gzip
+  compress: {{ compress | lower }}
+  # Log file permissions (octal string)
+  file_mode: "{{ file_mode }}"
+  # Optional prefix for log filenames (e.g., "chat-")
+  file_prefix: "{{ file_prefix }}"
+  # Log only from specific virtual hosts (empty = all vhosts)
+  vhosts:
+{% for vhost in vhosts %}    - "{{ vhost }}"{% endfor %}

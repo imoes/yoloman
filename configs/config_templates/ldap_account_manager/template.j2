@@ -1,0 +1,58 @@
+# Basic configuration for LDAP Account Manager (LAM)
+
+# Server: LDAP/Active Directory connection settings
+server: {{ server.host }}
+port: {{ server.port }}
+basedn: {{ server.basedn }}
+binddn: {{ server.binddn }}
+bindpw: {{ server.bindpw }}
+
+# Connection security: use TLS/SSL if configured
+useTLS: {{ server.tls | lower }}
+sslVerify: {{ server.ssl_verify | lower }}
+
+# LAM-specific configuration
+configdir: {{ config_dir }}
+templatedir: {{ template_dir }}
+
+# Logging configuration
+loglevel: {{ log.level }}
+logfile: {{ log.file }}
+
+# Session settings
+sessiontimeout: {{ session.timeout }}
+sessioncookie: {{ session.cookie_name }}
+
+# Authentication backend
+authmodule: {{ auth.module }}
+# For LDAP auth: userdn and passwordfield are used to bind/search
+authldapbasedn: {{ auth.ldap_basedn }}
+authldapsearchfilter: {{ auth.ldap_search_filter }}
+
+# User interface options
+theme: {{ ui.theme }}
+lang: {{ ui.language }}
+showpasswordpolicy: {{ ui.show_password_policy | lower }}
+
+# Password policy enforcement
+passwordpolicy: {{ password_policy.enabled | lower }}
+minlength: {{ password_policy.min_length }}
+minlower: {{ password_policy.min_lowercase }}
+minupper: {{ password_policy.min_uppercase }}
+minnumber: {{ password_policy.min_numbers }}
+minsymbols: {{ password_policy.min_symbols }}
+
+# LDAP schema modules enabled
+groupsmodules: {% for module in modules.groups %}{{ module }}{% if not loop.last %} {{- ',' }}{% endif %}{% endfor %}
+usersmodules: {% for module in modules.users %}{{ module }}{% if not loop.last %} {{- ',' }}{% endif %}{% endfor %}
+hostsmodules: {% for module in modules.hosts %}{{ module }}{% if not loop.last %} {{- ',' }}{% endif %}{% endfor %}
+
+# Custom domain aliases (for multi-domain setups)
+domains:
+{% for domain in domains %}  {{ domain.name }}:
+    ldapserver: {{ domain.server.host }}
+    port: {{ domain.server.port }}
+    basedn: {{ domain.server.basedn }}
+    binddn: {{ domain.server.binddn }}
+    bindpw: {{ domain.server.bindpw }}
+{% endfor %}

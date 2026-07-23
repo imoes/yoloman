@@ -1,0 +1,254 @@
+{
+  "listen_addresses": {
+    "type": "list",
+    "default": [
+      "127.0.0.1:53",
+      "[::1]:53"
+    ],
+    "description": "IP addresses and ports where dnscrypt-proxy will listen for DNS queries."
+  },
+  "max_clients": {
+    "type": "number",
+    "default": 250,
+    "description": "Maximum number of simultaneous client connections supported."
+  },
+  "query_window": {
+    "type": "number",
+    "default": 60,
+    "description": "Time window (in seconds) used to count queries per client for rate limiting."
+  },
+  "log_level": {
+    "type": "number",
+    "default": 1,
+    "description": "Verbosity of logging: 0 = quiet, 1 = info (default), 2 = debug."
+  },
+  "log_file": {
+    "type": "string",
+    "default": "/var/log/dnscrypt-proxy/dnscrypt-proxy.log",
+    "description": "Path to the log file. Leave empty to log only to stderr."
+  },
+  "use_syslog": {
+    "type": "bool",
+    "default": false,
+    "description": "If true, send logs to syslog instead of a file."
+  },
+  "log_days": {
+    "type": "number",
+    "default": 7,
+    "description": "Number of days to keep log files before rotation."
+  },
+  "local_doH": {
+    "type": "object",
+    "default": {
+      "enabled": false,
+      "listen_addresses": [
+        "127.0.0.1:5443"
+      ],
+      "path": "/dns-query"
+    },
+    "items": {
+      "enabled": {
+        "type": "bool",
+        "description": "Enable the local DoH server (RFC 8484)."
+      },
+      "listen_addresses": {
+        "type": "list",
+        "description": "IP:port(s) to bind DoH server to."
+      },
+      "path": {
+        "type": "string",
+        "description": "URL path for the DoH endpoint (e.g., /dns-query)."
+      }
+    }
+  },
+  "doh_servers": {
+    "type": "list",
+    "default": [],
+    "description": "List of DoH upstream providers to use for encrypted DNS resolution.",
+    "items": {
+      "name": {
+        "type": "string",
+        "description": "Unique identifier for this DoH server (e.g., cloudflare-doh)."
+      },
+      "provider_name": {
+        "type": "string",
+        "description": "Provider name (used in TLS SNI and certificate validation)."
+      },
+      "bootstrap_dns": {
+        "type": "list",
+        "description": "Fallback plain DNS servers used to bootstrap the DoH connection."
+      },
+      "url": {
+        "type": "string",
+        "description": "Full DoH endpoint URL (e.g., https://cloudflare-dns.com/dns-query)."
+      },
+      "public_key": {
+        "type": "string",
+        "description": "Base64-encoded public key for DoH server validation."
+      }
+    }
+  },
+  "dnscrypt_servers": {
+    "type": "list",
+    "default": [],
+    "description": "List of DNSCrypt servers to use.",
+    "items": {
+      "name": {
+        "type": "string",
+        "description": "Unique identifier for this DNSCrypt server."
+      },
+      "provider_name": {
+        "type": "string",
+        "description": "Provider name (e.g., 2.dnscrypt-cert.example.com)."
+      },
+      "provider_fp": {
+        "type": "string",
+        "description": "Provider's fingerprint (Base16)."
+      },
+      "provider_cert": {
+        "type": "string",
+        "description": "Provider certificate (Base64)."
+      },
+      "server_cert": {
+        "type": "string",
+        "description": "Server certificate (Base64)."
+      },
+      "server_key": {
+        "type": "string",
+        "description": "Server public key (Base64)."
+      },
+      "server_ip": {
+        "type": "string",
+        "description": "Optional override IP address for this server."
+      }
+    }
+  },
+  "fallback_resolvers": {
+    "type": "list",
+    "default": [],
+    "description": "Plain DNS resolvers used as fallback (UDP/TCP).",
+    "items": {
+      "name": {
+        "type": "string",
+        "description": "Identifier for this resolver."
+      },
+      "address": {
+        "type": "string",
+        "description": "IP:port or just IP (port defaults to 53)."
+      }
+    }
+  },
+  "routes": {
+    "type": "list",
+    "default": [],
+    "description": "Custom routing rules to direct queries to specific upstream servers.",
+    "items": {
+      "name": {
+        "type": "string",
+        "description": "Name of the route rule (e.g., 'block-adult')."
+      },
+      "server_names": {
+        "type": "list",
+        "description": "List of upstream server names to route matching queries to."
+      }
+    }
+  },
+  "block_ipv6_queries": {
+    "type": "bool",
+    "default": false,
+    "description": "If true, block all IPv6 (AAAA) queries (to force IPv4-only)."
+  },
+  "block_certain_queries": {
+    "type": "bool",
+    "default": true,
+    "description": "If true, block queries for certain types (e.g., AXFR, ANY) for security."
+  },
+  "server_timeout": {
+    "type": "number",
+    "default": 10,
+    "description": "Seconds to wait for a response from upstream servers before retrying."
+  },
+  "server_retry_delay": {
+    "type": "number",
+    "default": 300,
+    "description": "Seconds to wait before retrying a server after a failed request."
+  },
+  "cache_size": {
+    "type": "number",
+    "default": 512,
+    "description": "Maximum number of entries to keep in the response cache."
+  },
+  "cache_min_ttl": {
+    "type": "number",
+    "default": 60,
+    "description": "Minimum time (seconds) to cache a successful response."
+  },
+  "cache_max_ttl": {
+    "type": "number",
+    "default": 86400,
+    "description": "Maximum time (seconds) to cache a successful response."
+  },
+  "query_log": {
+    "type": "object",
+    "default": {
+      "file": "/var/log/dnscrypt-proxy/query.log",
+      "format": "json"
+    },
+    "items": {
+      "file": {
+        "type": "string",
+        "description": "Path to query log file (empty = disabled)."
+      },
+      "format": {
+        "type": "string",
+        "description": "Log format: 'json' or 'plain'."
+      }
+    }
+  },
+  "blocklists": {
+    "type": "object",
+    "default": {
+      "enabled": false,
+      "dirs": [
+        "/etc/dnscrypt-proxy/blocklists"
+      ]
+    },
+    "items": {
+      "enabled": {
+        "type": "bool",
+        "description": "Enable blocklist-based ad/malware blocking."
+      },
+      "dirs": {
+        "type": "list",
+        "description": "Directories containing blocklist files (one domain per line)."
+      }
+    }
+  },
+  "network": {
+    "type": "object",
+    "default": {
+      "tcp_only": false,
+      "ecs_override": true,
+      "ecs_range_ipv4": 24,
+      "ecs_range_ipv6": 56
+    },
+    "items": {
+      "tcp_only": {
+        "type": "bool",
+        "description": "If true, use TCP-only for all upstream connections (disables UDP)."
+      },
+      "ecs_override": {
+        "type": "bool",
+        "description": "If true, send ECS options with client-subnet information."
+      },
+      "ecs_range_ipv4": {
+        "type": "number",
+        "description": "IPv4 subnet mask bits to preserve in ECS (e.g., 24 = /24)."
+      },
+      "ecs_range_ipv6": {
+        "type": "number",
+        "description": "IPv6 subnet mask bits to preserve in ECS (e.g., 56 = /56)."
+      }
+    }
+  }
+}

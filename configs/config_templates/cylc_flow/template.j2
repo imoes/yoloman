@@ -1,0 +1,48 @@
+[scheduler]
+  # Enable automatic workflow shutdown after all tasks finish
+  auto shutdown = {{ scheduler_auto_shutdown }}
+
+  # Number of retries for task submission
+  try 1 max submissions = {{ scheduler_try_1_max_submissions }}
+
+  # Time interval between polling task states (seconds)
+  poll interval = {{ scheduler_poll_interval }}
+
+  # Time interval between checking for new tasks (seconds)
+  cycle point delay = {{ scheduler_cycle_point_delay }}
+
+  # Maximum number of tasks to hold at once
+  max active cycle points = {{ scheduler_max_active_cycle_points }}
+
+  # Workflow logging configuration
+[scheduler][log file]
+  # Enable workflow logging
+  enable = {{ log_file_enable }}
+  # Path to workflow log file
+  path = {{ log_file_path }}
+  # Log rotation (bytes); 0 means no rotation
+  max size = {{ log_file_max_size }}
+
+  # Task runtime environment and execution configuration
+{% for task_name, task_config in tasks.items() %}
+[runtime]
+  [[{{ task_name }}]]
+    # Environment variables for task
+{% for env_name, env_val in task_config.environment.items() %}
+    [[[envp]]]
+      {{ env_name }} = {{ env_val }}
+{% endfor %}
+    # Shell used for task script
+    script = {{ task_config.script }}
+    # Command to submit task (e.g., to a batch system)
+{% if task_config.submit_command is defined %}
+    [[[job]]]
+      batch system = {{ task_config.batch_system }}
+      submit command = {{ task_config.submit_command }}
+{% endif %}
+    # Task retry configuration
+{% if task_config.retry is defined %}
+    [[[attempt]]]
+      retry delays = {{ task_config.retry | join(', ') }}
+{% endif %}
+{% endfor %}

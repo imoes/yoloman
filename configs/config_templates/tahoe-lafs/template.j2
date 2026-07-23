@@ -1,0 +1,88 @@
+# Tahoe-LAFS node configuration
+# Generated via Jinja2 template — DO NOT EDIT MANUALLY
+
+[client]
+# Enables client-only mode (no storage, no introducer)
+introducer.furl = {{ introducer_furl | default('') | e }}
+
+# Enable sharing via web API
+webapi.enabled = {{ webapi.enabled | default(false) | lower }}
+# Bind address for webapi (REST API for management)
+webapi.listen = {{ webapi.listen | default('tcp:12345') }}
+# HTTP authentication token for webapi (replace with real secret in production!)
+webapi.auth_token = {{ webapi.auth_token | default('') | e }}
+
+# Enable SFTP server
+sftp.enabled = {{ sftp.enabled | default(false) | lower }}
+# SFTP listen address
+sftp.listen = {{ sftp.listen | default('tcp:2222') }}
+
+# Enable FUSE mount (not recommended in production)
+fuse.enabled = {{ fuse.enabled | default(false) | lower }}
+fuse.mount = {{ fuse.mount | default('') | e }}
+
+# Allow anonymous read-only access to public shares
+anonymous.readonly = {{ anonymous.readonly | default(false) | lower }}
+
+# Enable grid management via management API (for admin tools)
+node.privkey_path = {{ node.privkey_path | default('private/privkey') }}
+node.pubkey_path = {{ node.pubkey_path | default('public/node.pubkey') }}
+
+[storage]
+# Enable this node as a storage server
+enabled = {{ storage.enabled | default(false) | lower }}
+# Path to storage directory (must be writable by the tahoe user)
+storage_dir = {{ storage.storage_dir | default('/var/lib/tahoe/storage') }}
+# Reserved space (in bytes) to keep free for OS and logs
+reserved_space = {{ storage.reserved_space | default(1073741824) }}
+# Maximum share size (bytes); 0 = unlimited
+max_shares = {{ storage.max_shares | default(0) }}
+# Minimum number of shares (k) required for reconstruction
+min_shares = {{ storage.min_shares | default(3) }}
+# Number of shares (n) to create; must be >= k
+num_shares = {{ storage.num_shares | default(10) }}
+# Desired replication level (how many servers should hold each share)
+desired_replication = {{ storage.desired_replication | default(3) }}
+# Preferred share size (bytes) — used as hint, not hard limit
+preferred_share_size = {{ storage.preferred_share_size | default(1048576) }}
+# Maximum share size (bytes); 0 = no limit
+max_share_size = {{ storage.max_share_size | default(0) }}
+# Enable anonymous storage (no authentication required)
+anonymous_storage = {{ storage.anonymous_storage | default(false) | lower }}
+
+# Per-client storage limits (optional, one per line)
+{% for client_quota in storage.client_quotas %}# Per-client quota: {{ client_quota.client_id }} = {{ client_quota.bytes }} bytes
+{{ client_quota.client_id }} = {{ client_quota.bytes }}
+{% endfor %}
+
+# Storage server options: how long to wait before rejecting writes (seconds)
+storage_server_timeout = {{ storage.storage_server_timeout | default(30) }}
+
+[logging]
+# Logging destination (‘stdout’, ‘stderr’, or file path)
+destination = {{ logging.destination | default('stderr') }}
+# Logging level: debug, info, warning, error, critical
+level = {{ logging.level | default('warning') }}
+# Enable timestamp in log lines
+timestamp = {{ logging.timestamp | default(true) | lower }}
+
+[node]
+# Node name (for human identification in UI/introducer)
+nickname = {{ node.nickname | default('unnamed-node') }}
+# Path to private key file
+privkey_path = {{ node.privkey_path | default('private/privkey') }}
+# Path to public key file
+pubkey_path = {{ node.pubkey_path | default('public/node.pubkey') }}
+# Allow other nodes to connect to us (if false, outgoing-only)
+connect_timeout = {{ node.connect_timeout | default(10) }}
+# Number of seconds before giving up on a connection attempt
+connection_attempts = {{ node.connection_attempts | default(3) }}
+# Maximum simultaneous connections
+max_connections = {{ node.max_connections | default(50) }}
+# Enable or disable discovery services (introducer, LAFS discovery, etc.)
+autostart = {{ node.autostart | default(true) | lower }}
+
+# List of additional introducers to announce to (comma-separated or list)
+{% for introducer_url in additional_introducers %}# Additional introducer: {{ introducer_url }}
+introducer.furl = {{ introducer_url }}
+{% endfor %}

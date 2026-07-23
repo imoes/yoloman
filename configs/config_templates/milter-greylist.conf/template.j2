@@ -1,0 +1,99 @@
+# Global milter-greylist behavior
+set timeout {{ timeout }}
+set user {{ user }}
+set group {{ group }}
+set pidfile {{ pidfile }}
+
+# Socket configuration for communication with MTA
+set socket {{ socket }}
+
+# Optional socket permissions (octal, e.g., 0660)
+{% if socket_mode is defined %}
+set socketmode {{ socket_mode }}
+{% endif %}
+
+# Optional socket owner/group override
+{% if socket_owner is defined %}
+set socketowner {{ socket_owner }}
+{% endif %}
+{% if socket_group is defined %}
+set socketgroup {{ socket_group }}
+{% endif %}
+
+# Rate limiting: max connections per IP per minute
+set ratelimit {{ ratelimit }}
+
+# Greylisting behavior: delay (seconds) before first accept
+set delay {{ delay }}
+
+# Auto-whitelist: time (seconds) after successful delivery to bypass greylist
+set autowhitelist {{ autowhitelist }}
+
+# Auto-blacklist: time (seconds) after repeated failures to blacklist IP
+set autoblacklist {{ autoblacklist }}
+
+# Greylist period: time (seconds) for which Greylisting is active
+set greylist {{ greylist }}
+
+# Greylist TTL: how long to remember successful deliveries (seconds)
+set greylistttl {{ greylistttl }}
+
+# Log level: 0 (quiet) to 9 (verbose)
+set loglevel {{ loglevel }}
+
+# Optional log file path
+{% if logfile is defined %}
+set logfile {{ logfile }}
+{% endif %}
+
+# Optional DNS resolver settings
+{% if dns_timeout is defined %}
+set dnstimeout {{ dns_timeout }}
+{% endif %}
+{% if dns_retries is defined %}
+set dnsretries {{ dns_retries }}
+{% endif %}
+
+# Optional IPv6 support (true/false)
+{% if ipv6 is defined %}
+set ipv6 {{ 'true' if ipv6 else 'false' }}
+{% endif %}
+
+# Optional chroot path
+{% if chroot is defined %}
+set chroot {{ chroot }}
+{% endif %}
+
+# Whitelist: static entries bypassing greylisting
+{% for entry in whitelist %}
+# Whitelist {{ entry.comment | default('entry') }}
+{% if entry.ip %}whitelist {{ entry.ip }}{% endif %}
+{% if entry.network %}whitelist {{ entry.network }}{% endif %}
+{% if entry.email %}whitelistemail {{ entry.email }}{% endif %}
+{% if entry.regex %}whitelistregex {{ entry.regex }}{% endif %}
+{% if entry.macro %}whitelistmacro {{ entry.macro }}{% endif %}
+{% endfor %}
+
+# Blacklist: static entries always rejected
+{% for entry in blacklist %}
+# Blacklist {{ entry.comment | default('entry') }}
+{% if entry.ip %}blacklist {{ entry.ip }}{% endif %}
+{% if entry.network %}blacklist {{ entry.network }}{% endif %}
+{% if entry.email %}blacklistemail {{ entry.email }}{% endif %}
+{% if entry.regex %}blacklistregex {{ entry.regex }}{% endif %}
+{% if entry.macro %}blacklistmacro {{ entry.macro }}{% endif %}
+{% endfor %}
+
+# Optional ACLs
+{% for acl in acls %}
+# ACL {{ acl.name }}
+{% if acl.ip %}acl {{ acl.name }} ip {{ acl.ip }}{% endif %}
+{% if acl.network %}acl {{ acl.name }} network {{ acl.network }}{% endif %}
+{% if acl.email %}acl {{ acl.name }} email {{ acl.email }}{% endif %}
+{% if acl.regex %}acl {{ acl.name }} regex {{ acl.regex }}{% endif %}
+{% endfor %}
+
+# Optional default ACL behavior (deny/permit)
+{% if default_acl is defined %}
+set default_acl {{ default_acl }}
+{% endif %}

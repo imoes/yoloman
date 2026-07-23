@@ -1,0 +1,65 @@
+# Enable IPv4 DHCP
+{{ 'noipv4' if not values.ipv4_enabled else '' }}
+
+# Enable IPv6 DHCP (SLAAC, Router Advertisement, and DHCPv6)
+{{ 'noipv6' if not values.ipv6_enabled else '' }}
+
+# Hostname to send to DHCP server (if empty, system hostname is used)
+{{ 'hostname ' + values.hostname if values.hostname else '' }}
+
+# Domain name to request from DHCP server
+{{ 'domain ' + values.domain if values.domain else '' }}
+
+# DNS servers to append (in addition to those from DHCP)
+{% for server in values.dns_servers %}# Append DNS server: {{ server }}
+dns {{ server }}
+{% endfor %}
+
+# Static IP configuration (if enabled per interface)
+{% for iface in values.static_interfaces %}# Static configuration for {{ iface.interface }}
+interface {{ iface.interface }}
+  {{ 'static ip_address=' + iface.ip_address + '/' + (iface.prefix_len | string) if iface.ip_address else '' }}
+  {{ 'static routers=' + iface.routers | join(',') if iface.routers else '' }}
+  {{ 'static domain_name_servers=' + iface.dns | join(',') if iface.dns else '' }}
+{% endfor %}
+
+# Custom options (key-value pairs passed directly to dhcpcd)
+{% for opt, val in values.custom_options.items() %}# Custom option: {{ opt }}
+{{ opt }} {{ val }}
+{% endfor %}
+
+# Root path for PXE boot (e.g., for diskless clients)
+{{ 'rootpath ' + values.rootpath if values.rootpath else '' }}
+
+# NTP servers to configure (e.g., for time sync)
+{% for server in values.ntp_servers %}# NTP server: {{ server }}
+tpserver {{ server }}
+{% endfor %}
+
+# NIS domain to request
+{{ 'nisdomain ' + values.nis_domain if values.nis_domain else '' }}
+
+# NIS servers to request
+{% for server in values.nis_servers %}# NIS server: {{ server }}
+nisservers {{ server }}
+{% endfor %}
+
+# NIS+ domain and servers
+{{ 'nisplusdomain ' + values.nisplus_domain if values.nisplus_domain else '' }}
+{% for server in values.nisplus_servers %}# NIS+ server: {{ server }}
+nisplus_servers {{ server }}
+{% endfor %}
+
+# NIS+ map (e.g., netgroup map)
+{{ 'nisplusmap ' + values.nisplus_map if values.nisplus_map else '' }}
+
+# Request custom DHCP options (e.g., option 121 for classless static routes)
+{% for code, value in values.request_options.items() %}# Request option {{ code }}: {{ value }}
+request {{ code }}
+{% endfor %}
+
+# Retry behavior on failure
+retry {{ values.retry_count }}
+
+# Lease time preferences
+{{ 'nohook ' + hook if hook not in values.hooks_to_skip else '' }}

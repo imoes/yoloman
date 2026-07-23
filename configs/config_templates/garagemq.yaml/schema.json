@@ -1,0 +1,315 @@
+{
+  "global": {
+    "type": "string",
+    "default": "",
+    "description": "Global configuration block (YAML snippet). Typically left empty or used for metadata like version or environment tag."
+  },
+  "cluster.enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable clustering mode. When false, GarageMQ runs as a standalone node."
+  },
+  "cluster.seed_nodes": {
+    "type": "list",
+    "default": [],
+    "items": {
+      "type": "string",
+      "description": "Host:port of seed nodes used for cluster discovery (e.g., garage-node1:4001)."
+    },
+    "description": "List of known GarageMQ nodes to contact for cluster bootstrap."
+  },
+  "cluster.node_name": {
+    "type": "string",
+    "default": "garage@localhost",
+    "description": "Unique node name for this instance (e.g., garage@node1). Must match Erlang node naming convention if clustering."
+  },
+  "cluster.cookie": {
+    "type": "string",
+    "default": "garage-cluster-cookie",
+    "description": "Erlang distribution cookie used for node authentication. Must be identical across all cluster nodes."
+  },
+  "cluster.rpc_timeout_ms": {
+    "type": "number",
+    "default": 5000,
+    "description": "Timeout (ms) for inter-node RPC calls."
+  },
+  "cluster.join_retry_interval_sec": {
+    "type": "number",
+    "default": 10,
+    "description": "Interval (seconds) between retries when joining a cluster."
+  },
+  "listener.host": {
+    "type": "string",
+    "default": "0.0.0.0",
+    "description": "IP address to bind the MQTT listener to."
+  },
+  "listener.port": {
+    "type": "number",
+    "default": 1883,
+    "description": "TCP port for unencrypted MQTT connections."
+  },
+  "listener.max_connections": {
+    "type": "number",
+    "default": 1000,
+    "description": "Maximum number of simultaneous MQTT client connections."
+  },
+  "listener.tls.enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable TLS for MQTT connections on the main listener."
+  },
+  "listener.tls.cert_file": {
+    "type": "string",
+    "default": "/etc/garagemq/tls/cert.pem",
+    "description": "Path to the TLS certificate file (PEM format)."
+  },
+  "listener.tls.key_file": {
+    "type": "string",
+    "default": "/etc/garagemq/tls/key.pem",
+    "description": "Path to the TLS private key file (PEM format)."
+  },
+  "listener.tls.ca_file": {
+    "type": "string",
+    "default": "",
+    "description": "Optional path to CA certificate bundle for client certificate verification (PEM format)."
+  },
+  "auth.enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable authentication and authorization."
+  },
+  "auth.providers": {
+    "type": "list",
+    "default": [],
+    "items": {
+      "type": "object",
+      "description": "An authentication provider configuration block.",
+      "fields": {
+        "type": {
+          "type": "string",
+          "description": "Provider type: 'file', 'http', 'ldap', or 'jwt'."
+        },
+        "path": {
+          "type": "string",
+          "description": "Required for 'file' provider: path to YAML/JSON users file."
+        },
+        "url": {
+          "type": "string",
+          "description": "Required for 'http' provider: URL for auth HTTP callback."
+        },
+        "method": {
+          "type": "string",
+          "description": "HTTP method for auth callback ('POST' or 'GET')."
+        },
+        "username_field": {
+          "type": "string",
+          "description": "Field name in request body containing the username."
+        },
+        "password_field": {
+          "type": "string",
+          "description": "Field name in request body containing the password."
+        },
+        "timeout_ms": {
+          "type": "number",
+          "description": "Timeout (ms) for HTTP auth requests."
+        },
+        "enable_tls": {
+          "type": "bool",
+          "description": "Enable TLS for outbound HTTP auth requests."
+        },
+        "ca_file": {
+          "type": "string",
+          "description": "Path to CA cert for LDAPS verification (optional)."
+        },
+        "host": {
+          "type": "string",
+          "description": "LDAP server hostname or IP."
+        },
+        "port": {
+          "type": "number",
+          "description": "LDAP server port (usually 389 or 636)."
+        },
+        "bind_dn": {
+          "type": "string",
+          "description": "DN to bind as for user search (optional for anonymous bind)."
+        },
+        "bind_password": {
+          "type": "string",
+          "description": "Password for bind_dn."
+        },
+        "user_base_dn": {
+          "type": "string",
+          "description": "Base DN for user search (e.g., 'ou=users,dc=example,dc=com')."
+        },
+        "user_filter": {
+          "type": "string",
+          "description": "LDAP filter to locate user entry (e.g., '(uid={username})')."
+        },
+        "tls_enabled": {
+          "type": "bool",
+          "description": "Use LDAPS (true) or STARTTLS (false)."
+        },
+        "cert_file": {
+          "type": "string",
+          "description": "Path to client cert for LDAPS (optional)."
+        },
+        "key_file": {
+          "type": "string",
+          "description": "Path to client key for LDAPS (optional)."
+        },
+        "algorithms": {
+          "type": "list",
+          "description": "Allowed JWT algorithms (e.g., ['RS256', 'ES256'])."
+        },
+        "issuer": {
+          "type": "string",
+          "description": "Expected issuer (iss) claim in JWT."
+        },
+        "audience": {
+          "type": "string",
+          "description": "Expected audience (aud) claim in JWT."
+        },
+        "jwks_uri": {
+          "type": "string",
+          "description": "URL of JWKS endpoint to fetch signing keys."
+        },
+        "username_claim": {
+          "type": "string",
+          "description": "JWT claim to use as username (e.g., 'sub' or 'email')."
+        }
+      }
+    },
+    "description": "List of authentication provider configurations. One or more providers may be defined."
+  },
+  "storage.backend": {
+    "type": "string",
+    "default": "leveldb",
+    "description": "Persistence backend: 'leveldb' or 'badger'."
+  },
+  "storage.data_dir": {
+    "type": "string",
+    "default": "/var/lib/garagemq/data",
+    "description": "Directory for persistent storage (messages, sessions, subscriptions)."
+  },
+  "storage.max_segment_size_mb": {
+    "type": "number",
+    "default": 64,
+    "description": "Maximum size (MB) of a single data segment before compaction."
+  },
+  "storage.compaction_threshold": {
+    "type": "number",
+    "default": 0.75,
+    "description": "When ratio of obsolete data exceeds this value, compaction is triggered."
+  },
+  "storage.sync_write": {
+    "type": "bool",
+    "default": true,
+    "description": "Force sync writes to disk for durability (slower but safer)."
+  },
+  "log.level": {
+    "type": "string",
+    "default": "info",
+    "description": "Minimum log level: 'debug', 'info', 'warn', or 'error'."
+  },
+  "log.format": {
+    "type": "string",
+    "default": "text",
+    "description": "Log format: 'text' or 'json'."
+  },
+  "log.output": {
+    "type": "string",
+    "default": "stdout",
+    "description": "Log destination: 'stdout', 'stderr', or 'file'."
+  },
+  "log.file_path": {
+    "type": "string",
+    "default": "/var/log/garagemq/garagemq.log",
+    "description": "Path to log file (only used if log.output = 'file')."
+  },
+  "log.max_size_mb": {
+    "type": "number",
+    "default": 100,
+    "description": "Maximum size (MB) per rotated log file."
+  },
+  "log.max_backups": {
+    "type": "number",
+    "default": 5,
+    "description": "Number of rotated log files to retain."
+  },
+  "log.compress": {
+    "type": "bool",
+    "default": false,
+    "description": "Compress rotated log files with gzip."
+  },
+  "metrics.enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable Prometheus-compatible metrics endpoint."
+  },
+  "metrics.port": {
+    "type": "number",
+    "default": 9090,
+    "description": "Port to expose the /metrics endpoint on."
+  },
+  "metrics.path": {
+    "type": "string",
+    "default": "/metrics",
+    "description": "HTTP path for metrics endpoint."
+  },
+  "metrics.enable_histograms": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable histogram metrics for latency (increases cardinality)."
+  },
+  "metrics.histogram_buckets": {
+    "type": "list",
+    "default": [
+      0.005,
+      0.01,
+      0.025,
+      0.05,
+      0.1,
+      0.25,
+      0.5,
+      1,
+      2.5,
+      5,
+      10
+    ],
+    "items": {
+      "type": "number",
+      "description": "Duration bucket boundaries (in seconds) for histograms."
+    },
+    "description": "Custom histogram bucket boundaries (seconds)."
+  },
+  "limits.max_message_size_kb": {
+    "type": "number",
+    "default": 256,
+    "description": "Maximum size (KB) per MQTT message."
+  },
+  "limits.max_inflight_messages": {
+    "type": "number",
+    "default": 1000,
+    "description": "Maximum number of QoS 1/2 messages in-flight per client."
+  },
+  "limits.queue_depth_warning_threshold": {
+    "type": "number",
+    "default": 10000,
+    "description": "Queue depth at which a warning is logged (for slow clients or offline storage)."
+  },
+  "limits.session_expiry_sec": {
+    "type": "number",
+    "default": 3600,
+    "description": "Default session expiry interval (seconds) after client disconnect."
+  },
+  "defaults.subscription.max_topic_levels": {
+    "type": "number",
+    "default": 10,
+    "description": "Maximum topic levels (depth) allowed in a subscription filter."
+  },
+  "defaults.subscription.max_wildcards_per_topic": {
+    "type": "number",
+    "default": 3,
+    "description": "Maximum number of wildcards (+ or #) allowed per topic filter."
+  }
+}

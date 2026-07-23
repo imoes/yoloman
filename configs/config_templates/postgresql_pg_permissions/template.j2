@@ -1,0 +1,54 @@
+# PostgreSQL Permission Audit Service Configuration
+# Controls audit behavior for database permissions
+
+# Enables or disables permission auditing
+{% if audit_enabled %}
+audit_enabled = yes
+{% else %}
+audit_enabled = no
+{% endif %}
+
+# Directory where audit logs are stored
+log_directory = {{ log_directory }}
+
+# Maximum size (in MB) of a log file before rotation
+max_log_file_size = {{ max_log_file_size }}
+
+# Number of rotated log files to retain
+retained_log_files = {{ retained_log_files }}
+
+# PostgreSQL connection settings
+[connection]
+host = {{ conn_host }}
+port = {{ conn_port }}
+database = {{ conn_database }}
+user = {{ conn_user }}
+sslmode = {{ conn_sslmode }}
+
+# Schema filters — only audit tables in these schemas
+[schema_filter]
+include_schemas = 
+{% for schema in include_schemas %}  {{ schema }}
+{% endfor %}
+
+# Table-specific audit rules — override defaults per table
+[audit_rules]
+{% for rule in audit_rules %}
+# Audit rule for {{ rule.table }} in schema {{ rule.schema }}
+{% if rule.enabled %}{{ rule.schema }}.{{ rule.table }} = {{ rule.audit_mode }}{% else %}# {{ rule.schema }}.{{ rule.table }} = {{ rule.audit_mode }}{% endif %}
+{% endfor %}
+
+# Notification endpoints (optional)
+[notifications]
+{% if email_notifications %}
+email_enabled = yes
+email_recipients = {{ email_recipients | join(', ') }}
+{% else %}
+email_enabled = no
+{% endif %}
+{% if webhook_urls %}
+webhook_enabled = yes
+webhook_urls = {{ webhook_urls | join(', ') }}
+{% else %}
+webhook_enabled = no
+{% endif %}

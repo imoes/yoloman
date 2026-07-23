@@ -1,0 +1,88 @@
+# /etc/security/pwquality.conf — Password quality configuration for PAM's pam_pwquality.so
+# Minimum number of characters in the password
+minlen = {{ minlen }}
+
+# Minimum number of lowercase letters
+minlower = {{ minlower }}
+
+# Minimum number of uppercase letters
+minupper = {{ minupper }}
+
+# Minimum number of digits
+mindigits = {{ mindigits }}
+
+# Minimum number of other (non-alphanumeric) characters
+minother = {{ minother }}
+
+# Maximum number of consecutive identical characters
+maxrepeat = {{ maxrepeat }}
+
+# Maximum number of consecutive characters from the same class (e.g., 'abcd')
+maxclassrepeat = {{ maxclassrepeat }}
+
+# Whether to enforce dictionary-based password checks
+# (1=enable, 0=disable); uses /usr/share/dict/words by default
+# Use dictpath to override
+# Note: Dictionary checking requires 'pwquality' dictionary files
+# (e.g., libpwquality-dict-default)
+dictcheck = {{ dictcheck }}
+
+# Optional custom dictionary path
+# Uncomment if you want to use a non-default dictionary file
+{% if dictpath %}dictpath = {{ dictpath }}{% else %}#dictpath = /usr/share/dict/words{% endif %}
+
+# Whether to enforce user name checks
+# 0: don’t check
+# 1: reject if password contains username (case-insensitive)
+usercheck = {{ usercheck }}
+
+# Whether to enforce pam_pwquality to reject passwords containing the reverse of the username
+# 0: don’t check
+# 1: reject if password contains reverse of username
+# (requires usercheck=1 to be effective)
+revusercheck = {{ revusercheck }}
+
+# Whether to enforce similarity checks against the old password
+# (requires libpam-pwquality ≥ 1.2.2)
+similarity = {{ similarity }}
+
+# Whether to enforce checks for uppercase/lowercase/digit/other distribution
+# (0=off, 1=on; default 1)
+# Enforces at least one char from each requested class
+# (minlower, minupper, etc. must also be satisfied)
+enforce_for_root = {{ enforce_for_root }}
+
+# Whether to reject passwords containing the old password or its reverse
+# 0: don’t check
+# 1: reject if password matches or is reverse of old password
+oldcheck = {{ oldcheck }}
+
+# How many previous passwords to remember (for oldcheck)
+# 0 = disabled; N ≥ 1 = remember last N passwords
+remember = {{ remember }}
+
+# Whether to reject passwords containing the user’s GECOS name fields
+# (e.g., full name, office, phone)
+# 0: don’t check
+# 1: reject if password contains any GECOS field
+gecoscheck = {{ gecoscheck }}
+
+# Whether to enable debug logging (for troubleshooting)
+# 0=off, 1=on
+# Logs to syslog (auth facility)
+debug = {{ debug }}
+
+# Whether to require that all password classes be present
+# (0=optional, 1=required)
+# Overrides per-class min* values if set to 1
+# (i.e., enforces at least minlen chars, and at least one from each class)
+# (minlen must also be ≥ sum of minlower+minupper+mindigits+minother)
+strict = {{ strict }}
+
+# Path to additional configuration file(s) for site-specific rules
+# Typically unused, but supported by newer versions
+# (e.g., /etc/security/pwquality.conf.d/*.conf)
+# Multiple files can be specified, comma- or space-separated
+# (see pwquality.conf(5) man page for details)
+{% if extra_configs %}#extra_configs = /etc/security/pwquality.conf.d/local.conf{% for cfg in extra_configs %}
+extra_configs = {{ cfg }}{% endfor %}{% else %}#extra_configs = /etc/security/pwquality.conf.d/local.conf{% endif %}

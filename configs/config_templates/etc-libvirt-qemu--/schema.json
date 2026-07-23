@@ -1,0 +1,646 @@
+{
+  "name": {
+    "type": "string",
+    "default": "vm-01",
+    "description": "Unique name for the virtual machine (must be valid hostname characters)."
+  },
+  "uuid": {
+    "type": "string",
+    "default": "",
+    "description": "UUID for the VM (leave blank to auto-generate)."
+  },
+  "domain_type": {
+    "type": "string",
+    "default": "kvm",
+    "description": "Virtualization type: 'qemu', 'kvm', 'xen', etc."
+  },
+  "memory_unit": {
+    "type": "string",
+    "default": "KiB",
+    "description": "Unit for memory values (KiB, MiB, GiB, bytes)."
+  },
+  "memory_size": {
+    "type": "number",
+    "default": 4096,
+    "description": "Total memory allocated to the VM."
+  },
+  "current_memory_size": {
+    "type": "number",
+    "default": null,
+    "description": "Current memory (if different from max). Omit to use memory_size."
+  },
+  "vcpu_count": {
+    "type": "number",
+    "default": 2,
+    "description": "Number of virtual CPUs assigned to the VM."
+  },
+  "vcpu_placement": {
+    "type": "string",
+    "default": "static",
+    "description": "CPU allocation strategy: 'static', 'auto', 'hybrid'."
+  },
+  "boot_options": {
+    "type": "object",
+    "default": {},
+    "description": "Boot configuration (kernel/initrd/cmdline).",
+    "items": {
+      "architecture": {
+        "type": "string",
+        "default": "x86_64",
+        "description": "Guest architecture."
+      },
+      "machine": {
+        "type": "string",
+        "default": "pc-q35-8.2",
+        "description": "QEMU machine type (e.g., 'pc', 'q35')."
+      },
+      "machine_type": {
+        "type": "string",
+        "default": "hvm",
+        "description": "HVM or PV (paravirt). Usually 'hvm'."
+      },
+      "bootdevs": {
+        "type": "list",
+        "default": [],
+        "description": "Boot devices in order: ['cdrom', 'hd', 'network']."
+      },
+      "initrd": {
+        "type": "string",
+        "default": "",
+        "description": "Path to initrd image."
+      },
+      "kernel": {
+        "type": "string",
+        "default": "",
+        "description": "Path to kernel image."
+      },
+      "cmdline": {
+        "type": "string",
+        "default": "",
+        "description": "Kernel command line arguments."
+      }
+    }
+  },
+  "features": {
+    "type": "object",
+    "default": {
+      "acpi": true,
+      "apic": true
+    },
+    "description": "Hardware feature toggles.",
+    "items": {
+      "acpi": {
+        "type": "bool",
+        "default": true,
+        "description": "Enable ACPI power management."
+      },
+      "apic": {
+        "type": "bool",
+        "default": true,
+        "description": "Enable APIC for interrupt handling."
+      },
+      "pae": {
+        "type": "bool",
+        "default": false,
+        "description": "Enable PAE for 32-bit guests with >4GB RAM."
+      }
+    }
+  },
+  "cpu": {
+    "type": "object",
+    "default": {
+      "mode": "host-model"
+    },
+    "description": "CPU topology and model settings.",
+    "items": {
+      "mode": {
+        "type": "string",
+        "default": "host-model",
+        "description": "CPU mode: 'host-model', 'host-passthrough', 'custom'."
+      },
+      "check": {
+        "type": "string",
+        "default": "partial",
+        "description": "CPU feature checking level: 'none', 'partial', 'full'."
+      },
+      "model": {
+        "type": "object",
+        "default": {},
+        "items": {
+          "name": {
+            "type": "string",
+            "default": "",
+            "description": "CPU model name (e.g., 'Haswell', 'EPYC')."
+          },
+          "fallback": {
+            "type": "string",
+            "default": "allow",
+            "description": "Fallback if model unavailable: 'forbid', 'allow'."
+          }
+        }
+      },
+      "topology": {
+        "type": "object",
+        "default": {},
+        "items": {
+          "sockets": {
+            "type": "number",
+            "default": 1,
+            "description": "CPU sockets."
+          },
+          "cores": {
+            "type": "number",
+            "default": 2,
+            "description": "Cores per socket."
+          },
+          "threads": {
+            "type": "number",
+            "default": 1,
+            "description": "Threads per core."
+          }
+        }
+      }
+    }
+  },
+  "clock": {
+    "type": "object",
+    "default": {
+      "offset": "utc"
+    },
+    "description": "Guest clock configuration.",
+    "items": {
+      "offset": {
+        "type": "string",
+        "default": "utc",
+        "description": "Clock offset: 'utc', 'localtime', 'timezone'."
+      },
+      "timezone": {
+        "type": "string",
+        "default": "",
+        "description": "Timezone (only if offset='timezone')."
+      },
+      "tickpolicy": {
+        "type": "string",
+        "default": "",
+        "description": "Tick policy for time synchronization."
+      },
+      "timer": {
+        "type": "list",
+        "default": [
+          {
+            "name": "tsc",
+            "present": "yes"
+          },
+          {
+            "name": "kvmclock",
+            "present": "yes"
+          },
+          {
+            "name": "rtc",
+            "present": "yes",
+            "mode": "wall"
+          }
+        ],
+        "description": "Timer list.",
+        "items": {
+          "name": {
+            "type": "string",
+            "default": "rtc",
+            "description": "Timer name: 'rtc', 'pit', 'tsc', 'hpet', 'kvmclock'."
+          },
+          "present": {
+            "type": "string",
+            "default": "yes",
+            "description": "'yes' or 'no'."
+          },
+          "mode": {
+            "type": "string",
+            "default": "",
+            "description": "Timer mode (e.g., 'native', 'guest', 'wall')."
+          },
+          "ticks": {
+            "type": "string",
+            "default": "",
+            "description": "Tick behavior: 'merge', 'merge', 'delay', 'catchup'."
+          }
+        }
+      }
+    }
+  },
+  "lifecycle": {
+    "type": "object",
+    "default": {
+      "on_poweroff": "destroy",
+      "on_reboot": "restart",
+      "on_crash": "restart"
+    },
+    "description": "VM lifecycle actions.",
+    "items": {
+      "on_poweroff": {
+        "type": "string",
+        "default": "destroy",
+        "description": "Action on poweroff: 'destroy', 'restart', 'preserve', 'translate'."
+      },
+      "on_reboot": {
+        "type": "string",
+        "default": "restart",
+        "description": "Action on reboot: 'restart', 'destroy', 'preserve', 'translate'."
+      },
+      "on_crash": {
+        "type": "string",
+        "default": "restart",
+        "description": "Action on crash: 'restart', 'destroy', 'preserve', 'rename-restart'."
+      }
+    }
+  },
+  "graphics": {
+    "type": "object",
+    "default": {
+      "type": "spice",
+      "port": "-1"
+    },
+    "description": "Graphics/remote display backend.",
+    "items": {
+      "type": {
+        "type": "string",
+        "default": "spice",
+        "description": "Graphics type: 'spice', 'vnc', 'none'."
+      },
+      "port": {
+        "type": "string",
+        "default": "-1",
+        "description": "Port (use -1 for auto-assign)."
+      },
+      "autoport": {
+        "type": "string",
+        "default": "yes",
+        "description": "Allow auto-assigning ports if port is occupied."
+      },
+      "listen": {
+        "type": "string",
+        "default": "127.0.0.1",
+        "description": "Bind address: '127.0.0.1', '0.0.0.0', or specific IP."
+      },
+      "websocket": {
+        "type": "string",
+        "default": "",
+        "description": "SPICE WebSocket port (e.g., '6080')."
+      },
+      "image_compression": {
+        "type": "string",
+        "default": "",
+        "description": "Image compression: 'auto_lz', 'auto_glz', 'lz', 'glz', 'jpeg', 'off'."
+      },
+      "jpeg_compression": {
+        "type": "string",
+        "default": "",
+        "description": "JPEG quality (e.g., 'auto', '60', '80')."
+      },
+      "zlib_compression": {
+        "type": "string",
+        "default": "",
+        "description": "Zlib level (e.g., 'auto', '1', '9')."
+      },
+      "playback_compression": {
+        "type": "string",
+        "default": "",
+        "description": "Audio compression: 'on' or 'off'."
+      },
+      "locked": {
+        "type": "bool",
+        "default": false,
+        "description": "Lock display (prevent resize)."
+      }
+    }
+  },
+  "video": {
+    "type": "object",
+    "default": {
+      "model": "qxl",
+      "vram": 65536,
+      "heads": 1
+    },
+    "description": "Graphics adapter configuration.",
+    "items": {
+      "model": {
+        "type": "string",
+        "default": "qxl",
+        "description": "GPU model: 'vga', 'cirrus', 'vmvga', 'qxl', 'bochs', 'virtio'."
+      },
+      "vram": {
+        "type": "number",
+        "default": 65536,
+        "description": "Video RAM size (KiB)."
+      },
+      "heads": {
+        "type": "number",
+        "default": 1,
+        "description": "Number of display outputs."
+      },
+      "primary": {
+        "type": "string",
+        "default": "yes",
+        "description": "Is this the primary GPU?"
+      }
+    }
+  },
+  "nics": {
+    "type": "list",
+    "default": [],
+    "description": "List of network interfaces.",
+    "items": {
+      "type": {
+        "type": "string",
+        "default": "network",
+        "description": "Interface type: 'network', 'bridge', 'direct', 'user'."
+      },
+      "mac": {
+        "type": "string",
+        "default": "",
+        "description": "MAC address (e.g., '52:54:00:xx:xx:xx'). Auto-generates if omitted."
+      },
+      "source": {
+        "type": "string",
+        "default": "",
+        "description": "Source: network name, bridge name, or device (e.g., 'default', 'br0', 'eth0')."
+      },
+      "model": {
+        "type": "string",
+        "default": "virtio",
+        "description": "NIC model: 'e1000', 'virtio', 'rtl8139', etc."
+      },
+      "alias": {
+        "type": "string",
+        "default": "",
+        "description": "Human-readable alias name."
+      },
+      "boot_order": {
+        "type": "number",
+        "default": null,
+        "description": "Boot order (1-based integer)."
+      }
+    }
+  },
+  "disks": {
+    "type": "list",
+    "default": [],
+    "description": "List of storage devices.",
+    "items": {
+      "type": {
+        "type": "string",
+        "default": "file",
+        "description": "Disk type: 'file', 'block', 'volume'."
+      },
+      "device": {
+        "type": "string",
+        "default": "disk",
+        "description": "Device type: 'disk', 'cdrom', 'floppy'."
+      },
+      "driver_type": {
+        "type": "string",
+        "default": "qcow2",
+        "description": "Disk image format: 'raw', 'qcow2', 'vmdk'."
+      },
+      "cache_mode": {
+        "type": "string",
+        "default": "writeback",
+        "description": "Cache mode: 'none', 'writeback', 'unsafe', 'directsync', 'writethrough'."
+      },
+      "discard": {
+        "type": "string",
+        "default": "unmap",
+        "description": "Discard behavior: 'unmap', 'ignore'."
+      },
+      "source": {
+        "type": "object",
+        "default": {},
+        "items": {
+          "file": {
+            "type": "string",
+            "default": "",
+            "description": "Path to image file (for 'file' disks)."
+          },
+          "dev": {
+            "type": "string",
+            "default": "",
+            "description": "Block device path (for 'block' disks)."
+          }
+        }
+      },
+      "target": {
+        "type": "object",
+        "default": {},
+        "items": {
+          "dev": {
+            "type": "string",
+            "default": "vda",
+            "description": "Device name: 'vda', 'sdb', etc."
+          },
+          "bus": {
+            "type": "string",
+            "default": "virtio",
+            "description": "Bus type: 'virtio', 'scsi', 'sata', 'usb', 'sd'."
+          }
+        }
+      },
+      "alias": {
+        "type": "string",
+        "default": "",
+        "description": "Alias name."
+      },
+      "boot_order": {
+        "type": "number",
+        "default": null,
+        "description": "Boot order."
+      }
+    }
+  },
+  "tpm": {
+    "type": "object",
+    "default": null,
+    "description": "TPM device configuration (optional).",
+    "items": {
+      "model": {
+        "type": "string",
+        "default": "tpm-tis",
+        "description": "TPM model: 'tpm-tis'."
+      },
+      "backend": {
+        "type": "object",
+        "default": {
+          "version": "2.0"
+        },
+        "items": {
+          "version": {
+            "type": "string",
+            "default": "2.0",
+            "description": "TPM version: '1.2', '2.0'."
+          }
+        }
+      }
+    }
+  },
+  "rng": {
+    "type": "object",
+    "default": {
+      "model": "virtio",
+      "backend": {
+        "model": "random",
+        "source": "/dev/urandom"
+      }
+    },
+    "description": "Entropy source device.",
+    "items": {
+      "model": {
+        "type": "string",
+        "default": "virtio",
+        "description": "RNG model: 'virtio', 'random'."
+      },
+      "backend": {
+        "type": "object",
+        "default": {
+          "model": "random",
+          "source": "/dev/urandom"
+        },
+        "items": {
+          "model": {
+            "type": "string",
+            "default": "random",
+            "description": "Backend model: 'random', 'egd', 'builtin'."
+          },
+          "source": {
+            "type": "string",
+            "default": "/dev/urandom",
+            "description": "Source device or EGD socket path."
+          }
+        }
+      }
+    }
+  },
+  "memory_backends": {
+    "type": "list",
+    "default": [],
+    "description": "List of memory devices (for NUMA, large pages).",
+    "items": {
+      "model": {
+        "type": "string",
+        "default": "dimm",
+        "description": "Memory model: 'dimm', 'nvdimm'."
+      },
+      "access": {
+        "type": "string",
+        "default": "shared",
+        "description": "Access mode: 'shared', 'private'."
+      },
+      "nodemask": {
+        "type": "string",
+        "default": "",
+        "description": "NUMA node mask (e.g., '0-3')."
+      },
+      "pagesize": {
+        "type": "number",
+        "default": 2048,
+        "description": "Page size in units."
+      },
+      "pageunit": {
+        "type": "string",
+        "default": "KiB",
+        "description": "Unit for page size (KiB, MiB)."
+      },
+      "target_size": {
+        "type": "number",
+        "default": 2097152,
+        "description": "Size of memory device."
+      },
+      "target_size_unit": {
+        "type": "string",
+        "default": "KiB",
+        "description": "Unit for target size."
+      },
+      "node": {
+        "type": "number",
+        "default": 0,
+        "description": "NUMA node ID."
+      }
+    }
+  },
+  "redirdevs": {
+    "type": "list",
+    "default": [],
+    "description": "USB redirection devices.",
+    "items": {
+      "bus": {
+        "type": "string",
+        "default": "usb",
+        "description": "Bus: 'usb'."
+      },
+      "type": {
+        "type": "string",
+        "default": "spicevmc",
+        "description": "Type: 'spicevmc', 'tcp'."
+      }
+    }
+  },
+  "sound": {
+    "type": "object",
+    "default": null,
+    "description": "Audio device configuration (optional).",
+    "items": {
+      "model": {
+        "type": "string",
+        "default": "ich9",
+        "description": "Sound model: 'ich6', 'ich9', 'ac97', 'es1370'."
+      }
+    }
+  },
+  "watchdog": {
+    "type": "object",
+    "default": null,
+    "description": "Watchdog device (optional).",
+    "items": {
+      "model": {
+        "type": "string",
+        "default": "i6300esb",
+        "description": "Watchdog model: 'i6300esb', 'ib700', 'diag288'."
+      },
+      "action": {
+        "type": "string",
+        "default": "reset",
+        "description": "Action: 'reset', 'shutdown', 'poweroff', 'pause', 'none', 'dump'."
+      }
+    }
+  },
+  "channels": {
+    "type": "list",
+    "default": [],
+    "description": "Guest communication channels (e.g., guest agent).",
+    "items": {
+      "type": {
+        "type": "string",
+        "default": "unix",
+        "description": "Channel type: 'unix', 'spicevmc', 'vdagent'."
+      },
+      "target": {
+        "type": "object",
+        "default": {},
+        "items": {
+          "type": {
+            "type": "string",
+            "default": "guestfwd",
+            "description": "Target type: 'guestfwd', 'virtio'."
+          },
+          "name": {
+            "type": "string",
+            "default": "org.qemu.guest_agent.0",
+            "description": "Channel name (e.g., 'org.qemu.guest_agent.0')."
+          }
+        }
+      }
+    }
+  },
+  "metadata": {
+    "type": "string",
+    "default": "",
+    "description": "Raw XML metadata to include as-is."
+  }
+}

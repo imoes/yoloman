@@ -1,0 +1,143 @@
+# JetStream global configuration
+# Enable JetStream with persistent storage
+{{# if enable_jetstream }}
+jetstream {
+{{# if max_memory }}
+  max_memory: {{ max_memory }}
+{{# endif }}
+{{# if max_storage }}
+  max_storage: {{ max_storage }}
+{{# endif }}
+{{# if storage_dir }}
+  store_dir: {{ storage_dir }}
+{{# endif }}
+{{# if max_ack_pending }}
+  max_ack_pending: {{ max_ack_pending }}
+{{# endif }}
+{{# if mem_max_stream_bytes }}
+  memory_max_stream_bytes: {{ mem_max_stream_bytes }}
+{{# endif }}
+{{# if storage_max_stream_bytes }}
+  storage_max_stream_bytes: {{ storage_max_stream_bytes }}
+{{# endif }}
+}
+{{# endif }}
+
+# Stream-level defaults (applied per new stream unless overridden)
+# Configure default stream limits and behavior
+{{# if stream_defaults_enabled }}
+stream_defaults {
+{{# if max_consumers }}
+  max_consumers: {{ max_consumers }}
+{{# endif }}
+{{# if max_msg_size }}
+  max_msg_size: {{ max_msg_size }}
+{{# endif }}
+{{# if max_bytes }}
+  max_bytes: {{ max_bytes }}
+{{# endif }}
+{{# if max_age }}
+  max_age: "{{ max_age }}"
+{{# endif }}
+{{# if duplicate_window }}
+  duplicate_window: "{{ duplicate_window }}"
+{{# endif }}
+{{# if allow_rollup }}
+  allow_rollup: {{ allow_rollup | lower }}
+{{# endif }}
+{{# if deny_delete }}
+  deny_delete: {{ deny_delete | lower }}
+{{# endif }}
+{{# if deny_purge }}
+  deny_purge: {{ deny_purge | lower }}
+{{# endif }}
+}
+{{# endif }}
+
+# Per-stream configuration
+# Define named streams with custom settings (if any)
+{{# for stream in streams }}
+# Stream: {{ stream.name }}
+streams {
+  {{ stream.name }} {
+{{# if stream.subjects }}
+    subjects: [{{ stream.subjects | join(', ') }}]
+{{# endif }}
+{{# if stream.max_consumers is defined }}
+    max_consumers: {{ stream.max_consumers }}
+{{# endif }}
+{{# if stream.max_msg_size is defined }}
+    max_msg_size: {{ stream.max_msg_size }}
+{{# endif }}
+{{# if stream.max_bytes is defined }}
+    max_bytes: {{ stream.max_bytes }}
+{{# endif }}
+{{# if stream.max_age is defined }}
+    max_age: "{{ stream.max_age }}"
+{{# endif }}
+{{# if stream.duplicate_window is defined }}
+    duplicate_window: "{{ stream.duplicate_window }}"
+{{# endif }}
+{{# if stream.max_messages_per_subject is defined }}
+    max_msgs_per_subject: {{ stream.max_messages_per_subject }}
+{{# endif }}
+{{# if stream.max_msgs is defined }}
+    max_msgs: {{ stream.max_msgs }}
+{{# endif }}
+{{# if stream.retention is defined }}
+    retention: {{ stream.retention }}
+{{# endif }}
+{{# if stream.discard is defined }}
+    discard: {{ stream.discard }}
+{{# endif }}
+{{# if stream.allow_rollup is defined }}
+    allow_rollup: {{ stream.allow_rollup | lower }}
+{{# endif }}
+{{# if stream.deny_delete is defined }}
+    deny_delete: {{ stream.deny_delete | lower }}
+{{# endif }}
+{{# if stream.deny_purge is defined }}
+    deny_purge: {{ stream.deny_purge | lower }}
+{{# endif }}
+{{# if stream.storage is defined }}
+    storage: {{ stream.storage }}
+{{# endif }}
+{{# if stream.num_replicas is defined }}
+    num_replicas: {{ stream.num_replicas }}
+{{# endif }}
+  }
+}
+{{# endfor }}
+
+# Cluster configuration (required for JetStream replication)
+# Set up cluster peers for high availability
+{{# if cluster.name }}
+cluster {
+  name: {{ cluster.name }}
+{{# if cluster.host }}
+  host: {{ cluster.host }}
+{{# endif }}
+{{# if cluster.port }}
+  port: {{ cluster.port }}
+{{# endif }}
+  {{# for peer in cluster.peers }}
+  # Peer: {{ peer.name }}
+  routes = [
+    nats://{{ peer.host }}:{{ peer.port }}
+  ]
+  {{# endfor }}
+}
+{{# endif }}
+
+# System account and JetStream metadata (optional)
+# Enable system account for admin operations
+{{# if system_account }}
+accounts {
+  $SYS {
+    users = [
+      { user: "sys", password: "{{ system_password }}" }
+    ]
+  }
+}
+system_account: "$SYS"
+{{# endif }}

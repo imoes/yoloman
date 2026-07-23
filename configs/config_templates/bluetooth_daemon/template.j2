@@ -1,0 +1,128 @@
+# Bluetooth system-wide configuration
+[General]
+
+# Enable the Bluetooth service and expose system-wide services
+# Set to 'true' to enable the Bluetooth daemon at boot
+Enable={{ enable_service | default(true) | lower }}
+
+# Name of the local Bluetooth adapter as advertised in broadcasts
+# Max 248 bytes, but typically 8-32 chars; displayed in device lists
+Name={{ device_name | default('Linux Bluetooth') }}
+
+# Short name (usually first 8 characters of 'Name') for GATT/LE advertising
+# Must be unique in proximity to avoid confusion
+ShortName={{ short_name | default('BT-Host') }}
+
+# Default discovery timeout (seconds) before adapter stops advertising for scanning
+# 0 = no timeout (always discoverable), recommended 0 for servers, 30-60 for desktops
+DiscoverableTimeout={{ discoverable_timeout | default(0) }}
+
+# Default pairing timeout (seconds) for pending connections
+PairingTimeout={{ pairing_timeout | default(60) }}
+
+# Initial page timeout (seconds) — how long to wait for response during discovery
+PageTimeout={{ page_timeout | default(256) }}
+
+# Interval (in 0.625ms units) between inquiry scans; lower = more responsive but higher power
+# 0x11 = 17.6s (default), 0x08 = ~2.5s, 0x02 = ~0.3s
+InquiryScanInterval={{ inquiry_scan_interval | default(256) }}
+
+# Duration (in 0.625ms units) of each inquiry scan
+InquiryScanWindow={{ inquiry_scan_window | default(256) }}
+
+# Interval (in 0.625ms units) between page scans
+PageScanInterval={{ page_scan_interval | default(256) }}
+
+# Duration (in 0.625ms units) of each page scan
+PageScanWindow={{ page_scan_window | default(256) }}
+
+# Device class — determines how the device appears in discovery
+# Format: <major minor service class>, e.g., 0x000104 — 'Uncategorized, Computer, Desktop'
+DeviceClass={{ device_class | default('0x000104') }}
+
+# List of Bluetooth service classes to advertise (e.g., 'SerialPort', 'Handsfree', etc.)
+# Empty means none; multiple classes are space-separated
+SupportedServices={{ supported_services | default('') | join(' ') }}
+
+# Auto-enable services (e.g., 'Network', 'Input') on adapter start
+# Comma-separated list; empty = auto-assign based on hardware
+AutoEnable={{ auto_enable | default('Network,Input') | join(',') }}
+
+# Enable/disable LE (Bluetooth Low Energy) support
+# Required for BLE peripherals and iOS/Android pairing
+LESupported={{ le_supported | default(true) | lower }}
+
+# Default LE advertising interval (in 0.625ms units); lower = faster discovery, higher power
+LEAdvertisingIntervalMin={{ le_advertising_interval_min | default(800) }}
+
+# Upper bound of LE advertising interval
+LEAdvertisingIntervalMax={{ le_advertising_interval_max | default(800) }}
+
+# Maximum number of simultaneous connections
+# Increase for multi-device scenarios (e.g., headsets, keyboards, mice)
+MaxConnected={{ max_connected | default(8) }}
+
+# Enable debug logging for troubleshooting
+# Logs appear in /var/log/bluetooth/ if journal is not used
+Debug={{ debug | default(false) | lower }}
+
+# Path for persistent device pairing and trust data
+# Typically /var/lib/bluetooth/<adapter>/ for each adapter
+# Leave blank to use default
+# Paths are relative to /var/lib/bluetooth unless absolute
+# For multi-adapter setups, use a list of adapter-specific entries
+{% for adapter_path in adapter_data_paths %}
+# Storage path for adapter {{ adapter_path.adapter }}
+Adapter{{ adapter_path.adapter }}Path={{ adapter_path.path | default('/var/lib/bluetooth/' + adapter_path.adapter) }}
+{% endfor %}
+
+# Enable Legacy Pairing (Secure Simple Pairing fallback for older devices)
+LegacyPairing={{ legacy_pairing | default(true) | lower }}
+
+# Require MITM protection (Man-in-the-Middle) for pairing
+# If true, requires passkey/confirmation for security; set false for convenience
+MITMProtection={{ mitm_protection | default(false) | lower }}
+
+# Require encryption for all connections (recommended for security)
+SecureSimplePairing={{ secure_simple_pairing | default(true) | lower }}
+
+# Enable Just Works mode (no user input) — insecure; use only for peripherals without I/O
+JustWorksRepairing={{ justworks_repairing | default(true) | lower }}
+
+# Allow BLE GATT server to be exposed system-wide
+GATTPrimaryService={{ gatt_primary_service | default(true) | lower }}
+
+# Enable experimental features — only if needed for hardware or spec compliance
+Experimental={{ experimental | default(false) | lower }}
+
+# Hardware offloading for LE connections
+# Improves battery life and throughput on supported controllers
+Offload={{ offload | default(false) | lower }}
+
+# Audio profile support
+# Enable HFP/HSP (Hands-Free Profile) for car kits and headsets
+HFP={{ hfp | default(true) | lower }}
+
+# A2DP (Advanced Audio Distribution Profile) for high-quality stereo streaming
+A2DP={{ a2dp | default(true) | lower }}
+
+# Enable AVDTP (Audio/Video Distribution Transport Protocol) for media streaming
+AVDTP={{ avdtp | default(true) | lower }}
+
+# Audio codec configuration (e.g., for aptX, LDAC, etc.)
+# Format: <codec>:<enabled:bool>[:options]; multiple codecs space-separated
+# Example: 'aptX:1 ldac:1' enables aptX and LDAC codecs
+Codecs={{ codecs | default('') | join(' ') }}
+
+# Default audio sink latency in ms (affects AV sync)
+# Range: 0–1000; 0 = automatic
+SinkLatency={{ sink_latency | default(0) }}
+
+# Enable remote control features (e.g., play/pause/next via headset buttons)
+Media={{ media | default(true) | lower }}
+
+# Media player backend (e.g., 'bluez', 'mpris'); empty = auto
+MediaBackend={{ media_backend | default('bluez') }}
+
+# Maximum number of concurrent A2DP sinks/sources
+A2DPEndpoints={{ a2dp_endpoints | default(2) }}

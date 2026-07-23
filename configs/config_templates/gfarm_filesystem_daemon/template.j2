@@ -1,0 +1,102 @@
+# Gfarm gfsd configuration file — see gfsd.conf(5)
+# Listen address for client connections
+listen_addr: {{ listen_addr }}
+
+# Port for the gfsd service
+port: {{ port }}
+
+# Directory for gfsd runtime state (pid file, logs)
+spool_dir: {{ spool_dir }}
+
+# Directory for Gfarm metadata cache
+metadata_cache_dir: {{ metadata_cache_dir }}
+
+# Maximum number of worker threads
+max_worker_threads: {{ max_worker_threads }}
+
+# Maximum number of client connections
+max_client_connections: {{ max_client_connections }}
+
+# Timeout (seconds) for client connection keepalive
+client_keepalive_timeout: {{ client_keepalive_timeout }}
+
+# Enable/Disable Kerberos authentication
+use_kerberos: {{ use_kerberos | lower }}
+
+# GFM (metadata server) connection hostnames — comma-separated list
+# Each entry may be `hostname[:port]`; if port omitted, defaults to 15005
+# Format: host:port,host:port,...
+gfm_host: {% for h in gfm_host_list %}{{ h }}{% if not loop.last %},{% endif %}{% endfor %}
+
+# Metadata cache TTL (seconds)
+metadata_cache_ttl: {{ metadata_cache_ttl }}
+
+# Enable/Disable I/O checksum verification
+enable_io_checksum: {{ enable_io_checksum | lower }}
+
+# Log level (DEBUG|INFO|NOTICE|WARNING|ERROR)
+log_level: {{ log_level }}
+
+# File descriptor limit
+rlimit_nofile: {{ rlimit_nofile }}
+
+# Enable/Disable synchronous metadata updates (for safety over latency)
+sync_metadata: {{ sync_metadata | lower }}
+
+# Default replication factor for new files
+replication_factor: {{ replication_factor }}
+
+# Default replication location constraint
+# e.g., 'rack:1' or 'node:1'
+replication_constraint: {{ replication_constraint }}
+
+# Enable/Disable quota enforcement
+enable_quota: {{ enable_quota | lower }}
+
+# List of trusted IP ranges (CIDR notation) for admin access
+{% for cidr in admin_trusted_cidrs %}# Admin-trusted network: {{ cidr }}
+admin_trusted_network: {{ cidr }}
+{% endfor %}
+
+# Enable/Disable verbose I/O logging
+verbose_io_log: {{ verbose_io_log | lower }}
+
+# Path to SSL/TLS certificate chain (for secure gfsd client connections)
+ssl_cert_file: {{ ssl_cert_file }}
+
+# Path to SSL/TLS private key
+ssl_key_file: {{ ssl_key_file }}
+
+# Enable/Disable SSL/TLS for client connections
+use_ssl: {{ use_ssl | lower }}
+
+# Path to CA certificate bundle for validating GFM SSL certs
+ssl_ca_cert_file: {{ ssl_ca_cert_file }}
+
+# Enable/Disable hostname verification for SSL connections
+ssl_verify_hostname: {{ ssl_verify_hostname | lower }}
+
+# Enable/Disable GSI (Grid Security Infrastructure) authentication
+use_gsi: {{ use_gsi | lower }}
+
+# Path to GSI proxy certificate (for GSI auth)
+gsi_proxy_cert: {{ gsi_proxy_cert }}
+
+# Enable/Disable DNS lookup for client hostname resolution
+use_dns: {{ use_dns | lower }}
+
+# Enable/Disable IPv6 support
+enable_ipv6: {{ enable_ipv6 | lower }}
+
+# Path to chroot directory (empty string disables chroot)
+chroot_dir: {{ chroot_dir }}
+
+# Enable/Disable file system access logging (to syslog)
+access_log_to_syslog: {{ access_log_to_syslog | lower }}
+
+# Enable/Disable file system access logging to file
+{% if access_log_file %}# Access log file path
+access_log_file: {{ access_log_file }}
+{% else %}# Access log file path (disabled)
+# access_log_file:
+{% endif %}

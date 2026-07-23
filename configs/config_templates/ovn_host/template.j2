@@ -1,0 +1,52 @@
+[OVN]
+# Base URL for the OVN Northbound database
+nb_db = {{ ovn_nb_db }}
+
+# Base URL for the OVN Southbound database
+sb_db = {{ ovn_sb_db }}
+
+[SSL]
+# Enable SSL for Northbound database connections
+enable_nb_ssl = {{ ovn_nb_ssl_enabled }}
+
+# Enable SSL for Southbound database connections
+enable_sb_ssl = {{ ovn_sb_ssl_enabled }}
+
+# Path to the CA certificate used to verify the OVN database servers
+ca_cert = {{ ovn_ca_cert_path }}
+
+# Path to the client certificate for mutual TLS authentication
+client_cert = {{ ovn_client_cert_path }}
+
+# Path to the client private key for mutual TLS authentication
+client_key = {{ ovn_client_key_path }}
+
+[Host]
+# Hostname or IP address of this host (used for VIF binding and chassis identification)
+host_mac = {{ host_mac }}
+
+# Optional: list of physical network names mapped to local interfaces
+{% for mapping in physical_network_mappings %}# Mapping for physical network '{{ mapping.physical_network }}'
+# Interface: {{ mapping.interface }}
+{% endfor %}
+{% if enable_local_ip_detection %}# Auto-detect local IP address
+local_ip = auto
+{% else %}# Static local IP address for OVN tunneling and chassis identification
+local_ip = {{ local_ip }}
+{% endif %}
+
+# Optional: list of external IDs to attach to the chassis
+{% for ext_id in chassis_external_ids %}# External ID: {{ ext_id.key }} = {{ ext_id.value }}
+{% endfor %}
+[Daemon]
+# Number of worker threads for OVSDB client
+ovsdb_client_threads = {{ ovsdb_client_threads }}
+
+# Number of worker threads for OVN control plane
+ovn_controller_threads = {{ ovn_controller_threads }}
+
+# Maximum time (in seconds) to wait for OVSDB connection before giving up
+ovsdb_connection_timeout = {{ ovsdb_connection_timeout }}
+
+# Enable verbose logging for debugging
+log_level = {{ log_level }}

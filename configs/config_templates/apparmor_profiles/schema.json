@@ -1,0 +1,86 @@
+{
+  "docker_bin_path": {
+    "type": "string",
+    "default": "/usr/bin/docker",
+    "description": "Path to the Docker binary that this profile applies to."
+  },
+  "docker_config_paths": {
+    "type": "list",
+    "default": [
+      "/etc/docker/**"
+    ],
+    "description": "Paths and patterns allowing access to Docker configuration files (e.g., daemon.json, certificates, seccomp profiles).",
+    "items": {
+      "type": "string",
+      "description": "File or directory pattern with wildcards (e.g., '/etc/docker/**')"
+    }
+  },
+  "docker_state_paths": {
+    "type": "list",
+    "default": [
+      "/var/lib/docker/**"
+    ],
+    "description": "Paths and patterns allowing read/write access to Docker state and container images.",
+    "items": {
+      "type": "string",
+      "description": "File or directory pattern with wildcards (e.g., '/var/lib/docker/**')"
+    }
+  },
+  "docker_socket_path": {
+    "type": "string",
+    "default": "/run/docker.sock",
+    "description": "Path to the Docker daemon socket that containers may access (usually for `docker-in-docker` scenarios)."
+  },
+  "seccomp_profiles": {
+    "type": "list",
+    "default": [
+      "/etc/docker/seccomp-profile.json",
+      "/usr/share/docker/seccomp*.json"
+    ],
+    "description": "Paths to seccomp filter profiles used by Docker containers.",
+    "items": {
+      "type": "string",
+      "description": "Path to a seccomp JSON profile file; supports glob patterns (e.g., '/etc/docker/*.json')."
+    }
+  },
+  "allow_dangerous_caps": {
+    "type": "list",
+    "default": [
+      "setuid",
+      "setgid",
+      "sys_admin",
+      "sys_ptrace",
+      "net_admin",
+      "net_raw",
+      "sys_chroot",
+      "mknod",
+      "setpcap",
+      "audit_write",
+      "sys_resource"
+    ],
+    "description": "List of Linux capabilities the Docker daemon requires. Remove any capability if you need to tighten security (e.g., for highly restricted environments).",
+    "items": {
+      "type": "string",
+      "description": "A Linux capability name (e.g., 'sys_admin', 'net_raw')"
+    }
+  },
+  "deny_rules": {
+    "type": "list",
+    "default": [],
+    "description": "List of explicit 'deny' rules for fine-grained security hardening (e.g., '/proc/*/mem w').",
+    "items": {
+      "type": "string",
+      "description": "A denial rule line (e.g., 'deny /proc/*/mem w,'). Must end with comma."
+    }
+  },
+  "mount_rules_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable 'mount' and 'umount' permissions. Disable only if you're not using overlay/other storage drivers that require them."
+  },
+  "ptrace_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable 'ptrace' capability for debugging and introspection (e.g., `docker top`, `docker inspect`). Disable in maximum-security environments."
+  }
+}

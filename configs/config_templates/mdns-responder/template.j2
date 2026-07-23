@@ -1,0 +1,64 @@
+[server]
+# Enables or disables the mDNS responder functionality
+{{ 'use-ipv6=yes' if use_ipv6 else 'use-ipv6=no' }}
+{{ 'use-ipv4=yes' if use_ipv4 else 'use-ipv4=no' }}
+{{ 'allow-interfaces=' + allow_interfaces | join(',') if allow_interfaces else '# allow-interfaces=' }}
+{{ 'deny-interfaces=' + deny_interfaces | join(',') if deny_interfaces else '# deny-interfaces=' }}
+# Sets the system hostname used in mDNS responses
+system-hostname={{ system_hostname }}
+# Sets the local service domain name (e.g., local.)
+domain-name={{ domain_name }}
+
+[reflector]
+# Enables or disables the mDNS reflector (forward mDNS traffic between subnets)
+enable-reflector={{ 'yes' if reflector_enabled else 'no' }}
+# Enables or disables DNS-SD reflection across subnets
+dns-reflect-services={{ 'yes' if reflect_dns_services else 'no' }}
+
+[nss-resolve]
+# Enables or disables the nss-resolve module for system-wide mDNS resolution
+enable={{ 'yes' if nss_resolve_enabled else 'no' }}
+
+[cache]
+# Maximum number of entries in the mDNS response cache
+max-cache-entries={{ max_cache_entries }}
+# TTL for positive responses (in seconds)
+max-ttl={{ max_ttl }}
+# TTL for negative responses (in seconds)
+max-neg-ttl={{ max_neg_ttl }}
+
+[wide-area]
+# Enables or disables Wide Area mDNS (disabled by default)
+enable-wide-area={{ 'yes' if wide_area_enabled else 'no' }}
+
+[publish]
+# Enables or disables publishing of mDNS records
+publish-hinfo={{ 'yes' if publish_hinfo else 'no' }}
+# Publishes the machine's DNS-SD services
+publish-services={{ 'yes' if publish_services else 'no' }}
+# Publishes address records (A/AAAA)
+publish-addresses={{ 'yes' if publish_addresses else 'no' }}
+# Publishes PTR (service discovery) records
+publish-ptr={{ 'yes' if publish_ptr else 'no' }}
+# Publishes SRV records for services
+publish-srv={{ 'yes' if publish_srv else 'no' }}
+# Publishes TXT records for services
+publish-txt={{ 'yes' if publish_txt else 'no' }}
+# Publishes the local workstation record ( workstation._workstation )
+publish-workstation={{ 'yes' if publish_workstation else 'no' }}
+# List of service types to publish (if publish-services=yes)
+{% for service_type in publish_service_types %}
+publish-service={{ service_type }}
+{% endfor %}
+
+[respond-to]
+# List of interface names to respond to mDNS queries on
+{% for iface in respond_to_interfaces %}
+{{ iface }}
+{% endfor %}
+
+[rlimits]
+# Sets the maximum number of open file descriptors for the daemon
+rlimit-nofile={{ rlimit_nofile }}
+# Sets the maximum number of processes
+rlimit-nproc={{ rlimit_nproc }}

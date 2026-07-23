@@ -1,0 +1,101 @@
+{
+  "defaults": {
+    "type": "object",
+    "default": {
+      "ignorip": [
+        "127.0.0.1/8"
+      ],
+      "bantime": "10m",
+      "findtime": "10m",
+      "maxretry": "5",
+      "backend": "auto",
+      "destemail": "root@localhost",
+      "sender": "fail2ban",
+      "mta": "sendmail",
+      "action": [
+        "action_mwl"
+      ]
+    },
+    "description": "Global default settings applied to all jails unless overridden."
+  },
+  "jails": {
+    "type": "list",
+    "default": [
+      {
+        "name": "sshd",
+        "enabled": true,
+        "filter": "sshd",
+        "logpath": [
+          "/var/log/auth.log",
+          "/var/log/secure"
+        ],
+        "maxretry": null,
+        "findtime": null,
+        "bantime": null,
+        "ignorip": [],
+        "action": [],
+        "backend": null,
+        "options": {}
+      }
+    ],
+    "items": {
+      "name": {
+        "type": "string",
+        "default": "",
+        "description": "Jail name (must match section header like [sshd])."
+      },
+      "enabled": {
+        "type": "bool",
+        "default": true,
+        "description": "Whether this jail is active."
+      },
+      "filter": {
+        "type": "string",
+        "default": "",
+        "description": "Name of the filter (in /etc/fail2ban/filter.d/) used to parse logs."
+      },
+      "logpath": {
+        "type": "list",
+        "default": [
+          "/var/log/auth.log"
+        ],
+        "description": "Log file(s) to monitor, space- or comma-separated."
+      },
+      "maxretry": {
+        "type": "number",
+        "default": null,
+        "description": "Number of failures before banning (null = use global default)."
+      },
+      "findtime": {
+        "type": "string",
+        "default": null,
+        "description": "Time window in seconds (or fail2ban time format like '10m') for counting failures (null = use global default)."
+      },
+      "bantime": {
+        "type": "string",
+        "default": null,
+        "description": "Ban duration (e.g., '10m', '1d') (null = use global default)."
+      },
+      "ignorip": {
+        "type": "list",
+        "default": [],
+        "description": "IPs or CIDR ranges to never ban (space- or comma-separated)."
+      },
+      "action": {
+        "type": "list",
+        "default": [],
+        "description": "Custom actions to take on ban (e.g., 'iptables[name=SSH]', 'sendmail-whois[name=SSH, dest=root]'). Leave empty to use global default actions."
+      },
+      "backend": {
+        "type": "string",
+        "default": null,
+        "description": "Backend type for log monitoring (e.g., 'auto', 'systemd', 'gamin', 'polling') (null = use global default)."
+      },
+      "options": {
+        "type": "object",
+        "default": {},
+        "description": "Additional key-value options to pass directly to the jail (e.g., {'port': 'ssh', 'protocol': 'tcp'})."
+      }
+    }
+  }
+}

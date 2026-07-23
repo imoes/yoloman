@@ -1,0 +1,53 @@
+[general]
+# Enable or disable the NTP daemon
+enabled = {{ general.enabled | lower }}
+
+# Network interface to bind to (e.g., 'eth0' or '0.0.0.0' for all)
+interface = {{ general.interface }}
+
+# Logging verbosity: 0 (quiet) to 5 (debug)
+log_level = {{ general.log_level }}
+
+# Interval (seconds) between time sync checks
+sync_interval = {{ general.sync_interval }}
+
+[server]
+# Listen port for incoming NTP client requests
+port = {{ server.port }}
+
+# Maximum number of concurrent client connections
+max_connections = {{ server.max_connections }}
+
+# Enable or disable broadcast/multicast server mode
+broadcast_enabled = {{ server.broadcast_enabled | lower }}
+
+{% if server.broadcast_peers %}
+[broadcast_peers]
+# List of broadcast/multicast peers to announce time to
+{% for peer in server.broadcast_peers %}# {{ peer.name }}: {{ peer.address }} (interval: {{ peer.interval }}s)
+{{ loop.index }} = {{ peer.address }}, {{ peer.interval }}
+{% endfor %}
+{% endif %}
+
+[peers]
+# Static peer definitions for symmetric/unicast synchronization
+{% for peer in server.peers %}# {{ peer.name }}: {{ peer.host }} (key_id: {{ peer.key_id }})
+{{ loop.index }} = {{ peer.host }}, {{ peer.key_id }}
+{% endfor %}
+
+[security]
+# Enable cryptographic authentication
+auth_enabled = {{ security.auth_enabled | lower }}
+
+# Path to NTP keys file
+keys_file = {{ security.keys_file }}
+
+# Trusted key ID (for auth only)
+trusted_key = {{ security.trusted_key }}
+
+[leap_seconds]
+# Path to leap seconds file (optional)
+leapfile = {{ leap_seconds.leapfile | default('') }}
+
+# Enable automatic leap second insertion
+auto_leap = {{ leap_seconds.auto_leap | lower }}

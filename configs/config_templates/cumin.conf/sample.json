@@ -1,0 +1,47 @@
+{
+  "transport": "stomp",
+  "host": "msgbus.example.com",
+  "port": 61613,
+  "user": "cumin",
+  "password": "s3cr3t",
+  "ssl": {
+    "enabled": true,
+    "certfile": "/etc/cumin/client.crt",
+    "keyfile": "/etc/cumin/client.key",
+    "ca_certs": "/etc/cumin/ca.crt",
+    "cert_reqs": "CERT_REQUIRED"
+  },
+  "loglevel": "INFO",
+  "logfile": "/var/log/cumin/cumin.log",
+  "execution": {
+    "timeout": 120,
+    "pool_size": 20,
+    "retry_interval": 5,
+    "max_retries": 2
+  },
+  "default_target": "role:web*",
+  "allowed_targets": [
+    "role:web*",
+    "role:db*",
+    "group:prod"
+  ],
+  "modules": [
+    "cumin.modules.puppet",
+    "cumin.modules.systemctl"
+  ],
+  "command_whitelist": [
+    "systemctl status %s",
+    "systemctl restart %s",
+    "df -h"
+  ],
+  "hooks": {
+    "pre": "",
+    "post": "logger -t cumin 'Execution completed'"
+  },
+  "stats": {
+    "enabled": true,
+    "port": 9100,
+    "path": "/metrics"
+  },
+  "debug": false
+}

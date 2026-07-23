@@ -1,0 +1,69 @@
+# Listen address and port for the postgrey service
+listen={{ listen_address }}:{{ listen_port }}
+
+# User to run postgrey as (commonly 'postfix' or 'postgrey')
+user={{ run_as_user }}
+
+# Group to run postgrey as
+# (if omitted, defaults to the primary group of `user`)
+{% if run_as_group %}group={{ run_as_group }}{% endif %}
+
+# Path to the PostgreSQL/SQLite database file (use sqlite for simplicity)
+database={{ db_path }}
+
+# Database engine: 'sqlite', 'mysql', or 'postgres'
+database_engine={{ db_engine }}
+
+# Delay before greylisting expires (seconds)
+# Typical: 300 (5 minutes)
+whitelist_clients_delay={{ whitelist_clients_delay }}
+
+# Delay after which a new sender is accepted again (seconds)
+# Typical: 1800 (30 minutes)
+whitelist_recipients_delay={{ whitelist_recipients_delay }}
+
+# Whitelist clients (IPs, CIDR, or hostnames) — one per line
+{% for client in whitelist_clients %}whitelist_client={{ client }}{% endfor %}
+
+# Whitelist sender domains (exact or regex patterns) — one per line
+{% for domain in whitelist_sender_domains %}whitelist_sender_domain={{ domain }}{% endfor %}
+
+# Whitelist sender addresses (exact email or patterns) — one per line
+{% for email in whitelist_sender_addresses %}whitelist_sender_address={{ email }}{% endfor %}
+
+# Whitelist recipient domains (exact or regex patterns)
+{% for domain in whitelist_recipient_domains %}whitelist_recipient_domain={{ domain }}{% endfor %}
+
+# Whitelist recipient addresses
+{% for email in whitelist_recipient_addresses %}whitelist_recipient_address={{ email }}{% endfor %}
+
+# Log to syslog? Set to `1` for yes, `0` for no
+{% if syslog %}syslog=1{% else %}syslog=0{% endif %}
+
+# Log file path (ignored if syslog=1)
+{% if log_file %}logfile={{ log_file }}{% endif %}
+
+# Log level: 0 (quiet), 1 (normal), 2 (verbose)
+loglevel={{ loglevel }}
+
+# Greylist for seconds (minimum wait before retry)
+# Typical: 300–600
+greylist={{ greylist_seconds }}
+
+# Greylist for maximum seconds (soft reject window)
+# Typical: 3600 (1 hour)
+greylist_max_age={{ greylist_max_age }}
+
+# Whitelist Postfix's own SMTP submissions (e.g., from smtpd) — often `1`
+{% if whitelist_postfix_smtpd %}whitelist_postfix_smtpd=1{% else %}whitelist_postfix_smtpd=0{% endif %}
+
+# Skip greylisting for clients connecting via localhost
+# Useful for local MTA-to-MTA relays
+{% if skip_local%}skip_local=1{% else %}skip_local=0{% endif %}
+
+# PID file path
+pid_file={{ pid_file }}
+
+# Extra options — passed to postgrey binary as-is
+{% if extra_options %}# Extra options
+extra_options={{ extra_options }}{% endif %}

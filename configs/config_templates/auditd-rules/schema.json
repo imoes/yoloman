@@ -1,0 +1,146 @@
+{
+  "audit_rules": {
+    "type": "object",
+    "description": "Configuration for audit rules including syscall monitoring, file/directory watches, and exclusions.",
+    "items": {
+      "syscall_rules": {
+        "type": "list",
+        "description": "List of syscall audit rules to monitor specific system calls.",
+        "items": {
+          "type": "object",
+          "description": "A syscall audit rule.",
+          "fields": {
+            "description": {
+              "type": "string",
+              "description": "Human-readable explanation of the rule's purpose."
+            },
+            "list": {
+              "type": "string",
+              "description": "Audit list: 'always', 'exit', 'user', 'task'.",
+              "default": "exit",
+              "allowed_values": [
+                "always",
+                "exit",
+                "user",
+                "task"
+              ]
+            },
+            "field": {
+              "type": "string",
+              "description": "Field to match (e.g., 'arch', 'uid', 'gid').",
+              "default": "arch"
+            },
+            "value": {
+              "type": "string",
+              "description": "Value to match for the field (e.g., 'b64', '0').",
+              "default": "b64"
+            },
+            "syscall": {
+              "type": "string",
+              "description": "Syscall number (e.g., 'open', 'execve') or name (e.g., 'open', 'openat').",
+              "default": "open"
+            }
+          }
+        }
+      },
+      "watch_rules": {
+        "type": "list",
+        "description": "List of file/directory watch rules.",
+        "items": {
+          "type": "object",
+          "description": "A file or directory watch rule.",
+          "fields": {
+            "description": {
+              "type": "string",
+              "description": "Explanation of the watch rule's purpose."
+            },
+            "path": {
+              "type": "string",
+              "description": "Absolute path to file or directory to watch.",
+              "default": ""
+            },
+            "permissions": {
+              "type": "string",
+              "description": "Permissions to monitor: r=read, w=write, x=execute, a=attribute change.",
+              "default": "wa",
+              "allowed_values": [
+                "r",
+                "w",
+                "x",
+                "a",
+                "rw",
+                "rx",
+                "wx",
+                "rax",
+                "rwxa"
+              ]
+            },
+            "key": {
+              "type": "string",
+              "description": "Custom key for filtering audit logs (e.g., 'auth', 'privilege_escalation').",
+              "default": ""
+            }
+          }
+        }
+      },
+      "exclude_rules": {
+        "type": "list",
+        "description": "List of exclusion rules to skip specific events (e.g., for known benign activity).",
+        "items": {
+          "type": "object",
+          "description": "An exclusion rule (often used to exclude specific users or paths).",
+          "fields": {
+            "description": {
+              "type": "string",
+              "description": "Explanation of the exclusion."
+            },
+            "path": {
+              "type": "string",
+              "description": "Path to exclude.",
+              "default": ""
+            },
+            "permissions": {
+              "type": "string",
+              "description": "Permissions to exclude (e.g., 'rwxa').",
+              "default": "rw"
+            },
+            "key": {
+              "type": "string",
+              "description": "Key to associate (typically same as watch rule it excludes).",
+              "default": ""
+            }
+          }
+        }
+      },
+      "max_buffers": {
+        "type": "number",
+        "description": "Maximum number of audit message buffers (0\u2013255). Increase if audit loss occurs.",
+        "default": 80
+      },
+      "failure_mode": {
+        "type": "string",
+        "description": "Action on audit failure: 0=printk (log and continue), 1=panic (kernel panic), 2=quiet (no log).",
+        "default": 2,
+        "allowed_values": [
+          0,
+          1,
+          2
+        ]
+      },
+      "log_format": {
+        "type": "string",
+        "description": "Log format: 'raw' (raw binary messages), 'legacy' (text format).",
+        "default": "raw",
+        "allowed_values": [
+          "raw",
+          "legacy"
+        ]
+      },
+      "rate_limit": {
+        "type": "number",
+        "description": "Rate limit for audit messages (messages per second). Only used with 'raw' log format.",
+        "default": 0
+      }
+    }
+  }
+}

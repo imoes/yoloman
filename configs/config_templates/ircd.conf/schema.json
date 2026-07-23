@@ -1,0 +1,361 @@
+{
+  "serverinfo": {
+    "type": "object",
+    "default": {
+      "name": "ircd.example.net",
+      "description": "Hybrid 8 IRC Server",
+      "network_name": "ExampleNet"
+    },
+    "description": "Server identification and network metadata."
+  },
+  "listen_items": {
+    "type": "list",
+    "default": [
+      {
+        "host": "0.0.0.0",
+        "port": 6667,
+        "options": {
+          "ssl": "no"
+        }
+      },
+      {
+        "host": "0.0.0.0",
+        "port": 6697,
+        "ssl": true,
+        "options": {
+          "ssl": "yes"
+        }
+      }
+    ],
+    "description": "Network interfaces and ports for clients and servers to connect to.",
+    "items": {
+      "type": "object",
+      "properties": {
+        "host": {
+          "type": "string",
+          "default": "0.0.0.0",
+          "description": "IP address to bind to."
+        },
+        "port": {
+          "type": "number",
+          "default": 6667,
+          "description": "Port number to listen on."
+        },
+        "ssl": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enable SSL/TLS on this listener."
+        },
+        "options": {
+          "type": "object",
+          "default": {},
+          "description": "Per-listener configuration options (e.g., 'ssl', 'ssl_verify', 'ssl_cert', etc.)."
+        }
+      }
+    }
+  },
+  "global": {
+    "type": "object",
+    "default": {
+      "max_clients": 100,
+      "max_accept": 50,
+      "kline_address": "ircd-admin@example.net",
+      "antinode_expires": 3600,
+      "enable_dcc_flood_protect": true,
+      "enable_server_hiding": true,
+      "enable_cloaking": true,
+      "ident_timeout": 3,
+      "max_hostname": 64,
+      "max_username": 12,
+      "max_global_connections": 200,
+      "min_nick_length": 1,
+      "max_nick_length": 32,
+      "min_user_length": 1,
+      "max_user_length": 10,
+      "max_ircd_restarts": 5,
+      "max_unknown_connections": 10,
+      "enable_dns_check": true,
+      "enable_no_ident": true,
+      "enable_oper_only_mode": false,
+      "enable_oper_snotice": true,
+      "enable_oper_snooper": true,
+      "enable_server_linking": true,
+      "enable_stats_oper": true,
+      "enable_admin_snotice": true,
+      "enable_admin_snooper": true,
+      "enable_admin_linking": true,
+      "enable_admin_stats": true
+    },
+    "description": "Global server behavior, resource limits, and security features."
+  },
+  "operators": {
+    "type": "list",
+    "default": [
+      {
+        "name": "Admin",
+        "user": "admin",
+        "host": "admin@example.net",
+        "password": "$6$rounds=5000$example$...",
+        "sasl_auth": false,
+        "sasl_account": "",
+        "flags": [
+          "kline",
+          "unkline",
+          "die",
+          "restart",
+          "gline",
+          "glined",
+          "locop",
+          "remote",
+          "admin",
+          "oper",
+          "wallop"
+        ]
+      }
+    ],
+    "description": "IRC Operators (opers) with elevated privileges.",
+    "items": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "default": "Admin",
+          "description": "Operator nickname or name."
+        },
+        "user": {
+          "type": "string",
+          "default": "admin",
+          "description": "Username to match (for oper login)."
+        },
+        "host": {
+          "type": "string",
+          "default": "admin@example.net",
+          "description": "Hostname or IP mask allowed to use this oper block."
+        },
+        "password": {
+          "type": "string",
+          "default": "$6$rounds=5000$example$...",
+          "description": "Hashed password (SHA-256 crypt recommended)."
+        },
+        "sasl_auth": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enable SASL authentication instead of password."
+        },
+        "sasl_account": {
+          "type": "string",
+          "default": "",
+          "description": "SASL account name (if SASL enabled)."
+        },
+        "flags": {
+          "type": "list",
+          "default": [
+            "kline",
+            "unkline",
+            "die",
+            "restart",
+            "gline",
+            "glined",
+            "locop",
+            "remote",
+            "admin",
+            "oper",
+            "wallop"
+          ],
+          "description": "Privilege flags assigned to this operator."
+        }
+      }
+    }
+  },
+  "classes": {
+    "type": "list",
+    "default": [
+      {
+        "name": "staff",
+        "ping_time": 60,
+        "max_users": 20,
+        "sendq": 204800,
+        "recvq": 8192,
+        "max_links": 5,
+        "max_local": 20,
+        "max_global": 10,
+        "connect_freq": 60,
+        "min_clients": 1
+      }
+    ],
+    "description": "Connection/resource classes used by 'allow' and 'oper' blocks.",
+    "items": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "default": "staff",
+          "description": "Class name (referenced by 'allow'/'oper')."
+        },
+        "ping_time": {
+          "type": "number",
+          "default": 60,
+          "description": "Seconds before server pings client to check liveness."
+        },
+        "max_users": {
+          "type": "number",
+          "default": 20,
+          "description": "Max clients allowed in this class."
+        },
+        "sendq": {
+          "type": "number",
+          "default": 204800,
+          "description": "Maximum bytes in outgoing buffer before disconnect."
+        },
+        "recvq": {
+          "type": "number",
+          "default": 8192,
+          "description": "Maximum bytes in incoming buffer before disconnect."
+        },
+        "max_links": {
+          "type": "number",
+          "default": 5,
+          "description": "Max simultaneous connections from same IP."
+        },
+        "max_local": {
+          "type": "number",
+          "default": 20,
+          "description": "Max local clients (non-server) in this class."
+        },
+        "max_global": {
+          "type": "number",
+          "default": 10,
+          "description": "Max global connections in this class."
+        },
+        "connect_freq": {
+          "type": "number",
+          "default": 60,
+          "description": "Minimum seconds between connections from same IP."
+        },
+        "min_clients": {
+          "type": "number",
+          "default": 1,
+          "description": "Minimum number of clients required to activate class."
+        }
+      }
+    }
+  },
+  "allows": {
+    "type": "list",
+    "default": [
+      {
+        "ip": "*",
+        "hostname": "*",
+        "user": "*",
+        "max_per_ip": 3,
+        "class": "staff",
+        "password": "",
+        "spoof": "",
+        "spoof_notify": false,
+        "spoof_sasl": false,
+        "flags": []
+      }
+    ],
+    "description": "Client connection permissions and rules.",
+    "items": {
+      "type": "object",
+      "properties": {
+        "ip": {
+          "type": "string",
+          "default": "*",
+          "description": "Allowed IP or CIDR range."
+        },
+        "hostname": {
+          "type": "string",
+          "default": "*",
+          "description": "Allowed hostname mask (supports wildcards)."
+        },
+        "user": {
+          "type": "string",
+          "default": "*",
+          "description": "Allowed username mask."
+        },
+        "max_per_ip": {
+          "type": "number",
+          "default": 3,
+          "description": "Max concurrent connections per IP."
+        },
+        "class": {
+          "type": "string",
+          "default": "staff",
+          "description": "Name of class to assign to connections matching this rule."
+        },
+        "password": {
+          "type": "string",
+          "default": "",
+          "description": "Password required (if any; leave blank for none)."
+        },
+        "spoof": {
+          "type": "string",
+          "default": "",
+          "description": "Hostname to spoof for matching clients (e.g., for trusted bots)."
+        },
+        "spoof_notify": {
+          "type": "boolean",
+          "default": false,
+          "description": "Notifyopers about spoofed connections."
+        },
+        "spoof_sasl": {
+          "type": "boolean",
+          "default": false,
+          "description": "Treat spoofed connection as SASL-authenticated."
+        },
+        "flags": {
+          "type": "list",
+          "default": [],
+          "description": "Connection flags (e.g., 'autojoin', 'no_tilde', 'need_ident')."
+        }
+      }
+    }
+  },
+  "denies": {
+    "type": "list",
+    "default": [
+      {
+        "ip": "192.168.0.0/16",
+        "hostname": "*.malware.example",
+        "user": "spamuser",
+        "reason": "Known spambot network"
+      }
+    ],
+    "description": "Ban or deny rules for specific connections.",
+    "items": {
+      "type": "object",
+      "properties": {
+        "ip": {
+          "type": "string",
+          "default": "192.168.0.0/16",
+          "description": "IP or CIDR range to deny."
+        },
+        "hostname": {
+          "type": "string",
+          "default": "*.malware.example",
+          "description": "Hostname mask to deny."
+        },
+        "user": {
+          "type": "string",
+          "default": "spamuser",
+          "description": "Username to deny."
+        },
+        "reason": {
+          "type": "string",
+          "default": "Known spambot network",
+          "description": "Reason shown to the banned user."
+        }
+      }
+    }
+  },
+  "include_files": {
+    "type": "list",
+    "default": [],
+    "items": {
+      "type": "string"
+    },
+    "description": "Additional config file paths to include (e.g., SSL certs, channel rules)."
+  }
+}

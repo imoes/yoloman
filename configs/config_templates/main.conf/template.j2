@@ -1,0 +1,89 @@
+# ConnMan VPN global configuration
+# Enables/disables the VPN plugin globally
+enabled = {{ enabled | lower }}
+
+# Default DNS servers to use for VPN connections (space-separated list)
+# Overrides system DNS when VPN is active
+default_dns = {{ default_dns | join(' ') }}
+
+# Timeout (in seconds) for connection establishment
+connect_timeout = {{ connect_timeout }}
+
+# Maximum number of concurrent VPN connections
+max_connections = {{ max_connections }}
+
+# Enable or disable IPv6 support in VPN tunnels
+ipv6_enabled = {{ ipv6_enabled | lower }}
+
+# Authentication method: 'certificate', 'psk', 'eap', or 'userpass'
+auth_method = {{ auth_method }}
+
+# Path to CA certificate (for certificate-based auth)
+# Leave empty if not using certificate auth
+cacert_path = {{ cacert_path }}
+
+# Path to client certificate (for certificate-based auth)
+# Leave empty if not using certificate auth
+cert_path = {{ cert_path }}
+
+# Path to client private key (for certificate-based auth)
+# Leave empty if not using certificate auth
+key_path = {{ key_path }}
+
+# EAP inner authentication type (e.g., 'md5', 'mschapv2', 'peap', 'ttls')
+eap_inner = {{ eap_inner }}
+
+# Pre-shared key (for PSK auth)
+# WARNING: In production, use secure key management instead of plain text
+psk = {{ psk }}
+
+# List of allowed remote gateways (hostnames or IPs)
+{% for gateway in allowed_gateways %}# Gateway {{ loop.index }}
+gateway_{{ loop.index }} = {{ gateway.host }}{% if gateway.port %}:{{ gateway.port }}{% endif %}
+{% endfor %}
+
+# List of excluded local subnets (no NAT for these ranges)
+{% for subnet in excluded_subnets %}# Exclude subnet {{ subnet }}
+exclude_subnet_{{ loop.index }} = {{ subnet }}
+{% endfor %}
+
+# Route priority: higher = more preferred
+# Used when multiple VPNs offer overlapping routes
+route_priority = {{ route_priority }}
+
+# Enable automatic reconnection on link loss
+auto_reconnect = {{ auto_reconnect | lower }}
+
+# Delay (in seconds) before attempting reconnection
+reconnect_delay = {{ reconnect_delay }}
+
+# Log level: 'debug', 'info', 'warning', 'error'
+log_level = {{ log_level }}
+
+# Path to custom log file (optional)
+log_file = {{ log_file }}
+
+# Enable or disable MOBIKE (IKEv2 Mobility and Multihoming)
+mobike_enabled = {{ mobike_enabled | lower }}
+
+# Enable or disable dead peer detection (DPD)
+dpd_enabled = {{ dpd_enabled | lower }}
+
+# DPD interval (in seconds)
+dpd_delay = {{ dpd_delay }}
+
+# DPD timeout (in seconds)
+dpd_timeout = {{ dpd_timeout }}
+
+# Optional: DNS search domains for VPN (space-separated)
+{% if dns_search_domains %}dns_search = {{ dns_search_domains | join(' ') }}
+{% endif %}
+
+# Optional: Custom DNS resolver (e.g., 'systemd-resolved', 'dnsmasq', 'none')
+{% if dns_backend %}dns_backend = {{ dns_backend }}
+{% endif %}
+
+# Optional: Custom plugin-specific options (key=value)
+{% for opt_key, opt_val in extra_options %}# Extra option: {{ opt_key }}
+{{ opt_key }} = {{ opt_val }}
+{% endfor %}

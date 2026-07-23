@@ -1,0 +1,130 @@
+{
+  "debug": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable verbose debug logging for troubleshooting."
+  },
+  "log_level": {
+    "type": "string",
+    "default": "info",
+    "description": "Global logging level. Choose from: trace, debug, info, warn, error."
+  },
+  "pid_file": {
+    "type": "string",
+    "default": "/run/biometryd/biometryd.pid",
+    "description": "File path where the daemon writes its process ID."
+  },
+  "socket_path": {
+    "type": "string",
+    "default": "/run/biometryd/biometryd.sock",
+    "description": "Unix domain socket path for local client communication."
+  },
+  "worker_threads": {
+    "type": "number",
+    "default": 4,
+    "description": "Number of worker threads handling concurrent device and client operations."
+  },
+  "device_timeout": {
+    "type": "number",
+    "default": 15,
+    "description": "Timeout (seconds) for communication with biometric devices."
+  },
+  "client_timeout": {
+    "type": "number",
+    "default": 30,
+    "description": "Timeout (seconds) for incoming client requests."
+  },
+  "io_buffer_size": {
+    "type": "number",
+    "default": 65536,
+    "description": "Size (bytes) of internal I/O buffers for device communication."
+  },
+  "max_sessions": {
+    "type": "number",
+    "default": 128,
+    "description": "Maximum number of concurrent device sessions."
+  },
+  "max_retries": {
+    "type": "number",
+    "default": 3,
+    "description": "Maximum number of retry attempts for failed device operations."
+  },
+  "retry_delay_ms": {
+    "type": "number",
+    "default": 500,
+    "description": "Delay (milliseconds) between retries."
+  },
+  "tls_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable TLS for encrypted communication (if the daemon supports network endpoints)."
+  },
+  "tls_cert_path": {
+    "type": "string",
+    "default": "/etc/biometryd/tls/biometryd.crt",
+    "description": "Path to the TLS server certificate file."
+  },
+  "tls_key_path": {
+    "type": "string",
+    "default": "/etc/biometryd/tls/biometryd.key",
+    "description": "Path to the TLS private key file."
+  },
+  "ca_cert_path": {
+    "type": "string",
+    "default": "/etc/biometryd/tls/ca.pem",
+    "description": "Optional path to CA certificate for mutual TLS client authentication. Leave empty to disable client cert validation."
+  },
+  "allowed_clients": {
+    "type": "list",
+    "default": [],
+    "description": "List of allowed client IP addresses or subnets (CIDR notation). Empty list = allow all clients.",
+    "items": {
+      "type": "string"
+    }
+  },
+  "drivers": {
+    "type": "list",
+    "default": [],
+    "description": "List of biometric device drivers to load and configure.",
+    "items": {
+      "type": "object",
+      "fields": {
+        "name": {
+          "type": "string",
+          "default": "",
+          "description": "Unique driver name (e.g., 'fingerprint-uxx', 'face-iris-v2')."
+        },
+        "enabled": {
+          "type": "bool",
+          "default": true,
+          "description": "Enable this driver."
+        },
+        "config_path": {
+          "type": "string",
+          "default": "/etc/biometryd/drivers/{{ name }}.conf",
+          "description": "Path to the driver-specific configuration file."
+        },
+        "extra_options": {
+          "type": "object",
+          "default": {},
+          "description": "Driver-specific key=value parameters (not validated by template)."
+        }
+      }
+    }
+  },
+  "metrics_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable internal metrics collection and Prometheus-style endpoint."
+  },
+  "metrics_endpoint": {
+    "type": "string",
+    "default": "/metrics",
+    "description": "HTTP path where metrics are exposed (e.g., /metrics)."
+  },
+  "metrics_auth_token": {
+    "type": "string",
+    "default": "",
+    "description": "Optional bearer token required to access the metrics endpoint. Leave empty for public access."
+  }
+}

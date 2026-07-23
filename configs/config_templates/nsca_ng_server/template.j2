@@ -1,0 +1,65 @@
+# nsca-ng server configuration file
+# Server binds to this network address (host:port or just port)
+bind_address: {{ bind_address }}
+
+# Maximum number of seconds to wait for incoming connections
+connection_timeout: {{ connection_timeout }}
+
+# Maximum number of seconds to wait for complete packets
+packet_timeout: {{ packet_timeout }}
+
+# Maximum number of incoming connections to queue
+max_connections: {{ max_connections }}
+
+# Enable TLS encryption
+{% if enable_tls %}
+enable_tls: yes
+{% else %}
+enable_tls: no
+{% endif %}
+
+# Path to the TLS certificate (required if TLS enabled)
+{% if enable_tls %}
+certificate_file: {{ tls_certificate_file }}
+private_key_file: {{ tls_private_key_file }}
+ca_file: {{ tls_ca_file }}
+{% endif %}
+
+# Path to the PID file
+pid_file: {{ pid_file }}
+
+# Path to the log file (use '-' for stdout)
+log_file: {{ log_file }}
+
+# Logging verbosity level (0–4, 4 = most verbose)
+log_level: {{ log_level }}
+
+# Run as this user (and group)
+user: {{ run_as_user }}
+{% if run_as_group %}
+group: {{ run_as_group }}
+{% endif %}
+
+# Command pipe (FIFO) path — NSCA-NG writes processed checks here
+command_pipe: {{ command_pipe }}
+
+# Enable reading additional configuration snippets (e.g., /etc/nsca-ng/conf.d/*.cfg)
+{% if enable_include_dir %}
+include_dir: {{ include_dir }}
+{% endif %}
+
+# Allowed clients (IPs or hostnames) and their shared passwords
+{% for client in allowed_clients %}
+# Client: {{ client.name }}
+{% if client.host %}
+allowed_host: {{ client.host }}
+{% endif %}
+{% if client.password %}
+password: {{ client.password }}
+{% endif %}
+{% if client.encryption %}
+encryption: {{ client.encryption }}
+{% endif %}
+{% endfor %}
+
+# End of nsca-ng.cfg

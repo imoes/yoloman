@@ -1,0 +1,286 @@
+{
+  "logging_level": {
+    "type": "string",
+    "default": "WARNING",
+    "description": "Log verbosity level (ERROR, WARNING, INFO, DEBUG, VERBOSE, TRACE)"
+  },
+  "logging_target": {
+    "type": "string",
+    "default": "",
+    "description": "Path to log file (empty = stderr)"
+  },
+  "server_uuid": {
+    "type": "string",
+    "default": "00000000-0000-0000-0000-000000000000",
+    "description": "Unique device identifier (must be a valid UUID)"
+  },
+  "server_name": {
+    "type": "string",
+    "default": "Gerbera Media Server",
+    "description": "Display name of the UPnP server on the network"
+  },
+  "server_model_name": {
+    "type": "string",
+    "default": "Gerbera",
+    "description": "Model name shown to UPnP clients"
+  },
+  "server_model_number": {
+    "type": "string",
+    "default": "1",
+    "description": "Model number shown to UPnP clients"
+  },
+  "server_hardware": {
+    "type": "string",
+    "default": "Gerbera",
+    "description": "Hardware vendor string for UPnP compliance"
+  },
+  "server_software": {
+    "type": "string",
+    "default": "Gerbera",
+    "description": "Software vendor string for UPnP compliance"
+  },
+  "server_enable_port_mapping": {
+    "type": "boolean",
+    "default": false,
+    "description": "Enable automatic port forwarding via UPnP IGD/NAT-PMP"
+  },
+  "server_control_address": {
+    "type": "string",
+    "default": "",
+    "description": "IP address for control interface (empty = all interfaces)"
+  },
+  "server_control_port": {
+    "type": "number",
+    "default": 49152,
+    "description": "TCP port for control interface (UPnP/AV)"
+  },
+  "server_virtual_address": {
+    "type": "string",
+    "default": "",
+    "description": "IP address for media streaming interface (empty = all interfaces)"
+  },
+  "server_virtual_port": {
+    "type": "number",
+    "default": 49153,
+    "description": "TCP port for virtual directory (media streaming)"
+  },
+  "server_interfaces": {
+    "type": "list",
+    "default": [],
+    "description": "List of network interfaces to bind to (e.g., eth0, br0)",
+    "items": {
+      "type": "string"
+    }
+  },
+  "db_engine": {
+    "type": "string",
+    "default": "sqlite",
+    "description": "Database engine: sqlite, mysql, or postgresql"
+  },
+  "db_sqlite_path": {
+    "type": "string",
+    "default": "/var/lib/gerbera/gerbera.db",
+    "description": "Path to SQLite database file (used only when db_engine=sqlite)"
+  },
+  "db_host": {
+    "type": "string",
+    "default": "localhost",
+    "description": "Database server hostname (used only for MySQL/PostgreSQL)"
+  },
+  "db_port": {
+    "type": "number",
+    "default": 3306,
+    "description": "Database server port (MySQL default: 3306; PostgreSQL default: 5432)"
+  },
+  "db_name": {
+    "type": "string",
+    "default": "gerbera",
+    "description": "Database name (MySQL/PostgreSQL only)"
+  },
+  "db_user": {
+    "type": "string",
+    "default": "gerbera",
+    "description": "Database username (MySQL/PostgreSQL only)"
+  },
+  "db_password": {
+    "type": "string",
+    "default": "gerbera",
+    "description": "Database password (MySQL/PostgreSQL only)"
+  },
+  "db_max_connections": {
+    "type": "number",
+    "default": 5,
+    "description": "Maximum concurrent database connections"
+  },
+  "default_container": {
+    "type": "string",
+    "default": "0",
+    "description": "Default container ID for browse requests (0 = root)"
+  },
+  "playlist_enabled": {
+    "type": "boolean",
+    "default": true,
+    "description": "Enable playlist support in web UI and clients"
+  },
+  "playlist_extension": {
+    "type": "string",
+    "default": "m3u",
+    "description": "File extension for saved playlists"
+  },
+  "playlist_directory": {
+    "type": "string",
+    "default": "/var/lib/gerbera/playlists",
+    "description": "Directory for saved playlists"
+  },
+  "playlist_max_items": {
+    "type": "number",
+    "default": 0,
+    "description": "Maximum items allowed per playlist (0 = unlimited)"
+  },
+  "import_hidden_files": {
+    "type": "boolean",
+    "default": false,
+    "description": "Include hidden files (dotfiles) during media scans"
+  },
+  "import_scan_mode": {
+    "type": "string",
+    "default": "auto",
+    "description": "Scan mode: 'auto' (periodic), 'manual' (on-demand only)"
+  },
+  "import_max_depth": {
+    "type": "number",
+    "default": 5,
+    "description": "Maximum directory depth to scan recursively"
+  },
+  "import_excluded_extensions": {
+    "type": "string",
+    "default": "tmp,cache,log",
+    "description": "Comma-separated list of file extensions to ignore"
+  },
+  "import_mappings": {
+    "type": "object",
+    "default": {},
+    "description": "Mapping of file extensions to MIME types (e.g., { 'mp3': 'audio/mpeg' })"
+  },
+  "transcoding_profiles": {
+    "type": "list",
+    "default": [],
+    "description": "List of transcoding profiles for on-the-fly format conversion",
+    "items": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Profile name"
+        },
+        "enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable this profile"
+        },
+        "type": {
+          "type": "string",
+          "default": "ffmpeg",
+          "description": "Transcoder type (e.g., ffmpeg, avconv)"
+        },
+        "agent_command": {
+          "type": "string",
+          "default": "ffmpeg",
+          "description": "Path to transcoding agent"
+        },
+        "agent_args": {
+          "type": "string",
+          "default": "-i {in} -o {out}",
+          "description": "Command-line arguments (use {in} and {out} placeholders)"
+        },
+        "mime_type": {
+          "type": "string",
+          "description": "Target MIME type"
+        },
+        "resolution": {
+          "type": "string",
+          "default": "",
+          "description": "Video resolution override (e.g., 1280x720)"
+        }
+      }
+    }
+  },
+  "metadata_use_exiftool": {
+    "type": "boolean",
+    "default": false,
+    "description": "Enable ExifTool for enhanced metadata extraction"
+  },
+  "metadata_exiftool_path": {
+    "type": "string",
+    "default": "exiftool",
+    "description": "Path to ExifTool executable"
+  },
+  "metadata_load_timeout": {
+    "type": "number",
+    "default": 10,
+    "description": "Timeout in seconds for metadata loading"
+  },
+  "web_enabled": {
+    "type": "boolean",
+    "default": true,
+    "description": "Enable built-in web UI"
+  },
+  "web_port": {
+    "type": "number",
+    "default": 9999,
+    "description": "Web UI listen port"
+  },
+  "web_address": {
+    "type": "string",
+    "default": "",
+    "description": "IP address for web UI (empty = all interfaces)"
+  },
+  "web_skin": {
+    "type": "string",
+    "default": "classic",
+    "description": "Web UI theme (e.g., 'classic', 'frost')"
+  },
+  "web_admin_enabled": {
+    "type": "boolean",
+    "default": true,
+    "description": "Enable admin interface"
+  },
+  "web_admin_user": {
+    "type": "string",
+    "default": "admin",
+    "description": "Admin UI username"
+  },
+  "web_admin_password": {
+    "type": "string",
+    "default": "admin",
+    "description": "Admin UI password"
+  },
+  "web_title": {
+    "type": "string",
+    "default": "Gerbera Media Server",
+    "description": "Web UI page title"
+  },
+  "web_api_enabled": {
+    "type": "boolean",
+    "default": false,
+    "description": "Enable REST API endpoints (requires authentication)"
+  },
+  "protocol_info_ext": {
+    "type": "list",
+    "default": [],
+    "description": "Additional protocol info extensions",
+    "items": {
+      "type": "object",
+      "properties": {
+        "mimetype": {
+          "type": "string",
+          "description": "MIME type (e.g., 'video/x-matroska')"
+        },
+        "profile": {
+          "type": "string",
+          "description": "UPnP/AV profile (e.g., 'L14.VideoContainer')"
+        }
+      }
+    }
+  }
+}

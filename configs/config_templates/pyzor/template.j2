@@ -1,0 +1,33 @@
+# Pyzor collaborative spam filter configuration
+# Path to the Pyzor executable (for debug/testing use)
+pyzor_path: {{ pyzor_path }}
+
+# List of known Pyzor servers for collaborative white/black-listing
+# Each entry includes hostname, port, and optional timeout
+servers:
+{% for server in servers %}  - host: {{ server.host }}
+    port: {{ server.port }}
+{% if server.timeout is defined %}    timeout: {{ server.timeout }}
+{% endif %}{% endfor %}
+
+# Path to the Pyzor client database (stores local hits and metadata)
+# Ensure the user running pyzor has read/write permissions
+database_path: {{ database_path }}
+
+# Enable or disable debug logging (verbose output to stderr)
+debug: {{ debug | lower }}
+
+# Minimum number of hits required before a message is marked as spam
+# Lower values = more aggressive spam detection
+min_hits: {{ min_hits }}
+
+# Maximum time (in seconds) to wait for server responses
+# Increase for unreliable networks or high-latency environments
+response_timeout: {{ response_timeout }}
+
+# Enable or disable automatic server discovery (uses DNS TXT records)
+# Disable if operating in air-gapped or custom DNS environments
+auto_discover: {{ auto_discover | lower }}
+
+# Optional: Path to a custom list of trusted servers (overrides auto_discover)
+trusted_servers_file: {{ trusted_servers_file }}

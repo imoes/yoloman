@@ -1,0 +1,43 @@
+# Console Server Client configuration — connects to console servers for out-of-band management
+# Each entry defines a console host with connection details
+# Host entries use the format: host <name> {
+#   ...settings...
+# }
+{% for host in hosts %}host {{ host.name }} {
+{% if host.aliases %}    # Aliases for this host
+{% for alias in host.aliases %}    alias {{ alias }}
+{% endfor %}{% endif %}    # Console server hostname or IP
+    defaulthost {{ host.console_server }}
+    # Connection port on console server (default: 3038)
+    port {{ host.port }}
+{% if host.password is defined %}    # Password for authentication (if required)
+    password {{ host.password }}
+{% endif %}{% if host.username is defined %}    # Username for authentication (if required)
+    username {{ host.username }}
+{% endif %}    # Enable/disable read/write access
+    readonly {% if host.readonly %}yes{% else %}no{% endif %}
+    # Enable/disable compression
+    compress {% if host.compression %}yes{% else %}no{% endif %}
+    # Connection timeout in seconds
+    timeout {{ host.timeout }}
+    # Connection retry delay in seconds
+    retrydelay {{ host.retrydelay }}
+{% if host.ports is defined %}    # Per-port configuration (for multiple console ports on same host)
+{% for portconf in host.ports %}    port {{ portconf.port }} {
+        # Optional port-specific password
+{% if portconf.password is defined %}        password {{ portconf.password }}
+{% endif %}        # Port-specific readonly flag
+        readonly {% if portconf.readonly %}yes{% else %}no{% endif %}
+    }
+{% endfor %}{% endif %}}
+{% endfor %}# Global defaults (optional, override individual host settings)
+default {
+    # Default timeout (seconds) for new connections
+    timeout {{ defaults.timeout }}
+    # Default retry delay (seconds)
+    retrydelay {{ defaults.retrydelay }}
+    # Default compression setting
+    compress {% if defaults.compression %}yes{% else %}no{% endif %}
+}
+# Enable verbose logging (for troubleshooting)
+# loglevel debug

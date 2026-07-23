@@ -1,0 +1,76 @@
+{
+  "bind_host": "192.168.1.50",
+  "bind_port": 9311,
+  "workers": 4,
+  "log_file": "/var/log/barbican/barbican-worker.log",
+  "log_level": "INFO",
+  "keystone_authtoken": {
+    "auth_type": "password",
+    "www_authenticate_uri": "https://identity.example.com:5000/v3",
+    "project_domain_name": "Default",
+    "project_name": "service",
+    "user_domain_name": "Default",
+    "username": "barbican",
+    "password": "strong_password_here",
+    "auth_url": "https://identity.example.com:35357/v3"
+  },
+  "database": {
+    "connection": "mysql+pymysql://barbican:secret_db_pass@db.example.com/barbican",
+    "max_pool_size": 20,
+    "idle_timeout": 1800
+  },
+  "secretstore": {
+    "enable_secretstore": true,
+    "enabled_plugins": [
+      "pkcs11",
+      "simple_crypto"
+    ],
+    "plugins": [
+      {
+        "name": "pkcs11",
+        "enabled": true,
+        "config": {
+          "library_path": "/usr/lib/softhsm/libsofthsm2.so",
+          "token_label_prefix": "barbican:",
+          "master_key_id": "barbican-default",
+          "slot_id": 1
+        }
+      },
+      {
+        "name": "simple_crypto",
+        "enabled": true,
+        "config": {
+          "default_key_id": "default",
+          "key_label": "barbican-key",
+          "key_type": "AES",
+          "key_length": 256,
+          "mechanism": "CKM_AES_CBC"
+        }
+      }
+    ]
+  },
+  "otppkcs11": {
+    "library_path": "/usr/lib/softhsm/libsofthsm2.so",
+    "pin": "9876543210",
+    "slot_id": 1,
+    "label": "barbican"
+  },
+  "admin": {
+    "user_name": "admin",
+    "project_name": "admin"
+  },
+  "notification": {
+    "notification_driver": "messagingv2",
+    "topics": [
+      {
+        "name": "barbican",
+        "topic_name": "barbican_notifications"
+      }
+    ]
+  },
+  "cache": {
+    "enabled": true,
+    "backend_url": "memcached://cache.example.com:11211",
+    "expiration_time": 600
+  }
+}

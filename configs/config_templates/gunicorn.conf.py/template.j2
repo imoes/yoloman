@@ -1,0 +1,71 @@
+# Bind address (host:port or unix socket path)
+bind = "{{ bind }}"
+
+# Number of worker processes
+workers = {{ workers }}
+
+# Worker class (e.g., 'sync', 'gevent', 'uvicorn.workers.UvicornWorker')
+worker_class = "{{ worker_class }}"
+
+# Timeout in seconds
+ timeout = {{ timeout }}
+
+# Access log file path (use '-' for stdout)
+accesslog = "{{ accesslog }}"
+
+# Error log file path (use '-' for stderr)
+errorlog = "{{ errorlog }}"
+
+# Log level ('debug', 'info', 'warning', 'error', 'critical')
+loglevel = "{{ loglevel }}"
+
+# Number of threads (for sync/gthread workers)
+threads = {{ threads }}
+
+# Maximum number of requests a worker will process before restarting
+max_requests = {{ max_requests }}
+
+# Graceful timeout for workers on reload/shutdown
+graceful_timeout = {{ graceful_timeout }}
+
+# PID file path (optional)
+{% if pidfile %}pidfile = "{{ pidfile }}"
+{% endif %}
+
+# User and group to run workers as (optional, requires root)
+{% if user %}user = "{{ user }}"
+{% endif %}
+{% if group %}group = "{{ group }}"
+{% endif %}
+
+# Environment variables to set for workers
+{% for key, value in env.items() | sort %}{{ key }} = "{{ value }}"
+{% endfor %}
+
+# Extra worker arguments (e.g., {'--preload': True})
+{% for key, value in extra_args.items() | sort %}{{ key }} = {{ value | tojson }}
+{% endfor %}
+
+# SSL/TLS configuration
+{% if ssl %}certfile = "{{ ssl.certfile }}"
+keyfile = "{{ ssl.keyfile }}"
+{% if ssl.ca_certs %}ca_certs = "{{ ssl.ca_certs }}"
+{% endif %}
+{% if ssl.ciphers %}ciphers = "{{ ssl.ciphers }}"
+{% endif %}
+{% endif %}
+
+# Server socket backlog
+backlog = {{ backlog }}
+
+# Enable keep-alive connections
+{% if keepalive %}keepalive = {{ keepalive }}
+{% endif %}
+
+# Procname prefix forps/top tools
+proc_name = "{{ proc_name }}"
+
+# Pre-app loading hook (Python callable string or None)
+{% if pre_load %}def pre_load(app):
+    {{ pre_load | indent(4) }}
+{% endif %}

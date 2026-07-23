@@ -1,0 +1,56 @@
+# Allow VMware Tools to sync guest time using VMware time sync interface
+{{ '# ' if vmware_sync_disabled else '' }}vmware_time_sync
+
+# Use VMware tools for time source if available
+{{ '# ' if vmware_no_sync_source else '' }}vmware_vmtime_sync
+
+# Accept time updates from VMware Tools only if time difference is below this threshold (seconds)
+{{ '# ' if vmware_max_diff is none else '' }}vmware_max_diff {{ vmware_max_diff }}
+
+# Use VMware tools to slew the clock (vs step) — safe for continuous operation
+{{ '# ' if vmware_slew_disabled else '' }}slewvmw
+
+# Log VMware time sync-related messages to syslog with this priority
+{{ '# ' if vmware_log_priority is none else '' }}log vmware {{ vmware_log_priority }}
+
+# Optional: custom log directory (default: /var/log/chrony)
+{{ '# ' if chrony_log_dir is none or chrony_log_dir == '/var/log/chrony' else '' }}logdir {{ chrony_log_dir }}
+
+# Optional: custom log files to keep (default: 6)
+{{ '# ' if chrony_log_rotate_count is none else '' }}logrotate {{ chrony_log_rotate_count }}
+
+# NTP servers (primary/backup — replace with your pool or datacenter servers)
+{% for server in ntp_servers %}server {{ server.host }} {{ 'iburst' if server.iburst else '' }}{{ ' prefer' if server.prefer else '' }}{{ ' key ' + server.key if server.key is not none else '' }}
+{% endfor %}
+
+# Allow NTP clients on these networks (empty = none)
+{% for subnet in allowed_subnets %}allow {{ subnet }}
+{% endfor %}
+
+# Enable leap second handling (default: yes)
+{{ '# ' if leapsecmode != 'slew' else '' }}leapsecmode slew
+
+# Maximum acceptable offset (seconds) before stepping (default: 1.0)
+{{ '# ' if maxupdateskew is none else '' }}maxupdateskew {{ maxupdateskew }}
+
+# Drift file location
+makestep {{ makestep_threshold }} {{ makestep_burst }}
+
+# RTC synchronization (Linux: /etc/adjtime; VMware: guest VM time via VMware Tools)
+rtcsync
+
+# Initial step adjustment only if offset > this threshold (seconds) — 0 disables step entirely
+stepthreshold {{ stepthreshold }}
+
+# Key file for symmetric key authentication (if used)
+{% if ntp_keys %}keyfile /etc/chrony/chrony.keys
+{% endif %}
+
+# Client log file location
+clientloglimit {{ clientloglimit }}
+
+# Source of system time (e.g., for VMs: /dev/ptp0, or VMware VMCI)
+{{ '# ' if time_source_path is none else '' }}time_source {{ time_source_path }}
+
+# Enable command socket for chronyc access
+commandport 0

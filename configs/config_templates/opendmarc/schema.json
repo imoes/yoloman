@@ -1,0 +1,258 @@
+{
+  "user": {
+    "type": "string",
+    "default": "opendmarc",
+    "description": "System user account under which OpenDMARC runs (must have minimal privileges)."
+  },
+  "socket_path": {
+    "type": "string",
+    "default": "local:/var/spool/postfix/opendmarc/opendmarc.sock",
+    "description": "Unix domain socket path for communication with the MTA (e.g., Postfix)."
+  },
+  "pid_file": {
+    "type": "string",
+    "default": "/var/run/opendmarc/opendmarc.pid",
+    "description": "File to store the process PID."
+  },
+  "syslog": {
+    "type": "string",
+    "default": "info",
+    "description": "Syslog facility/log level (info, warning, error, critical)."
+  },
+  "debug": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable verbose debugging output to syslog."
+  },
+  "trusted_authserv_ids": {
+    "type": "list",
+    "items": {
+      "type": "string",
+      "description": "Trusted Authserv-ID (e.g., 'opendmarc', 'spamassassin')."
+    },
+    "default": [
+      "opendmarc"
+    ],
+    "description": "List of trusted authentication service IDs (used when multiple services are present)."
+  },
+  "internal_hosts": {
+    "type": "list",
+    "items": {
+      "type": "string",
+      "description": "IP address or CIDR subnet for internal hosts."
+    },
+    "default": [
+      "127.0.0.1",
+      "::1"
+    ],
+    "description": "List of internal hosts (trusted IP ranges) that bypass DMARC checks for reporting."
+  },
+  "ignore_hosts": {
+    "type": "list",
+    "items": {
+      "type": "string",
+      "description": "IP address, hostname, or CIDR subnet to ignore during DMARC enforcement."
+    },
+    "default": [],
+    "description": "List of hosts (IPs or domains) whose mail should be ignored (exempt from enforcement)."
+  },
+  "whitelist_file": {
+    "type": "string",
+    "default": "/etc/opendmarc/whitelist.txt",
+    "description": "Path to file listing domains/addresses to exempt from DMARC enforcement (one per line)."
+  },
+  "failure_reports": {
+    "type": "bool",
+    "default": true,
+    "description": "Whether to send DMARC failure reports to policy publishers."
+  },
+  "failure_reports_sent_by": {
+    "type": "string",
+    "default": "opendmarc@example.com",
+    "description": "Envelope sender address used in failure reports (must be valid for DNS verification)."
+  },
+  "reports_directory": {
+    "type": "string",
+    "default": "/var/log/opendmarc/reports",
+    "description": "Directory to store aggregated DMARC reports before sending."
+  },
+  "report_interval": {
+    "type": "number",
+    "default": 86400,
+    "description": "Interval (in seconds) to rotate and send reports (0 disables scheduled sending)."
+  },
+  "report_bounce": {
+    "type": "string",
+    "default": "opendmarc-bounce@example.com",
+    "description": "Return address for failure reports (used for bounce handling)."
+  },
+  "report_rate_interval": {
+    "type": "number",
+    "default": 86400,
+    "description": "Minimum interval (seconds) between reports sent to the same domain."
+  },
+  "ststls": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable MTA-STS (strict transport security) for policy discovery."
+  },
+  "sts_file": {
+    "type": "string",
+    "default": "/etc/opendmarc/sts.txt",
+    "description": "Path to the MTA-STS policy file (optional)."
+  },
+  "timeout": {
+    "type": "number",
+    "default": 30,
+    "description": "DNS query timeout (in seconds)."
+  },
+  "signature_key_file": {
+    "type": "string",
+    "default": "/etc/opendmarc/dkim-signature.key",
+    "description": "Private key file for DKIM signing of failure reports."
+  },
+  "signature_key_selector": {
+    "type": "string",
+    "default": "opendmarc",
+    "description": "DKIM selector used when signing failure reports (must match DNS TXT record)."
+  },
+  "strip_attachment": {
+    "type": "bool",
+    "default": true,
+    "description": "Strip message attachments from failure reports (recommended for privacy/security)."
+  },
+  "report_min_quorum": {
+    "type": "number",
+    "default": 10,
+    "description": "Minimum number of matching failures to trigger a report (prevents spammy reports)."
+  },
+  "failure_types": {
+    "type": "list",
+    "items": {
+      "type": "string",
+      "enum": [
+        "fail",
+        "none",
+        "missing",
+        "pass"
+      ],
+      "description": "DMARC result types to include in failure reports."
+    },
+    "default": [
+      "fail"
+    ],
+    "description": "List of failure types to report. 'fail' is most common."
+  },
+  "use_ipv6": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable IPv6 for outbound SMTP connections when sending reports."
+  },
+  "log_why": {
+    "type": "bool",
+    "default": true,
+    "description": "Log the detailed reason for each DMARC decision (SPF/DKIM alignment result)."
+  },
+  "ignore_authenticated_clients": {
+    "type": "bool",
+    "default": true,
+    "description": "Skip DMARC checks for authenticated clients (e.g., mail from SMTP AUTH users)."
+  },
+  "reject_failures": {
+    "type": "bool",
+    "default": false,
+    "description": "Reject mail that fails DMARC with p=reject (not recommended during initial rollout)."
+  },
+  "add_received_spf": {
+    "type": "bool",
+    "default": true,
+    "description": "Add 'Received-SPF' header to messages (helps with debugging)."
+  },
+  "arf_template": {
+    "type": "string",
+    "default": "/etc/opendmarc/arf-template.txt",
+    "description": "Path to custom Abuse Reporting Format (ARF) template (advanced)."
+  },
+  "max_workers": {
+    "type": "number",
+    "default": 4,
+    "description": "Maximum number of concurrent report-sending worker threads."
+  },
+  "max_report_size": {
+    "type": "number",
+    "default": 10485760,
+    "description": "Maximum size (bytes) of a single report file; larger files are split (0 = no limit)."
+  },
+  "smtp_host": {
+    "type": "string",
+    "default": "localhost",
+    "description": "SMTP server hostname to use for sending DMARC failure reports (if external SMTP is desired)."
+  },
+  "smtp_port": {
+    "type": "number",
+    "default": 25,
+    "description": "SMTP server port (25 for unencrypted, 465 or 587 for TLS)."
+  },
+  "smtp_timeout": {
+    "type": "number",
+    "default": 60,
+    "description": "Timeout (seconds) for SMTP operations (connection + data transfer)."
+  },
+  "smtp_use_tls": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable STARTTLS when connecting to the SMTP server."
+  },
+  "smtp_verify_tls": {
+    "type": "bool",
+    "default": true,
+    "description": "Verify SMTP server certificate when TLS is used."
+  },
+  "smtp_username": {
+    "type": "string",
+    "default": "",
+    "description": "SMTP username for authentication (if required by the SMTP server)."
+  },
+  "smtp_password": {
+    "type": "string",
+    "default": "",
+    "description": "SMTP password for authentication (if required; consider secure file/env injection instead)."
+  },
+  "domain_settings": {
+    "type": "list",
+    "items": {
+      "type": "object",
+      "properties": {
+        "domain": {
+          "type": "string",
+          "description": "Domain name to configure (e.g., 'example.com')."
+        },
+        "authserv_id": {
+          "type": "string",
+          "default": "opendmarc",
+          "description": "Authserv-ID override for this domain."
+        },
+        "failure_reports": {
+          "type": "bool",
+          "default": true,
+          "description": "Override: whether to send failure reports for this domain."
+        },
+        "ignore_hosts": {
+          "type": "list",
+          "items": {
+            "type": "string"
+          },
+          "default": [],
+          "description": "Override: hosts to ignore for this domain."
+        },
+        "whitelist_file": {
+          "type": "string",
+          "default": "",
+          "description": "Override: per-domain whitelist file."
+        }
+      }
+    },
+    "default": [],
+    "description": "List of per-domain configuration overrides."
+  }
+}

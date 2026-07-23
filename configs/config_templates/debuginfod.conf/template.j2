@@ -1,0 +1,89 @@
+# Base directories for cached debug information
+base_cache_dir: {{ base_cache_dir }}
+
+# Where debuginfod stores downloaded debuginfo packages
+executable_cache_dir: {{ executable_cache_dir }}
+
+# HTTP(S) base URLs for remote debuginfod servers (searched in order)
+{% if upstream_debuginfods %}# Upstream debuginfod servers
+upstream_urls:
+{% for url in upstream_debuginfods %}- {{ url }}
+{% endfor %}{% else %}# No upstream debuginfod servers configured
+upstream_urls: []
+{% endif %}
+
+# Port to listen on
+port: {{ port }}
+
+# Host interface to bind to (empty string binds to all interfaces)
+bind_address: {{ bind_address }}
+
+# Maximum number of worker threads
+max_workers: {{ max_workers }}
+
+# Maximum size (in bytes) of the cache for downloaded debuginfo (0 = unlimited)
+cache_size_limit: {{ cache_size_limit }}
+
+# Maximum age (in seconds) for cached debuginfo before eviction (0 = never expire)
+cache_ttl: {{ cache_ttl }}
+
+# Enable/disable compression of cached debuginfo files (zstd)
+compress_cache: {{ compress_cache }}
+
+# Enable/disable automatic pruning of stale cache entries
+prune_cache: {{ prune_cache }}
+
+# HTTP(S) proxy URL to use for outgoing connections (empty string = no proxy)
+proxy_url: {{ proxy_url }}
+
+# Path to CA certificate bundle for TLS verification (empty string = use system trust store)
+cacert_path: {{ cacert_path }}
+
+# Enable/disable strict TLS certificate verification
+tls_verify: {{ tls_verify }}
+
+# HTTP Basic Auth username for upstream servers (if needed)
+{% if upstream_auth_users %}# Upstream authentication users
+upstream_auth:
+{% for auth in upstream_auth_users %}- username: {{ auth.username }}
+  password: {{ auth.password }}
+{% endfor %}{% else %}# No upstream authentication configured
+upstream_auth: []
+{% endif %}
+
+# Enable/disable metrics endpoint at /metrics
+metrics_enabled: {{ metrics_enabled }}
+
+# Enable/disable verbose logging (true = debug level)
+verbose: {{ verbose }}
+
+# Log file path (empty string = log to stderr)
+log_file: {{ log_file }}
+
+# Rate-limiting: maximum number of concurrent downloads per client
+max_downloads_per_client: {{ max_downloads_per_client }}
+
+# Rate-limiting: maximum number of concurrent connections to upstream servers
+max_upstream_connections: {{ max_upstream_connections }}
+
+# Time-to-live (seconds) for upstream connection pools
+upstream_connection_ttl: {{ upstream_connection_ttl }}
+
+# Enable/disable support for debuginfod v1/v2 API protocols
+{% if supported_protocols %}# Supported debuginfod API versions
+supported_protocols:
+{% for proto in supported_protocols %}- {{ proto }}
+{% endfor %}{% else %}# Default: support both v1 and v2
+supported_protocols:
+- v1
+- v2
+{% endif %}
+
+# Enable/disable gzip compression of responses (unless explicitly disabled by client)
+compress_responses: {{ compress_responses }}
+
+# Timeout (seconds) for upstream HTTP requests
+upstream_timeout: {{ upstream_timeout }}
+
+# Enable/disable HTTP keep-alive for upstream connections
+upstream_keepalive: {{ upstream_keepalive }}

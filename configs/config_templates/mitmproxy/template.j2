@@ -1,0 +1,76 @@
+# mitmproxy configuration file (YAML)
+# This file is loaded at startup and can be edited manually or via the web UI.
+# For full documentation: https://docs.mitmproxy.org/stable/howto-configuration/
+
+host: {{ host }}
+port: {{ port }}
+
+# HTTP/2 support
+http2: {{ http2 }}
+
+# HTTPS interception settings
+# If enabled, mitmproxy will intercept HTTPS traffic by generating per-host certificates
+# (requires installing mitmproxy's CA certificate in clients/trust stores)
+ssl_insecure: {{ ssl_insecure }}
+
+# Certificate generation options
+# Where to store dynamically generated certificates (if not using system store)
+cert_gen: {{ cert_gen }}
+
+# Proxy mode
+# Options: 'normal', 'transparent', 'socks5', 'reverse', 'local'
+mode: {{ mode }}
+
+# Reverse proxy upstreams (list of services to forward requests to)
+# Each entry maps a frontend path/host to a backend URL
+{% for upstream in reverse_upstreams %}
+# Reverse proxy: {{ upstream.name }} → {{ upstream.upstream }}
+upstreams:
+  - match: {{ upstream.match | default('') | tojson }}
+    url: {{ upstream.upstream | tojson }}
+{% endfor %}
+
+# Server replay (for deterministic replay of recorded flows)
+# Not recommended for production use with dynamic APIs
+server_replay: {{ server_replay | default(false) }}
+
+# Client replay (for replaying captured client traffic)
+client_replay: {{ client_replay | default(false) }}
+
+# Web UI options
+web_host: {{ web_host }}
+web_port: {{ web_port }}
+web_debug: {{ web_debug }}
+
+# Logging options
+# Level: 'error', 'warn', 'info', 'debug', 'trace'
+log_level: {{ log_level }}
+
+# Flow capture / dump file (optional, for offline analysis)
+# When specified, all flows are saved to this file in real-time
+save_stream_file: {{ save_stream_file | default('') | tojson }}
+
+# Transparency mode (for 'transparent' proxy mode only)
+# Usually auto-detected, but can be overridden
+transparent_proxy: {{ transparent_proxy | default(true) }}
+
+# Bypass hosts (not intercepted even if HTTPS)
+# Useful for known internal services or systems where MITM is undesirable
+bypass_hosts:
+{% for host in bypass_hosts %}
+  - {{ host | tojson }}
+{% endfor %}
+
+# Addons (Python modules or built-in behaviors)
+# Common built-in addons: 'proxyauth', 'anticache', 'anticomp', 'stickyauth', 'stickycookie', 'stream_large_bodies', etc.
+{% for addon in addons %}
+# Load addon: {{ addon }}
+{% endfor %}
+addons:
+{% for addon in addons %}
+  - {{ addon | tojson }}
+{% endfor %}
+
+# Timeout settings (seconds)
+# Connection timeouts for upstream/downstream communication
+connection_timeout: {{ connection_timeout }}

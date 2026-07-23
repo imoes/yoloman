@@ -1,0 +1,32 @@
+# Chromium system-wide configuration (applied via environment variables)
+# Set Chromium flags to control behavior globally for all users
+CHROMIUM_FLAGS="{{ chromium_flags | join(' ') }}"
+
+# Optional: Additional environment variables for specific behavior
+{% if enable_spellcheck %}
+# Enable spell-checking support
+SPELLCHECK=1
+{% endif %}
+{% if enable_webrtc_mute_capture %}
+# Mute camera/microphone capture by default (enhances privacy)
+WEBRTC_MUTE_CAPTURE=1
+{% endif %}
+{% if enable_sandbox_debugging %}
+# Enable sandbox debugging (for troubleshooting only — not for production)
+SANDBOX_DEBUG=1
+{% endif %}
+# Disable sandbox in non-secure environments (e.g., containers or CI)
+{% if not enable_sandbox %}
+NO_SANDBOX=1
+{% endif %}
+{% if disable_gpu %}
+# Disable GPU acceleration (useful for headless or buggy drivers)
+DISABLE_GPU=1
+{% endif %}
+{% if disable_speech_recognition %}
+# Disable speech recognition APIs (enhances privacy)
+DISABLE_SPEECH_RECOGNITION=1
+{% endif %}
+# Additional user-specified environment variables
+{% for env_var, value in extra_env.items() %}{{ env_var }}={{ value }}
+{% endfor %}

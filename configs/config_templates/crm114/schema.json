@@ -1,0 +1,128 @@
+{
+  "default_dir": {
+    "type": "string",
+    "default": "/var/lib/crm114",
+    "description": "Base directory for CRM114 runtime files (dictionaries, logs)."
+  },
+  "mail_dir": {
+    "type": "string",
+    "default": "/var/spool/crm114",
+    "description": "Directory where incoming mail is staged for classification."
+  },
+  "word_separator": {
+    "type": "string",
+    "default": "\\s+",
+    "description": "Regex pattern to split text into tokens (e.g., whitespace, punctuation)."
+  },
+  "case_sensitive": {
+    "type": "bool",
+    "default": false,
+    "description": "Whether tokenization should preserve case. Disable for better generalization."
+  },
+  "default_category": {
+    "type": "string",
+    "default": "UNKNOWN",
+    "description": "Category assigned to unclassified messages. Typically 'SPAM', 'HAM', or 'UNKNOWN'."
+  },
+  "require_training": {
+    "type": "bool",
+    "default": true,
+    "description": "If true, classify only if sufficient training data exists; otherwise assign default category."
+  },
+  "max_training_items": {
+    "type": "number",
+    "default": 5000,
+    "description": "Maximum number of items (messages) to retain per category in memory/dict."
+  },
+  "spam_cutoff": {
+    "type": "number",
+    "default": 0.95,
+    "description": "Minimum probability (0.0\u20131.0) to classify a message as SPAM."
+  },
+  "ham_cutoff": {
+    "type": "number",
+    "default": 0.05,
+    "description": "Maximum probability (0.0\u20131.0) to classify a message as HAM (below this = HAM, above = SPAM, in-between = UNKNOWN)."
+  },
+  "max_features": {
+    "type": "number",
+    "default": 2000,
+    "description": "Upper limit on number of tokens used per message for classification."
+  },
+  "verbosity": {
+    "type": "number",
+    "default": 1,
+    "description": "Logging verbosity level: 0 (quiet) to 5 (detailed debug)."
+  },
+  "spam_dict_file": {
+    "type": "string",
+    "default": "/var/lib/crm114/spam.dict",
+    "description": "Path to persistent dictionary storing SPAM-specific token statistics."
+  },
+  "ham_dict_file": {
+    "type": "string",
+    "default": "/var/lib/crm114/ham.dict",
+    "description": "Path to persistent dictionary storing HAM-specific token statistics."
+  },
+  "preprocess_rules": {
+    "type": "list",
+    "default": [],
+    "description": "List of regex-based preprocessing rules applied to text before tokenization.",
+    "items": {
+      "type": "object",
+      "properties": {
+        "pattern": {
+          "type": "string",
+          "description": "Perl-compatible regex pattern to match (no delimiters)."
+        },
+        "replacement": {
+          "type": "string",
+          "description": "Replacement string (supports backreferences like \\1)."
+        }
+      }
+    }
+  },
+  "feature_weights": {
+    "type": "list",
+    "default": [],
+    "description": "List of per-feature weight overrides (e.g., to boost/mute specific tokens).",
+    "items": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Feature (token) name to weight."
+        },
+        "weight": {
+          "type": "number",
+          "description": "Multiplier (e.g., 2.0 = double weight, 0.5 = half)."
+        }
+      }
+    }
+  },
+  "classifier_method": {
+    "type": "string",
+    "default": "BAYES",
+    "description": "Classification algorithm: 'BAYES' (default), 'NAIVE', or 'NAIVEBAYES'."
+  },
+  "min_word_length": {
+    "type": "number",
+    "default": 0,
+    "description": "Minimum token length to include (0 = no minimum). Reduces noise from very short tokens."
+  },
+  "max_word_length": {
+    "type": "number",
+    "default": 0,
+    "description": "Maximum token length to include (0 = no maximum). Cuts off unreasonably long tokens."
+  },
+  "tokenization_mode": {
+    "type": "string",
+    "default": "",
+    "description": "Advanced tokenization strategy: e.g., 'UTF8' (for multilingual), 'EMAIL' (for MIME-aware parsing). Leave empty for default."
+  },
+  "max_threads": {
+    "type": "number",
+    "default": 0,
+    "description": "Maximum concurrent threads for parallel classification (0 = auto-detect or disabled). Requires threaded build."
+  }
+}

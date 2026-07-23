@@ -1,0 +1,136 @@
+# Base configuration for dnscrypt-proxy
+# Listen addresses and ports for DNS over HTTPS (DoH) and DNS over TLS (DoT)
+listen_addresses = [ {{ listen_addresses | map('quote') | join(', ') }} ]
+
+# Maximum number of simultaneous client connections
+max_clients = {{ max_clients }}
+
+# Per-client rate-limiting: maximum queries per second
+rate_limit = {{ rate_limit }}
+
+# Enable or disable the HTTP/2 endpoint (for DoH)
+http3 = {{ http3 | lower }}
+
+# Enable or disable the TCP endpoint (for DoT and DoH over TCP)
+require_dnssec = {{ require_dnssec | lower }}
+
+# Logging configuration
+log_file = '{{ log_file }}'
+log_level = {{ log_level }}
+
+# Path to the certificate cache file
+ certificates_cache = '{{ certificates_cache }}'
+
+# Path to the blocklist (optional)
+{{- if blocklist_file is defined and blocklist_file != '' }}
+blocklist_file = '{{ blocklist_file }}'
+{{- else }}
+# blocklist_file = ''  # disabled
+{{- endif }}
+
+# Paths to upstream DNS resolvers (servers) and their configuration
+[sources]
+{{ sources | to_json(indent=2) | indent(2) | replace('"', '') }}
+
+# Per-server configuration overrides (e.g., for specific routing or fallback)
+[static]
+{{- for server in static_servers }}
+  ['{{ server.name }}']
+  stamp = '{{ server.stamp }}'
+  {{- if server.is_blocked is defined }}
+  is_blocked = {{ server.is_blocked | lower }}
+  {{- endif }}
+{{- end }}
+
+# Filtering rules (e.g., block domains, redirect to specific resolvers)
+[filters]
+{{- for filter in filters }}
+{{- if filter.type == 'regex' }}
+  [filters.regex.{{ filter.name }}]
+  pattern = '{{ filter.pattern }}'
+  replacement = '{{ filter.replacement }}'
+  enabled = {{ filter.enabled | lower }}
+{{- elif filter.type == 'domain' }}
+  [filters.domain.{{ filter.name }}]
+  domains = [ {{ filter.domains | map('quote') | join(', ') }} ]
+  enabled = {{ filter.enabled | lower }}
+{{- endif }}
+{{- end }}
+
+# Forwarding rules — map query types/domains to specific resolvers
+[forwarding_rules]
+{{- for rule in forwarding_rules }}
+# {{ rule.comment }}
+{{ rule.pattern | quote }} = {{ rule.targets | map('quote') | join(', ') }}
+{{- end }}
+
+# Path to the public suffix list (optional, for domain suffix normalization)
+{{- if public_suffix_list }}
+public_suffix_list = '{{ public_suffix_list }}'
+{{- else }}
+# public_suffix_list = ''  # disabled
+{{- end }}
+
+# Cache configuration
+[cache]
+enabled = {{ cache_enabled | lower }}
+size = {{ cache_size }}
+min_ttl = {{ cache_min_ttl }}
+max_ttl = {{ cache_max_ttl }}
+temp_failure_ttl = {{ cache_temp_failure_ttl }}
+
+# Network settings
+[net]
+# Initial timeout for connection attempts
+timeout = {{ net_timeout }}
+
+# Enable or disable IPv6 support
+ipv6_enabled = {{ net_ipv6_enabled | lower }}
+
+# TCP fast open (Linux-specific)
+tcp_fast_open = {{ net_tcp_fast_open | lower }}
+
+# DSCP value for outgoing packets
+{{- if net_dscp is defined }}
+dscp = {{ net_dscp }}
+{{- else }}
+# dscp = 0  # disabled
+{{- end }}
+
+# Proxy settings for outgoing requests (optional)
+{{- if proxy_url is defined and proxy_url != '' }}
+proxy_url = '{{ proxy_url }}'
+{{- else }}
+# proxy_url = ''  # disabled
+{{- end }}
+
+# Security hardening
+[network_security]
+# Minimum ECDHE key size
+ecdhe_min_size = {{ network_security_ecdhe_min_size }}
+
+# Minimum RSA key size
+rsa_min_size = {{ network_security_rsa_min_size }}
+
+# Minimum DH group size
+dh_min_size = {{ network_security_dh_min_size }}
+
+# Minimum TLS version
+tls_min_version = '{{ network_security_tls_min_version }}'
+
+# Cipher suites whitelist
+{{- if network_security_cipher_suites }}
+cipher_suites = [ {{ network_security_cipher_suites | map('quote') | join(', ') }} ]
+{{- else }}
+# cipher_suites = []  # default (recommended) set used
+{{- end }}
+
+# Allow fallback to older TLS versions
+allow_insecure = {{ network_security_allow_insecure | lower }}
+
+# Paths to custom certificates (optional, for private PKI)
+{{- if ca_cert_file is defined and ca_cert_file != '' }}
+ca_cert_file = '{{ ca_cert_file }}'
+{{- else }}
+# ca_cert_file = ''  # use system CA store
+{{- end }}

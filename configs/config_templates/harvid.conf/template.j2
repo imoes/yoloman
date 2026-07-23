@@ -1,0 +1,50 @@
+[server]
+# Host interface to bind to (e.g., 0.0.0.0 or 127.0.0.1)
+host = {{ server.host }}
+# TCP port for the HTTP API and media streaming
+port = {{ server.port }}
+
+# Maximum number of concurrent client connections
+max_connections = {{ server.max_connections }}
+
+# Enable or disable HTTPS (requires certificate_path and key_path)
+ssl_enabled = {{ server.ssl_enabled | lower }}
+
+# Path to SSL/TLS certificate file (used only if ssl_enabled = true)
+certificate_path = {{ server.certificate_path }}
+# Path to SSL/TLS private key file (used only if ssl_enabled = true)
+key_path = {{ server.key_path }}
+
+[logging]
+# Log level: DEBUG, INFO, WARNING, ERROR, or CRITICAL
+level = {{ logging.level }}
+# Path to log file; empty string or omitted means stderr only
+file = {{ logging.file }}
+# Enable or disable structured JSON logging
+json = {{ logging.json | lower }}
+
+[worker]
+# Number of worker threads/processes for media transcoding
+threads = {{ worker.threads }}
+
+[storage]
+# Base path for cached/stored transcoded segments
+segments_path = {{ storage.segments_path }}
+
+[playlist]
+# Enable or disable HLS playlist generation
+hls_enabled = {{ playlist.hls_enabled | lower }}
+# Segment duration in seconds for HLS
+hls_segment_duration = {{ playlist.hls_segment_duration }}
+# Number of segments to retain in the playlist window
+hls_playlist_length = {{ playlist.hls_playlist_length }}
+
+{% if sources | length > 0 %}
+[sources]
+# List of input source URLs or device paths
+{% for src in sources %}
+{{ loop.index }}_url = {{ src.url | replace('\n', '\\n') }}
+{% if src.name is defined %}{{ loop.index }}_name = {{ src.name }}{% endif %}
+{% if src.type is defined %}{{ loop.index }}_type = {{ src.type }}{% endif %}
+{% endfor %}
+{% endif %}

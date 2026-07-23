@@ -1,0 +1,69 @@
+# Globus Gatekeeper configuration
+# This file configures the gatekeeper service, which manages proxy delegation and credential handling for Globus GridFTP servers.
+# Uncomment or set the following directives to customize behavior.
+
+[gatekeeper]
+
+# Path to the gatekeeper's executable binary
+exec = {{ bin_path }}
+
+# Hostname or IP address the gatekeeper should bind to (0.0.0.0 for all interfaces)
+host = {{ listen_host }}
+
+# TCP port for gatekeeper control connections
+control_port = {{ control_port }}
+
+# TCP port for gatekeeper data connections
+# If set to 0, a random ephemeral port will be used (not recommended for firewalled environments)
+data_port = {{ data_port }}
+
+# Maximum number of concurrent connections allowed
+max_connections = {{ max_connections }}
+
+# Maximum number of pending connections in the listen queue
+listen_backlog = {{ listen_backlog }}
+
+# Timeout (in seconds) for idle connections before they are closed
+idle_timeout = {{ idle_timeout }}
+
+# Enable or disable SSL/TLS for control connections
+use_tls = {{ use_tls | lower }}
+
+# Path to the server certificate (PEM format)
+cert_file = {{ cert_file }}
+
+# Path to the server private key (PEM format)
+key_file = {{ key_file }}
+
+# Path to the CA certificate bundle for client verification (optional)
+ca_cert_file = {{ ca_cert_file }}
+
+# Enable or disable client certificate verification
+require_client_cert = {{ require_client_cert | lower }}
+
+# Comma-separated list of allowed client subject DNs (if not set, all signed by trusted CA are accepted)
+allowed_client_dns = {{ allowed_client_dns | join(', ') }}
+
+# Comma-separated list of allowed proxy issuer DNs (for limited delegation)
+allowed_proxy_issuers = {{ allowed_proxy_issuers | join(', ') }}
+
+# Enable or disable proxy credential delegation
+allow_proxy_delegation = {{ allow_proxy_delegation | lower }}
+
+# Path to the credential storage directory
+cred_dir = {{ cred_dir }}
+
+# Maximum lifetime (in seconds) for delegated proxies
+max_proxy_lifetime = {{ max_proxy_lifetime }}
+
+# Enable or disable logging of all gatekeeper activities to syslog
+log_to_syslog = {{ log_to_syslog | lower }}
+
+# Path to optional local log file (if empty, no file logging)
+log_file = {{ log_file }}
+
+# Logging level: one of DEBUG, INFO, WARNING, ERROR, CRITICAL
+log_level = {{ log_level }}
+
+# Enable or disable the gatekeeper upon startup
+enabled = {{ enabled | lower }}

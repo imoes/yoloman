@@ -1,0 +1,36 @@
+# /etc/mdadm/mdadm.conf - Configuration for mdadm incremental assembly
+# This file defines arrays and devices to be auto-assembled at boot
+# UUIDs identify arrays; DEVICE lines specify candidate block devices
+
+# Array definitions (one per line)
+{% for array in arrays %}
+# Array: {{ array.name }}
+ARRAY {{ array.device }} metadata={{ array.metadata|default('default') }} UUID={{ array.uuid }}{% if array.spares %} spares={{ array.spares }}{% endif %}
+{% endfor %}
+
+# Device scanning hints (optional, speeds up assembly)
+{% if scan_devices %}
+DEVICE {{ scan_devices | join(' ') }}
+{% endif %}
+
+# Optional: Global defaults
+{% if options %}
+{% for key, value in options.items() %}
+{% if value is string %}
+{% set comment = "" %}
+{% if key == 'homehost' %}{{ comment = 'Hostname for home host (for array naming)' }}{% endif %}
+{% if key == 'bootdir' %}{{ comment = 'Boot directory for initramfs modules' }}{% endif %}
+{% if key == 'mailcmd' %}{{ comment = 'Command to send alert emails' }}{% endif %}
+{% if key == 'program' %}{{ comment = 'Program to run on events (e.g., /usr/local/bin/mdadm-event.sh)' }}{% endif %}
+{% if comment %}# {{ comment }}{% endif %}
+{% if value|trim %}{{ key }} {{ value }}{% endif %}
+{% endif %}
+{% endfor %}
+{% endif %}
+
+# Optional: Device rules for device node naming (e.g., by-uuid, by-id)
+{% for rule in rules %}
+# Rule: {{ rule.description|default('custom device naming rule') }}
+{% if rule.device %}DEVICE {{ rule.device }}{% endif %}
+{% endfor %}
+

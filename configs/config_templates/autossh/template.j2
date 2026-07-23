@@ -1,0 +1,27 @@
+# AutoSSH configuration file
+# See 'man autossh' for details
+# Environment variables override these defaults
+
+# Enable monitoring of SSH connection health via ping
+AUTOSSH_GATETIME="0"
+
+# Minimum time (in seconds) before considering a failed connection attempt a success
+AUTOSSH_MIN_SSH="60"
+
+# Interval (in seconds) between keepalive messages
+AUTOSSH_INTERVAL="60"
+
+# Use a specific port for the SSH connection (if not specified, defaults to 22)
+AUTOSSH_PORT="0"
+
+# Log level: 0=quiet, 1=normal, 2=verbose, 3=debug
+AUTOSSH_LOGLEVEL="0"
+
+# Optional: Log file path (if not set, logs to syslog or stderr)
+{% if log_file %}AUTOSSH_LOGFILE="{{ log_file }}"{% endif %}
+
+# Optional: Additional options passed directly to ssh
+{% if ssh_options %}AUTOSSH_OPTS="{{ ssh_options | join(' ') }}"{% endif %}
+
+# Optional: User-defined environment variables (e.g., for proxy settings)
+{% for key, value in env_vars.items() %}{{ key }}="{{ value }}"{% endfor %}

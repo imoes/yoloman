@@ -1,0 +1,63 @@
+{
+  "netbios_name": "KSMBD-SERVER",
+  "workgroup": "MYCORP",
+  "smb_ports": [
+    "445"
+  ],
+  "server_signing": "yes",
+  "max_connections": 200,
+  "log_level": 2,
+  "log_file": "/var/log/ksmbd/ksmbd.log",
+  "time_server": true,
+  "unix_extensions": true,
+  "winbind_domain": "mycorp.local",
+  "winbind_separator": "+",
+  "winbind_enum_users": false,
+  "winbind_enum_groups": false,
+  "default_file_permission": "0644",
+  "default_directory_permission": "0755",
+  "inherit_permissions": true,
+  "inherit_owner": true,
+  "client_idle_timeout": 300000,
+  "shares": [
+    {
+      "name": "public",
+      "path": "/srv/ksmbd/public",
+      "read_only": false,
+      "comment": "Public read/write share",
+      "guest_ok": true,
+      "browsable": true,
+      "create_mask": "0664",
+      "directory_mask": "0775"
+    },
+    {
+      "name": "secure",
+      "path": "/srv/ksmbd/secure",
+      "read_only": false,
+      "comment": "Team-only secure share",
+      "valid_users": [
+        "@team",
+        "alice"
+      ],
+      "write_list": [
+        "alice",
+        "bob"
+      ],
+      "force_user": "ksmbd",
+      "force_group": "team",
+      "inherit_permissions": false
+    },
+    {
+      "name": "archive",
+      "path": "/mnt/archive",
+      "read_only": true,
+      "comment": "Read-only archive (e.g., backups)",
+      "guest_ok": false,
+      "browsable": false,
+      "hide_files": [
+        ".snapshot",
+        "*.tmp"
+      ]
+    }
+  ]
+}

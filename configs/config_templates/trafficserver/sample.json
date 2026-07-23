@@ -1,0 +1,98 @@
+{
+  "server_root": "/etc/apache2",
+  "include_modules": [
+    {
+      "name": "socache_shmcb",
+      "path": "mod_socache_shmcb.so"
+    },
+    {
+      "name": "ssl",
+      "path": "mod_ssl.so"
+    },
+    {
+      "name": "rewrite",
+      "path": "mod_rewrite.so"
+    },
+    {
+      "name": "cache_disk",
+      "path": "mod_cache_disk.so"
+    },
+    {
+      "name": "proxy",
+      "path": "mod_proxy.so"
+    },
+    {
+      "name": "proxy_http",
+      "path": "mod_proxy_http.so"
+    }
+  ],
+  "include_optional_dirs": [
+    "mods-enabled",
+    "conf-enabled",
+    "sites-enabled"
+  ],
+  "listen_address": "*",
+  "port": 80,
+  "user": "www-data",
+  "group": "www-data",
+  "server_admin": "admin@example.com",
+  "server_name": "www.example.com:80",
+  "hostname_lookups": "Off",
+  "error_log": "/var/log/apache2/error.log",
+  "log_level": "warn",
+  "error_documents": {
+    "404": "/errors/404.html",
+    "500": "/errors/500.html"
+  },
+  "mime_types_config": "/etc/mime.types",
+  "directory_index": [
+    "index.html",
+    "index.php"
+  ],
+  "document_root": "/var/www/example.com/public",
+  "directory_options": [
+    "Indexes",
+    "FollowSymLinks",
+    "ExecCGI"
+  ],
+  "allow_override": "All",
+  "require_method": "all granted",
+  "php_handler": "proxy:unix:/run/php/php8.2-fpm.sock|fcgi://localhost",
+  "runtime_dir": "/var/run/apache2",
+  "pid_file": "/var/run/apache2/apache2.pid",
+  "timeout": 60,
+  "keep_alive": true,
+  "max_keepalive_requests": 100,
+  "keepalive_timeout": 5,
+  "access_file_name": ".htaccess",
+  "log_format": "%h %l %u %t \"%r\" %>s %O \"%{Referer}i\" \"%{User-Agent}i\"",
+  "log_format_name": "combined",
+  "access_logs": [
+    {
+      "path": "/var/log/apache2/access.log",
+      "format": "combined"
+    }
+  ],
+  "enable_cache": true,
+  "cache_root": "/var/cache/apache2/mod_cache_disk",
+  "cache_dir_levels": 2,
+  "cache_dir_length": 2,
+  "cache_default_expire": 3600,
+  "cache_max_expire": 86400,
+  "cache_last_modified_factor": 0.1,
+  "cache_enable": [
+    {
+      "type": "disk",
+      "url": "/"
+    }
+  ],
+  "mime_types_extra": {
+    ".webp": "image/webp",
+    ".svg": "image/svg+xml"
+  },
+  "server_signature": false,
+  "trace_enable": false,
+  "include_vhost_files": [
+    "sites-enabled/*.conf"
+  ]
+}

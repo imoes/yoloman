@@ -1,0 +1,79 @@
+# Gammu SMS Daemon configuration file
+# Generated via Jinja2 template
+
+# Connection type: how to connect to the phone/modem (e.g., bluetooth, serial, infrared)
+{% if connection_type == 'serial' %}
+port = {{ port }}
+{% elif connection_type == 'bluetooth' %}
+port = {{ port }}
+{% elif connection_type == 'at' %}
+port = {{ port }}
+{% else %}
+# Fallback – generic port specification (override if needed)
+port = {{ port }}
+{% endif %}
+
+{% if connection_type in ['serial', 'at'] %}
+# Connection speed: baud rate for serial or AT connection
+{% if connection_speed is defined %}
+speed = {{ connection_speed }}
+{% else %}
+speed = 9600
+{% endif %}
+
+{% endif %}
+{% if connection_type == 'bluetooth' %}
+# MAC address of the Bluetooth device (used only for 'bluetooth' connection)
+bluetooth_address = {{ bluetooth_address }}
+{% endif %}
+
+# Model: phone/modem model (optional; leave blank to autodetect)
+model = {{ model | default('') }}
+
+# Connection partner: manufacturer (optional; e.g., 'nokia', 'siemens')
+connection = {{ connection | default('') }}
+
+# SMS center: SMSC number (e.g., +1234567890); required for sending SMS
+smsc = {{ smsc }}
+
+# Database backend configuration
+# Type of database to store sent/received SMS (mysql, sqlite3, postgresql)
+{% if db_type == 'mysql' %}
+[mysql]
+host = {{ db_host }}
+user = {{ db_user }}
+password = {{ db_password }}
+database = {{ db_database }}
+{% elif db_type == 'sqlite3' %}
+[sqlite3]
+file = {{ db_file }}
+{% elif db_type == 'postgresql' %}
+[postgresql]
+host = {{ db_host }}
+user = {{ db_user }}
+password = {{ db_password }}
+database = {{ db_database }}
+{% endif %}
+
+# Logging configuration
+# Path to log file (empty string disables file logging)
+logfile = {{ log_file | default('') }}
+
+# Log level: 0 = none, 1 = errors, 2 = warnings, 3 = info, 4 = debug
+loglevel = {{ loglevel | default(1) }}
+
+# Send/Receive behavior
+# Interval (seconds) between inbox polling (0 = polling disabled, use interrupts if supported)
+smsd_poll_interval = {{ smsd_poll_interval | default(15) }}
+
+# Number of SMS to process per cycle (0 = unlimited)
+max_retry = {{ max_retry | default(3) }}
+
+# Path to store sent SMS for archival (optional)
+sentfolder = {{ sentfolder | default('') }}
+
+# Path to store incoming SMS for archival (optional)
+inboxfolder = {{ inboxfolder | default('') }}
+
+# Whether to archive sent messages to database
+archive = {{ archive | default('true') | lower }}

@@ -1,0 +1,166 @@
+# goiardi main configuration file
+# Set the environment (e.g., 'development', 'production')
+environment = {{ environment }}
+
+# Enable verbose logging for debugging
+verbose = {{ verbose }}
+
+# Log level: 'debug', 'info', 'warn', 'error', 'fatal'
+log_level = {{ log_level }}
+
+# Path to the log file (empty string → log to stderr)
+log_file = {{ log_file }}
+
+# Address to bind the main web server to
+web_addr = {{ web_addr }}
+
+# Port to listen on for the Chef API
+web_port = {{ web_port }}
+
+# Enable HTTPS for the Chef API
+use_ssl = {{ use_ssl }}
+
+# Path to SSL certificate (required if use_ssl=true)
+ssl_cert_file = {{ ssl_cert_file }}
+
+# Path to SSL private key (required if use_ssl=true)
+ssl_key_file = {{ ssl_key_file }}
+
+# Enable client certificate verification (mTLS)
+client_cert_verify = {{ client_cert_verify }}
+
+# Path to CA certificate for verifying client certs (optional; required if client_cert_verify=true)
+client_ca_cert_file = {{ client_ca_cert_file }}
+
+# Path to the directory used for storing data (e.g., node, cookbook, policy files)
+data_dir = {{ data_dir }}
+
+# Database backend: 'sqlite', 'mysql', or 'postgresql'
+db_backend = {{ db_backend }}
+
+{% if db_backend == 'sqlite' %}
+# Path to SQLite database file
+sqlite_file = {{ sqlite_file }}
+{% endif %}
+
+{% if db_backend in ['mysql', 'postgresql'] %}
+# Database host
+{% if db_backend == 'mysql' %}
+mysql_host = {{ mysql_host }}
+{% else %}
+postgresql_host = {{ postgresql_host }}
+{% endif %}
+
+# Database port
+{% if db_backend == 'mysql' %}
+mysql_port = {{ mysql_port }}
+{% else %}
+postgresql_port = {{ postgresql_port }}
+{% endif %}
+
+# Database name
+{% if db_backend == 'mysql' %}
+mysql_db = {{ mysql_db }}
+{% else %}
+postgresql_db = {{ postgresql_db }}
+{% endif %}
+
+# Database username
+{% if db_backend == 'mysql' %}
+mysql_user = {{ mysql_user }}
+{% else %}
+postgresql_user = {{ postgresql_user }}
+{% endif %}
+
+# Database password
+{% if db_backend == 'mysql' %}
+mysql_password = {{ mysql_password }}
+{% else %}
+postgresql_password = {{ postgresql_password }}
+{% endif %}
+
+# Maximum number of open connections to the database
+{% if db_backend == 'mysql' %}
+mysql_max_open_conns = {{ mysql_max_open_conns }}
+{% else %}
+postgresql_max_open_conns = {{ postgresql_max_open_conns }}
+{% endif %}
+{% endif %}
+
+# Enable Chef zero compatibility mode (for some legacy clients)
+chef_zero_compat = {{ chef_zero_compat }}
+
+# Enable search index updates (for Solr-free indexing)
+enable_search = {{ enable_search }}
+
+# Number of worker goroutines to handle I/O-bound tasks
+worker_count = {{ worker_count }}
+
+# Maximum number of concurrent uploads (e.g., cookbook uploads)
+max_concurrent_uploads = {{ max_concurrent_uploads }}
+
+# Enable real-time Chef client event notifications via webhook
+{% for webhook in webhooks %}
+# Webhook: {{ webhook.name }} (enabled={{ webhook.enabled }})
+webhook_{{ loop.index }}_name = "{{ webhook.name }}"
+webhook_{{ loop.index }}_url = "{{ webhook.url }}"
+webhook_{{ loop.index }}_enabled = {{ webhook.enabled }}
+webhook_{{ loop.index }}_method = "{{ webhook.method }}"
+webhook_{{ loop.index }}_headers = {{ webhook.headers | tojson }}
+{% endfor %}
+
+# Default node automatic attributes
+{% for attr_name, attr_val in default_node_attributes.items() %}
+default_node_attribute_{{ attr_name | replace('.', '_') }} = {{ attr_val | tojson }}
+{% endfor %}
+
+# Enable CORS and list allowed origins (comma-separated)
+enable_cors = {{ enable_cors }}
+{% if enable_cors %}
+cors_origins = {{ cors_origins | join(', ') }}
+{% endif %}
+
+# Enable cross-origin requests with credentials (cookies, auth headers)
+cors_credentials = {{ cors_credentials }}
+
+# Time in seconds before an idle connection is closed
+idle_timeout = {{ idle_timeout }}
+
+# Maximum request body size in bytes (e.g., 104857600 → 100 MB)
+max_request_body_size = {{ max_request_body_size }}
+
+# Enable compression of responses
+gzip_responses = {{ gzip_responses }}
+
+# Enable metrics endpoint at /metrics (requires Prometheus-style scraping)
+enable_metrics = {{ enable_metrics }}
+
+# Optional: set metrics auth token
+metrics_token = {{ metrics_token | default('') }}
+
+# Set the Chef server version string (shown in Server header)
+server_version_string = {{ server_version_string }}
+
+# Enable node automatic attribute whitelisting (for security)
+node_attribute_whitelist_enabled = {{ node_attribute_whitelist_enabled }}
+
+# List of allowed node attribute keys
+{% for key in node_attribute_whitelist %}
+node_attribute_whitelist_{{ loop.index }} = "{{ key }}"
+{% endfor %}
+
+# Enable ChefVault support
+enable_chef_vault = {{ enable_chef_vault }}
+
+# Optional: enable audit mode (logs all requests to audit_log_file)
+enable_audit_logging = {{ enable_audit_logging }}
+audit_log_file = {{ audit_log_file }}
+
+# Enable run-list expansion (for nested roles/policies)
+enable_run_list_expansion = {{ enable_run_list_expansion }}
+
+# Enable knife-zero compatibility (for legacy knife-zero workflows)
+knife_zero_compat = {{ knife_zero_compat }}
+
+# Optional: enable client key rotation support
+enable_key_rotation = {{ enable_key_rotation }}

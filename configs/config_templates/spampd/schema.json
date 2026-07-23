@@ -1,0 +1,121 @@
+{
+  "bind_address": {
+    "type": "string",
+    "default": "127.0.0.1",
+    "description": "IP address for spampd to bind to (e.g., loopback or public interface)"
+  },
+  "bind_port": {
+    "type": "number",
+    "default": 10025,
+    "description": "Port to listen on for incoming SMTP connections"
+  },
+  "spamc_host": {
+    "type": "string",
+    "default": "127.0.0.1",
+    "description": "Hostname or IP where SpamAssassin's spamc/spamd daemon listens"
+  },
+  "spamc_port": {
+    "type": "number",
+    "default": 783,
+    "description": "Port of SpamAssassin's spamd daemon"
+  },
+  "connect_timeout": {
+    "type": "number",
+    "default": 30,
+    "description": "Maximum seconds to wait when connecting to spamd"
+  },
+  "read_timeout": {
+    "type": "number",
+    "default": 60,
+    "description": "Maximum seconds to wait for data from spamd after connection"
+  },
+  "log_level": {
+    "type": "string",
+    "default": "info",
+    "description": "Verbosity level: 'debug', 'info', 'notice', 'warning', 'error'"
+  },
+  "log_file": {
+    "type": "string",
+    "default": "/var/log/spampd/spampd.log",
+    "description": "Path to log file (use '-' for stderr)"
+  },
+  "user": {
+    "type": "string",
+    "default": "spampd",
+    "description": "Unix user to run the service as (for security)"
+  },
+  "group": {
+    "type": "string",
+    "default": "spampd",
+    "description": "Unix group to run the service as"
+  },
+  "pid_file": {
+    "type": "string",
+    "default": "/run/spampd/spampd.pid",
+    "description": "Path to PID file (set to '' or omit to disable)"
+  },
+  "max_children": {
+    "type": "number",
+    "default": 10,
+    "description": "Maximum number of concurrent child processes (connections)"
+  },
+  "skip_scanning_domains": {
+    "type": "list",
+    "default": [],
+    "description": "List of domains to skip spam scanning for (e.g., internal mail)",
+    "items": {
+      "type": "string",
+      "description": "Domain name (e.g., 'localhost', 'internal.example.com')"
+    }
+  },
+  "custom_rules": {
+    "type": "list",
+    "default": [],
+    "description": "Custom SpamAssassin rules or score adjustments",
+    "items": {
+      "type": "object",
+      "description": "A single rule or option",
+      "fields": {
+        "type": {
+          "type": "string",
+          "enum": [
+            "option",
+            "score"
+          ],
+          "description": "Type of rule: 'option' (e.g., 'required_hits') or 'score' (e.g., 'MY_RULE')"
+        },
+        "name": {
+          "type": "string",
+          "description": "Option name (e.g., 'required_hits') or rule name for scoring"
+        },
+        "value": {
+          "type": "string",
+          "description": "Value to assign (e.g., '5.0', 'true')"
+        },
+        "comment": {
+          "type": "string",
+          "default": "",
+          "description": "Optional human-readable comment"
+        }
+      }
+    }
+  },
+  "whitelist_senders": {
+    "type": "list",
+    "default": [],
+    "description": "Email addresses or patterns to always trust (bypass spam scoring)",
+    "items": {
+      "type": "string",
+      "description": "Email address or wildcard pattern (e.g., 'postmaster@example.com', '*.trusted.org')"
+    }
+  },
+  "blacklist_senders": {
+    "type": "list",
+    "default": [],
+    "description": "Email addresses or patterns to always treat as spam",
+    "items": {
+      "type": "string",
+      "description": "Email address or pattern (e.g., 'spammer@bad.com')"
+    }
+  }
+}

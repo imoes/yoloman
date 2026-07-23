@@ -1,0 +1,186 @@
+{
+  "server_name": {
+    "type": "string",
+    "default": "ProFTPD Server",
+    "description": "Public name of the FTP server displayed to clients."
+  },
+  "port": {
+    "type": "number",
+    "default": 21,
+    "description": "Port number on which the FTP daemon listens."
+  },
+  "listen_address": {
+    "type": "string",
+    "default": null,
+    "description": "IP address to bind to (leave empty to bind to all interfaces)."
+  },
+  "daemon_user": {
+    "type": "string",
+    "default": "proftpd",
+    "description": "User account under which the ProFTPD daemon runs."
+  },
+  "daemon_group": {
+    "type": "string",
+    "default": "proftpd",
+    "description": "Group account under which the ProFTPD daemon runs."
+  },
+  "umask": {
+    "type": "string",
+    "default": "022",
+    "description": "Umask for newly created files (e.g., '022' for 0644/0755)."
+  },
+  "sqlite_path": {
+    "type": "string",
+    "default": "/etc/proftpd/sqlite.db",
+    "description": "Absolute path to the SQLite3 database file containing user/group info."
+  },
+  "log_file": {
+    "type": "string",
+    "default": null,
+    "description": "Path to detailed access log file (e.g., '/var/log/proftpd/access.log'). Leave empty to use syslog."
+  },
+  "log_dir": {
+    "type": "string",
+    "default": "/var/log/proftpd",
+    "description": "Directory for ProFTPD logs (used if log_file is set)."
+  },
+  "tls_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable TLS encryption for secure connections (FTPES). Requires certificate/key."
+  },
+  "tls_cert": {
+    "type": "string",
+    "default": null,
+    "description": "Path to TLS certificate file (required if TLS is enabled)."
+  },
+  "tls_key": {
+    "type": "string",
+    "default": null,
+    "description": "Path to TLS private key file (required if TLS is enabled)."
+  },
+  "tls_cacert": {
+    "type": "string",
+    "default": null,
+    "description": "Path to CA certificate for client verification (optional)."
+  },
+  "require_valid_shell": {
+    "type": "bool",
+    "default": false,
+    "description": "Require users have a valid shell in the database (set to false for virtual-only users)."
+  },
+  "max_conn_per_ip": {
+    "type": "number",
+    "default": null,
+    "description": "Maximum concurrent connections allowed per user."
+  },
+  "passive_ports_start": {
+    "type": "number",
+    "default": null,
+    "description": "Start of passive port range (e.g., 50000). Required for firewall/NAT compatibility."
+  },
+  "passive_ports_end": {
+    "type": "number",
+    "default": null,
+    "description": "End of passive port range (e.g., 50100)."
+  },
+  "timeout_idle": {
+    "type": "number",
+    "default": 600,
+    "description": "Idle timeout in seconds before disconnecting inactive clients."
+  },
+  "timeout_nolisten": {
+    "type": "number",
+    "default": 120,
+    "description": "No-transfer timeout in seconds (data connection not established)."
+  },
+  "allow_users": {
+    "type": "list",
+    "default": [],
+    "items": {
+      "type": "string"
+    },
+    "description": "List of usernames allowed to log in (if empty, no explicit allow rule applied)."
+  },
+  "allow_groups": {
+    "type": "list",
+    "default": [],
+    "items": {
+      "type": "string"
+    },
+    "description": "List of groups whose members may log in (if empty, no explicit allow rule applied)."
+  },
+  "access_rules": {
+    "type": "list",
+    "default": [],
+    "description": "List of custom access control rules per user/group.",
+    "items": {
+      "user": {
+        "type": "string",
+        "default": null,
+        "description": "Target username for rule (conflicts with `group`)."
+      },
+      "group": {
+        "type": "string",
+        "default": null,
+        "description": "Target group name for rule (conflicts with `user`)."
+      },
+      "allow_operations": {
+        "type": "list",
+        "default": [],
+        "items": {
+          "type": "string",
+          "enum": [
+            "LIST",
+            "NLST",
+            "STOR",
+            "RETR",
+            "CWD",
+            "DELE",
+            "MKD",
+            "RMD",
+            "PWD",
+            "CDUP",
+            "QUIT",
+            "USER",
+            "PASS"
+          ]
+        },
+        "description": "FTP commands allowed for this user/group."
+      },
+      "deny_operations": {
+        "type": "list",
+        "default": [],
+        "items": {
+          "type": "string",
+          "enum": [
+            "LIST",
+            "NLST",
+            "STOR",
+            "RETR",
+            "CWD",
+            "DELE",
+            "MKD",
+            "RMD",
+            "PWD",
+            "CDUP",
+            "QUIT",
+            "USER",
+            "PASS"
+          ]
+        },
+        "description": "FTP commands denied for this user/group."
+      },
+      "description": {
+        "type": "string",
+        "default": "",
+        "description": "Optional human-readable description of the rule."
+      }
+    }
+  },
+  "include_dir": {
+    "type": "string",
+    "default": "/etc/proftpd/conf.d",
+    "description": "Directory containing additional .conf files to include (common for modules or vhosts)."
+  }
+}

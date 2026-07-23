@@ -1,0 +1,86 @@
+{
+  "default_policy_in": "drop",
+  "default_policy_out": "accept",
+  "interfaces": [
+    {
+      "name": "eth0",
+      "direction": "inout",
+      "mode": "router",
+      "policy": "client",
+      "routed": true,
+      "dns": true,
+      "http": true,
+      "https": true,
+      "comment": "Public internet-facing interface",
+      "services": [
+        {
+          "name": "ssh",
+          "action": "accept"
+        },
+        {
+          "name": "http",
+          "action": "accept"
+        },
+        {
+          "name": "https",
+          "action": "accept"
+        }
+      ]
+    },
+    {
+      "name": "br0",
+      "direction": "in",
+      "mode": "server",
+      "policy": "server",
+      "comment": "Private LAN interface",
+      "services": [
+        {
+          "name": "ssh",
+          "action": "accept"
+        },
+        {
+          "name": "http",
+          "action": "accept"
+        }
+      ]
+    }
+  ],
+  "services": [
+    {
+      "name": "custom-ssh-alt",
+      "protocol": "tcp",
+      "ports": [
+        "2222"
+      ],
+      "src": "10.0.0.0/8",
+      "comment": "Alternative SSH on port 2222, LAN-only"
+    }
+  ],
+  "ipsets": [
+    {
+      "name": "trusted_lans",
+      "type": "hash:net",
+      "entries": [
+        "10.0.0.0/8",
+        "172.16.0.0/12",
+        "192.168.0.0/16"
+      ],
+      "comment": "Internal networks allowed all services"
+    },
+    {
+      "name": "blocked_ips",
+      "type": "hash:ip",
+      "entries": [
+        "203.0.113.42",
+        "198.51.100.7"
+      ],
+      "comment": "Known bad actors"
+    }
+  ],
+  "log_level": "medium",
+  "ip_forward": true,
+  "extra_lines": [
+    "drop_established",
+    "client_mode"
+  ]
+}

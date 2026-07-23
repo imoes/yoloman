@@ -1,0 +1,26 @@
+# Enable or disable the DLT daemon
+{{ '# ' if not dlt_enabled else '' }}[General]
+{{ '# ' if not dlt_enabled else '' }}ApplicationLogging=1
+{{ '# ' if not dlt_enabled else '' }}ApplicationTrace=1
+{{ '# ' if not dlt_enabled else '' }}ContextLogging=1
+{{ '# ' if not dlt_enabled else '' }}ContextTrace=1
+{{ '# ' if not dlt_enabled else '' }}DefaultLogMode={{ dlt_default_log_mode }}
+{{ '# ' if not dlt_enabled else '' }}DefaultTraceStatus={{ dlt_default_trace_status }}
+{{ '# ' if not dlt_enabled else '' }}ConnectToLocalSocket={{ '1' if dlt_connect_to_local_socket else '0' }}
+{{ '# ' if not dlt_enabled else '' }}LocalSocketPath={{ dlt_local_socket_path }}
+{{ '# ' if not dlt_enabled else '' }}MessageHistorySize={{ dlt_message_history_size }}
+{{ '# ' if not dlt_enabled else '' }}LogFilePath={{ dlt_log_file_path }}
+{{ '# ' if not dlt_enabled else '' }}LogFileSize={{ dlt_log_file_size }}
+{{ '# ' if not dlt_enabled else '' }}LogLevel={{ dlt_log_level }}
+
+# Network logging configuration (optional)
+{{ '# ' if not dlt_enabled else '' }}[Network]
+{{ '# ' if not dlt_enabled else '' }}EnableNetworkLogging={{ '1' if dlt_network_logging_enabled else '0' }}
+{{ '# ' if not dlt_enabled else '' }}NetworkLoggingPort={{ dlt_network_logging_port }}
+{{ '# ' if not dlt_enabled else '' }}NetworkLoggingInterface={{ dlt_network_logging_interface }}
+
+# ECUs to connect to in client mode (optional)
+{{ '# ' if not dlt_enabled else '' }}[ECUList]
+{% for item in dlt_ecu_list %}# {{ item.name }} — IP: {{ item.ip }}, Port: {{ item.port }}, Timeout (ms): {{ item.timeout_ms }}
+{{ '# ' if not dlt_enabled else '' }}{{ item.name }}={{ item.ip }}:{{ item.port }}:{{ item.timeout_ms }}
+{% endfor %}

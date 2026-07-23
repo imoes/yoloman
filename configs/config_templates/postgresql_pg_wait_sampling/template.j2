@@ -1,0 +1,20 @@
+# Enable wait event sampling extension
+load 'pg_wait_sampling';
+
+# Periodic snapshot interval for wait events (in milliseconds)
+pg_wait_sampling.period = {{ period }};
+
+# Maximum number of wait event samples to retain per backend
+pg_wait_sampling.max_samples = {{ max_samples }};
+
+# Whether to include wait event names in output (true/false)
+pg_wait_sampling.include_names = {{ include_names }};
+
+# List of monitored wait event types (empty = all); each item is a wait event category
+{% for cat in monitored_categories %}
+# Monitor wait events of type '{{ cat }}'
+{% endfor %}
+pg_wait_sampling.monitored_categories = {% if monitored_categories | length %}[{{ monitored_categories | join(', ') | string }}]{% else %}''{% endif %};
+
+# Enable recording of top wait event occurrences per backend (per category)
+pg_wait_sampling.top_n = {{ top_n }};

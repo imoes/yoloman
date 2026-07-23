@@ -1,0 +1,83 @@
+{
+  "cat_enabled": {
+    "type": "boolean",
+    "default": true,
+    "description": "Enable Intel Cache Allocation Technology (CAT) support."
+  },
+  "cmt_enabled": {
+    "type": "boolean",
+    "default": true,
+    "description": "Enable Intel Cache Monitoring Technology (CMT) support."
+  },
+  "cmt_interval_ms": {
+    "type": "number",
+    "default": 1000,
+    "description": "Monitoring data sampling interval in milliseconds (e.g., 1000 = 1 second)."
+  },
+  "resctrl_path": {
+    "type": "string",
+    "default": "/sys/fs/resctrl",
+    "description": "Mount path for the resctrl filesystem (required for CAT/CMT control)."
+  },
+  "pid_map_path": {
+    "type": "string",
+    "default": "/run/libcmt-cat/pid_to_cos.map",
+    "description": "Path to the runtime PID-to-COS mapping file used by the tool."
+  },
+  "cos_groups": {
+    "type": "list",
+    "default": [],
+    "description": "List of Cache Class of Service (COS) definitions for partitioning CPU cache and memory bandwidth.",
+    "items": {
+      "id": {
+        "type": "number",
+        "required": true,
+        "description": "Numeric ID for the COS (1\u201316 typically; must be unique)."
+      },
+      "name": {
+        "type": "string",
+        "default": "",
+        "description": "Human-readable name for this COS (e.g., 'critical', 'best-effort')."
+      },
+      "cache_mask": {
+        "type": "string",
+        "required": true,
+        "description": "Hexadecimal bitmask specifying allocated cache ways (e.g., '0xF0' = upper 4 of 8 ways)."
+      },
+      "memory_bandwidth": {
+        "type": "number",
+        "default": null,
+        "minimum": 0,
+        "maximum": 100,
+        "description": "Percent of total memory bandwidth to allocate (if supported and desired)."
+      },
+      "l3_cache_ways": {
+        "type": "number",
+        "default": null,
+        "description": "Alternative: number of L3 cache ways to allocate (integer). Overrides cache_mask if specified."
+      },
+      "cpus": {
+        "type": "string",
+        "default": null,
+        "description": "Optional CPU affinity (e.g., '0-3,8-11') to restrict processes in this COS to specific cores."
+      }
+    }
+  },
+  "pid_mappings": {
+    "type": "list",
+    "default": [],
+    "description": "Optional static or regex-based mappings from PID or process name to COS.",
+    "items": {
+      "pattern": {
+        "type": "string",
+        "required": true,
+        "description": "PID (numeric string) or regex pattern (e.g., '^nginx$') to match processes."
+      },
+      "cos_id": {
+        "type": "number",
+        "required": true,
+        "description": "COS ID to assign matching processes to."
+      }
+    }
+  }
+}

@@ -1,0 +1,48 @@
+# Turnserver configuration for Nextcloud Talk Signaling Server
+# List of IPs/interfaces to listen on
+listen = {{ listen_ip }}
+# TCP port for STUN/TURN connections
+port = {{ port }}
+# TLS port for secure STUN/TURN connections
+tls-port = {{ tls_port }}
+# Realm for authentication (typically your Nextcloud domain)
+realm = {{ realm }}
+# Path to TLS certificate (PEM format)
+cert = {{ cert_path }}
+# Path to TLS private key (PEM format)
+key = {{ key_path }}
+# Enable TURN (true/false)
+use-turn = {{ use_turn | lower }}
+# Enable STUN (true/false)
+use-stun = {{ use_stun | lower }}
+# Total number of allowed TURN allocations per IP
+总 allocation limit (per user/IP) — per-peer allocation
+# (Optional: set to 0 for unlimited)
+# max-bps = {{ max_bandwidth | default(0) }}
+# Log level: 0=none, 1=errors, 2=warnings, 3=info, 4=debug
+log-level = {{ log_level }}
+# Allow anonymous access (not recommended for production)
+anonymous-auth = {{ anonymous_auth | lower }}
+# List of allowed IP ranges (CIDR) for TURN usage (empty = allow all)
+# Example: allowed-peer-ips = 10.0.0.0/8,192.168.0.0/16
+allowed-peer-ips = {% if allowed_peer_ips %}{{ allowed_peer_ips | join(',') }}{% else %}{% endif %}
+# List of allowed origins (for CORS/HTTP TURN REST API)
+# Example: allowed-origins = https://talk.example.com,https://nextcloud.example.com
+allowed-origins = {% if allowed_origins %}{{ allowed_origins | join(',') }}{% else %}{% endif %}
+# Static credentials for TURN (if not using long-term credentials from Nextcloud)
+{% for cred in turn_credentials %}
+# User: {{ cred.username }}
+user = {{ cred.username }}:{{ cred.password }}
+{% endfor %}
+# Disable IPv6 if not needed
+no-ipv6 = {{ no_ipv6 | lower }}
+# Enable TCP TURN relay (true/false)
+no-tcp-relay = {% if use_tcp_relay %}false{% else %}true{% endif %}
+# Enable UDP TURN relay (true/false)
+no-udp-relay = {% if use_udp_relay %}false{% else %}true{% endif %}
+# Number of threads (set to number of CPU cores for best performance)
+thr-pool = {{ worker_threads }}
+# Path to PID file
+pidfile = {{ pidfile_path }}
+# Additional extra options (unparsed lines at end)
+{% for line in extra_lines %}{{ line }}{% endfor %}

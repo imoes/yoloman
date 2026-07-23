@@ -1,0 +1,177 @@
+{
+  "log_dir": {
+    "type": "string",
+    "default": "/var/log/squid",
+    "description": "Directory containing raw Squid-style access logs to analyze."
+  },
+  "report_dir": {
+    "type": "string",
+    "default": "/var/lib/lightsquid/report",
+    "description": "Directory where generated HTML reports and cached data will be stored."
+  },
+  "base_url": {
+    "type": "string",
+    "default": "http://localhost/lightsquid",
+    "description": "Public-facing base URL for the web report interface (e.g., http://server.example.com/lightsquid)."
+  },
+  "timezone": {
+    "type": "string",
+    "default": "UTC",
+    "description": "PHP-compatible timezone string for time-based reports (e.g., 'America/New_York')."
+  },
+  "lang": {
+    "type": "string",
+    "default": "en",
+    "description": "Language code for report UI and titles; must match a locale file in 'lang/' directory."
+  },
+  "user_detail": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable detailed per-user breakdown in reports (e.g., hits, bytes, time ranges)."
+  },
+  "url_detail": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable detailed per-URL (path-level) breakdown (may increase report size)."
+  },
+  "ext_detail": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable per-MIME-type/extension breakdown (e.g., text/html, image/png)."
+  },
+  "user_bandwidth": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable per-user bandwidth summary (in MB) in reports."
+  },
+  "site_bandwidth": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable per-site (domain) bandwidth summary (in MB)."
+  },
+  "time_report": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable time-based reports: daily, weekly, monthly averages and trends."
+  },
+  "max_days": {
+    "type": "number",
+    "default": 90,
+    "description": "Maximum number of days of historical per-day report data to retain; 0 = keep all."
+  },
+  "log_format": {
+    "type": "string",
+    "default": "squid",
+    "description": "Format of input log files: 'squid' (default), 'apache', 'combined', or 'custom'."
+  },
+  "custom_log_format": {
+    "type": "string",
+    "default": "",
+    "description": "Custom log format string (only used when log_format=custom). Must match Squid/HTTP log tokens."
+  },
+  "access_log_path": {
+    "type": "string",
+    "default": "",
+    "description": "Explicit path to access log file(s); supports wildcards (e.g., '/var/log/squid/access.log*'). Leave empty for auto-discovery under log_dir."
+  },
+  "ignore_errors": {
+    "type": "bool",
+    "default": true,
+    "description": "If true, skip malformed log lines instead of stopping the parser."
+  },
+  "db_timeout": {
+    "type": "number",
+    "default": 30,
+    "description": "Maximum seconds to wait for database lock (SQLite/MySQL)."
+  },
+  "syslog": {
+    "type": "bool",
+    "default": false,
+    "description": "Log internal messages to syslog in addition to stderr."
+  },
+  "db_type": {
+    "type": "string",
+    "default": "sqlite",
+    "description": "Database backend: 'sqlite' (lightweight) or 'mysql' (multi-user)."
+  },
+  "db_path": {
+    "type": "string",
+    "default": "/var/lib/lightsquid/lightsquid.db",
+    "description": "Path to SQLite database file (used only if db_type=sqlite)."
+  },
+  "db_host": {
+    "type": "string",
+    "default": "localhost",
+    "description": "Database host (used only if db_type=mysql)."
+  },
+  "db_port": {
+    "type": "number",
+    "default": 3306,
+    "description": "Database port (used only if db_type=mysql)."
+  },
+  "db_name": {
+    "type": "string",
+    "default": "lightsquid",
+    "description": "Database name (used only if db_type=mysql)."
+  },
+  "db_user": {
+    "type": "string",
+    "default": "lightsquid",
+    "description": "Database username (used only if db_type=mysql)."
+  },
+  "db_password": {
+    "type": "string",
+    "default": "",
+    "description": "Database password (used only if db_type=mysql). Leave empty for no password."
+  },
+  "web_enable": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable built-in simple HTTP server for report access (use only for local dev or testing)."
+  },
+  "web_bind_ip": {
+    "type": "string",
+    "default": "127.0.0.1",
+    "description": "IP address to bind the built-in web server to (0.0.0.0 for all interfaces)."
+  },
+  "web_port": {
+    "type": "number",
+    "default": 8080,
+    "description": "TCP port for the built-in web server."
+  },
+  "web_root": {
+    "type": "string",
+    "default": "/usr/share/lightsquid",
+    "description": "Path to Lightsquid's web asset directory (HTML, CSS, images). Usually auto-detected."
+  },
+  "web_auth_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable HTTP basic authentication for the built-in web server."
+  },
+  "web_htpasswd_file": {
+    "type": "string",
+    "default": "/etc/lightsquid/htpasswd",
+    "description": "Path to htpasswd file for basic auth credentials (only used if web_auth_enabled=true)."
+  },
+  "plugins": {
+    "type": "list",
+    "default": [],
+    "description": "List of plugin names to enable (e.g., 'top_user', 'top_site')."
+  },
+  "plugins_config": {
+    "type": "list",
+    "default": [],
+    "items": {
+      "name": {
+        "type": "string",
+        "description": "Plugin name (must match a plugin directory under 'plugin/')."
+      },
+      "options": {
+        "type": "object",
+        "description": "Key-value config options for this plugin. Each plugin defines its own options."
+      }
+    },
+    "description": "Per-plugin configuration objects. Each entry defines a plugin name and its options."
+  }
+}

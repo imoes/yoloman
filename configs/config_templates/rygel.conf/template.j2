@@ -1,0 +1,50 @@
+[General]
+# Enable or disable Rygel service
+enabled={{ enabled }}
+
+# Network interface to bind to (empty = all interfaces)
+interface={{ interface }}
+
+# UPnP device name shown to clients
+device_name={{ device_name }}
+
+# Minimum port for media streaming
+min_port={{ min_port }}
+
+# Maximum port for media streaming
+max_port={{ max_port }}
+
+# Log level: 0=error, 1=warn, 2=info, 3=debug, 4=verbose
+log_level={{ log_level }}
+
+# Directory to serve as root for media files
+media_dir={{ media_dir }}
+
+# Directory to serve as root for trash (optional)
+trash_dir={{ trash_dir | default('') }}
+
+# Enable or disable transcoding
+enable_transcoding={{ enable_transcoding }}
+
+# Directory for transcoding configuration
+transcode_dir={{ transcode_dir }}
+
+[MediaExport]
+# Enable MediaExport plugin
+enabled={{ media_export.enabled }}
+
+# List of URIs to export (paths or URLs)
+uris={{ media_export.uris | join('\n') }}
+
+[Tracker]
+# Enable Tracker integration
+enabled={{ tracker.enabled }}
+
+# Enable metadata extraction
+metadata_extract={{ tracker.metadata_extract }}
+
+{% for plugin in plugins %}[{{ plugin.name }}]
+# {{ plugin.description | default('Plugin configuration') }}
+enabled={{ plugin.enabled }}
+{% for key, value in plugin.options.items() %}{{ key }}={{ value }}
+{% endfor %}{% endfor %}

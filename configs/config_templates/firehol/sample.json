@@ -1,0 +1,67 @@
+{
+  "default_policy_input": "ACCEPT",
+  "default_policy_output": "ACCEPT",
+  "default_policy_forward": "DROP",
+  "log_dropped_packets": true,
+  "interface_tracking": true,
+  "server_services": [
+    {
+      "name": "web-and-ssh",
+      "interface": "eth0",
+      "level": "server",
+      "ports": [
+        "tcp/22",
+        "tcp/80",
+        "tcp/443"
+      ]
+    },
+    {
+      "name": "dns-server",
+      "interface": "eth1",
+      "level": "server",
+      "ports": [
+        "udp/53",
+        "tcp/53"
+      ]
+    }
+  ],
+  "client_rules": [
+    {
+      "action": "allow",
+      "destination": "any",
+      "port": "tcp/80",
+      "description": "Allow HTTP outbound"
+    },
+    {
+      "action": "allow",
+      "destination": "any",
+      "port": "tcp/443",
+      "description": "Allow HTTPS outbound"
+    },
+    {
+      "action": "allow",
+      "destination": "any",
+      "port": "udp/53",
+      "description": "Allow DNS queries outbound"
+    }
+  ],
+  "lan_networks": [
+    {
+      "name": "office-lan",
+      "cidr": "10.10.0.0/24",
+      "interface": "eth1",
+      "mode": "trusted"
+    },
+    {
+      "name": "guest-wifi",
+      "cidr": "192.168.100.0/24",
+      "interface": "wlan0",
+      "mode": "restricted",
+      "allowed_services": [
+        "http",
+        "https"
+      ]
+    }
+  ],
+  "auto_apply": true
+}

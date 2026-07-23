@@ -1,0 +1,79 @@
+#!/usr/bin/env lxc-start
+# LXC container configuration file
+# Generated from Jinja2 template
+
+# Unique container ID (100-999999)
+{% if ctid is defined %}lxc.idmap = u 0 {{ ctid }} 1
+lxc.idmap = g 0 {{ ctid }} 1
+lxc.idmap = u 1 {{ ctid }} 65535
+lxc.idmap = g 1 {{ ctid }} 65535
+{% endif %}
+
+# Container name
+lxc.name = {{ name }}
+
+# Rootfs path (directory or block device)
+lxc.rootfs.path = {{ rootfs.path }}
+
+# Operating system type and distribution (for apparmor, seccomp defaults)
+lxc.uts.name = {{ name }}
+lxc.apparmor.profile = generated
+
+# Network configuration
+{% for iface in network.interfaces %}
+# Network interface {{ loop.index }}: {{ iface.type | default('veth') }} ({{ iface.name | default('eth' ~ loop.index) }})
+lxc.net.{{ loop.index - 1 }}.type = {{ iface.type | default('veth') }}
+{% if iface.name is defined %}lxc.net.{{ loop.index - 1 }}.name = {{ iface.name }}{% endif %}
+{% if iface.link is defined %}lxc.net.{{ loop.index - 1 }}.link = {{ iface.link }}{% endif %}
+{% if iface.flags is defined %}lxc.net.{{ loop.index - 1 }}.flags = {{ iface.flags }}{% endif %}
+{% if iface.hwaddr is defined %}lxc.net.{{ loop.index - 1 }}.hwaddr = {{ iface.hwaddr }}{% endif %}
+{% if iface.ip is defined %}lxc.net.{{ loop.index - 1 }}.ipv4.address = {{ iface.ip | join(',') }}{% endif %}
+{% if iface.gateway is defined %}lxc.net.{{ loop.index - 1 }}.ipv4.gateway = {{ iface.gateway }}{% endif %}
+{% if iface.ipv6 is defined %}lxc.net.{{ loop.index - 1 }}.ipv6.address = {{ iface.ipv6 | join(',') }}{% endif %}
+{% if iface.ipv6_gateway is defined %}lxc.net.{{ loop.index - 1 }}.ipv6.gateway = {{ iface.ipv6_gateway }}{% endif %}
+{% endfor %}
+
+# Memory limit (bytes or human-readable suffix: k, m, g, t)
+lxc.cgroup2.memory.max = {{ memory }}
+
+# CPU quota and period (optional; set to 0 for unlimited)
+{% if cpu_cores > 0 %}
+lxc.cgroup2.cpu.weight = {{ cpu_weight | default(100) }}
+lxc.cgroup2.cpuset.cpus = 0-{{ (cpu_cores - 1) }}
+{% else %}
+lxc.cgroup2.cpuset.cpus = 
+{% endif %}
+
+# Root filesystem mount options
+{% if rootfs.options is defined %}lxc.mount.entry = {{ rootfs.options | join(' ') }}{% endif %}
+
+# mounts (additional bind mounts)
+{% for m in mounts %}
+# Mount {{ loop.index }}: {{ m.source }} -> {{ m.dest }}
+lxc.mount.entry = {{ m.source }} {{ m.dest }} none {{ m.options | join(',') }}, 0 0
+{% endfor %}
+
+# Resource limits
+{% if limits is defined %}
+lxc.cgroup2.memory.low = {{ limits.memory_low | default(memory) }}
+lxc.cgroup2.memory.min = {{ limits.memory_min | default('0') }}
+lxc.cgroup2.pids.max = {{ limits.pids_max | default(1024) }}
+{% endif %}
+
+# Boot behavior
+lxc.start.auto = {{ start_auto | default(0) | int }}
+lxc.start.delay = {{ start_delay | default(5) | int }}
+lxc.start.order = {{ start_order | default(0) | int }}
+
+# Security: disable privileged operations by default
+{% if privileged is same as false %}
+lxc.autodev = 1
+lxc.kmsg = 0
+lxc.aa_profile = unconfined
+{% else %}
+lxc.autodev = 0
+{% endif %}
+
+# Logging
+lxc.log.level = {{ log_level | default('WARN') }}
+lxc.log.file = {{ log_file | default('/var/log/lxc/lxc-' + name + '.log') }}

@@ -1,0 +1,231 @@
+{
+  "log_file": {
+    "type": "string",
+    "default": "/var/log/freeradius/radius.log",
+    "description": "Path to the main RADIUS log file."
+  },
+  "syslog_facility": {
+    "type": "string",
+    "default": "daemon",
+    "description": "Syslog facility to use when logging to syslog instead of files (e.g., auth, daemon, local0)."
+  },
+  "log_stripped_names": {
+    "type": "bool",
+    "default": false,
+    "description": "If true, strip domain/realm from usernames before logging."
+  },
+  "log_auth": {
+    "type": "bool",
+    "default": true,
+    "description": "Log authentication requests and responses."
+  },
+  "log_auth_badpass": {
+    "type": "bool",
+    "default": false,
+    "description": "Log failed authentication attempts, including passwords (use only in secure environments)."
+  },
+  "log_auth_goodpass": {
+    "type": "bool",
+    "default": false,
+    "description": "Log successful authentication attempts with passwords (use only in secure environments)."
+  },
+  "run_user": {
+    "type": "string",
+    "default": "freerad",
+    "description": "System user under which the FreeRADIUS daemon will run for security isolation."
+  },
+  "run_group": {
+    "type": "string",
+    "default": "freerad",
+    "description": "System group under which the FreeRADIUS daemon will run."
+  },
+  "core_dump": {
+    "type": "bool",
+    "default": false,
+    "description": "Whether to allow core dumps on crash. Not recommended in production."
+  },
+  "pid_file": {
+    "type": "string",
+    "default": "/var/run/freeradius/freeradius.pid",
+    "description": "Path to the PID file for the daemon."
+  },
+  "include_modules_dir": {
+    "type": "bool",
+    "default": true,
+    "description": "If true, automatically include module configs from raddb/mods-available/. Disable if using custom loading."
+  },
+  "include_sites_dir": {
+    "type": "bool",
+    "default": true,
+    "description": "If true, include site configurations from raddb/sites-available/."
+  },
+  "max_requests": {
+    "type": "number",
+    "default": 16384,
+    "description": "Maximum number of simultaneous requests the server will handle."
+  },
+  "idle_timeout": {
+    "type": "number",
+    "default": 30,
+    "description": "Seconds after which idle client connections are closed."
+  },
+  "auth_timeout": {
+    "type": "number",
+    "default": 4,
+    "description": "Maximum time (seconds) the server waits for a response during authentication."
+  },
+  "pkt_delay": {
+    "type": "number",
+    "default": 0,
+    "description": "Delay (milliseconds) before retransmitting a request packet (used for testing)."
+  },
+  "max_clients_per_ip": {
+    "type": "number",
+    "default": 0,
+    "description": "Maximum number of simultaneous clients allowed per IP (0 = unlimited)."
+  },
+  "enable_threads": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable thread pool for improved throughput under load."
+  },
+  "num_threads": {
+    "type": "number",
+    "default": 16,
+    "description": "Number of threads in the pool when thread pool is enabled."
+  },
+  "shutdown_timeout": {
+    "type": "number",
+    "default": 5,
+    "description": "Seconds to wait for pending requests during graceful shutdown."
+  },
+  "auth_ipaddr": {
+    "type": "list",
+    "default": [
+      "*"
+    ],
+    "description": "List of IP addresses (or ['*'] for all) on which the server listens for RADIUS access-request packets."
+  },
+  "auth_port": {
+    "type": "number",
+    "default": 1812,
+    "description": "UDP port to listen on for authentication requests."
+  },
+  "acct_ipaddr": {
+    "type": "list",
+    "default": [
+      "*"
+    ],
+    "description": "List of IP addresses (or ['*'] for all) on which the server listens for RADIUS accounting-request packets."
+  },
+  "acct_port": {
+    "type": "number",
+    "default": 1813,
+    "description": "UDP port to listen on for accounting requests."
+  },
+  "interface": {
+    "type": "string",
+    "default": "",
+    "description": "Network interface name to bind to (e.g., eth0). Overrides ipaddr binding. Leave empty to bind to all interfaces."
+  },
+  "max_auth_connections": {
+    "type": "number",
+    "default": 1024,
+    "description": "Maximum number of concurrent authentication connections per listener."
+  },
+  "auth_idle_timeout": {
+    "type": "number",
+    "default": 30,
+    "description": "Idle timeout (seconds) for authentication connections."
+  },
+  "ssl_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable TLS/SSL for the authentication listener (required for EAP-TLS, PEAP, TTLS, etc.)."
+  },
+  "ca_cert_path": {
+    "type": "string",
+    "default": "/etc/freeradius/3.0/certs/ca.pem",
+    "description": "Path to the CA certificate used to verify client certificates (when SSL enabled)."
+  },
+  "server_cert_path": {
+    "type": "string",
+    "default": "/etc/freeradius/3.0/certs/server.pem",
+    "description": "Path to the server certificate (PEM format, includes chain if needed)."
+  },
+  "server_key_path": {
+    "type": "string",
+    "default": "/etc/freeradius/3.0/certs/server.key",
+    "description": "Path to the server private key (PEM format, unencrypted)."
+  },
+  "dh_file_path": {
+    "type": "string",
+    "default": "/etc/freeradius/3.0/certs/dh",
+    "description": "Path to Diffie-Hellman parameters file (optional, auto-generated if missing)."
+  },
+  "cipher_list": {
+    "type": "string",
+    "default": "ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305:DHE-RSA-AES128-GCM-SHA256:DHE-RSA-AES256-GCM-SHA384",
+    "description": "TLS cipher suites allowed for TLS negotiation (EAP-TLS/TTLS/PEAP)."
+  },
+  "min_tls_version": {
+    "type": "string",
+    "default": "1.2",
+    "description": "Minimum TLS version to allow (e.g., 1.2, 1.3)."
+  },
+  "radius_clients": {
+    "type": "list",
+    "default": [],
+    "description": "List of NAS/clients to authenticate. Each entry defines a RADIUS client.",
+    "items": {
+      "type": "object",
+      "fields": {
+        "name": {
+          "type": "string",
+          "default": "",
+          "description": "Unique identifier (name) for the client."
+        },
+        "ipaddr": {
+          "type": "string",
+          "default": "",
+          "description": "IP address (IPv4/IPv6) or subnet (e.g., 192.168.1.0/24) of the client."
+        },
+        "secret": {
+          "type": "string",
+          "default": "",
+          "description": "Shared secret between this server and the NAS client."
+        },
+        "shortname": {
+          "type": "string",
+          "default": "",
+          "description": "Short name (alias) used for logging (e.g., 'cisco-1')."
+        },
+        "nastype": {
+          "type": "string",
+          "default": "other",
+          "description": "Client type for vendor-specific attributes (e.g., 'cisco', 'linux', 'other')."
+        },
+        "require_message_authenticator": {
+          "type": "bool",
+          "default": false,
+          "description": "If true, require Message-Authenticator attribute on all packets (recommended for EAP)."
+        },
+        "nas_type": {
+          "type": "string",
+          "default": "",
+          "description": "Override for NAS-Identifier (e.g., 'router', 'ap')."
+        },
+        "max_connections": {
+          "type": "number",
+          "default": 16,
+          "description": "Max concurrent connections from this client."
+        },
+        "idle_timeout": {
+          "type": "number",
+          "default": 30,
+          "description": "Idle timeout (seconds) for connections from this client."
+        }
+      }
+    }
+  }
+}

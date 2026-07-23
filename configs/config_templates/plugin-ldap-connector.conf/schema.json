@@ -1,0 +1,107 @@
+{
+  "ldap_server": {
+    "type": "string",
+    "default": "ldap.example.com",
+    "description": "Hostname or IP address of the LDAP server to connect to."
+  },
+  "ldap_port": {
+    "type": "number",
+    "default": 636,
+    "description": "Port number for the LDAP server (typically 389 for non-SSL, 636 for LDAPS)."
+  },
+  "ldap_use_ssl": {
+    "type": "bool",
+    "default": true,
+    "description": "Whether to use SSL/TLS for the LDAP connection (recommended for production)."
+  },
+  "ldap_bind_dn": {
+    "type": "string",
+    "default": "cn=ldap-reader,ou=users,dc=example,dc=com",
+    "description": "Distinguished Name (DN) used to bind to the LDAP directory for read-only access."
+  },
+  "ldap_bind_password": {
+    "type": "string",
+    "default": "",
+    "description": "Password for the bind DN. Keep secret; consider using a secure credential store in production."
+  },
+  "ldap_base_dn": {
+    "type": "string",
+    "default": "dc=example,dc=com",
+    "description": "Base DN for LDAP searches (e.g., the root of your directory tree)."
+  },
+  "user_base": {
+    "type": "string",
+    "default": "",
+    "description": "Optional custom base DN for user searches. Defaults to `ldap_base_dn` if empty."
+  },
+  "user_filter": {
+    "type": "string",
+    "default": "(objectClass=person)",
+    "description": "LDAP filter to select users (e.g., `(objectClass=inetOrgPerson)`)."
+  },
+  "user_attributes": {
+    "type": "list",
+    "default": [
+      "uid",
+      "cn",
+      "mail",
+      "givenName",
+      "sn",
+      "uidNumber"
+    ],
+    "description": "Comma-separated list of LDAP attributes to fetch for users."
+  },
+  "group_base": {
+    "type": "string",
+    "default": "",
+    "description": "Optional custom base DN for group searches. Defaults to `ldap_base_dn` if empty."
+  },
+  "group_filter": {
+    "type": "string",
+    "default": "(objectClass=posixGroup)",
+    "description": "LDAP filter to select groups (e.g., `(objectClass=groupOfNames)`)."
+  },
+  "group_attributes": {
+    "type": "list",
+    "default": [
+      "cn",
+      "memberUid"
+    ],
+    "description": "Comma-separated list of LDAP attributes to fetch for groups."
+  },
+  "sync_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable automatic synchronization of users and groups from LDAP."
+  },
+  "sync_interval": {
+    "type": "number",
+    "default": 3600,
+    "description": "Interval (in seconds) between synchronization runs."
+  },
+  "group_mappings": {
+    "type": "list",
+    "default": [],
+    "description": "List of mappings from LDAP groups to local Linux groups (used for sudo, network, etc.).",
+    "items": {
+      "type": "object",
+      "fields": {
+        "ldap_group": {
+          "type": "string",
+          "default": "",
+          "description": "Name of the LDAP group (e.g., `admin` or `students`)."
+        },
+        "local_group": {
+          "type": "string",
+          "default": "",
+          "description": "Name of the local system group to map to (e.g., `sudo` or `netdev`)."
+        }
+      }
+    }
+  },
+  "ldap_ca_cert_path": {
+    "type": "string",
+    "default": "",
+    "description": "Path to CA certificate file for verifying LDAP server identity (e.g., `/etc/ssl/certs/ldap-ca.crt`). Optional; leave empty to skip verification."
+  }
+}

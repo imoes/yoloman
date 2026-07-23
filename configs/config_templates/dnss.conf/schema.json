@@ -1,0 +1,212 @@
+{
+  "zones": {
+    "type": "list",
+    "default": [],
+    "description": "List of DNS zones to serve (each with a name, domain, and file path)",
+    "items": {
+      "name": {
+        "type": "string",
+        "default": "",
+        "description": "Unique identifier for the zone"
+      },
+      "domain": {
+        "type": "string",
+        "default": "",
+        "description": "The domain name for this zone (e.g., example.com)"
+      },
+      "file": {
+        "type": "string",
+        "default": "",
+        "description": "Path to the zone file (e.g., /var/lib/dnss/zones/example.com.db)"
+      }
+    }
+  },
+  "listen": {
+    "type": "list",
+    "default": [
+      {
+        "host": "0.0.0.0",
+        "port": 53
+      }
+    ],
+    "description": "Network addresses (host:port) to bind the DNS server to",
+    "items": {
+      "host": {
+        "type": "string",
+        "default": "0.0.0.0",
+        "description": "IP address or hostname to listen on (e.g., 0.0.0.0, 127.0.0.1, ::)"
+      },
+      "port": {
+        "type": "number",
+        "default": 53,
+        "description": "UDP/TCP port for DNS queries (typically 53)"
+      }
+    }
+  },
+  "forwarders": {
+    "type": "list",
+    "default": [
+      {
+        "address": "8.8.8.8",
+        "port": 53
+      },
+      {
+        "address": "8.8.4.4",
+        "port": 53
+      }
+    ],
+    "description": "Upstream DNS resolvers to forward queries to when not authoritative",
+    "items": {
+      "address": {
+        "type": "string",
+        "default": "",
+        "description": "IP address of upstream resolver"
+      },
+      "port": {
+        "type": "number",
+        "default": 53,
+        "description": "Port of upstream resolver (usually 53)"
+      }
+    }
+  },
+  "rate_limit": {
+    "type": "object",
+    "default": {
+      "enabled": true,
+      "max_queries_per_second": 100,
+      "burst_size": 150
+    },
+    "description": "Rate-limiting to protect against DNS floods",
+    "items": {
+      "enabled": {
+        "type": "bool",
+        "default": true,
+        "description": "Enable or disable rate limiting"
+      },
+      "max_queries_per_second": {
+        "type": "number",
+        "default": 100,
+        "description": "Maximum average queries per second per client before throttling"
+      },
+      "burst_size": {
+        "type": "number",
+        "default": 150,
+        "description": "Maximum burst size allowed before rate limiting kicks in"
+      }
+    }
+  },
+  "cache": {
+    "type": "object",
+    "default": {
+      "enabled": true,
+      "size_mb": 64,
+      "ttl_min": 60,
+      "ttl_max": 86400
+    },
+    "description": "Caching behavior for responses",
+    "items": {
+      "enabled": {
+        "type": "bool",
+        "default": true,
+        "description": "Enable response caching"
+      },
+      "size_mb": {
+        "type": "number",
+        "default": 64,
+        "description": "Maximum cache size in megabytes"
+      },
+      "ttl_min": {
+        "type": "number",
+        "default": 60,
+        "description": "Minimum caching time for responses (in seconds)"
+      },
+      "ttl_max": {
+        "type": "number",
+        "default": 86400,
+        "description": "Maximum caching time for responses (in seconds)"
+      }
+    }
+  },
+  "logging": {
+    "type": "object",
+    "default": {
+      "level": "info",
+      "file": "/var/log/dnss/dnss.log",
+      "max_size_mb": 50,
+      "max_backups": 5
+    },
+    "description": "Logging configuration",
+    "items": {
+      "level": {
+        "type": "string",
+        "default": "info",
+        "description": "Log verbosity level (e.g., debug, info, warn, error)"
+      },
+      "file": {
+        "type": "string",
+        "default": "/var/log/dnss/dnss.log",
+        "description": "Path to the log file"
+      },
+      "max_size_mb": {
+        "type": "number",
+        "default": 50,
+        "description": "Maximum size of a log file before rotation (in MB)"
+      },
+      "max_backups": {
+        "type": "number",
+        "default": 5,
+        "description": "Number of rotated log files to keep"
+      }
+    }
+  },
+  "security": {
+    "type": "object",
+    "default": {
+      "recursion": true,
+      "dnssec_validation": true,
+      "allow_query": [
+        "any"
+      ],
+      "allow_transfer": [
+        "none"
+      ]
+    },
+    "description": "Security hardening options",
+    "items": {
+      "recursion": {
+        "type": "bool",
+        "default": true,
+        "description": "Allow recursive queries (set to false for authoritative-only servers)"
+      },
+      "dnssec_validation": {
+        "type": "bool",
+        "default": true,
+        "description": "Enable DNSSEC validation of responses"
+      },
+      "allow_query": {
+        "type": "list",
+        "default": [
+          "any"
+        ],
+        "description": "List of client IPs or keywords (any, none, local, etc.) permitted to query",
+        "items": {
+          "type": "string",
+          "default": "",
+          "description": "ACL entry for allowed query sources"
+        }
+      },
+      "allow_transfer": {
+        "type": "list",
+        "default": [
+          "none"
+        ],
+        "description": "List of IPs or keywords permitted to receive zone transfers",
+        "items": {
+          "type": "string",
+          "default": "",
+          "description": "ACL entry for allowed zone transfers"
+        }
+      }
+    }
+  }
+}

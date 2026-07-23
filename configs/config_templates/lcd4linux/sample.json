@@ -1,0 +1,79 @@
+{
+  "driver": "FBDev",
+  "display": [
+    {
+      "name": "LCD",
+      "type": "FBDev",
+      "driver_params": {
+        "Device": "/dev/fb0",
+        "Width": 200,
+        "Height": 64,
+        "Bpp": 1
+      },
+      "plugins": [
+        "Stat",
+        "NetTraffic"
+      ]
+    }
+  ],
+  "plugins": [
+    {
+      "name": "Stat"
+    },
+    {
+      "name": "XMLRPC",
+      "enabled": true,
+      "listen_port": 4411
+    },
+    {
+      "name": "MPD",
+      "host": "192.168.1.10",
+      "port": 6600
+    },
+    {
+      "name": "RSS",
+      "url": "https://rss.cbc.ca/lineup/topstories.xml",
+      "update_interval": 1800,
+      "timeout": 15
+    }
+  ],
+  "layout": [
+    {
+      "name": "Main",
+      "type": "Screen",
+      "width": 200,
+      "height": 64,
+      "items": [
+        {
+          "type": "Text",
+          "plugin": "Stat",
+          "plugin_opt": "Uptime"
+        },
+        {
+          "type": "Text",
+          "plugin": "MPD",
+          "plugin_opt": "Artist"
+        },
+        {
+          "type": "Text",
+          "plugin": "MPD",
+          "plugin_opt": "Title"
+        },
+        {
+          "type": "Bar",
+          "plugin": "Stat",
+          "plugin_opt": "CPUUsage"
+        },
+        {
+          "type": "Text",
+          "plugin": "RSS",
+          "plugin_opt": "item_0_title"
+        }
+      ]
+    }
+  ],
+  "refresh_interval": 2000,
+  "font": "DejaVuSans12",
+  "log_level": "info",
+  "log_file": "/var/log/lcd4linux.log"
+}

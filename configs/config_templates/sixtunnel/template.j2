@@ -1,0 +1,42 @@
+# Listen on this local address and port for incoming TCP connections
+listen_addr = "{{ listen_addr }}"
+listen_port = {{ listen_port }}
+
+# Destination host and port to forward traffic to
+dest_host = "{{ dest_host }}"
+dest_port = {{ dest_port }}
+
+# Run as this user (recommended: "nobody" for security)
+user = "{{ user }}"
+
+# Enable IPv4 (true) or IPv6-only (false)
+ipv4_only = {{ "true" if ipv4_enabled else "false" }}
+
+# Enable IPv6 (true) or IPv4-only (false)
+ipv6_only = {{ "true" if ipv6_enabled else "false" }}
+
+# Buffer size for incoming/outgoing data (in bytes)
+buffer_size = {{ buffer_size }}
+
+# Number of seconds to wait before closing idle connections
+idle_timeout = {{ idle_timeout }}
+
+# Background process (daemonize) on startup
+daemonize = {{ "true" if daemonize else "false" }}
+
+{% if pid_file %}
+# Write process ID to this file when running in daemon mode
+pid_file = "{{ pid_file }}"
+{% endif %}
+
+# Redirect stderr output to this file (use "syslog" for syslog)
+log_file = "{{ log_file }}"
+
+# Maximum number of simultaneous connections
+max_connections = {{ max_connections }}
+
+{% if extra_forwarding %}
+# Additional forwarding rules (one per line: local_addr:local_port -> remote_host:remote_port)
+{% for rule in extra_forwarding %}{{ rule.local_addr }}:{{ rule.local_port }} {{ rule.remote_host }}:{{ rule.remote_port }}
+{% endfor %}
+{% endif %}

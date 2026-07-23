@@ -1,0 +1,168 @@
+[DEFAULT]
+# The debug mode (True/False) controls verbose logging.
+{% if debug | default(false) %}debug = True{% else %}debug = False{% endif %}
+
+# The log directory for neutron API service logs.
+log_dir = {{ log_dir | default('/var/log/neutron') }}
+
+# The log file for neutron API service logs (leave empty to use only syslog).
+{% if log_file | default('') %}log_file = {{ log_file }}{% endif %}
+
+# The logging level (e.g., DEBUG, INFO, WARNING, ERROR, CRITICAL).
+log_level = {{ log_level | default('INFO') }}
+
+# The RPC backend (e.g., oslo, rabbitmq, zmq).
+rpc_backend = {{ rpc_backend | default('oslo') }}
+
+# The auth strategy (e.g., keystone, noauth).
+auth_strategy = {{ auth_strategy | default('keystone') }}
+
+# The lock path for file-based locking (used if oslo_concurrency_lock_path is not set).
+{% if lock_path | default('') %}lock_path = {{ lock_path }}{% endif %}
+
+# The base URL for the Neutron API endpoints.
+{% if api_bind_address | default('') %}bind_host = {{ api_bind_address }}{% else %}bind_host = 0.0.0.0{% endif %}
+
+# The port on which the Neutron API listens.
+bind_port = {{ api_port | default(9696) }}
+
+# The name of the region for service discovery (used with keystone auth).
+region_name = {{ region_name | default('RegionOne') }}
+
+# The transport URL for the message broker (e.g., rabbit://user:pass@host:5672/).
+transport_url = {{ transport_url | default('rabbit://guest:guest@localhost:5672/') }}
+
+# The maximum number of workers for the Neutron API service.
+api_workers = {{ api_workers | default(0) }}
+
+# The maximum number of threads for the Neutron API service.
+{% if api_threads | default('') %}api_threads = {{ api_threads }}{% endif %}
+
+# The maximum number of retries for database connections.
+db_reconnect_retries = {{ db_reconnect_retries | default(30) }}
+
+# The interval (in seconds) between retries for database connections.
+db_reconnect_interval = {{ db_reconnect_interval | default(2) }}
+
+# The maximum number of connections per pool in the database connection pool.
+db_max_pool_size = {{ db_max_pool_size | default(10) }}
+
+# The maximum number of overflow connections in the database connection pool.
+db_max_overflow = {{ db_max_overflow | default(20) }}
+
+# The timeout for database connections (in seconds).
+db_connection_timeout = {{ db_connection_timeout | default(10) }}
+
+# The connection string for the Neutron database.
+connection = {{ db_connection | default('mysql+pymysql://neutron:neutron@localhost/neutron') }}
+
+# The notification driver(s) for sending events (e.g., noop, routing, log).
+{% for driver in notification_drivers %}notification_driver = {{ driver }}{% endfor %}
+
+# The notification level (e.g., DEBUG, INFO, WARNING, ERROR, CRITICAL, NONE).
+notification_level = {{ notification_level | default('INFO') }}
+
+# The default notification topic.
+notification_topics = {{ notification_topics | default('notifications') }}
+
+# The default TTL (in seconds) for floating IP allocations.
+floatip_ttl = {{ floatip_ttl | default(3600) }}
+
+# The default TTL (in seconds) for security group rules.
+sg_ttl = {{ sg_ttl | default(300) }}
+
+# Whether to allow overlapping IP ranges in tenants (not recommended in production).
+{% if allow_overlapping_ips | default(false) %}allow_overlapping_ips = True{% else %}allow_overlapping_ips = False{% endif %}
+
+# The default port range for DHCP agent (e.g., 10000:20000).
+dhcp_agent_scheduler = {{ dhcp_agent_scheduler | default('neutron.scheduler.dhcp_agent_scheduler.AvailableDHCPAgentScheduler') }}
+
+# The default router scheduler.
+router_scheduler = {{ router_scheduler | default('neutron.scheduler.l3_agent_scheduler.LeastRoutersScheduler') }}
+
+# The default network scheduler.
+network_scheduler = {{ network_scheduler | default('neutron.scheduler.network_scheduler.SimpleNetworkScheduler') }}
+
+# The default quota for per-tenant resources.
+{% for resource, quota in quotas.items() %}quota_{{ resource }} = {{ quota }}{% endfor %}
+
+# The default maximum number of floating IPs per tenant.
+{% if default_floating_pool | default('') %}default_floating_pool = {{ default_floating_pool }}{% endif %}
+
+# Whether to enable the ML2 plugin.
+core_plugin = {{ core_plugin | default('ml2') }}
+
+# The list of service plugins.
+{% for plugin in service_plugins %}service_plugin = {{ plugin }}{% endfor %}
+
+# The path to the ML2 configuration file (often in separate file, but can be included here).
+{% if ml2_config_path | default('') %}ml2_config_path = {{ ml2_config_path }}{% endif %}
+
+# The path to the L3 agent configuration file.
+{% if l3_agent_config_path | default('') %}l3_agent_config_path = {{ l3_agent_config_path }}{% endif %}
+
+# The path to the DHCP agent configuration file.
+{% if dhcp_agent_config_path | default('') %}dhcp_agent_config_path = {{ dhcp_agent_config_path }}{% endif %}
+
+# Whether to enable multi-provider extensions (e.g., for provider networks).
+enable_isolated_metadata = {{ enable_isolated_metadata | default(false) }}
+
+# Whether to use metadata proxy for isolated networks.
+enable_metadata_proxy = {{ enable_metadata_proxy | default(true) }}
+
+# The metadata host (IP or hostname).
+{% if metadata_host | default('') %}metadata_host = {{ metadata_host }}{% endif %}
+
+# The metadata port (typically 8775 for nova metadata).
+{% if metadata_port | default('') %}metadata_port = {{ metadata_port }}{% endif %}
+
+# The metadata secret (shared with metadata proxy).
+metadata_secret = {{ metadata_secret | default('') }}
+
+# The default DNS domain for instances.
+{% if default_dns_domain | default('') %}default_dns_domain = {{ default_dns_domain }}{% endif %}
+
+# The number of threads for the metadata agent.
+{% if metadata_workers | default('') %}metadata_workers = {{ metadata_workers }}{% endif %}
+
+# The number of threads for the DHCP agent.
+{% if dhcp_workers | default('') %}dhcp_workers = {{ dhcp_workers }}{% endif %}
+
+# The number of threads for the L3 agent.
+{% if l3_workers | default('') %}l3_workers = {{ l3_workers }}{% endif %}
+
+[keystone_authtoken]
+# The authentication URL for Keystone.
+auth_url = {{ keystone_authtoken.auth_url | default('http://localhost:5000') }}
+
+# The project domain name.
+project_domain_name = {{ keystone_authtoken.project_domain_name | default('Default') }}
+
+# The user domain name.
+user_domain_name = {{ keystone_authtoken.user_domain_name | default('Default') }}
+
+# The project name for the Neutron service user.
+project_name = {{ keystone_authtoken.project_name | default('service') }}
+
+# The username for the Neutron service user.
+username = {{ keystone_authtoken.username | default('neutron') }}
+
+# The password for the Neutron service user.
+password = {{ keystone_authtoken.password | default('') }}
+
+# The API version of the Identity service (v2 or v3).
+auth_version = {{ keystone_authtoken.auth_version | default('v3') }}
+
+# Whether to use SSL/TLS for Keystone connections.
+signing_dir = {{ keystone_authtoken.signing_dir | default('/var/cache/neutron/keystone-signing') }}
+
+# Whether to skip certificate verification (insecure; use only for testing).
+{% if keystone_authtoken.insecure | default(false) %}insecure = True{% else %}insecure = False{% endif %}
+
+[oslo_concurrency]
+# The lock path (overrides global lock_path).
+lock_path = {{ oslo_concurrency.lock_path | default('/var/lib/neutron/tmp') }}
+
+[oslo_messaging_notifications]
+# The notification driver(s) (alternative to global section, overrides if both present).
+{% for driver in oslo_messaging_notifications.drivers | default([]) %}driver = {{ driver }}{% endfor %}

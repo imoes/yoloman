@@ -1,0 +1,49 @@
+{
+  "pve_api_url": {
+    "type": "string",
+    "default": "https://localhost:8006/api2/json",
+    "description": "Full API base URL of your Proxmox VE cluster (e.g., https://pve.example.com:8006/api2/json). Must include scheme, hostname, port, and path."
+  },
+  "api_token_id": {
+    "type": "string",
+    "default": "",
+    "description": "Proxmox VE API token ID in 'user!tokenid' format (e.g., fenceagent!pve). Must have 'Sys.Audit' and 'VM.Audit' privileges."
+  },
+  "api_token_secret": {
+    "type": "string",
+    "default": "",
+    "description": "Secret key for the API token. Never commit this value to version control."
+  },
+  "verify_ssl": {
+    "type": "bool",
+    "default": true,
+    "description": "Whether to validate Proxmox VE's SSL certificate. Set to false only in secure/test environments with self-signed certs."
+  },
+  "cacert": {
+    "type": "string",
+    "default": "",
+    "description": "Absolute path to a custom CA certificate bundle (PEM format) for SSL verification. Leave empty to use system trust store."
+  },
+  "timeout": {
+    "type": "number",
+    "default": 30,
+    "description": "Maximum seconds to wait for API responses before timing out. Increase for large clusters or high latency."
+  },
+  "nodes": {
+    "type": "list",
+    "default": [],
+    "description": "List of nodes to register for fencing. Required only when automatic discovery is disabled (rare).",
+    "items": {
+      "type": "object",
+      "properties": {
+        "hostname": {
+          "type": "string",
+          "description": "Proxmox VE node hostname (must resolve from all cluster members)."
+        }
+      },
+      "required": [
+        "hostname"
+      ]
+    }
+  }
+}

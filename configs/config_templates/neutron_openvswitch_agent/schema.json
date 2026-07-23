@@ -1,0 +1,294 @@
+{
+  "log_dir": {
+    "type": "string",
+    "default": "/var/log/neutron",
+    "description": "Directory to store log files."
+  },
+  "log_file": {
+    "type": "string",
+    "default": "ovs-agent.log",
+    "description": "Name of the log file (relative to log_dir)."
+  },
+  "verbose": {
+    "type": "boolean",
+    "default": true,
+    "description": "Enable verbose logging (INFO level and above)."
+  },
+  "debug": {
+    "type": "boolean",
+    "default": false,
+    "description": "Enable debug-level logging."
+  },
+  "rpc_transport_url": {
+    "type": "string",
+    "default": "rabbit://neutron:neutron@controller:5672/",
+    "description": "Messaging transport URL for RPC communication (e.g., RabbitMQ)."
+  },
+  "auth_strategy": {
+    "type": "string",
+    "default": "keystone",
+    "description": "Authentication strategy. Use 'keystone' for Keystone-based auth."
+  },
+  "report_interval": {
+    "type": "number",
+    "default": 30,
+    "description": "Seconds between agent state reports to Neutron server."
+  },
+  "min_broadcast_domain_size": {
+    "type": "number",
+    "default": 0,
+    "description": "Minimum broadcast domain size for L2 agent health checks. Set > 0 only if needed for legacy environments."
+  },
+  "l2_population": {
+    "type": "boolean",
+    "default": true,
+    "description": "Enable L2 population driver for optimized flooding in tunnel networks (required for DVR)."
+  },
+  "extension_drivers": {
+    "type": "list",
+    "items": {
+      "type": "string",
+      "enum": [
+        "port_security",
+        "qos",
+        "security_group",
+        "trunk",
+        "sriov"
+      ],
+      "default": "port_security,qos,security_group"
+    },
+    "default": [
+      "port_security",
+      "qos",
+      "security_group"
+    ],
+    "description": "List of extension drivers to enable (comma-separated string when rendered)."
+  },
+  "qos_extension_driver": {
+    "type": "boolean",
+    "default": true,
+    "description": "Explicit toggle for QoS extension driver (used as fallback if not in extension_drivers list)."
+  },
+  "port_security_extension_driver": {
+    "type": "boolean",
+    "default": true,
+    "description": "Explicit toggle for Port Security extension driver."
+  },
+  "trunk_extension_driver": {
+    "type": "boolean",
+    "default": false,
+    "description": "Enable trunk extension driver for subport management."
+  },
+  "sriov_extension_driver": {
+    "type": "boolean",
+    "default": false,
+    "description": "Enable SR-IOV extension driver for bare-metal SR-IOV ports."
+  },
+  "security_group_extension_driver": {
+    "type": "boolean",
+    "default": true,
+    "description": "Enable security group extension driver (often auto-enabled via extension_drivers)."
+  },
+  "qos_limit_direction": {
+    "type": "string",
+    "default": "both",
+    "description": "Direction for QoS bandwidth limits (ingress, egress, or both)."
+  },
+  "bridge_mappings": {
+    "type": "list",
+    "items": {
+      "type": "object",
+      "fields": {
+        "type": {
+          "type": "string",
+          "enum": [
+            "flat",
+            "vlan"
+          ],
+          "default": "vlan"
+        },
+        "bridge": {
+          "type": "string",
+          "default": "br-ex"
+        }
+      }
+    },
+    "default": [
+      {
+        "type": "flat",
+        "bridge": "br-ex"
+      },
+      {
+        "type": "vlan",
+        "bridge": "br-vlan"
+      }
+    ],
+    "description": "List of network type to OVS bridge mappings (e.g., flat networks \u2192 br-ex, VLANs \u2192 br-vlan)."
+  },
+  "ovs_integration_bridge": {
+    "type": "string",
+    "default": "br-int",
+    "description": "OVS integration bridge name for tenant traffic."
+  },
+  "ovs_tunnel_bridge": {
+    "type": "string",
+    "default": "br-tun",
+    "description": "OVS tunnel bridge name for VXLAN/GRE tunnels."
+  },
+  "ovs_local_ip": {
+    "type": "string",
+    "default": "10.0.0.1",
+    "description": "Local IP address used for tunnel endpoints (must be reachable by other compute hosts)."
+  },
+  "ovs_enable_tunneling": {
+    "type": "boolean",
+    "default": true,
+    "description": "Enable overlay network tunneling (VXLAN/GRE)."
+  },
+  "ovs_tunnel_types": {
+    "type": "list",
+    "items": {
+      "type": "string",
+      "enum": [
+        "vxlan",
+        "gre",
+        "stt"
+      ],
+      "default": "vxlan"
+    },
+    "default": [
+      "vxlan"
+    ],
+    "description": "List of tunnel types to use (comma-separated in rendered config)."
+  },
+  "ovs_vxlan_udp_port": {
+    "type": "number",
+    "default": 4789,
+    "description": "UDP port for VXLAN tunneling (standard: 4789)."
+  },
+  "ovs_vxlan_group": {
+    "type": "string",
+    "default": "",
+    "description": "Multicast group for VXLAN learning (e.g., '239.1.1.1'). Leave empty to disable (recommended with L2POP)."
+  },
+  "ovs_arp_responder": {
+    "type": "boolean",
+    "default": true,
+    "description": "Enable ARP responder in OVS to respond to ARP requests locally."
+  },
+  "ovs_use_centralized_nat": {
+    "type": "boolean",
+    "default": false,
+    "description": "Enable centralized NAT (SNAT) for external network access (non-DVR mode)."
+  },
+  "ovs_dvr_snat_default_br": {
+    "type": "string",
+    "default": "br-snat",
+    "description": "OVS bridge used for SNAT in DVR mode (when centralized NAT is disabled)."
+  },
+  "securitygroup_enable_security_group": {
+    "type": "boolean",
+    "default": true,
+    "description": "Enable security groups for instances."
+  },
+  "securitygroup_firewall_driver": {
+    "type": "string",
+    "default": "openvswitch",
+    "description": "Firewall driver: 'openvswitch' (OVS flow-based) or 'iptables' (legacy)."
+  },
+  "securitygroup_log_dropped_traffic": {
+    "type": "boolean",
+    "default": false,
+    "description": "Log dropped packets for security group rules."
+  },
+  "l3_enable_distributed_routing": {
+    "type": "boolean",
+    "default": false,
+    "description": "Enable distributed virtual routing (DVR) support in the agent."
+  },
+  "l3_ha_max_agents_per_router": {
+    "type": "number",
+    "default": 2,
+    "description": "Maximum number of L3 agents to schedule per HA router."
+  },
+  "l3_l3_ha": {
+    "type": "boolean",
+    "default": false,
+    "description": "Enable high-availability mode for L3 services (requires DVR)."
+  },
+  "l3_min_l3_agents_per_router": {
+    "type": "number",
+    "default": 1,
+    "description": "Minimum number of L3 agents required to keep a router functional."
+  },
+  "ml2_type_drivers": {
+    "type": "list",
+    "items": {
+      "type": "string",
+      "enum": [
+        "flat",
+        "vlan",
+        "vxlan",
+        "gre"
+      ],
+      "default": "vxlan"
+    },
+    "default": [
+      "vxlan"
+    ],
+    "description": "List of ML2 type drivers enabled (must include types used by bridge_mappings)."
+  },
+  "ml2_tenant_network_types": {
+    "type": "list",
+    "items": {
+      "type": "string",
+      "enum": [
+        "flat",
+        "vlan",
+        "vxlan",
+        "gre"
+      ],
+      "default": "vxlan"
+    },
+    "default": [
+      "vxlan"
+    ],
+    "description": "Network types available for tenant provisioning."
+  },
+  "ml2_mechanism_drivers": {
+    "type": "list",
+    "items": {
+      "type": "string",
+      "enum": [
+        "openvswitch",
+        "linuxbridge",
+        "sriov"
+      ],
+      "default": "openvswitch"
+    },
+    "default": [
+      "openvswitch"
+    ],
+    "description": "Mechanism drivers that map network types to OVS or other backends."
+  },
+  "ml2_extension_drivers": {
+    "type": "list",
+    "items": {
+      "type": "string",
+      "enum": [
+        "port_security",
+        "qos",
+        "security_group",
+        "trunk",
+        "sriov"
+      ],
+      "default": "port_security,qos,security_group"
+    },
+    "default": [
+      "port_security",
+      "qos",
+      "security_group"
+    ],
+    "description": "Extension drivers for ML2 (same as agent extension_drivers, used in Neutron server)."
+  }
+}

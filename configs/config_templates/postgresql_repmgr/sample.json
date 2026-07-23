@@ -1,0 +1,48 @@
+{
+  "primary_host": "db1.example.com",
+  "primary_port": 5432,
+  "repmgr_user": "repmgr",
+  "repmgr_password": "s3cur3_r3pmgr_p4ss",
+  "repmgr_database": "repmgr",
+  "node_id": 2,
+  "node_name": "node2",
+  "data_directory": "/var/lib/postgresql/17/main",
+  "replication_user": "replication",
+  "replication_password": "r3pl1cat10n_p4ss",
+  "failover": "automatic",
+  "promote_command": "repmgr standby promote -f /etc/repmgr/17/repmgr.conf --log-level=INFO",
+  "follow_command": "repmgr standby follow -f /etc/repmgr/17/repmgr.conf --log-level=INFO --upstream-node-id=%n",
+  "monitoring_interval_secs": 5,
+  "log_level": "NOTICE",
+  "log_facility": "LOG_LOCAL0",
+  "log_file": "/var/log/postgresql/repmgr.log",
+  "service_start_command": "pg_ctlcluster 17 main start",
+  "service_stop_command": "pg_ctlcluster 17 main stop -m fast",
+  "service_status_command": "pg_ctlcluster 17 main status",
+  "auto_registration": true,
+  "auto_follow": true,
+  "failover_targets": [
+    {
+      "node_id": 3,
+      "host": "db3.example.com",
+      "port": 5432
+    },
+    {
+      "node_id": 4,
+      "host": "db4.example.com",
+      "port": 5432
+    }
+  ],
+  "upstream_node": 1,
+  "pg_basebackup_options": "-c fast -X stream -P",
+  "events": [
+    {
+      "name": "post_promote",
+      "script": "/usr/local/bin/notify-promotion.sh"
+    }
+  ],
+  "postgresql_parameters": {
+    "max_connections": "200",
+    "shared_buffers": "256MB"
+  }
+}

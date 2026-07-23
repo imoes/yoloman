@@ -1,0 +1,43 @@
+# Listen address and port for the DSMI over WLAN server
+listen = {{ listen_addr }}:{{ listen_port }}
+
+# Path to the MIDI device to expose (e.g., /dev/midi0)
+midi_device = {{ midi_device_path }}
+
+# Enable or disable TCP keepalive on connections
+keepalive = {{ keepalive_enabled | lower }}
+
+# Maximum number of simultaneous client connections
+max_clients = {{ max_clients }}
+
+# Timeout (seconds) for idle client connections
+idle_timeout = {{ idle_timeout }}
+
+# Log level: 0=none, 1=error, 2=warn, 3=info, 4=debug
+log_level = {{ log_level }}
+
+# Path to the log file (leave empty for syslog)
+log_file = {{ log_file_path | default('') | replace('\n', '') }}
+
+# Optional: SSL/TLS support (enable only if cert/key provided)
+{% if ssl_enabled %}
+ssl = true
+ssl_cert = {{ ssl_cert_path }}
+ssl_key = {{ ssl_key_path }}
+{% else %}
+ssl = false
+{% endif %}
+
+# Optional: Hostname advertised via mDNS (set to empty to disable mDNS)
+{% if mdns_hostname %}
+mdns_name = {{ mdns_hostname }}
+{% else %}
+mdns_name =
+{% endif %}
+
+# Optional: Access control list (IP/CIDR entries); leave empty to allow all
+{% if acl_entries | length > 0 %}
+# Allow connections only from these networks
+{% for entry in acl_entries %}acl = {{ entry['network'] }}
+{% endfor %}
+{% endif %}

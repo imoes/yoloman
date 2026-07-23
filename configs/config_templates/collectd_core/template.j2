@@ -1,0 +1,69 @@
+# Collectd main configuration file
+# This file configures the Collectd daemon for metrics collection and output
+
+# Hostname to report to remote plugins (e.g., network, relays)
+Hostname "{{ hostname }}"
+
+# FQDN lookup: set to false if DNS is unreliable
+FQDNLookup {{ 'true' if fqdn_lookup else 'false' }}
+
+# Base directory for plugin data (e.g., write plugins storing state)
+BaseDir "{{ base_dir }}"
+
+# Plugin directory containing dynamically loaded modules
+PluginDir "{{ plugin_dir }}"
+
+# Path to plugin cache file for automatic plugin loading (optional)
+{{ 'LoadPluginCacheFile "' + plugin_cache_file + '"' if plugin_cache_file else '# LoadPluginCacheFile "/var/cache/collectd/plugin.cache"' }}
+
+# Enable loading plugins by type (e.g., LoadPlugin cpu → loads 'cpu.so')
+{{ 'LoadPlugin ' + plugin for plugin in enabled_plugins | default([]) | join('\nLoadPlugin ') }}
+
+# Global interval for collection (seconds) — overridden per-plugin if specified
+Interval {{ interval }}
+
+# Minimum time between flushes (seconds) — ensures data gets sent periodically
+ReadThreads {{ read_threads }}
+WriteThreads {{ write_threads }}
+
+# Logging level: "debug", "info", "notice", "warning", "err"
+LogLevel "{{ log_level }}"
+
+# Log file path — empty means syslog
+{{ 'LogFile "' + log_file + '"' if log_file else '# LogFile ""' }}
+
+# Syslog facility (e.g., "daemon")
+{{ 'SysLog ' + syslog_facility if syslog_facility else '# SysLog false' }}
+
+# TimeToLive for multicast packets (network plugin)
+{{ 'TTL ' + ttl if ttl is defined and ttl is not none else '# TTL 1' }}
+
+# Include additional configuration snippets
+{% for snippet in include_snippets %}
+Include "{{ snippet }}"
+{% endfor %}
+
+# Plugin-specific configuration blocks
+{% for plugin in plugins_config %}
+# Configuration for plugin '{{ plugin.name }}'
+<Plugin "{{ plugin.name }}">
+{% for key, val in plugin.options.items() %}
+  {% if val is string and val | length > 0 %}
+  {{ key }} "{{ val }}"
+  {% elif val is number or val is boolean %}
+  {{ key }} {{ val | lower if val is boolean else val }}
+  {% endif %}
+{% endfor %}
+{% for item in plugin.list_items | default([]) %}
+  <{{ item.tag }}>
+{% for key, val in item.options.items() %}
+    {% if val is string and val | length > 0 %}
+    {{ key }} "{{ val }}"
+    {% elif val is number or val is boolean %}
+    {{ key }} {{ val | lower if val is boolean else val }}
+    {% endif %}
+{% endfor %}
+  </{{ item.tag }}>
+{% endfor %}
+</Plugin>
+{% endfor %}

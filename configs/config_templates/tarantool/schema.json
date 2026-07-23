@@ -1,0 +1,191 @@
+{
+  "instance_name": {
+    "type": "string",
+    "default": "default",
+    "description": "Name used to identify this Tarantool instance in logs, metrics, and CLI output."
+  },
+  "work_dir": {
+    "type": "string",
+    "default": "/var/lib/tarantool",
+    "description": "Base directory for instance data, logs, and backups (must be writable)."
+  },
+  "conf_dir": {
+    "type": "string",
+    "default": "/etc/tarantool/conf.d",
+    "description": "Directory from which Tarantool loads optional configuration snippets."
+  },
+  "read_only": {
+    "type": "bool",
+    "default": false,
+    "description": "If true, this instance is read-only (e.g., replica). Prevents writes to box.space."
+  },
+  "listen_host": {
+    "type": "string",
+    "default": "127.0.0.1",
+    "description": "IP address to bind the client API to (e.g., 0.0.0.0 for all interfaces)."
+  },
+  "listen_port": {
+    "type": "number",
+    "default": 3301,
+    "description": "Port number for the Tarantool client API (default 3301)."
+  },
+  "replicas": {
+    "type": "list",
+    "default": [],
+    "items": {
+      "uri": {
+        "type": "string",
+        "default": "",
+        "description": "URI of a replication source (e.g., 'user:password@host:3301')."
+      }
+    },
+    "description": "List of replication source URIs (used for multi-master or replica setups)."
+  },
+  "log_level": {
+    "type": "number",
+    "default": 5,
+    "description": "Logging verbosity (1=error, 2=warn, 3=info, 4=debug, 5=trace)."
+  },
+  "log_format": {
+    "type": "string",
+    "default": "default",
+    "description": "Log format preset: 'default' (structured) or 'json' (machine-parseable)."
+  },
+  "log_nonblock": {
+    "type": "bool",
+    "default": true,
+    "description": "If true, logs are written asynchronously to avoid blocking."
+  },
+  "memtx_memory": {
+    "type": "number",
+    "default": 268435456,
+    "description": "Maximum memory (in bytes) for memtx engine (in-memory tuples). Default: 256 MB."
+  },
+  "memtx_min_tuple_size": {
+    "type": "number",
+    "default": 8,
+    "description": "Minimum tuple size (in bytes) that memtx allocates (tuning for tiny tuples)."
+  },
+  "memtx_max_tuple_size": {
+    "type": "number",
+    "default": 1048576,
+    "description": "Maximum tuple size (in bytes) allowed in memtx engine (default: 1 MB)."
+  },
+  "vinyl_memory": {
+    "type": "number",
+    "default": 268435456,
+    "description": "Maximum memory (in bytes) for vinyl engine\u2019s read/write cache (disk-backed)."
+  },
+  "vinyl_cache": {
+    "type": "number",
+    "default": 134217728,
+    "description": "Size (in bytes) of the vinyl cache for B-trees (read-only)."
+  },
+  "vinyl_timeout": {
+    "type": "number",
+    "default": 60,
+    "description": "Timeout (in seconds) for vinyl background operations (e.g., compaction)."
+  },
+  "snapshot_by_xlog": {
+    "type": "bool",
+    "default": false,
+    "description": "If true, snapshot is triggered on XLog rotation (instead of time-based)."
+  },
+  "snapshot_interval": {
+    "type": "number",
+    "default": 1800,
+    "description": "Time (in seconds) between automatic snapshots (default: 30 min)."
+  },
+  "snapshot_count": {
+    "type": "number",
+    "default": 2,
+    "description": "Number of snapshots retained (older ones are purged)."
+  },
+  "snapshot_in_background": {
+    "type": "bool",
+    "default": true,
+    "description": "If true, snapshots run in background (non-blocking)."
+  },
+  "replication_synchro_timeout": {
+    "type": "number",
+    "default": 5.0,
+    "description": "Timeout (in seconds) to wait for synchronous replication quorum."
+  },
+  "replication_synchro_quorum": {
+    "type": "number",
+    "default": 2,
+    "description": "Number of successful synchronous replicas required for commit quorum."
+  },
+  "checkpoint_interval": {
+    "type": "number",
+    "default": 900,
+    "description": "Time (in seconds) between automatic checkpoints (default: 15 min)."
+  },
+  "quota": {
+    "type": "number",
+    "default": 1073741824,
+    "description": "Disk write quota (in bytes) \u2014 limits total WAL + snapshot disk usage."
+  },
+  "worker_pool_threads": {
+    "type": "number",
+    "default": 2,
+    "description": "Number of threads in the Tarantool worker pool (for background tasks)."
+  },
+  "default_engine": {
+    "type": "string",
+    "default": "memtx",
+    "description": "Default space engine: 'memtx' (RAM) or 'vinyl' (disk)."
+  },
+  "replication_id": {
+    "type": "number",
+    "default": null,
+    "description": "Unique cluster-wide ID for this instance (required in multi-master clusters)."
+  },
+  "replication_connect_timeout": {
+    "type": "number",
+    "default": 5.0,
+    "description": "Timeout (in seconds) before retrying replication connection."
+  },
+  "replication_connect_quorum": {
+    "type": "number",
+    "default": 1,
+    "description": "Number of successful connections to replication sources before starting."
+  },
+  "replication_skip_conflict": {
+    "type": "bool",
+    "default": false,
+    "description": "If true, conflicts from multi-master replication are silently skipped."
+  },
+  "spaces": {
+    "type": "list",
+    "default": [],
+    "items": {
+      "name": {
+        "type": "string",
+        "default": "",
+        "description": "Name of the space (e.g., 'mydata')."
+      },
+      "engine": {
+        "type": "string",
+        "default": "memtx",
+        "description": "Space engine: 'memtx' or 'vinyl'."
+      },
+      "field_count": {
+        "type": "number",
+        "default": 1,
+        "description": "Number of fields (columns) in tuples."
+      },
+      "primary_parts": {
+        "type": "list",
+        "default": "[{1, \"str\"}]",
+        "description": "Index parts definition (e.g., [[1, 'num']] for first field as number)."
+      },
+      "is_unique": {
+        "type": "bool",
+        "default": true,
+        "description": "Whether the primary index enforces uniqueness."
+      }
+    },
+    "description": "Optional list of spaces to pre-create with default settings (useful for apps with static schema)."
+  }
+}

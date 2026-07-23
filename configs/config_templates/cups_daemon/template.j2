@@ -1,0 +1,111 @@
+# Listen on specified interfaces and ports
+Listen {{ cupsd.ListenAddress }}:{{ cupsd.ListenPort }}
+
+# Bind to localhost only if restricted access is required
+{% if cupsd.BindLocalhostOnly %}
+# Restrict listening to localhost only for security
+Listen localhost:{{ cupsd.ListenPort }}
+{% endif %}
+
+# Allow connections from specified networks (comma-separated CIDR or hostnames)
+{% if cupsd.AllowFrom %}
+# Permit access from these addresses
+{% for addr in cupsd.AllowFrom %}AllowFrom {{ addr }}
+{% endfor %}
+{% else %}
+# Default: allow all local network connections
+AllowFrom 127.0.0.1
+{% endif %}
+
+# Server name for identification (used in web interface and banners)
+ServerName {{ cupsd.ServerName }}
+
+# ServerAlias for alternate names or DNS round-robin
+{% if cupsd.ServerAlias %}ServerAlias {{ cupsd.ServerAlias }}
+{% endif %}
+
+# Enable SSL/TLS for web interface (port 443)
+{% if cupsd.SSLEnabled %}
+# Secure web interface configuration
+Port 443
+SSLOption RequireSSL
+{% endif %}
+
+# Set user/group under which the daemon runs
+{% if cupsd.RunAsUser %}User {{ cupsd.RunAsUser }}
+{% endif %}
+{% if cupsd.RunAsGroup %}Group {{ cupsd.RunAsGroup }}
+{% endif %}
+
+# Logging verbosity: debug, info, notice, warn, error, crit
+LogLevel {{ cupsd.LogLevel }}
+
+# Log file location
+LogFile {{ cupsd.LogFile }}
+
+# Access log location (separate from main log)
+{% if cupsd.AccessLogFile %}AccessLog {{ cupsd.AccessLogFile }}
+{% endif %}
+
+# Enable logging of print jobs
+{% if cupsd.JobLog %}JobLog {{ cupsd.JobLog }}
+{% endif %}
+
+# Maximum number of concurrent jobs
+MaxJobs {{ cupsd.MaxJobs }}
+
+# Retain job history for this many days (0 = none)
+MaxJobTime {{ cupsd.MaxJobTime }}
+
+# Keep print files until job completes or timeout
+{% if cupsd.KeepFiles %}KeepFiles {{ cupsd.KeepFiles | lower }}
+{% endif %}
+
+# Browsing printer information over the network
+{% if cupsd.BrowsingEnabled %}
+# Broadcast printer availability via mDNS and/or CUPS-SLP
+Browsing On
+BrowseLocalProtocols{{ ' cups' if 'cups' in cupsd.BrowseProtocols else '' }}{{ ' mdns' if 'mdns' in cupsd.BrowseProtocols else '' }}
+{% else %}
+# Disable printer broadcasting
+Browsing Off
+{% endif %}
+
+# Web interface configuration
+{% if cupsd.WebInterfaceEnabled %}
+# Enable remote web interface access (not recommended for untrusted networks)
+WebInterface{{ ' On' if cupsd.WebInterfaceEnabled else ' Off' }}
+{% endif %}
+
+# Default printer policy
+{% if cupsd.DefaultAuthType %}DefaultAuthType {{ cupsd.DefaultAuthType }}
+{% endif %}
+
+# Policy settings for job operations
+{% for policy in cupsd.Policies %}# Policy: {{ policy.name }}
+{% if policy.AuthInfoRequired != None %}AuthInfoRequired {{ policy.AuthInfoRequired }}
+{% endif %}
+{% if policy.OperationAllow %}{% for op in policy.OperationAllow %}{{ op }}
+{% endfor %}{% endif %}
+{% if policy.OperationDeny %}{% for op in policy.OperationDeny %}{{ op }}
+{% endfor %}{% endif %}
+
+{% endfor %}
+
+# Default printer location and description (if not auto-discovered)
+{% if cupsd.DefaultPrinterName %}DefaultPrinter {{ cupsd.DefaultPrinterName }}
+{% endif %}
+
+# Path to printer drivers (if custom drivers used)
+{% if cupsd.PrintcapFile %}PrintcapFile {{ cupsd.PrintcapFile }}
+{% endif %}
+{% if cupsd.PrintcapFormat %}PrintcapFormat {{ cupsd.PrintcapFormat }}
+{% endif %}
+
+# Enable/disable shared printers
+{% if cupsd.SharePrinters %}SharePrinters {{ cupsd.SharePrinters | lower }}
+{% endif %}
+
+# Remote administration settings
+{% if cupsd.RemoteAdminEnabled %}RemoteAdmin{{ ' On' if cupsd.RemoteAdminEnabled else ' Off' }}
+{% endif %}

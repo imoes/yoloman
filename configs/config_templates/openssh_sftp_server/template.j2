@@ -1,0 +1,54 @@
+# Listen on specified address and port
+Port {{ sftp_listen_port }}
+# Bind to specified address (or all interfaces if empty)
+{% if sftp_bind_address %}ListenAddress {{ sftp_bind_address }}{% endif %}
+
+# Require public key authentication (common for SFTP-only access)
+PubkeyAuthentication yes
+
+# Disable password authentication for security (unless explicitly enabled)
+{% if password_auth_enabled %}PasswordAuthentication yes{% else %}PasswordAuthentication no{% endif %}
+
+# Use PAM for account/session management (required for most SFTP setups)
+UsePAM yes
+
+# Disable X11 forwarding (not needed for SFTP)
+X11Forwarding no
+
+# Disable TCP forwarding (not needed for SFTP)
+AllowTcpForwarding no
+
+# Disable agent forwarding (security best practice for SFTP-only)
+AllowAgentForwarding no
+
+# Disable port forwarding (security best practice)
+AllowStreamLocalForwarding no
+
+# Restrict users to SFTP subsystem only
+{% if sftp_only_users %}Match User {{ sftp_only_users | join(', ') }}{% else %}{% endif %}
+    ForceCommand internal-sftp
+    ChrootDirectory {{ sftp_chroot_dir }}
+    PermitTunnel no
+    AllowAgentForwarding no
+    AllowTcpForwarding no
+    X11Forwarding no
+{% if sftp_only_users %}Match{% endif %}
+
+# SFTP subsystem definition
+Subsystem sftp internal-sftp
+
+# Set idle timeout (seconds)
+ClientAliveInterval {{ sftp_client_alive_interval }}
+ClientAliveCountMax {{ sftp_client_alive_count_max }}
+
+# Log level for SFTP activity
+LogLevel {{ sftp_log_level }}
+
+# Set max sessions per connection (controls concurrent SFTP sessions)
+MaxSessions {{ sftp_max_sessions }}
+
+# Login grace time (seconds)
+LoginGraceTime {{ sftp_login_grace_time }}
+
+# Allow groups to connect (leave empty to disable group-based access control)
+{% if ssh_allow_groups %}AllowGroups {{ ssh_allow_groups | join(' ') }}{% endif %}

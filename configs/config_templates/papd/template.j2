@@ -1,0 +1,43 @@
+# papd configuration file — controls AppleTalk PAP print server behavior
+# Listen address and port for AppleTalk PAP connections
+# Default: all interfaces, port 543 (standard PAP)
+ATPort = {{ listen_port }}
+ATAddress = {{ listen_address }}
+
+# Enable or disable PAP service
+# If false, papd will not start any PAP listeners
+PAPActive = {{ pap_active }}
+
+# Maximum number of concurrent print jobs per printer
+# Higher values allow more simultaneous jobs but consume more memory
+MaxJobs = {{ max_jobs }}
+
+# Time (in seconds) a job may remain in queue before being purged
+# Set to 0 to disable automatic purging
+QueueTimeout = {{ queue_timeout }}
+
+# Enable or disable logging to syslog
+# Set to true for production environments
+Syslog = {{ syslog_enabled }}
+
+# Enable or disable debug logging (very verbose)
+Debug = {{ debug_enabled }}
+
+# Path to the printcap file used by papd
+# Must be readable and properly formatted for CUPS or lpd
+PrintCap = {{ printcap_path }}
+
+# Default print command template
+# {{job}} is substituted with the job ID; {{printer}} with the printer name
+DefaultCommand = {{ default_command }}
+
+# Per-printer configuration blocks
+# Each entry defines a printer and its PAP mapping
+{% for printer in printers %}
+# Printer: {{ printer.name }} — maps to AppleTalk name '{{ printer.at_name }}'
+{{ printer.name }}:{{ printer.at_name }}:{{ printer.queue_name }}:{{ printer.command | default('lp -d' + printer.queue_name) }}
+{% endfor %}
+
+# Optional: default printer (first listed in PrintCap or explicitly set)
+# If empty, first printer in PrintCap becomes default
+DefaultPrinter = {{ default_printer }}

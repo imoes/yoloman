@@ -1,0 +1,31 @@
+[Unit]
+# Starts the KDE activity manager daemon, used for tracking user activities and integrating with desktop search and analytics.
+Description=KDE Activity Manager Daemon
+Documentation=man:kactivitymanagerd(1)
+
+[Service]
+# Launches the kactivitymanagerd binary with the user's session bus environment.
+ExecStart={{ exec_start }}
+
+# Environment variables required for the daemon to function in the user session context.
+Environment=XDG_RUNTIME_DIR={{ xdg_runtime_dir }}
+Environment=DBUS_SESSION_BUS_ADDRESS=unix:path={{ xdg_runtime_dir }}/bus
+
+# Ensure the service is managed by the user's systemd instance, not system-wide.
+Type=dbus
+BusName=org.kde.ActivityManager
+
+# Restart behavior: restart only on failures to maintain stability during login/logout cycles.
+Restart=on-failure
+RestartSec=5
+
+# Security hardening: restrict capabilities, prevent privilege escalation, and limit access to resources.
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+ReadWritePaths={{ state_path }}
+PrivateTmp=yes
+
+[Install]
+# Enable the service to start automatically when the user logs in.
+WantedBy=graphical-session.target

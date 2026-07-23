@@ -1,0 +1,257 @@
+{
+  "server": {
+    "type": "object",
+    "description": "Core server settings for bind address and connection handling.",
+    "properties": {
+      "bind_address": {
+        "type": "string",
+        "default": "127.0.0.1",
+        "description": "IP address the server listens on (e.g., '0.0.0.0' for all interfaces)."
+      },
+      "port": {
+        "type": "number",
+        "default": 3306,
+        "description": "TCP port for incoming connections."
+      },
+      "max_connections": {
+        "type": "number",
+        "default": 151,
+        "description": "Maximum number of simultaneous client connections allowed."
+      },
+      "max_allowed_packet": {
+        "type": "string",
+        "default": "64M",
+        "description": "Maximum size of a single packet or row (e.g., '64M', '256M')."
+      },
+      "timeout_connect": {
+        "type": "number",
+        "default": 10,
+        "description": "Seconds to wait for a connection handshake."
+      },
+      "timeout_wait": {
+        "type": "number",
+        "default": 28800,
+        "description": "Seconds to wait for activity on a connection (wait_timeout)."
+      },
+      "timeout_read": {
+        "type": "number",
+        "default": 30,
+        "description": "Seconds to wait for activity on a read operation (net_read_timeout)."
+      },
+      "timeout_write": {
+        "type": "number",
+        "default": 60,
+        "description": "Seconds to wait for activity on a write operation (net_write_timeout)."
+      }
+    }
+  },
+  "storage": {
+    "type": "object",
+    "description": "InnoDB and general storage engine tuning.",
+    "properties": {
+      "innodb_buffer_pool_size": {
+        "type": "string",
+        "default": "128M",
+        "description": "Size of memory buffer for caching InnoDB data and indexes (e.g., '256M', '2G')."
+      },
+      "innodb_log_file_size": {
+        "type": "string",
+        "default": "48M",
+        "description": "Size of each InnoDB redo log file (larger improves write performance)."
+      },
+      "innodb_log_buffer_size": {
+        "type": "string",
+        "default": "16M",
+        "description": "Size of buffer for InnoDB log writes before flushing to disk."
+      },
+      "innodb_flush_method": {
+        "type": "string",
+        "default": "fsync",
+        "description": "How InnoDB flushes data and logs to disk (e.g., 'fsync', 'O_DIRECT')."
+      },
+      "data_directory": {
+        "type": "string",
+        "default": "/var/lib/mysql",
+        "description": "Absolute path to the MySQL data directory."
+      }
+    }
+  },
+  "replication": {
+    "type": "object",
+    "description": "Binary logging and replication settings (optional).",
+    "properties": {
+      "enabled": {
+        "type": "boolean",
+        "default": false,
+        "description": "Enable binary logging for replication or point-in-time recovery."
+      },
+      "log_bin": {
+        "type": "string",
+        "default": "/var/log/mysql/mysql-bin.log",
+        "description": "Base name/path for binary log files."
+      },
+      "binlog_format": {
+        "type": "string",
+        "default": "ROW",
+        "description": "Binary logging format: 'STATEMENT', 'ROW', or 'MIXED'."
+      },
+      "server_id": {
+        "type": "number",
+        "default": 1,
+        "description": "Unique server ID for replication (1\u20134294967295)."
+      }
+    }
+  },
+  "ssl": {
+    "type": "object",
+    "description": "TLS/SSL security settings (optional).",
+    "properties": {
+      "enabled": {
+        "type": "boolean",
+        "default": false,
+        "description": "Enable encrypted client-server connections."
+      },
+      "cert_path": {
+        "type": "string",
+        "default": "/etc/mysql/ssl/server-cert.pem",
+        "description": "Path to server SSL certificate file."
+      },
+      "key_path": {
+        "type": "string",
+        "default": "/etc/mysql/ssl/server-key.pem",
+        "description": "Path to server SSL private key file."
+      },
+      "ca_path": {
+        "type": "string",
+        "default": "/etc/mysql/ssl/ca.pem",
+        "description": "Path to CA certificate for verifying clients."
+      }
+    }
+  },
+  "charsets": {
+    "type": "object",
+    "description": "Default character set and collation for new databases/tables.",
+    "properties": {
+      "character_set_server": {
+        "type": "string",
+        "default": "utf8mb4",
+        "description": "Server-wide default character set (e.g., 'utf8mb4', 'latin1')."
+      },
+      "collation_server": {
+        "type": "string",
+        "default": "utf8mb4_general_ci",
+        "description": "Server-wide default collation (e.g., 'utf8mb4_unicode_ci')."
+      }
+    }
+  },
+  "logging": {
+    "type": "object",
+    "description": "Query and slow-log configuration (optional).",
+    "properties": {
+      "general_log": {
+        "type": "boolean",
+        "default": false,
+        "description": "Enable logging of all queries to the general log."
+      },
+      "general_log_file": {
+        "type": "string",
+        "default": "/var/log/mysql/general.log",
+        "description": "Path for general query log file (only if enabled)."
+      },
+      "slow_query_log": {
+        "type": "boolean",
+        "default": false,
+        "description": "Enable logging of slow queries."
+      },
+      "slow_query_log_file": {
+        "type": "string",
+        "default": "/var/log/mysql/slow.log",
+        "description": "Path for slow query log file (only if enabled)."
+      },
+      "long_query_time": {
+        "type": "number",
+        "default": 2,
+        "description": "Query execution time (seconds) above which queries are considered slow."
+      }
+    }
+  },
+  "limits": {
+    "type": "object",
+    "description": "Memory and connection resource limits.",
+    "properties": {
+      "max_heap_table_size": {
+        "type": "string",
+        "default": "16M",
+        "description": "Maximum size of in-memory temporary tables."
+      },
+      "tmp_table_size": {
+        "type": "string",
+        "default": "16M",
+        "description": "Maximum size of in-memory temporary tables (same as max_heap_table_size recommended)."
+      },
+      "thread_cache_size": {
+        "type": "number",
+        "default": 9,
+        "description": "Number of threads to cache for reuse (reduces thread creation overhead)."
+      },
+      "join_buffer_size": {
+        "type": "string",
+        "default": "256K",
+        "description": "Buffer size for JOIN operations without indexes."
+      },
+      "sort_buffer_size": {
+        "type": "string",
+        "default": "256K",
+        "description": "Buffer size for ORDER BY / GROUP BY operations."
+      },
+      "read_buffer_size": {
+        "type": "string",
+        "default": "128K",
+        "description": "Buffer size for sequential table scans."
+      },
+      "read_rnd_buffer_size": {
+        "type": "string",
+        "default": "256K",
+        "description": "Buffer size for random reads after sorting (e.g., ORDER BY)."
+      }
+    }
+  },
+  "defaults": {
+    "type": "object",
+    "description": "Core defaults for storage engine and schema options.",
+    "properties": {
+      "default_storage_engine": {
+        "type": "string",
+        "default": "InnoDB",
+        "description": "Default storage engine for new tables (e.g., 'InnoDB', 'MyISAM')."
+      }
+    }
+  },
+  "security": {
+    "type": "object",
+    "description": "Security-related flags (optional).",
+    "properties": {
+      "skip_symbolic_links": {
+        "type": "boolean",
+        "default": true,
+        "description": "Prevent symbolic links to data files (security hardening)."
+      }
+    }
+  },
+  "client": {
+    "type": "object",
+    "description": "Default client-side connection settings.",
+    "properties": {
+      "port": {
+        "type": "number",
+        "default": 3306,
+        "description": "Default port for MySQL client connections."
+      },
+      "socket": {
+        "type": "string",
+        "default": "/var/run/mysqld/mysqld.sock",
+        "description": "Default Unix socket path for local client connections."
+      }
+    }
+  }
+}

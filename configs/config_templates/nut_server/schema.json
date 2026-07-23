@@ -1,0 +1,153 @@
+{
+  "nut_mode": {
+    "type": "string",
+    "default": "standalone",
+    "description": "Operational mode for NUT. Typically 'standalone' (single UPS, local only), 'netserver' (serve UPS data over network), or 'netclient' (connect to remote NUT server)."
+  },
+  "ups_list": {
+    "type": "list",
+    "default": [],
+    "description": "List of UPS devices to configure and monitor.",
+    "items": {
+      "name": {
+        "type": "string",
+        "default": "ups1",
+        "description": "Unique identifier for the UPS (e.g., 'myups')."
+      },
+      "driver": {
+        "type": "string",
+        "default": "usbhid-ups",
+        "description": "NUT driver to use (e.g., 'usbhid-ups', 'apcsmart', 'netjson-ups')."
+      },
+      "port": {
+        "type": "string",
+        "default": "auto",
+        "description": "Device or network port (e.g., '/dev/ttyUSB0', 'localhost:3493')."
+      },
+      "description": {
+        "type": "string",
+        "default": "",
+        "description": "Optional human-readable description of the UPS."
+      },
+      "serial": {
+        "type": "string",
+        "default": "",
+        "description": "UPS serial number (optional, used for device matching)."
+      },
+      "bus": {
+        "type": "string",
+        "default": "",
+        "description": "USB bus address (e.g., '001:016', optional)."
+      },
+      "vendorid": {
+        "type": "string",
+        "default": "",
+        "description": "USB vendor ID (e.g., '0001', optional)."
+      },
+      "productid": {
+        "type": "string",
+        "default": "",
+        "description": "USB product ID (e.g., '0002', optional)."
+      },
+      "vendor": {
+        "type": "string",
+        "default": "",
+        "description": "UPS vendor name (optional, overrides auto-detection)."
+      },
+      "product": {
+        "type": "string",
+        "default": "",
+        "description": "UPS product name (optional, overrides auto-detection)."
+      },
+      "firmware": {
+        "type": "string",
+        "default": "",
+        "description": "UPS firmware version (optional)."
+      },
+      "poll_interval": {
+        "type": "number",
+        "default": 2,
+        "description": "Polling interval in seconds (default 2, reduce for unstable connections)."
+      },
+      "pollonly": {
+        "type": "bool",
+        "default": false,
+        "description": "If true, only poll UPS data (do not issue shutdown commands)."
+      },
+      "master": {
+        "type": "bool",
+        "default": true,
+        "description": "If true, this UPS is a master \u2014 it may trigger shutdowns of connected clients."
+      }
+    }
+  },
+  "allowed_hosts": {
+    "type": "list",
+    "default": [],
+    "description": "List of trusted hosts allowed to connect to upsd. Each entry defines a name, IP, and allowed actions."
+  },
+  "users": {
+    "type": "list",
+    "default": [],
+    "description": "User accounts for authenticating with upsd. Each user has a name, optional password, and access rights."
+  },
+  "users[].name": {
+    "type": "string",
+    "default": "monuser",
+    "description": "Username (e.g., 'monuser', 'upsadmin')."
+  },
+  "users[].password": {
+    "type": "string",
+    "default": "",
+    "description": "User's password (if not set, comment the line)."
+  },
+  "users[].actions": {
+    "type": "list",
+    "default": [
+      "INSTCMD"
+    ],
+    "description": "List of allowed actions: 'SET', 'INSTCMD', 'FSD', 'ACL', 'MONITOR', 'MASTER', 'SLAVE'."
+  },
+  "users[].disabled": {
+    "type": "bool",
+    "default": false,
+    "description": "If true, comment out the user line (for temporary deactivation)."
+  },
+  "allowed_hosts[].name": {
+    "type": "string",
+    "default": "localhost",
+    "description": "Identifier for the host (e.g., 'monitor', 'backup')."
+  },
+  "allowed_hosts[].ip": {
+    "type": "string",
+    "default": "127.0.0.1",
+    "description": "IP address or hostname (e.g., '192.168.1.100', 'ups-backup.local')."
+  },
+  "allowed_hosts[].actions": {
+    "type": "list",
+    "default": [
+      "MASTER"
+    ],
+    "description": "Actions allowed from this host: 'MASTER', 'SLAVE', 'MONITOR'."
+  },
+  "listen_ip": {
+    "type": "string",
+    "default": "0.0.0.0",
+    "description": "IP address to bind the upsd listener to (e.g., '127.0.0.1', '::', '0.0.0.0')."
+  },
+  "listen_port": {
+    "type": "number",
+    "default": 3493,
+    "description": "TCP port for upsd to listen on (default 3493)."
+  },
+  "enable_upsd_tcp": {
+    "type": "bool",
+    "default": false,
+    "description": "If true, enable TCP/IP protocol support (required for netclient/netserver mode)."
+  },
+  "enable_upsd_usb": {
+    "type": "bool",
+    "default": true,
+    "description": "If true, enable USB HID protocol support (required for direct-USB UPS)."
+  }
+}

@@ -1,0 +1,30 @@
+#!/bin/bash
+# VirtualBox fence agent configuration for fence_vbox
+# This file is sourced by fence_vbox at runtime to load credentials and options
+
+# VirtualBox host connection settings
+VBOX_HOST={{ host }}
+VBOX_PORT={{ port }}
+
+# Authentication credentials
+VBOX_USER={{ username }}
+VBOX_PASSWORD={{ password }}
+
+# Optional: SSH key or use password (uncomment only one method)
+# VBOX_SSH_KEY={{ ssh_key_path }}
+
+# Timeout for operations (seconds)
+VBOX_TIMEOUT={{ timeout }}
+
+# Optional: Extra options for VBoxManage (e.g., --nologo, --quiet)
+VBOX_EXTRA_OPTS="{{ extra_opts | join(' ') }}"
+
+# Power operation defaults (override if needed)
+VBOX_DEFAULT_POWERON="on"
+VBOX_DEFAULT_POWEROFF="off"
+
+# List of managed virtual machines (for auto-discovery or explicit listing)
+{% for vm in vms %}
+# VM: {{ vm.name }} (UUID: {{ vm.uuid }})
+VBOX_VM_{{ loop.index }}="{{ vm.uuid }}"
+{% endfor %}

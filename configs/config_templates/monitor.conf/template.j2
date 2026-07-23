@@ -1,0 +1,28 @@
+[config]
+# Enable or disable the monitoring subsystem
+monitoring = {{ monitoring_enabled | string | lower }}
+
+# Path to the log file for monitor events
+log_file = {{ log_file }}
+
+# Maximum number of entries in the monitoring cache
+max_cache_entries = {{ max_cache_entries }}
+
+# Time in seconds between periodic monitoring updates
+update_interval = {{ update_interval }}
+
+# List of services to monitor (each with name, endpoint, and enabled status)
+{% for service in monitoring_services %}# Service: {{ service.name }} — {{ service.description }}
+{% if service.enabled %}[{{ service.name | replace(' ', '_') | replace('-', '_') }}_monitor]
+enabled = true
+endpoint = {{ service.endpoint }}
+interval = {{ service.interval }}
+{% else %}[{{ service.name | replace(' ', '_') | replace('-', '_') }}_monitor]
+enabled = false
+{% endif %}
+{% endfor %}
+
+# Retry configuration for failed monitoring attempts
+[retry]
+max_retries = {{ retry_max_retries }}
+retry_delay = {{ retry_delay }}

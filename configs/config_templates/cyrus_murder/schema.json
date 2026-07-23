@@ -1,0 +1,122 @@
+{
+  "murder_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable the Cyrus Murder proxy/aggregator role. When false, Murder functionality is disabled."
+  },
+  "murder": {
+    "type": "object",
+    "default": {},
+    "description": "Cyrus Murder configuration block",
+    "properties": {
+      "hostname": {
+        "type": "string",
+        "default": "localhost",
+        "description": "The hostname this Murder proxy instance reports \u2014 used in logging and client identification."
+      },
+      "backends": {
+        "type": "list",
+        "default": [],
+        "description": "List of backend Cyrus servers to which Murder proxies mailboxes. Each entry defines a backend.",
+        "items": {
+          "type": "object",
+          "properties": {
+            "host": {
+              "type": "string",
+              "default": "",
+              "description": "Hostname or IP address of the backend Cyrus server."
+            },
+            "port": {
+              "type": "number",
+              "default": 2000,
+              "description": "IMAP port (typically 2000) on the backend server."
+            },
+            "weight": {
+              "type": "number",
+              "default": 1,
+              "description": "Relative weight for load balancing \u2014 higher values receive more connections."
+            }
+          },
+          "required": [
+            "host",
+            "port"
+          ]
+        }
+      },
+      "check_interval": {
+        "type": "number",
+        "default": 60,
+        "description": "Interval (in seconds) between backend health checks. Set to 0 to disable."
+      },
+      "tls": {
+        "type": "object",
+        "default": {},
+        "description": "TLS configuration for secure backend connections.",
+        "properties": {
+          "enabled": {
+            "type": "bool",
+            "default": false,
+            "description": "Enable TLS for connections to backend servers."
+          },
+          "cacert": {
+            "type": "string",
+            "default": "/etc/ssl/certs/cyrus-ca.pem",
+            "description": "Path to CA certificate bundle for verifying backend certificates."
+          },
+          "cert": {
+            "type": "string",
+            "default": "/etc/ssl/certs/cyrus-proxy.crt",
+            "description": "Path to client certificate (for mutual TLS if required)."
+          },
+          "key": {
+            "type": "string",
+            "default": "/etc/ssl/private/cyrus-proxy.key",
+            "description": "Path to client private key."
+          }
+        }
+      },
+      "max_backend_conns": {
+        "type": "number",
+        "default": 100,
+        "description": "Maximum number of concurrent connections allowed to each backend server."
+      },
+      "ldap": {
+        "type": "object",
+        "default": {},
+        "description": "LDAP-based dynamic backend discovery (optional). If enabled, overrides static backend list.",
+        "properties": {
+          "enabled": {
+            "type": "bool",
+            "default": false,
+            "description": "Enable LDAP-backed dynamic backend lookup."
+          },
+          "url": {
+            "type": "string",
+            "default": "ldap://ldap.example.com",
+            "description": "LDAP server URL."
+          },
+          "bind_dn": {
+            "type": "string",
+            "default": "cn=proxy,dc=example,dc=com",
+            "description": "DN to bind as for LDAP queries."
+          },
+          "bind_password": {
+            "type": "string",
+            "default": "",
+            "description": "Password for LDAP bind (store securely in production)."
+          },
+          "base": {
+            "type": "string",
+            "default": "ou=servers,dc=example,dc=com",
+            "description": "Base DN for backend server lookups."
+          },
+          "filter": {
+            "type": "string",
+            "default": "(objectClass=cyrusBackend)",
+            "description": "LDAP search filter to identify backend servers."
+          }
+        }
+      }
+    }
+  }
+}

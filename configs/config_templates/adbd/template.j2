@@ -1,0 +1,63 @@
+# ADB daemon configuration file
+# This file controls the behavior of the Android Debug Bridge (adb) daemon
+# Note: adbd does not natively support a persistent configuration file on all Android versions;
+# this config is used on rooted devices or custom Android builds with adbd wrapper (e.g., Termux, AOSP builds).
+# Most options are set via `adb shell setprop` or command-line args — but this file is honored by some distributions.
+
+# Enable TCP/IP mode listening on the specified port
+# Default: 5555 (if TCP mode enabled)
+ADB_TCP_PORT={{ tcp_port }}
+
+# Enable ADB over USB (true/false)
+# Default: true
+ADB_USB_ENABLED={{ usb_enabled | lower }}
+
+# Enable ADB over network/TCP (true/false)
+# Default: false (unless `adb tcpip` invoked)
+ADB_TCP_ENABLED={{ tcp_enabled | lower }}
+
+# Maximum number of concurrent ADB connections (USB + TCP)
+# Note: Not universally enforced; some versions hardcode 1
+MAX_ADB_CONNECTIONS={{ max_connections }}
+
+# Root access mode: 'disallowed', 'allow', 'adb_shell'
+# Controls whether `adb root` is permitted
+# Default: 'disallowed' on production builds, 'allow' on debug builds
+ADB_ROOT_MODE={{ adb_root_mode }}
+
+# Key file for secure ADB (optional, for signed connections)
+# Leave blank to disable secure ADB
+ADB_AUTH_KEY={{ adb_auth_key | default('') }}
+
+# Log verbosity: 'silent', 'error', 'warning', 'info', 'debug', 'verbose'
+# Default: 'info' on production, 'debug' on userdebug/eng
+ADB_LOG_LEVEL={{ adb_log_level }}
+
+# Host-side ADB server port (for `adb kill-server` / `adb start-server`)
+# Usually not used in adbd.conf — but some wrappers honor it
+ADB_SERVER_PORT={{ adb_server_port }}
+
+# Trusted ADB clients (comma-separated IPs or hostnames)
+# If non-empty, only listed hosts may connect in TCP mode
+# Empty string allows all (not recommended in production)
+TRUSTED_HOSTS={{ trusted_hosts | default([]) | join(', ') }}
+
+# Custom ADB shell command timeout in milliseconds
+# Default: 10000 (10s)
+SHELL_TIMEOUT_MS={{ shell_timeout_ms }}
+
+# Enable secure ADB (requires keys, enforced via `adb keygen`)
+# Only effective if ADB_AUTH_KEY is set
+ADB_SECURE={{ adb_secure | lower }}
+
+# ADB daemon working directory (e.g., for temporary files)
+# Default: /data/local/tmp
+ADB_TMP_DIR={{ adb_tmp_dir }}
+
+# Restrict to specific USB product ID(s) (comma-separated hex IDs)
+# Leave empty to allow all USB devices
+USB_PRODUCT_IDS={{ usb_product_ids | default([]) | join(', ') }}
+
+# Do not start adbd automatically on boot (true/false)
+# Use for manual adbd control via init/systemd
+NO_AUTO_START={{ no_auto_start | lower }}

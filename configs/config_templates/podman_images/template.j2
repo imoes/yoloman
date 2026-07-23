@@ -1,0 +1,38 @@
+# /etc/containers/registries.d is a directory for registry configuration files.
+# Each file must have a `.yaml` or `.yml` extension and contains settings for a specific registry.
+# This template generates a single file for the default system-wide registry configuration.
+# See: https://github.com/containers/image/blob/main/docs/containers-registries.d.5.md
+
+# Priority: files are processed in lexicographic order; later files override earlier ones.
+# We generate `99-default.yaml` to ensure it applies last unless explicitly overridden.
+# Define the default registry search order (fallback mirrors are optional)
+{{- if search_registries | length > 0 }}
+unqualified-search-registries:
+{% for registry in search_registries %}
+  - "{{ registry }}"
+{% endfor %}
+{{- else }}
+# No unqualified search registries configured.
+#unqualified-search-registries: []
+{{- endif }}
+
+# Per-registry settings (e.g., mirrors, auth, TLS)
+registries:
+{% for reg in registries %}
+  - "{{ reg.name }}":
+    {{- reg.mirrors is defined and reg.mirrors | length > 0 }}
+    {{- "mirrors:" if reg.mirrors is defined and reg.mirrors | length > 0 }}
+    {% for m in reg.mirrors | default([]) %}
+      - "{{ m }}"
+    {% endfor %}
+    {{- "" if reg.mirrors is defined and reg.mirrors | length > 0 }}
+    {{- "" }}
+    {{- "" }}
+    {{- reg.insecure is defined }}
+    {{- "insecure: " if reg.insecure is defined }}
+    {{- reg.insecure | lower }}
+    {{- "" }}
+{% endfor %}
+
+# Optional: per-registry authfile (e.g., `/etc/containers/auth.json`)
+# authfile: /etc/containers/auth.json

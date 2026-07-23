@@ -1,0 +1,56 @@
+# Index directories (space-separated paths)
+Directories {{ indexed_dirs | join(' ') }}
+
+# File extensions to index (space-separated, without dots)
+FileExtensions {{ file_extensions | join(' ') }}
+
+# Ignore case when searching
+{{ 'IndexOnly' if case_sensitive else 'IgnoreCase' }}
+
+# Maximum number of words stored per document (0 = no limit)
+MaxWordLength {{ max_word_length }}
+
+# Minimum word length to index
+MinWordLength {{ min_word_length }}
+
+# Stemming algorithm (none,porter,snowball,etc.)
+Stemming {{ stemming }}
+
+# Path to stopwords file (empty = none)
+{% if stopwords_file %}StopWordsFile {{ stopwords_file }}{% endif %}
+
+# Path to configuration file for meta tags
+{% if meta_config_file %}MetaNameConfig {{ meta_config_file }}{% endif %}
+
+# Index metadata fields (list of field definitions)
+{% for field in meta_fields %}MetaName {{ field.name }} {{ field.index_number }}{% endfor %}
+
+# Location to store the index file
+IndexFile {{ index_file }}
+
+# Log file path (empty = stderr)
+{% if log_file %}LogFile {{ log_file }}{% endif %}
+
+# Maximum number of documents to process before rotating index (0 = no rotation)
+RotateIndexFiles {{ rotate_index_files }}
+
+# Maximum size (in bytes) for index file before rotation (0 = disabled)
+MaxIndexFileSize {{ max_index_file_size }}
+
+# Index description field for title generation
+Description {{ description_field }}
+
+# Index name for multi-index setups
+IndexName {{ index_name }}
+
+# Path to config file for header directives (e.g., for parsing HTML headers)
+{% if header_config_file %}HeaderConfig {{ header_config_file }}{% endif %}
+
+# Default description for documents without one
+DefaultDescription {{ default_description }}
+
+# Maximum number of simultaneous processes for indexing (0 = single-process)
+{% if parallel_workers > 0 %}ParallelProcessing {{ parallel_workers }}{% endif %}
+
+# Verbosity level (0–3); higher = more output
+Verbose {{ verbosity }}

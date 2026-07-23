@@ -1,0 +1,81 @@
+[ovs]
+# UUID of the Open vSwitch bridge used for patching and integration
+# Set to 'br-int' by default; must match the integration bridge name
+ovs_bridge = {{ ovs_bridge }}
+
+# Enable patch ports for inter-bridge communication
+enable_tunneling = {{ enable_tunneling }}
+
+# Local IP address for GRE/VXLAN tunnel endpoints
+local_ip = {{ local_ip }}
+
+# Tunnel type(s) to use: 'gre', 'vxlan', or 'geneve'
+tunnel_types = {{ tunnel_types | join(', ') }}
+
+# Enable VLAN-aware VMs (requires provider networks with segmentation IDs)
+vlan_mapping = {{ vlan_mapping }}
+
+# Enable patch ports between integration and physical bridges
+enable_isolated_metadata = {{ enable_isolated_metadata }}
+
+# Enable L3 agent metadata proxy (requires Neutron metadata agent)
+enable_metadata_proxy = {{ enable_metadata_proxy }}
+
+[agent]
+# Number of OVS flow cache entries per bridge (0 = unlimited)
+flow_limit = {{ flow_limit }}
+
+# Time (seconds) between OVSDB reconnection attempts
+ovsdb_connection_timeout = {{ ovsdb_connection_timeout }}
+
+# Number of seconds to wait before timing out OVSDB operations
+ovs_vsctl_timeout = {{ ovs_vsctl_timeout }}
+
+# Rate limit for log messages (per second)
+log_rate_limit = {{ log_rate_limit }}
+
+# Logging level: DEBUG, INFO, WARNING, ERROR, CRITICAL
+log_level = {{ log_level }}
+
+[securitygroup]
+# Enable security groups (requires Neutron security group support)
+enable_security_group = {{ enable_security_group }}
+
+# Firewall driver: 'iptables_hybrid', 'iptables', or 'noop'
+firewall_driver = {{ firewall_driver }}
+
+# Enable ipset-based optimization for security group rules
+ipset_fuzzy_match = {{ ipset_fuzzy_match }}
+
+[ml2]
+# Type driver to use for provider network segmentation (e.g., 'vlan', 'flat', 'geneve')
+type_drivers = {{ type_drivers | join(', ') }}
+
+# Tenant network type(s) to allocate (e.g., 'vlan', 'vxlan', 'gre')
+tenant_network_types = {{ tenant_network_types | join(', ') }}
+
+# Mechanism driver(s) to use (e.g., 'openvswitch', 'sriovnic')
+mechanism_drivers = {{ mechanism_drivers | join(', ') }}
+
+[ovs]
+# Physical bridge mappings: <physical_network>:<bridge_name>
+# Example: physnet1:br-ex,physnet2:br-ex2
+bridge_mappings = {% for mapping in bridge_mappings %}
+  {{ mapping.network }}:{{ mapping.bridge }}{% if not loop.last %},{% endif %}
+{% endfor %}
+
+# Physical device mappings: <physical_network>:<device_name>
+# Example: physnet1:eth1,physnet2:eth2
+device_mappings = {% for mapping in device_mappings %}
+  {{ mapping.network }}:{{ mapping.device }}{% if not loop.last %},{% endif %}
+{% endfor %}
+
+[networking]
+# Enable L3 agent support (requires neutron-l3-agent)
+enable_l3_agent_extension = {{ enable_l3_agent_extension }}
+
+# Enable DHCP agent extension (requires neutron-dhcp-agent)
+enable_dhcp_agent_extension = {{ enable_dhcp_agent_extension }}
+
+# Enable metering extension (requires neutron-metering-agent)
+enable_metering_extension = {{ enable_metering_extension }}

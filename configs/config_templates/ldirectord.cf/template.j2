@@ -1,0 +1,64 @@
+# ldirectord.cf — Main configuration file for Linux Virtual Server (LVS) director
+# Global settings for heartbeat-based LVS failover
+
+# Global Directives
+checktimeout: {{ check_timeout }}
+checkinterval: {{ check_interval }}
+autoreload: {{ autoreload | lower }}
+quiesce: {{ quiesce | lower }}
+
+{% if heartbeat_group %}
+# Heartbeat Group Configuration
+{% for group in heartbeat_group %}
+{% if group.comment %}# {{ group.comment }}
+{% endif %}
+hagroup: {{ group.name }}
+{
+{% for member in group.members %}    {{ member }}
+{% endfor %}}
+{% endfor %}
+{% endif %}
+
+{% if virtual %}
+# Virtual Server Definitions
+{% for vs in virtual %}
+{% if vs.comment %}# {{ vs.comment }}
+{% endif %}
+virtual: {{ vs.ip }}:{{ vs.port }}
+{
+    protocol: {{ vs.protocol | upper }}
+{% if vs.scheduler %}    scheduler: {{ vs.scheduler }}
+{% endif %}{% if vs.heartbeat_group %}    ha_group: {{ vs.heartbeat_group }}
+{% endif %}{% if vs.gateway %}    gateway: {{ vs.gateway }}
+{% endif %}{% if vs.weight %}    weight: {{ vs.weight }}
+{% endif %}{% if vs.fwmark %}    fwmark: {{ vs.fwmark }}
+{% endif %}{% if vs.send %}    send: "{{ vs.send | replace('"', '\"') }}"
+{% endif %}{% if vs.recv %}    recv: "{{ vs.recv | replace('"', '\"') }}"
+{% endif %}{% if vs.request %}    request: "{{ vs.request | replace('"', '\"') }}"
+{% endif %}{% if vs.response %}    response: "{{ vs.response | replace('"', '\"') }}"
+{% endif %}{% if vs.expect %}    expect: "{{ vs.expect | replace('"', '\"') }}"
+{% endif %}{% if vs.baseline %}    baseline: {{ vs.baseline | lower }}
+{% endif %}{% if vs.checktype %}    checktype: {{ vs.checktype }}
+{% endif %}{% if vs.checktimeout %}    checktimeout: {{ vs.checktimeout }}
+{% endif %}{% if vs.checkinterval %}    checkinterval: {{ vs.checkinterval }}
+{% endif %}{% if vs.quiesce %}    quiesce: {{ vs.quiesce | lower }}
+{% endif %}{% if vs.persistence %}    persistence: {{ vs.persistence }}
+{% endif %}{% if vs.pertimout %}    pertimout: {{ vs.pertimout }}
+{% endif %}{% if vs.backup %}    backup: {{ vs.backup }}
+{% endif %}{% if vs.fallback %}    fallback: {{ vs.fallback }}
+{% endif %}{% if vs.real_server %}
+    # Real Servers
+{% for rs in vs.real_server %}{% if rs.comment %}    # {{ rs.comment }}
+{% endif %}    real: {{ rs.ip }}:{{ rs.port }} {{ rs.weight }} active
+{% endfor %}{% endif %}
+}
+{% endfor %}
+{% endif %}
+
+# Optional: e-mail alerts
+{% if email_alert %}email_alert: {{ email_alert | lower }}
+{% endif %}
+{% if email_alert_admin %}email_alert_admin: {{ email_alert_admin | lower }}
+{% endif %}
+{% if email_alert_from %}email_alert_from: "{{ email_alert_from }}"
+{% endif %}

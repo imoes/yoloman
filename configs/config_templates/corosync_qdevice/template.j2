@@ -1,0 +1,63 @@
+# qdevice configuration for Corosync cluster quorum device
+# Hostname (or IP) of the qdevice server
+host: {{ qdevice_host }}
+
+# Port number the qdevice listens on
+port: {{ qdevice_port }}
+
+# TLS certificate authority file path
+ca_file: "{{ tls_ca_file }}"
+
+# TLS certificate file path
+cert_file: "{{ tls_cert_file }}"
+
+# TLS private key file path
+key_file: "{{ tls_key_file }}"
+
+# Algorithm used for quorum decisions: 'ffsplit' or 'lms'
+algorithm: "{{ algorithm }}"
+
+# Number of votes the qdevice contributes to the cluster quorum
+tie_breaker_node_id: {{ tie_breaker_node_id }}
+
+# Heartbeat interval (in milliseconds) between qdevice and corosync
+heuristics_mode: "{{ heuristics_mode }}"
+
+# Heuristic script(s) to run; each script's exit code determines quorum contribution
+{% for h in heuristics %}
+heuristic "{{ h.name }}" {
+    interval: {{ h.interval }}
+    timeout: {{ h.timeout }}
+    program: "{{ h.program }}"
+    {% if h.args %}args: "{{ h.args | join(' ') }}"{% endif %}
+    {% if h.score is defined %}score: {{ h.score }}{% endif %}
+}
+{% endfor %}
+
+# QNetd server address (if remote qdevice is used); usually same as host
+qnetd_host: {{ qnetd_host|default(qdevice_host) }}
+
+# QNetd port (if different from default)
+qnetd_port: {{ qnetd_port|default(qdevice_port) }}
+
+# TLS cipher list (optional, for advanced security tuning)
+# tls: on|off|strict
+tls: {{ tls_mode }}
+
+# Logging verbosity: 0 (error), 1 (warning), 2 (info), 3 (debug)
+logging_level: {{ logging_level }}
+
+# Log file path (stdout if empty)
+# log_file: 
+
+# Number of milliseconds to wait for qnetd connection before declaring failure
+connect_timeout: {{ connect_timeout }}
+
+# Number of seconds between reconnection attempts to qnetd
+reconnect_interval: {{ reconnect_interval }}
+
+# Number of votes required from qdevice to form quorum
+quorum_votes: {{ quorum_votes }}
+
+# Enable or disable heuristic votes (affects final quorum calculation)
+heuristics_votes: {{ heuristics_votes }}

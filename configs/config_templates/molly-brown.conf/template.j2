@@ -1,0 +1,60 @@
+# Main Molly-Brown configuration file — defines global settings and service behavior
+config:
+  # Global operational mode: 'production' or 'development'
+  mode: {{ mode }}
+  
+  # Logging verbosity: 'debug', 'info', 'warn', or 'error'
+  log_level: {{ log_level }}
+  
+  # Path to log directory
+  log_dir: {{ log_dir }}
+  
+  # Path to state directory (persists internal state between restarts)
+  state_dir: {{ state_dir }}
+  
+  # HTTP server binding address
+  host: {{ host }}
+  
+  # HTTP server listening port
+  port: {{ port }}
+  
+  # Number of worker processes (0 = auto-adjust based on CPU cores)
+  workers: {{ workers }}
+  
+  # Maximum concurrent requests per worker
+  max_requests_per_worker: {{ max_requests_per_worker }}
+  
+  # Timeout for upstream services (seconds)
+  upstream_timeout: {{ upstream_timeout }}
+  
+  # Enable TLS termination (requires valid_cert and valid_key)
+  tls_enabled: {{ tls_enabled }}
+  
+  # TLS certificate file path (if tls_enabled is true)
+  tls_cert: {{ tls_cert }}
+  
+  # TLS private key file path (if tls_enabled is true)
+  tls_key: {{ tls_key }}
+  
+  # List of backend services (upstreams) to route requests to
+  upstreams:
+{% for upstream in upstreams %}
+    - hostname: {{ upstream.hostname }}
+      # Port of the upstream service
+      port: {{ upstream.port }}
+      # Optional weight (higher = more traffic); defaults to 1
+      weight: {{ upstream.weight }}
+      # Enable or disable this upstream
+      enabled: {{ upstream.enabled }}
+      # Optional custom health check path (defaults to /health)
+      health_check_path: {{ upstream.health_check_path }}
+{% endfor %}
+  
+  # Optional cache configuration (disabled by default)
+  cache:
+    # Enable in-memory caching
+    enabled: {{ cache_enabled }}
+    # Maximum number of entries in cache
+    max_entries: {{ cache_max_entries }}
+    # TTL for cached entries (seconds)
+    ttl: {{ cache_ttl }}

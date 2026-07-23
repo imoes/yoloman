@@ -1,0 +1,323 @@
+{
+  "server": {
+    "type": "object",
+    "default": {
+      "host": "localhost",
+      "port": 389,
+      "basedn": "dc=example,dc=com",
+      "binddn": "cn=admin,dc=example,dc=com",
+      "bindpw": "",
+      "tls": false,
+      "ssl_verify": true
+    },
+    "description": "LDAP/AD server connection settings",
+    "items": {
+      "host": {
+        "type": "string",
+        "default": "localhost",
+        "description": "LDAP server hostname or IP"
+      },
+      "port": {
+        "type": "number",
+        "default": 389,
+        "description": "LDAP port (389 for LDAP, 636 for LDAPS)"
+      },
+      "basedn": {
+        "type": "string",
+        "default": "dc=example,dc=com",
+        "description": "Base DN for LDAP searches"
+      },
+      "binddn": {
+        "type": "string",
+        "default": "cn=admin,dc=example,dc=com",
+        "description": "DN used to bind to LDAP (service account)"
+      },
+      "bindpw": {
+        "type": "string",
+        "default": "",
+        "description": "Password for bind DN (store securely)"
+      },
+      "tls": {
+        "type": "boolean",
+        "default": false,
+        "description": "Enable StartTLS on non-SSL port"
+      },
+      "ssl_verify": {
+        "type": "boolean",
+        "default": true,
+        "description": "Verify LDAP server certificate (for LDAPS/TLS)"
+      }
+    }
+  },
+  "config_dir": {
+    "type": "string",
+    "default": "/etc/ldap-account-manager/config",
+    "description": "Directory for LAM configuration files (e.g., schema configs)"
+  },
+  "template_dir": {
+    "type": "string",
+    "default": "/usr/share/ldap-account-manager/templates",
+    "description": "Directory for LAM UI templates"
+  },
+  "log": {
+    "type": "object",
+    "default": {
+      "level": "INFO",
+      "file": "/var/log/ldap-account-manager/lam.log"
+    },
+    "description": "Logging configuration",
+    "items": {
+      "level": {
+        "type": "string",
+        "default": "INFO",
+        "allowed": [
+          "DEBUG",
+          "INFO",
+          "WARN",
+          "ERROR"
+        ],
+        "description": "Minimum log level"
+      },
+      "file": {
+        "type": "string",
+        "default": "/var/log/ldap-account-manager/lam.log",
+        "description": "Path to log file"
+      }
+    }
+  },
+  "session": {
+    "type": "object",
+    "default": {
+      "timeout": 1800,
+      "cookie_name": "LAMSESSION"
+    },
+    "description": "Web session settings",
+    "items": {
+      "timeout": {
+        "type": "number",
+        "default": 1800,
+        "description": "Session timeout in seconds (0 = until browser close)"
+      },
+      "cookie_name": {
+        "type": "string",
+        "default": "LAMSESSION",
+        "description": "Name of the session cookie"
+      }
+    }
+  },
+  "auth": {
+    "type": "object",
+    "default": {
+      "module": "ldap",
+      "ldap_basedn": "ou=People,dc=example,dc=com",
+      "ldap_search_filter": "(uid=%s)"
+    },
+    "description": "Authentication backend settings",
+    "items": {
+      "module": {
+        "type": "string",
+        "default": "ldap",
+        "allowed": [
+          "ldap",
+          "apache"
+        ],
+        "description": "Auth module: 'ldap' (LAM internal) or 'apache' (HTTP Basic Auth)"
+      },
+      "ldap_basedn": {
+        "type": "string",
+        "default": "ou=People,dc=example,dc=com",
+        "description": "Base DN for user search (used with ldap auth)"
+      },
+      "ldap_search_filter": {
+        "type": "string",
+        "default": "(uid=%s)",
+        "description": "LDAP filter for user lookup (%s = username)"
+      }
+    }
+  },
+  "ui": {
+    "type": "object",
+    "default": {
+      "theme": "default",
+      "language": "en",
+      "show_password_policy": true
+    },
+    "description": "Web UI appearance and behavior",
+    "items": {
+      "theme": {
+        "type": "string",
+        "default": "default",
+        "allowed": [
+          "default",
+          "dark"
+        ],
+        "description": "UI theme"
+      },
+      "language": {
+        "type": "string",
+        "default": "en",
+        "allowed": [
+          "en",
+          "de",
+          "fr",
+          "es",
+          "nl",
+          "pt",
+          "ru",
+          "zh"
+        ],
+        "description": "Default language"
+      },
+      "show_password_policy": {
+        "type": "boolean",
+        "default": true,
+        "description": "Display password policy rules during password changes"
+      }
+    }
+  },
+  "password_policy": {
+    "type": "object",
+    "default": {
+      "enabled": true,
+      "min_length": 12,
+      "min_lowercase": 1,
+      "min_uppercase": 1,
+      "min_numbers": 1,
+      "min_symbols": 1
+    },
+    "description": "Password complexity rules",
+    "items": {
+      "enabled": {
+        "type": "boolean",
+        "default": true,
+        "description": "Enforce password policy"
+      },
+      "min_length": {
+        "type": "number",
+        "default": 12,
+        "description": "Minimum total password length"
+      },
+      "min_lowercase": {
+        "type": "number",
+        "default": 1,
+        "description": "Minimum lowercase letters"
+      },
+      "min_uppercase": {
+        "type": "number",
+        "default": 1,
+        "description": "Minimum uppercase letters"
+      },
+      "min_numbers": {
+        "type": "number",
+        "default": 1,
+        "description": "Minimum numeric characters"
+      },
+      "min_symbols": {
+        "type": "number",
+        "default": 1,
+        "description": "Minimum special/symbol characters"
+      }
+    }
+  },
+  "modules": {
+    "type": "object",
+    "default": {
+      "groups": [
+        "posixgroup",
+        "ldapgroup"
+      ],
+      "users": [
+        "posixaccount",
+        "sambaSamAccount",
+        "mailAccount"
+      ],
+      "hosts": [
+        "posixhost"
+      ]
+    },
+    "description": "Enabled LDAP schema modules for groups, users, and hosts",
+    "items": {
+      "groups": {
+        "type": "list",
+        "default": [
+          "posixgroup",
+          "ldapgroup"
+        ],
+        "description": "Group modules (e.g., posixgroup, ldapgroup)"
+      },
+      "users": {
+        "type": "list",
+        "default": [
+          "posixaccount",
+          "sambaSamAccount",
+          "mailAccount"
+        ],
+        "description": "User modules (e.g., posixaccount, sambaSamAccount, mailAccount)"
+      },
+      "hosts": {
+        "type": "list",
+        "default": [
+          "posixhost"
+        ],
+        "description": "Host modules (e.g., posixhost)"
+      }
+    }
+  },
+  "domains": {
+    "type": "list",
+    "default": [],
+    "description": "Additional LDAP domains (for multi-directory support)",
+    "items": {
+      "type": "object",
+      "default": {
+        "name": "domain2",
+        "server": {
+          "host": "ldap2.example.com",
+          "port": 389,
+          "basedn": "dc=domain2,dc=com",
+          "binddn": "cn=admin,dc=domain2,dc=com",
+          "bindpw": ""
+        }
+      },
+      "fields": {
+        "name": {
+          "type": "string",
+          "default": "domain2",
+          "description": "Domain identifier (used in UI and URLs)"
+        },
+        "server": {
+          "type": "object",
+          "default": {
+            "host": "ldap2.example.com",
+            "port": 389,
+            "basedn": "dc=domain2,dc=com",
+            "binddn": "cn=admin,dc=domain2,dc=com",
+            "bindpw": ""
+          },
+          "items": {
+            "host": {
+              "type": "string",
+              "description": "LDAP server hostname"
+            },
+            "port": {
+              "type": "number",
+              "description": "LDAP port"
+            },
+            "basedn": {
+              "type": "string",
+              "description": "Base DN"
+            },
+            "binddn": {
+              "type": "string",
+              "description": "Bind DN"
+            },
+            "bindpw": {
+              "type": "string",
+              "description": "Bind password"
+            }
+          }
+        }
+      }
+    }
+  }
+}

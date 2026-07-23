@@ -1,0 +1,71 @@
+# CTDB configuration file — main daemon settings
+# Set the nodes in the cluster (comma-separated or one per line)
+[cluster]
+  Nodes = {{ nodes | join(' ') }}
+
+# Path to shared storage (e.g., LVM, GFS2, or NFS export for CTDB volume)
+# Must be accessible and writable by all nodes
+  PublicAddressesFile = {{ public_addresses_file }}
+
+# Location of CTDB’s persistent state and event scripts
+  BasePath = {{ base_path }}
+
+# Locking method for shared databases (‘gfs2’, ‘nfs’, or ‘none’ for non-shared setups)
+  LockFile = {{ lock_file }}
+
+# Enable or disable automatic recovery of failed nodes
+[recovery]
+  RecoveryLockFile = {{ recovery_lock_file }}
+
+# Number of seconds between health checks of CTDB daemons on other nodes
+  RecoveryGracePeriod = {{ recovery_grace_period }}
+
+# Maximum number of seconds to wait before forcibly fencing a node
+  RecoveryBlackoutPeriod = {{ recovery_blackout_period }}
+
+# Controls how CTDB distributes public IPs across nodes
+[ipallocation]
+  AllocationMethod = {{ ip_allocation_method }}
+
+# Optional: Static public IP assignments per node (only when using static allocation)
+{% for ip in ip_allocations if ip_allocation_method == 'static' %}
+  {{ ip.node }} = {{ ip.address }}
+{% endfor %}
+
+# Logging configuration
+[logging]
+  # Log level: ‘DEBUG’, ‘INFO’, ‘NOTICE’, ‘WARNING’, ‘ERROR’, ‘CRITICAL’, ‘ALERT’, ‘EMERGENCY’
+  Level = {{ log_level }}
+
+  # Comma-separated list of subsystems to log (e.g., ‘all’, ‘lcp’, ‘notify’, ‘dmaster’)
+  Subsystems = {{ log_subsystems | join(', ') }}
+
+  # Path to CTDB log directory
+  LogFile = {{ log_file_path }}
+
+# Performance and resource tuning
+[tuning]
+  # Number of worker threads for handling requests
+  EventScriptsMax = {{ event_scripts_max }}
+
+  # Maximum number of TCP connections CTDB will accept (per node)
+  ClientConnectLimit = {{ client_connect_limit }}
+
+  # Timeout for client-side SMB calls (in seconds)
+  ClientTimeout = {{ client_timeout }}
+
+  # Enable or disable CTDB’s internal event scripting engine
+  EventScriptsEnable = {{ event_scripts_enable }}
+
+# Optional: Custom event scripts directories (for HA logic)
+[eventscripts]
+{% for dir in event_script_dirs %}
+  ScriptDir = {{ dir }}
+{% endfor %}
+
+# Optional: Failover hints per node
+[hints]
+{% for hint in node_hints %}
+  # Node {{ hint.node }}: priority {{ hint.priority }}{% if hint.weight is defined %}, weight {{ hint.weight }}{% endif %}
+  {{ hint.node }} = {% if hint.weight is defined %}{{ hint.priority }}:{{ hint.weight }}{% else %}{{ hint.priority }}{% endif %}
+{% endfor %}

@@ -1,0 +1,264 @@
+{
+  "backend_type": {
+    "type": "string",
+    "default": "mdb",
+    "description": "Backend database type (e.g., 'mdb' for Lightning Memory-Mapped DB, 'hdb' for hierarchical BDB)."
+  },
+  "schema_dir": {
+    "type": "string",
+    "default": "/etc/ldap/schema",
+    "description": "Directory containing LDAP schema files."
+  },
+  "additional_schemas": {
+    "type": "list",
+    "default": [],
+    "description": "List of extra schema names (without .schema extension) to include (e.g., ['inetorgperson', 'nis']).",
+    "items": {
+      "type": "string"
+    }
+  },
+  "enable_default_acl": {
+    "type": "bool",
+    "default": true,
+    "description": "If true, set a basic default ACL: authenticated users get read access; anonymous users get none."
+  },
+  "acls": {
+    "type": "list",
+    "default": [],
+    "description": "List of custom ACL directives (full lines to insert as-is). Each entry must be a valid slapd ACL line.",
+    "items": {
+      "type": "string"
+    }
+  },
+  "pidfile_path": {
+    "type": "string",
+    "default": "/var/run/slapd/slapd.pid",
+    "description": "Path to the PID file for the slapd process."
+  },
+  "argsfile_path": {
+    "type": "string",
+    "default": "/var/run/slapd/slapd.args",
+    "description": "Path to the argsfile used to pass runtime arguments."
+  },
+  "loglevel": {
+    "type": "number",
+    "default": 256,
+    "description": "Debug log level (0 = none, 256 = stats, 16384 = trace). Higher = more verbose."
+  },
+  "tls_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable TLS/SSL for secure connections."
+  },
+  "tls_cipher_suite": {
+    "type": "string",
+    "default": "HIGH:MEDIUM:!aNULL:!MD5",
+    "description": "OpenSSL cipher suite string for TLS (e.g., 'HIGH:MEDIUM:!aNULL:!MD5')."
+  },
+  "tls_cert_file": {
+    "type": "string",
+    "default": "/etc/ldap/ssl/slapd.pem",
+    "description": "Path to the server certificate file."
+  },
+  "tls_cert_key_file": {
+    "type": "string",
+    "default": "/etc/ldap/ssl/slapd.key",
+    "description": "Path to the server private key file."
+  },
+  "tls_ca_cert_file": {
+    "type": "string",
+    "default": "/etc/ldap/ssl/ca.pem",
+    "description": "Path to the CA certificate file (optional, used for client cert verification)."
+  },
+  "tls_verify_client": {
+    "type": "string",
+    "default": "demand",
+    "description": "Client certificate verification mode: 'never', 'allow', 'try', or 'demand'."
+  },
+  "security_require_tls": {
+    "type": "bool",
+    "default": true,
+    "description": "If true, require TLS/SSL for all operations (enforces SSF \u2265 1)."
+  },
+  "security_require_ssf": {
+    "type": "number",
+    "default": 1,
+    "description": "Minimum Security Strength Factor required for certain operations (e.g., 1 for basic TLS)."
+  },
+  "security_require_authc": {
+    "type": "bool",
+    "default": true,
+    "description": "If true, require authentication for many operations."
+  },
+  "listeners": {
+    "type": "list",
+    "default": [
+      {
+        "scheme": "ldap",
+        "host": "0.0.0.0",
+        "port": 389
+      },
+      {
+        "scheme": "ldaps",
+        "host": null,
+        "port": 636
+      }
+    ],
+    "description": "List of listener endpoints. Each entry defines scheme, optional host, and optional port.",
+    "items": {
+      "type": "object",
+      "fields": {
+        "scheme": {
+          "type": "string",
+          "default": "ldap",
+          "description": "Connection scheme: 'ldap', 'ldaps', or 'ldapi'."
+        },
+        "host": {
+          "type": "string",
+          "default": null,
+          "description": "Host/IP to bind to (e.g., '127.0.0.1'). If null or empty, default binding is used."
+        },
+        "port": {
+          "type": "number",
+          "default": null,
+          "description": "Port number (e.g., 389 for LDAP, 636 for LDAPS). If null and scheme='ldapi', port is omitted."
+        }
+      }
+    }
+  },
+  "databases": {
+    "type": "list",
+    "default": [
+      {
+        "type": "mdb",
+        "suffix": "dc=example,dc=com",
+        "rootdn": "cn=admin,dc=example,dc=com",
+        "rootpw": "{SSHA}xyz...",
+        "directory": "/var/lib/ldap/example",
+        "index": [
+          {
+            "attr": "objectClass",
+            "options": [
+              "eq"
+            ]
+          },
+          {
+            "attr": "uid",
+            "options": [
+              "eq",
+              "pres"
+            ]
+          },
+          {
+            "attr": "cn",
+            "options": [
+              "eq",
+              "sub"
+            ]
+          }
+        ],
+        "overlay": [
+          {
+            "name": "ppolicy",
+            "config": {
+              "ppolicy_default": "cn=default,ou=policies,dc=example,dc=com",
+              "ppolicy_hash_cleartext": "yes",
+              "ppolicy_use_lockout": "yes"
+            }
+          }
+        ]
+      }
+    ],
+    "description": "List of database backends. Each entry defines a suffix and its backend parameters.",
+    "items": {
+      "type": "object",
+      "fields": {
+        "type": {
+          "type": "string",
+          "default": "mdb",
+          "description": "Backend type (e.g., 'mdb', 'hdb')."
+        },
+        "suffix": {
+          "type": "string",
+          "default": "",
+          "description": "Root DN suffix for this database (e.g., 'dc=example,dc=com')."
+        },
+        "rootdn": {
+          "type": "string",
+          "default": "",
+          "description": "DN for the administrative user of this database."
+        },
+        "rootpw": {
+          "type": "string",
+          "default": "",
+          "description": "Encrypted password for rootdn (e.g., '{SSHA}...'). Leave empty if managed externally."
+        },
+        "directory": {
+          "type": "string",
+          "default": "",
+          "description": "Directory where database files are stored."
+        },
+        "index": {
+          "type": "list",
+          "default": [],
+          "description": "List of attribute indexes for performance.",
+          "items": {
+            "type": "object",
+            "fields": {
+              "attr": {
+                "type": "string",
+                "default": "",
+                "description": "Attribute name (e.g., 'uid', 'cn')."
+              },
+              "options": {
+                "type": "list",
+                "default": [
+                  "eq"
+                ],
+                "description": "Index options: 'eq' (equal), 'pres' (presence), 'sub' (substring).",
+                "items": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "overlay": {
+          "type": "list",
+          "default": [],
+          "description": "List of overlays to enable for this database (e.g., 'ppolicy', 'syncprov').",
+          "items": {
+            "type": "object",
+            "fields": {
+              "name": {
+                "type": "string",
+                "default": "",
+                "description": "Overlay name (e.g., 'ppolicy', 'syncprov')."
+              },
+              "config": {
+                "type": "object",
+                "default": {},
+                "description": "Key-value overlay configuration parameters."
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "rootdn": {
+    "type": "string",
+    "default": "cn=admin,dc=example,dc=com",
+    "description": "Global root DN (if not defined per-database). Prefer per-database rootdn when using multiple DBs."
+  },
+  "rootpw_hash": {
+    "type": "string",
+    "default": "xyz...",
+    "description": "Hashed root password for global rootdn (e.g., 'xyz...' for {SSHA}). Not used if rootdn is defined per database."
+  },
+  "monitoring_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "If true, enable the monitor backend for live server statistics (requires moduleload)."
+  }
+}

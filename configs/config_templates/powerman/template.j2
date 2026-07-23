@@ -1,0 +1,81 @@
+# powerman configuration file — defines devices, nodes, and resources
+# Listen for connections on this port
+listen_port {{ listen_port }}
+
+# Use this log level: debug, info, notice, warn, error, critical
+log_level {{ log_level }}
+
+# Log to this file (empty = syslog)
+log_file {{ log_file }}
+
+# Authentication realm (for HTTP basic auth)
+auth_realm "Powerman PDU Manager"
+
+# Require authentication? (0 = off, 1 = on)
+auth_required {{ '1' if auth_required else '0' }}
+
+# Use this file for user credentials (htpasswd format)
+auth_file {{ auth_file }}
+
+# TCP timeout for device communication (seconds)
+device_timeout {{ device_timeout }}
+
+# Retries for device communication
+device_retries {{ device_retries }}
+
+# Interval (in seconds) between status polls
+status_poll_interval {{ status_poll_interval }}
+
+# Enable SSL/TLS for web interface?
+{% if ssl_enabled %}
+ssl_certificate {{ ssl_certificate_path }}
+ssl_private_key {{ ssl_private_key_path }}
+{% endif %}
+
+# Define devices (PDU, UPS, IPMI, etc.)
+{% for device in devices %}
+# Device: {{ device.name }} (type: {{ device.type }})
+device {{ device.name }} {{ device.type }} {{ device.host }}:{{ device.port }}
+{% if device.username %}
+device_user {{ device.name }} {{ device.username }}
+{% endif %}
+{% if device.password %}
+device_pass {{ device.name }} {{ device.password }}
+{% endif %}
+{% if device.model %}
+device_model {{ device.name }} {{ device.model }}
+{% endif %}
+{% if device.timeout is defined %}
+device_timeout {{ device.name }} {{ device.timeout }}
+{% endif %}
+{% endfor %}
+
+# Define nodes (logical groupings of outlets or devices)
+{% for node in nodes %}
+# Node: {{ node.name }}
+node {{ node.name }}
+{% for member in node.members %}
+node_member {{ node.name }} {{ member }}
+{% endfor %}
+{% endfor %}
+
+# Define resources (named sets of outlets across devices)
+{% for resource in resources %}
+# Resource: {{ resource.name }} (type: {{ resource.type }})
+resource {{ resource.name }} {{ resource.type }}
+{% for outlet in resource.outlets %}
+resource_outlet {{ resource.name }} {{ outlet.device }}:{{ outlet.outlet }}
+{% endfor %}
+{% endfor %}
+
+# Define ACLs (optional; controls who can access what)
+{% for acl in acls %}
+# ACL: {{ acl.name }} — {{ acl.description }}
+acl {{ acl.name }} {{ acl.action }} {{ acl.resource }}
+{% if acl.user %}
+acl_user {{ acl.name }} {{ acl.user }}
+{% endif %}
+{% if acl.group %}
+acl_group {{ acl.name }} {{ acl.group }}
+{% endif %}
+{% endfor %}

@@ -1,0 +1,62 @@
+<?php
+// MediaWiki LocalSettings.php — Main configuration file
+// Site identity and branding
+$wgSitename = "{{ sitename }}";
+$wgMetaNamespace = "{{ meta_namespace }}";
+$wgLogo = "{{ logo_url }}";
+
+// URLs and base paths
+$wgScriptPath = "{{ script_path }}";
+$wgScriptExtension = ".php";
+$wgArticlePath = "{{ article_path }}";
+$wgUsePathInfo = {{ use_path_info|lower }};
+
+// Database configuration
+$wgDBtype = "{{ db_type }}";
+$wgDBserver = "{{ db_server }}";
+$wgDBname = "{{ db_name }}";
+$wgDBuser = "{{ db_user }}";
+$wgDBpassword = "{{ db_password }}";
+{% if db_options is defined %}$wgDBoptions = [
+{% for option in db_options %}    "{{ option }}"{% if not loop.last %},{% endif %}
+{% endfor %}];
+{% endif %}
+
+// Language and locale
+$wgLanguageCode = "{{ language_code }}";
+$wgLocaltimezone = "{{ local_timezone }}";
+$wgLocaltimezone = timezone_open("{{ local_timezone }}");
+
+// Performance & caching
+$wgCacheDirectory = "{{ cache_directory }}";
+$wgMainCacheType = CACHE_{{ main_cache_type|upper }};
+$wgMemCachedServers = [{% for server in memcached_servers %}"{{ server }}"{% if not loop.last %}, {% endif %}{% endfor %}];
+$wgEnableMarkdown = {{ enable_markdown|lower }};
+
+// User rights and access control
+$wgGroupPermissions['*']['read'] = {{ public_read|lower }};
+$wgGroupPermissions['*']['edit'] = {{ public_edit|lower }};
+$wgGroupPermissions['*']['createaccount'] = {{ public_createaccount|lower }};
+{% for group in user_groups %}$wgGroupPermissions['{{ group.name }}'] = [
+{% for perm, allowed in group.permissions.items() %}    '{{ perm }}' => {{ allowed|lower }}{% if not loop.last %},{% endif %}
+{% endfor %}];
+{% endfor %}
+
+// Extensions (load only if installed)
+{% if extensions %}// Loaded extensions
+{% for ext in extensions %}{% if ext.path %}require_once "{{ ext.path }}";
+{% elif ext.name %}wfLoadExtension("{{ ext.name }}");
+{% endif %}{% if ext.config %}{% for key, val in ext.config.items() %}${{ key }} = {{ val|json }};
+{% endfor %}{% endif %}
+{% endfor %}{% endif %}
+
+// Logging and debug
+$wgDebugLogGroups = [
+{% for group in debug_log_groups %}'{{ group }}' => [
+    'logfile' => "{{ debug_log_groups[group] }}",
+    'level' => "{{ debug_log_level|upper }}"
+  ]{% if not loop.last %},{% endif %}
+{% endfor %}
+];
+
+// End of LocalSettings.php

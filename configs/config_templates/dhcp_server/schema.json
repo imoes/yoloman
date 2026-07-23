@@ -1,0 +1,149 @@
+{
+  "default_domain_name": {
+    "type": "string",
+    "default": "local",
+    "description": "The default domain name to assign to DHCP clients."
+  },
+  "default_domain_name_servers": {
+    "type": "list",
+    "default": [
+      "8.8.8.8",
+      "8.8.4.4"
+    ],
+    "description": "List of DNS resolver addresses to assign by default."
+  },
+  "default_lease_time": {
+    "type": "number",
+    "default": 86400,
+    "description": "Default lease duration (in seconds) for dynamic addresses."
+  },
+  "max_lease_time": {
+    "type": "number",
+    "default": 604800,
+    "description": "Maximum allowed lease duration (in seconds). Clients cannot exceed this."
+  },
+  "enable_forwarders": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable DNS forwarding; if true, DHCP server forwards queries to listed upstream servers."
+  },
+  "forwarders": {
+    "type": "list",
+    "default": [],
+    "description": "List of upstream DNS server IP addresses (used only if forwarders are enabled).",
+    "items": {
+      "type": "string"
+    }
+  },
+  "networks": {
+    "type": "list",
+    "default": [],
+    "description": "List of IPv4 subnets to serve. Each subnet defines address range, optional static mappings, and options.",
+    "items": {
+      "type": "object",
+      "fields": {
+        "subnet": {
+          "type": "string",
+          "default": "",
+          "description": "IPv4 subnet address (e.g., '192.168.1.0')."
+        },
+        "netmask": {
+          "type": "string",
+          "default": "255.255.255.0",
+          "description": "IPv4 netmask (e.g., '255.255.255.0' or CIDR suffix '24' \u2014 though dhcpd expects full mask)."
+        },
+        "range_start": {
+          "type": "string",
+          "default": "",
+          "description": "First address in the dynamic pool (e.g., '192.168.1.100')."
+        },
+        "range_end": {
+          "type": "string",
+          "default": "",
+          "description": "Last address in the dynamic pool (e.g., '192.168.1.200')."
+        },
+        "default_gateway": {
+          "type": "string",
+          "default": "",
+          "description": "Optional gateway/router address for clients in this subnet."
+        },
+        "broadcast_address": {
+          "type": "string",
+          "default": "",
+          "description": "Optional broadcast address (defaults to subnet broadcast if omitted)."
+        },
+        "subnet_mask": {
+          "type": "string",
+          "default": "",
+          "description": "Optional override for subnet mask; usually match netmask."
+        },
+        "ntp_servers": {
+          "type": "list",
+          "default": [],
+          "description": "Optional list of NTP server addresses.",
+          "items": {
+            "type": "string"
+          }
+        },
+        "dns_servers": {
+          "type": "list",
+          "default": [],
+          "description": "Optional list of DNS server addresses (overrides default).",
+          "items": {
+            "type": "string"
+          }
+        },
+        "hosts": {
+          "type": "list",
+          "default": [],
+          "description": "Optional list of static DHCP reservations within this subnet.",
+          "items": {
+            "type": "object",
+            "fields": {
+              "hostname": {
+                "type": "string",
+                "default": "",
+                "description": "DNS hostname to assign to the client."
+              },
+              "mac": {
+                "type": "string",
+                "default": "",
+                "description": "MAC address (e.g., 'aa:bb:cc:dd:ee:ff')."
+              },
+              "ip": {
+                "type": "string",
+                "default": "",
+                "description": "Static IP address to assign."
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "standalone_hosts": {
+    "type": "list",
+    "default": [],
+    "description": "List of static host entries not tied to a specific subnet. Useful for infrastructure devices.",
+    "items": {
+      "type": "object",
+      "fields": {
+        "hostname": {
+          "type": "string",
+          "default": "",
+          "description": "DNS hostname (e.g., 'print-server', 'router-gw')."
+        },
+        "mac": {
+          "type": "string",
+          "default": "",
+          "description": "MAC address of the device."
+        },
+        "ip": {
+          "type": "string",
+          "default": "",
+          "description": "Fixed IP address for this host."
+        }
+      }
+    }
+  }
+}

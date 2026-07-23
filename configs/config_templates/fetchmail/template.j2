@@ -1,0 +1,82 @@
+# /etc/fetchmailrc
+# IMPORTANT: this file must be mode 0600 and owned by the user running fetchmail.
+# chmod 0600 /etc/fetchmailrc
+
+# Recipient for mail that cannot be delivered to any local address
+set postmaster "{{ postmaster }}"
+
+# Poll all accounts every N seconds when running as a daemon
+set daemon {{ daemon_interval }}
+
+{% if logfile %}
+# Append log output to this file instead of syslog
+set logfile "{{ logfile }}"
+{% else %}
+# Send log output to the system logger
+set syslog
+{% endif %}
+
+{% if bounce_mail %}
+# Return undeliverable mail to the sender with a bounce notice
+set bouncemail
+{% else %}
+# Silently discard mail that cannot be delivered locally
+set no bouncemail
+{% endif %}
+
+{% if global_fetchlimit > 0 %}
+# Hard cap on total messages fetched across all accounts per daemon cycle
+set fetchlimit {{ global_fetchlimit }}
+{% endif %}
+
+{% if global_limit > 0 %}
+# Skip (leave on server) any message whose size exceeds this many bytes
+set limit {{ global_limit }}
+{% endif %}
+
+{% for account in accounts %}
+# ---- Account: {{ account.name }} ----
+poll {{ account.server }} proto {{ account.protocol }}{% if account.port %} port {{ account.port }}{% endif %}
+
+    # Map the remote credential to the local delivery user
+    user "{{ account.username }}" there with password "{{ account.password }}" is "{{ account.local_user }}" here
+{% if account.ssl %}
+    # Wrap the entire session in SSL/TLS
+    ssl
+{% endif %}
+{% if account.ssl and account.sslcertck %}
+    # Abort if the server certificate cannot be validated against the CA store
+    sslcertck
+{% endif %}
+{% if account.folder %}
+    # Mailbox/folder on the remote server to read from
+    folder {{ account.folder }}
+{% endif %}
+{% if account.fetchall %}
+    # Retrieve every message, including those already marked as read
+    fetchall
+{% endif %}
+{% if account.keep %}
+    # Do not delete messages from the server after fetching
+    keep
+{% else %}
+    # Delete messages from the server once successfully fetched
+    nokeep
+{% endif %}
+{% if account.mda %}
+    # Pipe each fetched message into this local delivery agent
+    mda "{{ account.mda }}"
+{% elif account.smtphost %}
+    # Relay fetched mail through this SMTP server for local delivery
+    smtphost {{ account.smtphost }}
+{% endif %}
+{% if account.fetchlimit > 0 %}
+    # Maximum messages to retrieve from this account in one poll cycle
+    fetchlimit {{ account.fetchlimit }}
+{% endif %}
+{% if account.timeout > 0 %}
+    # Give up waiting for the server after this many seconds of silence
+    timeout {{ account.timeout }}
+{% endif %}
+
+{% endfor %}

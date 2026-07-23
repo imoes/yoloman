@@ -1,0 +1,85 @@
+# FusionInventory Agent configuration file
+# This file controls the behavior of the FusionInventory agent
+
+[main]
+# Unique identifier for this agent (hostname by default)
+server = {{ server }}
+# Enable debug logging
+debug = {{ debug | lower }}
+# Enable local execution mode (no server communication)
+no-server = {{ no_server | lower }}
+# Log level: 0=error,1=warn,2=info,3=debug
+loglevel = {{ loglevel }}
+# Log file path
+logfile = {{ logfile }}
+# Enable logging to syslog
+log_to_syslog = {{ log_to_syslog | lower }}
+# Time between inventory runs (in seconds)
+interval = {{ interval }}
+# Enable/Disable hardware inventory
+hardware = {{ hardware | lower }}
+# Enable/Disable software inventory
+software = {{ software | lower }}
+# Enable/Disable network inventory
+network = {{ network | lower }}
+# Enable/Disable PCI inventory
+pci = {{ pci | lower }}
+# Enable/Disable USB inventory
+usb = {{ usb | lower }}
+# Enable/Disable sound inventory
+sound = {{ sound | lower }}
+# Enable/Disable video inventory
+video = {{ video | lower }}
+# Enable/Disable storage inventory
+storage = {{ storage | lower }}
+# Enable/Disable printer inventory
+printer = {{ printer | lower }}
+# Enable/Disable virtualization inventory
+virtualization = {{ virtualization | lower }}
+# Enable/Disable inventory of running processes
+processes = {{ processes | lower }}
+# Enable/Disable inventory of services
+services = {{ services | lower }}
+# Enable/Disable local inventory (bypass server, write to file)
+local = {{ local_inventory | lower }}
+# Local inventory output directory
+localdir = {{ localdir }}
+# Enable/Disable SNMP inventory (for network devices)
+snmp = {{ snmp | lower }}
+# Enable/Disable WMI inventory (Windows only)
+wmi = {{ wmi | lower }}
+# Enable/Disable Windows registry inventory
+registry = {{ registry | lower }}
+
+{% for tag, value in tags.items() %}
+# Custom tag: {{ tag }}
+tag = {{ tag }}={{ value }}
+{% endfor %}
+
+# Proxy configuration
+[proxy]
+# HTTP proxy host
+host = {{ proxy_host }}
+# HTTP proxy port
+port = {{ proxy_port }}
+# Proxy username (if auth required)
+user = {{ proxy_user }}
+# Proxy password (if auth required)
+password = {{ proxy_password }}
+
+# Server communication configuration
+{% for server_entry in servers %}
+[server-{{ server_entry.name }}]
+# Base URL of FusionInventory server
+url = {{ server_entry.url }}
+# Authentication username
+username = {{ server_entry.username }}
+# Authentication password
+password = {{ server_entry.password }}
+# Enable SSL verification (set to 0 to disable)
+ssl_verify = {{ server_entry.ssl_verify | lower }}
+# Optional CA bundle path
+ca_bundle = {{ server_entry.ca_bundle | default('') }}
+# Enable/Disable this server
+enabled = {{ server_entry.enabled | lower }}
+{% endfor %}

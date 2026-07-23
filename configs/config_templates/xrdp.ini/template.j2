@@ -1,0 +1,154 @@
+[globals]
+# Basic server identification
+machine_id={{ machine_id | default('xrdp') }}
+
+# Log settings
+log_file={{ log_file | default('/var/log/xrdp.log') }}
+log_level={{ log_level | default('info') }}
+
+# Security settings
+security_layer={{ security_layer | default('negotiate') }}
+certificate={{ certificate | default('') }}
+key_file={{ key_file | default('') }}
+ssl_protocols={{ ssl_protocols | default('TLSv1.2,TLSv1.3') }}
+allow_tls13={{ allow_tls13 | default(true) }}
+
+# Listening
+# IP address and port to listen on (0.0.0.0 = all interfaces)
+listen_address={{ listen_address | default('0.0.0.0') }}
+listen_port={{ listen_port | default(3389) }}
+
+# Session configuration
+max_bpp={{ max_bpp | default(32) }}
+
+# XRDP session management
+new_cursors={{ new_cursors | default(true) }}
+fips_mode={{ fips_mode | default(false) }}
+
+# XRDP session timeout (seconds)
+# 0 = no timeout
+idle_max_time={{ idle_max_time | default(0) }}
+disconnect_idle={{ disconnect_idle | default(false) }}
+
+# Session reuse — reuse existing sessions when possible
+reuse_sessions={{ reuse_sessions | default(false) }}
+
+# XRDP service startup behavior
+# Set to 'false' to prevent auto-start of session manager
+xserver_startup_delay={{ xserver_startup_delay | default(10) }}
+
+# XRDP font path
+font_path={{ font_path | default('/usr/share/fonts/TTF') }}
+
+# XRDP bitmap cache settings
+bitmap_cache={{ bitmap_cache | default(true) }}
+bitmap_compression={{ bitmap_compression | default(true) }}
+persistent_bitmap={{ persistent_bitmap | default(true) }}
+
+# XRDP audio redirection
+# Set to 'true' to enable ALSA/Pulse audio redirection
+audio_redirection={{ audio_redirection | default(false) }}
+
+# XRDP smart card redirection
+# Requires pcscd and libccid installed
+smartcard_redirection={{ smartcard_redirection | default(false) }}
+
+# XRDP clipboard redirection
+# Options: 'both', 'client-to-server', 'server-to-client', 'off'
+clipboard={{ clipboard | default('both') }}
+
+# XRDP drive redirection
+# Maps local drives into the session (requires user-specific config in xrdp-sesman.ini)
+drive_redirection={{ drive_redirection | default(false) }}
+
+# XRDP printer redirection (via CUPS)
+printer_redirection={{ printer_redirection | default(false) }}
+
+# XRDP serial port redirection
+serial_redirection={{ serial_redirection | default(false) }}
+
+# XRDP parallel port redirection
+parallel_redirection={{ parallel_redirection | default(false) }}
+
+# XRDP USB redirection (experimental)
+usb_redirection={{ usb_redirection | default(false) }}
+
+# XRDP GDI+ rendering (requires xorgxrdp or similar)
+gdi_rendering={{ gdi_rendering | default(true) }}
+
+# XRDP Xvnc backend configuration (for VNC-based sessions)
+[xvnc]
+name=xvnc
+lib=libvnc.so
+username=ask
+password=ask
+ip=127.0.0.1
+port=-1
+xserver_custom_parameters={{ xserver_custom_parameters | default('-depth 24 -geometry 1024x768') }}
+
+# XRDP Xorg backend configuration (for Xorg-based sessions)
+[xorg]
+name=xorg
+lib=libxup.so
+username=ask
+password=ask
+ip=127.0.0.1
+port=-1
+xserver_custom_parameters={{ xserver_custom_parameters | default('-background none -noreset -nolisten tcp -logfile .xorgxrdp.%s.log') }}
+
+# XRDP X11rdp backend (legacy, not used in modern xrdp)
+[x11rdp]
+name=x11rdp
+lib=libxup.so
+username=ask
+password=ask
+ip=127.0.0.1
+port=-1
+
+# XRDP Xvnc with specific session parameters
+[xvnc-specific]
+name=xvnc-specific
+lib=libvnc.so
+username=ask
+password=ask
+ip=127.0.0.1
+port=-1
+
+# XRDP Xorg with specific session parameters
+[xorg-specific]
+name=xorg-specific
+lib=libxup.so
+username=ask
+password=ask
+ip=127.0.0.1
+port=-1
+
+# XRDP session types configuration
+# Each session type defines how a user session is launched
+{% for session in session_types %}[{{ session.name }}]
+name={{ session.name }}
+lib={{ session.lib | default('libvnc.so') }}
+username={{ session.username | default('ask') }}
+password={{ session.password | default('ask') }}
+ip={{ session.ip | default('127.0.0.1') }}
+port={{ session.port | default(-1) }}
+{% endfor %}
+
+# XRDP security policy: allow only certain users
+{% if allowed_users is not none %}[users]
+{% for user in allowed_users %}allow_users={{ user }}
+{% endfor %}{% endif %}
+
+# XRDP security policy: deny certain users
+{% if denied_users is not none %}[users]
+{% for user in denied_users %}deny_users={{ user }}
+{% endfor %}{% endif %}
+
+# XRDP security policy: allow/deny groups
+{% if allowed_groups is not none %}[groups]
+{% for group in allowed_groups %}allow_groups={{ group }}
+{% endfor %}{% endif %}
+
+{% if denied_groups is not none %}[groups]
+{% for group in denied_groups %}deny_groups={{ group }}
+{% endfor %}{% endif %}

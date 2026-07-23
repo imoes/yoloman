@@ -1,0 +1,37 @@
+# Allow NTP client access from local network
+allow {{ network_cidr }}
+
+# Use public NTP servers as upstream sources
+{% for server in upstream_servers %}server {{ server.host }} iburst{% endfor %}
+
+# Prefer one upstream server if specified
+{% if primary_upstream is defined %}makestep 1.0 3{% endif %}
+
+# Record the rate at which the system clock gains/loses time
+rtcsync
+
+# Enable leap second handling
+leapsectz right/UTC
+
+# Specify directory for log and data files
+logdir {{ log_dir }}
+log measurements statistics tracking
+
+# Enable command socket for chronyd control
+cmdport 0
+
+# Enable broadcast client support if needed
+{% if enable_broadcast %}broadcastclient{% endif %}
+
+# Allow Dnsmasq to forward NTP traffic on behalf of clients
+{% for interface in dnsmasq_ntp_interfaces %}bindaddress {{ interface }}{% endfor %}
+
+# Optional: restrict access to specific hosts
+{% for host in restricted_hosts %}deny {{ host }}{% endfor %}
+
+# Optional: allow specific hosts (e.g., local mesh)
+{% for host in allowed_hosts %}allow {{ host }}{% endfor %}
+
+# Optional: custom driftfile and key file paths
+{% if driftfile_path is defined %}driftfile {{ driftfile_path }}{% endif %}
+{% if keyfile_path is defined %}keyfile {{ keyfile_path }}{% endif %}

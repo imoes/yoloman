@@ -1,0 +1,72 @@
+# PipeWire PulseAudio daemon configuration
+# This file configures the PipeWire PulseAudio compatibility daemon
+
+context.modules = [
+    # Load common PulseAudio protocol modules
+    { name = "libpipewire-module-protocol-pulse" args = {
+{% for module in modules %}
+{% if module.enabled | default(true) %}        # {{ module.description }}
+        {{ module.name }} = {{ module.args | tojson | indent(8, true) }}
+{% endif %}
+{% endfor %}    }}
+]
+
+# Server settings
+context.properties = {
+    # Default log level: 0=none, 1=error, 2=warning, 3=info, 4=debug
+    log.level = {{ log_level }}
+
+    # Maximum number of streams per client
+    max.streams = {{ max_streams }}
+
+    # Audio buffer size in bytes (power of 2 recommended)
+    mem.lock = {{ mem_lock | default(false) }}
+
+    # Audio sample format and rate defaults
+    default.audio.format = "S16LE"
+    default.audio.rate = {{ sample_rate }}
+    default.audio.channels = {{ audio_channels }}
+    default.node.target = "sink_{{ default_sink }}"
+
+    # Latency control
+    latency = {{ latency }}
+}
+
+# Object defaults for sinks, sources, and remap nodes
+context.object = {
+{% if enable_spare_nodes %}    # Spare nodes for dynamic reconfiguration
+    sink = {
+        # Spare audio sink count
+        spare = {{ spare_sinks }}
+    }
+    source = {
+        # Spare audio source count
+        spare = {{ spare_sources }}
+    }
+{% endif %}
+    # Stream defaults
+    stream = {
+        # Default volume scaling curve
+        volume.curve = 40
+        # Allow volume boost beyond 100%
+        volume.max.db = {{ volume_boost_db }}
+    }
+}
+
+# SPA plugin settings
+spa.plugins = {
+    # Enable optional plugins
+{% for plugin in optional_plugins %}
+{% if plugin.enabled | default(true) %}    # {{ plugin.description }}
+    {{ plugin.name }} = true
+{% else %}
+    {{ plugin.name }} = false
+{% endif %}
+{% endfor %}
+}
+
+# PipeWire daemon settings
+context.system = {
+    # Enable system-wide mode (not typical for desktop; usually per-user session)
+    enable-system = {{ enable_system_mode | default(false) }}
+}

@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Ocsigen Server configuration file -->
+<ocsigenserver>
+  <!-- Global server settings -->
+  <pidfile>{{ pidfile }}</pidfile>
+  
+  <!-- Logging configuration -->
+  <log file="{{ log_file }}" level="{{ log_level }}"/>
+  
+  <!-- HTTP server settings -->
+  <http host="{{ http_host }}" port="{{ http_port }}"/>
+  {% if http_ssl_enabled %}
+  <!-- HTTPS server settings -->
+  <https host="{{ https_host }}" port="{{ https_port }}" cert="{{ ssl_cert }}" key="{{ ssl_key }}"/>
+  {% endif %}
+  
+  <!-- Timeout and resource limits -->
+  <timeout>{{ timeout }}</timeout>
+  <max_connections>{{ max_connections }}</max_connections>
+  
+  <!-- Worker processes (prefork model) -->
+  <prefork>
+    <start_servers>{{ start_servers }}</start_servers>
+    <min_spare_servers>{{ min_spare_servers }}</min_spare_servers>
+    <max_spare_servers>{{ max_spare_servers }}</max_spare_servers>
+    <max_requests>{{ max_requests }}</max_requests>
+  </prefork>
+  
+  <!-- Module loading paths -->
+  <modulepath>
+    {% for path in module_paths %}
+    <path>{{ path }}</path>
+    {% endfor %}
+  </modulepath>
+  
+  <!-- Extensions enabled -->
+  <extensions>
+    {% for ext in enabled_extensions %}
+    <extension module="{{ ext.module }}">
+      {% if ext.config %}
+      <configure>
+        {% for key, value in ext.config.items() %}
+        <param name="{{ key }}">{{ value | e }}</param>
+        {% endfor %}
+      </configure>
+      {% endif %}
+    </extension>
+    {% endfor %}
+  </extensions>
+  
+  <!-- Sites defined -->
+  <sites>
+    {% for site in sites %}
+    <site host="{{ site.host }}" port="{{ site.port }}">
+      <!-- Document root -->
+      <dir root="{{ site.document_root }}"/>
+      
+      <!-- CGI script aliasing -->
+      {% if site.cgi_enabled %}
+      <cgi>
+        {% for alias in site.cgi_aliases %}
+        <alias prefix="{{ alias.prefix }}" path="{{ alias.path }}"/>
+        {% endfor %}
+      </cgi>
+      {% endif %}
+      
+      <!-- Static file serving -->
+      <static dir="{{ site.static_dir }}" url="{{ site.static_url }}"/>
+      
+      <!-- Ocsigen extensions per site (e.g., Eliom, TyXML) -->
+      {% for ext in site.ocsigen_extensions %}
+      <{{ ext.name }}>
+        {% if ext.config %}
+        <configure>
+          {% for key, value in ext.config.items() %}
+          <param name="{{ key }}">{{ value | e }}</param>
+          {% endfor %}
+        </configure>
+        {% endif %}
+      </{{ ext.name }}>
+      {% endfor %}
+    </site>
+    {% endfor %}
+  </sites>
+</ocsigenserver>

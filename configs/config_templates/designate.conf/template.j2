@@ -1,0 +1,169 @@
+[DEFAULT]
+# Enable debug mode for verbose logging
+# debug = {{ debug }}
+
+# Log level: DEBUG, INFO, WARNING, ERROR, CRITICAL
+# log_level = {{ log_level }}
+
+# Path to the log file (empty string to log to stdout only)
+# log_file = {{ log_file }}
+
+# The IP address to bind the central API
+# bind_host = {{ bind_host }}
+
+# The port to listen on for the central API
+# api_port = {{ api_port }}
+
+# Number of workers for the central service
+# workers = {{ workers }}
+
+# Maximum number of tasks that can be processed concurrently
+# task_manager_max_concurrent_tasks = {{ task_manager_max_concurrent_tasks }}
+
+# DNS backend driver (e.g., 'dnsdist', 'designate-mdns')
+# backend_driver = {{ backend_driver }}
+
+# Redis host for task coordination
+# redis_host = {{ redis_host }}
+
+# Redis port
+# redis_port = {{ redis_port }}
+
+# Default TTL for new zones/records
+# default_ttl = {{ default_ttl }}
+
+# Default serial refresh interval for SOA records
+# default_serial = {{ default_serial }}
+
+[service:central]
+# Enable the central service
+# enabled = {{ central_enabled }}
+
+# Maximum number of records per zone
+# max_records_per_zone = {{ max_records_per_zone }}
+
+# Maximum number of zones per tenant
+# max_zones_per_tenant = {{ max_zones_per_tenant }}
+
+# Zone name validation regex
+# zone_name_regex = {{ zone_name_regex }}
+
+[pool_manager_cache]
+# Enable pool manager caching
+# enabled = {{ pool_manager_cache_enabled }}
+
+# Cache TTL in seconds
+# ttl = {{ pool_manager_cache_ttl }}
+
+[storage:sqlalchemy]
+# Database connection string (use placeholder for secrets)
+# connection = {{ db_connection }}
+
+[service:worker]
+# Enable the worker service
+# enabled = {{ worker_enabled }}
+
+# Number of worker threads
+# workers = {{ worker_threads }}
+
+[service:producer]
+# Enable the producer service
+# enabled = {{ producer_enabled }}
+
+[service:mdns]
+# Enable the mDNS service
+# enabled = {{ mdns_enabled }}
+
+# mDNS bind address
+# bind_host = {{ mdns_bind_host }}
+
+# mDNS bind port
+# bind_port = {{ mdns_bind_port }}
+
+# Allowed AXFR CIDR (comma-separated list)
+# allowed_axfr_cidrs = {{ allowed_axfr_cidrs | join(', ') }}
+
+[service:api]
+# Enable the API service
+# enabled = {{ api_enabled }}
+
+# API bind address
+# bind_host = {{ api_bind_host }}
+
+# API bind port
+# bind_port = {{ api_port }}
+
+# Number of API workers
+# workers = {{ api_workers }}
+
+# API root path (for reverse proxy support)
+# api_base_uri = {{ api_base_uri }}
+
+# API auth strategy (none, keystone, etc.)
+# auth_strategy = {{ auth_strategy }}
+
+# Enable CORS
+# enable_cors = {{ cors_enabled }}
+
+# CORS allowed origins (comma-separated)
+# cors_allowed_origin = {{ cors_allowed_origins | join(', ') }}
+
+{% if endpoint_templates %}
+[service:api:endpoint_templates]
+# Endpoint templates for DNS API endpoints (used by Keystone federation)
+{% for ep in endpoint_templates %}
+# {{ ep.service_name }} endpoint template: {{ ep.description }}
+# service_name = {{ ep.service_name }}
+# endpoint_template = {{ ep.endpoint_template }}
+{% endfor %}
+{% endif %}
+
+{% if pool_servers %}
+[pool:{{ pool_servers[0].pool_id }}]
+# Pool servers configuration for the {{ pool_servers[0].pool_id }} pool
+{% for server in pool_servers %}
+# Server {{ loop.index }}: {{ server.hostname }}
+# nameserver = {{ server.nameserver }}
+# host = {{ server.host }}
+# port = {{ server.port }}
+# pool_id = {{ server.pool_id }}
+{% endfor %}
+{% endif %}
+
+[notifications]
+# Notification driver (e.g., 'designate', 'nova', 'neutron')
+# driver = {{ notification_driver }}
+
+# Topics to listen on (comma-separated)
+# topics = {{ notification_topics | join(', ') }}
+
+[service:worker:resolver]
+# Resolver IP address
+# resolver_ip = {{ resolver_ip }}
+
+# Resolver port
+# resolver_port = {{ resolver_port }}
+
+# Resolver timeout in seconds
+# resolver_timeout = {{ resolver_timeout }}
+
+{% if pools %}
+[pool:{{ pools[0].id }}]
+# DNS pool configuration (e.g., for multi-backend support)
+# id = {{ pools[0].id }}
+# name = {{ pools[0].name }}
+# description = {{ pools[0].description }}
+# ns_records = {{ pools[0].ns_records | map(attribute='hostname') | join(', ') }}
+# nameservers = {{ pools[0].nameservers | map(attribute='hostname') | join(', ') }}
+{% endif %}
+
+{% for zone in zones %}
+# Zone-specific defaults: {{ zone.name }}
+# default_ttl = {{ zone.default_ttl }}
+# retry_refresh = {{ zone.retry_refresh }}
+# minimum = {{ zone.minimum }}
+# refresh = {{ zone.refresh }}
+# retry = {{ zone.retry }}
+# expire = {{ zone.expire }}
+# negative_ttl = {{ zone.negative_ttl }}
+{% endfor %}

@@ -1,0 +1,199 @@
+{
+  "timeout": {
+    "type": "number",
+    "default": 30,
+    "description": "Global timeout in seconds for signaling messages and link maintenance."
+  },
+  "log_file_path": {
+    "type": "string",
+    "default": "/var/log/osmo-stp.log",
+    "description": "Absolute path to the log file. Ensure the osmocom user has write permissions."
+  },
+  "log_level": {
+    "type": "string",
+    "default": "debug",
+    "allowed_values": [
+      "none",
+      "debug",
+      "info",
+      "notice",
+      "warning",
+      "error",
+      "critical"
+    ],
+    "description": "Verbosity level of logging."
+  },
+  "log_color": {
+    "type": "boolean",
+    "default": true,
+    "description": "Enable ANSI color codes in terminal output."
+  },
+  "log_timestamp": {
+    "type": "boolean",
+    "default": true,
+    "description": "Prefix log lines with timestamps."
+  },
+  "log_line_prefix": {
+    "type": "string",
+    "default": "",
+    "description": "Custom prefix for each log line (e.g., subsystem tag). Leave empty to use defaults."
+  },
+  "local_spc": {
+    "type": "number",
+    "default": 1,
+    "description": "Local Signaling Point Code (SPC) for this STP. Must be unique in the network."
+  },
+  "local_spc_mask": {
+    "type": "number",
+    "default": 255,
+    "description": "Mask for the local SPC. Often 0xFF for 8-bit SPCs, 0x3FFF for 14-bit."
+  },
+  "network_indicator": {
+    "type": "number",
+    "default": 2,
+    "allowed_values": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "description": "Network Indicator (NI) per ITU-T Q.704: 0=ISDN, 1=non-ISDN, 2=public, 3=private."
+  },
+  "point_to_point": {
+    "type": "boolean",
+    "default": true,
+    "description": "If true: point-to-point links only. If false: point-to-multipoint (multiple DPCs per linkset)."
+  },
+  "link_sets": {
+    "type": "list",
+    "default": [],
+    "description": "List of SS7 link sets (collections of links with shared routing context and destination points).",
+    "items": {
+      "id": {
+        "type": "number",
+        "default": 1,
+        "description": "Unique numeric ID for this linkset (1\u2013255)."
+      },
+      "name": {
+        "type": "string",
+        "default": "",
+        "description": "Human-readable name (optional)."
+      },
+      "routing_context": {
+        "type": "number",
+        "default": 0,
+        "description": "Routing context (RC). Required in SCCP for multi-homed STPs. 0 = default."
+      },
+      "dest_points": {
+        "type": "list",
+        "default": [],
+        "description": "List of destination SPCs served by this linkset.",
+        "items": {
+          "type": "number",
+          "description": "Destination signaling point code."
+        }
+      },
+      "links": {
+        "type": "list",
+        "default": [],
+        "description": "List of signaling links (physical or virtual) in this linkset.",
+        "items": {
+          "id": {
+            "type": "number",
+            "default": 1,
+            "description": "Unique link ID within the linkset."
+          },
+          "name": {
+            "type": "string",
+            "default": "",
+            "description": "Optional link name (e.g., 'link-a')."
+          },
+          "local_ip": {
+            "type": "string",
+            "default": "0.0.0.0",
+            "description": "Local IP address for this link (e.g., STP server interface)."
+          },
+          "local_port": {
+            "type": "number",
+            "default": 3000,
+            "description": "Local UDP/TCP port. Use 3000\u20133999 for M3UA, 2905 for M2UA, etc."
+          },
+          "remote_ip": {
+            "type": "string",
+            "default": "",
+            "description": "Remote peer IP (e.g., MSC, BSC, or another STP)."
+          },
+          "remote_port": {
+            "type": "number",
+            "default": 3000,
+            "description": "Remote port (typically matches local_port on peer)."
+          },
+          "priority": {
+            "type": "number",
+            "default": 1,
+            "description": "Link priority (higher = primary). Used for load balancing and failover."
+          },
+          "mode": {
+            "type": "string",
+            "default": "client",
+            "allowed_values": [
+              "client",
+              "server"
+            ],
+            "description": "Connection mode: 'client' initiates SCTP, 'server' listens (passive)."
+          }
+        }
+      }
+    }
+  },
+  "tcp_fallback": {
+    "type": "boolean",
+    "default": false,
+    "description": "Enable TCP fallback for SCTP (not recommended for SS7 interoperability)."
+  },
+  "h248_enabled": {
+    "type": "boolean",
+    "default": false,
+    "description": "Enable H.248/Megaco media gateway control support (rarely needed for pure STP)."
+  },
+  "stats_enabled": {
+    "type": "boolean",
+    "default": true,
+    "description": "Enable real-time statistics collection (MTP3/SCCP message counters)."
+  },
+  "stats_interval": {
+    "type": "number",
+    "default": 60,
+    "description": "Interval (seconds) between statistics dumps to log."
+  },
+  "stats_file": {
+    "type": "string",
+    "default": "",
+    "description": "Optional path to write periodic stats in JSON format."
+  },
+  "ctrl_port": {
+    "type": "number",
+    "default": 4237,
+    "description": "TCP port for the control interface (used by osmo-stp-ctrl for runtime config and monitoring)."
+  },
+  "ctrl_bind": {
+    "type": "string",
+    "default": "127.0.0.1",
+    "description": "Bind address for the control interface. Use '0.0.0.0' only if secure access is guaranteed."
+  },
+  "ipa_unit_id": {
+    "type": "number",
+    "default": 1,
+    "description": "IPA unit ID (used for BTS identification in OsmoBTS integration)."
+  },
+  "ipa_clock_id": {
+    "type": "number",
+    "default": 33,
+    "description": "IPA clock identifier: 0x21=33 (E1), 0x20=32 (PCM), per IPA spec."
+  },
+  "nat_rules_enabled": {
+    "type": "boolean",
+    "default": false,
+    "description": "Enable NAT-aware routing rules (advanced use; rarely needed)."
+  }
+}

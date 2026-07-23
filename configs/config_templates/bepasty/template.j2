@@ -1,0 +1,97 @@
+# Base URL where bepasty will be accessible (e.g., 'https://paste.example.com')
+BASE_URL = {{ base_url }}
+
+# Directory where uploaded files are stored (absolute path)
+UPLOAD_DIR = {{ upload_dir }}
+
+# Secret key used for signing cookies and tokens (must be kept secret)
+SECRET_KEY = {{ secret_key }}
+
+# Enable/disable the public upload form
+PUBLIC_ENABLED = {{ public_enabled }}
+
+# Enable/disable file listing for authenticated users
+LISTING_ENABLED = {{ listing_enabled }}
+
+# Default expiration time for uploads (in seconds); 0 = never expire
+DEFAULT_EXPIRATION = {{ default_expiration }}
+
+# Maximum file size in bytes (0 = unlimited)
+MAX_FILE_SIZE = {{ max_file_size }}
+
+# Maximum number of uploads per IP per day (0 = unlimited); applied only if RATE_LIMIT_ENABLED=True
+MAX_UPLOADS_PER_IP_PER_DAY = {{ max_uploads_per_ip_per_day }}
+
+# Enable rate limiting per IP
+RATE_LIMIT_ENABLED = {{ rate_limit_enabled }}
+
+# Allowed MIME types (empty list = allow all); each entry must be a valid MIME type string
+ALLOWED_MIME_TYPES = {{ allowed_mime_types | join(', ') }}
+
+# List of MIME types that should be displayed in the browser instead of downloaded
+INLINE_MIME_TYPES = {{ inline_mime_types | join(', ') }}
+
+# Database connection string (e.g., 'sqlite:////var/lib/bepasty/bepasty.db' or 'postgresql://user:pass@host/db')
+DATABASE_URL = {{ database_url }}
+
+# Enable HTTPS-only cookies
+SESSION_COOKIE_SECURE = {{ session_cookie_secure }}
+
+# Enable SameSite cookie attribute; allowed values: 'Lax', 'Strict', 'None'
+SESSION_COOKIE_SAMESITE = '{{ session_cookie_samesite }}'
+
+# Number of worker processes (0 = auto-detect based on CPU cores)
+WORKERS = {{ workers }}
+
+# Host address to bind to
+BIND_ADDRESS = '{{ bind_address }}'
+
+# Port to listen on
+PORT = {{ port }}
+
+# Logging level: 'DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'
+LOG_LEVEL = '{{ log_level }}'
+
+# Log file path; empty string = log to stderr
+LOG_FILE = {{ log_file }}
+
+# Enable admin UI (requires authentication)
+ADMIN_ENABLED = {{ admin_enabled }}
+
+# List of admin users (by username or email, depending on auth backend)
+{% for admin in admins %}ADMIN_USERS.append('{{ admin }}')
+{% endfor %}
+
+# Enable password protection for uploads (if PUBLIC_ENABLED=True, this adds optional password field)
+PASSWORD_PROTECTION_ENABLED = {{ password_protection_enabled }}
+
+# Minimum password length (if password protection enabled)
+MIN_PASSWORD_LENGTH = {{ min_password_length }}
+
+# Enable deletion of uploads after expiration (automatic cleanup)
+CLEANUP_EXPIRED_ENABLED = {{ cleanup_expired_enabled }}
+
+# Enable automatic deletion of unclaimed uploads (e.g., those without metadata after X seconds)
+CLEANUP_UNCLAIMED_ENABLED = {{ cleanup_unclaimed_enabled }}
+CLEANUP_UNCLAIMED_AFTER_SECONDS = {{ cleanup_unclaimed_after_seconds }}
+
+# Enable CAPTCHA for public uploads
+CAPTCHA_ENABLED = {{ captcha_enabled }}
+
+# CAPTCHA provider; currently only 'recaptcha-v2' is supported
+CAPTCHA_PROVIDER = '{{ captcha_provider }}'
+{% if captcha_provider == 'recaptcha-v2' %}RECAPTCHA_SITE_KEY = '{{ recaptcha_site_key }}'
+RECAPTCHA_SECRET_KEY = '{{ recaptcha_secret_key }}'
+{% endif %}
+
+# Enable user registration (only relevant if auth backend supports it)
+REGISTRATION_ENABLED = {{ registration_enabled }}
+
+# Enable email verification on registration
+EMAIL_VERIFICATION_ENABLED = {{ email_verification_enabled }}
+
+# SMTP server settings for sending emails (if email features enabled)
+SMTP_SERVER = '{{ smtp_server }}'
+SMTP_PORT = {{ smtp_port }}
+SMTP_USE_TLS = {{ smtp_use_tls }}
+SMTP_FROM = '{{ smtp_from }}'

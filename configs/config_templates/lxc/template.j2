@@ -1,0 +1,52 @@
+# Default LXC configuration file
+# This file sets global defaults for LXC containers.
+# See 'man 5 lxc.conf' for a full list of supported options.
+
+{% if lxc_rootfs_dir %}# Root directory for container filesystems
+lxc.lxcpath = {{ lxc_rootfs_dir }}
+{% endif %}
+
+{% if default_template %}# Default template used when creating containers
+lxc.default_config = {{ default_template }}
+{% endif %}
+
+{% if bridge_name %}# Default network bridge for containers
+lxc.network.default.type = veth
+lxc.network.default.link = {{ bridge_name }}
+lxc.network.default.flags = up
+lxc.network.default.hwaddr = 02:00:00:{{ '%02x:%02x:%02x' | format(container_mac[0], container_mac[1], container_mac[2]) }}
+{% endif %}
+
+{% if use_cgroup_v2 %}# Enable unified (v2) cgroup hierarchy
+lxc.cgroup2.unified_cgroup_hierarchy = 1
+{% endif %}
+
+{% for network in networks %}# Network config for container interface {{ loop.index }}
+lxc.net.{{ loop.index - 1 }}.type = {{ network.type }}
+{% if network.link %}lxc.net.{{ loop.index - 1 }}.link = {{ network.link }}
+{% endif %}
+{% if network.flags %}lxc.net.{{ loop.index - 1 }}.flags = {{ network.flags }}
+{% endif %}
+{% if network.name %}lxc.net.{{ loop.index - 1 }}.name = {{ network.name }}
+{% endif %}
+{% if network.hwaddr %}lxc.net.{{ loop.index - 1 }}.hwaddr = {{ network.hwaddr }}
+{% endif %}
+{% if network.veth_pair %}lxc.net.{{ loop.index - 1 }}.veth.pair = {{ network.veth_pair }}
+{% endif %}
+{% if network.gateway %}lxc.net.{{ loop.index - 1 }}.ipv4.gateway = {{ network.gateway }}
+{% endif %}
+{% if network.ipv4_addresses %}{% for ip in network.ipv4_addresses %}lxc.net.{{ loop.parent.loop.index - 1 }}.ipv4 = {{ ip }}
+{% endfor %}{% endif %}
+{% if network.ipv6_addresses %}{% for ip in network.ipv6_addresses %}lxc.net.{{ loop.parent.loop.index - 1 }}.ipv6 = {{ ip }}
+{% endfor %}{% endif %}
+{% endfor %}
+
+{% if log_level %}# Logging configuration
+lxc.log.level = {{ log_level }}
+{% endif %}
+{% if log_file %}lxc.log.file = {{ log_file }}
+{% endif %}
+
+# Default security options
+lxc.idmap = u 0 100000 65536
+lxc.idmap = g 0 100000 65536

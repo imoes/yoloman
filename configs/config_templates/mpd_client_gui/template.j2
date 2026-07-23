@@ -1,0 +1,33 @@
+# Server host or IP address
+host: "{{ mpd_host }}"
+
+# MPD port
+port: {{ mpd_port }}
+
+# Password for MPD server (leave empty if none)
+{% if mpd_password %}password: "{{ mpd_password }}"{% else %}# password: ""{% endif %}
+
+# Path to MPD socket (used if host/port not specified)
+{% if mpd_socket_path %}# socket_path: "{{ mpd_socket_path }}"{% else %}# socket_path: ""{% endif %}
+
+# Default volume (0–100)
+mixer_volume: {{ mixer_volume }}
+
+# Auto-connect on startup
+{% if auto_connect %}auto_connect: true{% else %}auto_connect: false{% endif %}
+
+# Music directory path (used only for UI display, not MPD connection)
+music_directory: "{{ music_directory }}"
+
+# Enable cover art fetching
+{% if cover_art_enabled %}cover_art_enabled: true{% else %}cover_art_enabled: false{% endif %}
+
+# List of custom album art filenames to look for (in order)
+custom_art_files:
+{% for filename in custom_art_filenames %}  - "{{ filename }}"{% endfor %}
+
+# Log level: 0=none, 1=errors, 2=warnings, 3=info, 4=debug
+log_level: {{ log_level }}
+
+# Enable systemd notification support
+{% if systemd_notify %}systemd_notify: true{% else %}systemd_notify: false{% endif %}

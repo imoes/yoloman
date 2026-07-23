@@ -1,0 +1,270 @@
+# /etc/systemd/journald.conf — Configuration file for the systemd-journald logging service.
+# See systemd-journald.service(8) and journald.conf(5) for details.
+
+# Journal storage mode: auto, persistent, volatile, or none.
+# * 'auto': use /var/log/journal if it exists, else /run/log/journal (volatile).
+# * 'persistent': use /var/log/journal (requires directory to exist or be created).
+# * 'volatile': use /run/log/journal (ramdisk, cleared on reboot).
+# * 'none': disable journaling (logs only forwarded to stdout/syslog if configured).
+Storage={{ storage_mode }}
+
+# Directory where persistent journal files are stored.
+# Only used if `Storage` is 'persistent' or 'auto' and /var/log/journal exists.
+# If empty, defaults to /var/log/journal or /run/log/journal as appropriate.
+{% if data_directory %}# Explicitly set journal data directory:
+DataDirectory={{ data_directory }}
+{% endif %}
+
+# Directory for volatile journal (if `Storage=volatile` or fallback).
+# Typically /run/log/journal.
+{% if runtime_directory %}# Explicitly set runtime journal directory:
+RuntimeDirectory={{ runtime_directory }}
+{% endif %}
+
+# Maximum disk space (in bytes or with suffixes K, M, G, T) used by journal files.
+# If exceeded, oldest entries are removed. Set to 0 for unlimited.
+MaxStorageUse={{ max_storage_use }}
+
+# Maximum disk space (in bytes or suffixes) reserved for each user’s journal.
+# Applies only to persistent journals. Set to 0 to disable per-user limits.
+SystemMaxUse={{ system_max_use }}
+
+# Maximum disk space (in bytes/suffixes) used for system journals (non-user).
+SystemMaxFileSize={{ system_max_file_size }}
+
+# Maximum size (bytes/suffixes) for individual journal files before rotation.
+# Controls file rotation, not disk usage limits.
+MaxFileSec={{ max_file_sec }}
+
+# How long (duration, e.g., '1month', '7d') journal entries are retained.
+# If 0, entries are retained until MaxStorageUse/SystemMaxUse is hit.
+MaxRetentionSec={{ max_retention_sec }}
+
+# Maximum number of journal files kept per stream (e.g., per service).
+# Reduces disk footprint for high-frequency logs.
+MaxFiles={{ max_files }}
+
+# Minimum disk space (bytes/suffixes) that must remain free before journaling halts.
+# Prevents journal from filling the filesystem.
+MinFreeSpace={{ min_free_space }}
+
+# Minimum number of days journal entries are retained regardless of disk usage.
+# Helps ensure logs survive short-term disk pressure.
+MinFileSec={{ min_file_sec }}
+
+# Enable compression (lz4, xz, or zstd); set to 'no' to disable.
+# lz4 recommended for performance.
+Compress={{ compress }}
+
+# Maximum number of compression threads to use (0 = auto).
+# Higher values may improve compression speed on multi-core systems.
+{% if compress_threads %}# Set compression thread count:
+CompressThreads={{ compress_threads }}
+{% endif %}
+
+# Enable sealed journal segments (for integrity verification via digital signatures).
+# Requires ` Seal=yes` in `journald.conf` and a key at `/etc/systemd/sealed-journal-keys/`.
+# Not commonly used in standard deployments.
+{% if seal %}# Enable journal sealing:
+Seal={{ seal | lower }}
+{% endif %}
+
+# Split journal by user — creates separate subdirectories per UID.
+# Useful on multi-user systems to isolate user logs.
+SplitMode={{ split_mode }}
+
+# Sync journal to disk after each write (yes/no).
+# 'yes' ensures durability but harms performance; 'journal' (default) syncs periodically.
+SyncIntervalSec={{ sync_interval_sec }}
+
+# Rate-limiting: max number of messages per unit time before dropping.
+# Format: <count>/<time> (e.g., 5000/10s).
+RateLimitIntervalSec={{ rate_limit_interval_sec }}
+RateLimitBurst={{ rate_limit_burst }}
+
+# Enable journal network forwarding (via UDP/TCP to remote syslog).
+# Set `Stream=` to a target (e.g., `tcp://192.168.1.10:514`).
+{% if remote_forward_enabled %}# Enable remote forwarding:
+ForwardToSyslog={{ remote_forward_enabled | lower }}
+{% if remote_syslog_host %}ForwardToSyslog={{ remote_forward_enabled | lower }}
+Syslog={{ remote_forward_enabled | lower }}
+SyslogAddress={{ remote_syslog_host }}
+{% else %}
+ForwardToSyslog=no
+Syslog=no
+{% endif %}
+{% else %}
+ForwardToSyslog=no
+Syslog=no
+{% endif %}
+
+# Forward journal entries to systemd’s legacy syslog daemon.
+# Only effective if Syslog=true and syslog daemon is running.
+{% if forward_to_kmsg %}# Forward to kernel log buffer:
+ForwardToKMsg={{ forward_to_kmsg | lower }}
+{% endif %}
+
+# Forward to console (virtual terminals) — only for critical messages by default.
+# Set to 'yes' to forward all messages (not recommended for production).
+{% if forward_to_console %}# Forward to console:
+ForwardToConsole={{ forward_to_console | lower }}
+{% endif %}
+
+# Console log level threshold — messages below this priority are not forwarded.
+# Levels: emerg (0), alert (1), crit (2), err (3), warning (4), notice (5), info (6), debug (7).
+{% if console_level %}# Console log level:
+ConsoleLevel={{ console_level }}
+{% endif %}
+
+# Maximum number of lines written to each TTY (console) per second.
+# Prevents console flooding during high log volume.
+{% if console_rate_limit %}# Console rate limit (lines per interval):
+ConsoleRateLimitIntervalSec={{ console_rate_limit.interval_sec }}
+ConsoleRateLimitBurst={{ console_rate_limit.burst }}
+{% endif %}
+
+# File descriptor limit for journal clients (services writing to journal).
+# Increase for systems with many concurrent services.
+{% if max_file_descriptors %}# Max file descriptors for journal clients:
+MaxFileDescriptors={{ max_file_descriptors }}
+{% endif %}
+
+# Enable binary journal stream output (for tools like `journalctl -o export`).
+# Set to 'no' if you want to restrict machine-readable export.
+{% if binary_stream %}# Binary stream output:
+BinaryStream={{ binary_stream | lower }}
+{% endif %}
+
+# List of additional fields to include in journal entries.
+# Each item defines a field name and value to append to all entries.
+# Example: [{'name': 'CUSTOM_HOST', 'value': 'prod-web-01'}]
+{% for field in extra_fields %}# Custom field: {{ field.name }}={{ field.value }}
+{{ field.name | upper }}={{ field.value }}
+{% endfor %}
+
+# List of device or mount paths to monitor for journal storage (e.g., external disks).
+# When any path becomes unavailable, journaling switches to volatile mode.
+{% for path in storage_monitored_paths %}# Monitor path for storage health: {{ path }}
+MonitorStorage={{ path }}
+{% endfor %}
+
+# Enable timestamp format: ' monotonic' (relative to boot), ' us' (microseconds), ' iso', ' iso-legacy', ' short', ' short-precise', ' full' (default).
+TimestampFormat={{ timestamp_format }}
+
+# Use wallclock time (real-time) vs. monotonic clock for journal timestamps.
+# 'yes' aligns with system clock; 'wall' (default) is recommended.
+UseWallClock={{ use_wall_clock }}
+
+# Directory where runtime state (e.g., journal headers) is stored (usually /run/systemd/journal).
+{% if runtime_state_dir %}# Runtime state directory:
+RuntimeStateDirectory={{ runtime_state_dir }}
+{% endif %}
+
+# Path to journal socket (for client applications to submit logs).
+# Usually /run/systemd/journal/stdout and /run/systemd/journal/socket.
+{% if journal_socket %}# Journal client socket path:
+Socket={{ journal_socket }}
+{% endif %}
+
+# Path to stdout socket (for services using StandardOutput=syslog).
+{% if stdout_socket %}# Standard output socket path:
+StdoutSocket={{ stdout_socket }}
+{% endif %}
+
+# Enable JSON journal output format for remote forwarding (e.g., to syslog-ng).
+# Only effective if ForwardToSyslog=yes.
+{% if json %}# Enable JSON forwarding format:
+JSON={{ json | lower }}
+{% endif %}
+
+# Maximum number of entries to include in a single forwarded batch (JSON mode).
+{% if json_max_entries %}# JSON batch size:
+JSONMaxEntries={{ json_max_entries }}
+{% endif %}
+
+# Enable journal compression in remote forwarding (JSON mode only).
+{% if json_compress %}# JSON compression:
+JSONCompress={{ json_compress | lower }}
+{% endif %}
+
+# Enable sealing of forwarded journal batches (requires keys).
+{% if json_seal %}# JSON sealing:
+JSONSeal={{ json_seal | lower }}
+{% endif %}
+
+# List of CIDR blocks allowed to send journal data via UDP/TCP.
+# Used when `Stream=` is set to a network address.
+{% for cidr in rate_limit_allowed_ips %}# Allow remote logging from subnet: {{ cidr }}
+RateLimitAllowedIPs={{ cidr }}
+{% endfor %}
+
+# Number of worker threads for journal processing.
+# Increase for very high log volumes (e.g., containers, microservices).
+{% if workers %}# Worker threads:
+Workers={{ workers }}
+{% endif %}
+
+# Enable journal deduplication (coalesce identical consecutive messages).
+# Reduces size but may hide transient issues.
+Deduplicate={{ deduplicate | lower }}
+
+# Maximum number of duplicate messages suppressed before resuming logging.
+{% if dedup_max_size %}# Deduplication buffer size:
+DedupMaxSize={{ dedup_max_size }}
+{% endif %}
+
+# Enable immediate sync of metadata changes (metadata = journal headers, etc).
+# 'yes' ensures consistency at cost of performance.
+ImmediateFlush={{ immediate_flush | lower }}
+
+# Include kernel ring buffer (dmesg) in journal — requires `kmsg` device.
+ForwardToKMsg={{ forward_to_kmsg | lower }}
+
+# Forward journal entries to systemd-journal-remote service (if running).
+# Set `Remote=` to enable sending to remote journald.
+{% if remote_journal_enabled %}# Remote journal forwarding:
+Remote={{ remote_journal_enabled | lower }}
+{% if remote_journal_host %}RemoteHost={{ remote_journal_host }}
+RemotePort={{ remote_journal_port }}
+{% endif %}
+{% endif %}
+
+# Path to TLS certificate and key for encrypted remote journal forwarding.
+{% if tls_cert_path %}# TLS configuration for remote forwarding:
+TLSCertificate={{ tls_cert_path }}
+{% endif %}
+{% if tls_key_path %}TLSCertificateKey={{ tls_key_path }}
+{% endif %}
+{% if tls_ca_file %}TLSCertificateAuthority={{ tls_ca_file }}
+{% endif %}
+
+# Set TLS mode: 'yes' (require), 'anon' (anonymous), 'try' (optional), 'no'.
+{% if tls_mode %}TLSCipherSuite={{ tls_cipher_suite | default('DEFAULT') }}
+TLSServerPriority={{ tls_server_priority | default('NORMAL') }}
+TLSCertificateVerification={{ tls_mode }}
+{% endif %}
+
+# Maximum size of the in-memory journal buffer (bytes or suffixes).
+# Larger buffers reduce disk I/O but increase memory usage.
+BufferSize={{ buffer_size }}
+
+# Maximum number of concurrent clients (e.g., services writing to journal).
+# Default 4096; increase on large systems.
+{% if max_clients %}# Max concurrent clients:
+MaxClients={{ max_clients }}
+{% endif %}
+
+# Maximum number of connections to remote syslog or journald.
+{% if max_connections %}# Max remote connections:
+MaxConnections={{ max_connections }}
+{% endif %}
+
+# Enable journal hints (e.g., for `journalctl --since` optimizations).
+# Usually safe to leave enabled.
+Hints={{ hints | lower }}
+
+# Path to file containing custom journald drop-in config fragments.
+# Drop-ins in /etc/systemd/journald.conf.d/ override main config.
+{% if drop_in_dir %}# Drop-in directory:
+DropInDirectory={{ drop_in_dir }}
+{% endif %}

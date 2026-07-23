@@ -1,0 +1,80 @@
+[DEFAULT]
+# Global configuration parameters
+Log_Level = {{ log_level }}
+
+# NFS protocol versions to enable
+Protocols = {% for proto in protocols %}{{ proto }}{% if not loop.last %}, {% endif %}{% endfor %}
+
+# Network transport protocols to use
+Transports = {% for proto in transports %}{{ proto }}{% if not loop.last %}, {% endif %}{% endfor %}
+
+# Grace period duration (seconds)
+Grace_Period = {{ grace_period }}
+
+# Enable file locking support
+Enable_Locking = {{ enable_locking }}
+
+# Enable RPC security (GSSAPI/Kerberos)
+Enable_GSS = {{ enable_gss }}
+
+[EXPORT_DEFAULT]
+# Default export options applied to all exports
+# Export ID must be set per export section below
+
+# Filesystem access path (exported root)
+Path = {{ export_default.path }}
+
+# Client access list: comma-separated hosts/subnets or 'rw', 'ro' permissions
+# Use * for all clients (not recommended for production)
+Clients = {% for client in export_default.clients %}{{ client }}{% if not loop.last %}, {% endif %}{% endfor %}
+
+# Enable pseudo-RPNS (virtual namespace)
+Pseudo = {{ export_default.pseudo }}
+
+# Enable asynchronous operations
+Access_Async = {{ export_default.access_async }}
+
+# Squash UIDs/GIDs (none, root, all)
+Squash = {{ export_default.squash }}
+
+# Filesystem export flags (e.g., No_Sync, No_Atomic_Write)
+FSAL_Flag = {% for flag in export_default.fsal_flags %}{{ flag }}{% if not loop.last %}, {% endif %}{% endfor %}
+
+# Optional: export name override (used in RPC and client-visible paths)
+# If not set, defaults to export_id
+# Name = {{ export_default.name }}
+
+{% for export in exports %}
+[EXPORT{{ export.export_id }}]
+# Export #{{ export.export_id }}: {{ export.description | default('User-defined export') }}
+Path = {{ export.path }}
+
+# Clients allowed to mount this export
+Clients = {% for client in export.clients %}{{ client }}{% if not loop.last %}, {% endif %}{% endfor %}
+
+# Override export defaults (optional fields)
+{% if export.pseudo is defined %}Pseudo = {{ export.pseudo }}{% endif %}
+{% if export.squash is defined %}Squash = {{ export.squash }}{% endif %}
+{% if export.fsal_flags is defined %}FSAL_Flag = {% for flag in export.fsal_flags %}{{ flag }}{% if not loop.last %}, {% endif %}{% endfor %}{% endif %}
+{% if export.access_async is defined %}Access_Async = {{ export.access_async }}{% endif %}
+
+[EXPORT{{ export.export_id }}/FSAL]
+# Filesystem Abstraction Layer configuration for export #{{ export.export_id }}
+Name = {{ export.fsal.name }}
+{% if export.fsal.name == 'VFS' %}
+# VFS FSAL options
+{% if export.fsal.fs_id is defined %}Filesystem = {{ export.fsal.fs_id }}{% endif %}
+{% if export.fsal.root_id is defined %}Root_Id = {{ export.fsal.root_id }}{% endif %}
+{% if export.fsal.xattr_name is defined %}Xattr_Name = {{ export.fsal.xattr_name }}{% endif %}
+{% endif %}
+{% if export.fsal.name == 'CEPH' %}
+# Ceph FSAL options
+Ceph_Conf = {{ export.fsal.ceph_conf }}
+User_Id = {{ export.fsal.user_id }}
+{% if export.fsal.cluster is defined %}Cluster = {{ export.fsal.cluster }}{% endif %}
+{% endif %}
+{% if export.fsal.name == 'LUSTRE' %}
+# Lustre FSAL options
+Lustre_LNet_LPID = {{ export.fsal.lnet_lpid }}
+{% endif %}
+{% endfor %}

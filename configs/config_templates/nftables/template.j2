@@ -1,0 +1,156 @@
+#!/usr/sbin/nft -f
+
+# Flush existing ruleset to ensure clean slate
+flush ruleset
+
+# Define variables for commonly reused values
+{% for var in vars %}
+{% if var.comment %}# {{ var.comment }}
+{% endif %}{% if var.type == 'string' %}define {{ var.name }} = "{{ var.value }}"
+{% else %}define {{ var.name }} = {{ var.value }}
+{% endif %}
+{% endfor %}
+
+# Table: filter (IPv4)
+table inet filter {
+{% if chains.filter_inet.input.enabled %}
+  # Input chain: handle all incoming packets
+  chain input {
+    type filter hook input priority 0; policy {% if chains.filter_inet.input.default_policy %}{{ chains.filter_inet.input.default_policy }}{% else %}drop{% endif %};
+
+{% for rule in chains.filter_inet.input.rules %}
+{% if rule.comment %}    # {{ rule.comment }}
+{% endif %}{% if rule.action == 'accept' and rule.protocol == 'icmp' %}    icmp type echo-request accept
+{% elif rule.action == 'accept' and rule.protocol == 'icmpv6' %}    icmpv6 type echo-request accept
+{% elif rule.action == 'accept' and rule.protocol == 'tcp' and rule.port %}    tcp dport {{ rule.port }} accept
+{% elif rule.action == 'accept' and rule.protocol == 'udp' and rule.port %}    udp dport {{ rule.port }} accept
+{% elif rule.action == 'accept' and rule.protocol == 'tcp' and rule.ports %}
+{% for p in rule.ports %}    tcp dport {{ p }} accept
+{% endfor %}
+{% elif rule.action == 'drop' and rule.protocol == 'tcp' and rule.port %}    tcp dport {{ rule.port }} drop
+{% elif rule.action == 'accept' and rule.comment == 'established/related' %}    ct state established,related accept
+{% elif rule.action == 'accept' and rule.protocol is none %}    accept
+{% endif %}
+{% endfor %}
+    iifname "lo" accept
+{% if chains.filter_inet.input.drop_invalid %}    ct state invalid drop
+{% endif %}
+  }
+{% endif %}
+
+{% if chains.filter_inet.forward.enabled %}
+  # Forward chain: handle forwarded packets (router/NAT use)
+  chain forward {
+    type filter hook forward priority 0; policy {% if chains.filter_inet.forward.default_policy %}{{ chains.filter_inet.forward.default_policy }}{% else %}drop{% endif %};
+
+{% for rule in chains.filter_inet.forward.rules %}
+{% if rule.comment %}    # {{ rule.comment }}
+{% endif %}{% if rule.action == 'accept' and rule.protocol == 'icmp' %}    icmp type echo-request accept
+{% elif rule.action == 'accept' and rule.protocol == 'icmpv6' %}    icmpv6 type echo-request accept
+{% elif rule.action == 'accept' and rule.protocol == 'tcp' and rule.port %}    tcp dport {{ rule.port }} accept
+{% elif rule.action == 'accept' and rule.protocol == 'udp' and rule.port %}    udp dport {{ rule.port }} accept
+{% elif rule.action == 'drop' and rule.protocol == 'tcp' and rule.port %}    tcp dport {{ rule.port }} drop
+{% elif rule.action == 'accept' and rule.comment == 'established/related' %}    ct state established,related accept
+{% elif rule.action == 'accept' and rule.protocol is none %}    accept
+{% endif %}
+{% endfor %}
+    iifname "lo" accept
+{% if chains.filter_inet.forward.drop_invalid %}    ct state invalid drop
+{% endif %}
+  }
+{% endif %}
+
+{% if chains.filter_inet.output.enabled %}
+  # Output chain: handle all outgoing packets
+  chain output {
+    type filter hook output priority 0; policy {% if chains.filter_inet.output.default_policy %}{{ chains.filter_inet.output.default_policy }}{% else %}accept{% endif %};
+
+{% for rule in chains.filter_inet.output.rules %}
+{% if rule.comment %}    # {{ rule.comment }}
+{% endif %}{% if rule.action == 'accept' and rule.protocol == 'icmp' %}    icmp type echo-request accept
+{% elif rule.action == 'accept' and rule.protocol == 'icmpv6' %}    icmpv6 type echo-request accept
+{% elif rule.action == 'accept' and rule.protocol == 'tcp' and rule.port %}    tcp dport {{ rule.port }} accept
+{% elif rule.action == 'accept' and rule.protocol == 'udp' and rule.port %}    udp dport {{ rule.port }} accept
+{% elif rule.action == 'drop' and rule.protocol == 'tcp' and rule.port %}    tcp dport {{ rule.port }} drop
+{% elif rule.action == 'accept' and rule.comment == 'established/related' %}    ct state established,related accept
+{% elif rule.action == 'accept' and rule.protocol is none %}    accept
+{% endif %}
+{% endfor %}
+    oifname "lo" accept
+{% if chains.filter_inet.output.drop_invalid %}    ct state invalid drop
+{% endif %}
+  }
+{% endif %}
+}
+
+# Table: nat (IPv4 & IPv6 NAT)
+table ip nat {
+{% if chains.nat_postrouting %}
+  # Postrouting chain: SNAT/Masquerade
+  chain postrouting {
+    type nat hook postrouting priority 100; policy accept;
+{% for rule in chains.nat_postrouting %}
+{% if rule.comment %}    # {{ rule.comment }}
+{% endif %}{% if rule.action == 'masquerade' %}    oifname "{{ rule.ifname }}" masquerade
+{% elif rule.action == 'snat' and rule.to_address %}    ip saddr {{ rule.src_cidr | default('0.0.0.0/0') }} snat to {{ rule.to_address }}
+{% endif %}
+{% endfor %}
+  }
+{% endif %}
+
+{% if chains.nat_prerouting %}
+  # Prerouting chain: DNAT/Port forwarding
+  chain prerouting {
+    type nat hook prerouting priority -100; policy accept;
+{% for rule in chains.nat_prerouting %}
+{% if rule.comment %}    # {{ rule.comment }}
+{% endif %}{% if rule.action == 'dnat' and rule.to_address and rule.port %}
+{% if rule.protocol %}    {{ rule.protocol | default('tcp') }} dport {{ rule.port }} dnat to {{ rule.to_address }}{% if rule.to_port %}:{{ rule.to_port }}{% endif %}
+{% else %}    dnat to {{ rule.to_address }}{% if rule.to_port %}:{{ rule.to_port }}{% endif %}
+{% endif %}
+{% endif %}
+{% endfor %}
+  }
+{% endif %}
+}
+
+# Table: filter (IPv6 only, if needed)
+table inet filter6 {
+{% if chains.filter6.enabled %}
+  chain input {
+    type filter hook input priority 0; policy {% if chains.filter6.default_policy %}{{ chains.filter6.default_policy }}{% else %}drop{% endif %};
+    iifname "lo" accept
+    icmpv6 type echo-request accept
+{% for rule in chains.filter6.rules %}
+{% if rule.comment %}    # {{ rule.comment }}
+{% endif %}{% if rule.action == 'accept' and rule.protocol == 'tcp' and rule.port %}    tcp dport {{ rule.port }} accept
+{% elif rule.action == 'accept' and rule.protocol == 'udp' and rule.port %}    udp dport {{ rule.port }} accept
+{% elif rule.action == 'drop' and rule.protocol == 'tcp' and rule.port %}    tcp dport {{ rule.port }} drop
+{% endif %}
+{% endfor %}
+    ct state established,related accept
+    ct state invalid drop
+  }
+
+  chain forward {
+    type filter hook forward priority 0; policy {% if chains.filter6.default_policy %}{{ chains.filter6.default_policy }}{% else %}drop{% endif %};
+    iifname "lo" accept
+    icmpv6 type echo-request accept
+{% for rule in chains.filter6.forward_rules %}
+{% if rule.comment %}    # {{ rule.comment }}
+{% endif %}{% if rule.action == 'accept' and rule.protocol == 'tcp' and rule.port %}    tcp dport {{ rule.port }} accept
+{% elif rule.action == 'accept' and rule.protocol == 'udp' and rule.port %}    udp dport {{ rule.port }} accept
+{% elif rule.action == 'drop' and rule.protocol == 'tcp' and rule.port %}    tcp dport {{ rule.port }} drop
+{% endif %}
+{% endfor %}
+    ct state established,related accept
+    ct state invalid drop
+  }
+
+  chain output {
+    type filter hook output priority 0; policy {% if chains.filter6.default_policy %}{{ chains.filter6.default_policy }}{% else %}accept{% endif %};
+    oifname "lo" accept
+    icmpv6 type echo-request accept
+  }
+{% endif %}
+}

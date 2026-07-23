@@ -1,0 +1,30 @@
+# SELinux local policy management configuration
+# This file controls defaults and behavior of semanage(8) and related tools.
+# See semanage.conf(5) for details.
+# Enable logging of semanage operations
+log_level = {{ log_level }}
+
+# Path to the SELinux policy store (read-only, managed by policy modules)
+policy_store = {{ policy_store }}
+
+# Local policy store directory — where local (non-module) changes are stored
+local_store = {{ local_store }}
+
+# Whether to use DBM (Berkeley DB) for fast lookups (true/false)
+use_dbm = {{ use_dbm }}
+
+# Maximum size (in bytes) for in-memory caches
+# Set to 0 for unlimited
+max_cache_size = {{ max_cache_size }}
+
+# List of additional directories to search for custom semanage configuration fragments
+# These are processed in alphabetical order and can override defaults
+{% for fragment_dir in fragment_dirs %}# Configuration fragment directory: {{ fragment_dir }}
+fragment_dir = {{ fragment_dir }}
+{% endfor %}
+
+# Default boolean values to apply during policy reload (optional override)
+# Format: boolean_name = value (true|false)
+{% for bool_setting in boolean_defaults %}# Set boolean '{{ bool_setting.name }}' to '{{ bool_setting.value }}' on reload
+bool {{ bool_setting.name }} = {{ bool_setting.value }}
+{% endfor %}

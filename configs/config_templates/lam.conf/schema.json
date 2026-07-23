@@ -1,0 +1,178 @@
+{
+  "config_dir": {
+    "type": "string",
+    "default": "/etc/ldap-account-manager/config",
+    "description": "Absolute path to the directory containing module-specific configuration files."
+  },
+  "ldap_host": {
+    "type": "string",
+    "default": "localhost",
+    "description": "LDAP server hostname or IP address. Optionally include port (e.g., 'ldap.example.com:389')."
+  },
+  "ldap_port": {
+    "type": "number",
+    "default": 389,
+    "description": "LDAP server port. Only used if port is not embedded in ldap_host. 389 for LDAP, 636 for LDAPS."
+  },
+  "ldap_base": {
+    "type": "string",
+    "default": "dc=example,dc=com",
+    "description": "The base distinguished name (DN) for LDAP searches."
+  },
+  "ldap_binddn": {
+    "type": "string",
+    "default": "cn=admin,dc=example,dc=com",
+    "description": "DN of the account used to bind to the LDAP directory for read/write operations."
+  },
+  "ldap_bindpw": {
+    "type": "string",
+    "default": "",
+    "description": "Password for the bind DN. Recommended to use a service account with minimal required privileges."
+  },
+  "ldap_usetls": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable TLS (via STARTTLS) for unencrypted LDAP connections."
+  },
+  "ldap_cacertfile": {
+    "type": "string",
+    "default": "",
+    "description": "Absolute path to the CA certificate file to verify LDAPS/TLS server certificates. Leave empty to skip verification (not recommended)."
+  },
+  "ldap_version": {
+    "type": "number",
+    "default": 3,
+    "description": "LDAP protocol version. Must be 3 for modern servers."
+  },
+  "ldap_timeout": {
+    "type": "number",
+    "default": 10,
+    "description": "Timeout in seconds for LDAP operations (connection and search)."
+  },
+  "default_lang": {
+    "type": "string",
+    "default": "en",
+    "description": "Default language for the web interface (ISO 639-1 two-letter code)."
+  },
+  "supported_languages": {
+    "type": "list",
+    "default": [
+      "en",
+      "de",
+      "fr",
+      "es",
+      "nl",
+      "it",
+      "pt",
+      "ja",
+      "zh",
+      "ru"
+    ],
+    "items": {
+      "type": "string"
+    },
+    "description": "List of languages supported by the web interface (comma-separated ISO 639-1 codes)."
+  },
+  "log_level": {
+    "type": "number",
+    "default": 1,
+    "description": "Logging verbosity: 0=none, 1=errors, 2=warnings, 3=info, 4=debug."
+  },
+  "log_file": {
+    "type": "string",
+    "default": "",
+    "description": "Absolute path to the log file. If empty, logs go to syslog (recommended in containerized environments)."
+  },
+  "session_lifetime": {
+    "type": "number",
+    "default": 3600,
+    "description": "Session lifetime in seconds before requiring re-authentication."
+  },
+  "session_secure": {
+    "type": "bool",
+    "default": true,
+    "description": "Set session cookie as 'Secure' (only sent over HTTPS). Required for production."
+  },
+  "https_required": {
+    "type": "bool",
+    "default": true,
+    "description": "Enforce HTTPS access to the admin interface. Disable only for local development."
+  },
+  "allowed_ips": {
+    "type": "list",
+    "default": [],
+    "items": {
+      "type": "string"
+    },
+    "description": "List of allowed IP addresses or CIDR ranges for admin access. Empty list means allow all (not recommended)."
+  },
+  "max_login_attempts": {
+    "type": "number",
+    "default": 5,
+    "description": "Maximum number of consecutive failed login attempts before account lockout."
+  },
+  "lockout_duration": {
+    "type": "number",
+    "default": 900,
+    "description": "Lockout duration in seconds after exceeding max_login_attempts."
+  },
+  "password_policy_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable enforcement of password complexity rules for new/changed passwords."
+  },
+  "min_password_length": {
+    "type": "number",
+    "default": 12,
+    "description": "Minimum password length required."
+  },
+  "require_uppercase": {
+    "type": "bool",
+    "default": true,
+    "description": "Require at least one uppercase letter in passwords."
+  },
+  "require_lowercase": {
+    "type": "bool",
+    "default": true,
+    "description": "Require at least one lowercase letter in passwords."
+  },
+  "require_digit": {
+    "type": "bool",
+    "default": true,
+    "description": "Require at least one digit in passwords."
+  },
+  "require_special": {
+    "type": "bool",
+    "default": false,
+    "description": "Require at least one special character in passwords."
+  },
+  "enabled_modules": {
+    "type": "list",
+    "default": [
+      "users",
+      "groups"
+    ],
+    "items": {
+      "type": "string"
+    },
+    "description": "List of LAM modules to enable. Common modules: users, groups, hosts, nfs, smb, sudo, ssh, printers, mail."
+  },
+  "modules_config": {
+    "type": "list",
+    "default": [],
+    "items": {
+      "type": "object",
+      "fields": {
+        "module": {
+          "type": "string",
+          "description": "Name of the module (e.g., 'smb', 'sudo')."
+        },
+        "config": {
+          "type": "object",
+          "description": "Key-value configuration for the module (module-specific)."
+        }
+      }
+    },
+    "description": "Array of module-specific configurations. Each element defines a module name and its config options."
+  }
+}

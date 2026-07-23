@@ -1,0 +1,109 @@
+{
+  "bind_address": {
+    "type": "string",
+    "default": "0.0.0.0",
+    "description": "IP address the daemon binds to (e.g., '127.0.0.1' for localhost only, or '0.0.0.0' for all interfaces)."
+  },
+  "bind_port": {
+    "type": "number",
+    "default": 8443,
+    "description": "TCP port for incoming connections (must be \u22651024 unless running as root)."
+  },
+  "private_key_path": {
+    "type": "string",
+    "default": "/etc/kxd/keys/server.key",
+    "description": "Absolute path to the server\u2019s private key file (PEM format)."
+  },
+  "certificate_path": {
+    "type": "string",
+    "default": "/etc/kxd/keys/server.crt",
+    "description": "Absolute path to the server\u2019s public certificate file (PEM format)."
+  },
+  "max_connections": {
+    "type": "number",
+    "default": 1000,
+    "description": "Maximum number of concurrent client connections allowed."
+  },
+  "connection_timeout": {
+    "type": "number",
+    "default": 30,
+    "description": "Idle connection timeout in seconds before the server closes it."
+  },
+  "mtls_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable mutual TLS: require clients to present a valid certificate signed by a trusted CA."
+  },
+  "log_level": {
+    "type": "string",
+    "default": "info",
+    "description": "Logging verbosity level (debug, info, warn, error)."
+  },
+  "log_file": {
+    "type": "string",
+    "default": "-",
+    "description": "Path to log file (use '-' to log to stdout/stderr)."
+  },
+  "cipher_suites": {
+    "type": "list",
+    "default": [],
+    "description": "Ordered list of allowed TLS cipher suites. Leave empty to use defaults.",
+    "items": {
+      "type": "string",
+      "description": "A valid TLS cipher suite name (e.g., 'TLS_AES_256_GCM_SHA384', 'ECDHE-RSA-AES128-GCM-SHA256')."
+    }
+  },
+  "trusted_ca_certs": {
+    "type": "list",
+    "default": [],
+    "description": "List of additional CA certificate paths for mTLS validation (e.g., client CA).",
+    "items": {
+      "type": "string",
+      "description": "Absolute path to a trusted CA certificate file (PEM format)."
+    }
+  },
+  "client_hostname_whitelist": {
+    "type": "list",
+    "default": [],
+    "description": "Whitelist of allowed client certificate Common Names (CN) \u2014 used only if mtls_enabled = true.",
+    "items": {
+      "type": "string",
+      "description": "Allowed hostname or FQDN matching the client cert CN."
+    }
+  },
+  "psk_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable Pre-Shared Key (PSK) mode as an alternative to mTLS."
+  },
+  "psk_identity": {
+    "type": "string",
+    "default": "kxd-default",
+    "description": "PSK identity string used for client identification (ignored if psk_enabled = false)."
+  },
+  "psk_secret_path": {
+    "type": "string",
+    "default": "/etc/kxd/psk/secret.key",
+    "description": "Path to file containing the PSK (raw hex or base64, depending on kxd implementation)."
+  },
+  "session_timeout": {
+    "type": "number",
+    "default": 3600,
+    "description": "TLS session resumption timeout in seconds (0 = disable session caching)."
+  },
+  "rate_limit_rpm": {
+    "type": "number",
+    "default": 60,
+    "description": "Maximum key exchange requests allowed per minute per client IP address."
+  },
+  "experimental_key_rotation": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable automatic key rotation (experimental)."
+  },
+  "experimental_pfs_only": {
+    "type": "bool",
+    "default": true,
+    "description": "Enforce perfect forward secrecy \u2014 only allow ECDHE/DHE key exchanges."
+  }
+}

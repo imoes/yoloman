@@ -1,0 +1,243 @@
+{
+  "workgroup": {
+    "type": "string",
+    "default": "EXAMPLE",
+    "description": "NetBIOS workgroup or domain name (must match realm in uppercase)"
+  },
+  "realm": {
+    "type": "string",
+    "default": "EXAMPLE.COM",
+    "description": "Kerberos realm name (fully qualified domain name, uppercase)"
+  },
+  "netbios_name": {
+    "type": "string",
+    "default": "DC1",
+    "description": "NetBIOS name of this domain controller"
+  },
+  "server_services": {
+    "type": "list",
+    "default": [
+      "smb",
+      "kdc",
+      "ldap",
+      "ldap-dc",
+      "rpcproxy",
+      "dnsupdate"
+    ],
+    "description": "List of core services to start (required for AD DC operation)",
+    "items": {
+      "type": "string",
+      "enum": [
+        "smb",
+        "kdc",
+        "ldap",
+        "ldap-dc",
+        "rpcproxy",
+        "dnsupdate",
+        "ndrdraft",
+        "winbind"
+      ]
+    }
+  },
+  "log_level": {
+    "type": "string",
+    "default": "2",
+    "description": "Samba log verbosity level (0=none, 10=debug). 2\u20133 is typical for production"
+  },
+  "log_file": {
+    "type": "string",
+    "default": "/var/log/samba/log.%m",
+    "description": "Log file path (supports %m macro for per-machine logs)"
+  },
+  "max_log_size": {
+    "type": "number",
+    "default": 5000,
+    "description": "Maximum size (in KiB) per log file before rotation"
+  },
+  "dns_forwarder": {
+    "type": "string",
+    "default": "8.8.8.8",
+    "description": "DNS forwarder for Samba\u2019s internal DNS server (e.g., upstream DNS server)"
+  },
+  "dcerpc_endpoint_servers": {
+    "type": "list",
+    "default": [
+      "remote",
+      "samr",
+      "lsarpc",
+      "epmapper",
+      "dpss"
+    ],
+    "description": "DCERPC endpoints to expose; avoid exposing unnecessary ones for security"
+  },
+  "dns_backend": {
+    "type": "string",
+    "default": "SAMBA_INTERNAL",
+    "description": "DNS backend type. Use 'SAMBA_INTERNAL' for built-in DNS; 'BIND9_DLZ' for BIND9 integration"
+  },
+  "min_password_length": {
+    "type": "number",
+    "default": 12,
+    "description": "Minimum number of characters required for new passwords (recommend \u226512)"
+  },
+  "password_complexity": {
+    "type": "string",
+    "default": "Strong",
+    "description": "Password complexity policy ('None', 'Weak', 'Strong')"
+  },
+  "password_history": {
+    "type": "number",
+    "default": 24,
+    "description": "Number of previous passwords to remember (to prevent reuse)"
+  },
+  "logon_script": {
+    "type": "string",
+    "default": "logon.bat",
+    "description": "Default logon script name (placed in sysvol)"
+  },
+  "logon_path": {
+    "type": "string",
+    "default": "\\\\%N\\profiles\\%U",
+    "description": "Path to roaming profiles (UNC format)"
+  },
+  "logon_drive": {
+    "type": "string",
+    "default": "H:",
+    "description": "Drive letter for home/profile share (e.g., 'H:' or '' for none)"
+  },
+  "max_connections": {
+    "type": "number",
+    "default": 100,
+    "description": "Maximum number of simultaneous connections allowed"
+  },
+  "socket_options": {
+    "type": "list",
+    "default": [
+      "TCP_NODELAY",
+      "SO_RCVBUF=131072",
+      "SO_SNDBUF=131072"
+    ],
+    "description": "TCP/IP socket options for performance tuning"
+  },
+  "read_raw": {
+    "type": "boolean",
+    "default": true,
+    "description": "Enable/disable raw read operations (improves throughput)"
+  },
+  "write_raw": {
+    "type": "boolean",
+    "default": true,
+    "description": "Enable/disable raw write operations"
+  },
+  "aio_max_threads": {
+    "type": "number",
+    "default": 10,
+    "description": "Max threads for asynchronous I/O (adjust based on I/O workload)"
+  },
+  "server_signing": {
+    "type": "string",
+    "default": "required",
+    "description": "SMB signing requirement for incoming connections ('auto', 'disabled', 'required')"
+  },
+  "client_signing": {
+    "type": "string",
+    "default": "required",
+    "description": "SMB signing requirement for outgoing client connections"
+  },
+  "server_min_protocol": {
+    "type": "string",
+    "default": "SMB2_10",
+    "description": "Minimum SMB protocol version supported (avoid NT1 for security)"
+  },
+  "client_min_protocol": {
+    "type": "string",
+    "default": "SMB2_10",
+    "description": "Minimum SMB protocol version clients may use"
+  },
+  "ntlm_auth": {
+    "type": "boolean",
+    "default": false,
+    "description": "Allow NTLM authentication (disabled recommended; legacy clients only)"
+  },
+  "netlogon_path": {
+    "type": "string",
+    "default": "/var/lib/samba/sysvol/{{ realm | lower | replace('.', '\\\\') }}/scripts",
+    "description": "Filesystem path to NETLOGON share (auto-generated from realm)"
+  },
+  "sysvol_path": {
+    "type": "string",
+    "default": "/var/lib/samba/sysvol",
+    "description": "Filesystem path to SYSVOL share"
+  },
+  "shares": {
+    "type": "list",
+    "default": [],
+    "description": "List of custom shares (e.g., for data, departments)",
+    "items": {
+      "type": "object",
+      "fields": {
+        "name": {
+          "type": "string",
+          "description": "Share name (valid identifier, no spaces)",
+          "required": true
+        },
+        "comment": {
+          "type": "string",
+          "description": "Human-readable description of the share"
+        },
+        "path": {
+          "type": "string",
+          "description": "Absolute filesystem path for the share",
+          "required": true
+        },
+        "read_only": {
+          "type": "boolean",
+          "description": "If true, users can only read; if false, write access granted",
+          "default": false
+        },
+        "browsable": {
+          "type": "boolean",
+          "description": "Whether the share appears in directory listings",
+          "default": true
+        },
+        "guest_ok": {
+          "type": "boolean",
+          "description": "Allow guest access (not recommended for AD DC shares)",
+          "default": false
+        },
+        "write_list": {
+          "type": "list",
+          "description": "List of users/groups (e.g., 'DOMAIN\\user1', '@DOMAIN\\group') allowed to write",
+          "items": {
+            "type": "string"
+          }
+        },
+        "valid_users": {
+          "type": "list",
+          "description": "List of users/groups allowed access (if empty, uses default ACL)",
+          "items": {
+            "type": "string"
+          }
+        },
+        "force_user": {
+          "type": "string",
+          "description": "Username to force for all file operations (e.g., 'admin' or 'DOMAIN\\admin')"
+        },
+        "force_group": {
+          "type": "string",
+          "description": "Group to force for new files/dirs"
+        },
+        "create_mask": {
+          "type": "string",
+          "description": "Octal mask (e.g., '0644') for new files",
+          "format": "octal"
+        },
+        "directory_mask": {
+          "type": "string",
+          "description": "Octal mask (e.g., '0755') for new directories",
+          "format": "octal"
+        }
+      }
+    }
+  }
+}

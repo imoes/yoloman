@@ -1,0 +1,69 @@
+-- Lsyncd configuration: monitor local directories and sync to remote targets via rsync or rsyncssh
+
+-- Log to syslog for central log management
+logFile = "{{ log_file }}"
+
+-- Log level: 1=none, 2=error, 3=warning, 4=info, 5=debug
+logLevel = {{ log_level }}
+
+-- Maximum events to batch per sync (prevents overload)
+maxProcesses = {{ max_processes }}
+
+-- Delay in seconds before triggering sync after first change (debounce)
+{{#if use_delay}}delay = {{ delay }}{{/if}}{{^use_delay}}-- delay = {{ delay }} (disabled){{/useDelay}}
+
+-- Inotify events to watch; defaults cover typical file ops
+{{#if use_inotify_events}}inotifyEvents = { {{ inotify_events | join(', ') }} }{{/if}}{{^use_inotify_events}}-- inotifyEvents = { ... } (using default: { 'modify', 'move', 'create', 'delete' }){{/useInotifyEvents}}
+
+-- Optional: recursive directory watching
+{{#if use_recursive}}recursive = true{{/if}}{{^use_recursive}}recursive = false{{/useRecursive}}
+
+-- Optional: exclude patterns (list of strings)
+{{#if has_excludes}}exclude = { {{ excludes | map('"{}"' | format) | join(', ') }} }{{/if}}{{^has_excludes}}-- exclude = { ... } (no exclusions){{/hasExcludes}}
+
+-- Optional: rsync options (extra args passed to rsync)
+{{#if has_rsync_options}}rsync = { {{ rsync_options | map('"{}"' | format) | join(', ') }} }{{/if}}{{^has_rsync_options}}-- rsync = { ... } (use defaults){{/hasRsyncOptions}}
+
+-- Sync targets defined below
+{{#for target in targets}}
+-- Sync: {{ target.name }}
+{{#if target.enabled}}sync{
+    default.{{ target.mode }},
+    {{#if target.rsync}}
+    -- Rsync-specific options
+    rsync = {
+        archive   = {{ target.rsync.archive | tojson }},
+        compress  = {{ target.rsync.compress | tojson }},
+        hardlinks   = {{ target.rsync.hardlinks | tojson }},
+        sparse      = {{ target.rsync.sparse | tojson }},
+        whole_file  = {{ target.rsync.whole_file | tojson }},
+        {{#if target.rsync.extra_args}}
+        extra_args  = { {{ target.rsync.extra_args | map('"{}"' | format) | join(', ') }} },
+        {{/if}}
+        {{#if target.rsync.user}}user = "{{ target.rsync.user }}",{{/if}}
+    },
+    {{/if}}
+    {{#if target.rsyncssh}}
+    -- RsyncSSH-specific options (SSH-based sync)
+    rsyncssh = {
+        host     = "{{ target.rsyncssh.host }}",
+        user     = "{{ target.rsyncssh.user }}",
+        port     = {{ target.rsyncssh.port }},
+        identity = "{{ target.rsyncssh.identity }}",
+        path     = "{{ target.rsyncssh.path }}",
+        archive   = {{ target.rsyncssh.archive | tojson }},
+        compress  = {{ target.rsyncssh.compress | tojson }},
+        {{#if target.rsyncssh.extra_args}}
+        extra_args  = { {{ target.rsyncssh.extra_args | map('"{}"' | format) | join(', ') }} },
+        {{/if}}
+    },
+    {{/if}}
+    {{#if target.rsyncssh}}
+    source   = "{{ target.source }}",
+    targetDir = "{{ target.rsyncssh.path }}"
+    {{else if target.rsync}}
+    source   = "{{ target.source }}",
+    target   = "{{ target.rsync.user + '@' + target.rsync.host + ':' if target.rsync.user else '' }}{{ target.rsync.host }}:{{ target.rsync.path }}"
+    {{/if}}
+}
+{{/if}}{{/for}}{{/targets}}

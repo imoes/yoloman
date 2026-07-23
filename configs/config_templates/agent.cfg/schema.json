@@ -1,0 +1,112 @@
+{
+  "enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable the FusionInventory agent to run and send inventory reports."
+  },
+  "debug_level": {
+    "type": "number",
+    "default": 0,
+    "description": "Log verbosity: 0 (quiet), 1 (info), 2 (debug)."
+  },
+  "log_file": {
+    "type": "string",
+    "default": "/var/log/fusioninventory-agent/fusioninventory-agent.log",
+    "description": "Absolute path to the agent log file."
+  },
+  "server_url": {
+    "type": "string",
+    "default": "http://fusioninventory-server/fusioninventory/",
+    "description": "URL of the FusionInventory server to which inventory and task responses are sent."
+  },
+  "inventory_interval": {
+    "type": "number",
+    "default": 3600,
+    "description": "Interval (in seconds) between automatic inventory runs. Set to 0 for on-demand only."
+  },
+  "timeout": {
+    "type": "number",
+    "default": 300,
+    "description": "Maximum time (in seconds) to wait for server connections or agent plugins before timing out."
+  },
+  "user": {
+    "type": "string",
+    "default": "root",
+    "description": "System user account under which the agent processes run (must have sufficient privileges for inventory)."
+  },
+  "group": {
+    "type": "string",
+    "default": "root",
+    "description": "System group under which the agent processes run."
+  },
+  "log_size": {
+    "type": "number",
+    "default": 10,
+    "description": "Maximum log file size (in MB) before rotation. Set to 0 to disable log rotation."
+  },
+  "ssl_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable SSL/TLS encryption for communication with the FusionInventory server."
+  },
+  "ssl_cert_path": {
+    "type": "string",
+    "default": "",
+    "description": "Absolute path to the client certificate (PEM format) for mutual TLS authentication (required if SSL enabled)."
+  },
+  "ssl_key_path": {
+    "type": "string",
+    "default": "",
+    "description": "Absolute path to the client private key (PEM format) corresponding to the certificate."
+  },
+  "ssl_ca_cert_path": {
+    "type": "string",
+    "default": "/etc/ssl/certs/ca-certificates.crt",
+    "description": "Absolute path to the CA certificate bundle used to verify the server\u2019s certificate."
+  },
+  "ssl_allow_self_signed": {
+    "type": "bool",
+    "default": false,
+    "description": "Allow self-signed certificates on the server (insecure; only for test environments)."
+  },
+  "extra_tags": {
+    "type": "list",
+    "default": [],
+    "items": {
+      "type": "string"
+    },
+    "description": "Comma-separated list of tags to attach to all inventory reports from this agent (e.g., 'production', 'webserver')."
+  },
+  "plugins": {
+    "type": "list",
+    "default": [],
+    "items": {
+      "type": "object",
+      "fields": {
+        "name": {
+          "type": "string",
+          "description": "Name of the plugin (e.g., 'inventory', 'netdiscovery', 'networking')."
+        },
+        "enabled": {
+          "type": "bool",
+          "description": "Enable or disable this plugin."
+        },
+        "config": {
+          "type": "object",
+          "description": "Plugin-specific key=value configuration parameters (varies by plugin)."
+        }
+      }
+    },
+    "description": "List of active plugins and their per-plugin configuration. Available plugins: inventory, netdiscovery, network, wakeonlan, esx, etc."
+  },
+  "pre_inventory_cmd": {
+    "type": "string",
+    "default": "",
+    "description": "Shell command to execute before each inventory (e.g., run a backup or cleanup script)."
+  },
+  "post_inventory_cmd": {
+    "type": "string",
+    "default": "",
+    "description": "Shell command to execute after each inventory (e.g., trigger alerting or logging)."
+  }
+}

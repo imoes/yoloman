@@ -1,0 +1,345 @@
+{
+  "logger_severity": {
+    "type": "string",
+    "default": "INFO",
+    "description": "Logging severity level (e.g., DEBUG, INFO, WARN, ERROR, FATAL)"
+  },
+  "logger_debuglevel": {
+    "type": "number",
+    "default": 0,
+    "description": "Debug level (0\u201399); higher values produce more verbose logs"
+  },
+  "control_socket_path": {
+    "type": "string",
+    "default": "/run/kea/dhcp6-ctrl.sock",
+    "description": "Path to the Unix domain socket for KEA control agent communication"
+  },
+  "server_id_type": {
+    "type": "string",
+    "default": "LLT",
+    "description": "Server ID type. Use 'LLT' (Link-layer Address plus Time) or 'EN' (Enterprise Number)"
+  },
+  "server_id_enterprise_id": {
+    "type": "number",
+    "default": 0,
+    "description": "Enterprise number for EN-type server ID (e.g., IANA-assigned value like 5642)"
+  },
+  "server_id_hardware_type": {
+    "type": "number",
+    "default": 1,
+    "description": "Hardware type (for LLT). 1 = Ethernet (IEEE 802.3)"
+  },
+  "server_id_identifier": {
+    "type": "string",
+    "default": "auto",
+    "description": "Identifier string or 'auto' to auto-generate from interface MAC(s)"
+  },
+  "reconfigure_wait_seconds": {
+    "type": "number",
+    "default": 30,
+    "description": "Seconds the server waits before reconfiguring after receiving a SIGHUP"
+  },
+  "interfaces": {
+    "type": "list",
+    "default": [],
+    "items": {
+      "type": "string"
+    },
+    "description": "List of interface names (e.g., ['eth0']) for DHCPv6 traffic"
+  },
+  "interfaces_re_detect": {
+    "type": "bool",
+    "default": true,
+    "description": "If true, re-scan network interfaces at reconfigure time"
+  },
+  "lease_database_type": {
+    "type": "string",
+    "default": "memfile",
+    "description": "Lease backend: 'memfile' (file-based) or 'mysql', 'postgresql', 'cql' for SQL backends"
+  },
+  "lease_database_memfile_name": {
+    "type": "string",
+    "default": "/var/lib/kea/kea-dhcp6.leases",
+    "description": "Path to the IPv6 lease file for memfile backend"
+  },
+  "lease_database_memfile_persist": {
+    "type": "bool",
+    "default": true,
+    "description": "If true, write leases to disk (needed for restart persistence)"
+  },
+  "lease_database_memfile_lfc_interval": {
+    "type": "number",
+    "default": 3600,
+    "description": "Lease file cleanup (LFC) interval in seconds; 0 disables"
+  },
+  "lease_database_host": {
+    "type": "string",
+    "default": "localhost",
+    "description": "Database host (for SQL backends)"
+  },
+  "lease_database_name": {
+    "type": "string",
+    "default": "kea_dhcp6",
+    "description": "Database name (for SQL backends)"
+  },
+  "lease_database_password": {
+    "type": "string",
+    "default": "",
+    "description": "Database password (for SQL backends); leave empty if using system auth"
+  },
+  "lease_database_port": {
+    "type": "number",
+    "default": 5432,
+    "description": "Database port (for SQL backends; default for PostgreSQL)"
+  },
+  "lease_database_user": {
+    "type": "string",
+    "default": "kea_user",
+    "description": "Database user (for SQL backends)"
+  },
+  "subnets": {
+    "type": "list",
+    "default": [],
+    "items": {
+      "type": "object",
+      "fields": {
+        "id": {
+          "type": "number",
+          "default": 1,
+          "description": "Unique subnet identifier (1\u20134294967295)"
+        },
+        "subnet": {
+          "type": "string",
+          "default": "2001:db8:1::/64",
+          "description": "IPv6 subnet in CIDR notation"
+        },
+        "pools": {
+          "type": "list",
+          "default": [],
+          "items": {
+            "type": "object",
+            "fields": {
+              "pool": {
+                "type": "string",
+                "default": "2001:db8:1::1 - 2001:db8:1::ffff",
+                "description": "IPv6 address range or single address in pool (e.g., '2001:db8:1::10 - 2001:db8:1::ff')"
+              }
+            }
+          }
+        },
+        "option_data": {
+          "type": "list",
+          "default": [
+            {
+              "name": "dns-servers",
+              "data": "2001:db8::1,2001:db8::2"
+            },
+            {
+              "name": "domain-search",
+              "data": "example.com"
+            }
+          ],
+          "items": {
+            "type": "object",
+            "fields": {
+              "name": {
+                "type": "string",
+                "default": "dns-servers",
+                "description": "Option name per RFC 8415 or IANA registry (e.g., 'dns-servers')"
+              },
+              "data": {
+                "type": "string",
+                "default": "",
+                "description": "Option value as string (e.g., comma-separated IPs for dns-servers)"
+              },
+              "code": {
+                "type": "number",
+                "default": null,
+                "description": "Option code (numeric override if not using name)"
+              },
+              "space": {
+                "type": "string",
+                "default": "dhcp6",
+                "description": "Option space (usually 'dhcp6')"
+              },
+              "csv_format": {
+                "type": "bool",
+                "default": true,
+                "description": "If true, interpret data as CSV format"
+              }
+            }
+          }
+        },
+        "reservation_mode": {
+          "type": "string",
+          "default": "out-of-pool",
+          "description": "How to handle reservations: 'disabled', 'global', 'out-of-pool', 'all'"
+        },
+        "reservations": {
+          "type": "list",
+          "default": [],
+          "items": {
+            "type": "object",
+            "fields": {
+              "hostname": {
+                "type": "string",
+                "default": "",
+                "description": "Reserved hostname"
+              },
+              "ip_address": {
+                "type": "string",
+                "default": "",
+                "description": "Reserved IPv6 address"
+              },
+              "du_id": {
+                "type": "string",
+                "default": "",
+                "description": "DUID (hex string without 0x prefix) of the client device unit"
+              },
+              "client_id": {
+                "type": "string",
+                "default": "",
+                "description": "Optional client DUID"
+              },
+              "hw_address": {
+                "type": "string",
+                "default": "",
+                "description": "Optional link-layer address (e.g., 'aa:bb:cc:dd:ee:ff')"
+              }
+            }
+          }
+        },
+        "preferred_lifetime": {
+          "type": "number",
+          "default": 3600,
+          "description": "Preferred lifetime (seconds) for addresses in this subnet"
+        },
+        "valid_lifetime": {
+          "type": "number",
+          "default": 7200,
+          "description": "Valid lifetime (seconds) for addresses"
+        },
+        "min_valid_lifetime": {
+          "type": "number",
+          "default": 0,
+          "description": "Minimum acceptable valid lifetime override"
+        },
+        "max_valid_lifetime": {
+          "type": "number",
+          "default": 0,
+          "description": "Maximum acceptable valid lifetime override"
+        },
+        "declined_leases_detection": {
+          "type": "bool",
+          "default": true,
+          "description": "Enable detection and logging of declined addresses (e.g., NAK'd by client)"
+        },
+        "cache_threshold": {
+          "type": "number",
+          "default": 0.0,
+          "description": "Cache threshold (0.0\u20131.0) before flushing leases; 0 disables caching"
+        },
+        "cache_max_age": {
+          "type": "number",
+          "default": 0,
+          "description": "Max age (seconds) for cached entries; 0 means unlimited"
+        }
+      }
+    },
+    "description": "List of IPv6 subnets to serve"
+  },
+  "dhcp_ddns_enable_updates": {
+    "type": "bool",
+    "default": false,
+    "description": "If true, enable dynamic DNS updates (RFC 4704)"
+  },
+  "dhcp_ddns_qualifying_suffix": {
+    "type": "string",
+    "default": "example.com",
+    "description": "Suffix to append to hostnames for DDNS (e.g., 'lan.' or 'example.com')"
+  },
+  "dhcp_ddns_server_ip": {
+    "type": "string",
+    "default": "127.0.0.1",
+    "description": "Primary DDNS server IP (for TSIG-authenticated updates)"
+  },
+  "dhcp_ddns_server_port": {
+    "type": "number",
+    "default": 53,
+    "description": "DDNS server port (usually 53 or 5300 for TSIG)"
+  },
+  "dhcp_ddns_dns_regions": {
+    "type": "list",
+    "default": [],
+    "items": {
+      "type": "object",
+      "fields": {
+        "name": {
+          "type": "string",
+          "default": "default",
+          "description": "Region name (used in zone selection)"
+        },
+        "dns_server_ips": {
+          "type": "list",
+          "default": [
+            "127.0.0.1"
+          ],
+          "items": {
+            "type": "string"
+          },
+          "description": "IP addresses of authoritative DNS servers"
+        },
+        "tsig_keys": {
+          "type": "list",
+          "default": [],
+          "items": {
+            "type": "object",
+            "fields": {
+              "name": {
+                "type": "string",
+                "default": "dhcp6_key",
+                "description": "TSIG key name (e.g., 'dhcp6_key.example.com')"
+              },
+              "algorithm": {
+                "type": "string",
+                "default": "hmac-sha256",
+                "description": "TSIG algorithm (e.g., hmac-sha256, hmac-sha1)"
+              },
+              "secret": {
+                "type": "string",
+                "default": "",
+                "description": "Base64-encoded TSIG secret"
+              }
+            }
+          }
+        }
+      }
+    },
+    "description": "List of DNS regions for DDNS configuration (optional)"
+  },
+  "hooks_libraries": {
+    "type": "list",
+    "default": [],
+    "items": {
+      "type": "object",
+      "fields": {
+        "library": {
+          "type": "string",
+          "default": "",
+          "description": "Path to hook library (e.g., '/usr/lib/kea/hooks/libdhcp_lease_cmds.so')"
+        },
+        "parameters": {
+          "type": "string",
+          "default": "{}",
+          "description": "JSON string of parameters to pass to the hook library"
+        }
+      }
+    },
+    "description": "List of hook libraries to load at startup (e.g., for lease commands)"
+  },
+  "user_context_comment": {
+    "type": "string",
+    "default": "Generated by configuration wizard",
+    "description": "Free-form comment stored in user-context for documentation"
+  }
+}

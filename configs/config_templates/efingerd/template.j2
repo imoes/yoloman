@@ -1,0 +1,59 @@
+# Listen on this host and port
+bind_address: {{ bind_address }}
+port: {{ port }}
+
+# Maximum number of concurrent connections
+max_connections: {{ max_connections }}
+
+# Timeout (in seconds) for client connections
+timeout: {{ timeout }}
+
+# Enable or disable verbose logging
+verbose: {{ verbose }}
+
+# Log file path (empty string for stderr)
+log_file: {{ log_file }}
+
+# Prefix added to all response lines (e.g., for branding or legal notice)
+response_prefix: "{{ response_prefix }}"
+
+# Enable or disable user enumeration (if supported by backend)
+enable_user_enumeration: {{ enable_user_enumeration }}
+
+# Backend module and its configuration
+[backend]
+module: "{{ backend_module }}"
+{% if backend_module == "unix" %}
+# Unix finger backend options
+passwd_file: "{{ backend_passwd_file }}"
+group_file: "{{ backend_group_file }}"
+shell_file: "{{ backend_shell_file }}"
+{% elif backend_module == "ldap" %}
+# LDAP backend options
+ldap_uri: "{{ ldap_uri }}"
+ldap_base_dn: "{{ ldap_base_dn }}"
+ldap_bind_dn: "{{ ldap_bind_dn }}"
+ldap_bind_password: "{{ ldap_bind_password }}"
+ldap_user_filter: "{{ ldap_user_filter }}"
+{% endif %}
+
+# Optional custom response handlers (repeatable)
+{% for handler in custom_handlers %}
+[handler "{{ handler.name }}"]
+command: "{{ handler.command }}"
+enabled: {{ handler.enabled }}
+{% endfor %}
+
+# Rate limiting per IP (optional)
+{% for limit in rate_limits %}
+[rate_limit "{{ limit.name }}"]
+ip: {{ limit.ip }}
+max_per_minute: {{ limit.max_per_minute }}
+{% endfor %}
+
+# TLS/SSL (optional — only if certificate paths provided)
+{% if tls_enabled %}
+[tls]
+cert_file: "{{ tls_cert_file }}"
+key_file: "{{ tls_key_file }}"
+{% endif %}

@@ -1,0 +1,102 @@
+{
+  "config_dir": {
+    "type": "string",
+    "default": "/etc/lemonldap-ng",
+    "description": "Directory containing LemonLDAP::NG configuration files (e.g., lemonldap-ng.ini, domains, vhost.conf)."
+  },
+  "session_dir": {
+    "type": "string",
+    "default": "/var/lib/lemonldap-ng/sessions",
+    "description": "Directory where LemonLDAP::NG stores session files (must be writable by the service user)."
+  },
+  "log_level": {
+    "type": "string",
+    "default": "warning",
+    "description": "Minimum log level for the application. Options: debug, info, notice, warning, error, crit, alert, emerg."
+  },
+  "debug": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable verbose debug output. Should be disabled in production."
+  },
+  "host": {
+    "type": "string",
+    "default": "0.0.0.0",
+    "description": "Network interface address to bind the HTTP/HTTPS server (e.g., 'localhost', '127.0.0.1', or '0.0.0.0' for all interfaces)."
+  },
+  "port": {
+    "type": "number",
+    "default": 8080,
+    "description": "TCP port to listen on for HTTP requests (ignored if using Unix socket)."
+  },
+  "https_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable HTTPS support (requires valid certificate and key files)."
+  },
+  "ssl_cert_file": {
+    "type": "string",
+    "default": "/etc/lemonldap-ng/ssl/cert.pem",
+    "description": "Path to the SSL certificate file (PEM format)."
+  },
+  "ssl_key_file": {
+    "type": "string",
+    "default": "/etc/lemonldap-ng/ssl/key.pem",
+    "description": "Path to the SSL private key file (PEM format)."
+  },
+  "processes": {
+    "type": "number",
+    "default": 2,
+    "description": "Number of uWSGI worker processes to spawn."
+  },
+  "threads": {
+    "type": "number",
+    "default": 4,
+    "description": "Number of threads per worker process (set to 1 if not using threading)."
+  },
+  "uwsgi_socket": {
+    "type": "string",
+    "default": ":8080",
+    "description": "Socket binding: either a TCP address:port (e.g., ':8080') or a Unix socket path (e.g., '/run/lemonldap-ng/lemonldap.sock')."
+  },
+  "master": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable uWSGI master process for better management of workers and signals."
+  },
+  "lazy_apps": {
+    "type": "bool",
+    "default": true,
+    "description": "Load applications in each worker individually to reduce memory via copy-on-write (recommended for LemonLDAP::NG)."
+  },
+  "vacuum": {
+    "type": "bool",
+    "default": true,
+    "description": "Clean up temporary files (e.g., sockets) on shutdown."
+  },
+  "max_memory": {
+    "type": "number",
+    "default": 128,
+    "description": "Maximum memory (in MB) a worker process is allowed to use before being gracefully respawned (helps prevent memory leaks)."
+  },
+  "max_requests": {
+    "type": "number",
+    "default": 5000,
+    "description": "Reload a worker after it handles this many requests (prevents resource exhaustion)."
+  },
+  "harakiri": {
+    "type": "number",
+    "default": 60,
+    "description": "Graceful reload timeout in seconds \u2014 if a request takes longer, the worker is restarted."
+  },
+  "log_file": {
+    "type": "string",
+    "default": "/var/log/lemonldap-ng/lemonldap.log",
+    "description": "Optional file path to redirect logs (ensure the directory exists and is writable)."
+  },
+  "static_map": {
+    "type": "string",
+    "default": "/static=/usr/share/perl5/vendor_perl/auto/share/dist/Lemonldap-NG-Handler/static",
+    "description": "Map URL path to static asset directory (used for serving LemonLDAP::NG's UI assets)."
+  }
+}

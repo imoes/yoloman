@@ -1,0 +1,71 @@
+# Configuration for anacrolix/dms — a lightweight, UPnP/DLNA-compliant media server
+{
+  # Path to the directory to be served as media
+  "root": {{ root | tojson }},
+
+  # Optional: Path to a custom database file (if omitted, in-memory only)
+  "db": {{ db | tojson }},
+
+  # Optional: Path to a file for persisting transcoding cache (improves startup time)
+  "cacheDir": {{ cache_dir | tojson }},
+
+  # Optional: Network interface(s) to bind to (use "0.0.0.0" for all)
+  "interface": {{ interface | tojson }},
+
+  # Optional: UPnP/SSDP listen port (default: 1900)
+  "ssdpPort": {{ ssdp_port }},
+
+  # Optional: HTTP server port for direct media access and transcoding (default: 7890)
+  "http": {{ http | tojson }},
+
+  # Optional: Enable or disable UPnP/SSDP announcement
+  "disableSSDP": {{ not ssdp_enabled }},
+
+  # Optional: Transcoding settings
+  "transcode": {
+    # Enable/disable on-the-fly transcoding (e.g., for clients that don’t support native formats)
+    "enabled": {{ transcode_enabled }},
+    # Default profile for transcoding (e.g., "h264", "webm"), or "none" to disable transcoding entirely
+    "profile": {{ transcode_profile | tojson }},
+    # Optional: Extra FFmpeg arguments (e.g., ["-crf", "23", "-preset", "veryfast"])
+    "extraArgs": {{ transcode_extra_args | tojson }},
+    # Optional: Limit CPU cores used for transcoding (0 = auto)
+    "maxCores": {{ transcode_max_cores }}
+  },
+
+  # Optional: Logging configuration
+  "log": {
+    # Log level: "debug", "info", "warn", "error" (default: "info")
+    "level": {{ log_level | tojson }},
+    # Optional: Path to log file (if omitted, logs to stderr)
+    "file": {{ log_file | tojson }}
+  },
+
+  # Optional: Device-specific tuning — UPnP device name, model name, etc.
+  "device": {
+    # Human-readable name for the DLNA device as it appears on clients
+    "name": {{ device_name | tojson }},
+    # Optional: Friendly UPnP model name
+    "modelName": {{ device_model_name | tojson }},
+    # Optional: UPnP model URL (e.g., for documentation or support)
+    "modelUrl": {{ device_model_url | tojson }}
+  },
+
+  # Optional: Custom MIME type overrides (for unsupported extensions)
+  "mimeTypes": {
+{% for ext, mime in mime_types.items() %}    "{{ ext }}": "{{ mime }}"{% if not loop.last %},{% endif %}
+{% endfor %}  },
+
+  # Optional: File filters (e.g., to ignore hidden files or certain extensions)
+  "fileFilters": {
+    # List of glob patterns for files to ignore
+    "exclude": {{ file_filters_exclude | tojson }}
+  },
+
+  # Optional: Thumbnails generation settings
+  "thumbnails": {
+    "enabled": {{ thumbnails_enabled }},
+    "width": {{ thumbnails_width }},
+    "height": {{ thumbnails_height }}
+  }
+}

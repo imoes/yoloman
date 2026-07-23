@@ -1,0 +1,196 @@
+{
+  "base_locale": {
+    "type": "string",
+    "default": "en_US.UTF-8",
+    "description": "System locale setting (language_TERRITORY.charset)"
+  },
+  "timezone": {
+    "type": "string",
+    "default": "UTC",
+    "description": "System timezone (e.g., Europe/Berlin, America/New_York)"
+  },
+  "hostname": {
+    "type": "string",
+    "default": "skolelinux",
+    "description": "System hostname (short or FQDN)"
+  },
+  "domain": {
+    "type": "string",
+    "default": "school.local",
+    "description": "DNS domain for the school network (required for LDAP/AD integration)"
+  },
+  "ntp_servers": {
+    "type": "list",
+    "default": [
+      "0.debian.pool.ntp.org",
+      "1.debian.pool.ntp.org"
+    ],
+    "description": "List of NTP servers to sync time with",
+    "items": {
+      "type": "string"
+    }
+  },
+  "ldap_base_dn": {
+    "type": "string",
+    "default": "dc=school,dc=local",
+    "description": "LDAP base DN (e.g., 'dc=school,dc=local')"
+  },
+  "ldap_server_uri": {
+    "type": "string",
+    "default": "ldap://ldap.school.local",
+    "description": "URI of LDAP server (must include scheme: ldap:// or ldaps://)"
+  },
+  "ldap_root_bind_dn": {
+    "type": "string",
+    "default": "cn=admin,dc=school,dc=local",
+    "description": "DN of LDAP admin user"
+  },
+  "ldap_root_bind_password": {
+    "type": "string",
+    "default": "",
+    "description": "Password for LDAP admin user (leave blank for debconf-secret)"
+  },
+  "primary_school_name": {
+    "type": "string",
+    "default": "My School",
+    "description": "Human-readable name of the school (displayed in UIs)"
+  },
+  "enable_printing": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable central printing infrastructure (CUPS)"
+  },
+  "cups_server": {
+    "type": "string",
+    "default": "cups.school.local",
+    "description": "Hostname of the central CUPS print server"
+  },
+  "enable_fileshare": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable central file sharing (NFS/Samba)"
+  },
+  "nfs_server": {
+    "type": "string",
+    "default": "nfs.school.local",
+    "description": "Hostname of the NFS server for home directories"
+  },
+  "nfs_home_path": {
+    "type": "string",
+    "default": "/exports/home",
+    "description": "Path exported by NFS server for user home directories"
+  },
+  "winbind_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable Active Directory integration via Winbind"
+  },
+  "winbind_realm": {
+    "type": "string",
+    "default": "SCHOOL.LOCAL",
+    "description": "Active Directory realm (uppercase)"
+  },
+  "winbind_domain": {
+    "type": "string",
+    "default": "SCHOOL",
+    "description": "Short Windows domain/netbios name"
+  },
+  "winbind_ad_server": {
+    "type": "string",
+    "default": "dc1.school.local",
+    "description": "Hostname or IP of Active Directory domain controller"
+  },
+  "winbind_admin": {
+    "type": "string",
+    "default": "administrator",
+    "description": "AD username with rights to join machines to the domain"
+  },
+  "winbind_admin_password": {
+    "type": "string",
+    "default": "",
+    "description": "Password for AD join account (use secure debconf entry in production)"
+  },
+  "lts_server": {
+    "type": "string",
+    "default": "ltsp.school.local",
+    "description": "Hostname of the LTSP (diskless workstation) server"
+  },
+  "lts_root_path": {
+    "type": "string",
+    "default": "/opt/ltsp/i386",
+    "description": "Path on the LTSP server containing the root filesystem for clients"
+  },
+  "ltsp_client_arch": {
+    "type": "string",
+    "default": "amd64",
+    "description": "Architecture used for LTSP client images (i386, amd64, arm64)"
+  },
+  "ltsp_nbd_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Use NBD instead of NFS to serve the LTSP root filesystem"
+  },
+  "ltsp_swap_size_mb": {
+    "type": "number",
+    "default": 512,
+    "description": "Swap partition size (in MiB) for diskless clients (0 = disable swap)"
+  },
+  "ltsp_client_options": {
+    "type": "list",
+    "default": [],
+    "description": "Additional key=value options to inject into LTSP client initrd",
+    "items": {
+      "type": "string"
+    }
+  },
+  "firewall_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable local iptables/nftables rules"
+  },
+  "firewall_rules": {
+    "type": "string",
+    "default": "/etc/iptables/rules.v4",
+    "description": "Path to custom firewall rules file"
+  },
+  "backup_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable automatic backup jobs"
+  },
+  "backup_server": {
+    "type": "string",
+    "default": "backup.school.local",
+    "description": "Hostname of backup server (rsync/ssh target)"
+  },
+  "backup_user": {
+    "type": "string",
+    "default": "backup",
+    "description": "Remote user account for backup transfers"
+  },
+  "backup_destination_path": {
+    "type": "string",
+    "default": "/backup/school",
+    "description": "Remote path where backups are stored"
+  },
+  "backup_frequency": {
+    "type": "string",
+    "default": "daily",
+    "description": "Backup schedule frequency: daily, weekly, or monthly"
+  },
+  "monitoring_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable local monitoring via Nagios/Icinga agent"
+  },
+  "monitoring_server": {
+    "type": "string",
+    "default": "monitor.school.local",
+    "description": "Hostname of the monitoring server"
+  },
+  "monitoring_snmp_community": {
+    "type": "string",
+    "default": "public",
+    "description": "SNMP community string for local system monitoring"
+  }
+}

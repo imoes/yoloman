@@ -1,0 +1,61 @@
+# [DEFAULT] section — global settings for the L3 agent
+[DEFAULT]
+
+# Interface driver to use for L3 agent
+interface_driver = {{ interface_driver }}
+
+# Enable Ha mode (high availability)
+enable_ha = {{ enable_ha | lower }}
+
+# Number of router processes to handle external network traffic
+num_router_processes = {{ num_router_processes }}
+
+# Number of retries when creating/deleting routers
+router_delete_namespaces = {{ router_delete_namespaces | lower }}
+
+# How many times to retry adding a floating IP
+max_floating_ips_per_router = {{ max_floating_ips_per_router }}
+
+# Router ID for distributed NAT (DVR) mode; leave empty for default
+# (DVR mode automatically detected when external_network_bridge is set)
+dvr_snat_default_snat_ip = {{ dvr_snat_default_snat_ip | default('') }}
+
+# Enable distributed virtual routing (DVR)
+dvr_mode = {{ dvr_mode }}
+
+# External network bridge name
+external_network_bridge = {{ external_network_bridge }}
+
+# Agent alive interval (seconds) for heartbeat
+agent_alive_interval = {{ agent_alive_interval }}
+
+# Timeout (seconds) for agent responses
+agent_alive_threshold = {{ agent_alive_threshold }}
+
+# Log level: DEBUG, INFO, WARNING, ERROR, CRITICAL
+verbose = {{ verbose | lower }}
+log_dir = {{ log_dir }}
+log_file = {{ log_file }}
+
+{% for service in services %}
+# [{{ service.name }}] section — service-specific overrides
+[{{ service.name }}]
+{{ service.body | indent(0) }}
+{% endfor %}
+
+# [router] section — default router behavior
+[router]
+# Default router mode (legacy, dvr_snat, dvr)
+mode = {{ router_mode }}
+
+# External gateway helper
+external_gateway_helper = {{ external_gateway_helper }}
+
+# SNAT internal network bridge
+snat_internal_bridge = {{ snat_internal_bridge }}
+
+# Use namespaces to isolate routers
+use_namespaces = {{ use_namespaces | lower }}
+
+# Maximum number of external networks per router (0 = unlimited)
+max_external_gw_nets = {{ max_external_gw_nets }}

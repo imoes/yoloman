@@ -1,0 +1,99 @@
+[main]
+# The Puppet configuration directory
+confdir = /etc/puppetlabs/puppet
+
+# The Puppet runtime directory
+puppetdir = /opt/puppetlabs/puppet/cache
+
+# The location of the Puppet SSL directory
+ssldir = /etc/puppetlabs/puppet/ssl
+
+# The Puppet log directory
+logdir = /var/log/puppetlabs/puppet
+
+# The directory where Puppet stores its PID files
+rundir = /opt/puppetlabs/puppet/run
+
+# The directory where Puppet stores its facter facts
+vardir = /opt/puppetlabs/puppet/lib/facter
+
+# The directory where Puppet stores its modules
+modulepath = /etc/puppetlabs/code/modules:/opt/puppetlabs/puppet/modules
+
+# The location of the Puppet manifest file
+manifest = /etc/puppetlabs/code/environments/production/manifests/site.pp
+
+# The environment in which the agent is running
+environment = production
+
+# Whether to use environment manifests (true by default in modern Puppet)
+environment_timeout = unlimited
+
+# Whether to auto-enroll certificates (if using Puppet CA)
+auto_sign = false
+
+# Whether to use certificate revocation lists (CRL) if available
+use_cached_crl = true
+
+# Whether to submit reports to the Puppet master
+report = true
+
+# Whether to apply configurations automatically (no manual 'puppet agent -t' needed)
+runinterval = 1800
+
+# Whether to use Splay for staggering agent runs (helps reduce load on master)
+splay = true
+
+# Whether to log to syslog
+logdest = /var/log/puppetlabs/puppet/puppet.log
+
+# Whether to use syslog for logging
+syslog = false
+
+# Whether to use daemon mode (run as service)
+daemon = true
+
+# Whether to run in test mode (verbose, no daemon, one run only) — override via CLI if needed
+test = false
+
+# Whether to ignore certname mismatches (for multi-host certs or FQDN aliases)
+ignorable_certnames =
+
+# The name of this Puppet node (overrides hostname)
+certname = {{ certname }}
+
+# The DNS alt names to request in the CSR (comma-separated)
+subject_alt_names = {{ subject_alt_names | join(', ') }}
+
+# The maximum time (in seconds) to wait for a response from the server
+timeout = 300
+
+# The number of times to retry connecting to the server before failing
+max_wait_between_retries = 30
+
+# Whether to use HTTP/2 (if server supports it)
+use_http2 = true
+
+# Whether to use HTTP proxies (set http_proxy env var if needed)
+use_http_proxy = false
+
+[agent]
+# Reiterate key agent-specific settings for clarity
+server = {{ server_hostname }}
+ca_server = {{ ca_server_hostname }}
+environment = production
+runinterval = 1800
+splay = true
+report = true
+daemon = true
+logdest = /var/log/puppetlabs/puppet/puppet.log
+
+# Whether to use the Puppet CA to sign certificates
+# (if set to 'false', certificates must be signed externally or via auto_sign)
+ca = {{ ca_enabled | string | lower }}
+
+# Whether to use certificate revocation checking
+use_revocation = {{ cert_revocation_enabled | string | lower }}
+
+# Whether to refresh certificates automatically when close to expiry
+certificate_refresh = true

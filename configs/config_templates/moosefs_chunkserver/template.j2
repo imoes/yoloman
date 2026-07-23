@@ -1,0 +1,51 @@
+# main listening address for chunkserver (host:port)
+MFSCOMMUNICATION_LISTEN_HOST = {{ communication_listen_host }}
+MFSCOMMUNICATION_LISTEN_PORT = {{ communication_listen_port }}
+
+# path to metadata files (for chunkserver, this is optional and typically empty)
+#MFSCACHE_PATH = /var/lib/mfs
+
+# path to chunk files directory (required for chunkserver)
+MFSCHUNKS_PATH = {{ chunks_path }}
+
+# number of worker threads for handling I/O (increase for high I/O load)
+MFSWORKERS = {{ workers }}
+
+# maximum number of open files per worker (ulimit -n / workers)
+MFSMAXOPENFILES = {{ max_open_files }}
+
+# idle timeout for client connections (seconds)
+MFSCLIENTIDLETIMEOUT = {{ client_idle_timeout }}
+
+# timeout for chunk replication operations (seconds)
+MFSREPLICATION_TIMEOUT = {{ replication_timeout }}
+
+# timeout for chunk verification (seconds)
+MFSCHECKSUM_TIMEOUT = {{ checksum_timeout }}
+
+# enable/disable chunk verification on read
+#MFSCHECKSUM_READ = {{ checksum_read }}
+
+# enable/disable chunk verification on write
+#MFSCHECKSUM_WRITE = {{ checksum_write }}
+
+# list of master servers (host:port) to connect to for registration
+{% for master in masters %}MFSMASTER_HOST = {{ master.host }}
+MFSMASTER_PORT = {{ master.port }}
+{% endfor %}
+
+# optional: comma-separated list of alternative master addresses for failover
+#MFSALTERNATE_MASTERS = {{ alternate_masters | join(', ') }}
+
+# optional: password for inter-server authentication
+#MFSAUTH_PASSWD_FILE = /etc/mfs/mfsauth.conf
+
+# optional: chunk server ID (should be unique across cluster)
+#MFSCHUNKSERVER_ID = {{ chunkserver_id }}
+
+# optional: bind address for chunk server HTTP monitor
+#MFSCOREMONITOR_LISTEN_HOST = {{ coremonitor_listen_host }}
+#MFSCOREMONITOR_LISTEN_PORT = {{ coremonitor_listen_port }}
+
+# optional: log level (0=error, 1=warn, 2=info, 3=debug)
+#MFSLINUXLOGLEVEL = {{ linux_log_level }}

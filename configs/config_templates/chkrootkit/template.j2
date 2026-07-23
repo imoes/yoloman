@@ -1,0 +1,35 @@
+# chkrootkit configuration file
+# Run in quiet mode (no output for clean results)
+{% if quiet_mode | default(false) %}QUIET="true"
+{% else %}QUIET="false"
+{% endif %}# Directory where chkrootkit is installed
+DIR="{{ install_dir | default('/usr/local/sbin') }}"
+
+# Check interval in days (0 disables automatic runs)
+CHECK_INTERVAL={{ check_interval_days | default(7) }}
+
+# Enable or disable specific checks
+{% if enable_checks %}#{% for check in enable_checks %}#{% if not check.enabled %}#{{ check.name }}
+{% endif %}{% endfor %}{% endif %}#{% for check in enable_checks %}{% if check.enabled %}{{ check.name }}
+{% endif %}{% endfor %}# Disable all default checks and run only selected ones
+{% if use_selective_checking | default(false) %}SELECTED_ONLY="true"
+{% else %}SELECTED_ONLY="false"
+{% endif %}# Run with debug output
+{% if debug_mode | default(false) %}DEBUG="true"
+{% else %}DEBUG="false"
+{% endif %}# Log file path for scan results
+{% if log_file %}LOGFILE="{{ log_file }}"
+{% else %}#LOGFILE="/var/log/chkrootkit.log"
+{% endif %}# Use mail to send results
+{% if mail_to %}MAILTO="{{ mail_to | join(', ') }}"
+{% else %}#MAILTO=""
+{% endif %}# Mail subject prefix
+{% if mail_subject %}MAILSUBJECT="{{ mail_subject }}"
+{% else %}MAILSUBJECT="[chkrootkit] Scan results for {{ hostname | default('localhost') }}"
+{% endif %}# Threshold for email notifications (0 = always, 1 = only if issues found, etc.)
+EMAIL_THRESHOLD={{ email_threshold | default(1) }}
+
+# Additional arguments passed to chkrootkit command
+{% if extra_args %}EXTRA_ARGS="{{ extra_args | join(' ') }}"
+{% else %}#EXTRA_ARGS=""
+{% endif %}

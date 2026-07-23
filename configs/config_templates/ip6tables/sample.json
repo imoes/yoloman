@@ -1,0 +1,32 @@
+{
+  "rules": [
+    {
+      "comment": "Allow established and related IPv6 connections",
+      "rule": "-A INPUT -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT"
+    },
+    {
+      "comment": "Allow loopback traffic",
+      "rule": "-A INPUT -i lo -j ACCEPT"
+    },
+    {
+      "comment": "Allow ICMPv6 essential messages (NDP, MLD, etc.)",
+      "rule": "-A INPUT -p icmpv6 -j ACCEPT"
+    },
+    {
+      "comment": "Allow SSH from trusted networks only",
+      "rule": "-A INPUT -p tcp --dport 22 -s 2001:db8::/32 -j ACCEPT"
+    },
+    {
+      "comment": "Drop all other incoming traffic by default",
+      "rule": "-A INPUT -j DROP"
+    },
+    {
+      "comment": "Allow forwarding (for router/gateway roles)",
+      "rule": "-A FORWARD -i eth0 -o eth1 -j ACCEPT"
+    },
+    {
+      "comment": "Allow outging traffic by default",
+      "rule": "-A OUTPUT -j ACCEPT"
+    }
+  ]
+}

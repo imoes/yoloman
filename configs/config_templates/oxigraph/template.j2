@@ -1,0 +1,71 @@
+# Configuration for Oxigraph RDF HTTP server
+
+# Address and port the server listens on
+address = "{{ server.address }}"
+port = {{ server.port }}
+
+# Path to the storage directory for persistent RDF data
+storage_path = "{{ storage.path }}"
+
+# Number of worker threads (0 means auto-detect based on CPU cores)
+workers = {{ server.workers }}
+
+# Maximum number of concurrent requests per connection
+max_connections_per_endpoint = {{ server.max_connections_per_endpoint }}
+
+# Enable or disable CORS headers
+enable_cors = {{ server.enable_cors | lower }}
+
+# CORS allowed origins (if empty, all origins allowed)
+{% if server.cors_origins | length > 0 %}
+cors_origins = [
+{% for origin in server.cors_origins %}  "{{ origin }}"{% if not loop.last %},{% endif %}
+{% endfor %}]
+{% else %}
+cors_origins = []
+{% endif %}
+
+# Enable or disable authentication
+{% if auth.enabled %}
+[auth]
+enabled = true
+{% if auth.type == "basic" %}
+type = "basic"
+{% for user in auth.users %}users."{{ user.name }}" = "{{ user.password_hash }}"
+{% endfor %}
+{% elif auth.type == "token" %}
+type = "token"
+{% for token in auth.tokens %}tokens."{{ token.name }}" = "{{ token.secret }}"
+{% endfor %}
+{% endif %}
+{% else %}
+[auth]
+enabled = false
+{% endif %}
+
+# Logging configuration
+[logging]
+level = "{{ logging.level }}"
+{% if logging.format == "json" %}
+format = "json"
+{% else %}
+format = "pretty"
+{% endif %}
+
+# Enable or disable compression for HTTP responses
+{% if compression.enabled %}
+[compression]
+enabled = true
+{% else %}
+[compression]
+enabled = false
+{% endif %}
+
+# SPARQL query limits (in milliseconds and triples)
+[sparql]
+max_query_time_ms = {{ sparql.max_query_time_ms }}
+max_update_time_ms = {{ sparql.max_update_time_ms }}
+max_triples_result = {{ sparql.max_triples_result }}
+
+# Enable or disable the /rest endpoint (REST API)
+enable_rest = {{ server.enable_rest | lower }}

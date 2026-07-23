@@ -1,0 +1,63 @@
+# hylafax.conf — HylaFAX server configuration
+# This file is sourced by faxgetty and other HylaFAX server daemons.
+
+# Core configuration parameters
+ServerName: {{ server_name }}
+CountryCode: {{ country_code }}
+AreaCode: {{ area_code }}
+FaxNumber: {{ fax_number }}
+LongDistancePrefix: {{ long_distance_prefix }}
+InternationalPrefix: {{ international_prefix }}
+DialStringRules: {{ dial_string_rules }}
+
+# Device and modem configuration
+ModemType: {{ modem_type }}
+ModemSpeed: {{ modem_speed }}
+ModemFlowControl: {{ modem_flow_control }}
+
+# Paths
+DevDir: {{ dev_dir }}
+RunDir: {{ run_dir }}
+LogDir: {{ log_dir }}
+SpoolDir: {{ spool_dir }}
+
+# Security & access
+RequirePIN: {{ require_pin }}
+AllowCallsFrom: {{ allow_calls_from | join(', ') }}
+DenyCallsFrom: {{ deny_calls_from | join(', ') }}
+
+# Call handling
+MaxConcurrentCalls: {{ max_concurrent_calls }}
+MaxRetries: {{ max_retries }}
+RetryDelay: {{ retry_delay }}
+
+# T.30 protocol tuning
+MinRecvSpeed: {{ min_recv_speed }}
+MaxRecvSpeed: {{ max_recv_speed }}
+MinPageHeight: {{ min_page_height }}
+MaxPageHeight: {{ max_page_height }}
+MinPageWidth: {{ min_page_width }}
+MaxPageWidth: {{ max_page_width }}
+
+# Page and document handling
+PageSize: {{ page_size }}
+Resolution: {{ resolution }}
+Compression: {{ compression }}
+
+# SMTP integration for fax-to-email
+MailHost: {{ mail_host }}
+MailFrom: {{ mail_from }}
+MailTo: {{ mail_to }}
+
+# Logging verbosity
+LogLevel: {{ log_level }}
+LogFacility: {{ log_facility }}
+
+# T.38 support (fax over IP)
+T38Support: {{ t38_support }}
+T38MaxBitRate: {{ t38_max_bit_rate }}
+
+# Modem device definitions (one per line)
+{% for modem in modems %}
+Device: {{ modem.device }} {{ modem.type }} {{ modem.speed }} {{ modem.flow_control }}{% if modem.description %} # {{ modem.description }}{% endif %}
+{% endfor %}

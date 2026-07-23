@@ -1,0 +1,64 @@
+# Knot-Resolver main configuration file
+# See https://knot-resolver.cz/ for documentation
+
+# Enable DNSSEC validation
+config.dnssec = {{ dnssec_enabled }}
+
+# Number of worker threads (set to 0 for autodetect)
+config.workers = {{ worker_count }}
+
+# Listen on these addresses and ports
+config.listen = [
+{% for addr in listen_addrs %}  '{{ addr.address }}:{{ addr.port }}',
+{% endfor %}]
+
+# Forward queries to upstream resolvers
+config.forward = [
+{% for upstream in upstream_servers %}  '{{ upstream.address }}',
+{% endfor %}]
+
+# Cache configuration
+cache.size = {{ cache_size_mb }} * 1024 * 1024
+
+# Time-to-live for cached entries (seconds)
+cache.ttl_min = {{ cache_ttl_min }}
+cache.ttl_max = {{ cache_ttl_max }}
+
+# Log level: 'debug', 'info', 'notice', 'warning', 'error', 'critical'
+config.log_level = '{{ log_level }}'
+
+# Optional: custom root hints file (default uses IANA root zone)
+{% if root_hints_path is defined %}config.root_hints = '{{ root_hints_path }}'
+{% endif %}
+
+# Optional: stub zones for conditional forwarding
+{% if stub_zones|length > 0 %}config.stub = {
+{% for zone in stub_zones %}  ['{{ zone.domain }}'] = {
+    forward = {
+{% for addr in zone.forwarders %}      '{{ addr }}',
+{% endfor %}    }
+  },
+{% endfor %}}
+{% endif %}
+
+# Optional: policy zones for blocking (e.g., ad-blocking)
+{% if policy_zones|length > 0 %}policy.add(policy.all(), policy.SERVFAIL)
+{% for zone in policy_zones %}policy.add(policy.zone('{{ zone.domain }}'), policy.TCP_ONLY)
+{% endfor %}
+{% endif %}
+
+# Optional: network interface binding (instead of IP addresses)
+{% if bind_interfaces|length > 0 %}config.net.interfaces = [
+{% for iface in bind_interfaces %}  '{{ iface }}',
+{% endfor %}]
+{% endif %}
+
+# Optional: enable EDNS Client Subnet (ECS) support
+cache.ecs = {{ ecs_enabled }}
+
+# Optional: rate limiting (queries per second per client)
+{% if rate_limit_qps is defined %}config.net.rate_limit = {
+  qps = {{ rate_limit_qps }},
+  window = {{ rate_limit_window }}
+}
+{% endif %}

@@ -1,0 +1,31 @@
+# Cyrus Replication Service configuration
+# Enable replication-related services
+# Format: <service> <type> <command> [args]
+
+# Standalone services
+{% for svc in services %}{{ svc.name }}	{{ svc.type }}	{{ svc.command }}{% if svc.args %} {{ svc.args | join(' ') }}{% endif %}
+{% endfor %}
+
+# Standard cyrus.conf includes for replication
+# These ensure replication daemons start after master services
+# See also: /etc/imapd.conf for replication settings
+
+# Service: master replication daemon (cyrus master) — handles replication coordination
+# Service: replicator daemon (cyrus replicator) — applies changes from master to replica
+# Service: replicator manager (cyrus replicator-manager) — monitors replicator health
+# Service: replnotify service (if enabled) — triggers notifications on replication events
+
+# Optional: TLS and auth hooks (if used)
+{% if tls_enabled %}
+# TLS support for replication connections
+TLS_CA_FILE	{{ tls_ca_file }}
+TLS_CERT_FILE	{{ tls_cert_file }}
+TLS_KEY_FILE	{{ tls_key_file }}
+{% endif %}
+
+# Replication-specific logging verbosity
+{% if debug_enabled %}
+DEBUG	1
+{% else %}
+DEBUG	0
+{% endif %}

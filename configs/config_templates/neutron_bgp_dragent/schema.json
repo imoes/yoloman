@@ -1,0 +1,86 @@
+{
+  "log_level": {
+    "type": "string",
+    "default": "INFO",
+    "description": "The logging verbosity level (e.g., DEBUG, INFO, WARNING, ERROR, CRITICAL)"
+  },
+  "log_file": {
+    "type": "string",
+    "default": "",
+    "description": "Path to the log file; empty string disables file logging"
+  },
+  "state_path": {
+    "type": "string",
+    "default": "/var/lib/neutron/dynamic_routing",
+    "description": "Directory path where the agent stores its runtime state (e.g., PID files, lock files)"
+  },
+  "rpc_backend": {
+    "type": "string",
+    "default": "rabbit",
+    "description": "RPC backend implementation (e.g., 'rabbit', 'kombu', 'oslo')"
+  },
+  "bgp_router_id": {
+    "type": "string",
+    "default": "0.0.0.0",
+    "description": "The BGP router ID (must be a valid IPv4 address); typically the node's management IP"
+  },
+  "keepalive_interval": {
+    "type": "number",
+    "default": 30,
+    "description": "Time in seconds between BGP keepalive messages"
+  },
+  "hold_interval": {
+    "type": "number",
+    "default": 90,
+    "description": "BGP hold time in seconds (must be \u2265 keepalive_interval \u00d7 3)"
+  },
+  "min_hold_time": {
+    "type": "number",
+    "default": 60,
+    "description": "Minimum acceptable hold time from peers (in seconds)"
+  },
+  "max_routes": {
+    "type": "number",
+    "default": 1000,
+    "description": "Maximum number of BGP routes to store and advertise"
+  },
+  "md5_auth": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable MD5 authentication for all BGP sessions"
+  },
+  "md5_key_file": {
+    "type": "string",
+    "default": "",
+    "description": "Path to the shared MD5 key file (if md5_auth is enabled)"
+  },
+  "bgp_neighbors": {
+    "type": "list",
+    "default": [],
+    "description": "List of BGP peer configurations",
+    "items": {
+      "name": {
+        "type": "string",
+        "description": "Unique identifier for this BGP neighbor (e.g., 'peer1')"
+      },
+      "ip_address": {
+        "type": "string",
+        "description": "IP address of the BGP peer (must be reachable)"
+      },
+      "remote_as": {
+        "type": "number",
+        "description": "Autonomous System (AS) number of the peer"
+      },
+      "password": {
+        "type": "string",
+        "default": "",
+        "description": "MD5 password for this peer (if empty, uses global key or none)"
+      },
+      "enabled": {
+        "type": "bool",
+        "default": true,
+        "description": "Enable or disable this neighbor"
+      }
+    }
+  }
+}

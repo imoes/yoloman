@@ -1,0 +1,56 @@
+# /etc/modprobe.d/alsa-base.conf — Default ALSA configuration
+# Prevent sound modules from loading automatically (to avoid conflicts with other drivers)
+# Adjust device-specific options (e.g., power management, card order)
+# Set default PCM device
+# Set default control device
+# Adjust buffer sizes and latency for lower latency audio
+# Disable power-save mode for PCI audio devices (optional, improves reliability on some systems)
+# Blacklist conflicting modules (e.g., HDMI audio when not needed)
+# Blacklist snd_hda_intel to force fallback to snd_hda_codec_hdmi or vice versa
+# Load module with specific options
+# Example: force HDMI audio on card 0, device 3
+
+# Prevent specific modules from being auto-loaded
+{% for item in blacklist %}
+blacklist {{ item.module }}
+{% endfor %}
+
+# Set module parameters (e.g., card order, quirks, power control)
+{% for item in modprobe_options %}
+options {{ item.module }} {{ item.params | join(' ') }}
+{% endfor %}
+
+# Set default PCM device (used by applications without explicit device spec)
+pcm.default {{ pcm_default }}
+
+# Set default control device (for mixer applications)
+card.default {{ card_default }}
+
+# ALSA buffer settings (lower latency for real-time applications)
+# These are global defaults for all devices
+{% if latency_us is not none %}
+# Latency in microseconds (e.g., 20000 for 20 ms)
+# Note: May require adjustment per hardware capability
+{% endif %}
+{% if latency_us is not none %}
+pcm.default {
+    hint {
+        show on
+        description "Default PCM device"
+    }
+    slave.pcm "hw:{{ card_default.split(':')[1] or 0 }}"
+}
+{% endif %}
+
+# Disable power management for audio devices to prevent popping/noise on suspend/resume
+# Set to 0 (disabled) or N (seconds until suspend, 0=disabled)
+{% if power_save is not none %}
+# power_save: 0 = disabled (recommended for servers/workstations)
+{% endif %}
+{% if power_save is not none %}
+# Note: Set via module options instead if supported (e.g., options snd_hda_intel power_save=0)
+{% endif %}
+
+# Blacklist module examples (uncomment if needed)
+# blacklist snd_hda_codec_hdmi
+# blacklist snd_soc_skl

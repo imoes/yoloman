@@ -1,0 +1,33 @@
+# VirtualBox fence agent configuration
+# Specifies how to fence (power cycle/restart) a VirtualBox VM
+
+# Username for VirtualBox web service (VBoxSVC) or VBoxManage authentication
+vbox_username={{ vbox_username }}
+
+# Password for VirtualBox web service authentication
+vbox_password={{ vbox_password }}
+
+# Hostname or IP address of the VirtualBox host
+vbox_host={{ vbox_host }}
+
+# Port used by the VirtualBox web service (default 18083)
+vbox_port={{ vbox_port }}
+
+# Protocol: http or https
+vbox_protocol={{ vbox_protocol }}
+
+# Name of the VirtualBox VM to fence
+vbox_vmname={{ vbox_vmname }}
+
+# Timeout in seconds before fence action is considered failed
+vbox_timeout={{ vbox_timeout }}
+
+# Optional: Use HTTPS with insecure certificate (skip verification)
+# Set to '1' to bypass certificate validation (e.g., for self-signed certs)
+{% if vbox_insecure | default(false) %}vbox_insecure=1{% else %}# vbox_insecure=0{% endif %}
+
+# Optional: Path to custom CA certificate bundle (if not using system trust store)
+{% if vbox_cacert %}vbox_cacert={{ vbox_cacert }}{% endif %}
+
+# Optional: Delay (in seconds) after power-off before attempting power-on (prevents rapid cycling)
+{% if vbox_power_wait %}vbox_power_wait={{ vbox_power_wait }}{% endif %}

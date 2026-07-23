@@ -1,0 +1,150 @@
+[global]
+# Global Gfarm configuration
+# Enables debugging output for the gfsd daemon
+debug = {{ debug | lower }}
+
+# Log file path for gfsd
+log_file = {{ log_file }}
+
+# Maximum size (in MB) of a single log file before rotation
+log_max_size = {{ log_max_size }}
+
+# Number of old log files to retain
+log_retention = {{ log_retention }}
+
+# Number of worker threads handling client requests
+num_threads = {{ num_threads }}
+
+# Hostname or IP address the daemon binds to for metadata operations
+bind_address = {{ bind_address }}
+
+# Port used for metadata protocol (GFM) communication
+metadata_port = {{ metadata_port }}
+
+# Enable or disable replication of metadata across gfsd instances
+enable_replication = {{ enable_replication | lower }}
+
+# Timeout (in seconds) for metadata replication operations
+replication_timeout = {{ replication_timeout }}
+
+# Hostname(s) of the master GFM server(s) for metadata coordination
+{% for host in master_hosts %}master_host = {{ host }}
+{% endfor %}
+
+# List of GFM server hostnames for load balancing
+{% for host in gfm_hosts %}gfm_host = {{ host }}
+{% endfor %}
+
+[pool]
+# Connection pool size for database or metadata backend
+max_connections = {{ pool.max_connections }}
+
+# Timeout (in seconds) to establish a new connection
+connect_timeout = {{ pool.connect_timeout }}
+
+# Idle timeout (in seconds) before closing unused connections
+idle_timeout = {{ pool.idle_timeout }}
+
+[storage]
+# Default metadata backend type (e.g., mysql, postgresql, sqlite)
+backend = {{ storage.backend }}
+
+# Path to SQLite database file (only used if backend=sqlite)
+{% if storage.backend == 'sqlite' %}sqlite_db = {{ storage.sqlite_db }}
+{% endif %}
+
+# MySQL connection parameters (only used if backend=mysql)
+{% if storage.backend == 'mysql' %}
+mysql_host = {{ storage.mysql_host }}
+mysql_port = {{ storage.mysql_port }}
+mysql_user = {{ storage.mysql_user }}
+mysql_password = {{ storage.mysql_password }}
+mysql_database = {{ storage.mysql_database }}
+mysql_charset = {{ storage.mysql_charset }}
+{% endif %}
+
+# PostgreSQL connection parameters (only used if backend=postgresql)
+{% if storage.backend == 'postgresql' %}
+postgresql_host = {{ storage.postgresql_host }}
+postgresql_port = {{ storage.postgresql_port }}
+postgresql_user = {{ storage.postgresql_user }}
+postgresql_password = {{ storage.postgresql_password }}
+postgresql_database = {{ storage.postgresql_database }}
+postgresql_sslmode = {{ storage.postgresql_sslmode }}
+{% endif %}
+
+[security]
+# Enable secure authentication (e.g., GSI, KERBEROS, PASSWORD)
+auth_method = {{ security.auth_method }}
+
+# Path to the Kerberos keytab file (only if auth_method=KERBEROS)
+{% if security.auth_method == 'KERBEROS' %}kerberos_keytab = {{ security.kerberos_keytab }}
+{% endif %}
+
+# Path to the GSI proxy certificate (only if auth_method=GSI)
+{% if security.auth_method == 'GSI' %}gsi_proxy_cert = {{ security.gsi_proxy_cert }}
+{% endif %}
+
+# Path to the trusted CA certificate directory (used by GSI/Kerberos)
+ca_cert_dir = {{ security.ca_cert_dir }}
+
+# Enable client certificate verification (only for GSI)
+enable_client_cert_verify = {{ security.enable_client_cert_verify | lower }}
+
+[limits]
+# Maximum number of concurrent connections per client
+max_connections_per_client = {{ limits.max_connections_per_client }}
+
+# Maximum file upload size (in MB)
+max_upload_size = {{ limits.max_upload_size }}
+
+# Maximum number of files a user can have open at once
+max_open_files = {{ limits.max_open_files }}
+
+# Maximum memory (in MB) a single request may use
+max_memory_per_request = {{ limits.max_memory_per_request }}
+
+# Time (in seconds) before idle client connections are closed
+idle_timeout = {{ limits.idle_timeout }}
+
+[replica]
+# Default replication factor (number of copies of each file)
+default_replication_factor = {{ replica.default_replication_factor }}
+
+# Enable or disable lazy replication (writes only to one replica, syncs later)
+enable_lazy_replication = {{ replica.enable_lazy_replication | lower }}
+
+# Delay (in seconds) before lazy replication kicks in
+lazy_replication_delay = {{ replica.lazy_replication_delay }}
+
+# List of replica allocation policies (e.g., random, roundrobin, leastloaded)
+{% for policy in replica.policies %}policy = {{ policy }}
+{% endfor %}
+
+[quota]
+# Enable per-user or per-project quota enforcement
+enable_quotas = {{ quota.enable_quotas | lower }}
+
+# Quota enforcement backend (e.g., mysql, sqlite, none)
+backend = {{ quota.backend }}
+
+# SQLite path (only if backend=sqlite)
+{% if quota.backend == 'sqlite' %}sqlite_db = {{ quota.sqlite_db }}
+{% endif %}
+
+# MySQL/PostgreSQL parameters (only if backend=mysql or postgresql)
+{% if quota.backend == 'mysql' %}
+mysql_host = {{ quota.mysql_host }}
+mysql_port = {{ quota.mysql_port }}
+mysql_user = {{ quota.mysql_user }}
+mysql_password = {{ quota.mysql_password }}
+mysql_database = {{ quota.mysql_database }}
+{% endif %}
+
+{% if quota.backend == 'postgresql' %}
+postgresql_host = {{ quota.postgresql_host }}
+postgresql_port = {{ quota.postgresql_port }}
+postgresql_user = {{ quota.postgresql_user }}
+postgresql_password = {{ quota.postgresql_password }}
+postgresql_database = {{ quota.postgresql_database }}
+{% endif %}

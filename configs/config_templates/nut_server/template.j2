@@ -1,0 +1,75 @@
+# Mode of operation for NUT (Network UPS Tools) server
+MODE={{ nut_mode }}
+
+# List of UPS devices to monitor and control
+{% for ups in ups_list %}
+[{{ ups.name }}]
+  driver = {{ ups.driver }}
+  port = {{ ups.port }}
+  desc = "{{ ups.description | default('') }}"
+{% if ups.serial %}
+  serial = {{ ups.serial }}
+{% endif %}
+{% if ups.bus %}
+  bus = {{ ups.bus }}
+{% endif %}
+{% if ups.vendorid %}
+  vendorid = {{ ups.vendorid }}
+{% endif %}
+{% if ups.productid %}
+  productid = {{ ups.productid }}
+{% endif %}
+{% if ups.product %}
+  product = "{{ ups.product }}"
+{% endif %}
+{% if ups.vendor %}
+  vendor = "{{ ups.vendor }}"
+{% endif %}
+{% if ups.firmware %}
+  firmware = "{{ ups.firmware }}"
+{% endif %}
+{% if ups.poll_interval is defined %}
+  pollinterval = {{ ups.poll_interval }}
+{% endif %}
+{% if ups.pollonly is defined %}
+  pollonly = {{ ups.pollonly }}
+{% endif %}
+{% if ups.master is defined %}
+  master = {{ ups.master }}
+{% endif %}
+{% endfor %}
+
+# Network access control — allow only trusted hosts
+{% for host in allowed_hosts %}
+ACL {{ host.name }} {{ host.ip }} {{ host.actions | join(', ') }}
+{% endfor %}
+
+# Allow access from localhost for local tools
+ACL localhost localhost nomacaddr all
+
+# Default ACL — deny by default unless explicitly allowed above
+ACL all all nomacaddr deny
+
+# User accounts and permissions
+{% for user in users %}
+{% if user.disabled is defined and user.disabled %}
+# User '{{ user.name }}' is disabled
+{% else %}
+{% if user.password is defined %}
+user {{ user.name }} = {{ user.password }} {{ user.actions | join(', ') }}
+{% else %}
+# user {{ user.name }} = <secret> {{ user.actions | join(', ') }}
+{% endif %}
+{% endif %}
+{% endfor %}
+
+# Listeners — IP:port bindings
+LISTEN {{ listen_ip }} {{ listen_port }}
+
+# Optional: enable or disable specific protocols
+{% if enable_upsd_tcp %}
+PROTOCOL TCP
+{% endif %}
+{% if enable_upsd_usb %}
+PROTOCOL USB
+{% endif %}

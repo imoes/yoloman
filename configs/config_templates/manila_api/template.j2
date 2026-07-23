@@ -1,0 +1,74 @@
+[DEFAULT]
+# Logging configuration
+log_file = {{ log_file }}
+log_dir = {{ log_dir }}
+
+# Debug mode toggle
+debug = {{ debug | lower }}
+
+# Bind address and port for the Manila API server
+bind_host = {{ bind_host }}
+bind_port = {{ bind_port }}
+
+# Number of worker processes for the API service
+api_paste_config = {{ api_paste_config }}
+
+# Security configuration
+auth_strategy = {{ auth_strategy }}
+
+# Enable cross-origin resource sharing (CORS)
+enable_proxy_headers_parsing = {{ enable_proxy_headers_parsing | lower }}
+
+# Rate limiting (per-project limit per minute)
+rate_limit_incoming_requests = {{ rate_limit_incoming_requests }}
+
+# Maximum number of share instances per project
+max_shares_per_tenant = {{ max_shares_per_tenant }}
+
+# Maximum number of snapshots per share
+max_snapshots_per_share = {{ max_snapshots_per_share }}
+
+{% for driver in share_driver_list %}
+# Share driver configuration: {{ driver.name }}
+[{{ driver.section }}]
+share_driver = {{ driver.share_driver }}
+{% if driver.extra_opts %}
+{% for key, val in driver.extra_opts.items() %}{{ key }} = {{ val }}
+{% endfor %}
+{% endif %}
+{% endfor %}
+
+[database]
+# Database connection string
+connection = {{ database_connection }}
+
+[oslo_messaging_notifications]
+# Driver for notifications
+driver = {{ notifications_driver }}
+
+[oslo_messaging_notifications]  # duplicate section header allowed in PasteDeploy style; kept for compatibility
+# Alternate driver entry if needed
+# driver = {{ notifications_driver }}
+
+[keystone_authtoken]
+# Authentication endpoint for Keystone
+auth_url = {{ keystone_authtoken_auth_url }}
+project_domain_name = {{ keystone_authtoken_project_domain_name }}
+user_domain_name = {{ keystone_authtoken_user_domain_name }}
+project_name = {{ keystone_authtoken_project_name }}
+username = {{ keystone_authtoken_username }}
+password = {{ keystone_authtoken_password }}
+
+[oslo_concurrency]
+# Path for lock files
+lock_path = {{ lock_path }}
+
+[oslo_policy]
+# Policy file path
+policy_file = {{ policy_file }}
+
+{% for endpoint in endpoint_list %}
+# Service endpoint registration: {{ endpoint.service_type }}
+[{{ endpoint.section }}]
+endpoint_template = {{ endpoint.endpoint_template }}
+{% endfor %}

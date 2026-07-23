@@ -1,0 +1,104 @@
+# Main Certbot CLI configuration file
+# This file is read by certbot commands (e.g., `certbot renew`, `certbot certonly`)
+# It contains default options used across all Certbot invocations unless overridden on CLI.
+# See https://eff.org/certbot-options for full documentation
+
+[authenticator]
+# Domain validation method: 'standalone', 'apache', 'nginx', 'webroot', etc.
+authenticator = {{ auth_authenticator }}
+
+# Directory where webroot challenge files are placed (only used if authenticator = webroot)
+webroot_path = {{ auth_webroot_path }}
+
+# List of webroot paths per domain (alternative to single webroot_path)
+{% if auth_webroot_map %}
+# Per-domain webroot paths (each line: domain=path)
+{% for item in auth_webroot_map %}
+webroot_map = {{ item.domain }} = {{ item.path }}
+{% endfor %}
+{% endif %}
+
+# Additional arguments passed to the authenticator plugin
+authenticator_flags = {{ auth_authenticator_flags }}
+
+[installer]
+# Certbot installer plugin: 'apache', 'nginx', or 'none' (if no auto-install needed)
+installer = {{ installer_installer }}
+
+# Additional arguments passed to the installer plugin
+installer_flags = {{ installer_installer_flags }}
+
+[certificates]
+# Email address for expiration warnings and important notices
+email = {{ email }}
+
+# Agreement URL for Let's Encrypt Terms of Service (default: latest)
+tos = {{ tos }}
+
+# Whether to agree to the Let's Encrypt Subscriber Agreement (boolean)
+agree_tos = {{ agree_to_tos | lower }}
+
+# Preferred challenge type: 'http-01', 'dns-01', 'tls-sni-01' (deprecated)
+preferred_challenges = {{ preferred_challenges | join(', ') }}
+
+# RSA key size (in bits) for new certificates
+rsa_key_size = {{ rsa_key_size }}
+
+# Whether to use a staging test server (for testing, avoids rate limits)
+staging = {{ staging | lower }}
+
+# Whether to reuse existing certificates if possible
+reuse_key = {{ reuse_key | lower }}
+
+# Whether to suppress automatic certificate renewal (boolean)
+renew_by_default = {{ renew_by_default | lower }}
+
+# Whether to automatically install the certificate on the server
+install_certificate = {{ install_certificate | lower }}
+
+[logging]
+# Logging directory
+log_dir = {{ log_dir }}
+
+# Logging file
+work_dir = {{ work_dir }}
+
+# Config directory (where certificates and account data are stored)
+config_dir = {{ config_dir }}
+
+# Verbosity level: 0 (ERROR), 1 (WARN), 2 (INFO), 3 (DEBUG)
+verbosity = {{ verbosity }}
+
+# Whether to suppress automatic renewal (deprecated; prefer `renew_by_default`)
+# renew = {{ renew }}
+
+# Domain list to include (comma-separated or multiple `domains` entries)
+{% if domains %}
+# Domains to include in the certificate
+{% for d in domains %}domains = {{ d }}
+{% endfor %}
+{% endif %}
+
+# Server URL for ACME server (e.g., Let's Encrypt production or staging)
+server = {{ server }}
+
+# Whether to keep logs after renewal
+keep_logs = {{ keep_logs | lower }}
+
+# Whether to disable automatic certificate renewal (overrides `renew_by_default`)
+disable_auto_renewal = {{ disable_auto_renewal | lower }}
+
+# Whether to suppress HTTP challenge (force DNS if possible)
+# disable-http-challenge = {{ disable_http_challenge }}
+
+# Whether to suppress TLS-SNI challenge (deprecated)
+# disable-tls-sni-challenge = {{ disable_tls_sni_challenge }}
+
+# Whether to suppress DNS challenge
+# disable-dns-challenge = {{ disable_dns_challenge }}
+
+# Account key file path (optional; auto-generated if omitted)
+account = {{ account }}
+
+# Whether to force certificate issuance even if domain DNS not yet propagated
+force-interactive = {{ force_interactive | lower }}

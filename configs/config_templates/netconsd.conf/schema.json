@@ -1,0 +1,115 @@
+{
+  "listen_addr": {
+    "type": "string",
+    "default": "0.0.0.0",
+    "description": "IP address to bind the server to. Use 0.0.0.0 for all IPv4 interfaces, :: for all IPv6, or a specific address."
+  },
+  "listen_port": {
+    "type": "number",
+    "default": 2055,
+    "description": "UDP port to listen on for incoming NetStream/NetFlow/sFlow messages."
+  },
+  "interface": {
+    "type": "string",
+    "default": "",
+    "description": "Network interface to bind to (e.g., eth0). Leave empty to bind to all interfaces."
+  },
+  "enable_ipv6": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable listening on IPv6 (if supported by the system)."
+  },
+  "max_message_size": {
+    "type": "number",
+    "default": 65535,
+    "description": "Maximum size (in bytes) of an incoming message to accept. Larger messages are dropped."
+  },
+  "workers": {
+    "type": "number",
+    "default": 2,
+    "description": "Number of worker threads for message processing."
+  },
+  "log_level": {
+    "type": "string",
+    "default": "info",
+    "description": "Logging verbosity level. Options: debug, info, warn, error, fatal."
+  },
+  "pid_file": {
+    "type": "string",
+    "default": "/var/run/netconsd.pid",
+    "description": "Path to the PID file for the netconsd process."
+  },
+  "enable_syslog": {
+    "type": "bool",
+    "default": true,
+    "description": "If true, log to syslog instead of a file."
+  },
+  "log_file": {
+    "type": "string",
+    "default": "/var/log/netconsd/netconsd.log",
+    "description": "Path to the log file (used only if enable_syslog = false)."
+  },
+  "output_format": {
+    "type": "string",
+    "default": "json",
+    "description": "Format for output files. Options: json, plain, syslog."
+  },
+  "output_dir": {
+    "type": "string",
+    "default": "/var/log/netconsd/output",
+    "description": "Directory where output files (e.g., plain logs) are written."
+  },
+  "enable_rate_limit": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable per-source rate limiting to protect against flooding."
+  },
+  "rate_limit_max": {
+    "type": "number",
+    "default": 100,
+    "description": "Maximum messages per second allowed per source IP (0 = no limit)."
+  },
+  "rate_limit_burst": {
+    "type": "number",
+    "default": 200,
+    "description": "Maximum burst size (messages) before rate limiting kicks in."
+  },
+  "drop_duplicates": {
+    "type": "bool",
+    "default": true,
+    "description": "Drop duplicate messages (same content from same source within duplicate_window)."
+  },
+  "duplicate_window": {
+    "type": "number",
+    "default": 10,
+    "description": "Time window (in seconds) to detect duplicate messages."
+  },
+  "persist_state": {
+    "type": "bool",
+    "default": false,
+    "description": "Persist duplicate cache and rate-limit state to disk across restarts."
+  },
+  "state_file": {
+    "type": "string",
+    "default": "/var/lib/netconsd/state.json",
+    "description": "Path to the state file (used only if persist_state = true)."
+  },
+  "allowed_sources": {
+    "type": "list",
+    "default": [],
+    "description": "List of allowed source IP/CIDR ranges. Leave empty to allow all.",
+    "items": {
+      "type": "string",
+      "description": "CIDR notation (e.g., 192.168.1.0/24) or single IP address (e.g., 10.0.0.5)."
+    }
+  },
+  "blocked_sources": {
+    "type": "list",
+    "default": [],
+    "description": "List of blocked source IP/CIDR ranges. Leave empty to block none.",
+    "items": {
+      "type": "string",
+      "description": "CIDR notation (e.g., 10.0.0.0/8) or single IP address (e.g., 192.168.99.1)."
+    }
+  }
+}

@@ -1,0 +1,150 @@
+{
+  "node_id": {
+    "type": "string",
+    "default": "node-1",
+    "description": "Unique identifier for this node in the overlay (e.g., 'node-1', 'ovr-edge-ny01'). Must not contain spaces or special characters."
+  },
+  "log_level": {
+    "type": "string",
+    "default": "info",
+    "description": "Verbosity of logging output. Use 'debug' only for troubleshooting."
+  },
+  "state_dir": {
+    "type": "string",
+    "default": "/var/lib/openoverlayrouter/state",
+    "description": "Directory to store runtime state, topology database, and encryption keys."
+  },
+  "cert_dir": {
+    "type": "string",
+    "default": "/etc/openoverlayrouter/certs",
+    "description": "Directory containing TLS certificates and keys for node authentication."
+  },
+  "heartbeat_interval": {
+    "type": "number",
+    "default": 5,
+    "description": "Seconds between heartbeat messages. Lower values detect failures faster but increase network traffic."
+  },
+  "heartbeat_timeout": {
+    "type": "number",
+    "default": 15,
+    "description": "Seconds of silence before a peer is considered unreachable. Should be \u2265 3\u00d7 heartbeat_interval."
+  },
+  "encrypt_traffic": {
+    "type": "bool",
+    "default": true,
+    "description": "If true, encrypts all overlay traffic using ECIES (elliptic-curve integrated encryption). Disable only for testing."
+  },
+  "private_key_file": {
+    "type": "string",
+    "default": "/etc/openoverlayrouter/certs/private.key",
+    "description": "Path to the node's ECDSA private key used for signing control-plane messages."
+  },
+  "ca_cert_file": {
+    "type": "string",
+    "default": "/etc/openoverlayrouter/certs/ca.crt",
+    "description": "Path to the CA certificate used to verify peer certificates."
+  },
+  "overlay_name": {
+    "type": "string",
+    "default": "default-overlay",
+    "description": "Name of the logical overlay network. Nodes must share the same overlay name to interoperate."
+  },
+  "overlay_type": {
+    "type": "string",
+    "default": "mesh",
+    "description": "Overlay topology. 'mesh' allows full node-to-node connectivity; 'star' routes all traffic via hub nodes; 'hybrid' combines both."
+  },
+  "overlay_mtu": {
+    "type": "number",
+    "default": 1400,
+    "description": "Maximum Transmission Unit for overlay packets. Reduce if fragmentation occurs on underlay."
+  },
+  "auto_discover": {
+    "type": "bool",
+    "default": true,
+    "description": "If true, automatically discovers and connects to nearby nodes using flooding/ gossip. Disable for controlled topologies."
+  },
+  "peers": {
+    "type": "list",
+    "default": [],
+    "items": {
+      "type": "object",
+      "fields": {
+        "address": {
+          "type": "string",
+          "description": "Hostname or IP of the static peer node.",
+          "required": true
+        },
+        "port": {
+          "type": "number",
+          "description": "Port used by the peer for overlay communication.",
+          "required": true,
+          "default": 60001
+        },
+        "role": {
+          "type": "string",
+          "enum": [
+            "hub",
+            "spoke",
+            "gateway"
+          ],
+          "description": "Optional role in hybrid topologies.",
+          "default": null
+        }
+      }
+    },
+    "description": "List of static peer nodes. Required in 'star' or 'hybrid' topologies, optional otherwise for resilience."
+  },
+  "tunnel_interface": {
+    "type": "string",
+    "default": "ovr0",
+    "description": "Name of the virtual interface used for overlay traffic (e.g., 'ovr0'). Will be created automatically."
+  },
+  "underlay_interface": {
+    "type": "string",
+    "default": "eth0",
+    "description": "Physical interface used to carry overlay traffic (encapsulated in UDP/IP)."
+  },
+  "underlay_ip": {
+    "type": "string",
+    "description": "IP address to use as source for overlay packets. If omitted, inferred from underlay_interface.",
+    "default": ""
+  },
+  "underlay_subnet": {
+    "type": "string",
+    "default": "10.0.0.0/24",
+    "description": "Local network segment in CIDR notation. Used for neighbor discovery and routing scope."
+  },
+  "ipv6_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable support for IPv6 overlay networks. Requires IPv6 underlay connectivity."
+  },
+  "services": {
+    "type": "list",
+    "default": [],
+    "items": {
+      "type": "object",
+      "fields": {
+        "name": {
+          "type": "string",
+          "description": "Name of the local service exposed by this node (e.g., 'api', 'db')."
+        },
+        "port": {
+          "type": "number",
+          "description": "TCP/UDP port the service listens on."
+        },
+        "protocol": {
+          "type": "string",
+          "enum": [
+            "tcp",
+            "udp"
+          ],
+          "description": "Protocol used by the service.",
+          "default": "tcp"
+        }
+      }
+    },
+    "description": "List of local services advertised to the overlay (used by gateways and hubs for service routing)."
+  }
+}

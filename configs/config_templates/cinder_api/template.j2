@@ -1,0 +1,93 @@
+[DEFAULT]
+# Logging configuration
+log_dir = {{ cinder_log_dir }}
+log_file = {{ cinder_log_file }}
+
+# API server binding
+bind_host = {{ api_bind_host }}
+bind_port = {{ api_bind_port }}
+
+# Authentication backend (Keystone)
+auth_strategy = {{ auth_strategy }}
+
+# Database connection (for state persistence; optional for stateless API nodes)
+{% if use_database %}
+connection = {{ db_connection }}
+{% endif %}
+
+# RPC backend (for coordination with other services)
+transport_url = {{ rpc_transport_url }}
+
+# Enable verbose/debug output (for troubleshooting)
+debug = {{ debug_enabled }}
+verbose = {{ verbose_enabled }}
+
+# Enable API extensions
+{% for extension in api_extensions %}enabled_extensions = {{ extension }}
+{% endfor %}
+
+# Rate limiting (optional)
+{% if rate_limits_enabled %}
+rate_limit_burst = {{ rate_limit_burst }}
+rate_limit_interval = {{ rate_limit_interval }}
+{% endif %}
+
+# Security hardening: enable SSL/TLS
+{% if ssl_enabled %}
+certfile = {{ ssl_cert_file }}
+keyfile = {{ ssl_key_file }}
+ca_file = {{ ssl_ca_file }}
+{% endif %}
+
+# CORS (Cross-Origin Resource Sharing)
+{% if cors_enabled %}
+allowed_origin = {{ cors_allowed_origin }}
+{% endif %}
+
+# Image cache configuration (for image volume creation)
+{% if image_cache_enabled %}
+image_cache_manager_interval = {{ image_cache_interval }}
+image_cache_size = {{ image_cache_size_gb }}
+{% endif %}
+
+# Backend pool configuration (multiple backends via driver)
+{% for backend in storage_backends %}
+[{{ backend.name }}]
+driver = {{ backend.driver }}
+volume_backend_name = {{ backend.name }}
+volume_driver = {{ backend.driver }}
+{% for opt_key, opt_val in backend.options.items() %}{{ opt_key }} = {{ opt_val }}
+{% endfor %}
+{% endfor %}
+
+# Scheduler configuration
+scheduler_driver = {{ scheduler_driver }}
+{% if scheduler_filters %}scheduler_available_filters = {{ scheduler_filters | join(', ') }}
+{% endif %}
+
+# Service token for internal API calls (if using service tokens)
+service_token_roles = {{ service_token_roles | join(', ') }}
+service_token_required = {{ service_token_required }}
+
+# Message TTL (time-to-live for Cinder messages)
+message_ttl = {{ message_ttl_seconds }}
+
+# Backup service integration
+backup_driver = {{ backup_driver }}
+{% if backup_driver == 'cinder.backup.drivers.ceph' %}backup_ceph_conf = {{ backup_ceph_conf }}
+backup_ceph_user = {{ backup_ceph_user }}
+backup_ceph_chunk_size = {{ backup_ceph_chunk_size_kb }}
+backup_ceph_pool = {{ backup_ceph_pool }}
+{% endif %}
+
+# Volume transfer and encryption settings
+{% if volume_transfer_enabled %}
+transfer_allow_encrypted = {{ transfer_allow_encrypted }}
+{% endif %}
+{% if encryption_enabled %}
+encryption_driver = {{ encryption_driver }}
+{% endif %}
+
+# Hostname used in API responses
+{% if host_fqdn %}osapi_volume_link_prefix = {{ host_fqdn }}
+{% endif %}

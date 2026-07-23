@@ -1,0 +1,278 @@
+{
+  "config_version": {
+    "type": "string",
+    "default": "1",
+    "description": "Configuration schema version; ensure compatibility with installed guerillabackup version."
+  },
+  "backend": {
+    "type": "object",
+    "default": {
+      "type": "local",
+      "path": "/var/backups/guerillabackup"
+    },
+    "description": "Backend configuration for where to store backups.",
+    "items": {
+      "type": {
+        "type": "string",
+        "default": "local",
+        "enum": [
+          "local",
+          "s3",
+          "ssh"
+        ],
+        "description": "Backend type to use for storing backups."
+      },
+      "path": {
+        "type": "string",
+        "default": "/var/backups/guerillabackup",
+        "description": "Local storage path (used only for 'local' backend)."
+      },
+      "bucket": {
+        "type": "string",
+        "default": "my-backup-bucket",
+        "description": "S3 bucket name (used only for 's3' backend)."
+      },
+      "region": {
+        "type": "string",
+        "default": "us-east-1",
+        "description": "AWS/S3 region (used only for 's3' backend)."
+      },
+      "endpoint": {
+        "type": "string",
+        "default": "",
+        "description": "Optional custom S3 endpoint (e.g., for MinIO or other S3-compatible services)."
+      },
+      "host": {
+        "type": "string",
+        "default": "backup.example.com",
+        "description": "SSH hostname or IP (used only for 'ssh' backend)."
+      },
+      "port": {
+        "type": "number",
+        "default": 22,
+        "description": "SSH port number (used only for 'ssh' backend)."
+      },
+      "remote_path": {
+        "type": "string",
+        "default": "/remote/backups",
+        "description": "Remote directory path for backups (used only for 'ssh' backend)."
+      }
+    }
+  },
+  "encryption": {
+    "type": "object",
+    "default": {
+      "enabled": false,
+      "key": ""
+    },
+    "description": "Global encryption settings for backup archives.",
+    "items": {
+      "enabled": {
+        "type": "boolean",
+        "default": false,
+        "description": "Enable encryption of backup archives (AES-256)."
+      },
+      "key": {
+        "type": "string",
+        "default": "",
+        "description": "Base64- or hex-encoded 256-bit AES key. Required if encryption.enabled is true."
+      }
+    }
+  },
+  "compression": {
+    "type": "object",
+    "default": {
+      "enabled": true,
+      "algorithm": "gzip",
+      "level": 6
+    },
+    "description": "Global compression settings for backup archives.",
+    "items": {
+      "enabled": {
+        "type": "boolean",
+        "default": true,
+        "description": "Enable compression before encrypting and archiving."
+      },
+      "algorithm": {
+        "type": "string",
+        "default": "gzip",
+        "enum": [
+          "gzip",
+          "zstd",
+          "none"
+        ],
+        "description": "Compression algorithm: 'gzip', 'zstd', or 'none'."
+      },
+      "level": {
+        "type": "number",
+        "default": 6,
+        "minimum": 0,
+        "maximum": 19,
+        "description": "Compression level: 1\u20139 (gzip), 1\u201322 (zstd). 0 = disabled if algorithm != none."
+      }
+    }
+  },
+  "retention": {
+    "type": "object",
+    "default": {
+      "max_backups": 7,
+      "min_age": "48h"
+    },
+    "description": "Global retention policy: how many backups to keep and minimum age before deletion.",
+    "items": {
+      "max_backups": {
+        "type": "number",
+        "default": 7,
+        "description": "Maximum number of backup versions to retain per source."
+      },
+      "min_age": {
+        "type": "string",
+        "default": "48h",
+        "description": "Minimum age of a backup before it may be deleted (e.g., \"24h\", \"7d\")."
+      }
+    }
+  },
+  "backup_schedule": {
+    "type": "string",
+    "default": "30 2 * * *",
+    "description": "CRON expression for default backup schedule (UTC)."
+  },
+  "backup_sources": {
+    "type": "list",
+    "default": [
+      {
+        "name": "system-configs",
+        "paths": [
+          "/etc",
+          "/var/lib/dpkg"
+        ],
+        "schedule": "0 3 * * 0"
+      }
+    ],
+    "description": "List of backup sources to manage.",
+    "items": {
+      "name": {
+        "type": "string",
+        "default": "system-configs",
+        "description": "Human-readable name for this backup source."
+      },
+      "paths": {
+        "type": "list",
+        "default": [
+          "/etc",
+          "/var/lib/dpkg"
+        ],
+        "description": "List of paths, files, or glob patterns to back up."
+      },
+      "dest_path": {
+        "type": "string",
+        "default": "",
+        "description": "Optional custom destination path (overrides global backend path)."
+      },
+      "schedule": {
+        "type": "string",
+        "default": "",
+        "description": "Optional CRON schedule for this source only (overrides global schedule)."
+      },
+      "retention": {
+        "type": "object",
+        "default": {},
+        "description": "Optional per-source retention overrides.",
+        "items": {
+          "max_backups": {
+            "type": "number",
+            "default": 7,
+            "description": "Per-source max backup count."
+          },
+          "min_age": {
+            "type": "string",
+            "default": "48h",
+            "description": "Per-source minimum age before deletion."
+          }
+        }
+      },
+      "encryption": {
+        "type": "object",
+        "default": {},
+        "description": "Optional per-source encryption overrides.",
+        "items": {
+          "enabled": {
+            "type": "boolean",
+            "default": false,
+            "description": "Enable encryption for this source."
+          },
+          "key": {
+            "type": "string",
+            "default": "",
+            "description": "Encryption key (base64/hex); required if enabled."
+          }
+        }
+      },
+      "compression": {
+        "type": "object",
+        "default": {},
+        "description": "Optional per-source compression overrides.",
+        "items": {
+          "enabled": {
+            "type": "boolean",
+            "default": true,
+            "description": "Enable compression for this source."
+          },
+          "algorithm": {
+            "type": "string",
+            "default": "gzip",
+            "enum": [
+              "gzip",
+              "zstd",
+              "none"
+            ],
+            "description": "Compression algorithm for this source."
+          },
+          "level": {
+            "type": "number",
+            "default": 6,
+            "minimum": 0,
+            "maximum": 19,
+            "description": "Compression level (0 = disabled if algorithm != none)."
+          }
+        }
+      }
+    }
+  },
+  "logging": {
+    "type": "object",
+    "default": {
+      "level": "info",
+      "dest": "stdout",
+      "file_path": "/var/log/guerillabackup.log"
+    },
+    "description": "Logging configuration.",
+    "items": {
+      "level": {
+        "type": "string",
+        "default": "info",
+        "enum": [
+          "debug",
+          "info",
+          "warn",
+          "error"
+        ],
+        "description": "Logging verbosity level."
+      },
+      "dest": {
+        "type": "string",
+        "default": "stdout",
+        "enum": [
+          "stdout",
+          "file"
+        ],
+        "description": "Log destination: stdout or file."
+      },
+      "file_path": {
+        "type": "string",
+        "default": "/var/log/guerillabackup.log",
+        "description": "Path to log file (used only if dest = file)."
+      }
+    }
+  }
+}

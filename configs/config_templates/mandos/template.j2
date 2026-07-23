@@ -1,0 +1,51 @@
+# Mandos server configuration
+[global]
+# The IP address(es) the Mandos server will bind to
+listen_addresses = {{ listen_addresses | join(', ') }}
+
+# The port the Mandos server listens on (default: 9161)
+port = {{ port }}
+
+# Path to the directory containing encrypted keys and metadata
+keys_dir = {{ keys_dir }}
+
+# Path to the XML-RPC plugin directory (optional, leave empty for default)
+plugins_dir = {{ plugins_dir }}
+
+# Maximum number of client connections (default: 100)
+max_clients = {{ max_clients }}
+
+# Log level: debug, info, warning, error, critical
+log_level = {{ log_level }}
+
+# Enable verbose logging (true/false)
+verbose = {{ verbose }}
+
+# Enable SSL/TLS for encrypted client communication (true/false)
+ssl_enabled = {{ ssl_enabled }}
+
+# Path to the SSL certificate file (required if ssl_enabled=true)
+ssl_cert_file = {{ ssl_cert_file }}
+
+# Path to the SSL private key file (required if ssl_enabled=true)
+ssl_key_file = {{ ssl_key_file }}
+
+{% if ssl_ca_file %}# Path to the CA certificate bundle for client certificate verification
+ssl_ca_file = {{ ssl_ca_file }}{% endif %}
+
+{% if ssl_crl_file %}# Path to the certificate revocation list (optional)
+ssl_crl_file = {{ ssl_crl_file }}{% endif %}
+
+# List of allowed client hostnames/IPs (empty = allow all)
+{% if allowed_hosts %}# Explicitly allowed clients (comma-separated list)
+allowed_hosts = {{ allowed_hosts | join(', ') }}{% else %}# Allow all clients (if no hosts listed)
+allowed_hosts ={% endif %}
+
+# Optional: systemd socket activation support (true/false)
+use_systemd_socket = {{ use_systemd_socket }}
+
+{% for plugin in plugins %}# Plugin {{ plugin.name }}: {{ plugin.description }}
+{% if plugin.enabled %}[plugin:{{ plugin.name }}]
+enabled = {{ plugin.enabled }}
+{% if plugin.options %}{% for key, value in plugin.options.items() %}{{ key }} = {{ value }}
+{% endfor %}{% endif %}{% endif %}{% endfor %}

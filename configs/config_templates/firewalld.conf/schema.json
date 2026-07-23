@@ -1,0 +1,76 @@
+{
+  "enable_firewalld": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable firewalld as the main firewall service. Disable only if using an alternative firewall like nftables."
+  },
+  "runtime_directory": {
+    "type": "string",
+    "default": "/run/firewalld",
+    "description": "Path to directory for runtime state files (e.g., socket, PID, zone state)."
+  },
+  "config_directory": {
+    "type": "string",
+    "default": "/etc/firewalld",
+    "description": "Path to persistent configuration directory (zones, services, ipsets)."
+  },
+  "firewall_backend": {
+    "type": "string",
+    "default": "/usr/sbin/firewalld",
+    "description": "Absolute path to the firewalld executable. Rarely changed."
+  },
+  "max_connections": {
+    "type": "number",
+    "default": 65536,
+    "description": "Maximum number of tracked connections. Increase on high-traffic systems to avoid conntrack table exhaustion."
+  },
+  "log_denied": {
+    "type": "string",
+    "default": "off",
+    "description": "Log packets that are dropped or rejected. Valid values: 'off', 'unicast', 'broadcast', 'all'."
+  },
+  "logging": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable or disable all logging of firewall events."
+  },
+  "log_level": {
+    "type": "string",
+    "default": "info",
+    "description": "Minimum log level for firewall events (e.g., 'warning', 'error', 'debug'). Lower = more verbose."
+  },
+  "allow_rfc3964": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable RFC3964-compliant IPv6 address filtering (e.g., for 6to4 tunnels). Disable only if legacy IPv6 tunnel issues occur."
+  },
+  "enable_ipv6": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable IPv6 firewalling. Disable only if the system uses IPv6-only (but note: firewalld requires IPv6 support even for IPv4-only setups)."
+  },
+  "enable_ipv4": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable IPv4 firewalling. Disable only if the system is IPv6-only."
+  },
+  "trusted_interfaces": {
+    "type": "list",
+    "default": [],
+    "description": "List of network interfaces that should bypass all firewall rules (fully trusted).",
+    "items": {
+      "type": "string",
+      "description": "Interface name (e.g., 'lo', 'docker0')."
+    }
+  },
+  "default_zone": {
+    "type": "string",
+    "default": "public",
+    "description": "Zone applied to new or unassigned interfaces. Must match a zone filename (e.g., 'public.xml') in /etc/firewalld/zones/."
+  },
+  "automatic_zone_assignment": {
+    "type": "bool",
+    "default": false,
+    "description": "If enabled, new interfaces are automatically assigned to DefaultZone on activation."
+  }
+}

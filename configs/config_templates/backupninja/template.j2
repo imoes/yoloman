@@ -1,0 +1,55 @@
+# Main BackupNinja configuration file
+# Controls global behavior, storage, and default settings
+
+# Directory where backup scripts are stored and executed from
+# This is the default location for backup action scripts
+tmpdir = {{ tmpdir }}
+
+# Directory where backup logs are stored
+# All backup operations log their output here
+logdir = {{ logdir }}
+
+# File where the master backup log is appended
+# Centralized log for backupninja run events
+masterlogfile = {{ masterlogfile }}
+
+# Enable or disable email notifications
+# Set to 0 to disable; set to 1 to enable
+emailresults = {{ emailresults }}
+
+# Email address to receive backup reports
+# Used when emailresults is enabled
+emailto = {{ emailto }}
+
+# SMTP server used for sending notifications
+# Required only if emailresults = 1
+{% if emailresults %}smtpserver = {{ smtpserver }}{% endif %}
+
+# Port for SMTP server (typically 25, 587, or 465)
+{% if emailresults %}smtpport = {{ smtpport }}{% endif %}
+
+# Enable TLS/SSL for SMTP (0 = off, 1 = TLS, 2 = SSL)
+{% if emailresults %}smtptls = {{ smtptls }}{% endif %}
+
+# From address for notification emails
+{% if emailresults %}smtpfrom = {{ smtpfrom }}{% endif %}
+
+# Default retention policy (in days) for local backups
+# Older backups beyond this age may be deleted by cleanup actions
+{% if retention_days > 0 %}retention = {{ retention_days }}{% endif %}
+
+# Maximum number of concurrent backup jobs
+# Limits resource usage during backup runs
+maxjobs = {{ maxjobs }}
+
+# Enable or disable dry-run mode (0 = real, 1 = dry)
+# Dry-run simulates execution without modifying files or systems
+dryrun = {{ dryrun }}
+
+# List of backup actions to run
+# Each action corresponds to a script in tmpdir or configured path
+{% for action in actions %}# {{ action.description }}
+include {{ action.name }}{% if action.when %} at {{ action.when }}{% endif %}{% if action.options %} {{ action.options | join(' ') }}{% endif %}
+{% endfor %}
+
+# End of main configuration

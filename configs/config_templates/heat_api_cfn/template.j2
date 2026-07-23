@@ -1,0 +1,128 @@
+[DEFAULT]
+# The name of the heat service to use for this node (used in logging and notifications)
+heat_name = heat
+
+# Logging configuration
+# Log to a specific file or to syslog; if empty, logs to stderr only
+log_file = /var/log/heat/heat-api-cfn.log
+
+# API server configuration
+# Hostname or IP on which the CFN API will listen
+bind_host = {{ heat_api_cfn.bind_host }}
+
+# Port on which the CFN API will listen
+bind_port = {{ heat_api_cfn.bind_port }}
+
+# Number of workers for the API server (0 = single process)
+api_workers = {{ heat_api_cfn.api_workers }}
+
+# Enable or disable the API debug mode
+debug = {{ heat_api_cfn.debug }}
+
+# Enable or disable the API verbose mode (include more detail in logs)
+verbose = {{ heat_api_cfn.verbose }}
+
+# Path to the PasteDeploy configuration file for this service
+config_file = /etc/heat/api-paste.ini
+
+[keystone_authtoken]
+# Authentication endpoint for Keystone
+auth_uri = {{ keystone_authtoken.auth_uri }}
+
+# Identity service endpoint for Keystone
+auth_url = {{ keystone_authtoken.auth_url }}
+
+# Service username (service project user)
+username = {{ keystone_authtoken.username }}
+
+# Service user's password
+password = {{ keystone_authtoken.password | default('') }}
+
+# Project (tenant) name where service user resides
+project_name = {{ keystone_authtoken.project_name }}
+
+# Domain name for the service user/project
+user_domain_name = {{ keystone_authtoken.user_domain_name }}
+project_domain_name = {{ keystone_authtoken.project_domain_name }}
+
+# Auth type (e.g., password, token, v3password)
+auth_type = {{ keystone_authtoken.auth_type }}
+
+# If True, skips TLS certificate verification (dangerous in production)
+insecure = {{ keystone_authtoken.insecure }}
+
+[trustee]
+# Trustee (Delegation) username for Heat to act on behalf of users
+username = {{ trustee.username }}
+
+# Trustee password
+password = {{ trustee.password | default('') }}
+
+# Trustee project (tenant) name
+project_name = {{ trustee.project_name }}
+
+# Trustee user domain
+user_domain_name = {{ trustee.user_domain_name }}
+
+# Trustee project domain
+project_domain_name = {{ trustee.project_domain_name }}
+
+# Auth URL for trustee authentication
+auth_url = {{ trustee.auth_url }}
+
+[clients_keystone]
+# Endpoint type for Keystone client (e.g., public, internal, admin)
+endpoint_type = {{ clients_keystone.endpoint_type }}
+
+[database]
+# SQLAlchemy connection string for Heat database
+connection = {{ database.connection }}
+
+[oslo_concurrency]
+# Path for lock files (used for process coordination)
+lock_path = {{ oslo_concurrency.lock_path }}
+
+[oslo_messaging_notifications]
+# Driver(s) for sending notifications (e.g., log, messaging, noop)
+# Multiple drivers may be specified as a list
+driver = {{ oslo_messaging_notifications.driver | join(', ') }}
+
+# Topic(s) to send notifications on (if driver uses messaging)
+{% for topic in oslo_messaging_notifications.topics | default([]) %}
+topic_{{ loop.index }} = {{ topic }}
+{% endfor %}
+
+[oslo_messaging_rabbit]
+# RabbitMQ hostname
+rabbit_host = {{ oslo_messaging_rabbit.rabbit_host }}
+
+# RabbitMQ port
+rabbit_port = {{ oslo_messaging_rabbit.rabbit_port }}
+
+# RabbitMQ user
+rabbit_userid = {{ oslo_messaging_rabbit.rabbit_userid }}
+
+# RabbitMQ password
+rabbit_password = {{ oslo_messaging_rabbit.rabbit_password | default('') }}
+
+# RabbitMQ virtual host
+rabbit_virtual_host = {{ oslo_messaging_rabbit.rabbit_virtual_host }}
+
+# Heartbeat timeout for RabbitMQ connection
+rabbit_heartbeat_timeout_threshold = {{ oslo_messaging_rabbit.rabbit_heartbeat_timeout_threshold }}
+
+# Enable or disable SSL for RabbitMQ
+rabbit_use_ssl = {{ oslo_messaging_rabbit.rabbit_use_ssl }}
+
+# SSL protocol version
+rabbit_ssl_version = {{ oslo_messaging_rabbit.rabbit_ssl_version }}
+
+# HA mode for RabbitMQ (if supported)
+rabbit_ha_queues = {{ oslo_messaging_rabbit.rabbit_ha_queues }}
+
+[oslo_policy]
+# Policy file path
+policy_file = {{ oslo_policy.policy_file }}
+
+# Default policy rule (e.g., default)
+default_rule = {{ oslo_policy.default_rule }}

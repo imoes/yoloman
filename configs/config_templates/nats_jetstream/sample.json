@@ -1,0 +1,70 @@
+{
+  "enable_jetstream": true,
+  "max_memory": 1073741824,
+  "max_storage": 21474836480,
+  "storage_dir": "/var/lib/nats/jetstream",
+  "max_ack_pending": 65536,
+  "mem_max_stream_bytes": 1073741824,
+  "storage_max_stream_bytes": 10737418240,
+  "stream_defaults_enabled": true,
+  "max_consumers": 256,
+  "max_msg_size": 1048576,
+  "max_bytes": "-1",
+  "max_age": "72h",
+  "duplicate_window": "2m",
+  "allow_rollup": false,
+  "deny_delete": false,
+  "deny_purge": false,
+  "streams": [
+    {
+      "name": "ORDERS",
+      "subjects": [
+        "orders.*",
+        "orders.>"
+      ],
+      "max_bytes": "5G",
+      "max_age": "7d",
+      "max_consumers": 64,
+      "storage": "file",
+      "num_replicas": 3,
+      "discard": "old",
+      "retention": "interest"
+    },
+    {
+      "name": "EVENTS",
+      "subjects": [
+        "events.>"
+      ],
+      "max_msgs": 1000000,
+      "max_bytes": "10G",
+      "storage": "file",
+      "num_replicas": 3,
+      "discard": "old",
+      "retention": "limits"
+    }
+  ],
+  "cluster": {
+    "name": "nats-cluster",
+    "host": "0.0.0.0",
+    "port": 6222,
+    "peers": [
+      {
+        "name": "nats-1",
+        "host": "nats-1.example.com",
+        "port": 6222
+      },
+      {
+        "name": "nats-2",
+        "host": "nats-2.example.com",
+        "port": 6222
+      },
+      {
+        "name": "nats-3",
+        "host": "nats-3.example.com",
+        "port": 6222
+      }
+    ]
+  },
+  "system_account": true,
+  "system_password": "s3cur3_p4ssw0rd!"
+}

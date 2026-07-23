@@ -1,0 +1,135 @@
+{
+  "use_lvmpolld": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable or disable the lvmpolld background daemon. Required for long-running operations like pvmove and RAID sync to run without blocking."
+  },
+  "lvmpolld_socket": {
+    "type": "string",
+    "default": "/run/lvm/lvmpolld.socket",
+    "description": "Path to the Unix domain socket used by lvmpolld to communicate with LVM clients."
+  },
+  "lvmpolld_timeout": {
+    "type": "number",
+    "default": 30,
+    "description": "Maximum time in seconds to wait for lvmpolld to respond before aborting the operation."
+  },
+  "log_lvmpolld": {
+    "type": "bool",
+    "default": true,
+    "description": "Whether to log lvmpolld activity (start, stop, failures) to syslog."
+  },
+  "lvmpolld_polling_interval": {
+    "type": "number",
+    "default": 1,
+    "description": "Interval in seconds between health checks for long-running LVM operations."
+  },
+  "lvmpolld_limits": {
+    "type": "object",
+    "default": {},
+    "description": "Ulimit-style resource limits for the lvmpolld process. Keys are limit names (e.g., 'memlock', 'nofile'), values are integers or 'unlimited'.",
+    "items": {
+      "type": "string",
+      "enum": [
+        "unlimited",
+        "integer"
+      ],
+      "description": "Value for a given resource limit."
+    }
+  },
+  "prefer_metadata_areas": {
+    "type": "string",
+    "default": "none",
+    "description": "Preferred device metadata area selection policy: 'none' (default), 'first', 'last', 'largest'."
+  },
+  "devicesfile": {
+    "type": "string",
+    "default": "",
+    "description": "Optional path to a file containing a list of devices to scan. Empty = scan all devices."
+  },
+  "scan_list": {
+    "type": "list",
+    "default": [],
+    "description": "Explicit list of device paths to scan. If non-empty, only these devices will be considered.",
+    "items": {
+      "type": "string",
+      "description": "Path to a device (e.g., '/dev/sda1')"
+    }
+  },
+  "device_filter": {
+    "type": "list",
+    "default": [
+      "a|.*|"
+    ],
+    "description": "List of regex patterns to include/exclude devices during scanning. Patterns starting with 'r' are rejected, 'a' are accepted.",
+    "items": {
+      "type": "string",
+      "description": "Filter pattern like \"a|/dev/sda*|\" or \"r|/dev/sd[0-9]*|\""
+    }
+  },
+  "dmfile": {
+    "type": "string",
+    "default": "",
+    "description": "Optional path to a file containing device-mapper UUIDs to exclude from scanning."
+  },
+  "scan_loop_devices": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable or disable scanning of loop devices. Set to true only if you use LVM on loop-backed files."
+  },
+  "log_verbose": {
+    "type": "number",
+    "default": 0,
+    "description": "Log verbosity level: 0=errors only, 1=warnings, 2=info, 3=debug."
+  },
+  "log_syslog": {
+    "type": "bool",
+    "default": true,
+    "description": "Whether to send LVM log messages to syslog."
+  },
+  "log_file": {
+    "type": "string",
+    "default": "all",
+    "description": "Optional path to a log file. Empty disables file logging."
+  },
+  "log_overwrite": {
+    "type": "bool",
+    "default": false,
+    "description": "Whether to overwrite previous log files on rotation. If false, old logs are archived with .1, .2, etc."
+  },
+  "log_levels": {
+    "type": "list",
+    "default": [
+      "i",
+      "n",
+      "a",
+      "c",
+      "e"
+    ],
+    "description": "List of character flags indicating which log categories to include: d=debug, i=info, n=notify, a=alert, c=control, e=error, f=fatal, o=operations, r=report, s=selection, t=transaction, u=util, v=verbose, x=internal.",
+    "items": {
+      "type": "string",
+      "description": "Single-character log level flag."
+    }
+  },
+  "activation_monitoring": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable monitoring of activation events \u2014 required for lvmpolld to track progress of background operations."
+  },
+  "min_recovery_rate": {
+    "type": "number",
+    "default": 100,
+    "description": "Minimum number of sectors per second that RAID or mirror devices must recover to avoid being suspended. Set to 0 to disable."
+  },
+  "parallel_activation": {
+    "type": "number",
+    "default": 0,
+    "description": "Maximum number of LVs to activate in parallel. 0 = use system defaults (often CPU count)."
+  },
+  "background_activation": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable background activation of LVs (e.g., for thin pool creation or RAID init). Required for lvmpolld to track long-running activation tasks."
+  }
+}

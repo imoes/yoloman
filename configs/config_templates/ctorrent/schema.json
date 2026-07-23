@@ -1,0 +1,184 @@
+{
+  "port": {
+    "type": "number",
+    "default": 6881,
+    "description": "TCP port for incoming BitTorrent peer connections. Common range: 6881\u20136889."
+  },
+  "bind_address": {
+    "type": "string",
+    "default": "0.0.0.0",
+    "description": "IP address or interface name to bind to (e.g., 'eth0' or '192.168.1.10'). Leave blank for all interfaces."
+  },
+  "max_peers": {
+    "type": "number",
+    "default": 100,
+    "description": "Maximum total number of peer connections across all torrents."
+  },
+  "max_uploads": {
+    "type": "number",
+    "default": 4,
+    "description": "Maximum number of simultaneous upload (seeding) slots. Set to 0 for unlimited."
+  },
+  "enable_dht": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable DHT (Distributed Hash Table) to discover peers without trackers."
+  },
+  "enable_upnp": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable automatic port forwarding via UPnP or NAT-PMP on compatible routers."
+  },
+  "max_memory": {
+    "type": "number",
+    "default": 1024,
+    "description": "Maximum memory (MiB) to allocate for piece buffers and metadata. Adjust based on system RAM."
+  },
+  "download_dir": {
+    "type": "string",
+    "default": "/var/lib/ctorrent/download",
+    "description": "Directory where completed torrents are stored."
+  },
+  "incomplete_dir": {
+    "type": "string",
+    "default": "/var/lib/ctorrent/incomplete",
+    "description": "Directory where partial (incomplete) downloads reside until completed."
+  },
+  "fast_resume": {
+    "type": "bool",
+    "default": true,
+    "description": "Resume downloads quickly by using stored resume data instead of rechecking all pieces."
+  },
+  "log_level": {
+    "type": "number",
+    "default": 3,
+    "description": "Verbosity: 0=none, 1=error, 2=warn, 3=info, 4=debug. Use 3 for production monitoring."
+  },
+  "log_file": {
+    "type": "string",
+    "default": "",
+    "description": "Path to log file. Leave empty to log to stderr/stdout."
+  },
+  "enable_ssl": {
+    "type": "bool",
+    "default": false,
+    "description": "Encrypt peer connections using TLS (requires peer support)."
+  },
+  "preallocate": {
+    "type": "bool",
+    "default": true,
+    "description": "Preallocate full disk space for torrent files to avoid fragmentation and I/O delays."
+  },
+  "endgame_mode": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable endgame mode: download rare remaining pieces from all connected peers."
+  },
+  "min_peers_seed": {
+    "type": "number",
+    "default": 4,
+    "description": "Minimum peers to maintain in seeding mode before pausing new connections."
+  },
+  "max_peers_torrent": {
+    "type": "number",
+    "default": 0,
+    "description": "Max peers per torrent (0 = use global max_peers)."
+  },
+  "extra_ports": {
+    "type": "list",
+    "default": [],
+    "items": {
+      "type": "number",
+      "description": "Additional TCP port numbers for IPv4/IPv6 compatibility or multiple interfaces."
+    },
+    "description": "List of extra ports to listen on (e.g., [6882, 6883] for IPv4+IPv6 or load balancing)."
+  },
+  "download_rate_limit": {
+    "type": "number",
+    "default": 0,
+    "description": "Maximum download rate (KiB/s). Set to 0 for unlimited."
+  },
+  "upload_rate_limit": {
+    "type": "number",
+    "default": 0,
+    "description": "Maximum upload rate (KiB/s). Set to 0 for unlimited."
+  },
+  "min_announce_interval": {
+    "type": "number",
+    "default": 600,
+    "description": "Minimum time (seconds) between tracker announces. Reduces tracker load."
+  },
+  "max_announce_interval": {
+    "type": "number",
+    "default": 1800,
+    "description": "Maximum time (seconds) between tracker announces (fallback interval)."
+  },
+  "tracker_timeout": {
+    "type": "number",
+    "default": 90,
+    "description": "Timeout (seconds) before retrying a failed tracker."
+  },
+  "global_trackers": {
+    "type": "list",
+    "default": [],
+    "items": {
+      "type": "object",
+      "fields": {
+        "url": {
+          "type": "string",
+          "description": "Tracker URL (e.g., 'udp://tracker.openbittorrent.com:80')"
+        },
+        "enabled": {
+          "type": "bool",
+          "description": "Whether to use this tracker by default."
+        }
+      }
+    },
+    "description": "List of global trackers to append to every new torrent. Avoid adding private trackers."
+  },
+  "user_agent": {
+    "type": "string",
+    "default": "",
+    "description": "Custom user-agent string for tracker identification. Leave empty for default."
+  },
+  "fast_open": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable TCP Fast Open (Linux kernel \u22653.7). Reduces handshake latency."
+  },
+  "enable_pex": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable Peer Exchange (PEX) to share peer lists with connected peers."
+  },
+  "enable_lsd": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable Local Service Discovery (LSD) to find local peers."
+  },
+  "share_ratio_limit": {
+    "type": "number",
+    "default": 1.0,
+    "description": "Upload/download ratio target before auto-stopping seeding. 1.0 = 100%."
+  },
+  "seed_time_limit": {
+    "type": "number",
+    "default": 0,
+    "description": "Maximum seeding time (seconds) per torrent before auto-removing. 0 = unlimited."
+  },
+  "auto_remove_delay": {
+    "type": "number",
+    "default": 0,
+    "description": "Hours to wait after torrent completion before auto-removing. 0 = disabled."
+  },
+  "min_seed_ratio": {
+    "type": "number",
+    "default": 1.0,
+    "description": "Minimum share ratio required before seeding stops."
+  },
+  "min_seed_time": {
+    "type": "number",
+    "default": 3600,
+    "description": "Minimum seeding time (seconds) required before seeding stops (even if ratio met)."
+  }
+}

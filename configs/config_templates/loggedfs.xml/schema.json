@@ -1,0 +1,97 @@
+{
+  "mount_point": {
+    "type": "string",
+    "default": "/data",
+    "description": "Root directory path to monitor for filesystem events"
+  },
+  "backend": {
+    "type": "string",
+    "default": "syslog",
+    "description": "Logging destination; either 'syslog' (system logging) or 'file' (dedicated log file)"
+  },
+  "log_file_path": {
+    "type": "string",
+    "default": "/var/log/loggedfs.log",
+    "description": "Path to the log file (only used if backend is 'file')"
+  },
+  "verbose": {
+    "type": "number",
+    "default": 2,
+    "description": "Log verbosity level (0=ERROR, 1=WARN, 2=INFO, 3=DEBUG)"
+  },
+  "json_output": {
+    "type": "bool",
+    "default": false,
+    "description": "Whether to emit each log entry as a structured JSON line (overrides prefix)"
+  },
+  "log_prefix": {
+    "type": "string",
+    "default": "[loggedfs]",
+    "description": "String prefix added before each log line (ignored if json_output is true)"
+  },
+  "max_log_size": {
+    "type": "number",
+    "default": 104857600,
+    "description": "Maximum size in bytes for a single log file before rotation"
+  },
+  "max_log_files": {
+    "type": "number",
+    "default": 5,
+    "description": "Maximum number of rotated log files to retain"
+  },
+  "log_operations": {
+    "type": "list",
+    "default": [
+      "read",
+      "write",
+      "open",
+      "mkdir",
+      "rmdir",
+      "rename",
+      "unlink",
+      "chmod",
+      "chown"
+    ],
+    "description": "List of filesystem operations to log; if omitted or empty, all operations are logged",
+    "items": {
+      "type": "string",
+      "enum": [
+        "read",
+        "write",
+        "open",
+        "mkdir",
+        "rmdir",
+        "rename",
+        "unlink",
+        "chmod",
+        "chown",
+        "link",
+        "symlink"
+      ],
+      "description": "A filesystem operation to log"
+    }
+  },
+  "exclude_paths": {
+    "type": "list",
+    "default": [
+      "/proc/*",
+      "/sys/*",
+      "/dev/*"
+    ],
+    "description": "List of path patterns (supports globs like * and ?) to exclude from logging",
+    "items": {
+      "type": "string",
+      "description": "A glob pattern for paths to exclude"
+    }
+  },
+  "follow_symlinks": {
+    "type": "bool",
+    "default": false,
+    "description": "Whether to follow symbolic links when monitoring directory trees"
+  },
+  "log_metadata": {
+    "type": "bool",
+    "default": true,
+    "description": "Whether to log metadata changes (e.g., permissions, ownership, timestamps)"
+  }
+}

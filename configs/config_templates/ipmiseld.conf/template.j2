@@ -1,0 +1,57 @@
+# IPMI SEL Event Logging Daemon configuration
+# Main configuration file for ipmiseld (FreeIPMI)
+
+[Logging]
+# Log level for ipmiseld (0-7, 7=verbose, 0=errors only)
+LogLevel = {{ log_level }}
+
+# Log facility (syslog facility to use)
+LogFacility = {{ log_facility }}
+
+# Log to syslog?
+Syslog = {% if log_to_syslog %}true{% else %}false{% endif %}
+
+# Log file path (if syslog is disabled)
+{% if not log_to_syslog %}LogFile = {{ log_file }}{% endif %}
+
+[Connection]
+# Default BMC host (override per-host via Hosts list if needed)
+DefaultHost = {{ default_host }}
+
+# Default BMC username
+DefaultUsername = {{ default_username }}
+
+# Default BMC password
+DefaultPassword = "{{ default_password }}"
+
+# Default BMC interface type (e.g., lan, lanplus, kmip)
+DefaultInterface = {{ default_interface }}
+
+# Enable host auto-discovery (if not in Hosts list)
+AutoDetect = {% if auto_detect %}true{% else %}false{% endif %}
+
+{% if hosts %}[Hosts]
+# Explicitly configured BMCs (one per line)
+{% for host in hosts %}# Host: {{ host.name }}
+{{ host.name }}.Host = {{ host.hostname }}
+{{ host.name }}.Username = {{ host.username }}
+{{ host.name }}.Password = "{{ host.password }}"
+{% if host.interface %}{{ host.name }}.Interface = {{ host.interface }}{% endif %}
+{% if host.port %}{{ host.name }}.Port = {{ host.port }}{% endif %}
+{% endfor %}{% endif %}
+
+[SEL]
+# Maximum number of SEL entries to fetch per BMC on startup
+InitialFetchLimit = {{ initial_fetch_limit }}
+
+# Minimum interval (seconds) between polling BMCs
+PollInterval = {{ poll_interval }}
+
+# Enable continuous logging of SEL events?
+Continuous = {% if continuous_logging %}true{% else %}false{% endif %}
+
+# Log format for SEL entries (e.g., text, xml, csv)
+LogFormat = {{ sel_log_format }}
+
+# Path to SEL event log (if log_to_syslog is false and LogFormat=text)
+SELLogFile = {{ sel_log_file }}

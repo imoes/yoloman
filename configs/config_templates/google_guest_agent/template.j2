@@ -1,0 +1,60 @@
+# /etc/default/google-guest-agent — Runtime environment for google-guest-agent
+# Controls which features the Google Compute Engine Guest Agent enables
+# See `man 8 google_guest_agent` and https://cloud.google.com/compute/docs/storagе/guest-agent for details
+
+{% if enabled_features | length > 0 %}# Enable the following guest agent features
+GUEST_AGENT_FEATURES="{{ enabled_features | join(' ') }}"
+{% else %}# Disable all optional features (default minimal enabled set)
+GUEST_AGENT_FEATURES=""
+{% endif %}
+
+{% if logging_level is defined %}# Logging verbosity: 0=INFO, 1=DEBUG, 2=TRACE
+GUEST_AGENT_LOGGING_LEVEL="{{ logging_level }}"
+{% endif %}
+
+{% if log_file is defined %}# Path to the guest agent log file
+GUEST_AGENT_LOG_FILE="{{ log_file }}"
+{% endif %}
+
+{% if metadata_server_url is defined %}# URL of the metadata server (for non-default environments)
+GUEST_AGENT_METADATA_URL="{{ metadata_server_url }}"
+{% endif %}
+
+{% if instance_id is defined %}# Override instance ID (rarely needed)
+GUEST_AGENT_INSTANCE_ID="{{ instance_id }}"
+{% endif %}
+
+{% if project_id is defined %}# Override project ID (rarely needed)
+GUEST_AGENT_PROJECT_ID="{{ project_id }}"
+{% endif %}
+
+{% if region is defined %}# Override region (for multi-region or hybrid setups)
+GUEST_AGENT_REGION="{{ region }}"
+{% endif %}
+
+# Disable password rotation (default: true)
+{% if not password_rotation_enabled %}GUEST_AGENT_PASSWORD_ROTATION="false"
+{% else %}GUEST_AGENT_PASSWORD_ROTATION="true"
+{% endif %}
+
+# Disable SSH key management (default: false; enabled only if specified)
+{% if not ssh_keys_enabled %}# SSH key management disabled
+GUEST_AGENT_SSH_KEYS="false"
+{% else %}GUEST_AGENT_SSH_KEYS="true"
+{% endif %}
+
+# Disable OS Login (default: false)
+{% if not oslogin_enabled %}# OS Login support disabled
+GUEST_AGENT_OSLISTEN="false"
+{% else %}GUEST_AGENT_OSLISTEN="true"
+{% endif %}
+
+# Disable hostname update (default: false)
+{% if not hostname_update_enabled %}# Do not update hostname from metadata
+GUEST_AGENT_UPDATE_HOSTNAME="false"
+{% else %}GUEST_AGENT_UPDATE_HOSTNAME="true"
+{% endif %}
+
+{% if extra_args is defined and extra_args | length > 0 %}# Additional command-line arguments passed directly to google_guest_agent
+GUEST_AGENT_EXTRA_ARGS="{{ extra_args | join(' ') }}"
+{% endif %}

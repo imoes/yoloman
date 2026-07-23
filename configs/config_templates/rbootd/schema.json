@@ -1,0 +1,101 @@
+{
+  "listen_interface": {
+    "type": "string",
+    "default": "eth0",
+    "description": "Network interface (e.g., 'eth0') or '0.0.0.0' for all interfaces to listen on for PXE/DHCP boot traffic."
+  },
+  "http_listen_addr": {
+    "type": "string",
+    "default": "0.0.0.0",
+    "description": "IP address to bind the HTTP boot server to (e.g., '192.168.1.1' or '0.0.0.0' to serve all interfaces)."
+  },
+  "http_port": {
+    "type": "number",
+    "default": 8080,
+    "description": "TCP port for the HTTP boot service."
+  },
+  "boot_root": {
+    "type": "string",
+    "default": "/var/lib/rbootd/boot",
+    "description": "Absolute filesystem path to the root directory containing all boot assets."
+  },
+  "kernels_dir": {
+    "type": "string",
+    "default": "kernels",
+    "description": "Subdirectory under boot_root where kernel images are stored."
+  },
+  "initrds_dir": {
+    "type": "string",
+    "default": "initrds",
+    "description": "Subdirectory under boot_root where initrd/initramfs images are stored."
+  },
+  "kernel_args_default": {
+    "type": "string",
+    "default": "quiet splash",
+    "description": "Default kernel command-line arguments applied to all hosts unless overridden."
+  },
+  "download_timeout": {
+    "type": "number",
+    "default": 30,
+    "description": "Maximum seconds to wait for a client to download a file before aborting the request."
+  },
+  "syslog_enabled": {
+    "type": "boolean",
+    "default": true,
+    "description": "Enable or disable sending logs to a remote or local syslog daemon."
+  },
+  "syslog_facility": {
+    "type": "string",
+    "default": "local0",
+    "description": "Syslog facility to use when syslog is enabled (e.g., 'local0', 'daemon')."
+  },
+  "syslog_server": {
+    "type": "string",
+    "default": "",
+    "description": "Optional hostname or IP:port of remote syslog server (e.g., '192.168.1.10:514'). Leave empty to use local syslog only."
+  },
+  "supported_protocols": {
+    "type": "list",
+    "default": [
+      "pxe",
+      "http"
+    ],
+    "description": "List of boot protocols the daemon supports. Valid values: 'pxe', 'http', 'tftp', 'https'."
+  },
+  "hosts": {
+    "type": "list",
+    "default": [],
+    "items": {
+      "name": {
+        "type": "string",
+        "description": "Unique host identifier (e.g., 'worker-01').",
+        "default": ""
+      },
+      "ip": {
+        "type": "string",
+        "description": "IPv4 or IPv6 address of the target host.",
+        "default": ""
+      },
+      "mac": {
+        "type": "string",
+        "description": "MAC address (optional for HTTP-only boot; required for PXE).",
+        "default": ""
+      },
+      "kernel": {
+        "type": "string",
+        "description": "Kernel filename (relative to boot_root/kernels_dir).",
+        "default": ""
+      },
+      "initrd": {
+        "type": "string",
+        "description": "Initrd/initramfs filename (relative to boot_root/initrds_dir). Leave empty if none.",
+        "default": ""
+      },
+      "kernel_args": {
+        "type": "string",
+        "description": "Custom kernel arguments for this host (overrides kernel_args_default).",
+        "default": ""
+      }
+    }
+  }
+}

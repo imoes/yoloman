@@ -1,0 +1,54 @@
+# Finit — main configuration file
+# Enable or disable Finit's built-in syslog helper
+{% if syslog_enable | default(false) %}
+syslog
+{% endif %}
+
+# Set system console logging level: 0=silent, 1=errors, 2=warnings, 3=info (default=3)
+loglevel {{ loglevel | default(3) }}
+
+# Optional: Set console device (e.g., /dev/console, /dev/ttyS0)
+{% if console_device %}
+console {{ console_device }}
+{% endif %}
+
+# Optional: Set hostname (overrides kernel cmdline if set)
+{% if hostname %}
+hostname {{ hostname }}
+{% endif %}
+
+# Define runlevels and services per runlevel
+# Format: runlevel <N> <service1> <service2> ...
+{% for rl in runlevels %}
+runlevel {{ rl.number }}{% for svc in rl.services %} {{ svc }}{% endfor %}
+{% endfor %}
+
+# Define services with optional dependencies, respawn policy, and timeout
+{% for svc in services %}
+# Service: {{ svc.name }}
+{% if svc.description %}# {{ svc.description }}{% endif %}
+{% if svc.pidfile %}pid {{ svc.pidfile }}{% endif %}
+{% if svc.cmd %}{{ svc.cmd }}{% endif %}
+{% if svc.restart_delay is defined and svc.restart_delay != 0 %}retry {{ svc.restart_delay }}s{% endif %}
+{% if svc.start_timeout is defined and svc.start_timeout != 0 %}timeout {{ svc.start_timeout }}s{% endif %}
+{% if svc.restart_limit is defined and svc.restart_limit != 0 %}maxrestarts {{ svc.restart_limit }}{% endif %}
+{% if svc.network_required %}requires network{% endif %}
+{% if svc.depends_on %}depends {{ svc.depends_on }}{% endif %}
+{% if svc.early_boot %}early{% endif %}
+{% endfor %}
+
+# Define console terminals (getty entries)
+{% for tty in ttys %}
+# TTY: {{ tty.device }}
+{% if tty.getty_cmd %}tty {{ tty.device }} {{ tty.getty_cmd }}{% else %}tty {{ tty.device }} /sbin/getty {{ tty.baud_rate | default(38400) }} {{ tty.device }}{% endif %}
+{% endfor %}
+
+# Optional: Power button handling (e.g., `poweroff`, `reboot`, `halt`, or custom command)
+{% if poweroff_cmd %}
+power {{ poweroff_cmd }}
+{% endif %}
+
+# Optional: Reboot command override
+{% if reboot_cmd %}
+reboot {{ reboot_cmd }}
+{% endif %}

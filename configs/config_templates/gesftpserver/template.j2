@@ -1,0 +1,84 @@
+# /etc/ssh/sshd_config — GESFTP / OpenSSH SFTP-server configuration
+
+# TCP port the server accepts connections on
+Port {{ ssh_port }}
+
+{% for addr in listen_addresses %}
+# Bind to a specific local IP address
+ListenAddress {{ addr }}
+{% endfor %}
+# Host private keys for each supported algorithm
+{% for key in host_keys %}
+HostKey {{ key }}
+{% endfor %}
+# Syslog facility for SSH daemon messages
+SyslogFacility {{ syslog_facility }}
+# Verbosity of log output
+LogLevel {{ log_level }}
+
+# Seconds an unauthenticated connection is kept open before being dropped
+LoginGraceTime {{ login_grace_time }}
+# Prevent direct root logins
+PermitRootLogin {{ permit_root_login }}
+# Verify ownership and permissions of key files and home directories
+StrictModes {{ strict_modes }}
+# Maximum authentication attempts per connection before disconnect
+MaxAuthTries {{ max_auth_tries }}
+# Maximum concurrent sessions multiplexed on a single connection
+MaxSessions {{ max_sessions }}
+
+# Allow public-key authentication
+PubkeyAuthentication {{ pubkey_authentication }}
+# Path(s) to files listing authorised public keys; %h expands to user home
+AuthorizedKeysFile {{ authorized_keys_file }}
+
+# Password-based authentication (disabled for key-only deployments)
+PasswordAuthentication {{ password_authentication }}
+# Reject accounts with empty passwords
+PermitEmptyPasswords {{ permit_empty_passwords }}
+# Keyboard-interactive / PAM challenge-response authentication
+ChallengeResponseAuthentication {{ challenge_response_authentication }}
+
+# Enable PAM for account and session management even when password auth is off
+UsePAM {{ use_pam }}
+
+# Disable TCP port forwarding — this is an SFTP-only server
+AllowTcpForwarding {{ allow_tcp_forwarding }}
+# No X11 display forwarding needed for SFTP
+X11Forwarding {{ x11_forwarding }}
+# Suppress /etc/motd on login
+PrintMotd {{ print_motd }}
+
+# Register the SFTP subsystem handler
+Subsystem sftp {{ sftp_subsystem }}
+
+{% for group in sftp_groups %}
+# SFTP-only access rules for Unix group {{ group.name }}
+Match Group {{ group.name }}
+    # Force SFTP subsystem — no interactive shell
+    ForceCommand internal-sftp{% if group.sftp_log_level %} -l {{ group.sftp_log_level }}{% endif %}
+
+    # Chroot jail root — must be owned root:root, mode 0755
+    ChrootDirectory {{ group.chroot_dir }}
+    # Block TCP tunnels within the SFTP session
+    AllowTcpForwarding no
+    # Block X11 forwarding within the SFTP session
+    X11Forwarding no
+    # Deny PTY allocation — shell-less enforcement
+    PermitTTY no
+{% endfor %}
+{% for user in sftp_users %}
+# SFTP-only access rules for individual user {{ user.name }}
+Match User {{ user.name }}
+    # Force SFTP subsystem — no interactive shell
+    ForceCommand internal-sftp{% if user.sftp_log_level %} -l {{ user.sftp_log_level }}{% endif %}
+
+    # Chroot jail root — must be owned root:root, mode 0755
+    ChrootDirectory {{ user.chroot_dir }}
+    # Block TCP tunnels within the SFTP session
+    AllowTcpForwarding no
+    # Block X11 forwarding within the SFTP session
+    X11Forwarding no
+    # Deny PTY allocation — shell-less enforcement
+    PermitTTY no
+{% endfor %}

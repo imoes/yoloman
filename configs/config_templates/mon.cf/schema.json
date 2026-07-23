@@ -1,0 +1,143 @@
+{
+  "interval": {
+    "type": "number",
+    "default": 60,
+    "description": "Global polling interval in seconds for all monitors."
+  },
+  "email_from": {
+    "type": "string",
+    "default": "mon@localhost",
+    "description": "Sender email address for alert notifications."
+  },
+  "email_to": {
+    "type": "list",
+    "items": {
+      "type": "string",
+      "pattern": "^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$"
+    },
+    "default": [
+      "admin@localhost"
+    ],
+    "description": "List of recipient email addresses for alert notifications."
+  },
+  "smtp_host": {
+    "type": "string",
+    "default": "localhost",
+    "description": "SMTP server hostname or IP address."
+  },
+  "smtp_port": {
+    "type": "number",
+    "default": 25,
+    "description": "SMTP server port (typically 25, 465, or 587)."
+  },
+  "smtp_user": {
+    "type": "string",
+    "default": "",
+    "description": "SMTP username for authenticated relaying (leave blank to disable)."
+  },
+  "smtp_pass": {
+    "type": "string",
+    "default": "",
+    "description": "SMTP password (store securely; consider external credential helpers in production)."
+  },
+  "use_tls": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable TLS encryption for SMTP connections."
+  },
+  "monitors": {
+    "type": "list",
+    "items": {
+      "name": {
+        "type": "string",
+        "default": "",
+        "description": "Human-readable name for the monitor (e.g., 'Web Server HTTP')."
+      },
+      "comment": {
+        "type": "string",
+        "default": "",
+        "description": "Optional comment to prepend in config (for documentation)."
+      },
+      "type": {
+        "type": "string",
+        "enum": [
+          "http",
+          "tcp",
+          "ping",
+          "exec",
+          "dns"
+        ],
+        "default": "http",
+        "description": "Monitor type \u2014 service protocol or method used."
+      },
+      "host": {
+        "type": "string",
+        "default": "127.0.0.1",
+        "description": "Target hostname or IP address to probe."
+      },
+      "port": {
+        "type": "number",
+        "default": 80,
+        "description": "TCP port to connect to (ignored for 'ping' and 'exec' types)."
+      },
+      "interval": {
+        "type": "number",
+        "default": 60,
+        "description": "Polling interval for this specific monitor (seconds)."
+      },
+      "timeout": {
+        "type": "number",
+        "default": 10,
+        "description": "Max time (seconds) to wait for a response before considering it down."
+      },
+      "up_cmd": {
+        "type": "string",
+        "default": "",
+        "description": "Command to execute when the monitor recovers to 'up' state (e.g., 'logger Monitor is up')."
+      },
+      "down_cmd": {
+        "type": "string",
+        "default": "",
+        "description": "Command to execute when the monitor enters 'down' state."
+      },
+      "alert_on_down": {
+        "type": "bool",
+        "default": true,
+        "description": "Send alert notifications when the service goes down."
+      }
+    },
+    "default": [],
+    "description": "List of services to monitor (e.g., HTTP, TCP ports, ping targets). Each item defines a monitor."
+  },
+  "recipients": {
+    "type": "list",
+    "items": {
+      "name": {
+        "type": "string",
+        "default": "",
+        "description": "Unique name for the recipient (used by monitors to reference)."
+      },
+      "type": {
+        "type": "string",
+        "enum": [
+          "email",
+          "exec"
+        ],
+        "default": "email",
+        "description": "Recipient delivery type: email or command execution."
+      },
+      "to": {
+        "type": "string",
+        "default": "",
+        "description": "Email address (required if type = 'email')."
+      },
+      "exec": {
+        "type": "string",
+        "default": "",
+        "description": "Shell command to execute on alert (required if type = 'exec')."
+      }
+    },
+    "default": [],
+    "description": "List of alert delivery endpoints. Used by monitors to send notifications."
+  }
+}

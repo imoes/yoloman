@@ -1,0 +1,109 @@
+[global]
+# Global cluster-wide settings
+fsid = {{ fsid }}
+mon_initial_members = {{ mon_initial_members | join(', ') }}
+mon_host = {{ mon_host | join(', ') }}
+
+# Network & security
+public_network = {{ public_network }}
+cluster_network = {{ cluster_network }}
+auth_cluster_required = {{ auth_cluster_required }}
+auth_service_required = {{ auth_service_required }}
+auth_client_required = {{ auth_client_required }}
+
+# Logging
+log_file = /var/log/ceph/$cluster.$name.log
+log_to_stderr = {{ log_to_stderr | lower }}
+log_to_syslog = {{ log_to_syslog | lower }}
+
+# Performance tuning
+osd_op_threads = {{ osd_op_threads }}
+osd_max_object_name_len = {{ osd_max_object_name_len }}
+osd_max_object_namespace_len = {{ osd_max_object_namespace_len }}
+
+{% if monitors %}
+# Monitor-specific settings (applied to each mon)
+{% for mon in monitors %}
+[mon.{{ mon.name }}]
+host = {{ mon.host }}
+mon_addr = {{ mon.addr }}
+{% endfor %}
+{% endif %}
+
+{% if osds %}
+# OSD-specific settings (applied to each osd)
+{% for osd in osds %}
+[osd.{{ osd.id }}]
+host = {{ osd.host }}
+devs = {{ osd.devs | join(' ') }}
+{% if osd.journal_dev %}journal_dev = {{ osd.journal_dev }}{% endif %}
+{% if osd.journal_size %}journal_size = {{ osd.journal_size }}{% endif %}
+{% endfor %}
+{% endif %}
+
+{% if pools %}
+# Pool configurations
+{% for pool in pools %}
+[pool {{ pool.name }}]
+pg_num = {{ pool.pg_num }}
+pgp_num = {{ pool.pgp_num }}
+size = {{ pool.size }}
+min_size = {{ pool.min_size }}
+{% if pool.crush_rule %}crush_rule = {{ pool.crush_rule }}{% endif %}
+{% if pool.enable_ec %}ec_profile = {{ pool.ec_profile }}{% endif %}
+{% if pool.application %}application = {{ pool.application }}{% endif %}
+{% endfor %}
+{% endif %}
+
+{% if ec_profiles %}
+# Erasure code profile definitions
+{% for prof in ec_profiles %}
+[erasure_code_profile {{ prof.name }}]
+plugin = {{ prof.plugin }}
+k = {{ prof.k }}
+m = {{ prof.m }}
+{% if prof.crush_locality %}crush_locality = {{ prof.crush_locality }}{% endif %}
+{% if prof.ruleset_failure_domain %}ruleset_failure_domain = {{ prof.ruleset_failure_domain }}{% endif %}
+{% endfor %}
+{% endif %}
+
+{% if mgrs %}
+# MGR-specific settings
+{% for mgr in mgrs %}
+[mgr.{{ mgr.name }}]
+host = {{ mgr.host }}
+{% endfor %}
+{% endif %}
+
+[mds]
+# Metadata server defaults
+max_mds = {{ mds_max_mds }}
+
+{% if mds_instances %}
+# MDS instance configurations
+{% for mds in mds_instances %}
+[mds.{{ mds.id }}]
+host = {{ mds.host }}
+zone = {{ mds.zone }}
+{% endfor %}
+{% endif %}
+
+[rbd]
+# RBD defaults
+default format = {{ rbd_default_format }}
+
+[rgw]
+# RADOS Gateway defaults
+rgw_frontends = {{ rgw_frontends | join(', ') }}
+{% if rgw_dns_name %}rgw_dns_name = {{ rgw_dns_name }}{% endif %}
+{% if rgw_socket_path %}rgw_socket_path = {{ rgw_socket_path }}{% endif %}
+
+{% if rgw_instances %}
+# RGW instance configurations
+{% for rgw in rgw_instances %}
+[client.rgw.{{ rgw.name }}]
+rgw_frontends = {{ rgw.frontends | join(', ') }}
+host = {{ rgw.host }}
+rgw_enable_usage_log = {{ rgw.enable_usage_log | lower }}
+{% endfor %}
+{% endif %}

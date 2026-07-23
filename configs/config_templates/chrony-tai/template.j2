@@ -1,0 +1,60 @@
+# Allow NTP time synchronization
+server {{ ntp_server }} iburst
+
+# Allow clients from this subnet to sync
+allow {{ subnet }}
+
+# Specify the location of the leap seconds file for TAI time
+leapsectz {{ leapsec_tz }}
+
+# Enable logging to a specific file
+logdir {{ log_dir }}
+log measurements statistics tracking
+
+# Run as a daemon with specified user
+runasuser {{ user }}
+
+# Set the port for NTP server (default 123)
+port {{ ntp_port }}
+
+# Specify the driftfile path
+driftfile {{ driftfile_path }}
+
+# Specify the RTC device for hardware clock sync (if applicable)
+rtcsync
+
+{% for pool_item in ntp_pools %}
+# {{ pool_item.name }} pool: {{ pool_item.description }}
+pool {{ pool_item.hostname }} iburst
+{% endfor %}
+
+# Key file for command authentication (optional)
+{% if enable_auth %}
+keyfile {{ keyfile_path }}
+makestep {{ makestep_threshold }} {{ max_steps }}
+{% else %}
+# Authentication disabled
+makestep {{ makestep_threshold }} {{ max_steps }}
+{% endif %}
+
+# Initialize leap second table (required for TAI reporting)
+leapfile {{ leapfile_path }}
+
+# Adjust time smoothly on startup (if enabled)
+{% if smooth_start %}
+initstepslew {{ max_slew_steps }} {{ ntp_server }}
+{% endif %}
+
+# Enable NTP server for other clients
+{% if enable_server %}
+bindcmdaddress 127.0.0.1
+bindcmdaddress ::1
+{% endif %}
+
+# Command port for chronyd control (default 323)
+commandport {{ command_port }}
+
+# EnableRTC
+{% if enable_rtc %}
+rtcsync
+{% endif %}

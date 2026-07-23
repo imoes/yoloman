@@ -1,0 +1,31 @@
+# Default registries for Podman (and other OCI tools)
+# This file controls where container images are pulled from.
+# Use 'unqualified-search-registries' for registries to try when an image name lacks a prefix.
+# Each entry is a short hostname (e.g., 'docker.io', 'quay.io'), optionally with port or path.
+# Order matters: earlier entries take precedence.
+[search]
+registries = {{ unqualified_search_registries | to_json }}
+
+# Optional: configure specific registry behavior (mirrors, Insecure, etc.)
+# Each registry block defines behavior for a single registry domain.
+{% for reg in registries %}
+[[registry]]
+# Registry hostname (required)
+location = "{{ reg.location }}"
+
+# Whether to allow using this registry over HTTP (not recommended in production)
+{% if reg.insecure is defined %}insecure = {{ reg.insecure | lower }}
+{% else %}# insecure = false{% endif %}
+
+# Mirrors: alternate locations to try *before* the main location for pulling images
+{% if reg.mirrors | length > 0 %}[[registry.mirror]]
+{% for m in reg.mirrors %}location = "{{ m }}"
+{% if not loop.last %}{{ "" }}
+{% endif %}{% endfor %}{% else %}# No mirrors configured
+{% endif %}
+
+# Optional: prefix to prepend to all image names for this registry
+{% if reg.prefix is defined %}prefix = "{{ reg.prefix }}"
+{% else %}# prefix = ""{% endif %}
+
+{% endfor %}

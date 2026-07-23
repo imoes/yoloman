@@ -1,0 +1,61 @@
+# Fail2Ban main configuration — global defaults and action definitions
+[DEFAULT]
+# Enable logging to syslog (true/false)
+logtarget = {{ logtarget }}
+# Syslog facility for logging
+syslogfacility = {{ syslogfacility }}
+# Log level (0=ERROR, 1=WARNING, 2=INFO, 3=DEBUG)
+loglevel = {{ loglevel }}
+
+# Default ban time in seconds
+bantime = {{ bantime }}
+# Time window for counting failures (seconds)
+findtime = {{ findtime }}
+# Max failures before ban
+maxretry = {{ maxretry }}
+# Backend used to monitor log files (auto, inotify, poll, systemd, etc.)
+backend = {{ backend }}
+# Default ban action (iptables-multiport is recommended for IPv4)
+banaction = {{ banaction }}
+banaction_allports = {{ banaction_allports }}
+# Action to unban (usually just the inverse of banaction)
+unbanaction = {{ unbanaction }}
+
+# Enable DNS lookups for IP addresses (true/false); can slow processing
+use_dns = {{ use_dns }}
+
+# Whitelist IP addresses/networks that are never banned
+ignoreip = {{ ignoreip | join(', ') }}
+
+# Email action settings (only if email notifications enabled)
+mta = {{ mta }}
+destemail = {{ destemail }}
+sendername = {{ sendername }}
+sender = {{ sender }}
+
+# Default chain for iptables rules
+chain = {{ chain }}
+
+# Protocol to ban (tcp, udp, or both)
+protocol = {{ protocol }}
+
+# Port(s) to protect (comma-separated list); overridden per-jail
+port = {{ default_port }}
+
+{% for jail in jails %}
+# --- Jail: {{ jail.name }} ---
+# Description: {{ jail.description | default('Automatically generated') }}
+[{{ jail.name }}]
+enabled = {{ 'true' if jail.enabled else 'false' }}
+port = {{ jail.port | join(',') }}
+filter = {{ jail.filter }}
+logpath = {{ jail.logpath | join(' ') }}
+maxretry = {{ jail.maxretry | default(maxretry) }}
+findtime = {{ jail.findtime | default(findtime) }}
+bantime = {{ jail.bantime | default(bantime) }}
+banaction = {{ jail.banaction | default(banaction) }}
+action = {{ jail.action | default('iptables-multiport') }}
+{% if jail.ignoreip is defined %}ignoreip = {{ jail.ignoreip | join(', ') }}
+{% endif %}{% if jail.backend is defined %}backend = {{ jail.backend }}
+{% endif %}{% if jail.protocol is defined %}protocol = {{ jail.protocol }}
+{% endif %}{% endfor %}

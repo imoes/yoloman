@@ -1,0 +1,93 @@
+# Fossil server configuration file
+# Database path for storing repositories
+# SQLite database file (must be writable by the server user)
+database: {{ database_path }}
+
+# Root repository name (used for the default web UI path)
+# Set to "" to disable the default repository
+root_name: {{ root_name }}
+
+# HTTP/HTTPS listening port
+port: {{ port }}
+
+# Hostname or IP to bind to (e.g., "127.0.0.1" for local only, "0.0.0.0" for all)
+host: {{ host }}
+
+# Enable or disable the built-in web UI
+webui: {{ webui | lower }}
+
+# Enable or disable HTTPS (requires certificate and key files below)
+ssl: {{ ssl | lower }}
+
+# SSL certificate file (PEM format)
+ssl_cert: {{ ssl_cert_path }}
+
+# SSL private key file (PEM format)
+ssl_key: {{ ssl_key_path }}
+
+# Enable or disable automatic repository creation via web UI
+auto_create: {{ auto_create | lower }}
+
+# Maximum number of simultaneous connections (0 = unlimited)
+max_connections: {{ max_connections }}
+
+# Authentication method: "none", "basic", "form", "http", or "digest"
+auth_method: {{ auth_method }}
+
+# List of allowed client IP addresses (empty = allow all)
+{% for ip in allowed_ips %}ip_pattern: {{ ip }}
+{% endfor %}
+
+# Default user access level: "anonymous", "reader", "committer", "admin"
+# Applies to users not explicitly listed in users section below
+# Note: only used if auth_method is "form" or "digest"
+default_access: {{ default_access }}
+
+# List of users (requires auth_method != "none" and "basic")
+{% for user in users %}user: {{ user.name }}:{{ user.password_hash }}:{{ user.access }}{% if user.comment %} # {{ user.comment }}{% endif %}
+{% endfor %}
+
+# Enable or disable HTTP Strict Transport Security (HSTS)
+hsts: {{ hsts | lower }}
+
+# Log file path (use "" to log to stderr only)
+log_file: {{ log_file }}
+
+# Log level: "verbose", "info", "warning", "error"
+log_level: {{ log_level }}
+
+# Base URL (used for generating links in emails, etc.)
+base_url: {{ base_url }}
+
+# Enable or disable automatic login for local requests (e.g., from same machine)
+local_auth: {{ local_auth | lower }}
+
+# Repository root directory (if using relative paths in database config)
+repository_root: {{ repository_root }}
+
+# Enable or disable CGI mode (default is standalone HTTP server)
+cgi: {{ cgi | lower }}
+
+# Path to CGI script (if cgi = true)
+cgi_path: {{ cgi_path }}
+
+# Enable or disable the built-in HTTP proxy support
+proxy: {{ proxy | lower }}
+
+# Timeout for client requests in seconds
+timeout: {{ timeout }}
+
+# Enable or disable gzip compression for responses
+compression: {{ compression | lower }}
+
+# Enable or disable Fossil’s internal cache (improves performance)
+cache: {{ cache | lower }}
+
+# Maximum size of cache in KB (0 = use default ~100MB)
+cache_size_kb: {{ cache_size_kb }}
+
+# Enable or disable repository replication (experimental)
+replication: {{ replication | lower }}
+
+# Enable or disable debug mode (very verbose logging)
+debug: {{ debug | lower }}

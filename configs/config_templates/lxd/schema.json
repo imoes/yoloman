@@ -1,0 +1,210 @@
+{
+  "bind_addr": {
+    "type": "string",
+    "default": "127.0.0.1:8443",
+    "description": "Address and optional port to bind the HTTP API server (e.g., '0.0.0.0:8443' or '127.0.0.1:8443')."
+  },
+  "port": {
+    "type": "number",
+    "default": 8443,
+    "description": "HTTPS port for the LXD API (used if `bind_addr` is not specified)."
+  },
+  "storage_path": {
+    "type": "string",
+    "default": "/var/lib/lxd",
+    "description": "Path to the directory where LXD stores its data (used only when storage.backend = dir)."
+  },
+  "log_level": {
+    "type": "string",
+    "default": "warn",
+    "description": "Verbosity of the daemon logs."
+  },
+  "auth_type": {
+    "type": "string",
+    "default": "trusted",
+    "description": "Authentication mode for the daemon API. 'trusted' requires client certs or passwords."
+  },
+  "tls_cert_path": {
+    "type": "string",
+    "default": "/etc/lxd/server.crt",
+    "description": "Path to the server TLS certificate."
+  },
+  "tls_key_path": {
+    "type": "string",
+    "default": "/etc/lxd/server.key",
+    "description": "Path to the server TLS private key."
+  },
+  "ca_cert_path": {
+    "type": "string",
+    "default": "/etc/lxd/client.crt",
+    "description": "Path to the CA or client certificate used for mutual TLS (optional)."
+  },
+  "restrict_unix_only": {
+    "type": "boolean",
+    "default": false,
+    "description": "If true, only expose the Unix socket and disable the TCP listener (enhances security)."
+  },
+  "unix_socket_perms": {
+    "type": "string",
+    "default": "0660",
+    "description": "Unix socket permissions in octal (e.g., '0660')."
+  },
+  "shutdown_timeout": {
+    "type": "number",
+    "default": 30,
+    "description": "Seconds to wait for graceful shutdown before force-terminating."
+  },
+  "preload_images": {
+    "type": "boolean",
+    "default": false,
+    "description": "If true, pre-download images to local storage during container start."
+  },
+  "default_image_server": {
+    "type": "string",
+    "default": "https://images.linuxcontainers.org",
+    "description": "Default remote image server (URL or alias like 'images')."
+  },
+  "bridges": {
+    "type": "list",
+    "default": [
+      {
+        "name": "lxdbr0",
+        "ip_version": 4,
+        "ip_address": "10.0.8.1",
+        "prefix_length": 24,
+        "nat": true
+      }
+    ],
+    "items": {
+      "name": {
+        "type": "string",
+        "default": "lxdbr0",
+        "description": "Name of the LXD-managed network bridge (e.g., lxdbr0)."
+      },
+      "ip_version": {
+        "type": "number",
+        "default": 4,
+        "enum": [
+          4,
+          6
+        ],
+        "description": "IP protocol version: 4 (IPv4) or 6 (IPv6)."
+      },
+      "ip_address": {
+        "type": "string",
+        "default": "10.0.8.1",
+        "description": "IPv4 or IPv6 address to assign to the bridge."
+      },
+      "prefix_length": {
+        "type": "number",
+        "default": 24,
+        "description": "Subnet prefix length (e.g., 24 for IPv4, 64 for IPv6)."
+      },
+      "nat": {
+        "type": "boolean",
+        "default": true,
+        "description": "Enable NAT for containers connected to this bridge."
+      }
+    },
+    "description": "List of LXD-managed bridges (one per entry). Required for container networking."
+  },
+  "dns_servers": {
+    "type": "list",
+    "default": [
+      "8.8.8.8",
+      "1.1.1.1"
+    ],
+    "items": {
+      "type": "string"
+    },
+    "description": "Upstream DNS servers for containers (comma-separated in config)."
+  },
+  "proxies": {
+    "type": "list",
+    "default": [],
+    "items": {
+      "listen": {
+        "type": "string",
+        "default": "",
+        "description": "Listen address:port (e.g., 0.0.0.0:8000) for a legacy proxy device."
+      },
+      "connect": {
+        "type": "string",
+        "default": "",
+        "description": "Target address:port (e.g., 127.0.0.1:80) to proxy traffic to."
+      }
+    },
+    "description": "List of legacy proxy listen/connect pairs (deprecated, prefer `lxc config device add`)."
+  },
+  "require_client_cert": {
+    "type": "boolean",
+    "default": true,
+    "description": "If true, require trusted client TLS certificates to access the API (recommended for security)."
+  },
+  "allowed_networks": {
+    "type": "list",
+    "default": [
+      "10.0.8.0/24"
+    ],
+    "items": {
+      "type": "string"
+    },
+    "description": "Allowed IPv4/IPv6 ranges for container NAT (used with `network.ipv4.nat.addresses`)."
+  },
+  "storage_backend": {
+    "type": "string",
+    "default": "dir",
+    "description": "Backend storage driver for LXD."
+  },
+  "storage_pool": {
+    "type": "string",
+    "default": "lxd",
+    "description": "Name of the storage pool (used only for non-`dir` backends)."
+  },
+  "default_profile": {
+    "type": "object",
+    "default": {
+      "raw.idmap": "both 1000 1000"
+    },
+    "description": "Key-value pairs applied to all containers by default (e.g., user namespace mapping)."
+  },
+  "allowed_storage_volumes": {
+    "type": "list",
+    "default": [
+      "containers",
+      "snapshots",
+      "backups",
+      "images"
+    ],
+    "items": {
+      "type": "string",
+      "enum": [
+        "containers",
+        "snapshots",
+        "backups",
+        "images"
+      ]
+    },
+    "description": "Types of storage volumes allowed for this LXD instance."
+  },
+  "allowed_instance_types": {
+    "type": "list",
+    "default": [
+      "container",
+      "virtual-machine"
+    ],
+    "items": {
+      "type": "string",
+      "enum": [
+        "container",
+        "virtual-machine"
+      ]
+    },
+    "description": "Instance types this LXD daemon may manage."
+  },
+  "log_file_path": {
+    "type": "string",
+    "default": "/var/log/lxd/lxd.log",
+    "description": "Path to the daemon log file. Use '-' to log to stdout only."
+  }
+}

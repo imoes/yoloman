@@ -1,0 +1,62 @@
+# Global settings applied to all sessions unless overridden
+set ssl:verify-certificate {{ ssl_verify_certificate | ternary('true', 'false') }}
+
+# Default protocol and port fallback
+set ftp:passive-mode {{ ftp_passive_mode | ternary('true', 'false') }}
+
+# Network timeouts (in seconds)
+set net:timeout {{ net_timeout }}
+set net:reconnect-interval-base {{ net_reconnect_interval_base }}
+
+# Connection limits
+set ftp:reconnect-interval {{ ftp_reconnect_interval }}
+set ftp:reconnect-retries {{ ftp_reconnect_retries }}
+set sftp:connect-retries {{ sftp_connect_retries }}
+
+# Bandwidth limiting (in bytes/sec; 0 = unlimited)
+set ftp:conn-limit {{ ftp_conn_limit }}
+set http:conn-limit {{ http_conn_limit }}
+set ftp:passive-limit {{ ftp_passive_limit }}
+set net:socket-buffer {{ net_socket_buffer }}
+
+# File transfer options
+set file:charset {{ file_charset }}
+set ftp:preserve-mtime {{ ftp_preserve_mtime | ternary('true', 'false') }}
+set ftp:use-mdtm {{ ftp_use_mdtm | ternary('true', 'false') }}
+set ftp:use-list-options '{{ ftp_use_list_options | default('-a') }}'
+
+# Logging
+set ftp:debug {{ ftp_debug | ternary('true', 'false') }}
+set http:debug {{ http_debug | ternary('true', 'false') }}
+set sftp:debug {{ sftp_debug | ternary('true', 'false') }}
+
+# Aliases — defined per-site or per-protocol
+cd {{ default_alias_cd | default('ls -la') }}
+get {{ default_alias_get | default('mget -c') }}
+put {{ default_alias_put | default('mput -c') }}
+
+# Site-specific mirrors
+cd {{ default_mirror_dir | default('/') }}
+
+# Custom settings for each remote site
+{% for site in sites %}
+# Site: {{ site.name }} — {{ site.description | default('No description') }}
+{% if site.protocol %}# Protocol: {{ site.protocol }}{% endif %}
+{% if site.host %}# Host: {{ site.host }}{% endif %}
+{% if site.user %}# User: {{ site.user }}{% endif %}
+# Port: {{ site.port }}
+# Mirror root: {{ site.mirror_root | default('/') }}
+# Mirror local path: {{ site.mirror_local_path | default('') }}
+# Enabled: {{ site.enabled | ternary('true', 'false') }}
+# Max parallel connections: {{ site.max_parallel | default(2) }}
+# Include patterns: {{ site.include_patterns | join(', ') | default('all files') }}
+# Exclude patterns: {{ site.exclude_patterns | join(', ') | default('none') }}
+# Transfer options: {{ site.transfer_options | join(' ') | default('-c -P 2') }}
+{% if site.enabled %}alias mirror {{ site.name }} "mirror {{ site.mirror_root }} {{ site.mirror_local_path }} {{ site.transfer_options }}" {% endif %}
+{% endfor %}
+
+# Default site (used if none specified)
+alias default-site "open {{ default_site_url | default('ftp://anonymous@ftp.example.com') }}"
+
+# Auto-load aliases for interactive sessions
+alias load-defaults "source ~/.lftprc"

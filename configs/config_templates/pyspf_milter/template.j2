@@ -1,0 +1,57 @@
+# Listen address and port for the milter to accept connections from MTA (e.g., Postfix)
+bind = "{{ bind_address }}:{{ bind_port }}"
+
+# Timeout for DNS lookups (in seconds)
+dns_timeout = {{ dns_timeout }}
+
+# Timeout for SPF record evaluation (in seconds)
+spf_timeout = {{ spf_timeout }}
+
+# Maximum number of DNS lookups allowed in SPF evaluation (per RFC 7208)
+max_dns_lookups = {{ max_dns_lookups }}
+
+# Whether to reject mail on permanent SPF errors (e.g., permerror, fail)
+reject_permerror = {{ reject_permerror | lower }}
+reject_fail = {{ reject_fail | lower }}
+
+# Whether to reject on soft errors (e.g., softfail, neutral, none) — or just warn
+reject_softfail = {{ reject_softfail | lower }}
+reject_neutral = {{ reject_neutral | lower }}
+reject_none = {{ reject_none | lower }}
+
+# Logging verbosity: 0 = quiet, 5 = debug
+log_level = {{ log_level }}
+
+# Optional: specify a custom log file path (leave empty for syslog)
+{% if log_file %}log_file = "{{ log_file }}"{% else %}# log_file = ""  # use syslog{% endif %}
+
+# Optional: trusted IP ranges that bypass SPF checks (e.g., internal hosts, relays)
+# One per line, CIDR notation supported
+{% for ip in trusted_ips %}trusted_ip = "{{ ip }}"{% endfor %}
+
+# Optional: domains exempted from SPF checking (wildcards not supported)
+# One per line, exact domain names
+{% for domain in exempted_domains %}exempt_domain = "{{ domain }}"{% endfor %}
+
+# Optional: local IP ranges (for reverse-path spoofing detection)
+# IPs in this list are treated as local even if not in /etc/hosts or DNS
+{% for net in local_nets %}local_net = "{{ net }}"{% endfor %}
+
+# Optional: additional MTA headers to pass through (e.g., X-Forwarded-For)
+{% for header in passthrough_headers %}passthrough_header = "{{ header }}"{% endfor %}
+
+# Whether to add Authentication-Results header (RFC 5451)
+add_auth_results = {{ add_auth_results | lower }}
+
+# Optional: custom Authentication-Results header identifier (default: milter.pyspf)
+{% if auth_results_id %}auth_results_id = "{{ auth_results_id }}"{% else %}# auth_results_id = "milter.pyspf"{% endif %}
+
+# Whether to skip SPF checks for authenticated SMTP clients (e.g., submission on port 587)
+skip_for_authenticated = {{ skip_for_authenticated | lower }}
+
+# Whether to skip SPF checks for mail coming from localhost (127.0.0.0/8, ::1)
+skip_for_localhost = {{ skip_for_localhost | lower }}
+
+# Optional: fallback policy if SPF record is missing or invalid
+# Valid: none, softfail, neutral, fail, pass
+{% if fallback_policy %}fallback_policy = "{{ fallback_policy }}"{% else %}# fallback_policy = "neutral"{% endif %}

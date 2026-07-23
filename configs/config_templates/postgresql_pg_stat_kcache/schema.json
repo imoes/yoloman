@@ -1,0 +1,72 @@
+{
+  "shared_preload_libraries": {
+    "type": "string",
+    "default": "pg_stat_kcache",
+    "description": "Comma-separated list of shared libraries to preload at PostgreSQL startup. Must include 'pg_stat_kcache' for this extension to work."
+  },
+  "pg_stat_kcache_level": {
+    "type": "string",
+    "default": "user",
+    "description": "Level of statistics to collect: 'none' (no stats), 'user' (user CPU only), 'kernel' (kernel CPU only), or 'all' (user + kernel)."
+  },
+  "pg_stat_kcache_track": {
+    "type": "string",
+    "default": "all",
+    "description": "Which statistics to track: 'queries' (per-query), 'plans' (per-plan), or 'all' (both)."
+  },
+  "pg_stat_kcache_top_k_queries": {
+    "type": "number",
+    "default": 100,
+    "description": "Maximum number of top queries to retain statistics for per database. Set to 0 to disable limits."
+  },
+  "pg_stat_kcache_reset_on_dump": {
+    "type": "bool",
+    "default": false,
+    "description": "If true, reset collected statistics when pg_dump is run."
+  },
+  "pg_stat_kcache_database_rules": {
+    "type": "list",
+    "default": [],
+    "description": "List of per-database inclusion/exclusion rules for statistics collection.",
+    "items": {
+      "type": "object",
+      "fields": {
+        "database": {
+          "type": "string",
+          "required": true,
+          "description": "Database name to apply this rule to."
+        },
+        "include": {
+          "type": "bool",
+          "required": true,
+          "description": "If true, include queries from databases matching 'pattern'; if false, exclude them."
+        },
+        "pattern": {
+          "type": "string",
+          "required": true,
+          "description": "SQL LIKE pattern to match database names (e.g., 'myapp_*', '%production%')."
+        }
+      }
+    }
+  },
+  "pg_stat_kcache_sample_rate": {
+    "type": "number",
+    "default": 0,
+    "description": "Maximum number of samples per second per query. Set to 0 for unlimited (collect every sample)."
+  },
+  "pg_stat_kcache_track_time": {
+    "type": "bool",
+    "default": true,
+    "description": "If true, track kernel/user CPU time per query (requires kernel support)."
+  },
+  "pg_stat_kcache_track_io": {
+    "type": "bool",
+    "default": true,
+    "description": "If true, track I/O stats (bytes read/written, reads/writes count) per query."
+  },
+  "pg_stat_kcache_track_context": {
+    "type": "bool",
+    "default": false,
+    "description": "If true, track context switches and page faults per query (expensive; use only for deep profiling)."
+  }
+}

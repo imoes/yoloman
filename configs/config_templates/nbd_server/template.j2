@@ -1,0 +1,69 @@
+# /etc/nbd-server/config — NBD server configuration
+[generic]
+# Listen address — IP or hostname to bind the server to
+addr = {{ addr }}
+
+# Port — TCP port to listen on
+port = {{ port }}
+
+# Threads — number of worker threads for I/O
+threads = {{ threads }}
+
+# Timeout — connection timeout in seconds
+export-name = {{ export_name }}
+
+# Export description (optional)
+description = {{ description | default('') }}
+
+# Exported file or device path
+export-file = {{ export_file }}
+
+# Export size — auto-detected by default; override with bytes or suffix (e.g., 1G, 100M)
+{% if export_size is defined %}size = {{ export_size }}
+{% endif %}
+
+# Read-only mode toggle
+{% if read_only %}ro
+{% else %}rw
+{% endif %}
+
+# Multifile support (if exporting multiple files)
+{% if multifile %}multifile
+{% endif %}
+
+# Copy-on-write support
+{% if copy_on_write %}cow
+{% endif %}
+
+# Strict IO (disable async writes for reliability)
+{% if strict_io %}strict
+{% endif %}
+
+# Preallocation strategy (none, falloc, full)
+{% if prealloc %}prealloc={{ prealloc }}
+{% endif %}
+
+# Exported block size (optional; default is sector size)
+{% if block_size is defined %}block-size={{ block_size }}
+{% endif %}
+
+# TLS certificate paths (if enabled)
+{% if tls %}
+# TLS is enabled for this export
+cert = {{ tls_cert }}
+key = {{ tls_key }}
+ca-cert = {{ tls_ca_cert }}
+{% endif %}
+
+# Export-specific access control (optional)
+{% if hosts_allow %}# Allowed hosts
+{% for host in hosts_allow %}hosts_allow = {{ host }}
+{% endfor %}{% endif %}
+
+{% if hosts_deny %}# Denied hosts
+{% for host in hosts_deny %}hosts_deny = {{ host }}
+{% endfor %}{% endif %}
+
+# Custom options — passed as-is (e.g., for advanced options unsupported by named directives)
+{% for option in custom_options %}{{ option }}
+{% endfor %}

@@ -1,0 +1,44 @@
+# Location service configuration file for Lomiri
+# Controls location providers, accuracy, and privacy settings
+{% if log_level %}
+log-level: {{ log_level }}
+{% endif %}
+{% if data_sources %}
+# Data sources (providers) to use for location data
+providers:
+{% for provider in data_sources %}  - name: {{ provider.name }}
+    enabled: {{ provider.enabled }}
+    {% if provider.timeout %}timeout: {{ provider.timeout }}{% endif %}
+    {% if provider.priority is defined %}priority: {{ provider.priority }}{% endif %}
+{% endfor %}
+{% endif %}
+{% if default_accuracy %}
+# Default accuracy level requested by applications
+default-accuracy: {{ default_accuracy }}
+{% endif %}
+{% if privacy_mode %}
+# Enable privacy mode (redact location in logs and API responses)
+privacy-mode: {{ privacy_mode }}
+{% endif %}
+{% if max_clients %}
+# Maximum number of concurrent client connections
+max-clients: {{ max_clients }}
+{% endif %}
+{% if polling_interval %}
+# Polling interval (in seconds) for passive updates
+polling-interval: {{ polling_interval }}
+{% endif %}
+{% if allowed_countries %}
+# List of ISO 3166-1 alpha-2 country codes for location whitelisting
+allowed-countries: [{{ allowed_countries | join(', ') }}]
+{% endif %}
+{% if location_cache_ttl %}
+# TTL for location cache entries (in seconds)
+location-cache-ttl: {{ location_cache_ttl }}
+{% endif %}
+{% if geoclue_service %}
+# Geoclue2 service configuration
+geoclue:
+  service: {{ geoclue_service }}
+{% if geoclue_provider %}  provider: {{ geoclue_provider }}{% endif %}
+{% endif %}

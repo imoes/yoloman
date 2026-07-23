@@ -1,0 +1,130 @@
+{
+  "enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable or disable the Pacemaker SNMP agent."
+  },
+  "listen_address": {
+    "type": "string",
+    "default": "127.0.0.1",
+    "description": "IP address or hostname the SNMP agent will bind to."
+  },
+  "listen_port": {
+    "type": "number",
+    "default": 1911,
+    "description": "UDP port on which the SNMP agent listens for requests. Standard port for pcs-snmp is 1911."
+  },
+  "communities": {
+    "type": "list",
+    "default": [
+      "public"
+    ],
+    "items": {
+      "type": "string",
+      "description": "SNMPv1/v2c community string (read-only). Multiple entries allowed."
+    },
+    "description": "List of read-only SNMP community strings. Add multiple entries for multi-tenant or segmented monitoring."
+  },
+  "snmpv3_users": {
+    "type": "list",
+    "default": [],
+    "items": {
+      "type": "object",
+      "fields": {
+        "username": {
+          "type": "string",
+          "description": "SNMPv3 username (must be unique)."
+        },
+        "auth_protocol": {
+          "type": "string",
+          "default": "SHA",
+          "enum": [
+            "SHA",
+            "MD5"
+          ],
+          "description": "Authentication protocol (SHA or MD5). SHA is recommended."
+        },
+        "auth_passphrase": {
+          "type": "string",
+          "description": "Passphrase for authentication (8+ characters)."
+        },
+        "priv_protocol": {
+          "type": "string",
+          "default": "AES",
+          "enum": [
+            "AES",
+            "DES"
+          ],
+          "description": "Privacy (encryption) protocol (AES or DES). AES is recommended."
+        },
+        "priv_passphrase": {
+          "type": "string",
+          "description": "Passphrase for encryption (8+ characters)."
+        }
+      }
+    },
+    "description": "List of SNMPv3 users with authentication and privacy settings. Required for secure monitoring."
+  },
+  "log_level": {
+    "type": "number",
+    "default": 3,
+    "minimum": 0,
+    "maximum": 5,
+    "description": "Verbosity level for logs (0=quiet, 5=debug). Higher values increase log size."
+  },
+  "cib_path": {
+    "type": "string",
+    "default": "/var/lib/pacemaker/cib.xml",
+    "description": "Path to the Pacemaker CIB XML cache file. Usually auto-managed by pcs-snmp."
+  },
+  "max_connections": {
+    "type": "number",
+    "default": 10,
+    "minimum": 1,
+    "description": "Maximum number of concurrent SNMP connections. Adjust for high-load monitoring environments."
+  },
+  "send_traps": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable or disable sending of SNMP traps for cluster events (e.g., resource failover, node down)."
+  },
+  "trap_destinations": {
+    "type": "list",
+    "default": [],
+    "items": {
+      "type": "object",
+      "fields": {
+        "host": {
+          "type": "string",
+          "description": "Hostname or IP of trap receiver."
+        },
+        "port": {
+          "type": "number",
+          "default": 162,
+          "minimum": 1,
+          "maximum": 65535,
+          "description": "UDP port of trap receiver (default 162)."
+        }
+      }
+    },
+    "description": "List of SNMP trap destinations. Traps are sent for cluster health events if enabled."
+  },
+  "mib_prefixes": {
+    "type": "list",
+    "default": [],
+    "items": {
+      "type": "object",
+      "fields": {
+        "prefix": {
+          "type": "string",
+          "description": "MIB prefix (e.g., 'pacemaker', 'pcsgen')."
+        },
+        "mib_name": {
+          "type": "string",
+          "description": "MIB file name (without .txt, e.g., 'PACEMAKER-MIB')."
+        }
+      }
+    },
+    "description": "Optional custom MIB prefix mappings for non-default MIB resolution."
+  }
+}

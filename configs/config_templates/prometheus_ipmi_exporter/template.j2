@@ -1,0 +1,48 @@
+# IPMI exporter configuration for prometheus-ipmi-exporter
+# Listen address (host:port) for the metrics endpoint
+BIND_ADDRESS={{ bind_address }}
+
+# Path to the IPMI configuration file (optional; if present, overrides inline credentials)
+# Leave empty to disable external config file
+IPMI_CONFIG_FILE={{ ipmi_config_file | default('') }}
+
+# Enable or disable IPMI over LAN (set to 'false' to disable)
+IPMI_OVER_LAN={{ ipmi_over_lan | string | lower }}
+
+# Global IPMI user credentials (used when IPMI_CONFIG_FILE is not set)
+# These are used as fallback when no per-host credentials are configured
+IPMI_USER={{ ipmi_user | default('') }}
+IPMI_PASSWORD={{ ipmi_password | default('') }}
+
+# Timeout (in seconds) for IPMI commands
+IPMI_TIMEOUT={{ ipmi_timeout }}
+
+# Retry count for failed IPMI commands
+IPMI_RETRIES={{ ipmi_retries }}
+
+# Enable or disable strict certificate verification for HTTPS IPMI connections (TLS)
+IPMI_TLS_INSECURE={{ ipmi_tls_insecure | string | lower }}
+
+# Optional: List of IPMI devices with host-specific credentials (overrides global credentials)
+# Format: hostname|username|password|interface|privilege
+{% for device in ipmi_devices %}IPMI_DEVICE_{{ loop.index }}={{ device.hostname }}|{{ device.username }}|{{ device.password }}|{{ device.interface | default('lan') }}|{{ device.privilege | default('admin') }}
+{% endfor %}
+
+# Optional: List of blacklisted IPMI sensors (by GUID or name pattern)
+{% for sensor in blacklisted_sensors %}# Blacklisted sensor: {{ sensor }}
+{% endfor %}
+
+# Enable or disable collection of sensor readings
+COLLECT_SENSOR_READINGS={{ collect_sensor_readings | string | lower }}
+
+# Enable or disable collection ofSEL (System Event Log) entries
+COLLECT_SEL={{ collect_sel | string | lower }}
+
+# Enable or disable collection of SDR (Sensor Data Record) information
+COLLECT_SDR={{ collect_sdr | string | lower }}
+
+# Enable or disable collection of FRU (Field Replaceable Unit) information
+COLLECT_FRU={{ collect_fru | string | lower }}
+
+# Maximum number of concurrent IPMI connections (limits resource usage)
+MAX_CONCURRENT_REQUESTS={{ max_concurrent_requests }}

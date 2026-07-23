@@ -1,0 +1,100 @@
+{
+  "key_table_path": {
+    "type": "string",
+    "default": "/etc/opendkim/KeyTable",
+    "description": "Path to the KeyTable file, which maps selectors to signing keys."
+  },
+  "signing_table_path": {
+    "type": "string",
+    "default": "/etc/opendkim/SigningTable",
+    "description": "Path to the SigningTable file, which maps sender addresses to signing keys."
+  },
+  "internal_hosts": {
+    "type": "list",
+    "default": [
+      "127.0.0.1",
+      "::1"
+    ],
+    "description": "List of IP addresses or CIDR ranges considered internal (i.e., trusted mail sources that may send unsigned mail)."
+  },
+  "external_ignore_list": {
+    "type": "list",
+    "default": [
+      "127.0.0.0/8",
+      "::1"
+    ],
+    "description": "List of networks whose outbound mail should be ignored by the verifier (i.e., not require DKIM signature validation)."
+  },
+  "mode": {
+    "type": "string",
+    "default": "sv",
+    "description": "Operation mode: 's' = signing only, 'v' = verification only, 'sv' = both."
+  },
+  "syslog": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable logging to syslog."
+  },
+  "syslog_success": {
+    "type": "bool",
+    "default": false,
+    "description": "Log successful DKIM verifications to syslog (use only if debugging)."
+  },
+  "canonicalization": {
+    "type": "string",
+    "default": "relaxed/simple",
+    "description": "Header/body canonicalization algorithm: 'simple/simple' (strict), 'relaxed/simple' (recommended), 'relaxed/relaxed', etc."
+  },
+  "selector": {
+    "type": "string",
+    "default": "default",
+    "description": "DNS selector name used for publishing public keys (e.g., default._domainkey.example.com)."
+  },
+  "domain": {
+    "type": "string",
+    "default": "",
+    "description": "Default signing domain (used when SigningTable does not match). Leave empty if using per-domain signing via SigningTable."
+  },
+  "socket": {
+    "type": "string",
+    "default": "local:/var/spool/postfix/opendkim/opendkim.sock",
+    "description": "Socket address for communication with MTA (e.g., Postfix). Use 'local:path' for Unix domain sockets, 'port@host' for TCP."
+  },
+  "pid_file": {
+    "type": "string",
+    "default": "/var/run/opendkim/opendkim.pid",
+    "description": "Path to PID file."
+  },
+  "temp_file_directory": {
+    "type": "string",
+    "default": "/var/spool/opendkim",
+    "description": "Directory for temporary files during signing/verification."
+  },
+  "trusted_keys_hosts": {
+    "type": "list",
+    "default": [],
+    "description": "List of public key fingerprints (e.g., 'SHA1:ab:cd:...') to trust for verification (rarely used). Each item is one line in a braces block.",
+    "items": {
+      "type": "string",
+      "description": "A public key fingerprint in colon-separated hex (e.g., 'SHA1:ab:cd:ef:...')."
+    }
+  },
+  "signing_rules": {
+    "type": "list",
+    "default": [],
+    "description": "List of signing rules mapping sender patterns to key files (e.g., for multi-domain setups). Each rule has a pattern (e.g., '*@example.com') and key path.",
+    "items": {
+      "type": "object",
+      "fields": {
+        "pattern": {
+          "type": "string",
+          "description": "Pattern (e.g., '@example.com' or '*@*.example.org') matched against sender address."
+        },
+        "key_path": {
+          "type": "string",
+          "description": "Path to private key file for signing (e.g., '/etc/opendkim/keys/example.com/default.private')."
+        }
+      }
+    }
+  }
+}

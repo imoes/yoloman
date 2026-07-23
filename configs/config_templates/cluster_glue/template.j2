@@ -1,0 +1,88 @@
+<?xml version="1.0"?>
+<cluster name="{{ cluster_name }}" config_version="{{ config_version }}">
+
+  <!-- debug: set to 'on' only for troubleshooting; produces verbose syslog output on every node -->
+  <logging debug="{{ 'on' if logging_debug else 'off' }}"/>
+
+  <!-- keyfile: shared HMAC secret for inter-node packet authentication; generate with create_cluster_conf(8) -->
+  <!-- expected_votes: quorum threshold; two_node relaxes it to 1 for exactly 2-node clusters -->
+  <cman keyfile="{{ cman_keyfile }}"
+        expected_votes="{{ expected_votes }}"
+        two_node="{{ '1' if two_node else '0' }}"/>
+
+  <!-- Each clusternode needs a cluster-unique nodeid; votes is normally 1 per node -->
+  <clusternodes>
+    {% for node in nodes %}
+    <clusternode name="{{ node.name }}" votes="{{ node.votes }}" nodeid="{{ node.nodeid }}">
+      <!-- method name="1" is the primary fencing path; add method name="2" for a fallback agent -->
+      <fence>
+        <method name="1">
+          <device name="{{ node.fence_device }}"/>
+        </method>
+      </fence>
+    </clusternode>
+    {% endfor %}
+  </clusternodes>
+
+  <!-- STONITH fencing devices; agent value must match an installed fence_* binary in $PATH -->
+  <fencedevices>
+    {% for fd in fence_devices %}
+    <!-- lanplus=1 required for IPMI v2 / iLO / iDRAC; set to 0 for legacy IPMI v1 -->
+    <fencedevice name="{{ fd.name }}"
+                 agent="{{ fd.agent }}"
+                 ipaddr="{{ fd.ipaddr }}"
+                 login="{{ fd.login }}"
+                 passwd="{{ fd.passwd }}"
+                 lanplus="{{ '1' if fd.lanplus else '0' }}"/>
+    {% endfor %}
+  </fencedevices>
+
+  <!-- rm: resource manager block; contains failover domains, resources, and services -->
+  <rm>
+    <failoverdomains>
+      {% for domain in failover_domains %}
+      <!-- ordered=1: try nodes in priority order; restricted=1: never relocate outside listed nodes -->
+      <failoverdomain name="{{ domain.name }}"
+                      ordered="{{ '1' if domain.ordered else '0' }}"
+                      restricted="{{ '1' if domain.restricted else '0' }}">
+        {% for dn in domain.nodes %}
+        <!-- priority: lower number = higher preference (1 is tried first) -->
+        <failoverdomainnode name="{{ dn.name }}" priority="{{ dn.priority }}"/>
+        {% endfor %}
+      </failoverdomain>
+      {% endfor %}
+    </failoverdomains>
+
+    <!-- Global resource pool; services reference these by address/name -->
+    <resources>
+      {% for vip in vip_resources %}
+      <!-- monitor_link=1: marks resource failed when the underlying NIC loses carrier -->
+      <ip address="{{ vip.address }}" monitor_link="{{ '1' if vip.monitor_link else '0' }}"/>
+      {% endfor %}
+      {% for fs in fs_resources %}
+      <!-- force_unmount=1: kills processes with open files before unmounting on failover -->
+      <fs name="{{ fs.name }}"
+          device="{{ fs.device }}"
+          mountpoint="{{ fs.mountpoint }}"
+          fstype="{{ fs.fstype }}"
+          force_unmount="{{ '1' if fs.force_unmount else '0' }}"/>
+      {% endfor %}
+    </resources>
+
+    {% for svc in services %}
+    <!-- recovery: relocate=move to next node, restart=retry on same node, disable=leave stopped -->
+    <service name="{{ svc.name }}"
+             domain="{{ svc.domain }}"
+             recovery="{{ svc.recovery }}">
+      {% for ip_ref in svc.ip_refs %}
+      <ip ref="{{ ip_ref }}"/>
+      {% endfor %}
+      {% for fs_ref in svc.fs_refs %}
+      <fs ref="{{ fs_ref }}"/>
+      {% endfor %}
+    </service>
+    {% endfor %}
+
+  </rm>
+
+</cluster>

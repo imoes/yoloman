@@ -1,0 +1,275 @@
+{
+  "default_log_file": {
+    "type": "string",
+    "default": "/var/log/aodh/aodh-notifier.log",
+    "description": "Path to the notifier service log file."
+  },
+  "default_log_dir": {
+    "type": "string",
+    "default": "/var/log/aodh",
+    "description": "Directory for Aodh service logs."
+  },
+  "default_logging_context_format_string": {
+    "type": "string",
+    "default": "%(asctime)s.%(msecs)03d %(process)d %(levelname)s %(name)s [%(request_id)s %(user_identity)s] %(instance)s %(message)s",
+    "description": "Format string for context-aware logging messages."
+  },
+  "default_logging_default_format_string": {
+    "type": "string",
+    "default": "%(asctime)s.%(msecs)03d %(process)d %(levelname)s %(name)s [-] %(instance)s %(message)s",
+    "description": "Format string for default logging messages."
+  },
+  "default_logging_debug_format_suffix": {
+    "type": "string",
+    "default": "from %(funcName)s @%(filename)s:%(lineno)d",
+    "description": "Suffix appended to debug-level log entries."
+  },
+  "rpc_transport_url": {
+    "type": "string",
+    "default": "rabbit://openstack:RABBIT_PASSWORD@controller:5672/",
+    "description": "Message bus connection string (e.g., RabbitMQ or Redis). Replace RABBIT_PASSWORD with your password."
+  },
+  "keystone_authtoken_project_domain_name": {
+    "type": "string",
+    "default": "Default",
+    "description": "Keystone domain name for the project."
+  },
+  "keystone_authtoken_user_domain_name": {
+    "type": "string",
+    "default": "Default",
+    "description": "Keystone domain name for the user."
+  },
+  "keystone_authtoken_project_name": {
+    "type": "string",
+    "default": "service",
+    "description": "Keystone project (tenant) where the aodh service user resides."
+  },
+  "keystone_authtoken_username": {
+    "type": "string",
+    "default": "aodh",
+    "description": "Keystone username for the aodh service."
+  },
+  "keystone_authtoken_password": {
+    "type": "string",
+    "default": "",
+    "description": "Password for the aodh service user in Keystone. Required."
+  },
+  "keystone_authtoken_auth_url": {
+    "type": "string",
+    "default": "http://controller:5000/v3",
+    "description": "Keystone authentication endpoint URL (v3 API)."
+  },
+  "oslo_concurrency_lock_path": {
+    "type": "string",
+    "default": "/var/lib/aodh/lock",
+    "description": "Directory for process locking files (must be writable by aodh user)."
+  },
+  "alarm_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Whether the notifier service is enabled."
+  },
+  "alarm_workers": {
+    "type": "number",
+    "default": 1,
+    "description": "Number of worker processes for the notifier service."
+  },
+  "alarm_evaluation_service": {
+    "type": "string",
+    "default": " evaluator",
+    "description": "Name of the evaluation service (shared with aodh-evaluator); typically 'evaluator'."
+  },
+  "alarm_notification_retries": {
+    "type": "number",
+    "default": 3,
+    "description": "Maximum number of delivery retries for alarm notifications."
+  },
+  "alarm_notification_retry_delay": {
+    "type": "number",
+    "default": 5.0,
+    "description": "Delay between notification delivery retries (seconds)."
+  },
+  "alarm_notification_rules": {
+    "type": "list",
+    "default": [],
+    "description": "List of alarm notification rules (one per alarm template).",
+    "items": {
+      "type": "object",
+      "fields": {
+        "name": {
+          "type": "string",
+          "description": "Human-readable name for this notification rule."
+        },
+        "type": {
+          "type": "string",
+          "description": "Notification type (e.g., 'log', 'email', 'webhook', 'panic'."
+        },
+        "threshold": {
+          "type": "string",
+          "description": "Threshold condition (e.g., '>=', '>' \u2014 used only for some types)."
+        },
+        "alarm_id": {
+          "type": "string",
+          "description": "Optional: specific alarm UUID to attach to this rule."
+        },
+        "severity": {
+          "type": "string",
+          "description": "Severity level: 'critical', 'high', 'medium', 'low'."
+        },
+        "enabled": {
+          "type": "bool",
+          "description": "Whether this notification rule is active."
+        }
+      }
+    }
+  },
+  "notification_endpoints": {
+    "type": "list",
+    "default": [],
+    "description": "List of reusable notification endpoint definitions.",
+    "items": {
+      "type": "object",
+      "fields": {
+        "name": {
+          "type": "string",
+          "description": "Unique name for this endpoint (used in actions)."
+        },
+        "method": {
+          "type": "string",
+          "description": "HTTP method (e.g., 'POST', 'GET'). Required for HTTP(S) endpoints."
+        },
+        "url": {
+          "type": "string",
+          "description": "Full URL for the webhook or notification service (e.g., 'https://alerts.example.com/hook')."
+        },
+        "project_domain_name": {
+          "type": "string",
+          "description": "Keystone project domain (optional for service auth)."
+        },
+        "user_domain_name": {
+          "type": "string",
+          "description": "Keystone user domain (optional for service auth)."
+        },
+        "project_name": {
+          "type": "string",
+          "description": "Keystone project name (optional)."
+        },
+        "username": {
+          "type": "string",
+          "description": "HTTP Basic Auth username (optional)."
+        },
+        "password": {
+          "type": "string",
+          "description": "HTTP Basic Auth password (optional)."
+        },
+        "auth_url": {
+          "type": "string",
+          "description": "Keystone auth URL for service tokens (optional)."
+        }
+      }
+    }
+  },
+  "alarm_actions": {
+    "type": "list",
+    "default": [],
+    "description": "List of alarm actions mapped to states (OK, ALARM, INSUFFICIENT_DATA).",
+    "items": {
+      "type": "object",
+      "fields": {
+        "state": {
+          "type": "string",
+          "description": "Alarm state: 'ok', 'alarm', or 'insufficient_data'."
+        },
+        "actions": {
+          "type": "list",
+          "description": "List of action names referencing notification_endpoints or internal actions (e.g., 'log', 'panic', or endpoint names)."
+        }
+      }
+    }
+  },
+  "database_connection": {
+    "type": "string",
+    "default": "mysql+pymysql://aodh:AODH_DBPASS@controller/aodh",
+    "description": "Database connection URL (required if local storage is needed; typically shared with aodh-evaluator). Replace AODH_DBPASS."
+  },
+  "tls_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable TLS/SSL for service endpoints (e.g., for webhook destinations requiring HTTPS)."
+  },
+  "tls_cert_file": {
+    "type": "string",
+    "default": "/etc/aodh/ssl/cert.pem",
+    "description": "Path to TLS certificate (PEM format)."
+  },
+  "tls_key_file": {
+    "type": "string",
+    "default": "/etc/aodh/ssl/key.pem",
+    "description": "Path to TLS private key (PEM format)."
+  },
+  "tls_ca_file": {
+    "type": "string",
+    "default": "/etc/aodh/ssl/ca.pem",
+    "description": "Path to CA certificate for verifying peer (optional)."
+  },
+  "service_credentials_project_domain_name": {
+    "type": "string",
+    "default": "Default",
+    "description": "Project domain name for service credentials."
+  },
+  "service_credentials_user_domain_name": {
+    "type": "string",
+    "default": "Default",
+    "description": "User domain name for service credentials."
+  },
+  "service_credentials_project_name": {
+    "type": "string",
+    "default": "service",
+    "description": "Service project name."
+  },
+  "service_credentials_username": {
+    "type": "string",
+    "default": "aodh",
+    "description": "Service username."
+  },
+  "service_credentials_password": {
+    "type": "string",
+    "default": "",
+    "description": "Service user password (required)."
+  },
+  "service_credentials_auth_url": {
+    "type": "string",
+    "default": "http://controller:5000/v3",
+    "description": "Keystone v3 endpoint URL."
+  },
+  "service_credentials_interface": {
+    "type": "string",
+    "default": "internal",
+    "description": "Endpoint interface: 'public', 'internal', or 'admin'."
+  },
+  "service_credentials_region_name": {
+    "type": "string",
+    "default": "RegionOne",
+    "description": "Keystone region name."
+  },
+  "oslo_messaging_notifications_drivers": {
+    "type": "list",
+    "default": [
+      "messagingv2"
+    ],
+    "items": {
+      "type": "string"
+    },
+    "description": "Notification drivers: 'messagingv2' (recommended), 'log', 'test', etc."
+  },
+  "oslo_messaging_notifications_topic": {
+    "type": "string",
+    "default": "notifications",
+    "description": "RabbitMQ/Kafka topic to publish notifications to."
+  },
+  "oslo_messaging_notifications_retry": {
+    "type": "bool",
+    "default": true,
+    "description": "Whether to retry notification delivery on transient failures."
+  }
+}

@@ -1,0 +1,196 @@
+# LVM2 configuration file — main settings controlling global LVM behavior
+# (Most settings are optional; uncomment to override defaults)
+# Global LVM runtime configuration
+{
+  # Logging and reporting settings
+  log {
+    verbose = {{ log_verbose }}
+    syslog = {{ syslog_enabled }}
+    overwrite = {{ log_overwrite }}
+    indent = {{ log_indent }}
+    command_names = {{ log_command_names }}
+    prefix = "  "
+    # Log levels: 0=error,1=warn,2=info,3=debug
+    level = {{ log_level }}
+  }
+
+  # Device scanning and filtering
+  devices {
+    # List of devices to scan (empty = all block devices)
+    # Use device glob patterns or full paths
+    # Example: ["/dev/sd[a-d]", "/dev/mapper/mpath*"]
+    # If empty, defaults to scanning all block devices
+    {% if scan_devices %}
+    scan = [{{ scan_devices | map('quote') | join(', ') }}]
+    {% else %}
+    scan = [ "/dev" ]
+    {% endif %}
+
+    # Device filter: accept/reject by device type/name
+    # Format: ["a|regex|", "r|regex|"] — 'a' = accept, 'r' = reject
+    # Default: ["a|.*|", "r|/dev/sd[abc]$|"] (accept all except sd[a-c])
+    {% if device_filter %}
+    filter = [{{ device_filter | map('quote') | join(', ') }}]
+    {% else %}
+    filter = ["a|.*|", "r|/dev/sd[abc]$|"]
+    {% endif %}
+
+    # Global filter (overrides device.filter)
+    # Same format as filter
+    # Example: ["a|/dev/disk/by-id/.*|", "r|.*|"]
+    {% if global_filter %}
+    global_filter = [{{ global_filter | map('quote') | join(', ') }}]
+    {% else %}
+    global_filter = []
+    {% endif %}
+
+    # Devices to exclude from device scanning (regex patterns)
+    {% if devices_excluded %}
+    devicesfile = "/etc/lvm/devices/system.devices"
+    # (Note: devicesfile is auto-managed; manually set excluded devs below)
+    # excluded_devices = [{{ devices_excluded | map('quote') | join(', ') }}]
+    {% else %}
+    devicesfile = "/etc/lvm/devices/system.devices"
+    # excluded_devices = []
+    {% endif %}
+
+    # Preferred names for devices
+    preferred_names = [ "dm-" ]
+
+    # How to handle missing PVs
+    # 0 = error, 1 = ignore, 2 = warn
+    missing_stripe_filler = {{ missing_stripe_filler }}
+
+    # Enable/disable use of udev synchronization
+    use_udev_events = {{ use_udev_events }}
+
+    # Enable/disable sysfs scanning
+    sysfs_scan = {{ sysfs_scan }}
+
+    # Block size for reading PV metadata
+    block_size = {{ block_size }}
+  }
+
+  # Metadata handling
+  metadata {
+    # Number of copies of metadata to maintain per VG
+    # 0 = no mirroring, 1 = one copy (default), 2+ = mirrored copies
+    pvmetadatacopies = {{ pvmetadatacopies }}
+    vgmetadatacopies = "{{ vgmetadatacopies }}"
+
+    # Metadata format: "lvm2" (default), "raw", or "text"
+    format = "lvm2"
+
+    # Where to store backup metadata (per-VG backups)
+    backup = {{ metadata_backup }}
+    # Where to store archive copies of metadata (old versions)
+    archive = {{ metadata_archive }}
+
+    # Number of archived metadata copies to retain per VG
+    archives = {{ archive_retain }}
+
+    # Minimum age of archived metadata before auto-deletion
+    # Set to 0 to disable cleanup
+    min_age = {{ archive_min_age }}
+  }
+
+  # Allocation and space management
+  allocation {
+    # How to choose stripes/mirrors/log for LV creation
+    # Options: "normal", "contiguous", " cling", "Anywhere", etc.
+    policy = "normal"
+
+    # Which PVs to prefer when allocating
+    # Empty = any PV with space; list = preferred PV names/UUIDs
+    {% if alloc_pv_list %}
+    pvmetadatacopies = {{ alloc_pv_list | map('quote') | join(', ') | default('') }}
+    {% endif %}
+
+    # Maximum number of extents to allocate in a single chunk
+    maxextentsize = {{ max_extentsize }}
+
+    # Default mirror log type: "disk" or "core"
+    mirrorlog = "{{ mirror_log_type }}"
+
+    # Default mirror image count
+    mirrors = {{ default_mirror_count }}
+
+    # Default snapshot chunk size (KB)
+    snapshotsize = {{ default_snapshot_size }}
+  }
+
+  # Process and thread control
+  dmeventd {
+    # Enable monitoring for mirror, raid, and snapshot devices
+    mirror_library = "{{ dmeventd_mirror_library }}"
+    raid_library = "{{ dmeventd_raid_library }}"
+    snapshot_library = "{{ dmeventd_snapshot_library }}"
+  }
+
+  # Command-specific defaults
+  # (Overrides in commands like lvcreate can set per-command values)
+  # Default value if unset: use global fallback
+
+  # Activation settings (runtime behavior after metadata is loaded)
+  activation {
+    # Try to activate LVs even if some PVs are missing
+    missing_stripe_filler = "{{ activation_missing_stripe_filler }}"
+
+    # Minimum free space required (%) to activate LV
+    min_available_percent = {{ activation_min_available_percent }}
+
+    # Whether to check metadata before activation
+    verify_metadata = {{ activation_verify_metadata }}
+
+    # Delay between retries on activation failure (ms)
+    retry_deactivation = {{ activation_retry_deactivation }}
+
+    # Enable use of reserved memory for activation
+    reserved_memory = {{ activation_reserved_memory }}
+
+    # Enable polling for RAID sync completion
+    polling_interval = {{ polling_interval }}
+  }
+
+  # Cache settings (for LVM cache pools)
+  cache {
+    # Default cache mode: "writethrough" or "writeback"
+    mode = "{{ cache_default_mode }}"
+
+    # Default metadata size (MB)
+    metadata_size = {{ cache_default_metadata_size }}
+
+    # Default data size (MB)
+    data_size = {{ cache_default_data_size }}
+
+    # Policy for cache eviction: "smq", "mq", or "cleaner"
+    policy = "{{ cache_default_policy }}"
+
+    # Policy-specific settings
+    # (e.g., smq: ["migration_threshold = 2048"])
+    {% if cache_policy_settings %}
+    policy_settings = {
+      {% for key, value in cache_policy_settings.items() %}
+      {{ key }} = {{ value }}
+      {% if not loop.last %},{% endif %}
+      {% endfor %}
+    }
+    {% else %}
+    policy_settings = {
+      migration_threshold = 2048
+    }
+    {% endif %}
+  }
+
+  # Remote locking (for clustered LVM)
+  locking_type = {{ locking_type }}
+
+  # Cluster locking daemon settings
+  # locking_dir = "/run/cluster/lvm"  # only if locking_type=3
+
+  # Enable read-only activation
+  read_only = {{ activation_read_only }}
+}
+
+# LVM2 configuration comments are optional but recommended
+# See `man lvm.conf` for full syntax and options

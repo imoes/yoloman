@@ -1,0 +1,101 @@
+{
+  "databases": {
+    "type": "list",
+    "default": [],
+    "description": "List of dictionaries to serve. Each entry defines a dictionary by name and optional human-readable title.",
+    "items": {
+      "name": {
+        "type": "string",
+        "default": "",
+        "description": "The base filename (without .index/.dict extensions) of the dictionary data."
+      },
+      "title": {
+        "type": "string",
+        "default": "",
+        "description": "Optional human-readable title for this dictionary (e.g., 'WordNet 2.0')."
+      }
+    }
+  },
+  "access_rules": {
+    "type": "list",
+    "default": [],
+    "description": "Access control rules. Applied in order: allow/deny patterns (supports wildcards and CIDR).",
+    "items": {
+      "action": {
+        "type": "string",
+        "default": "allow",
+        "enum": [
+          "allow",
+          "deny"
+        ],
+        "description": "Whether to allow or deny matching clients."
+      },
+      "pattern": {
+        "type": "string",
+        "default": "0.0.0.0/0",
+        "description": "Client pattern (IP/CIDR like '192.168.1.0/24' or hostname like '*.edu')."
+      }
+    }
+  },
+  "rate_limit": {
+    "type": "object",
+    "default": {
+      "enabled": false,
+      "max_queries": 10,
+      "window": 60
+    },
+    "description": "Rate-limiting configuration per client to prevent abuse.",
+    "items": {
+      "enabled": {
+        "type": "bool",
+        "default": false,
+        "description": "Enable rate-limiting."
+      },
+      "max_queries": {
+        "type": "number",
+        "default": 10,
+        "description": "Maximum allowed queries per client within the window."
+      },
+      "window": {
+        "type": "number",
+        "default": 60,
+        "description": "Time window (in seconds) for rate counting."
+      }
+    }
+  },
+  "bind": {
+    "type": "string",
+    "default": "0.0.0.0:2628",
+    "description": "IP:port to bind the server to (e.g., '127.0.0.1:2628' to restrict locally)."
+  },
+  "maxconn": {
+    "type": "number",
+    "default": 256,
+    "description": "Maximum simultaneous client connections."
+  },
+  "loglevel": {
+    "type": "string",
+    "default": "info",
+    "description": "Logging verbosity level."
+  },
+  "dictdir": {
+    "type": "string",
+    "default": "/usr/share/dictd",
+    "description": "Directory containing dictionary .index/.dict file pairs."
+  },
+  "clienttimeout": {
+    "type": "number",
+    "default": 300,
+    "description": "Idle timeout (seconds) before disconnecting a client."
+  },
+  "defaultdb": {
+    "type": "string",
+    "default": "wordnet",
+    "description": "Default database to query if none specified by the client. Use 'all' to query all enabled databases."
+  },
+  "motd": {
+    "type": "string",
+    "default": "",
+    "description": "Custom Message of the Day to display upon client connection (single-line text). Leave empty for none."
+  }
+}

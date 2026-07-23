@@ -1,0 +1,41 @@
+# Enable command socket for chronyd control
+commandport 2323
+
+# Specify NTP servers to synchronize with
+{% for server in ntp_servers %}# NTP server: {{ server.host }} ({{ server.mode }})
+{{ server.mode }} {{ server.host }} {{ 'iburst' if server.iburst else '' }}
+{% endfor %}
+
+# Allow LXC container to act as a time source for guests (if enabled)
+{% if allow_time_source %}# Allow clients from the LXC host's network to sync against this container
+allow {{ lxc_network }}
+{% endif %}
+
+# Logging configuration
+{% if log_dir %}# Log to directory
+logdir {{ log_dir }}
+{% endif %}
+log measurements statistics tracking
+
+# Set maximum number of source measurements to keep
+maxsamples {{ max_samples }}
+
+# Set minimum number of good sources required before stepping
+minsources {{ min_sources }}
+
+# Enable leap seconds handling
+leapsecmode {{ leapsec_mode }}
+
+# Slew rate limit (in ppm); higher = more aggressive correction
+maxslewrate {{ max_slew_rate }}
+
+# Make step at initial sync only if offset > threshold
+initstepslew {{ init_stepslew_threshold }} {% for host in ntp_servers | selectattr('mode', 'equalto', 'server') | map(attribute='host') | list %} {{ host }}{% endfor %}
+
+# EnableRTC in the host (for virtualization-aware time sync)
+rtconutc {{ 'yes' if rtconutc else 'no' }}
+
+# Bind to specific interface (optional)
+{% if bind_interface %}# Bind to interface {{ bind_interface }}
+bindaddress {{ bind_interface }}
+{% endif %}

@@ -1,0 +1,117 @@
+{
+  "broker_name": "main-broker",
+  "data_directory": "/var/lib/activemq/data",
+  "enable_statistics": true,
+  "enable_plug_ins": true,
+  "plug_ins": [
+    {
+      "ref": "myMetricsPlugin"
+    },
+    {
+      "ref": "customAuthPlugin"
+    }
+  ],
+  "enable_jmx": true,
+  "jmx_port": 1099,
+  "jmx_domain": "com.company.activemq",
+  "kahadb_directory": "/var/lib/activemq/kahadb",
+  "kahadb_journal_max_file_size_mb": 64,
+  "kahadb_index_cache_size": 20000,
+  "memory_usage_percent_of_jvm": 70,
+  "store_usage_limit_gb": 20,
+  "temp_usage_limit_gb": 10,
+  "transport_connectors": [
+    {
+      "name": "openwire",
+      "protocol": "nio",
+      "host": "0.0.0.0",
+      "port": 61616,
+      "wire_format_opts": [
+        "maxInactivityDuration=30000",
+        "cacheSize=1024"
+      ]
+    },
+    {
+      "name": "mqtt",
+      "protocol": "tcp",
+      "host": "0.0.0.0",
+      "port": 1883,
+      "wire_format_opts": []
+    },
+    {
+      "name": "stomp",
+      "protocol": "ws",
+      "host": "0.0.0.0",
+      "port": 61614,
+      "wire_format_opts": [
+        "useAsyncSend=true"
+      ]
+    }
+  ],
+  "network_connectors": [
+    {
+      "name": "prod-bridge",
+      "uri": "static://(tcp://broker-prod-1:61616,tcp://broker-prod-2:61616)",
+      "dynamic_only": true,
+      "prefetch": 500,
+      "decrease_priority": true
+    }
+  ],
+  "destination_policy_entries": [
+    {
+      "queue": "MYQUEUE.>",
+      "dead_letter_queue": "DLQ.MYQUEUE",
+      "memory_limit_mb": 200,
+      "max_entries": 100000,
+      "use_cache": false,
+      "expire_messages_period": 600000,
+      "inactive_timeout": 600000,
+      "gc_inactive_destinations": true,
+      "dispatch_policy": "roundRobin",
+      "max_producers_audit": 500,
+      "max_consumers_audit": 500
+    },
+    {
+      "topic": ">",
+      "dead_letter_queue": "DLQ.TOPIC",
+      "memory_limit_mb": 50,
+      "max_entries": 50000,
+      "expire_messages_period": 120000,
+      "gc_inactive_destinations": false
+    }
+  ],
+  "enable_auth": true,
+  "auth_rules": [
+    {
+      "type": "queue",
+      "queue": "PUBLIC.>",
+      "group": "Public read-only queues",
+      "read": [
+        "guest",
+        "public"
+      ],
+      "write": [
+        "publisher"
+      ],
+      "admin": [
+        "admin"
+      ]
+    },
+    {
+      "type": "queue",
+      "queue": "SECURE.>",
+      "group": "Secure queues (internal only)",
+      "read": [
+        "internal",
+        "admin"
+      ],
+      "write": [
+        "internal",
+        "admin"
+      ],
+      "admin": [
+        "admin"
+      ]
+    }
+  ]
+}

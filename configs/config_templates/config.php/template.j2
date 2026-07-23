@@ -1,0 +1,216 @@
+# OpenSSL configuration file
+# This config file is parsed by OpenSSL's CONF library (see config(5))
+# It supports sections, variables, includes, and modular initialization.
+
+# --- Global pragmas (control parsing behavior) ---
+{% if config_diagnostics is defined %}
+# Enables diagnostic output: configuration errors will fail initialization instead of being silently ignored
+config_diagnostics = {{ config_diagnostics }}
+{% endif %}
+{% if openssl_conf is defined %}
+# Points to the initialization section containing module configuration definitions
+openssl_conf = {{ openssl_conf }}
+{% endif %}
+
+# Optional: include additional config fragments
+{% for include_path in includes %}
+# Includes an external configuration file or directory (if path points to a directory, all .cnf/.conf files are included)
+.include = {{ include_path }}
+{% endfor %}
+
+# --- Default section (global settings & fallbacks) ---
+# Default values for environment variable fallbacks (e.g., for paths)
+{% if env_defaults %}
+# Map environment variable defaults (used via $ENV::name expansion later)
+{% for varname, value in env_defaults.items() %}
+# Default value for environment variable {{ varname }}
+{{ varname }} = {{ value }}
+{% endfor %}
+{% endif %}
+
+# --- Initialization section (module selectors) ---
+# Section named by `openssl_conf` above: maps OpenSSL subsystems to their configuration sections
+[{{ openssl_conf }}]
+{% if oid_section is defined %}
+# Section containing custom ASN.1 Object Identifiers (OIDs)
+oid_section = {{ oid_section }}
+{% endif %}
+{% if providers is defined %}
+# Section defining cryptographic providers (e.g., default, fips)
+providers = {{ providers }}
+{% endif %}
+{% if alg_section is defined %}
+# Section defining EVP algorithm properties (e.g., default_properties)
+alg_section = {{ alg_section }}
+{% endif %}
+{% if ssl_conf is defined %}
+# Section containing named SSL/TLS configurations (e.g., server, client, system_default)
+ssl_conf = {{ ssl_conf }}
+{% endif %}
+{% if engines is defined %}
+# Section defining ENGINE configurations (legacy hardware acceleration modules)
+engines = {{ engines }}
+{% endif %}
+{% if random is defined %}
+# Section defining random number generator settings
+random = {{ random }}
+{% endif %}
+
+# --- Custom OIDs section (if defined) ---
+{% if oid_section is defined %}
+[{{ oid_section }}]
+{% for oid_name, oid_value in oids.items() %}
+# ASN.1 Object Identifier: short name {{ oid_name }} maps to value {{ oid_value }}
+{{ oid_name }} = {{ oid_value }}
+{% endfor %}
+{% endif %}
+
+# --- Providers section (if defined) ---
+{% if providers is defined %}
+[{{ providers }}]
+{% for provider_name, provider_section in providers_config.items() %}
+# Declares provider {{ provider_name }} and points to its configuration section
+{{ provider_name }} = {{ provider_section }}
+{% endfor %}
+
+# Provider-specific configuration blocks
+{% for provider_name, provider_section in providers_config.items() %}
+[{{ provider_section }}]
+{% if provider_identities[provider_name] is defined %}
+# Overrides the default name for provider {{ provider_name }}
+identity = {{ provider_identities[provider_name] }}
+{% endif %}
+{% if provider_modules[provider_name] is defined %}
+# Specifies path to shared library for provider {{ provider_name }}
+module = {{ provider_modules[provider_name] }}
+{% endif %}
+{% if provider_activated[provider_name] is defined %}
+# Activates provider {{ provider_name }} (value is ignored)
+activate = {{ provider_activated[provider_name] | lower if provider_activated[provider_name] is string else '' }}
+{% endif %}
+{% if provider_extra[provider_name] is defined %}
+# Additional provider-specific parameters
+{% for key, value in provider_extra[provider_name].items() %}
+{{ key }} = {{ value }}
+{% endfor %}
+{% endif %}
+{% endfor %}
+{% endif %}
+
+# --- EVP properties section (if defined) ---
+{% if alg_section is defined %}
+[{{ alg_section }}]
+# Default cryptographic properties query string (e.g., for FIPS mode)
+{% if evp_default_properties %}
+default_properties = {{ evp_default_properties }}
+{% else %}
+# (none set — use OpenSSL defaults)
+{% endif %}
+{% endif %}
+
+# --- SSL/TLS configuration section (if defined) ---
+{% if ssl_conf is defined %}
+[{{ ssl_conf }}]
+{% for conf_name, conf_section in ssl_configs.items() %}
+# Named SSL/TLS configuration: {{ conf_name }} maps to section {{ conf_section }}
+{{ conf_name }} = {{ conf_section }}
+{% endfor %}
+
+# Per-configuration blocks (e.g., [server_tls_config], [client_tls_config], [tls_system_default])
+{% for conf_name, conf_section in ssl_configs.items() %}
+[{{ conf_section }}]
+{% if conf_section == 'tls_system_default' and (min_proto_tls or min_proto_dtls) %}
+# Applies minimum protocol versions globally (applied at SSL_CTX creation time)
+{% if min_proto_tls %}
+MinProtocol = TLSv{{ min_proto_tls }}
+{% endif %}
+{% if min_proto_dtls %}
+MinProtocol = DTLSv{{ min_proto_dtls }}
+{% endif %}
+{% endif %}
+{% if server_certs and conf_name == 'server' %}
+# Server certificate loading (multiple key types supported)
+{% for cert_type, cert_file in server_certs.items() %}
+# Load {{ cert_type }} certificate from {{ cert_file }}
+{{ cert_type }}.Certificate = {{ cert_file }}
+{% endfor %}
+{% endif %}
+{% if extra_ssl_opts[conf_section] is defined %}
+# Additional SSL_CONF_cmd directives
+{% for cmd, val in extra_ssl_opts[conf_section].items() %}
+{{ cmd }} = {{ val }}
+{% endfor %}
+{% endif %}
+{% endfor %}
+{% endif %}
+
+# --- Engine configuration section (if defined) ---
+{% if engines is defined %}
+[{{ engines }}]
+{% for engine_name, engine_section in engines_config.items() %}
+# Declares engine {{ engine_name }} and points to its config section
+{{ engine_name }} = {{ engine_section }}
+{% endfor %}
+
+# Engine-specific configuration blocks
+{% for engine_name, engine_section in engines_config.items() %}
+[{{ engine_section }}]
+{% if engine_ids[engine_name] is defined %}
+# Overrides the default engine ID for {{ engine_name }}
+engine_id = {{ engine_ids[engine_name] }}
+{% endif %}
+{% if engine_paths[engine_name] is defined %}
+# Loads dynamic engine from the specified shared library path
+# Equivalent to dynamic.so_path + LIST_ADD + LOAD commands
+{% if engine_paths[engine_name] %}
+dynamic_path = {{ engine_paths[engine_name] }}
+{% endif %}
+{% endif %}
+{% if engine_inits[engine_name] is defined %}
+# Controls initialization: 1 = immediate init, 0 = defer
+init = {{ engine_inits[engine_name] }}
+{% endif %}
+{% if engine_default_algs[engine_name] is defined %}
+# Sets default algorithms for the engine
+{% if engine_default_algs[engine_name] %}
+default_algorithms = {{ engine_default_algs[engine_name] }}
+{% endif %}
+{% endif %}
+{% if engine_ctrls[engine_name] is defined %}
+# Additional ENGINE ctrl commands
+{% for cmd, val in engine_ctrls[engine_name].items() %}
+# Send ctrl command {{ cmd }} with value {{ val }}
+{{ cmd }} = {{ val }}
+{% endfor %}
+{% endif %}
+{% endfor %}
+{% endif %}
+
+# --- Random configuration section (if defined) ---
+{% if random is defined %}
+[{{ random }}]
+{% if rng_type %}
+# Specifies the random bit generator algorithm
+random = {{ rng_type }}
+{% endif %}
+{% if rng_cipher and rng_type == 'CTR-DRBG' %}
+# Cipher to use for CTR-DRBG (ignored by HASH/HMAC-DRBG)
+cipher = {{ rng_cipher }}
+{% endif %}
+{% if rng_digest and rng_type in ['HASH-DRBG', 'HMAC-DRBG'] %}
+# Digest to use for HASH/HMAC-DRBG (ignored by CTR-DRBG)
+digest = {{ rng_digest }}
+{% endif %}
+{% if rng_properties %}
+# Property query string for RNG and underlying algorithms
+properties = {{ rng_properties }}
+{% endif %}
+{% if rng_seed %}
+# Randomness source (e.g., /dev/urandom)
+seed = {{ rng_seed }}
+{% endif %}
+{% if rng_seed_properties %}
+# Property query for the randomness source
+seed_properties = {{ rng_seed_properties }}
+{% endif %}
+{% endif %}

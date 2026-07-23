@@ -1,0 +1,167 @@
+{
+  "log_file": {
+    "type": "string",
+    "default": "/var/log/cdemu/daemon.log",
+    "description": "Path to the log file. Use '-' to log to stderr/stdout."
+  },
+  "log_level": {
+    "type": "number",
+    "default": 3,
+    "description": "Verbosity of logging: 0=none, 1=error, 2=warn, 3=info, 4=debug, 5=trace."
+  },
+  "num_devices": {
+    "type": "number",
+    "default": 1,
+    "description": "Number of virtual CD/DVD drives to expose (1\u201316)."
+  },
+  "audio_backend": {
+    "type": "string",
+    "default": "none",
+    "description": "Audio subsystem for passthrough: 'none' disables audio, 'pulse' uses PulseAudio, 'alsa' uses ALSA, 'oss' uses OSS."
+  },
+  "audio_buffer_size": {
+    "type": "number",
+    "default": 100,
+    "description": "Audio buffer size in milliseconds (only used when audio_backend is not 'none'). Higher = more latency but fewer dropouts."
+  },
+  "supported_formats": {
+    "type": "list",
+    "default": [
+      "iso",
+      "cue",
+      "bin",
+      "nrg",
+      "mds",
+      "ccd",
+      "b5i",
+      "mdf",
+      "isz",
+      "zis"
+    ],
+    "description": "List of image formats the daemon will attempt to load. Format names are case-insensitive."
+  },
+  "backend_modules": {
+    "type": "list",
+    "default": [
+      {
+        "path": "FileModule",
+        "options": ""
+      },
+      {
+        "path": "RealModule",
+        "options": ""
+      },
+      {
+        "path": "AudioModule",
+        "options": ""
+      }
+    ],
+    "description": "Backend modules to load at startup. Each entry is a module path, optionally with comment-style notes.",
+    "items": {
+      "type": "object",
+      "fields": {
+        "path": {
+          "type": "string",
+          "description": "Module filename or identifier (e.g., 'FileModule')."
+        },
+        "options": {
+          "type": "string",
+          "description": "Optional comment-style notes (e.g., 'debug mode')."
+        }
+      }
+    }
+  },
+  "devices": {
+    "type": "list",
+    "default": [
+      {
+        "id": 0,
+        "driver": "empty",
+        "image_path": "",
+        "device_path": "",
+        "mount_point": "",
+        "tracks": []
+      }
+    ],
+    "description": "Configuration for each virtual drive (up to num_devices entries).",
+    "items": {
+      "type": "object",
+      "fields": {
+        "id": {
+          "type": "number",
+          "description": "Drive ID (0-indexed; must be < num_devices)."
+        },
+        "driver": {
+          "type": "string",
+          "enum": [
+            "empty",
+            "file",
+            "real",
+            "audio",
+            "mixed"
+          ],
+          "description": "Drive type: 'empty' (blank drive), 'file' (image file), 'real' (physical drive), 'audio' (audio tracks), 'mixed' (image + mount)."
+        },
+        "image_path": {
+          "type": "string",
+          "description": "Path to image file (used only for 'file' and 'mixed' drivers)."
+        },
+        "device_path": {
+          "type": "string",
+          "description": "Path to physical drive (e.g., /dev/sr0) for 'real' driver."
+        },
+        "mount_point": {
+          "type": "string",
+          "description": "Mount point (e.g., /media/cdrom0) for 'mixed' driver (read-only ISO overlay)."
+        },
+        "tracks": {
+          "type": "list",
+          "items": {
+            "type": "object",
+            "fields": {
+              "number": {
+                "type": "number",
+                "description": "Track number (1\u201399)."
+              },
+              "file": {
+                "type": "string",
+                "description": "Audio file path (WAV/FLAC/Ogg/Vorbis, etc.)."
+              },
+              "type": {
+                "type": "string",
+                "enum": [
+                  "AUDIO",
+                  "MODE1/2048",
+                  "MODE1/2352",
+                  "MODE2/2352",
+                  "XA/2352"
+                ],
+                "description": "Track type (AUDIO for audio tracks)."
+              },
+              "pre": {
+                "type": "bool",
+                "description": "If true, sets track flag as pre-emphasis (rarely needed)."
+              }
+            }
+          },
+          "description": "Audio tracks for 'audio' driver drives."
+        }
+      }
+    }
+  },
+  "remote_enabled": {
+    "type": "boolean",
+    "default": false,
+    "description": "Enable TCP/IP listener for remote client connections (e.g., from GUI tools on other machines)."
+  },
+  "remote_address": {
+    "type": "string",
+    "default": "127.0.0.1",
+    "description": "IP address to bind the remote listener to (e.g., 0.0.0.0 to listen on all interfaces)."
+  },
+  "remote_port": {
+    "type": "number",
+    "default": 2256,
+    "description": "TCP port for remote connections (CDEmu default is 2256)."
+  }
+}

@@ -1,0 +1,58 @@
+# Listen address and port for the web server
+listen_address: "{{ listen_address }}"
+port: {{ port }}
+
+# Base URL path for reverse proxy setups (e.g., '/filetea')
+base_url: "{{ base_url }}"
+
+# Enable HTTPS? (requires ssl_cert and ssl_key when true)
+https_enabled: {{ https_enabled | lower }}
+
+# SSL certificate and key paths (only used if https_enabled is true)
+ssl_cert: "{{ ssl_cert }}"
+ssl_key: "{{ ssl_key }}"
+
+# Maximum file size in MB per upload
+max_upload_size_mb: {{ max_upload_size_mb }}
+
+# Number of worker processes (0 = auto-detect CPU count)
+worker_count: {{ worker_count }}
+
+# Temporary upload directory (must be writable by filetea user)
+upload_temp_dir: "{{ upload_temp_dir }}"
+
+# Storage backend for uploaded files
+storage:
+  type: "{{ storage.type }}"
+{% if storage.type == 'local' %}
+  path: "{{ storage.local.path }}"
+{% elif storage.type == 's3' %}
+  bucket: "{{ storage.s3.bucket }}"
+  region: "{{ storage.s3.region }}"
+  access_key_id: "{{ storage.s3.access_key_id }}"
+  secret_access_key: "{{ storage.s3.secret_access_key }}"
+{% endif %}
+
+# Authentication backends
+auth:
+  type: "{{ auth.type }}"
+{% if auth.type == 'local' %}
+  allow_registration: {{ auth.local.allow_registration | lower }}
+{% elif auth.type == 'oauth' %}
+  providers:
+{% for provider in auth.oauth.providers %}
+    - name: "{{ provider.name }}"
+      client_id: "{{ provider.client_id }}"
+      client_secret: "{{ provider.client_secret }}"
+      auth_url: "{{ provider.auth_url }}"
+      token_url: "{{ provider.token_url }}"
+      user_info_url: "{{ provider.user_info_url }}"
+      scopes: {{ provider.scopes | join(', ') }}
+{% endfor %}
+{% endif %}
+
+# Logging configuration
+logging:
+  level: "{{ logging.level }}"
+  format: "{{ logging.format }}"
+  output: "{{ logging.output }}"

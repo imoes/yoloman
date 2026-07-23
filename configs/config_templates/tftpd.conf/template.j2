@@ -1,0 +1,53 @@
+# TFTP server configuration for tftpd-hpa
+# This file controls the behavior of the TFTP daemon.
+[main]
+# Directory to serve files from
+location = {{ location }}
+
+# IP address to bind to (empty or '0.0.0.0' for all interfaces)
+address = {{ address }}
+
+# UDP port to listen on
+port = {{ port }}
+
+# Maximum block size (in bytes) to use in transfers
+max_blocksize = {{ max_blocksize }}
+
+# Enable verbose logging
+verbose = {{ verbose }}
+
+# Enable debugging output
+debug = {{ debug }}
+
+# Enable secure mode (chroot to location and drop privileges)
+secure = {{ secure }}
+
+# Enable extended options support (RFC 2347, 2348, 2349)
+extended = {{ extended }}
+
+# Enable IPv6 support
+ipv6 = {{ ipv6 }}
+
+# Enable legacy mode (RFC 1350 only, no blocksize/timeout options)
+legacy = {{ legacy }}
+
+# User to run daemon as
+user = {{ user }}
+
+# Group to run daemon as
+group = {{ group }}
+
+# Umask for created files
+umask = {{ umask }}
+
+# Extra options passed to the daemon (e.g., '--no-fork' or '--verbose')
+extra_options = {{ extra_options | join(' ') }}
+
+{% for service in services %}# Service-specific override for '{{ service.name }}'
+[{{ service.name }}]
+location = {{ service.location | default(location) }}
+address = {{ service.address | default(address) }}
+port = {{ service.port | default(port) }}
+secure = {{ service.secure | default(secure) }}
+extra_options = {{ service.extra_options | default([]) | join(' ') }}
+{% endfor %}

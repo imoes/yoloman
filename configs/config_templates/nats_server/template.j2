@@ -1,0 +1,34 @@
+# Cluster name (optional, used for multi-cluster setups)
+cluster_name: {{ cluster_name | default('') }}
+
+# Server ID (unique per node in a cluster; auto-generated if omitted)
+server_id: {{ server_id | default('') }}
+
+# Host to listen on (0.0.0.0 = all interfaces)
+host: {{ host | default('0.0.0.0') }}
+
+# Port for the client connections
+port: {{ ports.client }}
+
+# Port for the HTTP monitoring endpoint (disabled if omitted)
+{% if ports.monitoring %}
+http_port: {{ ports.monitoring }}
+{% else %}
+# http_port: disabled
+{% endif %}
+
+# Port for the cluster protocol (used in clustering)
+{% if ports.cluster %}
+cluster {
+  host: {{ cluster_host | default('0.0.0.0') }}
+  port: {{ ports.cluster }}
+{% if cluster_auth %}
+  authorization {
+    user: {{ cluster_auth.user }}
+    password: {{ cluster_auth.password }}
+    timeout: {{ cluster_auth.timeout | default(1) }}
+  }
+{% endif %}
+{% if cluster_routes %}
+  routes = [
+{% for route in cluster_routes %}    

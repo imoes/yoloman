@@ -1,0 +1,110 @@
+[DEFAULT]
+# Base directory for policy data and logs
+base_dir = {{ base_dir }}
+
+# PID file location
+pid_file = {{ pid_file }}
+
+# Maximum number of concurrent connections
+max_connections = {{ max_connections }}
+
+# Timeout for SMTP transactions (seconds)
+smtp_timeout = {{ smtp_timeout }}
+
+# Logging verbosity (0–5; higher = more verbose)
+log_level = {{ log_level }}
+
+# Enable or disable debug mode
+debug_mode = {{ debug_mode | string | lower }}
+
+# Enable or disable TLS for internal services
+tls_enabled = {{ tls_enabled | string | lower }}
+
+# Path to CA certificate bundle for TLS validation
+ca_bundle_path = {{ ca_bundle_path }}
+
+# Path to server certificate
+server_cert_path = {{ server_cert_path }}
+
+# Path to server private key
+server_key_path = {{ server_key_path }}
+
+[database]
+# Database backend type (e.g., sqlite, postgresql)
+type = {{ database.type }}
+
+# SQLite file path (used only when type = sqlite)
+path = {{ database.path | default('/var/lib/mtpolicyd/policy.sqlite') }}
+
+# PostgreSQL connection string (used only when type = postgresql)
+connection = {{ database.connection | default('') }}
+
+[listener]
+# IPv4 bind address
+bind_v4 = {{ listener.bind_v4 }}
+
+# IPv6 bind address (empty to disable)
+bind_v6 = {{ listener.bind_v6 | default('::') }}
+
+# SMTP port
+port = {{ listener.port }}
+
+# Enable or disable SMTPS (SMTP over TLS on port 465)
+smtps_enabled = {{ listener.smtps_enabled | string | lower }}
+
+# SMTPS port (only if enabled)
+smtps_port = {{ listener.smtps_port | default(465) }}
+
+[limits]
+# Maximum recipients per message
+max_recipients = {{ limits.max_recipients }}
+
+# Maximum message size (bytes)
+max_message_size = {{ limits.max_message_size }}
+
+# Rate limit: messages per minute per client
+rate_limit_ppm = {{ limits.rate_limit_ppm }}
+
+# Burst tolerance (extra messages allowed over rate limit)
+burst_tolerance = {{ limits.burst_tolerance }}
+
+# Delay between retries (seconds)
+retry_delay = {{ limits.retry_delay }}
+
+[domains]
+# Enable domain policy enforcement
+domain_policy_enabled = {{ domains.domain_policy_enabled | string | lower }}
+
+# File with allowed sender domains (one per line)
+allowed_senders_path = {{ domains.allowed_senders_path }}
+
+# File with blocked sender domains (one per line)
+blocked_senders_path = {{ domains.blocked_senders_path }}
+
+[senders]
+# Enable sender policy enforcement
+sender_policy_enabled = {{ senders.sender_policy_enabled | string | lower }}
+
+# Path to per-sender policy overrides (JSON format)
+sender_overrides_path = {{ senders.sender_overrides_path }}
+
+# Path to per-sender rate limit overrides (JSON format)
+sender_rate_limits_path = {{ senders.sender_rate_limits_path }}
+
+{% for policy in policies %}
+[{{ policy.name }}]
+# Policy rule: {{ policy.description | default('') }}
+enabled = {{ policy.enabled | string | lower }}
+
+{% if policy.conditions %}
+# Conditions (AND logic across keys)
+{% for key, value in policy.conditions.items() %}{{ key }} = {{ value }}
+{% endfor %}
+{% endif %}
+
+{% if policy.actions %}
+# Actions (applied when conditions match)
+{% for key, value in policy.actions.items() %}{{ key }} = {{ value }}
+{% endfor %}
+{% endif %}
+{% endfor %}

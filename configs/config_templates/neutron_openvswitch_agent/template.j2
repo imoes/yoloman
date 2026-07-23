@@ -1,0 +1,103 @@
+[DEFAULT]
+# Core logging configuration
+log_dir = {{ log_dir }}
+log_file = {{ log_file }}
+# Logging format string
+log_format = %(asctime)s.%(msecs03d %(levelname)-8s] %(message)s
+# Logging date format
+log_date_format = %Y-%m-%d %H:%M:%S
+# Verbosity: DEBUG, INFO, WARNING, ERROR, CRITICAL
+verbose = {{ verbose }}
+debug = {{ debug }}
+
+# RPC and messaging backend configuration
+# RabbitMQ transport URL (format: transport://user:pass@host:port/virtual_host)
+transport_url = {{ rpc_transport_url }}
+
+# Authentication method (e.g., 'saml2', 'password', 'none')
+auth_strategy = {{ auth_strategy }}
+
+[agent]
+# L2 agent type — must be 'openvswitch'
+agent_type = openvswitch
+# Time (in seconds) between device scanning for L2 agent health checks
+report_interval = {{ report_interval }}
+# Number of seconds to wait before agent is considered dead by Neutron server
+min_broadcast_domain_size = {{ min_broadcast_domain_size }}
+# Enable L2 population driver (required for distributed routing in DVR/L3 HA)
+l2_population = {{ l2_population }}
+# Enable extension driver for port filtering (security groups, etc.)
+extension_drivers = {{ extension_drivers | join(', ') }}
+# Enable QoS extension driver
+qos_extension_driver = {{ qos_extension_driver }}
+# Enable Port Security extension driver
+port_security_extension_driver = {{ port_security_extension_driver }}
+# Enable trunk extension driver for trunk ports
+trunk_extension_driver = {{ trunk_extension_driver }}
+# Enable sriov extension driver for SR-IOV
+sriov_extension_driver = {{ sriov_extension_driver }}
+# Enable SG (Security Groups) extension driver
+security_group_extension_driver = {{ security_group_extension_driver }}
+# Enable bandwidth limiting (QoS) per port
+qos_limit_direction = {{ qos_limit_direction }}
+
+# OVS bridge mapping — maps network type (e.g., 'flat', 'vlan', 'vxlan', 'gre') to OVS bridge name
+{% for item in bridge_mappings %}
+# Bridge mapping: {{ item.type }} -> {{ item.bridge }}
+bridge_mappings = {{ item.type }}:{{ item.bridge }}
+{% endfor %}
+
+[ovs]
+# Enable Open vSwitch integration bridge
+integration_bridge = {{ ovs_integration_bridge }}
+# Enable Open vSwitch patch ports for cross-bridge connectivity (used for provider/external networks)
+tunnel_bridge = {{ ovs_tunnel_bridge }}
+# Enable local IP address binding for tunnel endpoints (e.g., '10.0.0.1')
+local_ip = {{ ovs_local_ip }}
+# Enable VxLAN/_GRE/STT tunneling
+enable_tunneling = {{ ovs_enable_tunneling }}
+# Tunnel type(s): 'vxlan', 'gre', 'stt'
+tunnel_types = {{ ovs_tunnel_types | join(', ') }}
+# Enable VXLAN UDP port (default: 4789)
+ vxlan_udp_port = {{ ovs_vxlan_udp_port }}
+# Enable VXLAN group addressing (multicast for learning — not used with L2POP)
+vxlan_group = {{ ovs_vxlan_group }}
+# Enable ARP responder in OVS (improves latency for ARP requests in large deployments)
+arp_responder = {{ ovs_arp_responder }}
+# Enable use of kernel flows (bypass userspace learning when possible)
+use_centralized_nat = {{ ovs_use_centralized_nat }}
+# Enable NAT for floating IPs in distributed mode
+dvr_snat_default_br = {{ ovs_dvr_snat_default_br }}
+
+[securitygroup]
+# Enable security groups
+enable_security_group = {{ securitygroup_enable_security_group }}
+# Firewall driver: 'openvswitch', 'iptables'
+firewall_driver = {{ securitygroup_firewall_driver }}
+# Enable remote CIDR logging in logs
+log_dropped_traffic = {{ securitygroup_log_dropped_traffic }}
+
+[l3]
+# Enable L3 agent functionality within the OVS agent (for DVR support)
+enable_distributed_routing = {{ l3_enable_distributed_routing }}
+# Number of L3 agents per router (for HA)
+ha_max_agents_per_router = {{ l3_ha_max_agents_per_router }}
+# Enable HA mode
+l3_ha = {{ l3_l3_ha }}
+# Minimum number of L3 agents required for HA operation
+min_l3_agents_per_router = {{ l3_min_l3_agents_per_router }}
+
+[ml2]
+# Type drivers (e.g., vlan, flat, vxlan, gre)
+type_drivers = {{ ml2_type_drivers | join(', ') }}
+# Tenant network types (subset of type_drivers that tenants can use)
+tenant_network_types = {{ ml2_tenant_network_types | join(', ') }}
+# Mechanism drivers — how the network types are realized (e.g., ovs, linuxbridge, sriov)
+mechanism_drivers = {{ ml2_mechanism_drivers | join(', ') }}
+# Extension drivers (same as agent extension_drivers)
+extension_drivers = {{ ml2_extension_drivers | join(', ') }}
+
+[securitygroup]
+enable_security_group = {{ securitygroup_enable_security_group }}
+firewall_driver = {{ securitygroup_firewall_driver }}
+log_dropped_traffic = {{ securitygroup_log_dropped_traffic }}

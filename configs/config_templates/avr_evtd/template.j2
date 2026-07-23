@@ -1,0 +1,45 @@
+# Configuration for avr_evtd — AVR Watchdog Daemon for Linkstation/KuroBox devices
+# Enable or disable the watchdog functionality
+{% if watchdog_enabled %}watchdog on{% else %}watchdog off{% endif %}
+
+# Device path to the AVR watchdog interface
+# Usually `/dev/avr_evtd` or `/dev/watchdog` on older systems
+device {{ device_path }}
+
+# Timeout in seconds before the watchdog triggers a system reset
+# Must be between 1 and 255 (hardware-dependent); recommended ≥30
+# 0 disables the timer (not recommended for production)
+timeout {{ timeout_seconds }}
+
+# Set the heartbeat interval in seconds
+# Must be less than `timeout_seconds`; daemon pings watchdog every `heartbeat_seconds`
+heartbeat {{ heartbeat_seconds }}
+
+# Set log level: `quiet`, `info`, `debug`
+# Controls verbosity of messages logged to syslog or stderr
+loglevel {{ log_level }}
+
+# Optional: specify custom syslog facility (e.g., `daemon`, `local0`, `local1`)
+{% if syslog_facility %}syslog {{ syslog_facility }}{% endif %}
+
+# Optional: custom command to run *before* each watchdog ping
+# Use only for lightweight health checks; avoid long-running commands
+{% if pre_ping_command %}preping {{ pre_ping_command }}{% endif %}
+
+# Optional: custom command to run *after* a watchdog reset (e.g., for cleanup)
+{% if post_reset_command %}postreset {{ post_reset_command }}{% endif %}
+
+# Optional: run as a specific user/group (for privilege separation)
+{% if run_as_user %}user {{ run_as_user }}{% endif %}
+{% if run_as_group %}group {{ run_as_group }}{% endif %}
+
+# Optional: list of files to monitor for changes (triggers ping on change)
+{% for file in monitored_files %}monitored_file {{ file.path }}{% if file.trigger %} trigger {{ file.trigger }}{% endif %}
+{% endfor %}
+
+# Optional: list of services to monitor (via `service_status` command)
+{% for svc in monitored_services %}monitored_service {{ svc.name }}{% if svc.timeout %} timeout {{ svc.timeout }}{% endif %}
+{% endfor %}
+
+# Optional: disable automatic restart on failure (for debugging only)
+{% if no_auto_restart %}no_auto_restart{% endif %}

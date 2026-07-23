@@ -1,0 +1,351 @@
+# LCD4Linux configuration file
+# General driver options
+Driver {{ driver }}
+
+{% if display %}
+# Display-specific configuration
+{% for disp in display %}
+Display {{ disp.name }} {{ disp.type }}
+{% if disp.driver_params %}
+{% for param, val in disp.driver_params.items() %}
+{{ disp.name }}.{{ param }} {{ val }}
+{% endfor %}
+{% endif %}
+{% if disp.plugins %}
+# Plugins for display "{{ disp.name }}"
+{% for plugin in disp.plugins %}
+{{ disp.name }}.Plugin {{ plugin }}
+{% endfor %}
+{% endif %}
+{% endfor %}
+{% endif %}
+
+{% if plugins %}
+# Global plugin configuration
+{% for plugin in plugins %}
+{% if plugin.name == "XMLRPC" %}
+Plugin xmlrpc
+{% if plugin.listen_host %}xmlrpc.ListenHost {{ plugin.listen_host }}{% endif %}
+{% if plugin.listen_port is defined %}xmlrpc.ListenPort {{ plugin.listen_port }}{% endif %}
+{% if plugin.listen_path %}xmlrpc.ListenPath {{ plugin.listen_path }}{% endif %}
+{% if plugin.enabled is defined %}xmlrpc.Enabled {{ 'yes' if plugin.enabled else 'no' }}{% endif %}
+{% endif %}
+{% if plugin.name == "Stat" %}
+Plugin stat
+{% if plugin.interval %}stat.Interval {{ plugin.interval }}{% endif %}
+{% endif %}
+{% if plugin.name == "SQL" %}
+Plugin sql
+{% if plugin.driver %}sql.Driver {{ plugin.driver }}{% endif %}
+{% if plugin.host %}sql.Host {{ plugin.host }}{% endif %}
+{% if plugin.database %}sql.Database {{ plugin.database }}{% endif %}
+{% if plugin.user %}sql.User {{ plugin.user }}{% endif %}
+{% if plugin.password is defined %}sql.Password {{ plugin.password }}{% endif %}
+{% if plugin.port is defined %}sql.Port {{ plugin.port }}{% endif %}
+{% endif %}
+{% if plugin.name == "Curses" %}
+Plugin curses
+{% if plugin.refresh_interval %}curses.RefreshInterval {{ plugin.refresh_interval }}{% endif %}
+{% endif %}
+{% if plugin.name == "Network" %}
+Plugin network
+{% if plugin.port %}network.Port {{ plugin.port }}{% endif %}
+{% if plugin.interface %}network.Interface {{ plugin.interface }}{% endif %}
+{% endif %}
+{% if plugin.name == "RSS" %}
+Plugin rss
+{% if plugin.url %}rss.URL {{ plugin.url }}{% endif %}
+{% if plugin.update_interval %}rss.UpdateInterval {{ plugin.update_interval }}{% endif %}
+{% if plugin.timeout %}rss.Timeout {{ plugin.timeout }}{% endif %}
+{% if plugin.cache_dir %}rss.CacheDir {{ plugin.cache_dir }}{% endif %}
+{% endif %}
+{% if plugin.name == "Weather" %}
+Plugin weather
+{% if plugin.location %}weather.Location {{ plugin.location }}{% endif %}
+{% if plugin.unit %}weather.Unit {{ plugin.unit }}{% endif %}
+{% if plugin.source %}weather.Source {{ plugin.source }}{% endif %}
+{% endif %}
+{% if plugin.name == "APM" %}
+Plugin apm
+{% if plugin.refresh_interval %}apm.RefreshInterval {{ plugin.refresh_interval }}{% endif %}
+{% endif %}
+{% if plugin.name == "HDDTemp" %}
+Plugin hddtemp
+{% if plugin.host %}hddtemp.Host {{ plugin.host }}{% endif %}
+{% if plugin.port is defined %}hddtemp.Port {{ plugin.port }}{% endif %}
+{% endif %}
+{% if plugin.name == "DBus" %}
+Plugin dbus
+{% if plugin.interface %}dbus.Interface {{ plugin.interface }}{% endif %}
+{% if plugin.name %}dbus.Service {{ plugin.name }}{% endif %}
+{% endif %}
+{% if plugin.name == "SNMP" %}
+Plugin snmp
+{% if plugin.host %}snmp.Host {{ plugin.host }}{% endif %}
+{% if plugin.community %}snmp.Community {{ plugin.community }}{% endif %}
+{% if plugin.oid %}snmp.OID {{ plugin.oid }}{% endif %}
+{% if plugin.version %}snmp.Version {{ plugin.version }}{% endif %}
+{% endif %}
+{% if plugin.name == "MPEG" %}
+Plugin mpeg
+{% if plugin.device %}mpeg.Device {{ plugin.device }}{% endif %}
+{% if plugin.volume %}mpeg.Volume {{ plugin.volume }}{% endif %}
+{% endif %}
+{% if plugin.name == "Mail" %}
+Plugin mail
+{% if plugin.mailbox %}mail.Mailbox {{ plugin.mailbox }}{% endif %}
+{% if plugin.refresh_interval %}mail.RefreshInterval {{ plugin.refresh_interval }}{% endif %}
+{% endif %}
+{% if plugin.name == "MPD" %}
+Plugin mpd
+{% if plugin.host %}mpd.Host {{ plugin.host }}{% endif %}
+{% if plugin.port is defined %}mpd.Port {{ plugin.port }}{% endif %}
+{% if plugin.password is defined %}mpd.Password {{ plugin.password }}{% endif %}
+{% endif %}
+{% if plugin.name == "Mixer" %}
+Plugin mixer
+{% if plugin.device %}mixer.Device {{ plugin.device }}{% endif %}
+{% if plugin.control %}mixer.Control {{ plugin.control }}{% endif %}
+{% endif %}
+{% if plugin.name == "NFS" %}
+Plugin nfs
+{% if plugin.server %}nfs.Server {{ plugin.server }}{% endif %}
+{% if plugin.export %}nfs.Export {{ plugin.export }}{% endif %}
+{% endif %}
+{% if plugin.name == "LoadAvg" %}
+Plugin loadavg
+{% if plugin.interval %}loadavg.Interval {{ plugin.interval }}{% endif %}
+{% endif %}
+{% if plugin.name == "Uptime" %}
+Plugin uptime
+{% endif %}
+{% if plugin.name == "CPUUsage" %}
+Plugin cpuusage
+{% if plugin.interval %}cpuusage.Interval {{ plugin.interval }}{% endif %}
+{% endif %}
+{% if plugin.name == "MemoryUsage" %}
+Plugin memoryusage
+{% if plugin.interval %}memoryusage.Interval {{ plugin.interval }}{% endif %}
+{% endif %}
+{% if plugin.name == "NetTraffic" %}
+Plugin nettraffic
+{% if plugin.interface %}nettraffic.Interface {{ plugin.interface }}{% endif %}
+{% if plugin.interval %}nettraffic.Interval {{ plugin.interval }}{% endif %}
+{% endif %}
+{% if plugin.name == "ProcessCount" %}
+Plugin processcount
+{% if plugin.user %}processcount.User {{ plugin.user }}{% endif %}
+{% endif %}
+{% if plugin.name == "Udev" %}
+Plugin udev
+{% if plugin.refresh_interval %}udev.RefreshInterval {{ plugin.refresh_interval }}{% endif %}
+{% endif %}
+{% if plugin.name == "PulseAudio" %}
+Plugin pulseaudio
+{% if plugin.server %}pulseaudio.Server {{ plugin.server }}{% endif %}
+{% endif %}
+{% if plugin.name == "XBMC" %}
+Plugin xbmc
+{% if plugin.host %}xbmc.Host {{ plugin.host }}{% endif %}
+{% if plugin.port is defined %}xbmc.Port {{ plugin.port }}{% endif %}
+{% if plugin.username is defined %}xbmc.Username {{ plugin.username }}{% endif %}
+{% if plugin.password is defined %}xbmc.Password {{ plugin.password }}{% endif %}
+{% endif %}
+{% if plugin.name == "DVB" %}
+Plugin dvb
+{% if plugin.adapter %}dvb.Adapter {{ plugin.adapter }}{% endif %}
+{% if plugin.frontend %}dvb.Frontend {{ plugin.frontend }}{% endif %}
+{% if plugin.demux %}dvb.Demux {{ plugin.demux }}{% endif %}
+{% endif %}
+{% if plugin.name == "GPGGA" %}
+Plugin gpgga
+{% if plugin.serial_device %}gpgga.SerialDevice {{ plugin.serial_device }}{% endif %}
+{% if plugin.baudrate is defined %}gpgga.Baudrate {{ plugin.baudrate }}{% endif %}
+{% endif %}
+{% if plugin.name == "HID" %}
+Plugin hid
+{% if plugin.device %}hid.Device {{ plugin.device }}{% endif %}
+{% endif %}
+{% if plugin.name == "Kodi" %}
+Plugin kodi
+{% if plugin.host %}kodi.Host {{ plugin.host }}{% endif %}
+{% if plugin.port is defined %}kodi.Port {{ plugin.port }}{% endif %}
+{% if plugin.username is defined %}kodi.Username {{ plugin.username }}{% endif %}
+{% if plugin.password is defined %}kodi.Password {{ plugin.password }}{% endif %}
+{% endif %}
+{% if plugin.name == "LIRC" %}
+Plugin lirc
+{% if plugin.socket %}lirc.Socket {{ plugin.socket }}{% endif %}
+{% endif %}
+{% if plugin.name == "MORSE" %}
+Plugin morse
+{% if plugin.speed is defined %}morse.Speed {{ plugin.speed }}{% endif %}
+{% endif %}
+{% if plugin.name == "NTP" %}
+Plugin ntp
+{% if plugin.host %}ntp.Host {{ plugin.host }}{% endif %}
+{% if plugin.interval is defined %}ntp.Interval {{ plugin.interval }}{% endif %}
+{% endif %}
+{% if plugin.name == "OpenHardwareMonitor" %}
+Plugin openhardwaremonitor
+{% if plugin.host %}openhardwaremonitor.Host {{ plugin.host }}{% endif %}
+{% if plugin.port is defined %}openhardwaremonitor.Port {{ plugin.port }}{% endif %}
+{% endif %}
+{% if plugin.name == "RDM6300" %}
+Plugin rdm6300
+{% if plugin.serial_device %}rdm6300.SerialDevice {{ plugin.serial_device }}{% endif %}
+{% if plugin.baudrate is defined %}rdm6300.Baudrate {{ plugin.baudrate }}{% endif %}
+{% endif %}
+{% if plugin.name == "SABnzbd" %}
+Plugin sabnzbd
+{% if plugin.host %}sabnzbd.Host {{ plugin.host }}{% endif %}
+{% if plugin.port is defined %}sabnzbd.Port {{ plugin.port }}{% endif %}
+{% if plugin.api_key %}sabnzbd.ApiKey {{ plugin.api_key }}{% endif %}
+{% endif %}
+{% if plugin.name == "SABnzbd2" %}
+Plugin sabnzbd2
+{% if plugin.host %}sabnzbd2.Host {{ plugin.host }}{% endif %}
+{% if plugin.port is defined %}sabnzbd2.Port {{ plugin.port }}{% endif %}
+{% if plugin.api_key %}sabnzbd2.ApiKey {{ plugin.api_key }}{% endif %}
+{% endif %}
+{% if plugin.name == "SABnzbd3" %}
+Plugin sabnzbd3
+{% if plugin.host %}sabnzbd3.Host {{ plugin.host }}{% endif %}
+{% if plugin.port is defined %}sabnzbd3.Port {{ plugin.port }}{% endif %}
+{% if plugin.api_key %}sabnzbd3.ApiKey {{ plugin.api_key }}{% endif %}
+{% endif %}
+{% if plugin.name == "SABnzbd4" %}
+Plugin sabnzbd4
+{% if plugin.host %}sabnzbd4.Host {{ plugin.host }}{% endif %}
+{% if plugin.port is defined %}sabnzbd4.Port {{ plugin.port }}{% endif %}
+{% if plugin.api_key %}sabnzbd4.ApiKey {{ plugin.api_key }}{% endif %}
+{% endif %}
+{% if plugin.name == "SABnzbd5" %}
+Plugin sabnzbd5
+{% if plugin.host %}sabnzbd5.Host {{ plugin.host }}{% endif %}
+{% if plugin.port is defined %}sabnzbd5.Port {{ plugin.port }}{% endif %}
+{% if plugin.api_key %}sabnzbd5.ApiKey {{ plugin.api_key }}{% endif %}
+{% endif %}
+{% if plugin.name == "SABnzbd6" %}
+Plugin sabnzbd6
+{% if plugin.host %}sabnzbd6.Host {{ plugin.host }}{% endif %}
+{% if plugin.port is defined %}sabnzbd6.Port {{ plugin.port }}{% endif %}
+{% if plugin.api_key %}sabnzbd6.ApiKey {{ plugin.api_key }}{% endif %}
+{% endif %}
+{% if plugin.name == "SABnzbd7" %}
+Plugin sabnzbd7
+{% if plugin.host %}sabnzbd7.Host {{ plugin.host }}{% endif %}
+{% if plugin.port is defined %}sabnzbd7.Port {{ plugin.port }}{% endif %}
+{% if plugin.api_key %}sabnzbd7.ApiKey {{ plugin.api_key }}{% endif %}
+{% endif %}
+{% if plugin.name == "SABnzbd8" %}
+Plugin sabnzbd8
+{% if plugin.host %}sabnzbd8.Host {{ plugin.host }}{% endif %}
+{% if plugin.port is defined %}sabnzbd8.Port {{ plugin.port }}{% endif %}
+{% if plugin.api_key %}sabnzbd8.ApiKey {{ plugin.api_key }}{% endif %}
+{% endif %}
+{% if plugin.name == "SABnzbd9" %}
+Plugin sabnzbd9
+{% if plugin.host %}sabnzbd9.Host {{ plugin.host }}{% endif %}
+{% if plugin.port is defined %}sabnzbd9.Port {{ plugin.port }}{% endif %}
+{% if plugin.api_key %}sabnzbd9.ApiKey {{ plugin.api_key }}{% endif %}
+{% endif %}
+{% if plugin.name == "SABnzbd10" %}
+Plugin sabnzbd10
+{% if plugin.host %}sabnzbd10.Host {{ plugin.host }}{% endif %}
+{% if plugin.port is defined %}sabnzbd10.Port {{ plugin.port }}{% endif %}
+{% if plugin.api_key %}sabnzbd10.ApiKey {{ plugin.api_key }}{% endif %}
+{% endif %}
+{% if plugin.name == "SABnzbd11" %}
+Plugin sabnzbd11
+{% if plugin.host %}sabnzbd11.Host {{ plugin.host }}{% endif %}
+{% if plugin.port is defined %}sabnzbd11.Port {{ plugin.port }}{% endif %}
+{% if plugin.api_key %}sabnzbd11.ApiKey {{ plugin.api_key }}{% endif %}
+{% endif %}
+{% if plugin.name == "SABnzbd12" %}
+Plugin sabnzbd12
+{% if plugin.host %}sabnzbd12.Host {{ plugin.host }}{% endif %}
+{% if plugin.port is defined %}sabnzbd12.Port {{ plugin.port }}{% endif %}
+{% if plugin.api_key %}sabnzbd12.ApiKey {{ plugin.api_key }}{% endif %}
+{% endif %}
+{% if plugin.name == "SABnzbd13" %}
+Plugin sabnzbd13
+{% if plugin.host %}sabnzbd13.Host {{ plugin.host }}{% endif %}
+{% if plugin.port is defined %}sabnzbd13.Port {{ plugin.port }}{% endif %}
+{% if plugin.api_key %}sabnzbd13.ApiKey {{ plugin.api_key }}{% endif %}
+{% endif %}
+{% if plugin.name == "SABnzbd14" %}
+Plugin sabnzbd14
+{% if plugin.host %}sabnzbd14.Host {{ plugin.host }}{% endif %}
+{% if plugin.port is defined %}sabnzbd14.Port {{ plugin.port }}{% endif %}
+{% if plugin.api_key %}sabnzbd14.ApiKey {{ plugin.api_key }}{% endif %}
+{% endif %}
+{% if plugin.name == "SABnzbd15" %}
+Plugin sabnzbd15
+{% if plugin.host %}sabnzbd15.Host {{ plugin.host }}{% endif %}
+{% if plugin.port is defined %}sabnzbd15.Port {{ plugin.port }}{% endif %}
+{% if plugin.api_key %}sabnzbd15.ApiKey {{ plugin.api_key }}{% endif %}
+{% endif %}
+{% if plugin.name == "SABnzbd16" %}
+Plugin sabnzbd16
+{% if plugin.host %}sabnzbd16.Host {{ plugin.host }}{% endif %}
+{% if plugin.port is defined %}sabnzbd16.Port {{ plugin.port }}{% endif %}
+{% if plugin.api_key %}sabnzbd16.ApiKey {{ plugin.api_key }}{% endif %}
+{% endif %}
+{% if plugin.name == "SABnzbd17" %}
+Plugin sabnzbd17
+{% if plugin.host %}sabnzbd17.Host {{ plugin.host }}{% endif %}
+{% if plugin.port is defined %}sabnzbd17.Port {{ plugin.port }}{% endif %}
+{% if plugin.api_key %}sabnzbd17.ApiKey {{ plugin.api_key }}{% endif %}
+{% endif %}
+{% if plugin.name == "SABnzbd18" %}
+Plugin sabnzbd18
+{% if plugin.host %}sabnzbd18.Host {{ plugin.host }}{% endif %}
+{% if plugin.port is defined %}sabnzbd18.Port {{ plugin.port }}{% endif %}
+{% if plugin.api_key %}sabnzbd18.ApiKey {{ plugin.api_key }}{% endif %}
+{% endif %}
+{% if plugin.name == "SABnzbd19" %}
+Plugin sabnzbd19
+{% if plugin.host %}sabnzbd19.Host {{ plugin.host }}{% endif %}
+{% if plugin.port is defined %}sabnzbd19.Port {{ plugin.port }}{% endif %}
+{% if plugin.api_key %}sabnzbd19.ApiKey {{ plugin.api_key }}{% endif %}
+{% endif %}
+{% if plugin.name == "SABnzbd20" %}
+Plugin sabnzbd20
+{% if plugin.host %}sabnzbd20.Host {{ plugin.host }}{% endif %}
+{% if plugin.port is defined %}sabnzbd20.Port {{ plugin.port }}{% endif %}
+{% if plugin.api_key %}sabnzbd20.ApiKey {{ plugin.api_key }}{% endif %}
+{% endif %}
+{% endif %}
+
+# Layout definition
+{% if layout %}
+{% for layout_block in layout %}
+Layout {{ layout_block.name }} {{ layout_block.type }}
+{% if layout_block.align %}{{ layout_block.name }}.Align {{ layout_block.align }}{% endif %}
+{% if layout_block.width %}{{ layout_block.name }}.Width {{ layout_block.width }}{% endif %}
+{% if layout_block.height %}{{ layout_block.name }}.Height {{ layout_block.height }}{% endif %}
+{% if layout_block.x %}{{ layout_block.name }}.X {{ layout_block.x }}{% endif %}
+{% if layout_block.y %}{{ layout_block.name }}.Y {{ layout_block.y }}{% endif %}
+{% if layout_block.font %}{{ layout_block.name }}.Font {{ layout_block.font }}{% endif %}
+{% if layout_block.wrap is defined %}{{ layout_block.name }}.Wrap {{ 'yes' if layout_block.wrap else 'no' }}{% endif %}
+{% if layout_block.items %}
+{% for item in layout_block.items %}
+{{ layout_block.name }}.Item {{ item.type }} {{ item.plugin }} {{ item.plugin_opt or '' }}
+{% endfor %}
+{% endif %}
+{% endfor %}
+{% endif %}
+
+# Global settings
+{% if refresh_interval is defined %}# Update interval for layout
+Refresh {{ refresh_interval }}{% endif %}
+{% if font %}# Default font
+Font {{ font }}{% endif %}
+{% if default_font_size is defined %}# Default font size (for bitmap fonts)
+DefaultFontSize {{ default_font_size }}{% endif %}
+{% if log_level %}# Log level: debug, info, warning, error, critical
+LogLevel {{ log_level }}{% endif %}
+{% if log_file %}# Log file path
+LogFile {{ log_file }}{% endif %}
+

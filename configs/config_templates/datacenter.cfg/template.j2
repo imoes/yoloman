@@ -1,0 +1,53 @@
+# Proxmox VE datacenter-wide configuration
+# Defines global settings for the datacenter, including name, description, and email settings
+# Controls default storage pool and datacenter-wide HA behavior
+
+# datacenter name (unique within cluster)
+datacenter: {{ datacenter.name }}
+
+# human-readable description of the datacenter
+description: {{ datacenter.description }}
+
+# default email sender address for notifications (if enabled)
+email_from: {{ datacenter.email_from }}
+
+# SMTP server host for sending notifications
+smtpserver: {{ datacenter.smtpserver }}
+
+# SMTP server port (default 25)
+smtpport: {{ datacenter.smtpport }}
+
+# enable sending email notifications (true/false)
+email_notify: {{ datacenter.email_notify }}
+
+# default storage pool for VM disk images
+storage: {{ datacenter.storage }}
+
+# default backup storage pool
+backup_storage: {{ datacenter.backup_storage }}
+
+# default backup schedule (cron-like format); empty to disable scheduled backups
+backup_schedule: {{ datacenter.backup_schedule | default('') }}
+
+# HA (High Availability) resource management enabled (true/false)
+ha_enabled: {{ datacenter.ha_enabled }}
+
+# default HA resource group for new VMs/containers
+ha_default_group: {{ datacenter.ha_default_group | default('') }}
+
+# default HA startup delay (seconds) for resources in a group
+ha_startup_delay: {{ datacenter.ha_startup_delay }}
+
+# default HA restart count before giving up
+ha_restart_count: {{ datacenter.ha_restart_count }}
+
+# default HA restart interval (seconds)
+ha_restart_interval: {{ datacenter.ha_restart_interval }}
+
+# cluster-wide default timezone
+ timezone: {{ datacenter.timezone | default('') }}
+
+# list of custom DNS servers for this datacenter
+{% for dns_server in datacenter.dns_servers %}
+dns{{ loop.index }}: {{ dns_server }}
+{% endfor %}

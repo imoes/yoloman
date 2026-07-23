@@ -1,0 +1,80 @@
+{
+  "poll_interval": {
+    "type": "number",
+    "default": 10,
+    "description": "Interval (in seconds) between polls for device-mapper events."
+  },
+  "dbus_socket": {
+    "type": "string",
+    "default": "",
+    "description": "Path to D-Bus system socket for event subscription. Leave empty to disable D-Bus."
+  },
+  "max_workers": {
+    "type": "number",
+    "default": 4,
+    "description": "Maximum number of worker threads to handle concurrent events."
+  },
+  "log_level": {
+    "type": "number",
+    "default": 2,
+    "description": "Verbosity level: 0=ERROR, 1=WARN, 2=INFO (recommended), 3=DEBUG."
+  },
+  "pid_file": {
+    "type": "string",
+    "default": "/run/dmeventd.pid",
+    "description": "Absolute path to the PID file for the dmeventd daemon."
+  },
+  "log_file": {
+    "type": "string",
+    "default": "",
+    "description": "Absolute path to a log file. Empty means logs only to syslog/journald."
+  },
+  "background_processing": {
+    "type": "bool",
+    "default": true,
+    "description": "When true, events are processed asynchronously in background threads."
+  },
+  "targets": {
+    "type": "list",
+    "default": [],
+    "description": "List of device types and paths to monitor for events (e.g., LVM logical volumes).",
+    "items": {
+      "name": {
+        "type": "string",
+        "default": "",
+        "description": "Logical name for the target (e.g., 'lvm2', 'thin-pool', 'snapshot')."
+      },
+      "path": {
+        "type": "string",
+        "default": "",
+        "description": "Device mapper path pattern or full DM device path (e.g., '/dev/mapper/vg-lv')."
+      },
+      "polling_enabled": {
+        "type": "bool",
+        "default": true,
+        "description": "Enable polling (vs. relying solely on async notifications) for this target."
+      },
+      "event_types": {
+        "type": "list",
+        "default": [
+          "ERROR",
+          "THRESHOLD",
+          "STATUS"
+        ],
+        "description": "List of event types to monitor (e.g., 'ERROR', 'THRESHOLD', 'STATUS').",
+        "items": {
+          "type": "string",
+          "enum": [
+            "ERROR",
+            "THRESHOLD",
+            "STATUS",
+            "MIRROR",
+            "SNAPSHOT",
+            "THIN"
+          ],
+          "description": "Type of event to trigger on. Common: 'ERROR', 'THRESHOLD', 'STATUS'."
+        }
+      }
+    }
+  }
+}

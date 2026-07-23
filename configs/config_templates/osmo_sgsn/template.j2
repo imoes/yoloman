@@ -1,0 +1,103 @@
+# Osmo-SGSN configuration file
+# Global settings
+bind
+  ip {{ sgsn.ip_bind }}
+  msisdn {{ sgsn.msisdn }}
+  imei {{ sgsn.imei }}
+  auth-mode {{ sgsn.auth_mode }}
+{% if sgsn.auth_policy is defined %}  auth-policy {{ sgsn.auth_policy }}
+{% endif %}  cipher {{ sgsn.cipher }}
+  integrity {{ sgsn.integrity }}
+
+# GGSN configuration
+ggsn
+  ip {{ ggsn.ip }}
+  pool {{ ggsn.pool_start }}-{{ ggsn.pool_end }}
+{% if ggsn.apn is defined %}  apn {{ ggsn.apn }}
+{% endif %}
+  dns1 {{ ggsn.dns1 }}
+  dns2 {{ ggsn.dns2 }}
+{% if ggsn.ppp is defined %}  ppp {{ ggsn.ppp }}
+{% endif %}
+
+# IU (UMTS) interface
+iu
+{% if sgsn.iu_enabled %}  enabled
+{% else %}  disabled
+{% endif %}  cs {{ sgsn.iu_cs_ip }}:{{ sgsn.iu_cs_port }}
+  ps {{ sgsn.iu_ps_ip }}:{{ sgsn.iu_ps_port }}
+  rnc-id {{ sgsn.iu_rnc_id }}
+{% if sgsn.iu_ranap_debug %}  debug ranap
+{% endif %}
+
+# Subscribers database
+subscriber
+  auth-tuple-max-age {{ sgsn.auth_tuple_max_age }}
+  auth-tuple-reuse-on-error {{ sgsn.auth_tuple_reuse_on_error | lower }}
+  use-hlr {{ sgsn.use_hlr | lower }}
+{% if sgsn.hlr_ip is defined %}  hlr-ip {{ sgsn.hlr_ip }}
+{% endif %}
+  hlr-port {{ sgsn.hlr_port }}
+{% if sgsn.db_file is defined %}  db-file {{ sgsn.db_file }}
+{% endif %}
+
+# BSSGP/NS configuration
+bssgp
+  nse {{ sgsn.nse_nsei }}:{{ sgsn.nse_vci }}
+  cell {{ sgsn.cell_nsei }}:{{ sgsn.cell_vci }}
+  ra {{ sgsn.ra }}
+  lac {{ sgsn.lac }}
+  rac {{ sgsn.rac }}
+{% for neighbor in sgsn.bssgp_neighbors %}  neighbor {{ neighbor.ip }}:{{ neighbor.port }} nsei {{ neighbor.nsei }}
+{% endfor %}
+
+# NS configuration
+ns
+  nsvc {{ sgsn.nsvc_nsei }}:{{ sgsn.nsvc_vci }}
+  nsvc-mode {{ sgsn.nsvc_mode }}
+{% for nsvc in sgsn.ns_nsvcs %}  nsvc {{ nsvc.nsei }}:{{ nsvc.vci }}
+{% endfor %}
+  encapsulation {{ sgsn.ns_encapsulation }}
+
+# A-bis (GSM) configuration
+abis
+  ip {{ sgsn.abis_ip }}
+  port {{ sgsn.abis_port }}
+  ts {{ sgsn.abis_ts }}
+  timeslots {{ sgsn.abis_timeslots }}
+{% for ts in sgsn.abis_timeslots_list %}  timeslot {{ ts.nr }}:{{ ts.subslot }}
+{% endfor %}
+
+# Logging configuration
+log
+{% for cat in sgsn.logging.categories %}  category {{ cat.name }} level {{ cat.level }}
+{% endfor %}
+
+# Control interface
+ctrl
+  ip {{ sgsn.ctrl_ip }}
+  port {{ sgsn.ctrl_port }}
+
+# Statistics
+stats
+  interval {{ sgsn.stats_interval }}
+
+# Timer defaults
+timers
+  t3141 {{ sgsn.timer_t3141 }}
+  t3160 {{ sgsn.timer_t3160 }}
+  t3170 {{ sgsn.timer_t3170 }}
+  n3141 {{ sgsn.timer_n3141 }}
+  n3160 {{ sgsn.timer_n3160 }}
+  n3170 {{ sgsn.timer_n3170 }}
+
+# MM/RR/LLC configuration
+mm
+  attach-tolerance {{ sgsn.mm_attach_tolerance }}
+  detach-tolerance {{ sgsn.mm_detach_tolerance }}
+rr
+  t3192 {{ sgsn.rr_t3192 }}
+  n3192 {{ sgsn.rr_n3192 }}
+llc
+  max-burst {{ sgsn.llc_max_burst }}
+  xid-retrans {{ sgsn.llc_xid_retrans }}

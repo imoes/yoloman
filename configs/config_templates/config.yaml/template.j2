@@ -1,0 +1,114 @@
+# Guerillabackup main configuration file
+# Controls global behavior and default settings for backup operations
+# Version of the protocol and backend to use
+version: "{{ config_version }}"
+
+# Settings for the backup backend (e.g., local disk, S3, SSH)
+backend:
+  type: "{{ backend.type }}"
+{% if backend.type == "local" %}
+  # Local storage root path for backup archives
+  path: "{{ backend.path }}"
+{% elif backend.type == "s3" %}
+  # S3 bucket name
+  bucket: "{{ backend.bucket }}"
+  # S3 region (e.g., us-east-1)
+  region: "{{ backend.region }}"
+  # Optional: S3 endpoint override (for compatible services like MinIO)
+{% if backend.endpoint is defined %}
+  endpoint: "{{ backend.endpoint }}"
+{% endif %}
+{% elif backend.type == "ssh" %}
+  # SSH host for remote backup storage
+  host: "{{ backend.host }}"
+  # SSH port
+  port: {{ backend.port }}
+  # Remote directory path for backups
+  path: "{{ backend.remote_path }}"
+{% endif %}
+
+# Global encryption settings
+encryption:
+  enabled: {{ encryption.enabled }}
+{% if encryption.enabled %}
+  # AES-256 key (base64-encoded or hex); use strong, randomly generated keys
+  key: "{{ encryption.key }}"
+{% endif %}
+
+# Global compression settings
+compression:
+  # Enable/disable compression (e.g., gzip, zstd)
+  enabled: {{ compression.enabled }}
+{% if compression.enabled %}
+  # Algorithm: "gzip", "zstd", etc.
+  algorithm: "{{ compression.algorithm }}"
+  # Compression level: 1 (fast) to 9 (best); 0 = disabled
+  level: {{ compression.level }}
+{% endif %}
+
+# Retention policy: how many backups to keep per source
+retention:
+  # Maximum number of backups retained per backup source
+  max_backups: {{ retention.max_backups }}
+  # Minimum age of backups before deletion (e.g., "24h", "7d")
+  min_age: "{{ retention.min_age }}"
+
+# Default backup schedule for sources that don't specify one (CRON format)
+# Runs daily at 02:30 UTC by default
+schedule: "{{ backup_schedule }}"
+
+# List of backup sources to manage
+# Each source defines what to back up, where to store it (optional), and override settings
+sources:
+{% for source in backup_sources %}
+  -
+    # Human-readable name for this source
+    name: "{{ source.name }}"
+    # Paths or patterns to back up (supports globs)
+    paths:
+{% for path in source.paths %}
+      - "{{ path }}"
+{% endfor %}
+    # Optional: custom destination path (overrides global backend)
+{% if source.dest_path is defined %}
+    dest_path: "{{ source.dest_path }}"
+{% endif %}
+    # Optional: custom schedule (CRON format) overrides global schedule
+{% if source.schedule is defined %}
+    schedule: "{{ source.schedule }}"
+{% endif %}
+    # Optional: custom retention overrides global retention
+{% if source.retention is defined %}
+    retention:
+      max_backups: {{ source.retention.max_backups }}
+      min_age: "{{ source.retention.min_age }}"
+{% endif %}
+    # Optional: custom encryption (overrides global)
+{% if source.encryption is defined %}
+    encryption:
+      enabled: {{ source.encryption.enabled }}
+{% if source.encryption.enabled %}
+      key: "{{ source.encryption.key }}"
+{% endif %}
+{% endif %}
+    # Optional: custom compression (overrides global)
+{% if source.compression is defined %}
+    compression:
+      enabled: {{ source.compression.enabled }}
+{% if source.compression.enabled %}
+      algorithm: "{{ source.compression.algorithm }}"
+      level: {{ source.compression.level }}
+{% endif %}
+{% endif %}
+{% endfor %}
+
+# Logging configuration
+logging:
+  # Log level: "debug", "info", "warn", "error"
+  level: "{{ logging.level }}"
+  # Log destination: "stdout", "file", or path to a file
+{% if logging.dest == "file" %}
+  dest: "{{ logging.file_path }}"
+{% else %}
+  dest: "{{ logging.dest }}"
+{% endif %}

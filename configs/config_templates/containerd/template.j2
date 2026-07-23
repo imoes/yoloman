@@ -1,0 +1,116 @@
+# Default containerd configuration (v1.7+)
+# Generated from template. DO NOT EDIT MANUALLY.
+# For documentation, see: https://github.com/containerd/containerd/blob/main/docs/config.toml.md
+
+# Root directory for containerd runtime state
+root = "{{ config.root }}"
+
+# Directory for containerd runtime data (state, sockets, etc.)
+state = "{{ config.state }}"
+
+# gRPC server configuration
+[grpc]
+  address = "{{ config.grpc.address }}"
+  # Socket permissions (octal string, e.g., "0700")
+  socket = "{{ config.grpc.socket }}"
+  # Max concurrency for gRPC requests
+  max_recv_message_size = {{ config.grpc.max_recv_message_size }}
+  max_send_message_size = {{ config.grpc.max_send_message_size }}
+
+# TTRPC server configuration (used for shim communication)
+[ttrpc]
+  address = "{{ config.ttrpc.address }}"
+  # Socket permissions (octal string)
+  socket = "{{ config.ttrpc.socket }}"
+
+# Default runtime configuration
+[defaults]
+  # Default runtime name (e.g., "runc")
+  runtime = "{{ config.defaults.runtime }}"
+  # Runtime type (e.g., "io.containerd.runc.v2")
+  runtime_type = "{{ config.defaults.runtime_type }}"
+  # Enable sandboxing (e.g., systemd cgroups)
+  sandbox = "{{ config.defaults.sandbox | default("systemd") }}"
+
+# Plugin configuration block
+[plugins]
+  # Containerd plugins are configured under [plugins."namespace"]
+  # Below are common plugins and defaults
+
+  # CRI plugin (Container Runtime Interface) for Kubernetes
+  [plugins."io.containerd.grpc.v1.cri"]
+    # Containerd CRI root directory
+    sandbox_image = "{{ config.plugins.cri.sandbox_image }}"
+    # Maximum number of container logs to retain
+    max_container_log_size = {{ config.plugins.cri.max_container_log_size }}
+    # Enable SELinux labeling (if applicable)
+    disable_tcp_service = {{ config.plugins.cri.disable_tcp_service }}
+    # Enable stream server for port forwarding / exec
+    stream_server_address = "{{ config.plugins.cri.stream_server_address }}"
+    stream_server_port = "{{ config.plugins.cri.stream_server_port }}"
+    # CNI network plugin configuration
+    [plugins."io.containerd.grpc.v1.cri”.cni]
+      bin_dir = "{{ config.plugins.cri.cni.bin_dir }}"
+      conf_dir = "{{ config.plugins.cri.cni.conf_dir }}"
+      max_conf_num = {{ config.plugins.cri.cni.max_conf_num }}
+      network_plugin_conf_dir = "{{ config.plugins.cri.cni.network_plugin_conf_dir | default("") }}"
+    # Containerd image pull config
+    [plugins."io.containerd.grpc.v1.cri”.containerd]
+      # Default snapshotter (e.g., "overlayfs", "native")
+      snapshotter = "{{ config.plugins.cri.containerd.snapshotter }}"
+      # Default runtime handler (matches runtime in [defaults])
+      default_runtime_name = "{{ config.plugins.cri.containerd.default_runtime_name }}"
+      # Enable unprivileged ports for sandbox container ports <1024
+      no_pivot = {{ config.plugins.cri.containerd.no_pivot }}
+      # Snapshotter-specific configuration
+      [plugins."io.containerd.grpc.v1.cri”.containerd.snapshotters]
+        [plugins."io.containerd.grpc.v1.cri”.containerd.snapshotters."{{ snapshotter_name }}"]
+          root_path = "{{ snapshotter.root_path }}"
+    # Sandbox image registry mirror config (optional)
+    [plugins."io.containerd.grpc.v1.cri”.registry]
+      # Mirror configuration per host
+      {% for mirror in config.plugins.cri.registry.mirrors %}
+      [plugins."io.containerd.grpc.v1.cri”.registry.mirrors."{{ mirror.host }}"]
+        # Priority: lower number = higher priority
+        priority = {{ mirror.priority | default(0) }}
+        # Mirror endpoints (list of URLs)
+        {% if mirror.endpoints %}
+        endpoints = [{{ mirror.endpoints | map('quote') | join(', ') }}]
+        {% endif %}
+        # TLS configuration (optional)
+        {% if mirror.tls %}
+        [plugins."io.containerd.grpc.v1.cri”.registry.mirrors."{{ mirror.host }}".tls]
+          ca_file = "{{ mirror.tls.ca_file }}"
+          cert_file = "{{ mirror.tls.cert_file | default("") }}"
+          key_file = "{{ mirror.tls.key_file | default("") }}"
+          {% if mirror.tls.insecure_skip_verify is defined %}
+          insecure_skip_verify = {{ mirror.tls.insecure_skip_verify }}
+          {% endif %}
+        {% endif %}
+      {% endfor %}
+
+  # Snapshotters configuration (e.g., for overlayfs)
+  {% for snapshotter in config.plugins.snapshotters %}
+  [plugins."io.containerd.grpc.v1.snapshotters."{{ snapshotter.name }}"]
+    # Path to snapshotter metadata
+    root_path = "{{ snapshotter.root_path }}"
+    # Maximum number of concurrent snapshot operations
+    max_concurrent_downloads = {{ snapshotter.max_concurrent_downloads }}
+    {% if snapshotter.options %}
+    [plugins."io.containerd.grpc.v1.snapshotters."{{ snapshotter.name }}".options]
+      {% for key, val in snapshotter.options.items() %}
+      {{ key }} = {{ val | tojson }}
+      {% endfor %}
+    {% endif %}
+  {% endfor %}
+
+# Debugging & logging configuration
+[debug]
+  level = "{{ config.debug.level }}"
+  # Path to debug log file (if empty, logs to stderr)
+  format = "{{ config.debug.format }}"
+  address = "{{ config.debug.address }}"
+  uid = {{ config.debug.uid }}
+  gid = {{ config.debug.gid }}
+  # Enable pprof profiling
+  pprof_address = "{{ config.debug.pprof_address }}"

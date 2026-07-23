@@ -1,0 +1,265 @@
+{
+  "app": {
+    "type": "object",
+    "default": {},
+    "description": "Core application settings",
+    "properties": {
+      "host": {
+        "type": "string",
+        "default": "127.0.0.1",
+        "description": "IP address the HTTP server binds to"
+      },
+      "port": {
+        "type": "number",
+        "default": 8080,
+        "description": "Port number the HTTP server listens on"
+      },
+      "data_dir": {
+        "type": "string",
+        "default": "/var/lib/email-reminder",
+        "description": "Path to the directory where reminders, state, and logs are stored"
+      },
+      "debug": {
+        "type": "boolean",
+        "default": false,
+        "description": "Enable verbose debugging output to stderr"
+      }
+    }
+  },
+  "database": {
+    "type": "object",
+    "default": {},
+    "description": "Database connection settings",
+    "properties": {
+      "uri": {
+        "type": "string",
+        "default": "sqlite:///var/lib/email-reminder/email-reminder.db",
+        "description": "Database URI; use `sqlite:///path` for single-instance deployment"
+      }
+    }
+  },
+  "worker": {
+    "type": "object",
+    "default": {},
+    "description": "Email worker behavior settings",
+    "properties": {
+      "count": {
+        "type": "number",
+        "default": 4,
+        "description": "Number of concurrent background workers sending emails"
+      },
+      "timeout": {
+        "type": "number",
+        "default": 30,
+        "description": "Timeout (seconds) per SMTP connection and send operation"
+      },
+      "max_retries": {
+        "type": "number",
+        "default": 3,
+        "description": "Maximum number of retries per email on failure"
+      },
+      "retry_delay": {
+        "type": "number",
+        "default": 5,
+        "description": "Delay (seconds) between retry attempts"
+      }
+    }
+  },
+  "smtp": {
+    "type": "object",
+    "default": {},
+    "description": "SMTP relay configuration",
+    "properties": {
+      "host": {
+        "type": "string",
+        "default": "localhost",
+        "description": "SMTP server hostname or IP"
+      },
+      "port": {
+        "type": "number",
+        "default": 587,
+        "description": "SMTP server port"
+      },
+      "use_tls": {
+        "type": "boolean",
+        "default": true,
+        "description": "Use implicit TLS (port 465) or STARTTLS (port 587/25)"
+      },
+      "use_starttls": {
+        "type": "boolean",
+        "default": false,
+        "description": "Explicitly request STARTTLS upgrade (use for port 587/25)"
+      },
+      "username": {
+        "type": "string",
+        "default": "",
+        "description": "SMTP auth username (leave blank if unauthenticated)"
+      },
+      "password": {
+        "type": "string",
+        "default": "",
+        "description": "SMTP auth password (stored in config file \u2014 secure with file permissions)"
+      },
+      "from_address": {
+        "type": "string",
+        "default": "noreply@example.com",
+        "description": "Sender email address used as 'From' in all emails"
+      }
+    }
+  },
+  "email": {
+    "type": "object",
+    "default": {},
+    "description": "Email content and formatting defaults",
+    "properties": {
+      "default_subject": {
+        "type": "string",
+        "default": "Reminder: Upcoming Event",
+        "description": "Default subject line for reminder emails"
+      },
+      "default_body_lines": {
+        "type": "list",
+        "default": [
+          "Hello {{ .Name }},",
+          "This is a reminder for your upcoming event:",
+          "  \u2022 Title: {{ .Title }}",
+          "  \u2022 When: {{ .Datetime }}",
+          "  \u2022 Location: {{ .Location }}",
+          "",
+          "Thanks!"
+        ],
+        "description": "Lines in the default email body; supports Jinja2-style placeholders",
+        "items": {
+          "type": "string"
+        }
+      },
+      "embed_images": {
+        "type": "boolean",
+        "default": false,
+        "description": "Embed images in email body (not supported in baseline; placeholder)"
+      }
+    }
+  },
+  "throttle": {
+    "type": "object",
+    "default": {},
+    "description": "Rate limiting per user to prevent abuse",
+    "properties": {
+      "max_per_minute": {
+        "type": "number",
+        "default": 5,
+        "description": "Maximum number of emails a single user can trigger per minute"
+      },
+      "burst_limit": {
+        "type": "number",
+        "default": 10,
+        "description": "Short burst limit (e.g., 10 emails in 2 minutes)"
+      }
+    }
+  },
+  "log": {
+    "type": "object",
+    "default": {},
+    "description": "Logging configuration",
+    "properties": {
+      "level": {
+        "type": "string",
+        "default": "INFO",
+        "enum": [
+          "DEBUG",
+          "INFO",
+          "WARNING",
+          "ERROR",
+          "CRITICAL"
+        ],
+        "description": "Logging verbosity level"
+      },
+      "file": {
+        "type": "string",
+        "default": "/var/log/email-reminder/email-reminder.log",
+        "description": "Path to the log file (or '-' for stdout)"
+      },
+      "json": {
+        "type": "boolean",
+        "default": false,
+        "description": "Emit logs in JSON format (for log aggregators)"
+      }
+    }
+  },
+  "health": {
+    "type": "object",
+    "default": {},
+    "description": "Health check endpoint settings",
+    "properties": {
+      "enabled": {
+        "type": "boolean",
+        "default": true,
+        "description": "Enable the `/healthz` endpoint (required for Kubernetes readiness/liveness probes)"
+      },
+      "basic_auth": {
+        "type": "string",
+        "default": "",
+        "description": "Optional basic auth credentials (`user:pass`) for health endpoint access"
+      }
+    }
+  },
+  "schedule": {
+    "type": "object",
+    "default": {},
+    "description": "Scheduling and scanning behavior",
+    "properties": {
+      "timezone": {
+        "type": "string",
+        "default": "UTC",
+        "description": "Default timezone for reminder resolution (IANA tz database name)"
+      },
+      "lookahead_seconds": {
+        "type": "number",
+        "default": 86400,
+        "description": "Time window (seconds) into the future to scan for reminders"
+      },
+      "scan_interval_seconds": {
+        "type": "number",
+        "default": 60,
+        "description": "How often to scan for upcoming reminders"
+      }
+    }
+  },
+  "custom_templates": {
+    "type": "list",
+    "default": [],
+    "description": "List of domain-specific email templates (for multi-tenant setups)",
+    "items": {
+      "type": "object",
+      "properties": {
+        "domain": {
+          "type": "string",
+          "default": "example.com",
+          "description": "Domain name to match (case-insensitive)"
+        },
+        "subject_template_lines": {
+          "type": "list",
+          "default": [
+            "Reminder for {{ .Title }}"
+          ],
+          "description": "Lines for the domain-specific subject template",
+          "items": {
+            "type": "string"
+          }
+        },
+        "body_lines": {
+          "type": "list",
+          "default": [
+            "Dear {{ .Name }},",
+            "You have an event coming up:",
+            "  \u2022 {{ .Title }} on {{ .Datetime }}"
+          ],
+          "description": "Lines for the domain-specific body",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}

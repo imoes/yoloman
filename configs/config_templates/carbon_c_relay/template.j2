@@ -1,0 +1,66 @@
+{# Carbon-C-Relay configuration file — controls routing, aggregation, and clustering #}
+{# Listen on specified IP:port for incoming Graphite line protocol data #}
+listen on {{ listen_interface }}:{{ listen_port }}
+{# Number of worker threads; set to 0 for automatic (usually number of CPUs) #}
+workers {{ workers }}
+{# Maximum queue size per worker before dropping metrics (0 = unlimited) #}
+queuesize {{ queue_size }}
+{# Disable connection logging to syslog/stdout #}
+{% if not debug %}
+disconnect
+{% endif %}
+{# Optional: set process priority (nice value) #}
+{% if nice is defined and nice != 0 %}
+nice {{ nice }}
+{% endif %}
+{# Optional: set PID file path #}
+{% if pidfile is defined and pidfile != '' %}
+pidfile {{ pidfile }}
+{% endif %}
+{# Optional: set service name for systemd (affects log tagging) #}
+{% if service_name is defined and service_name != '' %}
+servicename {{ service_name }}
+{% endif %}
+{# Define cluster destinations with replication and consistent-hashing #}
+{% for cluster in clusters %}
+{# {{ cluster.name }}: cluster of backend servers, {{ cluster.replication }}x replication, hash by metric name #}
+cluster {{ cluster.name }}
+{% for backend in cluster.backends %}
+  {{ backend.host }}:{{ backend.port }} {{ 'replication ' ~ backend.replication if backend.replication > 1 else '' }}
+{% endfor %}
+{% if cluster.hashing == 'consistent' %}
+  consistent-hashing
+{% endif %}
+{% endfor %}
+{# Define routing rules: match pattern -> destination(s) #}
+{% for rule in rules %}
+{# {{ rule.description or 'route matching metrics' }} #}
+{% if rule.condition %}
+match {{ rule.condition }}
+{% endif %}
+  {% if rule.action == 'send_to' %}
+send to {% if rule.destination.type == 'cluster' %}{{ rule.destination.name }}{% else %}{{ rule.destination.host }}:{{ rule.destination.port }}{% endif %}
+{% elif rule.action == 'stop' %}
+  stop
+{% elif rule.action == 'aggregate' %}
+  aggregate {{ rule.aggregate.metric }} for {{ rule.aggregate.window }} seconds
+  send to {{ rule.aggregate.destination }}
+{% elif rule.action == 'rewrite' %}
+  rewrite {{ rule.rewrite.from }} into {{ rule.rewrite.to }}
+{% endif %}
+{% endfor %}
+{# Optional: forward unmatched metrics to a default cluster #}
+{% if default_cluster is defined and default_cluster != '' %}
+{# Forward all unmatched metrics to the specified cluster #}
+default cluster {{ default_cluster }}
+{% endif %}
+{# Optional: enable statistics output (to a statsd/carbon endpoint or file) #}
+{% if stats is defined and stats.enabled %}
+{# Export internal metrics (e.g., queue sizes, matches/sec) #}
+statistics
+{% if stats.destination.type == 'cluster' %}
+  send statistics to {{ stats.destination.name }}
+{% elif stats.destination.type == 'file' %}
+  log to file {{ stats.destination.path }}
+{% endif %}
+{% endif %}

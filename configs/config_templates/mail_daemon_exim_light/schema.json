@@ -1,0 +1,132 @@
+{
+  "primary_hostname": {
+    "type": "string",
+    "default": "mail.example.com",
+    "description": "Canonical hostname announced in SMTP EHLO/HELO and used as the local mail domain. Must resolve in DNS."
+  },
+  "message_size_limit": {
+    "type": "string",
+    "default": "50M",
+    "description": "Maximum accepted message size. Plain bytes or suffixed value: K, M, G. Use 0 for unlimited."
+  },
+  "max_rcpt": {
+    "type": "number",
+    "default": 500,
+    "description": "Maximum number of RCPT TO: recipients allowed per message. Protects against address-explosion attacks."
+  },
+  "daemon_smtp_ports": {
+    "type": "list",
+    "default": [
+      "25"
+    ],
+    "description": "TCP ports the daemon listens on. Typical values: 25 (MX inbound), 587 (client submission)."
+  },
+  "local_interfaces": {
+    "type": "list",
+    "default": [],
+    "description": "IP addresses to bind. Empty list binds all available interfaces. Example: [\"192.0.2.1\", \"::\"]."
+  },
+  "qualify_domain": {
+    "type": "string",
+    "default": "example.com",
+    "description": "Domain appended to unqualified sender addresses (e.g. 'root' becomes 'root@qualify_domain'). Usually the organisation's primary domain."
+  },
+  "qualify_recipient": {
+    "type": "string",
+    "default": "example.com",
+    "description": "Domain appended to unqualified recipient addresses submitted by local processes."
+  },
+  "local_domains": {
+    "type": "list",
+    "default": [],
+    "description": "Additional domains accepted for final local delivery. The primary hostname and 'localhost' are always included automatically."
+  },
+  "relay_to_domains": {
+    "type": "list",
+    "default": [],
+    "description": "Domains this server will relay outbound mail to without local delivery. Used for partner or sub-domains. Empty disables relay by domain."
+  },
+  "relay_from_hosts": {
+    "type": "list",
+    "default": [],
+    "description": "IP addresses or CIDR ranges trusted to relay without SMTP AUTH. localhost/127.0.0.1/::1 are always implicitly allowed."
+  },
+  "ignore_bounce_errors_after": {
+    "type": "string",
+    "default": "2d",
+    "description": "Stop retrying undeliverable bounce messages after this period (e.g. 2d, 12h). Prevents infinite bounce loops."
+  },
+  "timeout_frozen_after": {
+    "type": "string",
+    "default": "7d",
+    "description": "Permanently delete messages that have been frozen (stuck) in the queue after this period (e.g. 7d, 48h)."
+  },
+  "freeze_tell": {
+    "type": "string",
+    "default": "",
+    "description": "Email address notified when a message is frozen. Leave empty to disable freeze notifications."
+  },
+  "log_selector": {
+    "type": "string",
+    "default": "+smtp_protocol_error +smtp_syntax_error +tls_certificate_verified",
+    "description": "Space-separated log event flags. Prefix + to enable a class or - to suppress it relative to Exim defaults."
+  },
+  "tls_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable STARTTLS support for incoming connections. Requires valid tls_certificate and tls_privatekey."
+  },
+  "tls_certificate": {
+    "type": "string",
+    "default": "/etc/ssl/certs/exim.crt",
+    "description": "Filesystem path to the PEM-encoded server certificate. May include intermediate chain. Used only when tls_enabled is true."
+  },
+  "tls_privatekey": {
+    "type": "string",
+    "default": "/etc/ssl/private/exim.key",
+    "description": "Filesystem path to the PEM-encoded private key. Must be readable by the Exim user only (mode 0640). Used only when tls_enabled is true."
+  },
+  "smarthost": {
+    "type": "string",
+    "default": "",
+    "description": "Hostname of the relay (smarthost) for all outbound non-local mail (e.g. smtp.sendgrid.net). Leave empty for direct DNS-based delivery."
+  },
+  "smarthost_auth": {
+    "type": "bool",
+    "default": false,
+    "description": "Authenticate to the smarthost with SMTP AUTH. Requires smarthost_user and smarthost_password."
+  },
+  "smarthost_user": {
+    "type": "string",
+    "default": "",
+    "description": "SMTP AUTH username presented to the smarthost. Used only when smarthost_auth is true."
+  },
+  "smarthost_password": {
+    "type": "string",
+    "default": "",
+    "description": "SMTP AUTH password for the smarthost. Will appear in plaintext in the rendered config; restrict file permissions accordingly."
+  },
+  "rewrite_rules": {
+    "type": "list",
+    "default": [],
+    "description": "Ordered list of address rewrite rules applied to sender/recipient addresses before routing decisions.",
+    "items": {
+      "description": {
+        "type": "string",
+        "description": "Human-readable label rendered as a comment above the rule."
+      },
+      "pattern": {
+        "type": "string",
+        "description": "Exim address pattern to match (e.g. '*@+local_domains', '*@*.internal')."
+      },
+      "replacement": {
+        "type": "string",
+        "description": "Replacement address expression using Exim string expansions (e.g. '${local_part}@example.com')."
+      },
+      "flags": {
+        "type": "string",
+        "description": "Which address classes to rewrite: F=envelope-from, T=envelope-to, b=Bcc, c=Cc, r=Reply-To, s=Sender header. Combine freely (e.g. 'FT')."
+      }
+    }
+  }
+}

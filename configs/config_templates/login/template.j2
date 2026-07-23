@@ -1,0 +1,32 @@
+# PAM configuration for local console login (login)
+# Control flow: authentication, account, session, password
+auth    required    pam_securetty.so
+auth    required    pam_nologin.so
+auth    include     system-auth
+account required    pam_access.so
+account required    pam_nologin.so
+account include     system-account
+session required    pam_loginuid.so
+session optional    pam_console.so
+session required    pam_selinux.so close
+session required    pam_selinux.so open
+session optional    pam_keyinit.so force revoke
+session include     system-session
+
+# Optional: lockout after failed attempts (commented out by default)
+{% if faillock.enable %}
+auth    required    pam_faillock.so preauth silent deny={{ faillock.deny }} unlock_time={{ faillock.unlock_time }}
+auth    [default=die] pam_faillock.so authfail deny={{ faillock.deny }} unlock_time={{ faillock.unlock_time }}
+auth    sufficient  pam_faillock.so authsucc deny={{ faillock.deny }} unlock_time={{ faillock.unlock_time }}
+{% endif %}
+
+# Optional: Tally2-based lockout (legacy, CentOS/RHEL < 7)
+{% if tally2.enable %}
+auth    required    pam_tally2.so deny={{ tally2.deny }} unlock_time={{ tally2.unlock_time }}
+{% endif %}
+
+# Optional: rate-limiting via pam_tally2 (for audit/logging)
+{% for rule in audit_rules %}
+# Audit: {{ rule.description }}
+{% if rule.condition %}auth    [success=done default=bad]    pam_succeed_if.so user notin {{ rule.users | join(',') }}{% else %}auth    required    pam_succeed_if.so user notin {{ rule.users | join(',') }}{% endif %}
+{% endfor %}

@@ -1,0 +1,27 @@
+# Enable logging of boot messages
+# (set to 'yes' to enable boot logging)
+BOOTLOGD_ENABLE={{ bootlogd_enable | string | lower }}
+
+# Log file location
+LOGFILE={{ bootlogd_logfile }}
+
+# Log to syslog (true/false)
+LOG_TO_SYSLOG={{ bootlogd_log_to_syslog | string | lower }}
+
+# Verbose mode: include timestamps and process IDs
+VERBOSE={{ bootlogd_verbose | string | lower }}
+
+# Suppress duplicate lines (true/false)
+SUPPRESS_DUPS={{ bootlogd_suppress_dups | string | lower }}
+
+# Delay before starting log (seconds)
+DELAY={{ bootlogd_delay }}
+
+# Extra options passed to bootlogd command-line
+EXTRA_OPTS="{{ bootlogd_extra_opts | join(' ') }}"
+
+# Additional post-boot actions (commands executed after boot logging starts)
+{% for action in bootlogd_post_boot_actions %}
+# {{ action.description }}
+POST_BOOT_{{ loop.index }}="{{ action.command }}"
+{% endfor %}

@@ -1,0 +1,49 @@
+[sriov_agent]
+# Maximum number of physical networks that can be managed by the SR-IOV agent
+max_physical_networks = {{ max_physical_networks }}
+
+# List of physical network names mapped to interfaces for SR-IOV
+# Format: network_name:interface_name
+# Example: physnet1:enp1s0f0
+# Multiple mappings can be specified as a list
+{% for mapping in physnets %}# {{ mapping.name }} mapped to {{ mapping.interface }}
+{% endfor %}
+# Comma-separated list of physical networks and their interfaces, e.g., physnet1:ens8f0,physnet2:ens8f1
+physical_network_mappings = {{ physnets | map(attribute='name ~ ':' ~ mapping.interface') | join(', ') }}
+
+# List of PCI device IDs (in PCI address format) to be managed by the agent
+# Format: domain:bus:device:function (e.g., 0000:03:00.0)
+# Multiple devices can be listed
+{% if pci_passthrough_whitelist %}# Comma-separated list of PCI addresses to be managed
+pci_passthrough_whitelist = {{ pci_passthrough_whitelist | join(', ') }}
+{% else %}# PCI passthrough whitelist not configured
+# Uncomment and set pci_passthrough_whitelist below to enable
+# pci_passthrough_whitelist = 0000:03:00.0,0000:03:00.1
+{% endif %}
+
+# Enable debug logging (set to true for verbose logs)
+debug = {{ debug }}
+
+# Log directory and file settings
+log_dir = {{ log_dir }}
+log_file = {{ log_file }}
+
+# Interface driver used for device management (e.g., ovs, linuxbridge)
+interface_driver = {{ interface_driver }}
+
+# Enable use of VF (Virtual Function) device assignment for instances
+# Usually set to true when SR-IOV is enabled
+{% if device_driver %}# Driver used for VF device management (e.g., vfio-pci)
+device_driver = {{ device_driver }}
+{% endif %}
+
+# Polling interval for VF link state updates (in seconds)
+polling_interval = {{ polling_interval }}
+
+# Enable use of kernel’s netlink interface instead of sysfs (for performance)
+use_netlink = {{ use_netlink }}
+
+# Number of worker threads to handle RPC and device events
+{% if workers %}# Number of worker processes for RPC and device handling
+workers = {{ workers }}
+{% endif %}

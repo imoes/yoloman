@@ -1,0 +1,74 @@
+# Heartbeat configuration file
+# Use this file to configure high-availability (HA) clustering via the Heartbeat daemon.
+# See `man ha.cf` for full documentation.
+
+# Logging configuration
+# Log file to use for Heartbeat logs (empty string disables file logging)
+logfile {{ logging.logfile | default('') }}
+
+# Log level: 0 (none) to 10 (debug); default 0
+logfacility {{ logging.facility | default('local0') }}
+
+# Daemon behavior
+# Enable debug mode (true/false)
+debug {{ debug_mode | default(false) }}
+
+# How long (in seconds) to wait before declaring a node dead
+keepalive {{ keepalive_interval }}
+
+# Dead time: how long to wait before considering a node truly dead
+deadtime {{ deadtime_interval }}
+
+# Time (in seconds) to wait before initiating failover after detecting a dead node
+warntime {{ warntime_interval }}
+
+# Initial wait time before starting resource management
+initdead {{ initdead_interval }}
+
+# Communication (UDP or serial) settings
+# List of UDP broadcast interfaces for node discovery
+{% for iface in heartbeat.udp_broadcast.interfaces %}
+bcast {{ iface }}
+{% endfor %}
+
+# List of unicast (peer-to-peer) nodes
+{% for peer in heartbeat.unicast.peers %}
+ucast {{ peer.interface | default('eth0') }} {{ peer.address }}
+{% endfor %}
+
+# Serial device (optional, leave commented if not used)
+{% if heartbeat.serial.enabled %}
+serial {{ heartbeat.serial.device }}
+baud {{ heartbeat.serial.baud_rate | default(19200) }}
+{% endif %}
+
+# Node membership
+# Unique node name (must match `uname -n` or be listed in nodes section)
+node {{ node_name | default('primary') }}
+
+# Optional: list all cluster nodes explicitly (for multi-node clusters)
+{% for node in nodes %}
+node {{ node.name }}
+{% endfor %}
+
+# Authentication (required for security)
+# Authentication file path
+authfile {{ auth.authfile | default('/etc/ha.d/authkeys') }}
+
+# Auto-approve new nodes (unsafe for production; default false)
+auto_failback {{ auto_failback | default(true) }}
+
+# Resource management
+# Use the Resource Agent (RA) style? (true = use resource.d; false = old style)
+use_logd {{ use_logd | default(false) }}
+
+# Watchdog device (optional, for fencing)
+{% if watchdog.device %}
+watchdog {{ watchdog.device }}
+{% endif %}
+
+# Pacemaker compatibility (deprecated; only for legacy setups)
+# Use Pacemaker with Heartbeat? (true = enable crm support)
+{% if pacemaker.enabled %}
+crm on
+{% endif %}

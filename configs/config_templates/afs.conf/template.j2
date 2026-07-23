@@ -1,0 +1,45 @@
+# AFS client configuration
+# This file configures the AFS (Andrew File System) client on this host.
+# See afs(8) and openafs-client(7) for details.
+
+{% if cell %}# Default AFS cell for this client
+Cell: {{ cell }}
+{% endif %}
+{% if cellinfo %}# List of known cells (additional entries)
+{% for cell_entry in cellinfo %}CellInfo: {{ cell_entry.name }} {{ cell_entry.url }}
+{% endfor %}{% endif %}
+{% if cache_dir %}# AFS cache directory
+CacheDir: {{ cache_dir }}
+{% endif %}
+{% if cache_size %}# Size of AFS cache (in KB)
+CacheSize: {{ cache_size }}
+{% endif %}
+# Local authentication (if no AFS kerberos setup)
+{% if local_auth %}LocalAuth: yes
+{% else %}LocalAuth: no
+{% endif %}
+# Enable kernel module support (recommended for performance)
+{% if kernel_module %}KernelModule: yes
+{% else %}KernelModule: no
+{% endif %}
+# Number of cache cleaning threads
+CacheCleanerThreads: {{ cache_cleaner_threads }}
+# Maximum number of background file I/O threads
+BkgIOThreads: {{ bkg_io_threads }}
+# Network interfaces to bind to (optional; leave commented to use all)
+{% if bind_interfaces %}# Only use specified interfaces
+{% for iface in bind_interfaces %}Interface: {{ iface }}
+{% endfor %}{% endif %}
+# Authentication timeout (in seconds)
+AuthTimeout: {{ auth_timeout }}
+# Enable verbose logging (debugging)
+{% if verbose %}LogDebug: yes
+{% else %}LogDebug: no
+{% endif %}
+# Syslog facility
+SyslogFacility: {{ syslog_facility }}
+# Path to AFS cell server list file (usually /etc/afs/ThisCell)
+{% if cell_server_list %}CellServerList: {{ cell_server_list }}
+{% endif %}
+# Path to AFS local cell file (usually /etc/afs/CellServDB)
+CellServDB: {{ cell_servdb }}

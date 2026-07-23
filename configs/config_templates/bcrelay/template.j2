@@ -1,0 +1,37 @@
+# Listen on the specified UDP port for incoming broadcast packets
+listen_port: {{ listen_port }}
+
+# Multicast TTL for outgoing relayed packets
+multicast_ttl: {{ multicast_ttl }}
+
+# Enable IPv6 support
+{% if enable_ipv6 %}enable_ipv6{% else %}# enable_ipv6{% endif %}
+
+# Maximum packet size (bytes) to relay
+max_packet_size: {{ max_packet_size }}
+
+# Number of worker threads for packet processing
+worker_threads: {{ worker_threads }}
+
+# Network interfaces to bind to (use 'any' for all)
+{% for iface in interfaces %}interface: {{ iface }}
+{% endfor %}
+
+# Relay destinations: IP and optional port
+{% for dest in destinations %}relay: {{ dest.address }}{% if dest.port is defined %}:{{ dest.port }}{% endif %}
+{% endfor %}
+
+# Rate limit per source (packets per second); 0 = disabled
+rate_limit_pps: {{ rate_limit_pps }}
+
+# Log level: debug, info, warn, error
+log_level: {{ log_level }}
+
+# Path to PID file
+pidfile: {{ pidfile }}
+
+# Drop privileges to this user after binding to port (requires root initially)
+{% if drop_privileges %}user: {{ privilege_user }}{% else %}# user: {{ privilege_user }}{% endif %}
+
+# Drop privileges to this group after binding to port
+{% if drop_privileges %}group: {{ privilege_group }}{% else %}# group: {{ privilege_group }}{% endif %}

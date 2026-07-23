@@ -1,0 +1,101 @@
+{
+  "interface": {
+    "type": "string",
+    "default": "eth0",
+    "description": "Network interface to capture traffic from (e.g., eth0, enp0s3). Must have CAP_NET_RAW or root privileges."
+  },
+  "log_dir": {
+    "type": "string",
+    "default": "/var/log/httpry",
+    "description": "Directory where log files are written (e.g., /var/log/httpry). Ensure write permissions for the daemon user."
+  },
+  "verbose": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable verbose logging (recommended for troubleshooting)."
+  },
+  "debug": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable debug mode (implies verbose, outputs very detailed packet-level info). Use only for debugging."
+  },
+  "max_connections": {
+    "type": "number",
+    "default": 10000,
+    "description": "Maximum number of concurrent HTTP connections to track. Higher values use more memory."
+  },
+  "timeout": {
+    "type": "number",
+    "default": 300,
+    "description": "Seconds of inactivity before a connection is considered idle and removed from tracking."
+  },
+  "exclude_hosts": {
+    "type": "list",
+    "default": [],
+    "description": "List of hostnames or IP addresses to ignore (no logging for traffic to/from them).",
+    "items": {
+      "type": "string",
+      "description": "Hostname or IP address to exclude"
+    }
+  },
+  "log_requests": {
+    "type": "bool",
+    "default": true,
+    "description": "Log HTTP request lines (method, URI, version)."
+  },
+  "log_responses": {
+    "type": "bool",
+    "default": true,
+    "description": "Log HTTP response status lines (status code, reason phrase)."
+  },
+  "log_headers": {
+    "type": "bool",
+    "default": true,
+    "description": "Log HTTP headers (e.g., Host, Content-Type)."
+  },
+  "log_bodies": {
+    "type": "bool",
+    "default": false,
+    "description": "Log HTTP request/response bodies (enables full-text capture \u2014 use with care for privacy)."
+  },
+  "log_cookies": {
+    "type": "bool",
+    "default": true,
+    "description": "Log HTTP cookies (may include sensitive session data)."
+  },
+  "log_user_agents": {
+    "type": "bool",
+    "default": true,
+    "description": "Log HTTP User-Agent strings (used for client fingerprinting)."
+  },
+  "log_referer": {
+    "type": "bool",
+    "default": true,
+    "description": "Log HTTP Referer headers (tracks navigation sources)."
+  },
+  "plaintext_cookies": {
+    "type": "bool",
+    "default": false,
+    "description": "Log cookies in plaintext instead of masking. NOT RECOMMENDED in multi-tenant or untrusted environments."
+  },
+  "user": {
+    "type": "string",
+    "default": "httpry",
+    "description": "System user to drop privileges to after startup (must exist on system)."
+  },
+  "group": {
+    "type": "string",
+    "default": "httpry",
+    "description": "System group to drop privileges to after startup (must exist on system)."
+  },
+  "daemonize": {
+    "type": "bool",
+    "default": true,
+    "description": "Run as a background daemon (true) or foreground (false, e.g., for systemd managed services)."
+  },
+  "pid_file": {
+    "type": "string",
+    "default": "/var/run/httpry/httpry.pid",
+    "description": "Path to the PID file written by the daemon."
+  }
+}

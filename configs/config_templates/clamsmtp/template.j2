@@ -1,0 +1,71 @@
+# Listen address and port for inbound SMTP connections from MTA
+Listen: {{ listen.address }}:{{ listen.port }}
+
+# Address where the SMTP proxy forwards clean mail to the final MTA
+OutAddress: {{ forward.address }}:{{ forward.port }}
+
+# Socket to communicate with ClamAV daemon (clamd)
+# - Either a Unix socket (recommended for same-host) or TCP socket
+ClamAddress: {{ clamd.address }}
+
+# Maximum size (in MB) of messages to scan
+# - Set to 0 for unlimited (not recommended in production)
+MaxSize: {{ max_size_mb }}M
+
+# Timeout for scanning operations (seconds)
+ScanTimeout: {{ scan_timeout }}
+
+# Timeout for connection to ClamAV daemon (seconds)
+ClamTimeout: {{ clamd_timeout }}
+
+# Number of worker processes to spawn
+# - For parallel scanning; set to 1 for single-threaded operation
+Workers: {{ workers }}
+
+# Log location and verbosity
+# - Set to 'Yes' to log to syslog; 'No' disables logging
+# - LogFile path is optional if syslog is used
+# - LogFacility is optional; defaults to LOG_MAIL
+{% if log.syslog %}LogSyslog: Yes{% else %}LogSyslog: No{% endif %}
+{% if log.file %}LogFile: {{ log.file }}{% endif %}
+{% if log.facility %}LogFacility: {{ log.facility }}{% endif %}
+
+# Action on infected messages
+# - 'Reject' (default): bounce with error
+# - 'Clean': forward as-is (dangerous!)
+# - 'Quarantine': deliver to quarantine directory (requires QuarantineDir)
+Action: {{ action.on_infected }}
+
+# Optional: quarantine directory (for Action: Quarantine)
+{% if quarantine.enabled %}QuarantineDir: {{ quarantine.dir }}{% endif %}
+
+# Optional: header to add to clean mail indicating it was scanned
+{% if add_header %}Header: X-Virus-Scanned: ClamAV using clamsmtp{% endif %}
+
+# Optional: replace virus detection message with custom text
+{% if custom_virus_msg %}VirusMessage: {{ custom_virus_msg }}{% endif %}
+
+# Optional: DNSBL (real-time blacklist) checks
+{% for rule in dnsbl.rules %}DNSBL{{ loop.index }}: {{ rule.query }},{{ rule.action }}{% endfor %}
+
+# Optional: rate limiting (max connections per IP per time window)
+{% if rate_limit.enabled %}RateLimit: {{ rate_limit.max }},{{ rate_limit.window }}{% endif %}
+
+# Optional: allow/disallow specific clients (IP or CIDR ranges)
+{% for client in acl.allow %}AllowClient: {{ client }}{% endfor %}
+{% for client in acl.deny %}DenyClient: {{ client }}{% endfor %}
+
+# Optional: TLS configuration for outbound (forward) connection
+{% if forward.tls.enabled %}ForwardTLS: Yes{% if forward.tls.ca_file %}
+ForwardTLSCAFile: {{ forward.tls.ca_file }}{% endif %}
+{% if forward.tls.cert_file %}
+ForwardTLSCertFile: {{ forward.tls.cert_file }}{% endif %}
+{% if forward.tls.key_file %}
+ForwardTLSKeyFile: {{ forward.tls.key_file }}{% endif %}
+{% if forward.tls.verify %}
+ForwardTLSVerify: Yes{% else %}
+ForwardTLSVerify: No{% endif %}{% endif %}
+
+# Optional: process user/group (security hardening)
+User: {{ user }}
+Group: {{ group }}

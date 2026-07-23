@@ -1,0 +1,91 @@
+{
+  "bind_address": {
+    "type": "string",
+    "default": "127.0.0.1",
+    "description": "IP address to bind the signing service listener to (e.g., '127.0.0.1' or '0.0.0.0')"
+  },
+  "port": {
+    "type": "number",
+    "default": 8080,
+    "description": "TCP port for the signing service HTTP API"
+  },
+  "workers": {
+    "type": "number",
+    "default": 4,
+    "description": "Number of worker processes to handle concurrent signing requests"
+  },
+  "keyring_path": {
+    "type": "string",
+    "default": "/etc/debusine/keyring",
+    "description": "Path to the GPG keyring directory containing signing keys and trustdb"
+  },
+  "default_key_id": {
+    "type": "string",
+    "default": "",
+    "description": "GPG key ID (e.g., 'DEADBEEF') used by default if no key is specified per request"
+  },
+  "timeout": {
+    "type": "number",
+    "default": 30,
+    "description": "Maximum time (seconds) allowed for a signing operation before it times out"
+  },
+  "debug": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable verbose debug logging (set to `true` for troubleshooting)"
+  },
+  "hmac_secret": {
+    "type": "string",
+    "default": "",
+    "description": "Shared secret for HMAC-based request authentication; empty string disables HMAC validation"
+  },
+  "trusted_clients": {
+    "type": "list",
+    "default": [
+      "127.0.0.0/8",
+      "::1/128"
+    ],
+    "items": {
+      "type": "string",
+      "description": "Trusted client IP or CIDR range (e.g., '192.168.1.0/24')"
+    },
+    "description": "List of IP ranges allowed to submit signing requests without HMAC validation"
+  },
+  "signing_policies": {
+    "type": "list",
+    "default": [],
+    "items": {
+      "type": "object",
+      "description": "A signing policy rule",
+      "fields": {
+        "name": {
+          "type": "string",
+          "description": "Policy name for identification"
+        },
+        "pattern": {
+          "type": "string",
+          "description": "File path pattern (glob) that triggers signing"
+        },
+        "key_id": {
+          "type": "string",
+          "description": "Specific GPG key ID for this policy; defaults to `default_key_id` if omitted"
+        },
+        "description": {
+          "type": "string",
+          "description": "Optional human-readable description of the policy"
+        }
+      }
+    },
+    "description": "List of file pattern \u2192 signing key mappings for automatic signing"
+  },
+  "log_max_size_mb": {
+    "type": "number",
+    "default": 10,
+    "description": "Maximum size (MB) of each log file before rotation"
+  },
+  "log_rotate_count": {
+    "type": "number",
+    "default": 5,
+    "description": "Number of rotated log files to keep"
+  }
+}

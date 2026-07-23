@@ -1,0 +1,220 @@
+{
+  "smtp_banner": {
+    "type": "string",
+    "default": "Debian Exim server $version",
+    "description": "SMTP banner line shown to connecting clients."
+  },
+  "primary_hostname": {
+    "type": "string",
+    "default": "",
+    "description": "Primary hostname for this mail server \u2014 used in mail headers and TLS certificates. If empty, auto-detected from system hostname."
+  },
+  "tls_disable_on_connect": {
+    "type": "bool",
+    "default": false,
+    "description": "Disable TLS even when connecting to servers that advertise it (e.g., for debugging or compatibility)."
+  },
+  "smtp_ports": {
+    "type": "list",
+    "default": [
+      25
+    ],
+    "description": "Ports on which Exim listens for incoming SMTP connections.",
+    "items": {
+      "type": "string",
+      "description": "Port number (e.g., '25', '465', '587')"
+    }
+  },
+  "local_interfaces": {
+    "type": "list",
+    "default": [
+      "127.0.0.1",
+      "::1"
+    ],
+    "description": "IP addresses/interfaces Exim binds to for incoming connections. Use 'all' to bind to all interfaces.",
+    "items": {
+      "type": "string",
+      "description": "IP address or interface name (e.g., '127.0.0.1', '::1', 'all')"
+    }
+  },
+  "queue_run_timeout": {
+    "type": "number",
+    "default": 300,
+    "description": "Maximum time (seconds) between queue runs when messages are retried."
+  },
+  "queue_max_max_size": {
+    "type": "number",
+    "default": 0,
+    "description": "Maximum total queue size (in MB). Set to 0 for unlimited."
+  },
+  "log_selector": {
+    "type": "list",
+    "default": [
+      "+all_transfer",
+      "+all_delivery"
+    ],
+    "description": "Select additional logging details for troubleshooting. Common: '+all_transfer', '+all_delivery', '+connection_reject'.",
+    "items": {
+      "type": "string",
+      "description": "Exim log selector string."
+    }
+  },
+  "routers": {
+    "type": "list",
+    "default": [],
+    "description": "List of routers to process incoming mail. Each router defines a condition, driver, and optional transport.",
+    "items": {
+      "type": "object",
+      "description": "A single router definition.",
+      "fields": {
+        "name": {
+          "type": "string",
+          "required": true,
+          "description": "Unique router name."
+        },
+        "driver": {
+          "type": "string",
+          "required": true,
+          "description": "Router driver (e.g., 'dnslookup', 'manualroute', 'accept', 'redirect')."
+        },
+        "condition": {
+          "type": "string",
+          "required": false,
+          "description": "Boolean condition (exim4 router condition syntax)."
+        },
+        "domains": {
+          "type": "string",
+          "required": false,
+          "description": "Domain list to match (e.g., '+local_domains')."
+        },
+        "transport": {
+          "type": "string",
+          "required": false,
+          "description": "Name of the transport to use for matching mail."
+        },
+        "address_data": {
+          "type": "string",
+          "required": false,
+          "description": "Optional data passed to next router or transport."
+        },
+        "headers_add": {
+          "type": "string",
+          "required": false,
+          "description": "Additional headers to add (e.g., 'X-Exim-Processed: true')."
+        }
+      }
+    }
+  },
+  "transports": {
+    "type": "list",
+    "default": [],
+    "description": "List of transports that define how mail is delivered (e.g., to maildir, file, or remote host).",
+    "items": {
+      "type": "object",
+      "description": "A single transport definition.",
+      "fields": {
+        "name": {
+          "type": "string",
+          "required": true,
+          "description": "Unique transport name."
+        },
+        "driver": {
+          "type": "string",
+          "required": true,
+          "description": "Transport driver (e.g., 'appendfile', 'maildir', 'smtp')."
+        },
+        "address_parent": {
+          "type": "string",
+          "required": false,
+          "description": "Parent address for error messages (for error transports)."
+        },
+        "file": {
+          "type": "string",
+          "required": false,
+          "description": "File path for 'appendfile' (e.g., '/var/mail/$local_part')."
+        },
+        "directory": {
+          "type": "string",
+          "required": false,
+          "description": "Directory path for 'maildir' transports."
+        },
+        "user": {
+          "type": "string",
+          "required": false,
+          "description": "Unix user to use for delivery (e.g., 'mail')."
+        },
+        "group": {
+          "type": "string",
+          "required": false,
+          "description": "Unix group for delivery permissions."
+        },
+        "file_permissions": {
+          "type": "string",
+          "required": false,
+          "description": "File permissions (e.g., '0600')."
+        },
+        "maildir_format": {
+          "type": "bool",
+          "required": false,
+          "description": "If true, deliver using Maildir++ format."
+        },
+        "delivery_date_add": {
+          "type": "bool",
+          "required": false,
+          "description": "Add 'Delivery-Date' header."
+        },
+        "return_path_add": {
+          "type": "bool",
+          "required": false,
+          "description": "Add 'Return-Path' header."
+        }
+      }
+    }
+  },
+  "authenticators": {
+    "type": "list",
+    "default": [],
+    "description": "List of SMTP authenticators (e.g., for client or server authentication).",
+    "items": {
+      "type": "object",
+      "description": "A single authenticator definition.",
+      "fields": {
+        "name": {
+          "type": "string",
+          "required": true,
+          "description": "Unique authenticator name."
+        },
+        "driver": {
+          "type": "string",
+          "required": true,
+          "description": "Authenticator driver (e.g., 'cram_md5', 'login', 'plain')."
+        },
+        "public_name": {
+          "type": "string",
+          "required": false,
+          "description": "Public SASL mechanism name (e.g., 'PLAIN')."
+        },
+        "server_condition": {
+          "type": "string",
+          "required": false,
+          "description": "Condition to validate credentials on server (e.g., '${if eq{$auth3}{secret}{1}{0}}')."
+        },
+        "server_set_id": {
+          "type": "string",
+          "required": false,
+          "description": "Username to set for authenticated session (e.g., '$auth2')."
+        },
+        "server_prompts": {
+          "type": "string",
+          "required": false,
+          "description": "Server prompts for interactive auth (e.g., 'Username: : Password:')."
+        },
+        "client_send": {
+          "type": "string",
+          "required": false,
+          "description": "Client credentials for outbound auth (e.g., 'username : password')."
+        }
+      }
+    }
+  }
+}

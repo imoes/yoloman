@@ -1,0 +1,51 @@
+# DebCI Collector Daemon configuration
+# Listen address and port for the collector HTTP endpoint
+bind: {{ bind_host }}:{{ bind_port }}
+
+# Path to the queue directory where incoming build results are stored
+queue_dir: {{ queue_dir }}
+
+# Maximum size (in bytes) for a single job result payload
+max_payload_size: {{ max_payload_size }}
+
+# Maximum number of concurrent HTTP handlers
+max_workers: {{ max_workers }}
+
+# Enable HTTPS (requires valid certificate and key)
+use_ssl: {{ use_ssl }}
+{% if use_ssl %}
+# SSL certificate file
+ssl_cert: {{ ssl_cert }}
+# SSL private key file
+ssl_key: {{ ssl_key }}
+{% endif %}
+
+# Log level: debug, info, warning, error, critical
+log_level: {{ log_level }}
+
+# Path to log file (empty string disables file logging)
+log_file: {{ log_file }}
+
+# List of trusted upstream collector hosts (for cluster federation)
+# Each entry is a hostname:port pair
+{% for upstream in upstream_collectors %}
+upstream: {{ upstream.host }}:{{ upstream.port }}
+{% endfor %}
+
+# Enable automatic job result forwarding to upstream collectors
+forward_results: {{ forward_results }}
+
+# Time-to-live (in seconds) for archived job results in queue_dir
+archive_ttl: {{ archive_ttl }}
+
+# Database connection string (e.g., PostgreSQL URI)
+db_uri: {{ db_uri }}
+
+# Enable database persistence for job metadata
+use_db: {{ use_db }}
+
+# Minimum time (in seconds) between health checks
+health_check_interval: {{ health_check_interval }}
+
+# HTTP endpoint path for health checks
+health_check_path: {{ health_check_path }}

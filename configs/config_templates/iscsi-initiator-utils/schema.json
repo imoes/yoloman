@@ -1,0 +1,205 @@
+{
+  "discovery_start": {
+    "type": "bool",
+    "default": true,
+    "description": "Whether to start discovery automatically when iscsid starts"
+  },
+  "timeout_login_timeout": {
+    "type": "number",
+    "default": 15,
+    "description": "Seconds to wait for login to complete before timing out"
+  },
+  "timeout_logout_timeout": {
+    "type": "number",
+    "default": 10,
+    "description": "Seconds to wait for logout to complete before timing out"
+  },
+  "auth_retry": {
+    "type": "number",
+    "default": 3,
+    "description": "Maximum number of authentication attempts per connection"
+  },
+  "discovery_auth_method": {
+    "type": "string",
+    "default": "None",
+    "allowed": [
+      "None",
+      "CHAP",
+      "Mutual CHAP"
+    ],
+    "description": "Authentication method for discovery sessions"
+  },
+  "discovery_auth_username": {
+    "type": "string",
+    "default": "",
+    "description": "CHAP username for discovery authentication"
+  },
+  "discovery_auth_password": {
+    "type": "string",
+    "default": "",
+    "description": "CHAP password for discovery authentication"
+  },
+  "discovery_auth_username_in": {
+    "type": "string",
+    "default": "",
+    "description": "CHAP incoming (target-to-initiator) username for mutual CHAP"
+  },
+  "discovery_auth_password_in": {
+    "type": "string",
+    "default": "",
+    "description": "CHAP incoming (target-to-initiator) password for mutual CHAP"
+  },
+  "targets": {
+    "type": "list",
+    "default": [],
+    "description": "Per-target CHAP authentication configuration",
+    "items": {
+      "name": {
+        "type": "string",
+        "default": "",
+        "description": "Optional target name; if omitted, computed from portal/port"
+      },
+      "portal": {
+        "type": "string",
+        "default": "",
+        "description": "Target portal IP address or hostname"
+      },
+      "port": {
+        "type": "number",
+        "default": 3260,
+        "description": "Target portal iSCSI port"
+      },
+      "chap": {
+        "type": "object",
+        "default": {
+          "enabled": false
+        },
+        "items": {
+          "enabled": {
+            "type": "bool",
+            "default": false,
+            "description": "Enable CHAP authentication for this target"
+          },
+          "method": {
+            "type": "string",
+            "default": "CHAP",
+            "allowed": [
+              "CHAP",
+              "Mutual CHAP"
+            ],
+            "description": "CHAP algorithm"
+          },
+          "username": {
+            "type": "string",
+            "default": "",
+            "description": "CHAP username (initiator-to-target)"
+          },
+          "password": {
+            "type": "string",
+            "default": "",
+            "description": "CHAP password (initiator-to-target)"
+          },
+          "username_in": {
+            "type": "string",
+            "default": "",
+            "description": "CHAP incoming username (target-to-initiator)"
+          },
+          "password_in": {
+            "type": "string",
+            "default": "",
+            "description": "CHAP incoming password (target-to-initiator)"
+          }
+        }
+      }
+    }
+  },
+  "iface_transport_name": {
+    "type": "string",
+    "default": "tcp",
+    "description": "Transport class for iSCSI iface (e.g., 'tcp', 'bnep')"
+  },
+  "iface_ip": {
+    "type": "string",
+    "default": "",
+    "description": "Static IP address to bind the iSCSI interface to (optional)"
+  },
+  "iface_hwaddress": {
+    "type": "string",
+    "default": "",
+    "description": "Hardware MAC address of the network interface to bind (e.g., '00:11:22:33:44:55')"
+  },
+  "iface_netdev": {
+    "type": "string",
+    "default": "",
+    "description": "Network device name to bind (e.g., 'eth0', 'ib0')"
+  },
+  "iface_header_digest": {
+    "type": "string",
+    "default": "CRC32C,None",
+    "allowed": [
+      "CRC32C",
+      "NONE",
+      "CRC32C,None"
+    ],
+    "description": "Digest algorithm for iSCSI header (optional)"
+  },
+  "iface_data_digest": {
+    "type": "string",
+    "default": "NONE",
+    "allowed": [
+      "CRC32C",
+      "NONE"
+    ],
+    "description": "Digest algorithm for iSCSI data (optional)"
+  },
+  "session_max_connections": {
+    "type": "number",
+    "default": 1,
+    "description": "Maximum number of simultaneous connections per session (multipath)"
+  },
+  "node_session_initial_login_retry_max": {
+    "type": "number",
+    "default": 8,
+    "description": "Number of retries during initial login before giving up"
+  },
+  "node_session_cmds_max": {
+    "type": "number",
+    "default": 32,
+    "description": "Maximum number of commands per session"
+  },
+  "node_conn_max_xmit_data_length": {
+    "type": "number",
+    "default": 262144,
+    "description": "Maximum transmit data segment length in bytes"
+  },
+  "node_conn_max_recv_data_length": {
+    "type": "number",
+    "default": 262144,
+    "description": "Maximum receive data segment length in bytes"
+  },
+  "iscsi_offload": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable hardware iSCSI offload (requires supported HBA)"
+  },
+  "node_session_err_timeo_abort_timeout": {
+    "type": "number",
+    "default": 15,
+    "description": "Seconds to wait before aborting commands during error recovery"
+  },
+  "node_session_err_timeo_reset_timeout": {
+    "type": "number",
+    "default": 30,
+    "description": "Seconds to wait before resetting the connection during error recovery"
+  },
+  "node_session_err_timeo_fast_io_fail_timeout": {
+    "type": "number",
+    "default": 5,
+    "description": "Seconds before marking paths as failed (fast I/O fail)"
+  },
+  "node_session_recovery_tmo": {
+    "type": "number",
+    "default": 120,
+    "description": "Seconds to wait before giving up on session recovery"
+  }
+}

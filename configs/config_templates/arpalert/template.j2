@@ -1,0 +1,54 @@
+# Interface(s) to monitor (comma-separated list of device names)
+interfaces = {{ interfaces | join(', ') }}
+
+# MAC address(es) to allow (whitelist); if empty, no whitelist is enforced
+allowed_macs = {{ allowed_macs | join(', ') }}
+
+# MAC address(es) to deny (blacklist)
+denied_macs = {{ denied_macs | join(', ') }}
+
+# Action to take on unauthorized ARP change (valid: 'log', 'drop', 'kill')
+action = "{{ action }}"
+
+# Log level: 0=quiet, 1=normal, 2=verbose
+log_level = {{ log_level }}
+
+# Log file path (empty string uses syslog)
+log_file = "{{ log_file }}"
+
+# PID file path
+pid_file = "{{ pid_file }}"
+
+# Time (in seconds) between scans of the ARP table
+scan_interval = {{ scan_interval }}
+
+# Maximum delay (in seconds) to wait before reacting to an ARP change
+max_delay = {{ max_delay }}
+
+# Alert on new MAC for known IPs (true/false)
+alert_new_ip_mac = {{ alert_new_ip_mac | lower }}
+
+# Alert on duplicate IP (true/false)
+alert_duplicate_ip = {{ alert_duplicate_ip | lower }}
+
+# Alert on duplicate MAC (true/false)
+alert_duplicate_mac = {{ alert_duplicate_mac | lower }}
+
+# List of gateways (IPs) to ignore (e.g., internal routers)
+ignore_gateways = {{ ignore_gateways | join(', ') }}
+
+# List of static IP-to-MAC bindings (format: ip=mac; one per line)
+{% for binding in static_bindings %}
+static = {{ binding.ip }} = {{ binding.mac }}
+{% endfor %}
+
+# Command to execute on alert (optional; %ip%, %mac% placeholders)
+{% if alert_cmd %}
+alert_cmd = {{ alert_cmd | replace('%', '%%') }}
+{% endif %}
+
+# Daemonize (run as background process; true/false)
+daemonize = {{ daemonize | lower }}
+
+# User to drop privileges to (when daemonizing)
+run_as_user = "{{ run_as_user }}"

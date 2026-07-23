@@ -1,0 +1,32 @@
+# nftlb configuration file - manages load balancing rules for nftables
+# Auto-generated via nftlb config generator
+{% for service in services %}
+# Service: {{ service.name }}
+# Type: {{ service.type | default('lb') }}
+# Listen address and port
+{% if service.type == 'lb' %}
+nftlb add lb {{ service.name }} {{ service.proto | default('tcp') }} {{ service.listen_ip }} {{ service.listen_port }}
+{% else %}
+nftlb add fw {{ service.name }} {{ service.proto | default('tcp') }} {{ service.listen_ip }} {{ service.listen_port }}
+{% endif %}
+# Upstream servers
+{% for backend in service.backends %}
+nftlb add server {{ service.name }} {{ backend.ip }} {{ backend.port | default(service.listen_port) }}{% if backend.weight is defined %} weight {{ backend.weight }}{% endif %}
+{% endfor %}
+# Health check options
+{% if service.health_check is defined %}
+nftlb set health-check {{ service.name }} {% if service.health_check.type == 'http' %}http {{ service.health_check.path | default('/') }}{% elif service.health_check.type == 'tcp' %}tcp{% elif service.health_check.type == 'none' %}none{% endif %}
+{% endif %}
+# Options
+{% if service.options is defined %}
+{% for opt_key, opt_val in service.options.items() %}
+nftlb set option {{ service.name }} {{ opt_key }} {{ opt_val }}
+{% endfor %}
+{% endif %}
+{% endfor %}
+# Global settings
+{% if global_settings is defined %}
+{% for key, val in global_settings.items() %}
+nftlb set global {{ key }} {{ val }}
+{% endfor %}
+{% endif %}

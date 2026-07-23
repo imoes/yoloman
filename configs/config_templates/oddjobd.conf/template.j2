@@ -1,0 +1,28 @@
+<!-- Configuration file for oddjobd daemon -->
+<!-- Enable or disable the daemon on startup -->
+<oddjobd>
+  <chdir>/</chdir>
+  <!-- PID file location -->
+  <pidfile>/run/oddjobd.pid</pidfile>
+  <!-- Directory where service-specific configurations are loaded from -->
+  <serviceDir>/usr/lib/oddjob</serviceDir>
+  <!-- Path to the oddjob-mkhomedir helper executable -->
+  <mkhomedirHelper>{{ mkhomedir_helper_path }}</mkhomedirHelper>
+  <!-- Maximum number of worker threads -->
+  <maxThreads>{{ max_threads }}</maxThreads>
+  <!-- Timeout (in seconds) for service execution -->
+  <serviceTimeout>{{ service_timeout }}</serviceTimeout>
+  <!-- List of enabled service definitions -->
+{% for service in services %}  <service name="{{ service.name }}">
+    <path>{{ service.path }}</path>
+    <user>{{ service.user }}</user>
+    <group>{{ service.group }}</group>
+    <umask>{{ service.umask }}</umask>
+{% if service.allow_users is not none %}    <allow>
+{% for u in service.allow_users %}      <user>{{ u }}</user>
+{% endfor %}    </allow>
+{% endif %}{% if service.deny_users is not none %}    <deny>
+{% for u in service.deny_users %}      <user>{{ u }}</user>
+{% endfor %}    </deny>
+{% endif %}  </service>
+{% endfor %}</oddjobd>

@@ -1,0 +1,10 @@
+#!/bin/sh
+# Execute the service and pipe its stdout/stderr to multilog for rotation
+exec 2>&1
+# Run the service
+exec {{ service_command }}
+
+# The following is handled by multilog *invocation* in the run script,
+# typically via: | multilog {{ multilog_opts }}
+# So multilog config is embedded in the run script’s pipe invocation:
+# | multilog t{{ format }} s{{ max_size }} n{{ keep_count }}{% if max_time %} T{{ max_time }}{% endif %}{% if directory %} {{ directory }}{% endif %}

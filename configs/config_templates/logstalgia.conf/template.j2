@@ -1,0 +1,122 @@
+[global]
+# Enable or disable color output
+{{ 'color' if logstalgia_color else 'nocolor' }}
+
+# Enable or disable IPv6 support
+{{ 'ipv6' if logstalgia_ipv6 else 'noipv6' }}
+
+# Set the number of threads for processing
+# (0 = auto-detect based on CPU cores)
+threads {{ logstalgia_threads }}
+
+# Log format: 'apache' (default) or 'nginx'
+format {{ logstalgia_format }}
+
+# Path to the font file (for ASCII art rendering)
+font {{ logstalgia_font_path }}
+
+# Enable or disable the use of a precomputed favicon cache
+# (improves performance for large datasets)
+{{ 'precompiled_favicon' if logstalgia_precompiled_favicon else 'nofavicon' }}
+
+[display]
+# Set the delay (in ms) between frames during replay
+# Lower = faster replay, higher = slower/smoother replay
+speed {{ logstalgia_speed }}
+
+# Set the width of the output display (in characters)
+# Leave as 0 for auto-detection
+width {{ logstalgia_width }}
+
+# Set the height of the output display (in lines)
+# Leave as 0 for auto-detection
+height {{ logstalgia_height }}
+
+# Enable or disable the display of request durations
+# (shows a bar chart next to each request)
+{{ 'durations' if logstalgia_durations else 'nodurations' }}
+
+# Enable or disable the display of response sizes
+# (shows a bar chart next to each request)
+{{ 'sizes' if logstalgia_sizes else 'nosizes' }}
+
+# Enable or disable the display of hostnames
+# (shows client IP/host instead of dots)
+{{ 'hostnames' if logstalgia_hostnames else 'nohostnames' }}
+
+# Enable or disable the display of request paths
+# (shows full paths instead of masked URLs)
+{{ 'paths' if logstalgia_paths else 'nopath' }}
+
+# Enable or disable the display of request method
+# (GET/POST/etc.)
+{{ 'methods' if logstalgia_methods else 'nomethods' }}
+
+# Enable or disable the display of status codes
+# (e.g., 200, 404)
+{{ 'statuscodes' if logstalgia_statuscodes else 'nostatuscodes' }}
+
+# Enable or disable the display of referrers
+{{ 'referrers' if logstalgia_referrers else 'noreferrers' }}
+
+# Enable or disable the display of user agents
+{{ 'useragents' if logstalgia_useragents else 'nouseragents' }}
+
+# Enable or disable the display of the progress bar
+{{ 'progress' if logstalgia_progress else 'noprogress' }}
+
+# Enable or disable the display of the logo (ASCII art)
+{{ 'logo' if logstalgia_logo else 'nologo' }}
+
+[access]
+# Set the maximum number of concurrent requests to display
+max_connections {{ logstalgia_max_connections }}
+
+# Set the timeout (in seconds) for idle connections
+# (connections older than this will be dropped from display)
+connection_timeout {{ logstalgia_connection_timeout }}
+
+# Enable or disable the buffering of logs before display
+# (useful for high-volume logs)
+{{ 'buffered' if logstalgia_buffered else 'unbuffered' }}
+
+# Set the buffer size (in lines) before flushing to display
+buffer_size {{ logstalgia_buffer_size }}
+
+# Set the path to the log file to read
+# (can be overridden via command-line)
+# Supports stdin by setting to '-'
+{% if logstalgia_log_files %}
+{% for log_file in logstalgia_log_files %}
+# Source log file: {{ log_file.description | default('unnamed') }}
+{% if log_file.path %}
+log {{ log_file.path }}
+{% endif %}
+{% endfor %}
+{% else %}
+log {{ logstalgia_default_log_path }}
+{% endif %}
+
+# Set the path to the access log file (legacy alias for 'log')
+{% if logstalgia_access_log_path %}
+access_log {{ logstalgia_access_log_path }}
+{% endif %}
+
+[output]
+# Output to a video file instead of terminal (requires SDL + FFmpeg)
+{% if logstalgia_output_video_path %}
+# Output video to this path (e.g., /tmp/output.mp4)
+output {{ logstalgia_output_video_path }}
+{% endif %}
+
+# Video frame rate (fps)
+framerate {{ logstalgia_framerate }}
+
+# Video width (in pixels)
+video_width {{ logstalgia_video_width }}
+
+# Video height (in pixels)
+video_height {{ logstalgia_video_height }}
+
+# Enable or disable the display of a time scale (top of screen)
+{{ 'timescale' if logstalgia_timescale else 'notimescale' }}

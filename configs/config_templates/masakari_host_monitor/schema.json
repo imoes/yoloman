@@ -1,0 +1,164 @@
+{
+  "masakari_api_host": {
+    "type": "string",
+    "default": "127.0.0.1",
+    "description": "Hostname or IP address of the Masakari API service (e.g., controller node)."
+  },
+  "masakari_api_port": {
+    "type": "number",
+    "default": 8080,
+    "description": "Port on which the Masakari API service listens."
+  },
+  "auth_url": {
+    "type": "string",
+    "default": "http://127.0.0.1:5000/v3",
+    "description": "Keystone authentication endpoint URL (e.g., http://keystone-host:5000/v3)."
+  },
+  "project_name": {
+    "type": "string",
+    "default": "services",
+    "description": "OpenStack project (tenant) name used by the Masakari service user."
+  },
+  "service_user": {
+    "type": "string",
+    "default": "masakari",
+    "description": "Username of the Masakari service user in Keystone."
+  },
+  "service_password": {
+    "type": "string",
+    "default": "",
+    "description": "Password for the Masakari service user (securely set via environment or vault)."
+  },
+  "user_domain_name": {
+    "type": "string",
+    "default": "Default",
+    "description": "Keystone domain name for the service user."
+  },
+  "project_domain_name": {
+    "type": "string",
+    "default": "Default",
+    "description": "Keystone domain name for the service project."
+  },
+  "region_name": {
+    "type": "string",
+    "default": "RegionOne",
+    "description": "OpenStack region where this host monitor operates."
+  },
+  "transport_url": {
+    "type": "string",
+    "default": "rabbit://openstack:RABBIT_PASSWORD@127.0.0.1:5672/",
+    "description": " messaging transport URL for RPC communication (e.g., RabbitMQ or other backend)."
+  },
+  "monitor_interval": {
+    "type": "number",
+    "default": 10,
+    "description": "Interval (seconds) between checks of host health (e.g., via SSH or IPMI)."
+  },
+  "failure_detection_timeout": {
+    "type": "number",
+    "default": 60,
+    "description": "Time (seconds) to wait before declaring a host as failed after repeated missed checks."
+  },
+  "recovery_retry_interval": {
+    "type": "number",
+    "default": 30,
+    "description": "Interval (seconds) between automatic recovery attempts for a failed host."
+  },
+  "max_recovery_attempts": {
+    "type": "number",
+    "default": 3,
+    "description": "Maximum number of automatic VM evacuation/recovery attempts before giving up."
+  },
+  "auto_recovery": {
+    "type": "boolean",
+    "default": true,
+    "description": "Enable or disable automatic host and VM recovery upon failure detection."
+  },
+  "notification_driver": {
+    "type": "string",
+    "default": "masakari.notifiers.api_notifier.ApiNotifier",
+    "description": "Primary notification driver to use (e.g., send alerts via Masakari API)."
+  },
+  "notification_endpoints": {
+    "type": "list",
+    "default": [],
+    "description": "List of external notification endpoints (e.g., email, webhook).",
+    "items": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Descriptive name of the notification endpoint (e.g., 'slack-alerts')."
+        },
+        "type": {
+          "type": "string",
+          "enum": [
+            "mailto",
+            "webhook",
+            "log"
+          ],
+          "description": "Type of endpoint: 'mailto' for email, 'webhook' for HTTP POST, 'log' for logging only."
+        },
+        "address": {
+          "type": "string",
+          "description": "Destination (e.g., email address or HTTP URL)."
+        }
+      },
+      "required": [
+        "name",
+        "type",
+        "address"
+      ]
+    }
+  },
+  "segment_uuids": {
+    "type": "list",
+    "default": [],
+    "description": "List of Masakari segment UUIDs to monitor. Empty = monitor all segments."
+  },
+  "rpc_use_ssl": {
+    "type": "boolean",
+    "default": false,
+    "description": "Enable TLS for RPC communication with Masakari API or messaging backend."
+  },
+  "cafile": {
+    "type": "string",
+    "default": "/etc/ssl/certs/ca-certificates.crt",
+    "description": "Path to CA certificate bundle for TLS verification (used only if rpc_use_ssl=true)."
+  },
+  "certfile": {
+    "type": "string",
+    "default": "",
+    "description": "Path to client certificate for mutual TLS (optional)."
+  },
+  "keyfile": {
+    "type": "string",
+    "default": "",
+    "description": "Path to client private key for mutual TLS (optional)."
+  },
+  "tls_insecure": {
+    "type": "boolean",
+    "default": false,
+    "description": "If true, skip TLS certificate verification (not recommended for production)."
+  },
+  "host_name": {
+    "type": "string",
+    "default": "",
+    "description": "Explicit host name (FQDN or short). If empty, Masakari auto-detects from system."
+  },
+  "health_check_enabled": {
+    "type": "boolean",
+    "default": true,
+    "description": "Enable built-in health check endpoint for container orchestrators (e.g., Kubernetes)."
+  },
+  "health_check_interval": {
+    "type": "number",
+    "default": 30,
+    "description": "Interval (seconds) between health check probes."
+  },
+  "health_check_uri": {
+    "type": "string",
+    "default": "http://0.0.0.0:5673/healthcheck",
+    "description": "Local URI for the built-in health check HTTP endpoint."
+  }
+}

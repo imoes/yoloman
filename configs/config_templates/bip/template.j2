@@ -1,0 +1,129 @@
+# Global bip settings
+global {
+{% if bind_ip %}
+	bind_ip = "{{ bind_ip }}";
+{% endif %}
+{% if bind_ipv6 %}
+	bind_ipv6 = "{{ bind_ipv6 }}";
+{% endif %}
+{% if port %}
+	port = {{ port }};
+{% endif %}
+{% if ssl_port %}
+	ssl_port = {{ ssl_port }};
+{% endif %}
+{% if ssl_cert %}
+	ssl_cert = "{{ ssl_cert }}";
+{% endif %}
+{% if ssl_key %}
+	ssl_key = "{{ ssl_key }}";
+{% endif %}
+	log_dir = "{{ log_dir }}";
+	log_level = {{ log_level }};
+{% if pid_file %}
+	pid_file = "{{ pid_file }}";
+{% endif %}
+{% if allow_plaintext %}
+	allow_plaintext = {{ allow_plaintext | lower }};
+{% endif %}
+};
+
+# Users configuration
+{% for user in users %}
+user {{ user.name }} {
+{% if user.password %}
+	password = "{{ user.password }}";
+{% endif %}
+{% if user.realname %}
+	realname = "{{ user.realname }}";
+{% endif %}
+{% if user.username %}
+	username = "{{ user.username }}";
+{% endif %}
+{% if user.nicks %}
+	nicks = [{{ user.nicks | map("quote") | join(", ") }}];
+{% endif %}
+{% if user.ident %}
+	ident = "{{ user.ident }}";
+{% endif %}
+{% if user.default_server %}
+	default_server = "{{ user.default_server }}";
+{% endif %}
+{% if user.default_port %}
+	default_port = {{ user.default_port }};
+{% endif %}
+{% if user.default_ssl %}
+	default_ssl = {{ user.default_ssl | lower }};
+{% endif %}
+{% if user.default_password %}
+	default_password = "{{ user.default_password }}";
+{% endif %}
+{% if user.default_channels %}
+	default_channels = [{{ user.default_channels | map("quote") | join(", ") }}];
+{% endif %}
+{% if user.use_ssl %}
+	use_ssl = {{ user.use_ssl | lower }};
+{% endif %}
+{% if user.ssl_verify %}
+	ssl_verify = {{ user.ssl_verify | lower }};
+{% endif %}
+{% if user.ssl_cafile %}
+	ssl_cafile = "{{ user.ssl_cafile }}";
+{% endif %}
+{% if user.ssl_capath %}
+	ssl_capath = "{{ user.ssl_capath }}";
+{% endif %}
+{% if user.ssl_ciphers %}
+	ssl_ciphers = "{{ user.ssl_ciphers }}";
+{% endif %}
+{% if user.timeout %}
+	timeout = {{ user.timeout }};
+{% endif %}
+{% if user.reconnect_delay %}
+	reconnect_delay = {{ user.reconnect_delay }};
+{% endif %}
+{% if user.max_history_lines %}
+	max_history_lines = {{ user.max_history_lines }};
+{% endif %}
+{% if user.max_history_bytes %}
+	max_history_bytes = {{ user.max_history_bytes }};
+{% endif %}
+{% if user.history_persist %}
+	history_persist = {{ user.history_persist | lower }};
+{% endif %}
+{% if user.autoquery %}
+	autoquery = {{ user.autoquery | lower }};
+{% endif %}
+{% if user.autojoin %}
+	autojoin = {{ user.autojoin | lower }};
+{% endif %}
+{% if user.flood_protection %}
+	flood_protection = {{ user.flood_protection | lower }};
+{% endif %}
+{% if user.irc_debug %}
+	irc_debug = {{ user.irc_debug | lower }};
+{% endif %}
+{% if user.always_away %}
+	always_away = {{ user.always_away | lower }};
+{% endif %}
+{% if user.away_message %}
+	away_message = "{{ user.away_message }}";
+{% endif %}
+};
+{% endfor %}
+
+# Optional network aliases
+{% if network_aliases %}
+{% for alias in network_aliases %}
+network_alias {{ alias.name }} {
+	server = "{{ alias.server }}";
+	port = {{ alias.port }};
+{% if alias.ssl %}
+	ssl = {{ alias.ssl | lower }};
+{% endif %}
+{% if alias.password %}
+	password = "{{ alias.password }}";
+{% endif %}
+};
+{% endfor %}
+{% endif %}

@@ -1,0 +1,222 @@
+{
+  "timeout": {
+    "type": "number",
+    "default": 10,
+    "description": "Global timeout (seconds) for operations like socket I/O and DNS."
+  },
+  "user": {
+    "type": "string",
+    "default": "mailnull",
+    "description": "System user account under which the milter process runs (must have permission to access sockets and logs)."
+  },
+  "group": {
+    "type": "string",
+    "default": "mail",
+    "description": "System group for the milter process."
+  },
+  "pidfile": {
+    "type": "string",
+    "default": "/var/run/milter-greylist/milter-greylist.pid",
+    "description": "Path to the PID file for the milter-greylist process."
+  },
+  "socket": {
+    "type": "string",
+    "default": "/var/spool/postfix/milter-greylist/milter-greylist.sock",
+    "description": "Unix domain socket path used to communicate with the MTA (e.g., Postfix)."
+  },
+  "socket_mode": {
+    "type": "string",
+    "default": "0660",
+    "description": "Octal permissions (e.g., '0660') for the milter socket file."
+  },
+  "socket_owner": {
+    "type": "string",
+    "default": "postfix",
+    "description": "Owner of the socket file (typically the MTA user, e.g., postfix)."
+  },
+  "socket_group": {
+    "type": "string",
+    "default": "postfix",
+    "description": "Group of the socket file (typically the MTA group)."
+  },
+  "ratelimit": {
+    "type": "number",
+    "default": 10,
+    "description": "Maximum number of connections per IP per minute before triggering rate-limiting."
+  },
+  "delay": {
+    "type": "number",
+    "default": 5,
+    "description": "Initial delay (seconds) before accepting a message from a new sender IP."
+  },
+  "autowhitelist": {
+    "type": "number",
+    "default": 604800,
+    "description": "Time (seconds, default 7 days) after successful delivery to automatically whitelist the sender IP."
+  },
+  "autoblacklist": {
+    "type": "number",
+    "default": 86400,
+    "description": "Time (seconds, default 1 day) after repeated greylist failures to automatically blacklist the IP."
+  },
+  "greylist": {
+    "type": "number",
+    "default": 60,
+    "description": "Time (seconds) after which a greylisted sender is re-allowed if it retries."
+  },
+  "greylistttl": {
+    "type": "number",
+    "default": 2592000,
+    "description": "Time (seconds, default 30 days) to remember successful deliveries (i.e., TTL of greylist entries)."
+  },
+  "loglevel": {
+    "type": "number",
+    "default": 4,
+    "description": "Logging verbosity: 0 (quiet) to 9 (very verbose); 4 is typical for production."
+  },
+  "logfile": {
+    "type": "string",
+    "default": "",
+    "description": "Optional path to a dedicated log file (if empty, uses syslog)."
+  },
+  "dns_timeout": {
+    "type": "number",
+    "default": 5,
+    "description": "Timeout (seconds) for DNS lookups (e.g., MX, SPF)."
+  },
+  "dns_retries": {
+    "type": "number",
+    "default": 3,
+    "description": "Number of DNS query retries before giving up."
+  },
+  "ipv6": {
+    "type": "boolean",
+    "default": true,
+    "description": "Enable or disable IPv6 support in DNS resolution and socket binding."
+  },
+  "chroot": {
+    "type": "string",
+    "default": "",
+    "description": "Optional chroot directory for sandboxing (must contain required binaries and libs)."
+  },
+  "whitelist": {
+    "type": "list",
+    "default": [],
+    "description": "List of static entries to always bypass greylisting.",
+    "items": {
+      "type": "object",
+      "fields": {
+        "comment": {
+          "type": "string",
+          "default": "",
+          "description": "Optional human-readable description for the entry."
+        },
+        "ip": {
+          "type": "string",
+          "default": "",
+          "description": "Single IP address (e.g., '192.0.2.1') to whitelist."
+        },
+        "network": {
+          "type": "string",
+          "default": "",
+          "description": "Network in CIDR notation (e.g., '192.0.2.0/24') to whitelist."
+        },
+        "email": {
+          "type": "string",
+          "default": "",
+          "description": "Exact email address or domain (e.g., 'user@example.com' or '@example.com') to whitelist."
+        },
+        "regex": {
+          "type": "string",
+          "default": "",
+          "description": "Perl-compatible regex (PCRE) for flexible matching (e.g., '.*@trusted\\.com$')."
+        },
+        "macro": {
+          "type": "string",
+          "default": "",
+          "description": "Milter macro pattern (e.g., '{auth_authen}') to match milter context."
+        }
+      }
+    }
+  },
+  "blacklist": {
+    "type": "list",
+    "default": [],
+    "description": "List of static entries to always reject.",
+    "items": {
+      "type": "object",
+      "fields": {
+        "comment": {
+          "type": "string",
+          "default": "",
+          "description": "Optional human-readable description."
+        },
+        "ip": {
+          "type": "string",
+          "default": "",
+          "description": "Single IP to blacklist."
+        },
+        "network": {
+          "type": "string",
+          "default": "",
+          "description": "Network in CIDR notation to blacklist."
+        },
+        "email": {
+          "type": "string",
+          "default": "",
+          "description": "Exact email or domain to blacklist."
+        },
+        "regex": {
+          "type": "string",
+          "default": "",
+          "description": "Regex to match spam patterns."
+        },
+        "macro": {
+          "type": "string",
+          "default": "",
+          "description": "Milter macro pattern to match."
+        }
+      }
+    }
+  },
+  "acls": {
+    "type": "list",
+    "default": [],
+    "description": "List of named ACLs for fine-grained control of greylist behavior.",
+    "items": {
+      "type": "object",
+      "fields": {
+        "name": {
+          "type": "string",
+          "default": "",
+          "description": "Unique name for the ACL (used in 'acl' directives)."
+        },
+        "ip": {
+          "type": "string",
+          "default": "",
+          "description": "Single IP to include in this ACL."
+        },
+        "network": {
+          "type": "string",
+          "default": "",
+          "description": "Network in CIDR notation to include in this ACL."
+        },
+        "email": {
+          "type": "string",
+          "default": "",
+          "description": "Email or domain to include in this ACL."
+        },
+        "regex": {
+          "type": "string",
+          "default": "",
+          "description": "Regex to match entries in this ACL."
+        }
+      }
+    }
+  },
+  "default_acl": {
+    "type": "string",
+    "default": "permit",
+    "description": "Default action when no ACL matches: 'permit' (allow greylisting) or 'deny' (always reject)."
+  }
+}

@@ -1,0 +1,80 @@
+# Listen on this port for client connections
+listen_addresses = '{{ listen_addresses }}'
+
+# Port number for pgpool
+port = {{ port }}
+
+# Unix socket directory (empty means default)
+socket_directories = '{{ socket_directories }}'
+
+# Number of child processes to handle connections
+num_init_children = {{ num_init_children }}
+
+# Number of idle child processes to keep
+reserved_connections = {{ reserved_connections }}
+
+# Time (in seconds) to wait for backend connection from pool
+connection_cache_size = {{ connection_cache_size }}
+
+# Health check parameters
+health_check_period = {{ health_check_period }}
+health_check_timeout = {{ health_check_timeout }}
+
+# Backend server list (one per line, auto-formatted)
+# Each entry: host,port,weight,deadline,availability
+{% for backend in backends %}backend_hostname{{ loop.index0 }} = '{{ backend.hostname }}'
+backend_port{{ loop.index0 }} = {{ backend.port }}
+backend_weight{{ loop.index0 }} = {{ backend.weight }}
+backend_data_directory{{ loop.index0 }} = '{{ backend.data_directory }}'
+backend_status{{ loop.index0 }} = '{{ backend.status }}'
+{% endfor %}
+
+# Authentication settings
+# Enable md5 authentication (recommended for production)
+enable_pool_hba = {{ enable_pool_hba | default(false) | lower }}
+
+# SSL settings
+ssl = {{ ssl | default(false) | lower }}
+ssl_cert = '{{ ssl_cert }}'
+ssl_key = '{{ ssl_key }}'
+ssl_ca_cert = '{{ ssl_ca_cert }}'
+ssl_ca_cert_dir = '{{ ssl_ca_cert_dir }}'
+
+# Logging
+log_destination = '{{ log_destination }}'
+log_line_prefix = '{{ log_line_prefix }}'
+log_connections = {{ log_connections | default(false) | lower }}
+log_hostname = {{ log_hostname | default(false) | lower }}
+log_statement = {{ log_statement | default(false) | lower }}
+log_per_node_statement = {{ log_per_node_statement | default(false) | lower }}
+log_pooler_errors = {{ log_pooler_errors | default(true) | lower }}
+
+# Failover & recovery
+use_watchdog = {{ use_watchdog | default(false) | lower }}
+wd_hostname = '{{ wd_hostname }}'
+wd_port = {{ wd_port }}
+
+# Replication mode settings
+# Required when using replication or master-slave modes
+replication_mode = {{ replication_mode | default(false) | lower }}
+
+# Load balancing mode
+load_balance_mode = {{ load_balance_mode | default(true) | lower }}
+
+# Master/slave mode
+master_slave_mode = {{ master_slave_mode | default(false) | lower }}
+master_slave_sub_mode = '{{ master_slave_sub_mode }}'
+
+# Switching mode: 'stream' or 'streaming' or 'slony'
+slot_name = '{{ slot_name }}'
+
+# Failover behavior
+failover_when_quorum_exists = {{ failover_when_quorum_exists | default(true) | lower }}
+failover_require_consensus = {{ failover_require_consensus | default(true) | lower }}
+
+# Health check user & password
+health_check_user = '{{ health_check_user }}'
+health_check_password = '{{ health_check_password }}'
+
+# Optional: SSL mode for backend connections
+ssl_mode = '{{ ssl_mode }}'

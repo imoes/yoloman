@@ -1,0 +1,119 @@
+{# Top-level control daemon settings #}
+{
+  "Dhcp4": {
+    "config-control": {
+      "config-databases": [
+        "mysql://{{ mysql_user }}:{{ mysql_password }}@{{ mysql_host }}/{{ mysql_database }}"
+      ]
+    },
+
+    "control-socket": {
+      "socket-type": "unix",
+      "socket-name": "{{ control_socket_path }}"
+    },
+
+    "dhcp-queue-control": {
+      "queue-size": {{ dhcp_queue_size }}
+    },
+
+    "hooks-libraries": [
+      {
+        "library": "{{ lease_cmds_lib_path }}"
+      },
+      {% if enable_ddns %}
+      {
+        "library": "{{ ddns_lib_path }}",
+        "parameters": {
+          "dynamic-dns": {
+            "enable-updates": true,
+            "dns-server-timeout": {{ ddns_timeout }},
+            "ttl": {{ ddns_ttl }},
+            "forward-changes": true,
+            "reverse-changes": true,
+            "ncr-protocol": "UDP",
+            "ncr-format": "JSON",
+            "ncr-server-ip": "{{ ddns_server_ip }}",
+            "ncr-server-port": {{ ddns_server_port }},
+            "qualifying-suffix": "{{ ddns_qualifying_suffix }}"
+          }
+        }
+      }
+      {% endif %}
+    ],
+
+    "interfaces-config": {
+      "interfaces": [{{ interfaces | map('"{}"' | format) | join(', ') }}],
+      "dhcp-socket-type": "raw"
+    },
+
+    "lease-database": {
+      "type": "mysql",
+      "lfc-interval": {{ lease_lfc_interval }},
+      "name": "{{ mysql_database }}",
+      "password": "{{ mysql_password }}",
+      "user": "{{ mysql_user }}",
+      "host": "{{ mysql_host }}",
+      "port": {{ mysql_port }}
+    },
+
+    "renew-time": {{ renew_time }},
+    "rebind-time": {{ rebind_time }},
+    "valid-lifetime": {{ valid_lifetime }},
+
+    "loggers": [
+      {
+        "name": "kea-dhcp4",
+        "output_options": [
+          {
+            "output": "{{ log_output }}"
+          }
+        ],
+        "severity": "{{ log_severity }}",
+        "debuglevel": {{ log_debuglevel }}
+      }
+    ],
+
+    "subnet4": [
+      {% for subnet in subnets %}
+      {
+        "id": {{ subnet.id }},
+        "subnet": "{{ subnet.network }}/{{ subnet.prefix }}",
+        "option-data": [
+          {
+            "name": "routers",
+            "data": "{{ subnet.gateway }}"
+          },
+          {
+            "name": "domain-name-servers",
+            "data": "{{ subnet.dns_servers | join(', ') }}"
+          },
+          {
+            "name": "domain-name",
+            "data": "{{ subnet.domain_name }}"
+          }
+        ],
+        "pools": [
+          {% for pool in subnet.pools %}
+          {
+            "pool": "{{ pool.start }} - {{ pool.end }}"
+          }{% if not loop.last %},{% endif %}
+          {% endfor %}
+        ],
+        {% if subnet.reservations | length > 0 %}
+        "reservations": [
+          {% for reservation in subnet.reservations %}
+          {
+            "hw-address": "{{ reservation.mac }}",
+            "ip-address": "{{ reservation.ip }}",
+            "hostname": "{{ reservation.hostname }}"
+          }{% if not loop.last %},{% endif %}
+          {% endfor %}
+        ]
+        {% endif %}
+      }{% if not loop.last %},{% endif %}
+      {% endfor %}
+    ],
+
+    "shared-networks": []
+  }
+}

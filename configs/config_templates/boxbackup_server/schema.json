@@ -1,0 +1,161 @@
+{
+  "store_root": {
+    "type": "string",
+    "default": "/var/lib/boxbackup/store",
+    "description": "Root directory where backup data will be stored. Must be owned by the server user."
+  },
+  "server_user": {
+    "type": "string",
+    "default": "backup",
+    "description": "System user account under which the bbstored service runs."
+  },
+  "server_group": {
+    "type": "string",
+    "default": "backup",
+    "description": "System group for the server process."
+  },
+  "pid_file": {
+    "type": "string",
+    "default": "/run/boxbackup/bbstored.pid",
+    "description": "Path to the PID file for the bbstored daemon."
+  },
+  "logging_syslog": {
+    "type": "boolean",
+    "default": true,
+    "description": "Whether to send logs to syslog. If false, logging to file must be enabled."
+  },
+  "logging_file_enabled": {
+    "type": "boolean",
+    "default": false,
+    "description": "Whether to write logs to a file in addition to (or instead of) syslog."
+  },
+  "logging_file_path": {
+    "type": "string",
+    "default": "/var/log/boxbackup/bbstored.log",
+    "description": "Path to the log file, if file logging is enabled."
+  },
+  "logging_level": {
+    "type": "string",
+    "default": "WARNING",
+    "description": "Minimum log level. Options: DEBUG, INFO, WARNING, ERROR, CRITICAL."
+  },
+  "server_address": {
+    "type": "string",
+    "default": "0.0.0.0",
+    "description": "Network address the server binds to (e.g., '127.0.0.1' for localhost only, '0.0.0.0' for all)."
+  },
+  "server_port": {
+    "type": "number",
+    "default": 8080,
+    "description": "TCP port the server listens on for client connections."
+  },
+  "ssl_enabled": {
+    "type": "boolean",
+    "default": true,
+    "description": "Enable TLS/SSL for encrypted client connections."
+  },
+  "ssl_cert_file": {
+    "type": "string",
+    "default": "/etc/boxbackup/bbstored.crt",
+    "description": "Path to the server SSL certificate file (PEM format)."
+  },
+  "ssl_key_file": {
+    "type": "string",
+    "default": "/etc/boxbackup/bbstored.key",
+    "description": "Path to the server SSL private key file (PEM format)."
+  },
+  "ssl_ca_file": {
+    "type": "string",
+    "default": "",
+    "description": "Optional CA certificate file for validating client certificates (PEM format)."
+  },
+  "auth_method": {
+    "type": "string",
+    "default": "Password",
+    "description": "Authentication method: 'Password' or 'Certificate'."
+  },
+  "password_file": {
+    "type": "string",
+    "default": "/etc/boxbackup/passwords.conf",
+    "description": "Path to the file containing client password hashes (SHA256). Required when auth_method is 'Password'."
+  },
+  "require_certificate": {
+    "type": "boolean",
+    "default": true,
+    "description": "Whether to require clients to present a certificate (only relevant for auth_method='Certificate')."
+  },
+  "max_file_length": {
+    "type": "number",
+    "default": 10737418240,
+    "description": "Maximum size (in bytes) allowed for a single file backup (e.g., 10 GB = 10737418240)."
+  },
+  "max_connections": {
+    "type": "number",
+    "default": 100,
+    "description": "Maximum number of simultaneous client connections allowed."
+  },
+  "idle_timeout": {
+    "type": "number",
+    "default": 600,
+    "description": "Number of seconds of client inactivity before disconnection."
+  },
+  "block_size": {
+    "type": "number",
+    "default": 4096,
+    "description": "Block size used for storage indexing. Must be a power of two (e.g., 1024, 4096, 16384)."
+  },
+  "overhead_factor": {
+    "type": "number",
+    "default": 2048,
+    "description": "Extra per-account overhead (in bytes) reserved for metadata and fragmentation."
+  },
+  "encryption_enabled": {
+    "type": "boolean",
+    "default": true,
+    "description": "Enable server-side encryption of stored backup data at rest."
+  },
+  "encryption_cipher": {
+    "type": "string",
+    "default": "AES-256-CBC",
+    "description": "Encryption cipher algorithm to use (if encryption is enabled). Supported: AES-256-CBC, AES-128-CBC."
+  },
+  "clients": {
+    "type": "list",
+    "default": [],
+    "description": "List of backup client accounts. Each defines a unique backup client with quota and auth.",
+    "items": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Unique account name (used as section identifier and for client config)."
+        },
+        "description": {
+          "type": "string",
+          "description": "Optional human-readable description of the account/client."
+        },
+        "quota": {
+          "type": "number",
+          "default": 0,
+          "description": "Maximum total backup size (in bytes) allowed for this account. 0 = unlimited."
+        },
+        "password_hash": {
+          "type": "string",
+          "description": "SHA256 password hash (hex) for password-based authentication. Generated by `bbackupd --gen-password`."
+        },
+        "cert_fingerprint": {
+          "type": "string",
+          "description": "SHA256 fingerprint (hex) of the client\u2019s SSL certificate for certificate-based authentication."
+        },
+        "allow_delete": {
+          "type": "boolean",
+          "default": false,
+          "description": "Whether this client is allowed to delete backup data (dangerous in production)."
+        }
+      },
+      "required": [
+        "name"
+      ]
+    }
+  }
+}

@@ -1,0 +1,38 @@
+# Enable gamemode for user sessions
+enabled = {{ enabled | lower }}
+
+# Maximum CPU frequency governor for performance mode
+governor = "{{ governor }}"
+
+# Maximum number of CPU cores to online in performance mode
+max_cpus = {{ max_cpus }}
+
+# Paths to check for running games (comma-separated)
+allowlist = {{ allowlist | join(', ') }}
+
+# Paths to exclude from game detection (comma-separated)
+denylist = {{ denylist | join(', ') }}
+
+# Use Intel P-State driver in performance mode (if available)
+use_pstate = {{ use_pstate | lower }}
+
+# Enable GPU boost (NVIDIA/AMD) when gaming
+enable_gpu_boost = {{ enable_gpu_boost | lower }}
+
+# GPU boost frequency (MHz), or 0 to use default
+gpu_boost_freq = {{ gpu_boost_freq }}
+
+# Idle timeout (seconds) before returning to normal mode
+idle_timeout = {{ idle_timeout }}
+
+# Priority for game processes (nice value)
+# Lower values = higher priority (e.g., -10 is high, 10 is low)
+proc_priority = {{ proc_priority }}
+
+# Additional arguments for each GPU device in performance mode
+{% for gpu in gpu_configs %}
+[gpu_{{ loop.index }}]
+device_path = {{ gpu.device_path }}
+boost_freq = {{ gpu.boost_freq }}
+pstate_mode = {{ gpu.pstate_mode }}
+{% endfor %}

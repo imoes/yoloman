@@ -1,0 +1,155 @@
+# FAI configuration file: controls server behavior and client provisioning defaults
+# Base directory for FAI files (templates, scripts, logs, etc.)
+FAI_CONFIGDIR={{ fai_config_dir }}
+
+# Directory where client root filesystems are built during install
+FAI_ROOTDIR={{ fai_root_dir }}
+
+# Directory where log files are stored
+FAI_LOGDIR={{ fai_log_dir }}
+
+# Directory containing installation media (isos, initrds, kernels)
+FAI_DEBOOTSTRAP_DIR={{ fai_debootstrap_dir }}
+
+# Default architecture for new clients (e.g., 'amd64', 'i386')
+DEFAULT_ARCH={{ default_arch }}
+
+# Enable/disable network boot via PXE/TFTP
+TFTP_ROOT={{ tftp_root }}
+
+# TFTP server address (IP or hostname); if empty, defaults to server's primary address
+{% if tftp_server %}
+TFTP_SERVER={{ tftp_server }}
+{% endif %}
+
+# DHCP configuration method: 'none', 'isc-dhcpd', or 'dnsmasq'
+DHCP_METHOD={{ dhcp_method }}
+
+# Path to DHCP config template for dynamic client configuration
+{% if dhcp_method != 'none' %}
+DHCP_CONF={{ dhcp_conf_path }}
+{% endif %}
+
+# DNS domain for provisioned clients
+DNS_DOMAIN={{ dns_domain }}
+
+# Default nameserver(s) for clients
+NAMESERVERS={{ nameservers | join(', ') }}
+
+# Gateway for provisioned clients
+GATEWAY={{ gateway }}
+
+# Default NTP server for clients
+NTPSERVER={{ ntp_server }}
+
+# Enable/disable software RAID setup during installation
+{% if enable_raid %}
+FAI_RAID=yes
+{% else %}
+FAI_RAID=no
+{% endif %}
+
+# Enable/disable LVM support during installation
+{% if enable_lvm %}
+FAI_LVM=yes
+{% else %}
+FAI_LVM=no
+{% endif %}
+
+# Kernel packages to install by default
+{% for kernel_pkg in kernel_packages %}
+KERNEL_PKG={{ kernel_pkg }}
+{% endfor %}
+
+# Default initramfs-tools configuration
+{% if initramfs_options %}
+INITRAMFS_OPTS={{ initramfs_options | join(' ') }}
+{% endif %}
+
+# SSH authorized keys for root on provisioned clients (one per line, base64-encoded or literal)
+{% for key in ssh_root_keys %}
+SSH_ROOT_KEY={{ key | b64encode }}
+{% endfor %}
+
+# Custom environment variables passed to FAI scripts
+{% for env in extra_env_vars %}
+export {{ env.name }}='{{ env.value }}'
+{% endfor %}
+
+# Log level: 'quiet', 'info', 'debug' (case-insensitive)
+LOGLEVEL={{ loglevel }}
+
+# Maximum size of log files (in MB); 0 = unlimited
+MAX_LOG_SIZE={{ max_log_size }}
+
+# Enable/disable web-based status monitor (fai-status)
+{% if enable_status_monitor %}
+FAI_STATUS=yes
+{% else %}
+FAI_STATUS=no
+{% endif %}
+
+# Status monitor listens on this port
+STATUS_PORT={{ status_port }}
+
+# Additional repositories to include for debootstrap
+{% for repo in extra_repositories %}
+REPOSITORY={{ repo }}
+{% endfor %}
+
+# List of packages to install via apt-get during base system setup
+{% for pkg in base_packages %}
+BASE_PACKAGE={{ pkg }}
+{% endfor %}
+
+# Default timezone for provisioned hosts
+TIMEZONE={{ timezone }}
+
+# Default locale for provisioned hosts
+LOCALE={{ locale }}
+
+# Hostname prefix for new clients (e.g., 'node' => node01, node02, ...)
+HOSTNAME_PREFIX={{ hostname_prefix }}
+
+# Domain suffix appended to short hostnames
+DOMAIN_SUFFIX={{ domain_suffix }}
+
+# Enable/disable automatic partitioning using default layout
+{% if auto_partition %}
+AUTO_PARTITION=yes
+{% else %}
+AUTO_PARTITION=no
+{% endif %}
+
+# Partitioning layout file (relative to FAI_CONFIGDIR/class/)
+PARTITION_LAYOUT={{ partition_layout }}
+
+# Enable/disable filesystem encryption (LUKS)
+{% if enable_luks %}
+FAI_LUKS=yes
+{% else %}
+FAI_LUKS=no
+{% endif %}
+
+# LUKS passphrase (strongly recommended to override via secret store in production)
+{% if luks_passphrase %}
+LUKS_PASSPHRASE={{ luks_passphrase }}
+{% endif %}
+
+# Default swap size (in MB) or 'auto'
+SWAP_SIZE={{ swap_size }}
+
+# Root filesystem type (e.g., ext4, xfs, btrfs)
+ROOT_FS_TYPE={{ root_fs_type }}
+
+# Enable/disable GRUB installation to MBR/GPT
+{% if install_grub %}
+INSTALL_GRUB=yes
+{% else %}
+INSTALL_GRUB=no
+{% endif %}
+
+# GRUB device path (e.g., /dev/sda); if empty, auto-detect
+{% if grub_device %}
+GRUB_DEVICE={{ grub_device }}
+{% endif %}

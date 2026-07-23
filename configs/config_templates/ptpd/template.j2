@@ -1,0 +1,105 @@
+# ptpd2 main configuration file
+# Run as root (or with CAP_SYS_TIME for non-root)
+# See man ptpd2.conf for full details
+
+# Enable daemon (start/stop control)
+{% if enabled %}enabled{% else %}disabled{% endif %}
+
+# Network interface to use for PTP
+interface {{ interface }}
+
+# Clock identity (hex string, auto-generated if omitted)
+{% if clock_id %}clockId {{ clock_id }}{% endif %}
+
+# Domain number (0–127); default 0
+ domain {{ domain }}
+
+# Primary master mode: 'master_only', 'slave_only', 'master_slave', or 'auto' (default: auto)
+ mode {{ mode }}
+
+# Allow multiple master sources in auto mode
+{% if allow_multiple_masters %}allowMultipleMasters{% endif %}
+
+# Announce interval (seconds); default 1.0
+announceInterval {{ announce_interval }}
+
+# Sync interval (seconds); default 1.0
+syncInterval {{ sync_interval }}
+
+# Min delay request interval (seconds); default 0.25
+minDelayReqInterval {{ min_delay_req_interval }}
+
+# Enable hardware timestamping if supported (on/off)
+{% if hardware_timestamping %}hardwareTimestamping{% endif %}
+
+# Set the UTC offset (seconds); default 37 (as of 2024)
+utcOffset {{ utc_offset }}
+
+# Primary path to PTP clock device (e.g., /dev/ptp0)
+clockDevice {{ clock_device }}
+
+# Logging level: 0=none, 1=error, 2=warn, 3=info, 4=debug, 5=trace
+logLevel {{ log_level }}
+
+# Log file path (empty = stderr)
+{% if log_file %}logFile {{ log_file }}{% endif %}
+
+# Delay mechanism: 'p2p' (default) or 'e2e'
+ delayMechanism {{ delay_mechanism }}
+
+# Initial parent variance for startup stability (0.0–1.0)
+initialParentVariance {{ initial_parent_variance }}
+
+# Allow master with lower priority than current (for testing only)
+{% if allow_slave_with_higher_priority %}allowSlaveWithHigherPriority{% endif %}
+
+# Enable QoS DSCP marking (0–63); 0 = disable
+qosDscp {{ qos_dscp }}
+
+# Enable or disable peer delay measurement (for p2p mode)
+{% if peer_delay_measurement %}peerDelayMeasurement{% endif %}
+
+# List of static peer addresses (no auto-discovery for these)
+{% for peer in peers %}peer {{ peer }}{% endfor %}
+
+# List of interface addresses to ignore (e.g., loopback)
+{% for ignore_addr in ignore_addresses %}ignoreAddress {{ ignore_addr }}{% endfor %}
+
+# Syslog facility (LOG_XXX as per syslog.h)
+syslogFacility {{ syslog_facility }}
+
+# Enable or disable passive mode (for boundary clocks)
+{% if passive_mode %}passiveMode{% endif %}
+
+# Set the priority1 (0–255); lower = higher priority (default 248)
+priority1 {{ priority1 }}
+
+# Set the priority2 (0–255); lower = higher priority (default 248)
+priority2 {{ priority2 }}
+
+# Clock accuracy (see IEEE 1588 Annex G; e.g., 'K', 'M', 'U', 'V', 'D' for 25ns/50ns/150ns/300ns/1000ns)
+clockAccuracy {{ clock_accuracy }}
+
+# Offset scaled log variance (e.g., 20 for ~1e6 ns²); default 20
+offsetScaledLogVariance {{ offset_scaled_log_variance }}
+
+# Enable or disable master-slave synchronization validation
+{% if validate_master %}validateMaster{% endif %}
+
+# Maximum number of foreign master records (default 5)
+maxForeignMasterRecords {{ max_foreign_master_records }}
+
+# Enable or disable fallback to software timestamping
+{% if fallback_to_software_timestamping %}fallbackToSoftwareTimestamping{% endif %}
+
+# Set the unicast negotiation timeout (seconds); default 30
+unicastNegotiationTimeout {{ unicast_negotiation_timeout }}
+
+# List of unicast destination addresses for unicast mode
+{% for unicast_dest in unicast_destinations %}unicastDestination {{ unicast_dest }}{% endfor %}
+
+# Enable or disable unicast mode
+{% if unicast_mode %}unicastMode{% endif %}
+
+# Enable or disable auto-tuning of network parameters (e.g., socket buffer sizes)
+{% if auto_tune %}autoTune{% endif %}

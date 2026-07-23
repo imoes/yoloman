@@ -1,0 +1,30 @@
+[mgr]
+# Enable the Ceph Manager Dashboard plugin
+{% if enable_dashboard | default(false) %}dashboard = True{% else %}# dashboard = True{% endif %}
+
+# Set the dashboard frontend server host and port
+{% if dashboard_host is defined %}dashboard_server_addr = {{ dashboard_host }}{% endif %}
+{% if dashboard_port is defined %}dashboard_server_port = {{ dashboard_port }}{% endif %}
+
+# SSL/TLS configuration for the dashboard
+{% if ssl | default(true) %}dashboard_ssl = True{% else %}dashboard_ssl = False{% endif %}
+{% if ssl_cert is defined %}dashboard_ssl_cert = {{ ssl_cert }}{% endif %}
+{% if ssl_key is defined %}dashboard_ssl_key = {{ ssl_key }}{% endif %}
+
+# Dashboard authentication mode (internal or tls-client)
+{% if auth_mode is defined %}dashboard_auth_mode = {{ auth_mode }}{% endif %}
+
+# Optional: API prefix for the dashboard
+{% if api_prefix is defined %}dashboard_api_prefix = {{ api_prefix }}{% endif %}
+
+# Optional: Enable or disable dashboard modules (e.g., prometheus, rook, etc.)
+# Note: Module names listed here are *enabled* by default if present in ceph-mgr; to disable, omit them.
+{% if modules | length > 0 %}[mgr modules]
+{% for mod in modules %}  {{ mod }}
+{% endfor %}{% endif %}
+
+# Optional: Custom Ceph dashboard pool settings (e.g., for telemetry, dashboard state)
+# These are *not* part of the dashboard plugin itself but often configured alongside
+{% if dashboard_pool is defined %}[mgr]
+dashboard_pool = {{ dashboard_pool }}
+{% endif %}

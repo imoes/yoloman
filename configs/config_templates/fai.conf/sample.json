@@ -1,0 +1,87 @@
+{
+  "fai_configdir": "/srv/fai/config",
+  "fai_logdir": "/var/log/fai",
+  "fai_softwaredir": "/srv/fai/software",
+  "fai_debian_release": "bookworm",
+  "fai_arch": "amd64",
+  "fai_debug": 1,
+  "fai_verbose": true,
+  "fai_nfs_timeout": 60,
+  "default_partitioning": "standard",
+  "default_fs_type": "ext4",
+  "default_packages": [
+    "openssh-server",
+    "sudo",
+    "locales",
+    "netbase",
+    "curl"
+  ],
+  "fai_install_packages": true,
+  "fai_create_users": true,
+  "fai_run_hooks": true,
+  "fai_ipmi": true,
+  "fai_pxe_chainload": false,
+  "bootmenu_timeout": 100,
+  "nameservers": [
+    "10.0.0.53",
+    "10.0.0.54"
+  ],
+  "ntpserver": "ntp.example.com",
+  "default_gateway": "10.0.0.1",
+  "default_netmask": "255.255.255.0",
+  "host_suffix": ".example.com",
+  "fai_ipv6": false,
+  "classes": [
+    {
+      "name": "DEBIAN",
+      "condition": "always",
+      "comment": "Base class for all Debian clients",
+      "packages": [
+        "apt-utils",
+        "debconf-utils"
+      ],
+      "hooks": [
+        "dpkg-reconfigure debconf"
+      ],
+      "priority": 0
+    },
+    {
+      "name": "WORKSTATION",
+      "condition": "hostclass=workstation",
+      "comment": "Workstations with GUI tools",
+      "packages": [
+        "firefox-esr",
+        "libreoffice",
+        "gedit"
+      ],
+      "priority": 20
+    },
+    {
+      "name": "SERVER",
+      "condition": "hostclass=server",
+      "comment": "Server-class hosts",
+      "packages": [
+        "bind9",
+        "ntp",
+        "fail2ban",
+        "unattended-upgrades"
+      ],
+      "hooks": [
+        "systemctl enable unattended-upgrades"
+      ],
+      "priority": 10
+    },
+    {
+      "name": "WEB",
+      "condition": "hostclass=webserver",
+      "packages": [
+        "nginx",
+        "php-fpm"
+      ],
+      "hooks": [
+        "update-rc.d nginx enable"
+      ],
+      "priority": 15
+    }
+  ]
+}

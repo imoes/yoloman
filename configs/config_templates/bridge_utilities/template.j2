@@ -1,0 +1,38 @@
+# Set default options for the Linux Ethernet bridge utilities (e.g., brctl)
+# This file is sourced by init scripts and utilities like `brctl` to set environment variables
+
+# Enable debug output for brctl commands
+{% if debug | default(false) %}BRCTL_DEBUG=1{% else %}BRCTL_DEBUG=0{% endif %}
+
+# Maximum time (in seconds) to wait for STP to converge on bridge ports
+STP_TIMEOUT={{ stp_timeout }}
+
+# Enable automatic STP for newly created bridges
+{% if stp_auto | default(false) %}STP_AUTO=1{% else %}STP_AUTO=0{% endif %}
+
+# Forward delay (in seconds) for STP (range: 4–30)
+FORWARD_DELAY={{ forward_delay }}
+
+# Hello time (in seconds) for STP (range: 1–10)
+HELLO_TIME={{ hello_time }}
+
+# Max age (in seconds) for STP (range: 6–40)
+MAX_AGE={{ max_age }}
+
+# Bridge priority (0–65535); lower values increase likelihood of becoming root bridge
+BRIDGE_PRIORITY={{ bridge_priority }}
+
+# Enable or disable STP globally (0=disabled, 1=enabled)
+{% if stp_enabled | default(false) %}STP=1{% else %}STP=0{% endif %}
+
+# Default bridge interface name prefix (used by some tools)
+BRIDGE_PREFIX={{ bridge_prefix }}
+
+# Custom kernel module options for bridge (e.g., `bridge max_hash=4096`)
+{% if kernel_module_options | length > 0 %}BRIDGE_KERNEL_OPTS="{{ kernel_module_options | join(' ') }}"{% endif %}
+
+# Additional bridge interfaces to create at boot
+{% for br in bridges %}# Create bridge '{{ br.name }}' with STP {{ 'enabled' if br.stp else 'disabled' }}
+{% if br.create | default(true) %}BRIDGE_INTERFACES="${BRIDGE_INTERFACES} {{ br.name }}"
+{% endif %}{% if br.stp %}BRIDGE_STP_{{ br.name | upper | replace('-', '_') }}=1
+{% endif %}{% endfor %}

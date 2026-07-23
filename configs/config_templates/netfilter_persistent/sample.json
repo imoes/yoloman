@@ -1,0 +1,18 @@
+{
+  "rules": [
+    "# Allow established connections",
+    "-A INPUT -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT",
+    "# Allow loopback",
+    "-A INPUT -i lo -j ACCEPT",
+    "# Allow SSH from trusted subnet only",
+    "-A INPUT -s 10.0.0.0/8 -p tcp --dport 22 -j ACCEPT",
+    "# Allow HTTP/HTTPS",
+    "-A INPUT -p tcp --dport 80 -j ACCEPT",
+    "-A INPUT -p tcp --dport 443 -j ACCEPT",
+    "# Drop all other inbound traffic",
+    "-A INPUT -j DROP",
+    "",
+    "# Allow outbound by default (implicit via OUTPUT ACCEPT, but explicit for clarity)",
+    "#-A OUTPUT -j ACCEPT"
+  ]
+}

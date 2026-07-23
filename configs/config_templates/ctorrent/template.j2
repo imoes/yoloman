@@ -1,0 +1,102 @@
+# Listen on the specified TCP port for incoming peer connections
+port = {{ port }}
+
+# Bind to this interface (IP address or interface name); leave blank to bind to all
+bind_address = "{{ bind_address }}"
+
+# Maximum number of concurrent peer connections
+max_peers = {{ max_peers }}
+
+# Maximum number of upload slots (active seed connections); 0 = unlimited
+max_uploads = {{ max_uploads }}
+
+# Enable DHT (decentralized peer discovery) if supported
+enable_dht = {{ 'yes' if enable_dht else 'no' }}
+
+# Enable UPnP/NAT-PMP port mapping
+enable_upnp = {{ 'yes' if enable_upnp else 'no' }}
+
+# Maximum memory (in MiB) to use for piece buffers and metadata
+max_memory = {{ max_memory }}
+
+# Download directory for completed torrents
+download_dir = "{{ download_dir }}"
+
+# Directory for incomplete (partial) downloads
+incomplete_dir = "{{ incomplete_dir }}"
+
+# Enable fast resume data (requires metadata and piece availability info)
+fast_resume = {{ 'yes' if fast_resume else 'no' }}
+
+# Logging level: 0=none, 1=error, 2=warn, 3=info, 4=debug
+log_level = {{ log_level }}
+
+# Log file path (empty = stdout/stderr)
+log_file = "{{ log_file }}"
+
+# Enable SSL/TLS encryption for peer connections
+enable_ssl = {{ 'yes' if enable_ssl else 'no' }}
+
+# Preallocate disk space for torrent files
+preallocate = {{ 'yes' if preallocate else 'no' }}
+
+# Enable endgame mode (download remaining pieces from all peers)
+endgame_mode = {{ 'yes' if endgame_mode else 'no' }}
+
+# Minimum number of peers to keep before pausing (seed mode)
+min_peers_seed = {{ min_peers_seed }}
+
+# Maximum number of peers per torrent (0 = global max_peers)
+max_peers_torrent = {{ max_peers_torrent }}
+
+# Optional: Listen on additional ports for IPv6 (comma-separated list)
+{% if extra_ports %}
+extra_ports = {{ extra_ports | join(', ') }}
+{% endif %}
+
+# Optional: Rate limits (in KiB/s); 0 = unlimited
+# Download limit
+download_rate_limit = {{ download_rate_limit }}
+
+# Upload limit
+upload_rate_limit = {{ upload_rate_limit }}
+
+# Optional: Announce intervals (seconds)
+min_announce_interval = {{ min_announce_interval }}
+max_announce_interval = {{ max_announce_interval }}
+
+# Optional: Tracker fallback interval (seconds)
+tracker_timeout = {{ tracker_timeout }}
+
+# Optional: List of global trackers to append to all torrents
+{% if global_trackers %}
+# Format: url, enabled
+{% for tracker in global_trackers %}
+tracker = "{{ tracker.url }}" {{ 'enabled' if tracker.enabled else 'disabled' }}
+{% endfor %}
+{% endif %}
+
+# Optional: Custom user-agent string
+{% if user_agent %}
+user_agent = "{{ user_agent }}"
+{% endif %}
+
+# Optional: Enable TCP fast open (Linux only, may improve latency)
+fast_open = {{ 'yes' if fast_open else 'no' }}
+
+# Optional: Enable peer exchange (PEX) — share peer lists with connected peers
+enable_pex = {{ 'yes' if enable_pex else 'no' }}
+
+# Optional: Enable LSD (Local Service Discovery)
+enable_lsd = {{ 'yes' if enable_lsd else 'no' }}
+
+# Optional: Rate limit per-peer after exceeding global limits
+share_ratio_limit = {{ share_ratio_limit }}
+seed_time_limit = {{ seed_time_limit }}
+
+# Optional: Auto-remove completed torrents after (hours); 0 = never
+auto_remove_delay = {{ auto_remove_delay }}
+
+# Optional: Seed requirements before auto-remove
+min_seed_ratio = {{ min_seed_ratio }}
+min_seed_time = {{ min_seed_time }}

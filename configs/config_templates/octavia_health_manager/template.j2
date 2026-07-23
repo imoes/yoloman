@@ -1,0 +1,61 @@
+# The IP address on which the health manager listens for incoming connections
+host = {{ health_manager.host }}
+
+# The port on which the health manager listens for incoming connections
+port = {{ health_manager.port }}
+
+# The name of the health manager instance (used in logs and metrics)
+health_manager_name = {{ health_manager.name }}
+
+# The number of seconds between health check passes for a given amphora
+health_check_interval = {{ health_manager.health_check_interval }}
+
+# The number of seconds before a health check is considered failed
+timeout = {{ health_manager.timeout }}
+
+# The number of consecutive successful health checks required before marking amphora active
+successful_connections_before_active = {{ health_manager.successful_connections_before_active }}
+
+# The number of consecutive failed health checks required before marking amphora failed
+failed_connections_before_inactive = {{ health_manager.failed_connections_before_inactive }}
+
+# The number of worker processes for the health manager
+workers = {{ health_manager.workers }}
+
+# The maximum number of health updates to buffer before forcing a flush
+update_frequency = {{ health_manager.update_frequency }}
+
+# The maximum number of health updates to send in a single batch
+max_retries = {{ health_manager.max_retries }}
+
+# The amount of time (in seconds) to wait before retrying a failed update
+retry_interval = {{ health_manager.retry_interval }}
+
+# The name of the driver for managing health statistics
+stats_driver = {{ health_manager.stats_driver }}
+
+{% for amphora in health_manager.amphorae %}
+# Health check configuration for amphora {{ amphora.id }}
+[amphora_{{ amphora.id }}]
+host = {{ amphora.host }}
+port = {{ amphora.port }}
+healthcheck_ip = {{ amphora.healthcheck_ip }}
+healthcheck_port = {{ amphora.healthcheck_port }}
+status = {{ amphora.status }}
+{% endfor %}
+
+[health_hooks]
+# The command to run when health status changes from healthy to unhealthy
+on_failed = {{ health_hooks.on_failed }}
+
+# The command to run when health status changes from unhealthy to healthy
+on_succeeded = {{ health_hooks.on_succeeded }}
+
+{% for driver in health_manager.drivers %}
+[driver_{{ driver.name }}]
+# Configuration for health manager driver {{ driver.name }}
+enabled = {{ driver.enabled }}
+{% for key, value in driver.options.items() %}
+{{ key }} = {{ value }}
+{% endfor %}
+{% endfor %}

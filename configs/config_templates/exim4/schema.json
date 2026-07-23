@@ -1,0 +1,80 @@
+{
+  "dc_eximconfig_configtype": {
+    "type": "string",
+    "default": "internet",
+    "description": "Exim4 configuration type: 'internet' (standalone mail server), 'satellite' (relays all via smarthost), 'local' (delivers only locally), 'smarthost' (relays all via fixed smarthost)."
+  },
+  "dc_local_domains": {
+    "type": "list",
+    "default": [],
+    "description": "List of domain names for which this host is the final destination (i.e., local mailboxes). Users can receive mail for these domains."
+  },
+  "dc_relay_hosts": {
+    "type": "list",
+    "default": [],
+    "description": "List of IP addresses or CIDR ranges allowed to relay mail *without* authentication (trusted internal hosts)."
+  },
+  "dc_relay_domains": {
+    "type": "list",
+    "default": [],
+    "description": "List of domains for which authenticated hosts may relay mail (e.g., 'example.com; example.org')."
+  },
+  "dc_trusted_users": {
+    "type": "list",
+    "default": [
+      "root",
+      "mail"
+    ],
+    "description": "System usernames that are trusted and may bypass certain restrictions (e.g., inject mail as any sender)."
+  },
+  "dc_split_config": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable split configuration (recommended). If true, config is stored in /etc/exim4/conf.d/*. If false, all config is embedded in this template."
+  },
+  "dc_local_interfaces": {
+    "type": "string",
+    "default": "127.0.0.1 ; ::1",
+    "description": "IP addresses/interfaces on which Exim listens for SMTP connections. Use '0.0.0.0' to listen on all IPv4 (not recommended on public hosts)."
+  },
+  "remote_smtp_max_rcpt": {
+    "type": "number",
+    "default": 100,
+    "description": "Maximum number of recipients per message for remote SMTP deliveries. Lower values help prevent abuse and reduce resource usage."
+  },
+  "dc_tls_enable": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable opportunistic TLS (start TLS if the remote server supports it)."
+  },
+  "dc_tls_certificate": {
+    "type": "string",
+    "default": "/etc/ssl/certs/exim.crt",
+    "description": "Path to server TLS certificate file (PEM format). Required if TLS is enabled."
+  },
+  "dc_tls_privatekey": {
+    "type": "string",
+    "default": "/etc/ssl/private/exim.key",
+    "description": "Path to private key for TLS (if not bundled with certificate)."
+  },
+  "dc_tls_ca": {
+    "type": "string",
+    "default": "/etc/ssl/certs/ca-certificates.crt",
+    "description": "Path to CA certificate bundle for verifying peer certificates."
+  },
+  "dc_saslauthd": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable SASL authentication via saslauthd (for SMTP AUTH PLAIN/LOGIN). Requires saslauthd service and PAM config."
+  },
+  "dc_saslauthd_path": {
+    "type": "string",
+    "default": "/var/run/saslauthd/mux",
+    "description": "Path to saslauthd socket (if non-default)."
+  },
+  "dc_eximconfig_hname": {
+    "type": "string",
+    "default": "",
+    "description": "Explicit hostname to use in SMTP banners and message headers. If empty, Exim uses the system hostname."
+  }
+}

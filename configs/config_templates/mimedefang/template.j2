@@ -1,0 +1,97 @@
+# Main mimedefang configuration file
+# Enable or disable mimedefang
+{% if enabled | default(false) %}EnableMimeDefang=yes
+{% else %}EnableMimeDefang=no
+{% endif %}
+
+# Path to the Sendmail milter socket
+Socket={{ socket_path }}
+
+# User and group under which mimedefang runs
+User={{ user }}
+Group={{ group }}
+
+# Number of worker processes
+{% if num_workers is defined %}NumWorkers={{ num_workers }}
+{% else %}NumWorkers=4
+{% endif %}
+
+# Maximum message size (in bytes); 0 means unlimited
+{% if max_message_size is defined %}MaxMessageSize={{ max_message_size }}
+{% else %}MaxMessageSize=0
+{% endif %}
+
+# Timeout (in seconds) for scanning a message
+{% if scan_timeout is defined %}ScanTimeout={{ scan_timeout }}
+{% else %}ScanTimeout=300
+{% endif %}
+
+# Directory for temporary files
+TempDir={{ temp_dir }}
+
+# Paths to Perl modules and scripts
+{% if perl_lib_paths is defined %}for path in perl_lib_paths:  PerlLibPath={{ path }}
+endfor
+{% else %}PerlLibPath=/usr/lib/perl5/site_perl
+{% endif %}
+
+# Filtering action defaults (replace, delete, quarantine, reject, notice)
+{% if action_replace_subject_prefix is defined %}ActionReplaceSubjectPrefix={{ action_replace_subject_prefix }}
+{% endif %}
+{% if action_quarantine_dir is defined %}ActionQuarantineDir={{ action_quarantine_dir }}
+{% endif %}
+{% if action_replace_sender is defined %}ActionReplaceSender={{ action_replace_sender }}
+{% endif %}
+{% if action_replace_recipients is defined %}ActionReplaceRecipients={{ action_replace_recipients }}
+{% endif %}
+{% if action_quarantine_compress is defined %}ActionQuarantineCompress={{ action_quarantine_compress }}
+{% endif %}
+
+# Logging configuration
+{% if log_facility is defined %}LogFacility={{ log_facility }}
+{% else %}LogFacility=mail
+{% endif %}
+{% if log_level is defined %}LogLevel={{ log_level }}
+{% else %}LogLevel=6
+{% endif %}
+{% if log_syslog is defined %}LogSyslog={{ log_syslog }}
+{% else %}LogSyslog=1
+{% endif %}
+{% if log_stderr is defined %}LogStderr={{ log_stderr }}
+{% else %}LogStderr=0
+{% endif %}
+
+# Per-message and per-recipient filters
+{% if filters is defined %}for f in filters:  # Filter: {{ f.name }}
+  Filter={{ f.name }}
+  FilterType={{ f.type }}
+  FilterPath={{ f.path }}
+  {% if f.args is defined %}FilterArgs={{ f.args | join(' ') }}
+  {% endif %}
+endfor
+{% endif %}
+
+# Whitelist/Blacklist directories
+{% if whitelist_dir is defined %}WhitelistDir={{ whitelist_dir }}
+{% endif %}
+{% if blacklist_dir is defined %}BlacklistDir={{ blacklist_dir }}
+{% endif %}
+
+# Attachment handling
+{% if block_executables is defined %}BlockExecutables={{ block_executables }}
+{% else %}BlockExecutables=1
+{% endif %}
+{% if block_executable_extensions is defined %}BlockExecutableExtensions={{ block_executable_extensions | join(',') }}
+{% else %}BlockExecutableExtensions=exe,bat,com,pif,scr,cmd,reg,msi,vbs,js,wsf,jse,ps1
+{% endif %}
+
+# SpamAssassin integration
+{% if use_spamassassin is defined %}UseSpamAssassin={{ use_spamassassin }}
+{% else %}UseSpamAssassin=0
+{% endif %}
+{% if spamassassin_socket is defined %}SpamAssassinSocket={{ spamassassin_socket }}
+{% endif %}
+{% if spamassassin_user is defined %}SpamAssassinUser={{ spamassassin_user }}
+{% endif %}
+{% if spamassassin_timeout is defined %}SpamAssassinTimeout={{ spamassassin_timeout }}
+{% endif %}

@@ -1,0 +1,57 @@
+# HAProxy Postfix Policy Service (hapolicy) configuration
+# Global settings
+
+global
+    log /dev/log local0
+    maxconn {{ global_maxconn }}
+    chroot /var/lib/hapolicy
+    user hapolicy
+    group hapolicy
+    daemon
+
+# Defaults for frontend/backend health checks and timeouts
+defaults
+    log     global
+    mode    tcp
+    option  tcplog
+    timeout connect {{ defaults_timeout_connect }}s
+    timeout client  {{ defaults_timeout_client }}s
+    timeout server  {{ defaults_timeout_server }}s
+    retries {{ defaults_retries }}
+    option  redispatch
+
+{% for frontend in frontends %}
+# Frontend: {{ frontend.name }} — binds to specified address/port, forwards to backend pool
+frontend {{ frontend.name }}
+    bind {{ frontend.bind_host }}:{{ frontend.bind_port }}
+    mode tcp
+    option tcplog
+    default_backend {{ frontend.default_backend }}
+{% endfor %}
+
+{% for backend in backends %}
+# Backend: {{ backend.name }} — postfix policy service pool with fallback behavior
+backend {{ backend.name }}
+    mode tcp
+    balance {{ backend.balance }}
+{% if backend.check_enabled is defined %}
+{% if backend.check_enabled %}
+    option tcp-check
+{% endif %}
+{% else %}
+    option tcp-check
+{% endif %}
+{% for server in backend.servers %}
+    server {{ server.name }} {{ server.host }}:{{ server.port }} check inter {{ server.check_interval }}s fall {{ server.fall }} rise {{ server.rise }}{% if server.backup %} backup{% endif %}
+{% endfor %}
+{% endfor %}
+
+# Optional stats interface for monitoring
+{% if stats_enabled %}
+listen stats
+    bind :{{ stats_port }}
+    mode http
+    stats enable
+    stats uri {{ stats_uri }}
+    stats auth {{ stats_user }}:{{ stats_password }}
+{% endif %}

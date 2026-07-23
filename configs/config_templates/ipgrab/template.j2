@@ -1,0 +1,56 @@
+# Capture interface (e.g., eth0, lo, any)
+interface: {{ interface }}
+
+# BPF filter to apply (empty = capture all packets)
+# Use standard tcpdump BPF syntax
+filter: "{{ filter }}"
+
+# Number of packets to capture before exiting (0 = infinite)
+max_packets: {{ max_packets }}
+
+# Output mode: text (human-readable), hex, or combined
+output_mode: {{ output_mode }}
+
+# Print full packet data (in hex) for each packet (overrides output_mode for data portion)
+verbose_data: {{ verbose_data | lower }}
+
+# Limit captured packet size (in bytes); 0 = full packet
+snaplen: {{ snaplen }}
+
+# Log timestamp format: full (ISO), compact (epoch), or relative (since first packet)
+timestamp_format: {{ timestamp_format }}
+
+# Include layer 2 headers (Ethernet) in output
+include_link_layer: {{ include_link_layer | lower }}
+
+# Rotate log files if output goes to file (max size in MB); 0 = no rotation
+rotate_size_mb: {{ rotate_size_mb }}
+
+# Maximum number of rotated files to keep
+rotate_count: {{ rotate_count }}
+
+# Output file path (empty = stdout)
+output_file: "{{ output_file }}"
+
+# Daemonize: run in background as a service
+daemonize: {{ daemonize | lower }}
+
+# PID file for daemonized process
+pid_file: "{{ pid_file }}"
+
+# Optional: list of additional interfaces to monitor (for multi-interface mode)
+{% for iface in extra_interfaces %}extra_interface: {{ iface }}
+{% endfor %}
+
+# Optional: packet buffering behavior
+{% if use_buffering %}# Enable packet buffering (reduces CPU load on high-rate links)
+buffer_packets: true
+buffer_size: {{ buffer_size }}
+buffer_timeout_ms: {{ buffer_timeout_ms }}
+{% else %}buffer_packets: false
+{% endif %}
+
+# Optional: packet priority filtering (uses PCAP priority if available)
+{% if use_priority_filter %}# Only capture packets with priority >= min_priority
+min_priority: {{ min_priority }}
+{% endif %}

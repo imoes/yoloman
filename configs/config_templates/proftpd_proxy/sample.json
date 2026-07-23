@@ -1,0 +1,60 @@
+{
+  "server_name": "My FTP Server",
+  "server_type": "standalone",
+  "defer_ident": true,
+  "listen_port": 21,
+  "max_clients": 50,
+  "host_rules": [
+    {
+      "user": "alice",
+      "allow": true,
+      "comment": "Allow Alice full access"
+    },
+    {
+      "user": "bob",
+      "allow": false,
+      "comment": "Block Bob for security review"
+    }
+  ],
+  "passive_ports": {
+    "start": 60000,
+    "end": 65000
+  },
+  "tls": {
+    "enabled": true,
+    "protocol": "TLSv1.2 TLSv1.3",
+    "options": [
+      "NoSSLv2",
+      "NoSSLv3",
+      "NoTLSv1",
+      "NoTLSv1.1"
+    ],
+    "required": true,
+    "cert_file": "/etc/ssl/certs/ftp.example.com.crt",
+    "key_file": "/etc/ssl/private/ftp.example.com.key",
+    "ca_file": "/etc/ssl/certs/ca-bundle.crt"
+  },
+  "mod_proxy": {
+    "enabled": true,
+    "timeout": 30,
+    "auth_methods": [
+      "PAM"
+    ],
+    "backends": [
+      {
+        "protocol": "ftp",
+        "host": "internal-ftp.local",
+        "port": 21,
+        "name": "Internal Archive"
+      },
+      {
+        "protocol": "http",
+        "host": "cdn.example.com",
+        "port": 80,
+        "name": "Public CDN"
+      }
+    ]
+  },
+  "system_log": "/var/log/proftpd/proftpd.log",
+  "transfer_log": "/var/log/proftpd/xferlog"
+}

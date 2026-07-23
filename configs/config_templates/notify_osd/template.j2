@@ -1,0 +1,50 @@
+# notify-osd configuration file
+# Controls visual behavior and behavior of the Ubuntu notification daemon (notify-osd)
+# This file is sourced at startup by notify-osd
+
+# Enable/disable debug logging
+debug = {{ debug | lower }}
+
+# Base timeout for notifications (in milliseconds)
+default_timeout = {{ default_timeout }}
+
+# Maximum number of notifications to display at once
+max_visible = {{ max_visible }}
+
+# Font used for notifications
+font = "{{ font }}"
+
+# Message text color (RRGGBB)
+text_color = "{{ text_color }}"
+
+# Background color (RRGGBB)
+background_color = "{{ background_color }}"
+
+# Border color (RRGGBB)
+border_color = "{{ border_color }}"
+
+# Icon size (pixels)
+icon_size = {{ icon_size }}
+
+# Fade-in animation duration (ms)
+fade_in_duration = {{ fade_in_duration }}
+
+# Fade-out animation duration (ms)
+fade_out_duration = {{ fade_out_duration }}
+
+# Position of notifications: top-left, top-center, top-right, bottom-left, bottom-center, bottom-right, center-left, center-right
+anchor = "{{ anchor }}"
+
+# Distance from screen edge (pixels)
+margin = {{ margin }}
+
+# Whether to show notification bubbles in a queue or overwrite previous ones
+queue_notifications = {{ queue_notifications | lower }}
+
+# List of application-specific overrides
+{% for app in app_overrides %}
+# Overrides for {{ app.name }}
+[{{ app.name }}]
+timeout = {{ app.timeout }}
+icon = {{ "'" + app.icon + "'" if app.icon else 'none' }}
+{% endfor %}

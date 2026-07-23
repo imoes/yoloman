@@ -1,0 +1,117 @@
+# pygopherd configuration — main config file
+# Enable verbose logging for debugging
+loglevel: {{ loglevel }}
+
+# Root directory for Gopher content
+gopherroot: {{ gopherroot }}
+
+# Listen address for Gopher server
+gopher_listen: {{ gopher_listen }}
+
+# Listen port for Gopher server
+gopher_port: {{ gopher_port }}
+
+# Enable Gopher protocol server
+gopher_enabled: {{ gopher_enabled }}
+
+# Listen address for HTTP server
+http_listen: {{ http_listen }}
+
+# Listen port for HTTP server
+http_port: {{ http_port }}
+
+# Enable HTTP protocol server
+http_enabled: {{ http_enabled }}
+
+# Listen address for WAP server (experimental)
+wap_listen: {{ wap_listen }}
+
+# Listen port for WAP server
+wap_port: {{ wap_port }}
+
+# Enable WAP protocol server (requires libwap support)
+wap_enabled: {{ wap_enabled }}
+
+# Default site title shown in HTTP/WAP frontends
+title: {{ title }}
+
+# Default hostname used in generated URLs
+hostname: {{ hostname }}
+
+# Path to directory containing CGI scripts
+cgidir: {{ cgidir }}
+
+# Enable CGI script execution
+cgi_enabled: {{ cgi_enabled }}
+
+# Maximum size (in bytes) of uploaded data via CGI
+max_upload_size: {{ max_upload_size }}
+
+# Default charset for responses
+charset: {{ charset }}
+
+# Enable TLS/SSL for HTTPS/WAPS (requires cert/key paths below)
+tls_enabled: {{ tls_enabled }}
+
+# Path to TLS certificate file
+tls_cert: {{ tls_cert }}
+
+# Path to TLS private key file
+tls_key: {{ tls_key }}
+
+# List of MIME type overrides (e.g., 'text/html:text/html;charset=utf-8')
+mime_overrides:
+{% for mime_entry in mime_overrides %}
+  - {{ mime_entry }}
+{% endfor %}
+
+# Virtual host mappings (optional)
+# Format: hostname -> gopherroot override
+vhosts:
+{% for vhost in vhosts %}
+# Host: {{ vhost.hostname }}
+  [{{ vhost.hostname }}]
+    gopherroot: {{ vhost.gopherroot }}
+    title: {{ vhost.title | default(title) }}
+{% endfor %}
+
+# Logging configuration
+# Path to log file (use '-' for stdout)
+logfile: {{ logfile }}
+
+# Rotate log files when they exceed this size (in bytes)
+log_rotate_size: {{ log_rotate_size }}
+
+# Keep this many rotated log files
+log_rotate_count: {{ log_rotate_count }}
+
+# Enable syslog logging
+syslog_enabled: {{ syslog_enabled }}
+
+# List of allowed IP subnets (CIDR notation) for access control
+# If empty, all IPs allowed
+allowed_subnets:
+{% for subnet in allowed_subnets %}
+  - {{ subnet }}
+{% endfor %}
+
+# Deny IPs from these subnets
+denied_subnets:
+{% for subnet in denied_subnets %}
+  - {{ subnet }}
+{% endfor %}
+
+# Enable anonymous FTP-to-Gopher gateway (requires pygopherd-ftp module)
+ftp_gateway_enabled: {{ ftp_gateway_enabled }}
+
+# FTP server to connect to for gateway
+ftp_gateway_host: {{ ftp_gateway_host }}
+
+# FTP port for gateway
+ftp_gateway_port: {{ ftp_gateway_port }}
+
+# FTP username for gateway
+ftp_gateway_user: {{ ftp_gateway_user }}
+
+# FTP password for gateway (insecure — prefer .netrc or secure storage)
+ftp_gateway_pass: {{ ftp_gateway_pass }}

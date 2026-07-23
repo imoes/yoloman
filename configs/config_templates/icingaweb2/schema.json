@@ -1,0 +1,212 @@
+{
+  "debug": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable verbose debug logging and developer UI features."
+  },
+  "log_level": {
+    "type": "number",
+    "default": 4,
+    "description": "Log verbosity level (0=EMERG to 7=DEBUG). Use 4 for WARNING+ in production."
+  },
+  "base_path": {
+    "type": "string",
+    "default": "/icingaweb2",
+    "description": "URL path prefix (e.g., '/icingaweb2') under which Icinga Web 2 is accessible. Must begin with '/' and no trailing slash."
+  },
+  "log_file": {
+    "type": "string",
+    "default": "/var/log/icingaweb2/icingaweb2.log",
+    "description": "Path to the log file."
+  },
+  "auth_backend": {
+    "type": "string",
+    "default": "db",
+    "description": "Authentication backend type. Choose 'db' (local users) or 'ldap' for external auth."
+  },
+  "ldap": {
+    "type": "object",
+    "default": {},
+    "description": "LDAP configuration (only used if auth_backend='ldap').",
+    "items": {
+      "host": {
+        "type": "string",
+        "default": "ldap.example.com",
+        "description": "LDAP server hostname or IP address."
+      },
+      "port": {
+        "type": "number",
+        "default": 389,
+        "description": "LDAP server port (389 for LDAP, 636 for LDAPS)."
+      },
+      "bind_dn": {
+        "type": "string",
+        "default": "cn=icinga,ou=services,dc=example,dc=com",
+        "description": "Service account DN to bind with for searching users/groups."
+      },
+      "bind_password": {
+        "type": "string",
+        "default": "",
+        "description": "Password for the bind DN. Use secure storage (e.g., file with restricted permissions) in production."
+      },
+      "user_base_dn": {
+        "type": "string",
+        "default": "ou=people,dc=example,dc=com",
+        "description": "Base DN to search for users."
+      },
+      "group_base_dn": {
+        "type": "string",
+        "default": "ou=groups,dc=example,dc=com",
+        "description": "Base DN to search for groups."
+      },
+      "user_filter": {
+        "type": "string",
+        "default": "(&(objectClass=posixAccount)(uid=%s))",
+        "description": "LDAP filter for user entries (%s will be replaced with username)."
+      },
+      "group_filter": {
+        "type": "string",
+        "default": "(&(objectClass=posixGroup)(memberUid=%s))",
+        "description": "LDAP filter for groups (%s replaced with username or group name)."
+      },
+      "user_name_attribute": {
+        "type": "string",
+        "default": "uid",
+        "description": "LDAP attribute used as the login name (e.g., 'uid', 'sAMAccountName')."
+      },
+      "user_display_name_attribute": {
+        "type": "string",
+        "default": "cn",
+        "description": "LDAP attribute for user\u2019s full display name (e.g., 'cn', 'displayName')."
+      },
+      "user_mail_attribute": {
+        "type": "string",
+        "default": "mail",
+        "description": "LDAP attribute for user\u2019s email address."
+      },
+      "group_name_attribute": {
+        "type": "string",
+        "default": "cn",
+        "description": "LDAP attribute used as the group name."
+      },
+      "group_display_name_attribute": {
+        "type": "string",
+        "default": "cn",
+        "description": "LDAP attribute for group display name (e.g., 'cn', 'displayName')."
+      }
+    }
+  },
+  "resources": {
+    "type": "list",
+    "default": [
+      {
+        "name": "icingaweb_db",
+        "description": "Database for Icinga Web 2 users, roles, and preferences.",
+        "type": "db",
+        "options": {
+          "resource_type": "db",
+          "dbname": "icingaweb",
+          "username": "icingaweb",
+          "password": "",
+          "host": "localhost",
+          "port": 3306,
+          "charset": "utf8"
+        }
+      }
+    ],
+    "description": "Named resource definitions. Required at minimum: 'icingaweb_db' (for local auth/users), and 'icinga2' (for monitoring backend).",
+    "items": {
+      "name": {
+        "type": "string",
+        "default": "",
+        "description": "Unique resource name (used by modules to reference this resource)."
+      },
+      "description": {
+        "type": "string",
+        "default": "",
+        "description": "Human-readable description of this resource."
+      },
+      "type": {
+        "type": "string",
+        "default": "",
+        "description": "Resource type: 'db', 'icinga2', 'eventlog', etc."
+      },
+      "options": {
+        "type": "object",
+        "default": {},
+        "description": "Key-value options specific to the resource type (e.g., host, dbname, username, password)."
+      }
+    }
+  },
+  "enabled_modules": {
+    "type": "list",
+    "default": [
+      "command",
+      "monitoring",
+      "doc"
+    ],
+    "description": "List of modules to enable by default (e.g., 'monitoring', 'command', 'director', 'reactor')."
+  },
+  "disabled_modules": {
+    "type": "list",
+    "default": [],
+    "description": "List of modules to explicitly disable."
+  },
+  "hmac_secret_file": {
+    "type": "string",
+    "default": "/etc/icingaweb2/hmac_secret",
+    "description": "Path to the file containing the HMAC key for session signing (auto-generated on first start)."
+  },
+  "session_lifetime": {
+    "type": "number",
+    "default": 86400,
+    "description": "Session validity period in seconds (e.g., 86400 = 24 hours)."
+  },
+  "enforce_https": {
+    "type": "bool",
+    "default": false,
+    "description": "Force HTTPS connections (set to true in production)."
+  },
+  "allowed_hosts": {
+    "type": "list",
+    "default": [
+      "*"
+    ],
+    "description": "List of allowed hostnames/FQDNs for the web interface. Use ['*'] to allow all (not recommended in production)."
+  },
+  "default_language": {
+    "type": "string",
+    "default": "en",
+    "description": "Default interface language (ISO 639-1 code)."
+  },
+  "default_timezone": {
+    "type": "string",
+    "default": "UTC",
+    "description": "Default timezone (IANA tz database name, e.g., 'Europe/Berlin')."
+  },
+  "datetime_format": {
+    "type": "string",
+    "default": "%Y-%m-%d %H:%M:%S",
+    "description": "Default date/time format (PHP/strftime syntax)."
+  },
+  "default_theme": {
+    "type": "string",
+    "default": "light",
+    "description": "Default UI theme: 'light' or 'dark'."
+  },
+  "config_path": {
+    "type": "string",
+    "default": "/etc/icingaweb2",
+    "description": "Directory where this config.ini and modules are stored."
+  },
+  "modules_path": {
+    "type": "string",
+    "default": "/usr/share/icingaweb2/modules",
+    "description": "Directory containing Icinga Web 2 modules."
+  },
+  "validate_config": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable config validation at startup to catch syntax errors early."
+  }
+}

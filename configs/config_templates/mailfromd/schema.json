@@ -1,0 +1,158 @@
+{
+  "smtp_port": {
+    "type": "number",
+    "default": 25,
+    "description": "TCP port on which the mailfromd SMTP listener accepts connections."
+  },
+  "smtp_bindto": {
+    "type": "string",
+    "default": "",
+    "description": "IP address or hostname to bind the SMTP listener to (empty = all interfaces)."
+  },
+  "max_connections": {
+    "type": "number",
+    "default": 100,
+    "description": "Maximum number of simultaneous SMTP connections allowed."
+  },
+  "connect_timeout": {
+    "type": "number",
+    "default": 30,
+    "description": "Seconds to wait for client to complete the connection handshake."
+  },
+  "mail_timeout": {
+    "type": "number",
+    "default": 300,
+    "description": "Seconds to wait for the MAIL FROM command after connection."
+  },
+  "data_timeout": {
+    "type": "number",
+    "default": 600,
+    "description": "Seconds to wait for the DATA command and message body transmission."
+  },
+  "command_timeout": {
+    "type": "number",
+    "default": 60,
+    "description": "Seconds to wait for each SMTP command (after initial connection)."
+  },
+  "max_message_size": {
+    "type": "number",
+    "default": 0,
+    "description": "Maximum message size in bytes (0 = unlimited)."
+  },
+  "max_recipients": {
+    "type": "number",
+    "default": 100,
+    "description": "Maximum number of recipients allowed per message."
+  },
+  "verbosity": {
+    "type": "number",
+    "default": 2,
+    "description": "Logging verbosity: 0=silent, 1=minimal, 2=normal (recommended), 3=verbose, 4=debug."
+  },
+  "pidfile": {
+    "type": "string",
+    "default": "/run/mailfromd/mailfromd.pid",
+    "description": "Path to the PID file."
+  },
+  "run_user": {
+    "type": "string",
+    "default": "mailfromd",
+    "description": "System user to run the daemon as (must exist)."
+  },
+  "run_group": {
+    "type": "string",
+    "default": "mailfromd",
+    "description": "System group to run the daemon as (must exist)."
+  },
+  "chroot": {
+    "type": "string",
+    "default": "",
+    "description": "Chroot directory (empty = disabled). For security hardening."
+  },
+  "tls_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable TLS encryption for incoming SMTP connections (STARTTLS)."
+  },
+  "tls_cert": {
+    "type": "string",
+    "default": "/etc/mailfromd/certs/tls.crt",
+    "description": "Path to TLS certificate file (PEM format)."
+  },
+  "tls_key": {
+    "type": "string",
+    "default": "/etc/mailfromd/certs/tls.key",
+    "description": "Path to TLS private key file (PEM format)."
+  },
+  "spf_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable SPF (Sender Policy Framework) header verification."
+  },
+  "greylisting_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable greylisting to temporarily reject unknown senders on first attempt."
+  },
+  "greylisting_dir": {
+    "type": "string",
+    "default": "/var/lib/mailfromd/greylist",
+    "description": "Directory to store greylisting state files."
+  },
+  "greylisting_delay": {
+    "type": "number",
+    "default": 300,
+    "description": "Seconds to wait before re-accepting a greylisted sender (first retry)."
+  },
+  "dnsbl_lists": {
+    "type": "list",
+    "default": [
+      "zen.spamhaus.org",
+      "bl.spamcop.net"
+    ],
+    "description": "List of DNS-based blackhole lists (RBLs) to query for sender IP reputation.",
+    "items": {
+      "type": "string",
+      "description": "Domain name of a DNSBL (e.g., zen.spamhaus.org)."
+    }
+  },
+  "relay_host": {
+    "type": "string",
+    "default": "",
+    "description": "Optional upstream MTA relay host (e.g., smtp.example.com:587). If empty, mail is delivered directly."
+  },
+  "sasl_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable SMTP authentication (SASL) for authorized relay clients."
+  },
+  "sasl_mech": {
+    "type": "string",
+    "default": "PLAIN LOGIN",
+    "description": "Allowed SASL mechanisms (space-separated)."
+  },
+  "rate_limiting_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable per-IP rate limiting to curb abuse."
+  },
+  "rate_limit_per_ip": {
+    "type": "number",
+    "default": 20,
+    "description": "Maximum number of connections or messages per IP in the rate window."
+  },
+  "rate_limit_window": {
+    "type": "number",
+    "default": 3600,
+    "description": "Time window (seconds) for rate-limiting calculations."
+  },
+  "extra_directives": {
+    "type": "list",
+    "default": [],
+    "description": "Additional raw mailfromd configuration directives (e.g., macro definitions, custom ACL rules). Each item is one full line.",
+    "items": {
+      "type": "string",
+      "description": "A single line of mailfromd config directive (must be valid syntax)."
+    }
+  }
+}

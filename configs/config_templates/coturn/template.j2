@@ -1,0 +1,81 @@
+# Listen on all IPv4 and IPv6 interfaces (use specific addresses to restrict)
+listening-ip=0.0.0.0
+listening-ip=::
+
+# Listen ports for TURN/STUN (STUN uses 3478/3479, TURN uses 5349 for TLS)
+listening-port={{ listening_port }}
+listening-tls-port={{ listening_tls_port }}
+
+# Relay IPs — public IPs assigned to this server for relaying traffic
+relay-ip={{ relay_ip }}
+{% if additional_relay_ips %}
+# Additional relay IPs for multi-homed setups
+{% for ip in additional_relay_ips %}
+relay-ip={{ ip }}
+{% endfor %}
+{% endif %}
+
+# External IP(s) — public IPs as seen by clients (used for NAT traversal)
+external-ip={{ external_ip }}
+{% if additional_external_ips %}
+# Additional external IPs for failover or load balancing
+{% for ip in additional_external_ips %}
+external-ip={{ ip }}
+{% endfor %}
+{% endif %}
+
+# Realm for TURN authentication (e.g., your domain)
+realm={{ realm }}
+
+# Authentication: use long-term credentials
+use-auth-secret={{ use_auth_secret }}
+{% if use_auth_secret %}
+# Static key for auth-secret (base64 or raw string)
+static-auth-secret={{ auth_secret }}
+{% endif %}
+
+# User credentials (if not using auth-secret)
+{% if users %}
+# Long-term credential users
+{% for user in users %}
+user={{ user.username }}:{{ user.password | string() }}
+{% endfor %}
+{% endif %}
+
+# TLS: enable and specify certificate files
+tls-cert={{ tls_cert_path }}
+tls-private-key={{ tls_private_key_path }}
+{% if tls_ca_cert_path %}
+# CA certificate for verifying client certs (optional)
+tls-ca-cert={{ tls_ca_cert_path }}
+{% endif %}
+
+# cipher list — use strong ciphers (OpenSSL format)
+tls-cipher={{ tls_cipher_list }}
+
+# Allow or deny specific transports
+allow-peer-ip={{ allow_peer_ip | default('') | replace(',', ' ') }}
+deny-peer-ip={{ deny_peer_ip | default('') | replace(',', ' ') }}
+
+# Bandwidth limits per client (KB/s)
+min-port={{ min_port }}
+max-port={{ max_port }}
+
+# Logging level (0=none, 5=verbose)
+verbose={{ verbose }}
+
+# PID file location
+pidfile={{ pidfile_path }}
+
+# Run as unprivileged user
+proc-user={{ proc_user }}
+proc-group={{ proc_group }}
+
+# Disable STUN functionality (TURN only)
+stun-only={{ stun_only }}
+
+# Enable REST API (requires --rest-api flag at startup)
+# Not recommended for public-facing deployments
+{% if enable_rest_api %}
+rest-api
+{% endif %}

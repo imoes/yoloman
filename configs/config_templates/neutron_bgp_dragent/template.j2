@@ -1,0 +1,48 @@
+[DEFAULT]
+# The logging level for the BGP DR Agent
+log_level = {{ log_level }}
+
+# The log file to write to (empty string disables file logging)
+log_file = {{ log_file }}
+
+# Path to the BGP DR Agent state file
+state_path = {{ state_path }}
+
+# The address on which the agent listens for RPC messages
+rpc_backend = {{ rpc_backend }}
+
+[bgp]
+# The BGP router ID to use (must be a valid IPv4 address)
+bgp_router_id = {{ bgp_router_id }}
+
+# The time in seconds between keepalive messages
+keepalive_interval = {{ keepalive_interval }}
+
+# The hold time in seconds (must be > keepalive_interval)
+hold_interval = {{ hold_interval }}
+
+# The minimum time in seconds between BGP updates
+min_hold_time = {{ min_hold_time }}
+
+# The maximum number of routes to advertise
+max_routes = {{ max_routes }}
+
+# Enable or disable MD5 authentication for BGP sessions
+md5_auth = {{ md5_auth }}
+
+# The path to the private key file for MD5 authentication (if used)
+md5_key_file = {{ md5_key_file }}
+
+# BGP neighbor configurations (list of objects)
+{% for neighbor in bgp_neighbors %}
+# Neighbor: {{ neighbor.name }}
+[neutron:bgp_neighbor:{{ neighbor.name }}]
+# IP address of the BGP peer
+ip_address = {{ neighbor.ip_address }}
+# Autonomous System number of the peer
+remote_as = {{ neighbor.remote_as }}
+# Password for MD5 authentication (overrides global md5_key_file if set)
+password = {{ neighbor.password | default('', true) }}
+# Enable or disable this neighbor
+enabled = {{ neighbor.enabled | default(true) }}
+{% endfor %}

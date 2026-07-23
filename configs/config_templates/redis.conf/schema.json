@@ -1,0 +1,308 @@
+{
+  "bind": {
+    "type": "string",
+    "default": "127.0.0.1",
+    "description": "IP address(es) Redis will bind to (space-separated for multiple). Use '0.0.0.0' to bind to all interfaces (\u26a0\ufe0f insecure unless firewall-protection is applied)."
+  },
+  "port": {
+    "type": "number",
+    "default": 6379,
+    "description": "TCP port for non-TLS connections. Set to 0 if only using TLS."
+  },
+  "tls_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable TLS encryption for client connections."
+  },
+  "tls_port": {
+    "type": "number",
+    "default": 6380,
+    "description": "TCP port for TLS-encrypted connections (used only if TLS is enabled)."
+  },
+  "tls_cert_file": {
+    "type": "string",
+    "default": "/etc/redis/tls/redis.crt",
+    "description": "Path to TLS certificate file (PEM format)."
+  },
+  "tls_key_file": {
+    "type": "string",
+    "default": "/etc/redis/tls/redis.key",
+    "description": "Path to TLS private key file (PEM format)."
+  },
+  "tls_ca_cert_file": {
+    "type": "string",
+    "default": "/etc/redis/tls/ca.crt",
+    "description": "Path to CA certificate file for validating client certificates (optional)."
+  },
+  "tls_auth_clients": {
+    "type": "bool",
+    "default": true,
+    "description": "Require clients to present valid certificates (mTLS) when TLS is enabled."
+  },
+  "daemonize": {
+    "type": "bool",
+    "default": true,
+    "description": "Run Redis as a background daemon (recommended for production)."
+  },
+  "pidfile": {
+    "type": "string",
+    "default": "/var/run/redis/redis-server.pid",
+    "description": "Path to PID file for process management."
+  },
+  "loglevel": {
+    "type": "string",
+    "default": "notice",
+    "description": "Verbosity of logs. Options: debug, verbose, notice, warning."
+  },
+  "logfile": {
+    "type": "string",
+    "default": "/var/log/redis/redis-server.log",
+    "description": "Path to log file. Use '-' to log to stderr."
+  },
+  "save_intervals": {
+    "type": "list",
+    "default": [
+      [
+        900,
+        1
+      ],
+      [
+        300,
+        10
+      ],
+      [
+        60,
+        10000
+      ]
+    ],
+    "description": "RDB snapshot schedule: list of [seconds, changes] pairs. Set empty list [] to disable RDB.",
+    "items": {
+      "type": "list",
+      "items": [
+        {
+          "type": "number",
+          "description": "Time interval in seconds"
+        },
+        {
+          "type": "number",
+          "description": "Number of key changes required"
+        }
+      ]
+    }
+  },
+  "dbfilename": {
+    "type": "string",
+    "default": "dump.rdb",
+    "description": "Filename for RDB snapshots."
+  },
+  "dir": {
+    "type": "string",
+    "default": "/var/lib/redis",
+    "description": "Working directory for RDB/AOF files and persistence data."
+  },
+  "maxmemory": {
+    "type": "string",
+    "default": "0",
+    "description": "Maximum memory Redis can use (e.g., '2gb', '512mb', '0' = unlimited). Required for eviction policies to take effect."
+  },
+  "maxmemory_policy": {
+    "type": "string",
+    "default": "noeviction",
+    "description": "Eviction policy when maxmemory is reached (e.g., allkeys-lru, volatile-ttl, allkeys-random)."
+  },
+  "maxmemory_samples": {
+    "type": "number",
+    "default": 5,
+    "description": "Number of samples for LRU and TTL eviction algorithms. Higher = more accuracy, more CPU."
+  },
+  "maxclients": {
+    "type": "number",
+    "default": 10000,
+    "description": "Maximum number of simultaneous client connections."
+  },
+  "requirepass": {
+    "type": "string",
+    "default": "",
+    "description": "Password required for client authentication (\u26a0\ufe0f avoid in plaintext in production \u2014 use ACLs instead)."
+  },
+  "masterauth": {
+    "type": "string",
+    "default": "",
+    "description": "Password used when authenticating to a master (for replication)."
+  },
+  "replicaof": {
+    "type": "string",
+    "default": "",
+    "description": "Master node to replicate from in format 'host port'. Empty string = standalone/master."
+  },
+  "replica_announce_ip": {
+    "type": "string",
+    "default": "",
+    "description": "Public IP to announce to clients as this replica's address (e.g., for NAT/containers)."
+  },
+  "replica_announce_port": {
+    "type": "number",
+    "default": 6379,
+    "description": "Public port to announce as this replica's port (when replica-announce-ip is set)."
+  },
+  "latency_monitor_threshold": {
+    "type": "number",
+    "default": 0,
+    "description": "Log events taking \u2265 this many milliseconds (0 = disabled)."
+  },
+  "slowlog_log_slower_than": {
+    "type": "number",
+    "default": 10000,
+    "description": "Log commands taking \u2265 this many microseconds (e.g., 10000 = 10ms). Set to 0 to log all commands."
+  },
+  "slowlog_max_len": {
+    "type": "number",
+    "default": 128,
+    "description": "Maximum number of entries kept in slowlog."
+  },
+  "notify_keyspace_events": {
+    "type": "string",
+    "default": "",
+    "description": "Enable pub/sub for key events (e.g., 'AKE' = all events; empty = disabled)."
+  },
+  "tcp_backlog": {
+    "type": "number",
+    "default": 511,
+    "description": "TCP listen() backlog size (system-dependent max applies)."
+  },
+  "timeout": {
+    "type": "number",
+    "default": 0,
+    "description": "Close connection after this many seconds of inactivity (0 = no timeout)."
+  },
+  "tcp_keepalive": {
+    "type": "number",
+    "default": 300,
+    "description": "Send TCP keepalive packets every N seconds (0 = disable)."
+  },
+  "appendonly": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable AOF persistence (recommended over RDB alone for durability)."
+  },
+  "appendfilename": {
+    "type": "string",
+    "default": "appendonly.aof",
+    "description": "Filename for AOF persistence."
+  },
+  "appendfsync": {
+    "type": "string",
+    "default": "everysec",
+    "description": "Sync policy: always, everysec, no. Trade-off between durability & performance."
+  },
+  "no_appendfsync_on_rewrite": {
+    "type": "bool",
+    "default": false,
+    "description": "Defer fsync during BGSAVE/AOF rewrite (improves latency but risks data loss in crash)."
+  },
+  "auto_aof_rewrite_percentage": {
+    "type": "number",
+    "default": 100,
+    "description": "Trigger AOF rewrite when size grows by this % over last rewrite."
+  },
+  "auto_aof_rewrite_min_size": {
+    "type": "string",
+    "default": "64mb",
+    "description": "Minimum AOF size required to trigger rewrite (e.g., '64mb', '128mb')."
+  },
+  "aof_load_truncated": {
+    "type": "bool",
+    "default": true,
+    "description": "Load AOF even if it appears truncated (prevents startup failure on partial writes)."
+  },
+  "aof_use_rdb_preamble": {
+    "type": "bool",
+    "default": true,
+    "description": "Prefix AOF with RDB snapshot for faster load (recommended)."
+  },
+  "cluster_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable Redis Cluster mode (requires multiple nodes)."
+  },
+  "cluster_config_file": {
+    "type": "string",
+    "default": "nodes.conf",
+    "description": "Filename for cluster configuration (auto-generated, do not edit manually)."
+  },
+  "cluster_node_timeout": {
+    "type": "number",
+    "default": 5000,
+    "description": "Cluster node timeout in milliseconds before marking a node as failed."
+  },
+  "sentinel_mode": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable Redis Sentinel mode for high availability (monitors masters/replicas)."
+  },
+  "sentinel_master_name": {
+    "type": "string",
+    "default": "mymaster",
+    "description": "Name of the master instance to monitor."
+  },
+  "sentinel_master_ip": {
+    "type": "string",
+    "default": "127.0.0.1",
+    "description": "IP address of the master to monitor (only used in Sentinel config)."
+  },
+  "sentinel_master_port": {
+    "type": "number",
+    "default": 6379,
+    "description": "Port of the master to monitor."
+  },
+  "sentinel_quorum": {
+    "type": "number",
+    "default": 2,
+    "description": "Number of Sentinels that must agree to detect a master failure."
+  },
+  "sentinel_options": {
+    "type": "list",
+    "default": [
+      {
+        "key": "down-after-milliseconds",
+        "value": "30000"
+      },
+      {
+        "key": "parallel-syncs",
+        "value": "1"
+      },
+      {
+        "key": "failover-timeout",
+        "value": "180000"
+      }
+    ],
+    "description": "Additional Sentinel configuration options (key-value pairs).",
+    "items": {
+      "type": "object",
+      "properties": {
+        "key": {
+          "type": "string"
+        },
+        "value": {
+          "type": "string"
+        }
+      }
+    }
+  },
+  "extra_directives": {
+    "type": "list",
+    "default": [],
+    "description": "Free-form additional config directives (for advanced tuning or vendor-specific features). Format: [{'key': 'directive', 'value': 'arg1 arg2'}].",
+    "items": {
+      "type": "object",
+      "properties": {
+        "key": {
+          "type": "string"
+        },
+        "value": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}

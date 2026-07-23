@@ -1,0 +1,38 @@
+# SNMP configuration for CUPS — enables SNMP-based printer monitoring and discovery
+# Enable or disable SNMP support in CUPS
+{{ snmp_enabled | string | lower }}
+
+# SNMP community string used for read-only access
+Community {{ snmp_community }}
+
+# SNMP trap destination — where SNMP traps are sent
+TrapDestination {{ snmp_trap_destinations | join(' ') }}
+
+# SNMP system contact information
+SystemContact {{ snmp_contact }}
+
+# SNMP system location information
+SystemLocation {{ snmp_location }}
+
+# Enable or disable SNMP for specific printer classes (none/all/list)
+# (Note: CUPS supports only `none`, `all`, or a space-separated list of printer names)
+{% if snmp_printers == 'none' %}
+SNMP none
+{% elif snmp_printers == 'all' %}
+SNMP all
+{% else %}
+{% for printer in snmp_printers %}SNMP {{ printer }}
+{% endfor %}
+{% endif %}
+
+# SNMP timeout (in seconds) for queries
+SNMPTIMEOUT {{ snmp_timeout }}
+
+# SNMP retries count
+SNMPRETRIES {{ snmp_retries }}
+
+# Enable SNMPv3 (requires additional configuration in cupsd.conf)
+# Note: CUPS does not parse SNMPv3 directly — this flag may be used for documentation or external tools
+{% if snmpv3_enabled %}SNMPv3 on
+{% else %}SNMPv3 off
+{% endif %}

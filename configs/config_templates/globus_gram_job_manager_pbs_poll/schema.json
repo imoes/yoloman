@@ -1,0 +1,106 @@
+{
+  "qstat_path": {
+    "type": "string",
+    "default": "/usr/bin/qstat",
+    "description": "Full path to the PBS qstat command, used to query job status."
+  },
+  "qdel_path": {
+    "type": "string",
+    "default": "/usr/bin/qdel",
+    "description": "Full path to the PBS qdel command, used to cancel jobs."
+  },
+  "qsub_path": {
+    "type": "string",
+    "default": "/usr/bin/qsub",
+    "description": "Full path to the PBS qsub command, used to submit jobs."
+  },
+  "poll_interval": {
+    "type": "number",
+    "default": 30,
+    "description": "Interval (in seconds) between status polls for each job."
+  },
+  "max_concurrent_polls": {
+    "type": "number",
+    "default": 100,
+    "description": "Maximum number of jobs that can be polled concurrently by the GridFTP server."
+  },
+  "verbose_output": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable verbose PBS output parsing for debugging (e.g., extended status fields)."
+  },
+  "preserve_working_dir": {
+    "type": "bool",
+    "default": false,
+    "description": "Preserve the working directory of a job after it completes (useful for post-mortem debugging)."
+  },
+  "env_vars": {
+    "type": "list",
+    "default": [],
+    "description": "List of environment variables to inject into PBS job scripts.",
+    "items": {
+      "type": "object",
+      "fields": {
+        "name": {
+          "type": "string",
+          "default": "",
+          "description": "Name of the environment variable."
+        },
+        "value": {
+          "type": "string",
+          "default": "",
+          "description": "Value to assign to the environment variable."
+        },
+        "description": {
+          "type": "string",
+          "default": "",
+          "description": "Optional human-readable description of the variable's purpose."
+        }
+      }
+    }
+  },
+  "queue_mode": {
+    "type": "string",
+    "default": "static",
+    "description": "Queue assignment mode: use a single static queue, or dynamic per-user/group mapping."
+  },
+  "queue_name": {
+    "type": "string",
+    "default": "batch",
+    "description": "PBS queue to use when queue_mode=static."
+  },
+  "queue_mappings": {
+    "type": "list",
+    "default": [],
+    "description": "List of queue mappings (only used when queue_mode=dynamic).",
+    "items": {
+      "type": "object",
+      "fields": {
+        "user": {
+          "type": "string",
+          "default": "",
+          "description": "Username to map (leave blank to skip user match)."
+        },
+        "group": {
+          "type": "string",
+          "default": "",
+          "description": "Group name to map (leave blank to skip group match)."
+        },
+        "type": {
+          "type": "string",
+          "enum": [
+            "user",
+            "group"
+          ],
+          "default": "user",
+          "description": "Whether this entry matches a user or a group."
+        },
+        "queue": {
+          "type": "string",
+          "default": "batch",
+          "description": "Target PBS queue for this mapping."
+        }
+      }
+    }
+  }
+}

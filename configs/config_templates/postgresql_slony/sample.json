@@ -1,0 +1,96 @@
+{
+  "cluster_name": "mycluster",
+  "log_dir": "/var/log/slony1",
+  "database_name": "slony1",
+  "primary_host": "db1.example.com",
+  "primary_port": 5432,
+  "slony_user": "slony",
+  "poll_interval": 60,
+  "retry_timeout": 15,
+  "retry_count": 3,
+  "verbose": false,
+  "pidfile_path": "/run/slony1/slony.pid",
+  "nodes": [
+    {
+      "id": 1,
+      "name": "node1",
+      "alias": "primary",
+      "host": "db1.example.com",
+      "port": 5432,
+      "user": "slony",
+      "password": "secret123",
+      "dbname": "slony1"
+    },
+    {
+      "id": 2,
+      "name": "node2",
+      "alias": "replica1",
+      "host": "db2.example.com",
+      "port": 5432,
+      "user": "slony",
+      "password": "secret123",
+      "dbname": "slony1"
+    },
+    {
+      "id": 3,
+      "name": "node3",
+      "alias": "replica2",
+      "host": "db3.example.com",
+      "port": 5432,
+      "user": "slony",
+      "password": "secret123",
+      "dbname": "slony1"
+    }
+  ],
+  "paths": [
+    {
+      "source": 1,
+      "target": 2,
+      "forwarder": null,
+      "ack_mode": 1
+    },
+    {
+      "source": 1,
+      "target": 3,
+      "forwarder": 2,
+      "ack_mode": 2
+    }
+  ],
+  "sequences": [
+    {
+      "id": 1001,
+      "schema": "public",
+      "name": "user_id_seq",
+      "owner": "app_user",
+      "comment": "User ID sequence"
+    }
+  ],
+  "tables": [
+    {
+      "id": 101,
+      "schema": "public",
+      "name": "users",
+      "owner": "app_user",
+      "comment": "User accounts table",
+      "pk_column": "id",
+      "pk_sequence": "user_id_seq",
+      "columns": [
+        "id",
+        "name",
+        "email",
+        "created_at"
+      ]
+    },
+    {
+      "id": 102,
+      "schema": "public",
+      "name": "orders",
+      "owner": "app_user",
+      "comment": "",
+      "pk_column": "order_id",
+      "pk_sequence": null,
+      "columns": []
+    }
+  ],
+  "retention_interval": 86400
+}

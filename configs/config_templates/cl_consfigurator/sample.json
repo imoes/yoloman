@@ -1,0 +1,58 @@
+{
+  "system_name": "web-app-server",
+  "system_description": "Lisp-based web server stack",
+  "version": "2.1.0",
+  "package_sources": [
+    {
+      "type": "git",
+      "path": "https://github.com/quicklisp/quicklisp.git",
+      "ref": "main",
+      "submodules": false
+    },
+    {
+      "type": "local",
+      "path": "/opt/local-libs",
+      "description": "Local development packages"
+    }
+  ],
+  "packages": [
+    {
+      "name": "hunchentoot",
+      "dependencies": [
+        "cl-who",
+        "flexi-streams"
+      ],
+      "post-install": "(ql:quickload :hunchentoot)"
+    },
+    {
+      "name": "cl-redis",
+      "version": "20230615",
+      "source": "quicklisp"
+    }
+  ],
+  "operations": [
+    {
+      "description": "Create config directory for app",
+      "command": "ensure-directories-exist",
+      "args": [
+        "/etc/web-app/config"
+      ]
+    },
+    {
+      "description": "Generate sample config if missing",
+      "command": "run",
+      "args": [
+        "sh",
+        "-c",
+        "test -f /etc/web-app/config/lisp.conf || cp /etc/web-app/config/lisp.conf.sample /etc/web-app/config/lisp.conf"
+      ]
+    }
+  ],
+  "hooks": [
+    {
+      "when": ":post-config",
+      "code": "(format t \"~%Configuration loaded successfully.~%\")",
+      "description": "Log success after config load"
+    }
+  ]
+}

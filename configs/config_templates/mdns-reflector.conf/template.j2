@@ -1,0 +1,43 @@
+{# Multicast DNS reflector configuration #}
+# Interface on which to listen for mDNS queries (e.g., eth0, wlan0)
+interface: {{ interface }}
+
+# TTL (seconds) for learned records
+record_ttl: {{ record_ttl }}
+
+# Maximum number of entries to cache
+max_cache_size: {{ max_cache_size }}
+
+# Enable or disable reflection of PTR queries
+reflect_ptr: {{ reflect_ptr }}
+
+# Enable or disable reflection of A/AAAA queries
+reflect_a_aaaa: {{ reflect_a_aaaa }}
+
+# List of domains to forward (empty list = forward all)
+{% if forward_domains | length > 0 %}
+forward_domains:
+{% for domain in forward_domains %}  - {{ domain }}{% endfor %}
+{% else %}
+forward_domains: []
+{% endif %}
+
+# List of domains to suppress (will NOT be reflected even if in forward_domains)
+{% if suppress_domains | length > 0 %}
+suppress_domains:
+{% for domain in suppress_domains %}  - {{ domain }}{% endfor %}
+{% else %}
+suppress_domains: []
+{% endif %}
+
+# Rate limiting: max queries per second per source IP
+rate_limit_qps: {{ rate_limit_qps }}
+
+# Maximum queries per second overall (0 = unlimited)
+max_qps: {{ max_qps }}
+
+# Logging level: debug, info, warn, error
+log_level: {{ log_level }}
+
+# Path to log file (empty = log to stderr)
+log_file: {{ log_file }}

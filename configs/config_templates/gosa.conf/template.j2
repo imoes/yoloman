@@ -1,0 +1,145 @@
+# GOsa configuration file
+# Main configuration file for GOsa (Groupware Open Source Administration)
+
+# Base URL of the GOsa interface (e.g., https://gosa.example.com)
+gosa_url = {{ gosa_url }}
+
+# Directory where GOsa stores its runtime data (e.g., cache, logs)
+gosa_data_dir = {{ gosa_data_dir }}
+
+# Directory where GOsa stores its configuration templates
+config_dir = {{ config_dir }}
+
+# LDAP server URI (e.g., ldap://ldap.example.com or ldaps://ldap.example.com:636)
+ldap_uri = {{ ldap_uri }}
+
+# Base DN for LDAP operations (e.g., dc=example,dc=com)
+ldap_base = {{ ldap_base }}
+
+# Bind DN for authenticating GOsa to LDAP (service account)
+ldap_bind_dn = {{ ldap_bind_dn }}
+
+# Bind password for the LDAP bind DN
+ldap_bind_password = {{ ldap_bind_password }}
+
+# LDAP schema version (e.g., 2.6, 3.0)
+ldap_schema_version = {{ ldap_schema_version }}
+
+# Enable/disable debug mode
+ldap_debug = {{ ldap_debug | lower }}
+
+# Enable/disable SSL/TLS verification for LDAP connections
+ldap_tls_verify = {{ ldap_tls_verify | lower }}
+
+# LDAP search timeout in seconds
+ldap_timeout = {{ ldap_timeout }}
+
+# Default language for the UI (e.g., en, de, fr)
+default_lang = {{ default_lang }}
+
+# Default theme (e.g., default, dark)
+default_theme = {{ default_theme }}
+
+# Session timeout in minutes
+session_timeout = {{ session_timeout }}
+
+# Maximum number of concurrent sessions per user (0 = unlimited)
+session_max_users = {{ session_max_users }}
+
+# Enable/disable password policy enforcement
+password_policy = {{ password_policy | lower }}
+
+# Minimum password length
+password_min_length = {{ password_min_length }}
+
+# Require uppercase, lowercase, digits, special characters
+password_require_upper = {{ password_require_upper | lower }}
+password_require_lower = {{ password_require_lower | lower }}
+password_require_digit = {{ password_require_digit | lower }}
+password_require_special = {{ password_require_special | lower }}
+
+# Email notification settings
+smtp_host = {{ smtp_host }}
+smtp_port = {{ smtp_port }}
+smtp_user = {{ smtp_user }}
+smtp_pass = {{ smtp_pass }}
+smtp_from = {{ smtp_from }}
+smtp_use_tls = {{ smtp_use_tls | lower }}
+
+# Log level: debug, info, warning, error, critical
+log_level = {{ log_level }}
+
+# Path to log file (empty = syslog)
+log_file = {{ log_file }}
+
+# Enable/disable audit logging
+audit_log = {{ audit_log | lower }}
+
+# Audit log file path
+audit_log_file = {{ audit_log_file }}
+
+# Allowed IP ranges for admin access (CIDR, space-separated)
+admin_allowed_ips = {{ admin_allowed_ips | join(' ') }}
+
+# Allowed hostnames (space-separated)
+admin_allowed_hosts = {{ admin_allowed_hosts | join(' ') }}
+
+# Enable/disable two-factor authentication (2FA)
+tfa_enabled = {{ tfa_enabled | lower }}
+
+# Supported TFA methods (e.g., totp, webauthn, email)
+tfa_methods = {{ tfa_methods | join(' ') }}
+
+# Predefined user groups to auto-assign on registration (space-separated)
+default_groups = {{ default_groups | join(' ') }}
+
+# Enable/disable automatic user provisioning from LDAP
+auto_provision = {{ auto_provision | lower }}
+
+# LDAP attribute mapping for user creation
+ldap_uid_attr = {{ ldap_uid_attr }}
+ldap_mail_attr = {{ ldap_mail_attr }}
+ldap_cn_attr = {{ ldap_cn_attr }}
+
+# LDAP group mapping
+ldap_group_objectclass = {{ ldap_group_objectclass }}
+ldap_group_member_attr = {{ ldap_group_member_attr }}
+ldap_group_member_mode = {{ ldap_group_member_mode }}
+
+# Service account groups for system operations
+service_account_groups = {{ service_account_groups | join(' ') }}
+
+# Enable/disable REST API
+api_enabled = {{ api_enabled | lower }}
+
+# API authentication method: session, token
+api_auth_method = {{ api_auth_method }}
+
+# Allowed CORS origins (space-separated)
+api_cors_origins = {{ api_cors_origins | join(' ') }}
+
+# Enable/disable WebUI frontend
+web_enabled = {{ web_enabled | lower }}
+
+# WebUI path prefix (e.g., /gosa, /)
+web_prefix = {{ web_prefix }}
+
+# WebUI session cookie name
+session_cookie_name = {{ session_cookie_name }}
+
+# WebUI session cookie domain
+session_cookie_domain = {{ session_cookie_domain }}
+
+# Enable/disable HTTPS enforcement for WebUI
+force_https = {{ force_https | lower }}
+
+# Enable/disable maintenance mode
+maintenance_mode = {{ maintenance_mode | lower }}
+
+# Maintenance mode banner message
+maintenance_message = {{ maintenance_message }}
+
+# List of optional plugins to enable
+{% for plugin in enabled_plugins %}plugin_{{ plugin.name }} = {{ plugin.enabled | lower }}
+# {{ plugin.description }}
+{% endfor %}

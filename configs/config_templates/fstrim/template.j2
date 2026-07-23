@@ -1,0 +1,21 @@
+# /etc/fstrim.conf — Configuration for the periodic fstrim service (util-linux)
+# Controls whether fstrim runs on boot or via cron, and which filesystems to trim.
+
+# Run fstrim on boot (true/false)
+{% if run_on_boot | default(false) %}RUN_ON_BOOT=yes{% else %}RUN_ON_BOOT=no{% endif %}
+
+# Run fstrim via cron (true/false)
+{% if run_via_cron | default(true) %}RUN_VIA_CRON=yes{% else %}RUN_VIA_CRON=no{% endif %}
+
+# Additional mount points to trim beyond defaults
+{% if extra_mounts | default([]) | length > 0 %}# Extra mount points to trim
+{% for mount in extra_mounts %}# {{ mount }}
+{% endfor %}{% endif %}
+
+# fstab-style list of mount points to trim (defaults to all with 'discard' option or known SSD types)
+# Override via MOUNT_POINTS to specify explicit paths (space- or newline-separated)
+{% if mount_points | default([]) | length > 0 %}MOUNT_POINTS="{% for m in mount_points %}{{ m }}{% if not loop.last %} {% endif %}{% endfor %}"{% endif %}
+
+# Disable trimming on specific filesystems (space-separated list)
+# Note: fstrim ignores filesystems not supporting TRIM; this is rarely needed.
+# DISABLED_FS=""

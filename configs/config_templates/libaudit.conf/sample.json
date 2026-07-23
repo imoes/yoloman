@@ -1,0 +1,28 @@
+{
+  "max_log_file": 10,
+  "num_logs": 5,
+  "log_group": "adm",
+  "log_level": 2,
+  "format": "iso",
+  "flush": "sync",
+  "timeout": 60,
+  "action_mail_acct": "sysadmin@example.com",
+  "admin_msg": "Audit log rotation triggered",
+  "log_file": "/var/log/audit/audit.log",
+  "local": true,
+  "remote": false,
+  "remote_server": "",
+  "remote_port": 6080,
+  "legacy": false,
+  "use_ayat": false,
+  "extra_rules": [
+    {
+      "comment": "Monitor changes to /etc/passwd",
+      "line": "-w /etc/passwd -p wa -k passwd_changes"
+    },
+    {
+      "comment": "Track execution of privileged binaries",
+      "line": "-a always,exit -F arch=b64 -S execve -C uid!=root -F key=privilege_escalation"
+    }
+  ]
+}

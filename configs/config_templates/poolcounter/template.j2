@@ -1,0 +1,59 @@
+# PoolCounter daemon configuration
+# List of listening sockets (Unix domain or TCP)
+{% for sock in listeners %}{{ sock.type }} {{ sock.path if sock.type == 'unix' else sock.host ~ ':' ~ sock.port }}
+{% endfor %}
+
+# Maximum number of pending connections per listener
+{% if max_backlog is defined %}MaxConnBacklog {{ max_backlog }}
+{% else %}MaxConnBacklog 128
+{% endif %}
+
+# Number of worker processes (0 = automatic, based on CPU cores)
+{% if num_workers is defined %}Workers {{ num_workers }}
+{% else %}Workers 0
+{% endif %}
+
+# Maximum number of concurrent requests per worker
+{% if max_reqs_per_worker is defined %}MaxReqsPerWorker {{ max_reqs_per_worker }}
+{% else %}MaxReqsPerWorker 100
+{% endif %}
+
+# Log level: debug, info, notice, warning, error, crit, alert, emerg
+{% if log_level is defined %}Log {{ log_level }}
+{% else %}Log warning
+{% endif %}
+
+# Log destination: file path or 'syslog' or 'stderr'
+{% if log_dest is defined %}LogTo {{ log_dest }}
+{% else %}LogTo syslog
+{% endif %}
+
+# Timeout (seconds) for client connections
+{% if client_timeout is defined %}ClientTimeout {{ client_timeout }}
+{% else %}ClientTimeout 30
+{% endif %}
+
+# Enable/disable statistics endpoint
+{% if enable_stats is defined %}Stats {{ 'on' if enable_stats else 'off' }}
+{% else %}Stats off
+{% endif %}
+
+# Statistics endpoint host and port (only if Stats is on)
+{% if enable_stats %}StatsHost {{ stats_host }}
+StatsPort {{ stats_port }}
+{% endif %}
+
+# Enable/disable Unix socket permissions
+{% if unix_socket_perms is defined %}UnixSocketPerms {{ unix_socket_perms }}
+{% else %}UnixSocketPerms 0660
+{% endif %}
+
+# List of allowed client networks (CIDR or IP); if empty, all are allowed
+{% if allowed_networks %}# Allowed networks
+{% for net in allowed_networks %}AllowFrom {{ net }}
+{% endfor %}
+{% endif %}
+
+# Optional: lock file for PID
+{% if pid_file is defined %}PIDFile {{ pid_file }}
+{% endif %}

@@ -1,0 +1,74 @@
+# /etc/debmirror.conf
+# Managed by configuration template -- do not edit by hand
+
+# Hostname of the upstream Debian mirror to pull from
+$host = "{{ mirror_host }}";
+
+# Absolute path on the remote host that is the root of the Debian archive
+$inPath = "{{ remote_path }}";
+
+# Local filesystem directory where the mirror will be stored
+$outPath = "{{ local_path }}";
+
+# CPU architectures to mirror; source packages are controlled separately via $nosource
+@arch = ({% for a in arch %}"{{ a }}"{% if not loop.last %}, {% endif %}{% endfor %});
+
+# Distribution suites to mirror (codenames or suite aliases such as stable or bookworm-updates)
+@dist = ({% for d in dist %}"{{ d }}"{% if not loop.last %}, {% endif %}{% endfor %});
+
+# Repository sections to include in the mirror
+@section = ({% for s in section %}"{{ s }}"{% if not loop.last %}, {% endif %}{% endfor %});
+
+# Transfer protocol to use when fetching from the upstream host: http, ftp, hftp, rsync
+$proto = "{{ proto }}";
+
+# Use passive mode for FTP connections; required behind NAT or a stateful firewall (0/1)
+$passive = {{ 1 if passive else 0 }};
+
+# Skip mirroring source packages (.dsc, orig, diff) to reduce disk usage (0/1)
+$nosource = {{ 1 if nosource else 0 }};
+
+# Delete local files that are no longer present in the upstream mirror after each run (0/1)
+$cleanup = {{ 1 if cleanup else 0 }};
+
+# Mirror i18n Translation files so package managers can show localised descriptions (0/1)
+$i18n = {{ 1 if i18n else 0 }};
+
+# Continue mirroring when package-info entries are missing instead of aborting (0/1)
+$ignore_missing_info = {{ 1 if ignore_missing_info else 0 }};
+
+# How to handle upstream Packages diff files: use (apply diffs), mirror, generate, none
+$diff_mode = "{{ diff_mode }}";
+
+# Seconds to wait for a network connection before declaring a timeout
+$timeout = {{ timeout }};
+
+# Number of times to retry a failed file transfer before giving up
+$retries = {{ retries }};
+
+# Maximum number of packages downloaded per invocation; 0 means no limit
+$max_batch = {{ max_batch }};
+
+# GPG keyring used to verify the cryptographic signature on upstream Release files
+$keyring = "{{ keyring }}";
+
+# Path to the log file; set to an empty string to write log output to stdout
+$log_file = "{{ log_file }}";
+
+{% if proto == "rsync" and rsync_bwlimit > 0 %}
+# Bandwidth cap passed to rsync; limits transfer speed in KB/s
+$rsync_extra = "--bwlimit={{ rsync_bwlimit }}";
+
+{% endif %}
+{% if exclude %}
+# Perl-compatible regex patterns matched against file paths; matching files are skipped
+@exclude = ({% for e in exclude %}"{{ e }}"{% if not loop.last %}, {% endif %}{% endfor %});
+
+{% endif %}
+{% if postscript %}
+# Shell command or script path executed once after each successful mirror run
+$postscript = "{{ postscript }}";
+
+{% endif %}
+# Required: a Perl config file included with 'do' must return a true value
+1;

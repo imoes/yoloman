@@ -1,0 +1,117 @@
+{
+  "config.log_to_file": true,
+  "config.log_file": "/var/log/qpsmtpd/qpsmtpd.log",
+  "config.listeners": [
+    {
+      "address": "127.0.0.1",
+      "port": 25
+    },
+    {
+      "address": "0.0.0.0",
+      "port": 587
+    }
+  ],
+  "config.max_connections_per_ip": 30,
+  "config.timeout": 600,
+  "config.auth_backends": [
+    {
+      "type": "pam",
+      "config_file": "/etc/pam.d/smtp"
+    },
+    {
+      "type": "sql",
+      "config_file": "host=localhost dbname=qpsmtpd user=qpsmtpd password=secret"
+    }
+  ],
+  "config.plugins": [
+    {
+      "name": "auth/daemon",
+      "enabled": true
+    },
+    {
+      "name": "tls",
+      "enabled": true
+    },
+    {
+      "name": "check_badmailfrom",
+      "enabled": true
+    },
+    {
+      "name": "check_badrcptto",
+      "enabled": true
+    },
+    {
+      "name": "check_spf",
+      "enabled": true
+    },
+    {
+      "name": "greylisting",
+      "enabled": true
+    },
+    {
+      "name": "spamassassin",
+      "enabled": true
+    },
+    {
+      "name": "rbl",
+      "enabled": false
+    },
+    {
+      "name": "vpopmail",
+      "enabled": false
+    },
+    {
+      "name": "rate",
+      "enabled": true
+    },
+    {
+      "name": "antivirus",
+      "enabled": true
+    }
+  ],
+  "config.spamassassin": {
+    "enabled": true,
+    "port": 783,
+    "timeout": 30
+  },
+  "config.rbl": {
+    "enabled": false,
+    "server": "zen.spamhaus.org"
+  },
+  "config.tls": {
+    "enabled": true,
+    "cert_file": "/etc/ssl/certs/qpsmtpd.crt",
+    "key_file": "/etc/ssl/private/qpsmtpd.key",
+    "ciphers": "ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256"
+  },
+  "config.vpopmail": {
+    "enabled": false,
+    "vpopmail_dir": "/home/vpopmail"
+  },
+  "config.greylisting": {
+    "enabled": true,
+    "delay": 300,
+    "whitelist_time": 86400
+  },
+  "config.rate_limit": {
+    "enabled": true,
+    "seconds": 60,
+    "max_per_second": 10
+  },
+  "config.whitelist": [
+    {
+      "ip": "127.0.0.1",
+      "reason": "Localhost"
+    },
+    {
+      "ip": "::1",
+      "reason": "Localhost IPv6"
+    },
+    {
+      "ip": "10.0.0.0/8",
+      "reason": "Internal network"
+    }
+  ],
+  "config.reject_action": "bounce",
+  "config.queue": "qmail-queue"
+}

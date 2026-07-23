@@ -1,0 +1,76 @@
+# Dovecot configuration — Lua authentication plugin
+# Enable Lua scripting for authentication logic
+# Load the Lua auth module
+{% if auth_lua_enabled %}auth_lua_enabled = yes
+auth_lua_script = "{{ auth_lua_script_path }}"
+{% endif %}
+# Lua auth plugin parameters (passed as environment variables to script)
+{% if auth_lua_params %}{% for param in auth_lua_params %}auth_lua_param_{{ param.name }} = "{{ param.value | replace('"', '\"') }}"
+{% endfor %}{% endif %}
+# Mail location and namespace setup
+mail_location = "{{ mail_location }}"
+{% if namespaces %}{% for ns in namespaces %}namespace {{ ns.name | replace('"', '\"') }} {
+  # {{ ns.description }}
+  type = {{ ns.type }}
+  prefix = {{ ns.prefix | default('""') | replace('"', '\"') }}
+  separator = {{ ns.separator | default('"."') | replace('"', '\"') }}
+  location = {{ ns.location | default('maildir:/tmp') | replace('"', '\"') }}
+}
+{% endfor %}{% endif %}
+# Authentication mechanisms
+{% if auth_mechanisms %}auth_mechanisms = {{ auth_mechanisms | join(', ') }}
+{% endif %}
+# SSL/TLS configuration
+ssl = {{ ssl_mode }}
+{% if ssl_cert %}ssl_cert = <{{ ssl_cert }}
+{% endif %}
+{% if ssl_key %}ssl_key = <{{ ssl_key }}
+{% endif %}
+# Logging
+log_path = {{ log_path | default('syslog') | replace('"', '\"') }}
+log_timestamp_format = "{{ log_timestamp_format }}"
+# Passdb and userdb — Lua handles both via script
+passdb {
+  driver = lua
+  args = {{ auth_lua_script_path }}
+}
+userdb {
+  driver = lua
+  args = {{ auth_lua_script_path }}
+}
+# Service definitions for IMAP/POP3
+{% for service in services %}service {{ service.name }} {
+  unix_listener {{ service.name }}-login {
+    mode = {{ service.login_mode }}
+    user = {{ service.login_user | default('dovecot') | replace('"', '\"') }}
+    group = {{ service.login_group | default('dovecot') | replace('"', '\"') }}
+  }
+{% if service.process_limit is defined %}  process_limit = {{ service.process_limit }}
+{% endif %}
+}
+{% endfor %}
+# Global settings
+first_valid_uid = {{ first_valid_uid }}
+mail_uid = {{ mail_uid }}
+mail_gid = {{ mail_gid }}
+# Protocol-specific settings
+{% if protocols %}protocols = {{ protocols | join(' ') }}
+{% endif %}
+# Login access control
+allow_nets = {{ allow_nets | join(', ') }}
+# Disable plaintext auth unless SSL/TLS
+disable_plaintext_auth = {{ disable_plaintext_auth | lower }}
+# Mailbox limits
+mail_max_userip_connections = {{ mail_max_userip_connections }}
+# Mail plugins
+mail_plugins = {{ mail_plugins | join(' ') }}
+# Auth cache (optional)
+{% if auth_cache_size > 0 %}auth_cache_size = {{ auth_cache_size }}
+{% else %}# auth_cache_size = 0 (disabled)
+{% endif %}
+# Fallback for missing Lua script (e.g., during dev)
+{% if auth_lua_fallback %}# Fallback passdb/userdb (disabled by default)
+# passdb {
+#   driver = pam
+# }
+{% endif %}

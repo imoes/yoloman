@@ -1,0 +1,74 @@
+# getmail6 configuration — retriever, destination, and options
+# https://getmail6.readthedocs.io/
+
+[retriever]
+# Retriever protocol class: SimpleIMAPSSLRetriever, SimpleIMAPRetriever, SimplePOP3SSLRetriever, SimplePOP3Retriever, MultidropIMAPSSLRetriever, MultidropPOP3SSLRetriever
+type = {{ retriever_type }}
+# Hostname or IP address of the mail server
+server = {{ retriever_server }}
+# TCP port: 993=IMAPS, 143=IMAP, 995=POP3S, 110=POP3
+port = {{ retriever_port }}
+# Login username for the mail account (usually the full e-mail address)
+username = {{ retriever_username }}
+{% if retriever_password_command %}
+# Shell command (argv list) whose stdout is used as the account password
+password_command = ({% for arg in retriever_password_command %}"{{ arg }}"{% if not loop.last %}, {% endif %}{% endfor %})
+{% else %}
+# Plaintext account password; prefer password_command for better security
+password = {{ retriever_password }}
+{% endif %}
+{% if "IMAP" in retriever_type %}
+# IMAP mailboxes to fetch; Python tuple syntax with trailing comma is required
+mailboxes = ({% for mb in retriever_mailboxes %}"{{ mb }}"{% if not loop.last %}, {% endif %}{% endfor %},)
+{% endif %}
+
+[destination]
+# Delivery method: Maildir (recommended), Mboxrd, MDA_external, MDA_qmaillocal
+type = {{ destination_type }}
+# Filesystem path for Maildir/Mboxrd; executable path for MDA_external
+path = {{ destination_path }}
+{% if destination_type == "MDA_external" and destination_arguments %}
+# Command-line arguments passed to the MDA executable (Python tuple syntax)
+arguments = ({% for arg in destination_arguments %}"{{ arg }}"{% if not loop.last %}, {% endif %}{% endfor %},)
+{% endif %}
+{% for f in filters %}
+[filter]
+# Filter class applied to each message before delivery
+type = {{ f.type }}
+# Absolute path to the filter program executable
+path = {{ f.path }}
+{% if f.arguments %}
+# Arguments passed to the filter executable (Python tuple syntax)
+arguments = ({% for arg in f.arguments %}"{{ arg }}"{% if not loop.last %}, {% endif %}{% endfor %},)
+{% endif %}
+{% endfor %}
+
+[options]
+# true = retrieve all server messages; false = skip already-seen UIDs
+read_all = {{ options_read_all | lower }}
+# true = delete messages from the server after successful local delivery
+delete = {{ options_delete | lower }}
+# Absolute path for the retrieval log file; empty string disables logging
+message_log = {{ options_message_log }}
+# Verbosity: 0=silent, 1=normal status lines, 2=verbose/debug output
+verbose = {{ options_verbose }}
+# true = prepend a Received: header to each retrieved message
+received = {{ options_received | lower }}
+# true = prepend a Delivered-To: header with the envelope recipient address
+delivered_to = {{ options_delivered_to | lower }}
+{% if options_max_message_size %}
+# Skip retrieval of messages larger than this many bytes
+max_message_size = {{ options_max_message_size }}
+{% endif %}
+{% if options_max_bytes_per_session %}
+# Terminate the session after retrieving this many bytes total
+max_bytes_per_session = {{ options_max_bytes_per_session }}
+{% endif %}
+{% if options_delete_after %}
+# Delete server messages older than this many days even if not yet retrieved
+delete_after = {{ options_delete_after }}
+{% endif %}
+{% if options_delete_bigger_than %}
+# Delete messages larger than this many bytes from server without retrieving
+delete_bigger_than = {{ options_delete_bigger_than }}
+{% endif %}

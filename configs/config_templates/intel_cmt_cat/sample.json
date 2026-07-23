@@ -1,0 +1,33 @@
+{
+  "cat_enabled": true,
+  "cmt_enabled": true,
+  "cmt_interval_ms": 1000,
+  "resctrl_path": "/sys/fs/resctrl",
+  "pid_map_path": "/run/libcmt-cat/pid_to_cos.map",
+  "cos_groups": [
+    {
+      "id": 1,
+      "name": "critical",
+      "cache_mask": "0xFF",
+      "memory_bandwidth": 100,
+      "l3_cache_ways": 8,
+      "cpus": "0-7"
+    },
+    {
+      "id": 2,
+      "name": "best_effort",
+      "cache_mask": "0x0F",
+      "cpus": "8-15"
+    }
+  ],
+  "pid_mappings": [
+    {
+      "pattern": "^nginx$",
+      "cos_id": 1
+    },
+    {
+      "pattern": "^stress$",
+      "cos_id": 2
+    }
+  ]
+}

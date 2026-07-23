@@ -1,0 +1,52 @@
+# glusterd.vol — Main GlusterFS cluster daemon configuration
+# Do not edit manually; managed by configuration management
+
+# Base options
+option transport.address-family inet
+option transport.socket-read-size 0
+option transport.socket-write-size 0
+
+# Logging configuration
+option log-level INFO
+option log-file /var/log/glusterfs/glusterd.log
+
+# Brick root directory where volume bricks are created
+option working-directory /var/lib/glusterd
+
+# Working directory for GlusterFS lock files and state
+option state-file-location /var/lib/glusterd/glusterd.state
+
+# RPC port for GlusterD service (default 24007)
+option rpc-auth.auth-glusterfs.allow {% for host in allowlist_rpc %}{{ host }}{% if not loop.last %}, {% endif %}{% endfor %}
+
+# Volume auto-mount enabled or not (optional, usually disabled in server config)
+option auto-mount no
+
+# Quorum type and count
+option cluster.quorum-type none
+option cluster.quorum-count 0
+
+# Transport type for bricks (tcp, rdma, tcp,rdma)
+option transport-type tcp
+
+# Cluster node communication timeout and retry settings
+option cluster.quorum-timeout 40
+option cluster.rpc-timeout 30
+
+# SSL/TLS for intra-cluster communication (off by default)
+option ssl-enabled no
+
+# GID/UID map file (if used)
+option rpc-auth.auth-unix.allow *
+option rpc-auth.auth-null.allow *
+
+# Peer management options
+option peer-stripping no
+
+# Additional optional settings (uncommented only if explicitly configured)
+{% for key, val in extra_options.items() %}
+option {{ key }} {{ val }}
+{% endfor %}
+
+# Volume definitions are generated separately (e.g., in per-volume .vol files)
+# This file only configures glusterd itself — volume configs live in /etc/glusterfs/volumes/

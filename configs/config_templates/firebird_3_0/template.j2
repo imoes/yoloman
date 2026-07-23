@@ -1,0 +1,115 @@
+# {{{ main server configuration for Firebird 3.0 - auto-managed by template }}
+# Core server behavior
+
+# Path to the root directory of the Firebird installation
+# (used for locating system databases, binaries, libraries, etc.)
+RootDirectory = {{ root_dir }}
+
+# TCP/IP port on which the Firebird server listens for client connections
+# Set to 0 to disable TCP/IP (use only local IPC)
+TCPIPPort = {{ tcpip_port }}
+
+# Host interface(s) the server binds to. Use 'localhost' or IP addresses.
+# Multiple addresses are separated by commas (e.g., '127.0.0.1,::1')
+# Use * to bind to all interfaces (not recommended in production)
+ TCPIPBindAddress = {{ tcpip_bind_address }}
+
+# Maximum number of concurrent client connections allowed
+# Must be ≥ 1; higher values increase memory usage
+MaxConnectCount = {{ max_connect_count }}
+
+# Path to the security database (gsec) and user credentials
+# Typically located under the Firebird root; do not change unless relocating security DB
+SecurityDatabase = {{ security_database_path }}
+
+# Default database path prefix used when no explicit path is given in SQL
+# Clients can override via connection string or alias resolution
+DefaultDatabasePath = {{ default_database_path }}
+
+# {{{ logging and diagnostics }}
+# Enable logging of server activity (connections, errors, shutdowns)
+# Set to 'none' to disable
+LogFilename = {{ log_filename }}
+
+# Maximum size (in MB) of the log file before rotation
+# Use 0 for unlimited size (no rotation)
+LogMaxSize = {{ log_max_size }}
+
+# Enable detailed trace of SQL statements and query execution plans
+# Warning: significantly impacts performance — use only for debugging
+TraceSQL = {{ trace_sql | string | lower }}
+
+# Enable logging of connection attempts (success/failure)
+TraceAuth = {{ trace_auth | string | lower }}
+
+# Trace log filename for authentication events
+TraceFilename = {{ trace_filename }}
+
+# {{{ memory and resource limits }}
+# Size (in MB) of the memory buffer pool used for caching database pages
+# Increase for better performance on systems with ample RAM
+DefaultDbCachePages = {{ default_db_cache_pages }}
+
+# Maximum amount of memory (in MB) a single transaction may use for sorting or joins
+# Exceeding this may cause temporary disk spillover (slower)
+TempCacheLimit = {{ temp_cache_limit }}
+
+# Maximum number of concurrent transactions per database
+# Increase for high-concurrency workloads (requires more memory)
+TransactionMemoryLimit = {{ transaction_memory_limit }}
+
+# {{{ locking and concurrency }}
+# Lock manager hash table size — must be a power of 2
+# Larger tables reduce lock contention under heavy concurrent access
+LockHashSlots = {{ lock_hash_slots }}
+
+# {{{ optional services and extensions }}
+# Enable support for legacy InterBase clients (IB_compat)
+# Not required for modern Firebird clients; enables IB-style error codes
+#IBCompatibility = {{ ib_compatibility | string | lower }}
+
+# Enable monitoring statistics collection (visible via MON$ tables)
+# Slightly increases overhead; essential for performance diagnostics
+#MonitorWrites = {{ monitor_writes | string | lower }}
+
+# {{{ replication and shadowing (advanced) }}
+# Shadow file prefix — shadows will be created with this base name + suffix
+# Shadows provide redundancy by automatically mirroring database writes
+ShadowPath = {{ shadow_path }}
+
+# {{{ cluster and high-availability (if using Firebird SuperServer + external HA) }}
+# Uncomment and configure only for clustered deployments
+#ClusterNode = {{ cluster_node }}
+
+# {{{ security hardening }}
+# Disable remote connections (only local IPC allowed)
+# Set to 'true' for local-only installations (e.g., single-host web app)
+RemoteAccess = {{ remote_access | string | lower }}
+
+# Enforce strict password complexity (length, mixed case, etc.)
+# Applies to new or changed passwords via gsec
+UserPasswordPolicy = {{ user_password_policy | string | lower }}
+
+# {{{ advanced tuning (rarely changed) }}
+# Time (in seconds) before an idle connection is auto-closed
+IdleConnectionTimeout = {{ idle_connection_timeout }}
+
+# Number of worker threads (SuperServer only; ignored in Classic)
+WorkerThreads = {{ worker_threads }}
+
+# Maximum time (ms) allowed for a single query before timeout
+QueryTimeout = {{ query_timeout }}
+
+# Maximum number of open files (ulimit -n); must be ≥ number of DBs × files per DB
+# Increase if encountering 'Too many open files' errors
+# Note: On Linux, also ensure /etc/security/limits.conf is adjusted
+MaxOpenFiles = {{ max_open_files }}
+
+# {{{ alias resolution }}
+# Paths where database aliases are searched (semicolon-separated)
+# Aliases allow client-friendly names (e.g., 'mydb' → '/var/fb/db/mydb.fdb')
+AliasResolution = {{ alias_resolution | join(', ') }}
+
+# {{{ sample alias definitions (auto-generated via alias.conf template if needed) }}
+# For production, manage aliases via /etc/firebird/3.0/aliases.conf
+# and keep this file minimal — this template covers firebird.conf only.

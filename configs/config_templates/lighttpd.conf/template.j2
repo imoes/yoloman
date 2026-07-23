@@ -1,0 +1,90 @@
+# Load required modules
+server.modules = (
+  {{ modules | map('quote') | join(',\n  ') | indent(2, True) }}
+)
+
+# Basic server settings
+server.document-root = "{{ server.document_root }}"
+server.port = {{ server.port }}
+server.bind = "{{ server.bind }}"
+server.pid-file = "{{ server.pid_file }}"
+server.errorlog = "{{ server.errorlog }}"
+server.accesslog = "{{ server.accesslog }}"
+server.max-connections = {{ server.max_connections }}
+server.network-backend = "{{ server.network_backend }}"
+server.event-handlers = {
+  "{{ server.event_handler_key }}" = "{{ server.event_handler_value }}"
+}
+
+# MIME type settings
+mimetype.assign = (
+  {{ mime_types | map('quote') | join(',\n  ') | indent(2, True) }}
+)
+
+# Virtual host configuration (per-host directives)
+$HTTP["host"] == "{{ vhost.domain }}" {
+  server.document-root = "{{ vhost.document_root }}"
+  {{ vhost.extra_config | indent(2) | trim | default('', true) }}
+}
+
+# Directory indexing
+index-file.names = (
+  {{ index_files | map('quote') | join(',\n  ') | indent(2, True) }}
+)
+
+# Static file handling
+static-file.exclude-extensions = (
+  {{ static_file_excludes | map('quote') | join(',\n  ') | indent(2, True) }}
+)
+
+# Logging level
+debug.log-request-handling = {{ debug.log_request_handling | lower }}
+debug.log-response-handling = {{ debug.log_response_handling | lower }}
+debug.log-state-handling = {{ debug.log_state_handling | lower }}
+
+# Compression
+compress.cache-dir = "{{ compress.cache_dir }}"
+compress.filetype = (
+  {{ compress.filetypes | map('quote') | join(',\n  ') | indent(2, True) }}
+)
+
+# SSL configuration (optional)
+{% if ssl.enabled %}
+ssl.engine = "enable"
+ssl.pemfile = "{{ ssl.pemfile }}"
+ssl.ca-file = "{{ ssl.ca_file }}"
+ssl.use-sslv2 = {{ ssl.use_sslv2 | lower }}
+ssl.use-sslv3 = {{ ssl.use_sslv3 | lower }}
+{% else %}
+ssl.engine = "disable"
+{% endif %}
+
+# FastCGI backend (example)
+{% for fcgi in fastcgi.backends %}
+fastcgi.server = (
+  "{{ fcgi.script }}" => (
+    (
+      "host" => "{{ fcgi.host }}",
+      "port" => {{ fcgi.port }},
+      "docroot" => "{{ fcgi.docroot }}"
+    )
+  )
+)
+{% endfor %}
+
+# URL rewriting
+{% for rule in rewrite.rules %}
+$HTTP["url"] =~ "{{ rule.pattern }}" {
+  url.redirect = ( "{{ rule.match_pattern }}" => "{{ rule.target }}" )
+}
+{% endfor %}
+
+# Rate limiting
+{% for host in rate_limit.hosts %}
+$HTTP["host"] == "{{ host.name }}" {
+  connection.rate-limit = {{ host.rate_limit }}
+}
+{% endfor %}
+
+# Custom configuration includes
+include "{{ include.conf_dir }}/*.conf"

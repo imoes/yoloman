@@ -1,0 +1,166 @@
+{
+  "workgroup": {
+    "type": "string",
+    "default": "EXAMPLE",
+    "description": "The NetBIOS workgroup or domain name (typically uppercase)."
+  },
+  "realm": {
+    "type": "string",
+    "default": "example.com",
+    "description": "The DNS realm (uppercase FQDN of the Active Directory domain)."
+  },
+  "netbios_name": {
+    "type": "string",
+    "default": "DC1",
+    "description": "NetBIOS name of this server; must be unique within the domain and \u226415 chars."
+  },
+  "dns_forwarder": {
+    "type": "string",
+    "default": "8.8.8.8",
+    "description": "IP address of the DNS forwarder for external name resolution (e.g., upstream ISP DNS or public resolver)."
+  },
+  "log_file": {
+    "type": "string",
+    "default": "/var/log/samba/log.%m",
+    "description": "Log file path. %m expands to the machine name connecting."
+  },
+  "log_level": {
+    "type": "string",
+    "default": "1",
+    "description": "Global log verbosity level: 0 (none) to 10 (full debug)."
+  },
+  "idmap_lines": {
+    "type": "list",
+    "default": [],
+    "description": "List of ID mapping backend configuration lines (e.g., 'idmap config * : backend = tdb').",
+    "items": {
+      "type": "string",
+      "description": "A single idmap config line."
+    }
+  },
+  "nss_lines": {
+    "type": "list",
+    "default": [],
+    "description": "List of nsswitch config lines (e.g., 'winbind nss info = rfc2307').",
+    "items": {
+      "type": "string",
+      "description": "A single nsswitch-related config line."
+    }
+  },
+  "winbind_lines": {
+    "type": "list",
+    "default": [],
+    "description": "List of Winbind config lines (e.g., 'winbind enum users = yes').",
+    "items": {
+      "type": "string",
+      "description": "A single Winbind config line."
+    }
+  },
+  "netlogon_path": {
+    "type": "string",
+    "default": "/var/lib/samba/sysvol/{{ realm | lower }}/scripts",
+    "description": "Path to the Netlogon share directory."
+  },
+  "netlogon_read_only": {
+    "type": "bool",
+    "default": true,
+    "description": "Whether the Netlogon share is read-only (typically yes for security)."
+  },
+  "netlogon_writable": {
+    "type": "bool",
+    "default": false,
+    "description": "Whether the Netlogon share is writable (should be no)."
+  },
+  "netlogon_guest_ok": {
+    "type": "bool",
+    "default": false,
+    "description": "Whether guests may access the Netlogon share (should be no)."
+  },
+  "sysvol_path": {
+    "type": "string",
+    "default": "/var/lib/samba/sysvol",
+    "description": "Path to the SYSVOL shared directory (contains Group Policy, logon scripts, etc.)."
+  },
+  "sysvol_read_only": {
+    "type": "bool",
+    "default": true,
+    "description": "Whether SYSVOL share is read-only (recommended for DCs)."
+  },
+  "sysvol_writable": {
+    "type": "bool",
+    "default": false,
+    "description": "Whether SYSVOL share is writable (must be no on DCs)."
+  },
+  "sysvol_nt_acl_support": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable NT ACL support in SYSVOL."
+  },
+  "sysvol_inherit_acl": {
+    "type": "bool",
+    "default": true,
+    "description": "Whether ACLs inherit from parent directory in SYSVOL."
+  },
+  "shares": {
+    "type": "list",
+    "default": [],
+    "description": "List of additional Samba shares to define beyond netlogon and sysvol.",
+    "items": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Share name (alphanumeric + underscore, no spaces)."
+        },
+        "path": {
+          "type": "string",
+          "description": "Absolute filesystem path to share."
+        },
+        "comment": {
+          "type": "string",
+          "description": "Optional human-readable description.",
+          "default": ""
+        },
+        "read_only": {
+          "type": "bool",
+          "description": "Whether the share is read-only.",
+          "default": true
+        },
+        "browseable": {
+          "type": "bool",
+          "description": "Whether the share appears in network browsing.",
+          "default": true
+        },
+        "writable": {
+          "type": "bool",
+          "description": "Whether users may write to the share.",
+          "default": false
+        },
+        "guest_ok": {
+          "type": "bool",
+          "description": "Whether guest access is allowed.",
+          "default": false
+        },
+        "valid_users": {
+          "type": "list",
+          "description": "List of users or groups (e.g., 'DOMAIN\\user', '@domain admins') allowed access.",
+          "default": []
+        },
+        "force_create_mode": {
+          "type": "string",
+          "description": "Octal mode to force on new files (e.g., '0644').",
+          "default": ""
+        },
+        "force_directory_mode": {
+          "type": "string",
+          "description": "Octal mode to force on new directories (e.g., '0755').",
+          "default": ""
+        }
+      },
+      "required": [
+        "name",
+        "path"
+      ]
+    }
+  }
+}

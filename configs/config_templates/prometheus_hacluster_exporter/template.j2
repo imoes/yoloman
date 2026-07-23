@@ -1,0 +1,34 @@
+# Environment variables for prometheus-hacluster-exporter
+# This file is sourced by the systemd service at runtime.
+# Set the address and port the exporter listens on.
+LISTEN_ADDRESS="{{ listen_address }}"
+LISTEN_PORT={{ listen_port }}
+
+# Path to the Pacemaker status socket (default: /var/run/pacemaker/pacemakerd.sock)
+PCMK_SOCKET="{{ pcmk_socket }}"
+
+# Enable or disable collection of node health metrics
+ENABLE_NODE_HEALTH={{ enable_node_health | lower }}
+
+# Enable or disable collection of resource agent metrics
+ENABLE_RESOURCE_METRICS={{ enable_resource_metrics | lower }}
+
+# Enable or disable collection of cluster topology (quorum, nodes, resources) metrics
+ENABLE_CLUSTER_TOPOLOGY={{ enable_cluster_topology | lower }}
+
+# Optional: extra label key-value pairs to attach to all metrics (e.g., 'env=prod,region=us-east-1')
+EXTRA_LABELS="{{ extra_labels | default('') }}"
+
+# Optional: timeout in seconds for requests to Pacemaker API (if used)
+PCMK_TIMEOUT={{ pcmk_timeout }}
+
+# Optional: maximum number of concurrent HTTP requests to Pacemaker REST API (if enabled)
+MAX_CONCURRENT_REQUESTS={{ max_concurrent_requests }}
+
+# Enable debug logging
+DEBUG={{ debug | lower }}
+
+# Optional: list of Pacemaker resources to *exclude* from metrics
+{% for resource in excluded_resources %}# Excluded resource: {{ resource }}
+{% endfor %}
+EXCLUDE_RESOURCES="{% for resource in excluded_resources %}{{ resource }}{% if not loop.last %},{% endif %}{% endfor %}"

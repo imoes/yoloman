@@ -1,0 +1,75 @@
+# Mailfromd main configuration file
+# This file configures the mailfromd daemon, which acts as an MTA filter
+# See `man 5 mailfromd.conf` for detailed documentation
+
+# Enable verbose logging to syslog
+verbose {{ verbose }}
+
+# User to drop privileges to after binding to privileged ports
+user "{{ user }}"
+
+# Group to drop privileges to
+# (defaults to user's primary group)
+group "{{ group }}"
+
+# PID file location
+pidfile "{{ pidfile }}"
+
+# chroot directory (empty string disables chroot)
+# Set to empty string to run without chroot
+chroot "{{ chroot }}"
+
+# Maximum number of simultaneous connections
+max-connections {{ max_connections }}
+
+# Maximum number of recipients per message
+max-recipients {{ max_recipients }}
+
+# Timeout for SMTP commands (in seconds)
+command-timeout {{ command_timeout }}
+
+# Timeout for data transfer (in seconds)
+data-timeout {{ data_timeout }}
+
+# Timeout for connection establishment (in seconds)
+connect-timeout {{ connect_timeout }}
+
+# Listen address(es) and port(s)
+# Supports multiple listen directives
+{% for listener in listeners %}
+listen {{ listener.address }} {{ listener.port }}
+{% endfor %}
+
+# TLS/SSL configuration (optional)
+{% if tls_enabled %}
+tls-certificate "{{ tls_certificate }}"
+tls-key "{{ tls_key }}"
+{% if tls_ca %}tls-ca "{{ tls_ca }}"{% endif %}
+{% endif %}
+
+# DNSBL (DNS-based Blackhole List) configuration
+{% for dnsbl in dnsbls %}
+dnsbl "{{ dnsbl.domain }}" {{ dnsbl.action }}{% if dnsbl.ttl %} {{ dnsbl.ttl }}{% endif %}
+{% endfor %}
+
+# Whitelisted hosts/networks
+{% for whitelist in whitelists %}
+whitelist {{ whitelist.network }}{% if whitelist.comment %} # {{ whitelist.comment }}{% endif %}
+{% endfor %}
+
+# Action to take for blocked senders
+blocked-action {{ blocked_action }}
+
+# Rate limiting configuration
+{% if rate_limiting %}
+rate-limit {{ rate_limit }}
+{% endif %}
+
+# Log format (syslog priority, or "-" for stdout)
+log-format {{ log_format }}
+
+# Enable SPF validation
+spf {{ "yes" if spf_enabled else "no" }}
+
+# Enable DKIM verification
+dkim {{ "yes" if dkim_enabled else "no" }}

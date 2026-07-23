@@ -1,0 +1,74 @@
+# Limnoria IRC bot configuration file
+# Generated from template; instance-specific values injected via Jinja2
+# Bot identity and credentials
+bot:
+  nick: {{ bot.nick }}
+  user: {{ bot.user }}
+  realname: {{ bot.realname }}
+  server: {{ bot.server }}
+  port: {{ bot.port }}
+  password: {{ bot.password | default('') }}
+  use_ssl: {{ bot.use_ssl | default(false) }}
+  use_proxy: {{ bot.use_proxy | default(false) }}
+  proxy_host: {{ bot.proxy_host | default('') }}
+  proxy_port: {{ bot.proxy_port | default(0) }}
+  proxy_user: {{ bot.proxy_user | default('') }}
+  proxy_password: {{ bot.proxy_password | default('') }}
+
+# Network channels to join on connect
+channels:
+{% for channel in channels %}
+  - name: {{ channel.name }}
+    key: {{ channel.key | default('') }}
+{% endfor %}
+
+# Admin accounts — users with full bot control
+admins:
+{% for admin in admins %}
+  - {{ admin }}
+{% endfor %}
+
+# Command prefix (e.g., '!')
+commandPrefix: {{ command_prefix }}
+
+# Timezone for timestamps
+timezone: {{ timezone }}
+
+# Logging
+logging:
+  enabled: {{ logging.enabled }}
+  path: {{ logging.path }}
+  format: {{ logging.format }}
+  level: {{ logging.level }}
+
+# Plugins — loaded and their per-plugin config
+plugins:
+{% for plugin in plugins %}
+  - name: {{ plugin.name }}
+    enabled: {{ plugin.enabled }}
+{% endfor %}
+
+# Per-plugin configuration blocks (optional, omitted if no config present)
+{% for plugin in plugins if plugin.config %}
+{{ plugin.name | replace('.', '_') }}:
+{% for key, value in plugin.config.items() %}
+  {{ key }}: {{ value | to_json }}
+{% endfor %}
+{% endfor %}
+
+# Rate limiting and safety
+limits:
+  flood_rate: {{ limits.flood_rate }}
+  flood_burst: {{ limits.flood_burst }}
+  max_messages_per_minute: {{ limits.max_messages_per_minute }}
+
+# Internal database path
+database:
+  url: {{ database.url }}
+
+# Language
+language: {{ language }}
+
+# Debugging
+debug:
+  enabled: {{ debug.enabled }}

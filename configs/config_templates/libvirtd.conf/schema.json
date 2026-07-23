@@ -1,0 +1,199 @@
+{
+  "libvirtd_config_file": {
+    "type": "string",
+    "default": "/etc/libvirt/libvirtd.conf",
+    "description": "Path to this configuration file (usually auto-detected)."
+  },
+  "libvirtd_config_dir": {
+    "type": "string",
+    "default": "/etc/libvirt",
+    "description": "Directory containing libvirtd configuration files."
+  },
+  "log_file": {
+    "type": "string",
+    "default": "/var/log/libvirt/libvirtd.log",
+    "description": "Path to the libvirtd log file."
+  },
+  "log_level": {
+    "type": "number",
+    "default": 3,
+    "description": "Logging verbosity: 1 (error) to 4 (debug)."
+  },
+  "log_filters": {
+    "type": "string",
+    "default": "3:json 1:libvirt 1:qemu",
+    "description": "Semicolon-separated filter rules (e.g., 'level:component')."
+  },
+  "log_outputs": {
+    "type": "string",
+    "default": "1:file:/var/log/libvirt/libvirtd.log",
+    "description": "Semicolon-separated output rules (e.g., 'level:destination')."
+  },
+  "audit_level": {
+    "type": "number",
+    "default": 0,
+    "description": "Audit logging level: 0 (off), 1 (basic), 2 (detailed)."
+  },
+  "audit_backend": {
+    "type": "string",
+    "default": "libvirt",
+    "description": "Audit backend: 'libvirt' (internal) or 'auditd' (systemd)."
+  },
+  "auth_unix_ro": {
+    "type": "list",
+    "default": [
+      "none",
+      "polkit"
+    ],
+    "description": "List of authentication methods for read-only Unix socket access (max 2)."
+  },
+  "auth_unix_rw": {
+    "type": "list",
+    "default": [
+      "none",
+      "polkit"
+    ],
+    "description": "List of authentication methods for read-write Unix socket access (max 2)."
+  },
+  "unix_sock_ro_perms": {
+    "type": "string",
+    "default": "0777",
+    "description": "Octal permission mask for read-only Unix socket."
+  },
+  "unix_sock_rw_perms": {
+    "type": "string",
+    "default": "0770",
+    "description": "Octal permission mask for read-write Unix socket."
+  },
+  "unix_sock_dir": {
+    "type": "string",
+    "default": "/var/run/libvirt",
+    "description": "Directory containing Unix sockets (e.g., /var/run/libvirt/libvirt-sock)."
+  },
+  "listen_tcp": {
+    "type": "boolean",
+    "default": false,
+    "description": "Enable TCP listener for remote connections (insecure without TLS)."
+  },
+  "listen_tls": {
+    "type": "boolean",
+    "default": true,
+    "description": "Enable TLS-encrypted TCP listener for secure remote connections."
+  },
+  "tcp_port": {
+    "type": "string",
+    "default": "16509",
+    "description": "TCP port for non-TLS libvirtd connections."
+  },
+  "tls_port": {
+    "type": "string",
+    "default": "16514",
+    "description": "TCP port for TLS-secured libvirtd connections."
+  },
+  "listen_addr": {
+    "type": "string",
+    "default": "0.0.0.0",
+    "description": "IP address libvirtd binds to for TCP/TLS listeners."
+  },
+  "tls_cert_directory": {
+    "type": "string",
+    "default": "/etc/pki/libvirt",
+    "description": "Base directory containing TLS certificates and keys."
+  },
+  "tls_allowed_cn_list": {
+    "type": "list",
+    "default": [],
+    "description": "List of allowed Common Names (CNs) in client certificates (empty = allow all)."
+  },
+  "max_workers": {
+    "type": "number",
+    "default": 10,
+    "description": "Maximum number of worker threads in the pool."
+  },
+  "min_workers": {
+    "type": "number",
+    "default": 2,
+    "description": "Minimum number of worker threads kept ready."
+  },
+  "max_clients": {
+    "type": "number",
+    "default": 20,
+    "description": "Maximum number of simultaneous client connections."
+  },
+  "max_requests": {
+    "type": "number",
+    "default": 50,
+    "description": "Maximum number of requests per client connection."
+  },
+  "client_idle_timeout": {
+    "type": "number",
+    "default": 300,
+    "description": "Seconds before idle client connections are closed (0 = disabled)."
+  },
+  "network_start": {
+    "type": "boolean",
+    "default": true,
+    "description": "Whether to auto-start the default virtual network (libvirt-default)."
+  },
+  "default_uri": {
+    "type": "string",
+    "default": "qemu:///system",
+    "description": "Default hypervisor URI for local clients (e.g., virsh)."
+  },
+  "auto_start_storage_pools": {
+    "type": "list",
+    "default": [
+      "default"
+    ],
+    "description": "List of storage pool names to auto-start at libvirtd startup."
+  },
+  "qemu_user": {
+    "type": "string",
+    "default": "qemu",
+    "description": "User account under which QEMU processes run."
+  },
+  "qemu_group": {
+    "type": "string",
+    "default": "qemu",
+    "description": "Group ownership for QEMU processes and disks."
+  },
+  "qemu_dynamic_ownership": {
+    "type": "boolean",
+    "default": true,
+    "description": "Whether libvirt should chown disk images for QEMU access."
+  },
+  "qemu_image_configuration": {
+    "type": "list",
+    "default": [
+      {
+        "format": "raw",
+        "cache": "none",
+        "discard": "unmap",
+        "detect_zeroes": "unmap"
+      }
+    ],
+    "description": "Per-image storage configuration overrides (applied to all images by default).",
+    "items": {
+      "format": {
+        "type": "string",
+        "default": "raw",
+        "description": "Image format (raw, qcow2, etc.)."
+      },
+      "cache": {
+        "type": "string",
+        "default": "none",
+        "description": "Cache mode for I/O (none, writeback, etc.)."
+      },
+      "discard": {
+        "type": "string",
+        "default": "unmap",
+        "description": "Handling of discarded blocks (e.g., TRIM)."
+      },
+      "detect_zeroes": {
+        "type": "string",
+        "default": "unmap",
+        "description": "Optimize zero-filling of blocks."
+      }
+    }
+  }
+}

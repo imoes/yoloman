@@ -1,0 +1,209 @@
+{
+  "server": {
+    "type": "object",
+    "description": "Core server identification and network metadata",
+    "items": {
+      "name": {
+        "type": "string",
+        "default": "irc.example.com",
+        "description": "Fully qualified hostname of the IRC server (must be resolvable)"
+      },
+      "description": {
+        "type": "string",
+        "default": "Ergo IRC Server",
+        "description": "Human-readable server description shown in /links and /version"
+      },
+      "network": {
+        "type": "string",
+        "default": "ExampleNet",
+        "description": "Network name visible in server links and client info"
+      },
+      "network_id": {
+        "type": "string",
+        "default": "examplenetwork",
+        "description": "Unique lowercase ID for the network (used in STS and other internal references)"
+      }
+    }
+  },
+  "limits": {
+    "type": "object",
+    "description": "Maximum lengths and counts enforced network-wide",
+    "items": {
+      "max_nick_length": {
+        "type": "number",
+        "default": 32,
+        "description": "Maximum allowed length of a nickname"
+      },
+      "max_channel_length": {
+        "type": "number",
+        "default": 50,
+        "description": "Maximum length of a channel name"
+      },
+      "max_topic_length": {
+        "type": "number",
+        "default": 390,
+        "description": "Maximum topic line length"
+      },
+      "max_message_length": {
+        "type": "number",
+        "default": 512,
+        "description": "Maximum total length of a message line (including prefix and command)"
+      },
+      "max_bans": {
+        "type": "number",
+        "default": 100,
+        "description": "Maximum number of ban entries per channel"
+      },
+      "max_modes": {
+        "type": "number",
+        "default": 20,
+        "description": "Maximum number of modes per channel"
+      }
+    }
+  },
+  "operators": {
+    "type": "list",
+    "description": "List of network operators (opers) with administrative privileges",
+    "items": {
+      "type": "object",
+      "items": {
+        "name": {
+          "type": "string",
+          "default": "",
+          "description": "Unique operator name (used in /oper)"
+        },
+        "password_hash": {
+          "type": "string",
+          "default": "",
+          "description": "Argon2id hash (or similar) of operator\u2019s password; never store plaintext"
+        },
+        "type": {
+          "type": "string",
+          "default": "admin",
+          "description": "Operator type (e.g., 'admin', 'netadmin', 'helpop')"
+        },
+        "mask": {
+          "type": "string",
+          "default": "*!*@*",
+          "description": "User/hostmask pattern that this oper may use to authenticate"
+        },
+        "flags": {
+          "type": "list",
+          "default": [
+            "can_ban",
+            "can_kick",
+            "can_override"
+          ],
+          "description": "List of permission flags for this oper"
+        }
+      }
+    }
+  },
+  "listeners": {
+    "type": "list",
+    "description": "List of TCP listener endpoints (ports + bind addresses) for clients",
+    "items": {
+      "type": "object",
+      "items": {
+        "bind": {
+          "type": "string",
+          "default": "0.0.0.0",
+          "description": "IP address to bind to (e.g., '127.0.0.1', '::')"
+        },
+        "port": {
+          "type": "number",
+          "default": 6667,
+          "description": "TCP port to listen on"
+        },
+        "tls": {
+          "type": "boolean",
+          "default": false,
+          "description": "Whether to use TLS on this listener"
+        },
+        "tls_cert": {
+          "type": "string",
+          "default": "",
+          "description": "Path to TLS certificate file (PEM format); required if tls=true"
+        },
+        "tls_key": {
+          "type": "string",
+          "default": "",
+          "description": "Path to TLS private key file; required if tls=true"
+        }
+      }
+    }
+  },
+  "tls": {
+    "type": "object",
+    "description": "Global TLS defaults (for optional client-side TLS support)",
+    "items": {
+      "enabled": {
+        "type": "boolean",
+        "default": false,
+        "description": "Enable TLS globally (used for STS and legacy fallback)"
+      },
+      "cert": {
+        "type": "string",
+        "default": "/etc/ergochat/certs/server.crt",
+        "description": "Default TLS certificate path"
+      },
+      "key": {
+        "type": "string",
+        "default": "/etc/ergochat/certs/server.key",
+        "description": "Default TLS private key path"
+      }
+    }
+  },
+  "log": {
+    "type": "object",
+    "description": "Logging behavior and output",
+    "items": {
+      "level": {
+        "type": "string",
+        "default": "info",
+        "description": "Minimum log level: 'debug', 'info', 'warn', or 'error'"
+      },
+      "format": {
+        "type": "string",
+        "default": "logfmt",
+        "description": "Log format: 'logfmt' (structured) or 'json'"
+      },
+      "output": {
+        "type": "string",
+        "default": "stderr",
+        "description": "Log destination: 'stderr', 'stdout', or file path"
+      }
+    }
+  },
+  "advanced": {
+    "type": "object",
+    "description": "Optional advanced features and protocol extensions",
+    "items": {
+      "enable_webirc": {
+        "type": "boolean",
+        "default": false,
+        "description": "Enable WebIRC gateway support (for web clients connecting via proxy)"
+      },
+      "enable_ban_reasons": {
+        "type": "boolean",
+        "default": true,
+        "description": "Include ban reason in MODE +b output"
+      },
+      "enable_sts": {
+        "type": "boolean",
+        "default": false,
+        "description": "Enable STS (TLS Policy) support for auto-upgrading connections"
+      },
+      "sts_duration": {
+        "type": "number",
+        "default": 2592000,
+        "description": "STS duration in seconds (30 days typical)"
+      },
+      "sts_preload": {
+        "type": "boolean",
+        "default": false,
+        "description": "Include 'preload' flag in STS header (for HSTS preload list)"
+      }
+    }
+  }
+}

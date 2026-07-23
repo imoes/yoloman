@@ -1,0 +1,80 @@
+# Configuration for ARC Data Delivery Service (arc_datadelivery)
+[General]
+# Directory where the service stores its runtime data and logs
+logdir = {{ logdir }}
+# Directory for storing temporary files
+datadir = {{ datadir }}
+# Number of worker threads for handling requests
+workers = {{ workers }}
+# Maximum number of concurrent file transfers
+max_transfers = {{ max_transfers }}
+# Enable or disable debug logging
+debug = {{ debug }}
+# Enable or disable verbose logging
+verbose = {{ verbose }}
+
+[Server]
+# Hostname or IP address the service binds to
+host = {{ server_host }}
+# Port the service listens on
+port = {{ server_port }}
+# Path to SSL certificate (optional; leave blank to disable HTTPS)
+cert_file = {{ cert_file | default('') }}
+# Path to SSL private key (optional; only used if cert_file is set)
+key_file = {{ key_file | default('') }}
+
+[Storage]
+# Base path for user data storage
+base_path = {{ storage_base_path }}
+# Maximum size (in bytes) allowed for a single uploaded file
+max_file_size = {{ max_file_size }}
+# Maximum total storage quota per user (in bytes)
+max_quota_per_user = {{ max_quota_per_user }}
+# Enable or enforce quota checks
+enforce_quota = {{ enforce_quota }}
+
+[LDAP]
+# Enable LDAP authentication
+enabled = {{ ldap_enabled }}
+# LDAP server URI
+uri = {{ ldap_uri }}
+# Base DN for user searches
+base_dn = {{ ldap_base_dn }}
+# Bind DN for service account (optional)
+bind_dn = {{ ldap_bind_dn | default('') }}
+# Password for bind DN (optional)
+bind_password = {{ ldap_bind_password | default('') }}
+# Attribute used to match usernames
+username_attr = {{ ldap_username_attr }}
+
+[Email]
+# Enable email notifications for transfer completion
+enabled = {{ email_enabled }}
+# SMTP server host
+smtp_host = {{ smtp_host }}
+# SMTP server port
+smtp_port = {{ smtp_port }}
+# Use TLS for SMTP connection
+tls = {{ smtp_tls }}
+# Sender email address
+from_address = {{ from_address }}
+
+[Workers]
+# Number of threads for background file cleanup tasks
+cleanup_workers = {{ cleanup_workers }}
+# Number of threads for background quota enforcement tasks
+quota_workers = {{ quota_workers }}
+
+# Define allowed client IPs (CIDR notation), one per line (optional)
+{% if allowed_ips | length > 0 %}
+[Access]
+# List of allowed client IP ranges
+allowed_ips = {{ allowed_ips | join(', ') }}
+{% endif %}
+
+# Define allowed client IPs (CIDR notation), one per line (optional)
+{% if blocked_ips | length > 0 %}
+[Access]
+# List of blocked client IP ranges
+blocked_ips = {{ blocked_ips | join(', ') }}
+{% endif %}

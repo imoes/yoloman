@@ -1,0 +1,38 @@
+# Main listening address for incoming connections
+listen: {{ listen_address }}
+
+# Port on which the collector service listens
+port: {{ port }}
+
+# Number of worker processes to spawn
+workers: {{ workers }}
+
+# Directory for storing collected artifacts
+artifacts_dir: {{ artifacts_dir }}
+
+# Maximum size (in MB) of a single collected artifact
+max_artifact_size_mb: {{ max_artifact_size_mb }}
+
+# Maximum number of concurrent connections
+max_connections: {{ max_connections }}
+
+# Enable compression of artifacts before storage
+compress_artifacts: {{ compress_artifacts }}
+
+# List of trusted upstream debci relays (used for fetching job definitions)
+relays:
+{% for relay in relays %}  - host: {{ relay.host }}
+    port: {{ relay.port }}
+    use_tls: {{ relay.use_tls }}
+{% endfor %}
+
+# Logging configuration
+log_level: {{ log_level }}
+log_file: {{ log_file }}
+
+# Enable/disable metrics collection (exposed on /metrics endpoint)
+metrics_enabled: {{ metrics_enabled }}
+metrics_port: {{ metrics_port }}
+
+# Optional: custom health check endpoint
+health_endpoint: {{ health_endpoint }}

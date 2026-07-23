@@ -1,0 +1,47 @@
+# Enable Sieve plugin globally
+{% if sieve_global %}plugin {
+  sieve = {{ sieve_global_script }}
+}{% endif %}
+
+# Sieve script storage location
+{% if sieve_global_script_dir %}sieve_global_dir = {{ sieve_global_script_dir }}{% endif %}
+
+# Enable Sieve plugin per-user
+{% if sieve_user_script %}plugin {
+  sieve = {{ sieve_user_script }}
+}{% endif %}
+
+# User-specific Sieve script directory
+{% if sieve_user_script_dir %}sieve_user_script_dir = {{ sieve_user_script_dir }}{% endif %}
+
+# Default Sieve script to run before user scripts (if any)
+{% if sieve_before %}sieve_before = {{ sieve_before }}{% endif %}
+
+# Default Sieve script to run after user scripts (if any)
+{% if sieve_after %}sieve_after = {{ sieve_after }}{% endif %}
+
+# Max Sieve script size (in bytes)
+sieve_max_script_size = {{ sieve_max_script_size }}
+
+# Max number of Sieve scripts a user can have
+sieve_max_scripts = {{ sieve_max_scripts }}
+
+# Max number of personal sieve scripts stored per user
+sieve_max_personal_scripts = {{ sieve_max_personal_scripts }}
+
+# Enable or disable Sieve redirect, fileinto, copy, etc.
+{% if sieve_extensions %}sieve_extensions = {% for ext in sieve_extensions %}{{ ext }}{% if not loop.last %} {% endif %}{% endfor %}{% endif %}
+
+# Debug logging for Sieve
+{% if sieve_debug %}sieve_debug = {{ sieve_debug }}{% endif %}
+
+# Storage backend for Sieve scripts (e.g., maildir, file)
+{% if sieve_storage %}sieve_storage = {{ sieve_storage }}{% endif %}
+
+# Path to the global Sieve script directory (deprecated in newer versions, use sieve_global_dir)
+{% if sieve_global_scripts_dir %}sieve_global_scripts_dir = {{ sieve_global_scripts_dir }}{% endif %}
+
+# Include plugin block with all Sieve-related settings for Dovecot
+{% if sieve_include %}plugin {
+{% for key, val in sieve_include.items() %}  {{ key }} = {{ val }}
+{% endfor %}}{% endif %}

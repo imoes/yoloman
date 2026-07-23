@@ -1,0 +1,69 @@
+# lftp global configuration file
+# Settings apply to all lftp sessions unless overridden in a specific session
+# Set default protocol (ftp, ftps, sftp, http, https)
+protocol: {{ protocol }}
+
+# Default remote host (used by 'open' without arguments)
+set ftp:proxy {{ ftp_proxy | default('') }}
+
+# Set default user (if not specified on command line)
+set ftp:user {{ ftp_user | default('') }}
+
+# Default remote directory after login
+set ftp:passive {{ 'on' if ftp_passive else 'off' }}
+
+# Default locale
+set locale {{ locale }}
+
+# Set default encoding
+set file:charset {{ file_charset }}
+
+# Set default net:timeout (seconds)
+set net:timeout {{ net_timeout }}
+
+# Set default net:max-retries (0 = unlimited)
+set net:max-retries {{ net_max_retries }}
+
+# Set default net:socket-buffer (bytes)
+set net:socket-buffer {{ net_socket_buffer }}
+
+# Enable/disable SSL certificate verification
+set ssl:verify-certificate {{ 'yes' if ssl_verify_certificate else 'no' }}
+
+# Path to SSL CA certificate bundle (if verification enabled)
+set ssl:ca-file {{ ssl_ca_file | default('') }}
+
+# Set default mirror parallel connections
+set mirror:parallel {{ mirror_parallel }}
+
+# Set default mirror:parallel-min-size (bytes)
+set mirror:parallel-min-size {{ mirror_parallel_min_size }}
+
+# Log file (empty string disables logging)
+set xfer:log {{ xfer_log | default('') }}
+
+# Enable/disable logging to syslog
+set xfer:log-syslog {{ 'yes' if xfer_log_syslog else 'no' }}
+
+# Format for date/time in logs
+set xfer:log-time-format {{ xfer_log_time_format }}
+
+# Default mirror:include patterns (list)
+{% for pattern in mirror_include_patterns %}mirror:include {{ pattern }}
+{% endfor %}
+
+# Default mirror:exclude patterns (list)
+{% for pattern in mirror_exclude_patterns %}mirror:exclude {{ pattern }}
+{% endfor %}
+
+# Default mirror:include-regex patterns (list)
+{% for pattern in mirror_include_regex_patterns %}mirror:include-regex {{ pattern }}
+{% endfor %}
+
+# Default mirror:exclude-regex patterns (list)
+{% for pattern in mirror_exclude_regex_patterns %}mirror:exclude-regex {{ pattern }}
+{% endfor %}
+
+# Additional runtime config (e.g., per-alias or per-host config)
+{% for alias in aliases %}alias {{ alias.name }} {{ alias.command }}
+{% endfor %}

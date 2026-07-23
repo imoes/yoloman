@@ -1,0 +1,63 @@
+[main]
+# The port on which the LAM daemon listens for incoming connections
+port = {{ daemon_port }}
+
+# The host interface the daemon binds to (empty means all interfaces)
+host = {{ daemon_host }}
+
+# Logging level: debug, info, notice, warning, error, critical
+loglevel = {{ log_level }}
+
+# Path to the log file
+logfile = {{ log_file }}
+
+# Path to the PID file
+pidfile = {{ pid_file }}
+
+# Number of worker processes to spawn
+workers = {{ worker_count }}
+
+[ldap]
+# Comma-separated list of LDAP server URIs (e.g., ldap://server1 ldap://server2)
+servers = {{ ldap_servers | join(', ') }}
+
+# Base DN for LDAP operations
+basedn = {{ ldap_basedn }}
+
+# Bind DN for authentication (anonymous if empty)
+binddn = {{ ldap_binddn }}
+
+# Bind password (empty for anonymous or use keytab/external auth)
+bindpw = {{ ldap_bindpw | default('') }}
+
+# Use TLS (starttls) for connections
+starttls = {{ ldap_starttls | lower }}
+
+# Path to CA certificate file for TLS verification (empty to skip verification)
+cacert = {{ ldap_cacert | default('') }}
+
+[database]
+# Database driver: sqlite, mysql, postgres (currently only sqlite is supported)
+driver = {{ db_driver }}
+
+# Path to SQLite database file (used if driver = sqlite)
+dbfile = {{ db_file }}
+
+[security]
+# Enable SSL/TLS for the daemon (requires certificate/key)
+ssl = {{ ssl_enabled | lower }}
+
+# Path to SSL certificate file
+ssl_cert = {{ ssl_cert_path }}
+
+# Path to SSL private key file
+ssl_key = {{ ssl_key_path }}
+
+# Maximum age (in seconds) of a cached LDAP entry
+cache_ttl = {{ cache_ttl_seconds }}
+
+# Enable request logging
+request_logging = {{ request_logging | lower }}
+
+# Path to request log file
+request_logfile = {{ request_log_file }}

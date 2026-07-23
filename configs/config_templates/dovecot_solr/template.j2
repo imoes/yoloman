@@ -1,0 +1,40 @@
+# Solr full-text search plugin configuration for Dovecot
+plugin {
+  # Enable the Solr FTS plugin
+  fts = solr
+
+  # Comma-separated list of Solr server URLs (supports failover)
+  # Example: http://solr1:8983/solr/dovecot,http://solr2:8983/solr/dovecot
+  fts_solr_urls = {{ solr_urls | join(',') }}
+
+  # HTTP Basic Auth credentials for Solr (optional; leave empty if no auth)
+  fts_solr_username = {{ solr_username | default('') }}
+  fts_solr_password = {{ solr_password | default('') }}
+
+  # Timeout for Solr requests (in seconds)
+  fts_solr_timeout = {{ solr_timeout | int }}
+
+  # Batch size for indexing operations (messages per batch)
+  fts_solr_batch_size = {{ solr_batch_size | int }}
+
+  # Enable or disable automatic indexing on mail delivery
+  fts_solr_autoindex = {% if solr_autoindex %}yes{% else %}no{% endif %}
+
+  # Maximum number of retries for failed indexing attempts
+  fts_solr_retries = {{ solr_retries | int }}
+
+  # Optional: prefix for Solr document IDs to avoid collisions
+  fts_solr_doc_prefix = {{ solr_doc_prefix | default('dovecot:') }}
+
+  # Optional: custom Solr core name (if different from default 'dovecot')
+  fts_solr_core = {{ solr_core | default('dovecot') }}
+
+  # Optional: SSL/TLS settings (for HTTPS endpoints)
+  {% if solr_ssl_enabled %}
+  # Enable SSL/TLS for Solr communication
+  fts_solr_ssl_verify = {% if solr_ssl_verify %}yes{% else %}no{% endif %}
+  fts_solr_ssl_cert = {{ solr_ssl_cert_path | default('') }}
+  fts_solr_ssl_key = {{ solr_ssl_key_path | default('') }}
+  fts_solr_ssl_ca_cert = {{ solr_ssl_ca_cert_path | default('') }}
+  {% endif %}
+}

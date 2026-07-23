@@ -1,0 +1,43 @@
+# Listen address and port
+bind = {{ listen_address }}:{{ listen_port }}
+
+# Maximum number of simultaneous connections
+max_connections = {{ max_connections }}
+
+# Document root directory
+document_root = {{ document_root }}
+
+# Enable directory listing (on/off)
+directory_listing = {{ directory_listing | lower }}
+
+# Enable HTTPS (on/off)
+ssl_enabled = {{ ssl_enabled | lower }}
+
+{% if ssl_enabled %}
+# SSL/TLS certificate file
+ssl_cert = {{ ssl_cert_path }}
+
+# SSL/TLS private key file
+ssl_key = {{ ssl_key_path }}
+{% endif %}
+
+# Default index files to serve (first found wins)
+index_files = {{ index_files | join(', ') }}
+
+# MIME types mapping (optional, leave empty to use built-in defaults)
+{% if mime_types | length > 0 %}
+mime_types =
+{% for ext, mimetype in mime_types %}  {{ ext }} = {{ mimetype }}
+{% endfor %}
+{% else %}
+mime_types =
+{% endif %}
+
+# Log file path (empty = no logging)
+log_file = {{ log_file }}
+
+# User to drop privileges to (empty = don’t drop)
+run_as = {{ run_as_user }}
+
+# Timeout for client requests (seconds)
+timeout = {{ timeout_seconds }}

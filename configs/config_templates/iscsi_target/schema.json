@@ -1,0 +1,167 @@
+{
+  "global_listen_ips": {
+    "type": "list",
+    "default": [],
+    "description": "IP addresses or hostnames to bind the iSCSI target to. Leave empty to use default (0.0.0.0).",
+    "item_type": "string"
+  },
+  "global_listen_port": {
+    "type": "number",
+    "default": 3260,
+    "description": "TCP port on which the iSCSI target listens. Standard iSCSI port is 3260."
+  },
+  "global_node_system_name": {
+    "type": "string",
+    "default": "istgt.example.org",
+    "description": "System name used in iSCSI discovery responses and connection negotiation."
+  },
+  "global_auth_method": {
+    "type": "list",
+    "default": [
+      "None"
+    ],
+    "description": "Authentication methods to advertise/support. Common values: 'None', 'CHAP', 'Mutual'.",
+    "item_type": "string"
+  },
+  "global_auth_file": {
+    "type": "string",
+    "default": "/etc/istgt/auth.conf",
+    "description": "Path to the authentication file containing CHAP credentials."
+  },
+  "global_max_connections": {
+    "type": "number",
+    "default": 64,
+    "description": "Maximum number of simultaneous iSCSI connections per target."
+  },
+  "log_level": {
+    "type": "number",
+    "default": 1,
+    "description": "Verbosity: 0=errors only, 1=warnings, 2=info, 3=debug."
+  },
+  "log_file": {
+    "type": "string",
+    "default": "",
+    "description": "Path to write logs. Leave blank to log to stdout/stderr."
+  },
+  "storage_units": {
+    "type": "list",
+    "default": [],
+    "description": "List of storage units (backing stores) that become LUNs. Each maps to one physical/logical storage.",
+    "items": {
+      "name": {
+        "type": "string",
+        "default": "",
+        "description": "Unique name for the storage unit (used in Unit:... section header)."
+      },
+      "type": {
+        "type": "string",
+        "default": "FileIo",
+        "allowed_values": [
+          "FileIo",
+          "BlockIo",
+          "Memory"
+        ],
+        "description": "Type of storage backend: FileIo (file-backed), BlockIo (device), or Memory (RAM disk)."
+      },
+      "path": {
+        "type": "string",
+        "default": "",
+        "description": "File path (for FileIo), block device (e.g., /dev/sdX), or memory size (e.g., '128M' for Memory)."
+      },
+      "blocksize": {
+        "type": "number",
+        "default": 512,
+        "description": "Block size in bytes. Use 512 for compatibility; 4096 for advanced format devices."
+      },
+      "blocks": {
+        "type": "string",
+        "default": "",
+        "description": "Number of blocks (e.g., '1048576'), required for BlockIo/Memory. Omit to auto-detect for FileIo."
+      },
+      "write_cache": {
+        "type": "bool",
+        "default": false,
+        "description": "Enable write-back caching? Use false for safety; true may improve performance (risky without power loss protection)."
+      },
+      "lun_map": {
+        "type": "list",
+        "default": [],
+        "description": "List of Target:LUN pairs to assign this unit to. Example: ['Target1:0', 'Target2:1'].",
+        "item_type": "string"
+      }
+    }
+  },
+  "targets": {
+    "type": "list",
+    "default": [],
+    "description": "List of iSCSI targets (IQNs) and their access policies.",
+    "items": {
+      "name": {
+        "type": "string",
+        "default": "",
+        "description": "Target name (used in section header [Target:...]). Will be advertised as iqn.yyyy-mm...."
+      },
+      "auth_type": {
+        "type": "string",
+        "default": "Auto",
+        "allowed_values": [
+          "Auto",
+          "None",
+          "CHAP",
+          "Mutual"
+        ],
+        "description": "Authentication method: Auto (negotiate), None (no auth), CHAP, or Mutual (two-way CHAP)."
+      },
+      "allowed_initiators": {
+        "type": "list",
+        "default": [
+          "0.0.0.0/0"
+        ],
+        "description": "List of allowed initiator IPs, networks (CIDR), or IQNs. Restrict for security.",
+        "item_type": "string"
+      },
+      "deny_initiators": {
+        "type": "list",
+        "default": [],
+        "description": "List of IPs/IQNs explicitly denied access. Takes precedence over allowed.",
+        "item_type": "string"
+      }
+    }
+  },
+  "storage_mappings": {
+    "type": "list",
+    "default": [],
+    "description": "Per-target LUN mappings when not declared in storage units. Needed if units use dynamic LUN allocation.",
+    "items": {
+      "target": {
+        "type": "string",
+        "default": "",
+        "description": "Target name (must match a Target section)."
+      },
+      "lun_map": {
+        "type": "list",
+        "default": [],
+        "description": "Unit name \u2192 LUN assignment per target.",
+        "items": {
+          "unit": {
+            "type": "string",
+            "default": "",
+            "description": "Name of a defined storage unit (from [Unit:...])."
+          },
+          "lun": {
+            "type": "number",
+            "default": 0,
+            "minimum": 0,
+            "maximum": 255,
+            "description": "LUN ID (0\u2013255). Must be unique per target."
+          }
+        }
+      }
+    }
+  },
+  "auth_file_override": {
+    "type": "string",
+    "default": "/etc/istgt/auth.conf",
+    "description": "Override path for auth file. Only change if you move auth.conf elsewhere."
+  }
+}

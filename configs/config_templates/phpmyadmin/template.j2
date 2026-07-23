@@ -1,0 +1,55 @@
+<?php
+{% if server_host %}  // Server to connect to (hostname or IP)
+  $cfg['Servers'][1]['host'] = '{{ server_host }}';
+{% endif %}
+{% if server_port %}  // MySQL port (3306 is default)
+  $cfg['Servers'][1]['port'] = '{{ server_port }}';
+{% endif %}
+  // Authentication method (config or http)
+  $cfg['Servers'][1]['auth_type'] = '{{ auth_type }}';
+{% if auth_type == 'config' %}  // MySQL user and password for config auth
+  $cfg['Servers'][1]['user'] = '{{ mysql_user }}';
+  $cfg['Servers'][1]['password'] = '{{ mysql_password }}';
+{% endif %}
+  // MySQL control user (for advanced features like relation views, SQL history, etc.)
+  $cfg['Servers'][1]['controluser'] = '{{ control_user }}';
+  $cfg['Servers'][1]['controlpass'] = '{{ control_pass }}';
+{% if cookie_secure %}  // Force secure cookies (HTTPS only)
+  $cfg['SecureCookie'] = true;
+{% else %}  $cfg['SecureCookie'] = false;
+{% endif %}
+  // Session lifetime in seconds
+  $cfg['LoginCookieStore'] = {{ login_cookie_store }};
+  $cfg['LoginCookieValidity'] = {{ login_cookie_validity }};
+  // Default language (e.g., 'en', 'de', 'fr')
+  $cfg['DefaultLang'] = '{{ default_lang }}';
+{% if default_db %}  // Default database to show after login (optional)
+  $cfg['DefaultTargetDatabase'] = '{{ default_db }}';
+{% endif %}
+  // Server-specific settings
+  $cfg['Servers'][1]['connect_type'] = 'tcp';
+  $cfg['Servers'][1]['compress'] = {{ compress|lower }};
+  $cfg['Servers'][1]['AllowNoPassword'] = {{ allow_no_password|lower }};
+  // Maximum number of recent databases
+  $cfg['Servers'][1]['recent_limit'] = {{ recent_limit }};
+  // Maximum number of rows in table view
+  $cfg['MaxRows'] = {{ max_rows }};
+  // Upload/Download settings
+  $cfg['UploadDir'] = '{{ upload_dir }}';
+  $cfg['SaveDir'] = '{{ save_dir }}';
+{% if servers | length > 1 %}  // Additional servers (for multi-server setups)
+{% for idx, server in servers[1:] | enumerate(start=1) %}
+  // Server {{ idx + 1 }}: {{ server.host }}
+  $cfg['Servers'][{{ idx + 1 }}]['host'] = '{{ server.host }}';
+{% if server.port %}  $cfg['Servers'][{{ idx + 1 }}]['port'] = '{{ server.port }}';
+{% endif %}
+  $cfg['Servers'][{{ idx + 1 }}]['auth_type'] = '{{ server.auth_type | default(auth_type) }}';
+{% if server.auth_type | default(auth_type) == 'config' %}
+  $cfg['Servers'][{{ idx + 1 }}]['user'] = '{{ server.user | default(mysql_user) }}';
+  $cfg['Servers'][{{ idx + 1 }}]['password'] = '{{ server.password | default(mysql_password) }}';
+{% endif %}
+  $cfg['Servers'][{{ idx + 1 }}]['connect_type'] = 'tcp';
+  $cfg['Servers'][{{ idx + 1 }}]['compress'] = {{ server.compress | default(compress) | lower }};
+  $cfg['Servers'][{{ idx + 1 }}]['AllowNoPassword'] = {{ server.allow_no_password | default(allow_no_password) | lower }};
+{% endfor %}
+{% endif %}

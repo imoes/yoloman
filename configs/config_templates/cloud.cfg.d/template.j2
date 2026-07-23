@@ -1,0 +1,76 @@
+#cloud-config
+# Base configuration for cloud-init, loaded from cloud.cfg.d/
+# This file is processed by cloud-init at first boot
+# Disable default apt sources to prevent conflicts with custom repo configurations
+apt:
+  disable_sourcelist: true
+
+# Define users and their SSH authorized keys
+# Each user is defined with username, sudo group membership, and SSH keys
+users:
+{% for user in users %}  - name: {{ user.name }}
+{% if user.sudo %}    sudo: {{ user.sudo | join(', ') }}
+{% else %}    sudo: ['ALL=(ALL) NOPASSWD:ALL']
+{% endif %}    ssh_authorized_keys:
+{% for key in user.ssh_keys %}      - {{ key }}
+{% endfor %}{% endfor %}
+
+# Configure package updates and upgrades
+# Apply security updates automatically at boot
+package_update: true
+package_upgrade: {{ package_upgrade }}
+package_reboot_if_required: {{ package_reboot_if_required }}
+
+# Set hostname and FQDN
+# Use cloud metadata if not overridden
+preserve_hostname: {{ preserve_hostname }}
+hostname: {{ hostname }}
+# Optional domain part (if provided)
+{% if domain %}fqdn: {{ hostname }}.{{ domain }}
+{% endif %}
+
+# Configure NTP settings for time synchronization
+# Default to AWS time servers unless overridden
+ntp:
+  enabled: true
+  pools:
+{% for pool in ntp_pools %}    - {{ pool }}
+{% endfor %}
+  conf_file: /etc/chrony/chrony.conf
+  service_name: chronyd
+
+# Install additional packages on first boot
+# Useful for installing common tools or agent software
+packages:
+{% for pkg in packages %}  - {{ pkg }}
+{% endfor %}
+
+# Run custom commands after system setup
+# Commands are executed in order, with output logged to /var/log/cloud-init-output.log
+runcmd:
+{% for cmd in runcmd %}  - {{ cmd }}
+{% endfor %}
+
+# Configure locale and keyboard
+# Set UTF-8 locale and keyboard layout
+locale: {{ locale }}
+keyboard:
+  layout: {{ keyboard_layout }}
+  variant: {{ keyboard_variant }}
+
+# Configure SSH server settings
+# Disable password auth, enforce key-based login
+ssh_pwauth: {{ ssh_pwauth }}
+ssh_deletekeys: {{ ssh_deletekeys }}
+ssh_genkeytypes:
+{% for keytype in ssh_genkeytypes %}  - {{ keytype }}
+{% endfor %}
+
+# Configure system mail settings
+# Forward root mail to designated recipient
+system_info:
+  distro: {{ distro }}
+  paths:
+    cloud_dir: /var/lib/cloud
+    templates_dir: /etc/cloud/templates
+  ssh_svcname: ssh

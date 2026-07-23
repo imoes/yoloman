@@ -1,0 +1,128 @@
+{
+  "fsid": {
+    "type": "string",
+    "default": "",
+    "description": "Unique cluster ID (UUID) for the Ceph cluster. Required for new deployments."
+  },
+  "mon_initial_members": {
+    "type": "list",
+    "items": {
+      "type": "string"
+    },
+    "default": [],
+    "description": "Hostnames or IPs of the initial monitor nodes. Used to bootstrap the initial quorum."
+  },
+  "mon_host": {
+    "type": "list",
+    "items": {
+      "type": "string"
+    },
+    "default": [],
+    "description": "All monitor hostnames or IPs reachable by clients and other monitors. Should include *all* mons, not just initial ones."
+  },
+  "public_network": {
+    "type": "string",
+    "default": "",
+    "description": "CIDR subnet for client-facing network (e.g., 192.168.1.0/24). Optional but strongly recommended for multi-homed setups."
+  },
+  "cluster_network": {
+    "type": "string",
+    "default": "",
+    "description": "CIDR subnet for internal cluster communication (monitor-to-monitor, OSD heartbeats). Optional but recommended for performance isolation."
+  },
+  "auth_cluster_required": {
+    "type": "string",
+    "default": "cephx",
+    "description": "Authentication protocol required for cluster daemons (mon-to-mon). Set to 'none' only for testing."
+  },
+  "auth_service_required": {
+    "type": "string",
+    "default": "cephx",
+    "description": "Authentication protocol required for services (e.g., MDS, RBD)."
+  },
+  "auth_client_required": {
+    "type": "string",
+    "default": "cephx",
+    "description": "Authentication protocol required for clients."
+  },
+  "log_file": {
+    "type": "string",
+    "default": "/var/log/ceph/ceph-$name.$pid.log",
+    "description": "Path and format for log files. Supports $name (service name) and $pid placeholders."
+  },
+  "ms_bind_ipv4": {
+    "type": "bool",
+    "default": true,
+    "description": "Bind monitor\u2019s messaging layer to IPv4 addresses."
+  },
+  "ms_bind_ipv6": {
+    "type": "bool",
+    "default": false,
+    "description": "Bind monitor\u2019s messaging layer to IPv6 addresses. Usually disabled unless IPv6-only."
+  },
+  "mon_data": {
+    "type": "string",
+    "default": "/var/lib/ceph/mon/ceph-$id",
+    "description": "Local filesystem path where monitor data (WAL + DB) is stored. Use $id to substitute monitor ID."
+  },
+  "mon_clock_drift_allowed": {
+    "type": "number",
+    "default": 0.05,
+    "description": "Maximum allowed clock drift (in seconds) between monitors before quorum warnings or failures occur. Tighter for production (e.g., 0.05\u20130.1)."
+  },
+  "mon_clock_drift_warn_backoff": {
+    "type": "number",
+    "default": 10,
+    "description": "Time (in seconds) to wait before re-checking clock drift after a warning."
+  },
+  "mon_lease": {
+    "type": "number",
+    "default": 15,
+    "description": "Duration (in seconds) of the primary monitor lease. Longer values increase resilience to transient failures."
+  },
+  "mon_lease_renew_interval": {
+    "type": "number",
+    "default": 10,
+    "description": "Interval (in seconds) between lease renewal attempts by the primary monitor."
+  },
+  "mon_lease_ack_timeout": {
+    "type": "number",
+    "default": 20,
+    "description": "Timeout (in seconds) to wait for acknowledgment of a lease request from the secondary monitors."
+  },
+  "mon_osd_min_down_reporters": {
+    "type": "number",
+    "default": 1,
+    "description": "Minimum number of OSDs that must report an OSD as down before the monitor considers it down. Prevents false positives in large clusters."
+  },
+  "mon_osd_reporter_subtree_level": {
+    "type": "string",
+    "default": "host",
+    "description": "CRUSH subtree level to consider when reporting OSD down. Common values: 'host', 'rack', 'root'."
+  },
+  "mon_data_size_hint": {
+    "type": "number",
+    "default": 0,
+    "description": "Hints for monitor database size tuning (0 = auto). Only relevant for legacy filestore mons."
+  },
+  "additional_services": {
+    "type": "list",
+    "items": {
+      "type": "object",
+      "fields": {
+        "name": {
+          "type": "string",
+          "default": "",
+          "description": "Section name (e.g., 'mds', 'osd', or custom name)."
+        },
+        "options": {
+          "type": "object",
+          "default": {},
+          "description": "Key-value pairs of config options for this section."
+        }
+      }
+    },
+    "default": [],
+    "description": "List of additional service sections to append. Useful for adding MDS, RGW, or custom per-daemon overrides."
+  }
+}

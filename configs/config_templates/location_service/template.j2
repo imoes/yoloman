@@ -1,0 +1,52 @@
+# Enable or disable location service globally
+enabled: {{ enabled }}
+
+# Backend modules to load (e.g., gypsy, gpsd, mock)
+backends:
+{% for backend in backends %}  - name: {{ backend.name }}
+{% endfor %}
+
+# Default backend used when multiple are available (must match one of the above names)
+default_backend: {{ default_backend }}
+
+# Logging verbosity level: 0 (error), 1 (warning), 2 (info), 3 (debug)
+log_level: {{ log_level }}
+
+# Path to the PID file
+pid_file: {{ pid_file }}
+
+# Timeout (seconds) for backend initialization
+backend_timeout: {{ backend_timeout }}
+
+# Rate limit: max number of position updates per second
+rate_limit: {{ rate_limit }}
+
+# GNSS hardware configuration (e.g., GPS, GLONASS, Galileo)
+gnss_systems:
+{% for system in gnss_systems %}  - {{ system }}
+{% endfor %}
+
+# Mock location settings (used only if mock backend is enabled)
+{% if mock_enabled %}mock:
+  enabled: {{ mock_enabled }}
+  latitude: {{ mock_latitude }}
+  longitude: {{ mock_longitude }}
+  altitude: {{ mock_altitude }}
+  speed: {{ mock_speed }}
+  heading: {{ mock_heading }}
+  accuracy: {{ mock_accuracy }}
+{% endif %}
+
+# D-Bus interface settings
+interface:
+  name: org.freedesktop.location1
+  path: /org/freedesktop/location1
+
+# Permission policy: 'system' (default, requires privilege escalation), 'user' (permissive)
+permission_policy: {{ permission_policy }}
+
+# Optional: external GPSD server to connect to (ignored unless gypsy backend is disabled)
+{% if gpsd_host %}gpsd:
+  host: {{ gpsd_host }}
+  port: {{ gpsd_port }}
+{% endif %}

@@ -1,0 +1,168 @@
+{
+  "auth_strategy": {
+    "type": "string",
+    "default": "keystone",
+    "description": "Authentication strategy to use. Most common: keystone, noauth."
+  },
+  "core_plugin": {
+    "type": "string",
+    "default": "ml2",
+    "description": "Core plugin for networking (e.g., ml2, linuxbridge, ovs)."
+  },
+  "service_plugins": {
+    "type": "list",
+    "default": [],
+    "description": "List of service plugins to enable (e.g., l3, dhcp, metering, firewall)."
+  },
+  "log_dir": {
+    "type": "string",
+    "default": "/var/log/neutron",
+    "description": "Directory for log files."
+  },
+  "log_file": {
+    "type": "string",
+    "default": "neutron.log",
+    "description": "Main log filename."
+  },
+  "database_url": {
+    "type": "string",
+    "default": "",
+    "description": "Database connection URL (e.g., mysql+pymysql://user:pass@host/db). Leave empty to skip section."
+  },
+  "rpc_backend": {
+    "type": "string",
+    "default": "rabbit",
+    "description": "Deprecated RPC backend. Prefer message_queues for RabbitMQ."
+  },
+  "message_queues": {
+    "type": "list",
+    "default": [
+      {
+        "type": "rabbit",
+        "host": "localhost",
+        "port": 5672,
+        "user": "guest",
+        "password": "guest",
+        "virtual_host": "/"
+      }
+    ],
+    "description": "List of message queue backends; only RabbitMQ supported in this template.",
+    "items": {
+      "type": "object",
+      "fields": {
+        "type": {
+          "type": "string",
+          "default": "rabbit",
+          "description": "Backend type (e.g., rabbit)."
+        },
+        "host": {
+          "type": "string",
+          "default": "localhost",
+          "description": "Message queue hostname."
+        },
+        "port": {
+          "type": "number",
+          "default": 5672,
+          "description": "Message queue port."
+        },
+        "user": {
+          "type": "string",
+          "default": "guest",
+          "description": "Username for authentication."
+        },
+        "password": {
+          "type": "string",
+          "default": "guest",
+          "description": "Password for authentication."
+        },
+        "virtual_host": {
+          "type": "string",
+          "default": "/",
+          "description": "Virtual host path."
+        }
+      }
+    }
+  },
+  "notification_driver": {
+    "type": "string",
+    "default": "",
+    "description": "Single notification driver (deprecated). Prefer notification_drivers."
+  },
+  "notification_drivers": {
+    "type": "list",
+    "default": [
+      "neutron.notifications.audit"
+    ],
+    "description": "List of notification drivers (e.g., neutron.notifications.audit, neutron.notifications.log)."
+  },
+  "metadata_shared_secret": {
+    "type": "string",
+    "default": "",
+    "description": "Shared secret for metadata proxy authentication. Required if using metadata proxy."
+  },
+  "metadata_proxy_socket": {
+    "type": "string",
+    "default": "/var/lib/neutron/metadata_proxy",
+    "description": "Unix socket path for metadata proxy communication."
+  },
+  "metadata_proxy_workers": {
+    "type": "number",
+    "default": 2,
+    "description": "Number of worker processes for metadata proxy."
+  },
+  "quota_driver": {
+    "type": "string",
+    "default": "neutron.db.quota.driver.DbQuotaDriver",
+    "description": "Quota driver class."
+  },
+  "quota_items": {
+    "type": "list",
+    "default": [],
+    "description": "List of quota limits for resources (e.g., network, subnet, port).",
+    "items": {
+      "type": "object",
+      "fields": {
+        "resource": {
+          "type": "string",
+          "default": "",
+          "description": "Name of resource (e.g., network, port)."
+        },
+        "limit": {
+          "type": "number",
+          "default": 10,
+          "description": "Maximum allowed count for this resource."
+        }
+      }
+    }
+  },
+  "api_workers": {
+    "type": "number",
+    "default": 2,
+    "description": "Number of worker processes for the Neutron API service."
+  },
+  "api_bind_host": {
+    "type": "string",
+    "default": "0.0.0.0",
+    "description": "IP address to bind the API service."
+  },
+  "api_bind_port": {
+    "type": "number",
+    "default": 9696,
+    "description": "Port to bind the API service."
+  },
+  "auth_encryption_key": {
+    "type": "string",
+    "default": "",
+    "description": "Key for encrypting auth tokens (for noauth strategy only)."
+  },
+  "enable_notifications": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable or disable Neutron event notifications."
+  },
+  "healthcheck_backend": {
+    "type": "string",
+    "default": "config",
+    "description": "Healthcheck backend (e.g., config, simple)."
+  }
+}

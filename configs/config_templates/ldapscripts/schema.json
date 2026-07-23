@@ -1,0 +1,179 @@
+{
+  "base_dn": {
+    "type": "string",
+    "default": "dc=example,dc=com",
+    "description": "LDAP base DN (Distinguished Name) for directory root. All LDAP operations will be scoped under this DN."
+  },
+  "ldap_uri": {
+    "type": "string",
+    "default": "ldap://localhost:389",
+    "description": "LDAP server URI. Use 'ldap://' for unencrypted or 'ldaps://' for SSL/TLS. Include port if non-standard."
+  },
+  "admin_dn": {
+    "type": "string",
+    "default": "cn=admin,dc=example,dc=com",
+    "description": "DN of the LDAP administrative user with sufficient privileges to add/delete/modify users and groups."
+  },
+  "admin_password": {
+    "type": "string",
+    "default": "",
+    "description": "Password for the administrative user. For security, consider using 'admin_password_file' instead."
+  },
+  "hash_password": {
+    "type": "string",
+    "default": "SSHA",
+    "description": "Algorithm used to hash new passwords. Recommended: SSHA or SHA. Avoid MD5/SHA in production if possible."
+  },
+  "default_shell": {
+    "type": "string",
+    "default": "/bin/bash",
+    "description": "Default login shell assigned to new Unix users."
+  },
+  "default_home": {
+    "type": "string",
+    "default": "/home",
+    "description": "Base path for user home directories (e.g., /home, /users). Full paths will be constructed as {{ default_home }}/{{ username }}."
+  },
+  "default_uid_start": {
+    "type": "number",
+    "default": 1000,
+    "description": "Starting UID number for new user accounts. Should match system UID policy (e.g., \u2265 1000 for regular users)."
+  },
+  "default_gid_start": {
+    "type": "number",
+    "default": 1000,
+    "description": "Starting GID number for new group accounts. Aligns with system GID conventions."
+  },
+  "default_pwd_max_age": {
+    "type": "number",
+    "default": 0,
+    "description": "Maximum password age in days. Set to 0 to disable password expiry."
+  },
+  "default_pwd_min_age": {
+    "type": "number",
+    "default": 0,
+    "description": "Minimum days a password must be used before it can be changed."
+  },
+  "default_pwd_warn": {
+    "type": "number",
+    "default": 7,
+    "description": "Number of days before password expiry to warn the user."
+  },
+  "default_inactivity": {
+    "type": "number",
+    "default": 0,
+    "description": "Days of inactivity allowed after password expiry before account is locked."
+  },
+  "default_account_expire": {
+    "type": "string",
+    "default": "",
+    "description": "Account expiration date in YYYY-MM-DD format. Empty string means no expiry."
+  },
+  "user_objectclass": {
+    "type": "string",
+    "default": "top person organizationalPerson inetOrgPerson posixAccount",
+    "description": "Space-separated list of LDAP object classes for new users. Must be valid for your LDAP schema (e.g., OpenLDAP with nis)."
+  },
+  "group_objectclass": {
+    "type": "string",
+    "default": "top posixGroup",
+    "description": "Space-separated list of LDAP object classes for new groups. Adjust per your schema (e.g., include 'groupOfNames' if using member attributes)."
+  },
+  "default_group": {
+    "type": "string",
+    "default": "users",
+    "description": "CN (common name) of the default primary group for new users. Must exist in LDAP."
+  },
+  "ldapadd_bin": {
+    "type": "string",
+    "default": "/usr/bin/ldapadd",
+    "description": "Full path to the ldapadd binary used to create LDAP entries."
+  },
+  "ldapdelete_bin": {
+    "type": "string",
+    "default": "/usr/bin/ldapdelete",
+    "description": "Full path to the ldapdelete binary."
+  },
+  "ldapmodify_bin": {
+    "type": "string",
+    "default": "/usr/bin/ldapmodify",
+    "description": "Full path to the ldapmodify binary."
+  },
+  "ldappasswd_bin": {
+    "type": "string",
+    "default": "/usr/bin/ldappasswd",
+    "description": "Full path to the ldappasswd binary."
+  },
+  "ldapsearch_bin": {
+    "type": "string",
+    "default": "/usr/bin/ldapsearch",
+    "description": "Full path to the ldapsearch binary."
+  },
+  "ldapcompare_bin": {
+    "type": "string",
+    "default": "/usr/bin/ldapcompare",
+    "description": "Full path to the ldapcompare binary. Leave empty if not needed."
+  },
+  "verbose": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable verbose output for logging and debugging. Set to true for detailed operation info."
+  },
+  "debug": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable debug mode (more detailed than verbose). Only use temporarily for troubleshooting."
+  },
+  "ldap_opts": {
+    "type": "string",
+    "default": "",
+    "description": "Additional CLI options to pass to all LDAP binaries (e.g., -P 3 for LDAPv3). Leave empty unless needed."
+  },
+  "admin_password_file": {
+    "type": "string",
+    "default": "",
+    "description": "Path to a file containing the admin password (for security). Takes precedence over 'admin_password'."
+  },
+  "starttls": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable STARTTLS (upgrade plain LDAP connection to TLS). Only valid for 'ldap://' URIs."
+  },
+  "ca_cert_file": {
+    "type": "string",
+    "default": "",
+    "description": "Path to CA certificate file (PEM format) to verify LDAP server certificate (for ldaps/STARTTLS)."
+  },
+  "client_cert_file": {
+    "type": "string",
+    "default": "",
+    "description": "Path to client certificate file (PEM format) for mutual TLS authentication (if required)."
+  },
+  "client_key_file": {
+    "type": "string",
+    "default": "",
+    "description": "Path to client private key file (PEM format) for mutual TLS authentication."
+  },
+  "group_mappings": {
+    "type": "list",
+    "default": [],
+    "description": "List of additional group mappings for special-purpose groups (e.g., sudo, dialout). Each entry defines the CN, GID, and member attribute.",
+    "items": {
+      "type": "object",
+      "fields": {
+        "cn": {
+          "type": "string",
+          "description": "Common Name (CN) of the group in LDAP."
+        },
+        "gid": {
+          "type": "number",
+          "description": "Numeric GID for the group."
+        },
+        "member_attr": {
+          "type": "string",
+          "description": "LDAP attribute used to store group members (e.g., 'member' for groupOfNames, 'uniqueMember' for groupOfUniqueNames, 'memberUid' for posixGroup)."
+        }
+      }
+    }
+  }
+}

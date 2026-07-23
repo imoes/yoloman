@@ -1,0 +1,45 @@
+{
+  "smtp_host": "smtp.example.com",
+  "smtp_port": 587,
+  "default_from": "noreply@example.com",
+  "verbose": false,
+  "tls_enabled": true,
+  "tls_required": false,
+  "tls_cafile": "/etc/ssl/certs/ca-certificates.crt",
+  "tls_ciphers": "HIGH:!aNULL:!MD5",
+  "routes": [
+    {
+      "match": "for domain",
+      "domain": "internal.example.com",
+      "relay_host": "mail.internal.example.com",
+      "relay_port": 25,
+      "tls_enabled": false
+    },
+    {
+      "match": "for any",
+      "relay_host": "smtp.example.com",
+      "relay_port": 587,
+      "auth_user": "relay",
+      "auth_pass": "secret",
+      "tls_enabled": true
+    }
+  ],
+  "local_delivery_enabled": true,
+  "local_maildir_path": "/var/mail",
+  "aliases": [
+    {
+      "local_user": "admin",
+      "to_user": "sysadmin"
+    },
+    {
+      "local_user": "webmaster",
+      "to_external": "ops@example.com"
+    }
+  ],
+  "auth_backend": {
+    "type": "passwd",
+    "options": {
+      "file": "/etc/passwd"
+    }
+  }
+}

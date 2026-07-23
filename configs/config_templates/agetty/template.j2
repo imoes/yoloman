@@ -1,0 +1,31 @@
+# /etc/default/getty - Configuration for agetty terminals (serial/console)
+# This file is sourced by /lib/systemd/system/getty@.service and controls
+# the behavior of getty for each login terminal.
+
+# Default terminal type for login sessions
+TERM={{ term_type }}
+
+# Default login shell
+LOGIN={{ login_shell }}
+
+# Options passed to getty (e.g., -8 for 8-bit clean, -L for local line, -h for no carrier detect)
+GETTY_OPTIONS="{{ getty_options | join(' ') }}"
+
+# Default baud rate for serial terminals (applies to non-console gettys)
+BAUD_RATE={{ baud_rate }}
+
+# Enable or disable fast boot (skip delay on serial terminals)
+FAST_BOOT={{ 'yes' if fast_boot else 'no' }}
+
+# Delay (in seconds) before attempting to start agetty on a serial port (for slow hardware)
+START_DELAY={{ start_delay }}
+
+# Extra getty instances to launch on additional TTYs (e.g., ['tty4', 'tty5', 'tty6'])
+# Note: These are *additional* to the default console/tty1...tty6.
+# systemd unit overrides may be used for full control.
+{% for t in extra_tty_names %}# Launch getty on {{ t }}
+{% if loop.first %}# (note: systemd already manages tty1-6 by default) {% endif %}
+{% endfor %}
+
+# Encoding and locale (passed to getty via -L or LANG if supported)
+LANG={{ locale }}

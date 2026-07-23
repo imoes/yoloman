@@ -1,0 +1,121 @@
+# Main Exim4 configuration file
+# This file is a template used by update-exim4.conf to generate the active configuration.
+# See /usr/share/doc/exim4-base/README.Debian.gz for details.
+
+# Primary configuration options
+# Set the main host name used in mail headers and SMTP banners
+main_smtp_banner = {{ smtp_banner }}
+
+# Enable or disable TLS
+primary_hostname = {{ primary_hostname }}
+tls_disable_on_connect = {{ tls_disable_on_connect }}
+
+# Interface and port binding
+# Bind to these addresses for incoming SMTP connections
+daemon_smtp_ports = {{ smtp_ports | join(', ') }}
+local_interfaces = {{ local_interfaces | join(', ') }}
+
+# Queue and delivery settings
+queue_run_timeout = {{ queue_run_timeout }}
+queue_max_max_size = {{ queue_max_max_size }}
+
+# Logging
+# Log files are written to /var/log/exim4/
+log_selector = {{ log_selector | join(', ') }}
+
+# ACL configuration — included from separate file by default
+.include_if_exists /etc/exim4/conf.d/acl/99_local-acl_before
+
+# Routers — process incoming mail
+begin routers
+{% for router in routers %}
+{{ router.name }}:
+  driver = {{ router.driver }}
+{% if router.condition is defined %}
+  condition = {{ router.condition }}
+{% endif %}
+{% if router.domains is defined %}
+  domains = {{ router.domains }}
+{% endif %}
+{% if router.transport is defined %}
+  transport = {{ router.transport }}
+{% endif %}
+{% if router.address_data is defined %}
+  address_data = {{ router.address_data }}
+{% endif %}
+{% if router.headers_add is defined %}
+  headers_add = {{ router.headers_add }}
+{% endif %}
+{% if router.skip = true %}
+  skip = true
+{% endif %}
+{% endfor %}
+
+# Transports — define how mail is delivered
+begin transports
+{% for transport in transports %}
+{{ transport.name }}:
+  driver = {{ transport.driver }}
+{% if transport.address_parent is defined %}
+  address_parent = {{ transport.address_parent }}
+{% endif %}
+{% if transport.file is defined %}
+  file = {{ transport.file }}
+{% endif %}
+{% if transport.directory is defined %}
+  directory = {{ transport.directory }}
+{% endif %}
+{% if transport.user is defined %}
+  user = {{ transport.user }}
+{% endif %}
+{% if transport.group is defined %}
+  group = {{ transport.group }}
+{% endif %}
+{% if transport.file_permissions is defined %}
+  file_permissions = {{ transport.file_permissions }}
+{% endif %}
+{% if transport.maildir_format is defined %}
+  maildir_format = {{ transport.maildir_format }}
+{% endif %}
+{% if transport.delivery_date_add is defined %}
+  delivery_date_add = {{ transport.delivery_date_add }}
+{% endif %}
+{% if transport.return_path_add is defined %}
+  return_path_add = {{ transport.return_path_add }}
+{% endif %}
+{% endfor %}
+
+# Routines for retry, rewrite, authenticators, and other sections omitted for brevity
+# — typically included via .include_if_exists in production.
+
+# Authenticators — enable PLAIN, LOGIN, CRAM-MD5, etc.
+begin authenticators
+{% for auth in authenticators %}
+{{ auth.name }}:
+  driver = {{ auth.driver }}
+{% if auth.public_name is defined %}
+  public_name = {{ auth.public_name }}
+{% endif %}
+{% if auth.server_condition is defined %}
+  server_condition = {{ auth.server_condition }}
+{% endif %}
+{% if auth.server_set_id is defined %}
+  server_set_id = {{ auth.server_set_id }}
+{% endif %}
+{% if auth.server_prompts is defined %}
+  server_prompts = {{ auth.server_prompts }}
+{% endif %}
+{% if auth.client_set_id is defined %}
+  client_set_id = {{ auth.client_set_id }}
+{% endif %}
+{% if auth.client_send is defined %}
+  client_send = {{ auth.client_send }}
+{% endif %}
+{% endfor %}
+
+# ACLs — defined in /etc/exim4/conf.d/acl/
+# Below is a minimal stub to show where they go.
+# Actual ACLs are externalized for maintainability.
+# .include_if_exists /etc/exim4/conf.d/acl/30_exim4-config_check_data
+# .include_if_exists /etc/exim4/conf.d/acl/40_exim4-config_check_rcpt
+# .include_if_exists /etc/exim4/conf.d/acl/50_exim4-config_check_reject

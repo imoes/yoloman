@@ -1,0 +1,51 @@
+{
+  "global": {
+    "log_level": 3,
+    "log_file": "/var/log/ptpmon.log",
+    "pid_file": "/run/ptpmon.pid",
+    "interface": "eth0",
+    "domain_number": 0
+  },
+  "alarm": {
+    "enabled": true,
+    "warn_threshold": 1000,
+    "warn_threshold_rms": 100,
+    "error_threshold": 10000,
+    "error_threshold_rms": 1000,
+    "hold_time": 5
+  },
+  "notifications": {
+    "ready_notify": true,
+    "handlers": [
+      {
+        "type": "http",
+        "endpoint": "http://monitoring.internal/alert",
+        "timeout": 5,
+        "retries": 3,
+        "retry_delay": 1
+      },
+      {
+        "type": "syslog",
+        "endpoint": "local0.info"
+      }
+    ]
+  },
+  "health": {
+    "enabled": true,
+    "interval": 5,
+    "timeout": 10
+  },
+  "sinks": {
+    "enabled": true,
+    "endpoints": [
+      {
+        "host": "192.168.1.254",
+        "port": 319
+      },
+      {
+        "host": "ptp-backup.local",
+        "port": 319
+      }
+    ]
+  }
+}

@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Globus GRAM Grid Engine Job Manager (SEG) configuration -->
+<!-- Enable SEG-based SGE job submission for GLOBUS_GRAM -->
+<Configuration>
+  <!-- Enable or disable SGE/SEG job management support -->
+  <Parameter name="SGEEnabled" value="{{ sge_enabled }}" />
+  <!-- Path to the SGE qmaster hostname (for qsub/qstat queries) -->
+  <Parameter name="SGEQmasterHost" value="{{ sge_qmaster_host }}" />
+  <!-- Base path to the SGE installation (e.g., /opt/gridengine) -->
+  <Parameter name="SGERoot" value="{{ sge_root }}" />
+  <!-- Path to SGE cell (e.g., default) -->
+  <Parameter name="SGECell" value="{{ sge_cell }}" />
+  <!-- Path to the qmaster spool directory (used for state persistence) -->
+  <Parameter name="SGEQmasterSpoolDir" value="{{ sge_qmaster_spool_dir }}" />
+  <!-- Path to the execd spool directory (used for worker node state) -->
+  <Parameter name="SGEExecdSpoolDir" value="{{ sge_execd_spool_dir }}" />
+  <!-- Path to the gridftp jobmanager script (internal path used by GRAM) -->
+  <Parameter name="JobManagerScript" value="{{ job_manager_script }}" />
+  <!-- Path to the gridftp jobmanager wrapper script (optional custom wrapper) -->
+  {% if job_manager_wrapper %}
+  <Parameter name="JobManagerWrapper" value="{{ job_manager_wrapper }}" />
+  {% endif %}
+  <!-- List of allowed SGE queue names for job submission -->
+  {% for queue in sge_allowed_queues %}
+  <Parameter name="SGEAllowedQueue" value="{{ queue }}" />
+  {% endfor %}
+  <!-- Default SGE queue for jobs (if none specified in submission) -->
+  <Parameter name="SGEDefaultQueue" value="{{ sge_default_queue }}" />
+  <!-- Maximum number of concurrent jobs allowed per user -->
+  <Parameter name="SGEMaxJobsPerUser" value="{{ sge_max_jobs_per_user }}" />
+  <!-- Maximum walltime (in seconds) allowed for a job -->
+  <Parameter name="SGEMaxWalltime" value="{{ sge_max_walltime }}" />
+  <!-- Maximum number of cores per job -->
+  <Parameter name="SGEMaxCoresPerJob" value="{{ sge_max_cores_per_job }}" />
+  <!-- Enable/Disable use of SGE resource limits (hard/soft limits) -->
+  <Parameter name="SGEUseResourceLimits" value="{{ sge_use_resource_limits }}" />
+</Configuration>

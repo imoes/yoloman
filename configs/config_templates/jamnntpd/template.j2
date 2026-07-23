@@ -1,0 +1,64 @@
+# Listen on the specified interface and port
+bind: {{ listen_address }}:{{ port }}
+
+# Maximum number of simultaneous client connections
+max_connections: {{ max_connections }}
+
+# Path to the message database root
+messagebase_path: {{ messagebase_path }}
+
+# Enable or disable TLS for secure connections
+tls_enabled: {{ tls_enabled }}
+{% if tls_enabled %}
+# TLS certificate chain file
+tls_cert_file: {{ tls_cert_file }}
+# TLS private key file
+tls_key_file: {{ tls_key_file }}
+{% endif %}
+
+# Log level: debug, info, notice, warning, error, critical
+log_level: {{ log_level }}
+
+# Path to the log file
+log_file: {{ log_file }}
+
+# Maximum size (in MB) before log rotation
+log_max_size: {{ log_max_size }}
+
+# Number of rotated log files to retain
+log_retain_count: {{ log_retain_count }}
+
+# Enable or disable article expiration
+expire_enabled: {{ expire_enabled }}
+{% if expire_enabled %}
+# Default retention period (in days)
+expire_default_days: {{ expire_default_days }}
+{% endif %}
+
+# Access control groups
+{% for group in access_groups %}
+# Group: {{ group.name }}
+{% if group.allowed_hosts is defined and group.allowed_hosts %}
+{% if group.allowed_hosts | length > 0 %}
+allow_from: {{ group.allowed_hosts | join(', ') }}
+{% endif %}
+{% else %}
+allow_from: all
+{% endif %}
+{% if group.perms is defined and group.perms %}
+{% for perm in group.perms %}
+{% if perm == 'read' %}
+permissions: read
+{% elif perm == 'post' %}
+permissions: read,post
+{% elif perm == 'admin' %}
+permissions: read,post,admin
+{% endif %}
+{% endfor %}
+{% else %}
+permissions: read
+{% endif %}
+{% endfor %}
+
+# Optional: NNTP server greeting
+server_greeting: "{{ server_greeting }}"

@@ -1,0 +1,487 @@
+{
+  "server_info": {
+    "type": "object",
+    "default": {
+      "name": "irc.example.net",
+      "description": "Undernet IRC Server",
+      "network_name": "Undernet"
+    },
+    "description": "Global server identification: hostname, short description, and network name.",
+    "properties": {
+      "name": {
+        "type": "string",
+        "description": "Server's hostname (FQDN)"
+      },
+      "description": {
+        "type": "string",
+        "description": "Short human-readable server description"
+      },
+      "network_name": {
+        "type": "string",
+        "description": "Network-wide identifier (e.g., 'Undernet', 'Rizon')"
+      }
+    }
+  },
+  "defaults": {
+    "type": "object",
+    "default": {
+      "max_users": 200,
+      "max_nick_length": 32,
+      "max_topic_length": 307,
+      "max_channel_len": 50,
+      "max_alias_len": 20,
+      "max_burst": 10,
+      "min_nick_length": 1,
+      "min_nick_time": 0
+    },
+    "description": "Default limits for all users and clients on the server.",
+    "properties": {
+      "max_users": {
+        "type": "number",
+        "description": "Max concurrent users allowed on this server"
+      },
+      "max_nick_length": {
+        "type": "number",
+        "description": "Maximum nickname length (1\u201332)"
+      },
+      "max_topic_length": {
+        "type": "number",
+        "description": "Maximum channel topic length"
+      },
+      "max_channel_len": {
+        "type": "number",
+        "description": "Maximum channel name length"
+      },
+      "max_alias_len": {
+        "type": "number",
+        "description": "Maximum length of server alias"
+      },
+      "max_burst": {
+        "type": "number",
+        "description": "Max messages allowed before burst protection kicks in"
+      },
+      "min_nick_length": {
+        "type": "number",
+        "description": "Minimum nickname length"
+      },
+      "min_nick_time": {
+        "type": "number",
+        "description": "Time in seconds a user must wait before changing nick (0 = no restriction)"
+      }
+    }
+  },
+  "listeners": {
+    "type": "list",
+    "default": [
+      {
+        "ip": "0.0.0.0",
+        "port": 6667,
+        "options": "0"
+      }
+    ],
+    "description": "List of IP/port pairs the server listens on for client connections.",
+    "items": {
+      "type": "object",
+      "properties": {
+        "ip": {
+          "type": "string",
+          "description": "IP address to bind to (e.g., '0.0.0.0', '127.0.0.1', '::')"
+        },
+        "port": {
+          "type": "number",
+          "description": "Port number (e.g., 6667 for unencrypted, 6697 for SSL)"
+        },
+        "options": {
+          "type": "string",
+          "description": "Connection options bitmask (typically '0'; see docs for advanced use)"
+        }
+      }
+    }
+  },
+  "opers": {
+    "type": "list",
+    "default": [],
+    "description": "Administrative operators (opers) with elevated privileges.",
+    "items": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Operator username (e.g., 'admin')"
+        },
+        "password": {
+          "type": "string",
+          "description": "SHA1-hashed password (recommended: hash via `ircd_pw`)"
+        },
+        "host": {
+          "type": "string",
+          "description": "Hostmask pattern or IP (supports wildcards: '*.edu', '10.0.0.*')"
+        },
+        "class": {
+          "type": "string",
+          "description": "Name of the Class to apply (must match Class.name above)"
+        },
+        "flags": {
+          "type": "object",
+          "properties": {
+            "can_gline": {
+              "type": "boolean",
+              "description": "Ban user by host"
+            },
+            "can_zline": {
+              "type": "boolean",
+              "description": "Ban user by user@host"
+            },
+            "can_rehash": {
+              "type": "boolean",
+              "description": "Reload config without restart"
+            },
+            "can_die": {
+              "type": "boolean",
+              "description": "Shutdown server"
+            },
+            "can_restart": {
+              "type": "boolean",
+              "description": "Restart server"
+            },
+            "can_set": {
+              "type": "boolean",
+              "description": "Change runtime config"
+            }
+          }
+        }
+      }
+    }
+  },
+  "classes": {
+    "type": "list",
+    "default": [
+      {
+        "name": "staff",
+        "ping_time": 60,
+        "frequency": 120,
+        "max_users": 50
+      },
+      {
+        "name": "default",
+        "ping_time": 120,
+        "frequency": 180,
+        "max_users": 150
+      }
+    ],
+    "description": "User classes define connection limits and timeouts per user group.",
+    "items": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Class name (used by Oper and Connect entries)"
+        },
+        "ping_time": {
+          "type": "number",
+          "description": "Seconds before ping timeout"
+        },
+        "frequency": {
+          "type": "number",
+          "description": "Seconds between pings"
+        },
+        "max_users": {
+          "type": "number",
+          "description": "Max users allowed in this class"
+        }
+      }
+    }
+  },
+  "connects": {
+    "type": "list",
+    "default": [],
+    "description": "Definitions for server-to-server connections (linking other servers).",
+    "items": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Remote server's hostname"
+        },
+        "host": {
+          "type": "string",
+          "description": "IP or DNS hostname to connect to"
+        },
+        "port": {
+          "type": "number",
+          "description": "Port to connect on"
+        },
+        "class": {
+          "type": "string",
+          "description": "Class name to apply (must exist)"
+        },
+        "password": {
+          "type": "string",
+          "description": "Password for outgoing connection (shared with remote server)"
+        },
+        "rpassword": {
+          "type": "string",
+          "description": "Remote password (must match remote's password)"
+        },
+        "flags": {
+          "type": "object",
+          "properties": {
+            "auto_conn": {
+              "type": "boolean",
+              "description": "Automatically connect on startup"
+            },
+            "zip": {
+              "type": "boolean",
+              "description": "Enable compression (ZIP)"
+            },
+            "ssl": {
+              "type": "boolean",
+              "description": "Use SSL/TLS for connection"
+            },
+            "hub": {
+              "type": "boolean",
+              "description": "This server is a hub (accepts leaf links)"
+            },
+            "leaf": {
+              "type": "boolean",
+              "description": "This server is a leaf (connects only to hubs)"
+            }
+          }
+        }
+      }
+    }
+  },
+  "modules": {
+    "type": "list",
+    "default": [],
+    "description": "List of dynamic modules to load (path must be absolute or relative to module dir).",
+    "items": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string",
+          "description": "Module file path (e.g., 'modules/chanmodes.so')"
+        }
+      }
+    }
+  },
+  "logs": {
+    "type": "list",
+    "default": [
+      {
+        "filename": "/var/log/ircd/ircd.log",
+        "level": 1
+      }
+    ],
+    "description": "Logging configuration: where to write logs and verbosity level (1=normal, 2=verbose, 3=debug).",
+    "items": {
+      "type": "object",
+      "properties": {
+        "filename": {
+          "type": "string",
+          "description": "Log file path"
+        },
+        "level": {
+          "type": "number",
+          "description": "Log level (1\u20133); higher = more detail"
+        }
+      }
+    }
+  },
+  "ssl": {
+    "type": "object",
+    "default": {
+      "enabled": false,
+      "cert_file": "",
+      "key_file": "",
+      "cipher_list": "HIGH:!aNULL:!MD5",
+      "verify_mode": 0
+    },
+    "description": "SSL/TLS configuration for secure client/server connections.",
+    "properties": {
+      "enabled": {
+        "type": "boolean",
+        "description": "Enable SSL support on listeners with port 6697+"
+      },
+      "cert_file": {
+        "type": "string",
+        "description": "Path to SSL certificate file"
+      },
+      "key_file": {
+        "type": "string",
+        "description": "Path to SSL private key file"
+      },
+      "ca_file": {
+        "type": "string",
+        "description": "Optional path to CA bundle for client cert verification"
+      },
+      "dh_file": {
+        "type": "string",
+        "description": "Optional path to DH parameters file"
+      },
+      "cipher_list": {
+        "type": "string",
+        "description": "OpenSSL cipher suite string (e.g., 'HIGH:!aNULL:!MD5')"
+      },
+      "verify_mode": {
+        "type": "number",
+        "description": "SSL verify mode: 0=none, 1=peer cert required, 2=verify and fail if missing"
+      }
+    }
+  },
+  "hidden": {
+    "type": "object",
+    "default": {
+      "host": "ircd.example.net",
+      "user": "ircd",
+      "server": "irc.example.net"
+    },
+    "description": "Settings to hide the real server identity from users.",
+    "properties": {
+      "host": {
+        "type": "string",
+        "description": "Fake hostname to display for users (e.g., 'hidden.server.net')"
+      },
+      "user": {
+        "type": "string",
+        "description": "Fake username (e.g., 'ircd')"
+      },
+      "server": {
+        "type": "string",
+        "description": "Fake server name shown in /whois"
+      }
+    }
+  },
+  "anti_flood": {
+    "type": "object",
+    "default": {
+      "max_sendq": 40960,
+      "max_accept": 10,
+      "flood_count": 5,
+      "flood_time": 60
+    },
+    "description": "Anti-flood protection to prevent abuse and DoS.",
+    "properties": {
+      "max_sendq": {
+        "type": "number",
+        "description": "Max send queue size in bytes before disconnect"
+      },
+      "max_accept": {
+        "type": "number",
+        "description": "Max messages accepted per second"
+      },
+      "flood_count": {
+        "type": "number",
+        "description": "Max messages allowed in window"
+      },
+      "flood_time": {
+        "type": "number",
+        "description": "Time window (seconds) for flood detection"
+      }
+    }
+  },
+  "dns": {
+    "type": "object",
+    "default": {
+      "timeout": 5,
+      "retry": 3,
+      "cache_size": 1000
+    },
+    "description": "DNS resolver behavior settings.",
+    "properties": {
+      "timeout": {
+        "type": "number",
+        "description": "DNS lookup timeout (seconds)"
+      },
+      "retry": {
+        "type": "number",
+        "description": "Number of retries before failure"
+      },
+      "cache_size": {
+        "type": "number",
+        "description": "Max DNS cache entries"
+      }
+    }
+  },
+  "kline": {
+    "type": "object",
+    "default": {
+      "duration": 86400
+    },
+    "description": "K-line (kill) ban duration in seconds.",
+    "properties": {
+      "duration": {
+        "type": "number",
+        "description": "Default K-line expiry time (seconds)"
+      }
+    }
+  },
+  "zline": {
+    "type": "object",
+    "default": {
+      "duration": 86400
+    },
+    "description": "Z-line (ban by user@host) duration in seconds.",
+    "properties": {
+      "duration": {
+        "type": "number",
+        "description": "Default Z-line expiry time (seconds)"
+      }
+    }
+  },
+  "server_linking": {
+    "type": "object",
+    "default": {
+      "enabled": false,
+      "name": "",
+      "hub": "",
+      "port": 0
+    },
+    "description": "Configure this server as a hub or leaf in a multi-server network.",
+    "properties": {
+      "enabled": {
+        "type": "boolean",
+        "description": "Enable server linking configuration"
+      },
+      "name": {
+        "type": "string",
+        "description": "Local server name for linking (must match remote)"
+      },
+      "hub": {
+        "type": "string",
+        "description": "Hub server to connect to (if leaf)"
+      },
+      "port": {
+        "type": "number",
+        "description": "Port to connect to hub on"
+      },
+      "options": {
+        "type": "string",
+        "description": "Link options bitmask (e.g., '0' for none)"
+      }
+    }
+  },
+  "channel": {
+    "type": "object",
+    "default": {
+      "default_max_users": 100,
+      "default_topic_limit": 1,
+      "default_key_expire": 0
+    },
+    "description": "Default channel parameters.",
+    "properties": {
+      "default_max_users": {
+        "type": "number",
+        "description": "Default max users per channel"
+      },
+      "default_topic_limit": {
+        "type": "number",
+        "description": "Default topic protection mode (1 = op-only)"
+      },
+      "default_key_expire": {
+        "type": "number",
+        "description": "Channel key expiry (seconds; 0 = no expiry)"
+      }
+    }
+  }
+}

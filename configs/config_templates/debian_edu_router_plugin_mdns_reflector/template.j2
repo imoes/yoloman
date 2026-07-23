@@ -1,0 +1,32 @@
+# Enable mDNS reflection for specified interfaces
+# (mDNS is link-local; reflection allows devices on different subnets to discover each other)
+
+{% if enabled | default(true) %}
+MDNS_REFLECTOR_ENABLED=yes
+{% else %}
+MDNS_REFLECTOR_ENABLED=no
+{% endif %}
+
+# Comma-separated list of interfaces to reflect mDNS traffic across
+# (e.g., 'eth1,eth2' to reflect between LAN and VLANs)
+MDNS_INTERFACES={{ interfaces | join(',') }}
+
+# TTL for reflected mDNS packets (seconds); higher values increase propagation radius but increase network load
+MDNS_TTL={{ ttl | default(120) }}
+
+# Rate limit: maximum mDNS packets per second per interface to prevent flooding
+MDNS_RATE_LIMIT={{ rate_limit | default(50) }}
+
+# Whether to reflect bidirectional traffic (in+out) or only inbound
+{% if bidirectional | default(true) %}
+MDNS_BIDIRECTIONAL=yes
+{% else %}
+MDNS_BIDIRECTIONAL=no
+{% endif %}
+
+# Optional: custom daemon user/group (leave empty to use defaults 'nobody:nogroup')
+{% if run_user %}MDNS_USER={{ run_user }}{% endif %}
+{% if run_group %}MDNS_GROUP={{ run_group }}{% endif %}
+
+# Optional: extra daemon arguments (e.g., '-v' for verbose logging)
+{% if extra_args %}MDNS_DAEMON_ARGS="{{ extra_args }}"{% endif %}

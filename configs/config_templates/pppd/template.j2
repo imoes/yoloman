@@ -1,0 +1,70 @@
+# pppd main options file — global daemon settings and authentication defaults
+# Maximum number of simultaneous connections
+maxconnections {{ maxconnections }}
+
+# Log to syslog instead of /var/log/messages unless explicitly overridden
+# (Note: 'logfile' overrides syslog; leave blank to use default syslog behavior)
+{% if logfile %}logfile {{ logfile }}{% endif %}
+
+# Debug logging level — increase for troubleshooting
+{% if debug %}debug{% endif %}
+{% if dump %}dump{% endif %}
+
+# Authentication methods and peers
+# Require peers to authenticate (required for secure connections)
+require-pap
+{% if require_mschap %}require-mschap{% endif %}
+{% if require_mschap_v2 %}require-mschap-v2{% endif %}
+
+# If no auth method specified above, fallback to allow PAP only (unsafe — disable in production)
+{% if allow_pap %}allow-pap{% else %}# allow-pap disabled{% endif %}
+
+# Peer authentication — allow only authenticated peers by default
+nomppe
+{% if noauth %}noauth{% else %}# noauth disabled (peers must authenticate){% endif %}
+
+# Local and remote IP address allocation
+# Static local IP; leave empty for dynamic (e.g., via RADIUS)
+{% if local_ip %}local {{ local_ip }}{% endif %}
+{% if remote_ip %}remote {{ remote_ip }}{% endif %}
+
+# IP pool ranges for dynamic allocation (comma-separated list of CIDR blocks)
+{% for pool in ip_pools %}ipparam {{ pool.name }}
+{% if pool.range %}ip-up-script /etc/ppp/ip-up.d/{{ pool.name }}
+  ifconfig $IFACE {{ pool.range.split('/')[0] | replace('.', '.') }} up
+  route add -host {{ pool.range.split('/')[0] | replace('.', '.') }} dev $IFACE
+{% endif %}
+{% endfor %}
+
+# Link control protocol (LCP) tuning — adjust for latency/bandwidth
+lcp-echo-interval {{ lcp_echo_interval }}
+lcp-echo-failure {{ lcp_echo_failure }}
+
+# Authentication protocol timeouts (in seconds)
+lcp-max-configure {{ lcp_max_configure }}
+
+# Compression (disabled by default for security/performance tradeoffs)
+{% if no_vj %}no-vj{% endif %}
+{% if no_vjccomp %}no-vjccomp{% endif %}
+{% if no_comp %}nocomp{% endif %}
+
+# Multilink PPP — bundle multiple links for higher throughput
+{% if mppe_required %}require-mppe{% endif %}
+{% if mppe_40 %}require-mppe-40{% endif %}
+{% if mppe_128 %}require-mppe-128{% endif %}
+
+# Security hardening — disable dangerous options by default
+nodefaultroute
+nopcomp
+noaccomp
+noccp
+
+# Keepalive for idle link management (0 = disable)
+idle {{ idle_timeout }}
+
+# Persist mode — keep retrying connection if link drops
+persist
+
+# MRU/MTU tuning for PPPoE or low-bandwidth links
+{% if mtu %}mtu {{ mtu }}{% endif %}
+{% if mru %}mru {{ mru }}{% endif %}

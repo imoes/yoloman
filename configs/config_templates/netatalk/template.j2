@@ -1,0 +1,24 @@
+[Global]
+; Global AFP server settings
+afp interfaces = {{ afp_interfaces | join(', ') }}
+mimic model = {{ mimic_model }}
+log level = {{ log_level }}
+log file = {{ log_file }}
+
+[Home]
+; per-user home directories
+path = {{ home_path }}
+afp flags = {{ home_afp_flags }}
+
+{% for service in services %}[{{ service.name }}]
+; {{ service.description | default('Custom AFP volume') }}
+path = {{ service.path }}
+{% if service.hidden is defined %nhidden = {{ service.hidden }}{% endif %}
+{% if service.readonly is defined %}readonly = {{ service.readonly }}{% endif %}
+{% if service.valid_users is defined %}valid users = {{ service.valid_users | join(', ') }}{% endif %}
+{% if service.allow is defined %}allow = {{ service.allow | join(', ') }}{% endif %}
+{% if service.hosts allow is defined %}hosts allow = {{ service.hosts_allow | join(', ') }}{% endif %}
+{% if service.file perm is defined %}file perm = {{ service.file_perm }}{% endif %}
+{% if service directory perm is defined %}directory perm = {{ service.directory_perm }}{% endif %}
+{% if service extended attributes is defined %}extended attributes = {{ service.extended_attributes }}{% endif %}
+{% endfor %}

@@ -1,0 +1,70 @@
+# gfarm_metadata_daemon configuration file
+# Listen address for the gfarm metadata server (gfmd)
+listen_address {{ listen_address }}
+
+# Port on which the gfmd listens for client connections
+listen_port {{ listen_port }}
+
+# Path to the Gfarm metadata database directory
+metadata_db_dir {{ metadata_db_dir }}
+
+# Number of worker threads for handling client requests
+worker_threads {{ worker_threads }}
+
+# Maximum number of concurrent connections
+max_connections {{ max_connections }}
+
+# Maximum size of metadata cache in MB (0 = unlimited)
+max_metadata_cache_size_mb {{ max_metadata_cache_size_mb }}
+
+# Enable or disable replication mode (gfmd-to-gfmd synchronization)
+replication_enabled {{ replication_enabled | string | lower }}
+
+# Replication target hosts: list of gfmd peers for synchronization
+{% for replica in replication_targets %}
+# Replication target: host {{ replica.host }} on port {{ replica.port }}
+replication_target {{ replica.host }} {{ replica.port }}
+{% endfor %}
+
+# Authentication method: 'password' or 'gssapi'
+auth_method {{ auth_method }}
+
+# Path to the Kerberos keytab file (used only if auth_method = gssapi)
+{% if auth_method == 'gssapi' %}
+kerberos_keytab {{ kerberos_keytab }}
+{% endif %}
+
+# Default quota (in MB) for newly created domains (0 = no quota)
+default_quota_mb {{ default_quota_mb }}
+
+# Enable or disable access logging
+access_log_enabled {{ access_log_enabled | string | lower }}
+
+# Path to access log file
+{% if access_log_enabled %}
+access_log_file {{ access_log_file }}
+{% endif %}
+
+# Log level: 'debug', 'info', 'notice', 'warn', 'error'
+log_level {{ log_level }}
+
+# Path to the log file
+log_file {{ log_file }}
+
+# Enable or disable SSL/TLS for metadata connections
+ssl_enabled {{ ssl_enabled | string | lower }}
+
+# SSL certificate chain file (PEM format)
+{% if ssl_enabled %}
+ssl_cert_file {{ ssl_cert_file }}
+ssl_key_file {{ ssl_key_file }}
+{% endif %}
+
+# Enable or disable ACL support
+acl_enabled {{ acl_enabled | string | lower }}
+
+# Enable or disable quota enforcement
+quota_enabled {{ quota_enabled | string | lower }}
+
+# Enable or disable support for extended attributes
+xattr_enabled {{ xattr_enabled | string | lower }}

@@ -1,0 +1,38 @@
+# Global options block — applies server-wide defaults
+{{ global_options | default('') | trim }}
+
+{% for site in sites %}
+# Site block: {{ site.address }}
+{% if site.comment %}# {{ site.comment }}
+{% endif %}{{ site.address }} {
+{% if site.root %}  root * {{ site.root }}
+{% endif %}
+{% if site.index %}  file_server browse
+  try_files {path} {path}/ /{{ site.index }}
+{% else %}  file_server
+{% endif %}
+{% if site.tls %}  tls {{ site.tls.email | default('') }}
+{% if site.tls.cert and site.tls.key %}
+  tls {{ site.tls.cert }} {{ site.tls.key }}
+{% endif %}
+{% endif %}
+{% for handler in site.handlers %}
+  {{ handler.name }} {
+{% for k, v in handler.options.items() %}{{ '  ' if loop.first else '' }}{{ k }}{{ ' ' if v | length > 0 else '' }}{{ v | replace('\n', '\n  ') }}
+{% endfor %}  }
+{% endfor %}
+{% if site.rewrite %}  rewrite * {{ site.rewrite.to }}
+{% endif %}
+{% if site.redir %}  redir {{ site.redir.from | default('*') }} {{ site.redir.to }}{{ ' ' + site.redir.code | default('301') }}
+{% endif %}
+{% if site.log %}  log {
+    output file {{ site.log.path }}
+{% if site.log.format %}    format {{ site.log.format }}
+{% endif %}  }
+{% endif %}
+{% if site.errors %}  errors {
+{% for code, path in site.errors.items() %}    {{ code }} {{ path }}
+{% endfor %}  }
+{% endif %}
+}
+{% endfor %}

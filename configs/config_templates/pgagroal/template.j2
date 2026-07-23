@@ -1,0 +1,74 @@
+# pgagroal main configuration file
+[pgagroal]
+host = {{ host }}
+port = {{ port }}
+unix_socket_dir = {{ unix_socket_dir }}
+max_connections = {{ max_connections }}
+min_connections = {{ min_connections }}
+idle_timeout = {{ idle_timeout }}
+auth_type = {{ auth_type }}
+auth_query = {{ auth_query }}
+log_type = {{ log_type }}
+log_file = {{ log_file }}
+log_level = {{ log_level }}
+
+# SSL configuration
+ssl = {{ ssl | lower }}
+ssl_cert = {{ ssl_cert }}
+ssl_key = {{ ssl_key }}
+ssl_ca = {{ ssl_ca }}
+ssl_crl = {{ ssl_crl }}
+
+# Pool mode
+pool_mode = {{ pool_mode }}
+
+# Reserved connections
+reserved_connections = {{ reserved_connections }}
+
+# Query timeout (seconds)
+query_timeout = {{ query_timeout }}
+query_wait_timeout = {{ query_wait_timeout }}
+
+# Max client connections (per pool)
+max_client_conn = {{ max_client_conn }}
+
+# Log level: 0=error,1=warn,2=info,3=debug
+[logging]
+log_connections = {{ log_connections | lower }}
+log_disconnections = {{ log_disconnections | lower }}
+log_server_messages = {{ log_server_messages | lower }}
+
+{% for server in servers %}# PostgreSQL server: {{ server.name }}
+[server:{{ server.name }}]
+host = {{ server.host }}
+port = {{ server.port }}
+role = {{ server.role }}
+{% if server.authentication %}
+authentication = {{ server.authentication }}
+{% endif %}
+{% endfor %}
+
+{% for user in users %}# Database user: {{ user.name }}
+[user:{{ user.name }}]
+username = {{ user.username }}
+password = {{ user.password }}
+database = {{ user.database }}
+{% if user.sslmode %}
+sslmode = {{ user.sslmode }}
+{% endif %}
+{% if user.pool_size %}
+pool_size = {{ user.pool_size }}
+{% endif %}
+{% endfor %}
+
+{% for pool in pools %}# Connection pool: {{ pool.name }}
+[pool:{{ pool.name }}]
+database = {{ pool.database }}
+username = {{ pool.username }}
+pool_size = {{ pool.pool_size }}
+reserve_pool_size = {{ pool.reserve_pool_size }}
+pool_mode = {{ pool.pool_mode }}
+{% if pool.server %}
+server = {{ pool.server }}
+{% endif %}
+{% endfor %}

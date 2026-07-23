@@ -1,0 +1,42 @@
+# Main configuration for kxd — the kernel eXecution Daemon
+# Enables secure, sandboxed execution of user-provided code
+kxd:
+  # Listen address and port for the API server
+  listen:
+    address: {{ listen_address }}
+    port: {{ listen_port }}
+  
+  # Paths for persistent storage and temporary working files
+  paths:
+    work_dir: {{ paths_work_dir }}
+    state_dir: {{ paths_state_dir }}
+    log_dir: {{ paths_log_dir }}
+  
+  # Resource limits for sandboxed jobs
+  limits:
+    max_memory_mb: {{ limits_max_memory_mb }}
+    max_cpu_time_sec: {{ limits_max_cpu_time_sec }}
+    max_open_files: {{ limits_max_open_files }}
+    max_processes: {{ limits_max_processes }}
+  
+  # Worker pool configuration
+  workers:
+    count: {{ workers_count }}
+    gc_interval_sec: {{ workers_gc_interval_sec }}
+  
+  # Security settings
+  security:
+    # Enable/disable network access for sandboxed jobs
+    allow_network: {{ security_allow_network }}
+    # Enable/disable file system sandboxing
+    sandbox_fs: {{ security_sandbox_fs }}
+    # List of allowed base images (container runtimes or chroot roots)
+    allowed_images:
+      {% for image in security_allowed_images %}
+      - name: {{ image.name }}
+        path: {{ image.path }}
+        read_only: {{ image.read_only }}
+      {% endfor %}
+  
+  # Logging verbosity (debug, info, warn, error)
+  log_level: {{ log_level }}

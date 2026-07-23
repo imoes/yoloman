@@ -1,0 +1,60 @@
+# lbcd configuration file
+[daemon]
+# Run as a background daemon
+run_as_daemon = {{ daemon_run_as_daemon }}
+# User to run as
+run_as_user = {{ daemon_run_as_user }}
+# Group to run as
+run_as_group = {{ daemon_run_as_group }}
+# PID file location
+pidfile = {{ daemon_pidfile }}
+
+# Logging configuration
+[logging]
+# Log level: 0=error, 1=warn, 2=info, 3=debug
+log_level = {{ logging_log_level }}
+# Log destination: 'syslog', 'file', or 'stdout'
+log_destination = {{ logging_log_destination }}
+# Path to log file (used if log_destination=file)
+log_file = {{ logging_log_file }}
+
+# Network binding
+[server]
+# IP address to bind to
+bind_address = {{ server_bind_address }}
+# Port to listen on
+bind_port = {{ server_bind_port }}
+# Maximum number of simultaneous connections
+max_connections = {{ server_max_connections }}
+
+# Backend servers (load balancing targets)
+[backends]
+{% for backend in backends %}
+# Backend server: {{ backend.name }}
+{{ loop.index }}.host = {{ backend.host }}
+{{ loop.index }}.port = {{ backend.port }}
+{{ loop.index }}.weight = {{ backend.weight }}
+{{ loop.index }}.enabled = {{ backend.enabled | lower }}
+{% endfor %}
+
+# Health check configuration
+[healthcheck]
+# Enable health checks
+enabled = {{ healthcheck_enabled | lower }}
+# Interval between health checks (seconds)
+interval = {{ healthcheck_interval }}
+# Timeout for each health check (seconds)
+timeout = {{ healthcheck_timeout }}
+# Number of consecutive failures before marking a backend down
+failure_count = {{ healthcheck_failure_count }}
+# Number of consecutive successes before marking a backend up
+success_count = {{ healthcheck_success_count }}
+
+# Failover behavior
+[failover]
+# Strategy: 'roundrobin', 'leastconn', 'iphash'
+strategy = {{ failover_strategy }}
+# Preserve client source IP (requires kernel support)
+preserve_client_ip = {{ failover_preserve_client_ip | lower }}
+# Grace period before removing failed backend from rotation (seconds)
+grace_period = {{ failover_grace_period }}

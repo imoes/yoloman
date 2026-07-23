@@ -1,0 +1,132 @@
+# [DEFAULT] Common options for all cinder services
+[DEFAULT]
+
+# Enable the backup service
+{% if enable_backup_service | default(false) %}
+enable_backup_service = True
+{% else %}
+enable_backup_service = False
+{% endif %}
+
+# RPC backend driver
+rpc_backend = rabbit
+
+# Authentication strategy (keystone or noauth)
+auth_strategy = keystone
+
+# Logging configuration
+log_dir = /var/log/cinder
+log_file = cinder-backup.log
+
+# Database connection string
+{% if database_connection | default('') != '' %}
+database_connection = {{ database_connection }}
+{% else %}
+database_connection = mysql+pymysql://cinder:{{ db_password }}@{{ db_host }}/{{ db_name }}
+{% endif %}
+
+# Redis connection for caching (optional)
+{% if redis_host | default('') != '' %}
+redis_host = {{ redis_host }}
+redis_port = {{ redis_port | default(6379) }}
+{% endif %}
+
+# Backup driver (e.g., swift, nfs, ceph, etc.)
+backup_driver = {{ backup_driver }}
+
+# Backup object container (for Swift/NFS backends)
+{% if backup_swift_url | default('') != '' %}
+backup_swift_url = {{ backup_swift_url }}
+{% endif %}
+
+# Backup container name in Swift
+backup_swift_container = {{ backup_swift_container | default('cinder_backups') }}
+
+# Backup object size (in bytes) — chunking size
+backup_object_size = {{ backup_object_size | default(52428800) }}
+
+# Backup compression algorithm (none, gzip, zstd)
+backup_compression_algorithm = {{ backup_compression_algorithm | default('none') }}
+
+# Backup maximum number of concurrent backup operations
+backup_max_concurrent_operations = {{ backup_max_concurrent_operations | default(5) }}
+
+# Backup TTL (in seconds) before deletion of stale backups (0 = disabled)
+backup_tombstone_age = {{ backup_tombstone_age | default(0) }}
+
+# API listen address and port
+bind_host = {{ api_bind_host | default('0.0.0.0') }}
+bind_port = {{ api_bind_port | default(8778) }}
+
+# SSL/TLS settings (optional)
+{% if ssl_enabled | default(false) %}
+cert_file = {{ ssl_cert_file }}
+key_file = {{ ssl_key_file }}
+ca_file = {{ ssl_ca_file }}
+{% endif %}
+
+# Rate limiting (requests per second per project)
+rate_limit = {{ rate_limit | default(0) }}
+
+# [keystone_authtoken] Section — used for keystone auth (if auth_strategy=keystone)
+[keystone_authtoken]
+
+# Keystone auth URL
+auth_url = {{ keystone_auth_url }}
+
+# Service user credentials
+project_domain_name = {{ keystone_project_domain_name | default('Default') }}
+project_name = {{ keystone_project_name | default('service') }}
+user_domain_name = {{ keystone_user_domain_name | default('Default') }}
+username = {{ keystone_username | default('cinder') }}
+password = {{ keystone_password }}
+
+# Interface type for internal communication
+interface = {{ keystone_interface | default('internal') }}
+
+# Disable SSL verification (dangerous — use only for dev/testing)
+{% if keystone_ssl_verify | default(true) %}
+verify = True
+{% else %}
+verify = False
+{% endif %}
+
+# [oslo_concurrency] Section — lock path for concurrency control
+[oslo_concurrency]
+
+# Path to lock directory
+lock_path = {{ lock_path | default('/var/lock/cinder') }}
+
+# [oslo_middleware] Section — CORS and request handling
+[oslo_middleware]
+
+# Enable CORS (optional, for cross-domain API access)
+{% if cors_enabled | default(false) %}
+enable_cors = True
+{% else %}
+enable_cors = False
+{% endif %}
+
+# [oslo_policy] Section — policy file path
+[oslo_policy]
+
+# Path to policy JSON file
+policy_file = {{ policy_file | default('/etc/cinder/policy.json') }}
+
+# [oslo_reports] Section — logging extension for debugging
+[oslo_reports]
+
+# Log the config file contents on service startup (for debugging)
+{% if log_config | default(false) %}
+log_config_file = True
+{% endif %}
+
+# [oslo_versionedobjects] Section — object serialization
+[oslo_versionedobjects]
+
+# Enable versioned objects for API compatibility
+{% if enable_versioned_objects | default(true) %}
+enable = True
+{% else %}
+enable = False
+{% endif %}

@@ -1,0 +1,54 @@
+# dhcpd.conf — ISC DHCP Server configuration with BPF support
+# Enable BPF (BSD Packet Filter) for raw packet capture
+{% if config.bpf_enabled | default(true) %}bpf;{% endif %}
+
+# Global DHCP options
+{% if config.default_lease_time is defined %}default-lease-time {{ config.default_lease_time }};{% endif %}
+{% if config.max_lease_time is defined %}max-lease-time {{ config.max_lease_time }};{% endif %}
+
+# Authoritative server mode
+authoritative;
+
+# Define subnets and their configurations
+{% for subnet in config.subnets %}
+# Subnet: {{ subnet.network }}/{{ subnet.prefix }} — interface: {{ subnet.interface }}
+subnet {{ subnet.network }} netmask {{ subnet.netmask | default(subnet_netmask_from_prefix(subnet.prefix)) }} {
+{% if subnet.range_start is defined and subnet.range_end is defined %}  range {{ subnet.range_start }} {{ subnet.range_end }};{% endif %}
+{% if subnet.gateway is defined %}  option routers {{ subnet.gateway }};{% endif %}
+{% if subnet.dns_servers is defined %}  option domain-name-servers {{ subnet.dns_servers | join(', ') }};{% endif %}
+{% if subnet.domain_name is defined %}  option domain-name "{{ subnet.domain_name }}";{% endif %}
+{% if subnet.ntp_servers is defined %}  option ntp-servers {{ subnet.ntp_servers | join(', ') }};{% endif %}
+{% if subnet.broadcast_address is defined %}  option broadcast-address {{ subnet.broadcast_address }};{% endif %}
+{% if subnet.subnet_mask is defined %}  option subnet-mask {{ subnet.subnet_mask }};{% endif %}
+{% if subnet.router_search_domains is defined %}  option domain-search {{ subnet.router_search_domains | join('" "') | add_quotes() }};{% endif %}
+{% if subnet.ip_forward is defined and subnet.ip_forward %}  # IP forwarding enabled for this subnet
+  option ip-forward true;{% endif %}
+{% if subnet.nis_domain is defined %}  option nis-domain "{{ subnet.nis_domain }}";{% endif %}
+{% if subnet.nis_servers is defined %}  option nis-servers {{ subnet.nis_servers | join(', ') }};{% endif %}
+{% if subnet.static_routes is defined %}
+  # Static routes for clients
+{% for route in subnet.static_routes %}  option rfc3442-classless-static-routes {{ route.destination }} {{ route.netmask }} {{ route.next_hop }};{% endfor %}
+{% endif %}
+{% if subnet.hosts is defined %}
+  # Static host mappings
+{% for host in subnet.hosts %}  host {{ host.name | replace(' ', '_') }} {
+    hardware ethernet {{ host.mac }};
+    fixed-address {{ host.address }};
+{% if host.hostname is defined %}    option host-name "{{ host.hostname }}";{% endif %}
+  }
+{% endfor %}
+{% endif %}
+}
+{% endfor %}
+
+# Shared network definitions (for multi-homed setups)
+{% for shared_net in config.shared_networks %}
+# Shared network: {{ shared_net.name }}
+shared-network {{ shared_net.name | replace(' ', '_') }} {
+{% for subnet in shared_net.subnets %}  subnet {{ subnet.network }} netmask {{ subnet.netmask | default(subnet_netmask_from_prefix(subnet.prefix)) }} {
+{% if subnet.range_start is defined and subnet.range_end is defined %}    range {{ subnet.range_start }} {{ subnet.range_end }};{% endif %}
+  }
+{% endfor %}
+{% if shared_net.interfaces is defined %}  interface {{ shared_net.interfaces | join(', ') }};{% endif %}
+}
+{% endfor %}

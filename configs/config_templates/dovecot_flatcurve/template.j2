@@ -1,0 +1,33 @@
+# Enable Flatcurve backend plugin for mail index handling
+plugin {
+  # Flatcurve backend module path
+  mail_fsync = never
+  mail_plugins = $mail_plugins flatcurve
+}
+
+# Flatcurve-specific configuration
+flatcurve {
+  # Directory where Flatcurve index files are stored (must be unique per namespace/mailbox)
+  index_dir = {{ index_dir }}
+
+  # Maximum number of open database connections
+  max_connections = {{ max_connections }}
+
+  # Enable compression for index files (reduces disk usage at slight CPU cost)
+  compression = {{ compression | string | lower }}
+
+  # Enable strict consistency checks (slower but safer for production)
+  strict_mode = {{ strict_mode | string | lower }}
+
+  # List of mailbox patterns to exclude from Flatcurve indexing (e.g., Drafts, Sent)
+  skip_patterns = {% for pattern in skip_patterns %}
+    # Skip indexing for: {{ pattern }}
+    {{ pattern }}
+  {% endfor %}
+
+  # Optional: custom database engine settings (e.g., for LMDB or SQLite backends)
+  # Format: key=value; one per line
+  {% for setting, value in db_settings.items() %}
+  {{ setting }} = {{ value }}
+  {% endfor %}
+}

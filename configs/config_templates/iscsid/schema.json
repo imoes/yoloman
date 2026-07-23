@@ -1,0 +1,125 @@
+{
+  "log_level": {
+    "type": "number",
+    "default": 2,
+    "description": "Logging verbosity (0\u20135); higher values produce more logs."
+  },
+  "default_auth_type": {
+    "type": "string",
+    "default": "chap",
+    "description": "Default authentication method for newly created targets (none, chap, mutual_chap)."
+  },
+  "default_auth_secret": {
+    "type": "string",
+    "default": "",
+    "description": "Fallback CHAP secret for new targets. Not used if per-target CHAP is configured."
+  },
+  "bind_addresses": {
+    "type": "list",
+    "default": [
+      "0.0.0.0"
+    ],
+    "description": "List of IP addresses or hostnames tgtd will bind to for incoming iSCSI connections."
+  },
+  "targets": {
+    "type": "list",
+    "default": [],
+    "description": "List of iSCSI targets to expose. Each target defines a storage device and access rules.",
+    "items": {
+      "name": {
+        "type": "string",
+        "default": "",
+        "description": "Unique iSCSI Qualified Name (IQN) or NAA-based name (e.g., iqn.2024-01.com.example:storage.disk1)."
+      },
+      "backing_store": {
+        "type": "string",
+        "default": "",
+        "description": "Block device path (e.g., /dev/sdb) or file path (e.g., /var/lib/iscsi/disks/vm1.img) to expose as LUN 0."
+      },
+      "driver": {
+        "type": "string",
+        "default": "libiscsi",
+        "description": "Backend driver. Use 'libiscsi' for regular block files, or 'null' for dummy targets."
+      },
+      "luns": {
+        "type": "list",
+        "default": [],
+        "description": "Additional LUNs beyond LUN 0 (backing-store).",
+        "items": {
+          "id": {
+            "type": "number",
+            "default": 1,
+            "description": "LUN index (e.g., 1, 2, 3\u2026)."
+          },
+          "device": {
+            "type": "string",
+            "default": "",
+            "description": "Block device path (preferred over 'path')."
+          },
+          "path": {
+            "type": "string",
+            "default": "",
+            "description": "File path if 'device' not specified."
+          },
+          "io_mode": {
+            "type": "string",
+            "default": "rw",
+            "description": "I/O mode: 'rw', 'ro', 'wo'."
+          },
+          "removable": {
+            "type": "bool",
+            "default": false,
+            "description": "Whether the LUN is treated as removable media."
+          }
+        }
+      },
+      "initiators": {
+        "type": "list",
+        "default": [],
+        "description": "List of allowed initiator IQNs. If empty, all initiators are allowed (insecure)."
+      },
+      "chap": {
+        "type": "object",
+        "default": null,
+        "description": "CHAP authentication settings. Omit to disable authentication (not recommended).",
+        "items": {
+          "user": {
+            "type": "string",
+            "default": "",
+            "description": "CHAP username for incoming authentication."
+          },
+          "password": {
+            "type": "string",
+            "default": "",
+            "description": "CHAP password for the incoming user (12\u201316 characters recommended)."
+          },
+          "mutual": {
+            "type": "bool",
+            "default": false,
+            "description": "Enable mutual (two-way) CHAP authentication."
+          },
+          "mutual_user": {
+            "type": "string",
+            "default": "",
+            "description": "CHAP username for outgoing (mutual) authentication."
+          },
+          "mutual_password": {
+            "type": "string",
+            "default": "",
+            "description": "CHAP password for the outgoing user."
+          }
+        }
+      },
+      "write_cache": {
+        "type": "bool",
+        "default": true,
+        "description": "Enable write-back caching for better performance (requires UPS/firmware support for safety)."
+      },
+      "nacl": {
+        "type": "list",
+        "default": [],
+        "description": "Explicit ACL entries (IP addresses or subnets) for additional access control beyond IQN-based allow-list."
+      }
+    }
+  }
+}

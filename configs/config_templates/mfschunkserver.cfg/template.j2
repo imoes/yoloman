@@ -1,0 +1,51 @@
+# MooseFS Chunk Server Configuration File
+# This file configures the MooseFS chunkserver, which stores data chunks.
+# Hostname or IP of the MooseFS Master server
+MASTER_HOST = {{ master_host }}
+
+# TCP port on which the Master server listens for chunkserver connections
+MASTER_PORT = {{ master_port }}
+
+# Password used to authenticate the chunkserver to the Master (must match mfschunkserver.passwd)
+CHUNKS_PASSWORD = {{ chunks_password }}
+
+# Directory path(s) where data chunks are stored (comma-separated for multiple paths)
+DATA_PATH = {{ data_path | join(',') }}
+
+# Number of worker threads for handling chunk operations
+WORKER_THREADS = {{ worker_threads }}
+
+# Maximum number of open files (ulimit -n) — set to 0 to use system default
+MAX_OPEN_FILES = {{ max_open_files }}
+
+# Chunk size limit: max number of chunks per data directory
+CHUNKS_MAX_COUNT = {{ chunks_max_count }}
+
+# Chunk size limit: max total bytes stored in one chunk file
+CHUNKS_SIZE_LIMIT = {{ chunks_size_limit }}
+
+# If enabled, chunkserver verifies checksums on disk reads (slower but safer)
+VERIFY_CHUNKS_ON_READ = {{ verify_chunks_on_read | string | lower }}
+
+# If enabled, chunkserver deletes empty chunk directories automatically
+DELETE_EMPTY_DIRS = {{ delete_empty_dirs | string | lower }}
+
+# Optional: log level (1=error, 2=warn, 3=info, 4=debug)
+# Leave commented to use default (usually 2)
+# LOG_LEVEL = {{ log_level }}
+
+# Optional: bind address for chunkserver to listen for Master and client connections
+# Leave commented to bind to all interfaces (0.0.0.0)
+# BIND_ADDRESS = {{ bind_address }}
+
+# Optional: chunk file system type (posix is standard; ext4/xfs hints may be used in future)
+# CHUNKS_FS_TYPE = {{ chunks_fs_type }}
+
+# Optional: reserved space in bytes (chunks not stored if free space < reserved)
+# RESERVED_SPACE = {{ reserved_space }}
+
+# Optional: list of disk I/O schedulers per data path (format: path:scheduler)
+# Example: /data/mfs:deadline,/data2/mfs:none
+{% for item in io_schedulers %}
+IO_SCHEDULER = {{ item.path }}:{{ item.scheduler }}
+{% endfor %}

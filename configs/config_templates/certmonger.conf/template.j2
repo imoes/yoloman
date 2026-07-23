@@ -1,0 +1,37 @@
+[certmonger]
+# Maximum number of CA entries to track (0 = unlimited)
+max_tracking_cas = {{ max_tracking_cas }}
+
+# Directory where certificate requests and state files are stored
+state_dir = {{ state_dir }}
+
+# Directory where CA certificates and trust anchors are cached
+ca_cert_dir = {{ ca_cert_dir }}
+
+# Directory where intermediate certificates are stored for chain building
+intermediate_cert_dir = {{ intermediate_cert_dir }}
+
+# Enable or disable internal tracking daemon
+enable_tracking_daemon = {{ enable_tracking_daemon }}
+
+# Enable or disable automatic renewal of tracked certificates
+enable_autorenew = {{ enable_autorenew }}
+
+# Number of days before certificate expiry to trigger renewal
+renewal_window = {{ renewal_window }}
+
+# Enable or disable debugging output (increases verbosity)
+debug = {{ debug }}
+
+# List of CA configurations (each defines a trusted CA)
+{% for ca in cas %}# CA: {{ ca.name }} ({{ ca.type }})
+[{{ ca.name }}]
+type = {{ ca.type }}
+url = {{ ca.url }}
+{% if ca.ca_cert %}ca_certificate = {{ ca.ca_cert }}
+{% endif %}{% if ca.nickname %}nickname = {{ ca.nickname }}
+{% endif %}{% if ca.skip_verification %}skip_verification = {{ ca.skip_verification }}
+{% endif %}{% if ca.trust_flags %}trust_flags = {{ ca.trust_flags }}
+{% endif %}{% if ca.pin %}pin = {{ ca.pin }}
+{% endif %}{% if ca.pin_token %}pin_token = {{ ca.pin_token }}
+{% endif %}{% endfor %}

@@ -1,0 +1,65 @@
+# Global Ceph configuration (shared by all daemons)
+[global]
+fsid = {{ fsid }}
+mon_initial_members = {{ mon_initial_members | join(', ') }}
+mon_host = {{ mon_host | join(', ') }}
+
+# Authentication (recommended for production)
+auth_cluster_required = {{ auth_cluster_required }}
+auth_service_required = {{ auth_service_required }}
+auth_client_required = {{ auth_client_required }}
+
+# Logging
+log_file = /var/log/ceph/ceph-mds-{{ mds_id }}.log
+
+# CephFS-specific settings
+ms_bind_msgr2 = {{ ms_bind_msgr2 | lower }}
+ms_bind_prefer_ipv6 = {{ ms_bind_prefer_ipv6 | lower }}
+
+# Ceph MDS daemon-specific section
+[mds.{{ mds_id }}]
+host = {{ mds_host }}
+rank = {{ mds_rank | default('null') | default }}
+
+# Metadata database backend
+mds_backend = {{ mds_backend }}
+mds_max_file_size = {{ mds_max_file_size }}
+
+# Standby behavior
+mds_standby = {{ mds_standby | lower }}
+mds_standby_for_name = {{ mds_standby_for_name | default('') | default }}
+mds_standby_replay = {{ mds_standby_replay | lower }}
+
+# Exporter for CIFS/NFS (Samba-compatible interface)
+mds_cache_memory_limit = {{ mds_cache_memory_limit }}
+mds_dir_max_entries = {{ mds_dir_max_entries }}
+mds_decay_halflife = {{ mds_decay_halflife }}
+mds_beacon_interval = {{ mds_beacon_interval }}
+mds_beacon_grace = {{ mds_beacon_grace }}
+mds_enforce_unique_name = {{ mds_enforce_unique_name | lower }}
+
+# Performance tuning
+mds_op_complaint_time = {{ mds_op_complaint_time }}
+mds_op_log_debug_time = {{ mds_op_log_debug_time }}
+mds_op_log_max_items = {{ mds_op_log_max_items }}
+
+# Recovery settings
+mds_replay_interval = {{ mds_replay_interval }}
+mds_verify_scatter_noscatter = {{ mds_verify_scatter_noscatter | lower }}
+
+# CephFS mount options (for CIFS/NFS clients via ceph-fuse or kernel client)
+client_cache_size = {{ client_cache_size }}
+client_readahead_min = {{ client_readahead_min }}
+client_readahead_max = {{ client_readahead_max }}
+client_snapshots = {{ client_snapshots | lower }}
+
+# Optional: CephFS export over CIFS/NFS via cephfs-ganesha (if used)
+{% if enable_cephfs_ganesha %}
+# Enable CephFS export via NFS-Ganesha (for Samba/NFS compatibility)
+[client.nfs.{{ ganesha_id }}]
+client_mount_dir = /{{ ganesha_mount_dir }}
+ganesha_conf = /etc/ganesha/ganesha.conf
+{% for nfs_export in nfs_exports %}
+# NFS export: {{ nfs_export.path }} -> CephFS path: {{ nfs_export.ceph_path }}
+{% endfor %}
+{% endif %}

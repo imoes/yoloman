@@ -1,0 +1,108 @@
+# [global] section — main PTP daemon global settings
+[global]
+# Unique identifier for this PTP node (typically MAC address)
+device_type={{ device_type }}
+
+# Network interface to use for PTP
+interface={{ interface }}
+
+# Enable/Disable slave-only mode (i.e., never act as master)
+slave_only={{ slave_only | default(false) | lower }}
+
+# Clock class (0–125); lower = better quality (0 = best)
+clockClass={{ clock_class }}
+
+# Clock accuracy (0x20=NA, 0x21=25ns, ..., 0x2A=100ns, 0x2B=250ns, 0x2C=1us, ..., 0x32=10ms)
+clockAccuracy={{ clock_accuracy }}
+
+# Offset logged in log file (seconds); -1 = auto
+offsetLogMax={{ offset_log_max }}
+
+# Timebase for offset and delay calculations ('system' or 'phc')
+timebase={{ timebase }}
+
+# Enable/Disable hardware timestamping
+hwts={{ hwts | default(true) | lower }}
+
+# Enable/Disable software timestamping
+swts={{ swts | default(false) | lower }}
+
+# PTP domain number (0–127)
+domainNumber={{ domain_number }}
+
+# Priority1 (0–254); lower = higher preference for master election
+priority1={{ priority1 }}
+
+# Priority2 (0–254); used if Priority1 equal
+priority2={{ priority2 }}
+
+# Number of slave-only clocks behind (used in grandmaster priority chain)
+slaveOnlyClocks={{ slave_only_clocks }}
+
+# Log interval for Announce messages (±3 to +6; 2^logInterval seconds)
+anncInterval={{ announce_interval }}
+
+# Log interval for Sync messages (±3 to +6)
+syncInterval={{ sync_interval }}
+
+# Log interval for Delay_Req messages (±3 to +6)
+delayInterval={{ delay_interval }}
+
+# Log interval for Signaling messages (±3 to +6)
+signalInterval={{ signal_interval }}
+
+# Log interval for Management messages (±3 to +6)
+mgmtInterval={{ mgmt_interval }}
+
+# Number of Announce receipts needed before master state decision
+announcementsBeforeMaster={{ announcements_before_master }}
+
+# Number of missing Announce messages before master state reset
+announcementsBeforeReset={{ announcements_before_reset }}
+
+# Enable/Disable QoS DSCP marking for PTP packets (0–63 or -1 for disabled)
+ptp_dst_mac={{ ptp_dst_mac }}
+
+# Enable/Disable BMC (Best Master Clock) algorithm
+bmc={{ bmc | default(true) | lower }}
+
+# Enable/Disable logging to syslog
+logging={{ logging | default(true) | lower }}
+
+# Log level (0–7: debug–critical)
+logLevel={{ log_level }}
+
+# Path to clock description string file (if any)
+clockDescriptionFile={{ clock_description_file | default('') }}
+
+# Enable/Disable UDS (Unix Domain Socket) interface
+uds_address={{ uds_address | default('') }}
+uds_port={{ uds_port }}
+uds_mode={{ uds_mode }}
+
+# End-to-End delay mechanism specific settings
+[e2e]
+
+# Enable End-to-End delay request/response (vs P2P)
+mechanism=e2e
+
+# Initial mean path delay (nanoseconds)
+initial_delay={{ initial_delay_ns }}
+
+# Maximum delay estimation error (nanoseconds)
+delay_thresh={{ delay_thresh_ns }}
+
+# Enable/Disable automatic delay estimation
+auto_delay={{ auto_delay | default(true) | lower }}
+
+# Enable/Disable fallback to P2P if E2E fails (not recommended)
+allow_fallback_to_p2p={{ allow_fallback_to_p2p | default(false) | lower }}
+
+# List of additional interfaces to monitor for PTP (optional)
+{% for iface in additional_interfaces %}
+# Monitor interface '{{ iface.name }}' for PTP traffic (for multi-homing or redundant paths)
+{% if iface.name %}interface={{ iface.name }}{% endif %}
+{% if iface.priority is defined %}priority={{ iface.priority }}{% endif %}
+{% if iface.master_only is defined %}master_only={{ iface.master_only | lower }}{% endif %}
+{% if iface.slave_only is defined %}slave_only={{ iface.slave_only | lower }}{% endif %}
+{% endfor %}

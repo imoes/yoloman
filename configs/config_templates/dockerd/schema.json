@@ -1,0 +1,155 @@
+{
+  "data_root": {
+    "type": "string",
+    "default": "/var/lib/docker",
+    "description": "Filesystem path where Docker stores all persistent state: images, containers, volumes, and networks. Ensure the partition has sufficient space (100 GB+ recommended for production)."
+  },
+  "storage_driver": {
+    "type": "string",
+    "default": "overlay2",
+    "description": "Union filesystem driver for image layer storage. overlay2 is the recommended driver on Linux kernels 4.0+ with ext4 or xfs."
+  },
+  "storage_opts": {
+    "type": "list",
+    "default": [],
+    "description": "Additional options passed directly to the storage driver (e.g. overlay2.size=20G to cap container rootfs size). Leave empty to use driver defaults.",
+    "items": {
+      "type": "string",
+      "description": "A key=value option string accepted by the configured storage driver"
+    }
+  },
+  "log_level": {
+    "type": "string",
+    "default": "info",
+    "description": "Minimum severity level written to the daemon log. Accepted values: debug, info, warn, error, fatal. Use info in production; debug is very verbose."
+  },
+  "log_driver": {
+    "type": "string",
+    "default": "json-file",
+    "description": "Default logging driver for all containers. json-file and local support automatic rotation via log-opts. Other options: journald, syslog, fluentd, awslogs."
+  },
+  "log_max_size": {
+    "type": "string",
+    "default": "10m",
+    "description": "Maximum size of a single container log file before it is rotated. Applies to the json-file and local drivers. Suffix: k (kilobytes), m (megabytes), g (gigabytes)."
+  },
+  "log_max_file": {
+    "type": "string",
+    "default": "3",
+    "description": "Number of rotated log files to retain per container. Applies to the json-file and local drivers. Total on-disk log space per container is log_max_file \u00d7 log_max_size."
+  },
+  "live_restore": {
+    "type": "bool",
+    "default": true,
+    "description": "Keep containers running when dockerd is stopped or upgraded. Enables zero-downtime daemon upgrades. Disable only if your orchestrator (e.g. Kubernetes) manages container lifecycle directly."
+  },
+  "debug": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable verbose debug-level output in the daemon log. Produces high log volume; use only when diagnosing daemon issues, never in steady-state production."
+  },
+  "cgroup_driver": {
+    "type": "string",
+    "default": "systemd",
+    "description": "cgroup management driver passed to the OCI runtime. Use systemd on all systemd-based Linux hosts (required for Kubernetes). Use cgroupfs only on non-systemd hosts."
+  },
+  "max_concurrent_downloads": {
+    "type": "number",
+    "default": 3,
+    "description": "Maximum number of image layers pulled from a registry in parallel during a single docker pull. Increase on high-bandwidth networks; decrease to limit registry load."
+  },
+  "max_concurrent_uploads": {
+    "type": "number",
+    "default": 5,
+    "description": "Maximum number of image layers pushed to a registry in parallel during a single docker push. Increase on high-bandwidth networks."
+  },
+  "dns_servers": {
+    "type": "list",
+    "default": [
+      "8.8.8.8",
+      "8.8.4.4"
+    ],
+    "description": "DNS resolver addresses injected into /etc/resolv.conf of every container. Override with your internal resolvers when containers need to resolve private hostnames.",
+    "items": {
+      "type": "string",
+      "description": "IPv4 or IPv6 address of a DNS resolver (e.g. 10.0.0.53)"
+    }
+  },
+  "dns_search": {
+    "type": "list",
+    "default": [],
+    "description": "DNS search domains appended in every container's resolv.conf. Useful for resolving short hostnames within your internal domain without a FQDN.",
+    "items": {
+      "type": "string",
+      "description": "A DNS search domain (e.g. corp.example.com)"
+    }
+  },
+  "bridge_ip": {
+    "type": "string",
+    "default": "172.17.0.1/16",
+    "description": "CIDR block assigned to the docker0 bridge interface. Change this when 172.17.0.0/16 conflicts with existing host routes or VPN subnets."
+  },
+  "default_address_pools": {
+    "type": "list",
+    "default": [
+      {
+        "base": "172.18.0.0/16",
+        "size": 24
+      }
+    ],
+    "description": "Parent CIDR pools from which Docker allocates subnets for user-defined bridge networks. Each docker network create carves a /size subnet from the matching pool.",
+    "items": {
+      "base": {
+        "type": "string",
+        "description": "Parent CIDR block to allocate subnets from (e.g. 172.18.0.0/16)"
+      },
+      "size": {
+        "type": "number",
+        "description": "Prefix length of each individual network subnet carved from the pool (e.g. 24 yields /24 networks)"
+      }
+    }
+  },
+  "userland_proxy": {
+    "type": "bool",
+    "default": false,
+    "description": "Use a userland proxy process for loopback-bound container port mappings. Disable (false) to rely on iptables DNAT, which has lower latency and resource overhead."
+  },
+  "iptables": {
+    "type": "bool",
+    "default": true,
+    "description": "Allow dockerd to manage iptables rules for container port publishing and network isolation. Set to false only if you manage firewall rules externally and understand the implications."
+  },
+  "ip_forward": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable kernel IP forwarding (net.ipv4.ip_forward) so containers can communicate with networks beyond the local host. Required for most container networking scenarios."
+  },
+  "registry_mirrors": {
+    "type": "list",
+    "default": [],
+    "description": "Pull-through cache registries consulted before the upstream registry (e.g. Docker Hub). Use an internal mirror to reduce egress bandwidth and improve pull latency. Leave empty to pull directly.",
+    "items": {
+      "type": "string",
+      "description": "Full URL of a registry mirror including scheme (e.g. https://mirror.corp.example.com)"
+    }
+  },
+  "insecure_registries": {
+    "type": "list",
+    "default": [],
+    "description": "Registries that dockerd may contact over plain HTTP or with untrusted TLS certificates. Restrict to internal private registries only; never add public registries.",
+    "items": {
+      "type": "string",
+      "description": "host:port of an insecure registry (e.g. registry.corp.example.com:5000)"
+    }
+  },
+  "metrics_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable the built-in Prometheus metrics endpoint. When true, the daemon listens on metrics_addr and exposes engine metrics at /metrics. Requires experimental to be active."
+  },
+  "metrics_addr": {
+    "type": "string",
+    "default": "127.0.0.1:9323",
+    "description": "host:port on which the daemon serves Prometheus-format engine metrics. Only used when metrics_enabled is true. Bind to 127.0.0.1 and scrape via localhost or a local Prometheus agent."
+  }
+}

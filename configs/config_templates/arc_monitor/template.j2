@@ -1,0 +1,58 @@
+# Main configuration for ARC LDAP Monitor Web Application
+# Listening address and port for the web service
+listen_address: {{ listen_address }}
+listen_port: {{ listen_port }}
+
+# Path to the HTML/CGI root directory
+web_root: {{ web_root }}
+
+# Maximum number of concurrent requests
+max_connections: {{ max_connections }}
+
+# Enable/disable verbose logging (debug mode)
+debug: {{ debug }}
+
+# Log file path (if empty, log to stdout)
+log_file: {{ log_file }}
+
+# LDAP server(s) to monitor (list of objects)
+{% for ldap_server in ldap_servers %}
+# LDAP server: {{ ldap_server.description }}
+ldap_server:
+  url: {{ ldap_server.url }}
+  binddn: {{ ldap_server.binddn }}
+  bindpw: {{ ldap_server.bindpw }}
+  basedn: {{ ldap_server.basedn }}
+  timeout: {{ ldap_server.timeout }}
+  version: {{ ldap_server.version }}
+  starttls: {{ ldap_server.starttls }}
+{% endfor %}
+
+# Refresh interval (in seconds) for fetching LDAP data
+refresh_interval: {{ refresh_interval }}
+
+# Enable/disable SSL/TLS for the web server
+ssl_enabled: {{ ssl_enabled }}
+
+{% if ssl_enabled %}
+# Path to SSL certificate and key files
+ssl_cert_file: {{ ssl_cert_file }}
+ssl_key_file: {{ ssl_key_file }}
+{% endif %}
+
+# Allowed hostnames for virtual host / host-header validation
+allowed_hosts: {{ allowed_hosts | join(', ') }}
+
+# Enable/disable directory listing
+allow_directory_listing: {{ allow_directory_listing }}
+
+# Base URL for generated links (e.g., for email notifications)
+base_url: {{ base_url }}
+
+# Authentication type: none, basic, ldap
+auth_type: {{ auth_type }}
+
+{% if auth_type == 'basic' %}
+# Path to htpasswd file for basic auth
+htpasswd_file: {{ htpasswd_file }}
+{% endif %}

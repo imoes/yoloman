@@ -1,0 +1,57 @@
+# Listen address and port
+listen = "{{ listen_host }}:{{ listen_port }}"
+
+# TLS certificate and key paths
+tls_cert = "{{ tls_cert_path }}"
+tls_key = "{{ tls_key_path }}"
+
+# Optional: Disable TLS (dangerous, not recommended)
+{% if not tls_enabled %}
+# Disable TLS (disabled per configuration)
+tls_enabled = false
+{% else %}
+tls_enabled = true
+{% endif %}
+
+# Document root for Gemini content
+root = "{{ root_path }}"
+
+# MIME type mappings for file extensions
+{% for ext, mime_type in mime_types.items() %}
+# MIME type for .{{ ext }} files
+mime.{{ ext }} = "{{ mime_type }}"
+{% endfor %}
+
+# Virtual hosts configuration
+{% for vhost in vhosts %}
+# Virtual host: {{ vhost.hostname }}
+[{{ vhost.hostname }}]
+root = "{{ vhost.root }}"
+{% endfor %}
+
+# Worker and connection limits
+goroutines = {{ max_goroutines }}
+max_connections = {{ max_connections }}
+
+# Logging
+log_file = "{{ log_file_path }}"
+{% if log_level != "info" %}
+log_level = "{{ log_level }}"
+{% endif %}
+
+# Enable request rate limiting
+{% if rate_limiting_enabled %}
+# Enable rate limiting
+rate_limiting = true
+rate_limit_rps = {{ rate_limit_rps }}
+{% else %}
+rate_limiting = false
+{% endif %}
+
+# Optional: Directory listing behavior
+{% if directory_listing %}
+# Enable directory listing (not recommended for production)
+directory_listing = true
+{% else %}
+directory_listing = false
+{% endif %}

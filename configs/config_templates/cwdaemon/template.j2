@@ -1,0 +1,59 @@
+# Listen on this TCP port for client connections
+port {{ port }}
+
+# Device node for the key interface (e.g., /dev/ttyS0, /dev/parport0)
+device {{ device }}
+
+# Transmit speed in WPM (words per minute)
+wpm {{ wpm }}
+
+# Set the weight of dit vs dah (50 = straight key timing, 20 = fast, 80 = slow)
+weight {{ weight }}
+
+# Enable or disable parallel port support
+parallel {{ parallel }}
+
+# Enable or disable serial port support
+serial {{ serial }}
+
+# Minimum space between elements (in ms) — prevents overlapping
+minspace {{ minspace }}
+
+# Maximum space between characters (in ms)
+maxspace {{ maxspace }}
+
+# Maximum space between words (in ms)
+maxwordspace {{ maxwordspace }}
+
+# Gain factor for audio output (0–100); only used if sound output is enabled
+# Note: cwdaemon does not produce audio by default; this applies only with audio support compiled in
+{% if audio_gain is defined %}audio_gain {{ audio_gain }}
+{% endif %}
+
+# List of allowed client IP addresses (CIDR notation or single IP); if empty, all are allowed
+{% for client in allowed_clients %}allow {{ client }}
+{% endfor %}
+
+# List of denied client IP addresses (overrides allow list)
+{% for client in denied_clients %}deny {{ client }}
+{% endfor %}
+
+# Run as this user (recommended: 'cwdaemon' or 'nobody')
+user {{ user }}
+
+# PID file location
+pidfile {{ pidfile }}
+
+# Log level: 0 = silent, 1 = errors, 2 = warnings, 3 = info, 4 = debug
+loglevel {{ loglevel }}
+
+# Path to log file (use '-' for stdout)
+logfile {{ logfile }}
+
+# Optional: invert key line (for some interfaces where low = key down)
+{% if invert_key %}invert_key
+{% endif %}
+
+# Optional: use DTR instead of RTS for key control (serial only)
+{% if use_dtr %}use_dtr
+{% endif %}

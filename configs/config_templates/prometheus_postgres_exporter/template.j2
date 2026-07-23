@@ -1,0 +1,47 @@
+# PostgreSQL Exporter environment file
+# Sets environment variables for the postgres_exporter systemd service
+
+# Comma-separated list of DSNs to scrape
+# Format: postgresql://user:pass@host:port/dbname?sslmode=disable
+POSTGRES_EXPORTER_TARGET_DSN={{ target_dsns | join(',') | default('') }}
+
+# Optional: Custom connection timeout (seconds)
+POSTGRES_EXPORTER_TIMEOUT={{ timeout | default('5') }}
+
+# Optional: List of disabled collectors (comma-separated)
+# Run with --no-collector help to see available collectors
+POSTGRES_EXPORTER_DISABLE_COLLECTORS={{ disabled_collectors | join(',') | default('') }}
+
+# Optional: List of enabled collectors (comma-separated)
+# By default, most collectors are enabled; use this to restrict
+POSTGRES_EXPORTER_COLLECTORS={{ enabled_collectors | join(',') | default('') }}
+
+# Optional: Log level: debug, info, warn, error
+POSTGRES_EXPORTER_LOG_LEVEL={{ log_level | default('info') }}
+
+# Optional: Web listener address (host:port)
+POSTGRES_EXPORTER_WEB_LISTEN_ADDRESS={{ web_listen_address | default('0.0.0.0:9187') }}
+
+# Optional: TLS/SSL config (path to cert and key)
+POSTGRES_EXPORTER_TLS_CERT_FILE={{ tls_cert_file | default('') }}
+POSTGRES_EXPORTER_TLS_KEY_FILE={{ tls_key_file | default('') }}
+
+# Optional: Basic auth credentials for /metrics endpoint
+POSTGRES_EXPORTER_BASIC_AUTH_USER={{ basic_auth_user | default('') }}
+POSTGRES_EXPORTER_BASIC_AUTH_PASS={{ basic_auth_pass | default('') }}
+
+# Optional: Custom query mapping file path
+POSTGRES_EXPORTER_QUERY_PATH={{ query_path | default('') }}
+
+# Optional: PostgreSQL version override (e.g., '14.0')
+POSTGRES_EXPORTER_PG_VERSION={{ pg_version | default('') }}
+
+# Optional: Whether to collect database size in bytes
+POSTGRES_EXPORTER_EXPORT_DATABASE_SIZE={{ export_database_size | default('false') | lower }}
+
+# Optional: Whether to collect table-level bloat estimation (requires pg_stat_statements)
+POSTGRES_EXPORTER_EXPORT_TABLE_BLOAT={{ export_table_bloat | default('false') | lower }}
+
+# Optional: Custom WAL lag thresholds (in bytes)
+POSTGRES_EXPORTER_WAL_LAG_WARNING={{ wal_lag_warning | default('100000000') }}
+POSTGRES_EXPORTER_WAL_LAG_CRITICAL={{ wal_lag_critical | default('1000000000') }}

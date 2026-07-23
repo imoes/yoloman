@@ -1,0 +1,117 @@
+# Listen on this IP address (empty = all interfaces)
+listen = {{ listen_ip | default('127.0.0.1') }}
+
+# Listen on this port
+port = {{ port }}
+
+# Protocol to use: inet (IPv4 only), inet6 (IPv6 only), or both (dual-stack)
+protocol = {{ protocol }}
+
+# Maximum number of simultaneous client connections
+maxconn = {{ max_connections }}
+
+# Maximum number of accounts per user
+max_accounts = {{ max_accounts_per_user }}
+
+# Maximum message length (in bytes) per message
+max_message_length = {{ max_message_length }}
+
+# Enable debug mode (very verbose logging)
+debug = {{ debug | lower }}
+
+# Log level: 0 (none), 1 (errors), 2 (warnings), 3 (info), 4 (verbose), 5 (debug)
+loglevel = {{ log_level }}
+
+# Log to this file (use /dev/stdout for containerized stdout)
+logfile = {{ log_file }}
+
+# Enable password-based authentication (if disabled, uses Unix socket auth)
+auth_mode = {{ auth_mode }}
+
+# Path to the storage directory for user accounts and settings
+rootdir = {{ root_dir }}
+
+# Command used to start a user's IMC (IRC connection manager) process
+im_command = {{ im_command }}
+
+# Maximum time (in seconds) a user may stay idle before disconnecting
+idle_timeout = {{ idle_timeout }}
+
+# Time (in seconds) to wait before reconnecting after disconnect
+reconnect_delay = {{ reconnect_delay }}
+
+# Maximum number of reconnection attempts before giving up
+reconnect_max_tries = {{ reconnect_max_tries }}
+
+# Allow users to set custom nicknames on a per-account basis
+allow_nick_changes = {{ allow_nick_changes | lower }}
+
+# Allow users to register new accounts via the IRC interface
+allow_register = {{ allow_register | lower }}
+
+# Enable SSL/TLS support for incoming client connections
+ssl = {{ ssl_enabled | lower }}
+
+# Path to the SSL certificate file (if ssl is enabled)
+ssl_cert = {{ ssl_cert_path }}
+
+# Path to the SSL private key file (if ssl is enabled)
+ssl_key = {{ ssl_key_path }}
+
+# Use this as the SSL certificate chain file (optional)
+ssl_chain = {{ ssl_chain_path | default('') }}
+
+# Require clients to present valid SSL certificates (client cert auth)
+ssl_verify = {{ ssl_verify | lower }}
+
+# Use this hostname in SSL certificates and redirects (if not set, auto-detected)
+hostname = {{ hostname }}
+
+# Network interfaces (comma-separated) to bind to for outgoing connections
+outgoing_interfaces = {{ outgoing_interfaces | join(', ') }}
+
+# Enable DNSSEC validation for outgoing connections
+dnssec = {{ dnssec | lower }}
+
+# Use this DNS resolver timeout (in seconds)
+dns_timeout = {{ dns_timeout }}
+
+# Enable IPv6 for outgoing connections
+ipv6 = {{ ipv6_enabled | lower }}
+
+# Enable proxy support (SOCKS4/5)
+proxy_type = {{ proxy.type | default('none') }}
+proxy_host = {{ proxy.host | default('') }}
+proxy_port = {{ proxy.port | default(0) }}
+proxy_user = {{ proxy.user | default('') }}
+proxy_pass = {{ proxy.pass | default('') }}
+
+# Custom plugins to load (list of paths)
+plugins = [{{ plugins | join(', ') | default('') }}]
+
+# Per-account plugin options (if any plugin supports dynamic config)
+{% for plugin_opt in plugin_options %}# {{ plugin_opt.description }}
+{{ plugin_opt.key }} = {{ plugin_opt.value }}
+{% endfor %}
+
+# Allow only these protocols (list of short names: jabber, twitter, etc.)
+protocols = [{{ allowed_protocols | join(', ') }}]
+
+# Default settings for new accounts
+{% for account_setting in default_account_settings %}# {{ account_setting.description }}
+default_{{ account_setting.name }} = {{ account_setting.value }}
+{% endfor %}
+
+# Enable Unix domain socket (for local clients, e.g., irssi)
+unixsocket = {{ unixsocket_path }}
+unixsocket_perms = {{ unixsocket_perms }}
+
+# Enable HTTP REST API (beta, not recommended in production)
+http = {{ http_enabled | lower }}
+http_port = {{ http_port }}
+http_root = {{ http_root }}
+http_password = {{ http_password }}
+
+# Enable JSON-RPC over Unix socket
+jsonrpc = {{ jsonrpc_enabled | lower }}
+jsonrpc_path = {{ jsonrpc_path }}

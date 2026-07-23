@@ -1,0 +1,76 @@
+# System: Load Balancer Daemon (lbcd) Configuration
+# This file is managed by the lbcd service. Manual edits may be overwritten.
+
+# Listen address for incoming load reports from backend nodes
+listen_addr = "{{ listen_addr }}"
+
+# UDP port to receive load reports
+listen_port = {{ listen_port }}
+
+# Interval (seconds) between load reports from clients
+report_interval = {{ report_interval }}
+
+# Maximum age (seconds) of a load report before it is considered stale
+report_max_age = {{ report_max_age }}
+
+# TTL (seconds) for cached load entries
+cache_ttl = {{ cache_ttl }}
+
+# Comma-separated list of allowed reporter IP subnets (CIDR notation)
+allowed_subnets = [{{ allowed_subnets | join(', ') | safe }}]
+
+# Enable strict mode: reject load reports from IPs not in allowed_subnets
+strict_mode = {{ strict_mode }}
+
+# Enable debug logging
+log_debug = {{ log_debug }}
+
+# Path to the PID file
+pidfile = "{{ pidfile }}"
+
+# Path to the status file (readable by external tools)
+status_file = "{{ status_file }}"
+
+# Maximum number of concurrent reporters
+max_reporters = {{ max_reporters }}
+
+# Load metric weight configuration for aggregation
+# Each entry defines how to compute the weighted load score
+class_weights = [
+{% for weight in class_weights %}  {
+    class: "{{ weight.class }}",
+    weight: {{ weight.weight }},
+    description: "{{ weight.description }}"
+  }{% if not loop.last %},{% endif %}
+{% endfor %}]
+
+# Backend service definitions (for forwarding load-averaged decisions)
+backends = [
+{% for backend in backends %}  {
+    name: "{{ backend.name }}",
+    host: "{{ backend.host }}",
+    port: {{ backend.port }},
+    protocol: "{{ backend.protocol }}",
+    weight: {{ backend.weight }},
+    enabled: {{ backend.enabled }}
+  }{% if not loop.last %},{% endif %}
+{% endfor %}]
+
+# Health check configuration
+health_check = {
+  enabled: {{ health_check.enabled }},
+  timeout: {{ health_check.timeout }},
+  interval: {{ health_check.interval }},
+  max_failures: {{ health_check.max_failures }}
+}
+
+#告警通知配置（可选）
+# Notifies external systems when a backend becomes unhealthy
+alerts = [
+{% for alert in alerts %}  {
+    type: "{{ alert.type }}",
+    endpoint: "{{ alert.endpoint }}",
+    method: "{{ alert.method }}",
+    timeout: {{ alert.timeout }}
+  }{% if not loop.last %},{% endif %}
+{% endfor %}]

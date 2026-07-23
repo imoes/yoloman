@@ -1,0 +1,98 @@
+# Listen ports for XMPP traffic
+listen:
+{% for listener in listeners %}  -
+    port: {{ listener.port }}
+{% if listener.ip is defined %}    ip: "{{ listener.ip }}"
+{% endif %}    module: {{ listener.module }}
+{% if listener.options is defined %}    options:
+{% for opt_key, opt_val in listener.options | dict2items %}      {{ opt_key }}: {{ opt_val | tojson }}
+{% endfor %}    
+{% endif %}
+{% endfor %}
+
+# Authentication configuration
+auth_method: {{ auth.method }}
+{% if auth.method == 'sql' %}
+sql_type: {{ auth.sql.type }}
+sql_host: "{{ auth.sql.host }}"
+sql_database: "{{ auth.sql.database }}"
+sql_username: "{{ auth.sql.username }}"
+sql_password: "{{ auth.sql.password }}"
+{% endif %}
+{% if auth.method == 'ldap' %}
+ldap_servers:
+{% for server in auth.ldap.servers %}  - "{{ server }}"
+{% endfor %}
+ldap_port: {{ auth.ldap.port }}
+ldap_userdn: "{{ auth.ldap.userdn }}"
+ldap_base: "{{ auth.ldap.base }}"
+ldap_password: "{{ auth.ldap.password }}"
+{% endif %}
+
+# Domain(s) served by this node
+hosts:
+{% for host in hosts %}  - "{{ host }}"
+{% endfor %}
+
+# Module loading and configuration
+modules:
+{% for module_name, module_config in modules | dict2items %}  {{ module_name }}:
+{% if module_config | length == 0 %}
+{% else %}
+{% for opt_key, opt_val in module_config | dict2items %}    {{ opt_key }}: {{ opt_val | tojson }}
+{% endfor %}
+{% endif %}
+{% endfor %}
+
+# Log file path (optional — use empty string for none)
+logpath: "{{ log.path | default('/var/log/ejabberd/ejabberd.log') }}"
+log_level: "{{ log.level | default('info') }}"
+
+# Database and caching tuning
+max_fsm_queue: {{ limits.max_fsm_queue }}
+max_fsm_sessions: {{ limits.max_fsm_sessions }}
+queue_type: "{{ limits.queue_type }}"
+
+# Cluster configuration (optional)
+{% if cluster.enabled %}
+cluster:
+  - node: "{{ cluster.node }}"
+{% if cluster.nodes is defined %}
+  - nodes:
+{% for node in cluster.nodes %}      - "{{ node }}"
+{% endfor %}
+{% endif %}
+{% if cluster.sql is defined %}
+  - sql:
+      pool_size: {{ cluster.sql.pool_size }}
+{% endif %}
+{% endif %}
+
+# TLS/SSL certificate paths
+{% if tls.enabled %}
+tls_cert_dir: "{{ tls.cert_dir }}"
+{% endif %}
+
+# S2S (server-to-server) federation
+s2s_use_starttls: {{ s2s.use_starttls | lower }}
+s2s_timeout: {{ s2s.timeout }}
+{% if s2s.allow_domains is defined %}
+s2s_access: allow
+{% for domain in s2s.allow_domains %}s2s_allow_domains:
+  - "{{ domain }}"
+{% endfor %}
+{% endif %}
+
+# Access control lists (ACLs)
+acl:
+{% for acl_name, acl_def in acl | dict2items %}  {{ acl_name }}:
+{% for item in acl_def %}    - {{ item | tojson }}
+{% endfor %}
+{% endfor %}
+
+# Admin user list
+access:
+  'admin':
+{% for admin in admins %}    - 'allow':
+        - 'user': "{{ admin }}"
+{% endfor %}

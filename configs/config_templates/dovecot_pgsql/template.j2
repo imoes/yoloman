@@ -1,0 +1,157 @@
+# Dovecot PostgreSQL authentication and mailbox lookup configuration
+# Base protocols to enable
+protocols = {{ protocols | join(' ') }}
+
+# Mail location format (use %u for username, %d for domain)
+mail_location = {{ mail_location }}
+
+# Authentication mechanisms to support
+auth_mechanisms = {{ auth_mechanisms | join(' ') }}
+
+# PostgreSQL connection settings
+# Note: Do not store passwords in plain text; use dovecot-sql.conf.ext or secure storage in production
+# Here we define connection string and credentials via variables
+# The actual SQL queries are defined in the next section
+# A minimal per-DB setup for Dovecot
+
+# SQL driver and connection info
+driver = pgsql
+connect = host={{ pgsql.host }} port={{ pgsql.port }} dbname={{ pgsql.database }} user={{ pgsql.user }} password={{ pgsql.password }}
+
+# Password query: returns password hash and user info
+# %u = full user@domain, %n = username part, %d = domain part
+password_query = {{ pgsql.password_query }}
+
+# Userinfo query: returns UID, GID, home, and mail directory
+# Used for user lookups during login
+user_query = {{ pgsql.user_query }}
+
+# Mailbox list index settings (optional but recommended)
+mail_plugins = {{ mail_plugins | join(' ') }}
+
+# Enable doveadm for remote admin (optional)
+# If enabled, configure doveadm_socket_path in protocol doveadm block
+{% if enable_doveadm %}
+# Dovecot Admin daemon
+# doveadm_socket_path = /var/run/dovecot/doveadm
+{% endif %}
+
+# TLS/SSL configuration (secure by default)
+ssl = {{ ssl_mode }}
+ssl_cert = <{{ ssl_cert_path }}
+ssl_key = <{{ ssl_key_path }}
+{% if ssl_ca_path %}
+ssl_ca = <{{ ssl_ca_path }}
+{% endif %}
+
+# Logging
+log_path = {{ log_path }}
+info_log_path = {{ info_log_path }}
+
+# Mail processes & resource limits
+# Number of IMAP/POP3 processes (per login)
+mail_process_count = {{ mail_process_count }}
+# Memory & file descriptor limits
+mail_max_userip_connections = {{ mail_max_userip_connections }}
+
+# Login process settings
+login_greeting = {{ login_greeting }}
+login_trusted_networks = {{ login_trusted_networks | join(', ') }}
+{% if login_host %}
+login_host = {{ login_host }}
+{% endif %}
+{% if login_local_name %}
+login_local_name = {{ login_local_name }}
+{% endif %}
+
+# Namespace configuration (default inbox)
+namespace inbox {
+  inbox = yes
+  mailbox Drafts {
+    auto = subscribe
+    special_use = \Drafts
+  }
+  mailbox Sent {
+    auto = subscribe
+    special_use = \Sent
+  }
+  mailbox Trash {
+    auto = subscribe
+    special_use = \Trash
+  }
+  mailbox Archive {
+    auto = subscribe
+    special_use = \Archive
+  }
+}
+
+# Passdb (password database) and userdb (user info) backend
+passdb {
+  driver = sql
+  # path to SQL config (if external); here we inline via variables above
+  args = {{ sql_driver_args }}
+}
+
+userdb {
+  driver = sql
+  args = {{ sql_driver_args }}
+}
+
+# Logging verbosity (debug only when needed)
+# auth_verbose = yes
+# auth_debug = yes
+
+# Mail access logging (for auditing)
+mail_log_prefix = "%s(%u <%i>) "
+
+# Mailbox name encoding (UTF-8 recommended)
+mail_charset = {{ mail_charset }}
+
+# First valid UID/GID for mail users
+first_valid_uid = {{ first_valid_uid }}
+last_valid_uid = {{ last_valid_uid }}
+
+# Disable plaintext auth unless TLS is active (recommended)
+{% if disable_plaintext_auth %}
+disable_plaintext_auth = yes
+{% else %}
+disable_plaintext_auth = no
+{% endif %}
+
+# Service definitions (IMAP/POP3 listeners)
+service imap-login {
+  inet_listener imap {
+    port = {{ imap_port }}
+  }
+  inet_listener imaps {
+    port = {{ imaps_port }}
+    ssl = yes
+  }
+}
+
+{% if 'pop3' in protocols %}
+service pop3-login {
+  inet_listener pop3 {
+    port = {{ pop3_port }}
+  }
+  inet_listener pop3s {
+    port = {{ pop3s_port }}
+    ssl = yes
+  }
+}
+{% endif %}
+
+# Admin service (doveadm)
+{% if enable_doveadm %}
+service doveadm {
+  inet_listener {
+    port = {{ doveadm_port }}
+  }
+}
+{% endif %}
+
+# LDA / LMTP (if local delivery needed)
+# mail_plugins = $mail_plugins sieve
+# protocol lda {
+#   mail_plugins = $mail_plugins sieve
+# }

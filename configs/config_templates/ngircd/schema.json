@@ -1,0 +1,205 @@
+{
+  "server_name": {
+    "type": "string",
+    "default": "irc.example.net",
+    "description": "The server's public hostname (must be unique in the network)."
+  },
+  "server_info": {
+    "type": "string",
+    "default": "ngIRCd IRC Server",
+    "description": "A short human-readable description of the server."
+  },
+  "server_webirc_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable WebIRC gateway support (allows web-based clients to pass real IP and host info)."
+  },
+  "max_connections": {
+    "type": "number",
+    "default": 100,
+    "description": "Maximum number of simultaneous client connections allowed."
+  },
+  "max_connections_per_ip": {
+    "type": "number",
+    "default": 5,
+    "description": "Maximum number of connections allowed from a single IP address."
+  },
+  "max_log_entries": {
+    "type": "number",
+    "default": 500,
+    "description": "Maximum number of log entries kept in memory."
+  },
+  "timeout_seconds": {
+    "type": "number",
+    "default": 300,
+    "description": "Time (in seconds) before idle connections are dropped."
+  },
+  "ping_timeout_seconds": {
+    "type": "number",
+    "default": 120,
+    "description": "Time (in seconds) before a client is pinged for response."
+  },
+  "pong_timeout_seconds": {
+    "type": "number",
+    "default": 60,
+    "description": "Time (in seconds) to wait for a client pong before disconnecting."
+  },
+  "listen_ports": {
+    "type": "list",
+    "default": [
+      "6667"
+    ],
+    "items": {
+      "type": "number"
+    },
+    "description": "List of ports to listen on for plain IRC connections."
+  },
+  "listen_addresses": {
+    "type": "list",
+    "default": [
+      "0.0.0.0"
+    ],
+    "items": {
+      "type": "string"
+    },
+    "description": "List of IP addresses (or hostnames) to bind IRC services to."
+  },
+  "ssl_cipher_list": {
+    "type": "string",
+    "default": "HIGH:MEDIUM:!aNULL:!MD5:!3DES",
+    "description": "OpenSSL-compatible cipher list for TLS connections."
+  },
+  "ssl_dhfile": {
+    "type": "string",
+    "default": "/etc/ssl/dhparam.pem",
+    "description": "Path to Diffie-Hellman parameters file (optional but recommended for stronger DH key exchange)."
+  },
+  "ssl_key_file": {
+    "type": "string",
+    "default": "/etc/ssl/private/server.key",
+    "description": "Path to server's private key file for TLS."
+  },
+  "ssl_cert_file": {
+    "type": "string",
+    "default": "/etc/ssl/certs/server.crt",
+    "description": "Path to server's public certificate file for TLS."
+  },
+  "ssl_ca_file": {
+    "type": "string",
+    "default": "/etc/ssl/certs/ca-certificates.crt",
+    "description": "Path to CA bundle for verifying client certificates (optional)."
+  },
+  "ssl_verify_mode": {
+    "type": "string",
+    "default": "none",
+    "description": "Client certificate verification mode for TLS."
+  },
+  "ssl_ports": {
+    "type": "list",
+    "default": [
+      "6697"
+    ],
+    "items": {
+      "type": "number"
+    },
+    "description": "List of ports to listen on for TLS-encrypted IRC connections."
+  },
+  "operators": {
+    "type": "list",
+    "default": [],
+    "items": {
+      "type": "object",
+      "fields": {
+        "name": {
+          "type": "string",
+          "default": "",
+          "description": "IRC operator username (case-sensitive)."
+        },
+        "password_hash": {
+          "type": "string",
+          "default": "",
+          "description": "Crypt-encrypted password (e.g., SHA256) or '!' to disable login."
+        },
+        "host": {
+          "type": "string",
+          "default": "*",
+          "description": "Hostmask (or IP/CIDR) from which operator can connect (supports wildcards)."
+        },
+        "flags": {
+          "type": "list",
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "description": "Operator privileges (e.g., 'remote', 'global', 'kline', 'unkline')."
+        }
+      }
+    },
+    "description": "List of IRC operators with privileged access."
+  },
+  "channel_max_users_per_channel": {
+    "type": "number",
+    "default": 100,
+    "description": "Maximum number of users allowed in a single channel."
+  },
+  "channel_topic_protection": {
+    "type": "bool",
+    "default": false,
+    "description": "Require channel operator to change topic (prevents user-initiated topic changes)."
+  },
+  "channel_default_key": {
+    "type": "string",
+    "default": "",
+    "description": "Default channel key (password) to use for newly created channels (optional)."
+  },
+  "channel_max_channels_per_user": {
+    "type": "number",
+    "default": 10,
+    "description": "Maximum number of channels a single user may join simultaneously."
+  },
+  "syslog_facility": {
+    "type": "string",
+    "default": "daemon",
+    "description": "Syslog facility to use for logging."
+  },
+  "log_file_path": {
+    "type": "string",
+    "default": "/var/log/ngircd/ngircd.log",
+    "description": "Path to the log file for persistent logs (empty string disables file logging)."
+  },
+  "log_level": {
+    "type": "string",
+    "default": "Error",
+    "description": "Minimum log level to record."
+  },
+  "webirc_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable WebIRC proxy support \u2014 required for HTTP clients via mod_exec."
+  },
+  "webirc_url": {
+    "type": "string",
+    "default": "http://localhost:8080/",
+    "description": "Base URL of the WebIRC proxy (e.g., a frontend HTTP server forwarding requests to ngIRCd)."
+  },
+  "webirc_exec_path": {
+    "type": "string",
+    "default": "/usr/local/bin/ngircd-mod_exec",
+    "description": "Path to the mod_exec CGI/HTTP gateway executable."
+  },
+  "module_path": {
+    "type": "string",
+    "default": "/usr/lib/ngircd",
+    "description": "Directory where ngIRCd modules (e.g., mod_exec) are installed."
+  },
+  "module_config_path": {
+    "type": "string",
+    "default": "/etc/ngircd/mod_exec.conf",
+    "description": "Path to the mod_exec-specific configuration file."
+  },
+  "module_exec_path": {
+    "type": "string",
+    "default": "/usr/lib/ngircd/mod_exec.so",
+    "description": "Path to the mod_exec shared library (used for HTTP/CGI support)."
+  }
+}

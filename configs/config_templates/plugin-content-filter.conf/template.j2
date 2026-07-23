@@ -1,0 +1,38 @@
+[# Main content filter settings]
+[content-filter]
+enabled = {{ enabled | lower }}
+mode = {{ mode }}
+log_level = {{ log_level }}
+
+[# Proxy settings for upstream filtering]
+proxy_host = {{ proxy.host }}
+proxy_port = {{ proxy.port }}
+proxy_timeout = {{ proxy.timeout }}
+
+[# Upstream filtering service credentials]
+api_url = {{ api.url }}
+api_key = {{ api.key }}
+
+[# Block categories — comma-separated list]
+block_categories = {{ block_categories | join(', ') }}
+
+[# Exception domains — one per line under [exceptions.domains]]
+[exceptions.domains]
+{% for domain in exception_domains %}{{ domain }}
+{% endfor %}
+
+[# Exception hosts — one per line under [exceptions.hosts]]
+[exceptions.hosts]
+{% for host in exception_hosts %}{{ host }}
+{% endfor %}
+
+[# Whitelisted URLs — each with optional comment]
+[exceptions.urls]
+{% for url in exception_urls %}{{ url.url }} # {{ url.comment | default('') }}
+{% endfor %}
+
+[# Rate limiting per client (optional)]
+[rate_limiting]
+enabled = {{ rate_limiting.enabled | lower }}
+requests_per_minute = {{ rate_limiting.requests_per_minute }}
+burst_size = {{ rate_limiting.burst_size }}

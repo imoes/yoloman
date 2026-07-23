@@ -1,0 +1,112 @@
+{
+  "interface_name": {
+    "type": "string",
+    "default": "n2n0",
+    "description": "Name of the virtual TAP interface (e.g., n2n0, tap0)."
+  },
+  "mac_address": {
+    "type": "string",
+    "default": "auto",
+    "description": "MAC address for the virtual interface; use 'auto' to generate a random one."
+  },
+  "ip_address": {
+    "type": "string",
+    "default": "10.123.45.1/24",
+    "description": "Static IPv4 address and CIDR netmask for the interface (e.g., 10.42.10.2/24)."
+  },
+  "supernodes": {
+    "type": "list",
+    "default": [],
+    "items": {
+      "type": "string",
+      "pattern": "^[a-zA-Z0-9.-]+:\\d{1,5}$",
+      "description": "Host:port of a supernode (e.g., supernode1.example.com:7777)."
+    },
+    "description": "List of supernode addresses to bootstrap the mesh. At least one is required."
+  },
+  "community": {
+    "type": "string",
+    "default": "public",
+    "description": "Shared community name (case-sensitive). All edges must use the same community to join the mesh."
+  },
+  "encryption": {
+    "type": "string",
+    "default": "aes",
+    "description": "Cipher algorithm for payload encryption. Supported: 'none', 'aes', 'twofish', 'blowfish', 'cast5'."
+  },
+  "encryption_key": {
+    "type": "string",
+    "default": "",
+    "description": "Encryption key (base64-encoded or plain). Required if encryption \u2260 'none'. Leave blank for 'none'."
+  },
+  "listen_port": {
+    "type": "number",
+    "default": 0,
+    "description": "Local UDP port to listen on for incoming P2P connections. Use 0 to let the OS choose."
+  },
+  "enable_multicast": {
+    "type": "boolean",
+    "default": true,
+    "description": "Enable multicast peer discovery to locate peers locally (requires multicast support)."
+  },
+  "compression": {
+    "type": "string",
+    "default": "none",
+    "description": "Compression algorithm. Supported: 'none', 'lzo', 'zlib'."
+  },
+  "ttl": {
+    "type": "number",
+    "default": 16,
+    "description": "IP TTL for forwarded packets. Lower values limit hop count (e.g., 1 = local network only)."
+  },
+  "pid_file": {
+    "type": "string",
+    "default": "/var/run/n2n/n2n.pid",
+    "description": "Path to write the process PID file."
+  },
+  "log_file": {
+    "type": "string",
+    "default": "/var/log/n2n/n2n.log",
+    "description": "Path to write log output. Empty string disables file logging."
+  },
+  "log_level": {
+    "type": "number",
+    "default": 2,
+    "description": "Verbosity of logging: 0 (quiet) to 4 (debug). 2 (warn) is recommended for production."
+  },
+  "keepalive_interval": {
+    "type": "number",
+    "default": 20,
+    "description": "Seconds between keepalive packets (0 to disable). Helps maintain NAT traversal."
+  },
+  "max_edges": {
+    "type": "number",
+    "default": 0,
+    "description": "Maximum peers allowed in this community (0 = unlimited). Helps prevent resource exhaustion."
+  },
+  "drop_privileges": {
+    "type": "string",
+    "default": "n2n:n2n",
+    "description": "User:group to drop to after startup for security (e.g., n2n:nobody)."
+  },
+  "direct_connection": {
+    "type": "boolean",
+    "default": true,
+    "description": "Attempt direct peer-to-peer connection (bypass supernode) when possible (improves latency)."
+  },
+  "state_file": {
+    "type": "string",
+    "default": "/var/lib/n2n/state.json",
+    "description": "Optional persistent state file for edge registration (used by some supernodes)."
+  },
+  "only_registered_edges": {
+    "type": "boolean",
+    "default": false,
+    "description": "Reject connections from peers not registered with this edge (requires external auth)."
+  },
+  "extra_opts": {
+    "type": "string",
+    "default": "",
+    "description": "Extra command-line arguments (e.g., '--daemon --pid-file /run/n2n/n2n.pid'). Use with caution."
+  }
+}

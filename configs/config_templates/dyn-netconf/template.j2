@@ -1,0 +1,81 @@
+#!/bin/sh
+# Dynamic network configuration script for initramfs
+# Applies per-interface network settings from kernel command-line or initramfs
+
+PREREQ=""
+
+prereqs() {
+    echo "$PREREQ"
+}
+
+case "$1" in
+    prereqs)
+        prereqs
+        exit 0
+        ;;
+esac
+
+# Source common functions
+. /scripts/functions
+
+# Read network configuration from initramfs-tools environment
+# Defaults if not overridden by environment variables
+DHCP="{{ dhcp }}"
+IP="{{ ip }}"
+GATEWAY="{{ gateway }}"
+NETMASK="{{ netmask }}"
+HOSTNAME="{{ hostname }}"
+DNS="{{ dns }}"
+
+# Apply per-interface configuration if provided
+{% for iface in interfaces %}
+{% if iface.name %}
+# Configure interface {{ iface.name }}
+IFACE="{{ iface.name }}"
+IP_ADDR="{{ iface.address | default(ip) }}"
+GATEWAY_ADDR="{{ iface.gateway | default(gateway) }}"
+NETMASK_ADDR="{{ iface.netmask | default(netmask) }}"
+DHCP_MODE="{{ iface.dhcp | default(dhcp) }}"
+DNS_SERVERS="{{ iface.dns | default(dns) }}"
+HOSTNAME_VAL="{{ iface.hostname | default(hostname) }}"
+
+# Bring interface up if not yet
+ip link set "$IFACE" up 2>/dev/null || true
+
+{% if DHCP_MODE == 'true' or DHCP_MODE is truthy %}
+# Configure with DHCP
+if command -v dhclient >/dev/null 2>&1; then
+    dhclient -v "$IFACE" 2>&1 || true
+elif command -v udhcpc >/dev/null 2>&1; then
+    udhcpc -i "$IFACE" -q 2>&1 || true
+fi
+{% else %}
+# Static IP configuration
+ip addr add "$IP_ADDR"{{ "" if not NETMASK_ADDR else "/" + NETMASK_ADDR }} dev "$IFACE"
+ip route add default via "$GATEWAY_ADDR" dev "$IFACE" 2>/dev/null || true
+{% endif %}
+
+{% if HOSTNAME_VAL %}
+# Set hostname
+hostname "$HOSTNAME_VAL" 2>/dev/null || true
+{% endif %}
+
+{% if DNS_SERVERS %}
+# Configure DNS
+mkdir -p /etc
+echo "nameserver {{ DNS_SERVERS.split()[0] }}" > /etc/resolv.conf
+{% endif %}
+{% endif %}
+{% endfor %}
+
+# If no per-interface config and global static/DHCP set, apply to eth0 (fallback)
+{% if interfaces | count == 0 %}
+{% if not (dhcp | default('true') | lower == 'true') %}
+# Fallback: configure eth0 with static IP if no per-interface config
+if ip link show eth0 >/dev/null 2>&1; then
+    ip link set eth0 up
+    ip addr add "{{ ip }}"{{ "" if not netmask else "/" + netmask }} dev eth0
+    ip route add default via "{{ gateway }}" dev eth0 2>/dev/null || true
+fi
+{% endif %}
+{% endif %}

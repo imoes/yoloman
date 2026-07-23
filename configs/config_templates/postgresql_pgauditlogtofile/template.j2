@@ -1,0 +1,51 @@
+# PostgreSQL pgAudit Log Redirector configuration
+# This file configures how pgAudit logs are redirected to files.
+# Must be loaded via `shared_preload_libraries` in postgresql.conf
+
+# Path to the directory where audit log files will be written
+log_directory = '{{ log_directory }}'
+
+# Base filename for audit log files (%%Y%%m%%d%%H%%M%%S%%US will be expanded with timestamps and sequence)
+log_filename = '{{ log_filename }}'
+
+# Rotation interval in seconds (0 = no automatic rotation)
+log_rotation_age = {{ log_rotation_age }}
+
+# Maximum size of each log file in MB (0 = no size-based rotation)
+log_rotation_size = {{ log_rotation_size }}
+
+# Maximum number of compressed (gz) rotated files to retain
+log_rotation_max_files = {{ log_rotation_max_files }}
+
+# Compress rotated log files using gzip? (true/false)
+log_compression = {{ 'true' if log_compression else 'false' }}
+
+# Minimum severity level to log (e.g., LOG, ERROR, FATAL)
+min_messages = '{{ min_messages }}'
+
+# Enable debug-level logging for the redirector itself (true/false)
+debug_redirector = {{ 'true' if debug_redirector else 'false' }}
+
+# List of audit events to redirect (see pgAudit docs for valid options)
+audit_events = [{% for event in audit_events | map('quote') %}'{{ event }}'{% if not loop.last %}, {% endif %}{% endfor %}]
+
+# List of roles to *exclude* from auditing (empty list = audit all roles)
+{% if exclude_roles %}audit_exclude_roles = [{% for role in exclude_roles | map('quote') %}'{{ role }}'{% if not loop.last %}, {% endif %}{% endfor %}]{% else %}audit_exclude_roles = []{% endif %}
+
+# List of schemas to *exclude* from auditing (empty list = audit all schemas)
+{% if exclude_schemas %}audit_exclude_schemas = [{% for schema in exclude_schemas | map('quote') %}'{{ schema }}'{% if not loop.last %}, {% endif %}{% endfor %}]{% else %}audit_exclude_schemas = []{% endif %}
+
+# File ownership and permissions (octal, e.g., 0640)
+log_file_mode = {{ '%o' | format(log_file_mode) }}
+
+# Owner of log files (Unix username)
+log_file_owner = '{{ log_file_owner }}'
+
+# Group owner of log files (Unix group name)
+log_file_group = '{{ log_file_group }}'
+
+# Maximum number of concurrent log writers (increase for high-TPS systems)
+max_log_writers = {{ max_log_writers }}
+
+# Enable or disable audit logging (true/false)
+enabled = {{ 'true' if enabled else 'false' }}

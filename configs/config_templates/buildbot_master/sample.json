@@ -1,0 +1,134 @@
+{
+  "master_basedir": "/var/lib/buildbot/master",
+  "botmaster_maxRetries": 3,
+  "slave_port": 9989,
+  "db_url": "sqlite:///state.sqlite",
+  "protocols": [
+    {
+      "protocol": "pb",
+      "options": "tcp:9989:interface=127.0.0.1"
+    }
+  ],
+  "log_encoding": "utf-8",
+  "log_level": "INFO",
+  "auth_class": "auth.UserPasswordAuth",
+  "auth_config": {
+    "userpass": [
+      [
+        "admin",
+        "adminpass"
+      ],
+      [
+        "buildbot",
+        "buildbotpass"
+      ]
+    ]
+  },
+  "force_builds": true,
+  "build_horizon": 0,
+  "event_horizon": 1000,
+  "cleanup": {
+    "logfiles": true,
+    "logs": {
+      "maxAge": 30,
+      "maxBuilds": 50
+    }
+  },
+  "status_targets": [
+    {
+      "class": "www.HttpInfo",
+      "config": {
+        "port": "tcp:8010:interface=0.0.0.0",
+        "plugins": {
+          "waterfall": true,
+          "console": true,
+          "buildslaves": true,
+          "grid": true
+        }
+      }
+    },
+    {
+      "class": "status.MailNotifier",
+      "config": {
+        "fromaddr": "buildbot@example.com",
+        "extraRecipients": [
+          "dev@example.com"
+        ],
+        "sendToInterestedUsers": true,
+        "mode": [
+          "change"
+        ]
+      }
+    }
+  ],
+  "builders": [
+    {
+      "name": "test-builder",
+      "slavenames": [
+        "slave1",
+        "slave2"
+      ],
+      "builddir": "test-builder",
+      "factory_class": "steps.BuildFactory",
+      "factory_args": [
+        "steps.Git(repourl='https://github.com/example/repo.git', mode='full')",
+        "steps.ShellCommand(command=['pytest'], name='run-tests')"
+      ],
+      "env": {
+        "PATH": "/usr/local/bin:/usr/bin",
+        "PYTHONPATH": "/opt/app"
+      },
+      "locks": [
+        "compile-lock"
+      ],
+      "properties": {
+        "distro": "ubuntu",
+        "arch": "amd64"
+      },
+      "category": "test",
+      "tags": [
+        "unit-tests",
+        "ci"
+      ]
+    }
+  ],
+  "schedulers": [
+    {
+      "name": "sched-main",
+      "class": "schedulers.SingleBranchScheduler",
+      "args": [
+        "change_filter=util.ChangeFilter(branch='main')",
+        "treeStableTimer=60",
+        "builderNames=['test-builder']"
+      ]
+    },
+    {
+      "name": "sched-pull",
+      "class": "schedulers.InteractiveScheduler",
+      "args": [
+        "builderNames=['test-builder']",
+        "props=None"
+      ]
+    }
+  ],
+  "change_sources": [
+    {
+      "name": "github",
+      "class": "changes.GitHubPullRequest",
+      "args": [
+        "token='ghp_xxxxxxxx'",
+        "project='owner/repo'",
+        "pullrequesturl='https://api.github.com/repos/owner/repo/pulls'"
+      ]
+    },
+    {
+      "name": "git-main",
+      "class": "changes.Git",
+      "args": [
+        "repourl='https://github.com/example/repo.git'",
+        "pollInterval=60"
+      ]
+    }
+  ],
+  "force_build_user": "admin"
+}

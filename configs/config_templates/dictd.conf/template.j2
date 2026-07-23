@@ -1,0 +1,58 @@
+# Dictionary server configuration for dictd
+# Base directory for dictionary data files
+base_dir: {{ base_dir }}
+
+# Port to listen on (0 = disable network, use only Unix socket)
+port: {{ port }}
+
+# Unix socket path (if enabled via port=0 or explicitly)
+socket: {{ socket }}
+
+# Number of worker processes (0 = auto-scale based on CPU cores)
+workers: {{ workers }}
+
+# Maximum number of simultaneous client connections
+maxconn: {{ maxconn }}
+
+# Log level: debug, info, notice, warn, error, crit, alert, emerg
+log_level: {{ log_level }}
+
+# Log file path (if empty, log to stderr/syslog)
+log_file: {{ log_file }}
+
+# Enable/Disable background indexing (useful for large dictionaries)
+indexing: {{ indexing }}
+
+# Timeout (in seconds) for client connections
+client_timeout: {{ client_timeout }}
+
+# Default dictionary to query when none specified
+default_dict: "{{ default_dict }}"
+
+# List of allowed hosts/networks (if empty, allow all)
+# Use CIDR notation or single IP; IPv6 enclosed in brackets
+allow{% for item in allow %}
+  - {{ item.host }}{% if item.netmask is defined %}/{{ item.netmask }}{% endif %}{% endfor %}
+
+# List of denied hosts/networks (overrides allow)
+# Same format as `allow`
+deny{% for item in deny %}
+  - {{ item.host }}{% if item.netmask is defined %}/{{ item.netmask }}{% endif %}{% endfor %}
+
+# Enable/Disable verbose protocol logging (for debugging)
+verbose_log: {{ verbose_log }}
+
+# Enable/Disable compression (gzip) of dictionary data on transfer
+compression: {{ compression }}
+
+# Dictionary sources: name -> path mapping
+# Each source defines a dictionary or database
+{% for dict_source in dictionaries %}# Dictionary: {{ dict_source.name }}
+source {{ dict_source.name }} {
+  datafile {{ dict_source.datafile }}
+  index {{ dict_source.index }}
+{% if dict_source.desc is defined %}  desc "{{ dict_source.desc }}"
+{% endif %}{% if dict_source.mime_type is defined %}  mime-type {{ dict_source.mime_type }}
+{% endif %}}
+
+{% endfor %}

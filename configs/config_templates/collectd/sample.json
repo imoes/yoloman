@@ -1,0 +1,70 @@
+{
+  "hostname": "webserver-01",
+  "fqdn_lookup": false,
+  "basedir": "/var/lib/collectd",
+  "pidfile": "/run/collectd.pid",
+  "interval": 10,
+  "timeout": 2,
+  "plugins": [
+    {
+      "name": "cpu",
+      "config": {
+        "ReportByCpu": true,
+        "ReportByState": true,
+        "ValuesPercentage": true
+      }
+    },
+    {
+      "name": "memory",
+      "config": {}
+    },
+    {
+      "name": "disk",
+      "config": {
+        "Disk": [
+          {
+            "Device": "sda",
+            "Instance": "main"
+          }
+        ],
+        "IgnoreSelected": false
+      }
+    },
+    {
+      "name": "network",
+      "config": {
+        "Server": [],
+        "Listen": []
+      }
+    }
+  ],
+  "collectd_users": [
+    {
+      "name": "collectd-client",
+      "secret_hash": "a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2"
+    }
+  ],
+  "destinations": [
+    {
+      "host": "metrics.example.com",
+      "port": 25826,
+      "protocol": "tcp",
+      "keepalive": true,
+      "ttl": 64
+    }
+  ],
+  "network_listeners": [
+    {
+      "address": "127.0.0.1",
+      "port": 25826,
+      "protocol": "tcp",
+      "securitylevel": "sign",
+      "encryption_file": "/etc/collectd/collectd.enc",
+      "auth_file": "/etc/collectd/users.conf"
+    }
+  ],
+  "includes": [
+    "/etc/collectd/conf.d/*.conf"
+  ],
+  "plugin_logfile_file": "/var/log/collectd.log"
+}

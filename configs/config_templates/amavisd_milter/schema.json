@@ -1,0 +1,95 @@
+{
+  "milter_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable the Amavisd milter interface (required for integration with MTA milters like Postfix or Sendmail)."
+  },
+  "milter_socket_type": {
+    "type": "string",
+    "default": "inet",
+    "description": "Socket type for milter communication: 'unix' for a Unix domain socket, 'inet' for TCP."
+  },
+  "milter_socket_path": {
+    "type": "string",
+    "default": "/var/spool/amavis/amavisd.sock",
+    "description": "Path to Unix socket (only used if milter_socket_type = 'unix')."
+  },
+  "milter_bind_address": {
+    "type": "string",
+    "default": "127.0.0.1",
+    "description": "IP address to bind the milter TCP listener to (only used if milter_socket_type = 'inet')."
+  },
+  "milter_bind_port": {
+    "type": "number",
+    "default": 55555,
+    "description": "TCP port to listen on for milter connections (only used if milter_socket_type = 'inet')."
+  },
+  "milter_max_procs": {
+    "type": "number",
+    "default": 4,
+    "description": "Maximum number of worker processes for handling milter connections."
+  },
+  "milter_timeout": {
+    "type": "number",
+    "default": 120,
+    "description": "Timeout in seconds for milter communication between the MTA and Amavisd."
+  },
+  "milter_allow_overload": {
+    "type": "bool",
+    "default": false,
+    "description": "If true, accept mail from the milter even when Amavisd is overloaded (risk: unscanned mail)."
+  },
+  "milter_allowed_clients": {
+    "type": "list",
+    "default": [
+      "127.0.0.0/8"
+    ],
+    "description": "List of allowed client addresses (CIDR or hostnames) permitted to use this milter.",
+    "items": {
+      "type": "string"
+    }
+  },
+  "milter_fail_action": {
+    "type": "string",
+    "default": "tempfail",
+    "description": "MTA action when Amavisd is unavailable: 'accept', 'reject', or 'tempfail'."
+  },
+  "milter_add_headers": {
+    "type": "list",
+    "default": [],
+    "description": "List of custom headers to inject into scanned messages. Each element is a key-value pair (header name \u2192 value).",
+    "items": {
+      "type": "object",
+      "properties": {
+        "header": {
+          "type": "string",
+          "description": "Header name (e.g., 'X-Amavis-Status')"
+        },
+        "value": {
+          "type": "string",
+          "description": "Header value (may include macros like %%SUBJECT%%)"
+        }
+      }
+    }
+  },
+  "milter_debug": {
+    "type": "number",
+    "default": 0,
+    "description": "Debug level for milter logging (0\u20134); higher values produce more verbose logs."
+  },
+  "milter_name": {
+    "type": "string",
+    "default": "",
+    "description": "Optional name for the milter (used by MTAs to identify the filter)."
+  },
+  "milter_strip_whitespace": {
+    "type": "bool",
+    "default": true,
+    "description": "Strip extraneous whitespace from headers before scanning (helps prevent header injection attacks)."
+  },
+  "milter_preserve_envelope": {
+    "type": "bool",
+    "default": false,
+    "description": "Preserve original envelope information during milter processing (required for some MTA setups)."
+  }
+}

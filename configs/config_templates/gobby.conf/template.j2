@@ -1,0 +1,63 @@
+[server]
+# Hostname or IP address the server will bind to
+host = {{ server.host | default('127.0.0.1') }}
+
+# Port the server listens on
+port = {{ server.port | default(6523) }}
+
+# Enable SSL/TLS for secure connections
+ssl_enabled = {{ server.ssl_enabled | default(false) }}
+
+# Path to SSL certificate file (required if ssl_enabled=true)
+ssl_certificate = {{ server.ssl_certificate | default('') }}
+
+# Path to SSL private key file (required if ssl_enabled=true)
+ssl_key = {{ server.ssl_key | default('') }}
+
+# Maximum number of concurrent connections
+max_connections = {{ server.max_connections | default(50) }}
+
+[security]
+# Enable password-based authentication
+password_auth = {{ security.password_auth | default(false) }}
+
+# Path to password file (INI-style, with [users] section)
+password_file = {{ security.password_file | default('/etc/gobby-0.5/users.conf') }}
+
+# Enable TLS client certificate authentication
+cert_auth = {{ security.cert_auth | default(false) }}
+
+# Path to CA certificate for validating client certs (required if cert_auth=true)
+ca_certificate = {{ security.ca_certificate | default('') }}
+
+# Require client certificates for all connections (only if cert_auth=true)
+require_cert = {{ security.require_cert | default(true) }}
+
+# List of allowed client certificate fingerprints (optional, overrides CA if empty list)
+allowed_cert_fingerprints = {% for fp in security.allowed_cert_fingerprints | default([]) %}
+  {{ fp }}{% if not loop.last %},{% endif %}{% endfor %}
+
+[logging]
+# Log level: debug, info, warning, error, critical
+level = {{ logging.level | default('info') }}
+
+# Path to log file (empty string = stdout)
+file = {{ logging.file | default('') }}
+
+# Enable log rotation (size in MB, count = number of rotated files to keep)
+rotate = {{ logging.rotate | default(false) }}
+rotate_max_size = {{ logging.rotate_max_size | default(10) }}
+rotate_max_files = {{ logging.rotate_max_files | default(5) }}
+
+[general]
+# Directory for autosaving documents (empty = no autosave)
+autosave_dir = {{ general.autosave_dir | default('') }}
+
+# Autosave interval in seconds
+autosave_interval = {{ general.autosave_interval | default(30) }}
+
+# Enable document versioning (requires filesystem support)
+versioning = {{ general.versioning | default(false) }}
+
+# Path for versioning metadata (if versioning=true)
+versioning_dir = {{ general.versioning_dir | default('/var/lib/gobby-0.5/versions') }}

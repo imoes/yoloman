@@ -1,0 +1,256 @@
+{
+  "bind_address": {
+    "type": "string",
+    "default": "127.0.0.1",
+    "description": "IP address to bind the GKrellM server daemon to. Use '0.0.0.0' to listen on all interfaces."
+  },
+  "bind_port": {
+    "type": "number",
+    "default": 1912,
+    "description": "TCP port on which gkrellmd will listen for client connections."
+  },
+  "ssl_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable TLS/SSL encryption for client connections."
+  },
+  "ssl_cert_file": {
+    "type": "string",
+    "default": "/etc/gkrellmd/ssl/cert.pem",
+    "description": "Path to the SSL certificate file (PEM format). Required if SSL is enabled."
+  },
+  "ssl_key_file": {
+    "type": "string",
+    "default": "/etc/gkrellmd/ssl/key.pem",
+    "description": "Path to the SSL private key file (PEM format). Required if SSL is enabled."
+  },
+  "log_level": {
+    "type": "number",
+    "default": 1,
+    "description": "Verbosity of logging: 0=quiet, 1=normal, 2=verbose."
+  },
+  "log_file": {
+    "type": "string",
+    "default": "",
+    "description": "Path to log file. Leave empty to log to syslog instead."
+  },
+  "data_refresh_ms": {
+    "type": "number",
+    "default": 1000,
+    "description": "Interval in milliseconds between updates of monitored data."
+  },
+  "max_clients": {
+    "type": "number",
+    "default": 10,
+    "description": "Maximum number of simultaneous client connections allowed."
+  },
+  "auth_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Require authentication for client connections."
+  },
+  "users": {
+    "type": "list",
+    "default": [],
+    "description": "List of user accounts allowed to connect. Each user must specify a name, password, and permissions.",
+    "items": {
+      "type": "object",
+      "fields": {
+        "name": {
+          "type": "string",
+          "default": "",
+          "description": "Username for login."
+        },
+        "password": {
+          "type": "string",
+          "default": "",
+          "description": "Password for login (stored in plaintext; use strong access controls for this file)."
+        },
+        "permissions": {
+          "type": "list",
+          "default": [
+            "read"
+          ],
+          "description": "Access permissions: 'read' (view only) or 'control' (read + manage monitors).",
+          "items": {
+            "type": "string",
+            "enum": [
+              "read",
+              "control"
+            ]
+          }
+        }
+      }
+    }
+  },
+  "snmp_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable SNMP monitoring of remote devices."
+  },
+  "snmp_community": {
+    "type": "string",
+    "default": "public",
+    "description": "Default SNMP community string for read access (v1/v2c only)."
+  },
+  "snmp_hosts": {
+    "type": "list",
+    "default": [],
+    "description": "List of SNMP hosts to monitor.",
+    "items": {
+      "type": "object",
+      "fields": {
+        "hostname": {
+          "type": "string",
+          "default": "",
+          "description": "IP address or hostname of the SNMP device."
+        },
+        "community": {
+          "type": "string",
+          "default": "public",
+          "description": "SNMP community string for this host (optional; uses global default if omitted)."
+        },
+        "version": {
+          "type": "string",
+          "default": "1",
+          "description": "SNMP version: '1', '2c', or '3' (v3 requires additional configuration not supported by this template)."
+        }
+      }
+    }
+  },
+  "ups_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable UPS monitoring via apcupsd or NUT."
+  },
+  "ups_type": {
+    "type": "string",
+    "default": "nut",
+    "description": "UPS backend to use: 'apcupsd' or 'nut'."
+  },
+  "ups_host": {
+    "type": "string",
+    "default": "localhost",
+    "description": "Hostname or IP of NUT UPS daemon (only used if ups_type='nut')."
+  },
+  "ups_port": {
+    "type": "number",
+    "default": 3493,
+    "description": "Port of NUT UPS daemon (only used if ups_type='nut')."
+  },
+  "ups_name": {
+    "type": "string",
+    "default": "ups",
+    "description": "UPS device name registered with NUT (only used if ups_type='nut')."
+  },
+  "mysql_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable built-in MySQL server monitoring (status variables, uptime, etc.)."
+  },
+  "mysql_host": {
+    "type": "string",
+    "default": "localhost",
+    "description": "MySQL server hostname or IP address."
+  },
+  "mysql_port": {
+    "type": "number",
+    "default": 3306,
+    "description": "MySQL server port."
+  },
+  "mysql_user": {
+    "type": "string",
+    "default": "gkrellm",
+    "description": "MySQL user with REPLICATION CLIENT and PROCESS privileges."
+  },
+  "mysql_password": {
+    "type": "string",
+    "default": "",
+    "description": "Password for MySQL user."
+  },
+  "mysql_database": {
+    "type": "string",
+    "default": "",
+    "description": "Database name (not required; monitoring uses global status variables)."
+  },
+  "pg_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable built-in PostgreSQL server monitoring."
+  },
+  "pg_host": {
+    "type": "string",
+    "default": "localhost",
+    "description": "PostgreSQL server hostname, IP, or path to Unix socket directory."
+  },
+  "pg_port": {
+    "type": "number",
+    "default": 5432,
+    "description": "PostgreSQL server port."
+  },
+  "pg_user": {
+    "type": "string",
+    "default": "gkrellm",
+    "description": "PostgreSQL user with sufficient privileges to query pg_stat_database."
+  },
+  "pg_password": {
+    "type": "string",
+    "default": "",
+    "description": "Password for PostgreSQL user."
+  },
+  "pg_database": {
+    "type": "string",
+    "default": "postgres",
+    "description": "Database to connect to (typically 'postgres' or 'template1')."
+  },
+  "apache_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable built-in Apache web server monitoring (requires mod_status with 'server-status' enabled)."
+  },
+  "apache_status_url": {
+    "type": "string",
+    "default": "http://localhost/server-status?auto",
+    "description": "Full URL to Apache server-status page (must end in '?auto' for auto-parsing)."
+  },
+  "ntp_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable built-in NTP synchronization monitoring."
+  },
+  "ntp_server": {
+    "type": "string",
+    "default": "pool.ntp.org",
+    "description": "NTP server to query for time offset and status."
+  },
+  "monitor_disks": {
+    "type": "bool",
+    "default": true,
+    "description": "Monitor disk space usage for local filesystems."
+  },
+  "monitor_processes": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable built-in per-process monitoring."
+  },
+  "monitor_process_list": {
+    "type": "list",
+    "default": [],
+    "description": "List of processes to monitor individually.",
+    "items": {
+      "type": "object",
+      "fields": {
+        "name": {
+          "type": "string",
+          "default": "",
+          "description": "Display name for the monitored process."
+        },
+        "cmdline": {
+          "type": "string",
+          "default": "",
+          "description": "Regular expression or full command-line to match (case-sensitive)."
+        }
+      }
+    }
+  }
+}

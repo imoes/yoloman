@@ -1,0 +1,29 @@
+# Global logging facility/level targets
+default        /var/log/syslog
+
+# Kernel messages
+daemon.*        /var/log/daemon.log
+
+# Mail system events
+mail.*          /var/log/mail.log
+
+# Cron jobs
+cron.*          /var/log/cron.log
+
+# Auth (security) messages
+auth,authpriv.* /var/log/auth.log
+
+# Log all emergency messages to all users
+*.emerg         :omusrmsg:*
+
+# Log kernel messages to /var/log/kern.log
+kern.*          /var/log/kern.log
+
+# Log user-level messages to /var/log/user.log
+user.*          /var/log/user.log
+
+# Remote logging server (optional)
+{% if syslog_server %}*.* @{{ syslog_server }}{% endif %}
+
+# Local logging overrides
+{% for rule in custom_rules %}{{ rule.facility }}.{{ rule.level }}        {{ rule.target }}{% endfor %}

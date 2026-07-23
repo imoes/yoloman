@@ -1,0 +1,63 @@
+# Jabber Multi-User Conference (MUC) component configuration
+# Hostname and XMPP domain for this MUC component
+jid: {{ jid }}
+
+# Network port to listen for client (component) connections
+port: {{ port }}
+
+# Secret shared secret used to authenticate this component to the server
+secret: {{ secret }}
+
+# Path to log file (or 'stdout', 'stderr' for console logging)
+log: {{ log }}
+
+# Logging level: 'info', 'debug', 'warn', 'error', 'critical'
+log_level: {{ log_level }}
+
+# Maximum number of occupants allowed per room
+max_occupants: {{ max_occupants }}
+
+# Minimum password length for password-protected rooms
+min_password_length: {{ min_password_length }}
+
+# Allow room creation without requiring ownership (true = open registration)
+allow_open_registration: {{ allow_open_registration | lower }}
+
+# List of room configuration presets (key: value pairs as YAML-like config blocks)
+{% for preset in room_presets %}
+preset {{ preset.name }}:
+  # Enable persistent storage for rooms using this preset
+  persistent: {{ preset.persistent | lower }}
+  # Maximum occupants for rooms of this preset type
+  max_occupants: {{ preset.max_occupants | default(max_occupants) }}
+  # Whether room titles are required
+  title_required: {{ preset.title_required | default(false) | lower }}
+  # List of services (JIDs) allowed to send announcements to rooms using this preset
+  {% if preset.announcement_services %}
+  announcement_services: {{ preset.announcement_services | join(', ') }}
+  {% endif %}
+{% endfor %}
+
+# Optional: restrict room creation to users from specific domains
+{% if allowed_domains %}
+allowed_domains: {{ allowed_domains | join(', ') }}
+{% endif %}
+
+# Optional: disable specific room features
+{% if disabled_features %}
+# Disable features: 'muc_public', 'muc_open', 'muc_membersonly', 'muc_passwordprotected', 'muc_moderated', 'muc_nonanonymous', 'muc_semianonymous', 'muc_unmoderated'
+disabled_features: {{ disabled_features | join(', ') }}
+{% endif %}
+
+# Optional: custom namespace prefix (e.g., 'muc', 'conference')
+namespace_prefix: {{ namespace_prefix }}
+
+# Optional: SSL/TLS settings for internal component-to-server communication (if used)
+{% if ssl %}
+ssl:
+  cert: {{ ssl.cert }}
+  key: {{ ssl.key }}
+{% if ssl.ca_cert %}
+  ca_cert: {{ ssl.ca_cert }}
+{% endif %}
+{% endif %}

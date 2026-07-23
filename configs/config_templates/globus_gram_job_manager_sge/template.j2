@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Globus GRAM Job Manager for Grid Engine configuration -->
+<!-- This file is managed by the globus-gram-job-manager-sge package -->
+<!-- Do not edit manually; use the Globus configuration tools instead -->
+<GridManagerConfig>
+  <!-- Service name and description for GRAM job manager -->
+  <ServiceName>{{ service_name }}</ServiceName>
+  <ServiceDescription>{{ service_description }}</ServiceDescription>
+
+  <!-- Grid Engine queue to use for job submission -->
+  <Queue>{{ queue }}</Queue>
+
+  <!-- Path to Grid Engine's qsub command -->
+  <QsubPath>{{ qsub_path }}</QsubPath>
+
+  <!-- Path to Grid Engine's qstat command -->
+  <QstatPath>{{ qstat_path }}</QstatPath>
+
+  <!-- Path to Grid Engine's qdel command -->
+  <QdelPath>{{ qdel_path }}</QdelPath>
+
+  <!-- Path to Grid Engine's qacct command for job accounting -->
+  <QacctPath>{{ qacct_path }}</QacctPath>
+
+  <!-- Maximum number of jobs that can be managed concurrently -->
+  <MaxJobs>{{ max_jobs }}</MaxJobs>
+
+  <!-- Path to the working directory for job staging (must be writable by globus user) -->
+  <WorkDir>{{ work_dir }}</WorkDir>
+
+  <!-- Enable or disable email notifications for job state changes -->
+  <NotifyEnabled>{{ notify_enabled | lower }}</NotifyEnabled>
+
+  <!-- Email address to send notifications to (if notify_enabled is true) -->
+  <NotifyEmail>{{ notify_email }}</NotifyEmail>
+
+  <!-- Optional environment variables to pass to Grid Engine jobs (list of key=value pairs) -->
+  <Environment>
+{% for env in environment_vars %}    <Env name="{{ env.name }}">{{ env.value }}</Env>
+{% endfor %  </Environment>
+
+  <!-- Grid Engine project (accounting project) to use for jobs (optional, may be empty) -->
+  <Project>{{ project }}</Project>
+
+  <!-- Default resource request limits for Grid Engine jobs (can be overridden per job) -->
+  <ResourceLimits>
+{% for limit in resource_limits %}    <Limit name="{{ limit.name }}">{{ limit.value }}</Limit>
+{% endfor %  </ResourceLimits>
+
+  <!-- Path to the Grid Engine admin user (typically root or sgoadmin) for privileged commands -->
+  <AdminUser>{{ admin_user }}</AdminUser>
+
+  <!-- Enable or disable SGE resource usage monitoring (e.g., via qhost) -->
+  <MonitoringEnabled>{{ monitoring_enabled | lower }}</MonitoringEnabled>
+
+  <!-- Path to qhost command for monitoring -->
+  <QhostPath>{{ qhost_path }}</QhostPath>
+</GridManagerConfig>

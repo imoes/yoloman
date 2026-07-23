@@ -1,0 +1,46 @@
+{
+  "proxy_iface": "eth0",
+  "timeout": 300,
+  "rules": [
+    "router",
+    "host"
+  ],
+  "interfaces": [
+    {
+      "name": "eth1",
+      "description": "Internal LAN interface",
+      "rules": [
+        "router",
+        "host",
+        "static",
+        "autonomous"
+      ],
+      "timeout": 3600,
+      "router_priority": 64,
+      "router_lifetime": 1800
+    },
+    {
+      "name": "br0",
+      "description": "Bridge for VMs and containers",
+      "rules": [
+        "router",
+        "static"
+      ],
+      "timeout": 1800
+    }
+  ],
+  "static_entries": [
+    {
+      "mac": "00:11:22:33:44:55",
+      "ip": "2001:db8:1::1",
+      "iface": "eth1",
+      "description": "Gateway to upstream router"
+    },
+    {
+      "mac": "aa:bb:cc:dd:ee:ff",
+      "ip": "2001:db8:2::10",
+      "iface": "br0",
+      "description": "Proxmox host bridge IP"
+    }
+  ]
+}

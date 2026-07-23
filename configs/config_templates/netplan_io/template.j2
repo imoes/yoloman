@@ -1,0 +1,283 @@
+# YAML schema: netplan network configuration (v2)
+# Declarative network configuration for systemd-networkd or NetworkManager backends
+network:
+  version: 2
+{% if renderer == 'NetworkManager' %}
+  renderer: NetworkManager
+{% elif renderer == 'systemd-networkd' %}
+  renderer: systemd-networkd
+{% else %}
+  # Default renderer — will be auto-selected by netplan
+  # (typically systemd-networkd on server installs)
+  # renderer: systemd-networkd
+{% endif %}
+{% if ethernets %}
+  ethernets:
+{% for eth in ethernets %}
+    "{{ eth.id }}":
+{% if eth.match %}
+      match:
+        {{ eth.match | to_nice_yaml(indent=6, width=1000) | indent(6, true) | replace('\n', '\n      ') | replace(': ', ':') | replace('  -', '    -') }}
+{% endif %}
+{% if eth.set_name %}
+      set-name: "{{ eth.set_name }}"
+{% endif %}
+{% if eth.dhcp4 %}
+      dhcp4: {{ eth.dhcp4 | tojson }}
+{% endif %
+{% if eth.dhcp6 %}
+      dhcp6: {{ eth.dhcp6 | tojson }}
+{% endif %}
+{% if eth.dhcp4_overrides or eth.dhcp6_overrides %}
+      dhcp-overrides:
+{% if eth.dhcp4_overrides %}
+        route-metric: {{ eth.dhcp4_overrides.route_metric | default(100) }}
+{% if eth.dhcp4_overrides.use_dns %}
+        use-dns: {{ eth.dhcp4_overrides.use_dns | tojson }}
+{% endif %}
+{% if eth.dhcp4_overrides.use_ntp %}
+        use-ntp: {{ eth.dhcp4_overrides.use_ntp | tojson }}
+{% endif %}
+{% if eth.dhcp4_overrides.use_routes %}
+        use-routes: {{ eth.dhcp4_overrides.use_routes | tojson }}
+{% endif %}
+{% endif %}
+{% if eth.dhcp6_overrides %}
+{% if eth.dhcp4_overrides %}
+        # (dhcp6-overrides may be included separately)
+{% endif %}
+        route-metric: {{ eth.dhcp6_overrides.route_metric | default(100) }}
+{% if eth.dhcp6_overrides.use_dns %}
+        use-dns: {{ eth.dhcp6_overrides.use_dns | tojson }}
+{% endif %}
+{% if eth.dhcp6_overrides.use_ntp %}
+        use-ntp: {{ eth.dhcp6_overrides.use_ntp | tojson }}
+{% endif %}
+{% if eth.dhcp6_overrides.use_routes %}
+        use-routes: {{ eth.dhcp6_overrides.use_routes | tojson }}
+{% endif %}
+{% endif %}
+{% endif %}
+{% if eth.addresses %}
+      addresses:
+{% for addr in eth.addresses %}
+        - "{{ addr }}"
+{% endfor %}
+{% endif %}
+{% if eth.gateway4 %}
+      gateway4: "{{ eth.gateway4 }}"
+{% endif %}
+{% if eth.gateway6 %}
+      gateway6: "{{ eth.gateway6 }}"
+{% endif %}
+{% if eth.nameservers %}
+      nameserver:
+{% if eth.nameservers.addresses %}
+        addresses:
+{% for addr in eth.nameservers.addresses %}
+          - "{{ addr }}"
+{% endfor %}
+{% endif %}
+{% if eth.nameservers.search %}
+        search:
+{% for domain in eth.nameservers.search %}
+          - "{{ domain }}"
+{% endfor %}
+{% endif %}
+{% endif %}
+{% if eth.routings %}
+      routes:
+{% for route in eth.routings %}
+        - to: "{{ route.to }}"
+{% if route.via %}
+          via: "{{ route.via }}"
+{% endif %}
+{% if route.metric %}
+          metric: {{ route.metric }}
+{% endif %}
+{% if route.from %}
+          from: "{{ route.from }}"
+{% endif %}
+{% if route.table %}
+          table: {{ route.table }}
+{% endif %}
+{% endfor %}
+{% endif %}
+{% endfor %}
+{% endif %}
+{% if bridges %}
+  bridges:
+{% for br in bridges %}
+    "{{ br.id }}":
+      interfaces:
+{% for iface in br.interfaces %}
+        - "{{ iface }}"
+{% endfor %}
+{% if br.parameters %}
+      parameters:
+{% if br.parameters.stp %}
+        stp: {{ br.parameters.stp | tojson }}
+{% endif %}
+{% if br.parameters.forward_delay %}
+        forward-delay: {{ br.parameters.forward_delay }}
+{% endif %}
+{% if br.parameters.ageing_time %}
+        ageing-time: {{ br.parameters.ageing_time }}
+{% endif %}
+{% if br.parameters.hello_time %}
+        hello-time: {{ br.parameters.hello_time }}
+{% endif %}
+{% if br.parameters.max_age %}
+        max-age: {{ br.parameters.max_age }}
+{% endif %}
+{% if br.parameters.priority %}
+        priority: {{ br.parameters.priority }}
+{% endif %}
+{% endif %}
+{% if br.dhcp4 %}
+      dhcp4: {{ br.dhcp4 | tojson }}
+{% endif %}
+{% if br.dhcp6 %}
+      dhcp6: {{ br.dhcp6 | tojson }}
+{% endif %}
+{% if br.addresses %}
+      addresses:
+{% for addr in br.addresses %}
+        - "{{ addr }}"
+{% endfor %}
+{% endif %}
+{% if br.gateway4 %}
+      gateway4: "{{ br.gateway4 }}"
+{% endif %}
+{% if br.gateway6 %}
+      gateway6: "{{ br.gateway6 }}"
+{% endif %}
+{% if br.nameservers %}
+      nameserver:
+{% if br.nameservers.addresses %}
+        addresses:
+{% for addr in br.nameservers.addresses %}
+          - "{{ addr }}"
+{% endfor %}
+{% endif %}
+{% if br.nameservers.search %}
+        search:
+{% for domain in br.nameservers.search %}
+          - "{{ domain }}"
+{% endfor %}
+{% endif %}
+{% endif %}
+{% if br.routings %}
+      routes:
+{% for route in br.routings %}
+        - to: "{{ route.to }}"
+{% if route.via %}
+          via: "{{ route.via }}"
+{% endif %}
+{% if route.metric %}
+          metric: {{ route.metric }}
+{% endif %}
+{% if route.from %}
+          from: "{{ route.from }}"
+{% endif %}
+{% if route.table %}
+          table: {{ route.table }}
+{% endif %}
+{% endfor %}
+{% endif %}
+{% endfor %}
+{% endif %}
+{% if vlans %}
+  vlans:
+{% for vlan in vlans %}
+    "{{ vlan.id }}":
+      id: {{ vlan.vlan_id }}
+      link: "{{ vlan.link }}"
+{% if vlan.addresses %}
+      addresses:
+{% for addr in vlan.addresses %}
+        - "{{ addr }}"
+{% endfor %}
+{% endif %}
+{% if vlan.gateway4 %}
+      gateway4: "{{ vlan.gateway4 }}"
+{% endif %}
+{% if vlan.gateway6 %}
+      gateway6: "{{ vlan.gateway6 }}"
+{% endif %}
+{% if vlan.dhcp4 %}
+      dhcp4: {{ vlan.dhcp4 | tojson }}
+{% endif %}
+{% if vlan.dhcp6 %}
+      dhcp6: {{ vlan.dhcp6 | tojson }}
+{% endif %}
+{% if vlan.nameservers %}
+      nameserver:
+{% if vlan.nameservers.addresses %}
+        addresses:
+{% for addr in vlan.nameservers.addresses %}
+          - "{{ addr }}"
+{% endfor %}
+{% endif %}
+{% if vlan.nameservers.search %}
+        search:
+{% for domain in vlan.nameservers.search %}
+          - "{{ domain }}"
+{% endfor %}
+{% endif %}
+{% endif %}
+{% endfor %}
+{% endif %}
+{% if wifis %}
+  wifis:
+{% for wifi in wifis %}
+    "{{ wifi.id }}":
+      access-points:
+{% for ap in wifi.access_points %}
+        "{{ ap.ssid }}":
+          password: "{{ ap.password }}"
+{% if ap.hidden %}
+          hidden: {{ ap.hidden | tojson }}
+{% endif %}
+{% if ap.band %}
+          band: "{{ ap.band }}"
+{% endif %}
+{% if ap.channel %}
+          channel: {{ ap.channel }}
+{% endif %}
+{% endfor %}
+{% if wifi.dhcp4 %}
+      dhcp4: {{ wifi.dhcp4 | tojson }}
+{% endif %}
+{% if wifi.dhcp6 %}
+      dhcp6: {{ wifi.dhcp6 | tojson }}
+{% endif %}
+{% if wifi.addresses %}
+      addresses:
+{% for addr in wifi.addresses %}
+        - "{{ addr }}"
+{% endfor %}
+{% endif %}
+{% if wifi.gateway4 %}
+      gateway4: "{{ wifi.gateway4 }}"
+{% endif %}
+{% if wifi.gateway6 %}
+      gateway6: "{{ wifi.gateway6 }}"
+{% endif %}
+{% if wifi.nameservers %}
+      nameserver:
+{% if wifi.nameservers.addresses %}
+        addresses:
+{% for addr in wifi.nameservers.addresses %}
+          - "{{ addr }}"
+{% endfor %}
+{% endif %}
+{% if wifi.nameservers.search %}
+        search:
+{% for domain in wifi.nameservers.search %}
+          - "{{ domain }}"
+{% endfor %}
+{% endif %}
+{% endif %}
+{% endfor %}
+{% endif %}

@@ -1,0 +1,73 @@
+# Global configuration for gdnsd, a high-performance authoritative DNS server
+# Enable or disable the server
+{% if enabled | default(true) %}
+listen:
+  # Address and port to listen on for DNS queries
+{% for addr in listen_addrs %}
+  - address: {{ addr.address }}
+    port: {{ addr.port }}
+{% endfor %}
+{% else %}
+# Server is disabled; no listening will occur
+{% endif %}
+
+# Logging configuration
+log:
+  # Log file path (use "-" for stdout)
+  file: {{ log_file }}
+  # Log level: debug, info, notice, warn, error
+  level: {{ log_level }}
+
+# Security settings
+security:
+  # Chroot directory (set to "" to disable)
+  chroot: {{ security.chroot }}
+  # Drop privileges to this user/group after startup
+  user: {{ security.user }}
+  group: {{ security.group }}
+
+# Performance tuning
+server:
+  # Number of worker threads (0 = auto, based on CPU cores)
+  workers: {{ server.workers }}
+  # Maximum UDP packet size (bytes)
+  max_udp_size: {{ server.max_udp_size }}
+  # TCP connection timeout (seconds)
+  tcp_timeout: {{ server.tcp_timeout }}
+  # Maximum TCP connections per worker
+  max_tcp_connections: {{ server.max_tcp_connections }}
+
+# Zone management
+zones:
+  # Zone data directory
+  root: {{ zones.root }}
+  # Enable automatic reload of zone files on change
+  auto_reload: {{ zones.auto_reload }}
+  # Maximum time (seconds) to wait before force-reload
+  reload_interval: {{ zones.reload_interval }}
+{% for zone in zones.zones %}
+  - name: {{ zone.name }}
+    file: {{ zone.file | default(zone.name + ".zone") }}
+{% endfor %}
+
+# DNSSEC configuration (optional)
+{% if dnssec.enabled | default(false) %}
+dnssec:
+  # Enable DNSSEC signing and validation
+  enabled: true
+  # DNSSEC keys directory
+  keys_dir: {{ dnssec.keys_dir }}
+  # Default TTL for DNSSEC RRSIG records
+  rrsig_ttl: {{ dnssec.rrsig_ttl }}
+{% endif %}
+
+# Client access control (optional)
+{% if access_control.enabled | default(false) %}
+access_control:
+  # Default policy: allow, deny, or ignore
+  default: {{ access_control.default }}
+{% for rule in access_control.rules %}
+  - action: {{ rule.action }}
+    client: {{ rule.client }}
+{% endfor %}
+{% endif %}

@@ -1,0 +1,66 @@
+# oidentd main configuration file — controls global behavior and user-specific rules
+# See `man 5 oidentd.conf` for full syntax and options
+
+# Global options: default behavior when no user-specific rule matches
+{% if config.global_options %}
+{% for key, value in config.global_options.items() %}{{ key }} {{ value }}
+{% endfor %}
+{% else %}
+global {
+  default_allow = no
+  default_deny = yes
+}
+{% endif %}
+
+# Per-user rules — each user may have multiple rules for different destinations
+{% for user in config.users %}
+{% if user.name %}
+user {{ user.name }} {
+{% if user.rules %}
+{% for rule in user.rules %}
+{% if rule.description %}# {{ rule.description }}
+{% endif %}
+{% if rule.source_ip %}  source_ip {{ rule.source_ip }}
+{% endif %}
+{% if rule.destination_ip %}  destination_ip {{ rule.destination_ip }}
+{% endif %}
+{% if rule.destination_port %}  destination_port {{ rule.destination_port }}
+{% endif %}
+{% if rule.action %}  action {{ rule.action }}
+{% endif %}
+{% if rule.fallback %}  fallback {{ rule.fallback }}
+{% endif %}
+{% if rule.allow_spoof %}  allow_spoof {{ rule.allow_spoof }}
+{% endif %}
+{% if rule.allow_spoof_port %}  allow_spoof_port {{ rule.allow_spoof_port }}
+{% endif %}
+{% if rule.response_type %}  response_type {{ rule.response_type }}
+{% endif %}
+{% if rule.response_user %}  response_user {{ rule.response_user }}
+{% endif %}
+{% if rule.response_system %}  response_system {{ rule.response_system }}
+{% endif %}
+{% endfor %}
+{% else %}
+  # Default rule for this user (matches all connections)
+  action reject
+{% endif %}
+}
+{% endif %}
+{% endfor %}
+
+# Optional: global rules (applied before per-user rules)
+{% if config.global_rules %}
+{% for rule in config.global_rules %}
+{% if rule.description %}# {{ rule.description }}
+{% endif %}
+{% if rule.source_ip %}source_ip {{ rule.source_ip }}
+{% endif %}
+{% if rule.destination_ip %}destination_ip {{ rule.destination_ip }}
+{% endif %}
+{% if rule.destination_port %}destination_port {{ rule.destination_port }}
+{% endif %}
+{% if rule.action %}action {{ rule.action }}
+{% endif %}
+{% endfor %}
+{% endif %}

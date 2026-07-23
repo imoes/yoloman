@@ -1,0 +1,93 @@
+# I2PD core configuration
+# Enables logging to console and file
+loglevel = {{ log_level }}
+logfile = {{ log_file }}
+
+# Network settings
+# Bind to specific host and ports for I2P tunnels
+host = {{ host }}
+port = {{ port }}
+
+# Limits and timeouts
+# Maximum simultaneous connections
+maxconn = {{ max_connections }}
+# Timeout for tunnel build attempts (seconds)
+tunnelbuildtimeout = {{ tunnel_build_timeout }}
+
+# Bandwidth limits (KB/s)
+# Outbound bandwidth limit
+bandwidth = {{ outbound_bandwidth }}
+# Inbound bandwidth limit
+share = {{ inbound_bandwidth }}
+
+# Tunnel settings
+# Number of gateways per tunnel
+gateways = {{ tunnel_gateways }}
+# Number of hops in a tunnel
+hops = {{ tunnel_hops }}
+# Randomize tunnel length
+tunnellength = {{ tunnel_length }}
+# Tunnel build retry interval (seconds)
+tunnelquantity = {{ tunnel_quantity }}
+
+# Bandwidth sharing ratio (percentage)
+shareratio = {{ share_ratio }}
+
+# Daemon operation toggles
+# Whether to run as a daemon
+daemon = {{ daemon_mode }}
+# Whether to enable SSDP for NAT traversal
+ssdp = {{ enable_ssdp }}
+# Whether to enable NAT-PMP/UPnP
+upnp = {{ enable_upnp }}
+
+# Paths
+# Base directory for I2P data (keys, tunnels, etc.)
+datadir = {{ data_dir }}
+# Directory for configuration files
+confdir = {{ conf_dir }}
+
+# Optional service-specific settings
+# Enable webconsole (HTTP UI)
+webconsole = {{ enable_webconsole }}
+# Webconsole bind host and port
+webconsolehost = {{ webconsole_host }}
+webconsoleport = {{ webconsole_port }}
+# Webconsole authentication (user:password)
+webconsoleauth = {{ webconsole_auth }}
+# Webconsole HTTPS (TLS) settings
+webconsolecert = {{ webconsole_cert }}
+webconsolekey = {{ webconsole_key }}
+
+# Optional: fees and address book
+# Enable fees for high-bandwidth tunnels
+fees = {{ enable_fees }}
+# Address book URL(s)
+addressbookurls = {{ addressbook_urls | join(', ') }}
+
+# Optional: transit tunnel settings
+# Allow routing transit traffic
+transit = {{ transit_enabled }}
+# Maximum transit tunnels
+transittunnels = {{ transit_tunnels }}
+
+# Optional: NTCP/SSU settings
+# Enable NTCP transport
+ntcp = {{ enable_ntcp }}
+# Enable SSU transport
+ssu = {{ enable_ssu }}
+# NTCP2 (experimental) support
+ntcp2 = {{ enable_ntcp2 }}
+
+# Optional: local destination settings
+# Local I2P destination port bindings for services
+{{- for service in services }}
+# {{ service.description }}
+{{ service.name }}.port = {{ service.port }}
+{{ service.name }}.host = {{ service.host }}
+{{ service.name }}.inbound.length = {{ service.inbound_length }}
+{{ service.name }}.outbound.length = {{ service.outbound_length }}
+{{ service.name }}.inbound.quantity = {{ service.inbound_quantity }}
+{{ service.name }}.outbound.quantity = {{ service.outbound_quantity }}
+{{ service.name }}.privatekey = {{ service.private_key_path }}
+{{- endfor }}

@@ -1,0 +1,563 @@
+{
+  "service_name": {
+    "type": "string",
+    "default": "keystone",
+    "description": "Service name used in logs and notifications."
+  },
+  "debug": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable debug logging (verbose output)."
+  },
+  "log_format": {
+    "type": "string",
+    "default": "%(asctime)s %(levelname)s %(name)s [%(process)d:%(threadName)s] %(message)s",
+    "description": "Format string for log messages."
+  },
+  "log_file": {
+    "type": "string",
+    "default": "",
+    "description": "Path to log file. Empty means log to stderr."
+  },
+  "database": {
+    "type": "object",
+    "default": {},
+    "description": "Database connection configuration.",
+    "items": {
+      "connection": {
+        "type": "string",
+        "default": "mysql+pymysql://keystone:password@localhost/keystone",
+        "description": "Database connection URI."
+      },
+      "max_retries": {
+        "type": "number",
+        "default": 10,
+        "description": "Maximum number of database connection retries."
+      },
+      "retry_interval": {
+        "type": "number",
+        "default": 10,
+        "description": "Time (seconds) between connection retries."
+      },
+      "pool_size": {
+        "type": "number",
+        "default": 10,
+        "description": "Number of connections maintained in the pool."
+      },
+      "pool_recycle": {
+        "type": "number",
+        "default": 600,
+        "description": "Time (seconds) before recycling idle connections."
+      },
+      "pool_timeout": {
+        "type": "number",
+        "default": 30,
+        "description": "Timeout (seconds) for acquiring a connection from the pool."
+      }
+    }
+  },
+  "token": {
+    "type": "object",
+    "default": {},
+    "description": "Token provider and settings.",
+    "items": {
+      "provider": {
+        "type": "string",
+        "default": "fernet",
+        "description": "Token provider: 'fernet', 'pki', 'pkiz', or 'uuid'."
+      },
+      "total_expiration": {
+        "type": "number",
+        "default": 3600,
+        "description": "Token validity duration (seconds)."
+      },
+      "fernet_max_active_keys": {
+        "type": "number",
+        "default": 3,
+        "description": "Number of Fernet keys to maintain for rotation (only with fernet provider)."
+      },
+      "key_repository": {
+        "type": "string",
+        "default": "/etc/keystone/fernet-keys/",
+        "description": "Directory for Fernet key files (only with fernet provider)."
+      },
+      "uuid_cache_time": {
+        "type": "number",
+        "default": 600,
+        "description": "TTL (seconds) for UUID token caching."
+      }
+    }
+  },
+  "fernet_tokens": {
+    "type": "object",
+    "default": {},
+    "description": "Fernet token configuration (deprecated; use token.key_repository).",
+    "items": {
+      "key_repository": {
+        "type": "string",
+        "default": "/etc/keystone/fernet-keys/",
+        "description": "Deprecated: Use token.key_repository instead."
+      }
+    }
+  },
+  "revoke": {
+    "type": "object",
+    "default": {},
+    "description": "Token revocation configuration.",
+    "items": {
+      "driver": {
+        "type": "string",
+        "default": "sql",
+        "description": "Revocation backend: 'sql', 'kafka', or custom driver."
+      },
+      "expiration": {
+        "type": "number",
+        "default": 60,
+        "description": "Time (seconds) before revocation events expire."
+      }
+    }
+  },
+  "cache": {
+    "type": "object",
+    "default": {},
+    "description": "Caching backend configuration.",
+    "items": {
+      "backend": {
+        "type": "string",
+        "default": "keystone.cache.memcached",
+        "description": "Cache backend: e.g., 'keystone.cache.memcached', 'keystone.cache.sql'."
+      },
+      "memcache_servers": {
+        "type": "list",
+        "default": [],
+        "items": {
+          "type": "string"
+        },
+        "description": "List of Memcached server addresses (e.g., ['10.0.0.1:11211', '10.0.0.2:11211'])."
+      },
+      "expiration_time": {
+        "type": "number",
+        "default": 600,
+        "description": "TTL (seconds) for cached entries."
+      }
+    }
+  },
+  "assignment": {
+    "type": "object",
+    "default": {},
+    "description": "Assignment (project/domain) defaults.",
+    "items": {
+      "default_domain_id": {
+        "type": "string",
+        "default": "default",
+        "description": "Default domain ID for new projects and users."
+      }
+    }
+  },
+  "auth": {
+    "type": "object",
+    "default": {},
+    "description": "Authentication methods and plugins.",
+    "items": {
+      "methods": {
+        "type": "list",
+        "default": [
+          "password",
+          "token"
+        ],
+        "items": {
+          "type": "string"
+        },
+        "description": "List of enabled auth methods (e.g., ['password', 'token', 'oauth1', 'saml2'])."
+      },
+      "plugins": {
+        "type": "object",
+        "default": {},
+        "description": "Per-method auth plugin configuration.",
+        "items": {}
+      }
+    }
+  },
+  "endpoint_filter": {
+    "type": "object",
+    "default": {},
+    "description": "Endpoint filter (multi-region) settings.",
+    "items": {
+      "enabled": {
+        "type": "bool",
+        "default": false,
+        "description": "Enable endpoint filtering by project."
+      }
+    }
+  },
+  "endpoint_policy": {
+    "type": "object",
+    "default": {},
+    "description": "Endpoint policy (deprecated).",
+    "items": {
+      "enabled": {
+        "type": "bool",
+        "default": false,
+        "description": "Enable endpoint policy (deprecated; use endpoint_filter)."
+      }
+    }
+  },
+  "identity": {
+    "type": "object",
+    "default": {},
+    "description": "Identity backend configuration.",
+    "items": {
+      "driver": {
+        "type": "string",
+        "default": "sql",
+        "description": "Identity backend driver: 'sql' or 'ldap'."
+      },
+      "domain_config_dir": {
+        "type": "string",
+        "default": "",
+        "description": "Directory containing domain-specific config files (e.g., /etc/keystone/domains/)."
+      },
+      "extra_attributes": {
+        "type": "list",
+        "default": [],
+        "items": {
+          "type": "string"
+        },
+        "description": "Additional attributes (e.g., email, description) to include in user/project responses."
+      }
+    }
+  },
+  "ldap": {
+    "type": "object",
+    "default": {},
+    "description": "LDAP identity backend settings (used when identity.driver=ldap).",
+    "items": {
+      "url": {
+        "type": "string",
+        "default": "ldap://localhost",
+        "description": "LDAP server URL (e.g., 'ldap://ldap.example.com')."
+      },
+      "user": {
+        "type": "string",
+        "default": "cn=admin,dc=openstack,dc=org",
+        "description": "Bind DN for LDAP connection."
+      },
+      "password": {
+        "type": "string",
+        "default": "",
+        "description": "Password for LDAP bind."
+      },
+      "suffix": {
+        "type": "string",
+        "default": "dc=openstack,dc=org",
+        "description": "LDAP suffix for users and groups."
+      },
+      "user_filter": {
+        "type": "string",
+        "default": "(objectClass=inetOrgPerson)",
+        "description": "LDAP filter for users."
+      },
+      "user_objectclass": {
+        "type": "string",
+        "default": "inetOrgPerson",
+        "description": "User object class."
+      },
+      "user_id_attribute": {
+        "type": "string",
+        "default": "uid",
+        "description": "LDAP attribute used as user ID."
+      },
+      "user_name_attribute": {
+        "type": "string",
+        "default": "cn",
+        "description": "LDAP attribute used as username."
+      },
+      "user_enabled_attribute": {
+        "type": "string",
+        "default": "shadowActive",
+        "description": "LDAP attribute indicating user status (e.g., 'enabled')."
+      },
+      "user_enabled_mask": {
+        "type": "number",
+        "default": 1,
+        "description": "Bitmask to apply to user_enabled_attribute."
+      },
+      "user_default_project_id_attribute": {
+        "type": "string",
+        "default": "",
+        "description": "LDAP attribute for default project (optional)."
+      },
+      "group_filter": {
+        "type": "string",
+        "default": "(objectClass=groupOfNames)",
+        "description": "LDAP filter for groups."
+      },
+      "group_objectclass": {
+        "type": "string",
+        "default": "groupOfNames",
+        "description": "Group object class."
+      },
+      "group_id_attribute": {
+        "type": "string",
+        "default": "cn",
+        "description": "LDAP attribute used as group ID."
+      },
+      "group_name_attribute": {
+        "type": "string",
+        "default": "cn",
+        "description": "LDAP attribute used as group name."
+      },
+      "group_member_attribute": {
+        "type": "string",
+        "default": "member",
+        "description": "LDAP attribute listing group members."
+      },
+      "group_description_attribute": {
+        "type": "string",
+        "default": "description",
+        "description": "LDAP attribute for group description."
+      },
+      "use_pool": {
+        "type": "bool",
+        "default": true,
+        "description": "Enable connection pooling for LDAP."
+      },
+      "pool_size": {
+        "type": "number",
+        "default": 10,
+        "description": "LDAP connection pool size."
+      },
+      "pool_timeout": {
+        "type": "number",
+        "default": 10,
+        "description": "Timeout (seconds) to get connection from pool."
+      },
+      "pool_retry_max": {
+        "type": "number",
+        "default": 3,
+        "description": "Max retries to acquire LDAP connection."
+      },
+      "pool_connection_retry_interval": {
+        "type": "number",
+        "default": 1,
+        "description": "Seconds between connection retries."
+      },
+      "use_tls": {
+        "type": "bool",
+        "default": false,
+        "description": "Enable TLS for LDAP (start_tls)."
+      },
+      "ca_cert": {
+        "type": "string",
+        "default": "",
+        "description": "CA certificate bundle file path."
+      },
+      "client_cert": {
+        "type": "string",
+        "default": "",
+        "description": "Client certificate file (optional)."
+      },
+      "client_key": {
+        "type": "string",
+        "default": "",
+        "description": "Client private key file (optional)."
+      },
+      "tls_ciphers": {
+        "type": "string",
+        "default": "",
+        "description": "TLS cipher suite (e.g., 'HIGH:!aNULL:!MD5')."
+      }
+    }
+  },
+  "oslo_middleware": {
+    "type": "object",
+    "default": {},
+    "description": "WSGI middleware settings.",
+    "items": {
+      "max_request_body_size": {
+        "type": "number",
+        "default": 114688,
+        "description": "Maximum request body size (bytes)."
+      },
+      "enable_cors": {
+        "type": "bool",
+        "default": false,
+        "description": "Enable Cross-Origin Resource Sharing (CORS)."
+      },
+      "cors_origins": {
+        "type": "list",
+        "default": [],
+        "items": {
+          "type": "string"
+        },
+        "description": "Allowed CORS origins (e.g., ['https://dashboard.example.com'])."
+      },
+      "cors_headers": {
+        "type": "list",
+        "default": [
+          "Content-Type",
+          "X-Auth-Token"
+        ],
+        "items": {
+          "type": "string"
+        },
+        "description": "Allowed request headers for CORS."
+      },
+      "cors_expose_headers": {
+        "type": "list",
+        "default": [
+          "X-Subject-Token"
+        ],
+        "items": {
+          "type": "string"
+        },
+        "description": "Headers exposed in CORS responses."
+      }
+    }
+  },
+  "oslo_policy": {
+    "type": "object",
+    "default": {},
+    "description": "Policy enforcement settings.",
+    "items": {
+      "policy_file": {
+        "type": "string",
+        "default": "policy.json",
+        "description": "Path to policy file (relative to config dir or absolute)."
+      },
+      "policy_default_rule": {
+        "type": "string",
+        "default": "default",
+        "description": "Default rule applied if no rule matches."
+      },
+      "enforce_scope": {
+        "type": "bool",
+        "default": false,
+        "description": "Enforce scope-based policy rules (requires project/domain scope)."
+      },
+      "enforce_new_defaults": {
+        "type": "bool",
+        "default": false,
+        "description": "Enforce new default policy rules (required for scope enforcement)."
+      }
+    }
+  },
+  "signing": {
+    "type": "object",
+    "default": {},
+    "description": "Token signing settings (for PKI/PKIZ providers).",
+    "items": {
+      "token_dir": {
+        "type": "string",
+        "default": "/etc/keystone/signing_tokens",
+        "description": "Directory for token signing files."
+      },
+      "ca_cert": {
+        "type": "string",
+        "default": "/etc/keystone/ssl/certs/ca.pem",
+        "description": "CA certificate path."
+      },
+      "certfile": {
+        "type": "string",
+        "default": "/etc/keystone/ssl/certs/signing_cert.pem",
+        "description": "Signing certificate path."
+      },
+      "certkey": {
+        "type": "string",
+        "default": "/etc/keystone/ssl/private/signing_key.pem",
+        "description": "Signing private key path."
+      }
+    }
+  },
+  "security_compliance": {
+    "type": "object",
+    "default": {},
+    "description": "Password and account lockout policy settings.",
+    "items": {
+      "password_length": {
+        "type": "number",
+        "default": 12,
+        "description": "Minimum required password length."
+      },
+      "password_minimum_age": {
+        "type": "number",
+        "default": 0,
+        "description": "Minimum age (days) before password change allowed."
+      },
+      "password_minimum_character_classes": {
+        "type": "number",
+        "default": 3,
+        "description": "Minimum number of character classes (e.g., uppercase, lowercase, digit, symbol)."
+      },
+      "password_regex": {
+        "type": "string",
+        "default": "",
+        "description": "Optional regex pattern for password validation."
+      },
+      "password_regex_description": {
+        "type": "string",
+        "default": "",
+        "description": "Human-readable explanation of password policy."
+      },
+      "password_history_count": {
+        "type": "number",
+        "default": 5,
+        "description": "Number of previous passwords to remember (prevents reuse)."
+      },
+      "lockout_failure_attempts": {
+        "type": "number",
+        "default": 6,
+        "description": "Failed login attempts before account lockout."
+      },
+      "lockout_duration": {
+        "type": "number",
+        "default": 1800,
+        "description": "Lockout duration (seconds)."
+      }
+    }
+  },
+  "oslo_concurrency": {
+    "type": "object",
+    "default": {},
+    "description": "Concurrency and locking settings.",
+    "items": {
+      "lock_path": {
+        "type": "string",
+        "default": "/var/lock/keystone",
+        "description": "Directory for process locks."
+      }
+    }
+  },
+  "oslo_messaging_notifications": {
+    "type": "object",
+    "default": {},
+    "description": "Notification configuration.",
+    "items": {
+      "driver": {
+        "type": "string",
+        "default": "messagingv2",
+        "description": "Notification driver: 'messaging', 'messagingv2', 'log', etc."
+      },
+      "transport_url": {
+        "type": "string",
+        "default": "rabbit://guest:guest@localhost:5672/",
+        "description": "Messaging transport URL (e.g., for RabbitMQ)."
+      },
+      "topics": {
+        "type": "list",
+        "default": [
+          "notifications"
+        ],
+        "items": {
+          "type": "string"
+        },
+        "description": "Notification topics to publish to."
+      },
+      "retry": {
+        "type": "bool",
+        "default": true,
+        "description": "Enable notification retry on failure."
+      }
+    }
+  }
+}

@@ -1,0 +1,195 @@
+{
+  "logtarget": {
+    "type": "string",
+    "default": "/var/log/fail2ban.log",
+    "description": "Log target for fail2ban messages (file, syslog, or /dev/stdout)."
+  },
+  "syslogsocket": {
+    "type": "string",
+    "default": "auto",
+    "description": "Syslog socket path (e.g., /dev/log). Use 'auto' to auto-detect."
+  },
+  "backend": {
+    "type": "string",
+    "default": "auto",
+    "description": "File change detection backend: inotify, polling, or auto."
+  },
+  "banaction": {
+    "type": "string",
+    "default": "iptables-multiport",
+    "description": "Default action to ban IPs (iptables-multiport, firewalld, nftables-multiport, etc.)."
+  },
+  "banaction_allports": {
+    "type": "string",
+    "default": "iptables-allports",
+    "description": "Action used for jails matching all ports (e.g., sshd-allports)."
+  },
+  "findtime": {
+    "type": "number",
+    "default": 600,
+    "description": "Time window (seconds) during which maxretry failures trigger a ban."
+  },
+  "bantime": {
+    "type": "number",
+    "default": 600,
+    "description": "Duration (seconds) an IP is banned by default."
+  },
+  "bantime_increment": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable exponential increase in ban time on repeat offenses."
+  },
+  "bantime_rndtime": {
+    "type": "number",
+    "default": 300,
+    "description": "Random jitter (seconds) added to ban time to avoid synchronized resets."
+  },
+  "bantime_maxtime": {
+    "type": "number",
+    "default": 3600,
+    "description": "Maximum ban time (seconds) when using bantime_increment."
+  },
+  "maxretry": {
+    "type": "number",
+    "default": 5,
+    "description": "Default number of failures before an IP is banned."
+  },
+  "maxretry_local": {
+    "type": "number",
+    "default": 5,
+    "description": "Max retries for local IP addresses (often set lower for trusted networks)."
+  },
+  "action": {
+    "type": "string",
+    "default": "iptables-multiport",
+    "description": "Default action to perform on ban (e.g., action_mwl for mail+log)."
+  },
+  "jails": {
+    "type": "list",
+    "default": [],
+    "description": "List of jail configurations. Each jail defines monitoring for a specific service (SSH, FTP, HTTP, etc.).",
+    "items": {
+      "name": {
+        "type": "string",
+        "description": "Unique identifier for the jail (e.g., sshd, proftpd, nginx-http-auth)."
+      },
+      "enabled": {
+        "type": "bool",
+        "default": true,
+        "description": "Enable or disable this jail."
+      },
+      "service": {
+        "type": "string",
+        "default": "",
+        "description": "Human-readable service name for documentation (e.g., 'SSH server')."
+      },
+      "port": {
+        "type": "list",
+        "items": {
+          "type": "string"
+        },
+        "default": [],
+        "description": "Ports to monitor (e.g., ['22'], ['80','443'])."
+      },
+      "filter": {
+        "type": "string",
+        "default": "",
+        "description": "Name of the filter file (without .conf suffix) that parses logs (e.g., 'sshd', 'nginx-http-auth')."
+      },
+      "logpath": {
+        "type": "list",
+        "items": {
+          "type": "string"
+        },
+        "default": [],
+        "description": "Path(s) to log files to monitor. Supports wildcards (e.g., ['/var/log/auth.log'])."
+      },
+      "maxretry": {
+        "type": "number",
+        "default": 5,
+        "description": "Override global maxretry for this jail."
+      },
+      "findtime": {
+        "type": "number",
+        "default": 600,
+        "description": "Override global findtime for this jail (seconds)."
+      },
+      "bantime": {
+        "type": "number",
+        "default": 600,
+        "description": "Override global bantime for this jail (seconds)."
+      },
+      "banaction": {
+        "type": "string",
+        "default": "",
+        "description": "Override global banaction for this jail."
+      },
+      "action_overrides": {
+        "type": "list",
+        "items": {
+          "name": {
+            "type": "string",
+            "description": "Name of the action override (e.g., 'start', 'ban', 'unban')."
+          },
+          "value": {
+            "type": "string",
+            "description": "Action definition (e.g., '%(action_)s')."
+          }
+        },
+        "default": [],
+        "description": "Custom per-jail action overrides (rarely needed)."
+      },
+      "addaction": {
+        "type": "list",
+        "items": {
+          "type": "string"
+        },
+        "default": [],
+        "description": "Additional action lines to append to the jail (e.g., 'action += %(action_mwl)s')."
+      },
+      "destemail": {
+        "type": "string",
+        "default": "",
+        "description": "Email address for notifications (used by mail actions)."
+      },
+      "sendername": {
+        "type": "string",
+        "default": "Fail2Ban",
+        "description": "Name for the sender of ban notification emails."
+      },
+      "sender": {
+        "type": "string",
+        "default": "fail2ban",
+        "description": "Email sender address (e.g., 'fail2ban@example.com')."
+      },
+      "mta": {
+        "type": "string",
+        "default": "mail",
+        "description": "Mail transfer agent (e.g., 'mail', 'mailq', 'sendmail')."
+      },
+      "datadir": {
+        "type": "string",
+        "default": "",
+        "description": "Custom database path for fail2ban (for persistent state)."
+      },
+      "ignoreip": {
+        "type": "list",
+        "items": {
+          "type": "string"
+        },
+        "default": [],
+        "description": "IPs/CIDR ranges to always ignore (e.g., ['127.0.0.1/8', '192.168.1.0/24'])."
+      },
+      "backend": {
+        "type": "string",
+        "default": "",
+        "description": "Override global backend for this jail (e.g., 'pyinotify', 'polling')."
+      },
+      "protocol": {
+        "type": "string",
+        "default": "tcp",
+        "description": "Protocol for port filtering (tcp, udp, tcpudp)."
+      }
+    }
+  }
+}

@@ -1,0 +1,58 @@
+{
+  "log_level": 3,
+  "pid_file": "/run/callaudiod/callaudiod.pid",
+  "sample_rate": 48000,
+  "echo_cancellation": true,
+  "routes": [
+    {
+      "name": "mic-to-headset",
+      "source": "mic",
+      "sink": "headset",
+      "gain": 0.9,
+      "mute": false,
+      "delay_ms": 10,
+      "volume_control": true
+    },
+    {
+      "name": "bt-to-speaker",
+      "source": "bt",
+      "sink": "speaker",
+      "gain": 0.8,
+      "mute": false,
+      "delay_ms": 0
+    },
+    {
+      "name": "usb-to-headset",
+      "source": "usb",
+      "sink": "headset",
+      "gain": 1.0,
+      "volume_control": false
+    }
+  ],
+  "default_policy": "normal",
+  "policies": {
+    "normal": [
+      "mic-to-headset",
+      "bt-to-speaker"
+    ],
+    "speakerphone": [
+      "mic-to-speaker",
+      "bt-to-speaker"
+    ],
+    "handset": [
+      "mic-to-speaker",
+      "bt-to-headset"
+    ]
+  },
+  "usb_overrides": [
+    {
+      "vendor_id": "0x0d8c",
+      "product_id": "0x0014",
+      "sink": "usb_out"
+    }
+  ],
+  "bt_sco": {
+    "codec": "msbc",
+    "max_connections": 2
+  }
+}

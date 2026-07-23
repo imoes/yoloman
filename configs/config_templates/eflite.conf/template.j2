@@ -1,0 +1,60 @@
+# Eflite main configuration file
+# Generated from eflite package
+[server]
+# Host interface to bind the HTTP listener to
+host = {{ server.host }}
+# TCP port for the HTTP server
+port = {{ server.port }}
+# Maximum number of concurrent connections
+max_connections = {{ server.max_connections }}
+# Enable or disable SSL/TLS
+ssl_enabled = {{ server.ssl_enabled | lower }}
+# Path to SSL certificate (only used if ssl_enabled is true)
+ssl_cert_path = {{ server.ssl_cert_path }}
+# Path to SSL private key (only used if ssl_enabled is true)
+ssl_key_path = {{ server.ssl_key_path }}
+
+[worker]
+# Number of worker processes
+processes = {{ worker.processes }}
+# Number of threads per worker
+threads = {{ worker.threads }}
+
+[paths]
+# Base directory for data storage
+base_dir = {{ paths.base_dir }}
+# Directory for log files
+log_dir = {{ paths.log_dir }}
+# Directory for cache files
+cache_dir = {{ paths.cache_dir }}
+
+[logging]
+# Minimum log level: debug, info, warning, error
+level = {{ logging.level }}
+# Enable or disable access logging
+access_log = {{ logging.access_log | lower }}
+
+[security]
+# Enable request rate limiting
+rate_limiting_enabled = {{ security.rate_limiting_enabled | lower }}
+# Maximum requests per window
+rate_limit_max = {{ security.rate_limit_max }}
+# Time window for rate limiting (in seconds)
+rate_limit_window = {{ security.rate_limit_window }}
+
+[upstreams]
+{% for upstream in upstreams %}
+# Upstream service definition: {{ upstream.name }}
+[upstream:{{ upstream.name }}]
+host = {{ upstream.host }}
+port = {{ upstream.port }}
+weight = {{ upstream.weight }}
+{% if upstream.check_path is defined %}check_path = {{ upstream.check_path }}{% endif %}
+{% if upstream.check_interval is defined %}check_interval = {{ upstream.check_interval }}{% endif %}
+{% endfor %}
+
+[features]
+# Enable experimental features (comma-separated list)
+experimental_features = {{ features.experimental_features | join(', ') }}
+# Enable debugging mode
+debug_mode = {{ features.debug_mode | lower }}

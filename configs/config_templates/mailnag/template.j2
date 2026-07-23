@@ -1,0 +1,57 @@
+[general]
+# Enable or disable mailnag daemon
+enabled = {{ general.enabled | lower }}
+
+# Path to PID file
+pidfile = {{ general.pidfile }}
+
+# Enable or disable desktop notifications
+enable_notifications = {{ general.enable_notifications | lower }}
+
+# Enable or disable sound notifications
+enable_sounds = {{ general.enable_sounds | lower }}
+
+# Sound file for new mail notification
+sound_file = {{ general.sound_file }}
+
+# Timeout (in seconds) before checking for new mail
+check_interval = {{ general.check_interval }}
+
+# Maximum number of accounts to show in notification popup
+max_accounts = {{ general.max_accounts }}
+
+[accounts]
+# List of mail accounts to monitor
+{% for account in accounts %}[{{ account.name }}]
+# Account type: 'imap', 'pop3', 'exchange', etc.
+type = {{ account.type }}
+
+# Mail server hostname
+hostname = {{ account.hostname }}
+
+# Mail server port (typically 993 for IMAP with SSL)
+port = {{ account.port }}
+
+# Use SSL/TLS for connection
+use_ssl = {{ account.use_ssl | lower }}
+
+# Use STARTTLS (if supported)
+use_starttls = {{ account.use_starttls | lower }}
+
+# Username for authentication
+username = {{ account.username }}
+
+# Password storage backend ('keyring', 'file', 'ask')
+password_backend = {{ account.password_backend }}
+
+# Folder to monitor for new mail
+folder = {{ account.folder }}
+
+# Enable this account
+enabled = {{ account.enabled | lower }}
+{% if account.icon %}
+# Optional custom icon for notification
+icon = {{ account.icon }}
+{% endif %}
+
+{% endfor %}

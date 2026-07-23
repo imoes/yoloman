@@ -1,0 +1,91 @@
+# Unbound configuration — validating, recursive, and caching DNS resolver
+# Server identity and basic behavior
+server:
+  # Interface(s) to listen on; use 0.0.0.0 for all IPv4, :: for all IPv6
+  interface: {{ interfaces | join('\n  interface: ') }}
+
+  # Port for DNS queries
+  port: {{ server_port }}
+
+  # Enable or disable IPv4/IPv6 support
+  do-ip4: {{ do_ip4|lower }}
+  do-ip6: {{ do_ip6|lower }}
+
+  # Enable or disable UDP/TCP query handling
+  do-udp: {{ do_udp|lower }}
+  do-tcp: {{ do_tcp|lower }}
+
+  # Maximum number of TCP connections per interface
+  tcp-upstream: {{ tcp_upstream }}
+  tcp-downstream: {{ tcp_downstream }}
+
+  # Number of worker threads (0 = auto, based on CPU cores)
+  num-threads: {{ num_threads }}
+
+  # Edns buffer size (must accommodate DNSSEC responses)
+  edns-buffer-size: {{ edns_buffer_size }}
+
+  # Max packet size (should match edns-buffer-size)
+  msg-cache-size: {{ msg_cache_size }}
+  msg-cache-slabs: {{ msg_cache_slabs }}
+
+  # Size of additional DNSSEC-related caches
+  key-cache-size: {{ key_cache_size }}
+  key-cache-slabs: {{ key_cache_slabs }}
+  rrset-cache-size: {{ rrset_cache_size }}
+  rrset-cache-slabs: {{ rrset_cache_slabs }}
+
+  # TTL for positive/negative responses
+  infra-cache-ttl: {{ infra_cache_ttl }}
+  infra-cache-slabs: {{ infra_cache_slabs }}
+
+  # Logging configuration
+  log-queries: {{ log_queries|lower }}
+  log-replies: {{ log_replies|lower }}
+  log-tag: {{ log_tag }}
+  log-time-ascii: {{ log_time_ascii|lower }}
+
+  # Access control — allow/deny rules
+{% for rule in access_control %}  access-control: {{ rule | join(' ') }}
+{% endfor %}
+
+  # Forwarding upstream resolvers
+{% for forward in forward_upstream %}  forward-zone:
+    name: {{ forward.name }}
+    forward-first: {{ forward.forward_first|lower }}
+{% for host in forward.hosts %}    forward-host: {{ host }}
+{% endfor %}  forward-zone:
+{% endfor %}
+
+  # DNSSEC validation
+  val-snippet: {{ val_snippet|default('') }}
+  auto-trust-anchor-file: "{{ auto_trust_anchor_file }}"
+  trust-anchor-file: {{ trust_anchor_files | join('\n  trust-anchor-file: ') }}
+  trust-anchor-signing: {{ trust_anchor_signing|lower }}
+  neg-cache-size: {{ neg_cache_size }}
+
+  # Chroot and privilege dropping
+  chroot: "{{ chroot_dir }}"
+  username: "{{ username }}"
+
+  # Local zone definitions (e.g., stub zones, private domains)
+{% for zone in local_zones %}  local-zone: {{ zone.name }} {{ zone.type }}
+{% endfor %}
+
+  # Local data (explicit DNS records)
+{% for record in local_data %}  local-data: {{ record }}
+{% endfor %}
+
+  # Statistics and control interface
+  statistics-interval: {{ statistics_interval }}
+  extended-statistics: {{ extended_statistics|lower }}
+  statistics-cumulative: {{ cumulative_statistics|lower }}
+
+  # Control interface (for local management via unbound-control)
+  control-enable: {{ control_enable|lower }}
+  control-interface: {{ control_interface }}
+  control-port: {{ control_port }}
+  server-key-file: "{{ control_server_key_file }}"
+  server-cert-file: "{{ control_server_cert_file }}"
+  control-key-file: "{{ control_client_key_file }}"
+  control-cert-file: "{{ control_client_cert_file }}"

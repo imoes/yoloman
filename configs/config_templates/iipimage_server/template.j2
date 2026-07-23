@@ -1,0 +1,73 @@
+# IIPImage Server Configuration File
+# Enable verbose logging
+{% if debug %}Verbose: yes{% else %}Verbose: no{% endif %}
+
+# Maximum number of open files (per-process limit)
+MaxImageWidth: {{ max_image_width }}
+MaxImageHeight: {{ max_image_height }}
+
+# Memory cache size in MB
+CacheSize: {{ cache_size_mb }}
+
+# JPEG compression quality (0–100)
+Quality: {{ quality }}
+
+# Enable DCM (Deep Zoom) support
+{% if dcm_enabled %}DCM: on{% else %}DCM: off{% endif %}
+
+# List of directories to serve images from
+{% for dir in image_directories %}# Directory: {{ dir.path }}
+{% if dir.read_only %}# (read-only)
+{% endif %}{{ dir.path }}
+{% endfor %}
+
+# Bind to specified host and port
+BindAddress: {{ bind_address }}
+BindPort: {{ bind_port }}
+
+# Optional FastCGI socket path (if used)
+{% if use_fastcgi_socket %}# Use FastCGI socket instead of TCP
+FCGISocket: {{ fastcgi_socket_path }}
+{% endif %}
+
+# Set default tile size for Deep Zoom
+TileSize: {{ tile_size }}
+
+# Maximum number of tiles to cache per image
+MaxTileCacheSize: {{ max_tile_cache_size }}
+
+# Compression format for tiles (JPEG or TIFF)
+Compression: {{ compression_format }}
+
+# Optional watermark image (path relative to image root or absolute)
+{% if watermark_path %}Watermark: {{ watermark_path }}
+{% endif %}
+
+# Enable client-side caching (Expires headers)
+{% if client_caching_enabled %}Caching: on
+CachingTime: {{ client_cache_ttl_seconds }}
+{% else %}Caching: off{% endif %}
+
+# Optional log file path
+{% if log_file %}Logfile: {{ log_file }}
+{% else %}Logfile: /var/log/iipimage.log{% endif %}
+
+# Enable JPEG 2000 support (requires OpenJPEG)
+{% if jpeg2000_enabled %}JPEG2000: on
+JPEG2000ThreadCount: {{ jpeg2000_threads }}
+{% else %}JPEG2000: off{% endif %}
+
+# Enable TIFF multi-page support
+{% if tiff_multipage_enabled %}TIFFMultipage: on{% else %}TIFFMultipage: off{% endif %}
+
+# Enable support for large TIFF files (>4GB)
+{% if large_tiff_support %}LargeTIFF: on{% else %}LargeTIFF: off{% endif %}
+
+# Minimum resolution level for downscaling
+MinLevel: {{ min_level }}
+
+# Maximum resolution level for upscaling
+MaxLevel: {{ max_level }}
+
+# Enable progressive loading (slow-load mode for very large images)
+{% if progressive_loading %}Progressive: on{% else %}Progressive: off{% endif %}

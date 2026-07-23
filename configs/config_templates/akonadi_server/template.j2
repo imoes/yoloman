@@ -1,0 +1,112 @@
+# Akonadi server configuration — global settings
+[General]
+# Driver backend for the database
+Driver=QMYSQL
+
+# Hostname or path to SQLite database file
+{% if sqlite_path %}# SQLite-specific: path to database file (only when using QSQLITE)
+{% else %}# MySQL-specific: host for connection
+{% endif %}{{ 'Socket=' + sqlite_path if sqlite_path else 'Host=' + mysql_host }}
+
+# TCP port for MySQL (ignored for SQLite)
+{% if not sqlite_path %}Port={{ mysql_port }}{% endif %}
+
+# Database name
+Database={{ mysql_database }}
+
+# MySQL username and optional password
+{% if mysql_user %}Username={{ mysql_user }}{% endif %}
+{% if mysql_password is defined and mysql_password %}Password={{ mysql_password }}{% endif %}
+
+# Path to the MySQL client binaries (for auto-setup)
+{% if mysql_exec_path %}CommandPath={{ mysql_exec_path }}{% endif %}
+
+# Enable debug output
+{% if debug_enabled %}Debug=true{% else %}Debug=false{% endif %}
+
+# Enable SQL query logging
+{% if sql_logging %}SQLLog=true{% else %}SQLLog=false{% endif %}
+
+# Path to Akonadi runtime data (e.g., cache, tmp)
+XDG_DATA_HOME={{ data_home }}
+
+# Path to Akonadi config files (e.g., agent configs)
+XDG_CONFIG_HOME={{ config_home }}
+
+# Path to Akonadi state/cache files (e.g., index, search DB)
+XDG_CACHE_HOME={{ cache_home }}
+
+# Path to Akonadi PID and socket files
+RuntimeDir={{ runtime_dir }}
+
+# Timeout for database connection (seconds)
+ConnectionTimeout={{ connection_timeout }}
+
+# Max number of reconnection attempts
+MaxReconnectionAttempts={{ max_reconnection_attempts }}
+
+# Enable database migration on startup
+{% if enable_migration %}Migration=true{% else %}Migration=false{% endif %}
+
+# Indexing backend and settings
+[Indexing]
+# Enable semantic index (requires Baloo or similar)
+{% if indexing_enabled %}Enabled=true{% else %}Enabled=false{% endif %}
+
+# Max number of items to index per batch
+BatchSize={{ batch_size }}
+
+# Max memory usage for indexing (MB)
+MaxMemoryUsage={{ max_memory_indexing }}
+
+# Polling interval for change detection (ms)
+PollingInterval={{ polling_interval }}
+
+# Search backend (Baloo or internal)
+{% if search_backend %}SearchBackend={{ search_backend }}{% endif %}
+
+# Resource agent configuration — list of agents to control
+{% for agent in resource_agents %}
+[Agent {{ agent.name | upper | replace(' ', '_') }}]
+# Enable/disable agent
+{% if agent.enabled %}Enabled=true{% else %}Enabled=false{% endif %}
+
+# Display name for UI
+Name={{ agent.name }}
+
+# Type of resource (e.g., kmail, kaddressbook)
+Type={{ agent.type }}
+
+# Path to executable (optional override)
+{% if agent.executable_path %}Executable={{ agent.executable_path }}{% endif %}
+
+{% endfor %}
+
+# Monitoring (inotify vs polling)
+[Monitoring]
+# Enable file system monitoring
+{% if fs_monitoring_enabled %}Enable=true{% else %}Enable=false{% endif %}
+
+# Fallback polling interval (ms) when inotify unavailable
+PollingInterval={{ fs_polling_interval }}
+{% endfor %}
+
+# MySQL-specific tuning (optional — only if using QMYSQL)
+{% if mysql_tuning %}[MySQL]
+# Server configuration (for embedded mysqld or external server)
+{% if mysql_server_binary %}Server=/usr/sbin/mysqld{% else %}# Using external MySQL server{% endif %}
+
+# InnoDB settings
+innodb_buffer_pool_size={{ mysql_innodb_buffer_pool_size }}M
+innodb_flush_log_at_trx_commit={{ mysql_innodb_flush_log_at_trx_commit }}
+innodb_file_per_table=1
+innodb_large_prefix=1
+innodb_file_format=Barracuda
+innodb_purge_threads={{ mysql_innodb_purge_threads }}
+innodb_read_io_threads={{ mysql_innodb_read_io_threads }}
+innodb_write_io_threads={{ mysql_innodb_write_io_threads }}
+innodb_thread_concurrency={{ mysql_innodb_thread_concurrency }}
+innodb_flush_method=O_DIRECT
+{% else %}[MySQL]
+# External MySQL server configured; no embedded tuning applied
+{% endif %}

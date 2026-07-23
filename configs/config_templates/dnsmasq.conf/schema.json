@@ -1,0 +1,165 @@
+{
+  "domain_name": {
+    "type": "string",
+    "default": null,
+    "description": "Local domain name (e.g., 'lan') to append to unqualified hostnames. If not set, domain-less queries won\u2019t be expanded."
+  },
+  "upstream_servers": {
+    "type": "list",
+    "default": [
+      "8.8.8.8",
+      "8.8.4.4"
+    ],
+    "description": "List of upstream DNS servers to forward queries to (IP addresses or hostnames).",
+    "items": {
+      "type": "string",
+      "description": "IP address or resolvable hostname of an upstream DNS server."
+    }
+  },
+  "listen_interfaces": {
+    "type": "list",
+    "default": null,
+    "description": "List of network interfaces (e.g., ['eth0', 'br0']) to bind to. If omitted, defaults to binding only to 127.0.0.1 for security.",
+    "items": {
+      "type": "string",
+      "description": "Network interface name (e.g., 'eth0', 'wlan0')."
+    }
+  },
+  "addn_hosts": {
+    "type": "string",
+    "default": null,
+    "description": "Path to an additional hosts file (e.g., '/etc/dnsmasq/hosts') to append to the in-memory host table."
+  },
+  "expand_hosts": {
+    "type": "bool",
+    "default": false,
+    "description": "Whether to automatically append the local-domain to unqualified names in /etc/hosts and static-hosts entries."
+  },
+  "cache_size": {
+    "type": "number",
+    "default": 150,
+    "description": "Size of the DNS cache (number of records). Set to 0 to disable caching."
+  },
+  "log_level": {
+    "type": "number",
+    "default": 0,
+    "description": "Log verbosity level (0 = quiet, 1 = basic queries, 2\u20137 = more verbose). Also controls logging of DHCP queries."
+  },
+  "log_file": {
+    "type": "string",
+    "default": "-",
+    "description": "Log file path. Use '-' to log to syslog, or '/var/log/dnsmasq.log' for a file."
+  },
+  "dns_port": {
+    "type": "number",
+    "default": 53,
+    "description": "Port on which dnsmasq listens for DNS queries."
+  },
+  "dhcp_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable or disable DHCP server functionality."
+  },
+  "dhcp_networks": {
+    "type": "list",
+    "default": [],
+    "description": "List of DHCP ranges (subnets). Each defines a range and interface for DHCP assignment.",
+    "items": {
+      "type": "object",
+      "description": "DHCP range definition.",
+      "fields": {
+        "interface": {
+          "type": "string",
+          "description": "Network interface (e.g., 'eth0') to serve DHCP on."
+        },
+        "start": {
+          "type": "string",
+          "description": "First IP address in the range (e.g., '192.168.1.100')."
+        },
+        "end": {
+          "type": "string",
+          "description": "Last IP address in the range (e.g., '192.168.1.200')."
+        },
+        "lease_time": {
+          "type": "string",
+          "default": "12h",
+          "description": "Lease duration (e.g., '12h', '1d', '24h')."
+        }
+      }
+    }
+  },
+  "dhcp_options": {
+    "type": "list",
+    "default": [],
+    "description": "List of custom DHCP options (e.g., boot parameters).",
+    "items": {
+      "type": "object",
+      "description": "DHCP option definition.",
+      "fields": {
+        "code": {
+          "type": "string",
+          "description": "Option code (e.g., '66' for TFTP server, or '175' for vendor-encapsulated)."
+        },
+        "value": {
+          "type": "string",
+          "description": "Option value (e.g., 'tftp.example.com' or 'PXELINUX')."
+        }
+      }
+    }
+  },
+  "dhcp_gateway": {
+    "type": "string",
+    "default": null,
+    "description": "Gateway IP to assign to DHCP clients (DHCP option 3). If omitted, no gateway is set."
+  },
+  "dhcp_dns": {
+    "type": "list",
+    "default": null,
+    "description": "List of DNS server IPs to assign to DHCP clients (DHCP option 6). Defaults to dnsmasq\u2019s own address if omitted.",
+    "items": {
+      "type": "string",
+      "description": "IP address of a DNS server (e.g., '192.168.1.1')."
+    }
+  },
+  "static_hosts": {
+    "type": "list",
+    "default": [],
+    "description": "List of static DHCP leases and DNS mappings (by MAC, IP, and/or hostname).",
+    "items": {
+      "type": "object",
+      "description": "Static host entry.",
+      "fields": {
+        "mac": {
+          "type": "string",
+          "default": "",
+          "description": "Client MAC address (e.g., 'aa:bb:cc:dd:ee:ff'). Required for DHCP reservation."
+        },
+        "ip": {
+          "type": "string",
+          "default": "",
+          "description": "Static IP address to assign (e.g., '192.168.1.50'). Required for static DNS mapping."
+        },
+        "name": {
+          "type": "string",
+          "default": "",
+          "description": "Hostname to map to the MAC/IP. Used for DNS resolution."
+        },
+        "hostname": {
+          "type": "string",
+          "default": "",
+          "description": "Alternative hostname (if different from 'name'). Rarely needed."
+        }
+      }
+    }
+  },
+  "dhcp_port": {
+    "type": "number",
+    "default": 67,
+    "description": "Port on which dnsmasq listens for DHCP traffic. Typically left at 67."
+  },
+  "ignore_hosts": {
+    "type": "bool",
+    "default": false,
+    "description": "Whether to ignore entries in /etc/hosts for DHCP (only use static_hosts). Prevents accidental overrides."
+  }
+}

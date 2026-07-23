@@ -1,0 +1,71 @@
+# acmetool configuration file
+# See https://github.com/hlandau/acmetool for documentation
+
+# Directory where acmetool stores its state and certificates
+# Stored in a per-ACME-account structure (e.g., /var/lib/acme/acme-v02.api.letsencrypt.org-directory)
+stateDir: /var/lib/acmetool
+
+# Directory where generated certificates, keys, and metadata are placed
+# Used by web servers (via hooks or symlinks)
+wantPath: /etc/ssl/acme
+
+# Account key file path (private key used to register with Let's Encrypt)
+# Generated automatically if missing on first run
+accountKeyPath: /var/lib/acmetool/account/key
+
+# Email address associated with the Let's Encrypt account
+# Used for expiry notices and recovery (optional but recommended)
+email: {{ email }}
+
+# ACME server URL
+# Default: Let's Encrypt production
+# For testing, set to https://acme-staging-v02.api.letsencrypt.org/directory
+target: {{ target }}
+
+# List of domains to request certificates for (one per certificate)
+# Each entry defines a single certificate request group
+{% for cert in certs %}# Certificate group: {{ cert.name }}
+want: {{ cert.domains | join(', ') }}
+{% endfor %}
+
+# Hook script run after certificate issuance or renewal
+# Receives $TLS_CERT, $TLS_KEY, $TLS_CHAIN, $TLS_FULLCHAIN as environment variables
+# Use for reloading services (e.g., nginx, haproxy)
+renewHook: /usr/local/bin/reload-services.sh
+
+# How far in advance certificates should be renewed (seconds)
+# Default: 2592000 (30 days)
+renewThreshold: {{ renew_threshold }}
+
+# Request timeout in seconds
+# Increase for slow networks or large domain lists
+timeout: {{ timeout }}
+
+# Number of DNS-01 challenge attempts before failing
+# Useful if DNS propagation is slow
+dnsRetryLimit: {{ dns_retry_limit }}
+
+# Whether to use the HTTP-01 challenge (default: true)
+# Disable if your server does not expose /.well-known/acme-challenge/
+useHTTPChallenge: {{ use_http_challenge | string | lower }}
+
+# Whether to use the DNS-01 challenge (default: false)
+# Required for wildcard certs or when HTTP is unavailable
+useDNSChallenge: {{ use_dns_challenge | string | lower }}
+
+# DNS provider configuration (required only if useDNSChallenge: true)
+# Supported providers: cloudflare, digitalocean, route53, gcp, aws, etc.
+{% if use_dns_challenge %}dnsProvider: {{ dns_provider.name }}
+{% for k, v in dns_provider.config.items() %}dnsProviderConfig: {{ k }}={{ v }}
+{% endfor %}{% endif %}
+
+# Whether to use the TLS-ALPN-01 challenge (default: false)
+# Requires service to support ALPN and bind to port 443
+useTLSALPNChallenge: {{ use_tls_alpn_challenge | string | lower }}
+
+# Private key type for new certificates
+# Supported: rsa (default), ec256, ec384
+privateKeyType: {{ private_key_type }}
+
+# RSA key size ifKeyType = rsa
+privateKeySize: {{ private_key_size }}

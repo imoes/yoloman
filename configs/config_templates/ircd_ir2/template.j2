@@ -1,0 +1,155 @@
+# Server identification and network information
+serverinfo {
+    name = "{{ serverinfo.name }}";
+    description = "{{ serverinfo.description }}";
+    network_name = "{{ serverinfo.network_name }}";
+    network_desc = "{{ serverinfo.network_desc }}";
+    max_clients = {{ serverinfo.max_clients }};
+}
+
+# Operator definitions — administrative users with privileged access
+opers {
+{% for op in opers %}
+    {{ op.name }} {
+        password = "{{ op.password }}";
+        class = "{{ op.class }}";
+        flags {
+{% for flag in op.flags %}
+            {{ flag }};
+{% endfor %}
+        };
+        max_local = {{ op.max_local }};
+        max_remote = {{ op.max_remote }};
+        whois_display = "{{ op.whois_display }}";
+{% if op.gecos %}
+        gecos = "{{ op.gecos }}";
+{% endif %}
+    };
+{% endfor %}
+}
+
+# Listen directives — ports and hosts the server binds to
+listen {
+{% for listener in listeners %}
+    host = "{{ listener.host }}";
+    port = {{ listener.port }};
+    ssl = {{ listener.ssl | lower }};
+{% if listener.ssl_cert %}
+    ssl_cert = "{{ listener.ssl_cert }}";
+{% endif %}
+{% if listener.ssl_key %}
+    ssl_key = "{{ listener.ssl_key }}";
+{% endif %}
+    options {
+{% for opt in listener.options %}
+        {{ opt }};
+{% endfor %}
+    };
+{% endfor %}
+}
+
+# Client connection limits and timeouts
+client {
+    max_clients = {{ client.max_clients }};
+    max_connections_per_ip = {{ client.max_connections_per_ip }};
+    ping_timeout = {{ client.ping_timeout }};
+    connect_timeout = {{ client.connect_timeout }};
+    away_timeout = {{ client.away_timeout }};
+    nick_timeout = {{ client.nick_timeout }};
+    dead_ip_timeout = {{ client.dead_ip_timeout }};
+}
+
+# Channel settings
+channel {
+    max_channels_per_user = {{ channel.max_channels_per_user }};
+    max_bans = {{ channel.max_bans }};
+    max_nick_changes = {{ channel.max_nick_changes }};
+    max_join = {{ channel.max_join }};
+    kick_on_invalid_chanmsg = {{ channel.kick_on_invalid_chanmsg | lower }};
+}
+
+# Logging configuration
+log {
+    level = "{{ log.level }}";
+{% for file in log.files %}
+    file "{{ file.name }}" {
+        path = "{{ file.path }}";
+{% if file.max_size %}
+        max_size = {{ file.max_size }};
+{% endif %}
+    };
+{% endfor %}
+}
+
+# Kline/Dline/Zline block definitions — IP/user/host exclusion and banning
+kline {
+{% for k in klines %}
+    mask = "{{ k.mask }}";
+    reason = "{{ k.reason }}";
+    set_by = "{{ k.set_by }}";
+{% if k.duration %}
+    duration = {{ k.duration }};
+{% endif %}
+{% endfor %}
+}
+
+# Modules to load
+loadmodule {
+{% for mod in modules %}
+    path = "{{ mod.path }}";
+{% endfor %}
+}
+
+# General server options
+options {
+    ssl = {{ options.ssl | lower }};
+    ssl_cert = "{{ options.ssl_cert }}";
+    ssl_key = "{{ options.ssl_key }}";
+    ssl_ca = "{{ options.ssl_ca }}";
+    enable_dns = {{ options.enable_dns | lower }};
+    enable_ident = {{ options.enable_ident | lower }};
+    hide_servers = {{ options.hide_servers | lower }};
+    hide_oper = {{ options.hide_oper | lower }};
+    default_server = "{{ options.default_server }}";
+    default_floodcount = {{ options.default_floodcount }};
+    default_sendq = {{ options.default_sendq }};
+    default_recvq = {{ options.default_recvq }};
+}
+
+# Link directives for server-to-server connections (uplink/downlink)
+link {
+{% for link_item in links %}
+    name = "{{ link_item.name }}";
+    password = "{{ link_item.password }}";
+    outgoing {
+        host = "{{ link_item.outgoing.host }}";
+{% if link_item.outgoing.port %}
+        port = {{ link_item.outgoing.port }};
+{% endif %}
+{% if link_item.outgoing.ssl %}
+        ssl = {{ link_item.outgoing.ssl | lower }};
+{% endif %}
+    };
+    class = "{{ link_item.class }}";
+{% if link_item.flags %}
+    flags {
+{% for f in link_item.flags %}
+        {{ f }};
+{% endfor %}
+    };
+{% endif %}
+{% endfor %}
+}
+
+# Classes for bandwidth/resource grouping
+classes {
+{% for cls in classes %}
+    name = "{{ cls.name }}";
+    ping_freq = {{ cls.ping_freq }};
+    connect_freq = {{ cls.connect_freq }};
+    max_sendq = {{ cls.max_sendq }};
+    max_recvq = {{ cls.max_recvq }};
+    max_users = {{ cls.max_users }};
+}
+
+# End of configuration

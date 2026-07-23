@@ -1,0 +1,101 @@
+{
+  "server_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Whether to enable the EIBD-compatible server for client connections."
+  },
+  "server_bind_address": {
+    "type": "string",
+    "default": "0.0.0.0",
+    "description": "IP address the server binds to. Use '0.0.0.0' for all interfaces, or a specific IP (e.g., '127.0.0.1')."
+  },
+  "server_client_port": {
+    "type": "number",
+    "default": 6720,
+    "description": "TCP port used for legacy EIBD client connections."
+  },
+  "tunnel_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Whether to enable KNXnet/IP tunneling server (for tools like ETS or GUI clients)."
+  },
+  "tunnel_bind_address": {
+    "type": "string",
+    "default": "0.0.0.0",
+    "description": "IP address for KNXnet/IP tunneling. Typically same as server bind address."
+  },
+  "tunnel_port": {
+    "type": "number",
+    "default": 3671,
+    "description": "TCP port for KNXnet/IP tunneling (standard is 3671)."
+  },
+  "router_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Whether to enable KNX router mode (required for KNX multicast routing across subnets)."
+  },
+  "bus_type": {
+    "type": "string",
+    "default": "usb",
+    "description": "Type of physical interface: 'usb', 'tpuarts', 'ip', or 'knxip'."
+  },
+  "bus_device": {
+    "type": "string",
+    "default": "/dev/ttyUSB0",
+    "description": "Device path for local interfaces (e.g., '/dev/ttyUSB0' for USB, '/dev/ttyS0' for serial). Ignored if bus_type is 'ip' or 'knxip'."
+  },
+  "bus_remote": {
+    "type": "string",
+    "default": "",
+    "description": "Hostname or IP address for remote IP connections (e.g., '192.168.1.50'). Required when bus_type is 'ip' or 'knxip'."
+  },
+  "bus_local": {
+    "type": "string",
+    "default": "",
+    "description": "Custom KNX individual address in 'a.b.c' format (e.g., '1.1.0'). Leave empty to auto-assign."
+  },
+  "bus_baud": {
+    "type": "number",
+    "default": 9600,
+    "description": "Baud rate for serial devices (e.g., TP-UART). Only used when bus_type is 'tpuarts'."
+  },
+  "security_password_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable password protection for server connections. Not recommended unless remote access is required."
+  },
+  "security_password_hash": {
+    "type": "string",
+    "default": "",
+    "description": "SHA-1 hashed password, generated using `knxd-passwd`. Format: 'sha1$<hexhash>'. Required if password protection is enabled."
+  },
+  "log_level": {
+    "type": "number",
+    "default": 4,
+    "description": "Logging verbosity: 0 (none) to 6 (trace). 4 = info (recommended for production)."
+  },
+  "log_destination": {
+    "type": "string",
+    "default": "syslog",
+    "description": "Where to send logs: 'syslog', 'file', or 'stdout'."
+  },
+  "log_file_path": {
+    "type": "string",
+    "default": "/var/log/knxd.log",
+    "description": "Path to log file when log_destination='file'."
+  },
+  "log_timestamp": {
+    "type": "bool",
+    "default": true,
+    "description": "Include timestamps in log entries."
+  },
+  "monitor_groups": {
+    "type": "list",
+    "items": {
+      "type": "string",
+      "description": "Group address to monitor (e.g., '1/2/3' or range '1/2/0-15')."
+    },
+    "default": [],
+    "description": "Optional list of KNX group addresses to monitor (for debugging or logging)."
+  }
+}

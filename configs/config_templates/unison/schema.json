@@ -1,0 +1,120 @@
+{
+  "roots": {
+    "type": "list",
+    "default": [
+      "/path/to/local/dir",
+      "ssh://user@host//remote/path"
+    ],
+    "description": "Two root paths to synchronize. First is local (or remote via `ssh://`), second is the partner (local or remote). For remote, use `ssh://user@host/path` format.",
+    "items": {
+      "type": "string",
+      "description": "Root path (local path or remote URI)"
+    }
+  },
+  "log": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable logging of synchronization actions to console."
+  },
+  "logfile": {
+    "type": "string",
+    "default": "",
+    "description": "Path to a log file. If empty, no file logging is done."
+  },
+  "verbose": {
+    "type": "number",
+    "default": 1,
+    "description": "Verbosity level: 0 (quiet) to 4 (detailed debug). Higher values show more info about each step."
+  },
+  "prefer": {
+    "type": "string",
+    "default": "newer",
+    "description": "Which side to prefer when a conflict occurs (newer file wins). Other options: older, error, never."
+  },
+  "copier": {
+    "type": "string",
+    "default": "newer",
+    "description": "Conflict resolution strategy. 'newer' (default): copy file from side with newer timestamp. 'error' stops on conflicts."
+  },
+  "fastcheck": {
+    "type": "bool",
+    "default": true,
+    "description": "Use fast MD5-based checksums for large files to reduce network transfer during comparison."
+  },
+  "follow": {
+    "type": "string",
+    "default": "false",
+    "description": "Whether to follow symbolic links. Valid: 'true', 'false', 'both'."
+  },
+  "sshcmd": {
+    "type": "string",
+    "default": "ssh",
+    "description": "Command to use for SSH connections. You can specify custom options (e.g., 'ssh -p 2222 -i /id_ed25519')."
+  },
+  "port": {
+    "type": "number",
+    "default": 0,
+    "description": "SSH port to use when connecting to remote hosts. Set to 0 to use default SSH port (22)."
+  },
+  "excludes": {
+    "type": "list",
+    "default": [
+      ".git",
+      "__pycache__",
+      ".DS_Store"
+    ],
+    "description": "List of paths (relative to roots) to exclude entirely from synchronization.",
+    "items": {
+      "type": "string",
+      "description": "Path to exclude"
+    }
+  },
+  "includes": {
+    "type": "list",
+    "default": [],
+    "description": "Optional list of paths to explicitly include \u2014 useful when an earlier `ignore` directive would have excluded them.",
+    "items": {
+      "type": "string",
+      "description": "Path to include"
+    }
+  },
+  "ignorepatterns": {
+    "type": "list",
+    "default": [
+      "*.tmp",
+      "*.log",
+      "*.swp",
+      "Thumbs.db"
+    ],
+    "description": "List of filename patterns (regex-compatible) to ignore in all directories.",
+    "items": {
+      "type": "string",
+      "description": "Filename pattern (case-insensitive)"
+    }
+  },
+  "perms": {
+    "type": "bool",
+    "default": true,
+    "description": "Preserve file permissions and ownership (requires proper filesystem support and privileges)."
+  },
+  "batch": {
+    "type": "bool",
+    "default": false,
+    "description": "Run in non-interactive mode \u2014 abort on any prompt requiring user input. Useful for cron jobs."
+  },
+  "retry": {
+    "type": "number",
+    "default": 3,
+    "description": "Number of times to retry connection on network failure before aborting."
+  },
+  "times": {
+    "type": "bool",
+    "default": true,
+    "description": "Preserve modification times (timestamps) of files during sync."
+  },
+  "delete": {
+    "type": "string",
+    "default": "nonroot",
+    "description": "Whether to delete files that exist on only one side. Options: 'yes', 'no', 'nonroot' (default for bidirectional \u2014 deletes only from non-root roots, i.e., from the secondary side)."
+  }
+}

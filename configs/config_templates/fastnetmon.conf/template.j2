@@ -1,0 +1,67 @@
+[main]
+# Main FastNetMon settings
+ban_time = {{ main.ban_time }}
+graphite_enable = {{ main.graphite_enable|lower }}
+graphite_host = "{{ main.graphite_host }}"
+graphite_port = {{ main.graphite_port }}
+log_level = "{{ main.log_level }}"
+log_dir = "{{ main.log_dir }}"
+# Network interfaces to monitor
+monitor_interfaces = {% for iface in main.monitor_interfaces %}"{{ iface }}"{% if not loop.last %}, {% endif %}{% endfor %}
+# Packet capture method
+capture_method = "{{ main.capture_method }}"
+# Enable/disable specific attack detection features
+bandwidth_threshold_enable = {{ main.bandwidth_threshold_enable|lower }}
+pps_threshold_enable = {{ main.pps_threshold_enable|lower }}
+# Traffic statistics export destinations
+flow_collector_ip = "{{ main.flow_collector_ip }}"
+flow_collector_port = {{ main.flow_collector_port }}
+
+[threshold]
+# Per-IP threshold for bandwidth (in Mbps) — triggers ban
+bandwidth_threshold = {{ threshold.bandwidth_threshold }}
+# Per-IP threshold for packets per second — triggers ban
+pps_threshold = {{ threshold.pps_threshold }}
+# Per-IP threshold for packets per second for UDP amplification (if enabled)
+udp_amplification_pps_threshold = {{ threshold.udp_amplification_pps_threshold }}
+# Per-IP threshold for packets per second for NTP amplification (if enabled)
+ntp_amplification_pps_threshold = {{ threshold.ntp_amplification_pps_threshold }}
+# Per-IP threshold for packets per second for DNS amplification (if enabled)
+dns_amplification_pps_threshold = {{ threshold.dns_amplification_pps_threshold }}
+# Per-IP threshold for SYN packets per second (for SYN flood detection)
+syn_flood_pps_threshold = {{ threshold.syn_flood_pps_threshold }}
+
+[white_list]
+# IPs or subnets to never ban
+{% for subnet in white_list.ip_list %}{{ subnet }}
+{% endfor %}
+
+[black_list]
+# IPs or subnets to always ban
+{% for subnet in black_list.ip_list %}{{ subnet }}
+{% endfor %}
+
+[attack_notification]
+# Enable/disable notifications
+enable = {{ attack_notification.enable|lower }}
+# Notification backends
+telegram_enable = {{ attack_notification.telegram_enable|lower }}
+telegram_token = "{{ attack_notification.telegram_token }}"
+telegram_chat_id = "{{ attack_notification.telegram_chat_id }}"
+email_enable = {{ attack_notification.email_enable|lower }}
+email_to = "{{ attack_notification.email_to }}"
+email_from = "{{ attack_notification.email_from }}"
+email_smtp_server = "{{ attack_notification.email_smtp_server }}"
+email_smtp_port = {{ attack_notification.email_smtp_port }}
+email_smtp_tls = {{ attack_notification.email_smtp_tls|lower }}
+# Notification message template (optional — leave empty for default)
+message_template = "{{ attack_notification.message_template }}"
+
+[mitigation]
+# Enable/disable automatic mitigation
+enable = {{ mitigation.enable|lower }}
+# Mitigation method — currently supports 'blackhole', 'flow_spec', 'null_route'
+method = "{{ mitigation.method }}"
+# BGP flow specification settings
+bgp_flow_spec_enable = {{ mitigation.bgp_flow_spec_enable|lower }}
+bgp_flow_spec_announce_to = {% for peer in mitigation.bgp_flow_spec_announce_to %}{{ peer }}{% if not loop.last %}, {% endif %}{% endfor %}

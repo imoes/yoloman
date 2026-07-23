@@ -1,0 +1,62 @@
+# UPS device type (e.g., USB, SERIAL, NET)
+UPS_TYPE {{ ups_type }}
+
+# Device communication port/device path (e.g., /dev/ttyS0 for serial, or host:port for network)
+DEVICE {{ device_path }}
+
+# UPS name identifier (used for logging and notifications)
+UPSNAME {{ ups_name }}
+
+# Time in seconds before UPS initiates shutdown after power loss
+TIMEOUT {{ timeout }}
+
+# Time in seconds between automatic self-tests (0 = disabled)
+SELFTEST {{ selftest_interval }}
+
+# Battery level (%) below which shutdown is forced (if no runtime estimate available)
+BATTERYLEVEL {{ battery_level_percent }}
+
+# Remaining runtime (minutes) below which shutdown is forced
+MINUTES {{ min_runtime_minutes }}
+
+# Time in minutes to wait after power returns before resuming operations
+ANNOY {{ annoy_delay_minutes }}
+
+# Time in minutes to delay before sending first shutdown warning
+ANNOUNCE {{ announce_delay_minutes }}
+
+# Enable/disable status reporting via HTTP (off = no web status)
+HTTP_ENABLE {{ http_enabled | lower }}
+
+# HTTP server listening port (if HTTP_ENABLE is on)
+HTTP_PORT {{ http_port }}
+
+# Hostname/IP to bind HTTP server to (empty = bind to all)
+HTTP_HOST {{ http_host }}
+
+# Enable/disable mail notifications
+MAIL_ENABLE {{ mail_enabled | lower }}
+
+# Email address for notifications
+EMAIL_ADDRESS {{ mail_address }}
+
+# Log file path (empty = syslog only)
+LOGFILE {{ logfile }}
+
+# Enable/disable NIS server (for network status access)
+NIS_ENABLE {{ nis_enabled | lower }}
+
+# NIS server listening port
+NISPORT {{ nis_port }}
+
+# Host to bind NIS server to
+NISIP {{ nis_ip }}
+
+# Optional extra options for device-specific configuration
+# (e.g., "-b 9600" for serial baud rate; leave empty if none)
+DEVICE_OPTIONS {{ device_options }}
+
+# List of hosts to allow NIS connections from
+{% for host in nis_allowed_hosts %}# Allow NIS access from {{ host }}
+NISADDR {{ host }}
+{% endfor %}

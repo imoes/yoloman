@@ -1,0 +1,149 @@
+[plugins]
+  # Core plugin: CRI (Container Runtime Interface)
+  [plugins.cri]
+    # Enable/disable containerd CRI plugin
+    enable_cri = {{ enable_cri | default(true) | lower }}
+
+    # Containerd state and runtime directories
+    state_dir = "{{ state_dir | default('/run/containerd') }}"
+    snapshotter = "{{ snapshotter | default('overlayfs') }}"
+    
+    # Default runtime configuration
+    [plugins.cri.containerd]
+      # Default runtime name used by Kubernetes/CRIO
+      default_runtime_name = "{{ default_runtime_name | default('runc') }}"
+      
+      # Disable snapshot garbage collection (not recommended in production)
+      no_pivot = {{ no_pivot | default(false) | lower }}
+
+      # Snapshotter-specific options (e.g., for overlayfs)
+      [plugins.cri.containerd.snapshotter_options]
+        # Overlayfs-specific options
+        [plugins.cri.containerd.snapshotter_options.overlayfs]
+          # Use native diff to compute layer differences
+          # (slower but more reliable on some filesystems)
+          native_diff = {{ overlayfs_native_diff | default(true) | lower }}
+
+    # Registry configuration for image pulls
+    [plugins.cri.registry]
+      # Mirror configuration to redirect image pulls to private registries
+      {% for mirror in registry_mirrors %}
+      [plugins.cri.registry.mirrors."{{ mirror.host }}"]
+        endpoint = {% for ep in mirror.endpoints %}{{ [ep] | tojson }}{% if not loop.last %}, {% endif %}{% endfor %}
+      {% endfor %}
+      
+      # TLS configuration for registries (optional)
+      {% for auth in registry_configs %}
+      [plugins.cri.registry.configs."{{ auth.host }}".auth]
+        # Authentication (username/password or token)
+        username = "{{ auth.username | default('') }}"
+        password = "{{ auth.password | default('') }}"
+        # Or use token_auth: true and set token
+        {% if auth.token %}
+        token = "{{ auth.token }}"
+        {% endif %}
+      {% endfor %}
+
+      # TLS certificate configuration for private registries
+      {% for tls in registry_tls_configs %}
+      [plugins.cri.registry.configs."{{ tls.host }}".tls]
+        ca_file = "{{ tls.ca_file | default('') }}"
+        cert_file = "{{ tls.cert_file | default('') }}"
+        key_file = "{{ tls.key_file | default('') }}"
+        # Skip TLS verification only in dev/test environments
+        insecure_skip_verify = {{ tls.insecure_skip_verify | default(false) | lower }}
+      {% endfor %}
+
+    # Sandbox image for Kubernetes pods (pause container)
+    sandbox_image = "{{ sandbox_image | default('registry.k8s.io/pause:3.9') }}"
+
+    # Image pull timeout (in seconds)
+    image_pull_timeout = {{ image_pull_timeout | default('0s') | replace('s', '') | int }}s
+
+    # CNI plugin configuration
+    [plugins.cri.cni]
+      # Path to CNI binary plugins
+      bin_dir = "{{ cni_bin_dir | default('/opt/cni/bin') }}"
+      # Path to CNI config file
+      conf_dir = "{{ cni_conf_dir | default('/etc/cni/net.d') }}"
+      
+      # Default network to use when no CNI config exists
+      {% if cni_default_network %}
+      [plugins.cri.cni.default_network]
+        conf_file = "{{ cni_default_network.conf_file | default('') }}"
+        {% if cni_default_network.ip_range %}
+        ip_range = "{{ cni_default_network.ip_range }}"
+        {% endif %}
+      {% endif %}
+
+    # Stream server configuration for exec/attach/port-forward
+    [plugins.cri.containerd.stream_server]
+      address = "{{ stream_address | default('127.0.0.1') }}"
+      port = {{ stream_port | default(0) }}
+
+    # Max container log size (in bytes)
+    max_container_log_size = {{ max_container_log_size | default(16384) }}
+
+    # Enable/disable image decoupling (for backward compatibility)
+    image_deletion = {{ image_deletion | default(true) | lower }}
+
+  # Core plugin: snapshot (storage layer handling)
+  [plugins."io.containerd.grpc.v1.cri".snapshotter]
+    # Default snapshotter name
+    default = "{{ snapshotter }}"
+
+    # Snapshotter-specific configuration
+    [plugins."io.containerd.grpc.v1.cri".snapshotter.{{ snapshotter }}]
+      # Example for devmapper snapshotter (not commonly used)
+      {% if snapshotter == 'devmapper' %}
+      pool_name = "{{ devmapper_pool_name | default('') }}"
+      base_image_size = "{{ devmapper_base_image_size | default('10GB') }}"
+      # ... other devmapper options ...
+      {% endif %}
+
+# Global runtime configuration (optional; used when not overridden by CRI)
+[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc]
+  runtime_type = ""
+  runtime_engine = ""
+  runtime_root = ""
+  privileged_without_host_devices = {{ privileged_without_host_devices | default(false) | lower }}
+
+# gRPC API server settings
+[grpc]
+  # gRPC socket path
+  address = "{{ grpc_address | default('/run/containerd/containerd.sock') }}"
+  
+  # Max receive message size (in bytes)
+  max_recv_message_size = {{ grpc_max_recv_message_size | default(16777216) }}
+  
+  # Max send message size
+  max_send_message_size = {{ grpc_max_send_message_size | default(16777216) }}
+
+# Debugging and metrics
+[debug]
+  # Debug log level: "debug", "info", "warn", "error", "fatal", "panic"
+  level = "{{ debug_level | default('info') }}"
+  
+  # Enable pprof profiling
+  pprof_enabled = {{ pprof_enabled | default(false) | lower }}
+  
+  # Path to write pprof dumps
+  pprof_address = "{{ pprof_address | default('') }}"
+  
+  # Enable Prometheus-style metrics endpoint
+  metrics_address = "{{ metrics_address | default('') }}"
+  metrics_interval = "{{ metrics_interval | default('0s') | replace('s', '') | int }}s"
+
+# Root directory for containerd state and data
+root = "{{ root_dir | default('/var/lib/containerd') }}"
+
+# State directory for runtime state (socket paths, PID files, etc.)
+state = "{{ state_dir | default('/run/containerd') }}"
+
+# gRPC and event subscription settings
+[metrics]
+  # Address for exposing metrics (e.g., "0.0.0.0:1338")
+  address = "{{ metrics_address | default('') }}"
+  
+  # Interval between metric collection (in seconds)
+  grpc_histogram = {{ metrics_grpc_histogram | default(false) | lower }}

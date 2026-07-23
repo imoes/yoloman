@@ -1,0 +1,56 @@
+{
+  "services": {
+    "type": "list",
+    "default": [],
+    "description": "List of services to offer via inetd. Each entry defines a service name, protocol, and how to launch the corresponding server program.",
+    "items": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "default": "",
+          "description": "Service name (e.g., 'ftp', 'telnet', 'echo'). Must match an entry in /etc/services."
+        },
+        "flags": {
+          "type": "string",
+          "default": "internal",
+          "description": "Flags: 'wait', 'nowait', 'nowait.max', or 'internal'. For TCP: 'wait' (single-threaded), 'nowait' (multi-threaded). For UDP: usually 'wait'. 'internal' means built-in (e.g., 'finger', 'auth')."
+        },
+        "protocol": {
+          "type": "string",
+          "default": "tcp",
+          "description": "Transport protocol: 'tcp' or 'udp'."
+        },
+        "server_type": {
+          "type": "string",
+          "default": "rpc",
+          "description": "Server type: 'rpc/tcp', 'rpc/udp', or empty string for non-RPC services (e.g., '' or 'rpc/tcp')."
+        },
+        "server_program": {
+          "type": "string",
+          "default": "",
+          "description": "Path to the server program (e.g., '/usr/sbin/in.ftpd'). For internal services, use the internal name (e.g., 'internal')."
+        },
+        "server_args": {
+          "type": "list",
+          "default": [],
+          "description": "List of command-line arguments to pass to the server program.",
+          "items": {
+            "type": "string"
+          }
+        },
+        "description": {
+          "type": "string",
+          "default": "",
+          "description": "Optional human-readable description of the service (used for inline comment)."
+        }
+      },
+      "required": [
+        "name",
+        "flags",
+        "protocol",
+        "server_program"
+      ]
+    }
+  }
+}

@@ -1,0 +1,153 @@
+{
+  "debug": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable debug logging. Set to `true` to increase verbosity for troubleshooting."
+  },
+  "verbose": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable verbose logging. Provides more detailed log output than info level."
+  },
+  "log_dir": {
+    "type": "string",
+    "default": "/var/log/ceilometer",
+    "description": "Directory where log files are stored."
+  },
+  "log_file": {
+    "type": "string",
+    "default": "ceilometer-polling.log",
+    "description": "Name of the main log file for the polling agent."
+  },
+  "transport_url": {
+    "type": "string",
+    "default": "rabbit://guest:guest@localhost:5672/",
+    "description": "OSLO Messaging transport URL for connecting to the message broker (e.g., RabbitMQ)."
+  },
+  "auth_url": {
+    "type": "string",
+    "default": "http://controller:5000/v3",
+    "description": "Keystone authentication endpoint URL (v3 API)."
+  },
+  "project_domain_name": {
+    "type": "string",
+    "default": "Default",
+    "description": "Domain name for the service project (used in Keystone v3)."
+  },
+  "user_domain_name": {
+    "type": "string",
+    "default": "Default",
+    "description": "Domain name for the service user (used in Keystone v3)."
+  },
+  "project_name": {
+    "type": "string",
+    "default": "service",
+    "description": "Project (tenant) name used for Ceilometer service authentication."
+  },
+  "username": {
+    "type": "string",
+    "default": "ceilometer",
+    "description": "Service user name for Ceilometer to authenticate against Keystone."
+  },
+  "password": {
+    "type": "string",
+    "default": "",
+    "description": "Password for the Ceilometer service user. Leave empty unless configured."
+  },
+  "www_authenticate_uri": {
+    "type": "string",
+    "default": "http://controller:5000/",
+    "description": "Public endpoint used by clients to authenticate (often same as auth_url without path)."
+  },
+  "auth_type": {
+    "type": "string",
+    "default": "password",
+    "description": "Authentication method; typically `password` for service accounts."
+  },
+  "polling_namespaces": {
+    "type": "list",
+    "default": [
+      "compute",
+      "storage",
+      "ipmi",
+      "central"
+    ],
+    "description": "List of polling namespaces to enable. Each namespace corresponds to a source group (e.g., `compute` for nova, `ipmi` for IPMI polling)."
+  },
+  "polling_sources": {
+    "type": "list",
+    "default": [],
+    "description": "List of named polling sources. Each source defines meters to collect, interval, and optional discovery rules.",
+    "items": {
+      "name": {
+        "type": "string",
+        "description": "Name of the polling source (matches one of the entries in `polling_namespaces`)."
+      },
+      "meter": {
+        "type": "list",
+        "default": [],
+        "description": "List of meter names to collect from this source. Empty = all meters enabled for the source."
+      },
+      "interval": {
+        "type": "number",
+        "default": 600,
+        "description": "Polling interval in seconds for this source."
+      },
+      "disabled": {
+        "type": "bool",
+        "default": false,
+        "description": "Set to `true` to disable polling for this source."
+      },
+      "resource_types": {
+        "type": "list",
+        "default": [],
+        "description": "List of resource types (e.g., instances, volumes) to poll. Leave empty to poll all."
+      },
+      "resource_discovery": {
+        "type": "bool",
+        "default": false,
+        "description": "Enable automatic discovery of resources (e.g., dynamic instance discovery)."
+      },
+      "discovery_params": {
+        "type": "object",
+        "default": {},
+        "description": "Key-value pairs passed as discovery parameters (e.g., project_id, region_name)."
+      },
+      "resources": {
+        "type": "list",
+        "default": [],
+        "description": "Static list of resources to poll (e.g., instance IDs or hostnames)."
+      }
+    }
+  },
+  "region_name": {
+    "type": "string",
+    "default": "RegionOne",
+    "description": "Keystone region name for Gnocchi/telemetry service endpoint."
+  },
+  "endpoint_type": {
+    "type": "string",
+    "default": "internalURL",
+    "description": "Endpoint type used to connect to Gnocchi (e.g., `publicURL`, `internalURL`, `adminURL`)."
+  },
+  "archive_policy": {
+    "type": "string",
+    "default": "ceilometer",
+    "description": "Name of the Gnocchi archive policy used for meters not matched by default."
+  },
+  "namespace": {
+    "type": "string",
+    "default": "",
+    "description": "Gnocchi resource type namespace prefix (e.g., `openstack` for `openstack.instance`)."
+  },
+  "resource_type": {
+    "type": "string",
+    "default": "generic",
+    "description": "Base resource type to use when creating metrics in Gnocchi (e.g., `instance`, `volume`, `generic`)."
+  },
+  "timeout": {
+    "type": "number",
+    "default": 30,
+    "description": "Timeout in seconds for requests to Gnocchi API."
+  }
+}

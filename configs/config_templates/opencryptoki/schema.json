@@ -1,0 +1,64 @@
+{
+  "var_path": {
+    "type": "string",
+    "default": "/var/lib/opencryptoki",
+    "description": "Base directory where opencryptoki stores runtime files such as sockets and logs."
+  },
+  "debug": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable verbose debug logging to assist troubleshooting."
+  },
+  "max_threads": {
+    "type": "number",
+    "default": 4,
+    "description": "Maximum number of worker threads to handle concurrent PKCS#11 operations."
+  },
+  "modules": {
+    "type": "list",
+    "default": [],
+    "description": "List of PKCS#11 token modules (e.g., software, hardware) to load and manage.",
+    "items": {
+      "name": {
+        "type": "string",
+        "default": "ctapi",
+        "description": "Unique identifier for the module (used as section name in config)."
+      },
+      "path": {
+        "type": "string",
+        "default": "/usr/lib/opencryptoki/libpkcs11-ctapi.so",
+        "description": "Absolute path to the module\u2019s shared library (.so file)."
+      },
+      "description": {
+        "type": "string",
+        "default": "CT-API-based hardware token interface",
+        "description": "Human-readable description shown in PKCS#11 tools."
+      },
+      "enabled": {
+        "type": "bool",
+        "default": true,
+        "description": "Whether this module should be loaded at startup."
+      },
+      "parameters": {
+        "type": "object",
+        "default": {},
+        "description": "Key-value pairs of module-specific parameters (e.g., device path, timeout)."
+      }
+    }
+  },
+  "slot_defaults.slot_id": {
+    "type": "number",
+    "default": 0,
+    "description": "Default slot ID used when tokens are inserted without explicit slot mapping."
+  },
+  "slot_defaults.user_pin": {
+    "type": "string",
+    "default": "",
+    "description": "Default user PIN (SO PIN) for token initialization. WARNING: Hardcoding PINs is insecure. Leave blank for manual PIN entry."
+  },
+  "slot_defaults.manual_token_init": {
+    "type": "bool",
+    "default": true,
+    "description": "If true, tokens require manual initialization via pkcsconf or similar tools."
+  }
+}

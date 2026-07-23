@@ -1,0 +1,103 @@
+# worker_processes: Number of worker processes; auto-detects CPU cores if set to 'auto'
+worker_processes {{ worker_processes }};
+
+# pid: Path to PID file
+pid {{ pid_file }};
+
+# error_log: Global error log location and level
+ererror_log {{ error_log.path }} {{ error_log.level }};
+
+# events block: Controls worker connection handling
+events {
+  # worker_connections: Max number of simultaneous connections per worker
+  worker_connections {{ events.worker_connections }};
+
+  # use: Event method (e.g., epoll, kqueue)
+  use {{ events.use }};
+
+  # multi_accept: Accept all new connections at once
+  {% if events.multi_accept is defined %}multi_accept {{ events.multi_accept | lower }};{% endif %}
+}
+
+# http block: Core HTTP server configuration
+http {
+  # Include MIME types and default settings
+  include {{ include_paths.mime_types }};
+  default_type {{ default_type }};
+
+  # Logging: access_log and log_format
+  access_log {{ access_log.path }};
+  {% for fmt in log_formats %}log_format {{ fmt.name }} {{ fmt.format | replace('\n', '\\n') | replace('"', '\\"') }};
+{% endfor %}
+
+  # sendfile: Use kernel-level file transfer for static content
+  sendfile {{ sendfile | lower }};
+
+  # tcp_nopush: Optimize packet transmission (Linux)
+  {% if tcp_nopush is defined %}tcp_nopush {{ tcp_nopush | lower }};{% endif %}
+
+  # tcp_nodelay: Disable Nagle's algorithm for real-time responses
+  {% if tcp_nodelay is defined %}tcp_nodelay {{ tcp_nodelay | lower }};{% endif %}
+
+  # keepalive_timeout: Duration to keep idle connections open
+  keepalive_timeout {{ keepalive_timeout }};
+
+  # client_max_body_size: Max allowed size of client request body
+  client_max_body_size {{ client_max_body_size }};
+
+  # gzip: Enable compression
+  {% if gzip.enabled %}gzip on;
+gzip_types {{ gzip.types | join(' ') }};
+gzip_comp_level {{ gzip.comp_level }};
+gzip_min_length {{ gzip.min_length }};
+{% else %}gzip off;{% endif %}
+
+  # server_tokens: Hide Nginx version in responses
+  server_tokens {{ server_tokens | lower }};
+
+  # Include additional config files (modularity)
+  include {{ include_paths.conf.d }}/*;
+  include {{ include_paths/sites }}/*;
+
+  # Optional: Upstream definitions for load balancing
+  {% for upstream in upstreams %}upstream {{ upstream.name }} {
+{% if upstream.balance_method is defined %}    {{ upstream.balance_method }};
+{% endif %}{% for server in upstream.servers %}    server {{ server.address }}:{{ server.port }}{% if server.weight is defined %} weight={{ server.weight }}{% endif %};
+{% endfor %}{% if upstream.keepalive is defined %}    keepalive {{ upstream.keepalive }};
+{% endif %}}
+
+{% endfor %}
+
+  # Optional: Server blocks (virtual hosts)
+{% for server in servers %}server {
+  listen {{ server.listen | join(', ') }};
+  {% if server.server_name is defined %}server_name {{ server.server_name | join(' ') }};
+{% endif %}  root {{ server.root }};
+  index {{ server.index | join(' ') }};
+
+{% if server.ssl is defined and server.ssl.enabled %}  # SSL configuration
+  ssl_certificate {{ server.ssl.cert_path }};
+  ssl_certificate_key {{ server.ssl.key_path }};
+  ssl_protocols {{ server.ssl.protocols | join(' ') }};
+  ssl_ciphers {{ server.ssl.ciphers }};
+{% endif %}{% if server.location_blocks is defined %}{% for loc in server.location_blocks %}  location {{ loc.path }} {
+{% if loc.root is defined %}    root {{ loc.root }};
+{% endif %}{% if loc.try_files is defined %}    try_files {{ loc.try_files | join(' ') }};
+{% endif %}{% if loc.proxy_pass is defined %}    proxy_pass {{ loc.proxy_pass }};
+{% endif %}{% if loc.fastcgi_pass is defined %}    fastcgi_pass {{ loc.fastcgi_pass }};
+{% endif %}{% if loc.rewrite is defined %}    rewrite {{ loc.rewrite }} {{ loc.rewrite_flags | join(',') }};
+{% endif %}{% if loc.auth_basic is defined %}    auth_basic "{{ loc.auth_basic }}";
+    auth_basic_user_file {{ loc.auth_basic_user_file }};
+{% endif %}{% if loc.add_header is defined %}{% for hdr in loc.add_header %}    add_header {{ hdr.name }} "{{ hdr.value }}";
+{% endfor %}{% endif %}{% if loc.return is defined %}    return {{ loc.return.code }}{{ loc.return.body | default('') | replace('\n', '\\n') | replace('"', '\\"') }};
+{% endif %}{% if loc.limit_req is defined %}    limit_req zone={{ loc.limit_req.zone }}{{ ' burst=' + loc.limit_req.burst | default('') }}{{ ' nodelay' if loc.limit_req.nodelay }};
+{% endif %}{% if loc.limit_rate is defined %}    limit_rate {{ loc.limit_rate }};
+{% endif %}{% if loc.add_trailer is defined %}{% for hdr in loc.add_trailer %}    add_trailer {{ hdr.name }} "{{ hdr.value }}";
+{% endfor %}{% endif %}  }
+
+{% endfor %}{% endif %}  access_log {{ server.access_log | default(access_log.path) }};
+  error_log {{ server.error_log | default(error_log.path) }} {{ error_log.level }};
+}
+
+{% endfor %}
+}

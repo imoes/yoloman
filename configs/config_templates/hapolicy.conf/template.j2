@@ -1,0 +1,27 @@
+[global]
+# Global settings for hapolicy
+log_socket: {{ global.log_socket }}
+chroot: {{ global.chroot | default('/var/lib/hapolicy') }}
+user: {{ global.user | default('hapolicy') }}
+worker: {{ global.worker | default(1) }}
+maxconn: {{ global.maxconn | default(4096) }}
+
+defaults
+# Default settings applied to all proxies
+mode: {{ defaults.mode | default('tcp') }}
+opt: {{ defaults.opt | default('tcplog') }}
+timeout connect: {{ defaults.timeout_connect | default('5s') }}
+timeout client: {{ defaults.timeout_client | default('50s') }}
+timeout server: {{ defaults.timeout_server | default('50s') }}
+
+{% for proxy in proxies %}[{{ proxy.name | upper }}]
+# Proxy: {{ proxy.description | default('Unnamed proxy') }}
+mode: {{ proxy.mode | default(defaults.mode) }}
+bind: {{ proxy.bind | default('*:' + ('80' if proxy.mode == 'http' else '5000')) }}
+{% if proxy.log %}log: {{ proxy.log }}{% endif %}
+option: {{ proxy.option | join(', ') | default(defaults.opt | default('tcplog')) }}
+timeout connect: {{ proxy.timeout_connect | default(defaults.timeout_connect) }}
+timeout client: {{ proxy.timeout_client | default(defaults.timeout_client) }}
+timeout server: {{ proxy.timeout_server | default(defaults.timeout_server) }}
+{% if proxy.server %}server: {{ proxy.server | join(', ') }}{% endif %}
+{% endfor %}

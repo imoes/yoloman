@@ -1,0 +1,66 @@
+# N2N Peer-to-Peer VPN Daemon configuration
+# Interface name for the virtual TAP interface
+interface_name={{ interface_name }}
+
+# MAC address of the virtual interface (auto-generated if empty or 'auto')
+mac_address={{ mac_address }}
+
+# IP address and CIDR netmask for the virtual interface
+ip_address={{ ip_address }}
+
+# Supernode addresses (one or more, comma-separated host:port)
+supernodes={{ supernodes | join(', ') }}
+
+# Community name (shared secret for the VPN mesh)
+community={{ community }}
+
+# encryption algorithm (e.g., 'aes', 'none', 'twofish', 'blowfish', 'cast5')
+encryption={{ encryption }}
+
+# encryption key (base64 or plain text, depending on algo); blank disables encryption
+# (Note: for most strong ciphers, a key *must* be set)
+encryption_key={{ encryption_key }}
+
+# Listen port on local host for incoming P2P connections (0 = auto-assign)
+listen_port={{ listen_port }}
+
+# Enable multicast peer discovery
+enable_multicast={{ 'yes' if enable_multicast else 'no' }}
+
+# Enable compression (e.g., 'lzo', 'zlib', 'none')
+compression={{ compression }}
+
+# TTL for packets sent through the interface
+ttl={{ ttl }}
+
+# Path to the PID file
+pid_file={{ pid_file }}
+
+# Path to the log file (empty = stdout/stderr only)
+log_file={{ log_file }}
+
+# Logging level (0=quiet, 1=error, 2=warn, 3=info, 4=debug)
+log_level={{ log_level }}
+
+# Enable keepalive packets every N seconds (0 = disabled)
+keepalive_interval={{ keepalive_interval }}
+
+# Maximum number of edges allowed in the same community (0 = unlimited)
+max_edges={{ max_edges }}
+
+# Privilege drop (user:group to drop to after startup)
+drop_privileges={{ drop_privileges }}
+
+# Enable edge-to-edge direct connection (bypass supernode when possible)
+direct_connection={{ 'yes' if direct_connection else 'no' }}
+
+# Path to the state file for persistent edge registration (optional)
+state_file={{ state_file }}
+
+# Allow only registered edges (prevents unknown peers from joining)
+only_registered_edges={{ 'yes' if only_registered_edges else 'no' }}
+
+# Additional command-line options (e.g., '--daemon')
+# WARNING: Avoid overriding core params above via extra_opts
+{% if extra_opts %}extra_opts={{ extra_opts }}
+{% endif %}

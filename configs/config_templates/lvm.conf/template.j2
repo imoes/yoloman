@@ -1,0 +1,119 @@
+# Global settings for LVM2
+# Applies to all LVM operations unless overridden in volume group or logical volume metadata
+{
+  "global": {
+    "locking_type": {{ global.locking_type }},
+    "use_lvmetad": {{ global.use_lvmetad | lower }},
+    "use_lvmpolld": {{ global.use_lvmpolld | lower }},
+    "wait_for_locks": {{ global.wait_for_locks | lower }},
+    "prioritise_write_locks": {{ global.prioritise_write_locks | lower }},
+    "allocation_cache_max_mb": {{ global.allocation_cache_max_mb }},
+    "metadata_read_only": {{ global.metadata_read_only | lower }}
+  },
+
+  # Device scan configuration
+  # Controls which devices LVM scans for PVs
+  "devices": {
+    "global_filter": {{ devices.global_filter | to_json }},
+    "scanning": {
+      "scan_lvs": {{ devices.scanning.scan_lvs | lower }},
+      "md_component_detection": {{ devices.scanning.md_component_detection | lower }},
+      "md_component_detection_timeout": {{ devices.scanning.md_component_detection_timeout }},
+      "md_component_check": {{ devices.scanning.md_component_check | lower }},
+      "lvmetad_update_delay": {{ devices.scanning.lvmetad_update_delay }},
+      "lvmlockd_sock": "{{ devices.scanning.lvmlockd_sock }}",
+      "lvmlockd_timeout": {{ devices.scanning.lvmlockd_timeout }},
+      "lvmlockd_auto_unlock": {{ devices.scanning.lvmlockd_auto_unlock | lower }}
+    },
+    "write_cache_state": {{ devices.write_cache_state | lower }},
+    "sysfs_scan": {{ devices.sysfs_scan | lower }},
+    "preferential_pvmove": {{ devices.preferential_pvmove | lower }},
+    "missing_disk_list": {{ devices.missing_disk_list | to_json }},
+    "md_component_detection": {{ devices.md_component_detection | lower }},
+    "md_component_detection_timeout": {{ devices.md_component_detection_timeout }},
+    "md_component_check": {{ devices.md_component_check | lower }},
+    "use_block_devices": {{ devices.use_block_devices | lower }},
+    "loop_device_dir": "{{ devices.loop_device_dir }}",
+    "loop_device_prefix": "{{ devices.loop_device_prefix }}"
+  },
+
+  # Logging configuration
+  "log": {
+    "verbose": {{ log.verbose | lower }},
+    "syslog": {{ log.syslog | lower }},
+    "overwrite": {{ log.overwrite | lower }},
+    "indent": {{ log.indent | lower }},
+    "command_names": {{ log.command_names | lower }},
+    "prefix": "{{ log.prefix }}",
+    "activation": {{ log.activation | lower }},
+    "activation_passive": {{ log.activation_passive | lower }},
+    "file": {
+      "enabled": {{ log.file.enabled | lower }},
+      "filename": "{{ log.file.filename }}",
+      "level": {{ log.file.level }},
+      "suffix": "{{ log.file.suffix }}",
+      "max_log_size": {{ log.file.max_log_size }},
+      "compress": {{ log.file.compress | lower }}
+    },
+    "overrides": {{ log.overrides | to_json }}
+  },
+
+  # Default values for new volume groups and logical volumes
+  "activation": {
+    "checks": {{ activation.checks | lower }},
+    "missing_stripe_filler": "{{ activation.missing_stripe_filler }}",
+    "locking_type": {{ activation.locking_type }},
+    "polling_interval": {{ activation.polling_interval }},
+    "read_only": {{ activation.read_only | lower }},
+    "retry_activation": {{ activation.retry_activation | lower }},
+    "retry_activation_attempts": {{ activation.retry_activation_attempts }},
+    "activation_mode": "{{ activation.activation_mode }}",
+    "auto_activation": {{ activation.auto_activation | lower }},
+    "auto_activation_volume_list": {{ activation.auto_activation_volume_list | to_json }},
+    "reserved_stack": {{ activation.reserved_stack }},
+    "use_lvmetad": {{ activation.use_lvmetad | lower }},
+    "use_lvmpolld": {{ activation.use_lvmpolld | lower }},
+    "process_priority": {{ activation.process_priority }},
+    "mirror_segtype_default": "{{ activation.mirror_segtype_default }}",
+    "raid_stripe_cache": {{ activation.raid_stripe_cache }},
+    "raid_stripe_cache_entries": {{ activation.raid_stripe_cache_entries }},
+    "thin_pool_metadata_require_separate_pvs": {{ activation.thin_pool_metadata_require_separate_pvs | lower }},
+    "thin_pool_autoextend_threshold": {{ activation.thin_pool_autoextend_threshold }},
+    "thin_pool_autoextend_percent": {{ activation.thin_pool_autoextend_percent }},
+    "thin_pool_max_usage_threshold": {{ activation.thin_pool_max_usage_threshold }},
+    "snapshot_autoextend_threshold": {{ activation.snapshot_autoextend_threshold }},
+    "snapshot_autoextend_percent": {{ activation.snapshot_autoextend_percent }},
+    "thin_check_executable": "{{ activation.thin_check_executable }}",
+    "thin_dump_executable": "{{ activation.thin_dump_executable }}",
+    "thin_repair_executable": "{{ activation.thin_repair_executable }}",
+    "use_linear_target": {{ activation.use_linear_target | lower }},
+    "polling_interval": {{ activation.polling_interval }},
+    "monitoring": {{ activation.monitoring | lower }},
+    "snapshot_autoextend_percent": {{ activation.snapshot_autoextend_percent }},
+    "snapshot_autoextend_threshold": {{ activation.snapshot_autoextend_threshold }},
+    "thin_pool_autoextend_percent": {{ activation.thin_pool_autoextend_percent }},
+    "thin_pool_autoextend_threshold": {{ activation.thin_pool_autoextend_threshold }},
+    "thin_check_options": {{ activation.thin_check_options | to_json }},
+    "thin_dump_options": {{ activation.thin_dump_options | to_json }},
+    "thin_repair_options": {{ activation.thin_repair_options | to_json }}
+  },
+
+  # Backup and archive settings
+  "backup": {
+    "enabled": {{ backup.enabled | lower }},
+    "dir": "{{ backup.dir }}",
+    "keep_days": {{ backup.keep_days }},
+    "keep_min": {{ backup.keep_min }},
+    "archive": {{ backup.archive | lower }},
+    "archive_dir": "{{ backup.archive_dir }}",
+    "retain_min": {{ backup.retain_min }},
+    "retain_days": {{ backup.retain_days }}
+  },
+
+  # Cache directory configuration
+  "cache": {
+    "dir": "{{ cache.dir }}",
+    "file_prefix": "{{ cache.file_prefix }}",
+    "scan_dir": "{{ cache.scan_dir }}"
+  }
+}

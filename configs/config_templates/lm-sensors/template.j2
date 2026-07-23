@@ -1,0 +1,38 @@
+# sensors3.conf — lm-sensors configuration file (Jinja2 template)
+# This file configures how lm-sensors interprets hardware monitoring chips.
+# Each section defines chip-specific settings (bus, labels, computation formulas, limits).
+
+{% for chip in chips %}
+# Chip: {{ chip.name }} ({{ chip.driver }})
+chip "{{ chip.name }}"
+{% if chip.ignore %}  # chip disabled
+  ignore all
+{% else %}
+{% for label in chip.labels %}
+# Label: {{ label.sensor }} → {{ label.label }}
+  label {{ label.sensor }} "{{ label.label }}"
+{% endfor %}
+{% if chip.compute %}
+# Compute: Apply transformation formulas to sensors
+{% for compute in chip.compute %}
+  compute {{ compute.sensor }} {{ compute.from }} {{ compute.to }}
+{% endfor %}
+{% endif %}
+{% if chip.set %}
+# Set: Apply static overrides (limits, features)
+{% for setting in chip.set %}
+  set {{ setting.type }} {{ setting.name }} {{ setting.value }}
+{% endfor %}
+{% endif %}
+{% endif %}
+{% endfor %}
+
+# Global settings: verbosity and I2C bus scan behavior
+# scanall I2C buses for sensors if true
+{% if scan_all_i2c_buses %}scan_i2c_buses yes{% else %}scan_i2c_buses no{% endif %}
+
+# Include external config files (e.g., board-specific overrides)
+{% if includes | length > 0 %}
+# Include additional config snippets
+{% for inc in includes %}include {{ inc }}
+{% endfor %}{% endif %}

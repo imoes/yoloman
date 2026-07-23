@@ -1,0 +1,61 @@
+{
+  "cmtab_entries": {
+    "type": "list",
+    "default": [],
+    "description": "List of encrypted filesystem entries to manage via cryptmount. Each entry maps a device to a decrypted mount point using specified encryption parameters.",
+    "items": {
+      "label": {
+        "type": "string",
+        "default": "",
+        "description": "Unique symbolic name for this encrypted filesystem (used in mount commands, e.g., `cryptmount --mount <label>`)."
+      },
+      "device": {
+        "type": "string",
+        "default": "",
+        "description": "Path to the encrypted block device (e.g., `/dev/sda2`) or encrypted file (e.g., `/home/encrypted.img`)."
+      },
+      "target": {
+        "type": "string",
+        "default": "",
+        "description": "Name for the decrypted device-mapper target (appears as `/dev/mapper/<target>` after opening)."
+      },
+      "cipher": {
+        "type": "string",
+        "default": "aes-cbc-essiv:sha256",
+        "description": "Encryption algorithm and mode (e.g., `aes-cbc-essiv:sha256`, `serpent-xts-plain64`)."
+      },
+      "keyfile": {
+        "type": "string",
+        "default": "-",
+        "description": "Path to the key file, '-' to prompt interactively on mount, or 'none' for no key (plaintext)."
+      },
+      "keylength": {
+        "type": "number",
+        "default": 256,
+        "description": "Key size in bits (e.g., 128, 192, 256). Must match cipher requirements."
+      },
+      "flags": {
+        "type": "list",
+        "default": [],
+        "description": "List of cryptmount flags controlling behavior (e.g., 'bootwait' \u2192 wait for device at boot, 'exec' \u2192 allow executables, 'umount' \u2192 auto-unmount on stop).",
+        "items": {
+          "type": "string",
+          "enum": [
+            "bootwait",
+            "exec",
+            "noauto",
+            "umount",
+            "rekey",
+            "rekey-force"
+          ],
+          "description": "Cryptmount flag. See `man cmtab` for full list."
+        }
+      },
+      "options": {
+        "type": "list",
+        "default": [],
+        "description": "Additional options passed to the underlying filesystem when mounted (e.g., 'utf8' for NTFS, 'uid=1000' for ownership)."
+      }
+    }
+  }
+}

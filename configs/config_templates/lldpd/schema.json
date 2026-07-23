@@ -1,0 +1,101 @@
+{
+  "lldp": {
+    "type": "object",
+    "default": {},
+    "description": "Global LLDP configuration options",
+    "properties": {
+      "enabled": {
+        "type": "bool",
+        "default": true,
+        "description": "Whether to enable LLDP globally on the system"
+      },
+      "sysname": {
+        "type": "string",
+        "default": "",
+        "description": "System name to advertise via LLDP (defaults to hostname if empty)"
+      },
+      "system_description": {
+        "type": "string",
+        "default": "",
+        "description": "System description string to advertise (e.g., OS and version)"
+      },
+      "port_description": {
+        "type": "string",
+        "default": "",
+        "description": "Default port description to use on interfaces that don\u2019t have one"
+      },
+      "tx_hold": {
+        "type": "number",
+        "default": 4,
+        "description": "Number of tx-interval periods to hold LLDPDU before expiration"
+      },
+      "tx_interval": {
+        "type": "number",
+        "default": 30,
+        "description": "Interval (in seconds) between LLDPDU transmissions"
+      },
+      "management_addresses": {
+        "type": "list",
+        "default": [],
+        "description": "List of IP addresses to advertise as management addresses",
+        "items": {
+          "type": "object",
+          "properties": {
+            "version": {
+              "type": "number",
+              "default": 4,
+              "description": "IP version: 4 for IPv4, 6 for IPv6"
+            },
+            "address": {
+              "type": "string",
+              "default": "",
+              "description": "IP address in dotted-decimal (IPv4) or colon-hex (IPv6) notation"
+            }
+          },
+          "required": [
+            "version",
+            "address"
+          ]
+        }
+      },
+      "interfaces": {
+        "type": "list",
+        "default": [],
+        "description": "Per-interface LLDP configuration (e.g., to enable/disable LLDP selectively)",
+        "items": {
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string",
+              "default": "",
+              "description": "Interface name (e.g., eth0, bond0)"
+            },
+            "enabled": {
+              "type": "bool",
+              "default": true,
+              "description": "Whether LLDP is enabled on this interface"
+            },
+            "description": {
+              "type": "string",
+              "default": "",
+              "description": "Interface-specific LLDP port description (overrides global port-description)"
+            }
+          },
+          "required": [
+            "name"
+          ]
+        }
+      },
+      "snmp_community": {
+        "type": "string",
+        "default": "",
+        "description": "SNMP read-only community string for LLDP-MIB access (optional)"
+      },
+      "chassis_id": {
+        "type": "string",
+        "default": "",
+        "description": "Override the automatically derived chassis ID (e.g., 'mac:00:11:22:33:44:55' or 'chassis:00:11:22:33:44:55')"
+      }
+    }
+  }
+}

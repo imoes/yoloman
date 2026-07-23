@@ -1,0 +1,124 @@
+{
+  "approx_cache_root": {
+    "type": "string",
+    "default": "/var/cache/approx",
+    "description": "Top-level directory where Approx stores cached Debian packages."
+  },
+  "compress_downloads": {
+    "type": "bool",
+    "default": true,
+    "description": "If true, Approx will request and store compressed (`.gz`) package files to save disk space."
+  },
+  "log_level": {
+    "type": "number",
+    "default": 1,
+    "description": "Log verbosity: 0=quiet, 1=normal (recommended), 2=verbose, 3=debug."
+  },
+  "allowed_networks": {
+    "type": "list",
+    "default": [
+      "127.0.0.0/8",
+      "10.0.0.0/8",
+      "172.16.0.0/12",
+      "192.168.0.0/16"
+    ],
+    "description": "List of network ranges (CIDR or IP) permitted to use this Approx proxy.",
+    "items": {
+      "type": "string",
+      "description": "Allowed network in CIDR or IP format (e.g., '192.168.1.0/24')"
+    }
+  },
+  "mirrors": {
+    "type": "list",
+    "default": [
+      {
+        "type": "deb",
+        "suite": "stable",
+        "url": "http://deb.debian.org/debian"
+      },
+      {
+        "type": "deb-src",
+        "suite": "stable",
+        "url": "http://deb.debian.org/debian"
+      }
+    ],
+    "description": "Upstream Debian repositories to cache. Each entry defines the package type, suite (e.g., stable, bullseye), and mirror URL.",
+    "items": {
+      "type": "object",
+      "description": "An upstream Debian mirror configuration",
+      "fields": {
+        "type": {
+          "type": "string",
+          "enum": [
+            "deb",
+            "deb-src"
+          ],
+          "description": "Package type: 'deb' for binary, 'deb-src' for source packages."
+        },
+        "suite": {
+          "type": "string",
+          "description": "Debian suite name (e.g., 'stable', 'testing', 'bullseye', 'unstable')."
+        },
+        "url": {
+          "type": "string",
+          "description": "Base URL of the mirror (must end with '/debian' or '/debian/' for most mirrors)."
+        }
+      }
+    }
+  },
+  "upstream_proxy": {
+    "type": "string",
+    "default": "",
+    "description": "HTTP(S) proxy URL for outgoing connections (e.g., 'http://proxy.example.com:3128'). Leave empty to connect directly."
+  },
+  "local_hostname": {
+    "type": "string",
+    "default": "",
+    "description": "Hostname to use in the `Host` HTTP header (e.g., 'apt.internal.local'). Useful behind reverse proxies."
+  },
+  "disabled_architectures": {
+    "type": "list",
+    "default": [],
+    "description": "List of architectures to exclude from caching (to save disk space). Examples: 'arm64', 'ppc64el', 's390x'.",
+    "items": {
+      "type": "string",
+      "description": "Architecture to disable (e.g., 'arm64')"
+    }
+  },
+  "stale_age": {
+    "type": "number",
+    "default": 0,
+    "description": "If > 0, Approx will refresh cached files older than this many seconds. Set to 0 to disable automatic refresh."
+  },
+  "cache_size_limit_mb": {
+    "type": "number",
+    "default": 0,
+    "description": "Maximum cache size in megabytes. 0 = unlimited. Approx will stop caching if limit is exceeded."
+  },
+  "listen_addresses": {
+    "type": "list",
+    "default": [
+      "0.0.0.0"
+    ],
+    "description": "IP addresses Approx should listen on (one per Listen directive). Use '127.0.0.1' to restrict to localhost.",
+    "items": {
+      "type": "string",
+      "description": "IP address to bind to (e.g., '127.0.0.1', '::')"
+    }
+  },
+  "listen_port": {
+    "type": "number",
+    "default": 9999,
+    "description": "Port number for the Approx HTTP server."
+  },
+  "Timeout": {
+    "type": "number",
+    "default": 30,
+    "description": "Connection timeout to upstream mirrors (seconds)."
+  },
+  "MaxConnections": {
+    "type": "number",
+    "default": 10,
+    "description": "Maximum concurrent upstream connections."
+  }
+}

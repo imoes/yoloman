@@ -1,0 +1,133 @@
+# PDN-GW (PGW) configuration for nextepc-pgw
+
+# Network interfaces and addresses
+pgw:
+  # Interface configuration for S5/S8 (to SGW), S4 (to S4-SGW), S2a (to ePDG), S2b (to Wi-Fi AP), and user plane (GTP-U)
+  interfaces:
+    # Control plane interfaces (S5/S8, S4, S2a, S2b) — uses GTP-C (port 2123)
+    - name: cp
+      # Interface name (e.g., eth0) for control plane traffic
+      if: "{{ pgw_interfaces_cp_if }}"
+      # IPv4 address assigned to the control plane interface
+      address: "{{ pgw_interfaces_cp_address }}"
+      # IPv6 address (optional, set to null if unused)
+      {% if pgw_interfaces_cp_ipv6_address %}
+      ipv6_address: "{{ pgw_interfaces_cp_ipv6_address }}"
+      {% endif %}
+      # Port for GTP-C (standard: 2123)
+      port: 2123
+
+    # User plane interface (S5/S8-S4/S2a/S2b GTP-U) — port 2152
+    - name: up
+      if: "{{ pgw_interfaces_up_if }}"
+      address: "{{ pgw_interfaces_up_address }}"
+      {% if pgw_interfaces_up_ipv6_address %}
+      ipv6_address: "{{ pgw_interfaces_up_ipv6_address }}"
+      {% endif %}
+      port: 2152
+
+    # Optional: Interface for Gx (PCRF) — Diameter protocol (port 3868)
+    {% if pgw_interfaces_gx_if %}
+    - name: gx
+      if: "{{ pgw_interfaces_gx_if }}"
+      address: "{{ pgw_interfaces_gx_address }}"
+      {% if pgw_interfaces_gx_ipv6_address %}
+      ipv6_address: "{{ pgw_interfaces_gx_ipv6_address }}"
+      {% endif %}
+      port: 3868
+    {% endif %}
+
+    # Optional: Interface for Gy (AAAR) — Diameter protocol (port 3868)
+    {% if pgw_interfaces_gy_if %}
+    - name: gy
+      if: "{{ pgw_interfaces_gy_if }}"
+      address: "{{ pgw_interfaces_gy_address }}"
+      {% if pgw_interfaces_gy_ipv6_address %}
+      ipv6_address: "{{ pgw_interfaces_gy_ipv6_address }}"
+      {% endif %}
+      port: 3868
+    {% endif %}
+
+  # Logging configuration
+  log:
+    # Log level: 0=EMERG, 1=ALERT, 2=CRIT, 3=ERR, 4=WARN, 5=NOTICE, 6=INFO, 7=DEBUG
+    level: "{{ pgw_log_level }}"
+    # Log output file (or 'stdout' for console)
+    file: "{{ pgw_log_file }}"
+
+  # PGW identity and realm
+  identity:
+    # PGW FQDN used in Diameter messages (e.g., pgw.mnc001.mcc001.3gppnetwork.org)
+    fqdn: "{{ pgw_identity_fqdn }}"
+    # Realm (e.g., mnc001.mcc001.3gppnetwork.org)
+    realm: "{{ pgw_identity_realm }}"
+
+  # APN configuration — list of supported APNs
+  apn:
+    {% for apn in pgw_apn_list %}
+    - name: "{{ apn.name }}"
+      # QoS profile for this APN (used for defaultbearer and dedicatedbearers)
+      qos:
+        qci: {{ apn.qos.qci }}
+        arp:
+          priority_level: {{ apn.qos.arp.priority_level }}
+          preemption_cap: {{ apn.qos.arp.preemption_cap | lower }}
+          preemption_vuln: {{ apn.qos.arp.preemption_vuln | lower }}
+      # UE address pool — IPv4 or IPv6 subnet(s) to assign to users
+      {% if apn.ue.ipv4 %}
+      ue:
+        ipv4: "{{ apn.ue.ipv4 }}"
+      {% else %}
+      ue: {}
+      {% endif %}
+      {% if apn.ue.ipv6_prefix %}
+      ue:
+        ipv6_prefix: "{{ apn.ue.ipv6_prefix }}"
+      {% endif %}
+      # Optional: DNS server(s) for this APN
+      {% if apn.dns %}
+      dns:
+        primary: "{{ apn.dns.primary }}"
+        secondary: "{{ apn.dns.secondary }}"
+      {% endif %}
+      # Optional: MTU (default: 1500)
+      {% if apn.mtu %}
+      mtu: {{ apn.mtu }}
+      {% endif %}
+    {% endfor %}
+
+  # MME peer configuration — S5/S8 to SGW (used for handover and session management)
+  mme:
+    # List of MMEs/SGWs to connect to (via S5/S8)
+    peers:
+      {% for peer in pgw_mme_peers %}
+      - fqdn: "{{ peer.fqdn }}"
+        address: "{{ peer.address }}"
+        {% if peer.ipv6_address %}
+        ipv6_address: "{{ peer.ipv6_address }}"
+        {% endif %}
+      {% endfor %}
+
+  # Charging configuration (Gx/Gy)
+  charging:
+    # Gx interface to PCRF (optional)
+    {% if pgw_charging_gx_enabled %}
+    gx:
+      destination_realm: "{{ pgw_charging_gx_destination_realm }}"
+      destination_host: "{{ pgw_charging_gx_destination_host }}"
+    {% endif %}
+    # Gy interface to AAAR (optional)
+    {% if pgw_charging_gy_enabled %}
+    gy:
+      destination_realm: "{{ pgw_charging_gy_destination_realm }}"
+      destination_host: "{{ pgw_charging_gy_destination_host }}"
+    {% endif %}
+
+  # System-wide limits
+  limits:
+    # Max number of active sessions (PDN connections)
+    max_sessions: {{ pgw_limits_max_sessions }}
+    # Max number of bearers per UE
+    max_bearers_per_ue: {{ pgw_limits_max_bearers_per_ue }}
+    # GTP-U echo interval (seconds, 0 = disabled)
+    gtpu_echo_interval: {{ pgw_limits_gtpu_echo_interval }}

@@ -1,0 +1,113 @@
+{
+  "listen_address": "0.0.0.0",
+  "listen_port": 631,
+  "server_name": "printserver.example.com",
+  "server_admin": "helpdesk@example.com",
+  "log_level": "warn",
+  "access_log_path": "/var/log/cups/access_log",
+  "error_log_path": "/var/log/cups/error_log",
+  "page_log_path": "/var/log/cups/page_log",
+  "browsing_enabled": true,
+  "shared_printers": true,
+  "max_clients_per_host": 20,
+  "max_clients": 150,
+  "max_hold_time": 0,
+  "max_job_time": 0,
+  "default_auth_type": "Basic",
+  "web_interface_enabled": true,
+  "listen_local_only": false,
+  "https_port": 443,
+  "server_certificate": "/etc/cups/ssl/server.crt",
+  "server_key": "/etc/cups/ssl/server.key",
+  "trusted_certificates": [
+    "/etc/ssl/certs/ca-certificates.crt"
+  ],
+  "auth_realms": [
+    {
+      "name": "Admin configuration",
+      "location": "/admin/conf",
+      "order": [
+        "deny,allow",
+        "allow,deny"
+      ],
+      "allow_list": [
+        "127.0.0.1",
+        "192.168.1.0/24"
+      ],
+      "deny_list": [],
+      "auth_type": "Basic",
+      "require_user": [
+        "admin"
+      ]
+    },
+    {
+      "name": "Printer administration",
+      "location": "/admin",
+      "order": [
+        "allow,deny"
+      ],
+      "allow_list": [
+        "192.168.1.10"
+      ],
+      "deny_list": [],
+      "auth_type": "Basic",
+      "require_user": [
+        "admin",
+        "operator"
+      ]
+    }
+  ],
+  "policies": [
+    {
+      "name": "default",
+      "jobs": [
+        {
+          "type": "Max",
+          "value": 259200
+        }
+      ],
+      "operations": [
+        "cancel-job",
+        "close-job",
+        "create-job",
+        "enable-printer",
+        "get-jobs",
+        "hold-new-jobs",
+        "pause-printer",
+        "print-job",
+        "resume-printer"
+      ]
+    }
+  ],
+  "default_printer_options": [
+    {
+      "name": "PageSize",
+      "value": "A4"
+    },
+    {
+      "name": "PrintQuality",
+      "value": "Normal"
+    },
+    {
+      "name": "CupsModelNumber",
+      "value": "1"
+    }
+  ],
+  "log_filters": [
+    {
+      "name": "text",
+      "type": "text/plain",
+      "command": "texttopdf"
+    },
+    {
+      "name": "image",
+      "type": "image/pwg-raster",
+      "command": "rastertopdf"
+    },
+    {
+      "name": "pdf",
+      "type": "application/pdf",
+      "command": "pdftopdf"
+    }
+  ]
+}

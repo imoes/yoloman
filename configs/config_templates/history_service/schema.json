@@ -1,0 +1,270 @@
+{
+  "base_dir": {
+    "type": "string",
+    "default": "/var/lib/lomiri/history-service",
+    "description": "Root directory where history data, logs, and configuration are stored."
+  },
+  "database": {
+    "type": "object",
+    "default": {
+      "path": "/var/lib/lomiri/history-service/db.sqlite3",
+      "max_size_mb": 1024,
+      "journal_mode": "wal",
+      "pool_size": 10
+    },
+    "description": "SQLite database settings",
+    "items": {
+      "path": {
+        "type": "string",
+        "default": "/var/lib/lomiri/history-service/db.sqlite3",
+        "description": "Full path to the SQLite database file."
+      },
+      "max_size_mb": {
+        "type": "number",
+        "default": 1024,
+        "description": "Maximum size (in MB) before database auto-truncation or rotation (0 = unlimited)."
+      },
+      "journal_mode": {
+        "type": "string",
+        "default": "wal",
+        "description": "SQLite journal mode. 'wal' is recommended for better concurrency.",
+        "enum": [
+          "delete",
+          "truncate",
+          "persist",
+          "memory",
+          "wal",
+          "off"
+        ]
+      },
+      "pool_size": {
+        "type": "number",
+        "default": 10,
+        "description": "Maximum number of simultaneous connections to the database."
+      }
+    }
+  },
+  "logging": {
+    "type": "object",
+    "default": {
+      "level": "INFO",
+      "file": "/var/log/lomiri/history-service/history-service.log",
+      "console": true,
+      "max_file_size_mb": 50,
+      "max_file_count": 5
+    },
+    "description": "Logging configuration",
+    "items": {
+      "level": {
+        "type": "string",
+        "default": "INFO",
+        "description": "Minimum log level (DEBUG, INFO, WARNING, ERROR, CRITICAL).",
+        "enum": [
+          "DEBUG",
+          "INFO",
+          "WARNING",
+          "ERROR",
+          "CRITICAL"
+        ]
+      },
+      "file": {
+        "type": "string",
+        "default": "/var/log/lomiri/history-service/history-service.log",
+        "description": "Path to the log file. Empty string disables file logging."
+      },
+      "console": {
+        "type": "boolean",
+        "default": true,
+        "description": "Whether to log to standard output (console)."
+      },
+      "max_file_size_mb": {
+        "type": "number",
+        "default": 50,
+        "description": "Maximum size (in MB) of each log file before rotation."
+      },
+      "max_file_count": {
+        "type": "number",
+        "default": 5,
+        "description": "Number of rotated log files to keep."
+      }
+    }
+  },
+  "network": {
+    "type": "object",
+    "default": {
+      "host": "127.0.0.1",
+      "api_port": 8080,
+      "metrics_port": 9090,
+      "tls_enabled": false,
+      "tls_cert": "",
+      "tls_key": ""
+    },
+    "description": "Network binding and TLS settings",
+    "items": {
+      "host": {
+        "type": "string",
+        "default": "127.0.0.1",
+        "description": "IP address to bind the service to (e.g., '127.0.0.1' for local only, '::' for all IPv6)."
+      },
+      "api_port": {
+        "type": "number",
+        "default": 8080,
+        "description": "TCP port for the REST API endpoint."
+      },
+      "metrics_port": {
+        "type": "number",
+        "default": 9090,
+        "description": "TCP port for the Prometheus-compatible metrics endpoint."
+      },
+      "tls_enabled": {
+        "type": "boolean",
+        "default": false,
+        "description": "Enable TLS for secure communication (HTTPS)."
+      },
+      "tls_cert": {
+        "type": "string",
+        "default": "",
+        "description": "Path to the TLS certificate file (required if TLS is enabled)."
+      },
+      "tls_key": {
+        "type": "string",
+        "default": "",
+        "description": "Path to the TLS private key file (required if TLS is enabled)."
+      }
+    }
+  },
+  "compression": {
+    "type": "object",
+    "default": {
+      "enabled": true,
+      "min_size": 512
+    },
+    "description": "Response compression (gzip)",
+    "items": {
+      "enabled": {
+        "type": "boolean",
+        "default": true,
+        "description": "Enable gzip compression for API responses."
+      },
+      "min_size": {
+        "type": "number",
+        "default": 512,
+        "description": "Minimum response body size (in bytes) to trigger compression."
+      }
+    }
+  },
+  "workers": {
+    "type": "object",
+    "default": {
+      "processes": 0,
+      "threads": 2,
+      "max_requests": 5000,
+      "worker_timeout": 30
+    },
+    "description": "Gunicorn-like worker configuration",
+    "items": {
+      "processes": {
+        "type": "number",
+        "default": 0,
+        "description": "Number of worker processes (0 = auto-detect based on CPU cores)."
+      },
+      "threads": {
+        "type": "number",
+        "default": 2,
+        "description": "Number of threads per worker process."
+      },
+      "max_requests": {
+        "type": "number",
+        "default": 5000,
+        "description": "Maximum number of requests a worker processes before restarting (helps prevent memory leaks)."
+      },
+      "worker_timeout": {
+        "type": "number",
+        "default": 30,
+        "description": "Seconds before a worker is terminated and restarted on hang (e.g., deadlock or long blocking I/O)."
+      }
+    }
+  },
+  "retention": {
+    "type": "object",
+    "default": {
+      "message_days": 90,
+      "call_days": 90,
+      "prune_enabled": true,
+      "prune_schedule": "0 3 * * *"
+    },
+    "description": "Data retention and automatic cleanup settings",
+    "items": {
+      "message_days": {
+        "type": "number",
+        "default": 90,
+        "description": "Number of days to keep messages (0 = retain indefinitely)."
+      },
+      "call_days": {
+        "type": "number",
+        "default": 90,
+        "description": "Number of days to keep call records (0 = retain indefinitely)."
+      },
+      "prune_enabled": {
+        "type": "boolean",
+        "default": true,
+        "description": "Enable automatic removal of expired records."
+      },
+      "prune_schedule": {
+        "type": "string",
+        "default": "0 3 * * *",
+        "description": "Cron expression for when to run pruning (e.g., '0 3 * * *' = daily at 3:00 AM UTC)."
+      }
+    }
+  },
+  "cors": {
+    "type": "object",
+    "default": {
+      "origins": [],
+      "allow_credentials": true
+    },
+    "description": "Cross-Origin Resource Sharing (CORS) policy",
+    "items": {
+      "origins": {
+        "type": "list",
+        "default": [],
+        "description": "List of allowed origin domains (e.g., ['https://example.com']). Empty = allow all (\u26a0\ufe0f not recommended for production).",
+        "items": {
+          "type": "string",
+          "description": "A valid origin URL (scheme + domain, e.g., 'https://app.example.com')"
+        }
+      },
+      "allow_credentials": {
+        "type": "boolean",
+        "default": true,
+        "description": "Whether to allow cookies/authentication headers in CORS requests."
+      }
+    }
+  },
+  "cache": {
+    "type": "object",
+    "default": {
+      "max_entries": 10000,
+      "ttl_seconds": 300,
+      "stats_enabled": true
+    },
+    "description": "In-memory cache settings for performance",
+    "items": {
+      "max_entries": {
+        "type": "number",
+        "default": 10000,
+        "description": "Maximum number of cache entries."
+      },
+      "ttl_seconds": {
+        "type": "number",
+        "default": 300,
+        "description": "Time-to-live for cache entries in seconds."
+      },
+      "stats_enabled": {
+        "type": "boolean",
+        "default": true,
+        "description": "Enable collection of cache hit/miss statistics for metrics."
+      }
+    }
+  }
+}

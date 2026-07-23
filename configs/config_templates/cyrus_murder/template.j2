@@ -1,0 +1,38 @@
+# Service activation: Enables/disables the Murder proxy/aggregator role
+{% if murder_enabled %}
+
+# Murder proxy port (standard: 143) for IMAP client connections
+MURDER_PORT 143
+
+# Murder proxy hostname (used in X-UNIX-USER and for logging identification)
+MURDER_HOSTNAME {{ murder.hostname }}
+
+# Backend server list: where real mailboxes reside
+{% for server in murder.backends %}
+MURDER_SERVER {{ server.host }} {{ server.port }} {{ server.weight }}
+{% endfor %}
+
+# Backend health check interval (seconds)
+MURDER_CHECK_INTERVAL {{ murder.check_interval }}
+
+# Enable TLS for backend connections
+{% if murder.tls.enabled %}
+MURDER_TLS {{ murder.tls.cacert }} {{ murder.tls.cert }} {{ murder.tls.key }}
+{% endif %}
+
+# Maximum number of connections per backend
+MURDER_MAX_BACKEND_CONNS {{ murder.max_backend_conns }}
+
+# Ldap lookup for dynamic backend discovery (optional)
+{% if murder.ldap.enabled %}
+MURDER_LDAP_URL {{ murder.ldap.url }}
+MURDER_LDAP_BIND_DN {{ murder.ldap.bind_dn }}
+MURDER_LDAP_BIND_PW {{ murder.ldap.bind_password }}
+MURDER_LDAP_BASE {{ murder.ldap.base }}
+MURDER_LDAP_FILTER {{ murder.ldap.filter }}
+{% endif %}
+
+{% else %}
+# Murder disabled — comment/uncomment to toggle
+# MURDER_PORT 143
+{% endif %}

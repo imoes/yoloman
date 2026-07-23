@@ -1,0 +1,205 @@
+{# Docker Engine daemon configuration file (daemon.json) #}
+{# Enables IPv6 networking #}
+{%- if ipv6_enable %}
+  "ipv6": true,
+{%- else %}
+  "ipv6": false,
+{%- endif %}
+
+{# Default address pool for container networks (CIDR blocks) #}
+{%- if default_address_pool is defined and default_address_pool | length > 0 %}
+  "default-address-pools": [
+{%- for pool in default_address_pool %}
+{%- set base = pool.base | default("10.100.0.0/16") %}
+{%- set size = pool.size | default(24) %}
+    {"base": "{{ base }}", "size": {{ size }} }{{ "," if not loop.last else "" }}
+{%- endfor %}
+  ],
+{%- endif %}
+
+{# Listen addresses for Docker daemon (Unix socket, TCP, or fd) #}
+{%- if host is defined and host | length > 0 %}
+  "hosts": [
+{%- for h in host %}
+    "{{ h }}"{{ "," if not loop.last else "" }}
+{%- endfor %}
+  ],
+{%- endif %}
+
+{# Log driver and options #}
+{%- if log_driver is defined %}
+  "log-driver": "{{ log_driver }}",
+{%- endif %}
+{%- if log_opts is defined and log_opts | length > 0 %}
+  "log-opts": {
+{%- for key, val in log_opts.items() %}
+    "{{ key }}": "{{ val }}"{{ "," if not loop.last else "" }}
+{%- endfor %}
+  },
+{%- endif %}
+
+{# Registry mirrors (for pulling images) #}
+{%- if registry_mirrors is defined and registry_mirrors | length > 0 %}
+  "registry-mirrors": [
+{%- for m in registry_mirrors %}
+    "{{ m }}"{{ "," if not loop.last else "" }}
+{%- endfor %}
+  ],
+{%- endif %}
+
+{# Insecure registries (HTTP or TLS with untrusted certs) #}
+{%- if insecure_registries is defined and insecure_registries | length > 0 %}
+  "insecure-registries": [
+{%- for reg in insecure_registries %}
+    "{{ reg }}"{{ "," if not loop.last else "" }}
+{%- endfor %}
+  ],
+{%- endif %}
+
+{# Containerd snapshotter #}
+{%- if storage_driver is defined %}
+  "storage-driver": "{{ storage_driver }}",
+{%- endif %}
+
+{# Root directory for Docker data (images, containers, volumes) #}
+{%- if data_root is defined %}
+  "data-root": "{{ data_root }}",
+{%- endif %}
+
+{# Live restore (keeps containers running when daemon stops) #}
+{%- if live_restore is defined %}
+  "live-restore": {{ live_restore | string | lower }},
+{%- endif %}
+
+{# DNS configuration for containers #}
+{%- if dns is defined and dns | length > 0 %}
+  "dns": [
+{%- for d in dns %}
+    "{{ d }}"{{ "," if not loop.last else "" }}
+{%- endfor %}
+  ],
+{%- endif %}
+
+{# DNS search domains #}
+{%- if dns_search is defined and dns_search | length > 0 %}
+  "dns-search": [
+{%- for s in dns_search %}
+    "{{ s }}"{{ "," if not loop.last else "" }}
+{%- endfor %}
+  ],
+{%- endif %}
+
+{# DNS options #}
+{%- if dns_opts is defined and dns_opts | length > 0 %}
+  "dns-opts": [
+{%- for opt in dns_opts %}
+    "{{ opt }}"{{ "," if not loop.last else "" }}
+{%- endfor %}
+  ],
+{%- endif %}
+
+{# Fixed CIDR for container networking (IPv4) #}
+{%- if fixed_cidr is defined %}
+  "fixed-cidr": "{{ fixed_cidr }}",
+{%- endif %}
+
+{# Fixed CIDR v6 for container networking #}
+{%- if fixed_cidr_v6 is defined %}
+  "fixed-cidr-v6": "{{ fixed_cidr_v6 }}",
+{%- endif %}
+
+{# Default runtime (e.g., runc) #}
+{%- if default_runtime is defined %}
+  "default-runtime": "{{ default_runtime }}",
+{%- endif %}
+
+{# Runtimes configuration #}
+{%- if runtimes is defined and runtimes | length > 0 %}
+  "runtimes": {
+{%- for rt in runtimes %}
+{%- set name = rt.name | default("custom") %}
+{%- set path = rt.path | default("") %}
+{%- set args = rt.args | default([]) %}
+    "{{ name }}": {
+      "path": "{{ path }}",
+      "runtimeArgs": {{ args | tojson }}
+    }{{ "," if not loop.last else "" }}
+{%- endfor %}
+  },
+{%- endif %}
+
+{# Cgroup driver (cgroupfs or systemd) #}
+{%- if exec_opt_cgroup_driver is defined %}
+  "exec-opts": {
+    "cgroup-driver": "{{ exec_opt_cgroup_driver }}"
+  },
+{%- endif %}
+
+{# Maximum number of containers #}
+{%- if max_concurrent_downloads is defined %}
+  "max-concurrent-downloads": {{ max_concurrent_downloads }},
+{%- endif %}
+{%- if max_concurrent_uploads is defined %}
+  "max-concurrent-uploads": {{ max_concurrent_uploads }},
+{%- endif %}
+{%- if max_download_attempts is defined %}
+  "max-download-attempts": {{ max_download_attempts }},
+{%- endif %}
+
+{# Ulimits for containers #}
+{%- if default_ulimits is defined and default_ulimits | length > 0 %}
+  "default-ulimits": {
+{%- for ul in default_ulimits %}
+{%- set name = ul.name | default("nofile") %}
+{%- set hard = ul.hard | default(65536) %}
+{%- set soft = ul.soft | default(65536) %}
+    "{{ name }}": {
+      "Name": "{{ name }}",
+      "Hard": {{ hard }},
+      "Soft": {{ soft }}
+    }{{ "," if not loop.last else "" }}
+{%- endfor %}
+  },
+{%- endif %}
+
+{# Enable debug mode #}
+{%- if debug is defined %}
+  "debug": {{ debug | string | lower }},
+{%- endif %}
+
+{# Enable containerd metrics collection #}
+{%- if metrics_addr is defined %}
+  "metrics-addr": "{{ metrics_addr }}",
+{%- endif %}
+{%- if metrics_expensive is defined %}
+  "metrics-expensive": {{ metrics_expensive | string | lower }},
+{%- endif %}
+
+{# Enable or disable user namespace remapping #}
+{%- if userns_mode is defined %}
+  "userns-remap": "{{ userns_mode }}",
+{%- endif %}
+
+{# Optional: custom labels for daemon #}
+{%- if labels is defined and labels | length > 0 %}
+  "labels": [
+{%- for lbl in labels %}
+    "{{ lbl }}"{{ "," if not loop.last else "" }}
+{%- endfor %}
+  ],
+{%- endif %}
+
+{# Enable or disable OOM Kill for containers #}
+{%- if disable_oom_killer is defined %}
+  "disable-oom-killer": {{ disable_oom_killer | string | lower }},
+{%- endif %}
+
+{# Container network plugin configuration #}
+{%- if plugins is defined %}
+  "plugins": {{ plugins | tojson }},
+{%- endif %}
+
+{# Optional: experimental features #}
+{%- if experimental is defined %}
+  "experimental": {{ experimental | string | lower }}
+{%- endif %}

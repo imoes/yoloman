@@ -1,0 +1,61 @@
+# LemonLDAP::NG uWSGI configuration — main settings
+[lemonldap]
+; Path to the LemonLDAP::NG configuration directory
+configDir = {{ config_dir }}
+; Path to the session storage directory
+sessionDir = {{ session_dir }}
+; Log level (debug, info, notice, warning, error, crit, alert, emerg)
+logLevel = {{ log_level }}
+; Enable or disable debug mode
+debug = {{ debug }}
+
+; HTTP server configuration
+; Hostname to bind to
+host = {{ host }}
+; Port to listen on
+port = {{ port }}
+
+; HTTPS configuration (optional — comment out if not used)
+{% if https_enabled %}
+; Enable HTTPS
+https = 1
+; Path to SSL certificate
+sslCertFile = {{ ssl_cert_file }}
+; Path to SSL private key
+sslKeyFile = {{ ssl_key_file }}
+{% else %}
+; HTTPS disabled
+https = 0
+{% endif %}
+
+; uWSGI-specific settings
+; Number of worker processes
+processes = {{ processes }}
+; Number of threads per worker
+threads = {{ threads }}
+; Socket to listen on (Unix or TCP)
+uvsgi_socket = {{ uwsgi_socket }}
+; Enable master process
+master = {{ master }}
+; Enable lazy-apps to reduce memory usage
+lazy-apps = {{ lazy_apps }}
+; Vacuum options — clean environment on exit
+vacuum = {{ vacuum }}
+
+; Memory & performance tuning
+; Max memory per process (MB)
+max_memory = {{ max_memory }}
+; Reload workers after N requests
+max_requests = {{ max_requests }}
+; Graceful reload timeout (seconds)
+harakiri = {{ harakiri }}
+
+; Logging configuration
+; Log to file (optional — if not set, logs to stderr)
+{% if log_file %}
+logto = {{ log_file }}
+{% endif %}
+
+; Static files (for /static/* paths)
+; Path to static assets
+staticMap = {{ static_map }}

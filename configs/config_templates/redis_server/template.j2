@@ -1,0 +1,124 @@
+# Redis configuration file for production use
+# Network
+bind {{ bind_address }}
+port {{ port }}
+# TCP listen backlog
+tcp-backlog {{ tcp_backlog }}
+# Unix socket (optional)
+{% if unix_socket_path %}
+unixsocket {{ unix_socket_path }}
+unixsocketperm {{ unix_socket_perms }}
+{% else %}
+# unixsocket /var/run/redis/redis-server.sock
+# unixsocketperm 700
+{% endif %}
+# Timeout for idle connections (0 = no timeout)
+timeout {{ timeout }}
+# TCP keepalive
+tcp-keepalive {{ tcp_keepalive }}
+
+# General
+{% if daemonize %}
+daemonize yes
+{% else %}
+daemonize no
+{% endif %}
+pidfile {{ pid_file }}
+loglevel {{ log_level }}
+logfile "{{ log_file }}"
+syslog-enabled {{ syslog_enabled }}
+{% if syslog_ident %}
+syslog-ident {{ syslog_ident }}
+{% endif %}
+{% if syslog_facility %}
+syslog-facility {{ syslog_facility }}
+{% endif %}
+
+# Snapshotting (RDB persistence)
+dbfilename {{ rdb_filename }}
+dir {{ rdb_dir }}
+{% for snapshot in rdb_snapshots %}
+save {{ snapshot.interval }} {{ snapshot.keys_changed }}
+{% endfor %}
+stop-writes-on-bgsave-error {{ stop_writes_on_bgsave_error }}
+rdbcompression {{ rdb_compression }}
+rdbchecksum {{ rdb_checksum }}
+dbfilename {{ rdb_filename }}
+# Disable RDB if empty list
+{% if rdb_snapshots | length == 0 %}
+save ""
+{% endif %}
+
+# Append Only Mode (AOF persistence)
+appendonly {{ aof_enabled }}
+appendfilename "{{ aof_filename }}"
+appendfsync {{ aof_fsync_policy }}
+no-appendfsync-on-rewrite {{ no_aof_fsync_on_rewrite }}
+auto-aof-rewrite-percentage {{ auto_aof_rewrite_percentage }}
+auto-aof-rewrite-min-size {{ auto_aof_rewrite_min_size }}
+aof-load-truncated {{ aof_load_truncated }}
+aof-use-rdb-preamble {{ aof_use_rdb_preamble }}
+
+# Memory Management
+maxmemory {{ max_memory }}
+maxmemory-policy {{ max_memory_policy }}
+maxmemory-samples {{ max_memory_samples }}
+
+# Lazy freeing
+lazyfree-lazy-eviction {{ lazyfree_lazy_eviction }}
+lazyfree-lazy-expire {{ lazyfree_lazy_expire }}
+lazyfree-lazy-server-del {{ lazyfree_lazy_server_del }}
+replica-lazy-flush {{ replica_lazy_flush }}
+
+# Latency monitor
+latency-monitor-threshold {{ latency_monitor_threshold }}
+
+# Security
+requirepass {{ require_password }}
+
+# Client Output Buffer Limits
+{% for client_limit in client_output_buffer_limits %}
+client-output-buffer-limit {{ client_limit.class }} {{ client_limit.hard }} {{ client_limit.soft }} {{ client_limit.seconds }}
+{% endfor %}
+
+# Redis ACL (access control list)
+{% if acl_file %}
+aclfile {{ acl_file }}
+{% endif %}
+{% if default_user %}
+{% if default_user == 'disabled' %}
+user default off ~* +@all
+{% else %}
+user default {{ default_user }} ~* +@all
+{% endif %}
+{% else %}
+# user default on >password ~* +@all
+{% endif %}
+
+# Slow log
+slowlog-log-slower-than {{ slowlog_slower_than }}
+slowlog-max-len {{ slowlog_max_len }}
+
+# Latency monitor
+latency-monitor-threshold {{ latency_monitor_threshold }}
+
+# Event notification
+notify-keyspace-events "{{ notify_keyspace_events }}"
+
+# Advanced config
+hash-max-ziplist-entries {{ hash_max_entries }}
+hash-max-ziplist-value {{ hash_max_value }}
+list-max-ziplist-size {{ list_max_size }}
+list-compress-depth {{ list_compress_depth }}
+set-max-intset-entries {{ set_max_entries }}
+zset-max-ziplist-entries {{ zset_max_entries }}
+zset-max-ziplist-value {{ zset_max_value }}
+stream-node-max-bytes {{ stream_node_max_bytes }}
+stream-node-max-entries {{ stream_node_max_entries }}
+activerehashing {{ active_rehashing }}
+client-query-buffer-limit {{ client_query_buffer_limit }}
+proto-max-bulk-len {{ proto_max_bulk_len }}
+hz {{ hz }}
+dynamic-hz {{ dynamic_hz }}
+aof-rewrite-incremental-fsync {{ aof_rewrite_incremental_fsync }}
+rdb-save-incremental-fsync {{ rdb_save_incremental_fsync }}

@@ -1,0 +1,75 @@
+# File Access Policy Daemon (fapolicyd) configuration
+# This is the main configuration file for fapolicyd.
+# For full documentation, see: man 8 fapolicyd
+# and: https://github.com/linux-audit/fapolicyd
+
+# Enable or disable fapolicyd at boot (1 = enabled, 0 = disabled)
+# Note: This sets the 'enabled' state in systemd; actual enforcement is controlled below.
+enabled = {{ enabled }}
+
+# Logging configuration
+# Log level: 0 (none), 1 (errors only), 2 (warnings), 3 (info), 4 (debug)
+log_level = {{ log_level }}
+
+# Log file path (use 'syslog' to send to system logger)
+log_file = {{ log_file }}
+
+# Enable or disable real-time logging of access decisions
+# When enabled, decisions are logged as they occur (immediate audit trail)
+# When disabled, decisions are buffered (higher performance, lower latency impact)
+trust_network = {{ trust_network }}
+
+# Trust the network-based file access rules (1 = yes, 0 = no)
+# This allows fapolicyd to trust network-based policy sources (e.g., NIS, LDAP)
+# Only enable if your network policy distribution is secured
+network_trust = {{ network_trust }}
+
+# Maximum number of events to buffer before dropping (for high-throughput systems)
+# If buffer fills, newer events may be dropped — tune based on system capacity
+event_buffer_size = {{ event_buffer_size }}
+
+# Path to the rules directory containing policy files
+# Each `.rules` file here is parsed in alphabetical order
+rules_dir = {{ rules_dir }}
+
+# Paths to trusted binaries and libraries
+# Files matching these paths are trusted (no access decisions logged)
+# Format: one per line, supports wildcards
+# Add as many as needed
+{% for trust_path in trust_paths %}trust_path = {{ trust_path }}
+{% endfor %}
+
+# File access logging format
+# Valid values: "simple", "json", "syslog"
+# 'simple': human-readable text
+# 'json': machine-parseable JSON (useful for log aggregation)
+# 'syslog': send via syslog (requires rsyslog or equivalent)
+format = {{ format }}
+
+# Enable or disable file integrity checking
+# When enabled, files are checksummed at access time; may impact performance
+integrity_check = {{ integrity_check }}
+
+# Maximum age (in seconds) of file metadata before rechecking
+# Set to 0 to disable metadata caching (higher accuracy, lower performance)
+metadata_cache_ttl = {{ metadata_cache_ttl }}
+
+# Enable or disable support for AppArmor/SELinux labels (if available)
+# Required for integrated labeling-based policies
+security_label = {{ security_label }}
+
+# Path to the PID file
+# Used by init/systemd to track daemon status
+pid_file = {{ pid_file }}
+
+# Number of worker threads for policy evaluation
+# Set to 0 to auto-detect (usually number of CPUs)
+# Increase for high-throughput environments
+workers = {{ workers }}
+
+# Enable or disable rule compilation caching
+# Caching improves startup time but may delay rule changes
+rule_cache = {{ rule_cache }}
+
+# Path to the rule cache file
+rule_cache_file = {{ rule_cache_file }}

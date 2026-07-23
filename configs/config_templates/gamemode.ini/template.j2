@@ -1,0 +1,55 @@
+[gamemoded]
+; Controls whether gamemode should be enabled on system boot
+enabled = {{ enabled | string | lower }}
+
+; Maximum CPU frequency scaling governor to use when gamemode is active
+cpu_governor = {{ cpu_governor }}
+
+; Maximum GPU frequency scaling governor to use when gamemode is active
+gpu_governor = {{ gpu_governor }}
+
+; Number of seconds to wait after a game exits before restoring original settings
+idle_time = {{ idle_time }}
+
+; List of processes to automatically exclude from gamemode
+{% for pattern in exclude_processes %}; Exclude process matching pattern '{{ pattern.pattern }}'
+exclude_{{ loop.index }} = {{ pattern.pattern }}
+{% endfor %}
+
+; Path to custom scripts to run on gamemode activation
+{% for script in scripts %}; Run script '{{ script.path }}' on {{ script.event }}
+script_{{ script.event }}_{{ loop.index }} = {{ script.path }}
+{% endfor %}
+
+; Enable GPU boost (if supported by hardware)
+{% if gpu_boost is defined %}gpu_boost = {{ gpu_boost | string | lower }}
+{% endif %}
+
+; Maximum number of concurrent game sessions
+max_concurrent_games = {{ max_concurrent_games }}
+
+; Log level: 0 = error, 1 = warn, 2 = info, 3 = debug
+log_level = {{ log_level }}
+
+; Path to custom log file
+log_file = {{ log_file }}
+
+; Enable nice priority adjustment
+enable_nice = {{ nice.enabled | string | lower }}
+; Nice priority value to apply to game processes
+nice_priority = {{ nice.value }}
+
+; Enable IO priority adjustment
+enable_io = {{ io.enabled | string | lower }}
+; IO scheduling class: 0 = none, 1 = idle, 2 = best-effort, 3 = realtime
+io_class = {{ io.class }}
+; IO priority (0-7, only for best-effort class)
+io_priority = {{ io.priority }}
+
+; Enable renice priority adjustment (legacy alias for nice)
+enable_renice = {{ renice.enabled | string | lower }}
+; Renice priority value (negative = higher priority)
+renice_priority = {{ renice.value }}
+
+; Enable reset_fpu flag (for Intel CPUs; resets FPU state on entry)
+reset_fpu = {{ reset_fpu | string | lower }}

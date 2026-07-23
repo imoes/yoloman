@@ -1,0 +1,47 @@
+[global]
+# Global cluster settings applied to all Ceph daemons
+fsid = {{ fsid }}
+mon_initial_members = {{ mon_initial_members | join(', ') }}
+mon_host = {{ mon_host | join(', ') }}
+
+# Network binding for public (client-facing) traffic
+public_network = {{ public_network | default('') }}
+
+# Network binding for internal cluster (monitor-to-monitor) traffic
+cluster_network = {{ cluster_network | default('') }}
+
+# Authentication: set to cephx if using CephX auth (default)
+auth_cluster_required = {{ auth_cluster_required | default('cephx') }}
+auth_service_required = {{ auth_service_required | default('cephx') }}
+auth_client_required = {{ auth_client_required | default('cephx') }}
+
+# Logging
+log_file = {{ log_file | default('/var/log/ceph/ceph-$name.$pid.log') }}
+
+# Performance tuning
+ms_bind_ipv4 = {{ ms_bind_ipv4 | default('true') | lower }}
+ms_bind_ipv6 = {{ ms_bind_ipv6 | default('false') | lower }}
+
+[mon]
+# Monitor-specific settings
+mon_data = {{ mon_data }}
+mon_clock_drift_allowed = {{ mon_clock_drift_allowed | default('0.05') }}
+mon_clock_drift_warn_backoff = {{ mon_clock_drift_warn_backoff | default('10') }}
+
+# Quorum & election settings
+mon_lease = {{ mon_lease | default('15') }}
+mon_lease_renew_interval = {{ mon_lease_renew_interval | default('10') }}
+mon_lease_ack_timeout = {{ mon_lease_ack_timeout | default('20') }}
+
+# Size of monitor store (OSD map history retention)
+mon_osd_min_down_reporters = {{ mon_osd_min_down_reporters | default('1') }}
+mon_osd_reporter_subtree_level = {{ mon_osd_reporter_subtree_level | default('host') }}
+
+# Monitor storage backend (usually 'filestore' for older installs; 'bluestore' is default for newer mons, but config is optional)
+mon_data_size_hint = {{ mon_data_size_hint | default('0') }}
+
+{% for svc in additional_services %}
+# Custom service section: {{ svc.name }}
+[{{ svc.name }}]
+{% for key, value in svc.options.items() %}{{ key }} = {{ value }}
+{% endfor %}{% endfor %}

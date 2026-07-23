@@ -1,0 +1,55 @@
+# SNMP Exporter configuration for Prometheus
+# See: https://github.com/prometheus/snmp_exporter
+
+global:
+  # How long between SNMP polls
+  {{# How often to scrape each SNMP target (in seconds) }}
+  scan_interval: {{ scan_interval }}
+
+  # Timeout for each SNMP request
+  {{# Maximum time to wait for a response from an SNMP device (in seconds) }}
+  timeout: {{ timeout }}
+
+  # Maximum retries per failed request
+  {{# Number of times to retry a failed SNMP request before marking as failed }}
+  retries: {{ retries }}
+
+# SNMP module definitions
+# Each module defines how to poll a specific device type or MIB set
+modules:
+{% for module in modules %}
+  {{ module.name }}:
+    {{# SNMP version: 2c, 3, or '1' (legacy) }}
+    version: {{ module.version }}
+    {{# SNMP community string (used only for v2c and v1) }}
+    community: {{ module.community | default('public') }}
+    {{# SNMPv3 authentication and privacy settings }}
+    {{% if module.version == '3' %}}
+    {{# SNMPv3 auth/priv protocol and credentials }}
+    {{# Authentication: 'MD5'|'SHA'|'SHA-224'|'SHA-256'|'SHA-384'|'SHA-512' }}
+    auth_protocol: {{ module.auth_protocol | default('MD5') }}
+    {{# Privacy: 'DES'|'AES'|'AES-192'|'AES-192-C'|'AES-256'|'AES-256-C'|'3DES'|'NONE' }}
+    priv_protocol: {{ module.priv_protocol | default('DES') }}
+    auth_level: {{ module.auth_level | default('noAuthNoPriv') }}
+    {{% if module.auth_level in ['authNoPriv', 'authPriv'] %}}
+    auth_name: {{ module.auth_name }}
+    {{% endif %}}
+    {{% if module.auth_level == 'authPriv' %}}
+    priv_name: {{ module.priv_name }}
+    {{% endif %}}
+    {{# Optional: context name for SNMPv3 }}
+    {{% if module.context_name %}}
+    context_name: {{ module.context_name }}
+    {{% endif %}}
+    {{% endif %}}
+    {{# MIBs to load (list of MIB names or paths) }}
+    mibs:
+{% for mib in module.mibs | default(['ALL']) %}
+      - {{ mib }}
+{% endfor %}
+    {{# Module-specific OID mappings (used to define metric families) }}
+    walk:
+{% for walk_oid in module.walk | default(['1.3.6.1.2.1']) %}
+      - {{ walk_oid }}
+{% endfor %}
+{% endfor %}

@@ -1,0 +1,56 @@
+{
+  "nrpe_port": 5666,
+  "allowed_hosts": [
+    "127.0.0.1",
+    "10.0.0.10"
+  ],
+  "nrpe_user": "nagios",
+  "nrpe_group": "nagios",
+  "nrpe_logfile": "/var/log/nrpe.log",
+  "nrpe_log_level": 2,
+  "command_timeout": 60,
+  "connection_timeout": 300,
+  "nrpe_ssl": true,
+  "nrpe_ssl_cert_file": "/etc/nagios/nrpe.pem",
+  "nrpe_ssl_key_file": "/etc/nagios/nrpe.key",
+  "nrpe_ssl_ca_cert_file": "/etc/nagios/ca.pem",
+  "nrpe_ssl_check_peer": true,
+  "nrpe_ssl_check_host": true,
+  "include_cmd_def_paths": [
+    "/etc/nagios/nrpe.d"
+  ],
+  "custom_commands": [
+    {
+      "name": "check_disk",
+      "executable": "/usr/lib/nagios/plugins/check_disk",
+      "arguments": [
+        "-w",
+        "20%",
+        "-c",
+        "10%",
+        "-p",
+        "/"
+      ]
+    },
+    {
+      "name": "check_load",
+      "executable": "/usr/lib/nagios/plugins/check_load",
+      "arguments": [
+        "-w",
+        "5,4,3",
+        "-c",
+        "10,8,6"
+      ]
+    },
+    {
+      "name": "check_users",
+      "executable": "/usr/lib/nagios/plugins/check_users",
+      "arguments": [
+        "-w",
+        "5",
+        "-c",
+        "10"
+      ]
+    }
+  ]
+}

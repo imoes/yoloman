@@ -1,0 +1,32 @@
+# Systemd service unit for kactivitymanagerd — manages KDE user activities (history, bookmarks, etc.)
+[Unit]
+Description=User Activity Management Service
+Documentation=man:kactivitymanagerd(1)
+After=graphical-session.target
+PartOf=graphical-session.target
+
+[Service]
+Type=Session
+ExecStart={{ kactivitymanagerd.exec_start }}
+Environment="QT_QUICK_CONTROLS_STYLE=Plasma"
+Environment="KDE_FULL_SESSION=true"
+Environment="KDE_SESSION_VERSION=6"
+# Environment variables required for proper Plasma integration
+EnvironmentFile=-@CMAKE_INSTALL_FULL_KDESYSCONFDIR@/environment.d/kactivitymanagerd.conf
+Restart=on-failure
+RestartSec=5
+
+# Security hardening: restrict capabilities and file system access
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths={{ kactivitymanagerd.runtime_dir }}
+ReadWritePaths={{ kactivitymanagerd.cache_dir }}
+ReadWritePaths={{ kactivitymanagerd.config_dir }}
+# Allow access to user-specific activity data directories
+
+# Logging: inherit systemd journal configuration from session
+SyslogIdentifier=kactivitymanagerd
+
+[Install]
+WantedBy=graphical-session.target

@@ -1,0 +1,65 @@
+{
+  "enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable or disable the igmpproxy service at boot."
+  },
+  "loglevel": {
+    "type": "number",
+    "default": 4,
+    "description": "Logging verbosity level: 0 (none) to 5 (debug)."
+  },
+  "logfile": {
+    "type": "string",
+    "default": "",
+    "description": "Path to log file. Leave empty to log to stderr (systemd: stdout)."
+  },
+  "upstream": {
+    "type": "string",
+    "default": "eth0",
+    "description": "Name of the upstream network interface (connected to the multicast source)."
+  },
+  "downstream": {
+    "type": "list",
+    "default": [],
+    "description": "List of downstream (client-facing) interfaces and their associated subnets.",
+    "items": {
+      "interface": {
+        "type": "string",
+        "default": "eth1",
+        "description": "Name of the downstream network interface."
+      },
+      "subnet": {
+        "type": "string",
+        "default": "192.168.1.0/24",
+        "description": "CIDR-formatted subnet served by this interface."
+      },
+      "allowed_groups": {
+        "type": "list",
+        "default": [],
+        "items": {
+          "type": "string"
+        },
+        "description": "List of specific multicast groups (e.g., 239.1.1.1) allowed for forwarding on this interface. Leave empty to allow all."
+      },
+      "excluded_groups": {
+        "type": "list",
+        "default": [],
+        "items": {
+          "type": "string"
+        },
+        "description": "List of multicast groups explicitly excluded from forwarding."
+      }
+    }
+  },
+  "query_interval": {
+    "type": "number",
+    "default": 125,
+    "description": "Interval (seconds) between IGMP queries from upstream interface."
+  },
+  "threshold": {
+    "type": "number",
+    "default": 3,
+    "description": "Number of missed queries before a downstream host is considered inactive."
+  }
+}

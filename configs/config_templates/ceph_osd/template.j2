@@ -1,0 +1,44 @@
+# Ceph global configuration (shared across all daemons in the cluster)
+[global]
+# Cluster ID (must match the cluster's UUID)
+fsid = {{ fsid }}
+# Public network(s) for client traffic
+public network = {{ public_network | join(', ') }}
+# Cluster network for internal replication/heartbeat
+cluster network = {{ cluster_network | join(', ') }}
+# Authentication type (none, cephx)
+auth cluster required = {{ auth_cluster_required }}
+auth service required = {{ auth_service_required }}
+auth client required = {{ auth_client_required }}
+# Monitors list (typically auto-discovered; override only in special cases)
+mon host = {{ mon_host | join(', ') }}
+# Log to stdout if running as systemd service, otherwise to file
+log to stderr = {{ log_to_stderr }}
+log file = {{ log_file }}
+# Max number of concurrent osd operations (tune for hardware)
+osd max backfills = {{ osd_max_backfills }}
+osd max truesyncs = {{ osd_max_truesyncs }}
+osd op threads = {{ osd_op_threads }}
+osd recovery op threads = {{ osd_recovery_op_threads }}
+# Enable/disable automatic device discovery
+osd auto discover = {{ osd_auto_discover }}
+# Enable/disable journaling (if using separate journal devices)
+osd journal size = {{ osd_journal_size }}
+
+# Per-OSD section (auto-generated per OSD ID)
+{% for osd in osds %}
+# OSD {{ osd.id }} device configuration
+[osd.{{ osd.id }}]
+# Object store type (filestore or bluestore)
+key = {{ osd.key }}
+# Data device path
+osd data = {{ osd.data_path }}
+# Optional: journal device path (for filestore only)
+{% if osd.journal_path %}osd journal = {{ osd.journal_path }}{% endif %}
+# Optional: block/db/wal for bluestore
+{% if osd.block_path %}block = {{ osd.block_path }}{% endif %}
+{% if osd.block_db_path %}block.db = {{ osd.block_db_path }}{% endif %}
+{% if osd.block_wal_path %}block.wal = {{ osd.block_wal_path }}{% endif %}
+# Hostname for topology awareness (optional but recommended)
+{% if osd.hostname %}host = {{ osd.hostname }}{% endif %}
+{% endfor %}

@@ -1,0 +1,228 @@
+{
+  "logdir": {
+    "type": "string",
+    "default": "/var/log/magnum",
+    "description": "Directory for Magnum log files."
+  },
+  "state_path": {
+    "type": "string",
+    "default": "/var/lib/magnum",
+    "description": "Directory for Magnum state and temporary files."
+  },
+  "bind_host": {
+    "type": "string",
+    "default": "0.0.0.0",
+    "description": "IP address the API server listens on."
+  },
+  "api_workers": {
+    "type": "number",
+    "default": 1,
+    "description": "Number of worker processes for the API service."
+  },
+  "enable_ssl_api": {
+    "type": "boolean",
+    "default": false,
+    "description": "Enable HTTPS for the Magnum API endpoints."
+  },
+  "ssl_cert_file": {
+    "type": "string",
+    "default": "/etc/ssl/certs/magnum.crt",
+    "description": "Path to SSL certificate file (required when enable_ssl_api=true)."
+  },
+  "ssl_key_file": {
+    "type": "string",
+    "default": "/etc/ssl/private/magnum.key",
+    "description": "Path to SSL private key file (required when enable_ssl_api=true)."
+  },
+  "db_connection": {
+    "type": "string",
+    "default": "mysql+pymysql://magnum:DB_PASS@controller/magnum",
+    "description": "Database connection string for Magnum."
+  },
+  "keystone_auth_url": {
+    "type": "string",
+    "default": "http://controller:5000",
+    "description": "Keystone authentication URL."
+  },
+  "keystone_region_name": {
+    "type": "string",
+    "default": "RegionOne",
+    "description": "Region name used by Magnum to discover services in Keystone."
+  },
+  "keystone_project_domain_name": {
+    "type": "string",
+    "default": "Default",
+    "description": "Keystone project domain name for Magnum service user."
+  },
+  "keystone_project_name": {
+    "type": "string",
+    "default": "service",
+    "description": "Keystone project (tenant) name for Magnum service user."
+  },
+  "keystone_user_domain_name": {
+    "type": "string",
+    "default": "Default",
+    "description": "Keystone user domain name for Magnum service user."
+  },
+  "keystone_service_user": {
+    "type": "string",
+    "default": "magnum",
+    "description": "Username for the Magnum service user in Keystone."
+  },
+  "keystone_service_password": {
+    "type": "string",
+    "default": "SERVICE_PASS",
+    "description": "Password for the Magnum service user in Keystone."
+  },
+  "trust_enabled": {
+    "type": "boolean",
+    "default": true,
+    "description": "Enable trust mechanism for cluster operations (required for cluster scaling, etc.)."
+  },
+  "trustee_domain_id": {
+    "type": "string",
+    "default": "",
+    "description": "Domain ID for the trustee (if using delegated trust)."
+  },
+  "trustee_domain_admin": {
+    "type": "string",
+    "default": "",
+    "description": "Username of the trustee domain admin (used when trustee_domain_id is set)."
+  },
+  "trustee_domain_admin_password": {
+    "type": "string",
+    "default": "",
+    "description": "Password of the trustee domain admin (used when trustee_domain_id is set)."
+  },
+  "default_docker_volume_size": {
+    "type": "number",
+    "default": 20,
+    "description": "Default size (GiB) of the Docker volume attached to nodes."
+  },
+  "default_node_count": {
+    "type": "number",
+    "default": 1,
+    "description": "Default number of worker nodes for newly created clusters."
+  },
+  "enabled_cluster_templates": {
+    "type": "list",
+    "default": [
+      "kubernetes",
+      "swarm",
+      "mesos"
+    ],
+    "description": "List of cluster template types enabled in this deployment.",
+    "items": {
+      "type": "string",
+      "enum": [
+        "kubernetes",
+        "swarm",
+        "mesos",
+        "swarm-mode",
+        "swarm-kubernetes"
+      ],
+      "description": "Name of an enabled container orchestrator."
+    }
+  },
+  "default_cluster_template": {
+    "type": "string",
+    "default": "kubernetes",
+    "description": "Default cluster template used when none is specified during cluster creation."
+  },
+  "cluster_create_timeout": {
+    "type": "number",
+    "default": 120,
+    "description": "Timeout (minutes) for cluster creation before it is considered failed."
+  },
+  "enable_v1_api": {
+    "type": "boolean",
+    "default": true,
+    "description": "Enable Magnum v1 API endpoints."
+  },
+  "enable_v2_api": {
+    "type": "boolean",
+    "default": true,
+    "description": "Enable Magnum v2 API endpoints."
+  },
+  "cert_manager_type": {
+    "type": "string",
+    "default": "keystone",
+    "description": "Certificate management backend. Supported: 'keystone', 'local', 'barbican'."
+  },
+  "ca_cert": {
+    "type": "string",
+    "default": "/etc/magnum/ssl/ca.crt",
+    "description": "Path to CA certificate used to sign cluster certificates (used with 'local' cert_manager)."
+  },
+  "ca_key": {
+    "type": "string",
+    "default": "/etc/magnum/ssl/ca.key",
+    "description": "Path to CA private key used to sign cluster certificates (used with 'local' cert_manager)."
+  },
+  "cluster_cert_ttl": {
+    "type": "number",
+    "default": 8760,
+    "description": "Certificate validity period (hours) for clusters."
+  },
+  "pki_enabled": {
+    "type": "boolean",
+    "default": false,
+    "description": "Enable PKI-based certificate generation (deprecated in favor of keystone/barbican)."
+  },
+  "pki_file_path": {
+    "type": "string",
+    "default": "/etc/magnum/ssl/pki",
+    "description": "Base directory for PKI certificate storage (used when pki_enabled=true)."
+  },
+  "conductor_workers": {
+    "type": "number",
+    "default": 1,
+    "description": "Number of worker processes for the Conductor service."
+  },
+  "max_cluster_nodes": {
+    "type": "number",
+    "default": 100,
+    "description": "Maximum number of nodes allowed per cluster."
+  },
+  "conductor_timeout": {
+    "type": "number",
+    "default": 600,
+    "description": "Timeout (seconds) for conductor operations."
+  },
+  "k8s_enable_hpa": {
+    "type": "boolean",
+    "default": false,
+    "description": "Enable Kubernetes Horizontal Pod Autoscaler by default."
+  },
+  "k8s_enable_dns": {
+    "type": "boolean",
+    "default": true,
+    "description": "Enable Kubernetes DNS add-on in clusters."
+  },
+  "k8s_enable_pod_security_policy": {
+    "type": "boolean",
+    "default": false,
+    "description": "Enable Kubernetes PodSecurityPolicy by default."
+  },
+  "k8s_insecure_registries": {
+    "type": "list",
+    "default": [
+      "192.168.1.0/24"
+    ],
+    "description": "List of insecure (HTTP) Docker registries allowed in cluster nodes.",
+    "items": {
+      "type": "string",
+      "description": "CIDR or IP address range for an insecure registry."
+    }
+  },
+  "k8s_registry_mirror": {
+    "type": "string",
+    "default": "",
+    "description": "Registry mirror URL to accelerate image pulls (e.g., 'https://mirror.gcr.io')."
+  },
+  "k8s_docker_storage_driver": {
+    "type": "string",
+    "default": "overlay2",
+    "description": "Docker storage driver used in Kubernetes cluster nodes."
+  }
+}

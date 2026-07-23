@@ -1,0 +1,313 @@
+{
+  "debug": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable verbose debugging output to log for diagnostics."
+  },
+  "log_file": {
+    "type": "string",
+    "default": "/var/log/gfarm2/gfsd.log",
+    "description": "Absolute path to the main log file."
+  },
+  "log_max_size": {
+    "type": "number",
+    "default": 100,
+    "description": "Maximum size (in MB) of the log file before rotation."
+  },
+  "log_retention": {
+    "type": "number",
+    "default": 5,
+    "description": "Number of rotated log files to keep."
+  },
+  "num_threads": {
+    "type": "number",
+    "default": 8,
+    "description": "Number of worker threads to handle client requests."
+  },
+  "bind_address": {
+    "type": "string",
+    "default": "0.0.0.0",
+    "description": "IP address or hostname to bind metadata services to."
+  },
+  "metadata_port": {
+    "type": "number",
+    "default": 15001,
+    "description": "Port number for metadata protocol communication."
+  },
+  "enable_replication": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable asynchronous replication of metadata between gfsd instances."
+  },
+  "replication_timeout": {
+    "type": "number",
+    "default": 30,
+    "description": "Timeout (in seconds) for metadata replication operations."
+  },
+  "master_hosts": {
+    "type": "list",
+    "default": [
+      "gfm-master.example.com"
+    ],
+    "items": {
+      "type": "string",
+      "description": "Hostname or IP of a GFM master server."
+    },
+    "description": "List of GFM master servers for metadata coordination."
+  },
+  "gfm_hosts": {
+    "type": "list",
+    "default": [
+      "gfm-1.example.com",
+      "gfm-2.example.com"
+    ],
+    "items": {
+      "type": "string",
+      "description": "Hostname or IP of a GFM server for load-balanced metadata access."
+    },
+    "description": "List of GFM servers to contact for metadata operations."
+  },
+  "pool": {
+    "type": "object",
+    "default": {
+      "max_connections": 10,
+      "connect_timeout": 5,
+      "idle_timeout": 300
+    },
+    "description": "Connection pool settings for backend storage.",
+    "items": {
+      "max_connections": {
+        "type": "number",
+        "default": 10,
+        "description": "Max simultaneous connections in the pool."
+      },
+      "connect_timeout": {
+        "type": "number",
+        "default": 5,
+        "description": "Seconds to wait when establishing a new connection."
+      },
+      "idle_timeout": {
+        "type": "number",
+        "default": 300,
+        "description": "Seconds before an idle connection is closed."
+      }
+    }
+  },
+  "storage": {
+    "type": "object",
+    "default": {
+      "backend": "postgresql",
+      "postgresql_host": "localhost",
+      "postgresql_port": 5432,
+      "postgresql_user": "gfarm",
+      "postgresql_password": "",
+      "postgresql_database": "gfarm2",
+      "postgresql_sslmode": "prefer",
+      "sqlite_db": "/var/lib/gfarm2/gfarm2.db"
+    },
+    "description": "Metadata storage configuration (database backend and credentials)."
+  },
+  "security": {
+    "type": "object",
+    "default": {
+      "auth_method": "KERBEROS",
+      "kerberos_keytab": "/etc/gfarm2/gfarm2.keytab",
+      "gsi_proxy_cert": "/tmp/x509up_u0",
+      "ca_cert_dir": "/etc/grid-security/certificates",
+      "enable_client_cert_verify": true
+    },
+    "description": "Authentication and security settings.",
+    "items": {
+      "auth_method": {
+        "type": "string",
+        "default": "KERBEROS",
+        "description": "Authentication method: KERBEROS, GSI, PASSWORD, or NONE."
+      },
+      "kerberos_keytab": {
+        "type": "string",
+        "default": "/etc/gfarm2/gfarm2.keytab",
+        "description": "Path to Kerberos keytab (required if auth_method=KERBEROS)."
+      },
+      "gsi_proxy_cert": {
+        "type": "string",
+        "default": "/tmp/x509up_u0",
+        "description": "Path to GSI proxy certificate (required if auth_method=GSI)."
+      },
+      "ca_cert_dir": {
+        "type": "string",
+        "default": "/etc/grid-security/certificates",
+        "description": "Directory containing trusted CA certificates."
+      },
+      "enable_client_cert_verify": {
+        "type": "bool",
+        "default": true,
+        "description": "Verify client certificates for GSI authentication."
+      }
+    }
+  },
+  "limits": {
+    "type": "object",
+    "default": {
+      "max_connections_per_client": 100,
+      "max_upload_size": 10240,
+      "max_open_files": 1024,
+      "max_memory_per_request": 512,
+      "idle_timeout": 600
+    },
+    "description": "Resource and behavior limits for client sessions.",
+    "items": {
+      "max_connections_per_client": {
+        "type": "number",
+        "default": 100,
+        "description": "Maximum concurrent connections per client."
+      },
+      "max_upload_size": {
+        "type": "number",
+        "default": 10240,
+        "description": "Maximum file upload size (in MB)."
+      },
+      "max_open_files": {
+        "type": "number",
+        "default": 1024,
+        "description": "Maximum files a user may have open concurrently."
+      },
+      "max_memory_per_request": {
+        "type": "number",
+        "default": 512,
+        "description": "Maximum memory (in MB) per request."
+      },
+      "idle_timeout": {
+        "type": "number",
+        "default": 600,
+        "description": "Seconds before closing idle client connections."
+      }
+    }
+  },
+  "replica": {
+    "type": "object",
+    "default": {
+      "default_replication_factor": 3,
+      "enable_lazy_replication": false,
+      "lazy_replication_delay": 300,
+      "policies": [
+        "leastloaded",
+        "roundrobin"
+      ]
+    },
+    "description": "File replication policy configuration.",
+    "items": {
+      "default_replication_factor": {
+        "type": "number",
+        "default": 3,
+        "description": "Default number of file copies to create."
+      },
+      "enable_lazy_replication": {
+        "type": "bool",
+        "default": false,
+        "description": "Delay replication until first read (write once, sync later)."
+      },
+      "lazy_replication_delay": {
+        "type": "number",
+        "default": 300,
+        "description": "Seconds to wait before triggering lazy replication."
+      },
+      "policies": {
+        "type": "list",
+        "default": [
+          "leastloaded",
+          "roundrobin"
+        ],
+        "items": {
+          "type": "string",
+          "description": "Replica placement policy name (e.g., leastloaded, random, roundrobin)."
+        }
+      }
+    }
+  },
+  "quota": {
+    "type": "object",
+    "default": {
+      "enable_quotas": false,
+      "backend": "sqlite",
+      "sqlite_db": "/var/lib/gfarm2/quota.db",
+      "mysql_host": "localhost",
+      "mysql_port": 3306,
+      "mysql_user": "gfarm",
+      "mysql_password": "",
+      "mysql_database": "gfarm2_quota",
+      "postgresql_host": "localhost",
+      "postgresql_port": 5432,
+      "postgresql_user": "gfarm",
+      "postgresql_password": "",
+      "postgresql_database": "gfarm2_quota"
+    },
+    "description": "User and project quota enforcement settings.",
+    "items": {
+      "enable_quotas": {
+        "type": "bool",
+        "default": false,
+        "description": "Enable enforcement of storage quotas per user/project."
+      },
+      "backend": {
+        "type": "string",
+        "default": "sqlite",
+        "description": "Quota backend: sqlite, mysql, or postgresql."
+      },
+      "sqlite_db": {
+        "type": "string",
+        "default": "/var/lib/gfarm2/quota.db",
+        "description": "SQLite database file path (used only if backend=sqlite)."
+      },
+      "mysql_host": {
+        "type": "string",
+        "default": "localhost",
+        "description": "MySQL host (used only if backend=mysql)."
+      },
+      "mysql_port": {
+        "type": "number",
+        "default": 3306,
+        "description": "MySQL port (used only if backend=mysql)."
+      },
+      "mysql_user": {
+        "type": "string",
+        "default": "gfarm",
+        "description": "MySQL username (used only if backend=mysql)."
+      },
+      "mysql_password": {
+        "type": "string",
+        "default": "",
+        "description": "MySQL password (used only if backend=mysql)."
+      },
+      "mysql_database": {
+        "type": "string",
+        "default": "gfarm2_quota",
+        "description": "MySQL database name (used only if backend=mysql)."
+      },
+      "postgresql_host": {
+        "type": "string",
+        "default": "localhost",
+        "description": "PostgreSQL host (used only if backend=postgresql)."
+      },
+      "postgresql_port": {
+        "type": "number",
+        "default": 5432,
+        "description": "PostgreSQL port (used only if backend=postgresql)."
+      },
+      "postgresql_user": {
+        "type": "string",
+        "default": "gfarm",
+        "description": "PostgreSQL username (used only if backend=postgresql)."
+      },
+      "postgresql_password": {
+        "type": "string",
+        "default": "",
+        "description": "PostgreSQL password (used only if backend=postgresql)."
+      },
+      "postgresql_database": {
+        "type": "string",
+        "default": "gfarm2_quota",
+        "description": "PostgreSQL database name (used only if backend=postgresql)."
+      }
+    }
+  }
+}

@@ -1,0 +1,52 @@
+# /etc/default/prometheus-pgbouncer-exporter — Environment variables for the Prometheus PgBouncer exporter systemd service
+# The exporter listens on this address/port for metrics scraping
+PGBOUNCER_EXPORTER_LISTEN_ADDRESS={{ listen_address }}
+PGBOUNCER_EXPORTER_LISTEN_PORT={{ listen_port }}
+
+# The PgBouncer instance(s) to monitor
+{% if instances | length > 0 %}
+# One or more PgBouncer instances to scrape (format: host:port,host:port,...)
+PGBOUNCER_EXPORTER_PGBOUNCER_DSN={{ instances | join(',') }}
+{% else %}
+# No PgBouncer instances configured — set PGBOUNCER_EXPORTER_PGBOUNCER_DSN to at least one host:port
+PGBOUNCER_EXPORTER_PGBOUNCER_DSN=""
+{% endif %}
+
+# Optional authentication for PgBouncer (if using password auth)
+{% if dsn_password %}
+PGBOUNCER_EXPORTER_PGBOUNCER_DSN_PASSWORD={{ dsn_password }}
+{% endif %}
+
+# Metrics path for Prometheus (default: /metrics)
+PGBOUNCER_EXPORTER_METRICS_PATH={{ metrics_path }}
+
+# Enable/Disable collection of detailed connection stats
+{% if collect_database_metrics %}
+PGBOUNCER_EXPORTER_COLLECT_DATABASE_METRICS=true
+{% else %}
+PGBOUNCER_EXPORTER_COLLECT_DATABASE_METRICS=false
+{% endif %}
+
+# Enable/Disable collection of pool stats
+{% if collect_pool_metrics %}
+PGBOUNCER_EXPORTER_COLLECT_POOL_METRICS=true
+{% else %}
+PGBOUNCER_EXPORTER_COLLECT_POOL_METRICS=false
+{% endif %}
+
+# Log level: debug, info, warn, error (default: info)
+PGBOUNCER_EXPORTER_LOG_LEVEL={{ log_level }}
+
+# Optional timeout for PgBouncer connection (in seconds)
+{% if connection_timeout is defined and connection_timeout != 0 %}
+PGBOUNCER_EXPORTER_CONNECTION_TIMEOUT={{ connection_timeout }}
+{% endif %}
+
+# TLS settings (optional)
+{% if tls_enabled %}
+PGBOUNCER_EXPORTER_TLS_ENABLED=true
+PGBOUNCER_EXPORTER_TLS_CERT_FILE={{ tls_cert_file }}
+PGBOUNCER_EXPORTER_TLS_KEY_FILE={{ tls_key_file }}
+{% else %}
+PGBOUNCER_EXPORTER_TLS_ENABLED=false
+{% endif %}

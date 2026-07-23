@@ -1,0 +1,66 @@
+# gssproxy main configuration file
+# This file defines GSS-API proxy service behavior for handling Kerberos tickets
+# and delegating credential management to a user-space daemon.
+
+[general]
+# List of socket paths where gssproxy will listen for client connections
+sock_paths = {{ sock_paths | join(', ') }}
+
+# Debug level (0=quiet, 1=normal, 2=verbose, 3=debug)
+debug_level = {{ debug_level }}
+
+# Enable or disable the use of systemd socket activation
+use_socket_activation = {{ use_socket_activation }}
+
+# Default time (in seconds) a credential cache entry is considered valid
+ccache_timeout = {{ ccache_timeout }}
+
+[ecosystem]
+# Enable support for the 'gssproxy' ecosystem (e.g., Kerberos, SSSD integration)
+enabled = {{ ecosystem_enabled }}
+
+[mechs]
+# Mechanisms to support; each entry defines a GSS mechanism with its configuration
+{% for mech in mechanisms %}
+[{{ mech.name }}]
+mech_oid = {{ mech.oid }}
+{% if mech.keytab %}
+keytab = {{ mech.keytab }}
+{% endif %}
+{% if mech.ccache %}
+ccache = {{ mech.ccache }}
+{% endif %}
+{% if mech.allowed_enctypes %}
+allowed_enctypes = {{ mech.allowed_enctypes | join(', ') }}
+{% endif %}
+{% if mech.client_principal %}
+client_principal = {{ mech.client_principal }}
+{% endif %}
+{% if mech.server_principal %}
+server_principal = {{ mech.server_principal }}
+{% endif %}
+{% if mech.credentials_cache %}
+credentials_cache = {{ mech.credentials_cache }}
+{% endif %}
+{% if mech.euid %}
+euid = {{ mech.euid }}
+{% endif %}
+{% endfor %}
+
+[emulated_princs]
+# Emulated principal mappings for backward compatibility
+{% for mapping in emulated_principals %}
+{{ mapping.principal }} = {{ mapping.target }}
+{% endfor %}
+
+[trusted_princs]
+# Principals that are allowed to use delegated credentials
+{% for princ in trusted_principals %}
+{{ princ }}
+{% endfor %}
+
+[trusted_dirs]
+# Directories whose content (e.g., keytabs) are trusted for reading
+{% for dir in trusted_dirs %}
+{{ dir }}
+{% endfor %}

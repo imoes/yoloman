@@ -1,0 +1,80 @@
+# WAP and SMS Gateway (Kannel) main configuration file
+# Global settings
+
+group = core
+admin-port = {{ core.admin_port }}
+admin-password = {{ core.admin_password | default('x') }}
+log-level = {{ core.log_level | default(3) }}
+log-file = {{ core.log_file | default('/var/log/kannel/kannel.log') }}
+
+# SMS center configuration
+group = smsc
+smsc = {{ smsc.type | default('smpp') }}
+{% if smsc.type == 'smpp' %}
+smpp-host = {{ smsc.smpp_host }}
+smpp-port = {{ smsc.smpp_port }}
+smpp-system-type = {{ smsc.smpp_system_type | default('CPE') }}
+smpp-bind = {{ smsc.smpp_bind | default('transceiver') }}
+smpp-username = {{ smsc.smpp_username }}
+smpp-password = {{ smsc.smpp_password }}
+smpp-interface-version = {{ smsc.smpp_interface_version | default('34') }}
+{% elif smsc.type == 'http' %}
+http-port = {{ smsc.http_port }}
+http-host = {{ smsc.http_host | default('0.0.0.0') }}
+{% endif %}
+
+# SMS routing and handling
+group = sms-router
+smsbox-port = {{ sms_router.smsbox_port }}
+{% if sms_router.blackbox_pattern %}
+blackbox-pattern = {{ sms_router.blackbox_pattern | default('.*') }}
+{% endif %}
+
+# SMS center boxes (SMSBOX)
+group = smsbox
+smsbox-id = {{ smsbox.id | default('smsbox1') }}
+smsbox-port = {{ smsbox.port | default(13001) }}
+sms-center = {{ smsbox.sms_center | default('smsc1') }}
+max-retries = {{ smsbox.max_retries | default(3) }}
+log-level = {{ smsbox.log_level | default(3) }}
+log-file = {{ smsbox.log_file | default('/var/log/kannel/smsbox.log') }}
+
+# Allowed senders (optional ACL)
+{% for rule in smsbox.sender_filters | default([]) %}
+group = smsbox-rules
+group = smsbox-rule
+name = {{ rule.name | default('rule' + loop.index0|string) }}
+sender = {{ rule.sender | default('.') }}
+{% endfor %}
+
+# WAP settings
+group = wap
+wtp-listen-port = {{ wap.wtp_listen_port }}
+wap-listen-port = {{ wap.wap_listen_port }}
+wap-https-enable = {{ wap.wap_https_enable | default(false) }}
+{% if wap.wap_https_enable %}
+wap-https-port = {{ wap.wap_https_port }}
+ssl-certificate-file = {{ wap.ssl_certificate_file }}
+ssl-private-key-file = {{ wap.ssl_private_key_file }}
+{% endif %}
+
+# WAP boxes (WAPBOX)
+group = wapbox
+wapbox-port = {{ wapbox.port }}
+max-connections = {{ wapbox.max_connections }}
+log-level = {{ wapbox.log_level | default(2) }}
+log-file = {{ wapbox.log_file | default('/var/log/kannel/wapbox.log') }}
+
+#Bearerbox group (required for SMS routing)
+group = bearerbox
+group = bearerbox
+bearerbox-host = {{ bearerbox.host | default('localhost') }}
+bearerbox-port = {{ bearerbox.port }}
+
+# Storage for messages (optional, e.g., for store-and-forward)
+{% if storage.enabled %}
+group = store
+file = {{ storage.file | default('/var/spool/kannel/store/box') }}
+log-file = {{ storage.log_file | default('/var/log/kannel/store.log') }}
+log-level = {{ storage.log_level | default(1) }}
+{% endif %}

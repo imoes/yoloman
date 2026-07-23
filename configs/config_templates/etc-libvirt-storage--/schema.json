@@ -1,0 +1,176 @@
+{
+  "pool": {
+    "type": "object",
+    "default": {},
+    "description": "Storage pool configuration",
+    "properties": {
+      "type": {
+        "type": "string",
+        "default": "dir",
+        "description": "Pool type \u2014 determines how storage is provided (e.g., dir, fs, lvm, disk, iscsi, netfs, scsi)"
+      },
+      "name": {
+        "type": "string",
+        "default": "default",
+        "description": "Unique name for the storage pool (used by libvirt internally)"
+      },
+      "description": {
+        "type": "string",
+        "default": "",
+        "description": "Optional human-readable description of the pool"
+      },
+      "target": {
+        "type": "object",
+        "default": {},
+        "description": "Target configuration \u2014 where the pool is mounted or accessed",
+        "properties": {
+          "path": {
+            "type": "string",
+            "default": "/var/lib/libvirt/images",
+            "description": "Absolute path on the host where the pool resides"
+          },
+          "permissions": {
+            "type": "object",
+            "default": null,
+            "description": "Optional permissions for the target directory",
+            "properties": {
+              "mode": {
+                "type": "string",
+                "default": "0755",
+                "description": "Octal file mode (e.g., '0755')"
+              },
+              "owner": {
+                "type": "string",
+                "default": "root",
+                "description": "Owner user (numeric UID or username)"
+              },
+              "group": {
+                "type": "string",
+                "default": "root",
+                "description": "Owner group (numeric GID or group name)"
+              },
+              "label": {
+                "type": "string",
+                "default": "",
+                "description": "SELinux label (e.g., 'virt_image_t')"
+              }
+            }
+          },
+          "relabel": {
+            "type": "boolean",
+            "default": true,
+            "description": "Whether to relabel the target path for libvirt use (SELinux-aware systems)"
+          }
+        }
+      },
+      "source": {
+        "type": "object",
+        "default": {},
+        "description": "Source configuration \u2014 where the storage physically comes from",
+        "properties": {
+          "hosts": {
+            "type": "list",
+            "default": [],
+            "description": "List of remote hosts (used for network-attached storage)",
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string",
+                  "default": "",
+                  "description": "Hostname or IP address"
+                },
+                "port": {
+                  "type": "number",
+                  "default": null,
+                  "description": "Port number (optional, defaults to pool-type standard port)"
+                }
+              }
+            }
+          },
+          "device": {
+            "type": "object",
+            "default": null,
+            "description": "Physical device for disk/lvm/scsi pools",
+            "properties": {
+              "path": {
+                "type": "string",
+                "default": "",
+                "description": "Block device path (e.g., /dev/sdb)"
+              }
+            }
+          },
+          "fs_label": {
+            "type": "object",
+            "default": null,
+            "description": "Filesystem format for netfs/fs pools",
+            "properties": {
+              "format": {
+                "type": "string",
+                "default": "auto",
+                "description": "Filesystem type (e.g., 'ext4', 'xfs', 'auto')"
+              }
+            }
+          },
+          "vg_name": {
+            "type": "string",
+            "default": "",
+            "description": "Volume group name (for LVM pools)"
+          },
+          "iqn": {
+            "type": "string",
+            "default": "",
+            "description": "iSCSI Qualified Name (e.g., iqn.1994-05.com.example:storage)"
+          },
+          "target_path": {
+            "type": "string",
+            "default": "",
+            "description": "Remote target path (e.g., NFS export or iSCSI target LUN path)"
+          },
+          "auth": {
+            "type": "object",
+            "default": null,
+            "description": "Authentication for iSCSI/Ceph/NFS-Ganesha",
+            "properties": {
+              "type": {
+                "type": "string",
+                "default": "chap",
+                "description": "Auth type \u2014 e.g., 'chap' for iSCSI, 'ceph' for Ceph"
+              },
+              "username": {
+                "type": "string",
+                "default": "",
+                "description": "Username for CHAP/Ceph"
+              },
+              "secret_uuid": {
+                "type": "string",
+                "default": "",
+                "description": "UUID of the libvirt secret object storing credentials"
+              }
+            }
+          }
+        }
+      },
+      "capacity": {
+        "type": "number",
+        "default": 0,
+        "description": "Total capacity in bytes (if omitted, libvirt computes automatically)"
+      },
+      "allocation": {
+        "type": "number",
+        "default": 0,
+        "description": "Currently allocated space in bytes (optional)"
+      },
+      "available": {
+        "type": "number",
+        "default": 0,
+        "description": "Free space in bytes (optional)"
+      },
+      "options": {
+        "type": "object",
+        "default": {},
+        "description": "Extra key-value options (pool-type specific, e.g., 'cluster_name' for Gluster)"
+      }
+    }
+  }
+}

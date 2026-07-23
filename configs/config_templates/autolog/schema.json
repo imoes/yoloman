@@ -1,0 +1,74 @@
+{
+  "idle_timeout": {
+    "type": "number",
+    "default": 1800,
+    "description": "Number of seconds of inactivity before idle users are logged out. Set to 0 to disable automatic logout."
+  },
+  "grace_period": {
+    "type": "number",
+    "default": 60,
+    "description": "Seconds before logout during which the user can extend their session (e.g., by moving mouse or typing)."
+  },
+  "enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Whether the idle logout daemon is active. Set to false to pause enforcement."
+  },
+  "exclude_users": {
+    "type": "list",
+    "default": [
+      "root"
+    ],
+    "description": "List of usernames that should never be logged out automatically.",
+    "items": {
+      "type": "string",
+      "description": "Username to exclude from idle logout."
+    }
+  },
+  "protected_sessions": {
+    "type": "list",
+    "default": [
+      "ssh",
+      "x11"
+    ],
+    "description": "Session types that should be protected from idle logout even if idle.",
+    "items": {
+      "type": "string",
+      "description": "Allowed session type (e.g., ssh, vnc, x11, wayland)."
+    }
+  },
+  "log_file": {
+    "type": "string",
+    "default": "",
+    "description": "Path to the log file. Leave empty to log to syslog instead."
+  },
+  "log_level": {
+    "type": "string",
+    "default": "warn",
+    "description": "Verbosity of logging. Choose from: debug, info, warn, error."
+  },
+  "extended_tracking": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable fine-grained input tracking (mouse/keyboard) to delay logout."
+  },
+  "services": {
+    "type": "list",
+    "default": [],
+    "description": "Custom timeout overrides for specific session services.",
+    "items": {
+      "type": "object",
+      "description": "Service-specific idle logout timeout configuration.",
+      "fields": {
+        "name": {
+          "type": "string",
+          "description": "Service name (e.g., 'ssh', 'xrdp', 'vnc')."
+        },
+        "timeout": {
+          "type": "number",
+          "description": "Idle timeout in seconds for this service, overriding global timeout."
+        }
+      }
+    }
+  }
+}

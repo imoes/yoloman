@@ -1,0 +1,154 @@
+{
+  "debug": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable verbose debug logging for troubleshooting."
+  },
+  "syslog_log_facility": {
+    "type": "string",
+    "default": "LOG_USER",
+    "description": "Syslog facility to use when logging to syslog (e.g., LOG_LOCAL0)."
+  },
+  "log_file": {
+    "type": "string",
+    "default": "/var/log/manila/manila.log",
+    "description": "Path to the log file when syslog is disabled."
+  },
+  "api_paste_config": {
+    "type": "string",
+    "default": "/etc/manila/api-paste.ini",
+    "description": "Path to the PasteDeploy configuration file for the API."
+  },
+  "rpc_backend": {
+    "type": "string",
+    "default": "rabbit",
+    "description": "RPC backend (e.g., rabbit, fake, or kombu)."
+  },
+  "transport_url": {
+    "type": "string",
+    "default": "rabbit://guest:guest@localhost:5672/",
+    "description": "Messaging transport URL (e.g., for RabbitMQ, Redis, or Kafka)."
+  },
+  "database_connection": {
+    "type": "string",
+    "default": "mysql+pymysql://manila:manila@localhost/manila",
+    "description": "Database connection string (SQLAlchemy format)."
+  },
+  "token_provider": {
+    "type": "string",
+    "default": "fernet",
+    "description": "Token provider: 'keystone' or 'fernet'."
+  },
+  "fernet_keys_dir": {
+    "type": "string",
+    "default": "/etc/manila/fernet-keys",
+    "description": "Directory containing Fernet keys for token encryption."
+  },
+  "enabled_share_drivers": {
+    "type": "list",
+    "default": [
+      {
+        "name": "manila.share.drivers.generic.GenericShareDriver",
+        "version": ""
+      }
+    ],
+    "description": "List of enabled share driver modules.",
+    "items": {
+      "name": {
+        "type": "string",
+        "description": "Fully qualified class path for the share driver."
+      },
+      "version": {
+        "type": "string",
+        "description": "Driver version (optional, for documentation).",
+        "default": ""
+      }
+    }
+  },
+  "default_share_type": {
+    "type": "string",
+    "default": "default",
+    "description": "Name of the default share type to use if none specified."
+  },
+  "manage_share_servers": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable management of dedicated share servers (for multi-tenancy)."
+  },
+  "network_api_class": {
+    "type": "string",
+    "default": "manila.network.nova_network_api.NovaNetworkAPI",
+    "description": "Network API class to use for IP allocation / DNS integration."
+  },
+  "max_shares_per_tenant": {
+    "type": "number",
+    "default": 100,
+    "description": "Maximum number of shares allowed per tenant."
+  },
+  "max_share_snapshots_per_tenant": {
+    "type": "number",
+    "default": 100,
+    "description": "Maximum number of share snapshots allowed per tenant."
+  },
+  "share_replication": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable share replication for high availability."
+  },
+  "replication_domain": {
+    "type": "string",
+    "default": "",
+    "description": "Replication domain identifier (e.g., 'replica_domain1')."
+  },
+  "default_nfs_version": {
+    "type": "string",
+    "default": "4.1",
+    "description": "Default NFS protocol version (e.g., 3 or 4.1)."
+  },
+  "share_export_location_format": {
+    "type": "string",
+    "default": "%(path)s",
+    "description": "Format string for share export location path."
+  },
+  "cinder_catalog_info": {
+    "type": "string",
+    "default": "volumev3:cinder:publicURL",
+    "description": "Cinder service catalog info (service_type:endpoint_type:region)."
+  },
+  "volume_driver": {
+    "type": "string",
+    "default": "manila.volume.volume_api.API",
+    "description": "Cinder volume API integration class."
+  },
+  "scheduler_filter_classes": {
+    "type": "list",
+    "default": [
+      "manila.scheduler.filters.availability_zone_filter.AvailabilityZoneFilter",
+      "manila.scheduler.filters.capacity_filter.CapacityFilter",
+      "manila.scheduler.filters.scheduler_filter.SchedulerFilter"
+    ],
+    "description": "List of scheduler filter classes to apply when scheduling share creation."
+  },
+  "scheduler_weight_classes": {
+    "type": "list",
+    "default": [
+      "manila.scheduler.weights.capacity.CapacityWeight"
+    ],
+    "description": "List of scheduler weighter classes to score backends."
+  },
+  "metadata_api_class": {
+    "type": "string",
+    "default": "manila.api.v2.metadata.MetadataController",
+    "description": "Metadata service controller class."
+  },
+  "service_token_required": {
+    "type": "bool",
+    "default": false,
+    "description": "Require service tokens for internal service-to-service communication."
+  },
+  "service_token_expires": {
+    "type": "number",
+    "default": 600,
+    "description": "Service token expiration time in seconds."
+  }
+}

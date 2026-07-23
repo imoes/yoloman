@@ -1,0 +1,75 @@
+{
+  "ssl_verify_certificate": true,
+  "ftp_passive_mode": true,
+  "net_timeout": 60,
+  "net_reconnect_interval_base": 2,
+  "ftp_reconnect_interval": 3,
+  "ftp_reconnect_retries": 5,
+  "sftp_connect_retries": 3,
+  "ftp_conn_limit": 0,
+  "http_conn_limit": 0,
+  "ftp_passive_limit": 100,
+  "net_socket_buffer": 65536,
+  "file_charset": "utf-8",
+  "ftp_preserve_mtime": true,
+  "ftp_use_mdtm": true,
+  "ftp_use_list_options": "-la",
+  "ftp_debug": false,
+  "http_debug": false,
+  "sftp_debug": true,
+  "default_alias_cd": "ls -la",
+  "default_alias_get": "mget -c",
+  "default_alias_put": "mput -c",
+  "default_mirror_dir": "/data",
+  "default_site_url": "sftp://user@backup.example.com",
+  "sites": [
+    {
+      "name": "production-backup",
+      "description": "Primary backup server for production data",
+      "protocol": "sftp",
+      "host": "backup.example.com",
+      "port": 2222,
+      "user": "backup_user",
+      "mirror_root": "/srv/production",
+      "mirror_local_path": "/backup/production",
+      "enabled": true,
+      "max_parallel": 4,
+      "include_patterns": [
+        "**/*.json",
+        "**/*.db"
+      ],
+      "exclude_patterns": [
+        "**/*.log",
+        "**/cache/*"
+      ],
+      "transfer_options": [
+        "-c",
+        "-P",
+        "4",
+        "-v"
+      ]
+    },
+    {
+      "name": "staging-ftp",
+      "description": "Staging environment over FTP (legacy)",
+      "protocol": "ftp",
+      "host": "10.0.0.50",
+      "port": 21,
+      "user": "staging",
+      "mirror_root": "/htdocs",
+      "mirror_local_path": "/var/www/staging",
+      "enabled": false,
+      "max_parallel": 2,
+      "include_patterns": [],
+      "exclude_patterns": [
+        "**/.env",
+        "**/private/*"
+      ],
+      "transfer_options": [
+        "-c",
+        "-P",
+        "2"
+      ]
+    }
+  ]
+}

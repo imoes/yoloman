@@ -1,0 +1,40 @@
+# /etc/ahcpd/ahcpd.conf — Ad-Hoc Configuration Protocol (AHCP) Server Configuration
+# Listen on specified interfaces and addresses
+listen {{ listen_address | default('::') }}
+{% if interfaces %}
+# Bind to the following network interfaces
+interface {{ interfaces | join(', ') }}
+{% endif %}
+# Server mode (server, auto, or none)
+mode {{ mode | default('server') }}
+# DHCPv6 prefix delegation pool (prefix/length)
+prefix {{ pool_prefix | default('2001:db8::/32') }}
+# Prefix delegation lifetime (seconds)
+prefix_lifetime {{ prefix_lifetime | default(86400) }}
+# Prefix delegation preferred lifetime (seconds)
+prefix_preferred_lifetime {{ prefix_preferred_lifetime | default(43200) }}
+# DHCPv6 address pool (start-end range)
+{% if address_ranges %}
+# Static IPv6 address ranges for DHCPv6 allocation
+{% for range in address_ranges %}# {{ range.description | default('Static range') }}
+address {{ range.start }} {{ range.end }}
+{% endfor %}
+{% endif %}
+# DNS server list (comma-separated IPv6/IPv4 addresses)
+{% if dns_servers %}# Provide these DNS servers to clients
+dns {{ dns_servers | join(', ') }}
+{% endif %}
+# NTP server list (comma-separated hostnames/IPs)
+{% if ntp_servers %}# Provide these NTP servers to clients
+ntp {{ ntp_servers | join(', ') }}
+{% endif %}
+# Domain search list (comma-separated domains)
+{% if domain_search %}# Provide this domain search list to clients
+domain {{ domain_search | join(', ') }}
+{% endif %}
+# Lease file path (for persistence)
+lease_file {{ lease_file | default('/var/lib/ahcpd/leases') }}
+# Log level: debug, info, notice, warning, error, crit, alert, emerg
+log_level {{ log_level | default('notice') }}
+# Enable or disable IPv4 fallback (auto, off)
+ipv4_fallback {{ ipv4_fallback | default('auto') }}

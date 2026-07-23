@@ -1,0 +1,56 @@
+# Postfix Policy Daemon (mtpolicyd) main configuration
+# This file is processed by mtpolicyd at startup
+# See `man mtpolicyd.conf` for full syntax and options
+
+# General daemon settings
+log_level: {{ log_level }}
+log_destination: {{ log_destination }}
+
+# Network listening
+bind_address: {{ listen_address }}
+bind_port: {{ listen_port }}
+
+# Worker and process settings
+max_workers: {{ max_workers }}
+max_requests_per_worker: {{ max_requests_per_worker }}
+
+# Connection handling
+timeout_connect: {{ timeout_connect }}
+timeout_data: {{ timeout_data }}
+timeout_idle: {{ timeout_idle }}
+
+# Authentication (optional: leave blank to disable)
+{% if auth_enabled %}
+auth_type: {{ auth_type }}
+auth_server: {{ auth_server }}
+{% endif %}
+
+# Policy modules — loaded in order; each module defines match + action
+{% for module in policy_modules %}
+# Module: {{ module.name }} — {{ module.description }}
+[module::{{ module.name }}]
+  enabled = {{ module.enabled | lower }}
+{% if module.match %}
+  match = {{ module.match }}
+{% endif %}
+  action = {{ module.action }}
+{% for key, value in module.options.items() %}
+  {{ key }} = {{ value }}
+{% endfor %}
+{% endfor %}
+
+# Postfix integration (smtpd_policy_cache_* settings)
+{% if use_cache %}
+smtpd_policy_cache = {{ cache_path }}
+smtpd_policy_cache_ttl = {{ cache_ttl }}
+{% endif %}
+
+# Rate limiting (optional)
+{% for rate_limit in rate_limits %}
+# Rate limit for: {{ rate_limit.name }}
+[rate_limit::{{ rate_limit.name }}]
+  key = {{ rate_limit.key }}
+  rate = {{ rate_limit.rate }}
+  burst = {{ rate_limit.burst }}
+  action = {{ rate_limit.action }}
+{% endfor %}

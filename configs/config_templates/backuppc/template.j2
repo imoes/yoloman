@@ -1,0 +1,109 @@
+# Top-level configuration for BackupPC server
+# This file contains global settings for the BackupPC daemon and web interface
+
+$Conf{TopDir} = '{{ backup_dir }}';
+$Conf{InstallDir} = '{{ install_dir }}';
+
+# Hosts to back up (hostnames or IP addresses)
+$Conf{RsyncdPasswd} = '{{ rsyncd_password }}';
+$Conf{RsyncdUser} = '{{ rsyncd_user }}';
+
+# Rsync-specific options
+$Conf{RsyncClientCmd} = 'ssh -l root $host {{ rsync_client_extra_args | default('') | trim }}';
+$Conf{RsyncClientRestoreCmd} = 'ssh -l root $host {{ rsync_client_restore_extra_args | default('') | trim }}';
+
+# Backup method selection
+$Conf{XferMethod} = '{{ xfer_method }}';
+
+# Log file directory
+$Conf{LogDir} = '{{ log_dir }}';
+
+# CGI web interface settings
+$Conf{CgiURL} = '{{ cgi_url }}';
+$Conf{CgiBinDir} = '{{ cgi_bin_dir }}';
+$Conf{CgiImageDir} = '{{ cgi_image_dir }}';
+$Conf{CgiTempDir} = '{{ cgi_temp_dir }}';
+
+# Web interface user access control
+$Conf{CgiAdminUsers} = [{{ admin_users | map('quote') | join(', ') | default('') }}];
+$Conf{CgiUserAdminRestrict} = {{ cgi_user_admin_restrict | string | lower }};
+
+# Compression settings
+$Conf{CompressLevel} = {{ compress_level }};
+
+# Backup scheduling
+$Conf{FullPeriod} = '{{ full_period }}';
+$Conf{IncrPeriod} = '{{ incr_period }}';
+$Conf{FullAgeMax} = {{ full_age_max }};
+$Conf{IncrAgeMax} = {{ incr_age_max }};
+$Conf{MaxBackups} = {{ max_backups }};
+
+# Retention policy (in days)
+$Conf{BackupPCDPeriod} = {{ bpcp_d_period }};
+$Conf{BackupPCDRetention} = {{ bpcp_d_retention }};
+
+# Network & performance tuning
+$Conf{PingMaxMsec} = {{ ping_max_msec }};
+$Conf{ClientTimeout} = {{ client_timeout }};
+
+# Paranoia settings (skip files based on patterns)
+$Conf{Paranoia} = {{ paranoia }};
+
+# Exclusion patterns (per-host or global)
+{% for pattern in global_exclude_patterns %}$Conf{RsyncShareName} = '{{ pattern.name | default('default') }}';
+$Conf{RsyncExtraArgs} = [{{ pattern.rsync_extra_args | map('quote') | join(', ') | default('') | default('') | replace("\n", "") | replace("\r", "") | replace("\t", "") | trim }}];
+$Conf{RsyncBackupShareName} = '{{ pattern.rsync_backup_share_name }}';
+$Conf{RsyncRestoreExtraArgs} = [{{ pattern.rsync_restore_extra_args | map('quote') | join(', ') | default('') | default('') | replace("\n", "") | replace("\r", "") | replace("\t", "") | trim }}];
+$Conf{RsyncClientRestoreExtraArgs} = [{{ pattern.rsync_client_restore_extra_args | map('quote') | join(', ') | default('') | default('') | replace("\n", "") | replace("\r", "") | replace("\t", "") | trim }}];
+
+{% endfor %}# Host-specific config directory
+$Conf{HostConfigDir} = '{{ host_config_dir }}';
+
+# Database settings (for MySQL/PostgreSQL backend if used)
+{% if db_backend == 'mysql' %}$Conf{DBHost} = '{{ db_host }}';
+$Conf{DBName} = '{{ db_name }}';
+$Conf{DBUser} = '{{ db_user }}';
+$Conf{DBPass} = '{{ db_pass }}';
+$Conf{DBPort} = {{ db_port }};
+$Conf{DBType} = '{{ db_backend }}';
+{% elif db_backend == 'pg' %}$Conf{DBHost} = '{{ db_host }}';
+$Conf{DBName} = '{{ db_name }}';
+$Conf{DBUser} = '{{ db_user }}';
+$Conf{DBPass} = '{{ db_pass }}';
+$Conf{DBPort} = {{ db_port }};
+$Conf{DBType} = '{{ db_backend }}';
+{% endif %}
+
+# Email notifications
+$Conf{EMailFromUser} = '{{ email_from_user }}';
+$Conf{EMailTransport} = '{{ email_transport }}';
+{% if email_smtp_host %}$Conf{SMTPHost} = '{{ email_smtp_host }}';
+{% endif %}
+{% if email_smtp_port is defined %}$Conf{SMTPPort} = {{ email_smtp_port }};
+{% endif %}
+
+# SSH key for remote backups
+$Conf{RsyncSshArgs} = [{{ ssh_args | map('quote') | join(', ') | default('') }}];
+$Conf{RsyncSshClientArgs} = [{{ ssh_client_args | map('quote') | join(', ') | default('') }}];
+
+# Backup lock directory
+$Conf{LockDir} = '{{ lock_dir }}';
+
+# Temporary file directory
+$Conf{TmpDir} = '{{ tmp_dir }}';
+
+# Backup queue settings
+$Conf{QueueDir} = '{{ queue_dir }}';
+$Conf{QueueMax} = {{ queue_max }};
+
+# Paranoia: skip files with these patterns (global defaults)
+$Conf{RsyncShareName} = '/';
+$Conf{RsyncExtraArgs} = [{{ global_rsync_extra_args | map('quote') | join(', ') | default('') }}];
+$Conf{RsyncRestoreExtraArgs} = [{{ global_rsync_restore_extra_args | map('quote') | join(', ') | default('') }}];
+
+# Archive settings
+{% if archive_enabled %}$Conf{ArchiveClientCmd} = 'ssh -l root $host {{ archive_client_extra_args | default('') | trim }}';
+$Conf{ArchiveClientRestoreCmd} = 'ssh -l root $host {{ archive_client_restore_extra_args | default('') | trim }}';
+$Conf{ArchiveMethod} = '{{ archive_method }}';
+$Conf{ArchiveParanoia} = {{ archive_paranoia | string | lower }};
+{% endif %}

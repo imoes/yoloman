@@ -1,0 +1,35 @@
+# DNSBL Nameserver Daemon configuration file — see rbldnsd(8)
+# Each line defines a zone or global option.
+# Global options appear before zone definitions.
+
+{% if dnsbl_version %}# Version identifier (optional)
+set version {{ dnsbl_version }}
+{% endif %}{% if log_file %}# Log file path (use '-' for stdout)
+set logfile {{ log_file }}
+{% endif %}{% if pid_file %}# PID file path
+set pidfile {{ pid_file }}
+{% endif %}{% if service_user %}# Run as user/group
+set user {{ service_user }}{% if service_group %}:{{ service_group }}{% endif %}
+{% endif %}{% if listen_addresses %}# Listen addresses and port(s)
+{% for addr in listen_addresses %}set listen {{ addr }}{% if listen_port %}:{{ listen_port }}{% endif %}
+{% endfor %}{% else %}# Default listen: IPv4 on port 53 (standard DNS)
+set listen 0.0.0.0:53
+{% endif %}{# Zone definitions — each zone starts with 'zone' or 'data' line #}
+{% for zone in zones %}{% if zone.type == 'simple' %}zone {{ zone.name }}
+{% elif zone.type == 'file' %}zone {{ zone.name }}:{{ zone.file }}
+{% elif zone.type == 'data' %}zone {{ zone.name }}:{{ zone.data_file }}:{{ zone.data_format }}
+{% endif %}{% if zone.rrttl %}set rr {{ zone.name }} {{ zone.rrttl }}
+{% endif %}{% if zone.default_ttl %}set default {{ zone.name }} {{ zone.default_ttl }}
+{% endif %}{% if zone.max_ttl %}set maxttl {{ zone.name }} {{ zone.max_ttl }}
+{% endif %}{% if zone.min_ttl %}set minttl {{ zone.name }} {{ zone.min_ttl }}
+{% endif %}{% if zone.soa_serial %}set serial {{ zone.name }} {{ zone.soa_serial }}
+{% endif %}{% if zone.soa_refresh %}set refresh {{ zone.name }} {{ zone.soa_refresh }}
+{% endif %}{% if zone.soa_retry %}set retry {{ zone.name }} {{ zone.soa_retry }}
+{% endif %}{% if zone.soa_expire %}set expire {{ zone.name }} {{ zone.soa_expire }}
+{% endif %}{% if zone.soa_minimum %}set minimum {{ zone.name }} {{ zone.soa_minimum }}
+{% endif %}{% if zone.soa_primary %}set primary {{ zone.name }} {{ zone.soa_primary }}
+{% endif %}{% if zone.soa_responsible %}set responsible {{ zone.name }} {{ zone.soa_responsible }}
+{% endif %}{% endfor %}{# Optional: support for multiple IP-based zones #}
+{% if extra_zones %}{# Additional zone definitions via external files or inline #}
+{% for ez in extra_zones %}zone {{ ez.name }}{% if ez.source_file %}:{{ ez.source_file }}{% endif %}
+{% endfor %}{% endif %}

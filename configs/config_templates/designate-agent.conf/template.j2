@@ -1,0 +1,86 @@
+[DEFAULT]
+# The logging level for the agent service
+log_level = {{ log_level }}
+
+# The log file to write to; empty string means stderr
+log_file = {{ log_file }}
+
+# The log dir to use for rotating logs
+log_dir = {{ log_dir }}
+
+# The API listen address
+bind_host = {{ bind_host }}
+
+# The API listen port
+bind_port = {{ bind_port }}
+
+# RPC backend transport (e.g., 'rabbit', 'zmq')
+transport_url = {{ transport_url }}
+
+# RPC worker threads
+rpc_workers = {{ rpc_workers }}
+
+# RPC response timeout (seconds)
+rpc_response_timeout = {{ rpc_response_timeout }}
+
+# Rate limiting: max requests per period
+rate_limit = {{ rate_limit }}
+
+# Rate limiting: time window (seconds)
+rate_limit_period = {{ rate_limit_period }}
+
+[service:agent]
+# Enable the agent service
+enabled = {{ agent_enabled }}
+
+# The API listen address for the agent service
+bind_host = {{ agent_bind_host }}
+
+# The API listen port for the agent service
+bind_port = {{ agent_bind_port }}
+
+# The endpoint type to use for designate API (e.g., 'public', 'internal', 'admin')
+endpoint_type = {{ agent_endpoint_type }}
+
+# The region name for the designate service
+region_name = {{ agent_region_name }}
+
+# The project name used for authentication
+project_name = {{ agent_project_name }}
+
+# The username used for authentication
+username = {{ agent_username }}
+
+# The password used for authentication
+password = {{ agent_password }}
+
+# The auth URL for keystone
+auth_url = {{ agent_auth_url }}
+
+# The auth plugin to use
+auth_plugin = {{ agent_auth_plugin }}
+
+# List of upstream DNS servers for agent queries (IP:port)
+upstream_dns_servers = {{ upstream_dns_servers | join(', ') }}
+
+# Zone file format for AXFR responses
+zonefile_dir = {{ zonefile_dir }}
+
+# Number of worker processes
+workers = {{ agent_workers }}
+
+# Maximum number of concurrent requests
+max_workers = {{ agent_max_workers }}
+
+[oslo_concurrency]
+# Path for lock files
+lock_path = {{ lock_path }}
+
+[oslo_policy]
+# Path to the policy JSON file
+policy_file = {{ policy_file }}
+
+# Optional: list of extra policy rules (used rarely; kept as literal in template)
+{% if policy_rules %}# Custom policy rules
+policy_rules = {{ policy_rules }}
+{% endif %}

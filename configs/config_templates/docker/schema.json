@@ -1,0 +1,240 @@
+{
+  "ipv6_enable": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable IPv6 networking for Docker containers."
+  },
+  "default_address_pool": {
+    "type": "list",
+    "default": [],
+    "items": {
+      "type": "object",
+      "properties": {
+        "base": {
+          "type": "string",
+          "default": "10.100.0.0/16",
+          "description": "Base network in CIDR notation for the pool (e.g., 10.100.0.0/16)."
+        },
+        "size": {
+          "type": "number",
+          "default": 24,
+          "description": "Subnet size (prefix length) per container network (e.g., 24 for /24)."
+        }
+      }
+    },
+    "description": "List of default address pools for automatic network creation."
+  },
+  "host": {
+    "type": "list",
+    "default": [
+      "unix:///var/run/docker.sock"
+    ],
+    "description": "List of socket URLs, TCP addresses, or file descriptors for Docker daemon to listen on."
+  },
+  "log_driver": {
+    "type": "string",
+    "default": "json-file",
+    "description": "Logging driver for containers (e.g., json-file, syslog, journald, fluentd)."
+  },
+  "log_opts": {
+    "type": "object",
+    "default": {},
+    "description": "Key-value options for the selected log driver (e.g., {\"max-size\": \"10m\", \"max-file\": \"3\"})."
+  },
+  "registry_mirrors": {
+    "type": "list",
+    "default": [],
+    "items": {
+      "type": "string",
+      "description": "Registry mirror URL (e.g., https://mirror.gcr.io)."
+    },
+    "description": "List of registry mirrors to use when pulling images (for improved speed/reliability)."
+  },
+  "insecure_registries": {
+    "type": "list",
+    "default": [],
+    "items": {
+      "type": "string",
+      "description": "Registry hostname or IP (optionally with port) allowed over HTTP or with untrusted TLS."
+    },
+    "description": "List of registries allowed without secure TLS (for internal or development use)."
+  },
+  "storage_driver": {
+    "type": "string",
+    "default": "overlay2",
+    "description": "Storage driver to use for container filesystems (e.g., overlay2, vfs, btrfs)."
+  },
+  "data_root": {
+    "type": "string",
+    "default": "/var/lib/docker",
+    "description": "Root directory for Docker data (images, containers, volumes, etc.)."
+  },
+  "live_restore": {
+    "type": "bool",
+    "default": true,
+    "description": "Keep containers running when the Docker daemon is stopped or restarted."
+  },
+  "dns": {
+    "type": "list",
+    "default": [],
+    "items": {
+      "type": "string",
+      "format": "ipv4",
+      "description": "DNS server IP address to pass to containers (e.g., 8.8.8.8)."
+    },
+    "description": "List of DNS servers for containers."
+  },
+  "dns_search": {
+    "type": "list",
+    "default": [],
+    "items": {
+      "type": "string",
+      "description": "DNS search domain to append to unqualified hostnames in containers."
+    },
+    "description": "List of DNS search domains for containers."
+  },
+  "dns_opts": {
+    "type": "list",
+    "default": [],
+    "items": {
+      "type": "string",
+      "description": "DNS resolver option (e.g., 'rotate', 'debug')."
+    },
+    "description": "List of DNS resolver options (passed as '-o' to libc)."
+  },
+  "fixed_cidr": {
+    "type": "string",
+    "default": "",
+    "format": "cidr",
+    "description": "IPv4 subnet for container IPs (e.g., 172.20.0.0/16)."
+  },
+  "fixed_cidr_v6": {
+    "type": "string",
+    "default": "",
+    "format": "cidr",
+    "description": "IPv6 subnet for container IPs (e.g., 2001:db8:1::/64)."
+  },
+  "default_runtime": {
+    "type": "string",
+    "default": "runc",
+    "description": "Name of the default container runtime (e.g., runc, crun)."
+  },
+  "runtimes": {
+    "type": "list",
+    "default": [],
+    "items": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "default": "custom",
+          "description": "Name of the custom runtime."
+        },
+        "path": {
+          "type": "string",
+          "default": "",
+          "description": "Path to the runtime binary."
+        },
+        "args": {
+          "type": "list",
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "description": "Array of command-line arguments passed to the runtime."
+        }
+      }
+    },
+    "description": "List of additional container runtimes (e.g., for gVisor, kata-containers)."
+  },
+  "exec_opt_cgroup_driver": {
+    "type": "string",
+    "default": "systemd",
+    "description": "Cgroup driver used by Docker (must match containerd/cRI-O if used)."
+  },
+  "max_concurrent_downloads": {
+    "type": "number",
+    "default": 3,
+    "description": "Maximum number of concurrent pull operations per image."
+  },
+  "max_concurrent_uploads": {
+    "type": "number",
+    "default": 5,
+    "description": "Maximum number of concurrent push operations per image."
+  },
+  "max_download_attempts": {
+    "type": "number",
+    "default": 5,
+    "description": "Maximum retry attempts for a single download layer."
+  },
+  "default_ulimits": {
+    "type": "list",
+    "default": [],
+    "items": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "default": "nofile",
+          "description": "Name of ulimit (e.g., nofile, nproc, memlock)."
+        },
+        "hard": {
+          "type": "number",
+          "default": 65536,
+          "description": "Hard limit value."
+        },
+        "soft": {
+          "type": "number",
+          "default": 65536,
+          "description": "Soft limit value."
+        }
+      }
+    },
+    "description": "Default ulimits applied to all containers (overrideable per container)."
+  },
+  "debug": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable debug logging in the Docker daemon."
+  },
+  "metrics_addr": {
+    "type": "string",
+    "default": "",
+    "format": "uri",
+    "description": "Address to expose Prometheus metrics (e.g., 0.0.0.0:9323)."
+  },
+  "metrics_expensive": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable expensive metric collection (e.g., per-container stats)."
+  },
+  "userns_mode": {
+    "type": "string",
+    "default": "",
+    "description": "Enable user namespace remapping. Set to 'default' for subuid/subgid mapping."
+  },
+  "labels": {
+    "type": "list",
+    "default": [],
+    "items": {
+      "type": "string",
+      "description": "Key-value label string (e.g., 'node.type=worker')."
+    },
+    "description": "Custom metadata labels for the Docker daemon (shown in `docker info`)."
+  },
+  "disable_oom_killer": {
+    "type": "bool",
+    "default": false,
+    "description": "Disable OOM killer for containers (dangerous; may cause host instability)."
+  },
+  "plugins": {
+    "type": "object",
+    "default": {},
+    "description": "Raw JSON for plugin configuration (advanced use only)."
+  },
+  "experimental": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable experimental features (not for production)."
+  }
+}

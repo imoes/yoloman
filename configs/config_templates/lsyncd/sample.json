@@ -1,0 +1,52 @@
+{
+  "log_file": "/var/log/lsyncd/lsyncd.log",
+  "log_level": 4,
+  "max_processes": 8,
+  "use_delay": true,
+  "delay": 10,
+  "use_inotify_events": true,
+  "inotify_events": [
+    "modify",
+    "create",
+    "delete",
+    "move"
+  ],
+  "use_recursive": true,
+  "has_excludes": true,
+  "excludes": [
+    ".git",
+    "*.tmp",
+    "node_modules"
+  ],
+  "has_rsync_options": true,
+  "rsync_options": [
+    "--delete",
+    "--numeric-ids"
+  ],
+  "targets": [
+    {
+      "name": "prod-backup",
+      "enabled": true,
+      "mode": "rsyncssh",
+      "source": "/srv/www/",
+      "rsyncssh": {
+        "host": "backup.example.com",
+        "user": "backup",
+        "port": 2222,
+        "identity": "/etc/lsyncd/id_backup",
+        "path": "/backups/www"
+      }
+    },
+    {
+      "name": "staging-sync",
+      "enabled": true,
+      "mode": "rsync",
+      "source": "/srv/data/",
+      "rsync": {
+        "host": "staging.internal",
+        "user": "sync",
+        "path": "/data"
+      }
+    }
+  ]
+}

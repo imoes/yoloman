@@ -1,0 +1,100 @@
+{
+  "primary_host": {
+    "type": "string",
+    "default": "localhost",
+    "description": "Hostname or IP address of the PostgreSQL primary instance"
+  },
+  "primary_port": {
+    "type": "number",
+    "default": 5432,
+    "description": "Port number of the PostgreSQL primary instance"
+  },
+  "primary_user": {
+    "type": "string",
+    "default": "postgres",
+    "description": "Username with replication privileges on the primary"
+  },
+  "primary_password": {
+    "type": "string",
+    "default": "",
+    "description": "Password for the primary user (recommended: use .pgpass or scram-sha-256 auth)"
+  },
+  "primary_database": {
+    "type": "string",
+    "default": "postgres",
+    "description": "Database to connect to on the primary (used for slot queries)"
+  },
+  "standby_host": {
+    "type": "string",
+    "default": "localhost",
+    "description": "Hostname or IP address of the PostgreSQL standby instance"
+  },
+  "standby_port": {
+    "type": "number",
+    "default": 5432,
+    "description": "Port number of the PostgreSQL standby instance"
+  },
+  "standby_user": {
+    "type": "string",
+    "default": "postgres",
+    "description": "Username with replication privileges on the standby"
+  },
+  "standby_password": {
+    "type": "string",
+    "default": "",
+    "description": "Password for the standby user"
+  },
+  "standby_database": {
+    "type": "string",
+    "default": "postgres",
+    "description": "Database to connect to on the standby"
+  },
+  "replication_slots": {
+    "type": "list",
+    "default": [
+      {
+        "name": "failover_slot",
+        "plugin": "pgoutput",
+        "two_phase": false
+      }
+    ],
+    "items": {
+      "name": {
+        "type": "string",
+        "default": "failover_slot",
+        "description": "Name of the logical replication slot"
+      },
+      "plugin": {
+        "type": "string",
+        "default": "pgoutput",
+        "description": "Output plugin (e.g., pgoutput, test_decoding)"
+      },
+      "two_phase": {
+        "type": "bool",
+        "default": false,
+        "description": "Enable two-phase commit support for this slot"
+      }
+    },
+    "description": "List of logical replication slots to manage for high availability"
+  },
+  "check_interval": {
+    "type": "number",
+    "default": 10,
+    "description": "Seconds between health checks and slot synchronization attempts"
+  },
+  "auto_promote": {
+    "type": "bool",
+    "default": true,
+    "description": "If true, automatically promote slots to the new primary during failover"
+  },
+  "strict_mode": {
+    "type": "bool",
+    "default": false,
+    "description": "If true, abort operation on any slot sync error (fail-fast)"
+  },
+  "operation_timeout": {
+    "type": "number",
+    "default": 30,
+    "description": "Maximum seconds to wait for replication operations (slot creation, sync, etc.)"
+  }
+}

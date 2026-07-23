@@ -1,0 +1,41 @@
+[sudo_logsrvd]
+# Enables or disables the sudo log server daemon
+enabled = {{ enabled | lower }}
+
+# Hostname or IP address the log server listens on
+bind_host = "{{ bind_host }}"
+
+# TCP port the log server listens on
+bind_port = {{ bind_port }}
+
+# Path to the log file where sudo events are stored
+log_file = "{{ log_file }}"
+
+# Maximum size (in bytes) of the log file before rotation
+log_max_size = {{ log_max_size }}
+
+# Number of rotated log files to keep
+log_keep_count = {{ log_keep_count }}
+
+# Compression format for rotated logs (none, gzip, or lz4)
+log_compression = "{{ log_compression }}"
+
+# Path to the TLS certificate file for secure connections (optional)
+{% if tls_cert %}
+tls_cert = "{{ tls_cert }}"
+{% endif %}
+
+# Path to the TLS private key file (optional)
+{% if tls_key %}
+tls_key = "{{ tls_key }}"
+{% endif %}
+
+# List of allowed client hostnames/IPs (empty = allow all)
+{% for client in allowed_clients %}allowed_client = {{ client }}
+{% endfor %}
+
+# Maximum number of concurrent connections
+max_connections = {{ max_connections }}
+
+# Log level: debug, info, warn, error
+log_level = "{{ log_level }}"

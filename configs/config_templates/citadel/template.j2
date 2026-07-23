@@ -1,0 +1,81 @@
+# Citadel Groupware Server Configuration (Client Interface)
+# This file configures the citadel-client (e.g., ctdlclient) behavior.
+# The server must be reachable via the hostname/port specified below.
+host: {{ host }}
+
+# TCP port the Citadel server is listening on (default: 504)
+port: {{ port }}
+
+# Path to the Citadel user database (used for local auth lookups, caches, etc.)
+datadir: {{ datadir }}
+
+# Path to the Citadel configuration directory
+configdir: {{ configdir }}
+
+# Path to the Citadel log file
+logfile: {{ logfile }}
+
+# Enable/disable verbose debug logging
+verbose: {{ verbose }}
+
+# Enable/disable SSL/TLS for connections to the Citadel server
+ssl_enabled: {{ ssl_enabled }}
+
+# Path to CA certificate bundle for SSL verification (ignored if ssl_enabled is false)
+ssl_ca_file: {{ ssl_ca_file }}
+
+# Path to client certificate (optional, for mutual TLS)
+ssl_client_cert: {{ ssl_client_cert }}
+
+# Path to client private key (optional, for mutual TLS)
+ssl_client_key: {{ ssl_client_key }}
+
+# Default domain suffix appended to short usernames during login
+# Example: user -> user@{{ default_domain }}
+default_domain: {{ default_domain }}
+
+# Enable/disable anonymous (guest) access
+allow_anonymous: {{ allow_anonymous }}
+
+# List of allowed authentication backends (in order of preference)
+auth_backends:
+{% for backend in auth_backends %}  - {{ backend }}
+{% endfor %}
+
+# Optional per-backend settings — for example, LDAP/AD integration parameters
+{% if auth_backend_options %}auth_backend_options:
+{% for opt in auth_backend_options %}{{ opt.name }}:
+{% for key, val in opt.options.items() %}  {{ key }}: {{ val }}
+{% endfor %}
+{% endfor %}
+{% endif %}
+
+# Connection timeout (seconds)
+connect_timeout: {{ connect_timeout }}
+
+# Read/write timeout (seconds)
+read_timeout: {{ read_timeout }}
+
+# Maximum number of retries for transient failures
+max_retries: {{ max_retries }}
+
+# Enable/disable automatic reconnection after disconnect
+auto_reconnect: {{ auto_reconnect }}
+
+# Default character set used for text encoding (e.g., UTF-8, ISO-8859-1)
+default_charset: {{ default_charset }}
+
+# Enable/disable compression of payloads (if supported by server)
+compression_enabled: {{ compression_enabled }}
+
+# List of trusted IP subnets allowed to bypass authentication (e.g., for internal sync tools)
+{% if trusted_subnets %}trusted_subnets:
+{% for subnet in trusted_subnets %}  - {{ subnet }}
+{% endfor %}
+{% endif %}
+
+# List of fully qualified domain names (FQDNs) whose certificates are always trusted
+{% if trusted_hosts %}trusted_hosts:
+{% for host in trusted_hosts %}  - {{ host }}
+{% endfor %}
+{% endif %}

@@ -1,0 +1,125 @@
+{
+  "renderd": {
+    "type": "object",
+    "default": {
+      "num_threads": 4,
+      "tile_timeout": 120,
+      "xml": [
+        "/etc/mapnik-osm-data/osm.xml"
+      ],
+      "socket_name": "/var/run/renderd/renderd.sock",
+      "max_conn": 8,
+      "debug": false
+    },
+    "description": "Global settings for the renderd daemon, including threading, timeouts, and Mapnik XML paths.",
+    "properties": {
+      "num_threads": {
+        "type": "number",
+        "default": 4,
+        "description": "Number of worker threads to spawn for concurrent tile rendering."
+      },
+      "tile_timeout": {
+        "type": "number",
+        "default": 120,
+        "description": "Maximum time (in seconds) to wait before aborting a tile render."
+      },
+      "xml": {
+        "type": "list",
+        "default": [
+          "/etc/mapnik-osm-data/osm.xml"
+        ],
+        "description": "List of paths to Mapnik XML configuration files for rendering.",
+        "items": {
+          "type": "string",
+          "description": "Absolute path to a Mapnik XML stylesheet."
+        }
+      },
+      "socket_name": {
+        "type": "string",
+        "default": "/var/run/renderd/renderd.sock",
+        "description": "Unix socket path for inter-process communication with mod_tile or other clients."
+      },
+      "max_conn": {
+        "type": "number",
+        "default": 8,
+        "description": "Maximum number of simultaneous connections to the renderd socket."
+      },
+      "debug": {
+        "type": "bool",
+        "default": false,
+        "description": "Enable verbose logging for troubleshooting (set to `true` for detailed output)."
+      }
+    }
+  },
+  "maps": {
+    "type": "list",
+    "default": [
+      {
+        "name": "osm",
+        "xml": "/etc/mapnik-osm-data/osm.xml",
+        "host": "127.0.0.1",
+        "port": 8002,
+        "tile_dir": "/var/lib/mod_tile",
+        "mapnik_image_type": "png",
+        "mapnik_image_quality": 85,
+        "min_zoom": 0,
+        "max_zoom": 18
+      }
+    ],
+    "description": "List of map layer configurations. Each entry defines a separate map (e.g., 'osm', 'cycle') with its own rendering parameters.",
+    "items": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "default": "osm",
+          "description": "Unique name of the map layer; used as section header in the config."
+        },
+        "xml": {
+          "type": "string",
+          "default": "/etc/mapnik-osm-data/osm.xml",
+          "description": "Path to the Mapnik XML stylesheet defining this map\u2019s layers, styles, and data sources."
+        },
+        "host": {
+          "type": "string",
+          "default": "127.0.0.1",
+          "description": "IP address or hostname to bind this map\u2019s HTTP tile server to."
+        },
+        "port": {
+          "type": "number",
+          "default": 8002,
+          "description": "TCP port to serve tiles for this map via HTTP (if enabled)."
+        },
+        "tile_dir": {
+          "type": "string",
+          "default": "/var/lib/mod_tile",
+          "description": "Directory where rendered tiles for this map are stored on disk (supports mod_tile caching)."
+        },
+        "mapnik_image_type": {
+          "type": "string",
+          "default": "png",
+          "description": "Output image format (e.g., 'png', 'png256', 'jpeg')."
+        },
+        "mapnik_image_quality": {
+          "type": "number",
+          "default": 85,
+          "description": "Compression quality for formats that support it (e.g., JPEG: 0\u2013100; PNG: 0\u20139 compression level)."
+        },
+        "min_zoom": {
+          "type": "number",
+          "default": 0,
+          "description": "Minimum zoom level to render (inclusive)."
+        },
+        "max_zoom": {
+          "type": "number",
+          "default": 18,
+          "description": "Maximum zoom level to render (inclusive)."
+        }
+      },
+      "required": [
+        "name",
+        "xml"
+      ]
+    }
+  }
+}

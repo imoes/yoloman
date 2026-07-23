@@ -1,0 +1,75 @@
+{# Top-level configuration: DHCPv4 server settings #}
+{
+  "Dhcp4": {
+    "renew-timer": {{ renew_timer }},
+    "rebind-timer": {{ rebind_timer }},
+    "max-lease-time": {{ max_lease_time }},
+    "lease-changes-interval": {{ lease_changes_interval }},
+    "valid-lifetime": {{ valid_lifetime }},
+    "authoritative": {{ authoritative }},
+    "logger": {
+      "name": "kea-dhcp4",
+      "output_options": [
+        {
+          "output": "{{ log_output }}"
+          {% if log_max_size != 0 %}
+          , "maxsize": {{ log_max_size }}
+          {% endif %}
+          {% if log_max_ver != 0 %}
+          , "maxver": {{ log_max_ver }}
+          {% endif %}
+        }
+      ],
+      "severity": "{{ log_severity }}",
+      "debuglevel": {{ debug_level }}
+    },
+    "subnet4": [
+      {% for subnet in subnets %}
+      {# Subnet definition: IPv4 subnet, gateway, DNS, etc. #}
+      {
+        "id": {{ subnet.id }},
+        "subnet": "{{ subnet.network }}/{{ subnet.prefix }}",
+        "pool": [
+          {% for pool in subnet.pools %}
+          {# Pool definition: IP range for dynamic allocation #}
+          { "pool": "{{ pool.start }} - {{ pool.end }}" }{% if not loop.last %},{% endif %}
+          {% endfor %}
+        ],
+        "gateway": "{{ subnet.gateway }}",
+        "dns-servers": [
+          {{ subnet.dns_servers | join(', ') }}
+        ],
+        "domain-name": "{{ subnet.domain_name }}",
+        "option-data": [
+          {% for option in subnet.option_data %}
+          {# Custom DHCP option: code, name, data #}
+          { "name": "{{ option.name }}", "data": "{{ option.value }}" }{% if not loop.last %},{% endif %}
+          {% endfor %}
+        ],
+        "reservations": [
+          {% for reservation in subnet.reservations %}
+          {# Static DHCP reservation: MAC -> fixed IP #}
+          {
+            "hw-address": "{{ reservation.mac }}",
+            "ip-address": "{{ reservation.ip }}"
+            {% if reservation.hostname %}
+            , "hostname": "{{ reservation.hostname }}"
+            {% endif %}
+          }{% if not loop.last %},{% endif %}
+          {% endfor %}
+        ]
+      }{% if not loop.last %},{% endif %}
+      {% endfor %}
+    ],
+    "interfaces-config": {
+      "interfaces": [
+        {{ interfaces | join(', ') }}
+      ],
+      "dhcp-socket-type": "{{ dhcp_socket_type }}"
+    },
+    "control-socket": {
+      "socket-type": "unix",
+      "socket-name": "{{ control_socket_name }}"
+    }
+  }
+}

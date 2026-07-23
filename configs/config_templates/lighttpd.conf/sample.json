@@ -1,0 +1,108 @@
+{
+  "server": {
+    "document_root": "/var/www/html",
+    "port": 80,
+    "bind": "0.0.0.0",
+    "pid_file": "/run/lighttpd.pid",
+    "errorlog": "/var/log/lighttpd/error.log",
+    "accesslog": "/var/log/lighttpd/access.log",
+    "max_connections": 1024,
+    "network_backend": "sendfile",
+    "event_handler_key": "linux-sysepoll",
+    "event_handler_value": ""
+  },
+  "modules": [
+    "mod_access",
+    "mod_accesslog",
+    "mod_alias",
+    "mod_compress",
+    "mod_dirlisting",
+    "mod_fastcgi",
+    "mod_rewrite",
+    "mod_setenv"
+  ],
+  "mime_types": [
+    ".html\ttext/html",
+    ".htm\ttext/html",
+    ".txt\ttext/plain",
+    ".css\ttext/css",
+    ".js\tapplication/javascript",
+    ".json\tapplication/json",
+    ".png\timage/png",
+    ".jpg\timage/jpeg",
+    ".jpeg\timage/jpeg",
+    ".gif\timage/gif",
+    ".ico\timage/x-icon",
+    ".svg\timage/svg+xml",
+    ".xml\ttext/xml"
+  ],
+  "index_files": [
+    "index.html",
+    "index.php",
+    "index.fcgi"
+  ],
+  "static_file_excludes": [
+    ".php",
+    ".fcgi",
+    ".pl",
+    ".cgi"
+  ],
+  "compress": {
+    "cache_dir": "/var/cache/lighttpd/compress",
+    "filetypes": [
+      "text/plain",
+      "text/html",
+      "text/css",
+      "application/javascript",
+      "application/json",
+      "text/xml"
+    ]
+  },
+  "ssl": {
+    "enabled": false,
+    "pemfile": "/etc/lighttpd/server.pem",
+    "ca_file": "",
+    "use_sslv2": false,
+    "use_sslv3": false
+  },
+  "vhost": {
+    "domain": "example.com",
+    "document_root": "/var/www/example.com",
+    "extra_config": ""
+  },
+  "fastcgi": {
+    "backends": [
+      {
+        "script": ".php",
+        "host": "127.0.0.1",
+        "port": 9000,
+        "docroot": "/"
+      }
+    ]
+  },
+  "rewrite": {
+    "rules": [
+      {
+        "pattern": "^/old-path(.*)$",
+        "match_pattern": "^/old-path(.*)$",
+        "target": "/new-path$1"
+      }
+    ]
+  },
+  "rate_limit": {
+    "hosts": [
+      {
+        "name": "api.example.com",
+        "rate_limit": 50
+      }
+    ]
+  },
+  "include": {
+    "conf_dir": "/etc/lighttpd/conf.d"
+  },
+  "debug": {
+    "log_request_handling": false,
+    "log_response_handling": false,
+    "log_state_handling": false
+  }
+}

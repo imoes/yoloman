@@ -1,0 +1,52 @@
+# iodined server configuration file
+
+# Listening address and port
+{{ listen_addr | default('127.0.0.1') }} {{ listen_port | default(53) }}
+
+# Domain to serve (must be a subdomain you control)
+{{ domain }}
+
+# User to drop privileges to after binding to privileged port
+{{ user | default('nobody') }}
+
+# Chroot directory (empty string disables chroot)
+{{ chroot_dir | default('') }}
+
+# Maximum number of concurrent sessions (0 = unlimited)
+max_sessions = {{ max_sessions | default(0) }}
+
+# Maximum packet size (in bytes) — must be >= 64 and <= 1500
+max_packet_size = {{ max_packet_size | default(1400) }}
+
+# Enable debug mode (true/false)
+{{ debug | default('false') | lower }}
+
+# Optional: Set TTL for DNS responses (seconds)
+{% if ttl is defined %}
+ttl = {{ ttl }}
+{% endif %}
+
+# Optional: Set MTU for tun interface (must be >= 68 and <= 1500)
+{% if mtu is defined %}
+mtu = {{ mtu }}
+{% endif %}
+
+# Optional: Set password for client authentication
+{% if password is defined %}
+password = {{ password }}
+{% endif %}
+
+# Optional: Set interface name for tunnel device (default: dns0)
+{% if interface_name is defined %}
+interface = {{ interface_name }}
+{% endif %}
+
+# Optional: Set IP range for allocated client addresses (CIDR notation)
+{% if ip_range is defined %}
+ip = {{ ip_range }}
+{% endif %}
+
+# Optional: Set DNS server to forward queries to (e.g., 8.8.8.8)
+{% if forward_dns is defined %}
+forward_dns = {{ forward_dns | join(', ') | default('') }}
+{% endif %}

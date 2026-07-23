@@ -1,0 +1,84 @@
+# Server mode: listen on specified UDP port and create TUN interface
+port {{ server.port }}
+proto udp
+
+# TUN/TAP virtual network device
+device tun
+
+# Network topology (subnet or p2p)
+topology subnet
+
+# VPN subnet (server assigns IPs from this range)
+server {{ server.network }} {{ server.netmask }}
+
+# Route client subnet to other clients (allows client-to-client communication)
+client-to-client
+
+# Keep clients on the same subnet instead of routing via TUN
+keepalive 10 120
+
+# TLS configuration
+ca /etc/openvpn/easy-rsa/pki/ca.crt
+cert /etc/openvpn/easy-rsa/pki/issued/{{ server.cert_name }}.crt
+key /etc/openvpn/easy-rsa/pki/private/{{ server.cert_name }}.key
+dh /etc/openvpn/easy-rsa/pki/dh.pem
+tls-auth /etc/openvpn/easy-rsa/pki/ta.key 0
+
+# Cipher configuration (AES-256-GCM recommended)
+cipher {{ server.cipher }}
+auth {{ server.auth }}
+nopull
+
+# Compression (disabled by default for security)
+;comp-lzo
+
+# Logging
+log /var/log/openvpn/openvpn.log
+log-append /var/log/openvpn/openvpn.log
+verb 3
+
+# Duplicate CN handling (allow multiple sessions per user)
+{{ 'duplicate-cn' if server.allow_duplicate_cn else ';duplicate-cn' }}
+
+# LDAP authentication plugin
+plugin /usr/lib/openvpn/plugins/openvpn-plugin-auth-pam.so openvpn
+
+# LDAP-specific config path (passed to plugin)
+{{ '# LDAP config' if server.ldap.enabled else ';LDAP config' }}
+{{ '# LDAP config' if server.ldap.enabled else ';LDAP config' }}
+{{ 'auth-pam-ldap-config /etc/openvpn/ldap.conf' if server.ldap.enabled else ';auth-pam-ldap-config /etc/openvpn/ldap.conf' }}
+
+# Push routes to clients (e.g., to allow access to internal networks)
+{% for route in server.push_routes %}
+push "route {{ route.network }} {{ route.netmask }}"
+{% endfor %}
+
+# DNS settings pushed to clients
+{% if server.push_dns %}
+push "dhcp-option DNS {{ server.dns_servers | join(' ') }}"
+{% endif %}
+
+# Client-specific options (if any)
+{% for client in server.client_options %}
+client-config-dir /etc/openvpn/ccd/{{ client.common_name }}
+{% if client.ip %}
+ifconfig-push {{ client.ip }} {{ server.netmask }}
+{% endif %}
+{% if client.block %}
+;client-connect /etc/openvpn/scripts/block-check.sh
+{% endif %}
+{% endfor %}
+
+# Lock down privileges after startup
+user nobody
+group nobody
+
+# Preserve state across restarts (optional, but recommended for stability)
+persist-key
+persist-tun
+
+# Status output
+status /var/run/openvpn/server.status 10
+
+# Echo messages to log for debugging (optional)
+;echo all

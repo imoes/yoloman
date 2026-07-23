@@ -1,0 +1,23 @@
+# /etc/default/irqbalance - configuration for the Interrupt Balancing Daemon
+# This file is sourced by the irqbalance systemd service.
+
+# Enable or disable irqbalance
+ENABLE_IRQBALANCE={{ enabled | string | lower }}
+
+# CPU affinity mask for irqbalance daemon itself (hex, e.g., 'f' = CPUs 0-3)
+IRQBALANCE_BANNED_CPUS={{ banned_cpus }}
+
+# Interval (in seconds) between balancing decisions
+IRQBALANCE_ARGS="--daemonize --pidfile=/run/irqbalance/irqbalance.pid {{ '' if pwr_thrst_threshold is none else '--power_thresh=' + pwr_thrst_threshold | string }} {{ '' if up_thresh is none else '--up_thresh=' + up_thresh | string }} {{ '' if banlist | length == 0 else '--banlist=' + banlist | join(',') }}"
+
+# List of IRQs to ignore (comma-separated)
+{% if ignore_irqs | length > 0 %}IRQBALANCE_IGNORE_IRQS="{{ ignore_irqs | join(',') }}"{% else %}# IRQBALANCE_IGNORE_IRQS=""{% endif %}
+
+# Rebalance interval (seconds) — how often full rebalance is forced
+{% if rebalance_interval is not none %}IRQBALANCE_REBALANCE_INTERVAL="{{ rebalance_interval }}"{% else %}# IRQBALANCE_REBALANCE_INTERVAL=""{% endif %}
+
+# Topology-aware balancing mode: 'package', 'core', or 'thread'
+{% if topology_mode is not none %}IRQBALANCE_TOPOLOGY_MODE="{{ topology_mode }}"{% else %}# IRQBALANCE_TOPOLOGY_MODE=""{% endif %}
+
+# Custom power-saving vs performance tuning: comma-separated list of policy pairs (e.g., 'balance:low,balance:high')
+{% if policies | length > 0 %}IRQBALANCE_POLICY="{% for p in policies %}{{ p.name }}:{{ p.level }}{% if not loop.last %},{% endif %}{% endfor %}"{% else %}# IRQBALANCE_POLICY=""{% endif %}

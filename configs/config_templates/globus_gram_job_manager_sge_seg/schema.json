@@ -1,0 +1,79 @@
+{
+  "sge_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable support for Sun/Oracle Grid Engine (SEG) via GRAM JobManager."
+  },
+  "sge_qmaster_host": {
+    "type": "string",
+    "default": "sge-qmaster",
+    "description": "Hostname or FQDN of the SGE qmaster node (required for job submission)."
+  },
+  "sge_root": {
+    "type": "string",
+    "default": "/opt/gridengine",
+    "description": "Base installation path of the SGE software (e.g., /opt/gridengine or /usr/local/gridengine)."
+  },
+  "sge_cell": {
+    "type": "string",
+    "default": "default",
+    "description": "Name of the SGE cell (commonly 'default', matches the cell configured on qmaster)."
+  },
+  "sge_qmaster_spool_dir": {
+    "type": "string",
+    "default": "/var/lib/gridengine/spool/qmaster",
+    "description": "Directory where qmaster stores state and spool files. Must be writable by the Globus process."
+  },
+  "sge_execd_spool_dir": {
+    "type": "string",
+    "default": "/var/lib/gridengine/spool/execd",
+    "description": "Directory where execd daemons store state and spool files on compute nodes."
+  },
+  "job_manager_script": {
+    "type": "string",
+    "default": "/usr/libexec/globus-job-manager-sge",
+    "description": "Path to the Globus-provided SGE jobmanager script (required for GRAM integration)."
+  },
+  "job_manager_wrapper": {
+    "type": "string",
+    "default": "",
+    "description": "Optional custom wrapper script to invoke before the jobmanager script (e.g., for environment setup). Leave empty if not used.",
+    "nullable": true
+  },
+  "sge_allowed_queues": {
+    "type": "list",
+    "default": [
+      "all.q"
+    ],
+    "description": "List of SGE queue names that users may submit jobs to. Only queues in this list will be available to GRAM.",
+    "items": {
+      "type": "string",
+      "description": "Name of an SGE queue (must exist on qmaster and be accessible)."
+    }
+  },
+  "sge_default_queue": {
+    "type": "string",
+    "default": "all.q",
+    "description": "Default SGE queue to use when the user does not specify one in the job submission."
+  },
+  "sge_max_jobs_per_user": {
+    "type": "number",
+    "default": 100,
+    "description": "Upper bound on the number of concurrent jobs allowed per user (0 = unlimited)."
+  },
+  "sge_max_walltime": {
+    "type": "number",
+    "default": 86400,
+    "description": "Maximum walltime (in seconds) for any submitted job. Jobs requesting longer walltime will be rejected."
+  },
+  "sge_max_cores_per_job": {
+    "type": "number",
+    "default": 64,
+    "description": "Maximum number of CPU cores that a single job may request."
+  },
+  "sge_use_resource_limits": {
+    "type": "bool",
+    "default": true,
+    "description": "If true, enforce hard/soft limits defined by SGE resource request attributes (e.g., h_vmem, h_rt)."
+  }
+}

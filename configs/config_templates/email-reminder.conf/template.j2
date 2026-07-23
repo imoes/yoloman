@@ -1,0 +1,129 @@
+# Core settings
+app:
+  # Host and port for the HTTP server
+  host: "{{ app.host }}"
+  port: {{ app.port }}
+
+  # Path to the data directory for storing reminders and logs
+  data_dir: "{{ app.data_dir }}"
+
+  # Enable debug logging (verbose output to stdout)
+  debug: {{ app.debug | lower }}
+
+# Database configuration
+# Connection string for SQLite database
+# Format: sqlite:///path/to/db.sqlite3
+# Using `sqlite://` for local-only operation
+# Not recommended for production clustering
+# Use PostgreSQL or MySQL in production
+
+database:
+  # Full URI to the database (e.g., `sqlite:///var/lib/email-reminder/email-reminder.db`)
+  uri: "{{ database.uri }}"
+
+# Worker configuration
+# Number of background workers for sending emails
+worker:
+  # Number of concurrent email workers
+  count: {{ worker.count }}
+
+  # Timeout (in seconds) per email send attempt
+  timeout: {{ worker.timeout }}
+
+  # Retry limit per email (max attempts before giving up)
+  max_retries: {{ worker.max_retries }}
+
+  # Delay (in seconds) between retries
+  retry_delay: {{ worker.retry_delay }}
+
+# SMTP configuration
+smtp:
+  # SMTP server hostname
+  host: "{{ smtp.host }}"
+
+  # SMTP server port
+  port: {{ smtp.port }}
+
+  # Use TLS for SMTP connection
+  use_tls: {{ smtp.use_tls | lower }}
+
+  # Use STARTTLS (for implicit vs explicit TLS)
+  use_starttls: {{ smtp.use_starttls | lower }}
+
+  # Optional: Authenticated SMTP credentials (if required)
+  # Leave username and password blank if using unauthenticated relay
+  username: "{{ smtp.username | default('') }}"
+  password: "{{ smtp.password | default('') | lower | e if smtp.password is defined and smtp.password | length > 0 else '' }}"
+
+  # Email address used as 'From:' in sent reminders
+  from_address: "{{ smtp.from_address }}"
+
+# Email templates and defaults
+email:
+  # Default subject line for reminder emails
+  default_subject: "{{ email.default_subject }}"
+
+  # Default body template (supports Jinja2 placeholders like {{ .Name }} etc.)
+  default_body: |
+    {% for line in email.default_body_lines %}
+    {{ line }}
+    {% endfor %}
+
+  # Whether to embed images or use inline attachments (not implemented in baseline; placeholder)
+  embed_images: {{ email.embed_images | lower }}
+
+# Rate limiting and throttling
+throttle:
+  # Max emails per minute per user (to prevent spam)
+  max_per_minute: {{ throttle.max_per_minute }}
+
+  # Burst limit (short-term spikes allowed)
+  burst_limit: {{ throttle.burst_limit }}
+
+# Logging configuration
+log:
+  # Log level: DEBUG, INFO, WARNING, ERROR, CRITICAL
+  level: "{{ log.level }}"
+
+  # Path to the log file (stdout if empty or `-`)
+  file: "{{ log.file }}"
+
+  # Enable JSON log format for structured logging
+  json: {{ log.json | lower }}
+
+# Health check endpoint (readiness/liveness probe)
+health:
+  # Enable the health endpoint at `/healthz`
+  enabled: {{ health.enabled | lower }}
+
+  # Optional: Basic auth for health endpoint (e.g., `admin:secret`)
+  basic_auth: "{{ health.basic_auth | default('') }}"
+
+# Reminder scheduling options
+schedule:
+  # Default timezone (IANA name, e.g., `America/New_York`)
+  timezone: "{{ schedule.timezone }}"
+
+  # How far in advance to scan for upcoming reminders (in seconds)
+  lookahead_seconds: {{ schedule.lookahead_seconds }}
+
+  # Interval between background scans (in seconds)
+  scan_interval_seconds: {{ schedule.scan_interval_seconds }}
+
+# Template overrides per domain (optional)
+# Format: list of {domain, subject_template, body_lines}
+# This allows per-organization customization
+{% if custom_templates | length > 0 %}
+templates:
+  {% for t in custom_templates %}
+  - domain: "{{ t.domain }}"
+    subject_template: |
+      {% for line in t.subject_template_lines %}
+      {{ line }}
+      {% endfor %}
+    body_lines:
+      {% for line in t.body_lines %}
+      - "{{ line | replace('"', '\"') }}"
+      {% endfor %}
+  {% endfor %}
+{% endif %}

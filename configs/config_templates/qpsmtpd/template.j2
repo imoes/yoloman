@@ -1,0 +1,75 @@
+# Enable logging to syslog or a file
+{% if config.log_to_file %}
+log/file {{ config.log_file }}
+{% else %}
+log/syslog
+{% endif %}
+
+# Set the listening address and port
+{% for listener in config.listeners %}
+listen {{ listener.address }} {{ listener.port }}
+{% endfor %}
+
+# Maximum number of connections per IP
+maxconnections {{ config.max_connections_per_ip }}
+
+# Timeout for connections (seconds)
+timeout {{ config.timeout }}
+
+# Authentication backends (e.g., SQL, PAM, passwd file)
+{% for auth_backend in config.auth_backends %}
+auth/{{ auth_backend.type }} {{ auth_backend.config_file }}
+{% endfor %}
+
+# Plugins to enable, in order
+{% for plugin in config.plugins %}
+{% if plugin.enabled | default(true) %}plugin {{ plugin.name }}{% if plugin.options %} {{ plugin.options | join(' ') }}{% endif %}{% endif %}
+{% endfor %}
+
+# SpamAssassin integration
+{% if config.spamassassin.enabled %}
+plugin spamassassin port {{ config.spamassassin.port }} timeout {{ config.spamassassin.timeout }}
+{% endif %}
+
+# RBL (real-time blacklist) checks
+{% if config.rbl.enabled %}
+plugin rbl rbl {{ config.rbl.server }}
+{% endif %}
+
+# TLS/SSL configuration
+{% if config.tls.enabled %}
+tls_cert {{ config.tls.cert_file }}
+tls_key {{ config.tls.key_file }}
+{% if config.tls.ciphers %}tls_ciphers {{ config.tls.ciphers }}{% endif %}
+{% endif %}
+
+# Vpopmail integration for virtual domains
+{% if config.vpopmail.enabled %}
+plugin vpopmail vpopmail_dir {{ config.vpopmail.vpopmail_dir }}
+{% endif %}
+
+# Greylisting settings
+{% if config.greylisting.enabled %}
+plugin greylisting delay {{ config.greylisting.delay }} whitelist_time {{ config.greylisting.whitelist_time }}
+{% endif %}
+
+# Rate limiting per IP
+{% if config.rate_limit.enabled %}
+plugin rate limit seconds {{ config.rate_limit.seconds }} max_per_second {{ config.rate_limit.max_per_second }}
+{% endif %}
+
+# Allow specific IPs to bypass certain checks
+{% for whitelist_entry in config.whitelist %}
+{% if whitelist_entry.reason %}# {{ whitelist_entry.reason }}{% endif %}
+whitelist {{ whitelist_entry.ip }}
+{% endfor %}
+
+# Default action for rejected mail
+{% if config.reject_action == 'bounce' %}
+reject_action bounce
+{% else %}
+reject_action 550 Rejected
+{% endif %}
+
+# Queue backend (e.g., qmail-queue, maildrop)
+queue {{ config.queue }}

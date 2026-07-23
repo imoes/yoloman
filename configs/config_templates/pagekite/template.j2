@@ -1,0 +1,30 @@
+{# Main service configuration for PageKite: defines frontend, ports, services, and authentication #}
+# PageKite configuration file
+# Generated automatically; edit with care
+
+# Frontend server to connect to
+frontend = {{ frontend }}
+
+# Port PageKite listens on for incoming local connections
+httpport = {{ httpport }}
+
+# Enable HTTPS frontend support
+httpsport = {{ httpsport }}
+
+# Base64-encoded secret for authentication with the frontend (do not expose publicly)
+service_defaults = {{ service_defaults | default('') }}
+
+{# Per-service block — each service maps a local address to a public hostname #}
+{% for service in services %}
+# Service: {{ service.name | default('unnamed') }} — {{ service.proto }} tunnel to {{ service.local_host }}:{{ service.local_port }}
+service = {{ service.proto }}, {{ service.domain }}, {{ service.local_host }}:{{ service.local_port }}{% if service.secret %}, {{ service.secret }}{% endif %}
+{% endfor %}
+
+# Enable daemon mode (run in background)
+daemon = {{ daemon }}
+
+# Path to PID file (if daemonizing)
+pidfile = {{ pidfile }}
+
+# Log verbosity (0=quiet, 5=debug)
+verbose = {{ verbose }}

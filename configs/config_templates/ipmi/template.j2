@@ -1,0 +1,52 @@
+# IPMI daemon configuration — sets operational parameters for ipmi-sel, ipmi-watchdog, and lan interface
+# IPMI device node path (kernel driver or character device)
+device={{ device_path }}
+
+# Enable/Disable watchdog timer support
+watchdog={{ watchdog_enabled }}
+
+# Watchdog pre-timeout interrupt (seconds before reset); 0 disables pre-timeout
+watchdog_pretimeout={{ watchdog_pretimeout }}
+
+# Watchdog timeout (seconds); 0 means use default or hardware setting
+watchdog_timeout={{ watchdog_timeout }}
+
+# Enable/Disable SEL (System Event Log) logging
+event_logging={{ event_logging_enabled }}
+
+# SEL log rotation max file size (KB)
+sel_max_size={{ sel_max_size_kb }}
+
+# SEL log rotation max files retained
+sel_max_files={{ sel_max_files_retained }}
+
+# Enable/Disable IPMI LAN interface
+lan_enabled={{ lan_enabled }}
+
+{% if lan_enabled %}
+# LAN interface configuration
+{% for lan in lan_configs %}
+# Interface: {{ lan.iface }}
+lan_auth_type={{ lan.iface }} {{ lan.auth_type | default('none') }}
+lan_ipaddr={{ lan.iface }} {{ lan.ipaddr | default('') }}
+lan_netmask={{ lan.iface }} {{ lan.netmask | default('') }}
+lan_def_gw_ipaddr={{ lan.iface }} {{ lan.def_gw_ipaddr | default('') }}
+lan_macaddr={{ lan.iface }} {{ lan.macaddr | default('') }}
+lan_rmcp_port={{ lan.iface }} {{ lan.rmcp_port | default('623') }}
+{% endfor %}
+{% endif %}
+
+# Logging level: 0=error, 1=warn, 2=info, 3=debug
+logging_level={{ logging_level }}
+
+# PID file path
+pidfile={{ pidfile_path }}
+
+# Enable/Disable automatic retries for failed commands
+auto_retry={{ auto_retry_enabled }}
+
+# Maximum number of retries
+max_retries={{ max_retries }}
+
+# Retry delay (milliseconds)
+retry_delay={{ retry_delay_ms }}

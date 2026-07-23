@@ -1,0 +1,133 @@
+# Portsentry configuration file — controls detection behavior, network monitoring, and response actions
+# Ignore UDP/ICMP packets — disable detection for UDP/ICMP (set to 1 to ignore)
+IGNORE_UDP={{ ignore_udp | default(0) | lower }}
+IGNORE_ICMP={{ ignore_icmp | default(0) | lower }}
+
+# Hosts to ignore — comma-separated list of IPs/CIDRs to exempt from scanning detection
+IGNORE_HOSTS={{ '"' + ignore_hosts | join('", "') + '"' if ignore_hosts else '' }}
+
+# Port scan detection mode — 'tcp' (TCP SYN, FIN, etc.), 'udp' (UDP), or 'both'
+SCANMODE={{ scan_mode | default('tcp') }}
+
+# Block host on detection — '1' to add iptables/hosts.deny entry, '0' for logging only
+BLOCK_HOST={{ block_host | default(1) | lower }}
+
+# Block time (seconds) — how long to block a host (0 = permanent block)
+BLOCK_TIME={{ block_time | default(600) }}
+
+# Kill command — shell command to execute when blocking a host (e.g., for custom logging or alerts)
+KILL_CMD={{ '"' + kill_cmd | replace('"', '\"') + '"' if kill_cmd else '' }}
+
+# TCP ports to monitor (comma-separated list)
+TCP_PORTS={{ '"' + tcp_ports | join('", "') + '"' if tcp_ports else '1,2,3,7,9,13,17,21,22,23,25,42,43,53,79,109,110,111,119,135,137,139,143,158,445,513,514,540,635,1024,2049,3000,3133,31335,4000,4001,4444,5000,5001,5432,6000,6666,6667,7000,8000,8008,8888,9999,11111,12345,15000,15001,15002,15003,15004,15005,20000,21212,27374,32768,33270,33333,40421,40422,40423,40424,40425,50000,50001,50002,50003,50004,50005,55555,55556,55557,55558,55559,55560' }}
+
+# UDP ports to monitor (comma-separated list)
+UDP_PORTS={{ '"' + udp_ports | join('", "') + '"' if udp_ports else '1,7,9,17,19,53,67,68,69,111,120,121,122,123,135,137,138,139,161,162,427,500,514,518,520,1701,1719,1720,1723,2222,3456,4500,5060,5061,5080,5683,6000,8080,8443' }}
+
+# Alert on Stealth TCP Scan — '1' to alert on XMAS, NULL, FIN, SYN-ACK scans, etc.
+STRICT_TCP_SCAN={{ strict_tcp_scan | default(1) | lower }}
+
+# Alert on Stealth UDP Scan — '1' to alert on unusual UDP packet patterns
+STRICT_UDP_SCAN={{ strict_udp_scan | default(0) | lower }}
+
+# Stealth scan detection threshold (connections per host in detection window)
+STEALTH_SCAN_THRESHOLD={{ stealth_scan_threshold | default(5) }}
+
+# Detection window (seconds) — time window to count connections for scan detection
+DETECTION_WINDOW={{ detection_window | default(60) }}
+
+# Maximum connections per host before triggering alert
+MAX_CONNECTIONS={{ max_connections | default(10) }}
+
+# Log file path — where to write event logs
+LOG_FILE={{ '"' + log_file | replace('"', '\"') + '"' if log_file else '/var/log/portsentry/portsentry.log' }}
+
+# Alert email — comma-separated list of recipients (empty = no email)
+ALERT_EMAIL={{ '"' + alert_email | join('", "') + '"' if alert_email else '' }}
+
+# SMTP server for alert emails
+SMTP_SERVER={{ '"' + smtp_server | replace('"', '\"') + '"' if smtp_server else 'localhost' }}
+
+# From address for alert emails
+FROM_EMAIL={{ '"' + from_email | replace('"', '\"') + '"' if from_email else 'portsentry@localhost' }}
+
+# Alert subject prefix
+ALERT_SUBJECT={{ '"' + alert_subject | replace('"', '\"') + '"' if alert_subject else 'Portscan Alert' }}
+
+# Command to run before blocking — for logging, notifications, or pre-blocking checks
+PRE_BLOCK_CMD={{ '"' + pre_block_cmd | replace('"', '\"') + '"' if pre_block_cmd else '' }}
+
+# Command to run after blocking — for post-blocking tasks (e.g., updating firewall rules)
+POST_BLOCK_CMD={{ '"' + post_block_cmd | replace('"', '\"') + '"' if post_block_cmd else '' }}
+
+# Hosts to always ignore (even if detected) — space-separated list
+ALWAYS_IGNORE={{ '"' + always_ignore | join('" "') + '"' if always_ignore else '' }}
+
+# TCP connection limit per host — max connections before flagging as suspicious
+TCP_CONN_LIMIT={{ tcp_conn_limit | default(5) }}
+
+# UDP packet limit per host — max packets before flagging as suspicious
+UDP_PACKET_LIMIT={{ udp_packet_limit | default(10) }}
+
+# Enable advanced logging (includes timestamps, IP, port, and scan type)
+ADVANCED_LOGGING={{ advanced_logging | default(1) | lower }}
+
+# Path to the hosts.deny file (for traditional TCP wrappers blocking)
+HOSTS_DENY={{ '"' + hosts_deny | replace('"', '\"') + '"' if hosts_deny else '/etc/hosts.deny' }}
+
+# Enable IPv6 support — '1' to detect scans over IPv6
+ENABLE_IPV6={{ enable_ipv6 | default(1) | lower }}
+
+# List of IPv6 CIDRs to ignore
+IGNORE_IPV6={{ '"' + ignore_ipv6 | join('", "') + '"' if ignore_ipv6 else '' }}
+
+# List of hosts to notify via syslog (e.g., "logger -p auth.alert -t portsentry")
+SYSLOG_ALERT={{ '"' + syslog_alert | replace('"', '\"') + '"' if syslog_alert else '' }}
+
+# List of ports to ignore scanning alerts for (e.g., for known benign services)
+IGNORE_PORTS={{ '"' + ignore_ports | join('", "') + '"' if ignore_ports else '' }}
+
+# List of hosts that may perform scans (whitelist) — comma-separated IPs or CIDRs
+SCAN_WHITE_LIST={{ '"' + scan_white_list | join('", "') + '"' if scan_white_list else '' }}
+
+# Enable DNS resolution for connected clients — '1' to log hostnames instead of IPs
+RESOLVE_HOSTS={{ resolve_hosts | default(0) | lower }}
+
+# Max threads (0 = auto, uses CPU count)
+MAX_THREADS={{ max_threads | default(0) }}
+
+# Daemon user (run as non-root for security)
+RUN_AS_USER={{ '"' + run_as_user | replace('"', '\"') + '"' if run_as_user else 'nobody' }}
+
+# Daemon group
+RUN_AS_GROUP={{ '"' + run_as_group | replace('"', '\"') + '"' if run_as_group else 'nogroup' }}
+
+# PID file path
+PID_FILE={{ '"' + pid_file | replace('"', '\"') + '"' if pid_file else '/var/run/portsentry/portsentry.pid' }}
+
+# Exit after processing — for one-shot or cron-based invocations (0 = daemon mode)
+EXIT_AFTER={{ exit_after | default(0) }}
+
+# List of additional command-line arguments (e.g., ['-ignore', '127.0.0.1'])
+EXTRA_ARGS={{ '"' + extra_args | join('" "') + '"' if extra_args else '' }}
+
+# List of ports to actively probe (for active scan detection)
+ACTIVE_PROBE_PORTS={{ '"' + active_probe_ports | join('", "') + '"' if active_probe_ports else '' }}
+
+# Active probe interval (seconds)
+ACTIVE_PROBE_INTERVAL={{ active_probe_interval | default(300) }}
+
+# List of ports to monitor in promiscuous mode (for deep packet inspection)
+PROMISC_PORTS={{ '"' + promisc_ports | join('", "') + '"' if promisc_ports else '' }}
+
+# List of interfaces to bind to (empty = all)
+LISTEN_INTERFACES={{ '"' + listen_interfaces | join('", "') + '"' if listen_interfaces else '' }}
+
+# Enable UDP session tracking
+UDP_TRACKING={{ udp_tracking | default(1) | lower }}
+
+# Enable TCP session tracking
+TCP_TRACKING={{ tcp_tracking | default(1) | lower }}
+
+# Enable aggressive mode — more sensitive detection (higher false positives)
+AGGRESSIVE_MODE={{ aggressive_mode | default(0) | lower }}

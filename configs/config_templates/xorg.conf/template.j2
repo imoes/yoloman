@@ -1,0 +1,36 @@
+[Seat:*]
+# Enable Xorg session type for XRDP
+xserver-language=us
+xserver-layout=pc105
+xserver-video-driver=rdp
+
+[Output:*]
+# Set output configuration (optional, usually auto-detected)
+# {{ output_device }}
+
+[Display]*
+# Virtual screen resolution (can be overridden per session)
+width={{ display_width }}
+height={{ display_height }}
+colordepth={{ display_color_depth }}
+
+{% if use_display_power_management %}
+[DPMS]
+# Enable DPMS (Display Power Management Signaling)
+enabled=true
+standby={{ dpms_standby }}
+suspend={{ dpms_suspend }}
+off={{ dpms_off }}
+{% endif %}
+
+[ServerFlags]
+# Disable unnecessary X server features for security & stability
+default-server-dpi={{ server_dpi }}
+# Avoid auto-probing to prevent conflicts with XRDP
+no-require-input=TRUE
+# Prevent screen saver activation during remote sessions
+coordinate-screen-saver=false
+{% for module in loaded_modules %}
+# Load module: {{ module }}
+Load={{ module }}
+{% endfor %}

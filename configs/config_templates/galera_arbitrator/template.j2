@@ -1,0 +1,63 @@
+# Galera Arbitrator (garbd) configuration
+# Run as a daemon to provide quorum voting without storing data
+# Group communication system options
+[galera]
+# Comma-separated list of cluster nodes (host:port)
+# Each node should be reachable and running Galera (MariaDB/MySQL with Galera)
+wsrep_cluster_address = "gcomm://{{ wsrep_cluster_address | default('') | join(',') }}"
+
+# Unique node name for this arbitrator
+# Must be different from all cluster node names
+wsrep_node_name = "{{ wsrep_node_name }}"
+
+# Arbitrator-specific options
+# Enables the arbitrator mode (required)
+garbd = "yes"
+
+# Optional: log file path
+# Leave empty to log to stderr/syslog
+log = "{{ log_path }}"
+
+# Optional: group communication options
+# Controls reconnection attempts after disconnection from cluster
+# 0 = infinite retries; set >0 to limit retries (in seconds)
+# Default: 10
+repl.connect_timeout = {{ repl_connect_timeout }}
+
+# Optional: SSL/TLS support
+# Path to SSL certificate (for client cert)
+wsrep_ssl_cert = "{{ wsrep_ssl_cert }}"
+# Path to SSL private key
+wsrep_ssl_key = "{{ wsrep_ssl_key }}"
+# Path to SSL CA certificate (for verifying cluster nodes)
+wsrep_ssl_ca = "{{ wsrep_ssl_ca }}"
+
+# Optional: disable encryption if not using SSL
+# Set to true to disable SSL/TLS entirely (default: false)
+{% if not use_ssl %}
+wsrep_ssl = "no"
+{% else %}
+wsrep_ssl = "yes"
+{% endif %}
+
+# Optional: socket buffer size (bytes) for communication
+# Increase if you see network timeouts on high load
+# Default: 0 (system default)
+socket.buffer_size = {{ socket_buffer_size }}
+
+# Optional: logging verbosity
+# 0 = errors only, 1 = warnings, 2 = info, 3 = debug
+# Default: 1
+log_level = {{ log_level }}
+
+# Optional: timeout for arbitrator to declare cluster unreachable
+# (in seconds) — must be < repl.connect_timeout
+# Default: 5
+garbd.group = "{{ wsrep_cluster_name }}"
+garbd.options = "--join-timeout={{ garbd_join_timeout }}"
+
+# Optional: additional Galera provider options
+# e.g., for custom socket or replication settings
+{% for option, value in extra_galera_options.items() %}
+{{ option }} = {{ value | quote_if_string }}
+{% endfor %}

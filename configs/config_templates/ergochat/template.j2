@@ -1,0 +1,50 @@
+# Server identification
+server.name: {{ server.name }}
+server.description: {{ server.description }}
+server.network: {{ server.network }}
+server.network_id: {{ server.network_id }}
+
+# Network limits
+limits.max_nick_length: {{ limits.max_nick_length }}
+limits.max_channel_length: {{ limits.max_channel_length }}
+limits.max_topic_length: {{ limits.max_topic_length }}
+limits.max_message_length: {{ limits.max_message_length }}
+limits.max_bans: {{ limits.max_bans }}
+limits.max_modes: {{ limits.max_modes }}
+
+# Network-wide operator (opers) — define as list of operator entries
+{% for op in operators %}
+op:
+  name: {{ op.name }}
+  password_hash: {{ op.password_hash }}
+  type: {{ op.type }}
+  mask: {{ op.mask }}
+  flags: {{ op.flags | join(', ') }}
+{% endfor %}
+
+# Listener configuration (ports/bindings)
+{% for listener in listeners %}
+listener:
+  bind: {{ listener.bind }}
+  port: {{ listener.port }}
+  tls: {{ 'true' if listener.tls else 'false' }}
+  tls_cert: {{ listener.tls_cert }}
+  tls_key: {{ listener.tls_key }}
+{% endfor %}
+
+# SSL/TLS defaults (for clients that omit TLS config)
+tls.enabled: {{ tls.enabled }}
+tls.cert: {{ tls.cert }}
+tls.key: {{ tls.key }}
+
+# Logging
+log.level: {{ log.level }}
+log.format: {{ log.format }}
+log.output: {{ log.output }}
+
+# Advanced server options
+advanced.enable_webirc: {{ 'true' if advanced.enable_webirc else 'false' }}
+advanced.enable_ban_reasons: {{ 'true' if advanced.enable_ban_reasons else 'false' }}
+advanced.enable_sts: {{ 'true' if advanced.enable_sts else 'false' }}
+advanced.sts_duration: {{ advanced.sts_duration }}
+advanced.sts_preload: {{ 'true' if advanced.sts_preload else 'false' }}

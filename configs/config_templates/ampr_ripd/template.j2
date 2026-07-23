@@ -1,0 +1,50 @@
+# ampr-ripd configuration file
+# Runs as root; manages RIP announcements for AMPRnet (44.0.0.0/8) via kernel routing table
+# See: https://github.com/sm0svs/ampr-ripd
+
+# Network interface to use for RIP input/output
+interface {{ interface_name }}
+
+# IP address of this gateway (must be in 44.0.0.0/8, typically 44.x.x.x)
+gateway-ip {{ gateway_ip }}
+
+# Subnet mask (CIDR prefix length) for announcements (e.g., 24 for /24)
+gateway-mask {{ gateway_mask }}
+
+# RIP update interval (seconds) — typical: 30
+timer-update {{ timer_update }}
+
+# RIP hold-down time (seconds) — typical: 180
+timer-hold {{ timer_hold }}
+
+# RIP garbage collection time (seconds) — typical: 120
+timer-gc {{ timer_gc }}
+
+# Enable/disable RIP authentication (MD5 recommended)
+{% if auth_enable %}
+auth-md5 {{ auth_key_id }} {{ auth_secret }}
+{% endif %}
+
+# Disable incoming RIP updates from untrusted sources
+{% if rate_limit_in %}
+rate-limit-in {{ rate_limit_in }}
+{% endif %}
+
+# Announce additional static routes
+{% for route in static_routes %}
+{% if route.comment %}# {{ route.comment }}
+{% endif %}
+route {{ route.network }}/{{ route.prefix }} via {{ route.nexthop }} metric {{ route.metric }}
+{% endfor %}
+
+# Logging configuration
+{% if log_level %}log {{ log_level }}
+{% endif %}
+{% if log_file %}log-file {{ log_file }}
+{% endif %}
+
+# Daemon user/group (drop privileges if not running as root)
+{% if drop_privileges %}
+user {{ daemon_user }}
+group {{ daemon_group }}
+{% endif %}

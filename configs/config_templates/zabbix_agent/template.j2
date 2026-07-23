@@ -1,0 +1,63 @@
+# Server address(es) that are allowed to connect to this agent
+Server={{ server }}
+
+# Comma-separated list of IP addresses (or hostnames) that are allowed to send passive checks
+ServerActive={{ server_active | default(server) }}
+
+# Hostname as registered on the Zabbix server
+Hostname={{ hostname }}
+
+# Enable active checks if true (requires ServerActive)
+{% if enable_active_checks %}EnableActive=1{% else %}EnableActive=0{% endif %}
+
+# Refresh interval (seconds) for active checks list
+RefreshActiveChecks={{ refresh_active_checks }}
+
+# Buffer for sending unsent data (seconds)
+BufferSend={{ buffer_send }}
+
+# Max number of unsent lines in buffer before truncation
+BufferSize={{ buffer_size }}
+
+# Max number of concurrent connections for passive checks
+MaxConnections={{ max_connections }}
+
+# Timeout for agent operations (seconds)
+Timeout={{ timeout }}
+
+# Include additional config files (e.g., userparams.d/*.conf)
+Include={{ include_dir }}/*.conf
+
+# Log level: 0 (basic), 1 (info), 2 (notice), 3 (warning), 4 (error) — default is 1
+LogRemoteCommands={{ log_remote_commands }}
+
+# Enable remote commands execution (disabled by default for security)
+{% if enable_remote_commands %}AllowRemoteCommands=1{% else %}AllowRemoteCommands=0{% endif %}
+
+# Enable TLS support (requires Zabbix >= 5.0)
+{% if tls_enable %}
+TLSConnect=psk
+TLSAccept=psk
+TLSPSKIdentity={{ psk_identity }}
+TLSPSKFile={{ psk_file }}
+{% endif %}
+
+# Custom user parameters (if any) — defined via user_parameters list
+{% for up in user_parameters %}
+{% if up.enabled | default(true) %}
+# {{ up.name }}: {{ up.description | default('Custom user parameter') }}
+UserParameter={{ up.key }},{{ up.command }}
+{% endif %}
+{% endfor %}
+
+# Optional: Debug level (0–5); only enable temporarily for troubleshooting
+{% if debug_level is defined %}DebugLevel={{ debug_level }}{% endif %}
+
+# Optional: Listen port (default: 10050)
+ListenPort={{ listen_port }}
+
+# Optional: Listen IP (default: 0.0.0.0); set to 127.0.0.1 to restrict to localhost only
+ListenIP={{ listen_ip }}
+
+# Optional: Start agents (number of pre-forked instances); 1–3 typical
+StartAgents={{ start_agents }}

@@ -1,0 +1,67 @@
+# Hippotat server configuration
+# Base URL for the HTTP server
+base_url = "{{ base_url }}"
+
+# Listen interface (IP or hostname); empty string to listen on all interfaces
+listen = "{{ listen }}"
+
+# TCP port to listen on
+port = {{ port }}
+
+# Maximum simultaneous HTTP connections
+max_connections = {{ max_connections }}
+
+# Maximum response body size (in bytes)
+max_response_size = {{ max_response_size }}
+
+# Enable SSL/TLS? Set to true to enable
+ssl_enabled = {{ ssl_enabled | lower }}
+
+# SSL certificate file path (required if ssl_enabled = true)
+ssl_cert = "{{ ssl_cert }}"
+
+# SSL private key file path (required if ssl_enabled = true)
+ssl_key = "{{ ssl_key }}"
+
+# Client subnet(s) allowed to connect (CIDR notation)
+# Each client subnet is checked against source IP of HTTP request
+{% for subnet in client_subnets %}client_subnet = "{{ subnet }}"
+{% endfor %}
+
+# IP pool (range or CIDR) to assign to clients
+ip_pool = "{{ ip_pool }}"
+
+# DNS server(s) to push to clients (semicolon-separated)
+# Empty to use system default DNS
+{% if dns_servers %}dns_servers = "{{ dns_servers | join('; ') }}"
+{% else %}# dns_servers = ""  # commented out: use system default
+{% endif %}
+
+# Enable logging to syslog?
+syslog_enabled = {{ syslog_enabled | lower }}
+
+# Log level: 'debug', 'info', 'warning', 'error'
+log_level = "{{ log_level }}"
+
+# Path to log file (if syslog_enabled = false)
+log_file = "{{ log_file }}"
+
+# Timeout for HTTP requests (in seconds)
+request_timeout = {{ request_timeout }}
+
+# Number of worker processes (0 = single-process, non-forking mode)
+workers = {{ workers }}
+
+# Path to state file (used for persistence of client IPs, etc.)
+state_file = "{{ state_file }}"
+
+# Enable verbose debugging (very chatty; use only for troubleshooting)
+debug_verbose = {{ debug_verbose | lower }}
+
+# Maximum tunnel MTU (bytes)
+mtu = {{ mtu }}
+
+# Path to the client configuration template (optional, for dynamic client config generation)
+{% if client_config_template %}client_config_template = "{{ client_config_template }}"
+{% else %}# client_config_template = ""  # disabled
+{% endif %}

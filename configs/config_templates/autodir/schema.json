@@ -1,0 +1,230 @@
+{
+  "basedir": {
+    "type": "string",
+    "default": "/home",
+    "description": "Base directory under which home and group directories are created."
+  },
+  "pidfile": {
+    "type": "string",
+    "default": "/var/run/autodir.pid",
+    "description": "Path to the PID file for the autodir daemon."
+  },
+  "loglevel": {
+    "type": "number",
+    "default": 3,
+    "description": "Logging verbosity: 0 = none, 5 = debug. Higher values produce more detail."
+  },
+  "backend": {
+    "type": "string",
+    "default": "ldap",
+    "description": "User/group data source. Choose from: ldap, nis, sql, or local."
+  },
+  "ldap_uri": {
+    "type": "string",
+    "default": "ldap://ldap.example.com",
+    "description": "LDAP server URI (e.g., ldap://host:port or ldaps://host:port). Only used with backend=ldap."
+  },
+  "ldap_base": {
+    "type": "string",
+    "default": "dc=example,dc=com",
+    "description": "Default search base for LDAP. Only used with backend=ldap."
+  },
+  "ldap_binddn": {
+    "type": "string",
+    "default": "",
+    "description": "DN used to bind to LDAP (anonymous if empty). Only used with backend=ldap."
+  },
+  "ldap_bindpw": {
+    "type": "string",
+    "default": "",
+    "description": "Password for LDAP bind DN. Only used with backend=ldap."
+  },
+  "ldap_user_filter": {
+    "type": "string",
+    "default": "(objectClass=posixAccount)",
+    "description": "LDAP filter to match user entries. Only used with backend=ldap."
+  },
+  "ldap_group_filter": {
+    "type": "string",
+    "default": "(objectClass=posixGroup)",
+    "description": "LDAP filter to match group entries. Only used with backend=ldap."
+  },
+  "ldap_user_basedn": {
+    "type": "string",
+    "default": "ou=People",
+    "description": "Base DN for user searches under ldap_base. Only used with backend=ldap."
+  },
+  "ldap_group_basedn": {
+    "type": "string",
+    "default": "ou=Group",
+    "description": "Base DN for group searches under ldap_base. Only used with backend=ldap."
+  },
+  "ldap_attr_uid": {
+    "type": "string",
+    "default": "uid",
+    "description": "LDAP attribute name for the username. Only used with backend=ldap."
+  },
+  "ldap_attr_gid": {
+    "type": "string",
+    "default": "gidNumber",
+    "description": "LDAP attribute name for the group ID. Only used with backend=ldap."
+  },
+  "ldap_attr_homedir": {
+    "type": "string",
+    "default": "homeDirectory",
+    "description": "LDAP attribute name for the home directory path. Only used with backend=ldap."
+  },
+  "nis_domain": {
+    "type": "string",
+    "default": "example.com",
+    "description": "NIS domain name. Only used with backend=nis."
+  },
+  "nis_server": {
+    "type": "string",
+    "default": "",
+    "description": "NIS server hostname/IP. If empty, uses local ypbind. Only used with backend=nis."
+  },
+  "sql_driver": {
+    "type": "string",
+    "default": "postgresql",
+    "description": "SQL driver: postgresql, mysql, sqlite, etc. Only used with backend=sql."
+  },
+  "sql_server": {
+    "type": "string",
+    "default": "localhost",
+    "description": "SQL server hostname or socket path. Only used with backend=sql."
+  },
+  "sql_port": {
+    "type": "number",
+    "default": 5432,
+    "description": "SQL server port. Only used with backend=sql."
+  },
+  "sql_database": {
+    "type": "string",
+    "default": "accounts",
+    "description": "SQL database name. Only used with backend=sql."
+  },
+  "sql_user": {
+    "type": "string",
+    "default": "autodir",
+    "description": "SQL username for authentication. Only used with backend=sql."
+  },
+  "sql_password": {
+    "type": "string",
+    "default": "",
+    "description": "SQL user password. Only used with backend=sql."
+  },
+  "sql_user_table": {
+    "type": "string",
+    "default": "users",
+    "description": "Name of the SQL table storing user info. Only used with backend=sql."
+  },
+  "sql_group_table": {
+    "type": "string",
+    "default": "groups",
+    "description": "Name of the SQL table storing group info. Only used with backend=sql."
+  },
+  "sql_user_query": {
+    "type": "string",
+    "default": "SELECT username, uid, gid, homedir FROM users WHERE username = ?",
+    "description": "SQL query to fetch a user by name. Uses ? as placeholder for username. Only used with backend=sql."
+  },
+  "sql_group_query": {
+    "type": "string",
+    "default": "SELECT groupname, gid FROM groups WHERE groupname = ?",
+    "description": "SQL query to fetch a group by name. Uses ? as placeholder for groupname. Only used with backend=sql."
+  },
+  "passwd_file": {
+    "type": "string",
+    "default": "/etc/passwd",
+    "description": "Path to local passwd file. Only used with backend=local."
+  },
+  "shadow_file": {
+    "type": "string",
+    "default": "/etc/shadow",
+    "description": "Path to local shadow file (optional, used for password expiry checks). Only used with backend=local."
+  },
+  "group_file": {
+    "type": "string",
+    "default": "/etc/group",
+    "description": "Path to local group file. Only used with backend=local."
+  },
+  "mkdir_template": {
+    "type": "string",
+    "default": "mkdir -p %h && chown %u:%g %h && chmod %m %h",
+    "description": "Shell command template used to create and configure directories. Supports %u (username), %h (homedir), %g (groupname), %m (permissions)."
+  },
+  "uid_default": {
+    "type": "number",
+    "default": 1000,
+    "description": "Default UID to assign if lookup fails or is missing (fallback only)."
+  },
+  "gid_default": {
+    "type": "number",
+    "default": 1000,
+    "description": "Default GID to assign if lookup fails or is missing (fallback only)."
+  },
+  "mode_dir": {
+    "type": "string",
+    "default": "0700",
+    "description": "Octal permissions for newly created directories (e.g., '0700')."
+  },
+  "mode_file": {
+    "type": "string",
+    "default": "0644",
+    "description": "Octal permissions for newly created files (e.g., '0644')."
+  },
+  "skeleton_dir": {
+    "type": "string",
+    "default": "/etc/skel",
+    "description": "Source directory for skeleton files to copy into new home directories."
+  },
+  "skeleton_files": {
+    "type": "list",
+    "default": [
+      ".bashrc",
+      ".profile"
+    ],
+    "description": "List of filenames to copy from skeleton_dir to new home directories. Empty list skips copying."
+  },
+  "pre_create": {
+    "type": "string",
+    "default": "",
+    "description": "Shell command to run before directory creation. Use %u to interpolate username."
+  },
+  "post_create": {
+    "type": "string",
+    "default": "",
+    "description": "Shell command to run after successful directory creation. Use %u to interpolate username."
+  },
+  "max_creates_per_sec": {
+    "type": "number",
+    "default": 5,
+    "description": "Maximum directory creation rate per second to prevent system overload."
+  },
+  "max_creates_per_user_per_min": {
+    "type": "number",
+    "default": 3,
+    "description": "Maximum number of directories that may be created for a single user per minute."
+  },
+  "lookup_timeout": {
+    "type": "number",
+    "default": 10,
+    "description": "Timeout in seconds for user/group lookup (e.g., LDAP/SQL query)."
+  },
+  "create_timeout": {
+    "type": "number",
+    "default": 30,
+    "description": "Timeout in seconds for directory creation (including hooks)."
+  },
+  "reload_on_config_change": {
+    "type": "bool",
+    "default": true,
+    "description": "If true, autodir reloads its configuration without restart when the config file is updated."
+  },
+  "debug": {
+    "type": "bool",
+    "default": false,
+    "description": "If true, run in debug mode: log verbosely and perform dry-run (no actual writes)."
+  }
+}

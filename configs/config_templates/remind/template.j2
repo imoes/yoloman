@@ -1,0 +1,77 @@
+# Configuration file for remind, the calendar and alarm program
+# Path to the server executable
+server_bin: {{ server_bin }}
+
+# Path to the client executable
+client_bin: {{ client_bin }}
+
+# Base directory for remind data files
+base_dir: {{ base_dir }}
+
+# Path to the reminder data file (usually a .rem file)
+rem_file: {{ rem_file }}
+
+# Path to the output log file (optional)
+{% if log_file %}# Log output to this file
+log_file: {{ log_file }}{% endif %}
+
+# Path to PID file for daemon mode
+pid_file: {{ pid_file }}
+
+# Run as this user (daemon mode)
+run_as_user: {{ run_as_user }}
+
+# Run as this group (daemon mode)
+run_as_group: {{ run_as_group }}
+
+# Number of background worker processes (0 = single-process mode)
+workers: {{ workers }}
+
+# Timeout (in seconds) for alarm notifications
+notify_timeout: {{ notify_timeout }}
+
+# Enable or disable background daemon mode
+daemon_mode: {% if daemon_mode %}yes{% else %}no{% endif %}
+
+# Enable or disable verbose logging
+verbose: {% if verbose %}yes{% else %}no{% endif %}
+
+# Enable or disable sound on alarms
+sound_on_alarm: {% if sound_on_alarm %}yes{% else %}no{% endif %}
+
+# Command to play sound (only used if sound_on_alarm is yes)
+{% if sound_on_alarm %}sound_cmd: {{ sound_cmd }}{% endif %}
+
+# Enable or disable pop-up notifications
+popup_on_alarm: {% if popup_on_alarm %}yes{% else %}no{% endif %}
+
+# Command to execute for pop-up (e.g., xmessage, notify-send)
+{% if popup_on_alarm %}popup_cmd: {{ popup_cmd }}{% endif %}
+
+# List of notification channels (e.g., email, desktop, custom command)
+{% for channel in notification_channels %}# Channel: {{ channel.name }}
+{% if channel.type == 'email' %}notify_channel: email {{ channel.recipient }}
+notify_subject: {{ channel.subject }}
+notify_body_template: {{ channel.body_template }}
+{% elif channel.type == 'command' %}notify_channel: command {{ channel.command }}
+{% elif channel.type == 'desktop' %}notify_channel: desktop
+{% endif %}{% endfor %}
+
+# Time zone for calendar interpretation (e.g., UTC, America/New_York)
+timezone: {{ timezone }}
+
+# Default reminder offset before event (in minutes)
+default_offset: {{ default_offset }}
+
+# Enable or disable pre-event reminders (e.g., 'REM 5 BEFORE ...')
+enable_pre_reminders: {% if enable_pre_reminders %}yes{% else %}no{% endif %}
+
+# List of holidays files (optional)
+{% if holidays_files %}# Include these holiday definitions
+{% for hf in holidays_files %}holidays_file: {{ hf }}{% endfor %}
+{% endif %}
+
+# List of script files (optional, for custom logic)
+{% if scripts %}# Include these script files
+{% for sc in scripts %}script_file: {{ sc }}{% endfor %}
+{% endif %}

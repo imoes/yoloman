@@ -1,0 +1,94 @@
+# msmtp configuration file
+# For system-wide use: /etc/msmtprc
+
+# Default account (used if --account is not specified)
+account_default {{ default_account | default('default') }}
+
+# Log file path (optional, set to 'off' to disable logging)
+logfile {{ log_file | default('/var/log/msmtp.log') }}
+
+# Syslog facility for logging (optional, if logfile not set)
+{% if syslog_facility is defined and syslog_facility != '' %}
+syslog {{ syslog_facility }}
+{% endif %}
+
+# TLS settings (recommended for production)
+{% if tls_enabled | default(true) %}
+tls on
+tls_starttls {{ tls_starttls | default(true) }}
+{% if tls_trust_file is defined and tls_trust_file %}
+tls_trust_file {{ tls_trust_file }}
+{% endif %}
+{% if tls_cert_file is defined and tls_cert_file %}
+tls_cert_file {{ tls_cert_file }}
+{% endif %}
+{% if tls_key_file is defined and tls_key_file %}
+tls_key_file {{ tls_key_file }}
+{% endif %}
+{% if tls_nocertcheck | default(false) %}
+tls_nocertcheck on
+{% endif %}
+{% if tls_min_dhparam | default('') %}
+tls_min_dhparam {{ tls_min_dhparam }}
+{% endif %}
+{% if tls_priorities is defined and tls_priorities %}
+tls_priorities {{ tls_priorities }}
+{% endif %}
+{% else %}
+tls off
+{% endif %}
+
+# TLS CA bundle alternative (legacy alias, prefer tls_trust_file above)
+{% if ca_bundle_file is defined and ca_bundle_file and tls_trust_file is not defined %}
+tls_ca_cert_file {{ ca_bundle_file }}
+{% endif %}
+
+{% for account in accounts %}
+# Account: {{ account.name }}
+account {{ account.name }}
+host {{ account.host }}
+port {{ account.port }}
+from {{ account.from_addr }}
+{% if account.auth_method == 'login' or account.auth_method == 'plain' or account.auth_method == 'cram-md5' %}
+auth {{ account.auth_method }}
+user {{ account.user | default('') }}
+password {{ account.password | default('') }}
+{% endif %}
+{% if account.tls is defined %}
+{% if account.tls == false %}
+tls off
+{% elif account.tls == true %}
+tls on
+tls_starttls {{ account.tls_starttls | default(true) }}
+{% if account.tls_trust_file is defined and account.tls_trust_file %}
+tls_trust_file {{ account.tls_trust_file }}
+{% endif %}
+{% if account.tls_cert_file is defined and account.tls_cert_file %}
+tls_cert_file {{ account.tls_cert_file }}
+{% endif %}
+{% if account.tls_key_file is defined and account.tls_key_file %}
+tls_key_file {{ account.tls_key_file }}
+{% endif %}
+{% if account.tls_nocertcheck | default(false) %}
+tls_nocertcheck on
+{% endif %}
+{% else %}
+# tls not specified for account; use global setting
+{% endif %}
+{% else %}
+{% endfor %}
+
+# Default fallback: catch-all for accounts not explicitly defined
+{% if catch_all_host is defined and catch_all_from is defined %}
+# Catch-all fallback account (legacy-style single-server config)
+account catchall
+host {{ catch_all_host }}
+port {{ catch_all_port | default(587) }}
+from {{ catch_all_from }}
+{% if catch_all_tls is defined and catch_all_tls == false %}
+tls off
+{% else %}
+tls on
+tls_starttls {{ catch_all_tls_starttls | default(true) }}
+{% endif %}
+{% endif %}

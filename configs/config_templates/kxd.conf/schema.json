@@ -1,0 +1,105 @@
+{
+  "listen_address": {
+    "type": "string",
+    "default": "0.0.0.0",
+    "description": "IP address to bind the kxd API server to."
+  },
+  "listen_port": {
+    "type": "number",
+    "default": 8080,
+    "description": "Port to listen on for the kxd API server."
+  },
+  "paths_work_dir": {
+    "type": "string",
+    "default": "/var/lib/kxd/work",
+    "description": "Directory for temporary job working files (e.g., compiled binaries)."
+  },
+  "paths_state_dir": {
+    "type": "string",
+    "default": "/var/lib/kxd/state",
+    "description": "Directory for persistent state (e.g., job metadata, caches)."
+  },
+  "paths_log_dir": {
+    "type": "string",
+    "default": "/var/log/kxd",
+    "description": "Directory for kxd logs."
+  },
+  "limits_max_memory_mb": {
+    "type": "number",
+    "default": 256,
+    "description": "Maximum memory (in MiB) allowed per sandboxed job."
+  },
+  "limits_max_cpu_time_sec": {
+    "type": "number",
+    "default": 10,
+    "description": "Maximum CPU time (in seconds) allowed per sandboxed job before termination."
+  },
+  "limits_max_open_files": {
+    "type": "number",
+    "default": 32,
+    "description": "Maximum number of open file descriptors allowed per sandboxed job."
+  },
+  "limits_max_processes": {
+    "type": "number",
+    "default": 4,
+    "description": "Maximum number of processes allowed per sandboxed job."
+  },
+  "workers_count": {
+    "type": "number",
+    "default": 4,
+    "description": "Number of worker processes to spawn."
+  },
+  "workers_gc_interval_sec": {
+    "type": "number",
+    "default": 300,
+    "description": "Interval (in seconds) between worker garbage collection cycles."
+  },
+  "security_allow_network": {
+    "type": "bool",
+    "default": false,
+    "description": "Allow sandboxed jobs to access the network. Disable for stricter isolation."
+  },
+  "security_sandbox_fs": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable filesystem sandboxing using mount namespaces or chroot."
+  },
+  "security_allowed_images": {
+    "type": "list",
+    "default": [
+      {
+        "name": "alpine",
+        "path": "/opt/kxd/images/alpine.tar",
+        "read_only": true
+      },
+      {
+        "name": "debian-slim",
+        "path": "/opt/kxd/images/debian.tar",
+        "read_only": true
+      }
+    ],
+    "description": "List of allowed base images for sandboxed jobs. Each entry defines a name, filesystem path, and whether the image is mounted read-only.",
+    "items": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Friendly identifier for the image (used in job specs)."
+        },
+        "path": {
+          "type": "string",
+          "description": "Absolute path to the image archive or rootfs directory."
+        },
+        "read_only": {
+          "type": "bool",
+          "description": "Mount the image read-only. Set to false only for development/debugging."
+        }
+      }
+    }
+  },
+  "log_level": {
+    "type": "string",
+    "default": "info",
+    "description": "Logging verbosity level. Choose from: debug, info, warn, error."
+  }
+}

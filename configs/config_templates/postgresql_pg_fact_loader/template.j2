@@ -1,0 +1,52 @@
+# PostgreSQL Asynchronous Fact Loader Daemon configuration
+# This file controls the behavior of pg_fact_loader, which runs background jobs to build and refresh fact tables in PostgreSQL.
+
+# Database connection settings
+host: {{ db_host }}
+port: {{ db_port }}
+user: {{ db_user }}
+password: {{ db_password }}
+database: {{ db_name }}
+
+# Logging configuration
+log_level: {{ log_level }}
+log_file: {{ log_file }}
+
+# Worker pool settings
+worker_count: {{ worker_count }}
+max_tasks_per_worker: {{ max_tasks_per_worker }}
+task_timeout_seconds: {{ task_timeout_seconds }}
+
+# Polling interval (seconds) between queue checks
+poll_interval_seconds: {{ poll_interval_seconds }}
+
+# Retries and backoff settings
+max_retries: {{ max_retries }}
+retry_delay_seconds: {{ retry_delay_seconds }}
+max_retry_delay_seconds: {{ max_retry_delay_seconds }}
+
+# Fact table definitions (each entry defines a scheduled or on-demand fact table build)
+fact_tables:
+{% for ft in fact_tables %}
+  - name: {{ ft.name }}
+    schema: {{ ft.schema }}
+    table: {{ ft.table }}
+    # SQL query used to build the fact table (typically SELECT ... INTO or INSERT INTO ... SELECT)
+    query: |
+      {{ ft.query | indent(6) | trim }}
+    # Schedule for automatic refresh: cron format (optional; leave empty to disable scheduling)
+    schedule: {{ ft.schedule | default('') | trim | quote }}
+    # Whether to truncate the table before loading (true = full refresh; false = append/update)
+    truncate_before_load: {{ ft.truncate_before_load }}
+    # Optional: tags for grouping/filtering in UI or CLI
+    tags:
+{% for tag in ft.tags %}
+      - {{ tag }}
+{% endfor %}
+{% endfor %}
+
+# Optional: health check endpoint (for monitoring systems)
+monitoring:
+  enabled: {{ monitoring.enabled }}
+  port: {{ monitoring.port }}
+  path: {{ monitoring.path }}

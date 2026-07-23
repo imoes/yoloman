@@ -1,0 +1,125 @@
+{
+  "servers": {
+    "type": "list",
+    "default": [
+      {
+        "host": "pool.ntp.org",
+        "port": 123
+      }
+    ],
+    "description": "List of NTP servers to query for time. Each entry must specify a hostname or IP address; optional port (default 123).",
+    "items": {
+      "host": {
+        "type": "string",
+        "default": "pool.ntp.org",
+        "description": "Hostname or IP address of the NTP server."
+      },
+      "port": {
+        "type": "number",
+        "default": 123,
+        "description": "UDP port of the NTP server (standard NTP port is 123)."
+      },
+      "key_id": {
+        "type": "number",
+        "default": null,
+        "description": "Optional key ID to use for authenticated NTP queries (requires trusted_keys and keys_file)."
+      }
+    }
+  },
+  "interface": {
+    "type": "string",
+    "default": "",
+    "description": "Network interface to bind to for outgoing NTP queries (empty string = bind to all interfaces)."
+  },
+  "logging": {
+    "type": "object",
+    "default": {
+      "verbose": false,
+      "normal": true,
+      "quiet": false,
+      "logfile": ""
+    },
+    "description": "Logging verbosity and optional log file path.",
+    "items": {
+      "verbose": {
+        "type": "bool",
+        "default": false,
+        "description": "Enable detailed logging (all levels)."
+      },
+      "normal": {
+        "type": "bool",
+        "default": true,
+        "description": "Enable standard logging (default)."
+      },
+      "quiet": {
+        "type": "bool",
+        "default": false,
+        "description": "Suppress logging output."
+      },
+      "logfile": {
+        "type": "string",
+        "default": "",
+        "description": "Path to write log file (e.g., '/var/log/sntp.log'). Leave empty to log to syslog only."
+      }
+    }
+  },
+  "offset_limit": {
+    "type": "number",
+    "default": 1.0,
+    "description": "Maximum initial time offset (seconds) to accept before syncing. If the offset exceeds this, sync fails."
+  },
+  "max_samples": {
+    "type": "number",
+    "default": 8,
+    "description": "Maximum number of samples (packets) to exchange per server."
+  },
+  "strict": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable strict mode: reject servers whose reported offset changes drastically between polls."
+  },
+  "leap_smear": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable leap second smearing (gradually adjust time during leap events instead of step change)."
+  },
+  "trusted_keys": {
+    "type": "list",
+    "default": [],
+    "description": "List of key IDs considered trusted for authentication (e.g., [1, 2]). Must match entries in keys file.",
+    "items": {
+      "type": "number",
+      "description": "A numeric key ID."
+    }
+  },
+  "request_key_id": {
+    "type": "number",
+    "default": null,
+    "description": "Key ID used for the request packet (e.g., for symmetric key auth). Requires 'trusted_keys' and 'keys_file'."
+  },
+  "keys_file": {
+    "type": "string",
+    "default": "/etc/ntpsec/ntp.keys",
+    "description": "Path to the file containing symmetric keys (format: keyid MD5 secret). Only needed for authenticated NTP."
+  },
+  "timeout": {
+    "type": "number",
+    "default": 5,
+    "description": "Timeout (seconds) per server before trying next server."
+  },
+  "poll_interval": {
+    "type": "number",
+    "default": 600,
+    "description": "Polling interval (seconds) for periodic background syncs (0 disables periodic sync)."
+  },
+  "burst": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable burst mode: send multiple packets on first contact to reduce latency and improve accuracy."
+  },
+  "initial_delay": {
+    "type": "number",
+    "default": 0,
+    "description": "Delay (seconds) before first synchronization attempt after startup (useful to wait for network)."
+  }
+}

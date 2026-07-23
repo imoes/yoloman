@@ -1,0 +1,113 @@
+# Kamailio main configuration file — core routing and SIP processing
+# Global parameters
+debug = {{ debug_level }}
+log_stderror = {{ log_stderror | lower }}
+log_prefix = "{% raw %}{{msg}}{% endraw %}"
+
+# Memory options
+mem_dump_shared = {{ mem_dump_shared | lower }}
+
+# Listen interfaces
+{% for listener in listeners %}
+listen = {{ listener.protocol }}:{{ listener.address }}:{{ listener.port }}{% if listener.tags %} # tags: {{ listener.tags | join(', ') }}{% endif %}
+{% endfor %}
+
+# aliases for SIP URIs
+{% for alias in aliases %}
+alias = {{ alias }}
+{% endfor %}
+
+# DB connection string — replace with your backend (e.g., MySQL, PostgreSQL)
+db_url = "{{ db_url }}"
+
+# Load modules
+{% for module in modules %}
+modparam("{{ module.name }}", "{{ module.param }}", {{ module.value | string | tojson }})
+{% endfor %}
+
+# Routing blocks — request, reply, and event routes
+route[REQUEST] {
+    # Basic SIP request handling
+    if (!mf_process_maxfwd_header("{{ max_fwd }}")) {
+        sl_send_reply("483", "Too Many Hops");
+        exit;
+    }
+
+    # Record routing for SIP dialog support
+    if (is_method("INVITE|REGISTER|SUBSCRIBE|MESSAGE")) {
+        record_route();
+    }
+
+    # Handle registration
+    if (is_method("REGISTER")) {
+        if (!save("location")) {
+            sl_reply_error();
+        }
+        exit;
+    }
+
+    # Handle incoming INVITE
+    if (is_method("INVITE")) {
+        if (!lookup("location")) {
+            sl_send_reply("404", "Not Found");
+            exit;
+        }
+        # Route to outbound proxy or upstream if needed
+{% for upstream in upstreams %}
+        if ($rU =~ "^{{ upstream.prefix }}") {
+            route(UPSTREAM_{{ upstream.name | upper | replace('-', '_') }});
+            exit;
+        }
+{% endfor %}
+        # Default routing — forward to default gateway
+        forward();
+        exit;
+    }
+
+    # Default: forward other methods
+    route(RELAY);
+}
+
+route[RELAY] {
+    if (!t_relay()) {
+        sl_reply_error();
+    }
+    exit;
+}
+
+{% for upstream in upstreams %}
+route[UPSTREAM_{{ upstream.name | upper | replace('-', '_') }}] {
+    t_on_failure("UPSTREAM_FAIL_{{ upstream.name | upper | replace('-', '_') }}");
+    t_relay_to_upstream();
+}
+{% endfor %}
+
+# Failover routes for upstream gateways
+{% for upstream in upstreams %}
+onreply_route[UPSTREAM_FAIL_{{ upstream.name | upper | replace('-', '_') }}] {
+    if (t_check_status("408|5[0-9][0-9]")) {
+{% for backup in upstream.backups %}
+        if (t_next_failure()) {
+            log("LOG: trying backup {{ backup }} for upstream {{ upstream.name }}\n");
+            t_relay_to("");
+        }
+{% endfor %}
+    }
+}
+{% endfor %}
+
+# Event route for incoming replies (e.g., logging)
+event_route[tm:reply-received] {
+    if ($rs >= 300) {
+        xlog("L_WARN", "Received $rs reply for $rm $ru\n");
+    }
+}
+
+# Statistics and monitoring
+modparam("statistics", "stat_name", "kamailio_stats")
+modparam("statistics", "stat_interval", {{ stats_interval }})
+
+# Authentication (if used)
+{% if auth_enabled %}
+modparam("auth", "auth_db_url", "{{ db_url }}")
+modparam("auth

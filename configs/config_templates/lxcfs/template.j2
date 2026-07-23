@@ -1,0 +1,37 @@
+# Path to the LXCFS binary (must be executable)
+bin_dir = {{ bin_dir }}
+
+# Directory where LXCFS mounts its FUSE filesystem (must exist and be writable by the lxcfs user)
+mount_point = {{ mount_point }}
+
+# User and group to run LXCFS as (usually 'lxcfs' or 'nobody')
+pid_user = {{ pid_user }}
+pid_group = {{ pid_group }}
+
+# PID file location (will be created if it doesn't exist)
+pid_file = {{ pid_file }}
+
+# Number of worker threads for handling I/O (set to 0 for single-threaded, use 1–8 for typical deployments)
+num_threads = {{ num_threads }}
+
+# Enable/disable debugging (0 = off, 1 = on)
+debug = {{ debug }}
+
+# Enable/disable libvirt support (if libvirt integration is used)
+libvirt_support = {{ libvirt_support }}
+
+# Enable/disable cgroupv2 support (required on systemd-based systems using cgroupv2)
+cgroupv2 = {{ cgroupv2 }}
+
+# List of additional bind mounts (each object defines source and target paths)
+{% for mount in bind_mounts %}{{ mount.source }} {{ mount.target }}
+{% endfor %}
+
+# Optional: custom PAM service name (leave empty to use default 'lxcfs')
+pam_service = {{ pam_service }}
+
+# Enable/disable symlink following for /proc (may affect security; usually off)
+follow_symlinks = {{ follow_symlinks }}
+
+# Enable/disable namespace support for user/group ID mapping (requires privileged containers)
+namespace_support = {{ namespace_support }}

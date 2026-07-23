@@ -1,0 +1,111 @@
+[DEFAULT]
+# Logging configuration
+log_file = {{ log_file }}
+log_dir = {{ log_dir }}
+# Enable debug mode
+debug = {{ debug }}
+
+# Worker configuration
+[worker_process_count]
+# Number of worker processes for API service
+workers = {{ workers }}
+
+# Database connection
+[database]
+# Database connection string
+connection = {{ database.connection }}
+
+# Authentication / Identity (Keystone)
+[keystone_authtoken]
+# Auth URI for Keystone
+auth_uri = {{ keystone.auth_uri }}
+# Auth URL for Keystone
+auth_url = {{ keystone.auth_url }}
+# Domain name for admin user
+project_domain_name = {{ keystone.project_domain_name }}
+# Project name for admin user
+project_name = {{ keystone.project_name }}
+# User domain name
+user_domain_name = {{ keystone.user_domain_name }}
+# Username for service user
+username = {{ keystone.username }}
+# Password for service user
+password = {{ keystone.password }}
+# Insecure TLS (disable certificate verification)
+insecure = {{ keystone.insecure }}
+
+# Glance store configuration
+[glance_store]
+# Default filesystem store directory
+stores = {{ glance_store.stores | join(', ') }}
+default_store = {{ glance_store.default_store }}
+filesystem_store_datadir = {{ glance_store.filesystem_store_datadir }}
+{% if glance_store.stores | length > 0 %}
+# Additional store configurations
+{% for store in glance_store.stores %}
+[glance_store:stores.{{ loop.index }}]
+store = {{ store.name }}
+{% if store.endpoint %}
+endpoint = {{ store.endpoint }}
+{% endif %}
+{% if store.username %}
+username = {{ store.username }}
+{% endif %}
+{% if store.password %}
+password = {{ store.password }}
+{% endif %}
+{% if store.project_name %}
+project_name = {{ store.project_name }}
+{% endif %}
+{% if store.auth_url %}
+auth_url = {{ store.auth_url }}
+{% endif %}
+{% if store.container %}
+container = {{ store.container }}
+{% endif %}
+{% endfor %}
+{% endif %}
+
+# Image quota and limits
+[quota]
+# Maximum number of images per project
+images = {{ quota.images }}
+
+# Image cache configuration
+[image_cache]
+# Enable image caching
+enabled = {{ image_cache.enabled }}
+cache_dir = {{ image_cache.cache_dir }}
+max_cache_size = {{ image_cache.max_cache_size }}
+
+# Notification configuration
+[notification]
+# Notification driver
+driver = {{ notification.driver }}
+# Topics for notifications
+topics = {{ notification.topics | join(', ') }}
+
+# Security / SSL
+[ssl]
+# Enable SSL
+enabled = {{ ssl.enabled }}
+certfile = {{ ssl.certfile }}
+keyfile = {{ ssl.keyfile }}
+ca_certs = {{ ssl.ca_certs }}
+
+# API server binding
+[paste_deploy]
+# Flavor for PasteDeploy configuration
+flavor = {{ paste_deploy.flavor }}
+
+# Service credentials for registry (used by glance-scrubber, glance-cache, etc.)
+[service_credentials]
+# Authentication method
+auth_type = {{ service_credentials.auth_type }}
+auth_url = {{ service_credentials.auth_url }}
+username = {{ service_credentials.username }}
+password = {{ service_credentials.password }}
+project_name = {{ service_credentials.project_name }}
+user_domain_name = {{ service_credentials.user_domain_name }}
+project_domain_name = {{ service_credentials.project_domain_name }}
+insecure = {{ service_credentials.insecure }}

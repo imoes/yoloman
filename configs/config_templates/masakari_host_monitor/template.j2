@@ -1,0 +1,84 @@
+[DEFAULT]
+# Logging configuration
+log_dir = /var/log/masakari
+log_file = masakari-host-monitor.log
+
+# Verbosity: DEBUG, INFO, WARNING, ERROR, CRITICAL
+log_level = INFO
+
+# API endpoint for Masakari API service
+masakari_endpoint = http://{{ masakari_api_host }}:{{ masakari_api_port }}
+
+# Authentication parameters for Masakari API
+auth_url = {{ auth_url }}
+project_name = {{ project_name }}
+username = {{ service_user }}
+password = {{ service_password }}
+user_domain_name = {{ user_domain_name }}
+project_domain_name = {{ project_domain_name }}
+
+# Region for OpenStack services
+region_name = {{ region_name }}
+
+# Transport URL for RPC/messaging (e.g., rabbit://user:pass@host:5672/)
+transport_url = {{ transport_url }}
+
+# Path to PID file
+pid_file = /var/run/masakari/masakari-host-monitor.pid
+
+# Enable secure RPC communication (TLS)
+use_ssl = {{ rpc_use_ssl | lower }}
+
+# Host name used for identification (defaults to FQDN if empty)
+host_name = {{ host_name | default('') }}
+
+# Interval (seconds) between host status checks
+monitor_interval = {{ monitor_interval }}
+
+# Time (seconds) to wait before declaring a host as failed
+failure_detection_timeout = {{ failure_detection_timeout }}
+
+# Interval (seconds) to wait before attempting recovery
+recovery_retry_interval = {{ recovery_retry_interval }}
+
+# Maximum number of automatic recovery attempts
+max_recovery_attempts = {{ max_recovery_attempts }}
+
+# Enable/Disable automatic recovery
+auto_recovery = {{ auto_recovery | lower }}
+
+# Enable/Disable sending notifications on host failure
+notification_driver = {{ notification_driver }}
+
+# List of notifications to send; each item defines recipient type and address
+{% for notify in notification_endpoints %}
+# Notification: {{ notify.name }}
+notification_endpoints = {{ notify.type }}:{{ notify.address }}
+{% endfor %}
+
+# Resource type for Masakari host notifications (e.g., Host)
+resource_type = Host
+
+# Segment UUIDs to monitor (comma-separated); empty = all segments
+segment_uuids = {{ segment_uuids | join(', ') }}
+
+# TLS configuration (optional, only if use_ssl=true)
+{% if rpc_use_ssl %}
+# CA certificate for verifying Masakari API
+cafile = {{ cafile | default('') }}
+# Client certificate for mutual TLS
+certfile = {{ certfile | default('') }}
+# Client private key for mutual TLS
+keyfile = {{ keyfile | default('') }}
+# Verify server certificate
+insecure = {{ tls_insecure | lower }}
+{% endif %}
+
+# Health check endpoint (e.g., for self-monitoring)
+health_check_enabled = {{ health_check_enabled | lower }}
+health_check_interval = {{ health_check_interval }}
+health_check_uri = {{ health_check_uri }}
+
+[oslo_concurrency]
+# Path to lock files (used for file-based locking)
+lock_path = /var/lib/masakari/lock

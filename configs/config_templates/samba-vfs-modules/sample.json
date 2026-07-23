@@ -1,0 +1,70 @@
+{
+  "workgroup": "ACME-CORP",
+  "security": "ads",
+  "map_to_guest": "Bad User",
+  "log_file": "/var/log/samba/log.%m",
+  "max_log_size": 10000,
+  "dns_update_enabled": true,
+  "vfs_modules_global": [
+    "recycle",
+    "audit"
+  ],
+  "shares": [
+    {
+      "name": "shared",
+      "path": "/srv/samba/shared",
+      "comment": "General shared folder",
+      "browseable": true,
+      "read_only": false,
+      "create_mask": "0660",
+      "directory_mask": "0770",
+      "force_group": "sharedusers",
+      "vfs_modules": [
+        "recycle"
+      ],
+      "vfs_options": {
+        "recycle": [
+          "repository = .recycle",
+          "keeptree = true",
+          "versions = true",
+          "touch = true",
+          "exclude = *.tmp,*.temp",
+          "exclude_dir = *.cache"
+        ]
+      }
+    },
+    {
+      "name": "archive",
+      "path": "/mnt/archive",
+      "comment": "Read-only archive (e.g., backups)",
+      "browseable": true,
+      "read_only": true,
+      "guest_ok": true,
+      "vfs_modules": [
+        "shadow_copy2"
+      ],
+      "vfs_options": {
+        "shadow_copy2": [
+          "snapdir = .snaps",
+          "excludedir = /tmp",
+          "mode = vertimestamp"
+        ]
+      }
+    },
+    {
+      "name": "private",
+      "path": "/srv/samba/private",
+      "comment": "User-private data (AD-authenticated)",
+      "browseable": false,
+      "read_only": false,
+      "force_user": "%U",
+      "force_group": "domain users",
+      "create_mask": "0600",
+      "directory_mask": "0700"
+    }
+  ],
+  "include_files": [
+    "/etc/samba/smb.conf.ads",
+    "/etc/samba/smb.conf.quota"
+  ]
+}

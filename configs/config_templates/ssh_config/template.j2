@@ -1,0 +1,64 @@
+# SSH client configuration file — global defaults and per-host overrides
+# Host-specific settings are matched in order; first match wins
+Host *
+  # Default connection timeout (seconds)
+  ConnectTimeout {{ connect_timeout }}
+  # Number of authentication attempts before disconnecting
+  PasswordAuthentication {{ password_authentication }}
+  # Use GSSAPI for authentication if available
+  GSSAPIAuthentication {{ gssapi_authentication }}
+  # Preferred key exchange algorithms (space-separated)
+  KexAlgorithms {{ kex_algorithms | join(' ') }}
+  # Preferred ciphers (space-separated)
+  Ciphers {{ ciphers | join(' ') }}
+  # Preferred MACs (space-separated)
+  MACs {{ macs | join(' ') }}
+  # Enable compression (on/off)
+  Compression {{ compression }}
+  # Enable X11 forwarding (on/off)
+  ForwardX11 {{ forward_x11 }}
+  # Enable TCP forwarding (on/off)
+  ForwardAgent {{ forward_agent }}
+  # Identity files (public keys) to try for authentication
+{% for key_file in identity_files %}  IdentityFile {{ key_file }}
+{% endfor %}
+  # Default user if not specified in the command
+{% if default_user %}  User {{ default_user }}
+{% endif %}
+  # Local port forwarding (for dynamic SOCKS proxy)
+{% if dynamic_forward_port %}  DynamicForward *:{{ dynamic_forward_port }}
+{% endif %}
+  # Strict host key checking (yes/no/ask)
+  StrictHostKeyChecking {{ strict_host_key_checking }}
+  # How to handle unknown host keys (accept-new/ask/yes)
+  UpdateHostKeys {{ update_host_keys }}
+  # Keep-alive interval (seconds) to prevent disconnection
+  ServerAliveInterval {{ server_alive_interval }}
+  # Number of keep-alive messages without response before disconnect
+  ServerAliveCountMax {{ server_alive_count_max }}
+  # Log level (QUIET, FATAL, ERROR, INFO, VERBOSE, DEBUG, TRACE)
+  LogLevel {{ log_level }}
+
+# Per-host overrides (example patterns)
+# These are illustrative; real usage may vary
+{% for host_entry in host_entries %}# Host: {{ host_entry.host_pattern }}
+Host {{ host_entry.host_pattern }}
+{% if host_entry.user is defined and host_entry.user %}  User {{ host_entry.user }}
+{% endif %}
+{% if host_entry.hostname is defined and host_entry.hostname %}  HostName {{ host_entry.hostname }}
+{% endif %}
+{% if host_entry.port is defined and host_entry.port %}  Port {{ host_entry.port }}
+{% endif %}
+{% if host_entry.identity_file is defined and host_entry.identity_file %}  IdentityFile {{ host_entry.identity_file }}
+{% endif %}
+{% if host_entry.forward_agent is defined %}  ForwardAgent {{ "yes" if host_entry.forward_agent else "no" }}
+{% endif %}
+{% if host_entry.forward_x11 is defined %}  ForwardX11 {{ "yes" if host_entry.forward_x11 else "no" }}
+{% endif %}
+{% if host_entry.password_auth is defined %}  PasswordAuthentication {{ "yes" if host_entry.password_auth else "no" }}
+{% endif %}
+{% if host_entry.proxy_jump is defined and host_entry.proxy_jump %}  ProxyJump {{ host_entry.proxy_jump }}
+{% endif %}
+{% if host_entry.local_forward is defined and host_entry.local_forward %}  LocalForward {{ host_entry.local_forward }}
+{% endif %}
+{% endfor %}

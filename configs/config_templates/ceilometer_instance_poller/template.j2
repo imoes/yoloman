@@ -1,0 +1,55 @@
+[DEFAULT]
+# Global logging level
+log_level = {{ log_level }}
+
+# Log directory
+log_dir = {{ log_dir }}
+
+# Polling interval in seconds for instance metrics
+polling_interval = {{ polling_interval }}
+
+# Maximum number of worker processes for parallel polling
+workers = {{ workers }}
+
+[api]
+# API endpoint for Ceilometer (telemetry service)
+endpoint = {{ ceilometer_endpoint }}
+
+# Authentication URL
+auth_url = {{ auth_url }}
+
+# Project name for authentication
+project_name = {{ project_name }}
+
+# Username for authentication
+username = {{ username }}
+
+# Password for authentication
+password = {{ password }}
+
+# Region name (optional, leave empty to omit)
+{% if region_name %}
+region_name = {{ region_name }}
+{% endif %}
+
+# Authentication method (e.g., 'password')
+auth_type = {{ auth_type }}
+
+# Insecure TLS (skip certificate verification)
+insecure = {{ insecure }}
+
+[pollsters]
+# List of pollsters to enable (comma-separated)
+enabled_pollsters = {{ enabled_pollsters | join(', ') }}
+
+# Optional per-pollster configuration (loop over pollster-specific settings)
+{% for pollster in pollster_configs %}
+# Pollster: {{ pollster.name }}
+[{{ pollster.section }}]
+# Interval override for {{ pollster.name }} (in seconds)
+polling_interval = {{ pollster.interval }}
+{% endfor %}
+
+[storage]
+# Backend URL for metric storage (e.g., file://, mongodb://, etc.)
+metric_url = {{ metric_url }}

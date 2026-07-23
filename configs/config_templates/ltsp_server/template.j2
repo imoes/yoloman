@@ -1,0 +1,131 @@
+# Default NBD root path for client disk images
+NBD_ROOT={{ nbd_root_path }}
+
+# Enable or disable NBD (Network Block Device) server for thin clients
+NBD_ENABLED={{ nbd_enabled }}
+
+# Default TFTP root directory
+TFTP_ROOT={{ tftp_root_path }}
+
+# Enable or disable TFTP server
+TFTP_ENABLED={{ tftp_enabled }}
+
+# Default DNS domain for LTSP clients
+DNS_DOMAIN={{ dns_domain }}
+
+# Default gateway (router) to assign to clients
+DEFAULT_GATEWAY={{ default_gateway }}
+
+# Enable or disable DHCP server (dnsmasq) for LTSP clients
+DHCP_ENABLED={{ dhcp_enabled }}
+
+# Start IP address for DHCP lease range
+DHCP_START={{ dhcp_start }}
+
+# End IP address for DHCP lease range
+DHCP_END={{ dhcp_end }}
+
+# Default subnet mask (CIDR notation without leading slash, e.g., 24)
+SUBNET_MASK={{ subnet_mask }}
+
+# Primary nameserver (DNS server IP) for clients
+NAMESERVER={{ nameserver }}
+
+# Additional nameservers (comma-separated IP addresses)
+NAMESERVERS={{ nameservers | join(', ') }}
+
+# Default locale to set on client systems
+LOCALE={{ locale }}
+
+# Default keyboard layout for clients
+KEYBOARD={{ keyboard }}
+
+# Default timezone for clients
+TIMEZONE={{ timezone }}
+
+# Enable or disable PulseAudio redirection to clients
+PULSEAUDIO_ENABLED={{ pulseaudio_enabled }}
+
+# Enable or disable Xorg autodetection for clients
+XORG_AUTODETECT={{ xorg_autodetect }}
+
+# List of additional kernel modules to load on clients
+{% for module in client_kernel_modules %}
+# Load kernel module: {{ module }}
+MODULES="{{ client_kernel_modules | join(' ') }}"
+{% endfor %}
+
+# List of packages to install in the client image
+{% for pkg in client_packages %}
+# Install package: {{ pkg }}
+{% endfor %}
+CLIENT_PACKAGES="{{ client_packages | join(' ') }}"
+
+# Path to the LTSP client image (chroot)
+LTSP_IMAGE={{ ltsp_image_path }}
+
+# Enable or disable compression for client images
+LTSP_COMPRESS={{ ltsp_compress }}
+
+# NBD compression type (gzip, lzo, zlib)
+NBD_COMPRESS={{ nbd_compress }}
+
+# Enable or disable local login on thin clients
+LOCAL_LOGIN={{ local_login }}
+
+# Allow root login on clients
+ALLOW_ROOT_LOGIN={{ allow_root_login }}
+
+# Default user session type (e.g., xfce, kde, gnome)
+SESSION_TYPE={{ session_type }}
+
+# Extra kernel parameters for clients
+KERNEL_PARAMS="{{ kernel_params | join(' ') }}"
+
+# Path to LTSP build script overrides (optional)
+{% if ltsp_build_scripts_dir %}
+# Custom build script overrides directory
+LTSP_BUILD_SCRIPTS_DIR={{ ltsp_build_scripts_dir }}
+{% endif %}
+
+# Enable or disable SSH server on client images
+SSH_ENABLED={{ ssh_enabled }}
+
+# Default SSH port for clients (if enabled)
+SSH_PORT={{ ssh_port }}
+
+# Public SSH keys to inject into client images (one per line)
+{% for key in ssh_authorized_keys %}
+# Add SSH key for client root login
+{% endfor %}
+SSH_AUTHORIZED_KEYS="{{ ssh_authorized_keys | join(' ') }}"
+
+# Enable or disable USB device redirection to clients
+USB_REDIRECT_ENABLED={{ usb_redirect_enabled }}
+
+# Enable or disable printer redirection (IPP/Local printing support)
+PRINTER_REDIRECT_ENABLED={{ printer_redirect_enabled }}
+
+# Enable or disable audio redirection (ALSA/PulseAudio over network)
+AUDIO_REDIRECT_ENABLED={{ audio_redirect_enabled }}
+
+# Enable or disable serial port redirection
+SERIAL_REDIRECT_ENABLED={{ serial_redirect_enabled }}
+
+# Enable or disable video hardware acceleration (VAAPI/VDPAU) in clients
+HW_ACCEL_ENABLED={{ hw_accel_enabled }}
+
+# Enable or disable virtual filesystem overlay (for per-user persistence)
+PERSISTENCE_ENABLED={{ persistence_enabled }}
+
+# Path to persistence overlay directory
+PERSISTENCE_ROOT={{ persistence_root_path }}
+
+# Enable or disable automatic image rebuilding on package updates
+AUTO_IMAGE_UPDATE={{ auto_image_update }}
+
+# Enable or disable secure boot (client-side UEFI Secure Boot support)
+SECURE_BOOT_ENABLED={{ secure_boot_enabled }}
+
+# Path to UEFI bootloader for clients
+UEFI_BOOTLOADER={{ uefi_bootloader_path }}

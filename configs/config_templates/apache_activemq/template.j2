@@ -1,0 +1,141 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Configuration for Apache ActiveMQ message broker -->
+<!-- Broker instance name; must be unique in a network of brokers -->
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xsi:schemaLocation="http://www.springframework.org/schema/beans
+                           http://www.springframework.org/schema/beans/spring-beans.xsd">
+
+  <!-- Define the main broker with persistent storage, management, and connectors -->
+  <broker xmlns="http://activemq.apache.org/schema/core" 
+          brokerName="{{ broker_name }}" 
+          dataDirectory="{{ data_directory }}"
+          {
+          {% if enable_statistics %}
+          useJmx="true" statisticsEnabled="true"
+          {% else %}
+          useJmx="false" statisticsEnabled="false"
+          {% endif %}
+          }
+          {
+          {% if enable_plug_ins %}
+          plugins="{% for plugin in plug_ins %}<ref bean="{{ plugin.ref }}"/>{% if not loop.last %},{% endif %}{% endfor %}"
+          {% endif %}
+          }>
+
+    <!-- Management: JMX domain, connector, and authentication -->
+    {% if enable_jmx %}
+    <!-- Expose JMX on localhost:{{ jmx_port }} for local monitoring (e.g., JConsole, VisualVM) -->
+    <managementContext createConnector="true" connectorPort="{{ jmx_port }}" jmxDomainName="{{ jmx_domain }}"/>
+    {% else %}
+    <!-- JMX disabled -->
+    <managementContext createConnector="false"/>
+    {% endif %}
+
+    <!-- Persistence: use KahaDB (default) or alternative (e.g., JDBC) -->
+    <!-- KahaDB stores messages, journal, and index on disk for durability -->
+    <persistenceAdapter>
+      <kahaDB directory="{{ kahadb_directory }}" 
+              journalMaxFileLength="{{ kahadb_journal_max_file_size_mb }}mb"
+              indexCacheSize="{{ kahadb_index_cache_size }}"/>
+    </persistenceAdapter>
+
+    <!-- System usage: limits memory, store, and temp usage -->
+    <!-- Prevents broker from exhausting host resources -->
+    <systemUsage>
+      <systemUsage>
+        <memoryUsage>
+          <memoryUsage percentOfJvmHeap="{{ memory_usage_percent_of_jvm }}" />
+        </memoryUsage>
+        <storeUsage>
+          <storeUsage limit="{{ store_usage_limit_gb }}gb" />
+        </storeUsage>
+        <tempUsage>
+          <tempUsage limit="{{ temp_usage_limit_gb }}gb" />
+        </tempUsage>
+      </systemUsage>
+    </systemUsage>
+
+    <!-- Transport connectors: define endpoints for clients to connect -->
+    <!-- Each connector exposes a protocol and port; clients choose based on protocol need -->
+    <transportConnectors>
+      {% for tc in transport_connectors %}
+      <!-- {{ tc.protocol | upper }} protocol on {{ tc.host }}:{{ tc.port }} -->
+      <transportConnector name="{{ tc.name }}" uri="{{ tc.protocol }}://{{ tc.host }}:{{ tc.port }}?wireFormat.{{ tc.wire_format_opts.join('&wireFormat.') }}"/>
+      {% endfor %}
+    </transportConnectors>
+
+    <!-- Network connectors: for bridging to other brokers (optional) -->
+    {% if network_connectors %}
+    <!-- Connect to upstream brokers via static or dynamic discovery -->
+    <networkConnectors>
+      {% for nc in network_connectors %}
+      <!-- Network connector: {{ nc.name }} → {{ nc.uri }} (dynamicOnly={{ nc.dynamic_only }}, prefetch={{ nc.prefetch }}) -->
+      <networkConnector name="{{ nc.name }}" 
+                        uri="{{ nc.uri }}"
+                        dynamicOnly="{{ nc.dynamic_only }}"
+                        prefetchCount="{{ nc.prefetch }}"
+                        decreaseNetworkConsumerPriority="{{ nc.decrease_priority }}"/>
+      {% endfor %}
+    </networkConnectors>
+    {% endif %}
+
+    <!-- Destination policy: queue/topic-specific behavior (e.g., dead-letter, quotas) -->
+    <destinationPolicy>
+      <policyMap>
+        <policyEntries>
+          {% for entry in destination_policy_entries %}
+          <!-- {{ entry.destination | upper }} policy: {{ entry.type | upper }} queue -->
+          <policyEntry {% if entry.queue %}queue="{{ entry.queue }}"{% endif %}
+                       {% if entry.topic %}topic="{{ entry.topic }}"{% endif %}
+                       {% if entry.gcInactiveDestinations %}gcInactiveDestinations="true"{% endif %}
+                       {% if entry.inactiveTimoutBeforeGC %}inactiveTimoutBeforeGC="{{ entry.inactive_timeout }}"{% endif %}
+                       {% if entry.memoryLimit %}memoryLimit="{{ entry.memory_limit_mb }}mb"{% endif %}
+                       {% if entry.maxEntries %}maxEntries="{{ entry.max_entries }}"{% endif %}
+                       {% if entry.useCache %}useCache="{{ entry.use_cache }}"{% endif %}
+                       {% if entry.expireMessagesPeriod %}expireMessagesPeriod="{{ entry.expire_period_ms }}"{% endif %}
+                       {% if entry.maxProducersToAudit %}maxProducersToAudit="{{ entry.max_producers_audit }}"{% endif %}
+                       {% if entry.maxConsumersToAudit %}maxConsumersToAudit="{{ entry.max_consumers_audit }}"{% endif %}>
+            {% if entry.dead_letter_queue %}
+            <!-- Route expired/unroutable messages to {{ entry.dead_letter_queue }} -->
+            <deadLetterStrategy>
+              <individualDeadLetterStrategy queue="{{ entry.dead_letter_queue }}"/>
+            </deadLetterStrategy>
+            {% endif %}
+            {% if entry.dispatchPolicy %}
+            <!-- Consumer dispatch policy for load balancing or fair ordering -->
+            <dispatchPolicy>
+              <{{ entry.dispatch_policy | replace('>', '').replace('<', '') | lower }}/>
+            </dispatchPolicy>
+            {% endif %}
+          </policyEntry>
+          {% endfor %}
+        </policyEntries>
+      </policyMap>
+    </destinationPolicy>
+
+    <!-- Authentication/authorization (optional) -->
+    {% if enable_auth %}
+    <!-- Authentication via simple login module and authorization via access control -->
+    <plugins>
+      <!-- Login configuration (e.g., users.properties) -->
+      <jaasAuthenticationPlugin configuration="activemq" />
+      <!-- Authorization rules -->
+      <authorizationPlugin>
+        <map>
+          <authorizationMap>
+            {% for rule in auth_rules %}
+            <!-- {{ rule.type | upper }}: {{ rule.group }} → {{ rule.permissions | join(', ') }} -->
+            <authorizationEntry {% if rule.topic %}topic="{{ rule.topic }}"{% endif %}
+                                {% if rule.queue %}queue="{{ rule.queue }}"{% endif %}
+                                read="{{ rule.read | join(', ') }}"
+                                write="{{ rule.write | join(', ') }}"
+                                admin="{{ rule.admin | join(', ') }}"/>
+            {% endfor %}
+          </authorizationMap>
+        </map>
+      </authorizationPlugin>
+    </plugins>
+    {% endif %}
+  </broker>
+</beans>

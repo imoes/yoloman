@@ -1,0 +1,414 @@
+{
+  "listeners": {
+    "type": "list",
+    "default": [
+      {
+        "port": 5222,
+        "module": "ejabberd_c2s",
+        "ip": "0.0.0.0",
+        "starttls": true,
+        "tls_cert": "\"/etc/ejabberd/server.pem\"",
+        "access": "c2s",
+        "shaper": "c2s_shaper"
+      }
+    ],
+    "description": "List of XMPP listener ports with binding configuration (clients, S2S, admin, etc.).",
+    "items": {
+      "port": {
+        "type": "number",
+        "default": 5222,
+        "description": "TCP port to listen on."
+      },
+      "module": {
+        "type": "string",
+        "default": "ejabberd_c2s",
+        "description": "Module to handle connections on this port (e.g., ejabberd_c2s, ejabberd_s2s_in)."
+      },
+      "ip": {
+        "type": "string",
+        "default": "0.0.0.0",
+        "description": "IP address to bind to (e.g., 0.0.0.0, 127.0.0.1, or IPv6)."
+      },
+      "comment": {
+        "type": "string",
+        "default": "",
+        "description": "Optional comment describing this listener (shown in config)."
+      },
+      "starttls": {
+        "type": "boolean",
+        "default": true,
+        "description": "Require STARTTLS for client connections."
+      },
+      "tls_cert": {
+        "type": "string",
+        "default": "\"/etc/ejabberd/server.pem\"",
+        "description": "Path to TLS certificate file (PEM format)."
+      },
+      "max_stanza_size": {
+        "type": "number",
+        "default": 65536,
+        "description": "Maximum stanza (message) size in bytes."
+      },
+      "shaper": {
+        "type": "string",
+        "default": "c2s_shaper",
+        "description": "Name of shaper (rate limiter) applied to connections on this port."
+      },
+      "access": {
+        "type": "string",
+        "default": "c2s",
+        "description": "Access rule name to apply to connections."
+      },
+      "protocol_options": {
+        "type": "list",
+        "default": [],
+        "description": "List of TLS protocol options (e.g., no_sslv3, high_cert_verification)."
+      },
+      "vhost": {
+        "type": "string",
+        "default": "",
+        "description": "Virtual host (hostname) this listener is for (if different from global hosts)."
+      }
+    }
+  },
+  "log_path": {
+    "type": "string",
+    "default": "/var/log/ejabberd",
+    "description": "Directory where ejabberd writes log files."
+  },
+  "log_level": {
+    "type": "string",
+    "default": "info",
+    "description": "Logging verbosity: debug, info, warning, error, or none."
+  },
+  "auth_method": {
+    "type": "string",
+    "default": "internal",
+    "description": "Authentication backend: internal, sql, ldap, oauth, or http."
+  },
+  "sql": {
+    "type": "object",
+    "default": {
+      "type": "postgresql",
+      "server": "localhost",
+      "database": "ejabberd",
+      "username": "ejabberd",
+      "password": "secret"
+    },
+    "description": "SQL database connection parameters (used only if auth_method=sql).",
+    "items": {
+      "type": {
+        "type": "string",
+        "default": "postgresql",
+        "description": "Database driver (e.g., postgresql, mysql)."
+      },
+      "server": {
+        "type": "string",
+        "default": "localhost",
+        "description": "Database host or socket path."
+      },
+      "database": {
+        "type": "string",
+        "default": "ejabberd",
+        "description": "Database name."
+      },
+      "username": {
+        "type": "string",
+        "default": "ejabberd",
+        "description": "Database user name."
+      },
+      "password": {
+        "type": "string",
+        "default": "secret",
+        "description": "Database user password."
+      },
+      "port": {
+        "type": "number",
+        "default": 5432,
+        "description": "TCP port for SQL connection (if needed)."
+      },
+      "pool_size": {
+        "type": "number",
+        "default": 10,
+        "description": "Maximum number of concurrent DB connections."
+      },
+      "timeout": {
+        "type": "number",
+        "default": 30,
+        "description": "Connection timeout in seconds."
+      }
+    }
+  },
+  "hosts": {
+    "type": "list",
+    "default": [
+      "localhost"
+    ],
+    "description": "List of hostnames this server will serve (XMPP domains)."
+  },
+  "modules": {
+    "type": "object",
+    "default": {
+      "muc": {
+        "language": "en"
+      },
+      "admin": {
+        "access": "admin"
+      },
+      "private": {},
+      "roster": {}
+    },
+    "description": "Module configuration map \u2014 keys are module names (e.g., muc, pubsub), values are per-module settings.",
+    "items": {
+      "muc": {
+        "type": "object",
+        "default": {
+          "language": "en",
+          "max_user_sessions": 10,
+          "max_stanza_size": 65536
+        },
+        "description": "Multi-User Chat (MUC) module settings.",
+        "items": {
+          "language": {
+            "type": "string",
+            "default": "en",
+            "description": "Default MUC room language (ISO 639-1 code)."
+          },
+          "max_user_sessions": {
+            "type": "number",
+            "default": 10,
+            "description": "Maximum number of rooms a user may join simultaneously."
+          },
+          "max_stanza_size": {
+            "type": "number",
+            "default": 65536,
+            "description": "Maximum stanza size for MUC traffic."
+          },
+          "shaper": {
+            "type": "string",
+            "default": "muc_shaper",
+            "description": "Shaper applied to MUC traffic."
+          },
+          "access": {
+            "type": "string",
+            "default": "muc",
+            "description": "Access rule for room creation."
+          },
+          "muc_room_lock_timeout": {
+            "type": "number",
+            "default": 0,
+            "description": "Seconds before a room auto-locks if no occupants join."
+          },
+          "muc_max_occupants": {
+            "type": "number",
+            "default": 200,
+            "description": "Max occupants per MUC room."
+          },
+          "muc_room_default_public": {
+            "type": "boolean",
+            "default": true,
+            "description": "New rooms public by default?"
+          },
+          "muc_room_default_persistent": {
+            "type": "boolean",
+            "default": true,
+            "description": "New rooms persistent by default?"
+          },
+          "muc_room_default_anonymous": {
+            "type": "boolean",
+            "default": true,
+            "description": "New rooms allow anonymous occupants by default?"
+          }
+        }
+      }
+    }
+  },
+  "cron_tasks": {
+    "type": "list",
+    "default": [],
+    "description": "List of scheduled tasks for ejabberd-mod-cron \u2014 each runs a command at a cron-like schedule.",
+    "items": {
+      "schedule": {
+        "type": "string",
+        "default": "0 3 * * *",
+        "description": "Cron schedule (5 fields: minute hour day-of-month month day-of-week)."
+      },
+      "command": {
+        "type": "string",
+        "default": "\"ejabberdctl backup /var/lib/ejabberd/backup\"",
+        "description": "Command to execute (must be quoted and executable by ejabberd)."
+      },
+      "comment": {
+        "type": "string",
+        "default": "Daily backup",
+        "description": "Optional description of the task."
+      },
+      "user": {
+        "type": "string",
+        "default": "ejabberd",
+        "description": "Unix user to run the command as (optional)."
+      }
+    }
+  },
+  "shapers": {
+    "type": "object",
+    "default": {
+      "c2s_shaper": {
+        "max_rate": 1024
+      },
+      "s2s_shaper": {
+        "max_rate": 4096
+      },
+      "admin": {
+        "max_rate": 512
+      }
+    },
+    "description": "Shaper definitions \u2014 rate limiters by name.",
+    "items": {
+      "max_rate": {
+        "type": "number",
+        "default": 1024,
+        "description": "Max rate in bytes per second."
+      },
+      "burst": {
+        "type": "number",
+        "default": 0,
+        "description": "Burst size in bytes (0 = unlimited)."
+      }
+    }
+  },
+  "acls": {
+    "type": "object",
+    "default": {
+      "admin": [
+        "user:admin@localhost",
+        "ip:127.0.0.1"
+      ],
+      "loopback": [
+        "ip:127.0.0.0/8"
+      ]
+    },
+    "description": "Access control lists (ACLs) \u2014 define rules (user, ip, domain).",
+    "items": {
+      "admin": {
+        "type": "list",
+        "default": [
+          "user:admin@localhost"
+        ],
+        "description": "ACL rule entries for this group."
+      }
+    }
+  },
+  "access": {
+    "type": "object",
+    "default": {
+      "c2s": [
+        "deny",
+        "allow"
+      ],
+      "admin": [
+        "allow:admin"
+      ]
+    },
+    "description": "Named access rules \u2014 references ACLs and apply order-based allow/deny logic.",
+    "items": {
+      "c2s": {
+        "type": "list",
+        "default": [
+          "deny",
+          "allow"
+        ],
+        "description": "Access control list entries (order matters)."
+      }
+    }
+  },
+  "admins": {
+    "type": "list",
+    "default": [
+      {
+        "user": "admin",
+        "ip": "127.0.0.1"
+      }
+    ],
+    "description": "Administrators allowed to use the Web admin API ( ejabberd_web_admin ).",
+    "items": {
+      "user": {
+        "type": "string",
+        "default": "admin",
+        "description": "Jabber ID (bare JID) of admin user."
+      },
+      "ip": {
+        "type": "string",
+        "default": "127.0.0.1",
+        "description": "Permitted source IP address (supports CIDR)."
+      }
+    }
+  },
+  "tcp_ports": {
+    "type": "list",
+    "default": [
+      5222,
+      5269,
+      5443,
+      5280
+    ],
+    "description": "List of ports to bind for TCP listeners (in addition to those defined in 'listeners')."
+  },
+  "inet6": {
+    "type": "boolean",
+    "default": false,
+    "description": "Enable IPv6 support globally."
+  },
+  "listen_ipv4": {
+    "type": "list",
+    "default": [],
+    "description": "Explicit IPv4 addresses to bind to (if not using '0.0.0.0')."
+  },
+  "listen_ipv6": {
+    "type": "list",
+    "default": [],
+    "description": "Explicit IPv6 addresses to bind to."
+  },
+  "s2s_use_starttls": {
+    "type": "boolean",
+    "default": true,
+    "description": "Require STARTTLS for server-to-server (S2S) connections."
+  },
+  "s2s_ports": {
+    "type": "list",
+    "default": [
+      5269
+    ],
+    "description": "Ports to listen on for incoming S2S connections."
+  },
+  "s2s_certfile": {
+    "type": "string",
+    "default": "\"/etc/ejabberd/server.pem\"",
+    "description": "Certificate file (PEM) for S2S TLS."
+  },
+  "s2s_timeout": {
+    "type": "number",
+    "default": 45,
+    "description": "Timeout in seconds for S2S connection handshake."
+  },
+  "dump_path": {
+    "type": "string",
+    "default": "/var/lib/ejabberd/dump",
+    "description": "Directory for database dump files (used by backup/restore)."
+  },
+  "backup_path": {
+    "type": "string",
+    "default": "/var/lib/ejabberd/backup",
+    "description": "Directory for backup files."
+  },
+  "default_tls_options": {
+    "type": "list",
+    "default": [
+      "no_sslv3",
+      "no_tlsv1",
+      "no_tlsv1_1",
+      "high_cert_verification"
+    ],
+    "description": "Global TLS protocol options."
+  }
+}

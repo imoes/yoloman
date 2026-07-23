@@ -1,0 +1,630 @@
+{
+  "director": {
+    "type": "object",
+    "default": {
+      "name": "BaculaDir",
+      "port": 9101,
+      "query_file": "/etc/bacula/scripts/query.sql",
+      "working_directory": "/var/lib/bacula",
+      "pid_directory": "/run/bacula",
+      "max_concurrent_jobs": 20,
+      "password": "secret-dir-password",
+      "acl_enabled": false
+    },
+    "description": "Director (bacula-dir) core settings. Controls the backup orchestration engine.",
+    "items": {
+      "name": {
+        "type": "string",
+        "default": "BaculaDir",
+        "description": "Unique name for this Director."
+      },
+      "port": {
+        "type": "number",
+        "default": 9101,
+        "description": "TCP port for Director service (must match FD/SD password config)."
+      },
+      "query_file": {
+        "type": "string",
+        "default": "/etc/bacula/scripts/query.sql",
+        "description": "Path to SQL file used for interactive queries."
+      },
+      "working_directory": {
+        "type": "string",
+        "default": "/var/lib/bacula",
+        "description": "Working directory for Director (jobs, state files, etc.)."
+      },
+      "pid_directory": {
+        "type": "string",
+        "default": "/run/bacula",
+        "description": "Directory to store PID file."
+      },
+      "max_concurrent_jobs": {
+        "type": "number",
+        "default": 20,
+        "description": "Maximum number of concurrent backup/restoration jobs."
+      },
+      "address": {
+        "type": "string",
+        "default": "0.0.0.0",
+        "description": "IP address the Director listens on. Set to specific IP to bind."
+      },
+      "acl_enabled": {
+        "type": "bool",
+        "default": false,
+        "description": "Enable Access Control Lists for job restrictions."
+      }
+    }
+  },
+  "catalog": {
+    "type": "object",
+    "default": {
+      "name": "MyCatalog",
+      "db_name": "bacula",
+      "db_user": "bacula",
+      "db_password": "secret-db-password",
+      "db_driver": "postgresql"
+    },
+    "description": "Database catalog storing backup metadata. Required for job tracking.",
+    "items": {
+      "name": {
+        "type": "string",
+        "default": "MyCatalog",
+        "description": "Catalog name (referenced by other resources)."
+      },
+      "db_name": {
+        "type": "string",
+        "default": "bacula",
+        "description": "Name of the database."
+      },
+      "db_user": {
+        "type": "string",
+        "default": "bacula",
+        "description": "Database user with access to the catalog."
+      },
+      "db_password": {
+        "type": "string",
+        "default": "secret-db-password",
+        "description": "Password for database user."
+      },
+      "db_port": {
+        "type": "number",
+        "default": 5432,
+        "description": "Database port (omit for default)."
+      },
+      "db_host": {
+        "type": "string",
+        "default": "localhost",
+        "description": "Database host (omit for default socket)."
+      },
+      "db_driver": {
+        "type": "string",
+        "default": "postgresql",
+        "enum": [
+          "postgresql",
+          "mysql",
+          "sqlite3"
+        ],
+        "description": "Database backend driver."
+      }
+    }
+  },
+  "messages": {
+    "type": "object",
+    "default": {
+      "mail_host": "localhost",
+      "from_address": "bacula@example.com",
+      "admin_email": "admin@example.com",
+      "log_file": "/var/log/bacula/bacula.log"
+    },
+    "description": "How the Director sends notifications (email, log files).",
+    "items": {
+      "mail_host": {
+        "type": "string",
+        "default": "localhost",
+        "description": "SMTP server host for outgoing mail."
+      },
+      "from_address": {
+        "type": "string",
+        "default": "bacula@example.com",
+        "description": "Sender email address for notifications."
+      },
+      "admin_email": {
+        "type": "string",
+        "default": "admin@example.com",
+        "description": "Recipient email address for alerts (e.g., 'all, !skipped' notifications)."
+      },
+      "log_file": {
+        "type": "string",
+        "default": "/var/log/bacula/bacula.log",
+        "description": "Path to append log messages."
+      }
+    }
+  },
+  "schedules": {
+    "type": "list",
+    "default": [
+      {
+        "name": "Daily",
+        "runs": [
+          {
+            "day_of_week": "Sun",
+            "time": "01:05"
+          }
+        ]
+      }
+    ],
+    "description": "Define automated job schedules (when to run backups).",
+    "items": {
+      "type": "object",
+      "items": {
+        "name": {
+          "type": "string",
+          "default": "Daily",
+          "description": "Unique schedule name."
+        },
+        "comment": {
+          "type": "string",
+          "default": "",
+          "description": "Optional description."
+        },
+        "runs": {
+          "type": "list",
+          "default": [
+            {
+              "day_of_week": "Sun",
+              "time": "01:05"
+            }
+          ],
+          "description": "List of daily runs.",
+          "items": {
+            "type": "object",
+            "items": {
+              "day_of_week": {
+                "type": "string",
+                "default": "Sun",
+                "enum": [
+                  "Sun",
+                  "Mon",
+                  "Tue",
+                  "Wed",
+                  "Thu",
+                  "Fri",
+                  "Sat"
+                ],
+                "description": "Day of week (for weekly jobs)."
+              },
+              "time": {
+                "type": "string",
+                "default": "01:05",
+                "pattern": "^\\d{2}:\\d{2}$",
+                "description": "Run time in HH:MM format."
+              },
+              "comment": {
+                "type": "string",
+                "default": "",
+                "description": "Comment for this run."
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "filesets": {
+    "type": "list",
+    "default": [],
+    "description": "FileSet resources define *what* files to include/exclude in backups.",
+    "items": {
+      "type": "object",
+      "items": {
+        "name": {
+          "type": "string",
+          "default": "AllFiles",
+          "description": "Unique FileSet name."
+        },
+        "comment": {
+          "type": "string",
+          "default": "",
+          "description": "Optional description."
+        },
+        "enable_checksum": {
+          "type": "bool",
+          "default": false,
+          "description": "Compute file checksums for integrity verification."
+        },
+        "includes": {
+          "type": "list",
+          "default": [
+            {
+              "paths": [
+                "/"
+              ],
+              "options": [
+                "Compression=GZIP",
+                "IgnoreFileSize"
+              ]
+            }
+          ],
+          "items": {
+            "type": "object",
+            "items": {
+              "paths": {
+                "type": "list",
+                "default": [
+                  "/"
+                ],
+                "items": {
+                  "type": "string"
+                },
+                "description": "List of paths to include (e.g., ['/home', '/etc'])."
+              },
+              "options": {
+                "type": "list",
+                "default": [],
+                "items": {
+                  "type": "string"
+                },
+                "description": "Options like 'Compression=GZIP', 'Signature=MD5', etc."
+              },
+              "comment": {
+                "type": "string",
+                "default": "",
+                "description": "Comment for this include block."
+              }
+            }
+          }
+        },
+        "excludes": {
+          "type": "list",
+          "default": [
+            {
+              "paths": [
+                "/proc",
+                "/sys",
+                "/tmp"
+              ],
+              "options": [
+                "WildcardDir = /tmp/*"
+              ]
+            }
+          ],
+          "items": {
+            "type": "object",
+            "items": {
+              "paths": {
+                "type": "list",
+                "default": [
+                  "/proc",
+                  "/sys",
+                  "/tmp"
+                ],
+                "items": {
+                  "type": "string"
+                },
+                "description": "Paths to exclude from backup."
+              },
+              "options": {
+                "type": "list",
+                "default": [],
+                "items": {
+                  "type": "string"
+                },
+                "description": "Options like 'WildcardDir = /tmp/*' to exclude patterns."
+              },
+              "comment": {
+                "type": "string",
+                "default": "",
+                "description": "Comment for this exclude block."
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "clients": {
+    "type": "list",
+    "default": [],
+    "description": "Client (File Daemon) resources for hosts being backed up.",
+    "items": {
+      "type": "object",
+      "items": {
+        "name": {
+          "type": "string",
+          "default": "client1-fd",
+          "description": "Client name (must match FD config)."
+        },
+        "comment": {
+          "type": "string",
+          "default": "",
+          "description": "Optional description."
+        },
+        "address": {
+          "type": "string",
+          "default": "client1.example.com",
+          "description": "Hostname or IP of the client."
+        },
+        "fd_port": {
+          "type": "number",
+          "default": 9102,
+          "description": "Port of the client's File Daemon."
+        },
+        "catalog_name": {
+          "type": "string",
+          "default": "",
+          "description": "Catalog name to use (if not default)."
+        },
+        "password": {
+          "type": "string",
+          "default": "client-secret",
+          "description": "Password for authenticating with the client."
+        },
+        "file_retention": {
+          "type": "string",
+          "default": "60 days",
+          "description": "How long files remain in catalog after deletion."
+        },
+        "job_retention": {
+          "type": "string",
+          "default": "6 months",
+          "description": "How long job records remain."
+        },
+        "auto_prune": {
+          "type": "bool",
+          "default": true,
+          "description": "Automatically remove expired records."
+        },
+        "bootstrap_file": {
+          "type": "string",
+          "default": "",
+          "description": "Path to bootstrap file for incremental backups (optional)."
+        }
+      }
+    }
+  },
+  "storages": {
+    "type": "list",
+    "default": [
+      {
+        "name": "FileStorage",
+        "address": "localhost",
+        "sd_port": 9103,
+        "device_name": "FileChgr1",
+        "media_type": "File"
+      }
+    ],
+    "description": "Storage Daemon resources defining backup storage devices.",
+    "items": {
+      "type": "object",
+      "items": {
+        "name": {
+          "type": "string",
+          "default": "FileStorage",
+          "description": "Storage name (must match SD config)."
+        },
+        "comment": {
+          "type": "string",
+          "default": "",
+          "description": "Optional description."
+        },
+        "address": {
+          "type": "string",
+          "default": "localhost",
+          "description": "Hostname or IP of Storage Daemon."
+        },
+        "sd_port": {
+          "type": "number",
+          "default": 9103,
+          "description": "Port of Storage Daemon."
+        },
+        "password": {
+          "type": "string",
+          "default": "storage-secret",
+          "description": "Password for authenticating with Storage Daemon."
+        },
+        "device_name": {
+          "type": "string",
+          "default": "FileChgr1",
+          "description": "Device name defined in SD config."
+        },
+        "media_type": {
+          "type": "string",
+          "default": "File",
+          "enum": [
+            "File",
+            "DVD",
+            "Tape",
+            "AutoChanger"
+          ],
+          "description": "Media type (must match SD)."
+        },
+        "max_job_concurrency": {
+          "type": "number",
+          "default": 1,
+          "description": "Max concurrent jobs on this storage."
+        },
+        "auto_changer": {
+          "type": "bool",
+          "default": false,
+          "description": "Enable auto-changer support."
+        }
+      }
+    }
+  },
+  "pools": {
+    "type": "list",
+    "default": [
+      {
+        "name": "Default",
+        "pool_type": "Backup",
+        "recycle": true,
+        "auto_prune": true,
+        "volume_retention": "365 days",
+        "max_volume_bytes": "50G",
+        "label_format": "Vol-"
+      }
+    ],
+    "description": "Pool resources define volume reuse and retention policies.",
+    "items": {
+      "type": "object",
+      "items": {
+        "name": {
+          "type": "string",
+          "default": "Default",
+          "description": "Pool name (referenced by Job resources)."
+        },
+        "comment": {
+          "type": "string",
+          "default": "",
+          "description": "Optional description."
+        },
+        "pool_type": {
+          "type": "string",
+          "default": "Backup",
+          "enum": [
+            "Backup",
+            "Archive",
+            "Catalog"
+          ],
+          "description": "Pool type."
+        },
+        "recycle": {
+          "type": "bool",
+          "default": true,
+          "description": "Allow reuse of volumes (with auto-labeling)."
+        },
+        "auto_prune": {
+          "type": "bool",
+          "default": true,
+          "description": "Automatically prune expired volumes."
+        },
+        "volume_retention": {
+          "type": "string",
+          "default": "365 days",
+          "description": "Retention period for volumes (e.g., '30 days', '1 year')."
+        },
+        "max_volume_bytes": {
+          "type": "string",
+          "default": "50G",
+          "description": "Maximum size per volume (e.g., '10G', '1T')."
+        },
+        "max_volumes": {
+          "type": "number",
+          "default": 100,
+          "description": "Max number of volumes in pool."
+        },
+        "label_format": {
+          "type": "string",
+          "default": "Vol-",
+          "description": "Prefix for auto-labeled volumes."
+        },
+        "volume_use_duration": {
+          "type": "string",
+          "default": "24 hours",
+          "description": "Max time a volume can be in use before rotation (e.g., '12 hours')."
+        },
+        "max_job_duration": {
+          "type": "string",
+          "default": "168 hours",
+          "description": "Max duration per job on this pool (e.g., '7 days')."
+        },
+        "pool_id": {
+          "type": "number",
+          "default": 1,
+          "description": "Pool ID (for database consistency)."
+        }
+      }
+    }
+  },
+  "jobs": {
+    "type": "list",
+    "default": [
+      {
+        "name": "BackupClient1",
+        "job_type": "Backup",
+        "client_name": "client1-fd",
+        "fileset_name": "AllFiles",
+        "schedule_name": "Daily",
+        "storage_name": "FileStorage",
+        "pool_name": "Default"
+      }
+    ],
+    "description": "Job resources define specific backup/restoration tasks.",
+    "items": {
+      "type": "object",
+      "items": {
+        "name": {
+          "type": "string",
+          "default": "BackupClient1",
+          "description": "Unique job name."
+        },
+        "comment": {
+          "type": "string",
+          "default": "",
+          "description": "Optional description."
+        },
+        "job_type": {
+          "type": "string",
+          "default": "Backup",
+          "enum": [
+            "Backup",
+            "Restore",
+            "Admin",
+            "Verify"
+          ],
+          "description": "Job type."
+        },
+        "client_name": {
+          "type": "string",
+          "default": "client1-fd",
+          "description": "Client (FD) to backup from."
+        },
+        "fileset_name": {
+          "type": "string",
+          "default": "AllFiles",
+          "description": "FileSet defining files to backup."
+        },
+        "schedule_name": {
+          "type": "string",
+          "default": "Daily",
+          "description": "Schedule to run this job (empty for manual jobs)."
+        },
+        "storage_name": {
+          "type": "string",
+          "default": "FileStorage",
+          "description": "Storage Daemon to write to."
+        },
+        "pool_name": {
+          "type": "string",
+          "default": "Default",
+          "description": "Pool to use for storage volumes."
+        },
+        "messages_name": {
+          "type": "string",
+          "default": "Daemon",
+          "description": "Messages resource for notifications."
+        },
+        "priority": {
+          "type": "number",
+          "default": 10,
+          "description": "Priority (1\u2013100). Higher numbers run first."
+        },
+        "full_backup_interval_days": {
+          "type": "number",
+          "default": 7,
+          "description": "Days between full backups (for incremental chains)."
+        },
+        "max_run_schedules": {
+          "type": "number",
+          "default": 1,
+          "description": "Max times job may be scheduled to run."
+        },
+        "write_bootstrap": {
+          "type": "string",
+          "default": "",
+          "description": "Path to write bootstrap file (e.g., '/var/lib/bacula/Client1.bsr')."
+        }
+      }
+    }
+  }
+}

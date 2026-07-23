@@ -1,0 +1,166 @@
+{
+  "servers": {
+    "type": "list",
+    "default": [
+      {
+        "host": "0.pool.ntp.org",
+        "options": [
+          "iburst",
+          "prefer"
+        ]
+      },
+      {
+        "host": "1.pool.ntp.org",
+        "options": [
+          "iburst"
+        ]
+      }
+    ],
+    "description": "List of NTP servers or pools to sync time from. Each entry must specify `host` and may include `options` (e.g., `iburst`, `prefer`). Use `pool: true` to render as a `pool` directive.",
+    "items": {
+      "host": {
+        "type": "string",
+        "required": true,
+        "description": "Hostname or IP address of NTP server/pool"
+      },
+      "options": {
+        "type": "list",
+        "default": [
+          "iburst"
+        ],
+        "description": "List of options (e.g., 'iburst', 'prefer', 'minpoll 4')"
+      },
+      "pool": {
+        "type": "bool",
+        "default": false,
+        "description": "If true, render as 'pool' directive instead of 'server'"
+      },
+      "name": {
+        "type": "string",
+        "default": "",
+        "description": "Optional human-readable name for the entry (used only in comments)"
+      }
+    }
+  },
+  "clients": {
+    "type": "list",
+    "default": [],
+    "description": "List of allowed client subnets. Each entry adds an 'allow' directive.",
+    "items": {
+      "subnet": {
+        "type": "string",
+        "required": true,
+        "description": "Allowed client subnet in CIDR or dotted-quad format (e.g., '192.168.1.0/24')"
+      },
+      "name": {
+        "type": "string",
+        "default": "",
+        "description": "Optional human-readable name for the client rule (used only in comments)"
+      }
+    }
+  },
+  "logging": {
+    "type": "object",
+    "default": {
+      "dir": "/var/log/chrony",
+      "file": "",
+      "levels": [
+        "Changes",
+        "Stats"
+      ]
+    },
+    "description": "Logging configuration.",
+    "items": {
+      "dir": {
+        "type": "string",
+        "default": "/var/log/chrony",
+        "description": "Directory for log files"
+      },
+      "file": {
+        "type": "string",
+        "default": "",
+        "description": "Optional specific log file path. Leave empty for automatic naming."
+      },
+      "levels": {
+        "type": "list",
+        "default": [
+          "Changes",
+          "Stats"
+        ],
+        "description": "Log levels to track. Valid values: 'Statistics', 'Tracking', 'Refclocks', 'Requests', 'Sources', 'Data', 'Commands', 'Leap' (case-insensitive)"
+      }
+    }
+  },
+  "leapsecmode": {
+    "type": "string",
+    "default": "slew",
+    "description": "Leap second handling mode: 'slew' (smooth), 'step' (immediate), or 'adjfreq' (rate adjustment). Use 'slew' for production safety.",
+    "allowed": [
+      "slew",
+      "step",
+      "adjfreq"
+    ]
+  },
+  "leapseconds": {
+    "type": "object",
+    "default": {
+      "timezone": "UTC"
+    },
+    "description": "Leap second source and timezone configuration.",
+    "items": {
+      "timezone": {
+        "type": "string",
+        "default": "UTC",
+        "description": "Timezone used for leap second table (e.g., 'UTC', 'leap-seconds.list' file path)"
+      }
+    }
+  },
+  "initsteps": {
+    "type": "list",
+    "default": [
+      "slew",
+      "0.pool.ntp.org",
+      "1.pool.ntp.org"
+    ],
+    "description": "Initial synchronization steps. Typically ['slew', 'server1', 'server2', ...] for immediate time adjustment on startup."
+  },
+  "makestep": {
+    "type": "object",
+    "default": {
+      "threshold": 1.0
+    },
+    "description": "Allow time stepping if offset exceeds threshold (in seconds). Set threshold > 0 to enable.",
+    "items": {
+      "threshold": {
+        "type": "number",
+        "default": 1.0,
+        "description": "Maximum offset (seconds) before forcing a time step (0 = disable stepping)"
+      }
+    }
+  },
+  "maxsamples": {
+    "type": "number",
+    "default": 10,
+    "description": "Maximum number of samples to keep per source for statistics and smoothing."
+  },
+  "minsamples": {
+    "type": "number",
+    "default": 3,
+    "description": "Minimum number of samples required before a source is considered usable."
+  },
+  "maxdistance": {
+    "type": "number",
+    "default": 16.0,
+    "description": "Maximum distance (in seconds) to accept a synchronization source. Increase for less reliable networks."
+  },
+  "enable_hwtimestamp": {
+    "type": "boolean",
+    "default": false,
+    "description": "Enable hardware timestamping for all network interfaces (requires hardware support and root privileges; disable in sandboxed mode unless needed)."
+  },
+  "ntpsec_compatible": {
+    "type": "boolean",
+    "default": false,
+    "description": "Enable NTPsec-compatible mode (drops privileges more aggressively; may break some legacy features)."
+  }
+}

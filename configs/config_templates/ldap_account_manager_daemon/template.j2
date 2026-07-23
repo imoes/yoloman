@@ -1,0 +1,86 @@
+# Listen address and port for the LAM daemon
+bind_address: {{ daemon.bind_address }}
+port: {{ daemon.port }}
+
+# Path to the PID file
+pid_file: {{ paths.pid_file }}
+
+# Log level: DEBUG, INFO, WARNING, ERROR, CRITICAL
+log_level: {{ daemon.log_level }}
+
+# Log file path (empty for stdout)
+log_file: {{ paths.log_file }}
+
+# Timeout for LDAP operations (seconds)
+ldap_timeout: {{ daemon.ldap_timeout }}
+
+# Enable/Disable SSL/TLS for connections to LDAP server
+ldap_use_tls: {{ daemon.ldap_use_tls | lower }}
+
+# LDAP server URI(s) — comma-separated or space-separated list
+ldap_uris: {{ daemon.ldap_uris | join(', ') }}
+
+# Base DN for user/group searches
+ldap_basedn: {{ ldap.basedn }}
+
+# LDAP bind DN (service account)
+ldap_binddn: {{ ldap.binddn }}
+
+# LDAP bind password — use secure credential store in production
+ldap_bindpw: {{ ldap.bindpw }}
+
+# LDAP schema version (e.g., '2.5', '3')
+ldap_schema_version: {{ ldap.schema_version }}
+
+# Maximum number of concurrent requests
+max_connections: {{ daemon.max_connections }}
+
+# User quota enforcement mode: 'strict', 'soft', 'off'
+quota_mode: {{ quota.mode }}
+
+# Default home directory prefix
+home_dir_prefix: {{ paths.home_dir_prefix }}
+
+# Default shell for new users
+default_shell: {{ users.default_shell }}
+
+# Default UID/GID start offset
+uid_start: {{ users.uid_start }}
+gid_start: {{ users.gid_start }}
+
+# LDAP object classes for users and groups
+user_objectclass: {{ users.user_objectclass }}
+group_objectclass: {{ users.group_objectclass }}
+
+# LDAP attribute mappings
+user_uid_attr: {{ users.uid_attr }}
+user_cn_attr: {{ users.cn_attr }}
+group_cn_attr: {{ users.group_cn_attr }}
+group_member_attr: {{ users.group_member_attr }}
+
+# Optional: LDAP referrals (follow or ignore)
+follow_referrals: {{ ldap.follow_referrals | lower }}
+
+# Optional: SSL/TLS certificate verification (true/false or path to CA cert)
+ldap_tls_cacert: {{ ldap.tls_cacert | default('') }}
+
+# Optional: Custom SASL mechanism (e.g., 'EXTERNAL')
+sasl_mech: {{ ldap.sasl_mech | default('') }}
+
+# Service restart grace period (seconds)
+restart_grace_period: {{ daemon.restart_grace_period }}
+
+# Enable/disable background quota scanning
+quota_scan_enabled: {{ quota.scan_enabled | lower }}
+
+# Quota scan interval (minutes)
+quota_scan_interval: {{ quota.scan_interval }}
+
+# List of groups to exclude from quota management (empty means none)
+{% if quota.excluded_groups %}
+quota_excluded_groups:
+{% for group in quota.excluded_groups %}- {{ group }}
+{% endfor %}
+{% else %}
+quota_excluded_groups: []
+{% endif %}

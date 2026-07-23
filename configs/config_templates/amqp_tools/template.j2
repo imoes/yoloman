@@ -1,0 +1,90 @@
+# AMQP Tools Configuration
+# Global AMQP connection settings (used by all CLI tools)
+[amqp]
+# Hostname or IP address of the AMQP server
+host = {{ amqp_host }}
+# Port number of the AMQP server
+port = {{ amqp_port }}
+# AMQP virtual host path
+vhost = {{ amqp_vhost }}
+# Username for authentication
+user = {{ amqp_user }}
+# Password for authentication (leave empty to prompt or use AMQP_PASSWORD env var)
+password = {{ amqp_password }}
+# Enable TLS/SSL encryption
+use_tls = {{ amqp_use_tls | lower }}
+# Path to CA certificate file (if TLS enabled)
+ca_cert_path = {{ amqp_ca_cert_path }}
+# Path to client certificate file (if TLS client auth required)
+client_cert_path = {{ amqp_client_cert_path }}
+# Path to client private key file (if TLS client auth required)
+client_key_path = {{ amqp_client_key_path }}
+# TLS protocol version (e.g., TLSv1.2, TLSv1.3); empty = default
+protocol_version = {{ amqp_protocol_version | default('') }}
+# Connection timeout in seconds
+connection_timeout = {{ amqp_connection_timeout }}
+# Maximum number of retries for failed operations
+retry_max = {{ amqp_retry_max }}
+# Delay between retries in seconds
+retry_delay = {{ amqp_retry_delay }}
+
+# Optional: default exchange name to use when none provided
+[defaults]
+exchange = {{ default_exchange | default('') }}
+# Default routing key for publish operations
+routing_key = {{ default_routing_key | default('') }}
+# Default message TTL in milliseconds (0 = no TTL)
+default_message_ttl = {{ default_message_ttl }}
+
+# Queue declaration block (one per queue to ensure existence)
+# Example: queue creation at startup (idempotent)
+{% for queue in queues %}
+[queue:{{ queue.name }}]
+# Durable: survives broker restart
+ durable = {{ queue.durable | lower }}
+# Auto-delete: remove when no consumers
+ auto_delete = {{ queue.auto_delete | lower }}
+# Exclusive: only accessible by this connection
+ exclusive = {{ queue.exclusive | lower }}
+# Optional queue arguments (e.g., x-max-length, x-overflow)
+{% if queue.arguments %}
+{% for k, v in queue.arguments.items() %}
+argument.{{ k }} = {{ v }}
+{% endfor %}
+{% endif %}
+{% endfor %}
+
+# Exchange declaration block
+{% for exchange in exchanges %}
+[exchange:{{ exchange.name }}]
+# Type: direct, fanout, topic, headers
+ type = {{ exchange.type }}
+# Durable
+ durable = {{ exchange.durable | lower }}
+# Auto-delete
+ auto_delete = {{ exchange.auto_delete | lower }}
+# Internal: not published to directly (used for routing between exchanges)
+ internal = {{ exchange.internal | lower }}
+{% if exchange.arguments %}
+{% for k, v in exchange.arguments.items() %}
+argument.{{ k }} = {{ v }}
+{% endfor %}
+{% endif %}
+{% endfor %}
+
+# Binding declarations (queue ↔ exchange bindings)
+{% for binding in bindings %}
+[bind:{{ binding.id }}]
+# Source exchange
+ source_exchange = {{ binding.source_exchange }}
+# Target queue
+ target_queue = {{ binding.target_queue }}
+# Routing key (required for direct/topic; optional for fanout)
+ routing_key = {{ binding.routing_key | default('') }}
+# Optional binding arguments
+{% if binding.arguments %}
+{% for k, v in binding.arguments.items() %}
+argument.{{ k }} = {{ v }}
+{% endfor %}
+{% endif %}
+{% endfor %}

@@ -1,0 +1,170 @@
+{
+  "spool_path": {
+    "type": "string",
+    "default": "/var/spool/news",
+    "description": "Root path of the news spool directory."
+  },
+  "etc_path": {
+    "type": "string",
+    "default": "/etc/inn2",
+    "description": "Path to the INN configuration directory."
+  },
+  "bin_path": {
+    "type": "string",
+    "default": "/usr/lib/news/bin",
+    "description": "Path to the INN binary executables."
+  },
+  "lock_path": {
+    "type": "string",
+    "default": "/var/spool/news/locks",
+    "description": "Path to the lock files directory."
+  },
+  "run_path": {
+    "type": "string",
+    "default": "/var/run",
+    "description": "Path to the runtime PID files directory."
+  },
+  "log_path": {
+    "type": "string",
+    "default": "/var/log/news",
+    "description": "Path to the INN log files directory."
+  },
+  "hostname": {
+    "type": "string",
+    "default": "localhost",
+    "description": "Fully qualified hostname of this INN server, used in Message-IDs."
+  },
+  "mailhost": {
+    "type": "string",
+    "default": "localhost",
+    "description": "Mail domain to append to short hostnames when generating Message-IDs."
+  },
+  "max_article_body": {
+    "type": "number",
+    "default": 1000000,
+    "description": "Maximum size (in bytes) of an article body. Set to 0 for unlimited."
+  },
+  "max_article_count": {
+    "type": "number",
+    "default": 100000,
+    "description": "Maximum number of articles in the spool (0 = unlimited)."
+  },
+  "max_group_count": {
+    "type": "number",
+    "default": 50000,
+    "description": "Maximum number of newsgroups allowed."
+  },
+  "max_threads": {
+    "type": "number",
+    "default": 200000,
+    "description": "Maximum number of active threads the server will track."
+  },
+  "max_connections_per_ip": {
+    "type": "number",
+    "default": 10,
+    "description": "Maximum simultaneous INN connections allowed per client IP."
+  },
+  "max_incoming": {
+    "type": "number",
+    "default": 20,
+    "description": "Maximum number of simultaneous incoming (NNTP) connections."
+  },
+  "max_outgoing": {
+    "type": "number",
+    "default": 5,
+    "description": "Maximum number of simultaneous outgoing (peer) connections."
+  },
+  "local_only": {
+    "type": "bool",
+    "default": false,
+    "description": "If true, only accept local (non-networked) connections \u2014 no incoming feeds."
+  },
+  "log_incoming": {
+    "type": "bool",
+    "default": true,
+    "description": "If true, log all incoming connections and commands."
+  },
+  "log_outgoing": {
+    "type": "bool",
+    "default": true,
+    "description": "If true, log all outgoing connections and transfers."
+  },
+  "log_storage": {
+    "type": "bool",
+    "default": true,
+    "description": "If true, log article storage operations."
+  },
+  "log_errors": {
+    "type": "bool",
+    "default": true,
+    "description": "If true, log all errors and warnings to the error log."
+  },
+  "peers": {
+    "type": "list",
+    "default": [],
+    "description": "List of peer news servers for feed exchange.",
+    "items": {
+      "type": "object",
+      "fields": {
+        "name": {
+          "type": "string",
+          "description": "Unique identifier for this peer (e.g., 'usenet-backbone')."
+        },
+        "host": {
+          "type": "string",
+          "description": "Hostname or IP of the peer server."
+        },
+        "user": {
+          "type": "string",
+          "description": "Optional INN user account name to use for authentication to this peer.",
+          "optional": true
+        }
+      }
+    }
+  },
+  "allowed_ips": {
+    "type": "list",
+    "default": [],
+    "description": "List of IP ranges (CIDR notation) allowed to connect as INN clients.",
+    "items": {
+      "type": "string",
+      "description": "IP/CIDR range (e.g., '192.168.0.0/24')."
+    }
+  },
+  "auto_groups": {
+    "type": "list",
+    "default": [],
+    "description": "List of newsgroups to create automatically at startup.",
+    "items": {
+      "type": "object",
+      "fields": {
+        "name": {
+          "type": "string",
+          "description": "Full newsgroup name (e.g., 'comp.infosystems.www')."
+        },
+        "description": {
+          "type": "string",
+          "description": "Human-readable description of the group."
+        },
+        "moderated": {
+          "type": "bool",
+          "description": "If true, group is moderated (newsgroup.{{name}} line will set 'y' flag)."
+        },
+        "default_policy": {
+          "type": "string",
+          "description": "Default access policy: 'y' (yes), 'n' (no), 'm' (moderated), or 'c' (check)."
+        }
+      }
+    }
+  },
+  "storage_method": {
+    "type": "string",
+    "default": "inn",
+    "description": "Storage backend to use. Supported: 'inn', 'storagefile', 'storagelockfile'."
+  },
+  "storage_path": {
+    "type": "string",
+    "default": "/var/spool/news/ideas",
+    "description": "Directory for storage backend files (applies only to file-based storage methods)."
+  }
+}

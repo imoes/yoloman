@@ -1,0 +1,42 @@
+# Upload Manager configuration file
+# Controls how the system handles media uploads (photos, videos, etc.) to cloud services
+
+# Directory where uploads are staged before being sent
+upload_dir: {{ upload_dir }}
+
+# Directory where completed uploads are stored (moved after successful upload)
+completed_dir: {{ completed_dir }}
+
+# Maximum total storage (in bytes) used for pending uploads (0 = unlimited)
+max_upload_size: {{ max_upload_size }}
+
+# Maximum number of concurrent uploads
+max_concurrent_uploads: {{ max_concurrent_uploads }}
+
+# Time to wait (in seconds) before retrying a failed upload
+retry_delay: {{ retry_delay }}
+
+# Maximum number of retries for a single upload
+max_retries: {{ max_retries }}
+
+# Enable background upload (true/false)
+background_upload: {{ background_upload }}
+
+# Enable uploads over metered connections (e.g., mobile data)
+allow_metered: {{ allow_metered }}
+
+# List of cloud services (providers) to support
+# Each entry defines a service with its name, enabled status, and optional custom settings
+providers:
+{% for provider in providers %}  - name: {{ provider.name }}
+    enabled: {{ provider.enabled }}
+{% if provider.account_path %}    account_path: {{ provider.account_path }}{% endif %}
+{% if provider.server_url %}    server_url: {{ provider.server_url }}{% endif %}
+{% if provider.display_name %}    display_name: {{ provider.display_name }}{% endif %}
+{% endfor %}
+
+# Logging verbosity: one of 'DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'
+log_level: {{ log_level }}
+
+# Path to the log file (use '-' for stdout)
+log_file: {{ log_file }}

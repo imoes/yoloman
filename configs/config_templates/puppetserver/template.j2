@@ -1,0 +1,57 @@
+# Main Puppet Server configuration directory
+# This directory contains .conf files in HOCON (Human-Optimized Config Object Notation) format
+# Each .conf file controls a specific subsystem (e.g., ca, auth, webserver)
+# We template only the most commonly customized settings across environments
+# (Note: The real config files are not Jinja2 — we generate valid HOCON files)
+
+# Web server (puppetserver HTTP interface)
+{% if webserver_enabled %}
+webserver:
+  cert-hostname: {{ webserver_cert_hostname | default(puppet_server_hostname) | default('puppet') }}
+{% else %}
+# webserver: disabled
+{% endif %}
+
+# CA (Certificate Authority) service
+{% if ca_enabled %}
+ca:
+  enabled: true
+  ca-name: {{ ca_name | default('Puppet CA: ' + puppet_server_hostname | default('puppet')) }}
+  max-serial-numbers: {{ ca_max_serial_numbers | default(1000000) }}
+{% else %}
+ca:
+  enabled: false
+{% endif %}
+
+# Authorization settings
+authorization:
+  version: 1
+  rules:
+    - name: "puppetlabs services access"
+      match-request:
+        path: "/puppetlabs/services/{% if api_v1_services_enabled %}api{% else %}agent{% endif %}/{% if api_v1_services_enabled %}v1{% else %}v2{% endif %}/"
+      permissions: ["read", "write"]
+      # Allow all authenticated nodes for agent services (default behavior)
+{% for rule in auth_rules %}
+    - name: "{{ rule.name }}"
+      match-request:
+        path: {{ rule.match_request.path | tojson }}
+        method: {{ rule.match_request.method | tojson }}
+      permissions: {{ rule.permissions | tojson }}
+{% if rule.sort_order is defined %}
+      sort-order: {{ rule.sort_order }}
+{% endif %}
+{% endfor %}
+
+# JVM options
+java-opts:
+  - "-Xms{{ jvm_heap_init | default('2g') }}"
+  - "-Xmx{{ jvm_heap_max | default('4g') }}"
+  - "-XX:MaxMetaspaceSize={{ jvm_metaspace_max | default('512m') }}"
+  - "-XX:+UseG1GC"
+
+# JVM system properties
+java-home: {{ jvm_java_home | default('/usr/lib/jvm/java-11-openjdk') }}
+
+# Logging
+log-level: {{ log_level | default('info') }}

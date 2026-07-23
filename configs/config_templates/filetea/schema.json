@@ -1,0 +1,175 @@
+{
+  "listen_address": {
+    "type": "string",
+    "default": "0.0.0.0",
+    "description": "Network interface IP to bind the web server to (e.g., 127.0.0.1 for localhost only, 0.0.0.0 for all interfaces)."
+  },
+  "port": {
+    "type": "number",
+    "default": 8080,
+    "description": "TCP port the web server listens on."
+  },
+  "base_url": {
+    "type": "string",
+    "default": "",
+    "description": "Optional URL prefix for deployment behind a reverse proxy (e.g., '/files' when proxied at https://example.com/files). Leave empty for root deployment."
+  },
+  "https_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable HTTPS/TLS encryption. If true, SSL certificate and key paths must be configured."
+  },
+  "ssl_cert": {
+    "type": "string",
+    "default": "",
+    "description": "Absolute path to the SSL certificate file (PEM format). Required when https_enabled is true."
+  },
+  "ssl_key": {
+    "type": "string",
+    "default": "",
+    "description": "Absolute path to the SSL private key file (PEM format). Required when https_enabled is true."
+  },
+  "max_upload_size_mb": {
+    "type": "number",
+    "default": 100,
+    "description": "Maximum allowed size (in megabytes) for each uploaded file."
+  },
+  "worker_count": {
+    "type": "number",
+    "default": 0,
+    "description": "Number of worker processes. Set to 0 to auto-detect based on CPU cores (recommended for production)."
+  },
+  "upload_temp_dir": {
+    "type": "string",
+    "default": "/tmp/filetea_uploads",
+    "description": "Directory used for temporary file storage during uploads. Ensure it exists and is writable by the service user."
+  },
+  "storage": {
+    "type": "object",
+    "default": {
+      "type": "local",
+      "local": {
+        "path": "/var/lib/filetea/uploads"
+      }
+    },
+    "description": "Configuration for persistent file storage backend.",
+    "items": {
+      "type": "object",
+      "fields": {
+        "type": {
+          "type": "string",
+          "enum": [
+            "local",
+            "s3"
+          ],
+          "default": "local",
+          "description": "Storage backend type."
+        },
+        "local": {
+          "type": "object",
+          "description": "Local filesystem storage settings (used when type = local).",
+          "fields": {
+            "path": {
+              "type": "string",
+              "default": "/var/lib/filetea/uploads",
+              "description": "Absolute path to the directory where uploaded files are stored."
+            }
+          }
+        },
+        "s3": {
+          "type": "object",
+          "description": "Amazon S3-compatible storage settings (used when type = s3).",
+          "fields": {
+            "bucket": {
+              "type": "string",
+              "default": "",
+              "description": "S3 bucket name for file storage."
+            },
+            "region": {
+              "type": "string",
+              "default": "",
+              "description": "AWS region (e.g., 'us-east-1' or custom endpoint region)."
+            },
+            "access_key_id": {
+              "type": "string",
+              "default": "",
+              "description": "S3 access key ID with write permissions to the bucket."
+            },
+            "secret_access_key": {
+              "type": "string",
+              "default": "",
+              "description": "Secret access key for the S3 credentials."
+            }
+          }
+        }
+      }
+    }
+  },
+  "auth": {
+    "type": "object",
+    "default": {
+      "type": "local",
+      "local": {
+        "allow_registration": true
+      }
+    },
+    "description": "Authentication configuration.",
+    "items": {
+      "type": "list",
+      "fields": {
+        "type": "string",
+        "local": {
+          "type": "object",
+          "description": "Local username/password authentication (used when type = local).",
+          "fields": {
+            "allow_registration": {
+              "type": "bool",
+              "default": true,
+              "description": "Whether new users may register themselves (true) or only admins may create accounts (false)."
+            }
+          }
+        },
+        "oauth": {
+          "type": "string",
+          "description": "Token endpoint URL.",
+          "fields": {
+            "providers": {
+              "type": "string",
+              "default": "",
+              "description": "OAuth2 client secret (keep strictly confidential).",
+              "items": {
+                "type": "string",
+                "fields": {
+                  "name": {},
+                  "type": "string",
+                  "default": "",
+                  "description": "Display name for the provider (e.g., 'Google')."
+                },
+                "client_id": {},
+                "default": "",
+                "description": "OAuth2 client ID issued by the provider."
+              },
+              "client_secret": {}
+            },
+            "auth_url": {},
+            "type": "string",
+            "default": "",
+            "description": "Authorization endpoint URL (e.g., 'https://accounts.google.com/o/oauth2/v2/auth')."
+          },
+          "token_url": {},
+          "default": ""
+        },
+        "user_info_url": {},
+        "default": "",
+        "description": "User info endpoint URL to fetch profile details."
+      },
+      "scopes": {},
+      "default": [
+        "openid",
+        "email",
+        "profile"
+      ],
+      "description": "List of OAuth2 scopes to request (e.g., ['openid', 'email'])."
+    }
+  }
+}

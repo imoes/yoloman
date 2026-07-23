@@ -1,0 +1,121 @@
+{
+  "listen_address": {
+    "type": "string",
+    "default": "0.0.0.0",
+    "description": "IP address to bind the HTTP server to (e.g., 127.0.0.1 for localhost only, or 0.0.0.0 for all interfaces)."
+  },
+  "listen_port": {
+    "type": "number",
+    "default": 8080,
+    "description": "TCP port for the HTTP server (must be between 1 and 65535)."
+  },
+  "storage_dir": {
+    "type": "string",
+    "default": "/var/lib/ipgrab",
+    "description": "Directory where captured packets and metadata will be stored on disk."
+  },
+  "max_sessions": {
+    "type": "number",
+    "default": 10,
+    "description": "Maximum number of concurrent capture sessions allowed."
+  },
+  "max_packet_bytes": {
+    "type": "number",
+    "default": 0,
+    "description": "Maximum number of bytes to capture per packet. Set to 0 for unlimited (full packet capture)."
+  },
+  "interfaces": {
+    "type": "list",
+    "default": [
+      "eth0"
+    ],
+    "description": "List of network interfaces to capture traffic on.",
+    "items": {
+      "type": "string",
+      "description": "Network interface name (e.g., eth0, wlp3s0)."
+    }
+  },
+  "log_packets": {
+    "type": "bool",
+    "default": true,
+    "description": "Whether to write raw captured packets to log files."
+  },
+  "log_rotate_size": {
+    "type": "number",
+    "default": 100,
+    "description": "Size (in MB) at which packet logs are rotated."
+  },
+  "log_rotate_count": {
+    "type": "number",
+    "default": 5,
+    "description": "Number of old log files to retain after rotation."
+  },
+  "exclude_ips": {
+    "type": "list",
+    "default": [
+      "127.0.0.0/8",
+      "::1/128"
+    ],
+    "description": "List of IP addresses or CIDR subnets to exclude from capture (e.g., internal loopback ranges).",
+    "items": {
+      "type": "string",
+      "description": "IPv4 or IPv6 address or CIDR subnet."
+    }
+  },
+  "filter_bpf": {
+    "type": "string",
+    "default": "",
+    "description": "Berkeley Packet Filter (BPF) expression to selectively capture traffic (e.g., 'tcp port 80'). Empty means capture all."
+  },
+  "tcp_hosts": {
+    "type": "list",
+    "default": [],
+    "description": "List of TCP services to monitor for connectivity (not part of packet capture, but for active health checks).",
+    "items": {
+      "type": "object",
+      "description": "A TCP host to monitor.",
+      "fields": {
+        "hostname": {
+          "type": "string",
+          "default": "",
+          "description": "Hostname or IP address of the TCP service."
+        },
+        "port": {
+          "type": "number",
+          "default": 0,
+          "description": "TCP port of the service."
+        }
+      }
+    }
+  },
+  "tls_api": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable TLS (HTTPS) for the management API endpoint."
+  },
+  "tls_cert": {
+    "type": "string",
+    "default": "/etc/ipgrab/tls/cert.pem",
+    "description": "Path to the TLS certificate file for the management API."
+  },
+  "tls_key": {
+    "type": "string",
+    "default": "/etc/ipgrab/tls/key.pem",
+    "description": "Path to the TLS private key file for the management API."
+  },
+  "debug": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable verbose debug logging to stdout and logs."
+  },
+  "syslog_facility": {
+    "type": "string",
+    "default": "daemon",
+    "description": "Syslog facility to use when logging to the system journal (e.g., daemon, local0)."
+  },
+  "pid_file": {
+    "type": "string",
+    "default": "/run/ipgrab/ipgrab.pid",
+    "description": "Path to the PID file used to track the main process."
+  }
+}

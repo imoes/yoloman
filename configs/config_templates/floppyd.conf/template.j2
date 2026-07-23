@@ -1,0 +1,51 @@
+# floppyd main configuration file
+# Global settings for floppyd service
+
+# Listen address for the HTTP API
+host: {{ host }}
+
+# Listen port for the HTTP API
+port: {{ port }}
+
+# Path to the floppy disk image cache directory
+cache_dir: {{ cache_dir }}
+
+# Maximum number of concurrent disk operations
+max_concurrent_ops: {{ max_concurrent_ops }}
+
+# Timeout (in seconds) for disk I/O operations
+io_timeout: {{ io_timeout }}
+
+# Enable or disable verbose logging
+verbose: {{ verbose | lower }}
+
+# List of allowed hostnames (comma-separated or one per line)
+# Only requests from these hosts are accepted
+allowed_hosts:
+{% for host in allowed_hosts %}  - {{ host }}
+{% endfor %}
+
+# Optional: Mount options for floppy images
+# If absent, default options are used
+{% if mount_options %}mount_options:
+{% for key, value in mount_options.items() | dict2items %}  {{ key }}: {{ value | lower if value is boolean else value }}
+{% endfor %}
+{% endif %}
+
+# Optional: Rate limiting per client IP
+# Applied only if enabled
+{% if rate_limiting_enabled %}rate_limiting:
+  enabled: true
+  max_requests_per_minute: {{ rate_limit_max_rpm }}
+{% else %}rate_limiting:
+  enabled: false
+{% endif %}
+
+# Optional: TLS configuration
+{% if tls_enabled %}tls:
+  enabled: true
+  cert_file: {{ tls_cert_path }}
+  key_file: {{ tls_key_path }}
+{% else %}tls:
+  enabled: false
+{% endif %}

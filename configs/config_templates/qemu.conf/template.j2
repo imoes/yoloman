@@ -1,0 +1,147 @@
+# Default QEMU configuration overrides for system-wide behavior
+# Set the user under which QEMU processes run (use 'root' only if necessary)
+user = "{{ user }}"
+
+# Set the group under which QEMU processes run
+group = "{{ group }}"
+
+# Enable or disable TLS for QEMU's remote display (VNC/SPICE)
+# Required for secure remote access
+vnc_tls = {{ vnc_tls | lower }}
+
+# VNC listen address (e.g., "127.0.0.1" for localhost only, "0.0.0.0" for all interfaces)
+vnc_listen = "{{ vnc_listen }}"
+
+# SPICE listen address (similar to VNC)
+spice_listen = "{{ spice_listen }}"
+
+# Enable SPICE TLS
+spice_tls = {{ spice_tls | lower }}
+
+# Number of QEMU worker threads for I/O processing
+# Increasing may improve performance on multi-core hosts
+io_threads = {{ io_threads }}
+
+# Enable or disable live migration of VMs
+migration = {{ migration | lower }}
+
+# Migration address (used for incoming migrations)
+migration_address = "{{ migration_address }}"
+
+# Migration port (default: 49152–49215 range)
+migration_port = {{ migration_port }}
+
+# Maximum number of migration ports to use
+migration_ports = {{ migration_ports }}
+
+# Enable or disable automatic resource tuning (e.g., hugepages, NUMA)
+# Set to false to disable all auto-tuning
+auto_memory_tune = {{ auto_memory_tune | lower }}
+
+# Default memory backing mode: "default", "file", "anon", "hugepages"
+memory_backing = "{{ memory_backing }}"
+
+# Paths to use for VM images (comma-separated fallback list)
+# These paths are searched when VMs request storage
+image_paths = [
+{% for path in image_paths %}  "{{ path }}"{% if not loop.last %},{% endif %}
+{% endfor %}]
+
+# Default emulator binary override (e.g., "qemu-system-x86_64")
+# Leave empty to use system default detection
+emulator = "{{ emulator }}"
+
+# Enable or disable seccomp sandboxing
+sandbox = {{ sandbox | lower }}
+
+# Enable or disable use of cgroups for resource control
+use_cgroups = {{ use_cgroups | lower }}
+
+# Maximum number of vCPUs allowed per guest (hard limit)
+max_vcpus = {{ max_vcpus }}
+
+# Default CPU model for guests (e.g., "host-passthrough", "qemu64")
+default_cpu_model = "{{ default_cpu_model }}"
+
+# Enable or disable hotplug for disks and NICs
+hotplug = {{ hotplug | lower }}
+
+# Enable or disable the QEMU monitor on stdio by default
+# Set to false to disable stdio monitor (recommended for systemd service)
+monitor_stdin = {{ monitor_stdin | lower }}
+
+# Set monitor protocol ("json", "human")
+monitor_protocol = "{{ monitor_protocol }}"
+
+# Enable or disable NVMe controller hotplug
+nvme_hotplug = {{ nvme_hotplug | lower }}
+
+# Enable or disable SCSI controller hotplug
+scsi_hotplug = {{ scsi_hotplug | lower }}
+
+# Enable or disable USB controller hotplug
+usb_hotplug = {{ usb_hotplug | lower }}
+
+# Default video model for graphics (e.g., "qxl", "vga", "none")
+default_video_model = "{{ default_video_model }}"
+
+# Enable or disable NUMA auto-allocation
+numa_auto_allocation = {{ numa_auto_allocation | lower }}
+
+# Enable or disable support for UEFI firmware (OVMF/AAVMF)
+uefi_firmware = {{ uefi_firmware | lower }}
+
+# Paths to UEFI firmware binaries (comma-separated list)
+{% for fw in uefi_firmware_paths %}
+# Firmware {{ loop.index }}: {{ fw.description }}
+{% endfor %}
+uefi_firmware_paths = [
+{% for fw in uefi_firmware_paths %}  "{{ fw.path }}"{% if not loop.last %},{% endif %}
+{% endfor %}]
+
+# Enable or disable use of private network namespace for QEMU processes
+netns = {{ netns | lower }}
+
+# Default DNS server for guest VMs (if using user-mode networking)
+default_dns = "{{ default_dns }}"
+
+# Enable or disable automatic bridge creation for user networking
+auto_bridge = {{ auto_bridge | lower }}
+
+# Default bridge name for user networking
+auto_bridge_name = "{{ auto_bridge_name }}"
+
+# Enable or disable use of seccomp filters
+seccomp_sandbox = {{ seccomp_sandbox | lower }}
+
+# Enable or disable the use of vhost-user backends by default
+vhost_user = {{ vhost_user | lower }}
+
+# Default path to vhost-user socket directory
+vhost_user_socket_dir = "{{ vhost_user_socket_dir }}"
+
+# Enable or disable support for trusted execution environment (TEE)
+tee = {{ tee | lower }}
+
+# Enable or disable support for TPM devices
+# Requires libtpms and TPM2 support
+tpm = {{ tpm | lower }}
+
+# Default TPM backend: "emulator", "passthrough", or path to device
+# Note: passthrough requires /dev/tpm* access
+default_tpm_backend = "{{ default_tpm_backend }}"
+
+# Enable or disable live snapshot support
+live_snapshot = {{ live_snapshot | lower }}
+
+# Enable or disable support for block device sharing (shared disk access)
+shared_block = {{ shared_block | lower }}
+
+# Default logging verbosity (0=none, 1=error, 2=info, 3=debug)
+log_level = {{ log_level }}
+
+# Log output destination ("syslog", "file", "stderr")
+log_output = "{{ log_output }}"
+
+# Path to log file (used if log_output = "file")
+log_file = "{{ log_file }}"

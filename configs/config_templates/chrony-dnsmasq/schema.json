@@ -1,0 +1,86 @@
+{
+  "network_cidr": {
+    "type": "string",
+    "default": "192.168.1.0/24",
+    "description": "Local network (CIDR notation) allowed to query NTP from this server."
+  },
+  "upstream_servers": {
+    "type": "list",
+    "default": [
+      {
+        "host": "0.pool.ntp.org"
+      },
+      {
+        "host": "1.pool.ntp.org"
+      },
+      {
+        "host": "2.pool.ntp.org"
+      },
+      {
+        "host": "3.pool.ntp.org"
+      }
+    ],
+    "description": "Public NTP servers to use as time sources. At least 2\u20133 are recommended.",
+    "items": {
+      "host": {
+        "type": "string",
+        "description": "Hostname or IP address of upstream NTP server."
+      }
+    }
+  },
+  "primary_upstream": {
+    "type": "string",
+    "default": "",
+    "description": "Hostname of the preferred upstream server (enables faster initial synchronization). Leave blank to disable makestep tuning."
+  },
+  "log_dir": {
+    "type": "string",
+    "default": "/var/log/chrony",
+    "description": "Directory where Chrony will store logs, measurements, and statistics."
+  },
+  "enable_broadcast": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable broadcast mode so clients can listen for NTP broadcasts (rarely needed in modern setups)."
+  },
+  "dnsmasq_ntp_interfaces": {
+    "type": "list",
+    "default": [
+      "127.0.0.1",
+      "192.168.1.1"
+    ],
+    "description": "Interfaces (IPs) where Chrony will bind for NTP responses, typically including localhost and LAN gateway.",
+    "items": {
+      "type": "string",
+      "description": "IP address (e.g., 127.0.0.1 or 192.168.1.1) to bind NTP service on."
+    }
+  },
+  "restricted_hosts": {
+    "type": "list",
+    "default": [],
+    "description": "List of hostnames or CIDRs to deny NTP access (optional).",
+    "items": {
+      "type": "string",
+      "description": "Host or subnet to deny (e.g., 10.0.0.0/8 or host.example.com)."
+    }
+  },
+  "allowed_hosts": {
+    "type": "list",
+    "default": [],
+    "description": "Additional hosts or subnets explicitly allowed (optional, e.g., for meshed LAN time distribution).",
+    "items": {
+      "type": "string",
+      "description": "Host or subnet to allow (e.g., 192.168.2.0/24)."
+    }
+  },
+  "driftfile_path": {
+    "type": "string",
+    "default": "",
+    "description": "Custom path to the drift file (where Chrony stores clock rate correction). Leave blank for system default."
+  },
+  "keyfile_path": {
+    "type": "string",
+    "default": "",
+    "description": "Custom path to the key file (for NTP authentication). Leave blank if authentication is not used."
+  }
+}

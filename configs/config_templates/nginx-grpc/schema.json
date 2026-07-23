@@ -1,0 +1,107 @@
+{
+  "worker_connections": {
+    "type": "number",
+    "default": 1024,
+    "description": "Maximum number of simultaneous connections per worker process. Increase for high-concurrency deployments."
+  },
+  "keepalive_timeout": {
+    "type": "number",
+    "default": 65,
+    "description": "Timeout (in seconds) for keep-alive connections to upstream gRPC servers."
+  },
+  "stream_upstreams": {
+    "type": "list",
+    "default": [],
+    "description": "List of TCP upstream blocks for raw gRPC (non-HTTP/2) load balancing.",
+    "items": {
+      "type": "object",
+      "fields": {
+        "name": {
+          "type": "string",
+          "required": true,
+          "description": "Unique name of the upstream group."
+        },
+        "servers": {
+          "type": "list",
+          "required": true,
+          "description": "List of backend gRPC servers.",
+          "items": {
+            "type": "object",
+            "fields": {
+              "host": {
+                "type": "string",
+                "required": true,
+                "description": "Hostname or IP of the gRPC backend."
+              },
+              "port": {
+                "type": "number",
+                "required": true,
+                "description": "Port of the gRPC backend."
+              },
+              "options": {
+                "type": "list",
+                "default": [
+                  "weight=1"
+                ],
+                "description": "Server options: e.g., ['weight=5'], ['backup'], ['down']."
+              }
+            }
+          }
+        },
+        "extra_directives": {
+          "type": "list",
+          "default": [],
+          "description": "Additional directives for this upstream block (e.g., 'least_conn;', 'hash $remote_addr consistent;')."
+        }
+      }
+    }
+  },
+  "stream_servers": {
+    "type": "list",
+    "default": [],
+    "description": "List of TCP server blocks to proxy raw gRPC traffic (non-HTTP/2).",
+    "items": {
+      "type": "object",
+      "fields": {
+        "name": {
+          "type": "string",
+          "required": true,
+          "description": "Human-readable identifier for the server block."
+        },
+        "listen": {
+          "type": "object",
+          "required": true,
+          "fields": {
+            "port": {
+              "type": "number",
+              "required": true,
+              "description": "Port to listen on for incoming gRPC traffic."
+            },
+            "options": {
+              "type": "list",
+              "default": [
+                "so_keepalive=on"
+              ],
+              "description": "Listen options: e.g., ['ssl', 'proxy_protocol']."
+            }
+          }
+        },
+        "proxy_timeout": {
+          "type": "number",
+          "default": 60,
+          "description": "Timeout (seconds) for proxy connection to backend."
+        },
+        "proxy_responses": {
+          "type": "number",
+          "default": 1,
+          "description": "Number of responses to read from upstream before acknowledging client (for gRPC this is usually 1)."
+        },
+        "upstream": {
+          "type": "string",
+          "required": true,
+          "description": "Name of the upstream block to proxy to (must match a `stream_upstreams.name`)."
+        }
+      }
+    }
+  }
+}

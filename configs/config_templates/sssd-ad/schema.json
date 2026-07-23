@@ -1,0 +1,79 @@
+{
+  "domains": {
+    "type": "list",
+    "default": [],
+    "description": "List of domain names (e.g., ['example.com']) to configure in SSSD."
+  },
+  "domains_config": {
+    "type": "list",
+    "default": [],
+    "items": {
+      "name": {
+        "type": "string",
+        "default": "",
+        "description": "Domain name (e.g., 'example.com'); must match the realm name and one entry in 'domains'."
+      },
+      "ldap_uri": {
+        "type": "string",
+        "default": "ldap://dc1.example.com ldap://dc2.example.com",
+        "description": "LDAP URIs for domain controllers (space-separated). Prefer ldaps:// for TLS."
+      },
+      "search_base": {
+        "type": "string",
+        "default": "DC=example,DC=com",
+        "description": "Base DN to search for users and groups in Active Directory."
+      },
+      "krb5_realm": {
+        "type": "string",
+        "default": "EXAMPLE.COM",
+        "description": "Kerberos realm name (typically uppercase version of domain)."
+      },
+      "krb5_server": {
+        "type": "string",
+        "default": "dc1.example.com",
+        "description": "Primary KDC/DC hostname for Kerberos operations (can be IP if needed, but hostname is preferred)."
+      },
+      "allow_groups": {
+        "type": "list",
+        "default": null,
+        "description": "Optional list of AD group names (without domain prefix) whose members may log in. If not set, deny_groups or default open access applies."
+      },
+      "deny_groups": {
+        "type": "list",
+        "default": null,
+        "description": "Optional list of AD group names to explicitly deny login access. Mutually exclusive with allow_groups."
+      },
+      "cache_credentials": {
+        "type": "bool",
+        "default": true,
+        "description": "Cache credentials for offline authentication (recommended for laptops/mobile devices)."
+      },
+      "entry_cache_timeout": {
+        "type": "number",
+        "default": 600,
+        "description": "Seconds to cache directory entries. Longer timeouts reduce LDAP queries but may delay group membership changes."
+      },
+      "ldap_referrals": {
+        "type": "bool",
+        "default": false,
+        "description": "Follow LDAP referrals (usually disabled in AD to avoid cross-forest confusion)."
+      },
+      "tls_cacert": {
+        "type": "string",
+        "default": "/etc/pki/tls/certs/ca-bundle.crt",
+        "description": "Path to CA certificate bundle for LDAPS/TLS verification. Set empty string to disable verification (not recommended)."
+      }
+    },
+    "description": "Per-domain configuration blocks. One per domain listed in 'domains'."
+  },
+  "pam_offline_expiration": {
+    "type": "number",
+    "default": 0,
+    "description": "Number of days after which cached credentials expire when offline (0 = never expire)."
+  },
+  "pam_id_disable": {
+    "type": "bool",
+    "default": false,
+    "description": "Disable ID resolution via PAM (e.g., if only authentication is needed)."
+  }
+}

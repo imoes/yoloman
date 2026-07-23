@@ -1,0 +1,128 @@
+{
+  "listeners": {
+    "type": "list",
+    "default": [
+      {
+        "type": "unix",
+        "path": "/run/poolcounter/poolcounter.sock"
+      }
+    ],
+    "description": "List of listening endpoints. Each item specifies 'type' ('unix' or 'tcp'), and either 'path' (for Unix sockets) or 'host' and 'port' (for TCP).",
+    "items": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": [
+            "unix",
+            "tcp"
+          ],
+          "default": "unix",
+          "description": "Socket type: 'unix' (local) or 'tcp' (network)"
+        },
+        "path": {
+          "type": "string",
+          "default": "/run/poolcounter/poolcounter.sock",
+          "description": "Path to Unix domain socket (used when type=unix)",
+          "pattern": "^/.+$",
+          "required": [
+            "type=unix"
+          ]
+        },
+        "host": {
+          "type": "string",
+          "default": "127.0.0.1",
+          "description": "IP address or hostname to bind to (used when type=tcp)",
+          "pattern": "^([0-9]{1,3}\\.){3}[0-9]{1,3}$|^[a-zA-Z0-9.-]+$",
+          "required": [
+            "type=tcp"
+          ]
+        },
+        "port": {
+          "type": "number",
+          "default": 7900,
+          "description": "TCP port to bind to (used when type=tcp)",
+          "minimum": 1,
+          "maximum": 65535,
+          "required": [
+            "type=tcp"
+          ]
+        }
+      }
+    }
+  },
+  "max_backlog": {
+    "type": "number",
+    "default": 128,
+    "description": "Maximum number of pending connections queued per listener socket."
+  },
+  "num_workers": {
+    "type": "number",
+    "default": 0,
+    "description": "Number of worker processes. Set to 0 to auto-detect (recommended for most deployments)."
+  },
+  "max_reqs_per_worker": {
+    "type": "number",
+    "default": 100,
+    "description": "Maximum number of concurrent requests handled per worker process."
+  },
+  "log_level": {
+    "type": "string",
+    "default": "warning",
+    "description": "Minimum severity level for log messages (debug, info, notice, warning, error, crit, alert, emerg)."
+  },
+  "log_dest": {
+    "type": "string",
+    "default": "syslog",
+    "description": "Destination for log output: 'syslog', 'stderr', or a writable file path."
+  },
+  "client_timeout": {
+    "type": "number",
+    "default": 30,
+    "description": "Idle timeout in seconds for client connections. Connections inactive longer than this will be dropped."
+  },
+  "enable_stats": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable or disable the internal statistics HTTP endpoint."
+  },
+  "stats_host": {
+    "type": "string",
+    "default": "127.0.0.1",
+    "description": "Bind address for the stats endpoint (only used when Stats is on).",
+    "pattern": "^([0-9]{1,3}\\.){3}[0-9]{1,3}$|^[a-zA-Z0-9.-]+$",
+    "required": [
+      "enable_stats=true"
+    ]
+  },
+  "stats_port": {
+    "type": "number",
+    "default": 9100,
+    "description": "Port for the stats endpoint (only used when Stats is on).",
+    "minimum": 1,
+    "maximum": 65535,
+    "required": [
+      "enable_stats=true"
+    ]
+  },
+  "unix_socket_perms": {
+    "type": "string",
+    "default": "0660",
+    "description": "Unix file permissions (in octal) for the main socket file (if using Unix sockets)."
+  },
+  "allowed_networks": {
+    "type": "list",
+    "default": [],
+    "description": "List of allowed client networks in CIDR notation (e.g., 10.0.0.0/8). If empty, all clients are allowed.",
+    "items": {
+      "type": "string",
+      "pattern": "^([0-9]{1,3}\\.){3}[0-9]{1,3}/[0-9]{1,2}$|^[0-9]{1,3}\\.([0-9]{1,3}\\.){2}[0-9]{1,3}$",
+      "description": "Allowed IPv4 network or host in CIDR or dotted-decimal notation."
+    }
+  },
+  "pid_file": {
+    "type": "string",
+    "default": "/run/poolcounter/poolcounter.pid",
+    "description": "Optional path to PID lock file for process control."
+  }
+}

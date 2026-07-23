@@ -1,0 +1,61 @@
+{
+  "pin_pages": {
+    "type": "number",
+    "default": 0,
+    "description": "Maximum number of pages to pin in memory per table (0 = no limit). Set to a positive integer to pin up to N pages."
+  },
+  "pin_on_first_access": {
+    "type": "bool",
+    "default": false,
+    "description": "If true, automatically pin a table\u2019s pages in memory on first access (after restart or cache flush)."
+  },
+  "pin_tables": {
+    "type": "list",
+    "default": [],
+    "description": "List of table patterns (schema.table or schema.*) to automatically pin. Supports wildcards like `*`.",
+    "items": {
+      "type": "string",
+      "description": "A table name pattern (e.g., 'public.logs', 'analytics.*') to pin in memory."
+    }
+  },
+  "min_free_memory_mb": {
+    "type": "number",
+    "default": 64,
+    "description": "Minimum free RAM (in MB) that must remain after pinning; prevents system OOM."
+  },
+  "max_pages_per_table": {
+    "type": "number",
+    "default": 0,
+    "description": "Maximum number of pages to pin per table. 0 means no per-table limit."
+  },
+  "log_level": {
+    "type": "string",
+    "default": "LOG",
+    "description": "Log verbosity for pgfincore messages. Options: DEBUG5, DEBUG4, ..., LOG, NOTICE, WARNING, ERROR."
+  },
+  "unpin_on_checkpoint": {
+    "type": "bool",
+    "default": false,
+    "description": "If true, unpin tables after each checkpoint to reduce memory pressure over time."
+  },
+  "exclude_tables": {
+    "type": "list",
+    "default": [],
+    "description": "List of table patterns to *exclude* from automatic pinning, even if matched by pin_tables.",
+    "items": {
+      "type": "string",
+      "description": "A table name pattern (e.g., 'pg_catalog.*, system_logs') to never pin."
+    }
+  },
+  "shared_preload_libraries": {
+    "type": "list",
+    "default": [
+      "pgfincore"
+    ],
+    "description": "PostgreSQL shared libraries to load at startup. Must include 'pgfincore'. Do not remove unless replacing the module.",
+    "items": {
+      "type": "string",
+      "description": "A shared library name (e.g., 'pg_stat_statements', 'pgfincore')."
+    }
+  }
+}

@@ -1,0 +1,74 @@
+{
+  "storage_driver": "elasticsearch",
+  "file_basepath": "/var/lib/gnocchi",
+  "redis_host": "redis.local",
+  "redis_port": 6379,
+  "redis_password": "secret123",
+  "redis_db": 1,
+  "elasticsearch_url": "http://es1:9200,http://es2:9200",
+  "elasticsearch_index_prefix": "metrics_prod",
+  "elasticsearch_number_of_shards": 3,
+  "elasticsearch_number_of_replicas": 1,
+  "ceph_conffile": "/etc/ceph/ceph.conf",
+  "ceph_pool": "metrics",
+  "elasticsearch_verify_ssl": false,
+  "metricd_workers": 4,
+  "metric_processing_timeout": 600,
+  "metrics_per_batch": 2000,
+  "metrics_queue_max": 50000,
+  "retry_attempts": 5,
+  "retry_delay": 2,
+  "log_level": "INFO",
+  "enable_ingestion": true,
+  "keystone_auth_url": "http://keystone.internal:5000/v3",
+  "keystone_project_domain_name": "Default",
+  "keystone_user_domain_name": "Default",
+  "keystone_project_name": "service",
+  "keystone_username": "gnocchi",
+  "keystone_password": "gnocchi_secret_password",
+  "coordination_url": "redis://redis.local:6379/2",
+  "indexer_url": "postgresql://gnocchi:pass@db.local/gnocchi",
+  "archive_policies": [
+    {
+      "name": "low",
+      "back_window": 0,
+      "definition": [
+        "60s:1440",
+        "3600s:720"
+      ],
+      "aggregation_methods": [
+        "mean",
+        "min",
+        "max"
+      ]
+    },
+    {
+      "name": "medium",
+      "back_window": 0,
+      "definition": [
+        "60s:10080",
+        "3600s:8760"
+      ],
+      "aggregation_methods": [
+        "mean",
+        "min",
+        "max",
+        "std"
+      ]
+    },
+    {
+      "name": "high",
+      "back_window": 0,
+      "definition": [
+        "10s:8640",
+        "60s:43200"
+      ],
+      "aggregation_methods": [
+        "mean",
+        "min",
+        "max",
+        "sum"
+      ]
+    }
+  ]
+}

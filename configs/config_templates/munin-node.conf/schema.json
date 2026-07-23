@@ -1,0 +1,131 @@
+{
+  "main": {
+    "type": "object",
+    "description": "Core daemon settings",
+    "properties": {
+      "logfile": {
+        "type": "string",
+        "default": "/var/log/munin/munin-node.log",
+        "description": "Path to the munin-node log file"
+      },
+      "pid_file": {
+        "type": "string",
+        "default": "/var/run/munin/munin-node.pid",
+        "description": "Path to the PID file"
+      },
+      "port": {
+        "type": "number",
+        "default": 4949,
+        "description": "TCP port the munin-node listens on"
+      },
+      "host_name": {
+        "type": "string",
+        "default": "{{ ansible_fqdn | default('localhost') }}",
+        "description": "Hostname this node identifies itself as to the munin-master"
+      },
+      "timeout": {
+        "type": "number",
+        "default": 30,
+        "description": "Connection timeout in seconds"
+      },
+      "allow": {
+        "type": "list",
+        "default": [
+          "127\\.0\\.0\\.1",
+          "^192\\.168\\.1\\."
+        ],
+        "description": "List of allowed client IP patterns (regex, anchors: ^...$)",
+        "items": {
+          "type": "string"
+        }
+      },
+      "deny": {
+        "type": "list",
+        "default": [],
+        "description": "Optional list of denied IP patterns (regex, anchors: ^...$)",
+        "items": {
+          "type": "string"
+        }
+      }
+    }
+  },
+  "plugins": {
+    "type": "list",
+    "default": [
+      {
+        "name": "df",
+        "env": {
+          "mount": "/var,/tmp,/home,/srv,/boot"
+        }
+      },
+      {
+        "name": "memory",
+        "env": {}
+      },
+      {
+        "name": "cpu",
+        "env": {}
+      }
+    ],
+    "description": "List of standard plugins with optional environment variables"
+  },
+  "plugin_groups": {
+    "type": "list",
+    "default": [
+      {
+        "name": "processes",
+        "description": "Per-user process counts",
+        "env": {
+          "user": "root, munin"
+        }
+      }
+    ],
+    "description": "Groups of plugins (e.g., multi-instance plugins like processes)"
+  },
+  "plugin_rules": {
+    "type": "list",
+    "default": [],
+    "description": "Optional per-plugin-instance overrides"
+  },
+  "tls": {
+    "type": "object",
+    "description": "TLS/SSL configuration for encrypted communication (optional)",
+    "properties": {
+      "enabled": {
+        "type": "boolean",
+        "default": false,
+        "description": "Enable TLS encryption"
+      },
+      "key_file": {
+        "type": "string",
+        "default": "/etc/munin/munin-node.key",
+        "description": "Path to private key file"
+      },
+      "cert_file": {
+        "type": "string",
+        "default": "/etc/munin/munin-node.crt",
+        "description": "Path to certificate file"
+      },
+      "ca_file": {
+        "type": "string",
+        "default": "",
+        "description": "Optional path to CA bundle for client cert verification (empty = no verification)"
+      }
+    }
+  },
+  "user": {
+    "type": "string",
+    "default": "munin",
+    "description": "User under which the munin-node daemon runs"
+  },
+  "group": {
+    "type": "string",
+    "default": "munin",
+    "description": "Group under which the munin-node daemon runs"
+  },
+  "plugins_dir": {
+    "type": "string",
+    "default": "/usr/share/munin/plugins",
+    "description": "Directory containing munin plugins"
+  }
+}

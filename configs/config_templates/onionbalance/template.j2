@@ -1,0 +1,56 @@
+# OnionBalance global configuration
+# Enables verbose logging for debugging and monitoring
+{% if debug %}debug: true
+{% else %}debug: false
+{% endif %}
+
+# Path to the Tor control socket (usually via local Tor instance)
+tor_control_socket: {{ tor_control_socket }}
+
+# Directory where OnionBalance stores persistent state and descriptors
+state_directory: {{ state_directory }}
+
+# Base directory for descriptor files (if using file-based storage)
+descriptor_directory: {{ descriptor_directory }}
+
+# List of hidden services managed by this OnionBalance instance
+{% for service in services %}
+# Service: {{ service.hostname }}
+services:
+  - hostname: {{ service.hostname }}
+    version: {{ service.version }}
+    {% if service.private_key %}private_key: |
+{{ service.private_key | indent(4) }}{% endif %}
+    {% if service.v3_public_key %}v3_public_key: {{ service.v3_public_key }}
+    {% endif %}
+    {% if service.authorized_clients %}# Clients authorized to upload descriptors
+    authorized_clients:
+      {% for client in service.authorized_clients %}  - client_name: {{ client.client_name }}
+      {% if client.client_key %}    client_key: |
+{{ client.client_key | indent(6) }}{% endif %}
+      {% if client.v3_auth_key %}    v3_auth_key: {{ client.v3_auth_key }}
+      {% endif %}
+      {% endfor %}
+    {% endif %}
+    {% if service.backends %}# Backend instances (onion addresses + weights)
+    backends:
+      {% for backend in service.backends %}  - address: {{ backend.address }}
+      {% if backend.weight is defined %}    weight: {{ backend.weight }}
+      {% else %}    weight: 1
+      {% endif %}
+      {% endfor %}
+    {% endif %}
+{% endfor %}
+
+# Network-level settings
+# Maximum number of concurrent descriptor uploads to Tor
+max_upload_threads: {{ max_upload_threads }}
+
+# Timeout (seconds) for descriptor uploads
+upload_timeout: {{ upload_timeout }}
+
+# How often (in seconds) to poll backend health and update descriptors
+heartbeat_interval: {{ heartbeat_interval }}
+
+# Number of descriptors to keep per service (for backward compatibility)
+num_descriptors: {{ num_descriptors }}

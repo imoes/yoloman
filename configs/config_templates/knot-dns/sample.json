@@ -1,0 +1,97 @@
+{
+  "worker_count": "auto",
+  "max_pending": 2048,
+  "max_tcp_connections": 200,
+  "tcp_idle_timeout": 60,
+  "edns_payload_size": 1232,
+  "dnssec_support": true,
+  "extended_errors": true,
+  "listen_addrs": [
+    {
+      "address": "0.0.0.0",
+      "port": 53,
+      "proto": "both"
+    },
+    {
+      "address": "::",
+      "port": 53,
+      "proto": "both"
+    },
+    {
+      "address": "192.0.2.10",
+      "port": 53,
+      "interface": "eth0"
+    }
+  ],
+  "doh_endpoints": [
+    {
+      "address": "0.0.0.0",
+      "port": 443,
+      "tls_certificate_path": "/etc/knot/tls/fullchain.pem",
+      "tls_key_path": "/etc/knot/tls/privkey.pem",
+      "http_host": "dns.example.com"
+    }
+  ],
+  "dot_endpoints": [
+    {
+      "address": "0.0.0.0",
+      "port": 853,
+      "tls_certificate_path": "/etc/knot/tls/fullchain.pem",
+      "tls_key_path": "/etc/knot/tls/privkey.pem"
+    }
+  ],
+  "acls": [
+    {
+      "id": "all",
+      "addresses": [
+        "0.0.0.0/0",
+        "::/0"
+      ],
+      "action": "allow",
+      "log": true
+    }
+  ],
+  "zones": [
+    {
+      "domain": "example.com",
+      "data_path": "/var/lib/knot/example.com.zone",
+      "storage_backend": "file",
+      "zonefile_format": "ascii",
+      "signing": {
+        "algorithm": 13,
+        "ksk_size": 2048,
+        "zsk_size": 1024,
+        "ksk_lifetime": 365,
+        "zsk_lifetime": 90,
+        "dnskey_ttl": 3600,
+        "soa_ttl": 86400,
+        "nsec3_iterations": 100,
+        "nsec3_salt_length": 8,
+        "nsec3_opt_out": false
+      }
+    },
+    {
+      "domain": "example.net",
+      "data_path": "/var/lib/knot/example.net.zone",
+      "storage_backend": "file",
+      "signing": {
+        "algorithm": 13,
+        "ksk_lifetime": 730,
+        "zsk_lifetime": 180
+      }
+    }
+  ],
+  "log_targets": [
+    {
+      "type": "file",
+      "path": "/var/log/knot/knot.log",
+      "levels": "notice,info,error"
+    },
+    {
+      "type": "console",
+      "levels": "error,warning"
+    }
+  ],
+  "stats_socket_path": "/run/knot/knot.sock",
+  "stats_interval": 60
+}

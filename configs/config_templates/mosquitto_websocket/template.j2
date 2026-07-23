@@ -1,0 +1,45 @@
+# WebSocket listener configuration for Mosquitto
+listener 1883 {{ websocket_port }}
+
+# Allow unencrypted WebSocket connections (use with caution — consider TLS in production)
+protocol websockets
+
+# Bind to all interfaces; change to a specific IP if needed
+bind {{ websocket_bind_address }}
+
+# Maximum number of simultaneous WebSocket connections
+max_connections {{ max_websocket_connections }}
+
+# Enable WebSocket keep-alive (in seconds) to detect dead connections
+websocket_keepalive {{ websocket_keepalive }}
+
+# WebSocket idle timeout (in seconds) before closing inactive connections
+websocket_idle_timeout {{ websocket_idle_timeout }}
+
+{% if enable_tls %}
+# TLS/SSL configuration for secure WebSocket (wss://)
+tls_version {{ tls_version }}
+tls_cert_file {{ tls_cert_file }}
+tls_key_file {{ tls_key_file }}
+{% if tls_ca_file %}
+tls_ca_file {{ tls_ca_file }}
+{% endif %}
+{% endif %}
+
+# Optional: Require authentication for WebSocket clients
+{% if require_auth %}
+allow_anonymous false
+password_file {{ password_file }}
+{% else %}
+allow_anonymous {{ allow_anonymous | lower }}
+{% endif %}
+
+# Logging
+daemon false
+log_type all
+log_dest file {{ log_file }}
+
+# Persistence (optional — adjust path if needed)
+persistence true
+persistence_location {{ persistence_dir }}
+persistence_file mosquitto.db

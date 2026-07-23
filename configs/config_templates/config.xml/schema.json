@@ -1,0 +1,284 @@
+{
+  "ui.enabled": {
+    "type": "boolean",
+    "default": true,
+    "description": "Enable the web UI. When disabled, the web interface will not be served."
+  },
+  "ui.show_tooltips": {
+    "type": "boolean",
+    "default": true,
+    "description": "Show tooltips in the web UI for additional help."
+  },
+  "accounts.enabled": {
+    "type": "boolean",
+    "default": false,
+    "description": "Enable basic authentication for the web UI."
+  },
+  "accounts.list": {
+    "type": "list",
+    "default": [],
+    "description": "List of username/password pairs for UI access. Each must be unique and non-empty.",
+    "items": {
+      "type": "object",
+      "fields": {
+        "user": {
+          "type": "string",
+          "default": "",
+          "description": "Username"
+        },
+        "password": {
+          "type": "string",
+          "default": "",
+          "description": "Password (stored in plaintext in config if not hashed externally)"
+        }
+      }
+    }
+  },
+  "sessions.enabled": {
+    "type": "boolean",
+    "default": true,
+    "description": "Enable session management for logged-in users."
+  },
+  "sessions.timeout": {
+    "type": "number",
+    "default": 60,
+    "description": "Session timeout in minutes. After this time, inactive sessions will be discarded."
+  },
+  "network.hostname": {
+    "type": "string",
+    "default": "",
+    "description": "Optional hostname to advertise in UPnP. If empty, system hostname is used."
+  },
+  "network.ip": {
+    "type": "string",
+    "default": "0.0.0.0",
+    "description": "IP address to bind the HTTP server to. Use 0.0.0.0 for all interfaces."
+  },
+  "network.port": {
+    "type": "number",
+    "default": 8080,
+    "description": "HTTP port for the web UI and UPnP control points."
+  },
+  "network.udn": {
+    "type": "string",
+    "default": "uuid:{{ random_uuid() }}",
+    "description": "Unique Device Name (UUID) for this Gerbera instance. Leave blank to auto-generate."
+  },
+  "network.home": {
+    "type": "string",
+    "default": "",
+    "description": "Path to the home directory. Required if not default."
+  },
+  "network.webroot": {
+    "type": "string",
+    "default": "",
+    "description": "Path to the web UI files. Usually auto-detected. Set only if non-standard."
+  },
+  "transcoding.enabled": {
+    "type": "boolean",
+    "default": false,
+    "description": "Enable external transcoding support (e.g., for video formats unsupported by clients)."
+  },
+  "transcoding.profiles": {
+    "type": "list",
+    "default": [],
+    "description": "List of transcoding profiles. Each defines how a given mimetype is transcoded.",
+    "items": {
+      "type": "object",
+      "fields": {
+        "mimetype": {
+          "type": "string",
+          "default": "video/x-matroska",
+          "description": "Source mimetype to transcode"
+        },
+        "profile": {
+          "type": "string",
+          "default": "ffmpeg",
+          "description": "Name of the transcoding profile"
+        },
+        "enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable this profile"
+        },
+        "command": {
+          "type": "string",
+          "default": "ffmpeg",
+          "description": "Command to invoke (e.g., 'ffmpeg')"
+        },
+        "args": {
+          "type": "string",
+          "default": "-i %in -c:v libx264 -preset fast -c:a aac -f matroska -",
+          "description": "Command-line arguments. Use %in for input file, %out optional for stdout handling"
+        },
+        "buffer_size": {
+          "type": "number",
+          "default": 1048576,
+          "description": "Total buffer size in bytes"
+        },
+        "chunk_size": {
+          "type": "number",
+          "default": 65536,
+          "description": "Read/write chunk size in bytes"
+        },
+        "fill_size": {
+          "type": "number",
+          "default": 524288,
+          "description": "Buffer fill threshold before streaming starts"
+        }
+      }
+    }
+  },
+  "db.engine": {
+    "type": "string",
+    "default": "sqlite3",
+    "description": "Database engine. 'sqlite3' is lightweight and self-contained; 'mysql' for larger libraries or shared infrastructure."
+  },
+  "db.sqlite.path": {
+    "type": "string",
+    "default": "/var/lib/gerbera",
+    "description": "Directory for SQLite database files (gerbera.db, gerbera.tmp, etc.)."
+  },
+  "db.mysql.host": {
+    "type": "string",
+    "default": "localhost",
+    "description": "MySQL server hostname or IP."
+  },
+  "db.mysql.port": {
+    "type": "number",
+    "default": 3306,
+    "description": "MySQL port."
+  },
+  "db.mysql.username": {
+    "type": "string",
+    "default": "gerbera",
+    "description": "MySQL username for Gerbera."
+  },
+  "db.mysql.password": {
+    "type": "string",
+    "default": "",
+    "description": "Password for MySQL user. Stored in config file \u2014 ensure secure file permissions."
+  },
+  "db.mysql.database": {
+    "type": "string",
+    "default": "gerbera",
+    "description": "MySQL database name."
+  },
+  "db.options": {
+    "type": "object",
+    "default": {
+      "busy_timeout": "10000",
+      "journal_mode": "WAL",
+      "synchronous": "NORMAL"
+    },
+    "description": "Extra database engine options. Key-value pairs passed to the database driver."
+  },
+  "log.level": {
+    "type": "string",
+    "default": "warning",
+    "description": "Logging verbosity. Use 'debug' for troubleshooting; 'full' for deep protocol tracing."
+  },
+  "log.target": {
+    "type": "string",
+    "default": "file:/var/log/gerbera.log",
+    "description": "Log target: a file path (e.g., 'file:/var/log/gerbera.log') or 'stdout' for console."
+  },
+  "export.mimetypes": {
+    "type": "object",
+    "default": {
+      "mp3": "audio/mpeg",
+      "jpg": "image/jpeg",
+      "jpeg": "image/jpeg",
+      "png": "image/png",
+      "mp4": "video/mp4",
+      "mkv": "video/x-matroska"
+    },
+    "description": "File extension \u2192 mimetype mapping fallback."
+  },
+  "export.ext_map": {
+    "type": "object",
+    "default": {
+      "mp3": "audio/mpeg",
+      "m4a": "audio/x-m4a",
+      "ts": "video/mp2t"
+    },
+    "description": "Override extension\u2192mimetype mapping (higher priority than export.mimetypes)."
+  },
+  "container_dircleaner.interval": {
+    "type": "number",
+    "default": 0,
+    "description": "Interval (in seconds) between automatic directory scan for container updates. 0 disables."
+  },
+  "custom_metadata.enabled": {
+    "type": "boolean",
+    "default": false,
+    "description": "Enable custom metadata extraction rules (e.g., for embedded album art or custom tags)."
+  },
+  "custom_metadata.rules": {
+    "type": "list",
+    "default": [],
+    "description": "List of custom metadata rules.",
+    "items": {
+      "type": "object",
+      "fields": {
+        "mimetype": {
+          "type": "string",
+          "default": "video/x-matroska",
+          "description": "Target mimetype for this rule"
+        },
+        "metadata": {
+          "type": "object",
+          "default": {},
+          "description": "Tag \u2192 XPath expression map. Expression is evaluated on the file\u2019s metadata (e.g., 'ffmpeg.probe')."
+        }
+      }
+    }
+  },
+  "presentation.url": {
+    "type": "string",
+    "default": "http://{{ network.ip }}:{{ network.port }}",
+    "description": "Base URL for the web UI and presentation URLs in UPnP responses."
+  },
+  "presentation.dir_order": {
+    "type": "string",
+    "default": "dc:title",
+    "description": "Default sort order for directory listings in the web UI and UPnP clients."
+  },
+  "selections": {
+    "type": "list",
+    "default": [
+      {
+        "mode": "whitelist",
+        "paths": [
+          "/media/music",
+          "/media/videos"
+        ]
+      }
+    ],
+    "description": "List of whitelist/blacklist sections. 'whitelist' restricts scanning to listed paths; 'blacklist' excludes listed paths. Multiple sections allowed.",
+    "items": {
+      "type": "object",
+      "fields": {
+        "mode": {
+          "type": "string",
+          "default": "whitelist",
+          "enum": [
+            "whitelist",
+            "blacklist"
+          ],
+          "description": "Scan mode: include only or exclude these paths"
+        },
+        "paths": {
+          "type": "list",
+          "default": [
+            "/media"
+          ],
+          "description": "Absolute paths to include or exclude",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}

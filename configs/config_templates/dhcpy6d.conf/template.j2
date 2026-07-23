@@ -1,0 +1,71 @@
+# dhcpy6d main configuration file
+# Listen interface for IPv6 DHCPv6 traffic
+interface: {{ interface }}
+
+# Logging level: debug, info, warning, error, critical
+log_level: {{ log_level }}
+
+# PID file path
+pid_file: {{ pid_file }}
+
+# DHCPv6 server address (must be link-local or unique-local)
+server_address: {{ server_address }}
+
+# Enable or disable interface address assignment
+assign_address: {{ assign_address }}
+
+# Enable or disable DNS information provisioning
+assign_dns: {{ assign_dns }}
+
+# Enable or disable NTP server provisioning
+assign_ntp: {{ assign_ntp }}
+
+# Enable or disable domain search list provisioning
+assign_domains: {{ assign_domains }}
+
+# DNS servers to provide to clients (if assign_dns is true)
+dns_servers:
+{% for server in dns_servers %}  - {{ server }}
+{% endfor %}
+
+# Domain search list to provide (if assign_domains is true)
+domain_search:
+{% for domain in domain_search %}  - {{ domain }}
+{% endfor %}
+
+# NTP servers to provide (if assign_ntp is true)
+ntp_servers:
+{% for server in ntp_servers %}  - {{ server }}
+{% endfor %}
+
+# Lease time defaults (in seconds)
+lease_time: {{ lease_time }}
+max_lease_time: {{ max_lease_time }}
+
+# Client class definitions
+# Each class can have its own subnet and options
+client_classes:
+{% for class in client_classes %}  - name: {{ class.name }}
+    description: {{ class.description | default('') | tojson }}
+    match: {{ class.match | tojson }}
+    subnets:
+{% for subnet in class.subnets %}      - network: {{ subnet.network }}
+        prefix: {{ subnet.prefix }}
+        range_start: {{ subnet.range_start }}
+        range_end: {{ subnet.range_end }}
+        options:
+{% for opt in subnet.options %}          - {{ opt.key | tojson }}: {{ opt.value | tojson }}
+{% endfor %}        mtu: {{ subnet.mtu | default(1280) }}
+        router: {{ subnet.router | default('') | tojson }}
+{% endfor %}    dns_servers: {% if class.dns_servers is defined %}[{% for s in class.dns_servers %}{{ s | tojson }}{% if not loop.last %}, {% endif %}{% endfor %}]{% else %}[]{% endif %}
+    domain_search: {% if class.domain_search is defined %}[{% for d in class.domain_search %}{{ d | tojson }}{% if not loop.last %}, {% endif %}{% endfor %}]{% else %}[]{% endif %}
+    ntp_servers: {% if class.ntp_servers is defined %}[{% for n in class.ntp_servers %}{{ n | tojson }}{% if not loop.last %}, {% endif %}{% endfor %}]{% else %}[]{% endif %}
+{% endfor %}
+
+# Optional: static assignments (by DUID)
+static_assignments:
+{% for assignment in static_assignments %}  - duid: {{ assignment.duid }}
+    address: {{ assignment.address }}
+    hostname: {{ assignment.hostname }}
+    class: {{ assignment.class }}
+{% endfor %}

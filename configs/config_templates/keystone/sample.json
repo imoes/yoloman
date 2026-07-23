@@ -1,0 +1,144 @@
+{
+  "service_name": "keystone",
+  "debug": false,
+  "log_format": "%(asctime)s %(levelname)s %(name)s [%(process)d:%(threadName)s] %(message)s",
+  "log_file": "/var/log/keystone/keystone.log",
+  "database": {
+    "connection": "mysql+pymysql://keystone:secrete@db.example.com/keystone",
+    "max_retries": 10,
+    "retry_interval": 10,
+    "pool_size": 20,
+    "pool_recycle": 600,
+    "pool_timeout": 30
+  },
+  "token": {
+    "provider": "fernet",
+    "total_expiration": 3600,
+    "fernet_max_active_keys": 3,
+    "key_repository": "/etc/keystone/fernet-keys/"
+  },
+  "fernet_tokens": {
+    "key_repository": "/etc/keystone/fernet-keys/"
+  },
+  "revoke": {
+    "driver": "sql",
+    "expiration": 60
+  },
+  "cache": {
+    "backend": "keystone.cache.memcached",
+    "memcache_servers": [
+      "10.0.0.10:11211",
+      "10.0.0.11:11211"
+    ],
+    "expiration_time": 600
+  },
+  "assignment": {
+    "default_domain_id": "default"
+  },
+  "auth": {
+    "methods": [
+      "password",
+      "token"
+    ],
+    "plugins": {
+      "password": {
+        "enabled": true,
+        "method": "keystone.auth.plugins.password.Password"
+      },
+      "token": {
+        "enabled": true,
+        "method": "keystone.auth.plugins.token.Token"
+      }
+    }
+  },
+  "endpoint_filter": {
+    "enabled": false
+  },
+  "endpoint_policy": {
+    "enabled": false
+  },
+  "identity": {
+    "driver": "sql",
+    "domain_config_dir": "/etc/keystone/domains/",
+    "extra_attributes": [
+      "email",
+      "description"
+    ]
+  },
+  "ldap": {
+    "url": "ldap://ldap.example.com",
+    "user": "cn=admin,dc=example,dc=com",
+    "password": "secret",
+    "suffix": "dc=example,dc=com",
+    "user_filter": "(objectClass=person)",
+    "user_objectclass": "person",
+    "user_id_attribute": "uid",
+    "user_name_attribute": "cn",
+    "user_enabled_attribute": "userAccountControl",
+    "user_enabled_mask": 2,
+    "group_filter": "(objectClass=groupOfNames)",
+    "group_objectclass": "groupOfNames",
+    "group_id_attribute": "cn",
+    "group_name_attribute": "cn",
+    "group_member_attribute": "member",
+    "group_description_attribute": "description",
+    "use_pool": true,
+    "pool_size": 10,
+    "pool_timeout": 10,
+    "pool_retry_max": 3,
+    "pool_connection_retry_interval": 1,
+    "use_tls": false,
+    "ca_cert": "",
+    "client_cert": "",
+    "client_key": "",
+    "tls_ciphers": ""
+  },
+  "oslo_middleware": {
+    "max_request_body_size": 114688,
+    "enable_cors": true,
+    "cors_origins": [
+      "https://dashboard.example.com"
+    ],
+    "cors_headers": [
+      "Content-Type",
+      "X-Auth-Token",
+      "X-Subject-Token"
+    ],
+    "cors_expose_headers": [
+      "X-Subject-Token"
+    ]
+  },
+  "oslo_policy": {
+    "policy_file": "policy.json",
+    "policy_default_rule": "default",
+    "enforce_scope": true,
+    "enforce_new_defaults": true
+  },
+  "signing": {
+    "token_dir": "/etc/keystone/signing_tokens",
+    "ca_cert": "/etc/keystone/ssl/certs/ca.pem",
+    "certfile": "/etc/keystone/ssl/certs/signing_cert.pem",
+    "certkey": "/etc/keystone/ssl/private/signing_key.pem"
+  },
+  "security_compliance": {
+    "password_length": 12,
+    "password_minimum_age": 0,
+    "password_minimum_character_classes": 3,
+    "password_regex": "",
+    "password_regex_description": "",
+    "password_history_count": 5,
+    "lockout_failure_attempts": 6,
+    "lockout_duration": 1800
+  },
+  "oslo_concurrency": {
+    "lock_path": "/var/lock/keystone"
+  },
+  "oslo_messaging_notifications": {
+    "driver": "messagingv2",
+    "transport_url": "rabbit://keystone:secrete@mq.example.com:5672/",
+    "topics": [
+      "notifications"
+    ],
+    "retry": true
+  }
+}

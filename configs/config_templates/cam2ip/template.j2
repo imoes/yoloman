@@ -1,0 +1,51 @@
+# Base HTTP server settings
+bind_address: {{ bind_address }}
+port: {{ http_port }}
+
+# Authentication (basic or none)
+auth_enabled: {{ auth_enabled }}
+{% if auth_enabled %}
+users:
+{% for user in auth_users %}  - username: {{ user.username }}
+    password_hash: {{ user.password_hash }}
+{% endfor %}
+{% endif %}
+
+# Input device configuration
+device_type: {{ device_type }}
+{% if device_type == 'v4l2' %}
+v4l2_device: {{ v4l2_device }}
+v4l2_resolution: {{ v4l2_resolution }}
+v4l2_fps: {{ v4l2_fps }}
+{% elif device_type == 'file' %}
+image_path: {{ image_path }}
+image_loop: {{ image_loop }}
+{% endif %}
+
+# Output streaming settings
+stream_format: {{ stream_format }}
+{% if stream_format == 'mjpeg' %}
+mjpeg_quality: {{ mjpeg_quality }}
+{% elif stream_format == 'h264' %}
+h264_profile: {{ h264_profile }}
+h264_level: {{ h264_level }}
+h264_bitrate: {{ h264_bitrate }}
+{% endif %}
+
+# Motion detection (optional)
+{% if motion_detection_enabled %}
+motion_detection:
+  enabled: true
+  sensitivity: {{ motion_sensitivity }}
+  min_area: {{ motion_min_area }}
+  cooldown_secs: {{ motion_cooldown_secs }}
+  alert_url: {{ motion_alert_url }}
+{% endif %}
+
+# Logging
+log_level: {{ log_level }}
+log_file: {{ log_file }}
+
+# Web UI
+webui_enabled: {{ webui_enabled }}
+webui_path: {{ webui_path }}

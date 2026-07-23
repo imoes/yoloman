@@ -1,0 +1,185 @@
+{
+  "daemon": {
+    "type": "bool",
+    "default": true,
+    "description": "Whether to run Mailnag as a background daemon service (recommended for production)."
+  },
+  "check_interval": {
+    "type": "number",
+    "default": 300,
+    "description": "Seconds between automatic mailbox checks. Lower values increase responsiveness but also server load."
+  },
+  "loglevel": {
+    "type": "number",
+    "default": 1,
+    "description": "Logging verbosity: 0=quiet, 1=normal (info+errors), 2=verbose (debug+info), 3=maximum (all)."
+  },
+  "pidfile": {
+    "type": "string",
+    "default": "/run/mailnag/mailnag.pid",
+    "description": "Absolute path to the PID file used to track the daemon process."
+  },
+  "accounts": {
+    "type": "list",
+    "default": [],
+    "description": "List of mail accounts to monitor. Each entry defines a POP3/IMAP/OAuth2 mailbox.",
+    "items": {
+      "name": {
+        "type": "string",
+        "required": true,
+        "description": "Human-readable account name (e.g., 'Work Gmail')."
+      },
+      "protocol": {
+        "type": "string",
+        "required": true,
+        "enum": [
+          "pop3",
+          "imap",
+          "oauth2"
+        ],
+        "description": "Mail protocol to use."
+      },
+      "hostname": {
+        "type": "string",
+        "required": true,
+        "description": "Mail server hostname (e.g., 'imap.gmail.com')."
+      },
+      "port": {
+        "type": "number",
+        "required": true,
+        "description": "Server port (e.g., 993 for IMAPS, 995 for POP3S)."
+      },
+      "ssl": {
+        "type": "bool",
+        "required": true,
+        "default": true,
+        "description": "Use SSL/TLS encryption for server connection."
+      },
+      "starttls": {
+        "type": "bool",
+        "required": false,
+        "default": false,
+        "description": "Use STARTTLS upgrade on non-SSL connections (e.g., port 143\u2192143+STARTTLS)."
+      },
+      "username": {
+        "type": "string",
+        "required": true,
+        "description": "Email address or username for authentication."
+      },
+      "password": {
+        "type": "string",
+        "required": true,
+        "sensitive": true,
+        "description": "Password or app-specific password. For security, consider leaving blank to prompt or use environment variables."
+      },
+      "folder": {
+        "type": "string",
+        "required": false,
+        "default": "INBOX",
+        "description": "Mailbox folder to monitor (e.g., 'INBOX', '[Gmail]/Sent Mail')."
+      },
+      "oauth2": {
+        "type": "object",
+        "required": false,
+        "description": "OAuth2 credentials for modern providers (e.g., Gmail with OAuth2).",
+        "items": {
+          "client_id": {
+            "type": "string",
+            "required": true,
+            "description": "OAuth2 client ID from provider console."
+          },
+          "client_secret": {
+            "type": "string",
+            "required": true,
+            "description": "OAuth2 client secret (keep confidential!)."
+          },
+          "refresh_token": {
+            "type": "string",
+            "required": true,
+            "description": "OAuth2 refresh token (obtained via initial OAuth flow)."
+          },
+          "scopes": {
+            "type": "list",
+            "required": true,
+            "description": "OAuth2 permission scopes (e.g., ['https://mail.google.com/']).",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    }
+  },
+  "notifications": {
+    "type": "list",
+    "default": [],
+    "description": "List of notification methods to trigger on new mail. Supports desktop, sound, or email forwarding.",
+    "items": {
+      "name": {
+        "type": "string",
+        "required": true,
+        "enum": [
+          "desktop",
+          "sound",
+          "email"
+        ],
+        "description": "Type of notification plugin to enable."
+      },
+      "summary_template": {
+        "type": "string",
+        "required": false,
+        "default": "{{ count }} new mail(s)",
+        "description": "Jinja2 template for notification summary (variables: count, accounts, messages)."
+      },
+      "body_template": {
+        "type": "string",
+        "required": false,
+        "default": "{{ messages | join('\\n') }}",
+        "description": "Jinja2 template for notification body (variables: count, messages, accounts)."
+      },
+      "icon": {
+        "type": "string",
+        "required": false,
+        "default": "/usr/share/pixmaps/mailnag/mailnag.png",
+        "description": "Path to icon file for desktop notifications (optional)."
+      },
+      "sound_file": {
+        "type": "string",
+        "required": false,
+        "description": "Path to sound file (e.g., '/usr/share/sounds/generic.wav') for sound notifications."
+      },
+      "smtp_server": {
+        "type": "string",
+        "required": false,
+        "description": "SMTP server for email notifications (e.g., 'smtp.gmail.com')."
+      },
+      "smtp_port": {
+        "type": "number",
+        "required": false,
+        "default": 587,
+        "description": "SMTP server port (e.g., 587 for STARTTLS)."
+      },
+      "smtp_use_tls": {
+        "type": "bool",
+        "required": false,
+        "default": true,
+        "description": "Use TLS for SMTP connection."
+      },
+      "from_addr": {
+        "type": "string",
+        "required": false,
+        "description": "Sender email address for forwarded notifications."
+      },
+      "to_addr": {
+        "type": "string",
+        "required": false,
+        "description": "Recipient email address to notify (e.g., your secondary inbox)."
+      }
+    }
+  },
+  "storage_path": {
+    "type": "string",
+    "default": "~/.local/share/mailnag/mailnag.db",
+    "description": "Absolute path to the SQLite database used to store mail metadata, seen flags, and last-check timestamps."
+  }
+}

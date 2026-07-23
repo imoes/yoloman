@@ -1,0 +1,48 @@
+# Btrfs system-wide tuning options for utilities like btrfs, mkfs.btrfs, balance, scrub, etc.
+# This file is sourced by systemd services and CLI tools (e.g., btrfs balance, btrfs scrub)
+# See `man btrfs.conf` for details
+
+# Maximum number of compression threads (0 = auto-detect)
+COMPRESSION_THREADS={{ compression_threads }}
+
+# Enable/disable checksumming during I/O (0=off, 1=on)
+CHECKSUM={{ checksum }}
+
+# Enable/disable SSD optimization hints (0=off, 1=on) for mkfs.btrfs
+SSD_OPTIMIZATION={{ ssd_optimization }}
+
+# Default block size for mkfs.btrfs (e.g., 4096, 65536, etc.)
+BLOCK_SIZE={{ block_size }}
+
+# Default compression type for new filesystems (e.g., zstd, lzo, zlib, none)
+COMPRESSION_TYPE={{ compression_type }}
+
+# Enable/disable delayed allocation (0=off, 1=on)
+DELAYED_ALLOC={{ delayed_alloc }}
+
+# List of mount options applied via btrfs-mount helper (if used)
+# Each entry is passed as-is to mount(8) -e.g., "noatime,compress=zstd:1"
+{% for opt in mount_options %}MOUNT_OPTIONS="{{ opt }}"
+{% endfor %}
+
+# Default scrub scheduling interval (in hours) for automatic scrub jobs
+SCRUB_INTERVAL_HOURS={{ scrub_interval_hours }}
+
+# Enable/disable automatic balance (0=off, 1=on)
+AUTO_BALANCE={{ auto_balance }}
+
+# Balance thresholds (percent full before triggering auto-balance)
+AUTO_BALANCE_THRESHOLD={{ auto_balance_threshold }}
+
+# Maximum number of stripes per device for mkfs.btrfs
+MAX_STRIPES={{ max_stripes }}
+
+# Enable/disable RAID profile hints in mkfs.btrfs (e.g., raid1, raid10, single)
+DEFAULT_RAID_PROFILE="{{ default_raid_profile }}"
+
+# Enable/disable metadata duplication (0=off, 1=on) for mkfs.btrfs
+METADATA_DUP={{ metadata_dup }}
+
+# Additional environment variables passed to btrfs CLI tools
+{% for var, val in env_vars %}export {{ var }}="{{ val }}"
+{% endfor %}

@@ -1,0 +1,22 @@
+# Configures the Prometheus PHP-FPM exporter systemd service.
+[Service]
+Environment="PHPFPM_EXPORTER_WEB_LISTEN_ADDRESS={{ web_listen_address }}"
+Environment="PHPFPM_EXPORTER_METRICS_PATH={{ metrics_path }}"
+Environment="PHPFPM_EXPORTER_FPM_STATUS_PATH={{ fpm_status_path }}"
+Environment="PHPFPM_EXPORTER_SCRAPE_TIMEOUT={{ scrape_timeout }}"
+Environment="PHPFPM_EXPORTER_FPM_PING_PATH={{ fpm_ping_path | default('') }}"
+Environment="PHPFPM_EXPORTER_FPM_POOL_PATTERN={{ fpm_pool_pattern | default('') }}"
+Environment="PHPFPM_EXPORTER_FPM_SCRAPE_INTERVAL={{ fpm_scrape_interval | default('') }}"
+Environment="PHPFPM_EXPORTER_LOG_LEVEL={{ log_level }}"
+Environment="PHPFPM_EXPORTER_FPM_SCRAPE_TIMEOUT={{ fpm_scrape_timeout | default('') }}"
+{% for pool in pools %}
+# Prometheus scrape configuration for PHP-FPM pool '{{ pool.name }}'.
+Environment="PHPFPM_EXPORTER_POOL_{{ loop.index }}_NAME={{ pool.name }}"
+Environment="PHPFPM_EXPORTER_POOL_{{ loop.index }}_URL={{ pool.url }}"
+Environment="PHPFPM_EXPORTER_POOL_{{ loop.index }}_USER={{ pool.user | default('') }}"
+Environment="PHPFPM_EXPORTER_POOL_{{ loop.index }}_PASS={{ pool.password | default('') }}"
+{% endfor %}
+
+# Environment variables for additional FPM pools (legacy support).
+# Use the `pools` list above instead of `fpm_pools`.
+Environment="PHPFPM_EXPORTER_FPM_POOLS={{ fpm_pools | join(',') | default('') }}"

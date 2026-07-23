@@ -1,0 +1,52 @@
+# Configuration for 1-Wire HTTP Server (owhttpd)
+# See `man owhttpd` for details
+# Global options
+# Port on which the HTTP server listens
+port: {{ port }}
+
+# Allow connections from these hosts (comma-separated list, empty = allow all)
+{% if allow_hosts %}allow: {{ allow_hosts | join(', ') }}{% else %}allow: all{% endif %}
+
+# Deny connections from these hosts (comma-separated list)
+{% if deny_hosts %}deny: {{ deny_hosts | join(', ') }}{% else %}deny: none{% endif %}
+
+# Directory to serve static content from (e.g., HTML UI); leave empty to disable
+server_root: {{ server_root }}
+
+# Maximum number of simultaneous HTTP connections
+max_connections: {{ max_connections }}
+
+# Timeout (seconds) for idle connections
+idle_timeout: {{ idle_timeout }}
+
+# Enable gzip compression of responses
+compression: {{ 'yes' if compression else 'no' }}
+
+# Logging verbosity: 0–7 (0 = silent, 7 = verbose)
+verbosity: {{ verbosity }}
+
+# Path to log file (empty = log to stderr)
+log_file: {{ log_file }}
+
+# OneWire bus configuration (one or more buses)
+{% for bus in buses %}# Bus {{ bus.index }}: type={{ bus.type }}, device={{ bus.device }}{% if bus.params %}, params={{ bus.params }}{% endif %}
+bus: {{ bus.type }}={{ bus.device }}{% if bus.params %};{{ bus.params }}{% endif %}
+{% endfor %}
+
+# Optional: mount point for 1-Wire filesystem (if using owfs separately)
+# (Not used by owhttpd itself, but included for completeness if config is shared)
+{% if mount_point %}# Mount point for 1-Wire filesystem (if owfs is also running)
+mount_point: {{ mount_point }}
+{% endif %}
+
+# SSL/TLS (optional)
+# If ssl_certificate and ssl_private_key are provided, HTTPS is enabled
+{% if ssl_certificate %}# SSL certificate file
+ssl_certificate: {{ ssl_certificate }}
+
+# SSL private key file
+ssl_private_key: {{ ssl_private_key }}
+{% endif %}
+
+# PID file location
+pid_file: {{ pid_file }}

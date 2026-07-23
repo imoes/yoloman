@@ -1,0 +1,116 @@
+# Main FreeRADIUS daemon configuration — global settings
+log {
+  # Log file path and permissions
+  destination = "files"
+  file = "{{ log_file }}"
+  syslog_facility = "{{ syslog_facility }}"
+  stripped_names = {{ log_stripped_names|lower }}
+  auth = {{ log_auth|lower }}
+  auth_badpass = {{ log_auth_badpass|lower }}
+  auth_goodpass = {{ log_auth_goodpass|lower }}
+}
+
+# Core server behavior
+core_dump = {{ core_dump|lower }}
+allow_core_dumps = {{ core_dump|lower }}
+
+# User/group under which radiusd runs
+user = "{{ run_user }}"
+group = "{{ run_group }}"
+
+# Security: restrict access to sensitive files
+secure_check = {{ secure_check|lower }}
+
+# PID file
+pidfile = "{{ pid_file }}"
+
+# Location of configuration include directory
+{{ '# Include module configuration from raddb/modules' if include_modules_dir else '' }}
+{{ '# (Modules are loaded and configured via raddb/mods-available/)' if include_modules_dir else '' }}
+{{ '# If false, only modules loaded explicitly in sites/ are used' if include_modules_dir else '' }}
+include_modules_dir = {{ include_modules_dir|lower }}
+
+{{ '# Include site-specific configuration (virtual servers, etc.)' if include_sites_dir else '' }}
+include_sites_dir = {{ include_sites_dir|lower }}
+
+# Resource limits
+max_requests = {{ max_requests }}
+
+# Timeouts and delays
+{{ '# Kill idle connections after this many seconds' if idle_timeout else '' }}
+idle_timeout = {{ idle_timeout }}
+
+{{ '# Timeout for authenticating requests' if auth_timeout else '' }}
+auth_timeout = {{ auth_timeout }}
+
+{{ '# Delay before retransmitting packets' if pkt_delay else '' }}
+pkt_delay = {{ pkt_delay }}
+
+{{ '# Maximum number of simultaneous requests per IP (per client)' if max_clients_per_ip else '' }}
+max_clients_per_ip = {{ max_clients_per_ip }}
+
+{{ '# Enable/disable thread pool' if enable_threads else '' }}
+use_threads = {{ enable_threads|lower }}
+
+{{ '# Number of threads in pool' if num_threads else '' }}
+num_threads = {{ num_threads }}
+
+{{ '# Graceful shutdown timeout' if shutdown_timeout else '' }}
+shutdown_timeout = {{ shutdown_timeout }}
+
+{{ '# Listen on specified interfaces/ports' }}
+listen {
+  type = "auth"
+  ipaddr = {{ '"' + ','.join(auth_ipaddr).replace(',',', ') + '"' if auth_ipaddr else '*' }}
+  port = {{ auth_port }}
+  {{ 'interface = "' + interface + '"' if interface else '' }}
+  limit {
+    max_connections = {{ max_auth_connections }}
+    {{ '# Idle timeout for auth connections' if auth_idle_timeout else '' }}
+    {{ 'idle_timeout = ' + auth_idle_timeout|string }}
+  }
+  {{ '# SSL/TLS support (for EAP-TLS, PEAP, etc.)' if ssl_enabled else '' }}
+  {{ '# Requires raddb/certs/ with CA/server cert/key' if ssl_enabled else '' }}
+  {{ 'ssl {' if ssl_enabled }}
+    {{ '# PEM-encoded CA certificate' if ssl_enabled else '' }}
+    {{ 'ca_file = "' + ca_cert_path + '"' if ssl_enabled else '' }}
+    {{ '# Server certificate' if ssl_enabled else '' }}
+    {{ 'cert_file = "' + server_cert_path + '"' if ssl_enabled else '' }}
+    {{ '# Server private key' if ssl_enabled else '' }}
+    {{ 'private_key_file = "' + server_key_path + '"' if ssl_enabled else '' }}
+    {{ '# DH parameters (optional)' if ssl_enabled else '' }}
+    {{ 'dh_file = "' + dh_file_path + '"' if ssl_enabled else '' }}
+    {{ '# Cipher list' if ssl_enabled else '' }}
+    {{ 'cipher_list = "' + cipher_list + '"' if ssl_enabled else '' }}
+    {{ '# Minimum TLS version' if ssl_enabled else '' }}
+    {{ 'min_version = "' + min_tls_version + '"' if ssl_enabled else '' }}
+  {{ '}' if ssl_enabled }}
+}
+
+listen {
+  type = "acct"
+  ipaddr = {{ '"' + ','.join(acct_ipaddr).replace(',',', ') + '"' if acct_ipaddr else '*' }}
+  port = {{ acct_port }}
+  {{ 'interface = "' + interface + '"' if interface else '' }}
+}
+
+{{ '# Define clients (NAS devices) here' }}
+{{ '# In production, move to raddb/clients.conf or include it' }}
+{{ '# Format: client <name> { ... }' }}
+{% for client in radius_clients %}
+client {{ client.name }} {
+  ipaddr = {{ client.ipaddr }}
+  {{ 'secret = "' + client.secret + '"' if client.secret else '' }}
+  {{ 'shortname = "' + client.shortname + '"' if client.shortname else '' }}
+  {{ 'nastype = "' + client.nastype + '"' if client.nastype else '' }}
+  {{ 'require_message_authenticator = ' + (client.require_message_authenticator|default(false)|lower) }}
+  {{ 'nas_type = "' + client.nas_type + '"' if client.nas_type else '' }}
+  limit {
+    max_connections = {{ client.max_connections|default(16) }}
+    idle_timeout = {{ client.idle_timeout|default(30) }}
+  }
+}
+{% endfor %}
+
+{{ '# Include other config fragments (e.g., ldap, kerberos, sql) — enabled via raddb/mods-available/' }}
+{{ '# This file controls *global* server behavior; module behavior is in raddb/mods-available/*' }}

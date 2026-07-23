@@ -1,0 +1,60 @@
+# Global options applied to all subnets and clients
+option domain-name "{{ domain_name }}";
+option domain-name-servers {{ name_servers | join(', ') }};
+
+# Default lease time (in seconds)
+default-lease-time {{ default_lease_time }};
+
+# Maximum lease time (in seconds)
+max-lease-time {{ max_lease_time }};
+
+# Authoritative mode — DHCP server is the sole authority for its subnets
+authoritative;
+
+# Log facility (syslog priority class)
+log-facility {{ log_facility }};
+
+{% if ddns_update_style != 'none' %}
+# Dynamic DNS updates
+{% if ddns_update_style == 'standard' %}
+ddns-update-style standard;
+{% else %}
+ddns-update-style interim;
+{% endif %}
+{% if ddns_domain_name %}
+# Zone for DDNS updates
+zone {{ ddns_domain_name }}. {
+  primary {{ ddns_primary_server }};
+  key {{ ddns_key_name }};
+}
+{% endif %}
+{% endif %}
+
+{% for subnet in subnets %}
+# Subnet {{ subnet.address }}/{{ subnet.prefix }}
+subnet {{ subnet.address }} netmask {{ subnet.netmask }} {
+{% if subnet.range %}
+  # Dynamic address pool
+  range {{ subnet.range.start }} {{ subnet.range.end }};
+{% endif %}
+{% if subnet.gateway %}
+  # Default gateway for clients in this subnet
+  option routers {{ subnet.gateway }};
+{% endif %}
+{% if subnet.broadcast %}
+  option broadcast-address {{ subnet.broadcast }};
+{% endif %}
+{% if subnet.network %}
+  option network-number {{ subnet.network }};
+{% endif %}
+{% if subnet.ntp_servers %}
+  # NTP servers
+  option ntp-servers {{ subnet.ntp_servers | join(', ') }};
+{% endif %}
+{% if subnet.wpad_url %}
+  # WPAD URL for proxy auto-config
+  option wpad {{ subnet.wpad_url }};
+{% endif %}
+{% if subnet.dns_suffix %}
+  # DNS search suffix
+  option domain-search "{{ subnet.dns_suffix | join('

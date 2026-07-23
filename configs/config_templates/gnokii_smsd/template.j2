@@ -1,0 +1,96 @@
+# Gnokii SMS Daemon configuration file
+# Generated from template
+
+# Global settings
+[global]
+# Model name of the phone (e.g., "6210", "3310", etc.)
+model = {{ model }}
+# Connection type: serial, Bluetooth, infrared, etc.
+connection = {{ connection }}
+# Serial device path (e.g., /dev/ttyS0, /dev/ttyUSB0)
+port = {{ port }}
+# Bluetooth device MAC address (only if connection=bluetooth)
+{% if connection == 'bluetooth' %}
+bluetooth_address = {{ bluetooth_address }}
+{% endif %}
+# Baud rate for serial connection
+{% if connection == 'serial' %}
+baud_rate = {{ baud_rate }}
+{% endif %}
+# SMS Center (SMSC) phone number (E.164 format without leading +)
+smsc = {{ smsc }}
+# Pin code for SIM card (optional)
+{% if sim_pin is defined and sim_pin | length > 0 %}
+pin = {{ sim_pin }}
+{% endif %}
+# Connection retry interval in seconds
+connect_retry = {{ connect_retry }}
+
+# Logging settings
+[logging]
+# Log level: 0=error, 1=warning, 2=info, 3=debug
+debug = {{ log_level }}
+# Log file path (empty for syslog)
+{% if log_file | length > 0 %}
+file = {{ log_file }}
+{% else %}
+file = syslog
+{% endif %}
+
+# SMSD-specific settings
+[smsd]
+# User to run as (drop privileges)
+user = {{ service_user }}
+# Group to run as
+{% if service_group is defined %}
+group = {{ service_group }}
+{% endif %}
+# Path to PID file
+pidfile = {{ pidfile }}
+# Check SMS inbox every N seconds
+check_interval = {{ check_interval }}
+# Maximum SMS messages to send per batch
+maxsend = {{ max_send }}
+# Path to spool directory for outgoing SMS
+outgoing = {{ outgoing_dir }}
+# Path to inbox directory for incoming SMS
+incoming = {{ incoming_dir }}
+# Path to sent SMS archive
+sent = {{ sent_dir }}
+# Enable SMS delivery reports
+{% if delivery_reports | lower == 'yes' %}
+delivery_report = yes
+{% else %}
+delivery_report = no
+{% endif %}
+
+# Backend database configuration
+{% if db_type == 'mysql' %}
+[mysql]
+host = {{ mysql_host }}
+port = {{ mysql_port }}
+user = {{ mysql_user }}
+password = {{ mysql_password }}
+database = {{ mysql_database }}
+{% elif db_type == 'postgresql' %}
+[postgresql]
+host = {{ pg_host }}
+port = {{ pg_port }}
+user = {{ pg_user }}
+password = {{ pg_password }}
+database = {{ pg_database }}
+{% elif db_type == 'sqlite' %}
+[sqlite]
+file = {{ sqlite_file }}
+{% elif db_type == 'null' %}
+[null]
+# No database backend (file-based spool only)
+{% endif %}
+
+# List of trusted senders (for incoming SMS access control)
+{% if trusted_senders | length > 0 %}
+[trusted]
+{% for sender in trusted_senders %}
+{{ sender }}
+{% endfor %}
+{% endif %}

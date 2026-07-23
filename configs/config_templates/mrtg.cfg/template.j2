@@ -1,0 +1,108 @@
+# Global settings
+# The directory where MRTG will store its output files (graphs, logs, etc.)
+WorkDir: {{ work_dir }}
+
+# The hostname and community for SNMP polling (if using SNMP targets)
+# This can be overridden per-target; used as a default when Target lines lack a community spec
+{{ "#" if not default_snmp_community else "" }}#
+# The default SNMP community string to use for targets not explicitly specifying one
+{{ "#" if not default_snmp_community else "" }}#
+{{ "#" if not default_snmp_community else "" }}# DefaultSNMPCommunity: {{ default_snmp_community }}
+
+{{ "#" if not default_snmp_version else "" }}#
+# The default SNMP version (1, 2c, 3) for targets not explicitly specifying one
+{{ "#" if not default_snmp_version else "" }}#
+{{ "#" if not default_snmp_version else "" }}# DefaultSNMPVersion: {{ default_snmp_version }}
+
+{{ "#" if not default_snmp_authname else "" }}#
+# SNMPv3 only: default authentication username (if used)
+{{ "#" if not default_snmp_authname else "" }}#
+{{ "#" if not default_snmp_authname else "" }}# DefaultSNMPAuthName: {{ default_snmp_authname }}
+
+{{ "#" if not default_snmp_authpass else "" }}#
+# SNMPv3 only: default authentication password
+{{ "#" if not default_snmp_authpass else "" }}#
+{{ "#" if not default_snmp_authpass else "" }}# DefaultSNMPAuthPass: {{ default_snmp_authpass }}
+
+{{ "#" if not default_snmp_privpass else "" }}#
+# SNMPv3 only: default privacy (encryption) password
+{{ "#" if not default_snmp_privpass else "" }}#
+{{ "#" if not default_snmp_privpass else "" }}# DefaultSNMPPrivPass: {{ default_snmp_privpass }}
+
+{{ "#" if not default_snmp_authproto else "" }}#
+# SNMPv3 only: default auth protocol (md5|sha)
+{{ "#" if not default_snmp_authproto else "" }}#
+{{ "#" if not default_snmp_authproto else "" }}# DefaultSNMPAuthProto: {{ default_snmp_authproto }}
+
+{{ "#" if not default_snmp_privproto else "" }}#
+# SNMPv3 only: default priv protocol (des|aes)
+{{ "#" if not default_snmp_privproto else "" }}#
+{{ "#" if not default_snmp_privproto else "" }}# DefaultSNMPPrivProto: {{ default_snmp_privproto }}
+
+# How often (in seconds) MRTG collects data (usually 300 = 5 minutes)
+# Do not change unless you also adjust cron/daemon interval accordingly
+Interval: {{ interval }}
+
+# Whether to log errors to stderr (yes|no); recommended to enable during setup
+{{ "#" if not log_errors else "" }}# LogErrors: {{ "yes" if log_errors else "no" }}
+
+# Whether to log to syslog (yes|no); usually off unless integrating with syslog
+{{ "#" if not log_syslog else "" }}# LogSyslog: {{ "yes" if log_syslog else "no" }}
+
+# Whether to use fast refresh (yes|no) — reduces CPU by skipping some updates
+{{ "#" if not enable_fast_refresh else "" }}# EnableFastRefresh: {{ "yes" if enable_fast_refresh else "no" }}
+
+# Whether to compress log files (yes|no)
+{{ "#" if not compress_logs else "" }}# CompressLogs: {{ "yes" if compress_logs else "no" }}
+
+# Whether to generate PNGs (yes|no); set to no to only generate HTML/logs
+{{ "#" if not generate_pngs else "" }}# EnablePNG: {{ "yes" if generate_pngs else "no" }}
+
+# Whether to generate HTML index files (yes|no)
+{{ "#" if not generate_index else "" }}# EnableHTML: {{ "yes" if generate_index else "no" }}
+
+# Whether to include debug information in logs (yes|no); verbose
+{{ "#" if not debug else "" }}# Debug: {{ "yes" if debug else "no" }}
+
+# Title of generated HTML pages
+{{ "#" if not html_title else "" }}# Title[{{ html_title }}]: {{ html_title }}
+
+# Path to the MRTG binary (if nonstandard)
+{{ "#" if not mrtg_bin else "" }}# PathAdd: {{ mrtg_bin }}
+
+# Whether to use 24-hour time in logs (yes|no)
+{{ "#" if not use_24_hour_time else "" }}# Use24Hour: {{ "yes" if use_24_hour_time else "no" }}
+
+# Whether to use a consistent timezone (e.g., UTC); default is local time
+{{ "#" if not use_timezone else "" }}# Timezone: {{ use_timezone }}
+
+# Whether to run MRTG in daemon mode (yes|no)
+{{ "#" if not daemon_mode else "" }}# Daemon: {{ "yes" if daemon_mode else "no" }}
+
+# Whether to write PID file (yes|no)
+{{ "#" if not write_pid_file else "" }}# WritePID: {{ "write_pid_file }}
+
+# List of additional target definitions
+# Each target defines what to monitor, with optional SNMP overrides
+{% for target in targets %}
+# Target for: {{ target.label }}
+Target[{{ target.name }}]: {{ target.spec }}
+{% if target.description %}# Description: {{ target.description }}{% endif %}
+{% if target.router %}RouterUp[{{ target.name }}]: {{ target.router }}{% endif %}
+{% if target.snmp_community %}{{ "#" if not target.snmp_community else "" }}#
+{{ "#" if not target.snmp_community else "" }}# SNMP community override
+{{ "#" if not target.snmp_community else "" }}#
+{{ "#" if not target.snmp_community else "" }}# SNMPCommunity[{{ target.name }}]: {{ target.snmp_community }}
+{% endif %}
+{% if target.snmp_version %}{{ "#" if not target.snmp_version else "" }}#
+{{ "#" if not target.snmp_version else "" }}# SNMP version override
+{{ "#" if not target.snmp_version else "" }}#
+{{ "#" if not target.snmp_version else "" }}# SNMPVersion[{{ target.name }}]: {{ target.snmp_version }}
+{% endif %}
+{% if target.max_bits %}MaxBytes[{{ target.name }}]: {{ target.max_bits }}{% endif %}
+{% if target.growth_factor %}Growth[{{ target.name }}]: {{ target.growth_factor }}{% endif %}
+{% if target.traffic_unit %}TrafficUnit[{{ target.name }}]: {{ target.traffic_unit }}{% endif %}
+{% if target.options %}Options[{{ target.name }}]: {% for opt in target.options | list %}{{ opt }}{% if not loop.last %}, {% endif %}{% endfor %}{% endif %}
+{% if target.title %}Title[{{ target.name }}]: {{ target.title }}{% endif %}
+{% if target.page_top %}PageTop[{{ target.name }}]: {{ target.page_top }}{% endif %}
+{% endfor %}

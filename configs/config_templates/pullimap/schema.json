@@ -1,0 +1,246 @@
+{
+  "main": {
+    "type": "object",
+    "default": {
+      "user": "nobody",
+      "group": "nogroup"
+    },
+    "description": "System user and group under which the service runs for privilege separation.",
+    "properties": {
+      "user": {
+        "type": "string",
+        "default": "nobody",
+        "description": "System username to run as."
+      },
+      "group": {
+        "type": "string",
+        "default": "nogroup",
+        "description": "System group to run as."
+      }
+    }
+  },
+  "imap": {
+    "type": "object",
+    "default": {
+      "host": "imap.example.com",
+      "port": 993,
+      "ssl": true,
+      "mailbox": "INBOX",
+      "username": "user@example.com",
+      "password": "",
+      "fetch_batch_size": 100
+    },
+    "description": "Connection and authentication details for the source IMAP server.",
+    "properties": {
+      "host": {
+        "type": "string",
+        "default": "",
+        "description": "IMAP server hostname or IP address."
+      },
+      "port": {
+        "type": "number",
+        "default": 993,
+        "description": "IMAP server port (143 for non-SSL, 993 for SSL)."
+      },
+      "ssl": {
+        "type": "boolean",
+        "default": true,
+        "description": "Enable SSL/TLS for the IMAP connection."
+      },
+      "mailbox": {
+        "type": "string",
+        "default": "INBOX",
+        "description": "IMAP mailbox name to pull messages from."
+      },
+      "username": {
+        "type": "string",
+        "default": "",
+        "description": "IMAP login username (often full email address)."
+      },
+      "password": {
+        "type": "string",
+        "default": "",
+        "description": "IMAP login password (store securely in production \u2014 e.g., via secrets manager or file permissions).",
+        "x-secret": true
+      },
+      "fetch_batch_size": {
+        "type": "number",
+        "default": 100,
+        "description": "Number of messages to fetch per IMAP batch to avoid timeouts."
+      }
+    }
+  },
+  "delivery": {
+    "type": "object",
+    "default": {
+      "method": "smtp",
+      "smtp_servers": [
+        {
+          "host": "127.0.0.1",
+          "port": 25
+        }
+      ],
+      "lmtp_socket": "/var/run/dovecot/lmtp"
+    },
+    "description": "Delivery method: either SMTP (multiple servers supported) or LMTP (single socket).",
+    "properties": {
+      "method": {
+        "type": "string",
+        "enum": [
+          "smtp",
+          "lmtp"
+        ],
+        "default": "smtp",
+        "description": "Delivery protocol to use."
+      },
+      "smtp_servers": {
+        "type": "list",
+        "default": [
+          {
+            "host": "127.0.0.1",
+            "port": 25
+          }
+        ],
+        "description": "List of SMTP relay servers (host and port).",
+        "items": {
+          "type": "object",
+          "properties": {
+            "host": {
+              "type": "string",
+              "default": "127.0.0.1",
+              "description": "SMTP server hostname or IP."
+            },
+            "port": {
+              "type": "number",
+              "default": 25,
+              "description": "SMTP server port (25, 465, or 587)."
+            }
+          }
+        }
+      },
+      "lmtp_socket": {
+        "type": "string",
+        "default": "/var/run/dovecot/lmtp",
+        "description": "Path to LMTP Unix socket (only used if method=lmtp)."
+      }
+    }
+  },
+  "tls": {
+    "type": "object",
+    "default": {
+      "enable": false,
+      "ca_file": "/etc/ssl/certs/ca-certificates.crt",
+      "client_cert": "",
+      "client_key": ""
+    },
+    "description": "Optional client-side TLS for outbound SMTP/LMTP connections.",
+    "properties": {
+      "enable": {
+        "type": "boolean",
+        "default": false,
+        "description": "Enable TLS for outgoing SMTP/LMTP connections."
+      },
+      "ca_file": {
+        "type": "string",
+        "default": "/etc/ssl/certs/ca-certificates.crt",
+        "description": "Path to CA certificate bundle for verifying the server certificate."
+      },
+      "client_cert": {
+        "type": "string",
+        "default": "",
+        "description": "Optional client certificate for mTLS (leave blank to disable).",
+        "x-optional": true
+      },
+      "client_key": {
+        "type": "string",
+        "default": "",
+        "description": "Optional client private key (must match client_cert).",
+        "x-optional": true
+      }
+    }
+  },
+  "logging": {
+    "type": "object",
+    "default": {
+      "level": "info",
+      "facility": "mail",
+      "log_file": "/var/log/pullimap.log"
+    },
+    "description": "Verbosity, syslog facility, and optional file log target.",
+    "properties": {
+      "level": {
+        "type": "string",
+        "enum": [
+          "debug",
+          "info",
+          "warn",
+          "error"
+        ],
+        "default": "info",
+        "description": "Minimum log level to record."
+      },
+      "facility": {
+        "type": "string",
+        "default": "mail",
+        "description": "Syslog facility (e.g., mail, daemon, local0)."
+      },
+      "log_file": {
+        "type": "string",
+        "default": "/var/log/pullimap.log",
+        "description": "Path to file where logs are written (empty = no file logging)."
+      }
+    }
+  },
+  "limits": {
+    "type": "object",
+    "default": {
+      "max_concurrent_jobs": 10,
+      "max_message_size": 25165824,
+      "rate_limit_per_minute": 60
+    },
+    "description": "Resource and rate limits to prevent overload.",
+    "properties": {
+      "max_concurrent_jobs": {
+        "type": "number",
+        "default": 10,
+        "description": "Maximum parallel message deliveries at once."
+      },
+      "max_message_size": {
+        "type": "number",
+        "default": 25165824,
+        "description": "Largest message size (in bytes) to process. 0 = unlimited."
+      },
+      "rate_limit_per_minute": {
+        "type": "number",
+        "default": 60,
+        "description": "Maximum messages delivered per minute (0 = unlimited)."
+      }
+    }
+  },
+  "headers": {
+    "type": "object",
+    "default": {
+      "add_received": true,
+      "add_date": true,
+      "replace_from": ""
+    },
+    "description": "Modify headers of delivered messages.",
+    "properties": {
+      "add_received": {
+        "type": "boolean",
+        "default": true,
+        "description": "Add a 'Received:' header showing this forwarder's action."
+      },
+      "add_date": {
+        "type": "boolean",
+        "default": true,
+        "description": "Ensure each message has a Date: header (add if missing)."
+      },
+      "replace_from": {
+        "type": "string",
+        "default": "",
+        "description": "If non-empty, overwrite the From: header with this email address (e.g., for aliasing)."
+      }
+    }
+  }
+}

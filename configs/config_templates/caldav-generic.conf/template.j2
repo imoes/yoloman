@@ -1,0 +1,75 @@
+[# Caldav Generic plugin configuration for lomiri-online-accounts]
+[General]
+{% if enabled | default(true) %}# Enable the CalDAV plugin
+Enabled=true{% else %}
+Enabled=false{% endif %}
+
+{% if debug | default(false) %}# Enable debug logging
+Debug=true{% else %}
+Debug=false{% endif %}
+
+{% if auth_method %}# Authentication method: 'basic', 'digest', 'oauth2', or 'none'
+AuthMethod={{ auth_method }}{% else %}
+AuthMethod=basic{% endif %}
+
+{% if server_url %}# Base URL of the CalDAV server (e.g., https://caldav.example.com/dav/user@domain/)
+ServerURL={{ server_url }}{% else %}
+# ServerURL is required for operation
+{% endif %}
+
+{% if username %}# Username for authentication (may be email or principal path)
+Username={{ username }}{% else %}
+# Username may be left empty if OAuth2 is used
+{% endif %}
+
+{% if display_name %}# Human-readable display name for the account
+DisplayName={{ display_name }}{% else %}
+# Display name defaults to the username if omitted
+{% endif %}
+
+{% if use_ssl | default(true) %}# Enforce TLS/SSL for connections
+UseSSL=true{% else %}
+UseSSL=false{% endif %}
+
+{% if verify_ssl | default(true) %}# Verify server certificate
+VerifySSL=true{% else %}
+VerifySSL=false{% endif %}
+
+{% if sync_interval %}# Sync interval in seconds
+SyncInterval={{ sync_interval }}{% else %}
+SyncInterval=1800{% endif %}
+
+{% if timeout %}# Connection timeout in seconds
+Timeout={{ timeout }}{% else %}
+Timeout=30{% endif %}
+
+{% if max_retries %}# Maximum number of retries on network failure
+MaxRetries={{ max_retries }}{% else %}
+MaxRetries=3{% endif %}
+
+{% if caldav_path %}# Optional: Custom CalDAV path (e.g., /dav/user/calendar/)
+CalDAVPath={{ caldav_path }}{% else %}
+# CalDAVPath defaults to server root or auto-discovery
+{% endif %}
+
+{% if supports_vcards | default(true) %}# Indicate if CardDAV (vCards) is supported on same server
+SupportsVCards=true{% else %}
+SupportsVCards=false{% endif %}
+
+{% if supports_events | default(true) %}# Indicate if calendar event sync is enabled
+SupportsEvents=true{% else %}
+SupportsEvents=false{% endif %}
+
+{% if supports_tasks | default(false) %}# Indicate if task sync is enabled
+SupportsTasks=true{% else %}
+SupportsTasks=false{% endif %}
+
+# List of CalDAV calendars to auto-subscribe to (by path or display name)
+{% if calendars %}# Calendars to sync
+{% for cal in calendars %}# Calendar: {{ cal.name | default('unnamed') }}
+{% if cal.path %}{{ loop.index }}.Path={{ cal.path }}
+{% endif %}{% if cal.name %}{{ loop.index }}.Name={{ cal.name }}
+{% endif %}{% if cal.readonly | default(false) %}{{ loop.index }}.ReadOnly=true
+{% else %}{{ loop.index }}.ReadOnly=false
+{% endif %}
+{% endfor %}{% endif %}

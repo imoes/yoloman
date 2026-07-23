@@ -1,0 +1,59 @@
+{
+  "hed": {
+    "host": "0.0.0.0",
+    "port": 5444,
+    "pidfile": "/run/arc/hed.pid",
+    "loglevel": "INFO",
+    "logfile": "/var/log/arc/hed.log",
+    "max_threads": 16,
+    "check_interval": 30,
+    "ssl_enabled": true,
+    "ssl_cert": "/etc/arc/ssl/server.crt",
+    "ssl_key": "/etc/arc/ssl/server.key",
+    "ssl_ca_cert": "/etc/arc/ssl/ca.crt",
+    "client_cert_auth": false,
+    "shared_dir": "/var/lib/arc/hed/shared",
+    "exec_timeout": 300,
+    "debug": false,
+    "hetemplates_dir": "/usr/share/arc/hetemplates",
+    "hestate_dir": "/var/lib/arc/hestate",
+    "environments": [
+      {
+        "name": "slurm_cluster",
+        "enabled": true,
+        "executor": "slurm",
+        "resources": [
+          "slurm-ce1",
+          "slurm-ce2"
+        ]
+      },
+      {
+        "name": "local_test",
+        "enabled": false,
+        "executor": "local",
+        "resources": []
+      }
+    ],
+    "resources": [
+      {
+        "name": "slurm-ce1",
+        "host": "slurm-ce1.example.org",
+        "port": 2811,
+        "auth_method": "gssapi",
+        "proxy_cert": "/etc/arc/ssl/proxy.pem"
+      },
+      {
+        "name": "slurm-ce2",
+        "host": "slurm-ce2.example.org",
+        "port": 2811,
+        "auth_method": "gssapi",
+        "proxy_cert": "/etc/arc/ssl/proxy.pem"
+      }
+    ],
+    "monitoring": {
+      "enabled": true,
+      "port": 5445,
+      "path": "/healthz"
+    }
+  }
+}

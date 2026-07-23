@@ -1,0 +1,94 @@
+[storage]
+# Directory where Whisper databases are stored
+# (graphite-web also expects this path)
+whisper_dir = {{ whisper_dir }}
+
+# The user under which carbon-cache processes run
+user = {{ whisper_user }}
+
+# Log level: debug, info, warning, error, critical
+log_level = {{ log_level }}
+
+# Log carbon messages to this file
+log_file = {{ log_file }}
+
+# Log to syslog instead of file (true/false)
+use_systick = {{ use_systick }}
+
+# Maximum number of whisper files that can be open simultaneously
+max_creates_per_minute = {{ max_creates_per_minute }}
+
+# Maximum number of whisper files that can be created per minute across all instances
+max_updates_per_second = {{ max_updates_per_second }}
+
+# Maximum number of updates queued before dropping data
+max_updates_queue_size = {{ max_updates_queue_size }}
+
+# Maximum size of the update buffer (in bytes)
+max_upates_buffer_size = {{ max_updates_buffer_size }}
+
+[relay]
+# Enable the relay daemon
+ENABLE_RELAY = {{ relay.enabled }}
+
+# Comma-separated list of destination carbon-cache instances
+# Format: host:port:instance
+ destinations = {% for dest in relay.destinations %}{{ dest.host }}:{{ dest.port }}:{{ dest.instance }}{% if not loop.last %},{% endif %}{% endfor %}
+
+# Replication factor: how many destinations each metric is sent to
+# 0 = send to all, >0 = send to only that many random destinations
+relay_method = {{ relay.method }}
+
+# Hashing key used for consistent hashing (optional)
+consistent_hashing = {{ relay.consistent_hashing }}
+
+# For consistent hashing, the hash key to use (e.g., metric name)
+# carbon-relay uses 'metric' by default; override if needed
+relay_hash_key = {{ relay.hash_key }}
+
+[aggregator]
+# Enable the aggregator daemon
+ENABLE_AGGREGATOR = {{ aggregator.enabled }}
+
+# Aggregation rules file path
+rules = {{ aggregator.rules_file }}
+
+# Maximum number of metrics to aggregate concurrently
+max_queue_size = {{ aggregator.max_queue_size }}
+
+[cache]
+# Enable the cache daemon
+ENABLE_CACHE = {{ cache.enabled }}
+
+# Port on which carbon-cache listens for incoming metrics (pickle or line)
+LINE_RECEIVER_PORT = {{ cache.line_receiver_port }}
+
+# Port for pickle protocol
+PICKLE_RECEIVER_PORT = {{ cache.pickle_receiver_port }}
+
+# Maximum number of connections to accept
+MAX_CONNECTIONS = {{ cache.max_connections }}
+
+# Maximum size of incoming pickle payload (bytes)
+PICKLE_RECEIVER_BUFFER_SIZE = {{ cache.pickle_receiver_buffer_size }}
+
+# Enable logging of pickle protocol packets
+ENABLE_LOGGING = {{ cache.enable_logging }}
+
+# Maximum number of metrics to keep in memory before flushing to disk
+MAX_UPDATES_PER_SECOND = {{ cache.max_updates_per_second }}
+
+# Maximum number of metrics to queue before dropping data
+MAX_CREATES_PER_MINUTE = {{ cache.max_creates_per_minute }}
+
+# Size of the whisper update queue (in updates)
+MAX_UPDATES_QUEUE_SIZE = {{ cache.max_updates_queue_size }}
+
+# Size of the whisper create queue (in creates)
+MAX_CREATES_QUEUE_SIZE = {{ cache.max_creates_queue_size }}
+
+# Enable UDP receiver (true/false)
+ENABLE_UDP_LISTENER = {{ cache.enable_udp_listener }}
+
+# UDP port to listen on
+UDP_RECEIVER_PORT = {{ cache.udp_receiver_port }}

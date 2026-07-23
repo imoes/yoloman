@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- PolicyKit configuration file -->
+<config version="0.1">
+  <!-- Global settings -->
+  {% if auth_admin_keep.value is defined %}
+  <match action="org.freedesktop.policykit.exec">
+    <return result="yes"/>
+  </match>
+  {% endif %}
+  <!-- Default authentication session timeout (in seconds) -->
+  <defaults>
+    <defaults>
+      <match action="org.freedesktop.policykit.exec">
+        <defaults>
+          <return result="yes"/>
+        </defaults>
+      </match>
+    </defaults>
+  </defaults>
+  <!-- Explicit rule definitions -->
+  {% for rule in rules %}
+  <!-- {{ rule.description }} -->
+  <rule name="{{ rule.name }}">
+    {% if rule.match_user is defined and rule.match_user != "" %}
+    <match user="{{ rule.match_user }}">
+    {% endif %}
+    {% if rule.match_group is defined and rule.match_group != "" %}
+    <match group="{{ rule.match_group }}">
+    {% endif %}
+    {% if rule.match_user is not defined and rule.match_group is not defined %}
+    <match>
+    {% endif %}
+      {% for action in rule.actions %}
+      <match action="{{ action }}">
+        <return result="{{ action_result.get(action, "yes") }}"/>
+      </match>
+      {% endfor %}
+    </match>
+  </rule>
+  {% endfor %}
+</config>

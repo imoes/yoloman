@@ -1,0 +1,58 @@
+# fprobe configuration file
+# Set the IP address or hostname of the NetFlow collector
+collector_host: {{ collector_host }}
+
+# Set the UDP port on the collector to receive NetFlow data
+collector_port: {{ collector_port }}
+
+# Interface to capture traffic from (e.g., eth0)
+interface: {{ interface }}
+
+# Timeout (in seconds) before a flow is considered inactive and exported
+inactive_timeout: {{ inactive_timeout }}
+
+# Timeout (in seconds) before an active flow is exported
+active_timeout: {{ active_timeout }}
+
+# Buffer size (in bytes) for packet capture
+buffer_size: {{ buffer_size }}
+
+# NetFlow version to use (5 or 9)
+netflow_version: {{ netflow_version }}
+
+# Enable IPFIX extension (for NetFlow v9 only)
+# Set to 'true' to enable IPFIX support
+ipfix: {{ ipfix | lower }}
+
+# Optional: Enable sampling (1 out of every N packets)
+# Set to 0 or omit to disable sampling
+sample_rate: {{ sample_rate }}
+
+# Optional: Set the source IP for NetFlow packets (for multi-homed hosts)
+source_ip: {{ source_ip }}
+
+# Optional: Set the system uptime offset (seconds since system boot)
+# Useful when collector expects stable flow start times
+uptime_offset: {{ uptime_offset }}
+
+# Optional: Add additional collector(s) — one per line
+# Each entry: host:port
+{% for collector in additional_collectors %}collector: {{ collector.host }}:{{ collector.port }}
+{% endfor %}
+
+# Optional: Set the domain ID (for NetFlow v9) — used to distinguish flows across multiple exporters
+domain_id: {{ domain_id }}
+
+# Optional: Enable UDP checksum offloading
+# Set to 'true' to skip UDP checksum calculation (may reduce CPU load)
+udp_checksum_offload: {{ udp_checksum_offload | lower }}
+
+# Optional: Enable VLAN ID in NetFlow records (if supported by collector)
+include_vlan: {{ include_vlan | lower }}
+
+# Optional: Set the flow record format (ipfix or legacy)
+# Use 'ipfix' for RFC 7011 compliance (NetFlow v9 compatible)
+record_format: {{ record_format }}
+
+# Optional: Set log level: debug, info, warn, error
+log_level: {{ log_level }}

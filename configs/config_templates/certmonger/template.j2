@@ -1,0 +1,37 @@
+# Directory where certmonger stores state and cache files
+state_directory = /var/lib/certmonger
+
+# Directory where certmonger stores temporary files (e.g., CSRs, intermediate certs)
+tmp_directory = /var/tmp/certmonger
+
+# Directory for logging (set empty string to disable logging to file)
+log_directory = /var/log/certmonger
+
+# Log level: 0=none, 1=errors only, 2=warnings+errors, 3=info, 4=debug
+log_level = 3
+
+# Maximum number of pending requests (cert requests not yet completed)
+max_pending_requests = 100
+
+# Maximum age (in seconds) for cached CA information (0 = never expire)
+ca_cache_ttl = 86400
+
+# Maximum number of CA retries before giving up (0 = infinite)
+max_ca_retries = 3
+
+# Delay (in seconds) between CA retries
+ca_retry_delay = 10
+
+# Whether to auto-start certificate renewal daemons (e.g., for HTTP(S) OCSP responders)
+start_renewer_daemon = true
+
+# Directory where CA helpers (e.g., nss, openvpn, httpd) are installed
+helpers_directory = /usr/libexec/certmonger
+
+# List of CA types supported (each defines name, binary, and optional args)
+{% for ca_type in ca_types %}# {{ ca_type.name }}: {{ ca_type.description }}
+ca_type_{{ loop.index }} = {{ ca_type.name }}:{{ ca_type.binary }}{% if ca_type.args %}:{{ ca_type.args }}{% endif %}
+{% endfor %}
+
+# List of CA profiles (e.g., subCA, server, client) — used by some CA backends
+cache_ca_profiles = false

@@ -1,0 +1,14 @@
+# Global configuration for Cyrus IMAP/POP/NNTP services
+# Service definitions: format is <daemon> <service> <type> <cmd>
+#   daemon: 'defaults', 'imap', 'pop3', 'nntp', 'sieve', 'lmtp', etc.
+#   service: name of service (e.g., 'imap', 'pop3')
+#   type: 'socket' (Unix socket) or 'inet' (TCP socket)
+#   cmd: command to run, often including options and socket path
+#
+# This file is read by the 'master' Cyrus daemon at startup.
+{% for service in services %}{{ service.daemon }}	{{ service.service }}	{{ service.type }}	{{ service.cmd }}{% endfor %}
+# Optional per-service-specific config overrides (via service name or socket path)
+# These are included for illustration; typically managed via imapd.conf or site-specific includes
+# (Not part of cyrus.conf itself but useful for deployers)
+# Example: sieve service options
+{% for sieve_opt in sieve_options %}{{ sieve_opt.key }}:	{{ sieve_opt.value }}{% endfor %}

@@ -1,0 +1,47 @@
+{
+  "device": {
+    "type": "string",
+    "default": "/dev/sda",
+    "description": "The block device path to monitor for disk activity (e.g., /dev/sda)."
+  },
+  "poll_interval": {
+    "type": "number",
+    "default": 100,
+    "description": "How often (in milliseconds) to check the motion sensor for movement."
+  },
+  "sensitivity": {
+    "type": "number",
+    "default": 15,
+    "description": "Minimum movement amplitude (in arbitrary sensor units) required to trigger disk unloading. Lower = more sensitive."
+  },
+  "unmount_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "If true, automatically unmounts protected filesystems when the laptop is moved."
+  },
+  "protected_mounts": {
+    "type": "list",
+    "default": [
+      "/home:/dev/sda2"
+    ],
+    "description": "List of filesystems to protect. Each item specifies a mountpoint and its backing device (e.g., '/home:/dev/sda2'). Unmounted on motion detection if unmount_enabled is true.",
+    "items": {
+      "type": "string",
+      "description": "Format: mountpoint:device_path \u2014 e.g., '/home:/dev/sda2'"
+    }
+  },
+  "kernel_modules": {
+    "type": "list",
+    "default": [],
+    "description": "Optional list of kernel modules (e.g., 'thinkpad_acpi') that may provide sensor access. Add if hdapsd fails to detect sensors automatically.",
+    "items": {
+      "type": "string",
+      "description": "Kernel module name (e.g., 'thinkpad_acpi')"
+    }
+  },
+  "debug": {
+    "type": "bool",
+    "default": false,
+    "description": "If true, enable verbose debug logging to syslog for troubleshooting."
+  }
+}

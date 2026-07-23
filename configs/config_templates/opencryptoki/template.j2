@@ -1,0 +1,36 @@
+# opencryptoki configuration file
+# This file controls the behavior of the opencryptoki daemon and its modules
+
+[general]
+# Path where opencryptoki stores runtime data (sockets, lock files, logs)
+var_path = {{ var_path }}
+# Enable debug logging (true/false)
+debug = {{ debug }}
+# Number of worker threads for handling concurrent requests
+max_threads = {{ max_threads }}
+
+# List of active PKCS#11 token modules to load
+{% for module in modules %}
+[{{ module.name }}]
+# Path to the shared library implementing this module
+path = {{ module.path }}
+# Human-readable description of this module
+description = {{ module.description }}
+# Enable or disable this module (true/false)
+enabled = {{ module.enabled }}
+{% if module.parameters %}
+# Module-specific parameters
+{% for k, v in module.parameters.items() %}
+{{ k }} = {{ v }}
+{% endfor %}
+{% endif %}
+{% endfor %}
+
+# Default slot configuration
+[slot_defaults]
+# Default slot ID assigned to tokens without explicit slot assignment
+slot_id = {{ slot_defaults.slot_id }}
+# Default user PIN for token initialization (not secure for production)
+user_pin = {{ slot_defaults.user_pin | default('') }}
+# Whether to require manual token insertion (true/false)
+manual_token_init = {{ slot_defaults.manual_token_init }}

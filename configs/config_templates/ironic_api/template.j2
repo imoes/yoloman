@@ -1,0 +1,107 @@
+[DEFAULT]
+# Core service identity and discovery
+auth_strategy = keystone
+
+# Logging configuration
+log_dir = {{ logging.log_dir }}
+log_file = {{ logging.log_file }}
+
+# RPC backend and message queue
+transport_url = {{ rpc.transport_url }}
+
+# Database connection
+[database]
+connection = {{ database.connection }}
+
+# KeyStone (Keystone) authentication
+[keystone_authtoken]
+auth_url = {{ keystone.auth_url }}
+auth_type = {{ keystone.auth_type }}
+project_domain_name = {{ keystone.project_domain_name }}
+user_domain_name = {{ keystone.user_domain_name }}
+project_name = {{ keystone.project_name }}
+username = {{ keystone.username }}
+password = {{ keystone.password }}
+
+# Service credentials for ironic itself (used for internal calls)
+[service_credentials]
+auth_type = {{ service_credentials.auth_type }}
+auth_url = {{ service_credentials.auth_url }}
+project_domain_name = {{ service_credentials.project_domain_name }}
+user_domain_name = {{ service_credentials.user_domain_name }}
+project_name = {{ service_credentials.project_name }}
+username = {{ service_credentials.username }}
+password = {{ service_credentials.password }}
+interface = {{ service_credentials.interface }}
+region_name = {{ service_credentials.region_name }}
+
+# API listener configuration
+[api]
+host = {{ api.host }}
+port = {{ api.port }}
+workers = {{ api.workers }}
+max_limit = {{ api.max_limit }}
+
+# Provisioning and deployment settings
+[conductor]
+automated_clean = {{ conductor.automated_clean }}
+api_url = {{ conductor.api_url }}
+
+# Hardware types to enable (comma-separated)
+[DEFAULT]
+enabled_hardware_types = {{ ', '.join(hardware_types.enabled) }}
+
+# Inspector (discovery) service integration
+[inspector]
+enabled = {{ inspector.enabled }}
+auth_url = {{ inspector.auth_url }}
+
+# DNS configuration for DHCP (if using neutron-dns-integration)
+[dns]
+enabled = {{ dns.enabled }}
+domain = {{ dns.domain }}
+
+# IPMI and remote management settings
+[ipmi]
+# Set to true to allow insecure IPMI sessions (e.g., no certificate validation)
+allow_insecure = {{ ipmi.allow_insecure }}
+# Remote console timeout in seconds
+remote_console_timeout = {{ ipmi.remote_console_timeout }}
+
+# Storage backends for image handling
+[pxe]
+tftp_root = {{ pxe.tftp_root }}
+tftp_server = {{ pxe.tftp_server }}
+# Optional: multiple boot options per node (e.g., multiple disk images)
+{% for item in pxe.boot_options %}
+{{ item.key }} = {{ item.value }}
+{% endfor %}
+
+# TLS/SSL support (optional)
+[ssl]
+enabled = {{ ssl.enabled }}
+cert_file = {{ ssl.cert_file }}
+key_file = {{ ssl.key_file }}
+ca_file = {{ ssl.ca_file }}
+
+# Notifications for event streaming
+[notify]
+notify_on_state_changes = {{ ', '.join(notify.state_changes) }}
+notify_on_deprecation = {{ notify.notify_on_deprecation }}
+
+# Healthcheck endpoint
+[healthcheck]
+backends = {{ ', '.join(healthcheck.backends) }}
+# Optional: per-backend settings
+{% for backend in healthcheck.backends_extra %}
+[healthcheck:{{ backend.name }}]
+{% for key, value in backend.options.items() %}
+{{ key }} = {{ value }}
+{% endfor %}
+{% endfor %}
+
+# Rate limiting
+[oslo_middleware]
+enable_rate_limiting = {{ middleware.rate_limiting_enabled }}
+rate_limit_burst = {{ middleware.rate_limit_burst }}
+rate_limit_interval = {{ middleware.rate_limit_interval }}

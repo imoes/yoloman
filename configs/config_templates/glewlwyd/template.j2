@@ -1,0 +1,241 @@
+{# glewlwyd main configuration file #}
+{
+  {# Server binding configuration #}
+  "bind_address": "{{ bind_address }}",
+  "port": {{ port }},
+  {# Path to the database file #}
+  "database": {
+    "type": "{{ db.type }}",
+    {# SQLite-specific path; omitted for other DB types #}
+    {% if db.type == 'sqlite' %}
+    "sqlite": {
+      "path": "{{ db.sqlite.path }}"
+    },
+    {% endif %}
+    {# PostgreSQL-specific config #}
+    {% if db.type == 'postgresql' %}
+    "postgresql": {
+      "host": "{{ db.postgresql.host }}",
+      "port": {{ db.postgresql.port }},
+      "name": "{{ db.postgresql.name }}",
+      "user": "{{ db.postgresql.user }}",
+      "password": "{{ db.postgresql.password }}",
+      "ssl_mode": "{{ db.postgresql.ssl_mode }}"
+    },
+    {% endif %}
+    {# MongoDB-specific config #}
+    {% if db.type == 'mongodb' %}
+    "mongodb": {
+      "uri": "{{ db.mongodb.uri }}",
+      "database": "{{ db.mongodb.database }}"
+    },
+    {% endif %}
+    {# LDAP config (optional) #}
+    {% if db.type == 'ldap' %}
+    "ldap": {
+      "uri": "{{ db.ldap.uri }}",
+      "base_dn": "{{ db.ldap.base_dn }}",
+      "bind_dn": "{{ db.ldap.bind_dn }}",
+      "bind_password": "{{ db.ldap.bind_password }}",
+      "user_search_base": "{{ db.ldap.user_search_base }}",
+      "user_search_filter": "{{ db.ldap.user_search_filter }}",
+      "group_search_base": "{{ db.ldap.group_search_base }}",
+      "group_search_filter": "{{ db.ldap.group_search_filter }}"
+    },
+    {% endif %}
+    {# Optional schema type (for LDAP/DB consistency) #}
+    {% if db.schema %}
+    "schema": {
+      "type": "{{ db.schema.type }}",
+      {% if db.schema.path %}
+      "path": "{{ db.schema.path }}"
+      {% endif %}
+    },
+    {% endif %}
+  },
+  {# JWT token configuration #}
+  "jwt": {
+    "secret": "{{ jwt.secret }}",
+    "algorithm": "{{ jwt.algorithm }}",
+    "expiration": {{ jwt.expiration }},
+    "refresh_expiration": {{ jwt.refresh_expiration }},
+    "issuer": "{{ jwt.issuer }}",
+    "audience": "{{ jwt.audience | default('') }}"
+  },
+  {# OAuth2 / OIDC provider configuration #}
+  "oauth2": {
+    "authorization_endpoint": "{{ oauth2.authorization_endpoint }}",
+    "token_endpoint": "{{ oauth2.token_endpoint }}",
+    "userinfo_endpoint": "{{ oauth2.userinfo_endpoint }}",
+    "jwks_uri": "{{ oauth2.jwks_uri }}",
+    "response_types_supported": [{{ oauth2.response_types_supported | join(', ') }}],
+    "grant_types_supported": [{{ oauth2.grant_types_supported | join(', ') }}],
+    "subject_types_supported": [{{ oauth2.subject_types_supported | join(', ') }}],
+    "id_token_signing_alg_values_supported": [{{ oauth2.id_token_signing_alg_values_supported | join(', ') }}],
+    "scopes_supported": [{{ oauth2.scopes_supported | join(', ') }}],
+    "claims_supported": [{{ oauth2.claims_supported | join(', ') }}]
+  },
+  {# Web UI configuration #}
+  "ui": {
+    "enabled": {{ ui.enabled }},
+    "path": "{{ ui.path }}",
+    "theme": "{{ ui.theme }}",
+    "logo": "{{ ui.logo | default('') }}"
+  },
+  {# Authentication sources (users, LDAP, OAuth, etc.) #}
+  "auth_source": [
+    {% for source in auth_sources %}
+    {
+      "name": "{{ source.name }}",
+      "type": "{{ source.type }}",
+      "priority": {{ source.priority }},
+      {% if source.type == 'password' %}
+      "password": {
+        "hash_algorithm": "{{ source.password.hash_algorithm }}",
+        "min_length": {{ source.password.min_length }}
+      }
+      {% elif source.type == 'ldap' %}
+      "ldap": {
+        "bind_dn": "{{ source.ldap.bind_dn }}",
+        "bind_password": "{{ source.ldap.bind_password }}",
+        "uri": "{{ source.ldap.uri }}",
+        "base_dn": "{{ source.ldap.base_dn }}",
+        "user_filter": "{{ source.ldap.user_filter }}",
+        "group_filter": "{{ source.ldap.group_filter }}",
+        "group_name_attr": "{{ source.ldap.group_name_attr }}",
+        "user_name_attr": "{{ source.ldap.user_name_attr }}",
+        "user_mail_attr": "{{ source.ldap.user_mail_attr }}",
+        "start_tls": {{ source.ldap.start_tls }},
+        "verify_certificate": {{ source.ldap.verify_certificate }}
+      }
+      {% elif source.type == 'oauth2' %}
+      "oauth2": {
+        "client_id": "{{ source.oauth2.client_id }}",
+        "client_secret": "{{ source.oauth2.client_secret }}",
+        "authorization_url": "{{ source.oauth2.authorization_url }}",
+        "token_url": "{{ source.oauth2.token_url }}",
+        "userinfo_url": "{{ source.oauth2.userinfo_url }}",
+        "scope": [{{ source.oauth2.scope | join(', ') }}],
+        "user_id_attr": "{{ source.oauth2.user_id_attr }}",
+        "user_name_attr": "{{ source.oauth2.user_name_attr }}",
+        "user_mail_attr": "{{ source.oauth2.user_mail_attr }}",
+        "login_color": "{{ source.oauth2.login_color }}",
+        "login_text": "{{ source.oauth2.login_text }}"
+      }
+      {% elif source.type == 'oidc' %}
+      "oidc": {
+        "client_id": "{{ source.oidc.client_id }}",
+        "client_secret": "{{ source.oidc.client_secret }}",
+        "issuer": "{{ source.oidc.issuer }}",
+        "authorization_url": "{{ source.oidc.authorization_url }}",
+        "token_url": "{{ source.oidc.token_url }}",
+        "userinfo_url": "{{ source.oidc.userinfo_url }}",
+        "jwks_url": "{{ source.oidc.jwks_url }}",
+        "scope": [{{ source.oidc.scope | join(', ') }}],
+        "user_id_attr": "{{ source.oidc.user_id_attr }}",
+        "user_name_attr": "{{ source.oidc.user_name_attr }}",
+        "user_mail_attr": "{{ source.oidc.user_mail_attr }}",
+        "login_color": "{{ source.oidc.login_color }}",
+        "login_text": "{{ source.oidc.login_text }}"
+      }
+      {% endif %}
+      {% if source.mandatory %}
+      ,
+      "mandatory": {{ source.mandatory }}
+      {% endif %}
+      {% if source.optional_fields %}
+      ,
+      "optional_fields": [{{ source.optional_fields | join(', ') }}]
+      {% endif %}
+      {% if source.profile_mapping %}
+      ,
+      "profile_mapping": {
+        {% for key, value in source.profile_mapping.items() %}
+        "{{ key }}": "{{ value }}"{% if not loop.last %},{% endif %}
+        {% endfor %}
+      }
+      {% endif %}
+      {% if not loop.last %}
+    },
+      {% else %}
+    }
+      {% endif %}
+    {% endfor %}
+  ],
+  {# Multi-factor authentication (MFA) configuration #}
+  "mfa": {
+    "enabled": {{ mfa.enabled }},
+    "methods": [
+      {% for method in mfa.methods %}
+      {
+        "name": "{{ method.name }}",
+        "type": "{{ method.type }}",
+        {% if method.type == 'totp' %}
+        "issuer": "{{ method.totp.issuer }}",
+        "period": {{ method.totp.period }},
+        "digits": {{ method.totp.digits }}
+        {% elif method.type == 'sms' %}
+        "provider": "{{ method.sms.provider }}",
+        "account_sid": "{{ method.sms.account_sid }}",
+        "auth_token": "{{ method.sms.auth_token }}",
+        "from": "{{ method.sms.from }}"
+        {% elif method.type == 'email' %}
+        "smtp_host": "{{ method.email.smtp_host }}",
+        "smtp_port": {{ method.email.smtp_port }},
+        "smtp_user": "{{ method.email.smtp_user }}",
+        "smtp_password": "{{ method.email.smtp_password }}",
+        "from_address": "{{ method.email.from_address }}",
+        "subject": "{{ method.email.subject }}",
+        "body": "{{ method.email.body }}"
+        {% elif method.type == 'webauthn' %}
+        "rp_name": "{{ method.webauthn.rp_name }}",
+        "rp_id": "{{ method.webauthn.rp_id }}",
+        "timeout": {{ method.webauthn.timeout }},
+        "attestation": "{{ method.webauthn.attestation }}",
+        "user_verification": "{{ method.webauthn.user_verification }}"
+        {% endif %}
+      }{% if not loop.last %},{% endif %}
+      {% endfor %}
+    ],
+    "required_for_users_with_mfa": {{ mfa.required_for_users_with_mfa }}
+  },
+  {# Logging configuration #}
+  "logging": {
+    "level": "{{ logging.level }}",
+    "format": "{{ logging.format }}",
+    "file": "{{ logging.file | default('') }}",
+    "stdout": {{ logging.stdout }}
+  },
+  {# Security headers configuration #}
+  "security": {
+    "csp_enabled": {{ security.csp_enabled }},
+    "csp_policy": "{{ security.csp_policy }}",
+    "hsts_enabled": {{ security.hsts_enabled }},
+    "hsts_max_age": {{ security.hsts_max_age }},
+    "x_frame_options": "{{ security.x_frame_options }}",
+    "x_content_type_options": "{{ security.x_content_type_options }}"
+  },
+  {# Session configuration #}
+  "session": {
+    "timeout": {{ session.timeout }},
+    "idle_timeout": {{ session.idle_timeout }},
+    "cookie_secure": {{ session.cookie_secure }},
+    "cookie_httponly": {{ session.cookie_httponly }},
+    "cookie_samesite": "{{ session.cookie_samesite }}"
+  },
+  {# Rate limiting configuration #}
+  "rate_limit": {
+    "enabled": {{ rate_limit.enabled }},
+    "max_requests": {{ rate_limit.max_requests }},
+    "window_seconds": {{ rate_limit.window_seconds }}
+  },
+  {# Allowed CORS origins #}
+  "cors": {
+    "allowed_origins": [{{ cors.allowed_origins | join(', ') }}],
+    "allowed_methods": [{{ cors.allowed_methods | join(', ') }}],
+    "allowed_headers": [{{ cors.allowed_headers | join(', ') }}],
+    "expose_headers": [{{ cors.expose_headers | join(', ') }}],
+    "max_age": {{ cors.max_age }},
+    "allow_credentials": {{ cors.allow_credentials }}
+  }
+}

@@ -1,0 +1,121 @@
+{
+  "bgp_router_id": {
+    "type": "string",
+    "default": "192.0.2.1",
+    "description": "IPv4 router-id for the BGP speaker (must be unique per AS)"
+  },
+  "bgp_local_address": {
+    "type": "string",
+    "default": "192.0.2.1",
+    "description": "Local IP address to bind the BGP session(s) to"
+  },
+  "bgp_local_as": {
+    "type": "number",
+    "default": 64500,
+    "description": "Autonomous System Number (ASN) of this BGP speaker (32-bit or 16-bit)"
+  },
+  "bgp_peers": {
+    "type": "list",
+    "default": [],
+    "description": "List of BGP peers to establish sessions with",
+    "items": {
+      "type": "object",
+      "properties": {
+        "address": {
+          "type": "string",
+          "default": "",
+          "description": "IP address of the BGP peer (IPv4 or IPv6)"
+        },
+        "remote_as": {
+          "type": "number",
+          "default": 0,
+          "description": "ASN of the remote peer"
+        },
+        "auth_key": {
+          "type": "string",
+          "default": "",
+          "description": "MD5 password for peer authentication (leave empty to disable)"
+        },
+        "description": {
+          "type": "string",
+          "default": "",
+          "description": "Human-readable label for the peer (e.g., 'Core-Router-1')"
+        },
+        "hold_time": {
+          "type": "number",
+          "default": 90,
+          "description": "BGP hold timer in seconds (0 = disable)"
+        },
+        "connect_retry": {
+          "type": "number",
+          "default": 120,
+          "description": "Time in seconds before retrying a failed connection"
+        },
+        "keepalive": {
+          "type": "number",
+          "default": 30,
+          "description": "Keepalive interval in seconds (must be \u2264 hold_time/3)"
+        },
+        "add_paths": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enable BGP ADD-PATHs (send multiple paths for same prefix)"
+        },
+        "inbound_filter": {
+          "type": "string",
+          "default": "",
+          "description": "Name of an inbound route filter script or predefined filter (e.g., 'inbound-filter-v4')"
+        },
+        "outbound_filter": {
+          "type": "string",
+          "default": "",
+          "description": "Name of an outbound route filter script or predefined filter"
+        }
+      },
+      "required": [
+        "address",
+        "remote_as"
+      ]
+    }
+  },
+  "api_enabled": {
+    "type": "boolean",
+    "default": false,
+    "description": "Enable the ExaBGP API listener (for programmatic control)"
+  },
+  "api_host": {
+    "type": "string",
+    "default": "127.0.0.1",
+    "description": "IP address the API will bind to (prefer 127.0.0.1 for security)"
+  },
+  "api_port": {
+    "type": "number",
+    "default": 5000,
+    "description": "TCP port for the API listener"
+  },
+  "api_tls_enabled": {
+    "type": "boolean",
+    "default": false,
+    "description": "Enable TLS encryption for the API (requires valid certificates)"
+  },
+  "api_tls_cert": {
+    "type": "string",
+    "default": "/etc/exabgp/tls/api.crt",
+    "description": "Path to the TLS server certificate file"
+  },
+  "api_tls_key": {
+    "type": "string",
+    "default": "/etc/exabgp/tls/api.key",
+    "description": "Path to the TLS private key file"
+  },
+  "api_tls_ca": {
+    "type": "string",
+    "default": "/etc/exabgp/tls/ca.crt",
+    "description": "Path to the CA certificate for client validation"
+  },
+  "process_env": {
+    "type": "object",
+    "default": {},
+    "description": "Environment variables for the hook process (e.g., webhook URLs, tokens)"
+  }
+}

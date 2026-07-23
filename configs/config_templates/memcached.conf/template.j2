@@ -1,0 +1,71 @@
+# Start memcached as a daemon
+-d
+
+# Specify the user to run as
+-u {{ user }}
+
+# Listen on the specified IP address
+-l {{ bind_address }}
+
+# Specify the port to listen on
+-p {{ port }}
+
+# Set the maximum number of simultaneous connections
+-m {{ max_memory_mb }}
+
+# Set the maximum size of an item (in MB); 0 means unlimited
+-I {{ max_item_size_mb }}
+
+# Enable verbose logging
+{% if verbose %}-v{% endif %}
+
+# Number of threads to use for processing (0 disables threading)
+-t {{ num_threads }}
+
+# Increase the number of open file descriptors (requires ulimit -n)
+-n {{ max_open_files }}
+
+# Do not daemonize (run in foreground)
+{% if foreground %}-f{% endif %}
+
+# Log to the specified file instead of stderr
+{% if log_file %}-o {{ log_file }}{% endif %}
+
+# Enable UDP support (disabled by default)
+{% if udp_enabled %}-U{% endif %}
+
+# Maximum UDP payload size (default 1024 bytes)
+{% if udp_enabled %}-P {{ udp_max_payload }}{% endif %}
+
+# Disable SASL authentication (enabled by default if built with SASL)
+{% if disable_sasl %}-S{% endif %}
+
+# Restrict connection to localhost only (overrides -l)
+{% if local_only %}-L{% endif %}
+
+# Specify the path to the PID file
+{% if pid_file %}-P {{ pid_file }}{% endif %}
+
+# Set the slab page size (in bytes); must be power of 2
+{% if slab_page_size %}-f {{ slab_page_size }}{% endif %}
+
+# Minimum size of slab class chunk (in bytes)
+{% if slab_chunk_size %}-S {{ slab_chunk_size }}{% endif %}
+
+# Enable large memory pages (requires root)
+{% if use_large_pages %}-k{% endif %}
+
+# Disable memory locking (mlockall)
+{% if disable_mlock %}-M{% endif %}
+
+# Enable all evictions (default behavior is to evict LRU items)
+{% if enable_all_evictions %}-e{% endif %}
+
+# Idle timeout (seconds); 0 means no timeout
+{% if idle_timeout %}-r {{ idle_timeout }}{% endif %}
+
+# Check for non-zero data on read (helps detect corruption)
+{% if check_nulls %}-z{% endif %}
+
+# Specify additional startup options (e.g., -b 1024 for backlog)
+{% for opt in extra_options %}{{ opt }}{% endfor %}

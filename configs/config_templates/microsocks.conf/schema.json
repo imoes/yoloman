@@ -1,0 +1,92 @@
+{
+  "listen_addr": {
+    "type": "string",
+    "default": "127.0.0.1",
+    "description": "IP address or hostname to bind the SOCKS5 proxy server to (e.g., 0.0.0.0 for all interfaces)."
+  },
+  "listen_port": {
+    "type": "number",
+    "default": 1080,
+    "description": "TCP port for incoming SOCKS5 connections (standard port is 1080)."
+  },
+  "workers": {
+    "type": "number",
+    "default": 0,
+    "description": "Number of worker threads; 0 means auto-scale based on CPU cores."
+  },
+  "daemonize": {
+    "type": "bool",
+    "default": false,
+    "description": "Whether to run as a background (daemon) process."
+  },
+  "pidfile": {
+    "type": "string",
+    "default": "/var/run/microsocks/microsocks.pid",
+    "description": "Path to write the process PID file when daemonizing. Must be writable by the service user."
+  },
+  "loglevel": {
+    "type": "number",
+    "default": 1,
+    "description": "Verbosity level: 0=error, 1=warn (default), 2=info, 3=debug."
+  },
+  "logstream": {
+    "type": "string",
+    "default": "stderr",
+    "description": "Where to send logs: 'stderr', 'syslog', or a file path (e.g., /var/log/microsocks.log)."
+  },
+  "auth_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable SOCKS5 username/password authentication."
+  },
+  "auth_users": {
+    "type": "list",
+    "default": [],
+    "description": "List of 'username:password' entries for authentication (required if auth_enabled=true).",
+    "items": {
+      "type": "string",
+      "pattern": "^[^:]+:[^:]+$",
+      "description": "Authentication credential in 'username:password' format."
+    }
+  },
+  "timeout": {
+    "type": "number",
+    "default": 60,
+    "description": "Idle connection timeout in seconds. Connections held open longer than this are closed."
+  },
+  "maxconn": {
+    "type": "number",
+    "default": 0,
+    "description": "Maximum number of simultaneous connections. 0 means unlimited."
+  },
+  "allow_ipv4": {
+    "type": "bool",
+    "default": true,
+    "description": "Whether to allow IPv4 connections and DNS resolution."
+  },
+  "allow_ipv6": {
+    "type": "bool",
+    "default": true,
+    "description": "Whether to allow IPv6 connections and DNS resolution."
+  },
+  "bind_out": {
+    "type": "string",
+    "default": "",
+    "description": "IP address to bind outgoing (target) connections to. Leave empty to let the OS choose automatically."
+  },
+  "chroot": {
+    "type": "string",
+    "default": "",
+    "description": "Chroot directory after startup (e.g., /var/lib/microsocks). Leave empty for no chroot."
+  },
+  "user": {
+    "type": "string",
+    "default": "nobody",
+    "description": "System user to drop privileges to after startup (must exist)."
+  },
+  "group": {
+    "type": "string",
+    "default": "nogroup",
+    "description": "System group to drop privileges to after startup (must exist)."
+  }
+}

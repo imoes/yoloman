@@ -1,0 +1,141 @@
+# leafnode configuration file — read by leafnode(8)
+# This file is sourced by the leafnode daemon at startup.
+# Lines starting with '#' are comments and ignored.
+
+# Hostname that this server advertises to peers and clients
+fqdn: {{ values.fqdn }}
+
+# Listen address for incoming NNTP connections (IPv4/IPv6)
+address: {{ values.listen_address }}
+
+# Port to listen on for NNTP (standard: 119)
+port: {{ values.port }}
+
+# Port to listen on for NNTPS (TLS/SSL, optional; standard: 563)
+{% if values.nntps_enabled %}
+nntps_port: {{ values.nntps_port }}
+{% endif %}
+
+# Maximum number of simultaneous client connections
+maxconnections: {{ values.max_connections }}
+
+# Maximum number of articles to keep per group (0 = unlimited)
+maxarticles: {{ values.max_articles }}
+
+# Retention period for articles in days (0 = keep forever)
+maxage: {{ values.max_age }}
+
+# Path to the spool directory where articles are stored
+spool_directory: {{ values.spool_directory }}
+
+# Path to the config directory (usually same as spool_directory)
+config_directory: {{ values.config_directory }}
+
+# Enable/Disable interactive mode (e.g., for batch postprocessing)
+{% if values.interactive %}
+interactive: yes
+{% else %}
+interactive: no
+{% endif %}
+
+# Enable/Disable server mode (required for NNTP serving)
+{% if values.server %}
+server: yes
+{% else %}
+server: no
+{% endif %}
+
+# Enable/Disable debugging (for troubleshooting)
+{% if values.debug %}
+debug: yes
+{% else %}
+debug: no
+{% endif %}
+
+# List of upstream NNTP servers ( peers ) to fetch articles from
+{% for peer in values.peers %}
+# Peer: {{ peer.name }} — {{ peer.host }}:{{ peer.port }}
+server: {{ peer.host }}:{{ peer.port }}
+{% if peer.username and peer.password %}
+user: {{ peer.username }}
+password: {{ peer.password }}
+{% endif %}
+{% if peer.groups %}
+# Only fetch articles from these groups (optional)
+{% for group in peer.groups %}
+allowgroup: {{ group }}
+{% endfor %}
+{% endif %}
+{% endfor %}
+
+# List of IP addresses or CIDR subnets allowed to connect and read
+{% for allowed in values.allow_read %}
+# Allow read from: {{ allowed }}
+allow_read: {{ allowed }}
+{% endfor %}
+
+# List of IP addresses or CIDR subnets allowed to post
+{% for allowed in values.allow_post %}
+# Allow post from: {{ allowed }}
+allow_post: {{ allowed }}
+{% endfor %}
+
+# Default group to subscribe new users to
+{% if values.default_group %}
+default_group: {{ values.default_group }}
+{% endif %}
+
+# Enable/Disable posting (user-submitted articles)
+{% if values.posting_enabled %}
+posting: yes
+{% else %}
+posting: no
+{% endif %}
+
+# Path to the post filter (e.g., for spam filtering or moderation)
+{% if values.post_filter %}
+postfilter: {{ values.post_filter }}
+{% endif %}
+
+# Path to the news spool lock file (for concurrency safety)
+lockfile: {{ values.lockfile }}
+
+# Enable/Disable group listing (can be disabled for security)
+{% if values.listgroups %}
+listgroups: yes
+{% else %}
+listgroups: no
+{% endif %}
+
+# Enable/Disable XOVER support (required for modern clients)
+{% if values.xover %}
+xover: yes
+{% else %}
+xover: no
+{% endif %}
+
+# Maximum size (in bytes) of an article (0 = unlimited)
+maxartsize: {{ values.max_article_size }}
+
+# Path to the configuration for local newsgroups (if any)
+{% if values.localgroups_config %}
+localgroups: {{ values.localgroups_config }}
+{% endif %}
+
+# Enable/Disable RFC 3977 capability advertisement (e.g., STARTTLS)
+{% if values.capabilities %}
+capabilities: yes
+{% else %}
+capabilities: no
+{% endif %}
+
+# TLS certificate and key paths (for NNTPS / STARTTLS)
+{% if values.tls_enabled %}
+tls_cert: {{ values.tls_cert_path }}
+tls_key: {{ values.tls_key_path }}
+{% endif %}
+
+# Minimum TLS protocol version (e.g., 'TLSv1.2')
+{% if values.tls_min_version %}
+tls_min_version: {{ values.tls_min_version }}
+{% endif %}

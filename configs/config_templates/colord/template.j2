@@ -1,0 +1,54 @@
+# Key-value configuration for colord (Color Daemon)
+# See `man colord.conf` for full details.
+
+# Enable or disable the session bus registration (system bus is always active)
+{%- if session_bus_enabled is defined %}SessionBus={{ session_bus_enabled }}{% endif %}
+
+# Path to the database storing device and profile metadata
+{%- if database_path is defined %}Database={{ database_path }}{% endif %}
+
+# Directory for temporary profile storage (e.g., for ICC uploads)
+{%- if cache_dir is defined %}CacheDir={{ cache_dir }}{% endif %}
+
+# Maximum size (in bytes) of profile cache; 0 = unlimited
+{%- if max_cache_size is defined %}MaxCacheSize={{ max_cache_size }}{% endif %}
+
+# Enable or disable automatic vendor profile installation (e.g., from hardware vendors)
+{%- if vendor_profiles_enabled is defined %}VendorProfiles={{ vendor_profiles_enabled }}{% endif %}
+
+# Enable or disable support for embedded device profiles (e.g., in monitors)
+{%- if embedded_profiles_enabled is defined %}EmbeddedProfiles={{ embedded_profiles_enabled }}{% endif %}
+
+# Enable or disable support for ICC profile uploads via D-Bus
+{%- if upload_enabled is defined %}UploadProfiles={{ upload_enabled }}{% endif %}
+
+# List of directories to scan for vendor-supplied ICC profiles
+{% for dir in vendor_profile_dirs %}# Vendor profile directory: {{ dir.description | default('') | trim | capitalize | replace('  ', ' ') }}
+VendorProfileDir={{ dir.path }}{% if loop.last %}{% else %}
+{% endif %}{% endfor %}
+
+# List of directories to scan for system-wide device profiles
+{% for dir in system_profile_dirs %}# System profile directory: {{ dir.description | default('') | trim | capitalize | replace('  ', ' ') }}
+SystemProfileDir={{ dir.path }}{% if loop.last %}{% else %}
+{% endif %}{% endfor %}
+
+# Enable or disable the use of the internal color management engine (lcms2)
+{%- if lcms_enabled is defined %}LCMS={{ lcms_enabled }}{% endif %}
+
+# Enable or disable the use of display calibration via displaylink (if available)
+{%- if display_calibration_enabled is defined %}DisplayCalibration={{ display_calibration_enabled }}{% endif %}
+
+# Enable or disable the use of printer calibration (experimental)
+{%- if printer_calibration_enabled is defined %}PrinterCalibration={{ printer_calibration_enabled }}{% endif %}
+
+# Enable or disable support for HWC (hardware color management) devices
+{%- if hwc_enabled is defined %}HWC={{ hwc_enabled }}{% endif %}
+
+# Maximum number of worker threads for profile processing
+{%- if max_workers is defined %}MaxWorkers={{ max_workers }}{% endif %}
+
+# Maximum time (in seconds) to wait for device initialization before timeout
+{%- if device_timeout is defined %}DeviceTimeout={{ device_timeout }}{% endif %}
+
+# Enable or disable verbose logging to syslog
+{%- if debug_enabled is defined %}Debug={{ debug_enabled }}{% endif %}

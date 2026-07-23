@@ -1,0 +1,52 @@
+# Listen address for the RTR server (RFC 6810)
+listen_addr: {{ rtr_listen_addr }}
+
+# Listen port for the RTR server (default: 3323)
+listen_port: {{ rtr_listen_port }}
+
+# Enable/disable the RTR server
+enable_rtr: {{ enable_rtr | lower }}
+
+# Maximum number of client connections allowed
+max_clients: {{ max_clients }}
+
+# RPKI repository polling interval in seconds
+poll_interval: {{ poll_interval }}
+
+# Maximum number of retries before declaring a repository unreachable
+max_retries: {{ max_retries }}
+
+# Timeout (in seconds) for HTTP/HTTPS requests to repositories
+request_timeout: {{ request_timeout }}
+
+# Path to the local cache directory for validated ROAs and certs
+# (must be writable by the validator process)
+local_cache_dir: {{ local_cache_dir }}
+
+# Path to the CA certificate bundle for TLS verification (optional, system default if omitted)
+ca_cert_bundle: {{ ca_cert_bundle | default('') }}
+
+# List of RPKI repositories to validate against
+repositories:
+{% for repo in repositories %}
+  - uri: {{ repo.uri }}
+    # Optional: custom HTTP headers for this repository (e.g., auth tokens)
+    {% if repo.headers | length %}
+    headers:
+{% for header, value in repo.headers.items() %}
+      {{ header }}: {{ value }}
+{% endfor %}
+    {% endif %}
+    # Optional: enable/disable this repository
+    enabled: {{ repo.enabled | lower }}
+{% endfor %}
+
+# Logging configuration
+# Valid levels: debug, info, warn, error, critical
+log_level: {{ log_level }}
+
+# Log format: json or text
+log_format: {{ log_format }}
+
+# Path to log file (use '-' for stderr)
+log_file: {{ log_file }}

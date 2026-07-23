@@ -1,0 +1,47 @@
+# Allow only specified D-Bus connections
+# See mm-config.c for defaults and description of each option
+# Core settings
+[General]
+# Log level: 0=none, 1=error, 2=warn, 3=info, 4=debug (default: 2)
+LogLevel={{ log_level }}
+# Log domain filters (comma-separated list of domains, or 'all', or empty for none)
+LogDomains={{ log_domains | join(', ') }}
+# Time to wait before scanning for modems (milliseconds, default: 1000)
+ModemProbeDelay={{ probe_delay_ms }}
+# Maximum time to wait for modem initialization (seconds, default: 60)
+ModemInitTimeout={{ modem_init_timeout_s }}
+# Maximum number of simultaneous connections (0 = no limit, default: 100)
+MaxConnections={{ max_connections }}
+# Enable/Disable phone state monitoring
+EnablePhoneStateMonitoring={{ enable_phone_state_monitoring | lower }}
+# Enable/Disable internal USB device probing
+EnableUsbDeviceProbing={{ enable_usb_device_probing | lower }}
+# Enable/Disable AT port auto-detection
+EnableAtPortAutoDetect={{ enable_at_port_auto_detect | lower }}
+# Enable/Disable firmware update support
+EnableFirmwareUpdate={{ enable_firmware_update | lower }}
+# Enable/Disable MBIM support
+EnableMmSms={{ enable_mm_sms | lower }}
+# Enable/Disable QMI support
+EnableQmi={{ enable_qmi | lower }}
+# Enable/Disable NMEA GPS support
+EnableNmea={{ enable_nmea | lower }}
+# Enable/Disable serial port locking (requires root)
+EnableLockSerialPort={{ enable_lock_serial_port | lower }}
+# Enable/Disable plugin-specific serial port initialization
+EnablePluginModemfirmware={{ enable_plugin_modemfirmware | lower }}
+# List of plugin blacklists (comma-separated, no spaces)
+PluginBlacklist={{ plugin_blacklist | join(', ') }}
+# List of plugin whitelists (comma-separated, no spaces)
+PluginWhitelist={{ plugin_whitelist | join(', ') }}
+# List of port blacklists: 'device:port_type' (e.g., 'ttyUSB0:at')
+PortBlacklist={{ port_blacklist | join(', ') }}
+# List of port whitelists
+PortWhitelist={{ port_whitelist | join(', ') }}
+# USB device blacklists (vendor:product)
+UsbDeviceBlacklist={{ usb_device_blacklist | join(', ') }}
+# USB device whitelists
+UsbDeviceWhitelist={{ usb_device_whitelist | join(', ') }}
+# List of MM-specific options per plugin: plugin_name=key1=value1,key2=value2,...
+{% for plugin in plugin_options %}{{ plugin.name }}={{ plugin.options | join(',') }}
+{% endfor %}

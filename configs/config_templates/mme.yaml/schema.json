@@ -1,0 +1,249 @@
+{
+  "mme.s1ap.ip": {
+    "type": "string",
+    "default": "10.1.1.1",
+    "description": "IP address for the S1-MME interface (eNodeB connection)"
+  },
+  "mme.s1ap.port": {
+    "type": "number",
+    "default": 36412,
+    "description": "Port for S1-MME signaling (GTP-C over SCTP)"
+  },
+  "mme.gtpc.ip": {
+    "type": "string",
+    "default": "10.1.1.2",
+    "description": "IP address for the S11 interface (to SGW)"
+  },
+  "mme.gtpc.port": {
+    "type": "number",
+    "default": 2152,
+    "description": "GTP-C port (S11/S4)"
+  },
+  "mme.gtpu.ip": {
+    "type": "string",
+    "default": "10.1.1.3",
+    "description": "IP address for the S5/S8 user-plane (GTP-U) interface"
+  },
+  "mme.gtpu.port": {
+    "type": "number",
+    "default": 2152,
+    "description": "GTP-U port (S5/S8)"
+  },
+  "mme.plmn.mcc": {
+    "type": "string",
+    "default": "001",
+    "description": "Mobile Country Code (3 digits)"
+  },
+  "mme.plmn.mnc": {
+    "type": "string",
+    "default": "01",
+    "description": "Mobile Network Code (2 or 3 digits)"
+  },
+  "mme.plmn.taci": {
+    "type": "number",
+    "default": 1,
+    "description": "Tracking Area Code Identifier"
+  },
+  "mme.security.kdf": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable Key Derivation Function (KDF) for security algorithms"
+  },
+  "mme.security.integrity_order": {
+    "type": "list",
+    "default": [
+      "EIA1",
+      "EIA2",
+      "EIA0"
+    ],
+    "description": "Prioritized list of integrity algorithms (EIA0 = none)",
+    "items": {
+      "type": "string",
+      "enum": [
+        "EIA0",
+        "EIA1",
+        "EIA2",
+        "EIA3"
+      ],
+      "description": "Integrity algorithm identifier"
+    }
+  },
+  "mme.security.cipher_order": {
+    "type": "list",
+    "default": [
+      "EEA1",
+      "EEA2",
+      "EEA0"
+    ],
+    "description": "Prioritized list of ciphering algorithms (EEA0 = none)",
+    "items": {
+      "type": "string",
+      "enum": [
+        "EEA0",
+        "EEA1",
+        "EEA2",
+        "EEA3"
+      ],
+      "description": "Ciphering algorithm identifier"
+    }
+  },
+  "mme.sgw_pools": {
+    "type": "list",
+    "default": [
+      {
+        "name": "default_pool",
+        "sgws": [
+          {
+            "ip": "10.1.2.1",
+            "gtpc_port": 2152,
+            "gtpu_port": 2152
+          }
+        ],
+        "max_ues": 10000
+      }
+    ],
+    "description": "List of SGW pools for load balancing across SGWs",
+    "items": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Pool identifier"
+        },
+        "sgws": {
+          "type": "list",
+          "description": "List of SGW nodes in this pool",
+          "items": {
+            "type": "object",
+            "properties": {
+              "ip": {
+                "type": "string",
+                "description": "SGW IP address"
+              },
+              "gtpc_port": {
+                "type": "number",
+                "default": 2152,
+                "description": "GTP-C port"
+              },
+              "gtpu_port": {
+                "type": "number",
+                "default": 2152,
+                "description": "GTP-U port"
+              }
+            }
+          }
+        },
+        "max_ues": {
+          "type": "number",
+          "default": 10000,
+          "description": "Maximum UEs supported by this pool"
+        }
+      }
+    }
+  },
+  "mme.s6a.peer_hostname": {
+    "type": "string",
+    "default": "hss.example.com",
+    "description": "FQDN of the HSS server"
+  },
+  "mme.s6a.realm": {
+    "type": "string",
+    "default": "example.com",
+    "description": "Diameter realm for HSS"
+  },
+  "mme.s6a.local_hostname": {
+    "type": "string",
+    "default": "mme.example.com",
+    "description": "Local FQDN for this MME"
+  },
+  "mme.s6a.local_realm": {
+    "type": "string",
+    "default": "example.com",
+    "description": "Local Diameter realm for this MME"
+  },
+  "mme.s6a.tls.enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable TLS for S6a interface"
+  },
+  "mme.s6a.tls.ca": {
+    "type": "string",
+    "default": "/etc/nextepc/certs/hss-ca.pem",
+    "description": "Path to CA certificate (required if TLS enabled)"
+  },
+  "mme.s6a.tls.cert": {
+    "type": "string",
+    "default": "/etc/nextepc/certs/mme-cert.pem",
+    "description": "Path to MME certificate (required if TLS enabled)"
+  },
+  "mme.s6a.tls.key": {
+    "type": "string",
+    "default": "/etc/nextepc/certs/mme-key.pem",
+    "description": "Path to MME private key (required if TLS enabled)"
+  },
+  "mme.logging.level": {
+    "type": "string",
+    "default": "info",
+    "description": "Logging verbosity level (debug, info, notice, warning, error)"
+  },
+  "mme.logging.file": {
+    "type": "string",
+    "default": "/var/log/nextepc/mme.log",
+    "description": "Path to MME log file"
+  },
+  "mme.timers.t3402": {
+    "type": "number",
+    "default": 6,
+    "description": "T3402: Wait time for idle-mode UE reachability (seconds)"
+  },
+  "mme.timers.t3412": {
+    "type": "number",
+    "default": 3600,
+    "description": "T3412: Default periodic TAU timer (seconds)"
+  },
+  "mme.timers.t3422": {
+    "type": "number",
+    "default": 12,
+    "description": "T3422: UE reachability timer (seconds)"
+  },
+  "mme.timers.imsi_detach_indication": {
+    "type": "bool",
+    "default": true,
+    "description": "Send IMSI detach indication on network-initiated detach"
+  },
+  "mme.timers.ue_unreachability": {
+    "type": "number",
+    "default": 300,
+    "description": "Time to wait before marking UE unreachable after S1 release (seconds)"
+  },
+  "mme.max_ues": {
+    "type": "number",
+    "default": 50000,
+    "description": "Maximum total UEs supported by this MME instance"
+  },
+  "mme.max_bearers": {
+    "type": "number",
+    "default": 100000,
+    "description": "Maximum total bearers across all UEs"
+  },
+  "mme.max_apns_per_ue": {
+    "type": "number",
+    "default": 10,
+    "description": "Maximum APNs per UE"
+  },
+  "mme.tdf.enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable Traffic Detection Function (for application-aware policies)"
+  },
+  "mme.tdf.ip": {
+    "type": "string",
+    "default": "10.1.3.1",
+    "description": "IP address of TDF server (required if TDF enabled)"
+  },
+  "mme.tdf.port": {
+    "type": "number",
+    "default": 3868,
+    "description": "Diameter port of TDF server"
+  }
+}

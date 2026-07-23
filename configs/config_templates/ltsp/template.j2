@@ -1,0 +1,62 @@
+# Global LTSP configuration options
+{% if dhcp_range %}# DHCP range for PXE boot clients
+DHCP_RANGE="{{ dhcp_range }}"{% else %}# DHCP range is auto-managed by dnsmasq (default: last 20 IPs of subnet)
+# DHCP_RANGE=""{% endif %}
+
+{% if dhcp_boot %}# Custom DHCP boot filename
+DHCP_BOOT="{{ dhcp_boot }}"{% endif %}
+
+{% if nbd_root %}# NBD root path (optional, overrides default)
+NBD_ROOT="{{ nbd_root }}"{% endif %}
+
+# Enable NBD (Network Block Device) for root filesystem
+{% if nbd_enabled %}NBD_ENABLED="{{ nbd_enabled | string | lower }}"{% endif %}
+
+# Enable HTTPS for NBD (requires valid TLS certs)
+{% if nbd_https %}NBD_HTTPS="{{ nbd_https | string | lower }}"{% endif %}
+
+# Base image path (chroot or squashfs)
+{% if base_image %}LTSP_IMAGE="{{ base_image }}"{% endif %}
+
+# Kernel command-line options appended to all clients
+{% if kernel_options %}LTSP_KERNEL_OPTIONS="{{ kernel_options }}"{% endif %}
+
+# Enable persistent home directories via NFS
+{% if persistent_home %}PERSISTENT_HOME="{{ persistent_home | string | lower }}"{% endif %}
+
+# NFS export path for persistent homes (if enabled)
+{% if persistent_home_nfs %}PERSISTENT_HOME_NFS="{{ persistent_home_nfs }}"{% endif %}
+
+# LDM (LTSP Display Manager) config options
+{% if ldm_language %}LDM_LANGUAGE="{{ ldm_language }}"{% endif %}
+{% if ldm_layout %}LDM_LAYOUT="{{ ldm_layout }}"{% endif %}
+{% if ldm_sound %}LDM_SOUND="{{ ldm_sound | string | lower }}"{% endif %}
+
+# Optional DNS and NTP servers for clients
+{% if dns_servers %}# DNS servers for thin clients
+DNS_SERVERS="{{ dns_servers | join(' ') }}"{% endif %}
+{% if ntp_servers %}# NTP servers for time sync
+NTP_SERVERS="{{ ntp_servers | join(' ') }}"{% endif %}
+
+# Extra packages to install in client image (list format)
+{% if extra_packages %}# Extra packages to install during client image build
+LTSP_INITRD_MODULES="{{ extra_packages | join(' ') }}"{% endif %}
+
+# Enable SSH server in client image
+{% if client_sshd %}LTSP_SSHD="{{ client_sshd | string | lower }}"{% endif %}
+
+# Custom LDM greeter (GNOME, etc.)
+{% if ldm_greeter %}LDM Greeter: {{ ldm_greeter }}{% endif %}
+
+# Per-client overrides (list of client-specific configs)
+{% for client in clients %}
+# Client: {{ client.hostname }}
+# MAC address: {{ client.mac }}
+{% if client.ip %}IP={{ client.ip }}
+{% endif %}{% if client.root %}ROOT={{ client.root }}
+{% endif %}{% if client.nbd_root %}NBD_ROOT={{ client.nbd_root }}
+{% endif %}{% if client.kernel_options %}LDFM_KERNEL_OPTIONS={{ client.kernel_options }}
+{% endif %}{% if client.display_manager %}LDM_DISPLAY_MANAGER={{ client.display_manager }}
+{% endif %}{% endfor %}
+
+# End of ltsp.conf

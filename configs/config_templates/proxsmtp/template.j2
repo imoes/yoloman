@@ -1,0 +1,70 @@
+# ProxSMTP global settings
+# --------------------------
+{% if global_pid_file %}pid_file = {{ global_pid_file }}{% endif %}
+{% if global_log_file %}log_file = {{ global_log_file }}{% endif %}
+log_level = {{ global_log_level }}
+max_connections = {{ global_max_connections }}
+listen_addr = {{ global_listen_addr }}
+listen_port = {{ global_listen_port }}
+
+# TLS/SSL configuration (optional)
+{% if tls_enabled %}# TLS is enabled
+tls_enabled = true
+tls_cert = {{ tls_cert_path }}
+tls_key = {{ tls_key_path }}
+{% if tls_ca_file %}tls_ca_file = {{ tls_ca_file }}{% endif %}
+{% else %}# TLS is disabled
+tls_enabled = false
+{% endif %}
+
+# Backend SMTP servers (one or more)
+{% for server in backend_servers %}# Backend server: {{ server.name }}
+[backend:{{ server.name }}]
+address = {{ server.address }}
+port = {{ server.port }}
+{% if server.tls %}tls = true
+{% else %}tls = false
+{% endif %}
+{% if server.timeout %}timeout = {{ server.timeout }}
+{% endif %}
+{% endfor %}
+
+# ACLs and filtering rules
+{% for rule in acl_rules %}# ACL rule: {{ rule.name }}
+[rule:{{ rule.name }}]
+match_sender = {{ rule.match_sender | join(', ') }}
+{% if rule.match_recipient %}match_recipient = {{ rule.match_recipient | join(', ') }}
+{% endif %}
+{% if rule.match_header %}match_header = {{ rule.match_header | join(', ') }}
+{% endif %}
+action = {{ rule.action }}
+{% if rule.action == 'rewrite' and rule.rewrite_to %}rewrite_to = {{ rule.rewrite_to }}
+{% endif %}
+{% if rule.action == 'reject' and rule.reject_message %}reject_message = {{ rule.reject_message }}
+{% endif %}
+{% endfor %}
+
+# Relay domains / trusted networks
+{% for relay in relay_domains %}# Relay domain/network: {{ relay.name }}
+[relay:{{ relay.name }}]
+{% if relay.domain %}domain = {{ relay.domain }}
+{% endif %}
+{% if relay.network %}network = {{ relay.network }}
+{% endif %}
+auth_required = {{ relay.auth_required | string | lower }}
+{% endfor %}
+
+# Auth backends (optional)
+{% if auth_backend %}# Auth backend: {{ auth_backend.name }}
+[auth_backend]
+type = {{ auth_backend.type }}
+{% if auth_backend.type == 'ldap' %}
+uri = {{ auth_backend.uri }}
+base_dn = {{ auth_backend.base_dn }}
+bind_dn = {{ auth_backend.bind_dn }}
+bind_password = {{ auth_backend.bind_password }}
+{% elif auth_backend.type == 'sql' %}
+connection_string = {{ auth_backend.connection_string }}
+user_query = {{ auth_backend.user_query }}
+{% endif %}
+{% endif %}

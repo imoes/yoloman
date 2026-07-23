@@ -1,0 +1,111 @@
+# Base protocol configuration
+protocols = {{ protocols | join(' ') }}
+
+# Listen on all IPv4 and IPv6 interfaces
+listen = {{ listen | join(', ') }}
+
+# Base directory for runtime files
+base_dir = {{ base_dir }}
+
+# Mail location format (e.g., 'maildir:~/Maildir' or 'mbox:~/mbox')
+mail_location = {{ mail_location }}
+
+# Disable plaintext auth unless SSL/TLS is used
+ssl = {{ ssl }}
+
+# SSL certificate and key paths (only required if SSL is enabled)
+{% if ssl != 'no' %}ssl_cert = <{{ ssl_cert }}>
+ssl_key = <{{ ssl_key }}>{% endif %}
+
+# Mail user and group
+mail_uid = {{ mail_uid }}
+mail_gid = {{ mail_gid }}
+
+# First and last UID/GID for system users (auth users usually start above this)
+first_valid_uid = {{ first_valid_uid }}
+last_valid_gid = {{ last_valid_gid }}
+
+# Auth mechanisms (e.g., 'plain login')
+{% for mechanism in auth_mechanisms %}# Enable authentication mechanism: {{ mechanism }}
+auth_mechanisms = {{ mechanism }}
+{% endfor %}
+
+# Passdb (password database) configuration
+{% for passdb in passdbs %}# {{ passdb.description | default('Password database configuration') }}
+passdb {
+  driver = {{ passdb.driver }}
+{% if passdb.args %}{% for arg_key, arg_val in passdb.args.items() %}  args = {{ arg_key }}={{ arg_val }}
+{% endfor %}{% endif %}
+}
+{% endfor %}
+
+# Userdb (user database) configuration
+{% for userdb in userdbs %}# {{ userdb.description | default('User database configuration') }}
+userdb {
+  driver = {{ userdb.driver }}
+{% if userdb.args %}{% for arg_key, arg_val in userdb.args.items() %}  args = {{ arg_key }}={{ arg_val }}
+{% endfor %}{% endif %}
+}
+{% endfor %}
+
+# Log path
+log_path = {{ log_path }}
+
+# Info log path (separate from error log)
+info_log_path = {{ info_log_path }}
+
+# Login log format (used for login attempts)
+login_log_format_elements = {{ login_log_format_elements }}
+
+# Mail processes limits
+{% if mail processes %}mail_max_userip_connections = {{ mail_max_userip_connections }}
+mail_plugins = {{ mail_plugins | join(' ') }}
+{% endif %}
+
+# Service-specific settings: IMAP/POP3/LMTP
+{% for service in services %}# Service: {{ service.name }}
+service {{ service.name }} {
+{% if service.chroot is defined and service.chroot %}  chroot = {{ service.chroot }}
+{% endif %}
+{% if service.user is defined and service.user %}  user = {{ service.user }}
+{% endif %}
+{% if service.group is defined and service.group %}  group = {{ service.group }}
+{% endif %}
+{% if service.unix_listener is defined %}
+{% for listener in service.unix_listener %}  unix_listener {{ listener.path }} {
+{% if listener.mode is defined %}    mode = {{ listener.mode }}
+{% endif %}
+{% if listener.user is defined %}    user = {{ listener.user }}
+{% endif %}
+{% if listener.group is defined %}    group = {{ listener.group }}
+{% endif %}
+  }
+{% endfor %}{% endif %}
+{% if service.inet_listener is defined %}
+{% for listener in service.inet_listener %}  inet_listener {{ listener.name }} {
+{% if listener.port is defined %}    port = {{ listener.port }}
+{% endif %}
+{% if listener.address is defined %}    address = {{ listener.address }}
+{% endif %}
+{% if listener.ssl is defined %}    ssl = {{ listener.ssl }}
+{% endif %}
+  }
+{% endfor %}{% endif %}
+}
+{% endfor %}
+
+# Namespace configuration (mailboxes layout)
+{% for namespace in namespaces %}# Namespace: {{ namespace.name }}
+namespace {{ namespace.name }} {
+{% if namespace.type is defined %}  type = {{ namespace.type }}
+{% endif %}
+{% if namespace.hidden is defined %}  hidden = {{ namespace.hidden }}
+{% endif %}
+{% if namespace.prefix is defined %}  prefix = {{ namespace.prefix }}
+{% endif %}
+{% if namespace.location is defined %}  location = {{ namespace.location }}
+{% endif %}
+{% if namespace.subscriptions is defined %}  subscriptions = {{ namespace.subscriptions }}
+{% endif %}
+}
+{% endfor %}

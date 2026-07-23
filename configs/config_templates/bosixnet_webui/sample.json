@@ -1,0 +1,73 @@
+{
+  "server": {
+    "host": "0.0.0.0",
+    "port": 8443,
+    "use_tls": true,
+    "ssl_cert": "/etc/bosixnet/ssl/bosixnet.crt",
+    "ssl_key": "/etc/bosixnet/ssl/bosixnet.key"
+  },
+  "ui": {
+    "allow_public_registration": false,
+    "require_2fa": true,
+    "locale": "en_US",
+    "site_title": "My IPv6 Network (BOSIXNET)"
+  },
+  "auth": {
+    "backend": "ldap",
+    "max_login_attempts": 5,
+    "lockout_duration": 900,
+    "token_ttl": 1800
+  },
+  "auth.ldap": {
+    "uri": "ldaps://ldap.internal.example.com:636",
+    "base_dn": "ou=users,dc=internal,dc=example,dc=com",
+    "bind_dn": "cn=bosixnet,ou=services,dc=internal,dc=example,dc=com",
+    "bind_password": "s3cr3t!",
+    "user_attr": "uid",
+    "group_dn": "cn=bosixnet-users,ou=groups,dc=internal,dc=example,dc=com"
+  },
+  "logging": {
+    "level": "INFO",
+    "format": "json",
+    "file": "/var/log/bosixnet/bosixnet.log",
+    "max_size_mb": 200,
+    "max_files": 3
+  },
+  "backend": {
+    "control_socket": "/var/run/bosixnet/control.sock",
+    "operation_timeout": 45,
+    "services": [
+      {
+        "name": "monitoring",
+        "enabled": true,
+        "url": "https://metrics.internal.example.com/api/v1",
+        "auth_token": "monitoring-bearer-token"
+      },
+      {
+        "name": "analytics",
+        "enabled": false,
+        "url": "https://analytics.example.com/collect",
+        "auth_token": ""
+      }
+    ]
+  },
+  "security": {
+    "hsts_max_age": 31536000,
+    "csp_enabled": true,
+    "csp_report_only": false,
+    "report_uri": "/__csp",
+    "xframe_options": "SAMEORIGIN"
+  },
+  "session": {
+    "name": "bosixnet_session",
+    "lifetime": 43200,
+    "secure": true,
+    "httponly": true,
+    "samesite": "Lax"
+  },
+  "rate_limit": {
+    "enabled": true,
+    "requests_per_window": 200,
+    "window_seconds": 60
+  }
+}

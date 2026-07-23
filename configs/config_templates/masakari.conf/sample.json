@@ -1,0 +1,71 @@
+{
+  "log_file": "/var/log/masakari/masakari.log",
+  "debug": false,
+  "host": "masakari01",
+  "rpc_backend": "rabbit",
+  "rabbit": {
+    "host": "rabbitmq01.example.com",
+    "port": 5672,
+    "user": "masakari",
+    "password": "RABBITMQ_PASSWORD",
+    "virtual_host": "/masakari",
+    "ssl_enabled": true,
+    "ssl_version": "TLSv1_2",
+    "ssl_ca_certs": "/etc/ssl/certs/rabbit-ca.crt"
+  },
+  "keystone": {
+    "auth_uri": "https://keystone.example.com:5000",
+    "auth_url": "https://keystone.example.com:35357",
+    "auth_type": "password",
+    "project_domain_name": "Default",
+    "user_domain_name": "Default",
+    "project_name": "service",
+    "username": "masakari",
+    "password": "KEYSTONE_PASSWORD"
+  },
+  "notification_driver": "masakari.openstack.common.notifier.rpc_notifier.Notifier",
+  "database": {
+    "connection": "mysql+pymysql://masakari:DB_PASSWORD@db01.example.com/masakari"
+  },
+  "ha": {
+    "enabled": true,
+    "segment_driver": "masakari.ha.driver.nova.NovaHA"
+  },
+  "notification_drivers": [
+    {
+      "name": "log_to_file",
+      "class": "masakari.openstack.common.notifier.log_notifier.LogNotifier",
+      "options": {
+        "log_level": "WARNING"
+      }
+    }
+  ],
+  "failover_segments": [
+    {
+      "name": "compute_hosts",
+      "segment_type": "host",
+      "hosts": [
+        "compute01",
+        "compute02",
+        "compute03"
+      ],
+      "auto_create": false,
+      "recovery_method": "auto",
+      "notification_destination": "masakari.notifications.host_failover.HostFailoverNotification"
+    }
+  ],
+  "api": {
+    "host": "0.0.0.0",
+    "port": 15868,
+    "ssl": {
+      "enabled": true,
+      "cert_file": "/etc/masakari/ssl/masakari.crt",
+      "key_file": "/etc/masakari/ssl/masakari.key"
+    },
+    "rate_limit": 20,
+    "cors": {
+      "enabled": true,
+      "allow_origin": "https://horizon.example.com"
+    }
+  }
+}

@@ -1,0 +1,106 @@
+{
+  "log_directory": {
+    "type": "string",
+    "default": "/var/log/postgresql/pgaudit",
+    "description": "Absolute path to the directory where pgAudit log files will be written. Must be writable by the PostgreSQL user."
+  },
+  "log_filename": {
+    "type": "string",
+    "default": "pgaudit-%Y%m%d_%H%M%S_%U.log",
+    "description": "Base filename for audit logs. Supports standard strftime-style placeholders for timestamps and user."
+  },
+  "log_rotation_age": {
+    "type": "number",
+    "default": 86400,
+    "description": "Maximum age (in seconds) of a log file before rotation. Set to 0 to disable time-based rotation."
+  },
+  "log_rotation_size": {
+    "type": "number",
+    "default": 10240,
+    "description": "Maximum size (in MB) of a log file before rotation. Set to 0 to disable size-based rotation."
+  },
+  "log_rotation_max_files": {
+    "type": "number",
+    "default": 7,
+    "description": "Maximum number of old (including compressed) log files to retain. Older files are deleted on rotation."
+  },
+  "log_compression": {
+    "type": "bool",
+    "default": true,
+    "description": "Whether to compress rotated log files using gzip to save disk space."
+  },
+  "min_messages": {
+    "type": "string",
+    "default": "LOG",
+    "description": "Minimum message level to include in the audit log (e.g., LOG, ERROR, FATAL). Lower levels include more detail."
+  },
+  "debug_redirector": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable verbose internal logging of the pgAudit redirector module for troubleshooting."
+  },
+  "audit_events": {
+    "type": "list",
+    "default": [
+      "read",
+      "write",
+      "ddl",
+      "function",
+      "role"
+    ],
+    "items": {
+      "type": "string",
+      "description": "Category or type of SQL events to audit. Common options: 'read', 'write', 'ddl', 'function', 'role', 'admin', 'relation'."
+    },
+    "description": "List of event categories to capture. Adjust based on your compliance and security requirements."
+  },
+  "exclude_roles": {
+    "type": "list",
+    "default": [
+      "rds_admin",
+      "cloud_admin"
+    ],
+    "items": {
+      "type": "string",
+      "description": "Name of a PostgreSQL role to exclude from auditing. Use for internal/system accounts."
+    },
+    "description": "List of role names that should not be audited (e.g., superusers or service accounts)."
+  },
+  "exclude_schemas": {
+    "type": "list",
+    "default": [
+      "pg_catalog",
+      "information_schema"
+    ],
+    "items": {
+      "type": "string",
+      "description": "Name of a schema to exclude from auditing."
+    },
+    "description": "List of schema names that should not be audited. Useful for system schemas."
+  },
+  "log_file_mode": {
+    "type": "number",
+    "default": 420,
+    "description": "Octal permission mode for new log files (e.g., 0640 = 420 in decimal). Must be readable by PostgreSQL user and group."
+  },
+  "log_file_owner": {
+    "type": "string",
+    "default": "postgres",
+    "description": "Unix username that will own the log files (usually the PostgreSQL service account)."
+  },
+  "log_file_group": {
+    "type": "string",
+    "default": "postgres",
+    "description": "Unix group that will own the log files. Ensure this group has appropriate access."
+  },
+  "max_log_writers": {
+    "type": "number",
+    "default": 2,
+    "description": "Maximum number of background writer processes to handle concurrent log writes. Increase for very high-traffic databases."
+  },
+  "enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Toggle to enable or disable pgAudit log redirection entirely."
+  }
+}

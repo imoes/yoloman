@@ -1,0 +1,64 @@
+[DEFAULT]
+# Logging configuration
+log_dir = {{ log_dir }}
+log_file = {{ log_file }}
+
+# Debug / verbosity
+# Enable debug mode for verbose logging
+debug = {{ debug }}
+
+# RPC / messaging backend
+# Transport URL for message broker (e.g., rabbitmq, redis, or fake for testing)
+transport_url = {{ transport_url }}
+
+# Authentication
+# Authentication strategy (keystone recommended for production)
+auth_strategy = keystone
+
+# Database connection
+# SQLAlchemy connection string for Manila database
+connection = {{ db_connection }}
+
+# Scheduler driver
+# Driver used to select a backend share server for share creation
+scheduler_driver = {{ scheduler_driver }}
+
+# Scheduler filters
+# Comma-separated list of filter classes to apply (loaded via stevedore)
+scheduler_default_filters = {{ scheduler_default_filters | join(', ') }}
+
+# Scheduler weights
+# Comma-separated list of weight filter classes
+scheduler_weight_filters = {{ scheduler_weight_filters | join(', ') }}
+
+# Scheduler options
+# Number of scheduler workers (processes) to spawn
+workers = {{ workers }}
+
+# Share driver
+# Default share server type; must match enabled backends
+# (e.g., manila.share.drivers.lvm.LVMShareDriver)
+share_driver = {{ share_driver }}
+
+# Driver helpers & options — passed to share driver
+# Enable use of network allocation on scheduler (e.g., for Neutron-backed networks)
+driver_handles_share_servers = {{ driver_handles_share_servers }}
+
+# Share network security service integration
+# Optional: enable integration with LDAP/Kerberos/Active Directory
+# (see manila.conf documentation for [keystone_authtoken] settings)
+
+{% for service in service_auth_params %}
+# Service credentials for {{ service.name }}
+[{{ service.section }}]
+{% if service.section == 'keystone_authtoken' %}
+auth_url = {{ service.auth_url }}
+project_domain_name = {{ service.project_domain_name }}
+user_domain_name = {{ service.user_domain_name }}
+project_name = {{ service.project_name }}
+username = {{ service.username }}
+password = {{ service.password }}
+{% elif service.section == 'oslo_concurrency' %}
+lock_path = {{ service.lock_path }}
+{% endif %}
+{% endfor %}

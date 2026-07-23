@@ -1,0 +1,51 @@
+{
+  "log_level": "info",
+  "log_destination": "syslog",
+  "listen_address": "127.0.0.1",
+  "listen_port": 10031,
+  "max_workers": 4,
+  "max_requests_per_worker": 10000,
+  "timeout_connect": 10,
+  "timeout_data": 60,
+  "timeout_idle": 120,
+  "auth_enabled": false,
+  "auth_type": "ldap",
+  "auth_server": "ldap://ldap.internal/dc=example,dc=com?uid?sub?(objectClass=person)",
+  "policy_modules": [
+    {
+      "name": "reject_null_sender",
+      "description": "Reject messages with null sender unless explicitly allowed",
+      "enabled": true,
+      "match": "sender = /^$/",
+      "action": "REJECT 5.1.8 Null sender not allowed",
+      "options": {
+        "allow_null_sender": "false"
+      }
+    },
+    {
+      "name": "rate_by_client",
+      "description": "Rate-limit clients exceeding 30 msgs/minute",
+      "enabled": true,
+      "match": "",
+      "action": "DUNNO",
+      "options": {
+        "key": "client_address",
+        "rate": "30",
+        "burst": "5",
+        "action": "DEFER If you like the service, please try again later"
+      }
+    },
+    {
+      "name": "reject_local_spam",
+      "description": "Block local-sender spam using SpamAssassin hits",
+      "enabled": true,
+      "match": "sender_domain = /@example\\.com/ && spamassassin_hits > 5",
+      "action": "REJECT 5.7.1 Message rejected as likely spam",
+      "options": {}
+    }
+  ],
+  "use_cache": false,
+  "cache_path": "/var/spool/postfix/policy_cache",
+  "cache_ttl": 3600,
+  "rate_limits": []
+}

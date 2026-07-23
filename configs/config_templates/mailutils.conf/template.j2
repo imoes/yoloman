@@ -1,0 +1,64 @@
+[# mailutils-imap4d service configuration
+# This file configures the IMAP4D daemon (part of mailutils).
+# It uses INI-style syntax with sections, key-value pairs, and optional comments.
+# See `man 5 mailutils`, `man 8 imap4d` for full details.
+
+[imap4d]
+# Enable debug logging (very verbose)
+debug = {{ debug }}
+# Maximum number of simultaneous client connections
+maxconn = {{ maxconn }}
+# Enable SSL/TLS support
+ssl = {{ ssl }}
+# Path to the SSL certificate file (PEM format)
+ssl-cert = {{ ssl_cert }}
+# Path to the SSL private key file
+ssl-key = {{ ssl_key }}
+# Port to listen on for unencrypted IMAP
+port = {{ port }}
+# Port to listen on for IMAPS (if ssl enabled)
+ssl-port = {{ ssl_port }}
+# Maximum idle time for a client (in seconds)
+idle-timeout = {{ idle_timeout }}
+# Enable syslog logging
+syslog = {{ syslog }}
+# Enable plaintext authentication (WARNING: insecure unless SSL/TLS is enforced)
+allow-plaintext = {{ allow_plaintext }}
+# List of allowed authentication mechanisms (e.g., plain, login, cram-md5)
+auth-mechs = {{ auth_mechs | join(',') }}
+# Path to the SASL configuration (if using SASL auth)
+sasl-config = {{ sasl_config }}
+# Enable IPv6 listening
+ipv6 = {{ ipv6 }}
+# Log level (0–3); higher = more verbose
+loglevel = {{ loglevel }}
+# Path to PID file
+pidfile = {{ pidfile }}
+# Daemon user to drop privileges to (usually 'mail' or 'nobody')
+user = {{ user }}
+# Daemon group
+-group = {{ group }}
+
+[mailbox]
+# Default mailbox format (mbox, maildir, etc.)
+default = {{ mailbox_default }}
+# Maildir: enable dot-locking for compatibility
+maildir-dotlock = {{ maildir_dotlock }}
+
+# Optional: per-client limits (repeatable section)
+{% for client_limit in client_limits %}
+[client-limit:{{ client_limit.name }}]
+# Apply to IP/subnet or host pattern
+match = {{ client_limit.match }}
+# Max connections per matching client
+maxconn = {{ client_limit.maxconn }}
+{% endfor %}
+
+# Optional: access control list (repeatable)
+{% for acl in acl_rules %}
+[access:{{ acl.name }}]
+# Pattern to match client host/IP
+match = {{ acl.match }}
+# Action: allow or deny
+action = {{ acl.action }}
+{% endfor %}

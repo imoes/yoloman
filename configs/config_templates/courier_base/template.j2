@@ -1,0 +1,10 @@
+# Route definitions for esmtproutes (Courier MTA)
+# Format: domain:relayhost[:port]
+# Each line defines where mail for a domain should be forwarded
+{% if routes is defined and routes | length > 0 %}
+{% for route in routes %}# Route for {{ route.domain }}
+{{ route.domain }}:{{ route.relay }}{% if route.port is defined and route.port != 25 %}:{{ route.port }}{% endif %}
+{% endfor %}
+{% else %}
+# No routes configured — local delivery only
+{% endif %}

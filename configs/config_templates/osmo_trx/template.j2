@@ -1,0 +1,61 @@
+# OsmoTRX main configuration file
+# Bind to localhost by default; change if multi-host deployment
+bind-address {{ bind_address }}
+
+# UDP port for RTP media stream (L1 <-> L2 interface)
+rtp-port {{ rtp_port }}
+
+# UDP port for control interface (OSMO_TRX control protocol)
+control-port {{ control_port }}
+
+# Transceiver instance name (used in logging and control interface)
+instance {{ instance_name }}
+
+# Maximum number of simultaneously active TRX (typically 1 or 3 for 3-sector BTS)
+max-trx {{ max_trx }}
+
+# Baseband device type: 'lms7' (LimeSDR), 'usrp' (UHD), ' HackRF', etc.
+device-type {{ device_type }}
+
+{% if device_type == 'lms7' %}
+# LimeSDR-specific settings
+[limesdr]
+# LimeSDR device serial (optional; auto-detect if omitted)
+serial {{ limesdr_serial | default('') }}
+# TX gain in dB (0–73)
+tx-gain {{ limesdr_tx_gain }}
+# RX gain in dB (0–73)
+rx-gain {{ limesdr_rx_gain }}
+# TX frequency offset in kHz (fine-tune for calibration)
+tx-freq-offset {{ limesdr_tx_freq_offset }}
+# RX frequency offset in kHz
+rx-freq-offset {{ limesdr_rx_freq_offset }}
+{% endif %}
+
+{% if device_type == 'usrp' %}
+# USRP (UHD) settings
+[uhd]
+# USRP device address string (e.g., 'addr=192.168.10.2')
+addr {{ usrp_addr }}
+# Subdevice spec: e.g., 'A:0' or 'B:0'
+subdev {{ usrp_subdev }}
+# TX gain in dB (0–90, hardware-dependent)
+tx-gain {{ usrp_tx_gain }}
+rx-gain {{ usrp_rx_gain }}
+{% endif %}
+
+{% if device_type == 'hackrf' %}
+# HackRF settings
+[hackrf]
+# HackRF device index (0-based, for multiple devices)
+device-index {{ hackrf_device_index }}
+{% endif %}
+
+# Log level: 0=none, 1=error, 2=warning, 3=info, 4=debug, 5=trace
+log-level {{ log_level }}
+
+# Enable/Disable RF loopback mode (for factory test)
+loopback {{ loopback | lower }}
+
+# Clock source: 'internal', 'external', 'gpsdo'
+clock-source {{ clock_source }}

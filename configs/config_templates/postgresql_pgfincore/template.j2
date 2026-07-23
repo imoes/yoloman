@@ -1,0 +1,42 @@
+# pgfincore.conf — PostgreSQL Memory Management Assistant (pgfincore) configuration
+# Sets the maximum number of pages to pin in memory for a table
+# Example: pgfincore.pin_pages = 10000
+{% if pin_pages is defined %}pgfincore.pin_pages = {{ pin_pages }}{% else %}# pgfincore.pin_pages = 0{% endif %}
+
+# Enables automatic pinning of tables on first access
+# Example: pgfincore.pin_on_first_access = on
+{% if pin_on_first_access is defined %}pgfincore.pin_on_first_access = {{ pin_on_first_access | lower }}{% else %}# pgfincore.pin_on_first_access = off{% endif %}
+
+# Specifies which tables to pin by schema.table pattern (supports wildcards)
+# Example: pgfincore.pin_tables = 'public.*'
+{% if pin_tables is defined and pin_tables | length > 0 %}
+{% for table_pattern in pin_tables %}pgfincore.pin_tables = '{{ table_pattern }}'{% endfor %}
+{% else %}# pgfincore.pin_tables = ''
+{% endif %}
+
+# Minimum free memory (in MB) required before pinning; prevents OOM
+# Example: pgfincore.min_free_memory_mb = 256
+{% if min_free_memory_mb is defined %}pgfincore.min_free_memory_mb = {{ min_free_memory_mb }}{% else %}# pgfincore.min_free_memory_mb = 64{% endif %}
+
+# Maximum number of pages to pin per table (0 = no limit)
+# Example: pgfincore.max_pages_per_table = 50000
+{% if max_pages_per_table is defined %}pgfincore.max_pages_per_table = {{ max_pages_per_table }}{% else %}# pgfincore.max_pages_per_table = 0{% endif %}
+
+# Log level for pgfincore operations: DEBUG5..LOG
+# Example: pgfincore.log_level = INFO
+{% if log_level is defined %}pgfincore.log_level = {{ log_level }}{% else %}# pgfincore.log_level = LOG{% endif %}
+
+# Enables automatic unpinning of tables on checkpoint
+# Example: pgfincore.unpin_on_checkpoint = on
+{% if unpin_on_checkpoint is defined %}pgfincore.unpin_on_checkpoint = {{ unpin_on_checkpoint | lower }}{% else %}# pgfincore.unpin_on_checkpoint = off{% endif %}
+
+# List of tables to exclude from pinning (schema.table)
+# Example: pgfincore.exclude_tables = 'pg_catalog.*,information_schema.*'
+{% if exclude_tables is defined and exclude_tables | length > 0 %}
+{% for exclude_pattern in exclude_tables %}pgfincore.exclude_tables = '{{ exclude_pattern }}'{% endfor %}
+{% else %}# pgfincore.exclude_tables = ''
+{% endif %}
+
+# Specifies the shared library to load (do not modify)
+# Example: shared_preload_libraries = 'pgfincore'
+{% if shared_preload_libraries is defined %}shared_preload_libraries = '{{ shared_preload_libraries | join(", ") }}'{% else %}# shared_preload_libraries = 'pgfincore'{% endif %}

@@ -1,0 +1,49 @@
+{# Location of the repository where backups are stored #}
+repo: {{ repo_path }}
+
+{# Path to the SSH key used for authenticating to remote repos (if any) #}
+ssh_key: {{ ssh_key_path }}
+
+{# Compression algorithm to use: 'lz4', 'zlib', 'zstd', or 'none' #}
+compression: {{ compression.algorithm }}
+
+{# Compression level (applicable only for zlib/zstd; -1 for default, 0–9 for zlib, 0–22 for zstd) #}
+compression_level: {{ compression.level | default(-1) }}
+
+{# Enable encryption (mode: 'keyfile', 'keyfile-blake2', 'repokey', 'repokey-blake2', or 'authenticated') #}
+encryption: {{ encryption.mode }}
+
+{# Prefix for backup names (e.g., '{hostname}-{now:%Y%m%d-%H%M%S}') #}
+archive_name_prefix: {{ archive_name_prefix }}
+
+{# Maximum number of archives to keep (per retention policy) #}
+keep_within: {{ retention.keep_within | default('3D') }}
+keep_daily: {{ retention.keep_daily | default(7) }}
+keep_weekly: {{ retention.keep_weekly | default(4) }}
+keep_monthly: {{ retention.keep_monthly | default(6) }}
+keep_yearly: {{ retention.keep_yearly | default(0) }}
+
+{# Exclude patterns (rsync-style) #}
+{% for pattern in exclude_patterns %}
+exclude: {{ pattern }}
+{% endfor %}
+
+{# Paths to back up #}
+{% for path in backup_paths %}
+backup: {{ path }}
+{% endfor %}
+
+{# Enable or disable POSIX ACLs support #}
+/acl-support: {{ features.acl_support | default(false) | string | lower }}
+
+{# Enable or disable extended attributes (xattrs) support #}
+/xattr-support: {{ features.xattr_support | default(false) | string | lower }}
+
+{# Enable or disable file status (inode/device) tracking for dedup #}
+/statx: {{ features.statx | default(false) | string | lower }}
+
+{# Log level: 'debug', 'info', 'warning', 'error', 'critical' #}
+log_level: {{ log_level }}
+
+{# Enable automatic repository migration (not recommended in production) #}
+repository_migration: {{ repository_migration | default(false) | string | lower }}

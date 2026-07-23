@@ -1,0 +1,13 @@
+# /etc/igmpproxy.conf — IGMP proxy configuration
+# Enable quick leave processing for faster multicast group removal
+quickleave
+
+# Define upstream (source) interface — typically connected to the internet or upstream multicast source
+upstream {{ upstream_interface | default('eth0') }}
+
+{% for network in downstream_networks %}
+# Downstream network: {{ network.name | default('unnamed') }}
+# Allow multicast traffic from {{ network.subnet }} via {{ network.interface }}
+downstream {{ network.interface }} {{ network.subnet }}
+
+{% endfor %}

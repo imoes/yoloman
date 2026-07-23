@@ -1,0 +1,71 @@
+{
+  "listen_addr": "127.0.0.1",
+  "listen_port": 8080,
+  "backend_name": "main",
+  "max_connections": 2048,
+  "transparent": false,
+  "proxy_protocol": true,
+  "timeout_connect": 3,
+  "timeout_server": 30,
+  "log_level": "info",
+  "log_file": "/var/log/ffproxy/proxy.log",
+  "pid_file": "/run/ffproxy/proxy.pid",
+  "backend_servers": [
+    {
+      "name": "app1",
+      "address": "10.0.0.10",
+      "port": 8000,
+      "weight": 2,
+      "check": true,
+      "max_connections": 512
+    },
+    {
+      "name": "app2",
+      "address": "10.0.0.11",
+      "port": 8000,
+      "weight": 2,
+      "check": true,
+      "max_connections": 512
+    },
+    {
+      "name": "backup_node",
+      "address": "10.0.0.20",
+      "port": 8000,
+      "weight": 1,
+      "backup": true,
+      "check": true
+    }
+  ],
+  "ssl_enabled": true,
+  "ssl_listen_addr": "0.0.0.0",
+  "ssl_listen_port": 443,
+  "ssl_cert_path": "/etc/ssl/certs/proxy.crt",
+  "ssl_key_path": "/etc/ssl/private/proxy.key",
+  "ssl_protocols": [
+    "TLSv1.2",
+    "TLSv1.3"
+  ],
+  "ssl_prefer_server_ciphers": true,
+  "acl_rules": [
+    {
+      "name": "api",
+      "pattern": "^/api/v[1-3]/"
+    },
+    {
+      "name": "admin",
+      "pattern": "^/admin"
+    }
+  ],
+  "rate_limits": [
+    {
+      "name": "api",
+      "requests": 100,
+      "window": 60
+    },
+    {
+      "name": "default",
+      "requests": 20,
+      "window": 10
+    }
+  ]
+}

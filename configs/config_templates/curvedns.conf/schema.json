@@ -1,0 +1,143 @@
+{
+  "bind_address": {
+    "type": "string",
+    "default": "127.0.0.1",
+    "description": "Local IP address on which to listen for incoming DNS queries (e.g., '127.0.0.1' for localhost only, or '0.0.0.0' for all interfaces)."
+  },
+  "bind_port": {
+    "type": "number",
+    "default": 5353,
+    "description": "Port number for the DoH resolver listener."
+  },
+  "upstreams": {
+    "type": "list",
+    "default": [
+      {
+        "server": "https://dns.google/dns-query",
+        "name": "Google DNS (DoH)"
+      }
+    ],
+    "items": {
+      "type": "object",
+      "description": "A DNS upstream resolver (DoH, DoT, or plain DNS).",
+      "fields": {
+        "server": {
+          "type": "string",
+          "default": "",
+          "description": "Full URL (DoH) or host:port (DoT, e.g., 'dns.cloudflare.com:853') of the upstream resolver."
+        },
+        "name": {
+          "type": "string",
+          "default": "",
+          "description": "Optional human-readable label for this upstream."
+        },
+        "tls_servername": {
+          "type": "string",
+          "default": "",
+          "description": "Optional TLS server name (SNI) for DoT or DoH connections (e.g., 'dns.google')."
+        }
+      }
+    },
+    "description": "List of upstream DNS resolvers to forward queries to. Supports DoH (HTTPS), DoT (TLS), or plain DNS (deprecated)."
+  },
+  "log_level": {
+    "type": "string",
+    "default": "info",
+    "description": "Verbosity of logging: 'debug', 'info', 'warn', or 'error'."
+  },
+  "log_file": {
+    "type": "string",
+    "default": "/var/log/curvedns/curvedns.log",
+    "description": "Path to the log file. Set to empty string ('') to log to stdout."
+  },
+  "max_queries_per_client": {
+    "type": "number",
+    "default": 100,
+    "description": "Maximum queries allowed per client IP per second (0 = unlimited). Helps prevent abuse."
+  },
+  "ecs": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable EDNS Client Subnet (ECS) support to pass client network info to upstream resolvers."
+  },
+  "dnssec": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable DNSSEC validation. Requires upstream support and a trust anchor file."
+  },
+  "trust_anchor_file": {
+    "type": "string",
+    "default": "/etc/curvedns/root.ds",
+    "description": "Path to the root DS (Delegation Signer) records file, used for DNSSEC validation."
+  },
+  "timeout": {
+    "type": "number",
+    "default": 10,
+    "description": "Timeout (in seconds) for upstream DNS queries and HTTP connections."
+  },
+  "cert_file": {
+    "type": "string",
+    "default": "/etc/curvedns/tls.crt",
+    "description": "Path to the TLS certificate file (PEM format) for the DoH HTTPS endpoint."
+  },
+  "key_file": {
+    "type": "string",
+    "default": "/etc/curvedns/tls.key",
+    "description": "Path to the TLS private key file (PEM format, unencrypted)."
+  },
+  "sni_hostname": {
+    "type": "string",
+    "default": "",
+    "description": "Optional SNI hostname for TLS. If omitted, defaults to bind_address."
+  },
+  "ipv6": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable IPv6 support for upstream queries and client connections."
+  },
+  "rate_limit_burst": {
+    "type": "number",
+    "default": 50,
+    "description": "Maximum number of queries allowed in a burst before rate limiting kicks in."
+  },
+  "rate_limit_window": {
+    "type": "number",
+    "default": 60,
+    "description": "Time window (in seconds) for rate limiting calculations."
+  },
+  "cache_size": {
+    "type": "number",
+    "default": 10000,
+    "description": "Maximum number of DNS responses to cache (0 = disable caching)."
+  },
+  "cache_min_ttl": {
+    "type": "number",
+    "default": 0,
+    "description": "Minimum TTL (seconds) to cache a response (overrides low TTL values)."
+  },
+  "cache_max_ttl": {
+    "type": "number",
+    "default": 86400,
+    "description": "Maximum TTL (seconds) to cache a response (overrides high TTL values)."
+  },
+  "hosts_file": {
+    "type": "list",
+    "default": [],
+    "items": {
+      "type": "object",
+      "fields": {
+        "host": {
+          "type": "string",
+          "default": "",
+          "description": "Hostname to override (e.g., 'localprinter')."
+        },
+        "ip": {
+          "type": "string",
+          "default": "",
+          "description": "IP address to return for the hostname (IPv4 or IPv6)."
+        }
+      }
+    },
+    "description": "Static hostname-to-IP mappings to override upstream resolution (e.g., for local devices)."
+  }
+}

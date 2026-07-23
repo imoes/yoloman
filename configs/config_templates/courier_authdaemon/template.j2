@@ -1,0 +1,41 @@
+# Path to the authentication library variant (e.g., authmysql, authldap)
+authmodulepath = "{{ authmodulepath }}"
+
+# Space-separated list of modules to try (must match modules in authmodulepath)
+authmodule = "{{ authmodule | join(' ') }}"
+
+# Minimum number of idle authentication processes to keep running
+minprocs = {{ minprocs }}
+
+# Maximum number of idle authentication processes to allow
+maxdaemons = {{ maxdaemons }}
+
+# Timeout (in seconds) for client connections
+daemontimeout = {{ daemontimeout }}
+
+# Enable debug logging (set to 1 for on, 0 for off)
+debug = {{ 1 if debug else 0 }}
+
+# Syslog facility for logging (e.g., auth, authpriv)
+syslog = {{ syslog_facility }}
+
+# Enable or disable PAM authentication
+usepam = {{ 1 if usepam else 0 }}
+
+# Optional: Extra PAM service name (if different from 'courier')
+{% if pam_service %}
+pamservice = "{{ pam_service }}"
+{% endif %}
+
+# Optional: Custom log file (overrides syslog if set)
+{% if logfile %}
+logfile = "{{ logfile }}"
+{% endif %}
+
+# Optional: Per-module instance configuration (e.g., for authmysql)
+{% for module_instance in module_instances %}
+# {{ module_instance.comment }}
+{% for key, value in module_instance.config.items() %}
+{{ key }}={{ value }}
+{% endfor %}
+{% endfor %}

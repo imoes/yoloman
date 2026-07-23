@@ -1,0 +1,139 @@
+{
+  "listen_addresses": {
+    "type": "list",
+    "default": [
+      "127.0.0.1:25",
+      "::1:25"
+    ],
+    "description": "IP addresses and ports on which the MTA listens for inbound SMTP connections (relay mode only)."
+  },
+  "routes": {
+    "type": "list",
+    "default": [
+      {
+        "domain": "example.com",
+        "port": 25,
+        "next_hop": "mx.example.com"
+      }
+    ],
+    "items": {
+      "type": "object",
+      "properties": {
+        "domain": {
+          "type": "string",
+          "default": "",
+          "description": "Domain for which this route applies (wildcards allowed, e.g., `*.example.com`)."
+        },
+        "port": {
+          "type": "number",
+          "default": 25,
+          "description": "Port to use when connecting to the next hop MTA (25, 587, 465, etc.)."
+        },
+        "next_hop": {
+          "type": "string",
+          "default": "",
+          "description": "Hostname or IP address of the upstream relay to which mail for this domain should be forwarded."
+        }
+      },
+      "required": [
+        "domain",
+        "next_hop"
+      ]
+    },
+    "description": "List of routing rules defining how mail for specific domains should be relayed. Each rule maps a domain to an upstream relay."
+  },
+  "tls_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable TLS encryption for outbound connections to upstream relays. Requires valid certificates."
+  },
+  "tls_cert_chain": {
+    "type": "string",
+    "default": "/etc/esmtp/tls/cert.pem",
+    "description": "Path to the certificate chain file (PEM format) for client-side TLS authentication (if upstream requires it)."
+  },
+  "tls_key": {
+    "type": "string",
+    "default": "/etc/esmtp/tls/key.pem",
+    "description": "Path to the private key file (PEM format) matching the certificate chain."
+  },
+  "tls_ca_file": {
+    "type": "string",
+    "default": "/etc/ssl/certs/ca-certificates.crt",
+    "description": "Path to a bundle of trusted CA certificates (PEM format) for verifying upstream servers."
+  },
+  "starttls_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Whether to attempt STARTTLS negotiation with upstream relays when available (recommended for privacy)."
+  },
+  "connect_timeout": {
+    "type": "number",
+    "default": 30,
+    "description": "Maximum seconds to wait for connection to upstream relay (TCP connect phase)."
+  },
+  "data_timeout": {
+    "type": "number",
+    "default": 300,
+    "description": "Maximum seconds to wait for data transfer (SMTP DATA phase) with upstream relay."
+  },
+  "session_timeout": {
+    "type": "number",
+    "default": 600,
+    "description": "Maximum idle time (seconds) for an SMTP session before closing it."
+  },
+  "retry_max": {
+    "type": "number",
+    "default": 5,
+    "description": "Maximum number of retry attempts for a given message before giving up and bouncing."
+  },
+  "retry_interval": {
+    "type": "number",
+    "default": 3600,
+    "description": "Initial delay (seconds) before first retry of a failed delivery attempt."
+  },
+  "retry_backoff": {
+    "type": "number",
+    "default": 2,
+    "description": "Multiplier for exponential backoff (retry delay grows as `interval * backoff^(attempt-1)`)."
+  },
+  "verbosity": {
+    "type": "number",
+    "default": 1,
+    "description": "Logging verbosity: 0 = minimal (errors only), 1 = normal (recommended), 2 = verbose, 3 = debug."
+  },
+  "local_hostname": {
+    "type": "string",
+    "default": "",
+    "description": "Override for the local hostname announced in SMTP HELO/EHLO (e.g., `mail.example.com`). If empty, system FQDN is used."
+  },
+  "sender_maps": {
+    "type": "list",
+    "default": [],
+    "items": {
+      "type": "object",
+      "properties": {
+        "pattern": {
+          "type": "string",
+          "default": "",
+          "description": "Regex pattern to match against the envelope sender address (e.g., `^user@localhost$`)."
+        },
+        "replacement": {
+          "type": "string",
+          "default": "",
+          "description": "Replacement string (may use capture groups, e.g., `user@example.com`)."
+        }
+      },
+      "required": [
+        "pattern",
+        "replacement"
+      ]
+    },
+    "description": "Rules to rewrite (masquerade) sender addresses in the envelope (e.g., to hide internal addresses)."
+  },
+  "bounce_sender": {
+    "type": "string",
+    "default": "",
+    "description": "Envelope sender address to use for bounce messages (e.g., `mailer-daemon@example.com`). Empty means default system bounce address."
+  }
+}

@@ -1,0 +1,50 @@
+# Global settings for Samba AD DC
+[global]
+{{ comment_global_workgroup }}workgroup = {{ workgroup }}
+{{ comment_global_realm }}realm = {{ realm }}
+{{ comment_global_netbios_name }}netbios name = {{ netbios_name }}
+{{ comment_global_server_role }}server role = active directory domain controller
+{{ comment_global_passdb_backend }}passdb backend = tdbsam
+{{ comment_global_dns_provisioning }}dns forwarder = {{ dns_forwarder }}
+{{ comment_global_idmap_config }}# ID mapping
+{{ idmap_line | default('# idmap config line placeholder') | comment('# ') }}
+{{ idmap_lines | map('comment') | join('\n') }}
+
+{{ comment_global_log }}log file = {{ log_file }}
+{{ comment_global_log_level }}log level = {{ log_level }}
+
+{{ comment_global_nsswitch }}# Unix account integration
+{{ nss_line | default('# nss_line placeholder') | comment('# ') }}
+{{ nss_lines | map('comment') | join('\n') }}
+
+{{ comment_global_winbind }}# Winbind (user/group enumeration)
+{{ winbind_line | default('# winbind_line placeholder') | comment('# ') }}
+{{ winbind_lines | map('comment') | join('\n') }}
+
+# Default share for SYSVOL and netlogon
+[netlogon]
+{{ comment_netlogon_path }}path = {{ netlogon_path }}
+{{ comment_netlogon_read_only }}read only = {{ netlogon_read_only | string | lower }}
+{{ comment_netlogon_writable }}writable = {{ netlogon_writable | string | lower }}
+{{ comment_netlogon_guest_ok }}guest ok = {{ netlogon_guest_ok | string | lower }}
+
+[sysvol]
+{{ comment_sysvol_path }}path = {{ sysvol_path }}
+{{ comment_sysvol_read_only }}read only = {{ sysvol_read_only | string | lower }}
+{{ comment_sysvol_writable }}writable = {{ sysvol_writable | string | lower }}
+{{ comment_sysvol_nt_acl_support }}nt acl support = {{ sysvol_nt_acl_support | string | lower }}
+{{ comment_sysvol_inherit_acl }}inherit acls = {{ sysvol_inherit_acl | string | lower }}
+
+{% for share in shares %}
+# User-defined share: {{ share.name }}
+[{{ share.name }}]
+{{ share_comment(share.name, 'path') }}path = {{ share.path }}
+{% if share.comment is defined %}{{ share_comment(share.name, 'comment') }}comment = {{ share.comment }}{% endif %}
+{{ share_comment(share.name, 'read_only') }}read only = {{ share.read_only | string | lower }}
+{% if share.browseable is defined %}{{ share_comment(share.name, 'browseable') }}browseable = {{ share.browseable | string | lower }}{% endif %}
+{% if share.writable is defined %}{{ share_comment(share.name, 'writable') }}writable = {{ share.writable | string | lower }}{% endif %}
+{% if share.guest_ok is defined %}{{ share_comment(share.name, 'guest_ok') }}guest ok = {{ share.guest_ok | string | lower }}{% endif %}
+{% if share.valid_users is defined %}{{ share_comment(share.name, 'valid_users') }}valid users = {{ share.valid_users | join(', ') }}{% endif %}
+{% if share.force_create_mode is defined %}{{ share_comment(share.name, 'force_create_mode') }}force create mode = {{ share.force_create_mode }}{% endif %}
+{% if share.force_directory_mode is defined %}{{ share_comment(share.name, 'force_directory_mode') }}force directory mode = {{ share.force_directory_mode }}{% endif %}
+{% endfor %}

@@ -1,0 +1,37 @@
+# Main gdnsd configuration file
+# List of listening addresses and ports
+listen {
+{% for addr in listen_addrs %}  {{ addr | join(', ') }}{% if not loop.last %}
+{% endif %}{% endfor %}
+}
+
+# Global DNS server settings
+global {
+  # Maximum UDP packet size for responses
+  max_udp_size: {{ max_udp_size }};
+  # Enable TCP fallback for large responses
+  tcp_fallback: {{ tcp_fallback | lower }};
+  # Number of worker threads
+  workers: {{ workers }};
+}
+
+# Geographic data sources
+geo {
+{% for src in geo_sources %}  {{ src | join(', ') }}{% if not loop.last %}
+{% endif %}{% endfor %}
+}
+
+# DNS zones configuration
+zones {
+{% for zone in zones %}  {{ zone.name }} {
+{% if zone.file %}    file: "{{ zone.file }}";
+{% endif %}{% if zone.options %}{% for opt in zone.options %}    {{ opt | join(', ') }};
+{% endfor %}{% endif %}{% if zone.geodatas %}{% for geo in zone.geodatas %}    geodata:
+{% for entry in geo %}      {{ entry.ip | default(entry.net) | default(entry.host) }} -> {{ entry.location }};
+{% endfor %}    ;
+{% endfor %}{% endif %}  }
+{% endfor %}
+}
+
+# Runtime metadata
+version: 2;

@@ -1,0 +1,77 @@
+# ipband.conf — Subnet Bandwidth Monitoring Daemon configuration
+# Global settings for logging, monitoring intervals, and reporting
+
+[general]
+# Enable or disable the daemon
+enabled = {{ enabled }}
+
+# Path to log file (empty string disables file logging)
+logfile = {{ logfile }}
+
+# Minimum log level: debug, info, warn, error, critical
+loglevel = {{ loglevel }}
+
+# Interval (in seconds) between bandwidth snapshots
+snapshot_interval = {{ snapshot_interval }}
+
+# Number of snapshots to retain in memory for trend analysis
+retained_snapshots = {{ retained_snapshots }}
+
+# Network interface(s) to monitor (comma-separated); 'any' for all non-lo interfaces
+interfaces = {{ interfaces | join(', ') }}
+
+# Subnets to monitor (CIDR notation); all traffic is captured if empty
+monitored_subnets = {% if monitored_subnets %}{{ monitored_subnets | join(', ') }}{% else %}{% endif %}
+
+# Exclude these subnets from monitoring (CIDR notation)
+excluded_subnets = {% if excluded_subnets %}{{ excluded_subnets | join(', ') }}{% else %}{% endif %}
+
+[reporting]
+# Email report enabled
+email_enabled = {{ email_enabled }}
+
+# Recipient email address(es) for reports (comma-separated)
+report_recipients = {{ report_recipients | join(', ') }}
+
+# Sender email address
+report_sender = {{ report_sender }}
+
+# SMTP server host
+smtp_host = {{ smtp_host }}
+
+# SMTP port
+smtp_port = {{ smtp_port }}
+
+# Use STARTTLS for SMTP (true/false)
+smtp_starttls = {{ smtp_starttls }}
+
+# Use authentication for SMTP (true/false)
+smtp_auth = {{ smtp_auth }}
+
+# SMTP username (if auth enabled)
+smtp_username = {{ smtp_username | default('') | quote }}
+
+# SMTP password (if auth enabled)
+smtp_password = {{ smtp_password | default('') | quote }}
+
+# Report frequency: daily, weekly, or custom (in seconds)
+report_frequency = {{ report_frequency }}
+
+# Include per-interface breakdown in reports
+include_interface_breakdown = {{ include_interface_breakdown }}
+
+[alerts]
+# Alert threshold (MB/s) — triggers alert if exceeded for >= threshold_duration seconds
+bandwidth_alert_threshold = {{ bandwidth_alert_threshold }}
+
+# Duration (seconds) threshold must be exceeded to trigger alert
+bandwidth_alert_duration = {{ bandwidth_alert_duration }}
+
+# Alert recipients (email addresses, comma-separated); defaults to report_recipients if empty
+alert_recipients = {% if alert_recipients %}{{ alert_recipients | join(', ') }}{% else %}{{ report_recipients | join(', ') }}{% endif %}
+
+# Enable alert throttling to avoid email floods
+alert_throttle = {{ alert_throttle }}
+
+# Throttle interval (seconds) between alerts for same alert type
+alert_throttle_interval = {{ alert_throttle_interval }}

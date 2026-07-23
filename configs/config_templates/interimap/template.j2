@@ -1,0 +1,96 @@
+# interimap configuration file — manages sync settings for bidirectional IMAP accounts
+# Full documentation: https://github.com/mogelbrod/interimap
+
+# Global settings
+[global]
+# Path to the log file (leave empty for stderr only)
+log_file = {{ log_file }}
+
+# Log level: DEBUG, INFO, WARNING, ERROR, CRITICAL
+log_level = {{ log_level }}
+
+# Maximum number of parallel accounts to sync concurrently
+max_concurrent_accounts = {{ max_concurrent_accounts }}
+
+# Maximum number of simultaneous connections per account
+max_connections_per_account = {{ max_connections_per_account }}
+
+# Wait time (in seconds) before retrying a failed connection
+retry_delay = {{ retry_delay }}
+
+# Enable/disable dry-run mode (no actual changes made to mailboxes)
+dry_run = {{ dry_run }}
+
+# Enable/disable verbose debug output (includes raw IMAP traffic)
+verbose = {{ verbose }}
+
+# Enable/disable QRESYNC support (required for efficient sync)
+qresync = {{ qresync }}
+
+# Enable/disable UID validity validation (prevents data corruption on resync)
+validate_uidvalidity = {{ validate_uidvalidity }}
+
+# Time window (in seconds) to retain temporary metadata state
+temp_state_ttl = {{ temp_state_ttl }}
+
+# Path to the directory where temporary state is stored
+state_dir = {{ state_dir }}
+
+# Optional: Path to a custom CA bundle for TLS verification
+tls_ca_bundle = {{ tls_ca_bundle | default('') }}
+
+# Account-specific sections
+{% for account in accounts %}
+[{{ account.name }}]
+# Source IMAP server
+source_host = {{ account.source_host }}
+source_port = {{ account.source_port }}
+source_user = {{ account.source_user }}
+# Secure connection mode: STARTTLS, SSL, or none
+source_use_ssl = {{ account.source_use_ssl }}
+# Use TLS (if available); required unless source_use_ssl is 'none'
+source_tls = {{ account.source_tls }}
+# Skip server certificate verification (⚠️ insecure — only for testing)
+source_skip_tls_verify = {{ account.source_skip_tls_verify }}
+
+# Destination IMAP server
+dest_host = {{ account.dest_host }}
+dest_port = {{ account.dest_port }}
+dest_user = {{ account.dest_user }}
+# Secure connection mode: STARTTLS, SSL, or none
+dest_use_ssl = {{ account.dest_use_ssl }}
+# Use TLS (if available); required unless dest_use_ssl is 'none'
+dest_tls = {{ account.dest_tls }}
+# Skip server certificate verification (⚠️ insecure — only for testing)
+dest_skip_tls_verify = {{ account.dest_skip_tls_verify }}
+
+# Sync direction: 'both', 'source_to_dest', or 'dest_to_source'
+direction = {{ account.direction }}
+
+# Optional: prefix to add to folder names on destination (e.g., for migration)
+folder_prefix = {{ account.folder_prefix | default('') }}
+
+# Optional: list of folder patterns to include/exclude (glob-style)
+# Format: '+' for include, '-' for exclude; patterns separated by commas
+folder_patterns = {{ account.folder_patterns | join(', ') if account.folder_patterns else '' }}
+
+# Optional: folder mapping (source→dest folder name mapping)
+{% if account.folder_mapping %}
+{% for src_folder, dst_folder in account.folder_mapping.items() %}
+folder_mapping_{{ loop.index }} = {{ src_folder }}:{{ dst_folder }}
+{% endfor %}
+{% endif %}
+
+# Optional: maximum number of messages to sync per folder in one batch
+batch_size = {{ account.batch_size | default(1000) }}
+
+# Optional: maximum number of messages to sync concurrently per folder
+concurrent_folder_sync = {{ account.concurrent_folder_sync | default(2) }}
+
+# Optional: flag sync strategy: 'both', 'source_only', 'dest_only'
+flag_sync = {{ account.flag_sync | default('both') }}
+
+# Optional: ignore flags (comma-separated list of flags to ignore)
+ignore_flags = {{ account.ignore_flags | default([]) | join(', ') }}
+
+{% endfor %}

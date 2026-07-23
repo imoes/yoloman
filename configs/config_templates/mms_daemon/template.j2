@@ -1,0 +1,74 @@
+# MMS Daemon (mmsd-tng) configuration
+# This file configures the core behavior of the MMS Service Daemon.
+
+[general]
+# Path to the spool directory for pending messages
+spool_directory = {{ spool_directory }}
+
+# Path to the database file (SQLite)
+database = {{ database }}
+
+# Enable or disable debug logging (true/false)
+debug = {{ debug | lower }}
+
+# Maximum number of concurrent outgoing transfers
+max_outgoing_transfers = {{ max_outgoing_transfers }}
+
+# Maximum number of concurrent incoming transfers
+max_incoming_transfers = {{ max_incoming_transfers }}
+
+# Maximum message size in bytes (0 = unlimited)
+max_message_size = {{ max_message_size }}
+
+# Network interface to bind to (e.g., '0.0.0.0' or specific IP)
+bind_address = {{ bind_address }}
+
+# TCP port for the MMS HTTP proxy (MMSC interface)
+port = {{ port }}
+
+# Timeout (in seconds) for HTTP requests to upstream MMSCs
+upstream_timeout = {{ upstream_timeout }}
+
+# Whether to enable WAP push delivery reports
+enable_wap_push = {{ enable_wap_push | lower }}
+
+# Hostname used in X-Mms-Message-ID and other headers
+mms_hostname = {{ mms_hostname }}
+
+# Default sender address (e.g., 'mmsc' for generic fallback)
+default_sender = {{ default_sender }}
+
+# List of allowed IP subnets that may send to the local MMS relay
+{% for subnet in allowed_subnets %}
+allowed_subnet = {{ subnet }}
+{% endfor %}
+
+# List of SMSC gateway definitions (for routing MMS to/from SMSCs)
+{% for smsc in smscs %}
+[smsc:{{ smsc.name }}]
+# Hostname or IP of the SMSC interface
+host = {{ smsc.host }}
+
+# TCP port (typically 5000 for SMSCP)
+port = {{ smsc.port }}
+
+# SMSC username (for authentication)
+username = {{ smsc.username }}
+
+# SMSC password (for authentication)
+password = {{ smsc.password }}
+
+# System ID (optional, for some SMSC protocols)
+system_id = {{ smsc.system_id }}
+
+# Optional: SMSC type (e.g., 'smpp', 'cmsm', 'local')
+type = {{ smsc.type }}
+
+# Enable or disable this SMSC
+enabled = {{ smsc.enabled | lower }}
+{% endfor %}
+
+# List of allowed MO (Mobile-Originated) sender prefixes for relay mode
+{% for prefix in mo_allowed_prefixes %}
+mo_allowed_prefix = {{ prefix }}
+{% endfor %}

@@ -1,0 +1,45 @@
+# Listen on the specified IP and port for HTTP requests
+ListenHTTP
+  Address {{ http_listen_address }}
+  Port {{ http_listen_port }}
+{% endfor %}
+
+# Listen on the specified IP and port for HTTPS requests (requires SSL config)
+ListenHTTPS
+  Address {{ https_listen_address }}
+  Port {{ https_listen_port }}
+  Cert "{{ ssl_cert_path }}"
+{% if ssl_ciphers %}
+  Ciphers "{{ ssl_ciphers }}"
+{% endif %}
+{% endfor %}
+
+# Global settings for request timeouts and client handling
+Service
+  # Timeout for client request headers (seconds)
+  HeadTimeout {{ client_header_timeout }}
+  # Timeout for client request body (seconds)
+  BodyTimeout {{ client_body_timeout }}
+  # Timeout for backend response (seconds)
+  ReadTimeout {{ backend_read_timeout }}
+  # Maximum request size (MB)
+  MaxSize {{ max_request_size_mb }}
+{% endfor %}
+
+# Define backend servers for load balancing
+{% for service in services %}
+# Backend service: {{ service.name }}
+Service
+  # Backend servers to load balance across
+{% for backend in service.backends %}
+  ListenBackend
+    Address {{ backend.address }}
+    Port {{ backend.port }}
+{% endfor %}
+  # Load balancing algorithm
+  XHeader {{ service.x_header | default('0') }}
+  # Session persistence (0 = none, 1 = client IP, 2 = cookie-based)
+  Session {{ service.session_persistence | default(0) }}
+  # Health check interval (seconds); 0 = disabled
+  Dead {{ service.dead_threshold | default(0) }}
+{% endfor %}

@@ -1,0 +1,69 @@
+# iSCSI Offloading Daemon (iscsiuio) configuration file
+# Controls runtime behavior for QLogic iSCSI offload adapters
+
+# Enable/disable debug logging
+DebugLevel {{ debug_level }}
+
+# Path to the logging file
+LogFilePath {{ log_file_path }}
+
+# Maximum number of log files to retain (rolling logs)
+LogMaxFiles {{ log_max_files }}
+
+# Size of each log file in MB before rotation (0 = unlimited)
+LogFileSize {{ log_file_size_mb }}
+
+# Network interface(s) to bind for iSCSI offload traffic (comma-separated or list)
+{{ '# ' if loop.index == 1 and loop.first else '' }}# Bind interfaces (one per line, or use single comma-separated list)
+{{ 'Ifaces %s' | format(ifaces | join(', ')) if not loop.first else 'Ifaces ' + ifaces | join(', ') }}
+{% for iface in ifaces %}
+# Interface {{ loop.index }}: {{ iface }}
+Ifaces {{ iface }}
+{% endfor %}
+
+# Enable or disable TCP checksum offload
+TCPChecksumOffload {{ tcp_checksum_offload }}
+
+# Enable or disable TCP segmentation offload (TSO)
+TCPSegOffload {{ tcp_seg_offload }}
+
+# Enable or disable large receive offload (LRO)
+LRO {{ lro }}
+
+# Maximum number of connections per interface
+MaxConnsPerInterface {{ max_conns_per_interface }}
+
+# Session timeout in seconds
+SessionTimeout {{ session_timeout }}
+
+# Login timeout in seconds
+LoginTimeout {{ login_timeout }}
+
+# Recovery timeout in seconds (how long to wait before marking a path failed)
+RecoveryTimeout {{ recovery_timeout }}
+
+# Enable or disable path management (multipath)
+PathManagement {{ path_management }}
+
+# Multipath algorithm (e.g., 'round-robin', 'failover')
+MpathAlgorithm {{ mpath_algorithm }}
+
+# Enable or disable automatic firmware loading from the kernel
+AutoFwLoad {{ auto_fw_load }}
+
+# Path to the firmware file (optional; if empty, use default firmware name)
+{% if fw_path %}
+FwPath {{ fw_path }}
+{% else %}
+# FwPath not set (uses default)
+{% endif %}
+
+# Optional: extra kernel module parameters (key=value pairs, one per line)
+{% if extra_modparams %}
+{% for param in extra_modparams %}
+# Module param: {{ param }}
+{{ param }}
+{% endfor %}
+{% else %}
+# No extra module parameters
+{% endif %}

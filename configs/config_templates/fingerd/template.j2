@@ -1,0 +1,49 @@
+# /etc/fingerd.conf — Main configuration for the Finger Remote User Information Server
+# Enable or disable the finger daemon
+{% if enabled | default(true) %}enable = true{% else %}enable = false{% endif %}
+
+# Log level: 0 (quiet), 1 (normal), 2 (verbose)
+loglevel = {{ loglevel | default(1) }}
+
+# Path to log file (empty string or absent disables file logging)
+{% if log_file %}logfile = {{ log_file }}{% endif %}
+
+# List of hosts allowed to connect (CIDR or hostname); empty means allow all
+{% for host in allow_hosts %}allow from {{ host }}
+{% endfor %}
+
+# List of hosts explicitly denied access (takes precedence over allow)
+{% for host in deny_hosts %}deny from {{ host }}
+{% endfor %}
+
+# Hostname to present in banner (if any); empty string uses system hostname
+{% if banner_host %}banner = {{ banner_host }}{% endif %}
+
+# Optional custom banner text (single line, no special escaping required)
+{% if banner_text %}banner text = {{ banner_text }}
+{% endif %}
+
+# Maximum number of concurrent connections
+maxconnections = {{ max_connections | default(20) }}
+
+# Timeout (seconds) for idle connections
+idletimeout = {{ idle_timeout | default(30) }}
+
+# Whether to show full user information (login, full name, home dir, shell, etc.)
+{% if show_full_info | default(true) %}full info = true{% else %}full info = false{% endif %}
+
+# Whether to show plan/project files (if user has them)
+{% if show_plans | default(false) %}show plans = true{% else %}show plans = false{% endif %}
+
+# Whether to obfuscate email addresses (e.g., show `user AT host DOT com`)
+{% if obfuscate_email | default(false) %}obfuscate email = true{% else %}obfuscate email = false{% endif %}
+
+# List of user groups to hide from non-local queries (if supported by implementation)
+{% for group in hidden_groups %}hide group {{ group }}
+{% endfor %}
+
+# TCP port to listen on (use `0` to disable network mode, e.g., for inetd-only use)
+port = {{ port | default(79) }}
+
+# Bind address (e.g., `0.0.0.0` for all, or specific IP); empty = bind to all
+{% if bind_address %}bind = {{ bind_address }}{% endif %}

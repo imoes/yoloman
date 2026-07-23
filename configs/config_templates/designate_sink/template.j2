@@ -1,0 +1,73 @@
+[DEFAULT]
+# Log file location (or 'stderr' for console)
+log_file = {{ log_file }}
+
+# Logging level: DEBUG, INFO, WARNING, ERROR, CRITICAL
+log_level = {{ log_level }}
+
+# RPC transport URL for communication with other OpenStack services
+rpc_transport_url = {{ rpc_transport_url }}
+
+# AMQP authentication method (e.g., 'none', 'plain', 'external')
+rpc_backend = {{ rpc_backend }}
+
+# RPC connection retry delay (seconds)
+rpc_conn_pool_size = {{ rpc_conn_pool_size }}
+
+[service:sink]
+# Hostname or IP where sink listens for incoming DNS updates
+host = {{ sink_host }}
+
+# Port to listen on for incoming DNS updates (typically 5354 for sink)
+port = {{ sink_port }}
+
+# Number of worker processes for handling incoming updates
+workers = {{ sink_workers }}
+
+# Enable/Disable zone management (typically 'true')
+enable_zone_management = {{ sink_enable_zone_management }}
+
+# Name of the sink service as registered in OpenStack (must match service name)
+service_name = {{ sink_service_name }}
+
+[service:rpc]
+# RPC API version string (must match designate central's expected version)
+rpc_api_version = {{ rpc_api_version }}
+
+# Max size of RPC message body (bytes)
+rpc_response_max_size = {{ rpc_response_max_size }}
+
+[rpc_notifier]
+# AMQP exchange name for notifications (typically 'openstack')
+exchange = {{ notifier_exchange }}
+
+# Topic(s) to publish notifications to (list, comma-separated)
+topics = {{ notifier_topics | join(', ') }}
+
+[keystone_authtoken]
+# Authentication endpoint (e.g., https://keystone:5000/v3)
+www_authenticate_uri = {{ keystone_auth_url }}
+
+# Project domain name
+project_domain_name = {{ keystone_project_domain }}
+
+# Project name for authenticate service user
+project_name = {{ keystone_project_name }}
+
+# User domain name
+user_domain_name = {{ keystone_user_domain }}
+
+# Service username
+username = {{ keystone_service_username }}
+
+# Service user password
+password = {{ keystone_service_password }}
+
+# Auth API version (e.g., v3)
+auth_version = {{ keystone_auth_version }}
+
+# Auth method (typically 'password')
+auth_type = {{ keystone_auth_type }}
+
+# Insecure TLS (skip certificate verification — dangerous in production)
+insecure = {{ keystone_insecure }}

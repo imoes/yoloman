@@ -1,0 +1,85 @@
+# Configuration file for miniupnpd (nftables backend)
+# See 'man miniupnpd.conf' for detailed syntax
+
+# Network interface to listen on for UPnP/PCP/NAT-PMP requests
+interface={{ interface }}
+
+# IP address of the network interface (auto-detected if empty)
+{{ "# " if not enable_static_internal_ip else "" }}internal_ip={{ internal_ip }}
+
+# Netmask of the internal network (e.g., 24 for /24 subnet)
+{{ "# " if not enable_static_internal_netmask else "" }}internal_netmask={{ internal_netmask }}
+
+# External interface (WAN) — used for NAT mapping and PCP/NAT-PMP public IP discovery
+external_interface={{ external_interface }}
+
+# Enable NAT-PMP support (default: yes)
+enable_natpmp={{ enable_natpmp | lower }}
+
+# Enable PCP support (default: yes)
+enable_pcp={{ enable_pcp | lower }}
+
+# Enable UPnP IGDv1 support (default: yes)
+enable_upnp={{ enable_upnp | lower }}
+
+# Enable UPnP IGDv2 support (default: yes)
+enable_ip6={{ enable_ip6 | lower }}
+
+# Allow control traffic only from these IPv4 subnets (CIDR notation)
+# Format: allow 192.168.1.0/24
+{% for subnet in allowed_subnets %}allow {{ subnet }}
+{% endfor %}
+
+# Deny control traffic from these IPv4 subnets
+# Format: deny 10.0.0.0/8
+{% for subnet in denied_subnets %}deny {{ subnet }}
+{% endfor %}
+
+# Maximum number of port mappings (0 = unlimited)
+max_mappings={{ max_mappings }}
+
+# Path to the nftables ruleset file used by miniupnpd
+nft_ruleset={{ nft_ruleset }}
+
+# Path to the nftables binary (optional; auto-detected if empty)
+{{ "# " if not custom_nft_path else "" }}nft_path={{ nft_path }}
+
+# Unique device name for SSDP announcements
+friendly_name={{ friendly_name }}
+
+# Model name/model number for SSDP
+model_name={{ model_name }}
+model_number={{ model_number }}
+
+# UUID of the device (e.g., urn:uuid:12345678-1234-5678-9abc-def012345678)
+uuid={{ uuid }}
+
+# UPnP event subscription timeout in seconds (default: 1800)
+subscription_timeout={{ subscription_timeout }}
+
+# Enable verbose logging (default: no)
+verbose_logging={{ verbose_logging | lower }}
+
+# Log file path (if empty, logs to syslog)
+{{ "# " if not log_to_file else "" }}log_file={{ log_file }}
+
+# Path to the pidfile
+pidfile={{ pidfile }}
+
+# Enable secure mode: only allow mappings with explicit external port
+secure_mode={{ secure_mode | lower }}
+
+# Enable SSDP multicast announcements (default: yes)
+ssdp_broadcast={{ ssdp_broadcast | lower }}
+
+# SSDP broadcast interval in seconds (default: 30)
+ssdp_interval={{ ssdp_interval }}
+
+# SSDP server port (default: 1900)
+ssdp_port={{ ssdp_port }}
+
+# UPnP port (default: 0 = auto-select)
+upnp_port={{ upnp_port }}
+
+# Disable default gateway detection (e.g., for double-NAT setups)
+{{ "# " if not disable_gateway_detection else "" }}disable_gateway_detection={{ disable_gateway_detection | lower }}

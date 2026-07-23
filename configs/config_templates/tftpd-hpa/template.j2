@@ -1,0 +1,36 @@
+# /etc/default/tftpd-hpa — TFTP server configuration for hpa-tftpd
+# Enables secure, minimal TFTP service for network boot (PXE) and device provisioning
+
+# Location of TFTP root directory (all files must be under this path)
+TFTP_DIRECTORY="{{ tftp_root }}"
+
+# User under which tftpd runs (for privilege dropping)
+TFTP_USER="{{ tftp_user }}"
+
+# Address and port the server listens on (e.g., "0.0.0.0:69" or "127.0.0.1:69")
+TFTP_ADDRESS="{{ tftp_address }}:{{ tftp_port }}"
+
+# Extra options passed to in.tftpd
+# Use space-separated flags; common: --secure (no writes), --verbose, --progress, --timeout
+TFTP_OPTIONS="{{ tftp_options }}"
+
+# Enable IPv6? Set to 'yes' to allow IPv6 sockets (default: no)
+{% if tftp_ipv6_enabled %}
+TFTP_OPTIONS="{{ tftp_options }} --ipv6"
+{% else %}
+# (IPv6 disabled)
+{% endif %}
+
+# Optional: Set umask for created files (e.g., 022 for world-readable, 007 for group-only)
+{% if tftp_umask is defined %}
+UMASK="{{ tftp_umask }}"
+{% else %}
+# (no UMASK set — uses system default)
+{% endif %}
+
+# Optional: Enable TFTP server debug logging (to syslog, level: debug)
+{% if tftp_debug %}
+TFTP_OPTIONS="{{ tftp_options }} --debug"
+{% else %}
+# (debug logging disabled)
+{% endif %}

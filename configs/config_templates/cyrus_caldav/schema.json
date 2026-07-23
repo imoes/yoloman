@@ -1,0 +1,158 @@
+{
+  "httpd": {
+    "type": "object",
+    "default": {
+      "listen": "0.0.0.0",
+      "port": 8080,
+      "servername": "cyrus.example.com",
+      "ssl": false,
+      "cert_file": "/etc/ssl/certs/cyrus.crt",
+      "key_file": "/etc/ssl/private/cyrus.key",
+      "ca_file": ""
+    },
+    "description": "HTTP server settings for CalDAV/CardDAV endpoints"
+  },
+  "httpd.listen": {
+    "type": "string",
+    "default": "0.0.0.0",
+    "description": "IP address to bind the HTTP listener to"
+  },
+  "httpd.port": {
+    "type": "number",
+    "default": 8080,
+    "description": "Port to listen on for HTTP requests"
+  },
+  "httpd.servername": {
+    "type": "string",
+    "default": "cyrus.example.com",
+    "description": "Public hostname used in redirects and headers"
+  },
+  "httpd.ssl": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable SSL/TLS for the HTTP endpoint"
+  },
+  "httpd.cert_file": {
+    "type": "string",
+    "default": "/etc/ssl/certs/cyrus.crt",
+    "description": "Path to SSL certificate file (PEM format)"
+  },
+  "httpd.key_file": {
+    "type": "string",
+    "default": "/etc/ssl/private/cyrus.key",
+    "description": "Path to SSL private key file (PEM format)"
+  },
+  "httpd.ca_file": {
+    "type": "string",
+    "default": "",
+    "description": "Path to CA bundle for client cert verification (leave empty to disable)"
+  },
+  "dav": {
+    "type": "object",
+    "default": {
+      "dbdir": "/var/lib/cyrus/dav",
+      "migrate": false,
+      "timeout": 300,
+      "maxreqsize": 10485760,
+      "debug": 1,
+      "enabled": true,
+      "default_timezone": "UTC",
+      "user_namespace": true,
+      "shared_enabled": false,
+      "alarms_enabled": true,
+      "max_user_data_size": 52428800,
+      "vcard_version": "3.0",
+      "implicit_scheduling": false
+    },
+    "description": "CalDAV/CardDAV backend configuration"
+  },
+  "dav.dbdir": {
+    "type": "string",
+    "default": "/var/lib/cyrus/dav",
+    "description": "Directory for storing CalDAV/CardDAV database files"
+  },
+  "dav.migrate": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable migration from legacy DAV storage (run once, then disable)"
+  },
+  "dav.timeout": {
+    "type": "number",
+    "default": 300,
+    "description": "Request timeout in seconds"
+  },
+  "dav.maxreqsize": {
+    "type": "number",
+    "default": 10485760,
+    "description": "Maximum HTTP request size (in bytes) \u2014 e.g., large iCalendar uploads"
+  },
+  "dav.debug": {
+    "type": "number",
+    "default": 1,
+    "description": "Debug verbosity: 0 (error), 1 (warn), 2 (info), 3 (debug)"
+  },
+  "dav.enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable CalDAV/CardDAV services"
+  },
+  "dav.default_timezone": {
+    "type": "string",
+    "default": "UTC",
+    "description": "Default timezone for calendars when none specified"
+  },
+  "dav.user_namespace": {
+    "type": "bool",
+    "default": true,
+    "description": "Expose user-specific calendars/addrbooks under their IMAP mailboxes (e.g., user/calendar)"
+  },
+  "dav.shared_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Allow calendar/addrbook sharing and ACLs"
+  },
+  "dav.alarms_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable alarm (VEVENT VTODO) handling"
+  },
+  "dav.max_user_data_size": {
+    "type": "number",
+    "default": 52428800,
+    "description": "Maximum total calendar/addrbook data per user (in bytes)"
+  },
+  "dav.vcard_version": {
+    "type": "string",
+    "default": "3.0",
+    "description": "VCard version to use when exporting CardDAV records"
+  },
+  "dav.implicit_scheduling": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable CalDAV implicit scheduling (automatic RSVP replies)"
+  },
+  "sasl": {
+    "type": "object",
+    "default": {
+      "saslauthd_path": "/var/run/saslauthd/mux",
+      "mech_list": [
+        "PLAIN",
+        "LOGIN"
+      ]
+    },
+    "description": "SASL authentication settings"
+  },
+  "sasl.saslauthd_path": {
+    "type": "string",
+    "default": "/var/run/saslauthd/mux",
+    "description": "Path to saslauthd socket for password verification"
+  },
+  "sasl.mech_list": {
+    "type": "list",
+    "default": [
+      "PLAIN",
+      "LOGIN"
+    ],
+    "description": "List of SASL mechanisms to allow (order matters for security)"
+  }
+}

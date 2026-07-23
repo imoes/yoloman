@@ -1,0 +1,96 @@
+# GOsa² configuration file
+# Generated from GOsa² defaults and instance-specific settings
+
+[global]
+# Base URL for the GOsa² web interface (must end with /)
+base_url = {{ gosa_base_url }}
+
+# LDAP server URI (e.g., ldap://localhost:389 or ldaps://ldap.example.com:636)
+ldap_uri = {{ ldap_uri }}
+
+# Base DN for LDAP operations
+ldap_basedn = {{ ldap_basedn }}
+
+# Bind DN for administrative access to LDAP
+ldap_binddn = {{ ldap_binddn }}
+
+# Bind password for LDAP bind DN
+ldap_bindpw = {{ ldap_bindpw }}
+
+# Enable LDAPS (TLS) for secure LDAP communication
+ldap_use_tls = {{ ldap_use_tls | lower }}
+
+# Verify LDAP server certificate (only if ldap_use_tls = yes)
+ldap_tls_check_peer = {{ ldap_tls_check_peer | lower }}
+
+# Path to LDAP CA certificate file for TLS verification (optional)
+ldap_tls_cacertfile = {{ ldap_tls_cacertfile | default('') }}
+
+# Session lifetime in seconds
+session_timeout = {{ session_timeout }}
+
+# Default language (ISO 639-1 code)
+default_lang = {{ default_lang }}
+
+# Enable debug mode
+debug = {{ debug | lower }}
+
+[backend]
+# LDAP backend type (only 'ldap' is supported)
+type = ldap
+
+# Enable POSIX schema support
+posix_support = {{ posix_support | lower }}
+
+# Enable Samba schema support (for Windows domain integration)
+samba_support = {{ samba_support | lower }}
+
+# Enable SSH key support
+ssh_support = {{ ssh_support | lower }}
+
+[auth]
+# Authentication method: 'ldap' or 'pam'
+method = {{ auth_method }}
+
+# LDAP group DN for administrators
+admin_group_dn = {{ admin_group_dn }}
+
+# Attribute used for username lookup
+user_attribute = {{ user_attribute }}
+
+# Attribute used for username display
+user_display_attribute = {{ user_display_attribute }}
+
+[logging]
+# Log level: DEBUG, INFO, WARNING, ERROR, CRITICAL
+level = {{ log_level }}
+
+# Log file path (empty string for stdout)
+file = {{ log_file }}
+
+# Enable syslog logging
+syslog = {{ log_syslog | lower }}
+
+[plugins]
+# List of enabled plugins (comma-separated, no spaces)
+enabled = {{ plugins | join(', ') }}
+
+# Plugin-specific configuration blocks are auto-generated below
+{% for plugin in plugins_config %}
+[plugin:{{ plugin.name }}]
+# {{ plugin.description | default('Configuration for ' + plugin.name) }}
+{% for key, value in plugin.options.items() %}{{ key }} = {{ value }}
+{% endfor %}{% endfor %}
+
+[sudoers]
+# Enable sudoers management
+enabled = {{ sudoers_enabled | lower }}
+
+# Base DN for sudoers entries
+basedn = {{ sudoers_basedn }}
+
+# Default sudoers role DN
+role_dn = {{ sudoers_role_dn }}
+
+# Sudoers attribute for host specification
+host_attr = {{ sudoers_host_attr }}

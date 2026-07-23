@@ -1,0 +1,50 @@
+# Galera Arbitrator (garbd) configuration file
+# This file configures the galera-arbitrator daemon, which provides quorum voting
+# without storing data, used in Galera Cluster setups.
+
+# Group name — must match the wsrep_cluster_name on all Galera nodes
+gvw_group = {{ vgroup }}
+
+# Network address and port the arbitrator listens on for cluster communication
+gvw_address = {{ vaddress }}
+
+# Path to the Galera library (libgalera.so)
+gvw_lib = {{ vlib_path }}
+
+# Cluster name — must exactly match wsrep_cluster_name on Galera nodes
+vw_cluster_name = {{ cluster_name }}
+
+# Optional: SSL/TLS configuration
+{% if ssl_enabled %}
+# Enable SSL for communication with Galera cluster
+vw_ssl = {{ ssl_enabled }}
+
+# Path to the SSL CA certificate
+vw_ssl_ca = {{ ssl_ca_path }}
+
+# Path to the SSL client certificate
+vw_ssl_cert = {{ ssl_cert_path }}
+
+# Path to the SSL client private key
+vw_ssl_key = {{ ssl_key_path }}
+{% endif %}
+
+# Optional: Logging configuration
+{% if log_level %}
+# Log level: 0=error, 1=warn, 2=info, 3=debug
+vw_log_level = {{ log_level }}
+{% endif %}
+{% if log_file %}
+# Path to log file; leave empty or comment to log to syslog
+vw_log = {{ log_file }}
+{% endif %}
+
+# Optional: Node state recovery timeout (seconds)
+{% if recovery_timeout %}
+vw_recovery_timeout = {{ recovery_timeout }}
+{% endif %}
+
+# Optional: Bootstrap mode — set to true only on first startup in isolated environment
+{% if bootstrap %}
+vw_bootstrap = {{ bootstrap }}
+{% endif %}

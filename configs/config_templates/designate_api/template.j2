@@ -1,0 +1,107 @@
+[DEFAULT]
+# Logging configuration
+log_file = {{ log_file }}
+log_dir = {{ log_dir }}
+
+# Service name for logging context
+service_name = designate-api
+
+# Enable verbose/debug output
+verbose = {{ verbose }}
+debug = {{ debug }}
+
+# API listen address and port
+bind_host = {{ bind_host }}
+bind_port = {{ bind_port }}
+
+# Path to WSGI app entry point (default, do not change unless overriding)
+paste_config = /etc/designate/paste.ini
+
+# Number of worker processes for the API server
+workers = {{ workers }}
+
+# Timeout for API requests (seconds)
+timeout = {{ timeout }}
+
+# Maximum number of requests per child process (0 = unlimited)
+max_requests = {{ max_requests }}
+
+# SSL/TLS settings (if enabled)
+[ssl]
+enable = {{ ssl_enabled }}
+ca_file = {{ ssl_ca_file }}
+cert_file = {{ ssl_cert_file }}
+key_file = {{ ssl_key_file }}
+
+# Keystone authentication settings
+[keystone_authtoken]
+auth_url = {{ keystone_auth_url }}
+auth_type = password
+project_domain_name = {{ keystone_project_domain_name }}
+user_domain_name = {{ keystone_user_domain_name }}
+project_name = {{ keystone_project_name }}
+username = {{ keystone_username }}
+password = {{ keystone_password }}
+interface = {{ keystone_interface }}
+service_name = {{ keystone_service_name }}
+
+# Region for Keystone service endpoint discovery
+region_name = {{ keystone_region_name }}
+
+# Rate limiting configuration
+[oslo_middleware]
+enable_rate_limiting = {{ enable_rate_limiting }}
+max_request_body_size = {{ max_request_body_size }}
+
+# Rate limit rules (list of rate limiting policies)
+{% for rule in rate_limit_rules %}# Rate limit rule: {{ rule.name }}
+{% endfor %}
+
+# RPC / messaging backend settings (for notifications, if used)
+[oslo_messaging_notifications]
+driver = {{ notification_driver }}
+{% if notification_driver == 'messagingv2' %}transport_url = {{ messaging_transport_url }}
+{% endif %}
+
+# DNS backend integration settings
+[service:designate]
+{% for pool in pools %}# Pool configuration: {{ pool.id }}
+[designate:pool:{{ pool.id }}]
+nameservers = {{ pool.nameservers | join(', ') }}
+targets = {% for t in pool.targets %}{% for k, v in t.items() %}{{ k }}={{ v }};{% endfor %}{% if not loop.last %}, {% endif %}{% endfor %}
+{% if pool.options %}{% for k, v in pool.options.items() %}{{ k }} = {{ v }}
+{% endfor %}{% endif %}
+{% endfor %}
+
+# Database connection (shared with other Designate services, but defined here for clarity)
+[database]
+connection = {{ database_connection }}
+connection_recycle_time = {{ database_connection_recycle_time }}
+max_overflow = {{ database_max_overflow }}
+max_pool_size = {{ database_max_pool_size }}
+
+# RPC / messaging (e.g., RabbitMQ)
+[oslo_messaging_rabbit]
+{% if rabbit_use_ssl %}rabbit_use_ssl = true
+{% endif %}rabbit_host = {{ rabbit_host }}
+rabbit_port = {{ rabbit_port }}
+rabbit_userid = {{ rabbit_userid }}
+rabbit_password = {{ rabbit_password }}
+rabbit_virtual_host = {{ rabbit_virtual_host }}
+
+# Notification system (optional; used for event publishing)
+[oslo_messaging_notifications]
+{% if notification_transport_url %}transport_url = {{ notification_transport_url }}
+{% else %}driver = {{ notification_driver }}
+{% endif %}
+
+# CORS middleware configuration
+[oslo_middleware]
+enable_cors = {{ enable_cors }}
+{% for origin in cors_allowed_origins %}cors_allowed_origins = {{ origin }}
+{% endfor %}
+cors_expose_headers = {{ cors_expose_headers | join(', ') }}
+
+# Security headers
+[oslo_middleware]
+secure_proxy_ssl_header = X-Forwarded-Proto

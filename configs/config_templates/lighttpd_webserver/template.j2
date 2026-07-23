@@ -1,0 +1,81 @@
+# Load server module
+server.modules = (
+{% for module in modules %}  "{{ module }}",
+{% endfor %})
+
+# Server settings
+server.document-root = "{{ document_root }}"
+server.bind = "{{ bind_address }}"
+server.port = {{ port }}
+server.pid-file = "{{ pid_file }}"
+server.errorlog = "{{ error_log }}"
+server.accesslog = "{{ access_log }}"
+server.max-connections = {{ max_connections }}
+server.event-handler = "{{ event_handler }}"
+server.network-backend = "{{ network_backend }}"
+
+# MIME types
+mimetype.assign = (
+{% for ext, mime in mimetypes | dictsort %}  "{{ ext }}" => "{{ mime }}",
+{% endfor %})
+
+# Directory listing
+{% if dir_listing %}server.dir-listing = "enable"
+{% else %}server.dir-listing = "disable"
+{% endif %}
+
+# Compression settings
+compress.cache-dir = "{{ compress_cache_dir }}"
+compress.filetype = (
+{% for ct in compress_filetypes %}  "{{ ct }}",
+{% endfor %})
+
+# Virtual hosts
+{% if vhosts %}$HTTP["host"] =~ "^(?i){{ vhosts[0].domain }}$" {
+  server.document-root = "{{ vhosts[0].root }}"
+{% for vhost in vhosts[1:] %}
+}$HTTP["host"] =~ "^(?i){{ vhost.domain }}$" {
+  server.document-root = "{{ vhost.root }}"
+{% endfor %}
+}$HTTP["host"] =~ ".*" {
+{% endif %}
+
+# Logging level
+server.log-request-header = {{ log_request_header }}
+server.log-response-header = {{ log_response_header }}
+server.log-timeout-requests = {{ log_timeout_requests }}
+server.errorlog-use-syslog = {{ errorlog_use_syslog }}
+
+# SSL/TLS (optional)
+{% if ssl_enabled %}$SERVER["socket"] == "{{ ssl_bind }}:{{ ssl_port }}" {
+  ssl.engine = "enable"
+  ssl.pemfile = "{{ ssl_pemfile }}"
+{% if ssl_cipher_list %}  ssl.cipher-list = "{{ ssl_cipher_list }}"
+{% endif %}  ssl.use-sslv2 = "disable"
+  ssl.use-sslv3 = "disable"
+}$HTTP["host"] =~ ".*" {
+{% endif %}
+
+# PHP-FastCGI support (optional)
+{% if fastcgi_enabled %}fastcgi.server = ( ".php" => (
+  "localhost" => (
+    "socket" => "{{ fastcgi_socket }}",
+    "bin-path" => "{{ fastcgi_bin_path }}",
+    "max-procs" => {{ fastcgi_max_procs }},
+    "broken-scriptfilename" => "enable"
+  )
+))
+{% endif %}
+
+# Default handler (for static files)
+static-file.exclude-extensions = (
+{% for ext in static_exclude_extensions %}  "{{ ext }}",
+{% endfor %})
+
+# Index files
+glob.index = (
+{% for idx in index_files %}  "{{ idx }}",
+{% endfor %})
+
+# Error handling
+server.errorfile-prefix = "{{ errorfile_prefix }}"

@@ -1,0 +1,76 @@
+{
+  "hostname": "radio.example.org",
+  "ports": {
+    "http": 8000,
+    "https": 8443
+  },
+  "paths": {
+    "webroot": "/usr/share/icecast2/web",
+    "adminroot": "/usr/share/icecast2/admin",
+    "ssl_certificate": "/etc/icecast2/ssl/radio.example.org.crt",
+    "ssl_certificate_key": "/etc/icecast2/ssl/radio.example.org.key",
+    "ssl_ca_list": "/etc/ssl/certs/ca.pem"
+  },
+  "logging": {
+    "accesslog": "/var/log/icecast2/access.log",
+    "errorlog": "/var/log/icecast2/error.log",
+    "logsize": 20000000,
+    "loglevel": 3,
+    "logjson": true
+  },
+  "auth": {
+    "source": {
+      "username": "my_source",
+      "password": "SecureS0urceP@ss!"
+    },
+    "relay": {
+      "username": "my_relay",
+      "password": "SecureR3layP@ss!"
+    },
+    "admin": {
+      "username": "admin",
+      "password": "SecureAdm1nP@ss!"
+    }
+  },
+  "relays": [
+    {
+      "server": "upstream.example.net",
+      "port": 8000,
+      "mount": "/main",
+      "local_mount": "/upstream_main",
+      "password": "RelayP@ss",
+      "on_demand": true,
+      "shoutcast_metadata": false,
+      "timeout": 10
+    }
+  ],
+  "mounts": [
+    {
+      "name": "/live",
+      "password": "LiveP@ss",
+      "fallback_mount": "/fallback",
+      "max_listeners": 500,
+      "public": true,
+      "genre": "Various",
+      "description": "Live radio stream",
+      "bitrate": 128,
+      "type": "audio/mpeg"
+    },
+    {
+      "name": "/classical",
+      "max_listeners": 100,
+      "public": false,
+      "description": "24/7 classical music",
+      "bitrate": 256,
+      "type": "audio/ogg"
+    }
+  ],
+  "limits": {
+    "burst_on_connect": true,
+    "burst_size": 65535,
+    "client_timeout": 30,
+    "source_ip_limit": 2,
+    "client_ip_limit": 10,
+    "burst_limit": 32768
+  }
+}

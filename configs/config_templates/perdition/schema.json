@@ -1,0 +1,228 @@
+{
+  "listen_host": {
+    "type": "string",
+    "default": "",
+    "description": "IP address to bind to (empty string means all interfaces)."
+  },
+  "pop3_port": {
+    "type": "number",
+    "default": 110,
+    "description": "Port number to listen on for unencrypted POP3."
+  },
+  "pop3s_port": {
+    "type": "number",
+    "default": 995,
+    "description": "Port number to listen on for POP3 over SSL/TLS."
+  },
+  "imap_port": {
+    "type": "number",
+    "default": 143,
+    "description": "Port number to listen on for unencrypted IMAP."
+  },
+  "imaps_port": {
+    "type": "number",
+    "default": 993,
+    "description": "Port number to listen on for IMAP over SSL/TLS."
+  },
+  "ssl_cert_file": {
+    "type": "string",
+    "default": "/etc/ssl/certs/perdition.crt",
+    "description": "Path to the SSL/TLS certificate file."
+  },
+  "ssl_key_file": {
+    "type": "string",
+    "default": "/etc/ssl/private/perdition.key",
+    "description": "Path to the SSL/TLS private key file."
+  },
+  "ssl_protocols": {
+    "type": "list",
+    "default": [
+      "TLSv1.2",
+      "TLSv1.3"
+    ],
+    "description": "List of allowed SSL/TLS protocols (modern safe defaults recommended).",
+    "items": {
+      "type": "string",
+      "enum": [
+        "SSLv2",
+        "SSLv3",
+        "TLSv1",
+        "TLSv1.1",
+        "TLSv1.2",
+        "TLSv1.3"
+      ]
+    }
+  },
+  "backend": {
+    "type": "string",
+    "default": "file",
+    "description": "Backend method for resolving user credentials and mailbox locations."
+  },
+  "perdition_map_file": {
+    "type": "string",
+    "default": "/etc/perdition/perdition.map",
+    "description": "Path to perdition map file (used only when backend = 'file')."
+  },
+  "ldap_url": {
+    "type": "string",
+    "default": "ldap://localhost/",
+    "description": "LDAP server URL (used only when backend = 'ldap')."
+  },
+  "ldap_bind_dn": {
+    "type": "string",
+    "default": "cn=perdition,dc=example,dc=com",
+    "description": "DN to bind as when connecting to LDAP (used only when backend = 'ldap')."
+  },
+  "ldap_bind_password": {
+    "type": "string",
+    "default": "",
+    "description": "Password for LDAP bind DN (used only when backend = 'ldap')."
+  },
+  "ldap_search_base": {
+    "type": "string",
+    "default": "dc=example,dc=com",
+    "description": "LDAP base DN for user searches (used only when backend = 'ldap')."
+  },
+  "ldap_user_filter": {
+    "type": "string",
+    "default": "(uid=%u)",
+    "description": "LDAP filter for user lookup (used only when backend = 'ldap')."
+  },
+  "ldap_group_filter": {
+    "type": "string",
+    "default": "(memberUid=%u)",
+    "description": "LDAP filter for group lookup (optional, used only when backend = 'ldap')."
+  },
+  "db_name": {
+    "type": "string",
+    "default": "perdition",
+    "description": "Database name for MySQL/PostgreSQL backend."
+  },
+  "db_user": {
+    "type": "string",
+    "default": "perdition",
+    "description": "Database user for MySQL/PostgreSQL backend."
+  },
+  "db_password": {
+    "type": "string",
+    "default": "",
+    "description": "Password for database user (MySQL/PostgreSQL backend)."
+  },
+  "db_host": {
+    "type": "string",
+    "default": "localhost",
+    "description": "Database host name or IP (MySQL/PostgreSQL backend)."
+  },
+  "db_port": {
+    "type": "number",
+    "default": 3306,
+    "description": "Database port number (MySQL/PostgreSQL backend)."
+  },
+  "db_query": {
+    "type": "string",
+    "default": "SELECT home,uid,gid FROM users WHERE username = '%u'",
+    "description": "SQL query for user lookup (MySQL/PostgreSQL backend)."
+  },
+  "max_clients": {
+    "type": "number",
+    "default": 1024,
+    "description": "Maximum number of simultaneous client connections."
+  },
+  "timeout": {
+    "type": "number",
+    "default": 300,
+    "description": "Connection timeout in seconds for idle clients."
+  },
+  "log_level": {
+    "type": "number",
+    "default": 3,
+    "description": "Logging verbosity level (0=fatal, 9=debug)."
+  },
+  "log_facility": {
+    "type": "string",
+    "default": "daemon",
+    "description": "Syslog facility or file path for logging."
+  },
+  "chroot": {
+    "type": "string",
+    "default": "/var/lib/perdition",
+    "description": "Chroot directory (empty string disables chrooting)."
+  },
+  "user": {
+    "type": "string",
+    "default": "nobody",
+    "description": "System user to run the process as."
+  },
+  "group": {
+    "type": "string",
+    "default": "nogroup",
+    "description": "System group to run the process as."
+  },
+  "backend_entries": {
+    "type": "list",
+    "default": [],
+    "description": "Optional additional backend definitions (for virtual domains or multi-tenant setups).",
+    "items": {
+      "type": "object",
+      "fields": {
+        "name": {
+          "type": "string",
+          "description": "Identifier for the backend (e.g., domain name)."
+        },
+        "type": {
+          "type": "string",
+          "enum": [
+            "file",
+            "mysql",
+            "ldap"
+          ],
+          "description": "Backend type (file, mysql, ldap)."
+        },
+        "db_name": {
+          "type": "string",
+          "description": "Database name (for mysql backends)."
+        },
+        "db_user": {
+          "type": "string",
+          "description": "Database user (for mysql backends)."
+        },
+        "db_password": {
+          "type": "string",
+          "description": "Database password (for mysql backends)."
+        },
+        "db_host": {
+          "type": "string",
+          "description": "Database host (for mysql backends)."
+        },
+        "db_port": {
+          "type": "number",
+          "description": "Database port (for mysql backends)."
+        },
+        "db_query": {
+          "type": "string",
+          "description": "SQL query (for mysql backends)."
+        },
+        "ldap_url": {
+          "type": "string",
+          "description": "LDAP URL (for ldap backends)."
+        },
+        "ldap_bind_dn": {
+          "type": "string",
+          "description": "LDAP bind DN (for ldap backends)."
+        },
+        "ldap_bind_password": {
+          "type": "string",
+          "description": "LDAP bind password (for ldap backends)."
+        },
+        "ldap_search_base": {
+          "type": "string",
+          "description": "LDAP search base (for ldap backends)."
+        },
+        "ldap_user_filter": {
+          "type": "string",
+          "description": "LDAP user filter (for ldap backends)."
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,188 @@
+{
+  "mme_plmn_id": {
+    "type": "string",
+    "default": "00101",
+    "description": "PLMN ID of the serving network (3-digit MCC + 2-digit MNC, e.g., 00101 for MCC=001, MNC=01). Must be 6 hex digits (zero-padded)."
+  },
+  "mme_gid": {
+    "type": "number",
+    "default": 1,
+    "description": "MME Group ID \u2014 identifies the group of MMEs in the network (1\u2013255)."
+  },
+  "mme_code": {
+    "type": "number",
+    "default": 1,
+    "description": "MME Code \u2014 distinguishes individual MMEs within a group (0\u2013255)."
+  },
+  "s1ap_addr": {
+    "type": "string",
+    "default": "127.0.0.1",
+    "description": "IP address for the MME\u2019s S1-MME interface (connecting to eNodeB)."
+  },
+  "s1ap_port": {
+    "type": "number",
+    "default": 36412,
+    "description": "UDP port for S1-MME interface (S1AP protocol)."
+  },
+  "s6a_dest_realm": {
+    "type": "string",
+    "default": "epc.mnc001.mcc001.3gppnetwork.org",
+    "description": "Diameter realm of the HSS (home network)."
+  },
+  "s6a_dest_host": {
+    "type": "string",
+    "default": "hss.epc.mnc001.mcc001.3gppnetwork.org",
+    "description": "Diameter FQDN of the HSS host."
+  },
+  "s6a_origin_host": {
+    "type": "string",
+    "default": "mme.epc.mnc001.mcc001.3gppnetwork.org",
+    "description": "Diameter FQDN of this MME."
+  },
+  "s6a_origin_realm": {
+    "type": "string",
+    "default": "epc.mnc001.mcc001.3gppnetwork.org",
+    "description": "Diameter realm of this MME (should match s6a_dest_realm)."
+  },
+  "s6a_addr": {
+    "type": "string",
+    "default": "127.0.0.1",
+    "description": "Local IP address for the S6a Diameter server (listening for HSS connections)."
+  },
+  "s6a_port": {
+    "type": "number",
+    "default": 3868,
+    "description": "Port for S6a Diameter server (default 3868)."
+  },
+  "pgw_nodes": {
+    "type": "list",
+    "default": [
+      {
+        "name": "sgw-pgw.epc.mnc001.mcc001.3gppnetwork.org",
+        "addr": "127.0.0.1",
+        "priority": 0,
+        "weight": 1
+      }
+    ],
+    "description": "List of SGW/PGW nodes for routing user traffic. Each item defines a node for load balancing and fallback.",
+    "items": {
+      "type": "object",
+      "fields": {
+        "name": {
+          "type": "string",
+          "default": "",
+          "description": "FQDN or hostname of the SGW/PGW (optional; used for Diameter routing)."
+        },
+        "addr": {
+          "type": "string",
+          "default": "",
+          "description": "IP address of the SGW/PGW (required)."
+        },
+        "priority": {
+          "type": "number",
+          "default": 0,
+          "description": "Routing priority (lower = higher priority; 0\u2013255)."
+        },
+        "weight": {
+          "type": "number",
+          "default": 1,
+          "description": "Weight for load balancing (higher = more traffic)."
+        }
+      }
+    }
+  },
+  "apn_default": {
+    "type": "string",
+    "default": "internet",
+    "description": "Default APN name for EPS bearers if none is provided in subscription (e.g., 'internet', 'ims')."
+  },
+  "plmn_access_enabled": {
+    "type": "boolean",
+    "default": false,
+    "description": "Enable PLMN access control to restrict which networks can access this MME."
+  },
+  "allowed_plmns": {
+    "type": "list",
+    "default": [],
+    "description": "List of PLMN IDs (MCC+MNC, 5-digit strings) allowed to attach to this MME. Only used if plmn_access_enabled=true.",
+    "items": {
+      "type": "string",
+      "description": "PLMN ID string (e.g., '00101', '00201')."
+    }
+  },
+  "tai_list": {
+    "type": "list",
+    "default": [
+      {
+        "plmn_id": "00101",
+        "tac": 1
+      }
+    ],
+    "description": "List of Tracking Area Identities (PLMN + TAC) to register with eNodeB.",
+    "items": {
+      "type": "object",
+      "fields": {
+        "plmn_id": {
+          "type": "string",
+          "default": "",
+          "description": "PLMN ID (MCC+MNC, 5-digit string)."
+        },
+        "tac": {
+          "type": "number",
+          "default": 0,
+          "description": "Tracking Area Code (16-bit integer, 0\u201365535)."
+        }
+      }
+    }
+  },
+  "gtpc_addr": {
+    "type": "string",
+    "default": "127.0.0.1",
+    "description": "Local IP address for GTP-C interface (S11/S5/S8) to SGW/PGW."
+  },
+  "gtpc_port": {
+    "type": "number",
+    "default": 2152,
+    "description": "UDP port for GTP-C (GPRS Tunneling Protocol Control plane)."
+  },
+  "diameter_enabled": {
+    "type": "boolean",
+    "default": false,
+    "description": "Enable Diameter server for Cx/Dx interfaces (required only for IMS or ICSF integration)."
+  },
+  "diameter_addr": {
+    "type": "string",
+    "default": "127.0.0.1",
+    "description": "Local IP for Cx/Dx Diameter server."
+  },
+  "diameter_port": {
+    "type": "number",
+    "default": 3868,
+    "description": "Port for Cx/Dx Diameter server."
+  },
+  "log_level": {
+    "type": "string",
+    "default": "info",
+    "description": "Logging verbosity level."
+  },
+  "log_file": {
+    "type": "string",
+    "default": "/var/log/nextepc/mme.log",
+    "description": "Path to the log file (use 'stdout' to log to console)."
+  },
+  "metrics_enabled": {
+    "type": "boolean",
+    "default": false,
+    "description": "Enable Prometheus-compatible metrics endpoint (for monitoring)."
+  },
+  "metrics_addr": {
+    "type": "string",
+    "default": "127.0.0.1",
+    "description": "Local IP to bind metrics HTTP server."
+  },
+  "metrics_port": {
+    "type": "number",
+    "default": 9090,
+    "description": "Port for metrics HTTP server (e.g., for scraping by Prometheus)."
+  }
+}

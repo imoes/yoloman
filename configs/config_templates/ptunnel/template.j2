@@ -1,0 +1,45 @@
+# ptunnel configuration file
+# Listen interface (empty or 'auto' for automatic detection)
+# Options: 'eth0', 'auto', etc.
+{% if listen_interface %}ListenInterface {{ listen_interface }}{% else %}ListenInterface auto{% endif %}
+
+# Listen port for incoming ICMP echo requests (must be same on client and server)
+PingDestPort {{ ping_dest_port }}
+
+# Maximum number of concurrent ICMP tunnels
+MaxTunnels {{ max_tunnels }}
+
+# TTL for outgoing ICMP packets (0 = use system default)
+PingTTL {{ ping_ttl }}
+
+# Timeout for idle tunnels (in seconds)
+TunnelTimeout {{ tunnel_timeout }}
+
+# Maximum tunnel inactivity before closing (in seconds)
+MaxIdleTime {{ max_idle_time }}
+
+# Enable verbose logging? (0 = quiet, 1 = normal, 2 = debug)
+{% if verbose == true %}Verbose 1{% elif verbose == false %}Verbose 0{% else %}Verbose {{ verbose }}{% endif %}
+
+# Log file path (empty = stdout only)
+{% if log_file %}Logfile {{ log_file }}{% endif %}
+
+# Allow only packets from known source IPs? (0 = allow all, 1 = require known src)
+{% if enforce_src %}EnforceSrc 1{% else %}EnforceSrc 0{% endif %}
+
+# List of allowed source networks (CIDR format), one per line
+{% for network in allowed_src_nets %}# Allowed source network: {{ network }}
+AllowSrc {{ network }}{% endfor %}
+
+# List of denied source networks (CIDR format), one per line
+{% for network in denied_src_nets %}# Denied source network: {{ network }}
+DenySrc {{ network }}{% endfor %}
+
+# Remote destination IP (tunnel target on the other side)
+{% if remote_dst %}PingDest {{ remote_dst }}{% endif %}
+
+# Maximum ICMP payload size (in bytes)
+PingSize {{ ping_size }}
+
+# Delay between pings (in milliseconds)
+PingDelay {{ ping_delay }}

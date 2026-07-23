@@ -1,0 +1,263 @@
+{
+  "hostname": {
+    "type": "string",
+    "default": "irc.example.com",
+    "description": "Fully-qualified domain name (FQDN) of this server; must match SSL certificate and DNS."
+  },
+  "network_name": {
+    "type": "string",
+    "default": "ExampleNet",
+    "description": "Network name displayed in client whois and network lists."
+  },
+  "network_description": {
+    "type": "string",
+    "default": "A friendly IRC network for community discussion.",
+    "description": "Short human-readable description of the network."
+  },
+  "listeners": {
+    "type": "list",
+    "default": [
+      {
+        "address": "0.0.0.0",
+        "port": 6697,
+        "ssl": {
+          "enabled": true,
+          "cert_path": "/etc/ssl/certs/irc.crt",
+          "key_path": "/etc/ssl/private/irc.key"
+        },
+        "protocol": "ircs"
+      }
+    ],
+    "description": "List of socket listeners for client/server connections.",
+    "items": {
+      "type": "object",
+      "fields": {
+        "address": {
+          "type": "string",
+          "default": "0.0.0.0",
+          "description": "IP address to bind to (e.g., 0.0.0.0 for all, or 127.0.0.1 for localhost only)."
+        },
+        "port": {
+          "type": "number",
+          "default": 6697,
+          "description": "Port number to listen on (6667 for plain IRC, 6697 for IRC over TLS)."
+        },
+        "ssl": {
+          "type": "object",
+          "fields": {
+            "enabled": {
+              "type": "bool",
+              "default": true,
+              "description": "Enable TLS encryption for this listener."
+            },
+            "cert_path": {
+              "type": "string",
+              "default": "/etc/ssl/certs/irc.crt",
+              "description": "Path to TLS certificate file (PEM format)."
+            },
+            "key_path": {
+              "type": "string",
+              "default": "/etc/ssl/private/irc.key",
+              "description": "Path to TLS private key file."
+            }
+          }
+        },
+        "protocol": {
+          "type": "string",
+          "enum": [
+            "irc",
+            "ircs"
+          ],
+          "default": "ircs",
+          "description": "Protocol used on this listener (IRC or IRC over TLS)."
+        }
+      }
+    }
+  },
+  "max_connections_per_ip": {
+    "type": "number",
+    "default": 5,
+    "description": "Maximum concurrent connections allowed per client IP address."
+  },
+  "max_messages_per_second": {
+    "type": "number",
+    "default": 3,
+    "description": "Rate limit: maximum messages per client per second before throttling."
+  },
+  "ssl_verify": {
+    "type": "bool",
+    "default": true,
+    "description": "Require and verify SSL certificates for server-to-server links."
+  },
+  "sasl_backend": {
+    "type": "string",
+    "default": "memory",
+    "description": "Backend for SASL authentication: 'external' (TLS client certs), 'memory' (in-memory), or 'sql' (database-backed)."
+  },
+  "sql_driver": {
+    "type": "string",
+    "default": "sqlite3",
+    "description": "Database driver (e.g., 'sqlite3', 'postgres'). Only used if sasl_backend='sql'."
+  },
+  "sql_dsn": {
+    "type": "string",
+    "default": "/var/lib/ergochat/sasl.db",
+    "description": "Data source name (connection string or file path) for SQL backend."
+  },
+  "sql_table": {
+    "type": "string",
+    "default": "accounts",
+    "description": "Table name storing SASL credentials when using SQL backend."
+  },
+  "tls_min_version": {
+    "type": "string",
+    "default": "1.2",
+    "description": "Minimum TLS version for server-to-server and client TLS (1.2 recommended)."
+  },
+  "tls_ciphers": {
+    "type": "list",
+    "default": [
+      "TLS_AES_256_GCM_SHA384",
+      "TLS_CHACHA20_POLY1305_SHA256",
+      "TLS_AES_128_GCM_SHA256"
+    ],
+    "description": "List of allowed TLS cipher suites (in order of preference)."
+  },
+  "tls_prefer_server_ciphers": {
+    "type": "bool",
+    "default": true,
+    "description": "Prefer server cipher order over client order during TLS negotiation."
+  },
+  "log_level": {
+    "type": "string",
+    "default": "info",
+    "description": "Verbosity of server logs (debug includes full protocol traffic)."
+  },
+  "log_format": {
+    "type": "string",
+    "default": "json",
+    "description": "Log output format: 'json' (structured) or 'text' (human-readable)."
+  },
+  "log_file": {
+    "type": "string",
+    "default": "/var/log/ergochat/ergochat.log",
+    "description": "Path to log file. If empty or null, logs go to stderr."
+  },
+  "links": {
+    "type": "list",
+    "default": [],
+    "description": "List of upstream servers (for federated IRC networks).",
+    "items": {
+      "type": "object",
+      "fields": {
+        "name": {
+          "type": "string",
+          "default": "uplink",
+          "description": "Unique name for the uplink server."
+        },
+        "address": {
+          "type": "string",
+          "default": "uplink.example.com",
+          "description": "Hostname or IP of the upstream server."
+        },
+        "port": {
+          "type": "number",
+          "default": 6697,
+          "description": "Port to connect to on the upstream server."
+        },
+        "password": {
+          "type": "string",
+          "default": "",
+          "description": "Shared password or certificate fingerprint for authentication."
+        },
+        "cert_fp": {
+          "type": "string",
+          "default": "",
+          "description": "SHA256 fingerprint of upstream server's certificate (for trust-on-first-use)."
+        }
+      }
+    }
+  },
+  "server_description": {
+    "type": "string",
+    "default": "ErgoChat IRC server",
+    "description": "Server description sent to clients and upstream servers."
+  },
+  "server_sid": {
+    "type": "string",
+    "default": "003",
+    "description": "Server ID (3-digit hex string, unique across all servers in the network)."
+  },
+  "opers": {
+    "type": "list",
+    "default": [],
+    "description": "List of IRC operator accounts.",
+    "items": {
+      "type": "object",
+      "fields": {
+        "name": {
+          "type": "string",
+          "default": "admin",
+          "description": "IRC nickname of the oper."
+        },
+        "password_hash": {
+          "type": "string",
+          "default": "pbkdf2$sha512$10000$...$...",
+          "description": "Hashed password (use 'mkpasswd' or Ergo's 'mkpasswd' utility)."
+        },
+        "flags": {
+          "type": "list",
+          "default": [
+            "admin",
+            "connect",
+            "dccdeny",
+            "globops",
+            "kill",
+            "local_kick",
+            "local_oper",
+            "local_rehash",
+            "local_stop",
+            "local_unload",
+            "netadmin",
+            "remote",
+            "restart",
+            "set",
+            "snotices",
+            "vhost"
+          ],
+          "description": "Oper privileges (e.g., 'admin', 'globops', 'kill')."
+        },
+        "global": {
+          "type": "bool",
+          "default": true,
+          "description": "Enable global oper privileges (visible across network) if true; local-only otherwise."
+        }
+      }
+    }
+  },
+  "chanserv_registration_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Allow users to register channels with ChanServ."
+  },
+  "chanserv_default_keep_time": {
+    "type": "number",
+    "default": 604800,
+    "description": "Default time (in seconds) before unregistered channels expire (default = 7 days)."
+  },
+  "chanserv_require_email": {
+    "type": "bool",
+    "default": false,
+    "description": "Require email for channel registration (helps with abuse mitigation)."
+  },
+  "idle_timeout": {
+    "type": "number",
+    "default": 900,
+    "description": "Seconds of inactivity after which a client is automatically disconnected."
+  },
+  "legacy_protocol_extensions": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable nonstandard protocol extensions (e.g., ZNC bounce). Enable only if needed."
+  }
+}

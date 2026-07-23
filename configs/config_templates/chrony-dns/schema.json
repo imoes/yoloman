@@ -1,0 +1,104 @@
+{
+  "local_network": {
+    "type": "string",
+    "default": "192.168.0.0/16",
+    "description": "CIDR notation of local network allowed to query this NTP server (e.g., 10.0.0.0/8)"
+  },
+  "servers": {
+    "type": "list",
+    "default": [
+      {
+        "hostname": "0.pool.ntp.org",
+        "is_pool": true,
+        "use_key": false
+      },
+      {
+        "hostname": "1.pool.ntp.org",
+        "is_pool": true,
+        "use_key": false
+      },
+      {
+        "hostname": "2.pool.ntp.org",
+        "is_pool": true,
+        "use_key": false
+      },
+      {
+        "hostname": "3.pool.ntp.org",
+        "is_pool": true,
+        "use_key": false
+      }
+    ],
+    "items": {
+      "type": "object",
+      "fields": {
+        "hostname": {
+          "type": "string",
+          "default": "",
+          "description": "DNS hostname of the NTP server or pool (must resolve at startup)"
+        },
+        "is_pool": {
+          "type": "bool",
+          "default": true,
+          "description": "Set to true for NTP pool (uses multiple servers), false for a single server"
+        },
+        "use_key": {
+          "type": "bool",
+          "default": false,
+          "description": "If true, authenticate with NTP key (requires matching key entry)"
+        },
+        "key_id": {
+          "type": "number",
+          "default": 1,
+          "description": "Numeric ID of the key to use (only if use_key=true)"
+        }
+      }
+    },
+    "description": "List of NTP servers/pools (resolved via DNS) to use for time synchronization"
+  },
+  "enable_keyman": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable NTP key management for authenticated time synchronization"
+  },
+  "keys": {
+    "type": "list",
+    "default": [
+      {
+        "id": 1,
+        "secret": "my-secret-key-1"
+      }
+    ],
+    "items": {
+      "type": "object",
+      "fields": {
+        "id": {
+          "type": "number",
+          "default": 1,
+          "description": "Unique numeric key ID"
+        },
+        "secret": {
+          "type": "string",
+          "default": "",
+          "description": "MD5 key secret (string, not hashed)"
+        }
+      }
+    },
+    "description": "List of NTP keys (used only if enable_keyman=true)"
+  },
+  "trusted_key_id": {
+    "type": "list",
+    "default": [
+      1
+    ],
+    "items": {
+      "type": "number",
+      "description": "Key IDs trusted for NTP communication (must match defined keys)"
+    },
+    "description": "List of trusted key IDs for server/client authentication (only if enable_keyman=true)"
+  },
+  "command_key_id": {
+    "type": "number",
+    "default": 0,
+    "description": "Key ID required for administrative commands (e.g., chronyc); set to 0 to disable"
+  }
+}

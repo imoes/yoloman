@@ -1,0 +1,277 @@
+{
+  "pgw": {
+    "type": "object",
+    "default": {},
+    "description": "Root object for PGW configuration",
+    "properties": {
+      "name": {
+        "type": "string",
+        "default": "pgw01",
+        "description": "Unique name for this PGW instance"
+      },
+      "ip_address": {
+        "type": "string",
+        "default": "10.0.0.5",
+        "description": "IP address of this PGW for S5/S8 and internal communication"
+      },
+      "s5_s8": {
+        "type": "object",
+        "default": {},
+        "description": "S5/S8 interface configuration (to SGW/SGSN)",
+        "properties": {
+          "fqdn": {
+            "type": "string",
+            "default": "",
+            "description": "Optional FQDN for S5/S8 peer resolution"
+          },
+          "address": {
+            "type": "string",
+            "default": "10.0.0.2",
+            "description": "Local IP address bound for S5/S8 communication"
+          },
+          "port": {
+            "type": "number",
+            "default": 2152,
+            "description": "GTP-C port for S5/S8"
+          }
+        }
+      },
+      "s4": {
+        "type": "object",
+        "default": {},
+        "description": "S4 interface configuration (to eNodeB)",
+        "properties": {
+          "enabled": {
+            "type": "bool",
+            "default": true,
+            "description": "Enable S4 interface for combined MME/SGSN deployments"
+          },
+          "address": {
+            "type": "string",
+            "default": "10.0.0.3",
+            "description": "Local IP address for S4 communication"
+          },
+          "port": {
+            "type": "number",
+            "default": 2123,
+            "description": "GTP-C port for S4"
+          }
+        }
+      },
+      "sgi": {
+        "type": "object",
+        "default": {},
+        "description": "SGi interface configuration (to external network)",
+        "properties": {
+          "interface": {
+            "type": "string",
+            "default": "eth1",
+            "description": "Linux network interface name used for SGi"
+          },
+          "address": {
+            "type": "string",
+            "default": "172.16.0.1",
+            "description": "IP address assigned to SGi interface"
+          },
+          "netmask": {
+            "type": "string",
+            "default": "255.255.255.0",
+            "description": "Subnet mask for SGi network"
+          },
+          "gateway": {
+            "type": "string",
+            "default": "172.16.0.254",
+            "description": "Optional default gateway for SGi traffic"
+          }
+        }
+      },
+      "dns": {
+        "type": "object",
+        "default": {},
+        "description": "DNS servers for UE DNS assignment",
+        "properties": {
+          "primary": {
+            "type": "string",
+            "default": "8.8.8.8",
+            "description": "Primary DNS server for UEs"
+          },
+          "secondary": {
+            "type": "string",
+            "default": "8.8.4.4",
+            "description": "Secondary DNS server for UEs"
+          }
+        }
+      },
+      "dhcp": {
+        "type": "object",
+        "default": {},
+        "description": "DHCP server settings for UE address assignment",
+        "properties": {
+          "enabled": {
+            "type": "bool",
+            "default": true,
+            "description": "Enable built-in DHCP server for UE IPv4 allocation"
+          },
+          "pool": {
+            "type": "object",
+            "default": {},
+            "properties": {
+              "start": {
+                "type": "string",
+                "default": "192.168.100.10",
+                "description": "Start of dynamic IP address pool"
+              },
+              "end": {
+                "type": "string",
+                "default": "192.168.100.200",
+                "description": "End of dynamic IP address pool"
+              }
+            }
+          }
+        }
+      },
+      "apns": {
+        "type": "list",
+        "default": [],
+        "description": "List of supported APNs",
+        "items": {
+          "type": "object",
+          "description": "APN configuration",
+          "properties": {
+            "name": {
+              "type": "string",
+              "default": "internet",
+              "description": "APN name (e.g., 'internet', 'mms')"
+            },
+            "type": {
+              "type": "string",
+              "default": "ipv4",
+              "description": "IP type: ipv4, ipv6, or ipv4v6",
+              "enum": [
+                "ipv4",
+                "ipv6",
+                "ipv4v6"
+              ]
+            },
+            "dns": {
+              "type": "object",
+              "default": {},
+              "description": "Optional per-APN DNS override (falls back to global DNS)",
+              "properties": {
+                "primary": {
+                  "type": "string",
+                  "default": "",
+                  "description": "Primary DNS for this APN"
+                },
+                "secondary": {
+                  "type": "string",
+                  "default": "",
+                  "description": "Secondary DNS for this APN"
+                }
+              }
+            },
+            "qci": {
+              "type": "number",
+              "default": 9,
+              "description": "QoS Class Identifier (standard LTE bearer class)"
+            },
+            "arp": {
+              "type": "object",
+              "default": {},
+              "description": "Allocation and Retention Priority",
+              "properties": {
+                "priority_level": {
+                  "type": "number",
+                  "default": 15,
+                  "description": "Priority level (1\u201315); lower = higher priority"
+                },
+                "preemption_capability": {
+                  "type": "bool",
+                  "default": false,
+                  "description": "Can preempt lower-priority bearers?"
+                },
+                "preemption_vulnerability": {
+                  "type": "bool",
+                  "default": true,
+                  "description": "Can this bearer be preempted?"
+                }
+              }
+            },
+            "mbr": {
+              "type": "object",
+              "default": {},
+              "description": "Maximum Bit Rate (kbps); 0 = unlimited",
+              "properties": {
+                "uplink": {
+                  "type": "number",
+                  "default": 100000,
+                  "description": "Max uplink rate (kbps)"
+                },
+                "downlink": {
+                  "type": "number",
+                  "default": 100000,
+                  "description": "Max downlink rate (kbps)"
+                }
+              }
+            },
+            "sgi_interface": {
+              "type": "string",
+              "default": "",
+              "description": "Optional SGi interface override (if multi-homed)"
+            }
+          }
+        }
+      },
+      "logging": {
+        "type": "object",
+        "default": {},
+        "description": "Logging configuration",
+        "properties": {
+          "level": {
+            "type": "string",
+            "default": "info",
+            "description": "Log verbosity level: debug, info, warn, error",
+            "enum": [
+              "debug",
+              "info",
+              "warn",
+              "error"
+            ]
+          },
+          "file": {
+            "type": "string",
+            "default": "/var/log/nextepc/pgw.log",
+            "description": "Path to log file"
+          }
+        }
+      },
+      "stats": {
+        "type": "object",
+        "default": {},
+        "description": "Statistics collection settings",
+        "properties": {
+          "enabled": {
+            "type": "bool",
+            "default": false,
+            "description": "Enable real-time statistics output"
+          },
+          "interval": {
+            "type": "number",
+            "default": 60,
+            "description": "Statistics dump interval in seconds"
+          }
+        }
+      },
+      "workers": {
+        "type": "number",
+        "default": 2,
+        "description": "Number of worker threads (concurrent GTP/C sessions)"
+      },
+      "max_connections": {
+        "type": "number",
+        "default": 10000,
+        "description": "Maximum simultaneous PDP sessions / UE connections"
+      }
+    }
+  }
+}

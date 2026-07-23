@@ -1,0 +1,41 @@
+# OSS Proxy Daemon ALSA backend configuration
+# Backend module to use
+backend_module "alsa"
+
+# ALSA device to use for capture (input)
+capture_device "default"
+
+# ALSA device to use for playback (output)
+playback_device "default"
+
+# Sample rate to use (Hz)
+sample_rate 48000
+
+# Number of capture channels
+channels 2
+
+# Audio format: s16_le, s24_3le, s32_le, float_le, etc.
+format "s16_le"
+
+# Period size (frames per period)
+period_size 1024
+
+# Number of periods (buffer depth = period_size * periods)
+periods 4
+
+# Enable software volume control via ALSA PCM
+use_softvol false
+
+# Log level: debug, info, notice, warning, error, critical, alert, emergency
+log_level "warning"
+
+# List of ALSA mixer controls to expose via OSS mixer API (name, index)
+{% for mixer in mixers %}
+mixer "{{ mixer.name }}" {{ mixer.index }}
+{% endfor %}
+
+# Delay (ms) between buffer refill attempts (prevents CPU spinning)
+buffer_delay 20
+
+# Enable shared memory mapping for zero-copy audio (requires OSSProxy >= 4.2)
+use_shm false

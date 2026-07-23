@@ -1,0 +1,42 @@
+# Listen on this IP address and port
+bind 0.0.0.0:2628
+
+# Maximum number of simultaneous client connections
+maxconn 256
+
+# Enable verbose logging to syslog for debugging
+#loglevel debug
+loglevel info
+
+# Directory containing dictionary data files (DICT format)
+# Each dictionary is a pair of .index and .dict files
+dictdir /usr/share/dictd
+
+# Directory for spooling client requests (for logging or replay)
+#spooldir /var/spool/dictd
+
+# Timeout (in seconds) for client idle connections
+clienttimeout 300
+
+# Enable support for client compression (RFC 2229)
+#compression gzip
+
+# Default database(s) to serve if none specified by client
+# (comma-separated list or use 'all' to serve all loaded databases)
+defaultdb wordnet
+
+# List of databases to enable (by name, matching .index/.dict filenames)
+# Leave commented to auto-load all in dictdir
+{% for db in databases %}database {{ db.name }}{% if db.title %} # {{ db.title }}{% endif %}
+{% endfor %}
+
+# Optional: restrict access to specific clients (CIDR or hostname patterns)
+# Use allow/deny with wildcard support; order matters
+{% for rule in access_rules %}{% if rule.action == 'allow' %}allow {{ rule.pattern }}{% else %}deny {{ rule.pattern }}{% endif %}
+{% endfor %}
+
+# Optional: limit queries per client per minute (anti-abuse)
+{% if rate_limit.enabled %}ratelimit {{ rate_limit.max_queries }} {{ rate_limit.window }}{% endif %}
+
+# Optional: custom MOTD (Message of the Day) shown on connection
+{% if motd %}motd {{ motd }}{% endif %}

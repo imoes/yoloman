@@ -1,0 +1,110 @@
+# Listen address and port
+ListenAddress {{ listen_address }}
+Port {{ port }}
+
+# Protocol and host key settings
+Protocol 2
+HostKey /etc/ssh/ssh_host_rsa_key
+HostKey /etc/ssh/ssh_host_ecdsa_key
+HostKey /etc/ssh/ssh_host_ed25519_key
+
+# Logging
+SyslogFacility {{ syslog_facility }}
+LogLevel {{ log_level }}
+
+# Authentication
+LoginGraceTime {{ login_grace_time }}
+PermitRootLogin {{ permit_root_login }}
+StrictModes {{ strict_modes }}
+MaxAuthTries {{ max_auth_tries }}
+MaxSessions {{ max_sessions }}
+PubkeyAuthentication {{ pubkey_authentication }}
+AuthorizedKeysFile {{ authorized_keys_file }}
+
+# Password and challenge-response auth
+PasswordAuthentication {{ password_authentication }}
+PermitEmptyPasswords {{ permit_empty_passwords }}
+ChallengeResponseAuthentication {{ challenge_response_authentication }}
+
+# Kerberos/GSSAPI (disabled by default)
+KerberosAuthentication {{ kerberos_authentication }}
+GSSAPIAuthentication {{ gssapi_authentication }}
+
+# PAM
+UsePAM {{ use_pam }}
+
+# Environment and locale
+AcceptEnv {{ accept_env | join(' ') }}
+SetEnv {{ set_env | join(' ') }}
+
+# Subsystem: SFTP with internal-sftp or external command
+{% if sftp_subsystem_enabled %}
+Subsystem	{% if sftp_internal %}sftp	internal-sftp{% else %}sftp	{{ sftp_subsystem_path }}{% endif %}
+{% endif %}
+
+# SFTP-specific settings (applies only to internal-sftp or chrooted users)
+{% for sftp_user in sftp_users %}
+# SFTP user/group-specific config: {{ sftp_user.name }}
+{% if sftp_user.match_user is defined %}Match User {{ sftp_user.match_user }}
+{% elif sftp_user.match_group is defined %}Match Group {{ sftp_user.match_group }}
+{% endif %}
+    ChrootDirectory {{ sftp_user.chroot_path }}
+    ForceCommand internal-sftp
+    AllowTcpForwarding {{ 'no' if sftp_user.disable_tcp_forwarding else 'yes' }}
+    X11Forwarding {{ 'no' if sftp_user.disable_x11 else 'yes' }}
+{% if sftp_user.set_env is defined %}
+    SetEnv {{ sftp_user.set_env | join(' ') }}
+{% endif %}
+{% if sftp_user.allow_tcp_forwarding is defined %}
+    AllowTcpForwarding {{ sftp_user.allow_tcp_forwarding }}
+{% endif %}
+{% if sftp_user.x11_forwarding is defined %}
+    X11Forwarding {{ sftp_user.x11_forwarding }}
+{% endif %}
+{% if sftp_user.max_sessions is defined %}
+    MaxSessions {{ sftp_user.max_sessions }}
+{% endif %}
+{% if sftp_user.max_auth_tries is defined %}
+    MaxAuthTries {{ sftp_user.max_auth_tries }}
+{% endif %}
+{% if sftp_user.pubkey_auth_only is defined %}
+    PubkeyAuthentication {{ sftp_user.pubkey_auth_only }}
+    PasswordAuthentication no
+{% endif %}
+{% endfor %}
+
+# Connection settings
+TCPKeepAlive {{ tcp_keep_alive }}
+ClientAliveInterval {{ client_alive_interval }}
+ClientAliveCountMax {{ client_alive_count_max }}
+
+# Security hardening
+MaxStartups {{ max_startups }}
+MaxSessions {{ max_sessions_global }}
+Banner {{ banner_path }}
+
+# Logging additional details (optional)
+# Print last login info
+PrintLastLog {{ print_last_log }}
+
+# Print motd (if enabled in PAM)
+PrintMotd {{ print_motd }}
+
+# Compression
+Compression {{ compression }}
+
+# ForwardX11Trust
+X11Forwarding {{ x11_forwarding_global }}
+X11DisplayOffset {{ x11_display_offset }}
+X11UseLocalhost {{ x11_use_localhost }}
+
+# Logging & debug
+# Enable verbose logging for troubleshooting (set to 'verbose' only when needed)
+# LogLevel DEBUG3 is very verbose
+
+# Permit user environment (dangerous — use with caution)
+PermitUserEnvironment {{ permit_user_environment }}
+
+# Ciphers and MACs (optional — recommended only if strict compliance needed)
+# Ciphers aes256-ctr,aes192-ctr,aes128-ctr
+# MACs hmac-sha2-512-etm@openssh.com,hmac-sha2-256-etm@openssh.com,hmac-sha2-512,hmac-sha2-256

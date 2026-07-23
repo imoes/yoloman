@@ -1,0 +1,56 @@
+{
+  "prereq": {
+    "type": "string",
+    "default": "udev",
+    "description": "Space-separated list of init-bottom script names that must complete before this hook runs; controls initramfs execution order"
+  },
+  "run_interfaces_dir": {
+    "type": "string",
+    "default": "/run/network/interfaces.d",
+    "description": "Directory where the generated ifupdown interface snippet is written; must be on a tmpfs that survives pivot_root into the real root"
+  },
+  "dhcp_timeout": {
+    "type": "number",
+    "default": 300,
+    "description": "Seconds the DHCP client waits for a lease before giving up; reduce on fast LANs, increase on slow or congested networks"
+  },
+  "interface_metric": {
+    "type": "number",
+    "default": 100,
+    "description": "Route metric assigned to the PXE boot interface; set higher than cloud-init managed interfaces to deprioritise it once fully booted"
+  },
+  "dhcp4": {
+    "type": "bool",
+    "default": true,
+    "description": "Write an 'inet dhcp' stanza so the resolved boot interface acquires an IPv4 address via DHCP"
+  },
+  "dhcp6": {
+    "type": "bool",
+    "default": false,
+    "description": "Append an 'inet6 dhcp' stanza to request an IPv6 address via DHCPv6 on the boot interface"
+  },
+  "fallback_interface": {
+    "type": "string",
+    "default": "",
+    "description": "Interface name to configure when no BOOTIF kernel parameter is present; leave empty to skip configuration entirely on non-PXE boots"
+  },
+  "dhcp4_options": {
+    "type": "list",
+    "default": [],
+    "description": "Extra ifupdown key-value options appended under the 'inet dhcp' stanza (e.g. hostname, dns-nameservers, dns-search)",
+    "items": {
+      "key": {
+        "type": "string",
+        "description": "ifupdown option name as it appears in an interfaces(5) stanza"
+      },
+      "value": {
+        "type": "string",
+        "description": "Option value written verbatim into the snippet"
+      },
+      "description": {
+        "type": "string",
+        "description": "Inline comment that appears above the option line in the generated snippet"
+      }
+    }
+  }
+}

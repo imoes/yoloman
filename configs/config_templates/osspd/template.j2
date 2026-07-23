@@ -1,0 +1,72 @@
+# OSS Proxy Daemon configuration
+# Enables verbose logging for debugging and diagnostics
+log_level: {{ log_level }}
+
+# Path to the PID file for the daemon process
+pid_file: "{{ pid_file }}"
+
+# Base directory for temporary device nodes and emulation state
+work_dir: "{{ work_dir }}"
+
+# Network interface to bind to (empty string = all interfaces)
+bind_addr: "{{ bind_addr }}"
+
+# TCP port for control interface
+control_port: {{ control_port }}
+
+# TCP port(s) for audio emulation (one or more, typically 1–10)
+audio_ports:
+{% for port in audio_ports %}- {{ port }}
+{% endfor %}
+
+# Maximum number of simultaneous client connections
+max_clients: {{ max_clients }}
+
+# Enable/Disable OSS v4.x compatibility mode (defaults to v3.9 if false)
+osss_compat_v4: {{ osss_compat_v4|lower }}
+
+# List of devices to emulate (e.g., /dev/dsp, /dev/mixer)
+device_emulation:
+{% for dev in device_emulation %}- device: "{{ dev.device }}"
+  channels: {{ dev.channels }}
+  sample_rate: {{ dev.sample_rate }}
+  format: "{{ dev.format }}"
+{% endfor %}
+
+# Optional: Backend DSP implementation (e.g., ALSA, JACK, PipeWire)
+{% if backend_dsp is defined %}backend_dsp: "{{ backend_dsp }}"
+{% endif %}
+
+# Optional: ALSAPCM device name if using ALSA backend
+{% if alsa_device is defined %}alsa_device: "{{ alsa_device }}"
+{% endif %}
+
+# Optional: JACK client name if using JACK backend
+{% if jack_client_name is defined %}jack_client_name: "{{ jack_client_name }}"
+{% endif %}
+
+# Optional: PipeWire node name if using PipeWire backend
+{% if pipewire_node_name is defined %}pipewire_node_name: "{{ pipewire_node_name }}"
+{% endif %}
+
+# Enable real-time scheduling for improved latency (requires CAP_SYS_NICE)
+realtime: {{ realtime|lower }}
+
+# Priority for real-time scheduling (0–99; higher = more urgent)
+realtime_priority: {{ realtime_priority }}
+
+# Buffer size (in frames) for audio processing
+buffer_size: {{ buffer_size }}
+
+# Number of periods in the audio ring buffer (usually 2 or 4)
+periods: {{ periods }}
+
+# Enable latency compensation (adjusts delay based on system load)
+latency_compensation: {{ latency_compensation|lower }}
+
+# Optional: Custom OSS device mappings (e.g., /dev/dsp0 -> OSS device 0)
+{% if device_mappings is defined %}device_mappings:
+{% for map in device_mappings %}- oss_device: "{{ map.oss_device }}"
+  oss_instance: {{ map.oss_instance }}
+{% endfor %}
+{% endif %}

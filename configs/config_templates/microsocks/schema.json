@@ -1,0 +1,87 @@
+{
+  "bind_addr": {
+    "type": "string",
+    "default": "0.0.0.0",
+    "description": "IP address the server will listen on. Use 0.0.0.0 to listen on all interfaces."
+  },
+  "port": {
+    "type": "number",
+    "default": 1080,
+    "description": "TCP port for SOCKS5 connections."
+  },
+  "threads": {
+    "type": "number",
+    "default": 0,
+    "description": "Number of worker threads. Set to 0 to auto-detect based on CPU count."
+  },
+  "loglevel": {
+    "type": "number",
+    "default": 1,
+    "description": "Verbosity of logging: 0 (quiet) to 4 (debug). Higher values log more."
+  },
+  "pidfile": {
+    "type": "string",
+    "default": "/run/microsocks/microsocks.pid",
+    "description": "Path to file where the process ID (PID) will be written. Leave empty ('') to disable."
+  },
+  "udp_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable UDP relay support (requires microsocks built with -DENABLE_UDP)."
+  },
+  "authmode": {
+    "type": "string",
+    "default": "none",
+    "description": "Authentication mode: none (no auth), userpass (username:password), or combined."
+  },
+  "users": {
+    "type": "list",
+    "default": [],
+    "description": "List of allowed user credentials. Only used when authmode includes userpass.",
+    "items": {
+      "type": "object",
+      "fields": {
+        "username": {
+          "type": "string",
+          "default": "",
+          "description": "Username for authentication."
+        },
+        "password": {
+          "type": "string",
+          "default": "",
+          "description": "Password for authentication. Store securely (e.g., via secret manager)."
+        }
+      }
+    }
+  },
+  "user_rules": {
+    "type": "list",
+    "default": [],
+    "description": "List of destination access rules per user. If empty, all destinations allowed.",
+    "items": {
+      "type": "object",
+      "fields": {
+        "user": {
+          "type": "string",
+          "default": "",
+          "description": "Username to apply rule to."
+        },
+        "destinations": {
+          "type": "list",
+          "default": [],
+          "description": "List of allowed destination hosts or host:port combinations (e.g., ['example.com', '10.0.0.0/8:443'])."
+        }
+      }
+    }
+  },
+  "chroot": {
+    "type": "string",
+    "default": "",
+    "description": "Directory to chroot into after startup. Leave empty ('') to disable chrooting."
+  },
+  "user_after_bind": {
+    "type": "string",
+    "default": "nobody",
+    "description": "System user to drop privileges to after binding privileged ports."
+  }
+}

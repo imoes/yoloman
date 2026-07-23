@@ -1,0 +1,60 @@
+# dircproxy main configuration file
+# Generated from Jinja2 template — do not edit directly
+
+# Basic server connection settings
+[server]
+host = {{ server.host }}
+port = {{ server.port }}
+use_ssl = {{ server.use_ssl | lower }}
+password = {{ server.password | default('') }}
+
+# Identity information
+[identity]
+username = {{ identity.username }}
+nick = {{ identity.nick }}
+realname = {{ identity.realname }}
+usermode = {{ identity.usermode | default('') }}
+
+# Channel settings
+[channel]
+join_on_connect = {{ channel.join_on_connect | lower }}
+default_channels = {{ channel.default_channels | join(', ') }}
+auto_rejoin = {{ channel.auto_rejoin | lower }}
+rejoin_delay = {{ channel.rejoin_delay }}
+
+# Logging
+[log]
+enabled = {{ log.enabled | lower }}
+directory = {{ log.directory }}
+format = {{ log.format }}
+
+# Buffer settings
+[buffer]
+lines = {{ buffer.lines }}
+scrollback_lines = {{ buffer.scrollback_lines }}
+
+# Connection tuning
+[connection]
+timeout = {{ connection.timeout }}
+reconnect_delay = {{ connection.reconnect_delay }}
+max_reconnect_attempts = {{ connection.max_reconnect_attempts }}
+
+# DNS settings
+[dns]
+enabled = {{ dns.enabled | lower }}
+server = {{ dns.server | default('') }}
+
+# Custom commands and aliases (if any)
+{% if aliases %}
+[aliases]
+{% for name, cmd in aliases.items() %}
+{{ name }} = {{ cmd }}
+{% endfor %}
+{% endif %}
+
+# Per-channel override settings (optional)
+{% for ch in channel_overrides %}
+[channel:{{ ch.name }}]
+auto_join = {{ ch.auto_join | lower }}
+user_modes = {{ ch.user_modes | default('') }}
+{% endfor %}

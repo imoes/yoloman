@@ -1,0 +1,145 @@
+# rdiff-backup configuration — sets global behavior for the backup server
+# User and group under which the rdiff-backup server process runs
+user = {{ server_user }}
+group = {{ server_group }}
+
+# Root directory for backup repository (absolute path)
+# This is where all backup data (incrementals, metadata, etc.) are stored
+root_path = {{ root_path }}
+
+# Listening interface and port for the rdiff-backup server
+# Use 127.0.0.1 to restrict to local connections only
+port = {{ server_port }}
+bind_address = {{ server_bind_address }}
+
+# Enable SSL/TLS for encrypted connections (requires OpenSSL and cert/key paths)
+{% if enable_ssl %}
+ssl = true
+ssl_cert = {{ ssl_cert_path }}
+ssl_key = {{ ssl_key_path }}
+ssl_ca_cert = {{ ssl_ca_cert_path | default('', true) }}
+{% else %}
+ssl = false
+{% endif %}
+
+# Restrict connections to these IP addresses (empty list = allow all)
+{% if allowed_hosts | length > 0 %}
+# Allowed hosts — only clients from these IPs may connect
+allowed_hosts = {{ allowed_hosts | join(', ') }}
+{% else %}
+# No IP restriction (allow all clients)
+allowed_hosts = none
+{% endif %}
+
+# Maximum number of simultaneous client connections
+max_connections = {{ max_connections }}
+
+# Compression level: 0 (none) to 9 (max) — only applies to data stream
+{% if compression is not none %}
+compression = {{ compression }}
+{% else %}
+compression = none
+{% endif %}
+
+# Log level: debug, info, warning, error, critical
+log_level = {{ log_level }}
+
+# Log file path (leave empty to log to stderr only)
+{% if log_file %}
+log_file = {{ log_file }}
+{% endif %}
+
+# Retention policy — how many days to keep backup revisions
+# Set to 0 to disable automatic pruning (not recommended)
+{% if retention_days > 0 %}
+prune_older_than = {{ retention_days }}D
+{% else %}
+prune_older_than = 0D
+{% endif %}
+
+# Paranoia mode: enable extra integrity checks and verification
+{% if paranoia_mode %}
+paranoid = true
+{% else %}
+paranoid = false
+{% endif %}
+
+# File system options
+# Enable/Disable extended attributes (xattrs) preservation
+{% if preserve_xattrs %}
+preserve_xattrs = true
+{% else %}
+preserve_xattrs = false
+{% endif %}
+
+# Enable/Disable ACL preservation (requires libacl1 and compatible fs)
+{% if preserve_acls %}
+preserve_acls = true
+{% else %}
+preserve_acls = false
+{% endif %}
+
+# Excluded paths — patterns matching files/dirs to skip during backup
+# Each entry uses standard rdiff-backup exclude patterns (glob, regex, etc.)
+{% for pattern in exclude_patterns %}
+exclude = {{ pattern }}
+{% endfor %}
+
+# Included paths — explicit path patterns to *include* (if using wildcard excludes)
+# Usually only needed when using broad exclude patterns like `/*` or `**`
+{% for pattern in include_patterns %}
+include = {{ pattern }}
+{% endfor %}
+
+# Windows-style path escaping (required for backups from Windows clients)
+{% if windows_compatibility %}
+windows_compatibility = true
+{% else %}
+windows_compatibility = false
+{% endif %}
+
+# Allow client-initiated restores (default: false — server-only backup)
+{% if allow_client_restore %}
+allow_client_restore = true
+{% else %}
+allow_client_restore = false
+{% endif %}
+
+# Backup user mapping (maps remote usernames to local system accounts)
+# Format: remote_user:local_user
+{% for mapping in user_mapping %}
+usermap = {{ mapping.remote_user }}:{{ mapping.local_user }}
+{% endfor %}
+
+# Backup group mapping (maps remote groups to local groups)
+# Format: remote_group:local_group
+{% for mapping in group_mapping %}
+groupmap = {{ mapping.remote_group }}:{{ mapping.local_group }}
+{% endfor %}
+
+# Unix socket path for local management (optional)
+{% if unix_socket %}
+unix_socket = {{ unix_socket }}
+{% endif %}
+
+# Require client authentication via password (recommended for untrusted networks)
+{% if require_auth %}
+require_auth = true
+{% else %}
+require_auth = false
+{% endif %}
+
+# Authentication realm — shown to clients during auth negotiation
+auth_realm = {{ auth_realm }}
+
+# Trusted user groups — list of local groups whose members may authenticate
+{% for group in trusted_groups %}
+trusted_group = {{ group }}
+{% endfor %}
+
+# Log remote client IPs (useful for forensics; may have privacy implications)
+{% if log_client_ips %}
+log_client_ips = true
+{% else %}
+log_client_ips = false
+{% endif %}

@@ -1,0 +1,39 @@
+[global]
+# Global cluster-wide settings
+fsid = {{ cluster.fsid }}
+mon_initial_members = {{ cluster.mon_initial_members | join(', ') }}
+mon_host = {{ cluster.mon_host | join(', ') }}
+
+# Network binding
+public_network = {{ network.public_cidr }}
+cluster_network = {{ network.cluster_cidr }}
+
+# Authentication and security
+auth_cluster_required = {{ security.auth_cluster_required }}
+auth_service_required = {{ security.auth_service_required }}
+auth_client_required = {{ security.auth_client_required }}
+
+# Logging and debugging
+log_file = {{ logging.log_file }}
+log_to_stderr = {{ logging.log_to_stderr }}
+err_to_stderr = {{ logging.err_to_stderr }}
+log_std_level = {{ logging.log_std_level }}
+
+# Monitor-specific settings
+mon_clock_drift_allowed = {{ mon.clock_drift_allowed }}
+mon_clock_drift_warn_backoff = {{ mon.clock_drift_warn_backoff }}
+mon_lease = {{ mon.lease }}
+mon_lease_renew_interval = {{ mon.lease_renew_interval }}
+mon_lease_ack_timeout = {{ mon.lease_ack_timeout }}
+
+# Monitor quorum settings
+mon_quorum_size = {{ mon.quorum_size }}
+mon_quorum_timeout = {{ mon.quorum_timeout }}
+mon_allow_pool_delete = {{ mon.allow_pool_delete }}
+
+{% for service_name, service_config in services.items() %}
+[{{ service_name }}]
+# Configuration for {{ service_name }} service
+{% for key, value in service_config.items() %}{{ key }} = {{ value }}
+{% endfor %}
+{% endfor %}

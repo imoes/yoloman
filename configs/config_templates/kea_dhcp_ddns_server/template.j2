@@ -1,0 +1,123 @@
+{# Kea DHCP DDNS server configuration #}
+{
+  "DhcpDdns": {
+    {# Controls the number of server instances (workers) #}
+    "workers": {{ workers }},
+
+    {# List of DNS servers to send update requests to #}
+    "dns-servers": [
+      {% for server in dns_servers %}
+      {# IP address and port of each DNS server #}
+      {
+        "ip-address": "{{ server.ip }}",
+        "port": {{ server.port }}
+      }{% if not loop.last %},{% endif %}
+      {% endfor %}
+    ],
+
+    {# Domain name to update (zone) #}
+    "domains": [
+      {% for domain in domains %}
+      {
+        {# Name of the DNS zone (e.g., "example.com.") #}
+        "name": "{{ domain.name }}",
+        
+        {# DNS update key name (must match TSIG key name) #}
+        "dns-server-key-name": "{{ domain.key_name }}",
+        
+        {# DDNS backend type: 'memfile' (file-based) or 'mysql' (database) #}
+        "ddns-backend": "{{ domain.backend }}",
+        
+        {# Optional: update counter (for statistics) #}
+        {# Only present if update_counter is enabled #}
+        {% if domain.update_counter is defined %}
+        "update-counter": {
+          "name": "{{ domain.update_counter.name }}",
+          "key": "{{ domain.update_counter.key }}"
+        },
+        {% endif %}
+        
+        {# Optional: zone-specific DNS server override #}
+        {# If not set, global dns-servers used #}
+        {% if domain.dns_servers is defined and domain.dns_servers | length > 0 %}
+        "dns-servers": [
+          {% for srv in domain.dns_servers %}
+          {
+            "ip-address": "{{ srv.ip }}",
+            "port": {{ srv.port }}
+          }{% if not loop.last %},{% endif %}
+          {% endfor %}
+        ],
+        {% endif %}
+        
+        {# Optional: control channel for this domain (if using control API per domain) #}
+        {% if domain.control_channel is defined %}
+        "control-channel": {
+          "socket-type": "unix",
+          "socket-name": "{{ domain.control_channel.socket_name }}"
+        },
+        {% endif %}
+      }{% if not loop.last %},{% endif %}
+      {% endfor %}
+    ],
+
+    {# Controls how often to log statistics (0 = disabled) #}
+    "statistics-interval": {{ statistics_interval }},
+
+    {# Controls whether to emit JSON output in a pretty-printed format #}
+    "json-pretty-print": {{ json_pretty_print | lower }},
+
+    {# Controls whether to accept dynamic reconfiguration via SIGHUP #}
+    "reconfigure-processing": {{ reconfigure_processing | lower }},
+
+    {# Logging configuration #}
+    "logging": {
+      "loggers": [
+        {
+          "name": "kea-dhcp-ddns",
+          "output_options": [
+            {
+              "output": "{{ log_output }}"
+            }
+          ],
+          "severity": "{{ log_severity }}",
+          "debuglevel": {{ log_debuglevel }},
+          "trace_output": "{{ log_trace_output }}"
+        }
+      ]
+    },
+
+    {# Optional: control API channel configuration #}
+    {% if control_channel is defined %}
+    "control-socket": {
+      "socket-type": "unix",
+      "socket-name": "{{ control_channel.socket_name }}"
+    },
+    {% endif %}
+
+    {# Optional: hooks libraries #}
+    {% if hooks_libraries | length > 0 %}
+    "hooks-libraries": [
+      {% for lib in hooks_libraries %}
+      {
+        "library": "{{ lib.library }}",
+        {% if lib.parameters is defined %}
+        "parameters": {{ lib.parameters | to_json }}
+        {% endif %}
+      }{% if not loop.last %},{% endif %}
+      {% endfor %}
+    ],
+    {% endif %}
+
+    {# Optional: lease file location (if using file backend) #}
+    {% if lease_file is defined %}
+    "lease-file": "{{ lease_file }}",
+    {% endif %}
+
+    {# Optional: max queue size for DNS updates #}
+    "max-queue-size": {{ max_queue_size }},
+
+    {# Optional: DNS update TTL (seconds) #}
+    "ttl": {{ ttl }}
+  }
+}

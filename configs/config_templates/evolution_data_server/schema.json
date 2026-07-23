@@ -1,0 +1,155 @@
+{
+  "base_directory": {
+    "type": "string",
+    "default": "/var/lib/evolution-data-server",
+    "description": "Root directory where EDS stores user data files, calendars, and addressbooks."
+  },
+  "runtime_directory": {
+    "type": "string",
+    "default": "/run/evolution-data-server",
+    "description": "Directory for runtime files such as sockets, PID files, and locks."
+  },
+  "bind_address": {
+    "type": "string",
+    "default": "",
+    "description": "IP address to bind CalDAV/CardDAV services to (empty = all interfaces)."
+  },
+  "caldav_port": {
+    "type": "number",
+    "default": 8009,
+    "description": "TCP port for CalDAV service (default 8009). Set to 0 to disable."
+  },
+  "carddav_port": {
+    "type": "number",
+    "default": 8008,
+    "description": "TCP port for CardDAV service (default 8008). Set to 0 to disable."
+  },
+  "enable_addressbook": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable the addressbook service."
+  },
+  "enable_calendar": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable the calendar service."
+  },
+  "enable_tasks": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable the tasks (to-do list) service."
+  },
+  "enable_mail": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable the mail (IMAP/SMTP) backend (may require separate mail backend config)."
+  },
+  "backends": {
+    "type": "list",
+    "default": [],
+    "description": "List of remote backends (e.g., IMAP, LDAP, WebDAV) for data sources.",
+    "items": {
+      "type": "object",
+      "fields": {
+        "name": {
+          "type": "string",
+          "description": "Unique identifier for this backend (e.g., 'imap', 'ldap', 'webdav')."
+        },
+        "type": {
+          "type": "string",
+          "default": "imap",
+          "description": "Backend type: 'imap', 'ldap', 'webdav', 'caldav', 'carddav', etc."
+        },
+        "uri": {
+          "type": "string",
+          "description": "Server URI (e.g., 'imap://mail.example.com:143', 'ldap://ldap.example.com')."
+        },
+        "user": {
+          "type": "string",
+          "description": "Username for authentication (optional)."
+        },
+        "password": {
+          "type": "string",
+          "description": "Password for authentication (optional; not recommended for plaintext config \u2014 use secrets manager in production)."
+        },
+        "ssl": {
+          "type": "bool",
+          "default": false,
+          "description": "Use TLS/SSL for connection."
+        },
+        "starttls": {
+          "type": "bool",
+          "default": false,
+          "description": "Upgrade connection using STARTTLS (for non-SSL ports)."
+        }
+      }
+    }
+  },
+  "max_connections": {
+    "type": "number",
+    "default": 100,
+    "description": "Maximum number of concurrent client connections allowed."
+  },
+  "max_cached_connections": {
+    "type": "number",
+    "default": 20,
+    "description": "Maximum number of idle backend connections to keep in cache."
+  },
+  "query_timeout": {
+    "type": "number",
+    "default": 30,
+    "description": "Timeout in seconds for backend queries before aborting."
+  },
+  "log_level": {
+    "type": "string",
+    "default": "info",
+    "description": "Verbosity of logs: 'none', 'fatal', 'critical', 'warning', 'info', 'debug'."
+  },
+  "log_file": {
+    "type": "string",
+    "default": "/var/log/evolution-data-server.log",
+    "description": "Path to log file (set to empty string for syslog/stdout)."
+  },
+  "require_ssl": {
+    "type": "bool",
+    "default": true,
+    "description": "Require SSL/TLS for all remote client connections."
+  },
+  "ssl_cert_file": {
+    "type": "string",
+    "default": "/etc/ssl/certs/evolution-data-server.crt",
+    "description": "Path to SSL certificate file (PEM format)."
+  },
+  "ssl_key_file": {
+    "type": "string",
+    "default": "/etc/ssl/private/evolution-data-server.key",
+    "description": "Path to SSL private key file (PEM format)."
+  },
+  "ssl_ca_file": {
+    "type": "string",
+    "default": "/etc/ssl/certs/ca-certificates.crt",
+    "description": "Path to CA certificate bundle for client verification (optional)."
+  },
+  "auth_backends": {
+    "type": "list",
+    "default": [],
+    "description": "Custom authentication module definitions (advanced use).",
+    "items": {
+      "type": "object",
+      "fields": {
+        "name": {
+          "type": "string",
+          "description": "Identifier for the auth backend."
+        },
+        "module": {
+          "type": "string",
+          "description": "Name of the PAM/LDAP module (e.g., 'pam', 'ldap')."
+        },
+        "method": {
+          "type": "string",
+          "description": "Authentication method (e.g., 'plain', 'digest', 'external')."
+        }
+      }
+    }
+  }
+}

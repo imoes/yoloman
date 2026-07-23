@@ -1,0 +1,66 @@
+<?php
+/**
+ * DokuWiki Farm Configuration
+ * Managed by configuration management — do not edit manually.
+ */
+
+// ===== Farm Root =====
+
+# Filesystem path containing all animal wiki data directories
+$FARMDIR = '{{ farm_dir }}';
+
+# Base domain of the farm; used for URL-to-animal resolution
+$farmbase = '{{ farm_base_domain }}';
+
+# How incoming requests are mapped to an animal: 'domain' (subdomain) or 'path' (URL segment)
+$farm_url_type = '{{ url_detection_mode }}';
+
+# Animal served when no URL pattern matches; empty string falls back to the base DokuWiki
+$farm_default = '{{ default_animal }}';
+
+// ===== Animals (Individual Wiki Instances) =====
+
+$animals = [
+{% for animal in animals %}
+    # {{ animal.description }}
+    '{{ animal.key }}' => [
+        'dir'     => '{{ animal.dir }}',
+        'baseurl' => '{{ animal.base_url }}',
+    ],
+{% endfor %}
+];
+
+// ===== PHP Runtime Tuning =====
+
+# Maximum memory a single PHP process may consume during rendering or full-text indexing
+ini_set('memory_limit', '{{ memory_limit }}');
+
+# Largest single file a user may upload through the media manager
+ini_set('upload_max_filesize', '{{ upload_max_filesize }}');
+
+# Maximum total HTTP POST body size; must be >= upload_max_filesize
+ini_set('post_max_size', '{{ post_max_size }}');
+
+# Hard wall-clock limit per request in seconds; 0 disables the limit
+ini_set('max_execution_time', {{ max_execution_time }});
+
+// ===== Session Settings =====
+
+# Browser-side session cookie lifetime in seconds; 0 means the cookie expires when the browser closes
+ini_set('session.cookie_lifetime', {{ session_cookie_lifetime }});
+
+# Server-side maximum idle time in seconds before a session is garbage-collected
+ini_set('session.gc_maxlifetime', {{ session_gc_maxlifetime }});
+
+{% if session_cookie_secure %}
+# Restrict session cookies to HTTPS connections only
+ini_set('session.cookie_secure', '1');
+
+{% endif %}
+// ===== Error Handling =====
+
+# PHP error reporting bitmask; E_ALL & ~E_NOTICE suppresses harmless notices in production
+error_reporting({{ error_reporting_mask }});
+
+# Whether PHP errors are printed to the browser; must be off in production
+ini_set('display_errors', '{{ "1" if display_errors else "0" }}');

@@ -1,0 +1,351 @@
+{
+  "vmid": {
+    "type": "number",
+    "default": 100,
+    "description": "Unique numeric identifier for the VM across the cluster."
+  },
+  "name": {
+    "type": "string",
+    "default": "my-vm",
+    "description": "Human-readable name for the VM; used for display in the web UI and tools."
+  },
+  "ostype": {
+    "type": "string",
+    "default": "other",
+    "description": "Guest operating system type; influences optimization and driver defaults."
+  },
+  "cores": {
+    "type": "number",
+    "default": 2,
+    "description": "Number of virtual CPU cores per socket."
+  },
+  "sockets": {
+    "type": "number",
+    "default": 1,
+    "description": "Number of CPU sockets (total vCPUs = sockets \u00d7 cores)."
+  },
+  "memory": {
+    "type": "number",
+    "default": 2048,
+    "description": "Total RAM allocated to the VM in MiB."
+  },
+  "numa": {
+    "type": "number",
+    "default": 0,
+    "description": "Number of NUMA nodes; >0 enables manual NUMA layout."
+  },
+  "boot": {
+    "type": "string",
+    "default": "cnd",
+    "description": "Boot order: 'c'=disk, 'n'=network, 'd'=CD-ROM, 'order=' notation also supported."
+  },
+  "bootdisk": {
+    "type": "string",
+    "default": "scsi0",
+    "description": "Which disk device serves as the primary boot device."
+  },
+  "acpi": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable ACPI support for the guest."
+  },
+  "agp": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable AGP support (rarely needed; for legacy Windows)."
+  },
+  "hpet": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable High Precision Event Timer (HPET); improves timing for some guests."
+  },
+  "tpmstate": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable TPM 2.0 device for secure boot and cryptographic operations."
+  },
+  "machine": {
+    "type": "string",
+    "default": "q35",
+    "description": "QEMU machine type; must be compatible with the host PVE version."
+  },
+  "bios": {
+    "type": "string",
+    "default": "seabios",
+    "description": "Firmware implementation: 'seabios' (legacy) or 'ovmf' (UEFI)."
+  },
+  "serial0": {
+    "type": "string",
+    "default": "",
+    "description": "First serial port config (e.g., 'socket' or 'device=/dev/ttyS0')."
+  },
+  "serial1": {
+    "type": "string",
+    "default": "",
+    "description": "Second serial port config (optional)."
+  },
+  "parallel0": {
+    "type": "string",
+    "default": "",
+    "description": "First parallel port config (e.g., 'socket')."
+  },
+  "vga": {
+    "type": "string",
+    "default": "std",
+    "description": "Graphics adapter type (e.g., 'std', 'qxl', 'vmware', 'none'); may include resolution like 'serial0=1920x1080'."
+  },
+  "tablet": {
+    "type": "string",
+    "default": "0",
+    "description": "Enable tablet pointer device: '1' or '0'."
+  },
+  "keyboard": {
+    "type": "string",
+    "default": "",
+    "description": "Keyboard layout (e.g., 'en-us', 'de')."
+  },
+  "disks": {
+    "type": "list",
+    "default": [],
+    "description": "List of virtual disk devices attached to the VM.",
+    "items": {
+      "dev": {
+        "type": "string",
+        "description": "Device name (e.g., 'scsi0', 'sata1', 'virtio2')."
+      },
+      "storage": {
+        "type": "string",
+        "description": "Storage pool name (e.g., 'local', 'zfs') where volume resides."
+      },
+      "vol_id": {
+        "type": "string",
+        "description": "Volume identifier (e.g., 'vm-100-disk-0')."
+      },
+      "size": {
+        "type": "string",
+        "description": "Disk size in human-readable format (e.g., '32G', '1000M')."
+      },
+      "format": {
+        "type": "string",
+        "default": "qcow2",
+        "description": "Disk image format: 'qcow2', 'raw', 'vmdk', etc."
+      },
+      "cache": {
+        "type": "string",
+        "default": "none",
+        "description": "I/O caching: 'none', 'writethrough', 'writeback'."
+      },
+      "iothread": {
+        "type": "bool",
+        "default": false,
+        "description": "Enable dedicated I/O thread for improved performance."
+      },
+      "ssd": {
+        "type": "bool",
+        "default": false,
+        "description": "Treat disk as SSD (enables TRIM/Discard optimizations)."
+      },
+      "backup": {
+        "type": "bool",
+        "default": true,
+        "description": "Include disk in scheduled backups."
+      },
+      "discard": {
+        "type": "string",
+        "default": "on",
+        "description": "Discard behavior: 'on', 'off', or 'unmap' (for thin provisioning)."
+      },
+      "mime_type": {
+        "type": "string",
+        "default": "",
+        "description": "Optional MIME type for cloud-init or image detection (e.g., 'application/x-qemu-disk')."
+      }
+    }
+  },
+  "nics": {
+    "type": "list",
+    "default": [],
+    "description": "List of network interfaces attached to the VM.",
+    "items": {
+      "dev": {
+        "type": "string",
+        "description": "Device name (e.g., 'net0', 'eth1')."
+      },
+      "model": {
+        "type": "string",
+        "description": "NIC model: 'e1000', 'virtio', 'vmxnet3', etc."
+      },
+      "macaddr": {
+        "type": "string",
+        "description": "MAC address in standard format (e.g., '02:00:00:12:34:56')."
+      },
+      "bridge": {
+        "type": "string",
+        "description": "Linux bridge or VM bridge name (e.g., 'vmbr0', 'vmbr1')."
+      },
+      "rate": {
+        "type": "string",
+        "default": "",
+        "description": "Bandwidth limit in Mbps (e.g., '100' for 100 Mbps)."
+      },
+      "queues": {
+        "type": "number",
+        "default": 1,
+        "description": "Number of TX/RX queues (for multi-queue virtio)."
+      },
+      "mtu": {
+        "type": "number",
+        "default": 1500,
+        "description": "Maximum Transmission Unit (MTU) in bytes."
+      },
+      "trunks": {
+        "type": "list",
+        "default": [],
+        "description": "VLAN trunks (list of VLAN IDs or '0-4095' for all)."
+      },
+      "link_down": {
+        "type": "bool",
+        "default": false,
+        "description": "Simulate link-down (unplugged) state."
+      },
+      "firewall": {
+        "type": "bool",
+        "default": false,
+        "description": "Enable firewall rules (PVE firewall integration)."
+      }
+    }
+  },
+  "hostid": {
+    "type": "string",
+    "default": "",
+    "description": "Host-specific ID for PCI passthrough isolation (16-char hex)."
+  },
+  "searchdomain": {
+    "type": "string",
+    "default": "",
+    "description": "Default DNS search domain for the guest."
+  },
+  "nameserver": {
+    "type": "string",
+    "default": "",
+    "description": "Default DNS nameserver IP address (e.g., '8.8.8.8')."
+  },
+  "rng_devices": {
+    "type": "list",
+    "default": [],
+    "description": "List of random number generator devices (usually 0 or 1).",
+    "items": {
+      "model": {
+        "type": "string",
+        "default": "virtio",
+        "description": "RNG backend: 'virtio' or 'egd'."
+      },
+      "source": {
+        "type": "string",
+        "default": "",
+        "description": "Entropy source (e.g., '/dev/urandom'); leave blank for default."
+      }
+    }
+  },
+  "args": {
+    "type": "string",
+    "default": "",
+    "description": "Additional raw QEMU command-line arguments (e.g., '-cpu host')."
+  },
+  "description": {
+    "type": "string",
+    "default": "",
+    "description": "Free-form description or notes about this VM (supports multi-line text)."
+  },
+  "tags": {
+    "type": "list",
+    "default": [],
+    "description": "List of tags to apply for grouping or automation (e.g., ['prod', 'web'])."
+  },
+  "hookscript": {
+    "type": "string",
+    "default": "",
+    "description": "Path to hook script (e.g., '/var/lib/vz/snippets/hookscript.sh') for lifecycle events."
+  },
+  "scsi_controllers": {
+    "type": "list",
+    "default": [],
+    "description": "List of SCSI controllers to add (needed for >4 disks or advanced config).",
+    "items": {
+      "index": {
+        "type": "number",
+        "description": "Controller number (e.g., 0\u201315)."
+      },
+      "model": {
+        "type": "string",
+        "default": "lsi",
+        "description": "Model: 'lsi', 'lsi53c810', 'virtio-scsi-pci', etc."
+      },
+      "queues": {
+        "type": "number",
+        "default": 1,
+        "description": "Number of I/O queues (for virtio-scsi)."
+      },
+      "iothread": {
+        "type": "bool",
+        "default": false,
+        "description": "Enable I/O thread for controller."
+      }
+    }
+  },
+  "usb_devices": {
+    "type": "list",
+    "default": [],
+    "description": "USB devices passed through to the VM.",
+    "items": {
+      "spec": {
+        "type": "string",
+        "description": "USB device spec: 'host=bus.port' or 'host=vendor:product'."
+      },
+      "volume_id": {
+        "type": "string",
+        "default": "",
+        "description": "For USB mass storage: volume ID in 'storage:volume' format."
+      },
+      "type": {
+        "type": "string",
+        "default": "",
+        "description": "Override USB device type: 'host', 'redir', 'mass-storage'."
+      }
+    }
+  },
+  "numa_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable manual NUMA node configuration (requires 'numa' > 0)."
+  },
+  "numa_nodes": {
+    "type": "list",
+    "default": [],
+    "description": "Detailed NUMA node layout (only used if 'numa_enabled' is true).",
+    "items": {
+      "cpus": {
+        "type": "string",
+        "description": "vCPU assignment (e.g., '0-3', '0,2')."
+      },
+      "hostnodes": {
+        "type": "list",
+        "description": "Host NUMA node IDs (e.g., [0, 1])."
+      },
+      "memory": {
+        "type": "number",
+        "description": "Memory (MiB) allocated to this NUMA node."
+      },
+      "policy": {
+        "type": "string",
+        "default": "bind",
+        "description": "Memory policy: 'bind', 'prefer', 'interleave'."
+      },
+      "discard": {
+        "type": "bool",
+        "default": false,
+        "description": "Allow discard of unused memory pages."
+      }
+    }
+  }
+}

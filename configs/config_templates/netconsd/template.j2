@@ -1,0 +1,24 @@
+# netconsd configuration file
+# Listen on the specified UDP port for incoming netconsole messages
+LISTEN_PORT={{ listen_port }}
+
+# Enable or disable the daemon at boot (yes/no)
+START_NETCONSD={{ start_daemon }}
+
+# Maximum number of concurrent connections
+MAX_CONNECTIONS={{ max_connections }}
+
+# Path to the log file (use '-' for stdout)
+LOG_FILE={{ log_file }}
+
+# Log level: debug, info, notice, warning, error, crit, alert, emerg
+LOG_LEVEL={{ log_level }}
+
+# Additional trusted netconsole client entries
+{% for client in clients %}
+# Client: {{ client.name }}
+CLIENT_{{ loop.index }}_IP={{ client.ip }}
+CLIENT_{{ loop.index }}_PORT={{ client.port }}
+CLIENT_{{ loop.index }}_MAC={{ client.mac | default('00:00:00:00:00:00') }}
+CLIENT_{{ loop.index }}_IFACE={{ client.iface | default('') }}
+{% endfor %}

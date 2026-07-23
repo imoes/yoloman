@@ -1,0 +1,33 @@
+# Log level: debug, info, warning, error, critical
+log_level = "{{ log_level }}"
+
+# Maximum number of concurrent transactions
+max_transfers = {{ max_transfers }}
+
+# Timeout (seconds) for D-Bus method calls
+dbus_timeout = {{ dbus_timeout }}
+
+# Enable verbose logging to systemd journal (boolean)
+verbose = {{ "true" if verbose else "false" }}
+
+# Network interface(s) to bind to (comma-separated)
+# Leave empty to bind to all interfaces
+interfaces = "{{ interfaces | join(', ') if interfaces else '' }}"
+
+# List of supported UPnP AV transport URIs
+# Each entry is a protocol prefix and optional MIME type
+{% for item in supported_protocols %}supported_protocol = "{{ item.protocol }}:{{ item.mime_type }}"
+{% endfor %}
+
+# Enable support for external renderers (e.g., via GSSDP device discovery)
+{% if enable_external %}enable_external_renderers = true
+{% else %}# disable_external_renderers = true
+{% endif %}
+
+# Optional friendly name for the renderer (defaults to hostname)
+{% if friendly_name %}friendly_name = "{{ friendly_name }}"
+{% endif %}
+
+# Optional location URL for the renderer (e.g., for web UI)
+{% if location_url %}location_url = "{{ location_url }}"
+{% endif %}

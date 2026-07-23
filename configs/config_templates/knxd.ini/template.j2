@@ -1,0 +1,66 @@
+[main]
+; Main knxd daemon configuration
+name = {{ main.name }}
+
+; Enable EIB/KNX device access (e.g., tpuarts, tpuart, etc.)
+enable = {{ main.enable | lower }}
+
+; Device path for physical KNX interface (e.g., /dev/ttyUSB0, /dev/knxd)
+device = {{ main.device }}
+
+; Bus connection type: physical, tpuarts, ip, etc.
+connection_type = {{ main.connection_type }}
+
+[server]
+; Enable the built-in KNX server (for EIBnet/IP tunneling / routing)
+enable = {{ server.enable | lower }}
+
+; TCP port to listen on for EIBnet/IP connections (standard: 3671)
+port = {{ server.port }}
+
+; Host to bind to (0.0.0.0 = all interfaces, 127.0.0.1 = localhost only)
+bind = {{ server.bind }}
+
+; Enable multicast routing (for IP tunneling/routing via multicast)
+multicast_enable = {{ server.multicast_enable | lower }}
+
+[mcast]
+; Multicast group address for KNXnet/IP routing (standard: 224.0.23.12)
+address = {{ mcast.address }}
+
+; Multicast port (standard: 3671)
+port = {{ mcast.port }}
+
+; Interface to use for multicast (e.g., eth0); leave blank for default
+interface = {{ mcast.interface | default('') }}
+
+[log]
+; Logging level: 0=none, 1=fatal, 2=error, 3=warning, 4=notice, 5=info, 6=debug
+level = {{ log.level }}
+
+; Log to syslog instead of stderr
+syslog = {{ log.syslog | lower }}
+
+; Log to file (empty = disable file logging)
+logfile = {{ log.logfile | default('') }}
+
+[security]
+; Enable password protection for server connections
+password_enable = {{ security.password_enable | lower }}
+
+; Path to password file (must contain base64-encoded passwords)
+password_file = {{ security.password_file }}
+
+[filter]
+; List of group addresses to suppress (do not forward)
+{% for addr in filter.suppressed_addresses %}; suppressed_group_address = {{ addr }}
+{% endfor %}
+
+; List of KNX physical addresses to ignore (e.g., from loopback)
+{% for addr in filter.ignored_physical_addresses %}; ignored_physical_address = {{ addr }}
+{% endfor %}
+
+[usb]
+; USB vendor and product ID for direct USB KNX devices (e.g., 0x03EB for Philips/KNX)
+vendor_id = {{ usb.vendor_id }}
+product_id = {{ usb.product_id }}

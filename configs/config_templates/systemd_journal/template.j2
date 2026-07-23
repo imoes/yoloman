@@ -1,0 +1,172 @@
+# /etc/systemd/journald.conf — Configuration file for systemd-journald
+# See 'man journald.conf' for details.
+
+# Store journal data persistently (to disk) or volatile (to RAM only)
+{% if persistent | default(true) %}
+Storage=persistent
+{% else %}
+Storage=volatile
+{% endif %}
+
+# Directory where journal files are stored (effective only for persistent storage)
+{% if data_directory %}
+DataDirectory={{ data_directory }}
+{% else %}
+# DataDirectory=auto — uses /var/log/journal or /run/log/journal depending on Storage
+{% endif %}
+
+# Maximum disk space used by journal (e.g. 100M, 1G, 10% of filesystem)
+{% if system_max_use %}
+SystemMaxUse={{ system_max_use }}
+{% else %}
+# SystemMaxUse=10%
+{% endif %}
+
+# Maximum disk space used by journal per user (set to 0 for per-user journals only)
+{% if system_max_free_space %}
+SystemMaxFreeSpace={{ system_max_free_space }}
+{% else %}
+# SystemMaxFreeSpace=1G
+{% endif %}
+
+# Maximum size of individual journal files (e.g. 100M, 500M)
+{% if system_max_file_size %}
+SystemMaxFileSize={{ system_max_file_size }}
+{% else %}
+# SystemMaxFileSize=100M
+{% endif %}
+
+# Maximum number of journal files to retain per stream
+{% if system_keep_free %}
+SystemKeepFree={{ system_keep_free }}
+{% else %}
+# SystemKeepFree=20% of filesystem
+{% endif %}
+
+# Maximum time to retain journal entries (e.g. 30d, 2weeks)
+{% if max_file_lifetime %}
+MaxFileLifetime={{ max_file_lifetime }}
+{% else %}
+# MaxFileLifetime=6months
+{% endif %}
+
+# Maximum time to retain journal entries in volatile storage (e.g. 1week)
+{% if volatile_max_file_lifetime %}
+VolatileMaxFileLifetime={{ volatile_max_file_lifetime }}
+{% else %}
+# VolatileMaxFileLifetime=1week
+{% endif %}
+
+# Compression algorithm: xz, lz4, zstd, or no
+{% if compress %}
+Compress={{ 'yes' if compress else 'no' }}
+{% else %}
+# Compress=yes
+{% endif %}
+
+# Threshold for compression (entries smaller than this are not compressed)
+{% if compress_threshold %}
+CompressThresholdSec={{ compress_threshold }}
+{% else %}
+# CompressThresholdSec=30s
+{% endif %}
+
+# Maximum rate of journal writes per second (0 = unlimited)
+{% if rate_limit_interval %}
+RateLimitIntervalSec={{ rate_limit_interval }}
+{% else %}
+# RateLimitIntervalSec=30s
+{% endif %}
+
+{% if rate_limit_burst %}
+RateLimitBurst={{ rate_limit_burst }}
+{% else %}
+# RateLimitBurst=10000
+{% endif %}
+
+# Include full timestamps in journal output
+{% if timestamp %}
+Timestamp={{ timestamp }}
+{% else %}
+# Timestamp=monotonic
+{% endif %}
+
+# Forward journal entries to syslog daemon
+{% if forward_to_syslog %}
+ForwardToSyslog={{ 'yes' if forward_to_syslog else 'no' }}
+{% else %}
+# ForwardToSyslog=yes
+{% endif %}
+
+# Syslog socket path (use empty string to disable)
+{% if syslog_socket %}
+SyslogSocket={{ syslog_socket }}
+{% else %}
+# SyslogSocket=/run/systemd/journal/syslog
+{% endif %}
+
+# Forward journal entries to the kernel log buffer (dmesg)
+{% if forward_to_kmsg %}
+ForwardToKMsg={{ 'yes' if forward_to_kmsg else 'no' }}
+{% else %}
+# ForwardToKMsg=yes
+{% endif %}
+
+# Forward journal entries to the console (kernel log ring buffer)
+{% if forward_to_console %}
+ForwardToConsole={{ 'yes' if forward_to_console else 'no' }}
+{% else %}
+# ForwardToConsole=yes
+{% endif %}
+
+# Console device (e.g. /dev/ttyS0 or /dev/console)
+{% if console_device %}
+ConsoleDevice={{ console_device }}
+{% else %}
+# ConsoleDevice=/dev/console
+{% endif %}
+
+# Minimum log level forwarded to console
+{% if console_level %}
+ConsoleLevel={{ console_level }}
+{% else %}
+# ConsoleLevel=info
+{% endif %}
+
+# Max number of lines of journal displayed on console at boot
+{% if max_lines %}
+MaxFileLines={{ max_lines }}
+{% else %}
+# MaxFileLines=1000
+{% endif %}
+
+# Maximum number of lines shown when journal is read interactively
+{% if show_catalog %}
+ShowCatalog={{ 'yes' if show_catalog else 'no' }}
+{% else %}
+# ShowCatalog=yes
+{% endif %}
+
+# Whether to include header metadata (e.g. machine ID, boot ID) in journal files
+{% if header %}
+ReadKMsg={{ 'yes' if header else 'no' }}
+{% else %}
+# ReadKMsg=yes
+{% endif %}
+
+# Additional fields to append to each journal entry (key=value pairs)
+{% for field in extra_fields %}
+# {{ field.name }}={{ field.value }}
+{% endfor %}
+
+# Enable or disable journal namespace support
+{% if namespace %}
+Namespace={{ namespace }}
+{% else %}
+# Namespace=
+{% endif %}
+
+# List of units to exclude from journaling (empty = none)
+{% for unit in exclude_units %}
+# ExcludeUnit={{ unit }}
+{% endfor %}

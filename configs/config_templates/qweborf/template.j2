@@ -1,0 +1,50 @@
+{# Listen address (host:port) #}
+listen = {{ bind_address }}
+
+{# Root directory to serve files from #}
+root = {{ root_path }}
+
+{# Maximum number of concurrent connections #}
+max_connections = {{ max_connections }}
+
+{# Enable directory listing if true; hide files and folders otherwise #}
+directory_listing = {{ directory_listing | lower }}
+
+{# Default index file(s) to serve for directories #}
+index_files = {{ index_files | join(', ') }}
+
+{# Enable HTTPS if true; use HTTP otherwise #}
+ssl_enabled = {{ ssl_enabled | lower }}
+
+{# SSL certificate file path (only used if ssl_enabled is true) #}
+ssl_cert = {{ ssl_cert_path }}
+
+{# SSL private key file path (only used if ssl_enabled is true) #}
+ssl_key = {{ ssl_key_path }}
+
+{# MIME type mappings: extension = type #}
+{% for ext, mime_type in mime_mappings.items() %}mime_{{ ext }} = {{ mime_type }}
+{% endfor %}
+
+{# Custom HTTP headers to add to every response #}
+{% for header, value in custom_headers.items() %}header_{{ header | replace('.', '_') | replace('-', '_') }} = {{ value }}
+{% endfor %}
+
+{# Access control: allow/deny specific IPs or CIDR ranges #}
+{% for rule in access_rules %}access_{{ rule.action }} = {{ rule.entity }}
+{% endfor %}
+
+{# Enable logging to stdout if true; disable if false #}
+log_stdout = {{ log_stdout | lower }}
+
+{# Log file path (if logging enabled and log_stdout is false) #}
+log_file = {{ log_file_path }}
+
+{# Log level: debug, info, warn, error #}
+log_level = {{ log_level }}
+
+{# Enable caching of static files (seconds) #}
+cache_ttl = {{ cache_ttl }}
+
+{# Enable compression for text-based responses #}
+compression = {{ compression | lower }}

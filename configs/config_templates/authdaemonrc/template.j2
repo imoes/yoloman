@@ -1,0 +1,52 @@
+# Path to authentication socket
+# Used by Courier MTA to communicate with authdaemond
+VAR_PATH=/var/run/authdaemond
+
+# Minimum and maximum number of child processes to spawn
+# Controls concurrency and resource usage
+VAR_MINSPARE=2
+VAR_MAXSPARE=5
+
+# Number of child processes to spawn at startup
+VAR_STARTSERVERS=3
+
+# Maximum number of children per user (0 = no limit)
+# Prevents one user from consuming all workers
+VAR_MAXCLIENTS=200
+
+# Timeout (in seconds) for client connections
+VAR_TIMEOUT=60
+
+# Enable debug logging (0=off, 1=on)
+# Logs authentication attempts to syslog
+VAR_DEBUG=0
+
+# Authentication modules to try, in order
+# Modules are specified by basename (without .so or path)
+{% for module in AUTH_MODULES %}VAR_AUTHMODULES="{{ module }}"
+{% endfor %}
+
+# Default authentication module to use when none specified
+# Must be one of the modules listed above
+VAR_DEFAULTAUTHMODULE="{{ DEFAULT_AUTH_MODULE }}"
+
+# Path to the authentication module configuration directory
+# Auth modules look here for per-module config (e.g., authmysqlrc, authldaprc)
+VAR_MODULECONFIG="/etc/courier/authmodulerc"
+
+# Path to the authentication module log file (optional)
+# If empty, logs go to syslog only
+{% if AUTH_LOG_FILE %}VAR_AUTHLOGFILE="{{ AUTH_LOG_FILE }}"
+{% else %}# VAR_AUTHLOGFILE=""
+{% endif %}
+
+# Enable system user lookups (e.g., /etc/passwd)
+# Set to 0 to restrict auth to modules only
+VAR_SYSTEMUSERS=1
+
+# PID file path (auto-created by daemon)
+VAR_PIDFILE="/var/run/authdaemond.pid"
+
+# Log level (syslog priority mask)
+# Higher = more verbose. E.g., 0 (no debug), 7 (all)
+VAR_LOGLEVEL=0

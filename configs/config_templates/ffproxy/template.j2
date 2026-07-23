@@ -1,0 +1,83 @@
+# Bind to the specified IPv4/IPv6 address and port
+bind {{ listen_address }}:{{ listen_port }}
+
+# Run as the specified user and group (for privilege separation)
+user {{ user }}
+group {{ group }}
+
+# Set the maximum number of simultaneous connections
+max_connections {{ max_connections }}
+
+# Timeout for client connections (in seconds)
+client_timeout {{ client_timeout }}
+
+# Timeout for upstream server connections (in seconds)
+server_timeout {{ server_timeout }}
+
+# Enable or disable IPv6 support
+ipv6 {{ 'on' if enable_ipv6 else 'off' }}
+
+# Log to the specified file (use '-' for stdout)
+log_file {{ log_file }}
+
+# Log level: 0=silent, 1=errors, 2=warnings, 3=info, 4=debug
+log_level {{ log_level }}
+
+{% if auth_users %}
+# Enable basic authentication with the following users
+{% for user in auth_users %}
+auth_user {{ user.username }} {{ user.password }}
+{% endfor %}
+{% endif %}
+
+{% if allowed_hosts %}
+# Only allow connections to these hosts (supports glob patterns)
+{% for host in allowed_hosts %}
+allow {{ host }}
+{% endfor %}
+{% endif %}
+
+{% if blocked_hosts %}
+# Block connections to these hosts (checked after allow rules)
+{% for host in blocked_hosts %}
+deny {{ host }}
+{% endfor %}
+{% endif %}
+
+# Enable or disable HTTP pipelining
+pipelining {{ 'on' if enable_pipelining else 'off' }}
+
+# Set the maximum request body size (in KB); 0 = unlimited
+max_request_size {{ max_request_size_kb }}
+
+# Enable or disable HTTP/1.1 keep-alive
+keepalive {{ 'on' if enable_keepalive else 'off' }}
+
+# Add these HTTP headers to every outgoing request
+{% for header in request_headers %}
+req_header {{ header.name }}: {{ header.value }}
+{% endfor %}
+
+# Add these HTTP headers to every incoming response
+{% for header in response_headers %}
+resp_header {{ header.name }}: {{ header.value }}
+{% endfor %}
+
+# Replace the specified string in the response body (first match per line, case-sensitive)
+{% for replacement in body_replacements %}
+body_replace {{ replacement.search }} {{ replacement.replace_with }}
+{% endfor %}
+
+# Use the specified upstream proxy (format: host:port)
+{% if upstream_proxy %}
+upstream {{ upstream_proxy.host }}:{{ upstream_proxy.port }}
+{% if upstream_proxy.username %}
+upstream_auth {{ upstream_proxy.username }} {{ upstream_proxy.password }}
+{% endif %}
+{% endif %}
+
+# Disable the Via header in requests (for privacy)
+no_via {{ 'on' if disable_via_header else 'off' }}
+
+# Set the User-Agent string (default: ffproxy/version)
+user_agent {{ user_agent }}

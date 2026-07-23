@@ -1,0 +1,204 @@
+{
+  "rules_files_paths": {
+    "type": "list",
+    "default": [
+      "/etc/falco/rules.d",
+      "/etc/falco/rules.yaml"
+    ],
+    "description": "List of paths to Falco rules files or directories containing .yaml/.yml rules files",
+    "items": {
+      "type": "string",
+      "format": "path"
+    }
+  },
+  "gvisor_enabled": {
+    "type": "boolean",
+    "default": false,
+    "description": "Enable support for gvisor container runtime (requires gvisor and Falco gvisor plugin)"
+  },
+  "output_format": {
+    "type": "string",
+    "default": "json",
+    "description": "Output format: 'text' for human-readable, 'json' for structured logs"
+  },
+  "output_json_include_properties": {
+    "type": "boolean",
+    "default": true,
+    "description": "Include output properties (timestamp, hostname, etc.) in JSON output"
+  },
+  "output_json_add_fields": {
+    "type": "list",
+    "default": [],
+    "description": "Additional JSON fields to include in output (e.g., 'proc.aname', 'fd.typechar')",
+    "items": {
+      "type": "string"
+    }
+  },
+  "syscall_enabled": {
+    "type": "boolean",
+    "default": true,
+    "description": "Enable capture of kernel syscall events (required for Falco\u2019s core detection)"
+  },
+  "syscall_ebpf_enabled": {
+    "type": "boolean",
+    "default": true,
+    "description": "Use the modern eBPF driver instead of legacy kernel module (recommended)"
+  },
+  "syscall_module_enabled": {
+    "type": "boolean",
+    "default": false,
+    "description": "Fall back to legacy kernel module if eBPF is unavailable (avoid unless necessary)"
+  },
+  "buffers_syscalls_size": {
+    "type": "number",
+    "default": 1024,
+    "description": "Size (in MB) of per-CPU syscall ring buffers. Increase if syscall events are frequently dropped"
+  },
+  "log_level": {
+    "type": "string",
+    "default": "info",
+    "description": "Logging verbosity: 'debug', 'info', 'warning', 'error', or 'fatal'"
+  },
+  "log_stderr": {
+    "type": "boolean",
+    "default": true,
+    "description": "Log messages to standard error (console)"
+  },
+  "log_file_path": {
+    "type": "string",
+    "default": "/var/log/falco.log",
+    "description": "Path to Falco log file (when log_stderr=false)"
+  },
+  "metrics_enabled": {
+    "type": "boolean",
+    "default": false,
+    "description": "Enable Prometheus-style metrics endpoint (requires metrics compilation)"
+  },
+  "metrics_interval": {
+    "type": "string",
+    "default": "5s",
+    "description": "Metrics export interval (e.g., '5s', '1m'). Only used if metrics enabled"
+  },
+  "metrics_endpoint": {
+    "type": "string",
+    "default": "/metrics",
+    "description": "HTTP path for Prometheus metrics (e.g., '/metrics')"
+  },
+  "fim_enabled": {
+    "type": "boolean",
+    "default": false,
+    "description": "Enable file integrity monitoring (FIM) \u2014 monitors changes to critical files"
+  },
+  "fim_directories": {
+    "type": "list",
+    "default": [
+      {
+        "path": "/etc",
+        "recursive": true
+      },
+      {
+        "path": "/bin",
+        "recursive": true
+      },
+      {
+        "path": "/sbin",
+        "recursive": true
+      },
+      {
+        "path": "/usr/bin",
+        "recursive": true
+      },
+      {
+        "path": "/usr/sbin",
+        "recursive": true
+      },
+      {
+        "path": "/usr/lib",
+        "recursive": true
+      }
+    ],
+    "description": "List of directories to monitor for file integrity changes",
+    "items": {
+      "type": "object",
+      "fields": {
+        "path": {
+          "type": "string",
+          "default": "",
+          "description": "Absolute path to directory"
+        },
+        "recursive": {
+          "type": "boolean",
+          "default": true,
+          "description": "Monitor subdirectories recursively"
+        }
+      }
+    }
+  },
+  "syscall_timeout": {
+    "type": "number",
+    "default": 100,
+    "description": "Timeout (ms) for syscall event processing before events may be dropped"
+  },
+  "json_include_output_properties": {
+    "type": "boolean",
+    "default": true,
+    "description": "Alias for output_json.include_output_properties (for older configs)"
+  },
+  "json_add_fields": {
+    "type": "list",
+    "default": [
+      "proc.aname",
+      "fd.typechar",
+      "container.id"
+    ],
+    "description": "JSON output fields to append to each event",
+    "items": {
+      "type": "string"
+    }
+  },
+  "output_file_enabled": {
+    "type": "boolean",
+    "default": false,
+    "description": "Enable writing raw alert events to a file"
+  },
+  "output_file_path": {
+    "type": "string",
+    "default": "/var/log/falco_alerts.json",
+    "description": "Path to write alert events (in JSON or text, depending on format)"
+  },
+  "grpc_enabled": {
+    "type": "boolean",
+    "default": false,
+    "description": "Enable gRPC output (for forwarding alerts to Falcosidekick or other gRPC consumers)"
+  },
+  "grpc_server_enabled": {
+    "type": "boolean",
+    "default": false,
+    "description": "Run Falco as a gRPC server (only if you want Falco to accept connections)"
+  },
+  "grpc_server_bind_address": {
+    "type": "string",
+    "default": "0.0.0.0:5060",
+    "description": "Host:port for gRPC server binding"
+  },
+  "k8s_audit_enabled": {
+    "type": "boolean",
+    "default": false,
+    "description": "Enable Kubernetes audit log monitoring (requires Kubernetes cluster)"
+  },
+  "k8s_audit_policy_path": {
+    "type": "string",
+    "default": "",
+    "description": "Path to Kubernetes audit policy YAML file (if using Kubernetes audit logs)"
+  },
+  "k8s_audit_log_path": {
+    "type": "string",
+    "default": "/var/log/kubernetes/audit/audit.log",
+    "description": "Path to Kubernetes audit log file (for file-based audit input)"
+  },
+  "k8s_audit_log_url": {
+    "type": "string",
+    "default": "",
+    "description": "HTTP endpoint URL to stream Kubernetes audit logs (for HTTP-based audit input)"
+  }
+}

@@ -1,0 +1,95 @@
+{# Firefox ESR Policy Configuration
+   Applies enterprise policies to harden and configure Firefox ESR across the organization.
+   Ref: https://github.com/mozilla/policy-templates
+   Note: This file is JSON — no comments allowed in JSON itself, but Jinja2 comments (in `{# ... #}`) are safe in template source.
+#}
+{
+  {# Enable automatic policy support #}
+  "policies": {
+    {# Blocklist of harmful/malicious extensions #}
+    "Blocklist": {{ blocklist | to_json }},
+    
+    {# Enable or disable auto-updates #}
+    "DisableAppUpdate": {{ disable_app_update | lower }},
+    
+    {# Disable Firefox Accounts (for air-gapped or strict compliance environments) #}
+    "DisableFirefoxAccounts": {{ disable_firefox_accounts | lower }},
+    
+    {# Set homepage(s) and new tab page #}
+    "Homepage": {
+      "StartPage": "{% if homepage_new_tab_same_as_start %}start{% else %}newtab{% endif %}",
+      "URL": {{ homepage_url | to_json }}
+    },
+    
+    {# Enable/Disable Developer Tools #}
+    "DisableDeveloperTools": {{ disable_developer_tools | lower }},
+    
+    {# Enable/Disable Firefox Data Collection (Telemetry, FHR, Crash Reports) #}
+    "DisableFirefoxStudies": {{ disable_firefox_studies | lower }},
+    "DisableTelemetry": {{ disable_telemetry | lower }},
+    
+    {# Preconfigure DNS over HTTPS (DoH) #}
+    "DnsOverHttps": {
+      "Enabled": {{ dns_over_https_enabled | lower }},
+      "Providers": {{ dns_over_https_providers | to_json }}
+    },
+    
+    {# Enable/Disable PDF.js (disable if PDF handling must be external) #}
+    "DisablePDFJS": {{ disable_pdfjs | lower }},
+    
+    {# Enable/Disable Safe Browsing (phishing/malware protection) #}
+    "EnableSafeBrowsing": {{ enable_safe_browsing | lower }},
+    
+    {# Preconfigure proxy settings #}
+    "Proxy": {
+      "Mode": "{{ proxy_mode }}",
+      {% if proxy_mode == 'manual' %}
+      "HTTP": "{{ proxy_http_host }}",
+      "Port": {{ proxy_http_port }},
+      "SSL": "{{ proxy_https_host }}",
+      "SSLPort": {{ proxy_https_port }},
+      {% if proxy_no_proxy %}
+      "NoProxy": "{{ proxy_no_proxy | join(', ') }}",
+      {% endif %}
+      "ShareProxySettings": {{ proxy_share | lower }},
+      {% endif %}
+      {% if proxy_mode == 'autoconfig' %}
+      "AutoConfigURL": "{{ proxy_autoconfig_url }}",
+      {% endif %}
+      "UseSystemProxy": {{ proxy_use_system | lower }}
+    },
+    
+    {# Add enterprise extensions (list of URLs to `.xpi` files or add-on IDs) #}
+    "ExtensionSettings": {{ extension_settings | to_json }},
+    
+    {# Lock prefs (prevent user from modifying) #}
+    "LockPref": {{ lock_prefs | to_json }},
+    
+    {# Preinstall/Force-install extensions #}
+    "Extensions": {
+      "Install": {{ extensions_install | to_json }},
+      "Locked": {{ extensions_locked | to_json }}
+    },
+    
+    {# Set default search engine #}
+    "SearchBar": {
+      "Enabled": {{ search_bar_enabled | lower }},
+      "Default": "{{ default_search_engine }}"
+    },
+    
+    {# Disable browser reset (about:config reset) #}
+    "DisableBrowserReset": {{ disable_browser_reset | lower }},
+    
+    {# Disable Account activation / First-run experience #}
+    "DisableAccounts": {{ disable_accounts | lower }},
+    
+    {# Set data connections (e.g., for captive portal detection) #}
+    "CaptivePortal": {{ captive_portal_enabled | lower }},
+    
+    {# Disable private browsing mode (for kiosk or locked-down terminals) #}
+    "DisablePrivateBrowsing": {{ disable_private_browsing | lower }},
+    
+    {# Set default theme #}
+    "Theme": "{{ default_theme }}"
+  }
+}

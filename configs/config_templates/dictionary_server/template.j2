@@ -1,0 +1,32 @@
+# Listen on the specified host and port
+bind {{ bind_host }} {{ bind_port }}
+
+# Maximum number of simultaneous client connections
+max_connections {{ max_connections }}
+
+# Enable or disable verbose logging
+{{ 'debug' if debug else '# debug' }}
+
+# Default database(s) to query (comma-separated list of DB names)
+default_db {{ default_db | join(', ') }}
+
+# Directory where dictionary database files are stored
+dict_dir {{ dict_dir }}
+
+# Timeout (in seconds) for client connections
+client_timeout {{ client_timeout }}
+
+# Enable compression for large responses
+{{ 'compression' if compression else '# compression' }}
+
+# Optional authentication realm (for RFC 2229 AUTH command)
+{{ 'auth_realm ' + auth_realm if auth_realm else '# auth_realm disabled' }}
+
+# Per-database access control (optional)
+{% for db in databases %}{{ '# ' + db.name + ': ' + db.description if db.description else '# ' + db.name }}
+database {{ db.name }} {{ db.path }}
+{% if db.allow_hosts %}  allow {{ db.allow_hosts | join(', ') }}
+{% endif %}{% if db.deny_hosts %}  deny {{ db.deny_hosts | join(', ') }}
+{% endif %}{% if db.max_results %}  max_results {{ db.max_results }}
+{% endif %}{% if db.description %}  description "{{ db.description }}"
+{% endif %}{% endfor %}

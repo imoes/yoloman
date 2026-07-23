@@ -1,0 +1,193 @@
+{
+  "listen_addr": {
+    "type": "string",
+    "default": "0.0.0.0",
+    "description": "IP address on which to listen for incoming entropy requests."
+  },
+  "listen_port": {
+    "type": "number",
+    "default": 8888,
+    "description": "Port to listen on for entropy requests."
+  },
+  "entropy_source_path": {
+    "type": "string",
+    "default": "/dev/hwrng",
+    "description": "Path to the primary entropy source device (e.g., /dev/hwrng, /dev/urandom)."
+  },
+  "fallback_entropy_source_path": {
+    "type": "string",
+    "default": "/dev/urandom",
+    "description": "Optional path to a fallback entropy source (leave blank to disable fallback)."
+  },
+  "min_pool_size": {
+    "type": "number",
+    "default": 256,
+    "description": "Minimum bits of entropy required in the internal pool before serving requests."
+  },
+  "max_draw_bits": {
+    "type": "number",
+    "default": 4096,
+    "description": "Maximum number of bits per request (set to 0 for unlimited)."
+  },
+  "workers": {
+    "type": "number",
+    "default": 2,
+    "description": "Number of worker threads for gathering entropy in parallel."
+  },
+  "metrics_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable or disable Prometheus-compatible metrics collection."
+  },
+  "metrics_addr": {
+    "type": "string",
+    "default": "127.0.0.1",
+    "description": "Address to bind the metrics endpoint (only used if metrics are enabled)."
+  },
+  "metrics_port": {
+    "type": "number",
+    "default": 9100,
+    "description": "Port for the metrics endpoint (only used if metrics are enabled)."
+  },
+  "log_level": {
+    "type": "string",
+    "default": "info",
+    "description": "Minimum log level (e.g., debug, info, warn, error)."
+  },
+  "log_format": {
+    "type": "string",
+    "default": "json",
+    "description": "Log output format (e.g., 'text' or 'json')."
+  },
+  "log_file": {
+    "type": "string",
+    "default": null,
+    "description": "Optional file path to write logs (if omitted, logs to stderr)."
+  },
+  "report_hostname": {
+    "type": "string",
+    "default": null,
+    "description": "Custom hostname/FQDN to report in logs and metrics (if omitted, auto-detected)."
+  },
+  "allowed_clients": {
+    "type": "list",
+    "default": [],
+    "description": "List of allowed client IP addresses or CIDR ranges (empty = allow all).",
+    "items": {
+      "type": "string",
+      "description": "IP address or CIDR range allowed to request entropy."
+    }
+  },
+  "tls": {
+    "type": "object",
+    "default": {
+      "enabled": false,
+      "cert_file": "/etc/entropybroker/tls/cert.pem",
+      "key_file": "/etc/entropybroker/tls/key.pem",
+      "ca_file": null
+    },
+    "description": "TLS configuration for secure entropy delivery.",
+    "items": {
+      "enabled": {
+        "type": "bool",
+        "description": "Enable TLS encryption."
+      },
+      "cert_file": {
+        "type": "string",
+        "description": "Path to TLS certificate file (PEM)."
+      },
+      "key_file": {
+        "type": "string",
+        "description": "Path to TLS private key file (PEM)."
+      },
+      "ca_file": {
+        "type": "string",
+        "description": "Optional path to CA certificate file for client cert verification (PEM)."
+      }
+    }
+  },
+  "rate_limit": {
+    "type": "object",
+    "default": {
+      "requests_per_second": 10,
+      "burst_size": 20
+    },
+    "description": "Rate-limiting configuration to prevent abuse.",
+    "items": {
+      "requests_per_second": {
+        "type": "number",
+        "description": "Max average requests per second."
+      },
+      "burst_size": {
+        "type": "number",
+        "description": "Maximum burst size (requests allowed in short spikes)."
+      }
+    }
+  },
+  "backends": {
+    "type": "list",
+    "default": [],
+    "description": "List of entropy backends to use (e.g., hardware RNG, remote service).",
+    "items": {
+      "name": {
+        "type": "string",
+        "description": "Backend name (for identification)."
+      },
+      "enabled": {
+        "type": "bool",
+        "description": "Enable this backend."
+      },
+      "type": {
+        "type": "string",
+        "description": "Backend type: 'local' (device-based) or 'remote' (HTTP)."
+      },
+      "device": {
+        "type": "string",
+        "description": "For 'local' backends: path to device (e.g., /dev/hwrng)."
+      },
+      "url": {
+        "type": "string",
+        "description": "For 'remote' backends: URL of entropy source (e.g., https://entropy.example.com/)"
+      },
+      "timeout": {
+        "type": "number",
+        "description": "Optional request timeout in seconds (default: 5)."
+      }
+    }
+  },
+  "health_check_path": {
+    "type": "string",
+    "default": "/healthz",
+    "description": "HTTP path for health-check probes (returns 200 OK if healthy)."
+  },
+  "readiness_path": {
+    "type": "string",
+    "default": "/readyz",
+    "description": "HTTP path for readiness probes (returns 200 OK only if entropy pool is sufficient)."
+  },
+  "shutdown_timeout": {
+    "type": "number",
+    "default": 30,
+    "description": "Seconds to wait for graceful shutdown before forcing termination."
+  },
+  "refresh_interval": {
+    "type": "number",
+    "default": 5,
+    "description": "Seconds between automatic entropy pool refreshes."
+  },
+  "stirring_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable stirring (mixing entropy from multiple sources)."
+  },
+  "buffer_memory_limit": {
+    "type": "number",
+    "default": 0,
+    "description": "Maximum memory (in bytes) for internal buffers (0 = use system default)."
+  },
+  "compression_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable compression of entropy data before export (e.g., gzip)."
+  }
+}

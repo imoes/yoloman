@@ -1,0 +1,49 @@
+[pool:default]
+# DNS provider endpoints for the pool (one per provider)
+# Format: <provider_name>=<provider_type>:<url>,<url>,...
+providers = {% for provider in providers %}
+{{ provider.name }}={{ provider.type }}:{{ provider.urls | join(',') }}{% if not loop.last %}
+{% endif %}{% endfor %}
+
+# Default target configuration for new records
+# The endpoint where DNS updates are sent (e.g., BIND, PowerDNS)
+default_target = {{ pool_default_target }}
+
+# Number of worker threads for the pool manager
+workers = {{ workers }}
+
+# Health check settings
+# Interval between health checks (seconds)
+healthcheck_interval = {{ healthcheck_interval }}
+# Timeout for health check requests (seconds)
+healthcheck_timeout = {{ healthcheck_timeout }}
+# Number of consecutive failures before marking target unhealthy
+healthcheck_max_retries = {{ healthcheck_max_retries }}
+
+# Retry settings for DNS updates
+# Number of retries on failure before giving up
+retry_interval = {{ retry_interval }}
+# Total time (seconds) to keep retrying
+retry_max_interval = {{ retry_max_interval }}
+
+# Logging level for the pool manager process
+log_level = {{ log_level }}
+
+# Path to the PID file
+pid_file = {{ pid_file }}
+
+# AMQP RPC backend configuration
+# RabbitMQ or other message broker settings
+rpc_backend = {{ rpc_backend }}
+rpc_response_timeout = {{ rpc_response_timeout }}
+
+# Optional: AMQP credentials (leave blank to use defaults or environment)
+{% if amqp_url %}amqp_url = {{ amqp_url }}{% endif %}
+
+# Optional: TLS configuration for providers (if supported)
+{% if ca_cert %}ca_cert = {{ ca_cert }}{% endif %}
+{% if cert_file %}cert_file = {{ cert_file }}{% endif %}
+{% if key_file %}key_file = {{ key_file }}{% endif %}
+
+# Optional: rate limiting for DNS updates (in requests/second)
+rate_limit = {{ rate_limit }}

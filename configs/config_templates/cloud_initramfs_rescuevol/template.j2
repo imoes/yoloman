@@ -1,0 +1,122 @@
+#!/bin/sh
+# /etc/initramfs-tools/scripts/init-bottom/rescuevol
+# Pivots the root filesystem to a rescue volume during early boot (init-bottom phase).
+
+PREREQS=""
+
+# Return initramfs prerequisites — this hook has none
+prereqs() {
+    echo "$PREREQS"
+}
+
+case $1 in
+    prereqs)
+        prereqs
+        exit 0
+        ;;
+esac
+
+. /scripts/functions
+
+# Master switch: 1 enables rescue-volume pivot, 0 keeps the hook installed but inactive
+RESCUEVOL_ENABLED={{ enabled }}
+
+# Filesystem label used by blkid -L to locate the rescue block device
+RESCUEVOL_LABEL="{{ rescue_label }}"
+
+# UUID of the rescue volume; when non-empty this takes precedence over RESCUEVOL_LABEL
+RESCUEVOL_UUID="{{ rescue_uuid }}"
+
+# Filesystem type passed to mount -t when mounting the rescue volume
+RESCUEVOL_FSTYPE="{{ rescue_fstype }}"
+
+# Mount options passed to mount -o for both the probe mount and the final root pivot
+RESCUEVOL_MOUNT_OPTS="{{ mount_opts }}"
+
+# Kernel command-line token whose presence activates rescue mode (checked in /proc/cmdline)
+RESCUEVOL_TRIGGER_PARAM="{{ cmdline_trigger }}"
+
+# Sentinel filename that must exist in the root of the rescue volume to confirm it is the right device
+RESCUEVOL_MARKER="{{ marker_file }}"
+
+# Seconds to poll for the rescue block device to appear via udev before giving up
+RESCUEVOL_TIMEOUT={{ device_wait_timeout }}
+
+# Temporary mountpoint path (relative to rootmnt) used to probe and verify the rescue volume
+RESCUEVOL_PROBE_MP="{{ probe_mountpoint }}"
+
+# Verbosity: 0=silent, 1=informational milestones, 2=step-by-step debug
+RESCUEVOL_VERBOSITY={{ verbosity }}
+
+# --- functional body ---
+
+if [ "$RESCUEVOL_ENABLED" != "1" ]; then
+    exit 0
+fi
+
+if ! grep -qw "$RESCUEVOL_TRIGGER_PARAM" /proc/cmdline; then
+    [ "$RESCUEVOL_VERBOSITY" -ge 2 ] && \
+        log_begin_msg "rescuevol: trigger '${RESCUEVOL_TRIGGER_PARAM}' absent — normal boot"
+    exit 0
+fi
+
+log_begin_msg "rescuevol: rescue mode triggered by '${RESCUEVOL_TRIGGER_PARAM}'"
+
+# Resolve device path by UUID or label
+_rescuevol_find_dev() {
+    if [ -n "$RESCUEVOL_UUID" ]; then
+        blkid -U "$RESCUEVOL_UUID" 2>/dev/null
+    else
+        blkid -L "$RESCUEVOL_LABEL" 2>/dev/null
+    fi
+}
+
+DEV=$(_rescuevol_find_dev)
+
+# Poll until the device appears or the timeout expires
+WAITED=0
+while [ -z "$DEV" ] && [ "$WAITED" -lt "$RESCUEVOL_TIMEOUT" ]; do
+    sleep 1
+    WAITED=$((WAITED + 1))
+    DEV=$(_rescuevol_find_dev)
+done
+
+if [ -z "$DEV" ]; then
+    log_failure_msg "rescuevol: device not found after ${RESCUEVOL_TIMEOUT}s — continuing normal boot"
+    exit 0
+fi
+
+[ "$RESCUEVOL_VERBOSITY" -ge 1 ] && \
+    log_begin_msg "rescuevol: rescue device resolved to ${DEV}"
+
+# Probe-mount to verify the sentinel file before committing to a root pivot
+PROBE="${rootmnt}${RESCUEVOL_PROBE_MP}"
+mkdir -p "$PROBE"
+
+if ! mount -t "$RESCUEVOL_FSTYPE" -o "$RESCUEVOL_MOUNT_OPTS" "$DEV" "$PROBE"; then
+    log_failure_msg "rescuevol: probe mount failed — continuing normal boot"
+    rmdir "$PROBE" 2>/dev/null || true
+    exit 0
+fi
+
+if [ ! -f "${PROBE}/${RESCUEVOL_MARKER}" ]; then
+    log_failure_msg "rescuevol: marker '${RESCUEVOL_MARKER}' missing on ${DEV} — aborting pivot"
+    umount "$PROBE"
+    rmdir "$PROBE" 2>/dev/null || true
+    exit 0
+fi
+
+[ "$RESCUEVOL_VERBOSITY" -ge 2 ] && \
+    log_begin_msg "rescuevol: marker confirmed — pivoting root to ${DEV}"
+
+umount "$PROBE"
+rmdir "$PROBE" 2>/dev/null || true
+
+# Pivot root: replace the current rootmnt with the rescue volume
+if ! mount -t "$RESCUEVOL_FSTYPE" -o "$RESCUEVOL_MOUNT_OPTS" "$DEV" "$rootmnt"; then
+    log_failure_msg "rescuevol: root pivot mount failed — continuing normal boot"
+    exit 0
+fi
+
+log_end_msg 0
+exit 0

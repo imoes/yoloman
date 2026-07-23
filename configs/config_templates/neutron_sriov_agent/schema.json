@@ -1,0 +1,95 @@
+{
+  "log_file": {
+    "type": "string",
+    "default": "neutron-sriov-agent.log",
+    "description": "Log file name for the SR-IOV agent. Set to empty string ('') to disable file logging."
+  },
+  "log_dir": {
+    "type": "string",
+    "default": "/var/log/neutron",
+    "description": "Directory where log files will be stored. Ensure the directory exists and is writable by the agent user."
+  },
+  "log_format": {
+    "type": "string",
+    "default": "%(asctime)s %(levelname)s %(name)s [%(process)d:%(threadName)s] %(message)s",
+    "description": "Python logging format string used for log messages."
+  },
+  "log_date_format": {
+    "type": "string",
+    "default": "%Y-%m-%d %H:%M:%S",
+    "description": "Date/time format used in log timestamps."
+  },
+  "verbose": {
+    "type": "boolean",
+    "default": true,
+    "description": "Enable verbose logging (INFO level). If set to false, defaults to WARNING."
+  },
+  "debug": {
+    "type": "boolean",
+    "default": false,
+    "description": "Enable debug-level logging (very verbose). Should be disabled in production unless troubleshooting."
+  },
+  "physical_device_mappings": {
+    "type": "list",
+    "default": [],
+    "description": "List of mappings from logical physical networks to host network devices (e.g., 'physnet1:ens3f0'). Each entry maps a network name to a PCI device (e.g., interface or SR-IOV VF pool device).",
+    "items": {
+      "type": "object",
+      "fields": {
+        "physical_network": {
+          "type": "string",
+          "default": "",
+          "description": "Logical name of the physical network (must match network provider or tenant network config)."
+        },
+        "device_name": {
+          "type": "string",
+          "default": "",
+          "description": "Name of the host device (e.g., 'ens3f0') or PCI device alias used for this physical network."
+        }
+      }
+    }
+  },
+  "allowed_physical_networks": {
+    "type": "list",
+    "default": [],
+    "description": "List of allowed physical network names (e.g., ['default', 'external']). If empty, all networks are allowed. Use to restrict which physical networks the agent handles.",
+    "items": {
+      "type": "string"
+    }
+  },
+  "polling_interval": {
+    "type": "number",
+    "default": 2,
+    "description": "Interval (in seconds) between polling for SR-IOV device status changes. Lower values increase responsiveness but CPU usage."
+  },
+  "enable_l2_pop": {
+    "type": "boolean",
+    "default": false,
+    "description": "Enable L2 population support (requires ML2 plugin with L2-pop mechanism driver). Reduces broadcast traffic and improves scale."
+  },
+  "enable_dynamic_segmentation": {
+    "type": "boolean",
+    "default": false,
+    "description": "Enable dynamic VLAN segmentation support (used with VLAN provider networks)."
+  },
+  "enable_security_group": {
+    "type": "boolean",
+    "default": true,
+    "description": "Enable security groups (firewall rules applied per port). Required if tenant workloads use security groups."
+  },
+  "firewall_driver": {
+    "type": "string",
+    "default": "iptables_hybrid",
+    "description": "Firewall driver to use: iptables_hybrid (default), iptables, or ovs. 'iptables_hybrid' combines OVS for switching with Linux iptables for security rules.",
+    "allowed_values": [
+      "iptables_hybrid",
+      "iptables",
+      "ovs"
+    ]
+  },
+  "ip_tables_drop_log": {
+    "type": "boolean",
+    "default": false,
+    "description": "Enable logging of dropped packets by iptables (for debugging security groups). Only effective with iptables-based firewall drivers."
+  }
+}

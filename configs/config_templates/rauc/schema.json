@@ -1,0 +1,149 @@
+{
+  "system_identifier": {
+    "type": "string",
+    "default": "device-01",
+    "description": "Unique system identifier used for bundle signing verification and slot labeling."
+  },
+  "device_compatible": {
+    "type": "string",
+    "default": "",
+    "description": "Optional device tree compatible string for automatic slot detection on embedded devices."
+  },
+  "statefile": {
+    "type": "string",
+    "default": "/var/lib/rauc/statfile",
+    "description": "Path to the persistent state file tracking slot statuses and upgrade history."
+  },
+  "guile_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable Guile scripting for custom update logic (advanced users only)."
+  },
+  "db_backend": {
+    "type": "string",
+    "default": "sqlite",
+    "description": "Database backend used by the RAUC service to store update state."
+  },
+  "db_path": {
+    "type": "string",
+    "default": "/var/lib/rauc/db.sqlite",
+    "description": "File path for the service database (used when db_backend is 'sqlite' or 'file')."
+  },
+  "api_host": {
+    "type": "string",
+    "default": "localhost",
+    "description": "Hostname or IP address the RAUC service API should bind to (empty = all interfaces)."
+  },
+  "api_port": {
+    "type": "number",
+    "default": 3000,
+    "description": "TCP port for the RAUC service API."
+  },
+  "tls_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable TLS encryption for the RAUC service API."
+  },
+  "tls_cert_path": {
+    "type": "string",
+    "default": "/etc/rauc/certs/service.crt",
+    "description": "Path to the TLS certificate for the RAUC service."
+  },
+  "tls_key_path": {
+    "type": "string",
+    "default": "/etc/rauc/private/service.key",
+    "description": "Path to the TLS private key for the RAUC service."
+  },
+  "tls_ca_path": {
+    "type": "string",
+    "default": "/etc/rauc/certs/ca.crt",
+    "description": "Path to the CA certificate used to validate client certificates."
+  },
+  "allowed_signers": {
+    "type": "list",
+    "default": [],
+    "description": "List of allowed bundle signer identifiers (certificate common names or SHA256 hashes).",
+    "items": {
+      "type": "string",
+      "description": "A signer identifier (CN or hash)."
+    }
+  },
+  "max_bundle_size": {
+    "type": "number",
+    "default": 0,
+    "description": "Maximum allowed bundle size in bytes (0 = no limit)."
+  },
+  "idle_timeout": {
+    "type": "number",
+    "default": 300,
+    "description": "Idle connection timeout in seconds for the RAUC service API."
+  },
+  "autoupdater_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable automatic update checking and installation."
+  },
+  "check_interval": {
+    "type": "number",
+    "default": 3600,
+    "description": "Time in seconds between automatic update checks."
+  },
+  "boot_check_delay": {
+    "type": "number",
+    "default": 60,
+    "description": "Seconds to wait after boot before marking a new slot as 'good'."
+  },
+  "recovery_boot": {
+    "type": "string",
+    "default": "try-rollback",
+    "description": "Behavior when booting a newly installed slot fails."
+  },
+  "update_providers": {
+    "type": "list",
+    "default": [
+      {
+        "url": "https://updates.example.com/update/",
+        "description": "Primary update provider"
+      }
+    ],
+    "description": "List of update provider URLs and optional TLS/config overrides.",
+    "items": {
+      "type": "object",
+      "description": "Configuration for a single update provider.",
+      "properties": {
+        "description": {
+          "type": "string",
+          "description": "Human-readable name for the provider (for logging/debugging)."
+        },
+        "url": {
+          "type": "string",
+          "description": "Base URL of the update provider (must end with '/')."
+        },
+        "tls_cert": {
+          "type": "string",
+          "description": "Optional client TLS certificate for the provider."
+        },
+        "tls_key": {
+          "type": "string",
+          "description": "Optional client TLS private key for the provider."
+        },
+        "tls_ca": {
+          "type": "string",
+          "description": "Optional CA certificate for provider TLS validation."
+        },
+        "ca_name": {
+          "type": "string",
+          "description": "Expected CA name in TLS certificates (SNI-style validation)."
+        },
+        "ignore_checksum": {
+          "type": "bool",
+          "description": "Skip checksum verification (insecure; only for testing)."
+        },
+        "slot_name": {
+          "type": "string",
+          "description": "Specific slot name to install updates into (overrides default behavior)."
+        }
+      }
+    }
+  }
+}

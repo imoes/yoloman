@@ -1,0 +1,59 @@
+{
+  "interface": {
+    "type": "string",
+    "default": "eth0",
+    "description": "Primary network interface for SSDP traffic (e.g., eth0, br0). Must be specified to avoid ambiguous multicast behavior."
+  },
+  "port": {
+    "type": "number",
+    "default": 80,
+    "description": "TCP port for HTTP-based UPnP device discovery (RFC 2324). Standard value is 80."
+  },
+  "ssdp_address": {
+    "type": "string",
+    "default": "0.0.0.0",
+    "description": "IPv4 address the daemon binds to for receiving SSDP multicast notifications. Use a specific interface IP or `0.0.0.0` for all."
+  },
+  "max_entries": {
+    "type": "number",
+    "default": 1000,
+    "description": "Maximum number of UPnP devices to cache. Increase for large networks with many devices."
+  },
+  "logging": {
+    "type": "boolean",
+    "default": true,
+    "description": "Whether to log events (e.g., device additions/removals) to syslog. Recommended for production."
+  },
+  "extra_interfaces": {
+    "type": "list",
+    "default": [],
+    "description": "List of additional interfaces for SSDP monitoring (e.g., for VLANs, bridges, or multi-homed setups).",
+    "items": {
+      "name": {
+        "type": "string",
+        "default": "",
+        "description": "Descriptive label for this interface entry (e.g., 'dmz-vlan', 'iot-bridge')."
+      },
+      "description": {
+        "type": "string",
+        "default": "",
+        "description": "Human-readable note (e.g., 'for IoT subnet 192.168.42.0/24')."
+      },
+      "device": {
+        "type": "string",
+        "default": "",
+        "description": "Actual network device name (e.g., eth1.100, br-lan)."
+      }
+    }
+  },
+  "pidfile": {
+    "type": "string",
+    "default": "/var/run/minissdpd.pid",
+    "description": "Path to the PID file for the daemon process. Ensure writable by the daemon user."
+  },
+  "daemon_args": {
+    "type": "string",
+    "default": "-d",
+    "description": "Extra command-line arguments passed to the minissdpd daemon (e.g., `-d` to daemonize, `-f` to stay in foreground for debugging)."
+  }
+}

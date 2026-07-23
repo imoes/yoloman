@@ -1,0 +1,114 @@
+# corosync.conf - Corosync Cluster Engine configuration file
+# Define the cluster name (must be identical on all nodes)
+name: {{ cluster_name }}
+
+# Set the cluster transport (typically 'udpu' for unicast, 'udpm' for multicast)
+transport: {{ transport }}
+
+# Unicast addresses for each node (used only with udpu transport)
+{% if transport == 'udpu' %}
+{% for node in nodes %}node {
+    ring0_addr: {{ node.ring0_addr }}
+    nodeid: {{ node.nodeid }}
+}
+{% endfor %}
+{% endif %}
+
+# Quorum settings
+totem {
+    # Token timeout in milliseconds
+    token: {{ totem.token }}
+    
+    # Number of token retries before failure is declared
+    token_retransmits_before_loss_const: {{ totem.token_retransmits_before_loss_const }}
+    
+    # Number of consensus retries before declaring quorum lost
+    join: {{ totem.join }}
+    
+    # Maximum number of failed votes before quorum is lost
+    consensus: {{ totem.consensus }}
+    
+    # Enable or disable IPv6
+    ipv6: {{ totem.ipv6 }}
+    
+    # Version of the totem protocol (typically 2)
+    version: {{ totem.version }}
+    
+    # Maximum number of messages that can be pending
+    max_messages: {{ totem.max_messages }}
+    
+    # RRP (Ring Recovery Protocol) mode: disabled, active, passive
+    rrp_mode: {{ totem.rrp_mode }}
+    
+    # Interface definition block (required for ring0)
+    interface {
+        # Ring number (0 = primary ring)
+        ringnumber: {{ interface.ringnumber }}
+        
+        # Interface address (can be IP or hostname)
+        bindnetaddr: {{ interface.bindnetaddr }}
+        
+        # Broadcast address (optional; usually not needed with unicast)
+        {% if interface.mcastaddr %}mcastaddr: {{ interface.mcastaddr }}{% endif %}
+        
+        # Multicast port for ring communication
+        mcastport: {{ interface.mcastport }}
+        
+        # TTL for multicast packets (1-255)
+        ttl: {{ interface.ttl }}
+        
+        # Link type: ipv4, ipv6, ib (InfiniBand)
+        linktype: {{ interface.linktype }}
+    }
+}
+
+# Logging configuration
+logging {
+    # Logging subsystem name
+    to_logfile: yes
+    
+    # Path to log file
+    logfile: {{ logging.logfile }}
+    
+    # Log level: all, trace, debug, info, notice, warning, error, fatal
+    log_level: {{ logging.log_level }}
+    
+    # Log timestamp format (default: none, standard, full)
+    log_timestamp: {{ logging.log_timestamp }}
+    
+    # Log to syslog?
+    to_syslog: {{ logging.to_syslog }}
+    
+    # Syslog facility (e.g., daemon, local0)
+    syslog_facility: {{ logging.syslog_facility }}
+}
+
+# Quorum device settings (optional; used for split-brain avoidance)
+{% if quorum_device %}quorum {
+    # Quorum device provider: fencer, net
+    provider: {{ quorum_device.provider }}
+    
+    # Voting policy: expected, all, weighted
+    expected_votes: {{ quorum_device.expected_votes }}
+    
+    # Voting policy: expected, all, weighted
+    two_node: {{ quorum_device.two_node | string | lower }}
+}
+{% endif %}
+
+# Service definitions (e.g., Pacemaker integration)
+service {
+    # Name of the service (e.g., pacemaker, lms)
+    name: {{ service.name }}
+    
+    # Version of the service interface (typically 1 for Pacemaker)
+    ver: {{ service.ver }}
+}
+
+# Enable/disable Pacemaker integration directly in Corosync
+# For Pacemaker >= 2.0.x, prefer starting Pacemaker as its own service
+{% if enable_pacemaker %}aisexec {
+    user: {{ aisexec.user }}
+    group: {{ aisexec.group }}
+}
+{% endif %}

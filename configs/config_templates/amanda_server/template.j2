@@ -1,0 +1,90 @@
+# Amanda Server Configuration
+# This file configures the Amanda Backup Server (amanda_server)
+# For full documentation, see https://wiki.zmanda.com/index.php/Amanda_server.conf
+
+# Global configuration
+org "{{ org }}"
+dumpuser "{{ dumpuser }}"
+
+# Tape device and changer configuration
+tapedev "{{ tapedev }}"
+changer "{{ changer }}"
+tapeutil "{{ tapeutil }}"
+
+# Tape properties
+tpchanger "{{ tpchanger | default('') }}"
+changerparams "{{ changerparams | default('') }}"
+
+# Network and identity
+tapecycle {{ tapecycle }}
+tapesize "{{ tapesize }}"
+maxdumps {{ maxdumps }}
+
+# Timing and concurrency
+defaultcycle {{ defaultcycle }}
+maxdumpsize {{ maxdumpsize }}
+maxdumpfile_size "{{ maxdumpfile_size }}"
+
+# Security and auth
+auth "{{ auth }}"
+
+# Logging
+tlog "{{ tlog | default('') }}"
+elog "{{ elog | default('') }}"
+
+# Reporting
+mailto "{{ mailto | default('') }}"
+mailfrom "{{ mailfrom | default('') }}"
+mailto_success "{{ mailto_success | default('') }}"
+mailto_failure "{{ mailto_failure | default('') }}"
+
+# Disklist and client configuration
+# The following hosts and their disklists are managed by Amanda
+{% for host in hosts %}
+# Host: {{ host.name }} — {{ host.comment | default('') | replace('\n', ' ') }}
+{% if host.disklist_file %}
+disklist {{ host.disklist_file }}
+{% else %}
+# Inline disklist (legacy — prefer external file)
+{% for disk in host.disks %}
+"{{ disk.name }}" "{{ disk.mountpoint }}" {{ disk.level | default('0') }} {{ disk.comment | default('') | replace('\n', ' ') }}
+{% endfor %}
+{% endif %}
+{% endfor %}
+
+# Device-specific settings (optional)
+{% for dev in devices %}
+# Device: {{ dev.name }}
+{% if dev.labeltype == 'amlabel' %}
+dev-label "{{ dev.labeltype }}" {{ dev.labelname | default(dev.name) }} {{ dev.labelparams | default('') }}
+{% elif dev.labeltype == 'none' %}
+dev-label "none"
+{% else %}
+dev-label "{{ dev.labeltype }}"
+{% endif %}
+{% endfor %}
+
+# Encryption and compression (if configured)
+{% if use_encryption %}
+encrypt "{{ encryption_type }}"
+{% endif %}
+
+{% if use_compression %}
+compress "{{ compression_type }}"
+{% endif %}
+
+# Index and log directories
+directory "{{ directory }}"
+
+# Schedule defaults
+{% if schedule %}
+# Schedule: {{ schedule.name }}
+{% for rule in schedule.rules %}
+schedule "{{ rule.name }}" {{ rule.pattern }} {{ rule.level | default('0') }}
+{% endfor %}
+{% endif %}
+
+# Extra options
+{% for key, value in extra_options.items() %}
+{{ key }} {{ value }}
+{% endfor %}

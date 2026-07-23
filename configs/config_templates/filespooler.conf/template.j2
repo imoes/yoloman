@@ -1,0 +1,57 @@
+[general]
+# Base directory for spooling files
+spool_dir = {{ spool_dir }}
+
+# Maximum age (in seconds) for queued files before cleanup
+max_file_age = {{ max_file_age }}
+
+# Number of worker threads for file processing
+worker_count = {{ worker_count }}
+
+# Enable verbose logging (true/false)
+verbose = {{ verbose }}
+
+# Maximum size (in bytes) of a single spooled file
+max_file_size = {{ max_file_size }}
+
+# Maximum number of files to keep in spool directory
+max_file_count = {{ max_file_count }}
+
+[listener]
+# Host and port for the incoming connection listener
+host = {{ listener.host }}
+port = {{ listener.port }}
+
+# Enable TLS for listener connections
+tls_enabled = {{ listener.tls_enabled }}
+
+# Path to TLS certificate (only if TLS enabled)
+{% if listener.tls_enabled %}cert_file = {{ listener.cert_file }}
+{% endif %}key_file = {{ listener.key_file }}
+
+{% for backend in backends %}
+[backend:{{ backend.name }}]
+# Backend: {{ backend.description }}
+{% if backend.enabled %}enabled = true
+{% else %}enabled = false
+{% endif %}type = {{ backend.type }}
+{% if backend.type == 'local' %}
+# Local backend: path to local storage directory
+storage_dir = {{ backend.local.storage_dir }}
+{% elif backend.type == 's3' %}
+# S3 backend: AWS-compatible storage
+region = {{ backend.s3.region }}
+endpoint = {{ backend.s3.endpoint }}
+bucket = {{ backend.s3.bucket }}
+access_key = {{ backend.s3.access_key }}
+secret_key = {{ backend.s3.secret_key }}
+{% elif backend.type == 'ftp' %}
+# FTP backend: legacy file transfer
+host = {{ backend.ftp.host }}
+port = {{ backend.ftp.port }}
+username = {{ backend.ftp.username }}
+{% if backend.ftp.use_tls %}use_tls = true
+{% endif %}password = {{ backend.ftp.password }}
+{% endif %}
+
+{% endfor %}

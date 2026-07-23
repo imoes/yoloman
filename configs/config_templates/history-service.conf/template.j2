@@ -1,0 +1,50 @@
+# Core configuration for lomiri-history-service
+# Defines database connection, retention, cache, and worker settings
+# These values control how the service stores, retrieves, and purges history events
+
+{{ '# Database backend configuration' | comment() }}
+[database]
+engine = {{ db_engine }}
+host = {{ db_host }}
+port = {{ db_port }}
+name = {{ db_name }}
+user = {{ db_user }}
+password = {{ db_password }}
+
+{{ '# Cache configuration for frequent lookups' | comment() }}
+[cache]
+enabled = {{ cache_enabled }}
+ttl_seconds = {{ cache_ttl_seconds }}
+max_size = {{ cache_max_size }}
+
+{{ '# Threading and concurrency tuning' | comment() }}
+[worker]
+threads = {{ worker_threads }}
+max_tasks = {{ worker_max_tasks }}
+
+{{ '# Retention policy: how long to keep history entries' | comment() }}
+[retention]
+max_age_days = {{ retention_max_age_days }}
+batch_size = {{ retention_batch_size }}
+
+{{ '# Event filtering and sanitization' | comment() }}
+[filter]
+# Exclude events from specific sources (e.g., internal system components)
+ignore_sources = [{% for src in ignore_sources %} "{{ src }}"{% if not loop.last %},{% endif %}{% endfor %}]
+# Minimum event age (seconds) before processing (prevents race conditions)
+min_age_seconds = {{ filter_min_age_seconds }}
+
+{{ '# Logging verbosity: debug, info, warning, error' | comment() }}
+[logging]
+level = {{ log_level }}
+file = {{ log_file }}
+max_size_mb = {{ log_max_size_mb }}
+max_files = {{ log_max_files }}
+
+{{ '# Optional: Enable/disable features' | comment() }}
+[features]
+# Enable deduplication of events by hash
+enable_dedup = {{ enable_dedup }}
+# Enable real-time sync to external storage (e.g., cloud backup)
+enable_remote_sync = {{ enable_remote_sync }}
+remote_sync_url = {{ remote_sync_url }}

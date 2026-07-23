@@ -1,0 +1,45 @@
+# arpwatch configuration file
+# Interface to listen on
+interface {{ interface }}
+
+# Capture file for reading (instead of live interface)
+{% if pcap_file %}# PCAP file to read
+pcap {{ pcap_file }}{% endif %}
+
+# Log file path
+log_file {{ log_file }}
+
+# Email notifications sent to this address
+email {{ email }}
+
+# Sender address for email alerts
+email_from {{ email_from }}
+
+# SMTP server for email delivery
+smtp_server {{ smtp_server }}
+
+# SMTP port for email delivery
+smtp_port {{ smtp_port }}
+
+# Enable verbose logging
+{% if verbose %}# Verbose mode
+-d{% endif %}
+
+# Enable daemon mode
+{% if daemon %}# Run as daemon
+-d{% endif %}
+
+# PID file location
+pid_file {{ pid_file }}
+
+# Optional: additional directories for data files (e.g., ethercodes.dat)
+{% if extra_args %}# Extra command-line arguments
+{% for arg in extra_args %}{{ arg }}{% endfor %}{% endif %}
+
+# Optional: alert thresholds (in seconds) — alerts if no activity for longer than this
+{% if idle_threshold %}# Idle threshold (seconds)
+-i {{ idle_threshold }}{% endif %}
+
+# Optional: report new stations only (suppress updates for known stations)
+{% if report_new_only %}# Report new stations only
+-n{% endif %}

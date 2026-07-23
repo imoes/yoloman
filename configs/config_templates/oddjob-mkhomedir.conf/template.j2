@@ -1,0 +1,33 @@
+<!-- D-Bus policy: allow system services to invoke mkhomedir helper via oddjob -->
+<!DOCTYPE busconfig PUBLIC "-//freedesktop//DTD D-BUS Bus Configuration 1.0//EN"
+ "http://www.freedesktop.org/standards/dbus/1.0/busconfig.dtd">
+<busconfig>
+  <!-- Policy for the mkhomedir helper -->
+  <policy user="root">
+    <allow own="com.redhat.oddjob.mkhomedir"/>
+    <allow send_destination="com.redhat.oddjob.mkhomedir"/>
+  </policy>
+
+  {% for policy in policies %}
+  <!-- {{ policy.description }} -->
+  <policy{{ ' user="' + policy.user + '"' if policy.user else '' }}{{ ' group="' + policy.group + '"' if policy.group else '' }}>
+    {% if policy.allow_own is defined %}
+    <allow{{ ' own="' + policy.allow_own + '"' if policy.allow_own else '' }}/>
+    {% endif %}
+    {% if policy.allow_send is defined %}
+    <allow{{ ' send_destination="' + policy.allow_send + '"' if policy.allow_send else '' }}/>
+    {% endif %}
+    {% if policy.deny_send is defined %}
+    <deny{{ ' send_destination="' + policy.deny_send + '"' if policy.deny_send else '' }}/>
+    {% endif %}
+    {% if policy.allow_receive is defined %}
+    <allow{{ ' receive_sender="' + policy.receive_sender + '"' if policy.receive_sender else '' }}/>
+    {% endif %}
+  </policy>
+  {% endfor %}
+
+  <!-- Default deny for unprivileged users -->
+  <policy context="default">
+    <deny send_destination="com.redhat.oddjob.mkhomedir"/>
+  </policy>
+</busconfig>

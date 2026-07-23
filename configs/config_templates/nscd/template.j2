@@ -1,0 +1,53 @@
+# Security: Run nscd as specified user/group for least privilege
+user nobody
+
+# Service: Enable caching for passwd (user) database
+enable-cache passwd yes
+
+# Service: Enable caching for group database
+enable-cache group yes
+
+# Service: Enable caching for hosts database
+enable-cache hosts yes
+
+# Performance: Maximum size of cache file (in MB) — prevents disk exhaustion
+max-connection 256
+
+# Performance: Maximum number of threads for handling concurrent requests
+threads 4
+
+# Performance: Maximum number of seconds a cache entry may remain in memory without being accessed
+positive-time-to-live passwd 3600
+
+# Performance: Maximum number of seconds a cache entry may remain in memory without being accessed
+positive-time-to-live group 3600
+
+# Performance: Maximum number of seconds a cache entry may remain in memory without being accessed
+positive-time-to-live hosts 3600
+
+# Robustness: Maximum number of seconds a negative lookup result (e.g., non-existent user) may be cached
+negative-time-to-live passwd 20
+
+# Robustness: Maximum number of seconds a negative lookup result (e.g., non-existent user) may be cached
+negative-time-to-live group 20
+
+# Robustness: Maximum number of seconds a negative lookup result (e.g., non-existent user) may be cached
+negative-time-to-live hosts 20
+
+# Persistence: Path to the shared memory file for passwd cache
+pwm-file /var/db/nscd/passwd
+
+# Persistence: Path to the shared memory file for group cache
+pwm-file /var/db/nscd/group
+
+# Persistence: Path to the shared memory file for hosts cache
+pwm-file /var/db/nscd/hosts
+
+# Debug: Enable debugging to syslog (set to 'no' in production)
+debug-level 0
+
+# Service: Enable automatic revalidation when underlying files change
+reload-count 5
+
+# Service: Maximum number of seconds between cache revalidation attempts
+max-db-id-len 256

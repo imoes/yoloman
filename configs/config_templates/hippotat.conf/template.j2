@@ -1,0 +1,27 @@
+# Hippotat server configuration — main settings
+# General server address and port for HTTP requests
+bind_address: {{ bind_address }}
+bind_port: {{ bind_port }}
+
+# Path to the IP pool file (CIDR ranges assigned to clients)
+ip_pool_file: {{ ip_pool_file }}
+
+# Path to the client configuration directory (per-client configs)
+clients_dir: {{ clients_dir }}
+
+# Network interface used for outgoing traffic (e.g., to NAT/masquerade)
+out_interface: {{ out_interface }}
+
+# Maximum number of concurrent HTTP connections (per client)
+max_connections: {{ max_connections }}
+
+# Timeout (seconds) for idle connections
+idle_timeout: {{ idle_timeout }}
+
+# Enable or disable verbose logging
+debug: {{ debug | lower }}
+
+# Per-client rate limits — applied per client
+# Format: rate_limit: ip=<cidr> download=<kbps> upload=<kbps>
+{% for limit in rate_limits %}rate_limit: ip={{ limit.ip }} download={{ limit.download }} upload={{ limit.upload }}
+{% endfor %}

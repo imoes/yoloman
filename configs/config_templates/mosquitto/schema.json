@@ -1,0 +1,239 @@
+{
+  "listeners": {
+    "type": "list",
+    "default": [],
+    "description": "List of listeners to expose (port, optional bind address, protocol). Each defines a listening endpoint.",
+    "items": {
+      "type": "object",
+      "fields": {
+        "port": {
+          "type": "number",
+          "default": 1883,
+          "description": "TCP port number to listen on (e.g., 1883 for MQTT, 8883 for TLS)."
+        },
+        "bind_address": {
+          "type": "string",
+          "default": "",
+          "description": "IP address or hostname to bind to (e.g., '127.0.0.1'). Leave empty to bind to all interfaces."
+        },
+        "protocol": {
+          "type": "string",
+          "default": "",
+          "enum": [
+            "",
+            "mqtt",
+            "mqtts",
+            "ws",
+            "wss"
+          ],
+          "description": "Protocol variant: 'mqtt' (default), 'mqtts' (TLS), 'ws' (WebSocket), 'wss' (WebSocket+TLS)."
+        }
+      }
+    }
+  },
+  "allow_zero_length_clientid": {
+    "type": "bool",
+    "default": false,
+    "description": "Allow clients to connect with an empty client ID (disables automatic client ID assignment)."
+  },
+  "allow_anonymous": {
+    "type": "bool",
+    "default": true,
+    "description": "If true, permits connections without username/password authentication. Set to false to require auth."
+  },
+  "password_file": {
+    "type": "string",
+    "default": "/etc/mosquitto/passwd",
+    "description": "Absolute path to the file containing usernames and hashed passwords (use mosquitto_passwd to create)."
+  },
+  "acl_file": {
+    "type": "string",
+    "default": "/etc/mosquitto/acl",
+    "description": "Absolute path to the file defining access control lists (permissions per user or pattern)."
+  },
+  "persistence": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable disk persistence of subscriptions, retained messages, and in-flight messages."
+  },
+  "persistence_location": {
+    "type": "string",
+    "default": "/var/lib/mosquitto",
+    "description": "Directory where persistence files are stored (must exist and be writable by mosquitto user)."
+  },
+  "max_inflight_messages": {
+    "type": "number",
+    "default": 20,
+    "description": "Maximum number of QoS 1/2 messages in-flight per client (not yet acknowledged)."
+  },
+  "max_packet_size": {
+    "type": "number",
+    "default": 268435456,
+    "description": "Maximum size (in bytes) of an incoming MQTT packet (set to 0 for no limit; recommended \u2264256MB)."
+  },
+  "connection_messages": {
+    "type": "bool",
+    "default": true,
+    "description": "Log client connect/disconnect messages to the log."
+  },
+  "max_connections": {
+    "type": "number",
+    "default": -1,
+    "description": "Maximum number of simultaneous client connections (\u22121 = unlimited)."
+  },
+  "log_file": {
+    "type": "string",
+    "default": "/var/log/mosquitto/mosquitto.log",
+    "description": "Absolute path to the log file (requires proper permissions and directory)."
+  },
+  "log_type": {
+    "type": "list",
+    "default": [
+      "error",
+      "warning",
+      "notice",
+      "information"
+    ],
+    "description": "List of log message types to record (options: none, error, warning, notice, information, subscribe, unsubscribe, websockets, audit, debug).",
+    "items": {
+      "type": "string",
+      "enum": [
+        "none",
+        "error",
+        "warning",
+        "notice",
+        "information",
+        "subscribe",
+        "unsubscribe",
+        "websockets",
+        "audit",
+        "debug"
+      ]
+    }
+  },
+  "log_timestamp": {
+    "type": "bool",
+    "default": true,
+    "description": "Include ISO 8601 timestamps in log entries."
+  },
+  "tls_certfile": {
+    "type": "string",
+    "default": "/etc/mosquitto/certs/server.crt",
+    "description": "Absolute path to the server\u2019s TLS certificate (PEM format)."
+  },
+  "tls_keyfile": {
+    "type": "string",
+    "default": "/etc/mosquitto/certs/server.key",
+    "description": "Absolute path to the server\u2019s TLS private key (PEM format, unencrypted)."
+  },
+  "tls_cafile": {
+    "type": "string",
+    "default": "/etc/mosquitto/certs/ca.crt",
+    "description": "Absolute path to the CA certificate (PEM format) for client cert verification."
+  },
+  "tls_require_certificate": {
+    "type": "bool",
+    "default": false,
+    "description": "Require clients to present a valid certificate (for TLS-only or mutual TLS)."
+  },
+  "autosave_interval": {
+    "type": "number",
+    "default": 60,
+    "description": "Interval (in seconds) between automatic persistence file saves. Set to 0 to disable timed saves."
+  },
+  "autosave_on_changes": {
+    "type": "bool",
+    "default": true,
+    "description": "Save the persistence file immediately after any change to persisted data."
+  },
+  "retained_cache_size": {
+    "type": "number",
+    "default": 0,
+    "description": "Maximum size (in bytes) of the retained message cache (0 = unlimited)."
+  },
+  "retained_persistence": {
+    "type": "bool",
+    "default": true,
+    "description": "Persist retained messages to disk (requires persistence=true for full effect)."
+  },
+  "bridges": {
+    "type": "list",
+    "default": [],
+    "description": "Outgoing bridge connections to other MQTT brokers (e.g., for geo-redundancy or cloud sync).",
+    "items": {
+      "type": "object",
+      "fields": {
+        "name": {
+          "type": "string",
+          "default": "",
+          "description": "Unique identifier for this bridge."
+        },
+        "remote_address": {
+          "type": "string",
+          "default": "",
+          "description": "Hostname or IP of the remote broker."
+        },
+        "remote_port": {
+          "type": "number",
+          "default": 1883,
+          "description": "Port of the remote broker (usually 1883 or 8883)."
+        },
+        "client_id": {
+          "type": "string",
+          "default": "",
+          "description": "Client ID used when connecting to the remote broker. If omitted, auto-generated."
+        },
+        "username": {
+          "type": "string",
+          "default": "",
+          "description": "Username for authentication on the remote broker."
+        },
+        "password": {
+          "type": "string",
+          "default": "",
+          "description": "Password for authentication on the remote broker."
+        },
+        "attempt_unsubscribe": {
+          "type": "bool",
+          "default": true,
+          "description": "Send UNSUBSCRIBE on disconnect to clean up remote subscriptions."
+        },
+        "try_private": {
+          "type": "bool",
+          "default": true,
+          "description": "Use the MQTT 'private' clean session flag (prevents message queuing for offline clients)."
+        },
+        "notifications": {
+          "type": "bool",
+          "default": false,
+          "description": "Publish bridge connection status to $SYS bridge state topics."
+        },
+        "topics": {
+          "type": "list",
+          "default": [],
+          "description": "List of topics to bridge (direction and pattern).",
+          "items": {
+            "type": "object",
+            "fields": {
+              "topic": {
+                "type": "string",
+                "default": "",
+                "description": "MQTT topic pattern (supports wildcards: +, #)."
+              },
+              "direction": {
+                "type": "string",
+                "default": "both",
+                "enum": [
+                  "in",
+                  "out",
+                  "both"
+                ],
+                "description": "Direction: 'in' (remote\u2192local), 'out' (local\u2192remote), 'both'."
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

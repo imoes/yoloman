@@ -1,0 +1,144 @@
+{
+  "compress": {
+    "type": "string",
+    "default": "gzip",
+    "description": "Compression algorithm for the initramfs image (e.g., gzip, xz, zstd, lz4, none)"
+  },
+  "modules": {
+    "type": "string",
+    "default": "dep",
+    "description": "Module detection method: 'dep' (automatic via dependency tree), 'most' (load most modules), or 'list' (use MODULES_LIST)"
+  },
+  "modules_list": {
+    "type": "list",
+    "default": [],
+    "description": "Explicit list of modules to include if MODULES=list",
+    "items": {
+      "type": "string",
+      "description": "Kernel module name to include in the initramfs"
+    }
+  },
+  "root": {
+    "type": "string",
+    "default": "UUID=auto",
+    "description": "Root filesystem device identifier (e.g., /dev/sda1, UUID=abcd-efgh, /dev/mapper/vg-root)"
+  },
+  "rootfstype": {
+    "type": "string",
+    "default": "ext4",
+    "description": "Filesystem type of the root partition"
+  },
+  "device": {
+    "type": "string",
+    "default": "",
+    "description": "Early boot device(s) needed to access the root (e.g., 'usb_storage', 'ahci')"
+  },
+  "rootdelay": {
+    "type": "number",
+    "default": 0,
+    "description": "Seconds to wait for the root device to appear (0 = no wait, auto-detect)"
+  },
+  "quiet": {
+    "type": "boolean",
+    "default": true,
+    "description": "Enable quiet boot (minimize console output)"
+  },
+  "debug": {
+    "type": "boolean",
+    "default": false,
+    "description": "Enable verbose debugging during initramfs execution"
+  },
+  "addmodules": {
+    "type": "list",
+    "default": [],
+    "description": "Additional kernel modules to load early (e.g., LVM, encryption, RAID drivers)",
+    "items": {
+      "type": "string",
+      "description": "Kernel module name"
+    }
+  },
+  "hooks": {
+    "type": "list",
+    "default": [
+      "base",
+      "setup",
+      "resume",
+      "local"
+    ],
+    "description": "Initramfs hooks to include in the image",
+    "items": {
+      "type": "string",
+      "description": "Hook script name (e.g., base, lvm2, cryptsetup, nfs)"
+    }
+  },
+  "post_build": {
+    "type": "string",
+    "default": "",
+    "description": "Shell command(s) to run after initramfs generation (e.g., signing, compression tweaks)"
+  },
+  "compressoptions": {
+    "type": "list",
+    "default": [],
+    "description": "Options to pass to the compressor (e.g., ['-9'] for gzip)",
+    "items": {
+      "type": "string",
+      "description": "Single compressor argument"
+    }
+  },
+  "extrahooks": {
+    "type": "list",
+    "default": [],
+    "description": "Additional hooks to include beyond the default set",
+    "items": {
+      "type": "string",
+      "description": "Hook name"
+    }
+  },
+  "removehooks": {
+    "type": "list",
+    "default": [],
+    "description": "Hooks to explicitly exclude from the initramfs",
+    "items": {
+      "type": "string",
+      "description": "Hook name to omit"
+    }
+  },
+  "kernel_append": {
+    "type": "string",
+    "default": "",
+    "description": "Additional kernel command-line parameters (e.g., 'ro splash')"
+  },
+  "all_kernels": {
+    "type": "boolean",
+    "default": true,
+    "description": "Generate initramfs for all installed kernels (if false, only current kernel)"
+  },
+  "keep_old": {
+    "type": "boolean",
+    "default": true,
+    "description": "Keep previous initramfs images instead of overwriting"
+  },
+  "blacklist": {
+    "type": "list",
+    "default": [],
+    "description": "Kernel modules to exclude from the initramfs",
+    "items": {
+      "type": "string",
+      "description": "Module name to blacklist"
+    }
+  },
+  "use_plymouth": {
+    "type": "boolean",
+    "default": false,
+    "description": "Enable Plymouth for graphical boot splash"
+  },
+  "pre_stream": {
+    "type": "list",
+    "default": [],
+    "description": "Modules to load before root filesystem mount (e.g., for network boot)",
+    "items": {
+      "type": "string",
+      "description": "Module name"
+    }
+  }
+}

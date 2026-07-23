@@ -1,0 +1,43 @@
+# Enable or disable the firewall at boot
+{{ 'firewall_enabled=true' if firewall_enabled else 'firewall_enabled=false' }}
+
+# Default zone for untrusted network connections
+{{ 'default_zone=' ~ default_zone }}
+
+# Enable logging of denied packets
+{{ 'log_denied=' ~ log_denied }}
+
+# Enable or disable rich language support
+{{ 'rich_language_enabled=true' if rich_language_enabled else 'rich_language_enabled=false' }}
+
+# Enable or disable automatic updates of default zone services
+{{ 'automatic_default_zone_updates=true' if automatic_default_zone_updates else 'automatic_default_zone_updates=false' }}
+
+# List of services allowed in the default zone (space-separated)
+{{ 'services=' ~ services | join(' ') }}
+
+# List of ports allowed in the default zone (space-separated, format: port/protocol)
+{{ 'ports=' ~ ports | join(' ') }}
+
+# Enable or disable masquerading (NAT) in the default zone
+{{ 'masquerade_enabled=true' if masquerade_enabled else 'masquerade_enabled=false' }}
+
+# Enable or disable ICMP block inheritance
+{{ 'icmp_block_inheritance=true' if icmp_block_inheritance else 'icmp_block_inheritance=false' }}
+
+# List of ICMP types blocked (space-separated)
+{{ 'icmp_blocks=' ~ icmp_blocks | join(' ') }}
+
+# Zone-specific settings (one per line, format: zone=zone_name;services=svc1,svc2;ports=p1/p2;masquerade=true/false)
+{% for zone in zones %}
+{{ 'zone_config=' ~ zone.name ~ ';services=' ~ (zone.services | join(',')) ~ ';ports=' ~ (zone.ports | join(',')) ~ ';masquerade=' ~ ('true' if zone.masquerade else 'false') ~ ';icmp_blocks=' ~ (zone.icmp_blocks | join(',')) ~ ';icmp_block_inheritance=' ~ ('true' if zone.icmp_block_inheritance else 'false') }}
+{% endfor %}
+
+# Enable or disable the GUI integration daemon
+{{ 'gui_enabled=true' if gui_enabled else 'gui_enabled=false' }}
+
+# Path to the GUI log file
+{{ 'gui_log=' ~ gui_log_path }}
+
+# Enable or disable firewall debug mode
+{{ 'debug_mode=true' if debug_mode else 'debug_mode=false' }}

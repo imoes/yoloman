@@ -1,0 +1,39 @@
+# Icinga 2 main configuration file
+# This file includes global settings, zones, endpoints, and includes.
+
+# Global settings
+{% if global_settings.log_level is defined %}log_level = {{ global_settings.log_level }}{% endif %}
+{% if global_settings.log_file is defined %}log_file = "{{ global_settings.log_file }}"{% endif %}
+{% if global_settings.pid_file is defined %}pid_file = "{{ global_settings.pid_file }}"{% endif %}
+{% if global_settings.enable_remote_commands is defined %}enable_remote_commands = {{ global_settings.enable_remote_commands }}{% endif %}
+{% if global_settings.ignore_on_weekend is defined %}ignore_on_weekend = {{ global_settings.ignore_on_weekend }}{% endif %}
+
+# Feature configuration (enabling/disabling features)
+include <features-enabled/*.conf>
+
+# Zone and endpoint definitions
+{% for endpoint in endpoints %}
+object Endpoint "{{ endpoint.name }}" {
+  host = "{{ endpoint.host }}"
+{% if endpoint.port is defined %}  port = {{ endpoint.port }}{% endif %}
+}
+{% endfor %}
+
+{% for zone in zones %}
+object Zone "{{ zone.name }}" {
+{% if zone.endpoints is defined and zone.endpoints|length > 0 %}  endpoints = [ {% for ep in zone.endpoints %}"{{ ep }}"{% if not loop.last %}, {% endif %}{% endfor %} ]{% endif %}
+{% if zone.parent is defined %}  parent = "{{ zone.parent }}"{% endif %}
+}
+{% endfor %}
+
+# Global zones
+{% if global_zones is defined %}
+{% for name, config in global_zones.items() %}
+object Zone "{{ name }}" {% if config.is_global %}global = true{% endif %}{% if config.endpoints is defined and config.endpoints|length > 0 %} {
+  endpoints = [ {% for ep in config.endpoints %}"{{ ep }}"{% if not loop.last %}, {% endif %}{% endfor %} ]
+}{% endif %}
+{% endfor %}
+{% endif %}
+
+# Includes for host, service, and user definitions
+include /etc/icinga2/conf.d/*.conf

@@ -1,0 +1,70 @@
+# Global runtime behavior: enable debug logging (true/false)
+debug = {{ debug }}
+
+# Global runtime behavior: log level (trace, debug, info, warn, error)
+log_level = {{ log_level }}
+
+# Path to the PID file
+pid_file = {{ pid_file }}
+
+# Path to Unix socket for client communication
+socket_path = {{ socket_path }}
+
+# Number of worker threads for processing biometric requests
+worker_threads = {{ worker_threads }}
+
+# Timeout (in seconds) for device communication
+device_timeout = {{ device_timeout }}
+
+# Timeout (in seconds) for client requests
+client_timeout = {{ client_timeout }}
+
+# Buffer size (in bytes) for device I/O
+io_buffer_size = {{ io_buffer_size }}
+
+# Maximum number of concurrent device sessions
+max_sessions = {{ max_sessions }}
+
+# Retry policy: max retries per failed device operation
+max_retries = {{ max_retries }}
+
+# Retry policy: delay (ms) between retries
+retry_delay_ms = {{ retry_delay_ms }}
+
+# Enable/Disable TLS for network-facing endpoints
+tls_enabled = {{ tls_enabled }}
+
+# Path to TLS certificate
+ tls_cert_path = {{ tls_cert_path }}
+
+# Path to TLS private key
+ tls_key_path = {{ tls_key_path }}
+
+# Optional CA bundle for verifying client certificates (empty disables client auth)
+ca_cert_path = {{ ca_cert_path }}
+
+# List of allowed client IP subnets (CIDR notation); empty list = allow all
+allowed_clients = [
+{% for client in allowed_clients %}  "{{ client }}"{% if not loop.last %},{% endif %}
+{% endfor %}
+]
+
+# List of supported biometric device drivers
+{% for driver in drivers %}# Driver: {{ driver.name }}
+driver.{{ driver.name }}.enabled = {{ driver.enabled }}
+driver.{{ driver.name }}.config_path = {{ driver.config_path }}
+{% if driver.extra_options %}
+# Extra options for {{ driver.name }}
+{% for key, value in driver.extra_options.items() %}{{ key }} = {{ value }}
+{% endfor %}
+{% endif %}
+{% endfor %}
+
+# Optional: metrics endpoint configuration
+{% if metrics_enabled %}# Enable metrics collection
+metrics.enabled = true
+# Path to expose Prometheus-style metrics
+metrics.endpoint = {{ metrics_endpoint }}
+# Auth token required to access metrics (empty = no auth)
+metrics.auth_token = {{ metrics_auth_token }}
+{% endif %}

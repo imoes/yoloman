@@ -1,0 +1,91 @@
+# goiardi - configuration file for the Goiardi Chef server implementation
+# Listen address and port for the web server
+bind: {{ bind_address }}
+port: {{ web_port }}
+
+# Optional: Listen on a Unix socket instead of TCP
+# unix_socket: /run/goiardi/goiardi.sock
+{% if use_unix_socket %}
+unix_socket: {{ unix_socket_path }}
+{% endif %}
+
+# Path to the PostgreSQL database
+# database: goiardi
+{% if db_host %}
+# Database host
+{% if not db_socket %}
+db_host: {{ db_host }}
+{% endif %}
+{% endif %}
+{% if db_port %}
+db_port: {{ db_port }}
+{% endif %}
+{% if db_socket %}
+db_socket: {{ db_socket }}
+{% endif %}
+db_name: {{ db_name }}
+db_user: {{ db_user }}
+{% if db_password %}
+db_password: {{ db_password }}
+{% endif %}
+
+# TLS/SSL configuration
+{% if use_ssl %}
+ssl_cert: {{ ssl_cert_path }}
+ssl_key: {{ ssl_key_path }}
+{% if ssl_ca_cert %}
+ssl_ca_cert: {{ ssl_ca_cert }}
+{% endif %}
+{% endif %}
+
+# Authentication
+{% if enable_opaques_auth %}
+# Use internal (opaq) auth instead of LDAP
+auth_backend: opaq
+{% else %}
+# LDAP authentication settings
+auth_backend: ldap
+ldap_url: {{ ldap_url }}
+ldap_binddn: {{ ldap_binddn }}
+{% if ldap_bindpw %}
+ldap_bindpw: {{ ldap_bindpw }}
+{% endif %}
+ldap_user_filter: {{ ldap_user_filter }}
+{% if ldap_group_base %}
+ldap_group_base: {{ ldap_group_base }}
+{% endif %}
+ldap_group_filter: {{ ldap_group_filter }}
+{% endif %}
+
+# File storage backend (filesystem or s3)
+file_backend: {{ file_backend }}
+{% if file_backend == 'filesystem' %}
+file_root: {{ file_root_path }}
+{% elif file_backend == 's3' %}
+s3_bucket: {{ s3_bucket }}
+s3_region: {{ s3_region }}
+{% if s3_access_key %}
+s3_access_key: {{ s3_access_key }}
+{% endif %}
+{% if s3_secret_key %}
+s3_secret_key: {{ s3_secret_key }}
+{% endif %}
+{% endif %}
+
+# Logging
+log_level: {{ log_level }}
+log_file: {{ log_file_path }}
+
+# Worker tuning
+max_concurrent_uploads: {{ max_concurrent_uploads }}
+max_nodes: {{ max_nodes }}
+max_search_results: {{ max_search_results }}
+
+# Optional: Enable metrics endpoint
+{% if enable_metrics %}
+metrics_port: {{ metrics_port }}
+{% endif %}
+
+# Optional: Enable search index (if using internal Solr or external)
+# search_backend: solr
+text_search: {{ text_search_enabled }}

@@ -1,0 +1,34 @@
+# Server mode: specifies NTP servers to synchronize with
+{% for server in servers %}server {{ server.host }} {{ server.options | join(' ') }}{% endfor %}
+
+# Drift file: location where NTP stores frequency calibration data
+{% if driftfile %}driftfile {{ driftfile }}{% endif %}
+
+# Key file: location of file containing symmetric keys for authentication
+{% if keysfile %}keys {{ keysfile }}{% endif %}
+
+# Trusted keys: list of key IDs trusted for authentication
+{% if trustedkeys | length > 0 %}trustedkey {% for key in trustedkeys %}{{ key }} {% endfor %}{% endif %}
+
+# Request keys: key ID used for client authentication requests (typically only one)
+{% if requestkey is not none %}requestkey {{ requestkey }}{% endif %}
+
+# Control keys: key ID used for control messages (typically only one)
+{% if controlkey is not none %}controlkey {{ controlkey }}{% endif %}
+
+# Statistics logging: enable logging of statistics
+{% if statsdir %}statsdir {{ statsdir }}{% endif %}
+{% if statistics | length > 0 %}{% for stat in statistics %}statslog {{ stat }}{% endfor %}{% endif %}
+
+# Access control: restrict NTP access
+{% if restrict_rules %}{% for r in restrict_rules %}restrict {{ r.flags | join(' ') }}{% if r.mask %} {{ r.mask }}{% endif %}{% endfor %}{% endif %}
+
+# Broadcast/multicast: configure broadcast/multicast peers (rarely used)
+{% for peer in broadcast_peers %}broadcast {{ peer }}{% endfor %}
+{% for peer in multicast_peers %}multicastclient {{ peer }}{% endfor %}
+
+# Interface binding: bind to specific interfaces (optional)
+{% if interface_addr %}interface listen {{ interface_addr }}{% endif %}
+
+# Leap seconds: leap second file (optional)
+{% if leapfile %}leapfile {{ leapfile }}{% endif %}

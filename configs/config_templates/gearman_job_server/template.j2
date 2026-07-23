@@ -1,0 +1,65 @@
+# Listen on the specified address and port
+listen={{ listen_addr }}:{{ listen_port }}
+
+# PID file location
+pid={{ pid_file }}
+
+# Log file path (empty or '-' for stderr)
+log-file={{ log_file }}
+
+# Logging level: emerg, alert, crit, err, warning, notice, info, debug
+log-level={{ log_level }}
+
+# Number of worker threads (0 = auto-provision based on CPU cores)
+worker={{ worker_threads }}
+
+# Maximum number of open files (ulimit -n)
+max-threads={{ max_threads }}
+
+# Queue backend: 'memory' (default), 'sqlite', or 'mysql'
+queue-type={{ queue_type }}
+
+# SQLite database path (used only if queue-type=sqlite)
+{% if queue_type == 'sqlite' %}
+sqlite-db={{ sqlite_db_path }}
+{% endif %}
+
+# MySQL connection parameters (used only if queue-type=mysql)
+{% if queue_type == 'mysql' %}
+mysql-host={{ mysql_host }}
+mysql-port={{ mysql_port }}
+mysql-user={{ mysql_user }}
+mysql-password={{ mysql_password | default('') }}
+mysql-db={{ mysql_db }}
+{% endif %}
+
+# Data directory (for persistence, e.g., sqlite WAL journal files)
+data-dir={{ data_dir }}
+
+# Timeout for job servers to consider a client dead (seconds)
+timeout={{ timeout }}
+
+# Enable background mode (daemonize)
+{% if daemonize %}
+daemon
+{% endif %}
+
+# Allow client connections from these hosts (comma-separated or * for all)
+{% if allow_clients %}
+allow-client={{ allow_clients | join(',') }}
+{% endif %}
+
+# Disable default logging to syslog
+{% if not use_syslog %}
+no-log
+{% endif %}
+
+# Limit concurrent jobs per worker
+{% if job_limit is defined %}
+job-limit={{ job_limit }}
+{% endif %}
+
+# Port for HTTP status endpoint (0 = disabled)
+{% if status_port > 0 %}
+http-port={{ status_port }}
+{% endif %}

@@ -1,0 +1,136 @@
+[DEFAULT]
+# Enable the share server manager service
+service_name = manila-share
+
+# RPC transport settings
+rpc_backend = rabbit
+
+# Database connection (use pooling for performance)
+connection = mysql+pymysql://{{ db_user }}:{{ db_password }}@{{ db_host }}/{{ db_name }}
+
+# Authentication (Keystone endpoint)
+auth_strategy = keystone
+
+# Messaging (RabbitMQ)
+[oslo_messaging_rabbit]
+# RabbitMQ host and port
+rabbit_host = {{ rabbit_host }}
+rabbit_port = {{ rabbit_port }}
+
+# RabbitMQ credentials
+rabbit_user = {{ rabbit_user }}
+rabbit_password = {{ rabbit_password }}
+
+# TLS (optional, off by default)
+{% if rabbit_use_ssl %}
+rabbit_use_ssl = true
+rabbit_ssl_version = {{ rabbit_ssl_version }}
+{% endif %}
+
+# Logging configuration
+[logging]
+# Log to file (or leave empty for stdout)
+log_file = {{ log_file }}
+
+# Log level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
+log_level = {{ log_level }}
+
+# Share driver and related settings
+[DEFAULT]
+# Enable share servers (true) or share servers per project (false)
+share_driver = manila.share.drivers.glusterfs.GlusterfsNativeShareDriver
+
+# Use share servers or not
+driver_handles_share_servers = {{ driver_handles_share_servers }}
+
+# Backend-specific options — adjust per driver
+[glusterfs]
+# GlusterFS volume path or export directory
+volume_driver = manila.share.drivers.glusterfs.GlusterfsNativeShareDriver
+volume_backend_name = {{ glusterfs_backend_name }}
+
+# Path to GlusterFS configuration or volume
+glusterfs_volume = {{ glusterfs_volume }}
+glusterfs_server_password = {{ glusterfs_server_password }}
+
+# Hosts (for native driver — list of backend hosts)
+{% for host in glusterfs_hosts %}
+glusterfs_server_{{ loop.index }} = {{ host }}
+{% endfor %}
+
+# Share network and security service integration
+[DEFAULT]
+# Share network ID — leave blank for auto-provisioning
+default_share_network = {{ default_share_network }}
+
+# Default share type
+{% if default_share_type %}
+default_share_type = {{ default_share_type }}
+{% endif %}
+
+# Security service support (LDAP/Kerberos)
+{% if security_service_type %}
+security_service_type = {{ security_service_type }}
+{% endif %}
+
+# Share server management (e.g., IP pool or VLAN)
+{% if share_server_ip_pool %}
+share_server_ip_pool = {{ share_server_ip_pool }}
+{% endif %}
+
+# Rate limits for share operations
+max_request_size = {{ max_request_size }}
+max_api_request_size = {{ max_api_request_size }}
+
+# RPC timeouts (seconds)
+rpc_response_timeout = {{ rpc_response_timeout }}
+
+# Worker count (concurrent RPC handling)
+api_paste_config = /etc/manila/api-paste.ini
+{% for worker in share_workers %}
+workers = {{ worker }}
+{% endfor %}
+
+# Service host and topic
+{% if service_host %}
+host = {{ service_host }}
+{% endif %}
+topic = {{ service_topic }}
+
+# Health checks and monitoring
+report_interval = {{ report_interval }}
+
+# Share server cleanup (e.g., after deletion)
+{% if delete_share_server_with_instances %}
+delete_share_server_with_instances = {{ delete_share_server_with_instances }}
+{% endif %}
+
+[keystone_authtoken]
+# Keystone endpoint and credentials
+auth_url = {{ keystone_auth_url }}
+project_domain_name = {{ keystone_project_domain_name }}
+user_domain_name = {{ keystone_user_domain_name }}
+project_name = {{ keystone_project_name }}
+username = {{ keystone_username }}
+password = {{ keystone_password }}
+
+# Token cache (optional)
+{% if keystone_token_cache_time %}
+token_cache_time = {{ keystone_token_cache_time }}
+{% endif %}
+
+# TLS verification
+{% if keystone_verify_certs %}
+cafile = {{ keystone_cafile }}
+{% else %}
+ insecure = true
+{% endif %}
+
+# Notification settings (for notifications to other services)
+[oslo_messaging_notifications]
+{% if notifications_driver %}
+driver = {{ notifications_driver }}
+{% endif %}
+
+# Rate limiting in API layer
+api_rate_limit = {{ api_rate_limit }}

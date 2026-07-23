@@ -1,0 +1,56 @@
+# ECFlow Server configuration file — auto-generated via template
+# Server hostname and port for client connections (TCP)
+host {{ host }}
+port {{ port }}
+
+# Server authentication mode: 'password' or 'none'
+auth {{ auth_mode }}
+
+# Path to the server's data directory (persists workflow state)
+data_dir {{ data_dir }}
+
+# Log directory — server logs, activity logs, etc.
+log_dir {{ log_dir }}
+
+# Maximum number of concurrent client connections
+max_clients {{ max_clients }}
+
+# Graceful shutdown timeout in seconds before force kill
+shutdown_timeout {{ shutdown_timeout }}
+
+# Enable auto-recovery of aborted suites (requires data_dir with recovery data)
+recovery {{ recovery | lower }}
+
+# Enable HTTPS for web UI (requires ssl_cert and ssl_key)
+ssl_enabled {{ ssl_enabled | lower }}
+{% if ssl_enabled %}
+ssl_cert {{ ssl_cert }}
+ssl_key {{ ssl_key }}
+{% endif %}
+
+# Optional: specify a custom PID file location (default is /var/run/ecflow-server.pid)
+pidfile {{ pidfile }}
+
+# List of allowed client hosts (empty = allow all). Format: 'host' or 'host:port' per line.
+{% for client in allowed_clients %}
+allow {{ client }}
+{% endfor %}
+
+# List of suites to auto-load at startup (paths relative to data_dir/suites/)
+{% for suite_path in auto_load_suites %}
+auto_load {{ suite_path }}
+{% endfor %}
+
+# SMTP settings for email notifications (optional)
+{% if smtp_enabled %}
+smtp_host {{ smtp_host }}
+smtp_port {{ smtp_port }}
+smtp_user {{ smtp_user }}
+smtp_pass {{ smtp_pass | default('') }}
+smtp_from {{ smtp_from }}
+smtp_tls {{ smtp_tls | lower }}
+{% endif %}
+
+# Resource limits (ulimit-style) — set to 0 to inherit system defaults
+max_open_files {{ max_open_files }}
+max_proc {{ max_proc }}

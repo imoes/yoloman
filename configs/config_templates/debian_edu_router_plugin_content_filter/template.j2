@@ -1,0 +1,60 @@
+# Content filtering backend configuration for Debian Edu Router
+# Enables integration with Squid/SquidGuard for HTTP/HTTPS content filtering
+# Based on Debian Edu's router plugin for educational filtering policies
+
+# Enable content filtering globally
+ENABLED={{ enabled }}
+
+# Backend type: 'squid' or 'squidguard'
+BACKEND={{ backend }}
+
+# Squid proxy listening port
+SQUID_PORT={{ squid.port }}
+
+# Squid configuration file path (for reference or override if needed)
+SQUID_CONF={{ squid.conf_path }}
+
+# SquidGuard database path
+SQUIDGUARD_DB={{ squidguard.db_path }}
+
+# SquidGuard configuration file path
+SQUIDGUARD_CONF={{ squidguard.conf_path }}
+
+# Filtering categories to enforce (comma-separated, used by both backends)
+FILTER_CATEGORIES={{ categories | join(', ') }}
+
+# SSL inspection: enable or disable (note: SSL MITM has privacy & compatibility implications)
+SSL_INSPECTION={{ ssl_inspection }}
+
+# Allowlist domains (one per line, added to /etc/squid/whitelist.conf during deployment)
+{% for domain in allowlist.domains %}ALLOW_DOMAIN={{ domain }}
+{% endfor %}
+
+# Blocklist domains (one per line, added to /etc/squid/blacklist.conf during deployment)
+{% for domain in blocklist.domains %}BLOCK_DOMAIN={{ domain }}
+{% endfor %}
+
+# Whitelist users/groups (for exceptions)
+{% for group in exception_groups %}EXCEPT_GROUP={{ group }}
+{% endfor %}
+
+# Logging level: 0=none,1=critical,2=error,3=warning,4=notice,5=info,6=debug
+LOG_LEVEL={{ log.level }}
+LOG_FILE={{ log.file_path }}
+
+# Timeout for URL recheck (seconds, used by SquidGuard)
+URL_TIMEOUT={{ squidguard.url_timeout }}
+
+# Refresh interval for category databases (seconds)
+DB_REFRESH={{ squidguard.db_refresh }}
+
+# Bandwidth throttling: max KB/s per user (0=unlimited)
+MAX_BANDWIDTH_KBPS={{ bandwidth.max_kbps }}
+
+# Concurrent connection limit per client
+MAX_CONNECTIONS={{ bandwidth.max_connections }}
+
+# Proxy chaining (for upstream proxy fallback)
+{% if upstream_proxy.enabled %}UPSTREAM_PROXY={{ upstream_proxy.host }}:{{ upstream_proxy.port }}
+{% else %}#UPSTREAM_PROXY=none
+{% endif %}

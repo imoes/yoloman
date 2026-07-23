@@ -1,0 +1,10 @@
+# /etc/security/pam_env.conf - PAM environment variable configuration
+# Each line defines a variable assignment with optional conditions
+# Default values for environment variables, optionally conditional on PAM service/user/tty/etc.
+# Syntax: VARNAME[DEFAULT[,...]][CONDMOD=VALUE]
+# See pam_env(8) and pam_env.conf(5) for full details.
+
+{% for item in vars %}
+{% if item.condition %}# Condition: {{ item.condition }}
+{% endif %}{{ item.name }}{% if item.default %}={{ item.default }}{% endif %}{% if item.condition %} {{ item.condition }}{% endif %}
+{% endfor %}

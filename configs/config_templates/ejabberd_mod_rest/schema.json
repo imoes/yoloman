@@ -1,0 +1,102 @@
+{
+  "rest_base_url": {
+    "type": "string",
+    "default": "/api",
+    "description": "Base URL path under which all REST endpoints will be available (e.g., /api). Must begin with '/' and not include the domain."
+  },
+  "rest_endpoints": {
+    "type": "list",
+    "default": [],
+    "description": "List of REST endpoints to expose via HTTP(S). Each entry defines a path, allowed methods, and handler module.",
+    "items": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string",
+          "default": "",
+          "description": "URL path for this endpoint, relative to `base_url` (e.g., /users). May include wildcards like /user/:id."
+        },
+        "methods": {
+          "type": "list",
+          "default": [
+            "GET"
+          ],
+          "description": "List of allowed HTTP methods (case-insensitive; normalized to uppercase in config).",
+          "items": {
+            "type": "string",
+            "enum": [
+              "GET",
+              "POST",
+              "PUT",
+              "DELETE",
+              "PATCH"
+            ],
+            "default": "GET"
+          }
+        },
+        "handler": {
+          "type": "string",
+          "default": "rest_user_handler",
+          "description": "Erlang module implementing this endpoint (must export rest/2 or rest/3 functions)."
+        },
+        "acl": {
+          "type": "list",
+          "default": [],
+          "description": "Optional list of access control rules for this endpoint. If omitted, defaults to no restrictions.",
+          "items": {
+            "type": "object",
+            "properties": {
+              "user": {
+                "type": "string",
+                "description": "JID or user pattern (e.g., admin@example.com, '*@admin.*'). Use '*' for any user."
+              },
+              "access": {
+                "type": "string",
+                "enum": [
+                  "allow",
+                  "deny"
+                ],
+                "description": "Whether to allow or deny this user access."
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "rest_log_requests": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable detailed logging of incoming REST requests (helpful for debugging; may affect performance)."
+  },
+  "rest_max_request_size": {
+    "type": "number",
+    "default": 1048576,
+    "description": "Maximum allowed HTTP request body size in bytes (1 MB default). Set to 0 for unlimited."
+  },
+  "rest_request_timeout": {
+    "type": "number",
+    "default": 30,
+    "description": "Maximum time (in seconds) allowed for request processing before returning HTTP 503."
+  },
+  "rest_enable_cors": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable Cross-Origin Resource Sharing (CORS) headers in HTTP responses to permit browser-based clients."
+  },
+  "rest_cors_origins": {
+    "type": "list",
+    "default": [
+      "*"
+    ],
+    "description": "List of allowed origins for CORS (e.g., ['https://myapp.example.com', 'http://localhost:3000']). Use ['*'] to allow all."
+  },
+  "rest_cors_headers": {
+    "type": "list",
+    "default": [
+      "Content-Type",
+      "Authorization"
+    ],
+    "description": "List of HTTP headers allowed in CORS preflight requests and responses."
+  }
+}

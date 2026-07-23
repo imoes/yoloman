@@ -1,0 +1,111 @@
+{# LVM2 global configuration for activation behavior, device filters, and metadata handling #}
+
+{# Global activation mode: 'global' (system-wide), 'local' (per-volume), 'none' (disabled) #}
+activation {
+    # Control whether to use activation monitoring (e.g., for thin pools, snapshots) #
+    # Enable/Disable device-mapper event monitoring #
+    monitoring = {{ monitoring }}
+
+    # Minimum free space required (in MB) in a VG before allowing activation of LVs #
+    # Prevents activation if VG free space is below this threshold #
+    min_initial_size = {{ min_initial_size }}
+
+    # Retry activation for up to this many seconds if LV is busy #
+    # Useful for devices with delayed or transient locking issues #
+    activation_retry = {{ activation_retry }}
+
+    # Use polling to check LV status during activation #
+    use_polling = {{ use_polling }}
+
+    # Whether to activate LVs in read-only mode by default #
+    read_only = {{ read_only }}
+
+    # Enable automatic activation of snapshots (if supported) #
+    auto_activation_volume_list = [ {{ auto_activation_volume_list | join(', ') }} ]
+
+    # Activation mode for mirrored and raid volumes #
+    # Options: 'mirrored', 'raid', 'snapshots' — each accepts a sub-block #
+    # Note: Only 'mirrored' and 'raid' are commonly configured via lvm.conf #
+    # For raid: controls sync behavior during rebuilds #
+    raid {
+        # Minimum number of images (legs) required for RAID activation #
+        # Prevents activation if fewer than this number of images are present #
+        min_home_pages = {{ raid.min_home_pages }}
+        # Maximum number of retries for sync operations #
+        sync_max = {{ raid.sync_max }}
+    }
+
+    # For mirrored volumes: behavior on mirror log failures #
+    # Options: 'use_lvmlockd', 'use_lvmetad', 'local', 'none' — not all apply here #
+    # We use this section only for general fallback behavior #
+    mirror {
+        # Whether to log mirror image failures #
+        log_failures = {{ mirror.log_failures }}
+        # Whether to automatically recover failed mirror images #
+        auto_recovery = {{ mirror.auto_recovery }}
+        # Minimum number of images required for mirror activation #
+        min_recovery_rate = {{ mirror.min_recovery_rate }}
+    }
+
+    # Thin pool activation thresholds #
+    thin_pool {
+        # Minimum free space (in % of pool) required to allow activation #
+        # Prevents activation if pool metadata/data space falls below this #
+        metadata_read_ahead = {{ thin_pool.metadata_read_ahead }}
+        # Activation timeout for thin pool check operations (seconds) #
+        check_timeout = {{ thin_pool.check_timeout }}
+        # Whether to activate thin pools in read-only mode when near full #
+        error_when_full = {{ thin_pool.error_when_full }}
+    }
+}
+
+{# Device filter: restrict which block devices LVM will scan/use #}
+# Format: [a|r]regex — 'a' = accept, 'r' = reject #
+# Example: [ "a|/dev/sd.*|", "r|.*|" ] accepts all /dev/sdX but rejects all else #
+# Note: This list is evaluated in order; first match wins #
+device {
+    scan = [ {{ scan | join(', ') }} ]
+    preferred_names = [ {{ preferred_names | join(', ') }} ]
+    filtering = {{ filtering }}
+    md_component_detection = {{ md_component_detection }}
+    # Device alias mapping (e.g., for multipath) #
+    # Optional; leave empty if not needed #
+    aliases = [ {{ aliases | join(', ') }} ]
+}
+
+{# Metadata handling and backup/backup_dir settings #}
+backup {
+    # Whether to maintain backups of metadata before changes #
+    backup = {{ backup.backup }}
+    # Directory to store metadata backups (per-VG) #
+    backup_dir = "{{ backup.backup_dir }}"
+    # Archive settings — how many archives to retain #
+    archives = {{ backup.archives }}
+    # Prefix for archive filenames #
+    archive_prefix = "{{ backup.archive_prefix }}"
+}
+
+{# Shell command hooks for activation events (e.g., pre/post activation) #}
+# These are executed in sequence during activation/deactivation #
+activation_hooks {
+{% for hook in activation_hooks %}
+    # {{ hook.description }}
+    {{ hook.event }} = "{{ hook.command }}"
+{% endfor %}
+}
+
+{# Logging configuration for activation-related messages #}
+log {
+    # Verbosity: 0 = errors only, 1 = warnings, 2 = info, 3 = debug #
+    verbose = {{ log.verbose }}
+    # Prefix for all LVM log messages #
+    prefix = "{{ log.prefix }}"
+    # Where to send logs: "stdout", "syslog", or file path #
+    syslog = {{ log.syslog }}
+    # File to log to (if syslog=false) #
+    file = "{{ log.file }}"
+    # Whether to overwrite (true) or append (false) to log file #
+    overwrite = {{ log.overwrite }}
+    # Log level thresholds per subsystem #
+    level = {{ log.level }}
+}

@@ -1,0 +1,88 @@
+{
+  "listen_addresses": "*",
+  "port": 5432,
+  "max_connections": 200,
+  "shared_buffers": "2GB",
+  "work_mem": "32MB",
+  "maintenance_work_mem": "512MB",
+  "effective_cache_size": "6GB",
+  "wal_buffers": "64MB",
+  "checkpoint_completion_target": 0.9,
+  "max_wal_size": "4GB",
+  "min_wal_size": "1GB",
+  "logging_collector": true,
+  "log_directory": "log",
+  "log_filename": "postgresql-%Y-%m-%d_%H%M%S.log",
+  "log_min_messages": "WARNING",
+  "log_min_duration_statement": 500,
+  "log_statement": "ddl",
+  "log_lock_waits": true,
+  "log_timezone": "UTC",
+  "timezone": "UTC",
+  "locale": "en_US.UTF-8",
+  "lc_messages": "en_US.UTF-8",
+  "server_encoding": "UTF8",
+  "data_directory": "/var/lib/postgresql/17/main",
+  "hba_file": "/etc/postgresql/17/main/pg_hba.conf",
+  "ident_file": "/etc/postgresql/17/main/pg_ident.conf",
+  "max_parallel_workers_per_gather": 4,
+  "max_parallel_maintenance_workers": 2,
+  "max_worker_processes": 16,
+  "synchronous_commit": "on",
+  "replication_primary_host": "",
+  "replication_standby_hosts": [
+    {
+      "host": "standby1.example.com",
+      "auth_method": "scram-sha-256"
+    }
+  ],
+  "hba_rules": [
+    {
+      "type": "local",
+      "database": "all",
+      "user": "all",
+      "address": "",
+      "method": "peer"
+    },
+    {
+      "type": "host",
+      "database": "all",
+      "user": "all",
+      "address": "192.168.1.0/24",
+      "method": "scram-sha-256"
+    }
+  ],
+  "wal_compression": "on",
+  "synchronous_standby_names": "FIRST 1 (standby1)",
+  "wal_level": "replica",
+  "max_wal_senders": 5,
+  "wal_sender_timeout": 30000,
+  "shared_preload_libraries": [
+    "pg_stat_statements",
+    "auto_explain"
+  ],
+  "archive_mode": true,
+  "archive_command": "cp %p /var/lib/postgresql/archive/%f",
+  "archive_timeout": 600,
+  "logical_decoding": true,
+  "logical_replication_publications": [
+    {
+      "name": "app_pub",
+      "tables": [
+        "public.users",
+        "public.orders"
+      ]
+    }
+  ],
+  "logical_replication_subscriptions": [],
+  "default_statistics_target": 100,
+  "random_page_cost": 1.1,
+  "jit": true,
+  "tcp_keepalives_idle": 3600,
+  "tcp_keepalives_interval": 60,
+  "tcp_keepalives_count": 5,
+  "ssl": "require",
+  "ssl_cert_file": "/etc/ssl/certs/server.crt",
+  "ssl_key_file": "/etc/ssl/private/server.key",
+  "ssl_ca_file": "/etc/ssl/certs/ca.crt"
+}

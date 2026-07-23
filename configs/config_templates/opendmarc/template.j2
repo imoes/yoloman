@@ -1,0 +1,122 @@
+# Run as specified user (must be a system user with minimal privileges)
+User {{ user }}
+
+# Listen on this Unix socket for SMTP connections from MTA (e.g., Postfix)
+Socket {{ socket_path }}
+
+# PID file path
+PidFile {{ pid_file }}
+
+# Log activity level; valid: info, warning, error, critical
+Syslog {{ syslog }}
+
+# Enable debugging output (true/false)
+Debug {{ debug | lower }}
+
+# Path to the Trusted Authserv-ID list (one ID per line)
+TrustedAuthservIDs {{ trusted_authserv_ids | default('') | join(', ') if trusted_authserv_ids | length > 0 else '' }}
+
+# Hostnames or IP addresses to trust as internal (comma-separated, supports CIDR)
+InternalHosts {{ internal_hosts | default('') | join(', ') if internal_hosts | length > 0 else '' }}
+
+# Ignore emails from these domains (comma-separated)
+IgnoreHosts {{ ignore_hosts | default('') | join(', ') if ignore_hosts | length > 0 else '' }}
+
+# Path to the whitelist file (domains/addresses exempt from DMARC enforcement)
+WhiteListFile {{ whitelist_file }}
+
+# Path to the failure reports file (deprecated, use ReportsDirectory instead)
+FailureReports {{ failure_reports | lower }}
+
+# Enable sending failure reports to policy publishers (true/false)
+FailureReportsSentBy {{ failure_reports_sent_by | default('') }}
+
+# Directory to write aggregated failure reports (if enabled)
+ReportsDirectory {{ reports_directory }}
+
+# How often to rotate reports (in seconds; 0 disables rotation)
+ReportInterval {{ report_interval }}
+
+# Sender email for DMARC failure reports
+ReportBounce {{ report_bounce | default('') }}
+
+# Minimum time (seconds) between reports to same domain
+ReportRateInterval {{ report_rate_interval }}
+
+# Enable SMTP MTA-STS (true/false)
+STSTLS {{ ststls | lower }}
+
+# Path to the MTA-STS policy file
+STSFile {{ sts_file }}
+
+# Timeout for DNS lookups (in seconds)
+Timeout {{ timeout }}
+
+# Path to the signature key file (for signing failure reports with DKIM)
+SignatureKeyFile {{ signature_key_file }}
+
+# Selector for the signature key (for DKIM signing of failure reports)
+SignatureKeySelector {{ signature_key_selector }}
+
+# Whether to strip attachment content from failure reports (true/false)
+StripAttachment {{ strip_attachment | lower }}
+
+# Minimum number of failures to trigger a report
+ReportMinQuorum {{ report_min_quorum }}
+
+# Comma-separated list of failure types to include (e.g., 'fail,none,missing')
+FailureTypes {{ failure_types | default('') | join(', ') if failure_types | length > 0 else '' }}
+
+# Whether to use IPv6 for outbound SMTP (true/false)
+UseIPv6 {{ use_ipv6 | lower }}
+
+# Enable logging of all SPF/DKIM/DMARC results (true/false)
+LogWhy {{ log_why | lower }}
+
+# Whether to enforce DMARC policy even if SPF/DKIM alignment fails but message passes one (true/false)
+IgnoreAuthenticatedClients {{ ignore_authenticated_clients | lower }}
+
+# Whether to require valid DMARC policy for inbound mail (true/false)
+RejectFailures {{ reject_failures | lower }}
+
+# Whether to add Received-SPF headers (true/false)
+AddReceivedSPF {{ add_received_spf | lower }}
+
+# Path to the ARF (Abuse Reporting Format) template (advanced)
+ARFTemplate {{ arf_template }}
+
+# Maximum number of concurrent report jobs
+MaxWorkers {{ max_workers }}
+
+# Maximum report size (in bytes); 0 = unlimited
+MaxReportSize {{ max_report_size }}
+
+# SMTP host to send reports to (used by report sender if external SMTP is configured)
+SMTPHost {{ smtp_host | default('localhost') }}
+
+# SMTP port to use for sending reports
+SMTPPort {{ smtp_port }}
+
+# SMTP timeout (in seconds)
+SMTPTimeout {{ smtp_timeout }}
+
+# Whether to use STARTTLS when sending reports via SMTP
+SMTPUseTLS {{ smtp_use_tls | lower }}
+
+# Whether to verify SMTP server certificate
+SMTPVerifyTLS {{ smtp_verify_tls | lower }}
+
+# SMTP username (optional)
+SMTPUsername {{ smtp_username | default('') }}
+
+# SMTP password (optional, prefer environment or file-based auth)
+SMTPPassword {{ smtp_password | default('') }}
+
+# Per-domain settings: list of domain-specific overrides
+{% for domain in domain_settings %}
+# Domain: {{ domain.domain }}
+{{ domain.domain }}:AuthservID {{ domain.authserv_id | default('opendmarc') }}
+{{ domain.domain }}:FailureReports {{ domain.failure_reports | lower if domain.failure_reports is defined else 'false' }}
+{{ domain.domain }}:IgnoreHosts {{ domain.ignore_hosts | default('') | join(', ') if domain.ignore_hosts | length > 0 else '' }}
+{{ domain.domain }}:WhitelistFile {{ domain.whitelist_file | default('') }}
+{% endfor %}

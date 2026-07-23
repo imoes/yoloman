@@ -1,0 +1,136 @@
+{
+  "log_level": {
+    "type": "string",
+    "default": "info",
+    "description": "Verbosity of logging; options: debug, info, warn, error"
+  },
+  "log_file": {
+    "type": "string",
+    "default": "/var/log/canid/canid.log",
+    "description": "Path to the CANID log file"
+  },
+  "pid_file": {
+    "type": "string",
+    "default": "/run/canid/canid.pid",
+    "description": "Path to the PID file"
+  },
+  "worker_count": {
+    "type": "number",
+    "default": 2,
+    "description": "Number of worker processes to spawn"
+  },
+  "max_cache_entries": {
+    "type": "number",
+    "default": 100000,
+    "description": "Maximum number of entries in the cache (0 = unlimited)"
+  },
+  "default_ttl": {
+    "type": "number",
+    "default": 3600,
+    "description": "Default time-to-live (TTL) for cached entries, in seconds"
+  },
+  "interfaces": {
+    "type": "list",
+    "default": [
+      {
+        "name": "eth0",
+        "description": "Primary network interface",
+        "enabled": true
+      }
+    ],
+    "items": {
+      "name": {
+        "type": "string",
+        "description": "Name of the network interface (e.g., eth0, wlan0)"
+      },
+      "description": {
+        "type": "string",
+        "description": "Optional human-readable description"
+      },
+      "enabled": {
+        "type": "boolean",
+        "description": "Whether to monitor this interface"
+      }
+    },
+    "description": "List of network interfaces to monitor for DNS queries"
+  },
+  "upstream_servers": {
+    "type": "list",
+    "default": [
+      {
+        "address": "1.1.1.1",
+        "port": 53
+      },
+      {
+        "address": "1.0.0.1",
+        "port": 53
+      }
+    ],
+    "items": {
+      "address": {
+        "type": "string",
+        "description": "IP address (IPv4 or IPv6) of the upstream DNS server"
+      },
+      "port": {
+        "type": "number",
+        "default": 53,
+        "description": "Port number of the upstream DNS server"
+      }
+    },
+    "description": "Upstream DNS servers for recursive resolution"
+  },
+  "storage": {
+    "type": "object",
+    "default": {
+      "type": "file",
+      "path": "/var/lib/canid/cache.db"
+    },
+    "items": {
+      "type": {
+        "type": "string",
+        "default": "file",
+        "description": "Storage backend type: 'file' or 'redis'"
+      },
+      "path": {
+        "type": "string",
+        "default": "/var/lib/canid/cache.db",
+        "description": "Path to the local cache file (used if type = file)"
+      },
+      "host": {
+        "type": "string",
+        "default": "127.0.0.1",
+        "description": "Redis host (used if type = redis)"
+      },
+      "port": {
+        "type": "number",
+        "default": 6379,
+        "description": "Redis port (used if type = redis)"
+      },
+      "db": {
+        "type": "number",
+        "default": 0,
+        "description": "Redis database number (used if type = redis)"
+      }
+    },
+    "description": "Configuration for the cache storage backend"
+  },
+  "allow_sources": {
+    "type": "list",
+    "default": [],
+    "items": {
+      "type": "string",
+      "description": "CIDR notation for allowed query source (e.g., 127.0.0.0/8, ::1/128)"
+    },
+    "description": "List of allowed source networks/CIDRs for DNS queries. Empty = localhost only"
+  },
+  "enable_ipv6": {
+    "type": "boolean",
+    "default": true,
+    "description": "Enable IPv6 support (queries, responses, and upstream resolution)"
+  },
+  "enable_dnssec_validation": {
+    "type": "boolean",
+    "default": false,
+    "description": "Enable DNSSEC validation for responses"
+  }
+}

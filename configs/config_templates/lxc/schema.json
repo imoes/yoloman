@@ -1,0 +1,110 @@
+{
+  "lxc_rootfs_dir": {
+    "type": "string",
+    "default": "/var/lib/lxc",
+    "description": "Base directory where container root filesystems and metadata are stored."
+  },
+  "default_template": {
+    "type": "string",
+    "default": "/usr/share/lxc/templates/lxc-alpine",
+    "description": "Path to the default template used when creating new containers."
+  },
+  "bridge_name": {
+    "type": "string",
+    "default": "lxcbr0",
+    "description": "Name of the default bridge interface to connect container veth pairs to."
+  },
+  "container_mac": {
+    "type": "list",
+    "default": [
+      0,
+      0,
+      0
+    ],
+    "description": "Last three bytes for generating a default MAC address for containers (first 3 bytes are fixed).",
+    "items": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 255
+    }
+  },
+  "networks": {
+    "type": "list",
+    "default": [],
+    "description": "List of network interfaces to configure for containers (in addition to default bridge).",
+    "items": {
+      "type": "object",
+      "description": "A container network interface configuration",
+      "fields": {
+        "type": {
+          "type": "string",
+          "default": "veth",
+          "description": "Interface type: veth (default), macvlan, ipvlan, physical, empty, etc."
+        },
+        "link": {
+          "type": "string",
+          "default": "lxcbr0",
+          "description": "Host interface or bridge to connect this interface to (e.g., eth0, lxcbr0)."
+        },
+        "flags": {
+          "type": "string",
+          "default": "up",
+          "description": "Interface flags (e.g., 'up', 'down', 'up,route-only'."
+        },
+        "name": {
+          "type": "string",
+          "default": "eth0",
+          "description": "Name of the interface inside the container."
+        },
+        "hwaddr": {
+          "type": "string",
+          "default": "",
+          "description": "MAC address for the container interface (auto-generated if omitted)."
+        },
+        "veth_pair": {
+          "type": "string",
+          "default": "",
+          "description": "Name of the veth pair interface on the host (auto-generated if omitted)."
+        },
+        "gateway": {
+          "type": "string",
+          "default": "",
+          "description": "IPv4 gateway to configure inside the container for this interface."
+        },
+        "ipv4_addresses": {
+          "type": "list",
+          "default": [],
+          "description": "List of IPv4 addresses (CIDR notation) assigned to this interface inside the container.",
+          "items": {
+            "type": "string",
+            "pattern": "^\\d+\\.\\d+\\.\\d+\\.\\d+/\\d+$"
+          }
+        },
+        "ipv6_addresses": {
+          "type": "list",
+          "default": [],
+          "description": "List of IPv6 addresses (CIDR notation) assigned to this interface inside the container.",
+          "items": {
+            "type": "string",
+            "pattern": "^[0-9a-fA-F:]+/\\d+$"
+          }
+        }
+      }
+    }
+  },
+  "use_cgroup_v2": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable unified cgroup v2 hierarchy (required on modern systemd-based hosts)."
+  },
+  "log_level": {
+    "type": "string",
+    "default": "WARN",
+    "description": "Logging verbosity: OFF, ERROR, WARN, INFO, DEBUG, TRACE (in increasing verbosity)."
+  },
+  "log_file": {
+    "type": "string",
+    "default": "/var/log/lxc/lxc.log",
+    "description": "Path to the global LXC log file."
+  }
+}

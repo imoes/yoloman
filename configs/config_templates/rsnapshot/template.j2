@@ -1,0 +1,62 @@
+# rsnapshot.conf - rsnapshot configuration file
+# This file configures rsnapshot's backup behavior, retention policy, and destinations.
+# See `man rsnapshot` for detailed documentation.
+
+# Directory where rsnapshot stores its snapshots (must exist and be writable by rsnapshot user)
+snapshot_root {{ snapshot_root }}
+
+# Level of verbosity: 1=quiet, 2=normal, 3=verbose, 4=debug
+verbose {{ verbose }}
+
+# Log level: 1=error, 2=warning, 3=info (ignored unless logging is enabled)
+loglevel {{ loglevel }}
+
+# Enable or disable logging to file
+# (Note: rsnapshot writes logs to syslog by default; enable_file_logging adds a log file)
+{% if enable_file_logging %}
+logfile {{ log_file_path }}
+{% endif %}
+
+# SSH port for remote backups
+ssh_args -p {{ ssh_port }}
+
+# rsync args (common options for all rsync operations)
+rsync_short_args {{ rsync_short_args | join(' ') }}
+rsync_long_args {{ rsync_long_args | join(' ') }}
+
+# Number of snapshots to keep at each level (e.g., 'hourly', 'daily', etc.)
+{% for level in retention_levels %}
+{% if loop.first %}
+# Retention counts per snapshot level
+{% endif %}
+{{ level.name }}_count {{ level.count }}
+{% endfor %}
+
+# Backup sources — format: `source_dir/    dest_dir/`
+{% for backup in backups %}
+# Backup: {{ backup.comment or 'manual entry' }}
+{{ backup.source_dir | replace('\', '\\') }}/{{ backup.source_dir.endswith('/')|ternary('', '') }}	{{ backup.dest_dir | replace('\', '\\') }}/
+{% endfor %}
+
+# Exclusions (rsync --exclude patterns)
+{% for pattern in exclude_patterns %}
+extexclude {{ pattern }}
+{% endfor %}
+
+# Pre/post backup hooks (commands to run before/after backup)
+{% if pre_backup %}
+pre_backup {{ pre_backup }}
+{% endif %}
+{% if post_backup %}
+post_backup {{ post_backup }}
+{% endif %}
+
+# Lockfile to prevent concurrent runs
+lockfile {{ lockfile }}
+
+# One-file-system: avoid crossing filesystem boundaries
+one_file_system {{ one_file_system }}
+
+# Rsync options: preserve hard links, symlinks, etc.
+preserve_hardlinks {{ preserve_hardlinks }}
+preserve_symlinks {{ preserve_symlinks }}

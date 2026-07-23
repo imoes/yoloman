@@ -1,0 +1,69 @@
+{
+  "enable_fuse": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable the FUSE filesystem client. Set to true to activate the mount."
+  },
+  "mountpoint": {
+    "type": "string",
+    "default": "/mnt/gnunet-fuse",
+    "description": "Absolute path where the GNUNET FUSE filesystem will be mounted. Must exist and be accessible."
+  },
+  "uid": {
+    "type": "number",
+    "default": 0,
+    "description": "Numeric user ID of the process owner. Typically 0 (root) unless running in user namespace."
+  },
+  "gid": {
+    "type": "number",
+    "default": 0,
+    "description": "Numeric group ID of the process owner."
+  },
+  "permissions": {
+    "type": "string",
+    "default": "0755",
+    "description": "Octal permission bits for the mountpoint (e.g., '0700' for owner-only, '0755' for world-readable)."
+  },
+  "max_pending": {
+    "type": "number",
+    "default": 32,
+    "description": "Maximum number of concurrent I/O requests. Higher values improve throughput on fast systems."
+  },
+  "lazy_listing": {
+    "type": "bool",
+    "default": true,
+    "description": "If enabled, directory entries are fetched on-demand rather than fully upfront \u2014 improves responsiveness with large directories."
+  },
+  "idle_timeout": {
+    "type": "number",
+    "default": 300,
+    "description": "Seconds of inactivity after which the mount is automatically unmounted (to save resources)."
+  },
+  "identity_key_file": {
+    "type": "string",
+    "default": "${HOME}/.gnunet/identity/private_key",
+    "description": "Path to the peer's private identity key (used to authenticate this mount to other peers)."
+  },
+  "mount_options": {
+    "type": "list",
+    "default": [],
+    "description": "Additional FUSE mount options (strings) \u2014 e.g., 'allow_other', 'allow_root', 'utime_ok'. Leave empty for defaults.",
+    "items": {
+      "type": "string",
+      "enum": [
+        "allow_other",
+        "allow_root",
+        "default_permissions",
+        "utime_ok",
+        "auto_unmount",
+        "allow_dev"
+      ],
+      "description": "A valid libfuse mount option string."
+    }
+  },
+  "log_level": {
+    "type": "string",
+    "default": "INFO",
+    "description": "Verbosity of logging for the FUSE subsystem."
+  }
+}

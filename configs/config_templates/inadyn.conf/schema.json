@@ -1,0 +1,78 @@
+{
+  "daemon_mode": {
+    "type": "bool",
+    "default": true,
+    "description": "Run as background daemon (true) or exit after one update (false)."
+  },
+  "pidfile_path": {
+    "type": "string",
+    "default": "/run/inadyn.pid",
+    "description": "Path where inadyn writes its process ID when running as daemon."
+  },
+  "update_period": {
+    "type": "number",
+    "default": 300,
+    "description": "How often (in seconds) to check for IP address changes. Must be \u2265 60."
+  },
+  "log_verbosity": {
+    "type": "number",
+    "default": 1,
+    "description": "Log detail level: 0 (quiet), 1 (normal), 2 (verbose), 3 (debug)."
+  },
+  "log_file": {
+    "type": "string",
+    "default": "/var/log/inadyn.log",
+    "description": "Path to log file. Use '-' to log to standard error (or use systemd logging)."
+  },
+  "providers": {
+    "type": "list",
+    "default": [],
+    "description": "List of dynamic DNS providers to monitor. Add at least one provider to enable updates.",
+    "items": {
+      "name": {
+        "type": "string",
+        "default": "",
+        "description": "Unique section name for this provider (e.g., 'dyndns', 'cloudflare'). Must match one of the known providers (see inadyn -v)."
+      },
+      "username": {
+        "type": "string",
+        "default": "",
+        "description": "Username, email, or API token (as required by the provider)."
+      },
+      "password": {
+        "type": "string",
+        "default": "",
+        "description": "Password or app-specific token for authentication."
+      },
+      "hostnames": {
+        "type": "list",
+        "default": [],
+        "description": "List of hostnames (FQDNs) to update. Commas allowed in input, but stored as array."
+      },
+      "server_url": {
+        "type": "string",
+        "default": "",
+        "description": "Override the default DDNS update endpoint URL (e.g., for self-hosted DDNS servers)."
+      },
+      "ip_url": {
+        "type": "string",
+        "default": "",
+        "description": "Custom URL to fetch public IP (e.g., 'https://ifconfig.me/ip'). If omitted, uses built-in detection."
+      },
+      "ip_version": {
+        "type": "string",
+        "default": "",
+        "enum": [
+          "ipv4",
+          "ipv6"
+        ],
+        "description": "Force IPv4 or IPv6 updates. If omitted, defaults to detected address family."
+      },
+      "timeout": {
+        "type": "number",
+        "default": 30,
+        "description": "HTTP request timeout in seconds. Range: 5\u2013300."
+      }
+    }
+  }
+}

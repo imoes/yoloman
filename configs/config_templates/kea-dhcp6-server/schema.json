@@ -1,0 +1,425 @@
+{
+  "control_socket_name": {
+    "type": "string",
+    "default": "/run/kea/dhcp6-ctrl.sock",
+    "description": "Unix socket path for Kea control agent communication"
+  },
+  "lease_database_type": {
+    "type": "string",
+    "default": "memfile",
+    "description": "Backend database type for lease storage (e.g., 'memfile', 'mysql', 'postgresql')"
+  },
+  "lease_database_name": {
+    "type": "string",
+    "default": "kea-dhcp6-db",
+    "description": "Name of the lease database (used for SQL backends)"
+  },
+  "lease_database_user": {
+    "type": "string",
+    "default": "kea",
+    "description": "Username to connect to the lease database"
+  },
+  "lease_database_password": {
+    "type": "string",
+    "default": "",
+    "description": "Password for the lease database user"
+  },
+  "lease_database_host": {
+    "type": "string",
+    "default": "localhost",
+    "description": "Host address of the lease database server"
+  },
+  "lease_database_port": {
+    "type": "number",
+    "default": 5432,
+    "description": "Port of the lease database server (ignored for file-based 'memfile')"
+  },
+  "lease_database_lfc_interval": {
+    "type": "number",
+    "default": 3600,
+    "description": "Interval (in seconds) between lease file cleanup (LFC) operations"
+  },
+  "lease_database_max_reclaim_leases": {
+    "type": "number",
+    "default": 1000,
+    "description": "Maximum number of leases to reclaim during a single LFC cycle"
+  },
+  "lease_database_max_reclaim_time": {
+    "type": "number",
+    "default": 250,
+    "description": "Maximum time (in milliseconds) a single LFC cycle may take"
+  },
+  "lease_database_unwarned_reclaim_cycles": {
+    "type": "number",
+    "default": 3,
+    "description": "Number of cycles after which a warning is emitted if reclaiming is still ongoing"
+  },
+  "hooks_libraries": {
+    "type": "list",
+    "default": [],
+    "description": "List of hook libraries to load (e.g., for logging, auditing, or custom logic)",
+    "items": {
+      "type": "object",
+      "fields": {
+        "library": {
+          "type": "string",
+          "default": "",
+          "description": "Path to the shared library"
+        },
+        "parameters": {
+          "type": "any",
+          "default": {},
+          "description": "JSON object of library-specific parameters"
+        }
+      }
+    }
+  },
+  "loggers": {
+    "type": "list",
+    "default": [
+      {
+        "name": "kea-dhcp6",
+        "output_options": [
+          {
+            "output": "/var/log/kea/kea-dhcp6.log"
+          }
+        ],
+        "severity": "INFO",
+        "debuglevel": 99
+      }
+    ],
+    "description": "Logging configuration for the DHCPv6 server",
+    "items": {
+      "type": "object",
+      "fields": {
+        "name": {
+          "type": "string",
+          "default": "",
+          "description": "Logger component name (e.g., 'kea-dhcp6')"
+        },
+        "output_options": {
+          "type": "list",
+          "default": [
+            {
+              "output": "/dev/stderr"
+            }
+          ],
+          "items": {
+            "type": "object",
+            "fields": {
+              "output": {
+                "type": "string",
+                "default": "",
+                "description": "File path or 'stdout'/'stderr'"
+              },
+              "maxsize": {
+                "type": "number",
+                "default": 10485760,
+                "description": "Maximum log file size in bytes before rotation"
+              },
+              "maxver": {
+                "type": "number",
+                "default": 5,
+                "description": "Maximum number of rotated log files to keep"
+              }
+            }
+          }
+        },
+        "severity": {
+          "type": "string",
+          "default": "INFO",
+          "description": "Minimum severity level (DEBUG, INFO, WARN, ERROR, FATAL)"
+        },
+        "debuglevel": {
+          "type": "number",
+          "default": 0,
+          "description": "Debug verbosity level (0\u201399, only used with DEBUG severity)"
+        }
+      }
+    }
+  },
+  "subnets": {
+    "type": "list",
+    "default": [],
+    "description": "List of IPv6 subnets to serve",
+    "items": {
+      "type": "object",
+      "fields": {
+        "id": {
+          "type": "number",
+          "default": 1,
+          "description": "Numeric subnet identifier (must be unique)"
+        },
+        "subnet": {
+          "type": "string",
+          "default": "",
+          "description": "IPv6 subnet in CIDR notation (e.g., '2001:db8:1::/64')"
+        },
+        "interface": {
+          "type": "string",
+          "default": "",
+          "description": "Network interface to bind to (e.g., 'eth0')"
+        },
+        "pools": {
+          "type": "list",
+          "default": [
+            {
+              "pool": "2001:db8:1::1-2001:db8:1::ffff"
+            }
+          ],
+          "items": {
+            "type": "object",
+            "fields": {
+              "pool": {
+                "type": "string",
+                "default": "",
+                "description": "Address pool range in format 'start-addr-end-addr' (e.g., '2001:db8:1::10-2001:db8:1::100')"
+              }
+            }
+          }
+        },
+        "option_data": {
+          "type": "list",
+          "default": [],
+          "items": {
+            "type": "object",
+            "fields": {
+              "name": {
+                "type": "string",
+                "default": "",
+                "description": "IANA option name (e.g., 'dns-servers')"
+              },
+              "data": {
+                "type": "string",
+                "default": "",
+                "description": "Option value as string (e.g., '2001:db8::1,2001:db8::2')"
+              }
+            }
+          }
+        },
+        "reservations": {
+          "type": "list",
+          "default": [],
+          "items": {
+            "type": "object",
+            "fields": {
+              "duid": {
+                "type": "string",
+                "default": "",
+                "description": "Client DUID to identify reservation"
+              },
+              "hostname": {
+                "type": "string",
+                "default": "",
+                "description": "Reserved hostname"
+              },
+              "ip_address": {
+                "type": "string",
+                "default": "",
+                "description": "IPv6 address to assign"
+              },
+              "option_data": {
+                "type": "list",
+                "default": [],
+                "items": {
+                  "type": "object",
+                  "fields": {
+                    "name": {
+                      "type": "string",
+                      "default": "",
+                      "description": "Option name"
+                    },
+                    "data": {
+                      "type": "string",
+                      "default": "",
+                      "description": "Option value"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "shared_networks": {
+    "type": "list",
+    "default": [],
+    "description": "List of shared networks (groups of subnets with common settings)",
+    "items": {
+      "type": "object",
+      "fields": {
+        "name": {
+          "type": "string",
+          "default": "",
+          "description": "Shared network name"
+        },
+        "interface": {
+          "type": "string",
+          "default": "",
+          "description": "Interface to bind to"
+        },
+        "subnet6": {
+          "type": "list",
+          "default": [],
+          "items": {
+            "type": "object",
+            "fields": {
+              "id": {
+                "type": "number",
+                "default": 1
+              },
+              "subnet": {
+                "type": "string",
+                "default": ""
+              },
+              "pools": {
+                "type": "list",
+                "default": [],
+                "items": {
+                  "type": "object",
+                  "fields": {
+                    "pool": {
+                      "type": "string",
+                      "default": ""
+                    }
+                  }
+                }
+              },
+              "option_data": {
+                "type": "list",
+                "default": [],
+                "items": {
+                  "type": "object",
+                  "fields": {
+                    "name": {
+                      "type": "string",
+                      "default": ""
+                    },
+                    "data": {
+                      "type": "string",
+                      "default": ""
+                    }
+                  }
+                }
+              },
+              "reservations": {
+                "type": "list",
+                "default": [],
+                "items": {
+                  "type": "object",
+                  "fields": {
+                    "duid": {
+                      "type": "string",
+                      "default": ""
+                    },
+                    "hostname": {
+                      "type": "string",
+                      "default": ""
+                    },
+                    "ip_address": {
+                      "type": "string",
+                      "default": ""
+                    },
+                    "option_data": {
+                      "type": "list",
+                      "default": [],
+                      "items": {
+                        "type": "object",
+                        "fields": {
+                          "name": {
+                            "type": "string",
+                            "default": ""
+                          },
+                          "data": {
+                            "type": "string",
+                            "default": ""
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "option_data": {
+          "type": "list",
+          "default": [],
+          "items": {
+            "type": "object",
+            "fields": {
+              "name": {
+                "type": "string",
+                "default": ""
+              },
+              "data": {
+                "type": "string",
+                "default": ""
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "interfaces": {
+    "type": "string",
+    "default": "eth0",
+    "description": "Comma-separated list of network interfaces for Kea to listen on (e.g., 'eth0,eth1')"
+  },
+  "interfaces_config_re_detect": {
+    "type": "bool",
+    "default": true,
+    "description": "If true, Kea re-detects available interfaces at startup or SIGHUP"
+  },
+  "server_id_type": {
+    "type": "string",
+    "default": "LLT",
+    "description": "Server ID type ('LLT', 'EN', 'LL' \u2014 most common: 'LLT' for Link-Layer + Time)"
+  },
+  "server_id_identifier": {
+    "type": "string",
+    "default": "00:01:02:03:04:05",
+    "description": "Hexadecimal identifier string (used with 'LLT' type)"
+  },
+  "preferred_lifetime": {
+    "type": "number",
+    "default": 3000,
+    "description": "Preferred lifetime (seconds) for addresses (typically < valid-lifetime)"
+  },
+  "valid_lifetime": {
+    "type": "number",
+    "default": 6000,
+    "description": "Valid lifetime (seconds) for addresses \u2014 how long addresses remain usable"
+  },
+  "renew_timer": {
+    "type": "number",
+    "default": 1800,
+    "description": "Time (seconds) after which a client may request address renewal"
+  },
+  "rebind_timer": {
+    "type": "number",
+    "default": 3600,
+    "description": "Time (seconds) after which a client may attempt rebinding with another server"
+  },
+  "ip_realloc": {
+    "type": "object",
+    "default": {},
+    "description": "IP re-allocation behavior (for multi-server deployments)",
+    "fields": {
+      "search_all_dfas": {
+        "type": "bool",
+        "default": false,
+        "description": "If true, search all DFAs during re-allocation"
+      }
+    }
+  },
+  "dhcpv4_interop_info_only": {
+    "type": "bool",
+    "default": false,
+    "description": "If true, server behaves as DHCPv4-only in DHCPv4-over-DHCPv6 messages (info-only)"
+  }
+}

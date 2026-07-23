@@ -1,0 +1,92 @@
+# Global configuration settings
+global {
+  # Listen address and port for DNS queries
+  listen = {{ listen_address }}:{{ listen_port }};
+
+  # Maximum UDP packet size
+  max_udp_size = {{ max_udp_size }};
+
+  # Enable/disable TCP fallback (default: true)
+  tcp_fallback = {{ tcp_fallback | lower }};
+
+  # Minimum TTL for negative responses (NXDOMAIN, NODATA)
+  min_negative_ttl = {{ min_negative_ttl }};
+
+  # Maximum concurrent connections (0 = unlimited)
+  max_connections = {{ max_connections }};
+
+  # chroot directory (empty string = disabled)
+  chroot = "{{ chroot_dir }}";
+
+  # User and group to drop privileges to
+  user = "{{ user }}";
+  group = "{{ group }}";
+}
+
+# TLS/SSL configuration (optional)
+{% if tls.enabled %}# TLS configuration
+{% if tls.listen_address != '' %}tls {
+  listen = {{ tls.listen_address }}:{{ tls.listen_port }};
+{% else %}tls {
+  listen = {{ listen_address }}:{{ tls.listen_port }};
+{% endif %}
+  cert_file = "{{ tls.cert_file }}";
+  key_file = "{{ tls.key_file }}";
+  protocols = [{{ tls.protocols | join(', ') }}];
+  ciphers = "{{ tls.ciphers }}";
+}
+{% endif %}
+
+# Logging configuration
+log {
+  # Log to syslog (true/false)
+  syslog = {{ log.syslog | lower }};
+
+  # Log file path (empty = stderr only)
+  file = "{{ log.file }}";
+
+  # Log level: debug, info, notice, warn, error, crit, alert, emerg
+  level = "{{ log.level }}";
+}
+
+# Zones configuration
+zones {
+{% for zone in zones %}  # Zone: {{ zone.name }}
+  {{ zone.name }} {
+    # Source file for zone data (AXFR/zonefile)
+    file = "{{ zone.file }}";
+
+    # Allow zone transfers to these clients (empty = none; * = all)
+{% if zone.allow_axfr %}    allow_axfr = [{{ zone.allow_axfr | join(', ') | d('none') }}];
+{% else %}    # allow_axfr not set — defaults to none
+{% endif %}
+
+    # Allow notifies from these clients (empty = none)
+{% if zone.allow_notify %}    allow_notify = [{{ zone.allow_notify | join(', ') | d('none') }}];
+{% else %}    # allow_notify not set — defaults to none
+{% endif %}
+
+    # Enable DNSSEC signing for this zone
+    dnssec = {{ zone.dnssec | lower }};
+
+    # Optional: set SOA parameters
+{% if zone.soa %}    soa {
+      refresh = {{ zone.soa.refresh }};
+      retry   = {{ zone.soa.retry }};
+      expire  = {{ zone.soa.expire }};
+      minimum = {{ zone.soa.minimum }};
+      ttl     = {{ zone.soa.ttl }};
+    }
+{% endif %}
+  }
+{% endfor %}
+}
+
+# Optional: dynamic updates (if allowed)
+{% if dynamic_updates %}# Enable dynamic updates for specified zones
+dynamic_updates {
+{% for zone in dynamic_update_zones %}  # Allow updates for zone: {{ zone }}
+  {{ zone }};
+{% endfor %}
+}
+{% endif %}

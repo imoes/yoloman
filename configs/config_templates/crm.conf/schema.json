@@ -1,0 +1,275 @@
+{
+  "cluster_name": {
+    "type": "string",
+    "default": "mycluster",
+    "description": "Name of the cluster; must be identical on all nodes."
+  },
+  "stonith_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable STONITH (fencing) for cluster safety; required for production use."
+  },
+  "resource_stickiness": {
+    "type": "number",
+    "default": 100,
+    "description": "Resource stickiness value \u2014 higher values discourage unnecessary migrations."
+  },
+  "migration_limit": {
+    "type": "number",
+    "default": -1,
+    "description": "Maximum number of failed actions before resource is stopped (set to -1 for infinite)."
+  },
+  "remote_timeout": {
+    "type": "number",
+    "default": 60,
+    "description": "Timeout (seconds) for remote STONITH operations (e.g., fence agents)."
+  },
+  "logging": {
+    "type": "object",
+    "default": {
+      "file": "/var/log/cluster/crm.log",
+      "level": "info",
+      "to_logfile": true,
+      "to_syslog": true
+    },
+    "description": "Cluster logging configuration.",
+    "items": {
+      "file": {
+        "type": "string",
+        "description": "Path to the log file."
+      },
+      "level": {
+        "type": "string",
+        "enum": [
+          "debug",
+          "info",
+          "notice",
+          "warning",
+          "error",
+          "crit"
+        ],
+        "description": "Logging verbosity level."
+      },
+      "to_logfile": {
+        "type": "bool",
+        "description": "Write logs to the specified file."
+      },
+      "to_syslog": {
+        "type": "bool",
+        "description": "Send logs to the system logger."
+      }
+    }
+  },
+  "corosync": {
+    "type": "object",
+    "default": {
+      "bindnetaddr": "192.168.1.0",
+      "mcastaddr": "239.192.64.1",
+      "mcastport": "5405",
+      "ttl": "1"
+    },
+    "description": "Corosync network transport settings (required for multicast-based clusters).",
+    "items": {
+      "bindnetaddr": {
+        "type": "string",
+        "description": "Network address to bind to (must match local subnet)."
+      },
+      "mcastaddr": {
+        "type": "string",
+        "description": "Multicast address used for cluster messaging."
+      },
+      "mcastport": {
+        "type": "number",
+        "description": "UDP port for multicast communication."
+      },
+      "ttl": {
+        "type": "number",
+        "description": "Time-to-live for multicast packets (1 for local subnet only)."
+      }
+    }
+  },
+  "nodes": {
+    "type": "list",
+    "default": [],
+    "description": "List of cluster nodes (must include all nodes).",
+    "items": {
+      "name": {
+        "type": "string",
+        "description": "Node hostname (must be resolvable)."
+      },
+      "id": {
+        "type": "number",
+        "description": "Unique node ID (1,2,3...)."
+      },
+      "addr": {
+        "type": "string",
+        "description": "Node IP address (unicast or multicast interface)."
+      }
+    }
+  },
+  "resources": {
+    "type": "list",
+    "default": [],
+    "description": "Optional list of primitive resources (e.g., IPaddr2, Filesystem, Apache).",
+    "items": {
+      "type": {
+        "type": "string",
+        "description": "Resource agent type (e.g., 'IPaddr2', 'Filesystem', 'apache')."
+      },
+      "id": {
+        "type": "string",
+        "description": "Unique resource ID (e.g., 'ip-vip', 'fs-data')."
+      },
+      "description": {
+        "type": "string",
+        "default": "",
+        "description": "Optional human-readable description."
+      },
+      "params": {
+        "type": "object",
+        "default": {},
+        "description": "Key-value parameters passed to the resource agent."
+      }
+    }
+  },
+  "resource_groups": {
+    "type": "list",
+    "default": [],
+    "description": "Optional list of resource groups (ordered lists of resources to colocate).",
+    "items": {
+      "name": {
+        "type": "string",
+        "description": "Group name (e.g., 'webgroup')."
+      },
+      "resources": {
+        "type": "list",
+        "items": {
+          "type": "string"
+        },
+        "description": "Ordered list of resource IDs in this group."
+      }
+    }
+  },
+  "colocations": {
+    "type": "list",
+    "default": [],
+    "description": "Optional list of colocation constraints (resources that must run together).",
+    "items": {
+      "id": {
+        "type": "string",
+        "description": "Constraint ID (e.g., 'coloc-web')."
+      },
+      "score": {
+        "type": "string",
+        "enum": [
+          "INFINITY",
+          "+INFINITY",
+          "-INFINITY",
+          "number"
+        ],
+        "description": "Affinity score (e.g., 'INFINITY' for mandatory)."
+      },
+      "items": {
+        "type": "list",
+        "items": {
+          "resource": {
+            "type": "string",
+            "description": "Resource ID."
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "Started",
+              "Slave",
+              "Master"
+            ],
+            "description": "Resource role (optional; default: 'Started')."
+          }
+        },
+        "description": "List of resources to colocate."
+      }
+    }
+  },
+  "orderings": {
+    "type": "list",
+    "default": [],
+    "description": "Optional list of ordering constraints (resource startup sequence).",
+    "items": {
+      "id": {
+        "type": "string",
+        "description": "Constraint ID (e.g., 'order-fs-ip')."
+      },
+      "score": {
+        "type": "string",
+        "enum": [
+          "INFINITY",
+          "+INFINITY",
+          "-INFINITY",
+          "number"
+        ],
+        "description": "Ordering score (INFINITY for mandatory)."
+      },
+      "first": {
+        "type": "object",
+        "items": {
+          "resource": {
+            "type": "string",
+            "description": "Resource ID."
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "Started",
+              "Slave",
+              "Master"
+            ],
+            "description": "Role."
+          }
+        },
+        "description": "First resource in the order."
+      },
+      "then": {
+        "type": "object",
+        "items": {
+          "resource": {
+            "type": "string",
+            "description": "Resource ID."
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "Started",
+              "Slave",
+              "Master"
+            ],
+            "description": "Role."
+          }
+        },
+        "description": "Second resource (starts after first)."
+      }
+    }
+  },
+  "locations": {
+    "type": "list",
+    "default": [],
+    "description": "Optional list of location constraints (preferred nodes for resources).",
+    "items": {
+      "id": {
+        "type": "string",
+        "description": "Constraint ID (e.g., 'loc-db-primary')."
+      },
+      "resource": {
+        "type": "string",
+        "description": "Resource ID."
+      },
+      "node": {
+        "type": "string",
+        "description": "Target node hostname."
+      },
+      "score": {
+        "type": "number",
+        "description": "Preference score (+100 = preferred, -INFINITY = forbidden)."
+      }
+    }
+  }
+}

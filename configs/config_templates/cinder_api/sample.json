@@ -1,0 +1,72 @@
+{
+  "cinder_log_dir": "/var/log/cinder",
+  "cinder_log_file": "cinder-api.log",
+  "api_bind_host": "0.0.0.0",
+  "api_bind_port": 8776,
+  "auth_strategy": "keystone",
+  "use_database": false,
+  "rpc_transport_url": "rabbit://openstack:secretrabbit@10.0.0.10:5672/",
+  "debug_enabled": false,
+  "verbose_enabled": true,
+  "api_extensions": [
+    "os-extended-volumes",
+    "os-vol-host-attr",
+    "os-vol-mig-status-attr",
+    "os-volume-type-manage"
+  ],
+  "rate_limits_enabled": false,
+  "rate_limit_burst": 10,
+  "rate_limit_interval": 1,
+  "ssl_enabled": true,
+  "ssl_cert_file": "/etc/ssl/certs/cinder.crt",
+  "ssl_key_file": "/etc/ssl/private/cinder.key",
+  "ssl_ca_file": "/etc/ssl/certs/ca.crt",
+  "cors_enabled": true,
+  "cors_allowed_origin": "https://dashboard.example.com",
+  "image_cache_enabled": true,
+  "image_cache_interval": 3600,
+  "image_cache_size_gb": 100,
+  "storage_backends": [
+    {
+      "name": "lvm",
+      "driver": "cinder.volume.drivers.lvm.LVMVolumeDriver",
+      "options": {
+        "volume_group": "cinder-volumes",
+        "iscsi_protocol": "iscsi",
+        "iscsi_helper": "lioadm"
+      }
+    },
+    {
+      "name": "netapp",
+      "driver": "cinder.volume.drivers.netapp.common.NetAppDriver",
+      "options": {
+        "nfs_shares_config": "/etc/cinder/nfs_shares",
+        "nfs_mount_point_base": "/var/lib/cinder/mnt",
+        "netapp_login": "admin",
+        "netapp_password": "netapp123",
+        "netapp_server_hostname": "storage.example.com"
+      }
+    }
+  ],
+  "scheduler_driver": "cinder.scheduler.filter_scheduler.FilterScheduler",
+  "scheduler_filters": [
+    "AvailabilityZoneFilter",
+    "CapacityFilter",
+    "CapabilitiesFilter"
+  ],
+  "service_token_roles": [
+    "service"
+  ],
+  "service_token_required": true,
+  "message_ttl": 86400,
+  "backup_driver": "cinder.backup.drivers.ceph",
+  "backup_ceph_conf": "/etc/ceph/ceph.conf",
+  "backup_ceph_user": "client.cinder-backup",
+  "backup_ceph_chunk_size_kb": 512,
+  "backup_ceph_pool": "cinder-backup",
+  "volume_transfer_enabled": true,
+  "transfer_allow_encrypted": false,
+  "encryption_enabled": true,
+  "encryption_driver": "cinder.volume.encryption.drivers.lvm.LVMEncryptionDriver",
+  "host_fqdn": "https://cinder-api.example.com:8776"
+}

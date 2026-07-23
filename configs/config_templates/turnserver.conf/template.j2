@@ -1,0 +1,88 @@
+# TURN server configuration file
+# See `turnserver --help` or https://github.com/coturn/coturn for full documentation
+
+# Basic operational parameters
+listening-ip={{ listening_ip }}
+{%- if alt_listening_ips %}
+{%- for ip in alt_listening_ips %}
+listening-ip={{ ip }}
+{%- endfor %}
+{%- endif %}
+listening-port={{ listening_port }}
+tls-listening-port={{ tls_listening_port }}
+
+# Realm and authentication
+realm={{ realm }}
+{%- if use_auth_secret %}
+static-auth-secret={{ auth_secret }}
+{%- else %}
+{%- if users %}
+{%- for user in users %}
+user={{ user.username }}:{{ user.password }}
+{%- endfor %}
+{%- else %}
+# No user credentials configured — anonymous access only (not recommended)
+{%- endif %}
+{%- endif %}
+
+# Network and relay settings
+{%- if relay_addresses %}
+{%- for addr in relay_addresses %}
+relay-address={{ addr }}
+{%- endfor %}
+{%- else %}
+relay-address={{ relay_address }}
+{%- endif %}
+{%- if external_ip %}
+external-ip={{ external_ip }}
+{%- else %}
+{%- for ip in alt_external_ips %}
+external-ip={{ ip }}
+{%- endfor %}
+{%- endif %}
+
+# Security and access control
+{%- if allow_loopback_peers %}
+allow-loopback-peers
+{%- endif %}
+{%- if deny_private_ranges %}
+deny-private-range
+{%- else %}
+allow-private
+{%- endif %}
+{%- if cipher_list %}
+cipher-list={{ cipher_list | join(':') }}
+{%- endif %}
+
+# Logging and diagnostics
+verbose={{ verbose|lower }}
+{%- if log_file %}
+log-file={{ log_file }}
+{%- endif %}
+
+# Limits and resource tuning
+max-bps={{ max_bps }}
+{%- if total_quota %}
+total-quota={{ total_quota }}
+{%- endif %}
+{%- if per_user_quota %}
+per-user-quota={{ per_user_quota }}
+{%- endif %}
+
+# Certificates (TLS)
+{%- if cert %}
+cert={{ cert }}
+{%- endif %}
+{%- if pkey %}
+pkey={{ pkey }}
+{%- endif %}
+{%- if ca_cert %}
+ca-cert={{ ca_cert }}
+{%- endif %}
+
+# Optional: Additional flags (keep last — no trailing newline required)
+{%- if extra_options %}
+{%- for opt in extra_options %}
+{{ opt }}
+{%- endfor %}
+{%- endif %}

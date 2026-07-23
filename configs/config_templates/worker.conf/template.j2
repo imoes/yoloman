@@ -1,0 +1,77 @@
+# debci-worker main configuration file
+# Sets the unique identifier for this worker instance
+worker_id: {{ worker_id }}
+
+# Number of concurrent test jobs this worker can run
+max_jobs: {{ max_jobs }}
+
+# Base directory where test artifacts and logs are stored
+work_dir: {{ work_dir }}
+
+# Directory containing test packages and metadata
+package_cache_dir: {{ package_cache_dir }}
+
+# URL of the debci coordinator (server)
+coordinator_url: {{ coordinator_url }}
+
+# Path to the API token file for authenticating with the coordinator
+api_token_file: {{ api_token_file }}
+
+# Number of seconds to wait before retrying a failed job
+retry_delay: {{ retry_delay }}
+
+# Maximum number of retry attempts for a failed job
+max_retries: {{ max_retries }}
+
+# Enable or disable verbose logging
+verbose: {{ verbose }}
+
+# Enable or disable debug logging
+# (implies verbose if enabled)
+debug: {{ debug }}
+
+# List of architectures this worker supports
+supported_architectures:
+{% for arch in supported_architectures %}  - {{ arch }}
+{% endfor %}
+
+# List of distribution releases this worker can test
+supported_releases:
+{% for release in supported_releases %}  - {{ release }}
+{% endfor %}
+
+# Additional environment variables to pass to test jobs
+environment:
+{% for key, value in environment.items() %}  {{ key }}: {{ value }}
+{% endfor %}
+
+# CPU/memory limits per job (applies to systemd cgroupv2)
+job_limits:
+  cpu_quota: {{ job_limits.cpu_quota }}
+  memory_limit: {{ job_limits.memory_limit }}
+
+# Timeout (in seconds) for individual test runs
+job_timeout: {{ job_timeout }}
+
+# Enable or disable automatic cleanup of old artifacts
+cleanup_enabled: {{ cleanup_enabled }}
+
+# Number of days after which to delete old test artifacts
+cleanup_age_days: {{ cleanup_age_days }}
+
+# Path to optional pre-test hook script
+pre_test_hook: {{ pre_test_hook }}
+
+# Path to optional post-test hook script
+post_test_hook: {{ post_test_hook }}
+
+# Enable or disable test isolation using LXC containers
+lxc_enabled: {{ lxc_enabled }}
+
+# LXC template to use (e.g., 'debian', 'ubuntu')
+lxc_template: {{ lxc_template }}
+
+# LXC distribution and release (used when lxc_template = 'download')
+lxc_distribution: {{ lxc_distribution }}
+lxc_release: {{ lxc_release }}
+lxc_architecture: {{ lxc_architecture }}

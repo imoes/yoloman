@@ -1,0 +1,64 @@
+# lpd.conf - LPRng printer spooler configuration
+# Global settings controlling daemon behavior
+
+# Enable debug logging to stderr (useful for troubleshooting)
+Debug: {{ debug | lower }}
+
+# Path to spool directory where print jobs and status files are stored
+SpoolDir: {{ spool_dir }}
+
+# User account under which lpd runs (usually 'lp')
+User: {{ lpd_user }}
+
+# Maximum number of simultaneous print jobs per queue
+MaxJobs: {{ max_jobs }}
+
+# Maximum size (in bytes) for a single print job; 0 = unlimited
+MaxJobSize: {{ max_job_size }}
+
+# Time (in seconds) to wait before giving up on a printer that fails to respond
+RemotePrinterConnectTimeout: {{ remote_printer_connect_timeout }}
+
+# Hostname to bind lpd to (empty or '*' = all interfaces)
+BindAddr: {{ bind_addr | default('*') }}
+
+# Port to listen on (default: 515)
+Port: {{ port }}
+
+# Enable/disable support for LPR protocol over IPv6
+IPv6: {{ ipv6 | lower }}
+
+# Enable/disable support for LPRng's extended protocols (e.g., LPD+ for job control)
+Extended: {{ extended | lower }}
+
+# Enable/disable print job logging to syslog
+LogJob: {{ log_job | lower }}
+
+# Logging level for lpd (0–7; higher = more verbose)
+LogLevel: {{ log_level }}
+
+# List of printers managed by this lpd instance
+# Each printer block defines queue, device, backend, and options
+{% for printer in printers %}
+# Printer: {{ printer.name }} - {{ printer.comment | default('No comment') }}
+{{ printer.name }}:dev={{ printer.device }},backend={{ printer.backend | default('') }},filter={{ printer.filter | default('') }}{% if printer.options %},{% for opt in printer.options %}{{ opt }}{% if not loop.last %},{% endif %}{% endfor %}{% endif %}
+{% if printer.auth_required %}
+# Authentication required for this queue (e.g., 'user' or 'none')
+Auth:{{ printer.name }}:user
+{% endif %}
+{% endfor %}
+
+# Optional default printer (used if no destination specified)
+# Uncomment to set a default queue
+{% if default_printer %}
+# Default queue for unspecified jobs
+DefaultQueue: {{ default_printer }}
+{% endif %}
+
+# Access control: allow/deny hosts or networks
+{% for rule in access_rules %}
+# Access control: {{ rule.action | upper }} {{ rule.source }}
+{% if rule.action == 'allow' %}Allow{{ rule.source }}
+{% elif rule.action == 'deny' %}Deny{{ rule.source }}
+{% endif %}
+{% endfor %}

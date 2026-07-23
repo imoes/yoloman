@@ -1,0 +1,19 @@
+{
+  "rescue_vol_enabled": true,
+  "rescue_vol_device": "/dev/disk/by-label/rescue",
+  "rescue_vol_path": "/rescue",
+  "rescue_vol_fstype": "ext4",
+  "rescue_vol_mount_opts": "-o ro,noatime",
+  "rescue_vol_post_mount_steps": [
+    {
+      "enabled": true,
+      "description": "Copy rescue scripts to initramfs environment",
+      "cmd": "cp -a /rescue/scripts/* /scripts/ 2>/dev/null || true"
+    },
+    {
+      "enabled": false,
+      "description": "Mount additional recovery overlay",
+      "cmd": "mount -o loop /rescue/overlay.img /overlay 2>/dev/null || true"
+    }
+  ]
+}

@@ -1,0 +1,77 @@
+{
+  "email_to": {
+    "type": "string",
+    "default": "root@localhost",
+    "description": "Email address to receive security alerts (e.g., 'admin@example.com')."
+  },
+  "log_level": {
+    "type": "string",
+    "default": "notice",
+    "description": "Logging verbosity level (debug, info, notice, warning, error, critical, alert, emergency)."
+  },
+  "log_file": {
+    "type": "string",
+    "default": "/var/log/iwatch.log",
+    "description": "Path to the iwatch log file."
+  },
+  "worker_count": {
+    "type": "number",
+    "default": 0,
+    "description": "Number of worker processes. Set to 0 to auto-detect based on CPU cores."
+  },
+  "timeout_seconds": {
+    "type": "number",
+    "default": 30,
+    "description": "Timeout (seconds) for inotify event processing before forcing a scan."
+  },
+  "use_kernel": {
+    "type": "boolean",
+    "default": true,
+    "description": "Enable kernel-based inotify monitoring (recommended; always true on modern Linux)."
+  },
+  "watch_dirs": {
+    "type": "list",
+    "default": [],
+    "description": "List of directories to monitor for file changes.",
+    "items": {
+      "type": "object",
+      "fields": {
+        "path": {
+          "type": "string",
+          "default": "/etc",
+          "description": "Absolute path of the directory to monitor."
+        },
+        "mode": {
+          "type": "string",
+          "default": "realtime",
+          "description": "Monitoring mode: 'realtime' (default), 'batch', or 'mixed'."
+        },
+        "recursive": {
+          "type": "boolean",
+          "default": true,
+          "description": "Monitor subdirectories recursively."
+        },
+        "include_pattern": {
+          "type": "string",
+          "default": ".*",
+          "description": "Regular expression pattern of files to include (default: all files)."
+        },
+        "exclude_pattern": {
+          "type": "string",
+          "default": "\\.swp$",
+          "description": "Regular expression pattern of files/directories to exclude (e.g., editor temp files)."
+        },
+        "alert": {
+          "type": "string",
+          "default": "changewatch",
+          "description": "Type of alert to send: 'changewatch', 'modwatch', 'deletewatch', or 'accesswatch'."
+        },
+        "alert_to": {
+          "type": "string",
+          "default": "",
+          "description": "Override email recipient for this directory\u2019s alerts (optional; defaults to global email_to)."
+        }
+      }
+    }
+  }
+}

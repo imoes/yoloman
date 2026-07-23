@@ -1,0 +1,73 @@
+# /etc/apparmor.conf — main AppArmor configuration
+
+# Enable/disable verbose logging during policy load
+{% if enable_verbose %}verbose{% endif %}
+
+# Maximum recursion depth for profile compilation
+{% if max_recursion is defined %}max_recursion {{ max_recursion }}{% endif %}
+
+# Include additional config files from specified directories
+{% for dir in include_dirs %}# Include directory {{ dir }}
+{% if include_dirs_verbose %}# (verbose mode for includes)
+{% endif %}{{ include_syntax }} "{{ dir }}"
+{% endfor %}
+
+# Path to auxiliary utility binaries (e.g., abstractions/, helper scripts)
+{% if helper_dir %}helperdir {{ helper_dir }}
+{% endif %}
+
+# Enable/disable inotify-based profile monitoring
+{% if enable_inotify %}inotify /etc/apparmor.d/force-complain
+{% endif %}
+
+# Global policy enforcement mode: 0 = disabled, 1 = enforce, 2 = complain
+{% if enforce_mode == 1 %}enforce
+{% elif enforce_mode == 2 %}complain
+{% elif enforce_mode == 0 %}disable
+{% endif %}
+
+# Profile cache configuration
+{% if enable_cache %}cache
+  cache_dir {{ cache_dir }}
+  cache_dir_mode {{ cache_dir_mode }}
+  cache_file_mode {{ cache_file_mode }}
+  cache_user {{ cache_user }}
+  cache_group {{ cache_group }}
+{% endif %}
+
+# Network namespace support
+{% if enable_networking %}networking
+{% endif %}
+
+# Mount namespace support
+{% if enable_mount %}mount
+{% endif %}
+
+# Signal handling (e.g., ptrace, signal)
+{% if enable_signal %}signal
+{% endif %}
+
+# Policy loading/unloading hooks
+{% if enable_hooks %}
+# Hook scripts for policy load/unload events
+hook-privileged /usr/lib/apparmor/apparmor-preload
+hook-unprivileged /usr/lib/apparmor/apparmor-preload
+{% endif %}
+
+# Debug-level logging (very verbose, not for production)
+{% if debug %}debug
+{% endif %}
+
+# Default profile behavior when profile is missing
+{% if default_complain %}complain
+{% endif %}
+
+# Use system-wide abstraction files
+{% if use_abstractions %}# Use standard abstraction files
+{% for abbr in abstractions %}{{ include_syntax }} "abstractions/{{ abbr }}"
+{% endfor %}
+{% endif %}
+
+# Include site-local profile overrides
+{% for profile in site_profiles %}{{ include_syntax }} "{{ profile }}"
+{% endfor %}

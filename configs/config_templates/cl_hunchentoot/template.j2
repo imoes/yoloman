@@ -1,0 +1,77 @@
+# -*- mode: lisp; -*-
+# Hunchentoot configuration file (loaded at startup)
+# Load required libraries
+(load "{{ library_paths | join('" "') }}")
+
+# Set the document root for static files (nil disables static file serving)
+(setf hunchentoot:*document-root* "{{ document_root }}")
+
+# Host and port to bind to (use nil for all interfaces)
+(setf hunchentoot:*host* "{{ host }}")
+(setf hunchentoot:*port* {{ port }})
+
+# Set the default content type for responses
+(setf hunchentoot:*default-content-type* "{{ default_content_type }}")
+
+# Enable/disable SSL
+{% if enable_ssl %}
+(setf hunchentoot:*ssl-certificate-file* "{{ ssl_certificate_file }}")
+(setf hunchentoot:*ssl-key-file* "{{ ssl_key_file }}")
+(setf hunchentoot:*ssl-port* {{ ssl_port }})
+{% else %}
+(setf hunchentoot:*ssl-port* nil)
+{% endif %}
+
+# Worker threads and max connections (for multi-threaded operation)
+(setf hunchentoot:*max-threads* {{ max_threads }})
+(setf hunchentoot:*max-connections* {{ max_connections }})
+
+# Request timeout in seconds
+(setf hunchentoot:*request-timeout* {{ request_timeout }})
+
+# Log level: nil (none), :debug, :info, :warn, :error, :fatal
+(setf hunchentoot:*log-level* :{{ log_level }})
+
+# Custom server log file (nil uses default *standard-output*)
+{% if custom_log_file %}
+(setf hunchentoot:*log-output*
+      (open "{{ custom_log_file }}" :direction :output :if-exists :append :if-does-not-exist :create))
+{% endif %}
+
+# MIME type mappings for static files
+(let ((mimetypes '(#-sbcl (".html" . "text/html")
+                    (".css" . "text/css")
+                    (".js"  . "application/javascript")
+                    (".json" . "application/json")
+                    (".png" . "image/png")
+                    (".jpg" . "image/jpeg")
+                    (".gif" . "image/gif")
+                    (".svg" . "image/svg+xml")
+                    (".woff" . "font/woff")
+                    (".ttf" . "font/ttf")
+                    ;; user-defined MIME types
+{% for mimetype in extra_mime_types %}}                    ("{{ mimetype.extension }}" . "{{ mimetype.mime_type }}")
+{% endfor %}                    )))
+  (setf hunchentoot:*mime-type-registry* (make-hash-table :test 'equalp))
+  (dolist (pair mimetypes)
+    (setf (gethash (car pair) hunchentoot:*mime-type-registry*) (cdr pair))))
+
+# Enable/disable directory listing
+(setf hunchentoot:*directory-template* {{ directory_template | default('nil') }})
+
+# Define dispatchers (URL routing)
+{% for route in routes %}# Route: {{ route.path }} -> {{ route.handler }}
+(push (create-prefix-dispatcher "{{ route.path }}" #'{{ route.handler }})
+      hunchentoot:*dispatch-table*)
+{% endfor %}
+
+# Start the server (non-blocking)
+(hunchentoot:start-server
+  :host hunchentoot:*host*
+  :port hunchentoot:*port*
+{% if enable_ssl %}
+  :ssl-certificate-file hunchentoot:*ssl-certificate-file*
+  :ssl-key-file hunchentoot:*ssl-key-file*
+{% endif %}
+  :max-threads hunchentoot:*max-threads*
+  :max-connections hunchentoot:*max-connections*)

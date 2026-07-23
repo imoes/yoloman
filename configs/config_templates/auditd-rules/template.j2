@@ -1,0 +1,23 @@
+# Format: -a <list> <action> -F <field>=<value> <syscall>
+# Add a syscall audit rule for monitoring
+{% for rule in audit_rules.syscall_rules %}# {{ rule.description }}
+-a {{ rule.list }} -F {{ rule.field }}={{ rule.value }} {{ rule.syscall }}
+{% endfor %}
+
+# Add a file/directory watch rule
+{% for rule in audit_rules.watch_rules %}# {{ rule.description }}
+-w {{ rule.path }} -p {{ rule.permissions }} -k {{ rule.key }}
+{% endfor %}
+
+# Add an exclude rule (e.g., for specific users or paths)
+{% for rule in audit_rules.exclude_rules %}# {{ rule.description }}
+-a always,exit -F path={{ rule.path }} -F perm={{ rule.permissions }} -F key={{ rule.key }}
+{% endfor %}
+
+# Global settings
+-D
+-b {{ audit_rules.max_buffers }}
+-f {{ audit_rules.failure_mode }}
+{% if audit_rules.log_format == 'raw' %}-r {{ audit_rules.rate_limit }}
+{% else %}-l
+{% endif %}

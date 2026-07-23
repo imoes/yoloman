@@ -1,0 +1,62 @@
+# Core mini-buildd daemon configuration
+# (Generated from /etc/mini-buildd/mini-buildd.conf)
+
+debian:
+  # Distribution codenames to support (sources and targets)
+  suites: [{%- for suite in debian.suites %}{{ suite }}{{ ', ' if not loop.last else '' }}{%- endfor %}]
+  # Architectures to build for
+  architectures: [{%- for arch in debian.architectures %}{{ arch }}{{ ', ' if not loop.last else '' }}{%- endfor %}]
+  # GPG keyring for package verification
+  keyring: {{ debian.keyring }}
+
+repositories:
+  # List of APT repositories used for builds (sources + updates)
+  {%- for repo in repositories %}
+  - url: {{ repo.url }}
+    dist: {{ repo.dist }}
+    components: [{%- for comp in repo.components %}{{ comp }}{{ ', ' if not loop.last else '' }}{%- endfor %}]
+    key: {{ repo.key }}
+  {%- endfor %}
+
+paths:
+  # Base directory for chroots, builds, and logs
+  chroot_base: {{ paths.chroot_base }}
+  log_dir: {{ paths.log_dir }}
+  cache_dir: {{ paths.cache_dir }}
+
+# Worker & daemon behavior
+daemon:
+  # Hostname or IP to bind the HTTP API server to
+  bind_host: {{ daemon.bind_host }}
+  # Port for the HTTP API (admin & status endpoints)
+  api_port: {{ daemon.api_port }}
+  # Maximum concurrent builds
+  max_builds: {{ daemon.max_builds }}
+  # Number of worker processes for background tasks
+  worker_count: {{ daemon.worker_count }}
+  # Enable HTTPS for API (requires certificate & key)
+  use_https: {{ daemon.use_https }}
+  # Path to SSL certificate (used if use_https: true)
+  cert_file: {{ daemon.cert_file }}
+  # Path to SSL private key (used if use_https: true)
+  key_file: {{ daemon.key_file }}
+
+# Notification settings (optional; empty if not used)
+notifications:
+  # Enable email alerts on build success/failure
+  email_enabled: {{ notifications.email_enabled }}
+  # Email addresses to notify (list)
+  email_recipients: [{%- for addr in notifications.email_recipients %}{{ addr }}{{ ', ' if not loop.last else '' }}{%- endfor %}]
+  # SMTP server for outbound mail
+  smtp_host: {{ notifications.smtp_host }}
+  smtp_port: {{ notifications.smtp_port }}
+  smtp_use_tls: {{ notifications.smtp_use_tls }}
+
+# Build options
+build:
+  # Time limit (seconds) per build job
+  timeout: {{ build.timeout }}
+  # Whether to keep successful build artifacts (chroot snapshots)
+  keep_success_artifacts: {{ build.keep_success_artifacts }}
+  # Default builder package to install in chroots
+  default_packages: [{%- for pkg in build.default_packages %}{{ pkg }}{{ ', ' if not loop.last else '' }}{%- endfor %}]

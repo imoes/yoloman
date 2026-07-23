@@ -1,0 +1,52 @@
+[Interface]
+# Address: IPv4 and/or IPv6 addresses for this WireGuard interface
+Address = {{ interface.addresses | join(', ') }}
+
+# ListenPort: UDP port on which the interface listens for incoming packets
+ListenPort = {{ interface.listen_port }}
+
+# PrivateKey: Base64-encoded private key for this interface (must be kept secret)
+PrivateKey = {{ interface.private_key }}
+
+# PreSharedKey: Optional pre-shared key for additional symmetric encryption
+{% if interface.preshared_key is defined and interface.preshared_key %}PreSharedKey = {{ interface.preshared_key }}
+{% endif %}
+
+# MTU: Optional maximum transmission unit override (default: auto-detected)
+{% if interface.mtu is defined and interface.mtu %}MTU = {{ interface.mtu }}
+{% endif %}
+
+# SaveConfig: Whether to persist peer configuration changes to disk on shutdown (true/false)
+{% if interface.save_config is defined %}SaveConfig = {{ interface.save_config | lower }}
+{% endif %}
+
+# PostUp/PostDown: Commands executed when interface is brought up/down (semicolon-separated for multiple)
+{% if interface.post_up is defined and interface.post_up %}PostUp = {{ interface.post_up }}
+{% endif %}
+{% if interface.post_down is defined and interface.post_down %}PostDown = {{ interface.post_down }}
+{% endif %}
+
+# DNS: Optional list of DNS servers to configure when interface is up
+{% if interface.dns is defined and interface.dns %}DNS = {{ interface.dns | join(', ') }}
+{% endif %}
+
+{% for peer in peers %}[Peer]
+# PublicKey: Base64-encoded public key of the peer
+PublicKey = {{ peer.public_key }}
+
+# AllowedIPs: Comma-separated CIDRs this peer may route through this interface
+AllowedIPs = {{ peer.allowed_ips | join(', ') }}
+
+# Endpoint: Host:port of the peer for persistent communication (optional for dynamic peers)
+{% if peer.endpoint is defined and peer.endpoint %}Endpoint = {{ peer.endpoint }}
+{% endif %}
+
+# PresharedKey: Optional per-peer pre-shared key (overrides interface-level if present)
+{% if peer.preshared_key is defined and peer.preshared_key %}PreSharedKey = {{ peer.preshared_key }}
+{% endif %}
+
+# PersistentKeepalive: Interval (in seconds) to send keepalive packets (0 = disabled)
+{% if peer.persistent_keepalive is defined and peer.persistent_keepalive > 0 %}PersistentKeepalive = {{ peer.persistent_keepalive }}
+{% endif %}
+
+{% endfor %}

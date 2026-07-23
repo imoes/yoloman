@@ -1,0 +1,33 @@
+# Listen interface for ARP responses
+INTERFACE="{{ interface }}"
+
+# IP address to respond with for ARP requests
+TARGET_IP="{{ target_ip }}"
+
+# MAC address to claim (hex format, colon-separated)
+TARGET_MAC="{{ target_mac }}"
+
+# Enable verbose logging to syslog
+{{ '# ' if not debug else '' }}DEBUG={{ debug | string | lower }}
+
+# Maximum number of pending ARP requests (0 = unlimited)
+MAX_PENDING={{ max_pending }}
+
+# Prefix for log messages (syslog identifier)
+LOG_PREFIX="{{ log_prefix }}"
+
+# List of allowed source IP ranges (CIDR notation, one per line)
+{% for cidr in allowed_sources %}ALLOWED_SRC="{{ cidr }}"
+{% endfor %}
+
+# Toggle gratuitous ARP on startup
+{{ '# ' if not gratuitous_arp else '' }}GRATUITOUS_ARP={{ gratuitous_arp | string | lower }}
+
+# Delay (milliseconds) before sending gratuitous ARP
+GRATUITOUS_DELAY={{ gratuitous_delay }}
+
+# Timeout (seconds) for stale ARP entries cleanup
+ARP_TIMEOUT={{ arp_timeout }}
+
+# Command to run after ARP reply is sent (optional, passed interface, src_ip, target_ip)
+POST_REPLY_HOOK="{{ post_reply_hook }}"

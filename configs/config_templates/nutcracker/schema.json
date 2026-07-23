@@ -1,0 +1,162 @@
+{
+  "servers": {
+    "type": "list",
+    "default": [],
+    "description": "List of server pools (groups). Each pool defines a set of backend memcached/Redis instances.",
+    "items": {
+      "type": "object",
+      "fields": {
+        "name": {
+          "type": "string",
+          "default": "",
+          "description": "Unique name for the server pool (e.g., 'redis-cache', 'memcached-sessions')."
+        },
+        "listen": {
+          "type": "string",
+          "default": "",
+          "description": "Address (host:port) or Unix socket path where Nutcracker listens for client connections (e.g., '0.0.0.0:6379', '/var/run/nutcracker.sock')."
+        },
+        "hash": {
+          "type": "string",
+          "default": "djb2",
+          "description": "Hash algorithm used to distribute keys among backends. Options: 'djb2', 'md5', 'crc16', 'crc32', 'fnv1_64', 'fnv1a_64', 'fnv1_32', 'fnv1a_32', 'hsieh', 'murmur', 'jenkins'."
+        },
+        "hash_tag": {
+          "type": "string",
+          "default": "",
+          "description": "Two-character tag used to extract part of a key for hashing (e.g., '{}', '%%'). Keys are hashed only over the substring between the first and second tag occurrence."
+        },
+        "distribution": {
+          "type": "string",
+          "default": "ketama",
+          "description": "Key distribution strategy. 'ketama' (consistent hashing) or 'random' (round-robin)."
+        },
+        "timeout": {
+          "type": "number",
+          "default": 4000,
+          "description": "Timeout in milliseconds for backend connections and requests."
+        },
+        "backlog": {
+          "type": "number",
+          "default": 1024,
+          "description": "TCP backlog size for listening socket."
+        },
+        "preconnect": {
+          "type": "boolean",
+          "default": false,
+          "description": "Whether to preconnect to all backends on startup."
+        },
+        "auto_eject_hosts": {
+          "type": "boolean",
+          "default": false,
+          "description": "Whether to automatically eject failed hosts (requires `server_failure_limit` and `server_retry_timeout`)."
+        },
+        "server_retry_timeout": {
+          "type": "number",
+          "default": 30000,
+          "description": "Retry timeout (ms) before attempting to reconnect to an ejected host."
+        },
+        "server_failure_limit": {
+          "type": "number",
+          "default": 2,
+          "description": "Number of consecutive failures before a host is ejected."
+        },
+        "connections": {
+          "type": "number",
+          "default": 1,
+          "description": "Maximum number of connections per backend."
+        },
+        "weights": {
+          "type": "string",
+          "default": "",
+          "description": "Comma-separated list of weights (e.g., '1,1,2') \u2014 used only if distribution is 'random' and weighted round-robin is desired."
+        },
+        "proto": {
+          "type": "string",
+          "default": "auto",
+          "description": "Protocol to use: 'auto', 'memcache', or 'redis'."
+        },
+        "stats_port": {
+          "type": "number",
+          "default": 0,
+          "description": "Port for per-pool stats (0 = disabled). If 0, falls back to global stats port."
+        },
+        "stats_interval": {
+          "type": "number",
+          "default": 0,
+          "description": "Stats update interval (ms) for this pool (0 = inherit global)."
+        },
+        "stats_admin": {
+          "type": "string",
+          "default": "",
+          "description": "Admin interface path (e.g., '/admin') for this pool's stats endpoint."
+        },
+        "redis": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enable Redis-specific features (e.g., support for Redis transactions, errors)."
+        },
+        "instances": {
+          "type": "list",
+          "default": [],
+          "description": "List of backend instances in this pool.",
+          "items": {
+            "type": "object",
+            "fields": {
+              "host": {
+                "type": "string",
+                "default": "",
+                "description": "Hostname or IP address of the backend."
+              },
+              "port": {
+                "type": "number",
+                "default": 6379,
+                "description": "Port number of the backend (e.g., 6379 for Redis)."
+              },
+              "weight": {
+                "type": "number",
+                "default": 1,
+                "description": "Weight for this backend (used in ketama hashing or weighted random)."
+              },
+              "timeout": {
+                "type": "number",
+                "default": 0,
+                "description": "Per-instance timeout (ms) \u2014 overrides pool timeout if > 0."
+              },
+              "family": {
+                "type": "string",
+                "default": "",
+                "description": "IP address family: 'inet' (IPv4) or 'inet6' (IPv6). Auto-detected if omitted."
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "log_level": {
+    "type": "string",
+    "default": "info",
+    "description": "Logging verbosity level: 'debug', 'info', 'warn', 'error'."
+  },
+  "log_location": {
+    "type": "string",
+    "default": "/var/log/nutcracker/nutcracker.log",
+    "description": "Path to log file. Use '-' for stdout."
+  },
+  "stats_port": {
+    "type": "number",
+    "default": 22222,
+    "description": "Global port for Nutcracker stats (e.g., /stats.json)."
+  },
+  "stats_interval": {
+    "type": "number",
+    "default": 30000,
+    "description": "Global interval (ms) for updating stats."
+  },
+  "client_connections": {
+    "type": "number",
+    "default": 0,
+    "description": "Maximum number of client connections (0 = unlimited)."
+  }
+}

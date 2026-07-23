@@ -1,0 +1,87 @@
+[# General configuration]
+[General]
+# Backend to use for LCD device
+Backend = {{ general.backend }}
+# Device path (e.g., /dev/lcd0 or USB bus info)
+Device = {{ general.device }}
+# LCD width in pixels (or characters for text-only displays)
+Width = {{ general.width }}
+# LCD height in pixels (or lines)
+Height = {{ general.height }}
+# Font to use for text rendering (e.g., '7x13', 'fixed', 'miscfixed')
+Font = {{ general.font }}
+# Update interval in milliseconds
+UpdateInterval = {{ general.update_interval }}
+# Flip display vertically
+FlipY = {{ general.flip_y | lower }}
+
+[# Layout definition]
+[Layout.Default]
+# Display refresh order and content
+Row1 = {{ layout.row1 }}
+Row2 = {{ layout.row2 }}
+Row3 = {{ layout.row3 }}
+Row4 = {{ layout.row4 }}
+
+[# Optional extra rows for 4-line displays]
+{% if layout.extra_rows %}
+Row5 = {{ layout.extra_rows[0] }}
+Row6 = {{ layout.extra_rows[1] }}
+Row7 = {{ layout.extra_rows[2] }}
+Row8 = {{ layout.extra_rows[3] }}
+{% endif %}
+
+[# Widget definitions — dynamic per-site]
+{% for widget in widgets %}
+# Widget: {{ widget.name }}
+[Widget.{{ widget.name }}]
+Type = {{ widget.type }}
+Driver = {{ widget.driver }}
+{% if widget.align is not none %}
+Align = {{ widget.align }}
+{% endif %}
+{% if widget.width is not none %}
+Width = {{ widget.width }}
+{% endif %}
+{% if widget.height is not none %}
+Height = {{ widget.height }}
+{% endif %}
+{% if widget.x is not none %}
+X = {{ widget.x }}
+{% endif %}
+{% if widget.y is not none %}
+Y = {{ widget.y }}
+{% endif %}
+{% if widget.update_interval is not none %}
+UpdateInterval = {{ widget.update_interval }}
+{% endif %}
+{% if widget.color is not none %}
+Color = {{ widget.color }}
+{% endif %}
+{% if widget.bgcolor is not none %}
+BgColor = {{ widget.bgcolor }}
+{% endif %}
+{% if widget.font is not none %}
+Font = {{ widget.font }}
+{% endif %}
+{% if widget.source is not none %}
+Source = {{ widget.source }}
+{% endif %}
+{% if widget.format is not none %}
+Format = {{ widget.format }}
+{% endif %}
+{% if widget.oneline is not none %}
+OneLine = {{ widget.oneline | lower }}
+{% endif %}
+{% if widget.threshold is not none %}
+Threshold = {{ widget.threshold }}
+{% endif %}
+{% endfor %}
+
+[# Backend-specific options (example: FBv5 framebuffer backend)]
+{% if backend_options %}
+[Backend.{{ general.backend }}]
+{% for key, value in backend_options.items() %}
+{{ key }} = {{ value }}
+{% endfor %}
+{% endif %}

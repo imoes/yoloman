@@ -1,0 +1,153 @@
+{
+  "heartbeat_interval": {
+    "type": "number",
+    "default": 20,
+    "description": "Interval in seconds between heartbeat signals. Set to 0 to disable."
+  },
+  "workers": {
+    "type": "number",
+    "default": 2,
+    "description": "Number of worker threads for event processing. Use 0 for auto-detection."
+  },
+  "ctable_size": {
+    "type": "number",
+    "default": 262144,
+    "description": "Maximum number of connection tracking entries to cache in memory."
+  },
+  "log_level": {
+    "type": "string",
+    "default": "info",
+    "description": "Verbosity level for logging output."
+  },
+  "sync_mode": {
+    "type": "string",
+    "default": "firewall",
+    "description": "Synchronization mode: 'firewall' for HA with failover, 'standard' for passive sync, 'userspace' for advanced use."
+  },
+  "sync_interface": {
+    "type": "string",
+    "default": "",
+    "description": "Network interface used for sync traffic (required for unicast/multicast)."
+  },
+  "sync_protocol": {
+    "type": "string",
+    "default": "tcp",
+    "description": "Transport protocol for sync traffic."
+  },
+  "sync_bind_address": {
+    "type": "string",
+    "default": "",
+    "description": "Local IP address to bind for sync traffic. Defaults to all interfaces."
+  },
+  "sync_port": {
+    "type": "number",
+    "default": 3780,
+    "description": "Port to use for TCP/UDP sync communication."
+  },
+  "sync_multicast_group": {
+    "type": "string",
+    "default": "",
+    "description": "Multicast IP address for broadcast/multicast sync (e.g., 225.0.0.50)."
+  },
+  "sync_siblings": {
+    "type": "list",
+    "default": [],
+    "items": {
+      "type": "object",
+      "properties": {
+        "ip": {
+          "type": "string",
+          "required": true,
+          "description": "IP address of sibling node."
+        },
+        "port": {
+          "type": "number",
+          "default": 3780,
+          "description": "Port on sibling node (defaults to global sync port)."
+        }
+      }
+    },
+    "description": "List of peer nodes for unicast synchronization. Format: [{ip: '10.0.0.2'}, ...]."
+  },
+  "sync_flush_on_timeout": {
+    "type": "boolean",
+    "default": false,
+    "description": "Whether to flush local connection tracking table on sync timeout."
+  },
+  "sync_heartbeat_enabled": {
+    "type": "boolean",
+    "default": true,
+    "description": "Enable/disable heartbeat messages in sync protocol."
+  },
+  "log_target": {
+    "type": "string",
+    "default": "/var/log/conntrackd.log",
+    "description": "Path to log file (or 'syslog' to use system logging)."
+  },
+  "event_filters": {
+    "type": "list",
+    "default": [],
+    "items": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "enum": [
+            "Address",
+            "Protocol",
+            "Timeout",
+            "Type"
+          ],
+          "required": true,
+          "description": "Filter category."
+        },
+        "value": {
+          "type": "string",
+          "description": "Value to filter on (e.g., 'tcp', '192.168.1.0/24')."
+        }
+      }
+    },
+    "description": "List of filters to exclude specific events from synchronization."
+  },
+  "cache_tables": {
+    "type": "object",
+    "default": {
+      "tcp": {
+        "established": 432000,
+        "close_wait": 60,
+        "time_wait": 120
+      }
+    },
+    "description": "Custom timeout values for connection tracking entries (keys: tcp, udp, icmp, other)."
+  },
+  "nl_socket_buf_size": {
+    "type": "number",
+    "default": 131072,
+    "description": "Netlink socket receive buffer size (bytes)."
+  },
+  "nl_socket_buf_maxsize": {
+    "type": "number",
+    "default": 262144,
+    "description": "Netlink socket receive buffer maximum size (bytes)."
+  },
+  "external_cache_enabled": {
+    "type": "boolean",
+    "default": false,
+    "description": "Enable external cache for advanced use cases (e.g., with LVS)."
+  },
+  "failover_mechanism": {
+    "type": "string",
+    "default": "active",
+    "description": "HA mode: 'active' (primary node syncs and accepts new connections), 'backup' (passive), or 'none' (disabled)."
+  },
+  "ha_node_id": {
+    "type": "number",
+    "default": 1,
+    "description": "Unique node identifier for HA cluster (1\u2013255)."
+  },
+  "ha_secret": {
+    "type": "string",
+    "default": "",
+    "description": "Shared secret for authentication in HA mode (must be identical on all nodes)."
+  }
+}

@@ -1,0 +1,61 @@
+{
+  "hosts": {
+    "type": "list",
+    "default": [],
+    "description": "List of static host entries to configure in bootptab. Each entry maps a hostname/IP to boot parameters.",
+    "items": {
+      "type": "object",
+      "properties": {
+        "hostname": {
+          "type": "string",
+          "default": "",
+          "description": "Hostname (DNS name or alias) of the client. Must be unique per entry."
+        },
+        "ip": {
+          "type": "string",
+          "default": "",
+          "description": "Static IP address to assign to this client (required for BOOTP/DHCP static mapping)."
+        },
+        "bootp_file": {
+          "type": "string",
+          "default": "",
+          "description": "Path to the boot file (relative to TFTP root) to download during PXE/BOOTP. If empty, defaults to '/tftpboot/<hostname>'."
+        },
+        "root_path": {
+          "type": "string",
+          "default": "",
+          "description": "NFS root path for diskless clients. If empty, defaults to '/nfsroot/<hostname>'."
+        },
+        "swap_path": {
+          "type": "string",
+          "default": "",
+          "description": "NFS path for swap space. If empty, defaults to '/nfsroot/<hostname>/swap'."
+        },
+        "core_dump_path": {
+          "type": "string",
+          "default": "",
+          "description": "NFS path where core dumps should be stored. If empty, defaults to '/nfsroot/<hostname>/core'."
+        },
+        "bootp_lease": {
+          "type": "number",
+          "default": 3600,
+          "description": "Lease duration (in seconds) for BOOTP requests."
+        },
+        "dhcp_lease": {
+          "type": "number",
+          "default": 86400,
+          "description": "Lease duration (in seconds) for DHCP requests."
+        },
+        "options": {
+          "type": "object",
+          "default": {},
+          "description": "Additional BOOTP/DHCP options as key-value pairs (e.g., {'gateway': '192.168.1.1', 'dns_servers': '8.8.8.8,8.8.4.4'})."
+        }
+      },
+      "required": [
+        "hostname",
+        "ip"
+      ]
+    }
+  }
+}

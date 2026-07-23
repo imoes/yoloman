@@ -1,0 +1,92 @@
+# Listen on this address and port
+bind: {{ bind_address }}:{{ port }}
+
+# Maximum number of incoming connections
+max-connections: {{ max_connections }}
+
+# Number of worker threads (0 = auto, based on CPU cores)
+worker: {{ worker_count }}
+
+# Timeout for request headers (seconds)
+request-header-timeout: {{ request_header_timeout }}
+
+# Timeout for request body (seconds)
+request-body-timeout: {{ request_body_timeout }}
+
+# Timeout for response (seconds)
+response-timeout: {{ response_timeout }}
+
+# Maximum size of request body (bytes) — 0 means unlimited
+max-request-body-size: {{ max_request_body_size }}
+
+# Enable/disable gzip compression
+compression: {{ compression_enabled }}
+
+# Enable/disable TLS (requires certificate and key paths)
+{% if tls_enabled %}
+tls: on
+certificate: {{ tls_certificate_path }}
+key: {{ tls_key_path }}
+{% else %}
+tls: off
+{% endif %}
+
+# Access log file path (empty = disable)
+access-log: {{ access_log_path }}
+
+# Error log file path (empty = disable)
+error-log: {{ error_log_path }}
+
+# Logging level (debug, info, warn, error)
+log-level: {{ log_level }}
+
+# MIME types mapping file (optional)
+{% if mime_types_path %}
+mime-types: {{ mime_types_path }}
+{% endif %}
+
+# Virtual host configurations
+{% for host in virtual_hosts %}
+# Virtual host: {{ host.name }}
+host: {{ host.name }}
+root: {{ host.document_root }}
+index: {{ host.index_files | join(', ') }}
+{% if host.enable_directory_listing %}
+directory-listing: on
+{% else %}
+directory-listing: off
+{% endif %}
+{% endfor %}
+
+# Static file caching (seconds, 0 = disable)
+static-cache-time: {{ static_cache_time }}
+
+# Enable/disable HTTP/2 (requires TLS)
+{% if http2_enabled %}
+http2: on
+{% else %}
+http2: off
+{% endif %}
+
+# Graceful shutdown timeout (seconds)
+shutdown-timeout: {{ shutdown_timeout }}
+
+# Enable/disable X-Frame-Options header
+{% if x_frame_options_enabled %}
+x-frame-options: SAMEORIGIN
+{% else %}
+x-frame-options: off
+{% endif %}
+
+# Enable/disable X-Content-Type-Options header
+{% if x_content_type_options_enabled %}
+x-content-type-options: nosniff
+{% else %}
+x-content-type-options: off
+{% endif %}
+
+# Additional HTTP headers to add to all responses
+{% for header in custom_headers %}
+# Custom header: {{ header.name }}
+header: {{ header.name }}: {{ header.value }}
+{% endfor %}

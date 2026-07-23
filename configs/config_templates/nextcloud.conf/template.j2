@@ -1,0 +1,39 @@
+[Plugin]
+Name=Nextcloud
+
+# Base URL of the Nextcloud instance
+Server={{ server_url }}
+
+# Authentication credentials (typically handled by the account framework)
+Username={{ username }}
+Password={{ password }}
+
+# OAuth 2.0 configuration (optional; if omitted, basic auth is used)
+{% if oauth_enabled %}
+OAuthEnabled=true
+OAuthClientID={{ oauth_client_id }}
+OAuthClientSecret={{ oauth_client_secret }}
+OAuthTokenEndpoint={{ oauth_token_endpoint }}
+OAuthAuthorizeEndpoint={{ oauth_authorize_endpoint }}
+OAuthScopes={{ oauth_scopes | join(' ') }}
+{% else %}
+OAuthEnabled=false
+{% endif %}
+
+# Sync behavior controls
+{% if enable_calendar %}
+CalendarEnabled=true
+CalendarPath={{ calendar_path }}
+{% else %}
+CalendarEnabled=false
+{% endif %}
+{% if enable_contacts %}
+ContactsEnabled=true
+ContactsPath={{ contacts_path }}
+{% else %}
+ContactsEnabled=false
+{% endif %}
+
+# Advanced tuning
+Timeout={{ timeout }}
+VerifySSL={{ 'true' if verify_ssl else 'false' }}

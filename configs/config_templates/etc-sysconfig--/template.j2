@@ -1,0 +1,46 @@
+# SysV init and systemd environment file for service-specific configuration
+# Format: KEY=VALUE or KEY="VALUE with spaces"
+# Comments begin with '#'
+
+# Shell options: set -e exits script on first error; -u errors on unset vars
+SHELL=/bin/bash
+
+# Default umask for processes spawned by this service
+UMASK=022
+
+# Timeout for service shutdown (in seconds)
+TIMEOUT={{ timeout }}
+
+# Service-specific network binding (host:port or IP:port)
+LISTEN={{ listen_addr }}:{{ listen_port }}
+
+# Working directory for the service
+WORKING_DIRECTORY={{ work_dir }}
+
+# User and group to run the service as
+USER={{ user }}
+GROUP={{ group }}
+
+# Maximum number of open file descriptors (ulimit -n)
+NOFILE={{ nofile_limit }}
+
+# Maximum number of processes (ulimit -u)
+NPROC={{ nproc_limit }}
+
+# Environment variables passed to the service (space-separated key=value pairs)
+{% for env in env_vars %}{{ env.key }}={{ env.value }}
+{% endfor %}
+
+# Optional: Extra arguments passed to the binary
+{% if extra_args %}EXTRA_ARGS={{ extra_args | join(' ') }}
+{% endif %}
+
+# Optional: SELinux context (e.g., for container runtimes or custom policies)
+{% if selinux_context %}SELINUX_CONTEXT={{ selinux_context }}
+{% endif %}
+
+# Optional: Restart behavior: always|on-failure|on-abnormal|on-abort|never
+RESTART={{ restart_policy }}
+
+# Restart delay (seconds) after unexpected exit
+RESTARTSec={{ restart_sec }}

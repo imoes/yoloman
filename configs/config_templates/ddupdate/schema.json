@@ -1,0 +1,107 @@
+{
+  "debug": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable verbose debug logging to stderr."
+  },
+  "policy": {
+    "type": "string",
+    "default": "first_ok",
+    "description": "Policy for handling multiple services (e.g., 'first_ok' = stop after first successful update)."
+  },
+  "plugin_dir": {
+    "type": "string",
+    "default": "/usr/lib/ddupdate",
+    "description": "Directory where plugin modules (.py or .so) are stored."
+  },
+  "data_dir": {
+    "type": "string",
+    "default": "/var/lib/ddupdate",
+    "description": "Directory for runtime data (e.g., last IP cache)."
+  },
+  "network_timeout": {
+    "type": "number",
+    "default": 30,
+    "description": "Network request timeout in seconds."
+  },
+  "enable_ipv6": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable IPv6 detection and updates if available."
+  },
+  "services": {
+    "type": "list",
+    "default": [],
+    "description": "List of named services to enable (each service has a plugin and optional custom options).",
+    "items": {
+      "type": "object",
+      "fields": {
+        "name": {
+          "type": "string",
+          "default": "",
+          "description": "Unique identifier for the service (e.g., 'my-dyndns')."
+        },
+        "plugin": {
+          "type": "string",
+          "default": "",
+          "description": "Name of the plugin to use (e.g., 'dnsimple', 'cloudflare')."
+        },
+        "options": {
+          "type": "object",
+          "default": {},
+          "description": "Plugin-specific key-value options (e.g., {'api_key': 'abc123', 'zone': 'example.com'})."
+        }
+      }
+    }
+  },
+  "hosts": {
+    "type": "list",
+    "default": [],
+    "description": "List of hostname entries to update.",
+    "items": {
+      "type": "object",
+      "fields": {
+        "hostname": {
+          "type": "string",
+          "default": "",
+          "description": "Fully qualified domain name (FQDN) to update."
+        },
+        "provider": {
+          "type": "string",
+          "default": "",
+          "description": "Service provider name (must match one defined in 'services')."
+        },
+        "plugin": {
+          "type": "string",
+          "default": "",
+          "description": "Override plugin name (if different from service's plugin). Optional."
+        },
+        "address_type": {
+          "type": "string",
+          "default": "ipv4",
+          "description": "Address type to use: 'ipv4', 'ipv6', or 'dual'."
+        },
+        "address_source": {
+          "type": "string",
+          "default": "default",
+          "description": "Method to determine IP: 'default', 'web', 'ifconfig', 'local'."
+        }
+      }
+    }
+  },
+  "global_options": {
+    "type": "object",
+    "default": {},
+    "description": "Global plugin configuration (e.g., default credentials, API tokens). Used when per-service options are absent."
+  },
+  "log_file": {
+    "type": "string",
+    "default": "",
+    "description": "Path to log file (if empty, logs to stderr only)."
+  },
+  "log_level": {
+    "type": "string",
+    "default": "info",
+    "description": "Minimum log level: 'debug', 'info', 'warning', 'error', or 'critical'."
+  }
+}

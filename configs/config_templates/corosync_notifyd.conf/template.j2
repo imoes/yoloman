@@ -1,0 +1,46 @@
+# corosync_notifyd configuration
+# Controls how corosync_notifyd sends notifications (email, syslog, etc.)
+
+# Enable or disable corosync_notifyd
+enabled: {{ enabled }}
+
+# Logging verbosity: 'debug', 'info', 'notice', 'warning', 'error', 'crit', 'alert', 'emerg'
+log_level: "{{ log_level }}"
+
+# Path to the main corosync configuration file (usually auto-detected)
+corosync_config: "{{ corosync_config }}"
+
+# Notification backends — one per event type
+notifications:
+{% for n in notifications %}  # {{ n.type }} notifications: {{ n.description }}
+  - type: {{ n.type }}
+    enabled: {{ n.enabled }}
+    {% if n.backend == 'email' %}# Email notification settings
+    backend: email
+    to: {{ n.to | join(', ') }}
+    from: "{{ n.from }}"
+    smtp_host: "{{ n.smtp_host }}"
+    smtp_port: {{ n.smtp_port }}
+    {% if n.smtp_use_tls %}smtp_use_tls: true
+    {% else %}smtp_use_tls: false{% endif %}
+    {% endif %}
+    {% if n.backend == 'syslog' %}# Syslog notification settings
+    backend: syslog
+    facility: "{{ n.facility }}"
+    priority: "{{ n.priority }}"
+    {% endif %}
+    {% if n.backend == 'exec' %}# Execute external program on event
+    backend: exec
+    command: "{{ n.command }}"
+    # Optional: environment variables passed to the command
+    environment:
+{% for k, v in n.environment.items() %}      {{ k }}: "{{ v }}"
+{% endfor %}{% endif %}
+{% endfor %}
+
+# Global rate limiting (max events per interval)
+rate_limit:
+  # Max events to send per interval
+  max_events: {{ rate_limit.max_events }}
+  # Time window in seconds for max_events
+  window_seconds: {{ rate_limit.window_seconds }}

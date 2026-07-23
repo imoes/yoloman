@@ -1,0 +1,30 @@
+{# Cloudflare API email #}
+"email": "{{ cloudflare_email }}",
+
+{# Cloudflare API key (Global API Key or Origin CA Key) #}
+"key": "{{ cloudflare_api_key }}",
+
+{# List of domains and records to manage #}
+"domains": [
+{% for domain in domains %}
+  {
+    "domain": "{{ domain.name }}",
+    "records": [
+{% for record in domain.records %}
+      {
+        "name": "{{ record.name }}",
+        "type": "{{ record.type }}",
+        "ttl": {{ record.ttl }},
+        "proxied": {{ 'true' if record.proxied else 'false' }}
+      }{% if not loop.last %},{% endif %}
+{% endfor %}
+    ]
+  }{% if not loop.last %},{% endif %}
+{% endfor %}
+],
+
+{# Interval (in seconds) between updates #}
+"interval": {{ update_interval }},
+
+{# Enable debug logging #}
+"debug": {{ 'true' if debug else 'false' }}

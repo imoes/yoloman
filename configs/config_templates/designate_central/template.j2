@@ -1,0 +1,115 @@
+[DEFAULT]
+# Log level for the designate-central service
+log_level = {{ log_level }}
+
+# Base directory for designate data and state
+base_dir = {{ base_dir }}
+
+# Path to the PID file
+pid_file = {{ pid_file }}
+
+# Hostname or IP address the central daemon will bind to for RPC communication
+host = {{ host }}
+
+# Port used for RPC communication (default 9001 is common but not fixed)
+port = {{ rpc_port }}
+
+# Number of workers for the central service
+workers = {{ workers }}
+
+# Maximum number of tasks that can be queued
+max_tasks = {{ max_tasks }}
+
+# Enable or disable the central service
+enabled = {{ enabled }}
+
+[service:central]
+# Enable RPC notifications for service state
+enable_rpc = {{ enable_rpc }}
+
+# Enable or disable DNS zone management via central service
+enabled = {{ central_enabled }}
+
+# Maximum number of DNS records per zone
+max_records_per_zone = {{ max_records_per_zone }}
+
+# Maximum number of DNS zones per tenant
+max_zones_per_tenant = {{ max_zones_per_tenant }}
+
+# Default TTL for DNS records (in seconds)
+default_ttl = {{ default_ttl }}
+
+# Default refresh interval for SOA records (in seconds)
+default_refresh = {{ default_refresh }}
+
+# Default retry interval for SOA records (in seconds)
+default_retry = {{ default_retry }}
+
+# Default expire time for SOA records (in seconds)
+default_expire = {{ default_expire }}
+
+# Default minimum TTL for SOA records (in seconds)
+default_minimum = {{ default_minimum }}
+
+# Enable or disable SOA serial number updates via IXFR (requires backend support)
+ixfr_enabled = {{ ixfr_enabled }}
+
+# Enable or disable SOA serial number updates via AXFR (full transfer)
+axfr_enabled = {{ axfr_enabled }}
+
+[storage:sqlalchemy]
+# Database connection string
+connection = {{ database.connection }}
+
+# Pool size for database connections
+pool_size = {{ database.pool_size }}
+
+# Maximum overflow for database connections
+pool_max_overflow = {{ database.pool_max_overflow }}
+
+# Timeout for database connections (in seconds)
+connection_recycle_time = {{ database.connection_recycle_time }}
+
+[keystone_authtoken]
+# Authentication endpoint URL (typically keystone public URL)
+auth_url = {{ keystone.auth_url }}
+
+# Project domain name
+project_domain_name = {{ keystone.project_domain_name }}
+
+# Project name for service account
+project_name = {{ keystone.project_name }}
+
+# User domain name
+user_domain_name = {{ keystone.user_domain_name }}
+
+# Username for service account
+username = {{ keystone.username }}
+
+# Password for service account
+password = {{ keystone.password }}
+
+# API version for keystone (e.g., 3)
+auth_version = {{ keystone.auth_version }}
+
+# Disable SSL verification (not recommended in production)
+cafile = {{ keystone.cafile }}
+
+# Region name for keystone (optional, leave empty if not used)
+region_name = {{ keystone.region_name }}
+
+[service:rpc]
+# RPC transport URL (e.g., rabbit://user:pass@host:5672/virt_host)
+transport_url = {{ rpc_transport_url }}
+
+# RPC response timeout (in seconds)
+rpc_response_timeout = {{ rpc_response_timeout }}
+
+# Number of RPC workers (typically same as central workers)
+rpc_workers = {{ rpc_workers }}
+
+{% for endpoint in endpoints %}
+# RPC endpoint: {{ endpoint.name }}
+[endpoint:{{ endpoint.name }}]
+enabled = {{ endpoint.enabled }}
+{% endfor %}

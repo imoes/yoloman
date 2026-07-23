@@ -1,0 +1,65 @@
+{
+  "entries": {
+    "type": "list",
+    "default": [],
+    "description": "List of encrypted filesystem entries to manage.",
+    "items": {
+      "type": "object",
+      "fields": {
+        "target": {
+          "type": "string",
+          "default": "",
+          "description": "Logical name (target) for this encrypted volume; used as the mapper device name (e.g., `crypt1`)."
+        },
+        "dev": {
+          "type": "string",
+          "default": "",
+          "description": "Physical block device or partition (e.g., `/dev/sdb1`) to encrypt/mount."
+        },
+        "crypto": {
+          "type": "string",
+          "default": "aes-cbc-essiv:sha256",
+          "description": "Cipher mode specification for the encryption (e.g., `aes-xts-plain64`, `cast5-cbc-plain64`)."
+        },
+        "keyfile": {
+          "type": "string",
+          "default": "",
+          "description": "Path to a file containing the encryption key (or key derivation hint). If empty, key is entered interactively or via `keyformat=passphrase`."
+        },
+        "keyformat": {
+          "type": "string",
+          "default": "passphrase",
+          "description": "Format of the key: one of `passphrase`, `rawkey`, `lvm`, or `none`. `passphrase` prompts interactively; `rawkey` expects a binary key file; `lvm` uses LVM key management; `none` disables key handling (for detached header)."
+        },
+        "uuid": {
+          "type": "string",
+          "default": "",
+          "description": "UUID of the encrypted LUKS volume (for reliable device identification)."
+        },
+        "fstype": {
+          "type": "string",
+          "default": "ext4",
+          "description": "Filesystem type used inside the encrypted container (e.g., `ext4`, `xfs`, `btrfs`)."
+        },
+        "mountpoint": {
+          "type": "string",
+          "default": "",
+          "description": "Mount point where the decrypted filesystem will be mounted (e.g., `/home/user/private`)."
+        },
+        "options": {
+          "type": "list",
+          "default": [],
+          "description": "Optional mount options passed to `mount` (e.g., `noatime`, `nodev`).",
+          "items": {
+            "type": "string"
+          }
+        },
+        "allow_auto": {
+          "type": "bool",
+          "default": false,
+          "description": "Whether this volume can be auto-mounted at boot or via `cryptmount --all`. Set `true` to enable `allow=auto`."
+        }
+      }
+    }
+  }
+}

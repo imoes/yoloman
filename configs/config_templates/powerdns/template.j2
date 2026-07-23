@@ -1,0 +1,71 @@
+# Global settings
+# Local address to bind to for queries
+local-address={{ local_address }}
+
+# Local port to listen on for DNS queries
+local-port={{ local_port }}
+
+# IP addresses allowed to send recursive queries (empty = none)
+allow-axfr-ips={{ allow_axfr_ips | join(', ') if allow_axfr_ips else 'none' }}
+
+# Enable or disable zone transfers (AXFR)
+enable-axfr={{ 'yes' if enable_axfr else 'no' }}
+
+# Enable or disable TCP queries
+tcp-outgoing-socket={{ tcp_outgoing_socket | default('0') }}
+
+# Enable or disable DNSSEC validation (authoritative mode: typically no)
+disable-dnssec={{ 'yes' if disable_dnssec else 'no' }}
+
+# Enable or disable DNS64 (not recommended for authoritative-only)
+disable-dns64={{ 'yes' if disable_dns64 else 'no' }}
+
+# Backend configuration
+# List of database backends to load
+launch={{ backends | map(attribute='name') | join(' ') }}
+
+{% for backend in backends %}
+# Backend: {{ backend.name }} — connection string for {{ backend.name }}
+gsqlite3-{{ backend.name }}-database={{ backend.connection_string }}{% endfor %}
+
+{% if backends | selectattr('name', 'equalto', 'gsqlite3') | first %}
+# Enable DNSSEC support in SQLite backend
+gsqlite3-dnssec=on
+{% endif %}
+
+# Default zone SOA settings (overridable per-zone via API or zone file)
+default-soa-name={{ default_soa_name }}
+default-soa-mail={{ default_soa_mail }}
+default-soa-serial={{ default_soa_serial }}
+default-soa-refresh={{ default_soa_refresh }}
+default-soa-retry={{ default_soa_retry }}
+default-soa-expire={{ default_soa_expire }}
+default-soa-ttl={{ default_soa_ttl }}
+
+# Security hardening
+chroot={{ chroot_dir | default('') }}
+setuid={{ setuid_user | default('') }}
+setgid={{ setgid_group | default('') }}
+
+# Logging
+loglevel={{ log_level }}
+log-dns-queries={{ 'yes' if log_dns_queries else 'no' }}
+log-dns-outgoing={{ 'yes' if log_dns_outgoing else 'no' }}
+
+# Performance tuning
+max-udp-packet-size={{ max_udp_packet_size }}
+worker-threads={{ worker_threads }}
+max-cache-entries={{ max_cache_entries }}
+max-cache-ttl={{ max_cache_ttl }}
+
+# API (only if enabled)
+{% if api_enabled %}
+# Enable the HTTP API
+api={{ 'yes' }}
+api-key={{ api_key }}
+api-readonly={{ 'yes' if api_readonly else 'no' }}
+api-logfile={{ api_logfile }}
+{% endif %}
+
+# Additional settings
+include-dir={{ include_dir | default('/etc/powerdns/conf.d') }}

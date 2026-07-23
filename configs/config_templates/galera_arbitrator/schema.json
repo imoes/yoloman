@@ -1,0 +1,81 @@
+{
+  "wsrep_cluster_address": {
+    "type": "list",
+    "default": [],
+    "description": "List of cluster node addresses in 'host:port' format. The arbitrator will connect to these nodes to participate in quorum decisions."
+  },
+  "wsrep_node_name": {
+    "type": "string",
+    "default": "garbd_node",
+    "description": "Unique name for this arbitrator node \u2014 must not conflict with any Galera cluster node name."
+  },
+  "log_path": {
+    "type": "string",
+    "default": "",
+    "description": "Path to log file. Leave empty to log to syslog/stderr (recommended for systemd environments)."
+  },
+  "repl_connect_timeout": {
+    "type": "number",
+    "default": 10,
+    "description": "Seconds to wait before giving up on reconnecting to the cluster after disconnection. 0 means infinite retries."
+  },
+  "wsrep_ssl_cert": {
+    "type": "string",
+    "default": "",
+    "description": "Path to SSL certificate file (PEM format) for this arbitrator. Required if using SSL."
+  },
+  "wsrep_ssl_key": {
+    "type": "string",
+    "default": "",
+    "description": "Path to SSL private key file (PEM format). Required if using SSL."
+  },
+  "wsrep_ssl_ca": {
+    "type": "string",
+    "default": "",
+    "description": "Path to CA certificate file (PEM format) used to verify cluster nodes' certificates. Required if using SSL with CA verification."
+  },
+  "use_ssl": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable SSL/TLS for communication with cluster nodes. Enable only if Galera cluster uses SSL."
+  },
+  "socket_buffer_size": {
+    "type": "number",
+    "default": 0,
+    "description": "Socket send/receive buffer size in bytes. Set >0 only if experiencing high latency or timeouts."
+  },
+  "log_level": {
+    "type": "number",
+    "default": 1,
+    "description": "Logging verbosity: 0=errors, 1=warnings (recommended), 2=info, 3=debug."
+  },
+  "wsrep_cluster_name": {
+    "type": "string",
+    "default": "my_wan_cluster",
+    "description": "Name of the Galera cluster. Must match the cluster name used by all Galera nodes."
+  },
+  "garbd_join_timeout": {
+    "type": "number",
+    "default": 5,
+    "description": "Seconds the arbitrator waits for initial cluster connection before giving up."
+  },
+  "extra_galera_options": {
+    "type": "list",
+    "default": [],
+    "items": {
+      "type": "object",
+      "description": "Additional custom Galera options (e.g., `pc.weight=5` or `evs.suspect_timeout=2s`). Each entry is a key-value pair.",
+      "fields": {
+        "option": {
+          "type": "string",
+          "description": "Option name (e.g., `pc.weight`, `evs.suspect_timeout`)."
+        },
+        "value": {
+          "type": "string",
+          "description": "Option value. Strings should be quoted in config."
+        }
+      }
+    },
+    "description": "List of custom Galera configuration options to append to the config. Use only if you need advanced tuning."
+  }
+}

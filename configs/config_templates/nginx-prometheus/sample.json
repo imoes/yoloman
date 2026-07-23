@@ -1,0 +1,61 @@
+{
+  "prometheus_module_path": "modules/ngx_http_prometheus_module.so",
+  "error_log_level": "warn",
+  "error_log_path": "/var/log/nginx/error.log",
+  "pid_path": "/run/nginx.pid",
+  "worker_connections": 1024,
+  "worker_processes": "auto",
+  "keepalive_timeout": 65,
+  "sendfile": true,
+  "prometheus_port": 9113,
+  "prometheus_server_name": "localhost",
+  "sites": [
+    {
+      "name": "app.example.com",
+      "listen": "80",
+      "ssl": false,
+      "root": "/var/www/app",
+      "index": [
+        "index.html",
+        "index.htm"
+      ],
+      "locations": [
+        {
+          "path": "/api/",
+          "proxy_pass": "http://backend:3000"
+        },
+        {
+          "path": "/static/",
+          "try_files": [
+            "$uri",
+            "$uri/",
+            "=404"
+          ]
+        }
+      ],
+      "description": "Main web application (HTTP)"
+    },
+    {
+      "name": "secure.example.com",
+      "listen": "443",
+      "ssl": true,
+      "ssl_cert": "/etc/nginx/ssl/secure.example.com.crt",
+      "ssl_key": "/etc/nginx/ssl/secure.example.com.key",
+      "root": "/var/www/secure",
+      "index": [
+        "index.html"
+      ],
+      "locations": [
+        {
+          "path": "/",
+          "try_files": [
+            "$uri",
+            "$uri/",
+            "=404"
+          ]
+        }
+      ],
+      "description": "Secure internal portal (HTTPS)"
+    }
+  ]
+}

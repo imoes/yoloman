@@ -1,0 +1,62 @@
+{
+  "logging_target": {
+    "type": "string",
+    "default": "syslog",
+    "description": "Where to send logs: 'syslog' for system logging, 'file' to write to a dedicated log file"
+  },
+  "log_file_path": {
+    "type": "string",
+    "default": "/var/log/corosync/corosync_notifyd.log",
+    "description": "Path to the log file when logging_target is 'file'"
+  },
+  "log_level": {
+    "type": "string",
+    "default": "warning",
+    "description": "Minimum level of messages to log (debug, info, notice, warning, error, crit, alert, emerg)"
+  },
+  "log_timestamp_format": {
+    "type": "string",
+    "default": "iso8601",
+    "description": "Format of timestamps in logs: 'none', 'date', 'full', or 'iso8601'"
+  },
+  "event_handler": {
+    "type": "list",
+    "default": [],
+    "description": "List of event handlers to register. Each handler runs an external command on cluster events.",
+    "items": {
+      "name": {
+        "type": "string",
+        "default": "default-handler",
+        "description": "A unique identifier for this handler block"
+      },
+      "command": {
+        "type": "string",
+        "default": "",
+        "description": "The command to execute when triggered; should be an absolute path and handle arguments safely"
+      },
+      "timeout": {
+        "type": "number",
+        "default": 30,
+        "description": "Maximum seconds to wait for the command to finish; 0 means no timeout"
+      },
+      "events": {
+        "type": "list",
+        "default": [
+          "cluster",
+          "quorum"
+        ],
+        "description": "Types of cluster events to trigger this handler: 'cluster', 'quorum', 'node', 'quorum_change', 'votingmember', 'all'"
+      },
+      "user": {
+        "type": "string",
+        "default": "",
+        "description": "System user to run the command as (optional, may be ignored on some systems)"
+      },
+      "group": {
+        "type": "string",
+        "default": "",
+        "description": "System group to run the command as (optional, may be ignored on some systems)"
+      }
+    }
+  }
+}

@@ -1,0 +1,25 @@
+# Fence agent for RHEV-M (Red Hat Enterprise Virtualization Manager) via REST API
+# Authentication credentials for RHEV-M API
+api_url={{ api_url }}
+username={{ username }}
+password={{ password }}
+# Optional: domain (e.g., 'internal-auth') — leave empty for default domain
+{{ 'domain=' + domain if domain else '# domain=' }}
+# Optional: SSL verification toggle (true = verify, false = skip — not recommended in production)
+ssl_verify={{ 'true' if ssl_verify else 'false' }}
+# Optional: Connection timeout in seconds
+{{ 'timeout=' + timeout if timeout else '# timeout=' }}
+# Optional: Action to perform (defaults to 'reboot' if not specified in CLI)
+# Note: CLI action (e.g., --action=reboot) takes precedence over this default
+{{ 'default_action=' + default_action if default_action else '# default_action=' }}
+# Optional: Retry behavior — number of retries and delay between retries
+{{ 'retry=' + retry if retry else '# retry=' }}
+{{ 'retry_sleep=' + retry_sleep if retry_sleep else '# retry_sleep=' }}
+# Optional: Per-VM node configuration (multiple entries supported)
+# Format: node_name:ipmi_ip:power_port or node_name:vm_uuid
+{% for node in nodes %}
+# Node: {{ node.name }}
+{{ 'node_name=' + node.name }}
+{{ 'node_uuid=' + node.uuid if node.uuid else '# node_uuid=' }}
+{{ 'node_host=' + node.host if node.host else '# node_host=' }}
+{% endfor %}

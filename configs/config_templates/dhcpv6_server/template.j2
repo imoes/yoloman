@@ -1,0 +1,110 @@
+# Listen on these IPv6 addresses/interfaces for DHCPv6 requests
+# (Specify one per line; use 'all' to listen on all interfaces)
+interface {{ interface_name }}, {{ interface_type }}
+
+# Address pool configuration: IPv6 prefix and delegation length
+# This defines the subnet from which IPv6 addresses are assigned
+address-pool {{ pool_prefix }}/{{ pool_prefix_length }} {{ pool_delegation_length }}
+
+# Optional: Define multiple address pools (one per line)
+{% for pool in address_pools %}
+address-pool {{ pool.prefix }}/{{ pool.prefix_length }} {{ pool.delegation_length }}
+{% endfor %}
+
+# Leases file path (for persisting assigned addresses across restarts)
+# Set to empty to disable persistence
+leases-file {{ leases_file }}
+
+# Client classification (optional: assign addresses based on vendor/class info)
+# Class name -> address range mapping (uses existing pools by default if omitted)
+{% if class_definitions | length > 0 %}
+{% for cls in class_definitions %}
+# Class: {{ cls.name }}
+class {{ cls.name }} {{ cls.match_rule }}
+{% endfor %}
+{% endif %}
+
+# Server identification (must be unique on the network)
+# Use a stable IPv6 address or hostname
+server-id {{ server_id }}
+
+# DNS server list for clients
+{% if dns_servers | length > 0 %}
+dns-server {{ dns_servers | join(', ') }}
+{% else %}
+# No DNS servers configured (comment out if DNS is not needed)
+# dns-server 2001:db8::1
+{% endif %}
+
+# Domain search list for clients (optional)
+{% if domain_search | length > 0 %}
+domain-search {{ domain_search | join(', ') }}
+{% endif %}
+
+# NTP server(s) for time sync (optional)
+{% if ntp_servers | length > 0 %}
+tp-server {{ ntp_servers | join(', ') }}
+{% endif %}
+
+# S46 rules (optional: stateful IPv4/IPv6 translation for dual-stack clients)
+{% if s46_rules | length > 0 %}
+{% for rule in s46_rules %}
+s46-rule {{ rule.bridge }} {{ rule.lsr }} {{ rule.mt %}
+{% endfor %}
+{% endif %}
+
+# Logging verbosity (0–7, higher = more verbose)
+log-level {{ log_level }}
+
+# Enable/reject specific DHCPv6 message types
+# Uncomment to override defaults (defaults: accept all except SOLICIT if not configured for relay)
+# accept SOLICIT
+# accept REQUEST
+# accept CONFIRM
+# accept RENEW
+# accept REBIND
+# accept RELEASE
+# accept DECLINE
+# accept INFORMATION-REQUEST
+# accept RELAY-FORW
+# accept RELAY-REP
+
+# Relay support: forward client packets to upstream DHCPv6 server
+{% if relay_upstream | length > 0 %}
+# Upstream relay targets (IP:port)
+{% for relay in relay_upstream %}
+relay {{ relay.target }} {{ relay.port }}
+{% endfor %}
+{% endif %}
+
+# Maximum lease time (seconds)
+max-lease-time {{ max_lease_time }}
+
+# Minimum lease time (seconds)
+min-lease-time {{ min_lease_time }}
+
+# Default lease time (seconds)
+default-lease-time {{ default_lease_time }}
+
+# Enable interface-specific options (e.g., link-layer address binding)
+# Interface binding example:
+{% if interface_bindings | length > 0 %}
+{% for binding in interface_bindings %}
+# Bind class {{ binding.class }} to interface {{ binding.interface_name }}
+interface-class {{ binding.interface_name }} {{ binding.class }}
+{% endfor %}
+{% endif %}
+
+# Client reservation (static assignment)
+{% if static_mappings | length > 0 %}
+{% for mapping in static_mappings %}
+# Reservation for client MAC={{ mapping.mac }}
+client {{ mapping.mac }} {{ mapping.address }}
+{% endfor %}
+{% endif %}
+
+# Optional: Enable multicast relay for DHCPv6 messages (if needed)
+multicast-relay {{ 'yes' if multicast_relay else 'no' }}
+
+# Optional: Enable rapid commit (fast address assignment)
+rapid-commit {{ 'yes' if rapid_commit else 'no' }}

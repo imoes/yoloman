@@ -1,0 +1,75 @@
+{
+  "pidfile": "/run/ocsigenserver/ocsigenserver.pid",
+  "log_file": "/var/log/ocsigenserver/ocsigenserver.log",
+  "log_level": "warning",
+  "http_host": "0.0.0.0",
+  "http_port": 8080,
+  "http_ssl_enabled": true,
+  "https_host": "0.0.0.0",
+  "https_port": 8443,
+  "ssl_cert": "/etc/ocsigenserver/ssl/fullchain.pem",
+  "ssl_key": "/etc/ocsigenserver/ssl/privkey.pem",
+  "timeout": 120,
+  "max_connections": 512,
+  "start_servers": 4,
+  "min_spare_servers": 2,
+  "max_spare_servers": 8,
+  "max_requests": 1000,
+  "module_paths": [
+    "/usr/lib/ocsigenserver/modules",
+    "/usr/local/lib/ocsigenserver/modules"
+  ],
+  "enabled_extensions": [
+    {
+      "module": "mod_cgi",
+      "config": {
+        "timeout": "30",
+        "interpreter": "python3"
+      }
+    },
+    {
+      "module": "mod_staticfile",
+      "config": {
+        "max_age": "86400"
+      }
+    },
+    {
+      "module": "mod_ocsigen",
+      "config": {}
+    }
+  ],
+  "sites": [
+    {
+      "host": "www.example.com",
+      "port": 8443,
+      "document_root": "/var/www/example",
+      "cgi_enabled": true,
+      "cgi_aliases": [
+        {
+          "prefix": "/cgi-bin",
+          "path": "/usr/lib/cgi-bin"
+        }
+      ],
+      "static_dir": "/var/www/example/static",
+      "static_url": "/static",
+      "ocsigen_extensions": [
+        {
+          "name": "eliom",
+          "config": {
+            "appdir": "/var/lib/ocsigen/example",
+            "debug": "false"
+          }
+        }
+      ]
+    },
+    {
+      "host": "api.example.com",
+      "port": 8080,
+      "document_root": "/var/www/api",
+      "cgi_enabled": false,
+      "static_dir": "/var/www/api/public",
+      "static_url": "/",
+      "ocsigen_extensions": []
+    }
+  ]
+}

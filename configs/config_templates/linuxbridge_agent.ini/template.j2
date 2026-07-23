@@ -1,0 +1,79 @@
+[linux_bridge]
+# Physical network device mapping (physical_interface -> physical_network)
+{% for mapping in physical_mappings %}physical_interface = {{ mapping.physical_interface }}{% if mapping.physical_network %} {{ mapping.physical_network }}{% endif %}
+{% endfor %}
+
+# Virtual interface type (veth pair or macvtap) — default: veth
+virtual_interface_type = {{ virtual_interface_type }}
+
+{% if vxlan_udp_port %}# VXLAN UDP port for overlay networks
+vxlan_udp_port = {{ vxlan_udp_port }}
+{% endif %}
+
+# Enable or disable VXLAN Layer 2 forwarding
+{% if enable_vxlan %}enable_vxlan = {{ enable_vxlan }}
+{% endif %}
+
+{% if multicast_group %}# Multicast group for VXLAN broadcast replication (multicast mode)
+multicast_group = {{ multicast_group }}
+{% endif %}
+
+{% if local_ip %}# Local IP address for VXLAN (used in unicast mode)
+local_ip = {{ local_ip }}
+{% endif %}
+
+[network_log]
+# Log level for the agent
+log_level = {{ log_level }}
+
+# Log directory (default: /var/log/neutron)
+{% if log_dir %}log_dir = {{ log_dir }}
+{% endif %}
+
+[securitygroup]
+# Enable security groups (iptables-based firewall)
+enable_security_group = {{ enable_security_group }}
+
+# Firewall driver — typically: neutron-linuxbridge-agent uses iptables or nftables
+firewall_driver = {{ firewall_driver }}
+
+# Enable IPTables hairpinning (for VMs to reach themselves via floating IPs)
+enable_hairpin = {{ enable_hairpin }}
+
+# Enable DHCP broadcast suppression
+{% if dhcp_broadcast %}dhcp_broadcast = {{ dhcp_broadcast }}
+{% endif %}
+
+# Enable port security
+{% if port_security %}port_security = {{ port_security }}
+{% endif %}
+
+[agent]
+# Polling interval (seconds) for device updates
+polling_interval = {{ polling_interval }}
+
+# Minimum number of retry attempts for device creation
+min_retry_interval = {{ min_retry_interval }}
+
+# Maximum number of device creation retries
+max_retry_interval = {{ max_retry_interval }}
+
+# Enable DHCP agent notification (for HA DHCP)
+{% if enable_dhcp_notification %}enable_dhcp_notification = {{ enable_dhcp_notification }}
+{% endif %}
+
+# Enable metadata proxy
+{% if enable_metadata_proxy %}enable_metadata_proxy = {{ enable_metadata_proxy }}
+{% endif %}
+
+# Metadata proxy shared secret (for authentication)
+{% if metadata_proxy_shared_secret %}metadata_proxy_shared_secret = {{ metadata_proxy_shared_secret }}
+{% endif %}
+
+# Bridge name for metadata namespace
+{% if bridge_mapping %}physical_interface_mappings = {{ bridge_mapping }}
+{% endif %}
+
+# Path to Linux bridge (for compatibility)
+{% if linux_bridge_path %}linux_bridge_path = {{ linux_bridge_path }}
+{% endif %}

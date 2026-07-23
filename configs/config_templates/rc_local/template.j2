@@ -1,0 +1,30 @@
+#!/bin/bash
+# /etc/rc.local: Legacy boot script executed at the end of multi-user target
+#
+# This file is provided for compatibility with legacy scripts.
+# On systemd-based systems, this file is executed as a service
+# (rc-local.service) if enabled and /etc/rc.local is executable.
+#
+# Place your custom boot-time commands here.
+# Each command must succeed (exit code 0) for the service to complete successfully.
+# Use absolute paths (e.g., /usr/bin/some_command) to avoid PATH issues.
+#
+# NOTE: Since this runs *after* the system is fully booted and services started,
+# do *not* rely on it for critical system setup — prefer systemd units instead.
+#
+# Exit status must be 0 for success. Use 'exit 0' at the end.
+# Add 'set -e' if you want early failure on error (optional, not recommended for rc.local).
+#
+{% if rc_local.enable %}# rc-local: enabled via configuration
+{% else %}# rc-local: disabled — this file will be ignored by systemd
+echo "rc.local skipped (disabled in config)" >&2
+exit 0
+{% endif %}
+
+{% if rc_local.commands %}# Custom commands:
+{% for cmd in rc_local.commands %}# {{ cmd.description | default('Custom boot command') }}
+{% if cmd.condition %}# Condition: {{ cmd.condition }}
+{% endif %}{% if cmd.ignore_failure %}# Ignore failure
+{% endif %}{{ cmd.ignore_failure | ternary('set +e; ', '') }}{{ cmd.command }}{{ cmd.ignore_failure | ternary('; set -e', '') }}
+{% endfor %}
+{% endif %}exit 0

@@ -1,0 +1,224 @@
+{
+  "fai_configdir": {
+    "type": "string",
+    "default": "/srv/fai/config",
+    "description": "Root directory containing all FAI configuration files (classes, hooks, disk config, etc.)"
+  },
+  "fai_logdir": {
+    "type": "string",
+    "default": "/var/log/fai",
+    "description": "Directory where FAI logs are stored after client installations"
+  },
+  "fai_softwaredir": {
+    "type": "string",
+    "default": "/srv/fai/software",
+    "description": "Directory containing scripts, package lists, and other runtime software for installations"
+  },
+  "fai_debian_release": {
+    "type": "string",
+    "default": "bullseye",
+    "description": "Debian release codename used as the default target distribution for installations"
+  },
+  "fai_arch": {
+    "type": "string",
+    "default": "amd64",
+    "description": "System architecture for target clients (e.g., 'amd64', 'arm64')"
+  },
+  "fai_debug": {
+    "type": "number",
+    "default": 0,
+    "description": "Debug verbosity level: 0 = normal, 1 = verbose, 2 = debug"
+  },
+  "fai_verbose": {
+    "type": "boolean",
+    "default": true,
+    "description": "Enable detailed logging to console and logs during installation"
+  },
+  "fai_nfs_timeout": {
+    "type": "number",
+    "default": 30,
+    "description": "Timeout in seconds for NFS mounts (e.g., for /usr or /home) during installation"
+  },
+  "default_partitioning": {
+    "type": "string",
+    "default": "standard",
+    "description": "Name of the disk partitioning file (without extension) to use by default (found in $FAI_CONFIGDIR/disk_config/)"
+  },
+  "default_fs_type": {
+    "type": "string",
+    "default": "ext4",
+    "description": "Default filesystem type for partitions that don\u2019t specify one explicitly"
+  },
+  "default_packages": {
+    "type": "list",
+    "default": [
+      "openssh-server",
+      "sudo",
+      "locales",
+      "netbase"
+    ],
+    "items": {
+      "type": "string",
+      "description": "Name of a Debian package to install by default on all target hosts"
+    },
+    "description": "List of packages installed on every host (in addition to class-specific packages)"
+  },
+  "fai_install_packages": {
+    "type": "boolean",
+    "default": true,
+    "description": "Whether to install packages during the FAI installation (set to false for minimal installs or post-install setup)"
+  },
+  "fai_create_users": {
+    "type": "boolean",
+    "default": true,
+    "description": "Whether to create local user accounts (defined in $FAI_CONFIGDIR/classes/) during installation"
+  },
+  "fai_run_hooks": {
+    "type": "boolean",
+    "default": true,
+    "description": "Whether to execute custom hook scripts defined per class"
+  },
+  "fai_ipmi": {
+    "type": "boolean",
+    "default": false,
+    "description": "Enable IPMI support for remote power control (e.g., to reboot unresponsive hosts)"
+  },
+  "fai_pxe_chainload": {
+    "type": "boolean",
+    "default": false,
+    "description": "Enable chainloading of alternative bootloaders (e.g., for UEFI-to-legacy fallback)"
+  },
+  "bootmenu_timeout": {
+    "type": "number",
+    "default": 100,
+    "description": "Time in deciseconds (1/10 second) to show PXE boot menu before auto-booting"
+  },
+  "nameservers": {
+    "type": "list",
+    "default": [
+      "8.8.8.8",
+      "8.8.4.4"
+    ],
+    "items": {
+      "type": "string",
+      "description": "IPv4 or IPv6 address of a DNS server"
+    },
+    "description": "DNS servers configured in /etc/resolv.conf of target systems"
+  },
+  "ntpserver": {
+    "type": "string",
+    "default": "pool.ntp.org",
+    "description": "Default NTP server used to synchronize time on target systems"
+  },
+  "default_gateway": {
+    "type": "string",
+    "default": "",
+    "description": "Default gateway IP address for target systems (leave empty to skip configuration)"
+  },
+  "default_netmask": {
+    "type": "string",
+    "default": "255.255.255.0",
+    "description": "Default netmask used when no per-interface netmask is specified"
+  },
+  "host_suffix": {
+    "type": "string",
+    "default": "",
+    "description": "Suffix appended to the short hostname to form the FQDN (e.g., '.example.com')"
+  },
+  "fai_ipv6": {
+    "type": "boolean",
+    "default": false,
+    "description": "Whether to enable and configure IPv6 on target systems"
+  },
+  "classes": {
+    "type": "list",
+    "default": [
+      {
+        "name": "DEBIAN",
+        "condition": "always",
+        "comment": "Base class for all Debian-based clients",
+        "packages": [
+          "apt-utils",
+          "debconf-utils"
+        ],
+        "hooks": [
+          "dpkg-reconfigure debconf"
+        ]
+      },
+      {
+        "name": "WORKSTATION",
+        "condition": "hostclass=workstation",
+        "comment": "Clients configured as workstations",
+        "packages": [
+          "firefox-esr",
+          "libreoffice"
+        ],
+        "priority": 20
+      },
+      {
+        "name": "SERVER",
+        "condition": "hostclass=server",
+        "comment": "Clients configured as servers",
+        "packages": [
+          "bind9",
+          "ntp",
+          "fail2ban"
+        ],
+        "priority": 10
+      }
+    ],
+    "items": {
+      "type": "object",
+      "description": "A class definition used to group configuration and behavior",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Class name (e.g., 'DEBIAN', 'WORKSTATION')"
+        },
+        "condition": {
+          "type": "string",
+          "description": "Condition that triggers the class (e.g., 'always', 'hostclass=web', 'arch=amd64')"
+        },
+        "comment": {
+          "type": "string",
+          "default": "",
+          "description": "Optional human-readable description"
+        },
+        "priority": {
+          "type": "number",
+          "default": 0,
+          "description": "Priority (higher = evaluated last, overrides earlier classes)"
+        },
+        "packages": {
+          "type": "list",
+          "default": [],
+          "items": {
+            "type": "string",
+            "description": "Package name to install only when this class is active"
+          },
+          "description": "Additional packages to install when this class is selected"
+        },
+        "packages_comment": {
+          "type": "string",
+          "default": "",
+          "description": "Optional comment above the class-specific package list"
+        },
+        "hooks": {
+          "type": "list",
+          "default": [],
+          "items": {
+            "type": "string",
+            "description": "Shell command to execute when this class is active (typically from hooks/)"
+          },
+          "description": "Commands/scripts to run during the class phase"
+        },
+        "hooks_comment": {
+          "type": "string",
+          "default": "",
+          "description": "Optional comment above the class-specific hooks"
+        }
+      }
+    },
+    "description": "List of FAI classes \u2014 each defines conditions and behavior to apply selectively to target hosts"
+  }
+}

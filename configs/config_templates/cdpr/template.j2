@@ -1,0 +1,49 @@
+# Cisco Discovery Protocol Reporter (cdpr) configuration file
+# Enables or disables CDP reporting globally
+global_enabled: {{ global_enabled | lower }}
+
+# Path to the log file
+log_file: {{ log_file }}
+
+# Path to the PID file
+pid_file: {{ pid_file }}
+
+# Interval (in seconds) between CDP updates
+update_interval: {{ update_interval }}
+
+# Maximum number of CDP neighbors to cache per interface
+max_neighbors: {{ max_neighbors }}
+
+# Interface(s) to listen on for CDP packets (empty = all interfaces)
+{% if listen_interfaces | length > 0 %}
+# Interfaces to monitor for CDP traffic
+listen_interfaces:
+{% for iface in listen_interfaces %}  - {{ iface }}
+{% endfor %}
+{% else %}
+listen_interfaces: []
+{% endif %}
+
+# Output plugins (each defines a destination for CDP data)
+plugins:
+{% for plugin in plugins %}  - name: {{ plugin.name }}
+    enabled: {{ plugin.enabled | lower }}
+    type: {{ plugin.type }}
+    {% if plugin.type == 'file' %}
+    path: {{ plugin.path }}
+    format: {{ plugin.format | default('json') }}
+    rotation_max_size: {{ plugin.rotation_max_size }}
+    rotation_max_files: {{ plugin.rotation_max_files }}
+    {% elif plugin.type == 'http' %}
+    endpoint: {{ plugin.endpoint }}
+    method: {{ plugin.method }}
+    headers:
+{% for key, val in plugin.headers.items() | sort %}      {{ key }}: {{ val }}
+{% endfor %}    timeout: {{ plugin.timeout }}
+    {% elif plugin.type == 'influxdb' %}
+    url: {{ plugin.url }}
+    database: {{ plugin.database }}
+    retention_policy: {{ plugin.retention_policy | default('autogen') }}
+    username: {{ plugin.username | default('') }}
+    {% endif %}
+{% endfor %}

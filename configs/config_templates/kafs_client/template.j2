@@ -1,0 +1,58 @@
+# /etc/afs.conf — Configuration for the kAFS client and AFS dynamic root mounter
+# Enable or disable the AFS client kernel module
+{% if enable_client | default(true) %}
+[client]
+enabled = yes
+{% else %}
+[client]
+enabled = no
+{% endif %}
+
+# AFS cell name (e.g., 'example.com')
+cell = {{ cell_name }}
+
+# Path to the local AFS cache directory
+{% if cache_path %}
+cache_path = {{ cache_path }}
+{% else %}
+cache_path = /var/cache/afs
+{% endif %}
+
+# Maximum size (in MiB) of the local cache
+{% if cache_size_mb %}
+cache_size_mb = {{ cache_size_mb }}
+{% else %}
+cache_size_mb = 256
+{% endif %}
+
+# Number of cache cleaning threads (0 = auto-tune)
+{% if cache_threads %}
+cache_threads = {{ cache_threads }}
+{% else %}
+cache_threads = 2
+{% endif %}
+
+# AFS server hostnames for this cell — one per line
+[server]
+{% for srv in servers %}server = {{ srv }}
+{% endfor %}
+
+# Enable or disable the AFS dynamic root (for automatic mount of /afs/...)
+{% if enable_dynamic_root | default(true) %}
+[dynamic_root]
+enabled = yes
+{% else %}
+[dynamic_root]
+enabled = no
+{% endif %}
+
+# Optional: custom mount point for dynamic root (default: /afs)
+{% if dynamic_root_mount_point %}
+mount_point = {{ dynamic_root_mount_point }}
+{% endif %}
+
+# Optional: extra kernel module parameters passed to kafs.ko
+{% if kernel_params %}
+[kernel]
+params = {{ kernel_params | join(' ') }}
+{% endif %}

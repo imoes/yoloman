@@ -1,0 +1,100 @@
+# FastNetMon main configuration file
+# Enable logging to syslog (true/false)
+syslog {{ syslog_enabled }}
+
+# Log level: debug, info, warning, error
+log_level {{ log_level }}
+
+# Path to log file (if syslog disabled)
+log_file {{ log_file }}
+
+# Enable/disable packet capture (requires root or CAP_NET_RAW)
+packet_capture {{ packet_capture_enabled }}
+
+# Network interface for packet capture (e.g., eth0)
+# Use 'any' for all interfaces (if supported)
+interface {{ packet_capture_interface }}
+
+# Enable sFlow collection
+sflow {{ sflow_enabled }}
+# sFlow listening port
+sflow_port {{ sflow_port }}
+
+# Enable NetFlow v5/v9/IPFIX collection
+netflow {{ netflow_enabled }}
+# NetFlow listening port
+netflow_port {{ netflow_port }}
+
+# Enable mirror/SPAN port support
+mirror {{ mirror_enabled }}
+# Mirror interface (e.g., eth1 for incoming mirrored traffic)
+mirror_interface {{ mirror_interface }}
+
+# Enable CLI management interface
+cli {{ cli_enabled }}
+# CLI listen address and port
+cli_address {{ cli_address }}
+cli_port {{ cli_port }}
+
+# Enable REST API
+api {{ api_enabled }}
+api_address {{ api_address }}
+api_port {{ api_port }}
+# Optional API authentication token (leave empty to disable auth)
+api_token {{ api_token }}
+
+# Enable DDoS mitigation (true/false)
+mitigation {{ mitigation_enabled }}
+# Mitigation backend: iptables, nftables, bpf, null
+mitigation_backend {{ mitigation_backend }}
+
+# Thresholds (in Mbits/s, packets/sec, flows/sec)
+bandwidth_threshold {{ bandwidth_threshold_mbps }}
+packets_threshold {{ packets_threshold_pps }}
+flows_threshold {{ flows_threshold_fps }}
+
+# Blacklist/whitelist CIDRs (space-separated, one per line)
+{% for cidr in blacklist_cidrs %}
+blacklist {{ cidr }}
+{% endfor %}
+{% for cidr in whitelist_cidrs %}
+whitelist {{ cidr }}
+{% endfor %}
+
+# Per-host override thresholds (optional)
+# Format: ip_or_subnet threshold_type threshold_value
+{% for rule in host_thresholds %}
+host_threshold {{ rule.ip_or_subnet }} {{ rule.type }} {{ rule.value }}
+{% endfor %}
+
+# Enable detailed flow logging to JSON (for integration with SIEM)
+flow_logging {{ flow_logging_enabled }}
+flow_log_path {{ flow_log_path }}
+
+# Enable alerts via external scripts
+{% for script in alert_scripts %}
+alert_script {{ script.path }} {{ script.args | join(' ') }}
+{% endfor %}
+
+# Enable notification channels (email/webhook)
+{% for channel in notification_channels %}
+# {{ channel.type }} notification
+{% if channel.type == 'email' %}
+email_to {{ channel.to }}
+email_from {{ channel.from }}
+email_smtp_server {{ channel.smtp_server }}
+email_smtp_port {{ channel.smtp_port }}
+email_smtp_use_tls {{ channel.smtp_use_tls }}
+{% elif channel.type == 'webhook' %}
+webhook_url {{ channel.url }}
+webhook_method {{ channel.method }}
+webhook_headers {{ channel.headers | to_json }}
+{% endif %}
+{% endfor %}
+
+# Enable BGP flow specification (for BGP-based mitigation)
+bgp_flowspec {{ bgp_flowspec_enabled }}
+bgp_local_pref {{ bgp_local_pref }}
+{% for peer in bgp_peers %}
+bgp_peer {{ peer.ip }} {{ peer.as }}
+{% endfor %}

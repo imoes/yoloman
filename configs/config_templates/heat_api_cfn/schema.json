@@ -1,0 +1,309 @@
+{
+  "heat_api_cfn": {
+    "type": "object",
+    "default": {
+      "bind_host": "0.0.0.0",
+      "bind_port": 8000,
+      "api_workers": 1,
+      "debug": false,
+      "verbose": false
+    },
+    "description": "CFN API server binding, worker count, and logging verbosity",
+    "items": {
+      "bind_host": {
+        "type": "string",
+        "default": "0.0.0.0",
+        "description": "IP address or hostname the CFN API listens on"
+      },
+      "bind_port": {
+        "type": "number",
+        "default": 8000,
+        "description": "Port number the CFN API listens on"
+      },
+      "api_workers": {
+        "type": "number",
+        "default": 1,
+        "description": "Number of worker processes for the API server (0 = single-process, non-forking)"
+      },
+      "debug": {
+        "type": "bool",
+        "default": false,
+        "description": "Enable debug mode (includes stack traces and full request/response logging)"
+      },
+      "verbose": {
+        "type": "bool",
+        "default": false,
+        "description": "Enable verbose logging (more detail than debug, less than debug)"
+      }
+    }
+  },
+  "keystone_authtoken": {
+    "type": "object",
+    "default": {
+      "auth_uri": "http://keystone:5000",
+      "auth_url": "http://keystone:5000",
+      "username": "heat",
+      "project_name": "services",
+      "user_domain_name": "Default",
+      "project_domain_name": "Default",
+      "auth_type": "password",
+      "insecure": false
+    },
+    "description": "Keystone authentication credentials for the Heat service",
+    "items": {
+      "auth_uri": {
+        "type": "string",
+        "default": "http://keystone:5000",
+        "description": "Public identity API endpoint (for token validation)"
+      },
+      "auth_url": {
+        "type": "string",
+        "default": "http://keystone:5000",
+        "description": "Admin identity API endpoint (for token issuance)"
+      },
+      "username": {
+        "type": "string",
+        "default": "heat",
+        "description": "Service user name in Keystone"
+      },
+      "password": {
+        "type": "string",
+        "default": "",
+        "description": "Service user password (secure: store in secrets management or env)"
+      },
+      "project_name": {
+        "type": "string",
+        "default": "services",
+        "description": "Project/tenant where the service user resides"
+      },
+      "user_domain_name": {
+        "type": "string",
+        "default": "Default",
+        "description": "Keystone domain of the service user"
+      },
+      "project_domain_name": {
+        "type": "string",
+        "default": "Default",
+        "description": "Keystone domain of the service project"
+      },
+      "auth_type": {
+        "type": "string",
+        "default": "password",
+        "description": "Authentication method (e.g., password, v3password)"
+      },
+      "insecure": {
+        "type": "bool",
+        "default": false,
+        "description": "If true, disable TLS certificate verification (\u26a0\ufe0f not recommended for production)"
+      }
+    }
+  },
+  "trustee": {
+    "type": "object",
+    "default": {
+      "username": "heat",
+      "project_name": "services",
+      "user_domain_name": "Default",
+      "project_domain_name": "Default",
+      "auth_url": "http://keystone:5000"
+    },
+    "description": "Trustee credentials used by Heat to create trusts on behalf of users",
+    "items": {
+      "username": {
+        "type": "string",
+        "default": "heat",
+        "description": "Trustee user (usually same as service user)"
+      },
+      "password": {
+        "type": "string",
+        "default": "",
+        "description": "Trustee password (secure: store in secrets management)"
+      },
+      "project_name": {
+        "type": "string",
+        "default": "services",
+        "description": "Project/tenant of the trustee user"
+      },
+      "user_domain_name": {
+        "type": "string",
+        "default": "Default",
+        "description": "Domain of the trustee user"
+      },
+      "project_domain_name": {
+        "type": "string",
+        "default": "Default",
+        "description": "Domain of the trustee project"
+      },
+      "auth_url": {
+        "type": "string",
+        "default": "http://keystone:5000",
+        "description": "Identity API endpoint used to authenticate the trustee"
+      }
+    }
+  },
+  "clients_keystone": {
+    "type": "object",
+    "default": {
+      "endpoint_type": "internalURL"
+    },
+    "description": "Keystone client endpoint preference for internal service-to-service communication",
+    "items": {
+      "endpoint_type": {
+        "type": "string",
+        "default": "internalURL",
+        "description": "Keystone endpoint type to use (publicURL, internalURL, adminURL)"
+      }
+    }
+  },
+  "database": {
+    "type": "object",
+    "default": {
+      "connection": "sqlite:////var/lib/heat/heat.sqlite"
+    },
+    "description": "Database connection string (SQLAlchemy URL)",
+    "items": {
+      "connection": {
+        "type": "string",
+        "default": "sqlite:////var/lib/heat/heat.sqlite",
+        "description": "Database backend connection URL (e.g., mysql+pymysql://user:pass@db/heat)"
+      }
+    }
+  },
+  "oslo_concurrency": {
+    "type": "object",
+    "default": {
+      "lock_path": "/var/lib/heat/locks"
+    },
+    "description": "Path for file-based locks used by Heat for concurrency control",
+    "items": {
+      "lock_path": {
+        "type": "string",
+        "default": "/var/lib/heat/locks",
+        "description": "Directory path to store lock files"
+      }
+    }
+  },
+  "oslo_messaging_notifications": {
+    "type": "object",
+    "default": {
+      "driver": [
+        "messagingv2"
+      ],
+      "topics": [
+        "notifications"
+      ]
+    },
+    "description": "Notification driver and topics for Heat events",
+    "items": {
+      "driver": {
+        "type": "list",
+        "default": [
+          "messagingv2"
+        ],
+        "description": "List of notification drivers (e.g., log, messagingv2, noop)",
+        "items": {
+          "type": "string",
+          "enum": [
+            "log",
+            "messaging",
+            "messagingv2",
+            "noop"
+          ],
+          "description": "A single notification driver"
+        }
+      },
+      "topics": {
+        "type": "list",
+        "default": [
+          "notifications"
+        ],
+        "description": "RabbitMQ topics to publish notifications to (if using messaging driver)",
+        "items": {
+          "type": "string",
+          "description": "A single messaging topic"
+        }
+      }
+    }
+  },
+  "oslo_messaging_rabbit": {
+    "type": "object",
+    "default": {
+      "rabbit_host": "rabbit",
+      "rabbit_port": 5672,
+      "rabbit_userid": "guest",
+      "rabbit_virtual_host": "/",
+      "rabbit_heartbeat_timeout_threshold": 60,
+      "rabbit_use_ssl": false,
+      "rabbit_ssl_version": "tlsv1_2",
+      "rabbit_ha_queues": false
+    },
+    "description": "RabbitMQ connection settings (used when messagingv2 driver is enabled)",
+    "items": {
+      "rabbit_host": {
+        "type": "string",
+        "default": "rabbit",
+        "description": "RabbitMQ hostname or IP"
+      },
+      "rabbit_port": {
+        "type": "number",
+        "default": 5672,
+        "description": "RabbitMQ port"
+      },
+      "rabbit_userid": {
+        "type": "string",
+        "default": "guest",
+        "description": "RabbitMQ user"
+      },
+      "rabbit_password": {
+        "type": "string",
+        "default": "",
+        "description": "RabbitMQ password (secure: use secrets management)"
+      },
+      "rabbit_virtual_host": {
+        "type": "string",
+        "default": "/",
+        "description": "RabbitMQ virtual host"
+      },
+      "rabbit_heartbeat_timeout_threshold": {
+        "type": "number",
+        "default": 60,
+        "description": "Seconds of inactivity before RabbitMQ connection is considered dead"
+      },
+      "rabbit_use_ssl": {
+        "type": "bool",
+        "default": false,
+        "description": "Enable SSL/TLS for RabbitMQ connections"
+      },
+      "rabbit_ssl_version": {
+        "type": "string",
+        "default": "tlsv1_2",
+        "description": "SSL/TLS protocol version (tlsv1, tlsv1_1, tlsv1_2, etc.)"
+      },
+      "rabbit_ha_queues": {
+        "type": "bool",
+        "default": false,
+        "description": "Enable mirrored (HA) queues in RabbitMQ"
+      }
+    }
+  },
+  "oslo_policy": {
+    "type": "object",
+    "default": {
+      "policy_file": "/etc/heat/policy.yaml",
+      "default_rule": "default"
+    },
+    "description": "Policy engine configuration for authorization rules",
+    "items": {
+      "policy_file": {
+        "type": "string",
+        "default": "/etc/heat/policy.yaml",
+        "description": "Path to the YAML/JSON policy rules file"
+      },
+      "default_rule": {
+        "type": "string",
+        "default": "default",
+        "description": "Default rule applied when no specific rule matches a request"
+      }
+    }
+  }
+}

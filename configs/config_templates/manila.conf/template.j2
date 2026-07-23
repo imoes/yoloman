@@ -1,0 +1,69 @@
+[DEFAULT]
+# Global defaults for Manila (shared file system service)
+# Enable debug logging for detailed troubleshooting
+{% if debug %}debug = true{% else %}debug = false{% endif %}
+# Log to this syslog facility
+{% if syslog_log_facility %}syslog_log_facility = {{ syslog_log_facility }}{% endif %}
+# Path to the log file (if syslog is disabled)
+{% if log_file %}log_file = {{ log_file }}{% endif %}
+# Bind address for the API service
+api_paste_config = {{ api_paste_config }}
+# RPC backend for communication with other services
+{% if rpc_backend %}rpc_backend = {{ rpc_backend }}{% endif %}
+# Transport URL for messaging (e.g., rabbit://user:pass@host:5672/)
+{% if transport_url %}transport_url = {{ transport_url }}{% endif %}
+# Database connection URL
+{% if database_connection %}database_connection = {{ database_connection }}{% endif %}
+
+# Authentication and security
+# Enable keystone authentication (recommended for production)
+auth_strategy = keystone
+# Token provider (e.g., keystone or fernet)
+{% if token_provider %}token_provider = {{ token_provider }}{% endif %}
+# Fernet key repository path (used when token_provider = fernet)
+{% if fernet_keys_dir %}fernet_keys_dir = {{ fernet_keys_dir }}{% endif %}
+
+# Shared file system drivers and drivers enabled
+{% for driver in enabled_share_drivers %}# Enable {{ driver.name }} driver (v{{ driver.version or 'latest' }})
+{% if loop.first %}enabled_share_drivers = {{ driver.name }}{% else %}, {{ driver.name }}{% endif %}{% endfor %}
+{% if default_share_type %}default_share_type = {{ default_share_type }}{% endif %}
+
+# Share server management
+# Enable share server management (for multi-tenancy or dedicated servers)
+{% if manage_share_servers %}manage_share_servers = {{ manage_share_servers }}{% endif %}
+# Share network driver (for IP allocation / DNS integration)
+{% if network_api_class %}network_api_class = {{ network_api_class }}{% endif %}
+
+# Share growth and quotas
+# Maximum number of shares per tenant
+{% if max Shares per tenant %}max_shares_per_tenant = {{ max_shares_per_tenant }}{% endif %}
+# Maximum number of share snapshots per tenant
+{% if max_share_snapshots_per_tenant %}max_share_snapshots_per_tenant = {{ max_share_snapshots_per_tenant }}{% endif %}
+
+# Share replication and HA
+# Enable share replication (for active/active HA)
+{% if share_replication %}share_replication = {{ share_replication }}{% endif %}
+# Enable replication domain (e.g., 'replica_domain1')
+{% if replication_domain %}replication_domain = {{ replication_domain }}{% endif %}
+
+# NFS / CIFS / GlusterFS-specific defaults (if not overridden by drivers)
+# Default NFS version
+{% if default_nfs_version %}default_nfs_version = {{ default_nfs_version }}{% endif %}
+# Default export location format
+{% if share_export_location_format %}share_export_location_format = {{ share_export_location_format }}{% endif %}
+
+# Cinder integration (for volume-backed shares)
+{% if cinder_catalog_info %}cinder_catalog_info = {{ cinder_catalog_info }}{% endif %}
+{% if volume_driver %}volume_driver = {{ volume_driver }}{% endif %}
+
+# Scheduler configuration
+# Weighting strategy for scheduler
+{% if scheduler_filter_classes %}scheduler_filter_classes = {{ scheduler_filter_classes | join(', ') }}{% endif %}
+{% if scheduler_weight_classes %}scheduler_weight_classes = {{ scheduler_weight_classes | join(', ') }}{% endif %}
+
+# Metadata service endpoint
+{% if metadata_api_class %}metadata_api_class = {{ metadata_api_class }}{% endif %}
+
+# Service tokens and ACLs
+{% if service_token_required %}service_token_required = {{ service_token_required }}{% endif %}
+{% if service_token_expires %}service_token_expires = {{ service_token_expires }}{% endif %}

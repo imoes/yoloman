@@ -1,0 +1,61 @@
+{
+  "host": "0.0.0.0",
+  "port": 9091,
+  "max_connections": 50,
+  "log_file": "/var/log/downtimed.log",
+  "log_level": 2,
+  "pid_file": "/run/downtimed.pid",
+  "ssl": {
+    "enabled": true,
+    "cert_path": "/etc/downtimed/ssl/server.crt",
+    "key_path": "/etc/downtimed/ssl/server.key"
+  },
+  "services": [
+    {
+      "name": "api-gateway",
+      "description": "Public-facing REST API gateway",
+      "type": "http",
+      "url": "https://api.example.com/health",
+      "interval": 30,
+      "timeout": 5,
+      "max_retries": 2
+    },
+    {
+      "name": "db-primary",
+      "description": "Primary PostgreSQL instance",
+      "type": "tcp",
+      "host": "db.internal.example.com",
+      "port": 5432,
+      "interval": 20,
+      "timeout": 3,
+      "max_retries": 1
+    },
+    {
+      "name": "cache-node",
+      "description": "Redis cache node",
+      "type": "ping",
+      "host": "10.0.0.5",
+      "interval": 15,
+      "timeout": 5,
+      "max_retries": 2
+    }
+  ],
+  "alerts": [
+    {
+      "name": "ops-team",
+      "description": "Alert ops@internal.example.com on incidents",
+      "type": "email",
+      "email": "ops@internal.example.com"
+    },
+    {
+      "name": "pagerduty",
+      "description": "Escalate critical downtime to PagerDuty",
+      "type": "webhook",
+      "url": "https://events.pagerduty.com/v2/enqueue",
+      "method": "POST"
+    }
+  ],
+  "notify_on_start": true,
+  "notify_on_stop": true,
+  "auto_restart": true
+}

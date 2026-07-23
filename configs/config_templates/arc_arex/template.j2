@@ -1,0 +1,37 @@
+{# ARC Resource-coupled EXecution Service (arc_arex) configuration #}
+{# General service settings #}
+[AREX]
+server = {{ server_hostname }}
+port = {{ server_port }}
+{# Enable/Disable REST API endpoints #}
+rest = {{ rest_enabled | lower }}
+{# Enable/Disable WebSocket endpoint #}
+websocket = {{ websocket_enabled | lower }}
+{# Maximum number of jobs handled by this service #}
+maxjobs = {{ max_jobs }}
+{# Path to the job state database #}
+jobstatepath = {{ job_state_path }}
+{# Path to the job output storage #}
+joboutputpath = {{ job_output_path }}
+{# Number of worker threads handling incoming requests #}
+workerthreads = {{ worker_threads }}
+{# Authentication method (gcc, x509, none) #}
+authmethod = {{ auth_method }}
+{# Enable/Disable support for gridftp transfers #}
+gridftp = {{ gridftp_enabled | lower }}
+{# GridFTP ports to use for transfers (list of ports) #}
+{% if gridftp_ports | length > 0 %}
+gridftpports = {{ gridftp_ports | join(', ') }}
+{% endif %}
+{# List of job managers (one per resource) #}
+{% for manager in job_managers %}[JobManager:{{ manager.name | replace(':', '_') }}]
+resource = {{ manager.resource }}
+manager = {{ manager.manager }}
+queue = {{ manager.queue | default('') }}
+{% if manager.workdir %}workdir = {{ manager.workdir }}
+{% endif %}{# Optional #}
+{% endfor %}
+{# Optional logging configuration #}
+{% if log_level %}[Logging]
+loglevel = {{ log_level }}
+{% endif %}

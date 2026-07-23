@@ -1,0 +1,72 @@
+[global]
+# Base domain for the IPA realm
+base_dn = {{ realm_domain | lower }}
+
+# Name of the IPA realm
+realm = {{ realm_name | upper }}
+
+# IPA server hostname(s) to use for authentication and directory lookups
+server = {{ server_hostnames | join(', ') }}
+
+# Enable or disable DNS service discovery (SRV records) to locate IPA servers
+autodiscover = {{ dns_discovery | string | lower }}
+
+# Enable or disable hostname verification for SSL/TLS connections
+ssl_verify = {{ ssl_verify | string | lower }}
+
+# Path to CA certificate bundle used to verify IPA server certificates
+ca_cert_file = {{ ca_cert_path }}
+
+# Default SSH public key algorithm preference (used during enrollment)
+ssh_key_algorithm = {{ ssh_key_algorithm }}
+
+# Enable or disable automatic SSHFP record updates in DNS
+update_dns = {{ update_dns | string | lower }}
+
+# Enable or disable integration with SSSD for identity and auth
+sss = {{ sssd_enabled | string | lower }}
+
+# Enable or disable integration with nsswitch/pam (legacy; usually kept enabled)
+nss = {{ nss_enabled | string | lower }}
+
+# Enable or disable integration with sudo rules from IPA
+sudo = {{ sudo_enabled | string | lower }}
+
+# Enable or disable integration with autofs maps from IPA
+autofs = {{ autofs_enabled | string | lower }}
+
+# Enable or disable integration with Kerberos credential caching (ccache)
+ccache = {{ ccache_enabled | string | lower }}
+
+# Kerberos ccache type (e.g., FILE:, KEYRING:, MEMORY:)
+ccache_type = {{ ccache_type }}
+
+# Enable or disable automatic Kerberos ticket renewal via sssd
+krb5_use_kdcinfo = {{ krb5_use_kdcinfo | string | lower }}
+
+# Enable or disable IPv6 support in client communication
+ipv6 = {{ ipv6_enabled | string | lower }}
+
+# Timeout (seconds) for network requests to IPA servers
+connect_timeout = {{ connect_timeout }}
+
+# Enable or disable verbose debug logging (not recommended for production)
+verbose = {{ verbose_logging | string | lower }}
+
+# Enable or disable enrollment of host keytab for SPNEGO/MIT Kerberos auth
+keytab = {{ enroll_keytab | string | lower }}
+
+# Enable or disable enrollment of host SSH public key (for trust & remote login)
+ssh_enabled = {{ ssh_enroll_enabled | string | lower }}
+
+# Hostname to advertise as the client's DNS name (set if different from `uname -n`)
+hostname = {{ advertised_hostname | default('') }}
+
+# Location of the SSSD config file (for reference only; not used by IPA client directly)
+sssd_conf = /etc/sssd/sssd.conf
+
+# Location of the Kerberos config file
+krb5_conf = /etc/krb5.conf
+
+# Location of the nsswitch config file
+nss_conf = /etc/nsswitch.conf

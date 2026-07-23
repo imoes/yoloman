@@ -1,0 +1,193 @@
+{
+  "server": {
+    "type": "object",
+    "default": {},
+    "description": "IRC server connection parameters",
+    "items": {
+      "host": {
+        "type": "string",
+        "default": "irc.example.net",
+        "description": "IRC server hostname or IP address"
+      },
+      "port": {
+        "type": "number",
+        "default": 6667,
+        "description": "IRC server port (typically 6667 for plain or 6697 for SSL)"
+      },
+      "use_ssl": {
+        "type": "bool",
+        "default": false,
+        "description": "Enable SSL/TLS encryption for the connection"
+      },
+      "password": {
+        "type": "string",
+        "default": "",
+        "description": "Server password (if required); leave empty if not needed"
+      }
+    }
+  },
+  "identity": {
+    "type": "object",
+    "default": {},
+    "description": "Bot/user identity settings",
+    "items": {
+      "username": {
+        "type": "string",
+        "default": "dircproxy",
+        "description": "IRC username (login name)"
+      },
+      "nick": {
+        "type": "string",
+        "default": "dircproxy",
+        "description": "Preferred nickname"
+      },
+      "realname": {
+        "type": "string",
+        "default": "dircproxy user",
+        "description": "Real name / GECOS field"
+      },
+      "usermode": {
+        "type": "string",
+        "default": "",
+        "description": "User modes to request on connect (e.g. 'i' for invisible)"
+      }
+    }
+  },
+  "channel": {
+    "type": "object",
+    "default": {},
+    "description": "Channel joining and rejoin behavior",
+    "items": {
+      "join_on_connect": {
+        "type": "bool",
+        "default": true,
+        "description": "Automatically join configured channels after connecting"
+      },
+      "default_channels": {
+        "type": "list",
+        "default": [
+          "#general"
+        ],
+        "description": "List of channels to join on connect"
+      },
+      "auto_rejoin": {
+        "type": "bool",
+        "default": true,
+        "description": "Automatically rejoin a channel if kicked"
+      },
+      "rejoin_delay": {
+        "type": "number",
+        "default": 10,
+        "description": "Seconds to wait before rejoining after kick/part"
+      }
+    }
+  },
+  "log": {
+    "type": "object",
+    "default": {},
+    "description": "Logging configuration",
+    "items": {
+      "enabled": {
+        "type": "bool",
+        "default": false,
+        "description": "Enable logging to disk"
+      },
+      "directory": {
+        "type": "string",
+        "default": "/var/log/dircproxy",
+        "description": "Directory where log files are stored"
+      },
+      "format": {
+        "type": "string",
+        "default": "%Y-%m-%d_%H.%M.%S",
+        "description": "Filename timestamp format for logs"
+      }
+    }
+  },
+  "buffer": {
+    "type": "object",
+    "default": {},
+    "description": "Buffer / scrollback settings",
+    "items": {
+      "lines": {
+        "type": "number",
+        "default": 100,
+        "description": "Number of lines to buffer per channel/window"
+      },
+      "scrollback_lines": {
+        "type": "number",
+        "default": 200,
+        "description": "Lines to retain in memory for scrollback"
+      }
+    }
+  },
+  "connection": {
+    "type": "object",
+    "default": {},
+    "description": "Connection reliability and timing",
+    "items": {
+      "timeout": {
+        "type": "number",
+        "default": 60,
+        "description": "Connection idle timeout in seconds"
+      },
+      "reconnect_delay": {
+        "type": "number",
+        "default": 15,
+        "description": "Seconds to wait before reconnecting on disconnect"
+      },
+      "max_reconnect_attempts": {
+        "type": "number",
+        "default": 5,
+        "description": "Maximum attempts to reconnect before giving up"
+      }
+    }
+  },
+  "dns": {
+    "type": "object",
+    "default": {},
+    "description": "DNS configuration for hostname resolution",
+    "items": {
+      "enabled": {
+        "type": "bool",
+        "default": true,
+        "description": "Enable internal DNS resolution (recommended)"
+      },
+      "server": {
+        "type": "string",
+        "default": "",
+        "description": "Optional custom DNS server (e.g. '8.8.8.8'); empty uses system default"
+      }
+    }
+  },
+  "aliases": {
+    "type": "object",
+    "default": {},
+    "description": "Command aliases (e.g. 'bot' \u2192 '/msg $1 Bot says hello')"
+  },
+  "channel_overrides": {
+    "type": "list",
+    "default": [],
+    "description": "Per-channel overrides for join behavior or modes",
+    "items": {
+      "type": "object",
+      "items": {
+        "name": {
+          "type": "string",
+          "default": "",
+          "description": "Channel name (e.g. '#channel')"
+        },
+        "auto_join": {
+          "type": "bool",
+          "default": true,
+          "description": "Override global join-on-connect setting for this channel"
+        },
+        "user_modes": {
+          "type": "string",
+          "default": "",
+          "description": "User modes to request in this channel (e.g. '+o')"
+        }
+      }
+    }
+  }
+}

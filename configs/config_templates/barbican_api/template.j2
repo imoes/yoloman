@@ -1,0 +1,111 @@
+[DEFAULT]
+# The name of the OpenStack service (for logging, etc.)
+{{ '# ' if barbican_service_name is undefined else '' }}service_name = {{ barbican_service_name | default('barbican') }}
+
+# Logging configuration
+# Enable debug logging
+{{ '# ' if debug is undefined else '' }}debug = {{ debug | default(false) | lower }}
+
+# The user and group under which the service runs
+# User for running the service process
+{{ '# ' if user is undefined else '' }}user = {{ user | default('barbican') }}
+# Group for running the service process
+{{ '# ' if group is undefined else '' }}group = {{ group | default('barbican') }}
+
+# Base directory for data files
+# Path where barbican stores secrets and other runtime data
+{{ '# ' if state_path is undefined else '' }}state_path = {{ state_path | default('/var/lib/barbican') }}
+
+[api]
+# API server configuration
+# Host address the API server binds to
+bind_host = {{ api_bind_host | default('0.0.0.0') }}
+# Port the API server listens on
+bind_port = {{ api_bind_port | default(9311) }}
+
+# REST API versioning
+# Enable versioned API endpoints
+{{ '# ' if enable_v1_api is undefined else '' }}enable_v1_api = {{ enable_v1_api | default(true) | lower }}
+
+# CORS configuration for cross-origin requests
+# List of allowed origins (CORS)
+{% if cors_allowed_origins is defined %}{% for origin in cors_allowed_origins %}cors_allowed_origin = {{ origin }}
+{% endfor %}{% else %}# (list value) CORS allowed origins
+{% endif %}
+
+# Authentication
+# Authentication strategy (keystone or noauth)
+auth_strategy = {{ auth_strategy | default('keystone') }}
+
+# Keystone-specific settings (when using keystone auth)
+{% if auth_strategy == 'keystone' %}
+# Public endpoint URL (used in token introspection responses)
+public_endpoint = {{ keystone_public_endpoint | default('https://keystone.example.com:5000') }}
+
+# Project domain and name for Barbican service user
+project_domain_name = {{ keystone_project_domain_name | default('Default') }}
+project_name = {{ keystone_project_name | default('service') }}
+user_domain_name = {{ keystone_user_domain_name | default('Default') }}
+username = {{ keystone_username | default('barbican') }}
+
+# Password for Barbican service user — *must* be set securely
+password = {{ keystone_password | mandatory }}
+{% endif %}
+
+[database]
+# Database backend configuration
+# SQLAlchemy connection string
+connection = {{ db_connection_url | mandatory }}
+
+# Pooling settings
+# Maximum number of connections to keep in the pool
+max_pool_size = {{ db_max_pool_size | default(10) }}
+# Maximum overflow connections beyond pool size
+max_overflow = {{ db_max_overflow | default(20) }}
+
+[secretstore]
+# Secret storage plugin configuration
+# Default secret store plugin
+{{ '# ' if secretstore_plugin is undefined else '' }}secretstore_plugin = {{ secretstore_plugin | default('store_crypto') }}
+
+# Plugin-specific configuration (for store_crypto)
+[store_crypto]
+# Secret encryption key (base64-encoded AES key)
+key_store_secret_key = {{ store_crypto_key | mandatory }}
+
+# Key wrapping algorithm
+key_wrap_algorithm = {{ store_crypto_key_wrap | default('AES_WRAP') }}
+
+[worker]
+# Gunicorn worker configuration for the API server
+# Number of worker processes
+workers = {{ worker_processes | default(2) }}
+
+# Thread count per worker
+threads = {{ worker_threads | default(1) }}
+
+# Timeout for request handling (seconds)
+timeout = {{ worker_timeout | default(300) }}
+
+# Access log file — '-' means stdout
+access_log = {{ worker_access_log | default('-') }}
+
+# Error log file
+error_log = {{ worker_error_log | default('/var/log/barbican/barbican-api.log') }}
+
+# Logging format
+log_datefmt = {{ worker_log_datefmt | default('%Y-%m-%d %H:%M:%S') }}
+log_format = {{ worker_log_format | default('[%(asctime)s] [%(process)d] [%(levelname)s] %(message)s') }}
+
+# Enable access logging
+access_log_format = {{ worker_access_log_format | default('%(h)s %(l)s %(u)s %(t)s "%(r)s" %(s)s %(b)s "%(f)s" "%(a)s"') }}
+
+# Security hardening: restrict private key export
+# Disable private key export for security
+{% if disable_private_key_export is defined %}disable_private_key_export = {{ disable_private_key_export | lower }}
+{% else %}# (bool) Prevent exporting of private keys
+# disable_private_key_export = false
+{% endif %}
+
+# Limit on secret metadata fields returned (security hardening)
+max_secret_data_size = {{ max_secret_data_size | default(128 * 1024) }}

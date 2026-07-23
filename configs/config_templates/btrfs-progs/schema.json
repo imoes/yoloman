@@ -1,0 +1,92 @@
+{
+  "compression_threads": {
+    "type": "number",
+    "default": 0,
+    "description": "Number of threads for compression; 0 lets btrfs auto-detect based on CPU count."
+  },
+  "checksum": {
+    "type": "number",
+    "default": 1,
+    "description": "Enable checksumming during I/O (1=enabled, 0=disabled). Recommended to leave enabled."
+  },
+  "ssd_optimization": {
+    "type": "number",
+    "default": 1,
+    "description": "Enable SSD-friendly optimizations during filesystem creation (1=enabled, 0=disabled)."
+  },
+  "block_size": {
+    "type": "number",
+    "default": 4096,
+    "description": "Block size for mkfs.btrfs in bytes. Most commonly 4096 (4 KiB)."
+  },
+  "compression_type": {
+    "type": "string",
+    "default": "zstd",
+    "description": "Default compression algorithm for new filesystems. Supported: zstd, lzo, zlib, none."
+  },
+  "delayed_alloc": {
+    "type": "number",
+    "default": 1,
+    "description": "Enable delayed allocation (1=enabled, 0=disabled). Improves fragmentation but may affect latency."
+  },
+  "mount_options": {
+    "type": "list",
+    "default": [
+      "noatime",
+      "compress=zstd:1"
+    ],
+    "items": {
+      "type": "string",
+      "description": "A mount option string (e.g., 'noatime', 'compress=zstd:1,ssd') to be passed to mount."
+    },
+    "description": "List of mount options to apply via btrfs-mount helper or recommended defaults."
+  },
+  "scrub_interval_hours": {
+    "type": "number",
+    "default": 168,
+    "description": "Frequency (in hours) for automatic btrfs scrub jobs (e.g., 168 = weekly). Set to 0 to disable."
+  },
+  "auto_balance": {
+    "type": "number",
+    "default": 0,
+    "description": "Enable automatic background balancing (1=enabled, 0=disabled). Use with caution."
+  },
+  "auto_balance_threshold": {
+    "type": "number",
+    "default": 80,
+    "description": "Data block group usage percentage threshold that triggers auto-balance (1\u2013100)."
+  },
+  "max_stripes": {
+    "type": "number",
+    "default": 0,
+    "description": "Max stripes per device for mkfs.btrfs (0 = default, i.e., unlimited). Typically set for multi-device RAID."
+  },
+  "default_raid_profile": {
+    "type": "string",
+    "default": "single",
+    "description": "RAID profile used by default for metadata/data in mkfs.btrfs. Options: single, dup, raid0, raid1, raid10, raid5, raid6."
+  },
+  "metadata_dup": {
+    "type": "number",
+    "default": 0,
+    "description": "Enable metadata duplication (1=enabled, 0=disabled) for single-device filesystems. Increases metadata redundancy."
+  },
+  "env_vars": {
+    "type": "list",
+    "default": [],
+    "items": {
+      "type": "object",
+      "properties": {
+        "var": {
+          "type": "string",
+          "description": "Environment variable name (e.g., BTRFS_UTIL_DEBUG)"
+        },
+        "val": {
+          "type": "string",
+          "description": "Environment variable value"
+        }
+      }
+    },
+    "description": "List of environment variable assignments to export before running btrfs commands."
+  }
+}

@@ -1,0 +1,177 @@
+{
+  "password": {
+    "type": "object",
+    "default": {
+      "pass_max_days": 99999,
+      "pass_min_days": 0,
+      "pass_warn_age": 7
+    },
+    "description": "Password aging controls for new accounts: maximum days between changes, minimum days between changes, and days warning before expiry.",
+    "fields": {
+      "pass_max_days": {
+        "type": "number",
+        "default": 99999,
+        "description": "Maximum number of days a password may be used."
+      },
+      "pass_min_days": {
+        "type": "number",
+        "default": 0,
+        "description": "Minimum number of days allowed between password changes."
+      },
+      "pass_warn_age": {
+        "type": "number",
+        "default": 7,
+        "description": "Number of days warning given before password expiry."
+      }
+    }
+  },
+  "ranges": {
+    "type": "object",
+    "default": {
+      "uid_min": 1000,
+      "uid_max": 60000,
+      "gid_min": 1000,
+      "gid_max": 60000,
+      "sys_uid_min": 100,
+      "sys_uid_max": 999,
+      "sys_gid_min": 100,
+      "sys_gid_max": 999
+    },
+    "description": "UID/GID ranges: normal users (uid_min\u2013uid_max, gid_min\u2013gid_max) vs system accounts (sys_uid_min\u2013sys_uid_max, sys_gid_min\u2013sys_gid_max).",
+    "fields": {
+      "uid_min": {
+        "type": "number",
+        "default": 1000,
+        "description": "First normal user UID to assign (inclusive)."
+      },
+      "uid_max": {
+        "type": "number",
+        "default": 60000,
+        "description": "Last normal user UID to assign (inclusive)."
+      },
+      "gid_min": {
+        "type": "number",
+        "default": 1000,
+        "description": "First normal group GID to assign (inclusive)."
+      },
+      "gid_max": {
+        "type": "number",
+        "default": 60000,
+        "description": "Last normal group GID to assign (inclusive)."
+      },
+      "sys_uid_min": {
+        "type": "number",
+        "default": 100,
+        "description": "First system UID to assign (inclusive)."
+      },
+      "sys_uid_max": {
+        "type": "number",
+        "default": 999,
+        "description": "Last system UID to assign (inclusive)."
+      },
+      "sys_gid_min": {
+        "type": "number",
+        "default": 100,
+        "description": "First system GID to assign (inclusive)."
+      },
+      "sys_gid_max": {
+        "type": "number",
+        "default": 999,
+        "description": "Last system GID to assign (inclusive)."
+      }
+    }
+  },
+  "defaults": {
+    "type": "object",
+    "default": {
+      "def_shell": "/bin/bash",
+      "def_home": "/home",
+      "umask": "022",
+      "usergroups_enab": true,
+      "spool_dir": "/var/spool/mail",
+      "groups_to_add": []
+    },
+    "description": "User creation defaults: login shell, home directory location, initial umask, user private group behavior, mail spool, and additional default groups.",
+    "fields": {
+      "def_shell": {
+        "type": "string",
+        "default": "/bin/bash",
+        "description": "Default shell for new users (full path)."
+      },
+      "def_home": {
+        "type": "string",
+        "default": "/home",
+        "description": "Base directory for new users' home directories (prefix)."
+      },
+      "umask": {
+        "type": "string",
+        "default": "022",
+        "description": "Default umask for file creation by new users (octal string)."
+      },
+      "usergroups_enab": {
+        "type": "bool",
+        "default": true,
+        "description": "Whether to create a private group for each new user (true = enable UPG)."
+      },
+      "spool_dir": {
+        "type": "string",
+        "default": "/var/spool/mail",
+        "description": "Base directory for user mail spool files."
+      },
+      "groups_to_add": {
+        "type": "list",
+        "default": [],
+        "items": {
+          "type": "string",
+          "description": "Name of a group to add new users to by default."
+        }
+      }
+    }
+  },
+  "limits": {
+    "type": "object",
+    "default": {
+      "login_retries": 3,
+      "login_timeout": 60
+    },
+    "description": "Login session controls: max failed login attempts and timeout before re-prompting.",
+    "fields": {
+      "login_retries": {
+        "type": "number",
+        "default": 3,
+        "description": "Maximum number of failed login attempts before exit."
+      },
+      "login_timeout": {
+        "type": "number",
+        "default": 60,
+        "description": "Seconds before login prompt times out (0 = no timeout)."
+      }
+    }
+  },
+  "logging": {
+    "type": "object",
+    "default": {
+      "faillog_enab": true,
+      "log_unknown_fail": true,
+      "log_ok_logins": false
+    },
+    "description": "Login audit logging: whether to maintain a failure log, log unknown failures, and log successful logins.",
+    "fields": {
+      "faillog_enab": {
+        "type": "bool",
+        "default": true,
+        "description": "Enable faillog(5) logging of failed logins."
+      },
+      "log_unknown_fail": {
+        "type": "bool",
+        "default": true,
+        "description": "Log unknown usernames in faillog (helps detect brute-force attempts)."
+      },
+      "log_ok_logins": {
+        "type": "bool",
+        "default": false,
+        "description": "Log successful logins in the faillog file (not recommended for security)."
+      }
+    }
+  }
+}

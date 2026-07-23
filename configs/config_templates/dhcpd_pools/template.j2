@@ -1,0 +1,78 @@
+# {{ comment_header }}
+# ISC DHCP Lease Analysis Tool (dhcpd_pools) configuration
+# Configuration file: /etc/dhcpd-pools.conf
+# Ref: https://dhcpd-pools.sourceforge.net/
+
+[global]
+# Path to the main DHCP lease file to analyze
+lease_file = {{ lease_file }}
+
+# Path to write HTML reports (leave empty to disable HTML output)
+html_output_dir = {{ html_output_dir }}
+
+# Path to write CSV reports (leave empty to disable CSV output)
+csv_output_dir = {{ csv_output_dir }}
+
+# Path to write JSON reports (leave empty to disable JSON output)
+json_output_dir = {{ json_output_dir }}
+
+# Report date format (strptime-compatible)
+report_date_format = {{ report_date_format }}
+
+# Number of days to include in "recent activity" analysis
+recent_days = {{ recent_days }}
+
+# Minimum number of days a lease must have been inactive to be considered stale
+stale_days = {{ stale_days }}
+
+# Enable detailed per-subnet analysis (adds overhead on large lease files)
+detailed_subnets = {{ detailed_subnets }}
+
+# List of subnets to *exclude* from analysis (CIDR or dotted-quad notation)
+exclude_subnets = {% for subnet in exclude_subnets %}
+  {{ subnet }}
+{% endfor %}
+
+# List of subnet ranges to *include* in analysis (if non-empty, only these are processed)
+include_subnets = {% if include_subnets | length > 0 %}
+{% for subnet in include_subnets %}
+  {{ subnet }}
+{% endfor %}
+{% else %}
+  # (all subnets included by default)
+{% endif %}
+
+[thresholds]
+# Warning threshold: pool utilization above this % triggers warning
+pool_warn_pct = {{ thresholds.pool_warn_pct }}
+
+# Critical threshold: pool utilization above this % triggers critical alert
+pool_crit_pct = {{ thresholds.pool_crit_pct }}
+
+# Warning threshold: number of stale leases above this triggers warning
+stale_warn_count = {{ thresholds.stale_warn_count }}
+
+# Critical threshold: number of stale leases above this triggers critical alert
+stale_crit_count = {{ thresholds.stale_crit_count }}
+
+# Warning threshold: total active leases above this triggers warning
+active_warn_count = {{ thresholds.active_warn_count }}
+
+# Critical threshold: total active leases above this triggers critical alert
+active_crit_count = {{ thresholds.active_crit_count }}
+
+[reports]
+# Enable per-pool statistics in reports
+pool_stats = {{ reports.pool_stats }}
+
+# Enable per-class statistics in reports
+class_stats = {{ reports.class_stats }}
+
+# Include host reservations in reports
+host_reservations = {{ reports.host_reservations }}
+
+# Include MAC vendor lookup in reports (requires external lookup; adds latency)
+mac_vendor_lookup = {{ reports.mac_vendor_lookup }}
+
+# Enable time-series summary in reports (requires multiple runs; needs historic data)
+time_series = {{ reports.time_series }}

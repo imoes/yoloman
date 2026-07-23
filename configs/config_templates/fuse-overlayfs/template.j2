@@ -1,0 +1,67 @@
+# Default storage driver for rootless containers
+storage_driver = "overlay"
+
+# Root directory for container storage (must be a user-writable path)
+storage_root = "{{ storage_root }}"
+
+# Additional image store path (for image caching)
+{% if additional_image_stores %}
+additional_image_stores = [
+{% for path in additional_image_stores %}  "{{ path }}",
+{% endfor %}]
+{% endif %}
+
+# Path to the storage metadata database
+storage_runroot = "{{ storage_runroot }}"
+
+# Maximum number of overlay layers per container
+max_layer_count = {{ max_layer_count }}
+
+# UID/GID mapping mode (for rootless mode)
+uidmap = [
+  {"container_id": 0, "host_id": {{ uidmap_host_id }}, "size": {{ uidmap_size }}},
+  {"container_id": {{ uidmap_container_offset }}, "host_id": {{ uidmap_host_offset }}, "size": {{ uidmap_size_offset }}},
+]
+gidmap = [
+  {"container_id": 0, "host_id": {{ gidmap_host_id }}, "size": {{ gidmap_size }}},
+  {"container_id": {{ gidmap_container_offset }}, "host_id": {{ gidmap_host_offset }}, "size": {{ gidmap_size_offset }}},
+]
+
+# Enable/disable using the FUSE overlay filesystem (fuse-overlayfs)
+{% if fuse_overlayfs_enabled %}
+# Use fuse-overlayfs instead of native kernel overlay
+# (required for rootless users without /etc/subuid mappings)
+override_kernel_check = true
+{% else %}
+override_kernel_check = false
+{% endif %}
+
+# Log level: "debug", "info", "warn", "error", "fatal", "panic"
+log_level = "{{ log_level }}"
+
+# Filesystem mount options (empty string = default)
+mountopt = "{{ mountopt }}"
+
+# Number of worker threads for image operations
+workers = {{ workers }}
+
+# Enable or disable VFS fallback for image verification
+{% if disable_vfs_fallback %}
+# Disable VFS fallback for image verification (use only overlay)
+fs_vfs_fallback = false
+{% else %}
+# Enable VFS fallback (if overlay fails, try plain filesystem)
+fs_vfs_fallback = true
+{% endif %}
+
+# Path to the container image cache
+imagestore = "{{ imagestore }}"
+
+# Enable or disable using the `mount_program` (e.g., fuse-overlayfs)
+{% if use_mount_program %}
+# Use external mount program for overlay (required for rootless)
+mount_program = "{{ mount_program }}"
+{% endif %}
+
+# Active mount program options (passed directly to fuse-overlayfs)
+mountopt_fuse = ["{{ mountopt_fuse | join('", "') }}"]

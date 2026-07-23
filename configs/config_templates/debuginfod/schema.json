@@ -1,0 +1,125 @@
+{
+  "base_cache_dir": {
+    "type": "string",
+    "default": "/var/cache/debuginfod",
+    "description": "Root directory where debuginfo files are cached locally."
+  },
+  "tmp_dir": {
+    "type": "string",
+    "default": "/var/tmp/debuginfod",
+    "description": "Directory for temporary files (e.g., partial downloads). Should be on the same filesystem as cache for hardlinking efficiency."
+  },
+  "listen_address": {
+    "type": "string",
+    "default": "0.0.0.0",
+    "description": "IP address (IPv4 or IPv6) the server binds to. Use '::' for all interfaces on IPv6."
+  },
+  "listen_port": {
+    "type": "number",
+    "default": 8002,
+    "description": "HTTP(S) port to listen on."
+  },
+  "worker_count": {
+    "type": "number",
+    "default": 8,
+    "description": "Number of worker threads handling requests. Adjust based on CPU cores and load."
+  },
+  "max_connections": {
+    "type": "number",
+    "default": 1024,
+    "description": "Maximum number of concurrent connections. Exceeding this may cause request rejection or queuing."
+  },
+  "compression": {
+    "type": "boolean",
+    "default": true,
+    "description": "Whether to enable on-the-fly gzip compression of debuginfo files (reduces bandwidth)."
+  },
+  "http2": {
+    "type": "boolean",
+    "default": false,
+    "description": "Enable HTTP/2 protocol support (requires TLS or reverse proxy termination)."
+  },
+  "https_cert_path": {
+    "type": "string",
+    "default": "",
+    "description": "Path to TLS certificate file (PEM format). If empty, server runs HTTP only."
+  },
+  "https_key_path": {
+    "type": "string",
+    "default": "",
+    "description": "Path to TLS private key file (PEM format). Ignored if no cert path."
+  },
+  "api_root_path": {
+    "type": "string",
+    "default": "/debuginfod",
+    "description": "URL prefix for API endpoints (e.g., /debuginfod/cache/debuginfo/...)."
+  },
+  "upstream_timeout": {
+    "type": "number",
+    "default": 30,
+    "description": "Seconds to wait for upstream sources (e.g., distro repos) before timing out a fetch."
+  },
+  "cache_max_age": {
+    "type": "number",
+    "default": 604800,
+    "description": "Seconds of inactivity after which a cached file is considered stale and eligible for eviction."
+  },
+  "min_free_space": {
+    "type": "number",
+    "default": 5368709120,
+    "description": "Minimum free disk space (in bytes) required to accept uploads. Defaults to 5 GB."
+  },
+  "max_cache_size": {
+    "type": "number",
+    "default": 107374182400,
+    "description": "Maximum cache size (in bytes). Old files are removed to stay under this limit. Defaults to 100 GB."
+  },
+  "log_level": {
+    "type": "string",
+    "default": "info",
+    "description": "Verbosity of logs. Options: debug, info, notice, warning, error, crit, alert, emerg."
+  },
+  "upstream_sources": {
+    "type": "list",
+    "default": [],
+    "description": "List of base URLs for upstream debuginfo repositories (e.g., distro build roots). Requests for missing files will fall back here.",
+    "items": {
+      "type": "string",
+      "description": "Base URL of an upstream debuginfo server (e.g., https://debuginfo.example.com/)"
+    }
+  },
+  "enable_db": {
+    "type": "boolean",
+    "default": false,
+    "description": "Whether to enable SQLite-backed indexing for faster lookups (e.g., by build-id)."
+  },
+  "db_path": {
+    "type": "string",
+    "default": "/var/lib/debuginfod/debuginfod.db",
+    "description": "Path to the SQLite database file (used only if indexing is enabled)."
+  },
+  "rate_limit_per_min": {
+    "type": "number",
+    "default": 60,
+    "description": "Maximum number of requests allowed per IP per minute. Set to 0 to disable rate limiting."
+  },
+  "cors_origins": {
+    "type": "list",
+    "default": [],
+    "description": "List of allowed origins for CORS preflight responses. Use ['*'] to allow all.",
+    "items": {
+      "type": "string",
+      "description": "Allowed origin (e.g., https://example.com, or * for wildcard)"
+    }
+  },
+  "metrics": {
+    "type": "boolean",
+    "default": true,
+    "description": "Expose Prometheus-style metrics at /metrics endpoint."
+  },
+  "healthz": {
+    "type": "boolean",
+    "default": true,
+    "description": "Enable the /healthz endpoint for lightweight health checks."
+  }
+}

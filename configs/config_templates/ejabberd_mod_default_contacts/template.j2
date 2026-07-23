@@ -1,0 +1,13 @@
+# Module: ejabberd_mod_default_contacts
+# Adds one or more predefined contacts to every newly registered user's roster
+modules:
+  ejabberd_mod_default_contacts:
+    # List of contacts to add to new users' rosters
+    contacts:
+      {% for contact in roster_contacts %}
+      - jid: {{ contact.jid }}
+        {% if contact.name is defined %}name: {{ contact.name }}{% endif %}
+        {% if contact.groups is defined %}groups:
+          {% for group in contact.groups %}          - {{ group }}{% endfor %}
+        {% endif %}
+      {% endfor %}

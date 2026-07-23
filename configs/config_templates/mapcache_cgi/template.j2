@@ -1,0 +1,120 @@
+{# XML declaration with UTF-8 encoding #}
+<?xml version="1.0" encoding="UTF-8"?>
+{# MapCache configuration root element #}
+<mapcache>
+  {# Global settings for memory cache and tile directory #}
+  <cache type="disk" name="disk">
+    <directory>{{ cache.disk.directory }}</directory>
+    {% if cache.disk.cleanup.enabled %}
+    <cleanup>
+      <interval>{{ cache.disk.cleanup.interval }}</interval>
+      <ttl>{{ cache.disk.cleanup.ttl }}</ttl>
+    </cleanup>
+    {% endif %}
+  </cache>
+
+  {# Optional database cache (e.g., sqlite, postgres) #}
+  {% if cache.db is defined %}
+  <cache type="{{ cache.db.type }}" name="db">
+    {% if cache.db.type == 'sqlite' %}
+    <database>{{ cache.db.sqlite.path }}</database>
+    {% elif cache.db.type == 'postgres' %}
+    <host>{{ cache.db.postgres.host }}</host>
+    <port>{{ cache.db.postgres.port }}</port>
+    <database>{{ cache.db.postgres.database }}</database>
+    <user>{{ cache.db.postgres.user }}</user>
+    <password>{{ cache.db.postgres.password }}</password>
+    <table>{{ cache.db.postgres.table }}</table>
+    {% endif %}
+  </cache>
+  {% endif %}
+
+  {# Define tilesets — each represents a layer with sources and formats #}
+  {% for tileset in tilesets %}
+  <tileset name="{{ tileset.name }}">
+    {# Source of original tiles: WMS, tilesource, mapserver, etc. #}
+    <source>{{ tileset.source.name }}</source>
+    {# Image format for cached tiles (e.g., png, jpeg) #}
+    <format>{{ tileset.format }}</format>
+    {# Enable/disable metadata (e.g., XML manifests) #}
+    <meta{{ 'no' if not tileset.meta_tiles else '' }}meta />
+    {# Tile grid (default: global-mercator) #}
+    <grid>{{ tileset.grid }}</grid>
+    {# Optional metadata #}
+    {% if tileset.metadata %}
+    <metadata>
+      {% for key, value in tileset.metadata.items() %}
+      <{{ key }}>{{ value }}</{{ key }}>
+      {% endfor %}
+    </metadata>
+    {% endif %}
+    {# Tile expiry (TTL in seconds) #}
+    <expires>{{ tileset.expires }}</expires>
+    {# Access control (optional) #}
+    {% if tileset.acl is defined %}
+    <acl>
+      <allow>{{ tileset.acl.allow | join(', ') }}</allow>
+    </acl>
+    {% endif %}
+  </tileset>
+  {% endfor %}
+
+  {# Define sources used by tilesets — e.g., WMS, mapserver #}
+  {% for source in sources %}
+  <source name="{{ source.name }}">
+    <type>{{ source.type }}</type>
+    {% if source.type == 'wms' %}
+    <getmap>
+      <http>
+        <url>{{ source.wms.url }}</url>
+        {% if source.wms.headers %}
+        <headers>
+          {% for key, value in source.wms.headers.items() %}
+          <header name="{{ key }}">{{ value }}</header>
+          {% endfor %}
+        </headers>
+        {% endif %}
+      </http>
+      <params>
+        {% for key, value in source.wms.params.items() %}
+        <{{ key }}>{{ value }}</{{ key }}>
+        {% endfor %}
+      </params>
+    </getmap>
+    {% elif source.type == 'mapserver' %}
+    <mapfile>{{ source.mapserver.mapfile }}</mapfile>
+    {% elif source.type == 'tilesource' %}
+    <gettile>
+      <url>{{ source.tilesource.url }}</url>
+    </gettile>
+    {% endif %}
+    {# Optional timeout and retries #}
+    {% if source.timeout %}
+    <timeout>{{ source.timeout }}</timeout>
+    {% endif %}
+    {% if source.retries is defined %}
+    <retries>{{ source.retries }}</retries>
+    {% endif %}
+  </source>
+  {% endfor %}
+
+  {# Global service settings #}
+  <service type="wms" enabled="{{ services.wms.enabled }}">
+    <limit>100</limit>
+  </service>
+  <service type="tms" enabled="{{ services.tms.enabled }}" />
+  <service type="kml" enabled="{{ services.kml.enabled }}" />
+  <service type="wmts" enabled="{{ services.wmts.enabled }}" />
+  <service type="ve" enabled="{{ services.ve.enabled }}" />
+
+  {# Global error handling and logging #}
+  <errors>
+    <report>{{ errors.report }}</report>
+  </errors>
+  <loglevel>{{ log.level }}</loglevel>
+  <logfilepath>{{ log.filepath }}</logfilepath>
+
+  {# Global default expiry (fallback if not set per tileset) #}
+  <default_expires>{{ defaults.expires }}</default_expires>
+  <default_tile_cache>{{ defaults.tile_cache }}</default_tile_cache>
+</mapcache>

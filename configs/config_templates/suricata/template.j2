@@ -1,0 +1,235 @@
+# Suricata main configuration file — auto-managed by provisioning system
+# See: https://suricata.readthedocs.io/
+
+# Path where Suricata looks for rule files
+{% if rules_dir is defined %}default-rule-path: {{ rules_dir }}{% else %}default-rule-path: /etc/suricata/rules{% endif %}
+
+# Directory for custom rule files (optional; use empty string to disable)
+{% if custom_rules_dir is defined %}rule-files:
+{% for rule_file in rule_files %}  - {{ rule_file }}{% endfor %}{% else %}rule-files:
+  - local.rules
+  - suricata.rules{% endif %}
+
+# Path to classification.config (optional)
+{% if classification_file is defined %}classification-file: {{ classification_file }}{% else %}classification-file: /etc/suricata/classification.config{% endif %}
+
+# Path to reference.config (optional)
+{% if reference_file is defined %}reference-file: {{ reference_file }}{% else %}reference-file: /etc/suricata/reference.config{% endif %}
+
+# Logging directory
+{% if log_dir is defined %}logging:
+  default-log-level: notice
+  default-output-filter: json
+  output-dir: {{ log_dir }}{% else %}logging:
+  default-log-level: notice
+  default-output-filter: json
+  output-dir: /var/log/suricata{% endif %}
+
+# Output formats
+{% if enable_json_log is defined %}outputs:
+  - fast:
+      enabled: false
+  - unified2:
+      enabled: false
+  - eve:
+      enabled: true
+      filetype: json
+      filename: eve.json
+      limit: 100MB
+      rotate: 5
+      formats:
+        - alert:
+            payload: yes
+            payload-printable: yes
+            packet: yes
+            http: yes
+            tls: yes
+            dns: yes
+            ssh: yes
+            fileinfo: yes
+{% else %}outputs:
+  - fast:
+      enabled: true
+      filename: fast.log
+  - unified2:
+      enabled: true
+      filename: unified2.alert
+  - eve:
+      enabled: true
+      filetype: json
+      filename: eve.json
+      limit: 100MB
+      rotate: 5
+      formats:
+        - alert:
+            payload: yes
+            payload-printable: yes
+            packet: yes
+            http: yes
+            tls: yes
+            dns: yes
+            ssh: yes
+            fileinfo: yes{% endif %}
+
+# Network variables: IP ranges and ports
+{% if networks is defined %}vars:
+  address-groups:
+{% for group_name, ips in networks.items() %}    {{ group_name }}: [{{ ips | join(', ') }}]{% endfor %}
+{% else %}vars:
+  address-groups:
+    HOME_NET: [192.168.0.0/16, 10.0.0.0/8, 172.16.0.0/12]
+    EXTERNAL_NET: any
+    HTTP_SERVERS: $HOME_NET
+    SMTP_SERVERS: $HOME_NET
+    SQL_SERVERS: $HOME_NET
+    DNS_SERVERS: $HOME_NET
+    TELNET_SERVERS: $HOME_NET
+    AIM_SERVERS: $EXTERNAL_NET
+    DNP3_SERVER: $HOME_NET
+    DNP3_CLIENT: $HOME_NET
+    MODBUS_CLIENT: $HOME_NET
+    MODBUS_SERVER: $HOME_NET
+    ENIP_CLIENT: $HOME_NET
+    ENIP_SERVER: $HOME_NET{% endif %}
+{% if ports is defined %}  port-groups:
+{% for group_name, ports_list in ports.items() %}    {{ group_name }}: [{{ ports_list | join(', ') }}]{% endfor %}
+{% else %}  port-groups:
+    HTTP_PORTS: 80
+    SHELLCODE_PORTS: !any
+    ORACLE_PORTS: 1521
+    SSH_PORTS: 22
+    DNP3_PORTS: 20000
+    MODBUS_PORTS: 502
+    FILE_DATA_PORTS: [$HTTP_PORTS, 110, 143, 993, 995]
+    GTP_PORTS: 2152{% endif %}
+
+# Interface configuration (one or more)
+{% if interfaces is defined %}af-packet:
+{% for iface in interfaces %}  - interface: {{ iface.name }}
+    cluster-id: {{ iface.cluster_id | default(42) }}
+    cluster-type: cluster_flow
+    defrag: true
+    use-mmap: {{ 'yes' if iface.use_mmap is not defined or iface.use_mmap }}
+    tpacket-v3: {{ 'yes' if iface.tpacket_v3 is not defined or iface.tpacket_v3 }}
+    copy-mode: ips
+{% endfor %}{% else %}af-packet:
+  - interface: eth0
+    cluster-id: 42
+    cluster-type: cluster_flow
+    defrag: true
+    use-mmap: yes
+    tpacket-v3: yes
+    copy-mode: ips{% endif %}
+
+# VLAN handling
+{% if vlan is defined %}vlan:
+  use-for-tracking: {{ 'yes' if vlan.use_for_tracking is not defined or vlan.use_for_tracking }}{% else %}vlan:
+  use-for-tracking: yes{% endif %}
+
+# Protocol detection
+{% if detection is defined %}detect:
+  profanity: {{ 'enabled' if detection.profanity | default('disabled') else 'disabled' }}
+{% else %}detect:
+  profanity: disabled{% endif %}
+
+# Rule options
+{% if ruleset is defined %}rule-pattern:
+{% for name, value in ruleset.items() %}  {{ name }}: {{ value }}{% endfor %}
+{% else %}rule-pattern:
+  # Rule compilation options
+  max-patterns: 50000{% endif %}
+
+# Flow configuration
+{% if flow is defined %}flow:
+  memcap: {{ flow.memcap | default('1gb') }}
+  hash-size: {{ flow.hash_size | default(65536) }}
+  prealloc: {{ flow.prealloc | default(10000) }}
+  timeout: {{ flow.timeout | default({'default': 30, 'established': 3600, 'new': 30, 'established': 3600, 'closed': 5}) | to_json }}{% else %}flow:
+  memcap: 1gb
+  hash-size: 65536
+  prealloc: 10000
+  timeout: {default: 30, established: 3600, new: 30, established: 3600, closed: 5}{% endif %}
+
+# Flow memory management
+{% if flow_memcap is defined %}flow-memory:
+  memcap: {{ flow_memcap }}{% else %}flow-memory:
+  memcap: 512mb{% endif %}
+
+# Application layer parsing
+{% if app_layer is defined %}app-layer:
+  protocols:
+{% for proto, settings in app_layer.protocols.items() %}    {{ proto }}:
+{% for key, val in settings.items() %}      {{ key }}: {{ val }}{% endfor %}{% endfor %}{% else %}app-layer:
+  protocols:
+    http:
+      enabled: yes
+      libhtp:
+        default-config:
+          personality: IDS
+          request-body-limit: 100kb
+          response-body-limit: 100kb
+          double-decode-path: no
+          double-decode-query: no
+    tls:
+      enabled: yes
+      versions: [1.2, 1.3]
+      certificates-dir: /etc/suricata/ssl-certs
+      depth: 3
+{% endif %}
+
+# Threading and performance
+{% if threading is defined %}threading:
+  set-cpu-affinity: {{ 'yes' if threading.set_cpu_affinity is not defined or threading.set_cpu_affinity }}
+  cpu-mode: {{ threading.cpu_mode | default('auto') }}
+  auto-cpu-threads: {{ threading.auto_cpu_threads | default(0) }}
+  auto-cpu-burst-threads: {{ threading.auto_cpu_burst_threads | default(0) }}
+{% else %}threading:
+  set-cpu-affinity: yes
+  cpu-mode: auto
+  auto-cpu-threads: 0
+  auto-cpu-burst-threads: 0{% endif %}
+
+# Capture mode fallback (pcap if no af-packet)
+{% if pcap is defined %}pcap:
+  - interface: {{ pcap.interface | default('eth1') }}
+{% else %}pcap:
+  - interface: eth1{% endif %}
+
+# Lua scripting (optional)
+{% if lua_scripts is defined %}lua-scripts:
+{% for script in lua_scripts %}  - {{ script }}{% endfor %}{% else %}lua-scripts:
+  - mime.lua
+  - file.lua
+{% endif %}
+
+# NFLOG / NFQ (for IPS mode)
+{% if nfq is defined %}nfq:
+  - queue-id: {{ nfq.queue_id }}
+    max-size: {{ nfq.max_size | default(2048) }}
+{% else %}nfq:
+  - queue-id: 0
+    max-size: 2048{% endif %}
+
+# NFLOG (for passive logging)
+{% if nflog is defined %}nflog:
+  - group: {{ nflog.group | default(1) }}
+    buffer-size: {{ nflog.buffer_size | default(65536) }}
+{% else %}nflog:
+  - group: 1
+    buffer-size: 65536{% endif %}
+
+# BPF filter (applies to pcap and af-packet)
+{% if bpf_filter is defined %}bpf: {{ bpf_filter }}{% else %}bpf: not port 22{% endif %}
+
+# Extra detection engines
+{% if extra_engines is defined %}extra-engines:
+{% for engine in extra_engines %}  - {{ engine }}{% endfor %}{% else %}extra-engines:
+  - pattern-matcher: ac
+    pattern-matcher: ac-q
+{% endif %}
+
+# Advanced settings
+{% if advanced is defined %}advanced:
+  checksum-validation: {{ advanced.checksum_validation | default('drop') }}
+{% else %}advanced:
+  checksum-validation: drop{% endif %}

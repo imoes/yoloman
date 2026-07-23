@@ -1,0 +1,126 @@
+# Allow NTP client access from specific networks or hosts
+# (default: allow none; uncomment to enable)
+# {{ comment_allow }}
+{% if allow_networks %}{% for net in allow_networks %}allow {{ net.ip }}/{{ net.prefix }}
+{% endfor %}{% endif %}
+{% if allow_hosts %}{% for host in allow_hosts %}allow {{ host }}
+{% endfor %}{% endif %}
+
+# Restrict NTP access to specific networks or hosts
+# (default: restrict all; uncomment to relax restrictions)
+# {{ comment_restrict }}
+{% if restrict_networks %}{% for net in restrict_networks %}restrict {{ net.ip }}/{{ net.prefix }}
+{% endfor %}{% endif %}
+{% if restrict_hosts %}{% for host in restrict_hosts %}restrict {{ host }}
+{% endfor %}{% endif %}
+
+# Enable server mode and allow clients to sync
+# {{ comment_server_mode }}
+{% if server_mode %}server {{ ntp_servers | join(' ') }} iburst
+{% endif %}
+
+# Use local system clock as reference when no external sources available
+# {{ comment_local_reference }}
+{% if local_reference %}refclock PHC /dev/ptp0 poll 3 dpoll -2 offset 0
+{% endif %}
+
+# Set stratum level for this server (0–15; 0 = best, 15 = unsynchronized)
+# {{ comment_stratum }}
+stratumweight {{ stratum_weight }}
+
+# Set the base directory for drift file, etc.
+# {{ comment_base_dir }}
+dir /var/lib/chrony
+
+# File to store measured clock drift (in seconds per day)
+# {{ comment_driftfile }}
+driftfile /var/lib/chrony/drift
+
+# Make the clock step on initial sync if offset > threshold
+# {{ comment_step_first }}
+makestep {{ makestep_threshold }} {{ makestep_burst_count }}
+
+# Enable logging to syslog and file
+# {{ comment_logging }}
+log {{ logging_destinations | join(' ') }}
+
+# Enable RTC (hardware clock) synchronization
+# {{ comment_rtcsync }}
+{% if rtcsync %}rtcsync
+{% endif %}
+
+# Enable leapsecond handling
+# {{ comment_leapsecmode }}
+leapsecmode {{ leapsec_mode }}
+
+# Set maximum leap second correction rate (slew limit, in ppm)
+# {{ comment_slewlimit }}
+slewlimit {{ slew_limit_ppm }}
+
+# Key file for NTP authentication (optional)
+# {{ comment_keyfile }}
+{% if keyfile %}keyfile {{ keyfile }}
+{% endif %}
+
+# Command key index (for chronyc control interface auth)
+# {{ comment_commandkey }}
+{% if command_key_index is defined %}commandkey {{ command_key_index }}
+{% endif %}
+
+# Enable NTPv4 mode (default: true)
+# {{ comment_ntp4 }}
+{% if ntp4_enabled %}ntpdatepeer
+{% else %}ntpdatepeer
+{% endif %}
+
+# Specify source of time for initial synchronization
+# {{ comment_initstepslew }}
+initstepslew {{ initstepslew_threshold }} {{ ntp_servers | join(' ') }}
+
+# Enable hardware timestamping (if supported)
+# {{ comment_hwtimestamp }}
+{% if hwtimestamp %}hwtimestamp {{ hwtimestamp_interfaces | join(' ') }}
+{% endif %}
+
+# Disable broadcast/multicast client mode
+# {{ comment_bclient }}
+{% if not bclient_enabled %}bclient off
+{% endif %}
+
+# Enable broadcast server mode (for LAN clients)
+# {{ comment_broadcast }}
+{% if broadcast_enabled %}broadcast {{ broadcast_interval }}
+{% endif %}
+
+# Set minimum and maximum poll intervals (seconds, as power of 2)
+# {{ comment_minpoll_maxpoll }}
+minpoll {{ minpoll_exp }}
+maxpoll {{ maxpoll_exp }}
+
+# Maximum number of sources to use for synchronization
+# {{ comment_sources }}
+maxsources {{ max_sources }}
+
+# Set time zone (if not using NIST leap second file)
+# {{ comment_tzfile }}
+tzfile /etc/zoneinfo/posixrules
+
+# Enable the web server (chrony-webui)
+# {{ comment_webserver }}
+{% if webserver_enabled %}port 0  # disable NTP port
+{% endif %}
+{% if webserver_enabled %}bindcmdaddress 127.0.0.1
+{% endif %}
+{% if webserver_enabled %}cmdport 323
+{% endif %}
+{% if webserver_enabled %}bindcmdaddress ::1
+{% endif %}
+{% if webserver_enabled %}webport {{ webserver_port }}
+{% endif %}
+{% if webserver_enabled %}webkey {{ webserver_keyfile }}
+{% endif %}
+
+# Optional: enable tracking files for diagnostics
+# {{ comment_tracking }}
+{% if enable_tracking_files %}dumpdir /var/log/chrony
+{% endif %}

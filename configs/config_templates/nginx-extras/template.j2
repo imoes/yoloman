@@ -1,0 +1,130 @@
+# Main NGINX configuration for nginx-extras — includes advanced modules
+
+# User and group under which worker processes run
+user {{ nginx_user }} {{ nginx_group }};
+
+# Number of worker processes (typically set to number of CPU cores)
+worker_processes {{ nginx_worker_processes }};
+
+# PID file location
+pid {{ nginx_pid_file }};
+
+# Global error log level and path
+error_log {{ nginx_error_log_path }} {{ nginx_error_log_level }};
+
+# Event block — core handling of connections
+# Controls how NGINX handles connections (epoll/kqueue/etc.)
+events {
+    # Maximum number of simultaneous connections per worker
+    worker_connections {{ nginx_events_worker_connections }};
+    
+    # Use optimized connection handling method for OS (e.g., epoll, kqueue, select)
+    use {{ nginx_events_use }};
+}
+
+# HTTP block — all HTTP-related settings
+http {
+    # MIME types and file extensions mapping
+    include {{ nginx_mimetypes_file }};
+    
+    # Default file descriptor limit per worker
+    default_type {{ nginx_default_type }};
+    
+    # Logging format definitions
+    # Custom log format for access logging
+    log_format main '$remote_addr - $remote_user [$time_local] "$request" '
+                    '$status $body_bytes_sent "$http_referer" '
+                    '"$http_user_agent" "$http_x_forwarded_for"';
+    
+    # Access log path and format
+    access_log {{ nginx_access_log_path }} main;
+    
+    # Enable/disable sendfile(2) for static files (high-performance on *nix)
+    sendfile {{ nginx_sendfile | string | lower }};
+    
+    # Optimize sending of headers (reduces latency for small files)
+    tcp_nopush {{ nginx_tcp_nopush | string | lower }};
+    
+    # Keep-alive timeout (in seconds)
+    keepalive_timeout {{ nginx_keepalive_timeout }};
+    
+    # Gzip compression settings
+    gzip on;
+    gzip_vary on;
+    gzip_proxied any;
+    gzip_comp_level {{ nginx_gzip_compression_level }};
+    gzip_min_length {{ nginx_gzip_min_length }};
+    gzip_types {{ nginx_gzip_types | join(', ') }};
+    
+    # Buffer sizes for client request bodies
+    client_max_body_size {{ nginx_client_max_body_size }};
+    client_body_buffer_size {{ nginx_client_body_buffer_size }};
+    
+    # Open file cache for improved static file serving
+    open_file_cache max={{ nginx_open_file_cache_max }} inactive={{ nginx_open_file_cache_inactive }};
+    open_file_cache_valid {{ nginx_open_file_cache_valid }};
+    open_file_cache_min {{ nginx_open_file_cache_min }};
+    
+    # Server block defaults — included per-site configs
+    include {{ nginx_conf_d_path }}/*.conf;
+    
+    # Optional custom server blocks defined inline (e.g., for monitoring or fallback)
+    {% for server in nginx_custom_servers %}
+    # {{ server.description | default('Custom inline server block') }}
+    server {
+        listen {{ server.listen }};
+        server_name {{ server.server_name | join(' ') }};
+        
+        {% if server.ssl %}
+        # SSL configuration for this server
+        ssl_certificate {{ server.ssl_certificate }};
+        ssl_certificate_key {{ server.ssl_certificate_key }};
+        ssl_protocols {{ server.ssl_protocols | join(' ') }};
+        ssl_ciphers {{ server.ssl_ciphers }};
+        ssl_prefer_server_ciphers on;
+        {% endif %}
+        
+        {% if server.root %}
+        # Static root directory
+        root {{ server.root }};
+        index {{ server.index | join(' ') }};
+        {% endif %}
+        
+        # Location blocks
+        {% for location in server.locations %}
+        # {{ location.description | default('Location block for path ' ~ location.path) }}
+        location {{ location.path }} {
+            {% if location.root %}
+            root {{ location.root }};
+            {% endif %}
+            
+            {% if location.try_files %}
+            try_files {{ location.try_files | join(' ') }};
+            {% endif %}
+            
+            {% if location.proxy_pass %}
+            # Reverse proxy configuration
+            proxy_pass {{ location.proxy_pass }};
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+            {% endif %}
+            
+            {% if location.auth_basic %}
+            # HTTP Basic Auth
+            auth_basic "{{ location.auth_basic }}";
+            auth_basic_user_file {{ location.auth_basic_user_file }};
+            {% endif %}
+            
+            {% if location.extra_config %}
+            # Custom inline directives (e.g., for nginx-extras modules)
+            {% for directive in location.extra_config %}
+            {{ directive.name }} {{ directive.value }};
+            {% endfor %}
+            {% endif %}
+        }
+        {% endfor %}
+    }
+    {% endfor %}
+}

@@ -1,0 +1,74 @@
+# Log file path for output
+log_file: {{ log_file }}
+
+# Interface to listen on for traffic (empty = all interfaces)
+interface: {{ interface }}
+
+# IP address to bind to (empty = all addresses)
+bind_address: {{ bind_address }}
+
+# TCP port to listen on (0 = auto-select, typically 7777)
+port: {{ port }}
+
+# Enable verbose logging
+verbose: {{ verbose | lower }}
+
+# Enable packet-level logging (raw packet capture)
+packet_logging: {{ packet_logging | lower }}
+
+# Enable HTTP request/response logging
+logging: {{ logging | lower }}
+
+# Maximum number of concurrent connections
+max_connections: {{ max_connections }}
+
+# Timeout for idle connections (in seconds)
+connection_timeout: {{ connection_timeout }}
+
+# Enable SSL/TLS decryption (requires ssl_key and ssl_cert if enabled)
+ssl_decryption: {{ ssl_decryption | lower }}
+
+# Path to SSL private key file (if SSL decryption enabled)
+ssl_key: {{ ssl_key }}
+
+# Path to SSL certificate file (if SSL decryption enabled)
+ssl_cert: {{ ssl_cert }}
+
+# Hosts to exclude from logging (list of CIDR or hostnames)
+{% for host in exclude_hosts %}exclude_host: {{ host }}
+{% endfor %}
+
+# Hosts to include for logging (list of CIDR or hostnames); if empty, all hosts included
+{% if include_hosts | length > 0 %}{% for host in include_hosts %}include_host: {{ host }}
+{% endfor %}{% else %}# No specific hosts to include (default: all)
+{% endif %}
+
+# Log format: one of 'standard', 'json', 'extended'
+log_format: {{ log_format }}
+
+# Enable DNS reverse resolution for IPs
+reverse_dns: {{ reverse_dns | lower }}
+
+# Directory to store captured sessions (for session persistence)
+session_dir: {{ session_dir }}
+
+# Maximum size per session log file (in MB); 0 = unlimited
+max_session_file_size: {{ max_session_file_size }}
+
+# Maximum number of session log files to keep (0 = unlimited retention)
+max_session_files: {{ max_session_files }}
+
+# Enable session expiration (remove sessions older than session_ttl)
+session_expiration: {{ session_expiration | lower }}
+
+# Session TTL (in seconds)
+session_ttl: {{ session_ttl }}
+
+# Daemon user (for dropping privileges after binding to port)
+daemon_user: {{ daemon_user }}
+
+# Daemon group (for dropping privileges after binding to port)
+daemon_group: {{ daemon_group }}
+
+# PID file path
+pid_file: {{ pid_file }}

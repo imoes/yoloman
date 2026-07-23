@@ -1,0 +1,142 @@
+# Firebird Database Server 4.0 — main configuration
+# /etc/firebird/4.0/firebird.conf
+# Managed by bossman — do not edit by hand.
+
+# =============================================================================
+# Paths
+# =============================================================================
+
+# Root directory of the Firebird installation tree (contains bin/, lib/, plugins/)
+RootDirectory = {{ root_directory }}
+
+# =============================================================================
+# Network
+# =============================================================================
+
+# TCP port on which Firebird accepts client connections
+RemoteServicePort = {{ remote_service_port }}
+
+# IP address Firebird binds to; empty string = listen on all interfaces
+RemoteBindAddress = {{ remote_bind_address }}
+
+# Auxiliary port for asynchronous event delivery to clients; 0 = OS-assigned ephemeral port
+RemoteAuxPort = {{ remote_aux_port }}
+
+# Maximum simultaneous client attachments across all databases; 0 = no hard limit
+MaxConnections = {{ max_connections }}
+
+# Seconds of client inactivity before the connection is forcibly closed; 0 = never
+ConnectionTimeout = {{ connection_timeout }}
+
+# Interval in seconds between dummy keepalive packets sent to prevent firewall timeouts
+DummyPacketInterval = {{ dummy_packet_interval }}
+
+# =============================================================================
+# Authentication & Wire Security
+# =============================================================================
+
+# Server-side authentication plugins evaluated in order for incoming connections
+AuthServer = {{ auth_server | join(', ') }}
+
+# Client-side authentication plugins offered to the server; order is significant
+AuthClient = {{ auth_client | join(', ') }}
+
+# Plugin responsible for Firebird user account management
+UserManager = {{ user_manager }}
+
+# Wire encryption policy: Required = always encrypt, Enabled = client decides, Disabled = never
+WireCrypt = {{ wire_crypt }}
+
+# Absolute path to the security database holding Firebird user credentials
+SecurityDatabase = {{ security_database }}
+
+# =============================================================================
+# Server Architecture
+# =============================================================================
+
+# Process/thread model: SuperServer (one process, threads), SuperClassic (one process, forked handlers), Classic (one process per connection)
+ServerMode = {{ server_mode }}
+
+{% if server_mode == 'SuperServer' %}
+# Maximum parallel worker threads per query in SuperServer mode; 1 disables intra-query parallelism
+MaxParallelWorkers = {{ max_parallel_workers }}
+{% endif %}
+
+# =============================================================================
+# Database Page Cache & Memory
+# =============================================================================
+
+# Default page-cache size in pages for databases that do not set their own buffer count
+DefaultDbCachePages = {{ default_db_cache_pages }}
+
+# Database size in pages above which Firebird uses direct I/O, bypassing the OS file cache
+FileSystemCacheThreshold = {{ file_system_cache_threshold }}
+
+# Maximum share of physical RAM the OS file cache may use for Firebird files, in percent; 0 = OS default
+FileSystemCacheSize = {{ file_system_cache_size }}
+
+# =============================================================================
+# Temporary Storage
+# =============================================================================
+
+# Maximum in-memory temporary workspace in bytes before sort/merge data spills to disk (default 64 MB = 67108864)
+TempCacheLimit = {{ temp_cache_limit }}
+
+{% if temp_directories %}
+# Semicolon-separated list of directories used for on-disk temporary sort/merge files
+TempDirectories = {{ temp_directories | join(';') }}
+{% else %}
+# TempDirectories is unset — the OS default temporary directory is used
+{% endif %}
+
+# =============================================================================
+# Write Flushing
+# =============================================================================
+
+# Maximum pending page writes before Firebird forces a flush to disk; -1 = OS-managed (no hard cap)
+MaxUnflushedWrites = {{ max_unflushed_writes }}
+
+# Maximum seconds pending writes may remain unflushed before a forced flush; -1 = no time limit
+MaxUnflushedWriteTime = {{ max_unflushed_write_time }}
+
+# =============================================================================
+# Garbage Collection
+# =============================================================================
+
+# Strategy for reclaiming storage from deleted/updated record versions: combined, cooperative, background, or none
+GCPolicy = {{ gc_policy }}
+
+# =============================================================================
+# File Access Control
+# =============================================================================
+
+# Which database paths the server may open: Full, None, or Restrict <semicolon-separated path list>
+DatabaseAccess = {{ database_access }}
+
+# Server access to external table data files: None (most secure), Full, or Restrict <path list>
+ExternalFileAccess = {{ external_file_access }}
+
+# Access to legacy UDF shared libraries: None (recommended for Firebird 4.0), Full, or Restrict <path list>
+UdfAccess = {{ udf_access }}
+
+# =============================================================================
+# Tracing & Audit
+# =============================================================================
+
+{% if audit_trace_config_file %}
+# Absolute path to the audit trace config file; its presence enables server-level audit logging
+AuditTraceConfigFile = {{ audit_trace_config_file }}
+{% else %}
+# AuditTraceConfigFile is unset — server-level audit tracing is disabled
+{% endif %}
+
+# =============================================================================
+# Data Type Compatibility
+# =============================================================================
+
+{% if data_type_compatibility %}
+# Compatibility mode for legacy clients: '3.0' restores Firebird 3.0 type semantics for VARCHAR/NUMERIC/TIME
+DataTypeCompatibility = {{ data_type_compatibility }}
+{% else %}
+# DataTypeCompatibility is unset — native Firebird 4.0 type behaviour applies
+{% endif %}

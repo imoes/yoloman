@@ -1,0 +1,64 @@
+[DEFAULT]
+# Logging configuration
+log_file = {{ log_file }}
+log_dir = {{ log_dir }}
+
+# Verbosity: debug, info, warning, error, critical
+log_level = {{ log_level }}
+
+# Pool management interval in seconds
+pool_interval = {{ pool_interval }}
+
+[pool_manager]
+# Enable pool manager service
+enabled = {{ enabled }}
+
+# Number of worker processes
+workers = {{ workers }}
+
+# Redis connection string for coordination
+redis_host = {{ redis_host }}
+redis_port = {{ redis_port }}
+redis_password = {{ redis_password }}
+
+# List of pools to manage
+{% for pool in pools %}
+[pool:{{ pool.name }}]
+# Pool: {{ pool.description }}
+provider_driver = {{ pool.provider_driver }}
+description = {{ pool.description }}
+
+# DNS nameservers for this pool
+{% for nameserver in pool.nameservers %}
+nameserver_{{ loop.index0 }}_host = {{ nameserver.host }}
+nameserver_{{ loop.index0 }}_port = {{ nameserver.port }}
+{% endfor %}
+
+# Target DNS providers
+{% for target in pool.targets %}
+[target:{{ loop.index0 }}]
+type = {{ target.type }}
+# {{ target.description }}
+host = {{ target.host }}
+port = {{ target.port }}
+{% if target.options %}
+{% for key, value in target.options.items() %}
+option_{{ key }} = {{ value }}
+{% endfor %}
+{% endif %}
+{% endfor %}
+
+# Health check configuration
+healthcheck_domain = {{ pool.healthcheck_domain }}
+healthcheck_path = {{ pool.healthcheck_path }}
+{% endfor %}
+
+[designate]
+# Keystone endpoint for authentication
+auth_uri = {{ designate.auth_uri }}
+auth_type = {{ designate.auth_type }}
+project_name = {{ designate.project_name }}
+username = {{ designate.username }}
+password = {{ designate.password }}
+user_domain_name = {{ designate.user_domain_name }}
+project_domain_name = {{ designate.project_domain_name }}

@@ -1,0 +1,48 @@
+# Server listening address and port
+"server": "{{ server_host }}",
+"server_port": {{ server_port }},
+
+# Local proxy listening address and port (for transparent proxy or local client use)
+"local_address": "{{ local_host }}",
+"local_port": {{ local_port }},
+
+# Encryption method (cipher)
+"method": "{{ method }}",
+
+# Password for authentication
+"password": "{{ password }}",
+
+# Timeout in seconds for idle connections
+"timeout": {{ timeout }},
+
+# DNS server to use (optional; defaults to system resolver)
+{% if dns_server %}"dns": "{{ dns_server }}",
+{% endif %}# UDP relay support (enables UDP-over-TCP forwarding)
+{% if udp_enabled %}"udp": true,
+{% else %}"udp": false,
+{% endif %}# Feature: Avoid IP logging (e.g., for compliance)
+{% if no_log %}"no_log": true,
+{% else %}"no_log": false,
+{% endif %}# Feature: Fast Open (TCP Fast Open support; requires kernel support)
+{% if fast_open %}"fast_open": true,
+{% else %}"fast_open": false,
+{% endif %}# Feature: ACL (Access Control List) file path
+{% if acl %}"acl": "{{ acl }}",
+{% endif %}# Feature: MTU (Maximum Transmission Unit)
+{% if mtu %}"mtu": {{ mtu }},
+{% endif %}# Feature: MPTCP (Multipath TCP support)
+{% if mptcp %}"mptcp": true,
+{% else %}"mptcp": false,
+{% endif %}# Feature: IPv6 preference
+{% if ipv6_first %}"ipv6_first": true,
+{% else %}"ipv6_first": false,
+{% endif %}# Feature: Plugin support (e.g., obfs4, v2ray-plugin)
+{% if plugins %}
+"plugin": "{{ plugins.plugin_exec }}",
+"plugin_opts": "{{ plugins.plugin_opts }}",
+{% endif %}# Feature: Worker processes (multiprocess support)
+"workers": {{ workers }},
+
+# Feature: Log file path (optional)
+{% if log_file %}"log": "{{ log_file }}"
+{% endif %}

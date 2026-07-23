@@ -1,0 +1,123 @@
+{
+  "clients": {
+    "type": "list",
+    "default": [],
+    "description": "List of RADIUS clients to accept requests from. Each entry is a client definition line (e.g., 10.0.0.0/8 secret123)",
+    "items": {
+      "type": "string",
+      "description": "Client specification: IP/prefix, or hostname, optionally followed by shared secret and options (e.g., '192.168.0.0/16 mysecret')"
+    }
+  },
+  "udp_servers": {
+    "type": "list",
+    "default": [],
+    "description": "List of backend RADIUS UDP servers to forward requests to (non-TLS). Each entry is a server definition line.",
+    "items": {
+      "type": "string",
+      "description": "Server specification: hostname or IP[:port], optionally followed by secret (e.g., 'radius1.example.com:1812 secret')"
+    }
+  },
+  "tcp_servers": {
+    "type": "list",
+    "default": [],
+    "description": "List of backend RADIUS/TLS (RadSec) servers to forward requests to. Each entry is a server definition line.",
+    "items": {
+      "type": "string",
+      "description": "Server specification: hostname or IP[:port], optionally with options like 'tcp:server:port:secret:cafile'"
+    }
+  },
+  "debug": {
+    "type": "boolean",
+    "default": false,
+    "description": "Enable verbose debug logging to console/syslog"
+  },
+  "log_level": {
+    "type": "number",
+    "default": 2,
+    "description": "Log verbosity level: 0=none, 1=error, 2=warn, 3=info, 4=debug"
+  },
+  "log_file": {
+    "type": "string",
+    "default": "",
+    "description": "Path to log file (if empty, logs to syslog)"
+  },
+  "stats_port": {
+    "type": "number",
+    "default": 1813,
+    "description": "UDP port for statistics queries (e.g., for monitoring tools)"
+  },
+  "listen_addr": {
+    "type": "string",
+    "default": "0.0.0.0",
+    "description": "Local IP address to bind listening sockets (e.g., '127.0.0.1' or '::')"
+  },
+  "use_tls": {
+    "type": "boolean",
+    "default": false,
+    "description": "Enable TLS support for RadSec (required for TCP/TLS servers)"
+  },
+  "ca_cert_file": {
+    "type": "string",
+    "default": "/etc/radsecproxy/ca.pem",
+    "description": "CA certificate file for verifying server/client certificates"
+  },
+  "server_cert_file": {
+    "type": "string",
+    "default": "",
+    "description": "Server certificate file (for incoming RadSec connections); leave empty to disable server mode"
+  },
+  "server_key_file": {
+    "type": "string",
+    "default": "",
+    "description": "Server private key file (must match server_cert_file)"
+  },
+  "client_cert_file": {
+    "type": "string",
+    "default": "",
+    "description": "Client certificate file (for outgoing RadSec connections to upstream servers)"
+  },
+  "client_key_file": {
+    "type": "string",
+    "default": "",
+    "description": "Client private key file (must match client_cert_file)"
+  },
+  "tls_cipher_list": {
+    "type": "string",
+    "default": "HIGH:!aNULL:!MD5",
+    "description": "OpenSSL-compatible cipher list for TLS connections"
+  },
+  "tls_verify_cert": {
+    "type": "boolean",
+    "default": true,
+    "description": "Require and verify certificates in TLS connections (RadSec)"
+  },
+  "default_realm": {
+    "type": "string",
+    "default": "",
+    "description": "Realm to append to usernames that lack one (e.g., 'example.com')"
+  },
+  "fallback_realm": {
+    "type": "string",
+    "default": "",
+    "description": "Realm to use when no realm matches and no client-specific realm"
+  },
+  "timeout": {
+    "type": "number",
+    "default": 3,
+    "description": "Timeout in seconds for RADIUS requests"
+  },
+  "retries": {
+    "type": "number",
+    "default": 3,
+    "description": "Max retries before giving up on a RADIUS request"
+  },
+  "realms": {
+    "type": "list",
+    "default": [],
+    "description": "Realm-to-server mapping definitions. Each entry is a realm line.",
+    "items": {
+      "type": "string",
+      "description": "Realm definition: e.g., 'example.com = server1.example.com:2083'"
+    }
+  }
+}

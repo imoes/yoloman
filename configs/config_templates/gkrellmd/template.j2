@@ -1,0 +1,93 @@
+# GKrellM Server Monitor (gkrellmd) configuration file
+# Listen on specified host and port
+bind_address: {{ bind_address }}
+bind_port: {{ bind_port }}
+
+# Enable/disable SSL for HTTPS connections
+ssl_enabled: {{ ssl_enabled | lower }}
+
+# SSL certificate and key file paths (only used if ssl_enabled is true)
+ssl_cert_file: {{ ssl_cert_file }}
+ssl_key_file: {{ ssl_key_file }}
+
+# Log level: 0=quiet, 1=normal, 2=verbose
+log_level: {{ log_level }}
+
+# Location of log file (empty = syslog)
+log_file: {{ log_file }}
+
+# Refresh interval in milliseconds for client data updates
+data_refresh_ms: {{ data_refresh_ms }}
+
+# Maximum number of simultaneous clients
+max_clients: {{ max_clients }}
+
+# Enable/disable authentication
+auth_enabled: {{ auth_enabled | lower }}
+
+# Users allowed to connect (only used if auth_enabled is true)
+{% for user in users %}user: {{ user.name }} {{ user.password }} {{ user.permissions | join(' ') }}
+{% endfor %}
+
+# Enable/disable built-in SNMP monitoring
+snmp_enabled: {{ snmp_enabled | lower }}
+
+# SNMP community string (for SNMP v1/v2c)
+snmp_community: {{ snmp_community }}
+
+# SNMP hosts to monitor (only used if snmp_enabled is true)
+{% for host in snmp_hosts %}snmp_host: {{ host.hostname }} {{ host.community | default(snmp_community) }} {{ host.version | default('1') }}
+{% endfor %}
+
+# Enable/disable built-in UPS monitoring (apcupsd, nut, etc.)
+ups_enabled: {{ ups_enabled | lower }}
+
+# UPS device type: apcupsd | nut | none
+ups_type: {{ ups_type }}
+
+#UPS host and port (for nut-based servers)
+ups_host: {{ ups_host }}
+ups_port: {{ ups_port }}
+ups_name: {{ ups_name }}
+
+# Enable/disable built-in MySQL monitoring
+mysql_enabled: {{ mysql_enabled | lower }}
+
+# MySQL connection parameters
+mysql_host: {{ mysql_host }}
+mysql_port: {{ mysql_port }}
+mysql_user: {{ mysql_user }}
+mysql_password: {{ mysql_password }}
+mysql_database: {{ mysql_database }}
+
+# Enable/disable built-in PostgreSQL monitoring
+pg_enabled: {{ pg_enabled | lower }}
+
+# PostgreSQL connection parameters
+pg_host: {{ pg_host }}
+pg_port: {{ pg_port }}
+pg_user: {{ pg_user }}
+pg_password: {{ pg_password }}
+pg_database: {{ pg_database }}
+
+# Enable/disable built-in Apache monitoring
+apache_enabled: {{ apache_enabled | lower }}
+
+# Apache server-status URL (requires mod_status enabled)
+apache_status_url: {{ apache_status_url }}
+
+# Enable/disable built-in NTP monitoring
+ntp_enabled: {{ ntp_enabled | lower }}
+
+# NTP server to query
+ntp_server: {{ ntp_server }}
+
+# Enable/disable built-in disk space monitoring
+monitor_disks: {{ monitor_disks | lower }}
+
+# Enable/disable built-in process monitoring
+monitor_processes: {{ monitor_processes | lower }}
+
+# Process names to monitor (only used if monitor_processes is true)
+{% for proc in monitor_process_list %}proc: {{ proc.name }} {{ proc.cmdline }}
+{% endfor %}

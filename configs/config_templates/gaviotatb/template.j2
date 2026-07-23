@@ -1,0 +1,24 @@
+# Gaviota Chess Tablebases configuration
+# Path to the directory containing Gaviota tablebase files (.gtb) — required
+{% if tb_path is defined %}TB_PATH={{ tb_path }}{% else %}# TB_PATH not set — tablebase loading will fail{% endif %}
+
+# Maximum number of concurrent file I/O operations — limits disk contention
+TB_IO_THREADS={{ io_threads | default(4) }}
+
+# Enable/Disable compression-aware decompression (uses less RAM, more CPU)
+# Set to 'true' for memory-constrained systems, 'false' for speed
+TB_USE_COMPRESSION={{ use_compression | default(true) | lower }}
+
+# Cache size (in MiB) — higher values improve performance at cost of RAM
+TB_CACHE_SIZE={{ cache_size | default(256) }}
+
+# Preload tablebases on startup (‘true’ loads all .gtb files into memory immediately)
+TB_PRELOAD={{ preload | default(false) | lower }}
+
+# Optional: specify a list of specific tablebase files to preload (by basename)
+{% if preload_files | default([]) | length > 0 %}
+TB_PRELOAD_FILES={{ preload_files | join(' ') }}
+{% endif %}
+
+# Optional: fallback path (if TB_PATH fails or missing) — typically unused
+{% if fallback_path is defined %}TB_FALLBACK_PATH={{ fallback_path }}{% endif %}

@@ -1,0 +1,263 @@
+{
+  "bind_address": {
+    "type": "string",
+    "default": "0.0.0.0",
+    "description": "IPv4 address to bind for incoming DNS queries (e.g., '127.0.0.1' for loopback only, or '0.0.0.0' for all interfaces)."
+  },
+  "bind_address_ipv6": {
+    "type": "string",
+    "default": "::",
+    "description": "IPv6 address to bind for incoming DNS queries (e.g., '::' for all interfaces, or '::1' for loopback only). Set to '' to disable IPv6."
+  },
+  "port": {
+    "type": "number",
+    "default": 53,
+    "description": "UDP/TCP port to listen for DNS queries."
+  },
+  "threads": {
+    "type": "number",
+    "default": 0,
+    "description": "Number of worker threads. Use 0 for automatic detection (recommended)."
+  },
+  "max_concurrent_connections": {
+    "type": "number",
+    "default": 10000,
+    "description": "Maximum number of simultaneous client TCP connections to accept."
+  },
+  "packetcache_size": {
+    "type": "number",
+    "default": 100000,
+    "description": "Maximum number of entries in the packet cache (queries for identical records are served from cache)."
+  },
+  "packetcache_ttl": {
+    "type": "number",
+    "default": 60,
+    "description": "Time-to-live (TTL) for entries in the packet cache (seconds)."
+  },
+  "block_domains": {
+    "type": "list",
+    "default": [],
+    "description": "List of domains or patterns to block via query-time filtering (e.g., ['ads.example.com', '*.doubleclick.net']).",
+    "items": {
+      "type": "string"
+    }
+  },
+  "allow_from": {
+    "type": "list",
+    "default": [
+      "0.0.0.0/0",
+      "::/0"
+    ],
+    "description": "CIDR ranges allowed to send queries to this resolver (security risk if too permissive)."
+  },
+  "forward_zones": {
+    "type": "list",
+    "default": [],
+    "description": "List of zone \u2192 resolver mappings for forwarding specific domains (e.g., [{'zone': 'example.com', 'resolver': '8.8.8.8'}]).",
+    "items": {
+      "type": "object",
+      "fields": {
+        "zone": {
+          "type": "string",
+          "default": "",
+          "description": "Domain or subdomain to forward (e.g., 'example.com' or '.' for all)."
+        },
+        "resolver": {
+          "type": "string",
+          "default": "",
+          "description": "IP address or list of IPs to forward to (e.g., '8.8.8.8' or '1.1.1.1,9.9.9.9')."
+        }
+      }
+    }
+  },
+  "dnssec": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable DNSSEC validation of responses (recommended for security)."
+  },
+  "loglevel": {
+    "type": "number",
+    "default": 3,
+    "description": "Log verbosity: 0=quiet, 5=debug. Recommended: 3 (notice) for production."
+  },
+  "logfile": {
+    "type": "string",
+    "default": "",
+    "description": "Path to write log output (empty = log to stderr)."
+  },
+  "query_log_file": {
+    "type": "string",
+    "default": "/var/log/powerdns-recursor-query.log",
+    "description": "Path for the query log (if enabled)."
+  },
+  "query_log": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable logging of every query (use with care \u2014 can be very verbose)."
+  },
+  "query_local_address_timeout": {
+    "type": "number",
+    "default": 10,
+    "description": "Timeout for detecting the local address to use for outgoing queries (seconds)."
+  },
+  "neg_cache_ttl": {
+    "type": "number",
+    "default": 3600,
+    "description": "TTL for negative responses (NXDOMAIN/NODATA) in seconds."
+  },
+  "query_local_address": {
+    "type": "string",
+    "default": "0.0.0.0",
+    "description": "Local source address for outgoing queries (use 'auto' for automatic selection)."
+  },
+  "dns64": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable DNS64 (synthesizing AAAA records from A records for IPv6-only clients)."
+  },
+  "dns64_prefix": {
+    "type": "string",
+    "default": "64:ff9b::/96",
+    "description": "Prefix used for synthesized IPv6 addresses (RFC 6052 / RFC 6147)."
+  },
+  "edns_subnet_processing": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable EDNS Client Subnet (ECS) processing to preserve client location info upstream."
+  },
+  "edns_subnet_allow": {
+    "type": "number",
+    "default": 24,
+    "description": "Maximum subnet mask width for IPv4 ECS (e.g., 24 = /24). Set to 0 to disable IPv4."
+  },
+  "rate_limit": {
+    "type": "number",
+    "default": 0,
+    "description": "Maximum queries per second per source IP (0 = unlimited)."
+  },
+  "slip_rate_limit": {
+    "type": "number",
+    "default": 10,
+    "description": "Max number of queries to 'slip' (ignore) before rate-limiting kicks in."
+  },
+  "api": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable the control API (for pdns_control and external tools)."
+  },
+  "api_key": {
+    "type": "string",
+    "default": "",
+    "description": "Base64-encoded secret key for API authentication (required if API enabled)."
+  },
+  "api_listen": {
+    "type": "string",
+    "default": "127.0.0.1",
+    "description": "Interface for API listener (e.g., '127.0.0.1' for localhost only)."
+  },
+  "api_port": {
+    "type": "number",
+    "default": 8082,
+    "description": "Port for the API (must match webserver-port if webserver enabled)."
+  },
+  "webserver": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable the embedded webserver (serves stats, API, and admin interface)."
+  },
+  "webserver_address": {
+    "type": "string",
+    "default": "127.0.0.1",
+    "description": "Interface for webserver (e.g., '127.0.0.1' or '0.0.0.0')."
+  },
+  "webserver_port": {
+    "type": "number",
+    "default": 8082,
+    "description": "Port for the webserver (same as api_port when using unified server)."
+  },
+  "webserver_password": {
+    "type": "string",
+    "default": "",
+    "description": "Password for webserver auth (if set; otherwise API key is used)."
+  },
+  "local_zones": {
+    "type": "list",
+    "default": [],
+    "description": "Local zone definitions (e.g., for split DNS or internal zones).",
+    "items": {
+      "type": "object",
+      "fields": {
+        "zone": {
+          "type": "string",
+          "default": "",
+          "description": "Domain name (e.g., 'internal.example.com')."
+        },
+        "type": {
+          "type": "string",
+          "default": "static",
+          "description": "Zone behavior: 'static', 'transparent', 'native', 'forward', etc."
+        }
+      }
+    }
+  },
+  "local_data": {
+    "type": "list",
+    "default": [],
+    "description": "Static DNS records (A, AAAA, MX, TXT, etc.) for local zones.",
+    "items": {
+      "type": "object",
+      "fields": {
+        "name": {
+          "type": "string",
+          "default": "",
+          "description": "Record owner (e.g., 'server1.internal.example.com')."
+        },
+        "type": {
+          "type": "string",
+          "default": "A",
+          "description": "RR type: A, AAAA, MX, TXT, CNAME, etc."
+        },
+        "data": {
+          "type": "string",
+          "default": "",
+          "description": "Record data (e.g., '192.168.1.10' or '10 mail.example.com')."
+        }
+      }
+    }
+  },
+  "serve_rfc1918": {
+    "type": "bool",
+    "default": true,
+    "description": "Whether to respond to queries for RFC 1918 (private) reverse zones (e.g., 10.in-addr.arpa)."
+  },
+  "packet_cache": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable the packet cache (cache entire DNS responses)."
+  },
+  "neg_cache": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable negative caching (cache NXDOMAIN/NODATA responses)."
+  },
+  "max_qps_per_ip": {
+    "type": "number",
+    "default": 0,
+    "description": "Maximum queries per second per source IP (0 = no limit)."
+  },
+  "cpu_affinity": {
+    "type": "number",
+    "default": 0,
+    "description": "CPU core affinity (0 = none, 1 = pin to core 0, etc.)."
+  },
+  "mdns_mode": {
+    "type": "string",
+    "default": "disabled",
+    "description": "Multicast DNS mode: 'disabled', 'receiver', 'sender', or 'both'."
+  },
+  "stub_resolver": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable stub resolver mode (use /etc/resolv.conf for initial resolution)."
+  }
+}

@@ -1,0 +1,184 @@
+{
+  "daemon_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Run alsaplayer as a background daemon (recommended for headless systems)"
+  },
+  "run_as_user": {
+    "type": "string",
+    "default": "alsaplayer",
+    "description": "System username to run the daemon as (for security isolation)"
+  },
+  "run_as_group": {
+    "type": "string",
+    "default": "audio",
+    "description": "System group to run the daemon as (must allow audio device access)"
+  },
+  "pidfile_path": {
+    "type": "string",
+    "default": "/run/alsaplayer/alsaplayer.pid",
+    "description": "Absolute path to the PID file for process management"
+  },
+  "log_level": {
+    "type": "number",
+    "default": 2,
+    "description": "Verbosity: 0=quiet, 1=error, 2=warn (default), 3=info, 4=debug"
+  },
+  "log_file": {
+    "type": "string",
+    "default": "",
+    "description": "Path to write logs to; leave empty to log only to stdout/stderr"
+  },
+  "net_listen_address": {
+    "type": "string",
+    "default": "0.0.0.0",
+    "description": "IP address to bind HTTP/XML-RPC control interfaces to (e.g., '127.0.0.1' for local-only)"
+  },
+  "http_port": {
+    "type": "number",
+    "default": 4953,
+    "description": "TCP port for the HTTP control interface (used by web UIs and clients)"
+  },
+  "xmlrpc_port": {
+    "type": "number",
+    "default": 4954,
+    "description": "TCP port for the XML-RPC remote control interface"
+  },
+  "max_connections": {
+    "type": "number",
+    "default": 10,
+    "description": "Maximum number of concurrent client connections allowed"
+  },
+  "auth_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable HTTP/XML-RPC basic authentication"
+  },
+  "auth_username": {
+    "type": "string",
+    "default": "",
+    "description": "Username for HTTP/XML-RPC authentication (required if auth is enabled)"
+  },
+  "auth_password": {
+    "type": "string",
+    "default": "",
+    "description": "Password for HTTP/XML-RPC authentication (required if auth is enabled)"
+  },
+  "alsa_device": {
+    "type": "string",
+    "default": "default",
+    "description": "ALSA PCM device name (e.g., 'hw:0,0' for first sound card, first device)"
+  },
+  "alsa_mixer": {
+    "type": "string",
+    "default": "Master",
+    "description": "ALSA mixer control name to adjust volume (e.g., 'PCM', 'Speaker')"
+  },
+  "alsa_mixer_device": {
+    "type": "string",
+    "default": "",
+    "description": "ALSA mixer device (if different from PCM device); often same as alsa_device"
+  },
+  "default_volume": {
+    "type": "number",
+    "default": 80,
+    "description": "Initial playback volume (0\u2013100) on start or restart"
+  },
+  "audio_bitdepth": {
+    "type": "number",
+    "default": 0,
+    "description": "Preferred output bit depth: 0=auto-detect, 1=16-bit, 2=24-bit, 3=32-bit"
+  },
+  "resample_quality": {
+    "type": "number",
+    "default": 2,
+    "description": "Resampling algorithm quality: 0=nearest, 1=linear, 2=best (Sinc)"
+  },
+  "buffer_time": {
+    "type": "number",
+    "default": 0,
+    "description": "Audio buffer duration in milliseconds (0 = use ALSA default)"
+  },
+  "prebuffer_percent": {
+    "type": "number",
+    "default": 20,
+    "description": "Prebuffering target as percentage of buffer (0\u2013100); higher = smoother start, longer latency"
+  },
+  "output_plugins": {
+    "type": "list",
+    "default": [],
+    "description": "Additional output plugin configurations (for multi-output setups)",
+    "items": {
+      "type": "object",
+      "fields": {
+        "name": {
+          "type": "string",
+          "description": "Unique identifier for the output plugin (e.g., 'main', 'backyard')"
+        },
+        "enabled": {
+          "type": "bool",
+          "default": true,
+          "description": "Enable this output plugin"
+        },
+        "device": {
+          "type": "string",
+          "description": "ALSA PCM device for this output"
+        },
+        "type": {
+          "type": "string",
+          "default": "alsa",
+          "description": "Output plugin type (ALSAPLAYER supports 'alsa' only in core)"
+        }
+      }
+    }
+  },
+  "decoders": {
+    "type": "list",
+    "default": [],
+    "description": "Ordered list of decoder plugins to use (e.g., ['ffmpeg', 'sndfile']); empty = all enabled decoders"
+  },
+  "input_plugins": {
+    "type": "list",
+    "default": [],
+    "description": "Custom input plugin configurations (e.g., for HTTP stream priority)",
+    "items": {
+      "type": "object",
+      "fields": {
+        "name": {
+          "type": "string",
+          "description": "Name of the input plugin (e.g., 'curl', 'alsa_capture')"
+        },
+        "enabled": {
+          "type": "bool",
+          "default": true,
+          "description": "Enable this input plugin"
+        },
+        "priority": {
+          "type": "number",
+          "default": 50,
+          "description": "Priority (0\u2013100) \u2014 higher priority plugins are tried first"
+        }
+      }
+    }
+  },
+  "default_playlist_format": {
+    "type": "string",
+    "default": "m3u",
+    "description": "Default format for playlist imports/exports"
+  },
+  "autoplay": {
+    "type": "bool",
+    "default": true,
+    "description": "Automatically start playback when a track is added to an empty queue"
+  },
+  "repeat_mode": {
+    "type": "number",
+    "default": 0,
+    "description": "Repeat mode: 0=none, 1=replay current track, 2=replay playlist, 3=track+playlist"
+  },
+  "shuffle_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable playlist shuffle mode"
+  }
+}

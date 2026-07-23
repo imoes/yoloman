@@ -1,0 +1,58 @@
+{
+  "global": {
+    "type": "object",
+    "default": {
+      "Enabled": true,
+      "Timeout": 30,
+      "MaxConnections": 10,
+      "AuthMethods": [
+        "pap",
+        "chap",
+        "mschap",
+        "mschap-v2"
+      ],
+      "DNS": [],
+      "NTP": [],
+      "IPv4RoutePrefix": "10.0.0.0/24",
+      "IPv6RoutePrefix": "2001:db8:1::/64",
+      "LogLevel": 2,
+      "DataPath": "/var/lib/connman-vpn",
+      "PluginPath": "/usr/lib/connman-vpn/plugins",
+      "VerifyCertificate": true,
+      "CAPath": "/etc/ssl/certs",
+      "CAFile": "",
+      "IPv6": true,
+      "L2TPOverIPSec": true,
+      "SSTP": true,
+      "OpenVPN": true,
+      "OpenVPNConfigDir": "/etc/connman-vpn/openvpn/client",
+      "IKEv2": true,
+      "EAPSIM": false
+    },
+    "description": "Global settings for the VPN daemon, controlling service behavior, security, networking defaults, and plugin support."
+  },
+  "plugins": {
+    "type": "list",
+    "default": [],
+    "items": {
+      "type": "object",
+      "description": "Plugin-specific configuration section. Each plugin defines its own keys.",
+      "properties": {
+        "name": {
+          "type": "string",
+          "default": "",
+          "description": "Name of the plugin (e.g., 'l2tp', 'openvpn', 'sstp'). Used as section header [L2TP], [OPENVPN], etc."
+        },
+        "config_lines": {
+          "type": "list",
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "description": "List of raw key=value lines for this plugin section (e.g., ['L2TPAuthType=MSCHAPV2', 'L2TPMTU=1400']). Each line should be properly formatted."
+        }
+      }
+    },
+    "description": "List of plugin configuration blocks. Each block creates a section [PLUGIN_NAME] in the config."
+  }
+}

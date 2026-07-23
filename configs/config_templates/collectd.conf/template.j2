@@ -1,0 +1,48 @@
+# Base configuration for collectd - a system statistics collection daemon
+# Enable logging to syslog
+Logfile "/var/log/collectd.log"
+# Set log level (info, notice, warning, error, debug)
+LogLevel "info"
+# Use syslog for logging instead of file
+#Syslog true
+
+# FQDN lookup: set to false if hostnames are not resolvable
+FQDNLookup true
+
+# Base directory for plugins
+#PluginDir "/usr/lib/collectd"
+
+# Directory to look for config files (if using Include)
+#TypesDB "/usr/share/collectd/types.db"
+
+# Load generic plugins (on/off toggles)
+#<Plugin "csv">
+#  DataDir "/var/lib/collectd/rrd"
+#  StoreRates true
+#  AlwaysAppendDS false
+#</Plugin>
+
+# Load plugins conditionally (example: disk, cpu, interface, load, memory)
+{% for plugin in plugins %}
+LoadPlugin "{{ plugin }}"
+{% endfor %}
+
+# Plugin-specific configuration blocks
+{% for config_block in plugin_configs %}
+{% if config_block.name %}<Plugin "{{ config_block.name }}">
+{% endif %}
+{% for key, value in config_block.options.items() %}# {{ config_block.comments.get(key, '') }}
+{% if config_block.types.get(key, '') == 'list' %}{% for item in value %}  {{ key }} {{ item }}
+{% endfor %}{% else %}  {{ key }} {{ value }}
+{% endif %}{% endfor %}
+{% if config_block.name %}</Plugin>
+{% endif %}
+{% endfor %}
+
+# Optional: include other config fragments
+{% for fragment in include_fragments %}# Include additional configuration file: {{ fragment }}
+Include "{{ fragment }}"
+{% endfor %}
+
+# Optional: define custom types for custom plugins (not common in default config)
+#TypesDB "/etc/collectd/my-types.db"

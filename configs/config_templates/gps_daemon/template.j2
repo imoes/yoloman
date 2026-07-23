@@ -1,0 +1,41 @@
+# /etc/default/gpsd - configuration for the GPS daemon (gpsd)
+
+# Enable gpsd at system startup
+START_DAEMON="{{ start_daemon }}"
+
+# Device(s) to monitor. Use a space-separated list for multiple devices
+DEVICES="{{ devices | join(' ') }}"
+
+# Optional: Default GPS device (for backward compatibility; ignored if DEVICES is set)
+GPSD_DEVICE="{{ gpsd_device }}"
+
+# Extra options to pass to gpsd (e.g., "-n" for non-blocking mode, "-b" for Bluetooth support)
+GPSD_OPTIONS="{{ gpsd_options | join(' ') }}"
+
+# Host address to bind the GPSD control socket (default: localhost only)
+# Set to empty string or "0.0.0.0" to listen on all interfaces
+HOST="{{ host }}"
+
+# Port to bind the GPSD control socket (default: 2947)
+PORT="{{ port }}"
+
+# User to run gpsd as (must have permission to access GPS devices)
+USER="{{ user }}"
+
+# Group to run gpsd as
+GROUP="{{ group }}"
+
+# PID file location
+PIDFILE="{{ pidfile }}"
+
+{% if hotplug_devices %}
+# Hot-pluggable device detection (auto-add devices when plugged in)
+# This enables gpsd to automatically manage USB/serial GPS devices
+HOTPLUG_DEVICES="{{ hotplug_devices | join(' ') }}"
+{% endif %}
+
+# Optional: Enable shared access mode (multiple clients can read concurrently)
+SHARED="{{ shared }}"
+
+# Optional: Enable idle timeout (seconds); 0 disables timeout
+IDLE_TIMEOUT="{{ idle_timeout }}"

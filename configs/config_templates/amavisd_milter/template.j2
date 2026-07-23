@@ -1,0 +1,50 @@
+# amavisd-new Milter interface configuration (50-user)
+# Enable milter listener (default: no)
+{% if config.milter_enabled | default(false) %}$milter_protocol = 'smtp';
+{% else %}$milter_protocol = '';
+{% endif %}
+
+# Milter listener socket — either a Unix socket path or TCP host:port
+{% if config.milter_socket_type == 'unix' %}$milter_socket = "unix:{{ config.milter_socket_path | default('/var/spool/amavis/amavisd.sock') }}";
+{% elif config.milter_socket_type == 'inet' %}$milter_socket = "inet:{{ config.milter_bind_address | default('127.0.0.1') }}:{{ config.milter_bind_port | default(55555 }}";
+{% else %}$milter_socket = '';
+{% endif %}
+
+# Maximum number of milter worker processes
+$milter_max_procs = {{ config.milter_max_procs | default(4) }};
+
+# Timeout for milter communication (in seconds)
+$milter_timeout = {{ config.milter_timeout | default(120) }};
+
+# Whether to accept mail from milter even if Amavisd is overloaded
+{% if config.milter_allow_overload | default(false) %}$milter_allow_overload = 1;
+{% else %}$milter_allow_overload = 0;
+{% endif %}
+
+# List of SMTP clients allowed to use this milter (CIDR or hostnames)
+{% for client in config.milter_allowed_clients | default(['127.0.0.0/8']) %}@milter_allow_clients = ('{{ client }}');
+{% endfor %}
+
+# Action to take on milter failure (e.g., 'accept', 'reject', 'tempfail')
+$milter_fail_action = '{{ config.milter_fail_action | default('tempfail') }}';
+
+# Optional: custom milter header to insert (e.g., X-Amavis-Alert)
+{% if config.milter_add_headers is iterable and config.milter_add_headers | length > 0 %}{% for header, value in config.milter_add_headers %}$milter_add_headers = {'{{ header }}' => '{{ value | replace({'\' => '\\', "'" => "\\'"}) }}'};
+{% endfor %}{% endif %}
+
+# Logging level for milter (0–4); higher = more verbose
+$milter_debug = {{ config.milter_debug | default(0) }};
+
+# Optional: milter name for MTAs (e.g., for sendmail Milter macros)
+{% if config.milter_name %}$milter_name = '{{ config.milter_name }}';
+{% endif %}
+
+# Whether to strip whitespace from headers before scanning (prevents header injection)
+{% if config.milter_strip_whitespace | default(true) %}$milter_strip_whitespace = 1;
+{% else %}$milter_strip_whitespace = 0;
+{% endif %}
+
+# Whether to preserve original message envelope during milter processing
+{% if config.milter_preserve_envelope | default(false) %}$milter_preserve_envelope = 1;
+{% else %}$milter_preserve_envelope = 0;
+{% endif %}

@@ -1,0 +1,17 @@
+#!/command/with-contenv
+exec s6-log t /var/log/supervision/{{ service_name }}/current 2>&1
+# Rotate logs: 32 files, 1MB max each, compress with gzip
+{% if rotate_enabled %}F 32 1048576 gzip
+{% endif %}# Buffering: 4096 bytes (default), no sync on each write
+{% if sync_enabled %}S
+{% endif %}# Timestamp format: ISO8601 with microseconds and local timezone
+{% if use_iso8601 %}T iso8601
+{% else %}T unix
+{% endif %}# Optional: filter log lines matching pattern (regex)
+{% for pattern in filter_patterns %}# Filter: keep lines matching {{ pattern.regex }} ({{ pattern.mode }})
+{{ pattern.mode[0].upper() }} {{ pattern.regex }}
+{% endfor %}# Optional: include source tag (service name) at start of each line
+{% if tag_enabled %}P {{ service_name | replace('/', '_') }}
+{% endif %}# Optional: drop duplicate consecutive lines
+{% if dedup_enabled %}D
+{% endif %}

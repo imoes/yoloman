@@ -1,0 +1,27 @@
+# Enable and load the statsd module
+LoadModule mod_statsd.c
+
+# StatsD server host and port
+StatsDHost {{ statsd_host }}
+StatsDPort {{ statsd_port }}
+
+# Optional StatsD prefix for metrics (use dot as namespace separator)
+{% if statsd_prefix %}StatsDPrefix {{ statsd_prefix }}{% endif %}
+
+# Enable/disable UDP vs TCP transport (UDP by default)
+{% if statsd_transport == 'tcp' %}StatsDTransport tcp{% elif statsd_transport == 'udp' %}StatsDTransport udp{% endif %}
+
+# Optional StatsD flush interval in milliseconds (default: 1000)
+{% if statsd_flush_interval is defined %}StatsDFlushInterval {{ statsd_flush_interval }}{% endif %}
+
+# Enable/disable verbose logging (default: off)
+{% if statsd_debug %}StatsDDebug on{% else %}StatsDDebug off{% endif %}
+
+# List of metric types to emit (default: all enabled)
+{% for metric_type in enabled_metrics %}StatsDMetrics {{ metric_type }}{% endfor %}
+
+# Optional: custom tags to attach to all metrics
+{% for tag_key, tag_value in statsd_tags.items() %}StatsDTag {{ tag_key }}={{ tag_value }}{% endfor %}
+
+# Optional: custom histogram buckets for timing metrics (seconds)
+{% for bucket in histogram_buckets %}StatsDHistogram {{ bucket }}{% endfor %}

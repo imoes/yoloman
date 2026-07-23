@@ -1,0 +1,193 @@
+{
+  "storage_driver": {
+    "type": "string",
+    "default": "file",
+    "description": "Storage backend driver: 'file', 'redis', 'elasticsearch', or 'ceph'."
+  },
+  "file_basepath": {
+    "type": "string",
+    "default": "/var/lib/gnocchi",
+    "description": "Base path for file-based metric storage (ignored for non-file drivers)."
+  },
+  "redis_host": {
+    "type": "string",
+    "default": "localhost",
+    "description": "Redis server hostname (used if storage driver is 'redis')."
+  },
+  "redis_port": {
+    "type": "number",
+    "default": 6379,
+    "description": "Redis server port (used if storage driver is 'redis')."
+  },
+  "redis_password": {
+    "type": "string",
+    "default": "",
+    "description": "Redis password (optional, for authentication)."
+  },
+  "redis_db": {
+    "type": "number",
+    "default": 0,
+    "description": "Redis database number (used if storage driver is 'redis')."
+  },
+  "elasticsearch_url": {
+    "type": "string",
+    "default": "http://localhost:9200",
+    "description": "Comma-separated Elasticsearch URLs (used if storage driver is 'elasticsearch')."
+  },
+  "elasticsearch_index_prefix": {
+    "type": "string",
+    "default": "gnocchi",
+    "description": "Prefix for Elasticsearch index names (e.g., 'gnocchi_metrics')."
+  },
+  "elasticsearch_number_of_shards": {
+    "type": "number",
+    "default": 1,
+    "description": "Number of shards per Elasticsearch index."
+  },
+  "elasticsearch_number_of_replicas": {
+    "type": "number",
+    "default": 0,
+    "description": "Number of replicas per Elasticsearch index."
+  },
+  "ceph_conffile": {
+    "type": "string",
+    "default": "/etc/ceph/ceph.conf",
+    "description": "Path to Ceph configuration file (used if storage driver is 'ceph')."
+  },
+  "ceph_pool": {
+    "type": "string",
+    "default": "gnocchi",
+    "description": "Ceph pool name for metric storage."
+  },
+  "elasticsearch_verify_ssl": {
+    "type": "bool",
+    "default": true,
+    "description": "Whether to verify SSL certificates for Elasticsearch."
+  },
+  "metricd_workers": {
+    "type": "number",
+    "default": 1,
+    "description": "Number of worker processes for metric ingestion and processing."
+  },
+  "metric_processing_timeout": {
+    "type": "number",
+    "default": 300,
+    "description": "Maximum seconds a metric processing worker may run before timeout."
+  },
+  "metrics_per_batch": {
+    "type": "number",
+    "default": 1000,
+    "description": "Maximum number of metrics processed per batch."
+  },
+  "metrics_queue_max": {
+    "type": "number",
+    "default": 10000,
+    "description": "Maximum number of metrics queued before backpressure is applied."
+  },
+  "retry_attempts": {
+    "type": "number",
+    "default": 3,
+    "description": "Maximum number of retry attempts for failed operations."
+  },
+  "retry_delay": {
+    "type": "number",
+    "default": 1,
+    "description": "Delay in seconds between retries."
+  },
+  "log_level": {
+    "type": "string",
+    "default": "INFO",
+    "description": "Logging level: DEBUG, INFO, WARNING, ERROR, or CRITICAL."
+  },
+  "enable_ingestion": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable incoming metric ingestion. Disable to run in read-only or maintenance mode."
+  },
+  "keystone_auth_url": {
+    "type": "string",
+    "default": "http://localhost:5000/v3",
+    "description": "Keystone Identity API URL (v3)."
+  },
+  "keystone_project_domain_name": {
+    "type": "string",
+    "default": "Default",
+    "description": "Keystone project domain name."
+  },
+  "keystone_user_domain_name": {
+    "type": "string",
+    "default": "Default",
+    "description": "Keystone user domain name."
+  },
+  "keystone_project_name": {
+    "type": "string",
+    "default": "service",
+    "description": "OpenStack service project name (e.g., 'service')."
+  },
+  "keystone_username": {
+    "type": "string",
+    "default": "gnocchi",
+    "description": "Service user name for Gnocchi in Keystone."
+  },
+  "keystone_password": {
+    "type": "string",
+    "default": "",
+    "description": "Password for the Gnocchi service user in Keystone."
+  },
+  "coordination_url": {
+    "type": "string",
+    "default": "file:///var/lib/gnocchi/coordination",
+    "description": "Coordination backend URL (e.g., 'redis://localhost:6379', 'file:///path/to/dir')."
+  },
+  "indexer_url": {
+    "type": "string",
+    "default": "mysql+pymysql://gnocchi:password@localhost/gnocchi",
+    "description": "Database connection URL for metadata indexing (e.g., SQLAlchemy URL)."
+  },
+  "archive_policies": {
+    "type": "list",
+    "default": [],
+    "description": "List of archive policies to predefine. Each item defines a policy name, aggregation methods, and definition (granularity + points).",
+    "items": {
+      "type": "object",
+      "fields": {
+        "name": {
+          "type": "string",
+          "default": "",
+          "description": "Archive policy name (must be unique)."
+        },
+        "back_window": {
+          "type": "number",
+          "default": 0,
+          "description": "Number of past granularities retained beyond current time window."
+        },
+        "definition": {
+          "type": "list",
+          "default": [],
+          "description": "List of archive policy definitions, each in format 'granularity:points' (e.g., ['60s:86400', '3600s:87600']).",
+          "items": {
+            "type": "string"
+          }
+        },
+        "aggregation_methods": {
+          "type": "list",
+          "default": [
+            "mean"
+          ],
+          "description": "Supported aggregation methods for metrics in this policy.",
+          "items": {
+            "type": "string",
+            "enum": [
+              "mean",
+              "min",
+              "max",
+              "sum",
+              "std",
+              "count"
+            ]
+          }
+        }
+      }
+    }
+  }
+}

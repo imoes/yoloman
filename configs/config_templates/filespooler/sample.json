@@ -1,0 +1,50 @@
+{
+  "mode": "distributed",
+  "base_dir": "/var/lib/filespooler",
+  "listen_addr": "0.0.0.0",
+  "port": 9222,
+  "worker_threads": 8,
+  "max_queue_depth": 50000,
+  "job_timeout": 600,
+  "log_level": "WARN",
+  "log_file": "-",
+  "enable_tls": true,
+  "tls_cert_file": "/etc/filespooler/tls/server.crt",
+  "tls_key_file": "/etc/filespooler/tls/server.key",
+  "tls_ca_file": "/etc/filespooler/tls/ca.crt",
+  "tls_server_name": "filespooler.internal",
+  "peers": [
+    {
+      "host": "filespooler-1.internal",
+      "port": 9222
+    },
+    {
+      "host": "filespooler-2.internal",
+      "port": 9222
+    },
+    {
+      "host": "filespooler-3.internal",
+      "port": 9222
+    }
+  ],
+  "queues": [
+    {
+      "name": "default",
+      "retry_limit": 2,
+      "max_retries_before_dlq": 3,
+      "dead_letter_queue": "deadletter"
+    },
+    {
+      "name": "priority",
+      "retry_limit": 3,
+      "max_retries_before_dlq": 5,
+      "dead_letter_queue": ""
+    },
+    {
+      "name": "bulk",
+      "retry_limit": 1,
+      "max_retries_before_dlq": 2,
+      "dead_letter_queue": "deadletter"
+    }
+  ]
+}

@@ -1,0 +1,64 @@
+# Listen address for the proxy to bind to
+bind_address: {{ bind_address }}
+
+# Listen port for incoming FTP control connections
+port: {{ port }}
+
+# Port range for passive FTP data connections (min and max)
+passive_ports_start: {{ passive_ports.start }}
+passive_ports_end: {{ passive_ports.end }}
+
+# Maximum number of simultaneous connections
+max_connections: {{ max_connections }}
+
+# Enable or disable logging to syslog
+syslog: {{ syslog }}
+
+# Log file path (ignored if syslog is true)
+logfile: {{ logfile }}
+
+# Timeout (seconds) for FTP control connection idle state
+control_timeout: {{ control_timeout }}
+
+# Timeout (seconds) for FTP data connection
+transfer_timeout: {{ transfer_timeout }}
+
+# Enable or disable chroot jail for anonymous users
+chroot_anonymous: {{ chroot_anonymous }}
+
+# Enable or disable chroot jail for local users
+chroot_local: {{ chroot_local }}
+
+# List of allowed client IP networks (CIDR notation)
+{% for network in allowed_networks %}allow_network: {{ network }}
+{% endfor %}
+
+# List of denied client IP networks (CIDR notation)
+{% for network in denied_networks %}deny_network: {{ network }}
+{% endfor %}
+
+# Virtual hosts configuration (one per line)
+{% for host in virtual_hosts %}host: {{ host.name }} -> {{ host.target }}
+{% endfor %}
+
+# Enable or disable SSL/TLS for control and data connections
+ssl_enabled: {{ ssl.enabled }}
+
+# Path to SSL certificate
+ssl_cert: {{ ssl.cert_path }}
+
+# Path to SSL private key
+ssl_key: {{ ssl.key_path }}
+
+# Minimum SSL/TLS protocol version (e.g., TLSv1.2, TLSv1.3)
+ssl_min_version: {{ ssl.min_version }}
+
+# Enable or disable FTPS (FTP over SSL) on the same port as FTP
+ftps_enabled: {{ ftps.enabled }}
+ftps_port: {{ ftps.port }}
+
+# Enable or disable explicit FTPS (AUTH TLS on same port)
+ftps_explicit: {{ ftps.explicit }}
+
+# Enable or disable IPv6 support
+ipv6_enabled: {{ ipv6.enabled }}

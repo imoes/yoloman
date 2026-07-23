@@ -1,0 +1,38 @@
+{
+  "log_dir": "/var/log/manila",
+  "log_file": "manila-scheduler.log",
+  "debug": false,
+  "transport_url": "rabbit://openstack:secretpass@10.0.0.10:5672/",
+  "db_connection": "mysql+pymysql://manila_dbuser:dbpass123@10.0.0.20/manila",
+  "scheduler_driver": "manila.scheduler.drivers.filter.FilterScheduler",
+  "scheduler_default_filters": [
+    "AvailabilityZoneFilter",
+    "CapacitiesFilter",
+    "CapabilitiesFilter",
+    "PoolFilter",
+    "WeightedRandomFilter"
+  ],
+  "scheduler_weight_filters": [
+    "WeightedRandomFilter"
+  ],
+  "workers": 2,
+  "share_driver": "manila.share.drivers.lvm.LVMShareDriver",
+  "driver_handles_share_servers": true,
+  "service_auth_params": [
+    {
+      "name": "Keystone",
+      "section": "keystone_authtoken",
+      "auth_url": "http://10.0.0.30:5000",
+      "project_domain_name": "Default",
+      "user_domain_name": "Default",
+      "project_name": "service",
+      "username": "manila",
+      "password": "manila_secret_pass"
+    },
+    {
+      "name": "Locking",
+      "section": "oslo_concurrency",
+      "lock_path": "/var/lib/manila/tmp"
+    }
+  ]
+}

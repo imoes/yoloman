@@ -1,0 +1,142 @@
+{
+  "mount_point": {
+    "type": "string",
+    "default": "/mnt/logged",
+    "description": "Path where the loggedfs virtual filesystem will be mounted."
+  },
+  "logging": {
+    "type": "object",
+    "default": {
+      "enabled": true,
+      "log_file": "/var/log/loggedfs.log",
+      "format": "json"
+    },
+    "description": "Central logging configuration. Enable logging, specify output file, and choose format.",
+    "items": {
+      "enabled": {
+        "type": "boolean",
+        "default": true,
+        "description": "Enable or disable logging to a file."
+      },
+      "log_file": {
+        "type": "string",
+        "default": "/var/log/loggedfs.log",
+        "description": "Absolute path to the log file."
+      },
+      "format": {
+        "type": "string",
+        "enum": [
+          "syslog",
+          "json",
+          "text"
+        ],
+        "default": "json",
+        "description": "Log format. 'json' recommended for structured analysis."
+      }
+    }
+  },
+  "rules": {
+    "type": "list",
+    "default": [
+      {
+        "path": "/home",
+        "mode": "all",
+        "recursive": true,
+        "description": "Log all file operations in home directories",
+        "actions": [
+          {
+            "type": "write",
+            "target": "/var/log/home-writes.log"
+          },
+          {
+            "type": "delete",
+            "target": "/var/log/home-deletes.log"
+          }
+        ]
+      }
+    ],
+    "description": "List of paths and operation modes to monitor. Each rule can be recursive and define custom actions.",
+    "items": {
+      "path": {
+        "type": "string",
+        "default": "/home",
+        "description": "Filesystem path to monitor (supports glob patterns like /home/*)."
+      },
+      "mode": {
+        "type": "string",
+        "enum": [
+          "read",
+          "write",
+          "all"
+        ],
+        "default": "all",
+        "description": "Which operations to log: read, write, or all."
+      },
+      "recursive": {
+        "type": "boolean",
+        "default": true,
+        "description": "Apply rule recursively to all subdirectories."
+      },
+      "description": {
+        "type": "string",
+        "default": "",
+        "description": "Human-readable description of this rule (for documentation)."
+      },
+      "actions": {
+        "type": "list",
+        "default": [
+          {
+            "type": "write"
+          }
+        ],
+        "description": "List of actions to take for matching events (e.g., write to custom log).",
+        "items": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "read",
+              "write",
+              "delete",
+              "rename",
+              "chmod",
+              "chown",
+              "all"
+            ],
+            "default": "write",
+            "description": "Event type to trigger this action."
+          },
+          "target": {
+            "type": "string",
+            "default": "",
+            "description": "Optional custom log file path for this action. If omitted, uses default log file."
+          }
+        }
+      }
+    }
+  },
+  "allow_user": {
+    "type": "string",
+    "default": "",
+    "description": "Unix username allowed to control loggedfs (e.g., via signals). Leave blank for none."
+  },
+  "allow_group": {
+    "type": "string",
+    "default": "",
+    "description": "Unix group allowed to control loggedfs. Leave blank for none."
+  },
+  "max_log_size": {
+    "type": "number",
+    "default": 10485760,
+    "description": "Maximum size (in bytes) per log file before rotation. Default: 10 MB."
+  },
+  "log_rotation_count": {
+    "type": "number",
+    "default": 5,
+    "description": "Number of rotated log files to retain. Older files are deleted."
+  },
+  "buffer_size": {
+    "type": "number",
+    "default": 65536,
+    "description": "Size of in-memory buffer (in bytes) used before flushing to disk."
+  }
+}

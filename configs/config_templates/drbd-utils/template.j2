@@ -1,0 +1,87 @@
+# DRBD global configuration
+# Defines global settings for all resources
+
+{% if global_section %}
+global {
+{% for key, val in global_section.items() %}{% if key == 'usage-count' %}    usage-count {{ val }};
+{% elif key == 'user-pri' %}    user-pri {{ val }};
+{% endif %}{% endfor %}
+}
+{% endif %}
+
+# Common settings applied to all resources
+# Override per-resource as needed
+
+{% if common_section %}
+common {
+{% for key, val in common_section.items() %}{% if key == 'handlers' %}    handlers {
+{% for hkey, hval in val.items() %}        {{ hkey }} "{{ hval }}";
+{% endfor %}    };
+{% elif key == 'startup' %}    startup {
+{% for skey, sval in val.items() %}{% if sval is not none %}        {{ skey | replace('_', '-') }} {{ sval }};
+{% endif %}{% endfor %}    };
+{% elif key == 'disk' %}    disk {
+{% for dkey, dval in val.items() %}{% if dval is not none %}        {{ dkey | replace('_', '-') }} {{ dval }};
+{% endif %}{% endfor %}    };
+{% elif key == 'net' %}    net {
+{% for nkey, nval in val.items() %}{% if nval is not none %}        {{ nkey | replace('_', '-') }} {{ nval }};
+{% endif %}{% endfor %}    };
+{% endif %}{% endfor %}
+}
+{% endif %}
+
+# Resource definitions
+# Each resource represents a replicated block device
+
+{% for res in resources %}# Resource: {{ res.name }}
+resource {{ res.name }} {
+{% if res.socket_dir is not none %}    # Directory for control socket
+    socket-dir "{{ res.socket_dir }}";
+{% endif %}
+
+{% for dev in res.devices %}    # Device configuration
+    device {{ dev.minor | default(0) }} drbd;
+{% endfor %}
+
+{% for disk in res.disks %}    # Disk configuration (per-disk settings override common)
+    disk {
+{% for k, v in disk.items() if k != 'device' %}        {{ k | replace('_', '-') }} {{ v }};
+{% endfor %}    };
+{% endfor %}
+
+{% for net in res.nets %}    # Network configuration (per-resource net settings override common)
+    net {
+{% for k, v in net.items() if k != 'address' %}        {{ k | replace('_', '-') }} {{ v }};
+{% endfor %}    };
+{% endfor %}
+
+{% if res.syncer is not none %}    # Syncer configuration (rate, al extents, etc.)
+    syncer {
+{% for k, v in res.syncer.items() %}        {{ k | replace('_', '-') }} {{ v }};
+{% endfor %}    };
+{% endif %}
+
+{% for host in res.hosts %}    # Host-specific configuration
+    on {{ host.hostname }} {
+{% if host.address is not none %}        # Network address and port for this node
+        address {{ host.address | replace('ipv6:', '') }}:{{ host.port }};
+{% else %}        # Default fallback address (IPv6-aware if needed)
+{% if host.ipv6 %}        address [{{ host.ipv6 }}]:{{ host.port }};
+{% else %}        address {{ host.ipv4 | default('10.0.0.%d' % loop.index0) }}:{{ host.port }};
+{% endif %}{% endif %}
+{% if host.meta is not none %}        # Disk meta-disk configuration
+        meta-disk {{ host.meta }};
+{% endif %}
+{% if host.data is not none %}        # Path to underlying block device
+        disk {{ host.data }};
+{% endif %}
+    }
+{% endfor %}
+}
+{% endfor %}
+
+# Include additional configuration files if present
+# Allows modular config (e.g., per-environment or per-cluster)
+{% if include_dir %}
+include "{{ include_dir }}/*.conf";
+{% endif %}

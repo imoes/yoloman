@@ -1,0 +1,86 @@
+{
+  "server_count": 4,
+  "chroot_path": "/var/chroot/nsd",
+  "zones_dir": "/etc/nsd/zones",
+  "pidfile_path": "/run/nsd/nsd.pid",
+  "log_queries": false,
+  "log_level": "2",
+  "tcp_query_count": 200,
+  "tcp_timeout": 60,
+  "interfaces": [
+    {
+      "address": "0.0.0.0",
+      "port": 53,
+      "proto": "udp",
+      "ip4_only": false,
+      "ip6_only": false
+    },
+    {
+      "address": "0.0.0.0",
+      "port": 53,
+      "proto": "tcp",
+      "ip4_only": false,
+      "ip6_only": false
+    },
+    {
+      "address": "::",
+      "port": 53,
+      "proto": "udp",
+      "ip4_only": false,
+      "ip6_only": true
+    }
+  ],
+  "remote_control_enable": true,
+  "remote_control_interface": "127.0.0.1",
+  "remote_control_port": 8953,
+  "remote_control_key_file": "/etc/nsd/ctl.key",
+  "remote_control_cert_file": "/etc/nsd/ctl.pem",
+  "remote_control_cli_key_file": "/etc/nsd/ctl.key",
+  "remote_control_cli_cert_file": "/etc/nsd/ctl.pem",
+  "zone_list_file": "",
+  "zones": [
+    {
+      "name": "example.com",
+      "zonefile": "example.com.zone",
+      "allow_notify": [
+        "192.0.2.1",
+        "198.51.100.2"
+      ],
+      "allow_query": [
+        "any"
+      ]
+    },
+    {
+      "name": "example.net",
+      "zonefile": "example.net.zone",
+      "allow_query": [
+        "192.0.2.0/24",
+        "198.51.100.0/24"
+      ],
+      "allow_notify": [
+        "192.0.2.1"
+      ]
+    }
+  ],
+  "acls": [
+    {
+      "name": "internal-network",
+      "ip": [
+        "10.0.0.0/8",
+        "172.16.0.0/12",
+        "192.168.0.0/16"
+      ],
+      "allow": [
+        "resolve"
+      ]
+    },
+    {
+      "name": "auth-transfer",
+      "ip": [
+        "192.0.2.0/24"
+      ],
+      "action": "allow-transfer"
+    }
+  ],
+  "debug_mode": false
+}

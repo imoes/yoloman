@@ -1,0 +1,93 @@
+[server]
+# Enable mDNS/DNS-SD service on this host
+# Set to 'yes' to enable the mDNS/DNS-SD daemon
+# 'host' enables mDNS only; 'yes' enables both mDNS and DNS-SD
+use-ipv4=yes
+use-ipv6=yes
+
+# Host name to publish (defaults to system hostname)
+# Set explicitly to override automatic detection
+host-name={{ server.host_name }}
+
+# Domain name to publish (defaults to 'local')
+domain-name={{ server.domain_name }}
+
+# Time-to-live for resource records (seconds)
+# Reduce for faster propagation in dynamic environments
+ttl=4500
+
+# Enable publishing of PTR records for services
+publish-services=yes
+
+# Enable publishing of A/AAAA records for this host
+publish-resolve-record=yes
+
+[wide-area]
+# Disable wide-area DNS-SD (required for local-only discovery)
+enable-wide-area=no
+
+[lwip]
+# Not used on modern Linux systems — always disable
+enable-lwip=no
+
+[rlimits]
+# Limit number of simultaneous connections to avoid resource exhaustion
+# Set to 0 for system default
+rlimit-nofile=512
+
+# Limit size of stack per thread (KB)
+rlimit-stack=1024
+
+# Limit virtual memory (KB); 0 means unlimited
+rlimit-as=0
+
+# Enable rate-limiting of mDNS packets (prevents flooding)
+# Set to 'yes' in environments with many mDNS clients
+rate-limit=yes
+
+# Max mDNS packets per second (only active if rate-limit=yes)
+rate-limit-interval-sec=2
+rate-limit-burst=50
+
+[reflector]
+# Enable DNS-SD service reflection across subnets
+# Set to 'yes' only if multiple subnets require cross-subnet printer discovery
+enable-reflector={{ reflector.enabled }}
+
+# UDP ports used for service reflection (mDNS: 5353)
+# Only required if reflector is enabled
+{% if reflector.enabled %}
+reflect-udp-port=5353
+{% endif %}
+
+[security]
+# Enable chroot() for added isolation (recommended for production)
+# Requires proper filesystem setup (usually /run/avahi-daemon/chroot)
+chroot-enabled=yes
+
+# User to drop privileges to (typically 'avahi')
+user=avahi
+
+# Group to drop privileges to (typically 'avahi')
+group=avahi
+
+# Directory used for runtime files
+runtime-dir=/run/avahi-daemon
+
+# Directory for configuration files (usually /etc/avahi)
+config-dir={{ server.config_dir }}
+
+[discovery]
+# Enable publishing of local services (including CUPS printers)
+publish-domain=yes
+publish-hinfo=yes
+publish-addresses=yes
+
+# Enable publication of SRV and TXT records for services
+{% for service in discovery.enabled_services %}
+# Enable {{ service.name }} service publishing
+publish-{{ service.name | replace('_', '-') }}={{ 'yes' if service.enabled else 'no' }}
+{% endfor %}
+
+# Enable discovery of other hosts/services (not required for server-only operation)
+allow-interfaces={{ discovery.allow_interfaces | join(',') }}

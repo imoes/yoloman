@@ -1,0 +1,111 @@
+{# Top-level KEA DHCPv6 configuration #}
+{
+  "Dhcp6": {
+    "loggers": [
+      {
+        "name": "kea-dhcp6",
+        "output_options": [
+          {
+            "output": "stdout"
+          }
+        ],
+        "severity": "{{ logger_severity }}",
+        "debuglevel": {{ logger_debuglevel }}
+      }
+    ],
+    "control-socket": {
+      "socket-type": "unix",
+      "socket-name": "{{ control_socket_path }}"
+    },
+    "server-id": {
+      "type": "{{ server_id_type }}",
+      "enterprise-id": {{ server_id_enterprise_id }}{% if server_id_type == 'LLT' %},
+      "hardware-type": {{ server_id_hardware_type }},
+      "identifier": "{{ server_id_identifier }}"{% endif %}
+    },
+    "reconfigure-wait": {{ reconfigure_wait_seconds }},
+    "subnets": [
+{% for subnet in subnets %}      {
+        "id": {{ subnet.id }},
+        "subnet": "{{ subnet.subnet }}",
+        "pools": [
+{% for pool in subnet.pools %}          {
+            "pool": "{{ pool.pool }}"
+          }{% if not loop.last %},{% endif %}
+{% endfor %}        ],
+        "option-data": [
+{% for option in subnet.option_data %}          {
+            "name": "{{ option.name }}",
+            "data": "{{ option.data }}"{% if option.code is defined %},
+            "code": {{ option.code }}{% endif %}{% if option.space is defined %},
+            "space": "{{ option.space }}"{% endif %}{% if option.csv_format is defined %},
+            "csv-format": {{ option.csv_format | lower }}{% endif %}
+          }{% if not loop.last %},{% endif %}
+{% endfor %}        ],
+        "reservation-mode": "{{ subnet.reservation_mode }}"{% if subnet.reservations is defined %},
+        "reservations": [
+{% for res in subnet.reservations %}          {
+            "hostname": "{{ res.hostname }}",
+            "ip-address": "{{ res.ip_address }}",
+            "du-id": "{{ res.du_id }}"{% if res.client_id is defined %},
+            "client-id": "{{ res.client_id }}"{% endif %}{% if res.hw_address is defined %},
+            "hw-address": "{{ res.hw_address }}"{% endif %}
+          }{% if not loop.last %},{% endif %}
+{% endfor %}        ]{% endif %}{% if subnet.preferred_lifetime is defined %},
+        "preferred-lifetime": {{ subnet.preferred_lifetime }}{% endif %}{% if subnet.valid_lifetime is defined %},
+        "valid-lifetime": {{ subnet.valid_lifetime }}{% endif %}{% if subnet.min_valid_lifetime is defined %},
+        "min-valid-lifetime": {{ subnet.min_valid_lifetime }}{% endif %}{% if subnet.max_valid_lifetime is defined %},
+        "max-valid-lifetime": {{ subnet.max_valid_lifetime }}{% endif %}{% if subnet.declined_leases_detection is defined %},
+        "declined-leases-detection": {{ subnet.declined_leases_detection | lower }}{% endif %}{% if subnet.cache-threshold is defined %},
+        "cache-threshold": {{ subnet.cache_threshold | default(0.0) }}{% endif %}{% if subnet.cache-max-age is defined %},
+        "cache-max-age": {{ subnet.cache_max_age | default(0) }}{% endif %}
+      }{% if not loop.last %},{% endif %}
+{% endfor %}    ],
+    "interfaces-config": {
+      "interfaces": [{{ interfaces | map('quote') | join(', ') | indent(2) }}],
+      "re-detect": {{ interfaces_re_detect }}
+    },
+    "lease-database": {
+      "type": "{{ lease_database_type }}",
+{% if lease_database_type == 'memfile' %}      "persist": {{ lease_database_memfile_persist | lower }},
+      "name": "{{ lease_database_memfile_name }}",
+      "lfc-interval": {{ lease_database_memfile_lfc_interval }}{% else %}
+      "host": "{{ lease_database_host }}",
+      "name": "{{ lease_database_name }}",
+      "password": "{{ lease_database_password }}",
+      "port": {{ lease_database_port }},
+      "user": "{{ lease_database_user }}",
+      "type": "{{ lease_database_type }}"{% endif %}
+    },
+    "dhcp-ddns": {
+      "enable-updates": {{ dhcp_ddns_enable_updates | lower }},
+      "qualifying-suffix": "{{ dhcp_ddns_qualifying_suffix }}",
+      "server-ip": "{{ dhcp_ddns_server_ip }}",
+      "server-port": {{ dhcp_ddns_server_port }}{% if dhcp_ddns_dns_regions is defined %},
+      "ncr-protocol": "{{ dhcp_ddns_ncr_protocol }}",
+      "ncr-format": "{{ dhcp_ddns_ncr_format }}",
+      "dns-regions": [
+{% for region in dhcp_ddns_dns_regions %}        {
+          "name": "{{ region.name }}",
+          "dns-server-ips": [{{ region.dns_server_ips | map('quote') | join(', ') | indent(10) }}],
+          "tsig-keys": [
+{% for tsig in region.tsig_keys %}            {
+              "name": "{{ tsig.name }}",
+              "algorithm": "{{ tsig.algorithm }}",
+              "secret": "{{ tsig.secret }}"
+            }{% if not loop.last %},{% endif %}
+{% endfor %}          ]
+        }{% if not loop.last %},{% endif %}
+{% endfor %}      ]{% endif %}
+    },
+    "hooks-libraries": [
+{% for hook in hooks_libraries %}      {
+        "library": "{{ hook.library }}"{% if hook.parameters is defined %},
+        "parameters": {{ hook.parameters | tojson | replace('\n', '\n' + '        ') | indent(12, true) }}{% endif %}
+      }{% if not loop.last %},{% endif %}
+{% endfor %}    ],
+    "user-context": {
+      "comment": "{{ user_context_comment }}"
+    }
+  }
+}

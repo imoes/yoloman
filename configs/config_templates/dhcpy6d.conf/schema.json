@@ -1,0 +1,207 @@
+{
+  "interface": {
+    "type": "string",
+    "default": "eth0",
+    "description": "Network interface on which to listen for IPv6 DHCPv6 requests."
+  },
+  "log_level": {
+    "type": "string",
+    "default": "info",
+    "description": "Verbosity of logging output. Options: debug, info, warning, error, critical."
+  },
+  "pid_file": {
+    "type": "string",
+    "default": "/run/dhcpy6d.pid",
+    "description": "File path where the process ID will be written."
+  },
+  "server_address": {
+    "type": "string",
+    "default": "fe80::1",
+    "description": "Link-local or unique-local IPv6 address of the server (used as source for responses)."
+  },
+  "assign_address": {
+    "type": "bool",
+    "default": true,
+    "description": "Whether to assign IPv6 addresses to clients."
+  },
+  "assign_dns": {
+    "type": "bool",
+    "default": true,
+    "description": "Whether to provide DNS server addresses to clients."
+  },
+  "assign_ntp": {
+    "type": "bool",
+    "default": false,
+    "description": "Whether to provide NTP server addresses to clients."
+  },
+  "assign_domains": {
+    "type": "bool",
+    "default": true,
+    "description": "Whether to provide domain search lists to clients."
+  },
+  "dns_servers": {
+    "type": "list",
+    "default": [
+      "2001:4860:4860::8888",
+      "2001:4860:4860::8844"
+    ],
+    "description": "List of IPv6 DNS server addresses to assign to clients when `assign_dns` is true.",
+    "items": {
+      "type": "string",
+      "description": "IPv6 address of a DNS server."
+    }
+  },
+  "domain_search": {
+    "type": "list",
+    "default": [
+      "example.com"
+    ],
+    "description": "Domain search list to append to DNS queries for clients.",
+    "items": {
+      "type": "string",
+      "description": "Domain name to include in the DNS search list."
+    }
+  },
+  "ntp_servers": {
+    "type": "list",
+    "default": [],
+    "description": "List of IPv6 NTP server addresses to assign to clients when `assign_ntp` is true.",
+    "items": {
+      "type": "string",
+      "description": "IPv6 address of an NTP server."
+    }
+  },
+  "lease_time": {
+    "type": "number",
+    "default": 3600,
+    "description": "Default lease time (in seconds) for assigned addresses."
+  },
+  "max_lease_time": {
+    "type": "number",
+    "default": 7200,
+    "description": "Maximum allowed lease time (in seconds) for assigned addresses."
+  },
+  "client_classes": {
+    "type": "list",
+    "default": [],
+    "description": "List of client classes (e.g., for device types, VLANs, or subnets). Each class defines matching rules, subnets, and custom options.",
+    "items": {
+      "type": "object",
+      "description": "A named client class with its own configuration.",
+      "fields": {
+        "name": {
+          "type": "string",
+          "default": "",
+          "description": "Unique name for this client class (e.g., 'phones', 'laptops')."
+        },
+        "description": {
+          "type": "string",
+          "default": "",
+          "description": "Optional human-readable description."
+        },
+        "match": {
+          "type": "string",
+          "default": "",
+          "description": "DUID or MAC-based match expression (e.g., `starts-with(hardware-address, 00:11:22:33:44:55)`)."
+        },
+        "subnets": {
+          "type": "list",
+          "default": [],
+          "description": "List of subnets for this class.",
+          "items": {
+            "type": "object",
+            "fields": {
+              "network": {
+                "type": "string",
+                "default": "",
+                "description": "IPv6 network address (e.g., `2001:db8:1::`)."
+              },
+              "prefix": {
+                "type": "number",
+                "default": 64,
+                "description": "IPv6 prefix length (typically 64)."
+              },
+              "range_start": {
+                "type": "string",
+                "default": "",
+                "description": "First address in the dynamic pool (e.g., `2001:db8:1::100`)."
+              },
+              "range_end": {
+                "type": "string",
+                "default": "",
+                "description": "Last address in the dynamic pool (e.g., `2001:db8:1::ff`)."
+              },
+              "options": {
+                "type": "list",
+                "default": [],
+                "description": "List of DHCPv6 options (e.g., `mtu`, `domain-search`).",
+                "items": {
+                  "type": "object",
+                  "fields": {},
+                  "key": {},
+                  "value": {}
+                }
+              },
+              "mtu": {
+                "type": "number",
+                "default": 1280,
+                "description": "Path MTU to assign (default: 1280)."
+              },
+              "router": {
+                "type": "string",
+                "default": "",
+                "description": "Router address to assign (if not default)."
+              }
+            }
+          }
+        },
+        "dns_servers": {
+          "type": "list",
+          "default": null,
+          "description": "Optional list of DNS servers for this class; overrides global DNS if present."
+        },
+        "domain_search": {
+          "type": "list",
+          "default": null,
+          "description": "Optional domain search list for this class."
+        },
+        "ntp_servers": {
+          "type": "list",
+          "default": null,
+          "description": "Optional list of NTP servers for this class."
+        }
+      }
+    }
+  },
+  "static_assignments": {
+    "type": "list",
+    "default": [],
+    "description": "List of static address assignments keyed by client DUID.",
+    "items": {
+      "type": "object",
+      "description": "Static assignment for a specific client.",
+      "fields": {
+        "duid": {
+          "type": "string",
+          "default": "",
+          "description": "Client DUID (e.g., `00:01:00:01:ab:cd:ef:12:11:22:33:44:55:66`)."
+        },
+        "address": {
+          "type": "string",
+          "default": "",
+          "description": "Static IPv6 address to assign (e.g., `2001:db8:1::10`)."
+        },
+        "hostname": {
+          "type": "string",
+          "default": "",
+          "description": "Hostname to assign to this client (if DNS/DHCP integration is enabled)."
+        },
+        "class": {
+          "type": "string",
+          "default": "",
+          "description": "Client class this assignment belongs to (for organization)."
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,90 @@
+{
+  "server.port": {
+    "type": "number",
+    "default": 13666,
+    "description": "TCP port on which the LCDd server listens for client connections."
+  },
+  "server.host": {
+    "type": "string",
+    "default": "",
+    "description": "IP address or hostname to bind to. Leave empty to bind to all interfaces."
+  },
+  "server.protocol": {
+    "type": "string",
+    "default": "hd44780",
+    "description": "Communication protocol to use. Common values: 'hd44780', 'curses', 'hid'."
+  },
+  "server.device": {
+    "type": "string",
+    "default": "/dev/lcd0",
+    "description": "Path to the physical LCD device (e.g., /dev/lcd0, /dev/usb/lcd)."
+  },
+  "server.driver": {
+    "type": "string",
+    "default": "hd44780",
+    "description": "Name of the LCD driver to load (e.g., 'hd44780', 'IOWarrior', 'sure_elec')."
+  },
+  "server.driver_settings_path": {
+    "type": "string",
+    "default": "",
+    "description": "Optional path to driver-specific configuration file or settings directory."
+  },
+  "server.backlight": {
+    "type": "string",
+    "default": "on",
+    "description": "Initial backlight state: 'on', 'off', or 'blink'. Some drivers accept numeric values (0\u20137)."
+  },
+  "server.screen_change_wait": {
+    "type": "number",
+    "default": 1000,
+    "description": "Time (milliseconds) to wait before switching to the next screen when multiple clients are active."
+  },
+  "drivers": {
+    "type": "list",
+    "default": [],
+    "description": "List of driver-specific configuration sections. Each element defines options for one driver.",
+    "items": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "default": "",
+          "description": "Driver name matching the [section] header (e.g., 'hd44780', 'IOWarrior')."
+        },
+        "options": {
+          "type": "object",
+          "default": {},
+          "description": "Key-value pairs of driver-specific settings (e.g., {'Columns': '20', 'Rows': '4'})."
+        }
+      }
+    }
+  },
+  "clients": {
+    "type": "list",
+    "default": [],
+    "description": "List of client definitions that may connect to LCDd. Each defines permissions and allowed screens.",
+    "items": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "default": "",
+          "description": "Client name (used for logging and ACL checks)."
+        },
+        "group": {
+          "type": "string",
+          "default": "lcdproc",
+          "description": "Group name associated with the client for permission checks."
+        },
+        "screens": {
+          "type": "list",
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "description": "List of screen names this client is allowed to display (e.g., ['clock', 'uptime'])."
+        }
+      }
+    }
+  }
+}

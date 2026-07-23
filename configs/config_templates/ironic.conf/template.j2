@@ -1,0 +1,187 @@
+[DEFAULT]
+# Enable debug logging
+#debug = {{ debug }}
+
+# The IP address to bind the API server
+#api_host = {{ api_host }}
+
+# The port the API server listens on
+#api_port = {{ api_port }}
+
+# The maximum number of workers (processes) for the API service
+#workers = {{ api_workers }}
+
+# Authentication strategy: 'keystone' or 'noauth'
+#auth_strategy = {{ auth_strategy }}
+
+# Enable TLS for the API endpoint
+#enable_ssl_api = {{ enable_ssl_api }}
+
+# Path to SSL certificate file (required if enable_ssl_api = true)
+#ssl_cert_file = {{ ssl_cert_file }}
+
+# Path to SSL private key file (required if enable_ssl_api = true)
+#ssl_key_file = {{ ssl_key_file }}
+
+# Path to CA certificate bundle for verifying client certificates (optional)
+#ssl_ca_file = {{ ssl_ca_file }}
+
+# Default conductor group for bare metal nodes
+#default_conductor_group = {{ default_conductor_group }}
+
+# Default deployment power driver
+#default_power_interface = {{ default_power_interface }}
+
+# Default management interface
+#default_management_interface = {{ default_management_interface }}
+
+# Default boot interface
+#default_boot_interface = {{ default_boot_interface }}
+
+[keystone]
+# Keystone endpoint type: 'public', 'admin', or 'internal'
+#endpoint_type = {{ keystone_endpoint_type }}
+
+# Authentication URL for Keystone
+#auth_url = {{ keystone_auth_url }}
+
+# Service project name for Ironic
+#project_name = {{ keystone_project_name }}
+
+# Service user name for Keystone auth
+#username = {{ keystone_username }}
+
+# Password for service user
+#password = {{ keystone_password }}
+
+# Service domain name
+#user_domain_name = {{ keystone_user_domain_name }}
+
+# Project domain name
+#project_domain_name = {{ keystone_project_domain_name }}
+
+# Insecure TLS (skip certificate verification)
+#insecure = {{ keystone_insecure }}
+
+[database]
+# Connection string for the database
+#connection = {{ db_connection }}
+
+# Maximum number of database connections in pool
+#max_pool_size = {{ db_max_pool_size }}
+
+# Maximum overflow connections beyond pool
+#max_overflow = {{ db_max_overflow }}
+
+# Connection pool timeout (seconds)
+#pool_timeout = {{ db_pool_timeout }}
+
+[publish_errors]
+# Enable publishing error events to the notification bus
+#enabled = {{ publish_errors_enabled }}
+
+[conductor]
+# Maximum number of tasks a conductor can handle concurrently
+#task_processing_timeout = {{ conductor_task_processing_timeout }}
+
+# Heartbeat timeout (seconds) before a conductor is considered offline
+#heartbeat_timeout = {{ conductor_heartbeat_timeout }}
+
+[agent]
+# Enable agent-based deployments
+#enabled = {{ agent_enabled }}
+
+# Agent API URL (used for direct communication with agents)
+#agent_api_url = {{ agent_api_url }}
+
+# Maximum time to wait for agent commands (seconds)
+#agent_connect_timeout = {{ agent_connect_timeout }}
+
+# Maximum time to wait for agent operations (seconds)
+#agent_call_timeout = {{ agent_call_timeout }}
+
+# Download image chunk size in bytes
+#image_download_chunk_size = {{ image_download_chunk_size }}
+
+[ipxe]
+# Enable iPXE boot support
+#enabled = {{ ipxe_enabled }}
+
+# Base URL for iPXE scripts (e.g., http://{{ ipxe_server_ip }}:{{ ipxe_server_port }})
+#iPXE_menu_timeout = {{ ipxe_menu_timeout }}
+
+[pxe]
+# TFTP server IP (must match DNSMASQ or similar TFTP server)
+#tftp_server = {{ tftp_server_ip }}
+
+# TFTP root directory
+#tftp_root = {{ tftp_root_dir }}
+
+# Path to BIOS PXE loader
+#pxe_bootfile_name = {{ pxe_bootfile_name }}
+
+# Path to UEFI PXE loader (ARM64/UEFI)
+#pxe_uefi_bootfile_name = {{ pxe_uefi_bootfile_name }}
+
+# DHCP provider: 'dnsmasq' or 'neutron'
+#dhcp_provider = {{ dhcp_provider }}
+
+# Enable DNS service via dnsmasq
+#dns_lookup = {{ dns_lookup_enabled }}
+
+[neutron]
+# Neutron auth URL
+#auth_url = {{ neutron_auth_url }}
+
+# Neutron project name
+#project_name = {{ neutron_project_name }}
+
+# Neutron service user name
+#username = {{ neutron_username }}
+
+# Neutron service user password
+#password = {{ neutron_password }}
+
+# Neutron service domain name
+#user_domain_name = {{ neutron_user_domain_name }}
+
+# Neutron project domain name
+#project_domain_name = {{ neutron_project_domain_name }}
+
+# Insecure TLS (skip certificate verification)
+#insecure = {{ neutron_insecure }}
+
+[inspector]
+# Enable Ironic Inspector integration
+#enabled = {{ inspector_enabled }}
+
+# Inspector API URL (e.g., http://inspector.example.com:5050)
+#url = {{ inspector_url }}
+
+# Inspector authentication strategy
+#auth_type = {{ inspector_auth_type }}
+
+{% for node_type, drivers in node_drivers.items() %}
+[node_type:{{ node_type }}]
+# Power interface for {{ node_type }} nodes
+#default_power_interface = {{ drivers.power }}
+
+# Management interface
+#default_management_interface = {{ drivers.management }}
+
+# Boot interface
+#default_boot_interface = {{ drivers.boot }}
+
+# IPMI interface (if applicable)
+#default_ipmi_interface = {{ drivers.ipmi }}
+
+# RAID interface
+#default_raid_interface = {{ drivers.raid }}
+
+# BIOS interface
+#default_bios_interface = {{ drivers.bios }}
+
+# Vendor interface
+#default_vendor_interface = {{ drivers.vendor }}
+
+{% endfor %}

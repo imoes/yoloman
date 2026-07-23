@@ -1,0 +1,139 @@
+# InspIRCd main configuration file
+# Generated from template — site-specific values injected via Jinja2
+
+# Server identification
+<server
+  name="{{ server.name }}"
+  description="{{ server.description }}"
+  id="{{ server.id }}"
+>
+
+# Admin information
+<admin
+  name="{{ admin.name }}"
+  email="{{ admin.email }}"
+>
+
+# Operator (opers) definitions — each operator has a name, password, and permissions
+{% for op in operclasses %}<class
+  name="{{ op.name }}"
+  users="{{ op.users }}"
+  maxclasses="{{ op.maxclasses }}"
+  maxtargets="{{ op.maxtargets }}"
+{% if op.maxchannels %}  maxchannels="{{ op.maxchannels }}"
+{% endif %}>
+{% endfor %}
+
+{% for oper in opers %}<operator
+  name="{{ oper.name }}"
+  password="{{ oper.password }}"
+  host="{{ oper.host }}"
+  class="{{ oper.class }}"
+  flags="{{ oper.flags | join(', ') }}"
+{% if oper.snomask %}  snomask="{{ oper.snomask }}"
+{% endif %}>
+{% endfor %}
+
+# Listen ports — each block defines where the server accepts connections
+{% for listen in listen_ports %}<listen
+  host="{{ listen.host | default('*') }}"
+  port="{{ listen.port }}"
+{% if listen.ssl %}  ssl="true"
+  ssloptions="{{ listen.ssl_options | join(', ') | default('') }}"
+{% else %}  ssl="false"
+{% endif %}>
+{% endfor %}
+
+# Connection limits and timeouts
+<connect
+  name="default"
+  allow="{{ connect_allow | join(', ') }}"
+  hspeed="{{ connect.hspeed }}"
+  fspeed="{{ connect.fspeed }}"
+  maxclients="{{ connect.maxclients }}"
+  sendq="{{ connect.sendq }}"
+  recvq="{{ connect.recvq }}"
+  thrashes="{{ connect.thrashes }}"
+  banthreshold="{{ connect.banthreshold }}"
+  floodcount="{{ connect.floodcount }}"
+  floodtime="{{ connect.floodtime }}"
+{% if connect.throttle %}  throttle="{{ connect.throttle }}"
+{% endif %}>
+
+# SSL/TLS module and certificates — if SSL is enabled
+{% if ssl.enabled %}<module
+  name="m_ssl_openssl"
+>
+
+<module
+  name="m_sslgnutls"
+  optional="true"
+>
+
+<certfile
+  cert="{{ ssl.cert_file }}"
+  key="{{ ssl.key_file }}"
+  chain="{{ ssl.chain_file | default('') }}"
+>
+{% endif %}
+
+# Logging configuration
+{% for log in logging %}<log
+  target="{{ log.target }}"
+  type="{{ log.type | join(',') }}"
+{% if log.mask %}  mask="{{ log.mask }}"
+{% endif %}>
+{% endfor %}
+
+# Modules to load
+{% for mod in modules %}<module
+  name="{{ mod.name }}"
+{% if mod.options %}  options="{{ mod.options | join(', ') }}"
+{% endif %}>
+{% endfor %}
+
+# Channel modes and default channel settings
+<channel
+  name="{{ channel.default_name }}"
+  limit="{{ channel.limit }}"
+  key="{{ channel.key | default('') }}"
+  mode="{{ channel.mode | join(', ') }}"
+>
+
+# Server services configuration — for linking with other servers or services
+{% if services.host %}<link
+  name="{{ services.name }}"
+  ip="{{ services.host }}"
+  port="{{ services.port }}"
+  username="{{ services.username }}"
+  password="{{ services.password }}"
+  send_pass="{{ services.send_password }}"
+  recv_pass="{{ services.recv_password }}"
+{% if services.max_connections %}  max_connections="{{ services.max_connections }}"
+{% endif %}>
+{% endif %}
+
+# General server options
+<options
+  servername="{{ server.name }}"
+  max_clients="{{ options.max_clients }}"
+  dns_timeout="{{ options.dns_timeout }}"
+  host_lookups="{{ 'true' if options.host_lookups else 'false' }}"
+  namesx="{{ 'true' if options.namesx else 'false' }}"
+  operspy_unloc="{{ 'true' if options.operspy_unloc else 'false' }}"
+  antiflood="{{ 'true' if options.antiflood else 'false' }}"
+  ident="{{ 'true' if options.ident else 'false' }}"
+ operchmode="{{ 'true' if options.operchmode else 'false' }}"
+  operchname="{{ 'true' if options.operchname else 'false' }}"
+  operchpar="{{ 'true' if options.operchpar else 'false' }}"
+  operchdesc="{{ 'true' if options.operchdesc else 'false' }}"
+  operchmodes="{{ 'true' if options.operchmodes else 'false' }}"
+  operchname="{{ 'true' if options.operchname else 'false' }}"
+  operchpar="{{ 'true' if options.operchpar else 'false' }}"
+  operchdesc="{{ 'true' if options.operchdesc else 'false' }}"
+  operchmodes="{{ 'true' if options.operchmodes else 'false' }}"
+  operchname="{{ 'true' if options.operchname else 'false' }}"
+  operchpar="{{ 'true' if options.operchpar else 'false' }}"
+  operchdesc="{{ 'true' if options.operchdesc else 'false' }}"
+  operchmodes="{{ 'true' if options.operchmodes else 'false' }}"
+>

@@ -1,0 +1,75 @@
+{
+  "admins": {
+    "type": "list",
+    "default": [
+      "gitolite-admin"
+    ],
+    "description": "List of Gitolite admin usernames. Admins have full read/write/ssh access to all repositories, including the gitolite-admin repo."
+  },
+  "repositories": {
+    "type": "list",
+    "default": [],
+    "items": {
+      "name": {
+        "type": "string",
+        "required": true,
+        "description": "Repository name (e.g., 'project-alpha', 'shared/lib', or 'team/dev'.)"
+      },
+      "description": {
+        "type": "string",
+        "default": "",
+        "description": "Optional human-readable description of the repository."
+      },
+      "admins": {
+        "type": "list",
+        "default": [],
+        "description": "List of usernames with read-write-plus (RW+) access to this repo (e.g., team leads)."
+      },
+      "writers": {
+        "type": "list",
+        "default": [],
+        "description": "List of usernames with read-write (RW) access (e.g., developers)."
+      },
+      "readers": {
+        "type": "list",
+        "default": [],
+        "description": "List of usernames with read-only (R) access (e.g., CI accounts, reviewers)."
+      }
+    },
+    "description": "List of repositories to create/secure. Each entry defines a repo name and optional access groups."
+  },
+  "mirrors": {
+    "type": "list",
+    "default": [],
+    "items": {
+      "name": {
+        "type": "string",
+        "required": true,
+        "description": "Name of the source repository to mirror."
+      },
+      "target": {
+        "type": "string",
+        "required": true,
+        "description": "Target remote URL for mirroring (e.g., 'git@backup-server:repo.git' or 'https://gitlab.com/org/repo.git')."
+      }
+    },
+    "description": "List of repositories to mirror using Gitolite\u2019s mirroring feature. Requires Gitolite v3.6+ and the 'mirror' plugin enabled."
+  },
+  "hooks": {
+    "type": "list",
+    "default": [],
+    "items": {
+      "name": {
+        "type": "string",
+        "required": true,
+        "description": "Repository name to which custom hook config applies."
+      },
+      "config": {
+        "type": "object",
+        "default": {},
+        "description": "Key\u2013value pairs for Gitolite config overrides (e.g., {'hook.post-receive': 'notify-slack'})."
+      }
+    },
+    "description": "List of repositories requiring custom Gitolite config (e.g., hooks, branch restrictions)."
+  }
+}

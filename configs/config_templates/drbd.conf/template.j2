@@ -1,0 +1,54 @@
+# Global settings for all DRBD resources
+# Define connection parameters, disk options, and network settings
+# You can include multiple resource definitions
+{% for resource in resources %}
+# Resource: {{ resource.name }}
+resource {{ resource.name }} {
+{% if resource.config.protocol %}
+  protocol {{ resource.config.protocol }};
+{% endif %}
+
+{% if resource.config.syncer_rate %}
+  syncer {
+    rate {{ resource.config.syncer_rate }};
+  }
+{% endif %}
+
+{% if resource.config.meta_disk %}
+  meta-disk {{ resource.config.meta_disk }};
+{% endif %}
+
+{% if resource.config.device %}
+  device {{ resource.config.device }};
+{% endif %}
+
+{% if resource.config.disk %}
+  disk {{ resource.config.disk }};
+{% endif %}
+
+{% if resource.config.on_no_quorum %}
+  on-no-quorum {{ resource.config.on_no_quorum }};
+{% endif %}
+
+{% if resource.config.on_suspendsync_fail %}
+  on-suspendsync-fail {{ resource.config.on_suspendsync_fail }};
+{% endif %}
+
+{% for host in resource.hosts %}
+  on {{ host.hostname }} {
+{% if host.node_id %}
+    node-id {{ host.node_id }};
+{% endif %}
+{% if host.address %}
+    address {{ host.address }};
+{% endif %}
+{% if host.disk_path %}
+    disk {{ host.disk_path }};
+{% endif %}
+{% if host.meta_disk_path %}
+    meta-disk {{ host.meta_disk_path }};
+{% endif %}
+  }
+{% endfor %}
+}
+{% endfor %}

@@ -1,0 +1,105 @@
+# davMail server configuration
+# Enables DavMail as a Java-based POP/IMAP/SMTP/Caldav/CardDav/OWA gateway to Exchange
+# Basic server settings
+listen={{ davmail_listen | default('true') }}
+port={{ davmail_port | default('10110') }}
+ssl={{ davmail_ssl | default('false') }}
+keystore={{ davmail_keystore | default('') }}
+keystorePassword={{ davmail_keystorePassword | default('') }}
+keyPassword={{ davmail_keyPassword | default('') }}
+truststore={{ davmail_truststore | default('') }}
+truststorePassword={{ davmail_truststorePassword | default('') }}
+protocol={{ davmail_protocol | default('auto') }}
+host={{ davmail_host | default('exchange.example.com') }}
+port_{{ davmail_protocol }}={{ davmail_port_exchange | default('443') }}
+path_{{ davmail_protocol }}={{ davmail_path_exchange | default('/exchweb/ws.asmx') }}
+
+# Authentication
+# Controls whether to use basic or NTLM authentication
+authentication={{ davmail_authentication | default('basic') }}
+username={{ davmail_username | default('') }}
+password={{ davmail_password | default('') }}
+ntlmDomain={{ davmail_ntlmDomain | default('') }}
+ntlmHost={{ davmail_ntlmHost | default('') }}
+
+# Connection limits and timeouts
+connectionTimeout={{ davmail_connectionTimeout | default('30000') }}
+socketTimeout={{ davmail_socketTimeout | default('60000') }}
+maxConnections={{ davmail_maxConnections | default('20') }}
+
+# Logging
+# Controls verbosity and log file location
+logFile={{ davmail_logFile | default('/var/log/davmail.log') }}
+logLevel={{ davmail_logLevel | default('INFO') }}
+
+# Proxy settings
+# Optional HTTP proxy for outgoing connections (e.g., via corporate firewall)
+{% if davmail_proxy_host %}
+proxyHost={{ davmail_proxy_host }}
+proxyPort={{ davmail_proxy_port | default('8080') }}
+{% if davmail_proxy_user %}
+proxyUser={{ davmail_proxy_user }}
+proxyPassword={{ davmail_proxy_password | default('') }}
+{% endif %}
+{% endif %}
+
+# IMAP-specific settings
+imapPort={{ davmail_imapPort | default('1143') }}
+imapIdle={{ davmail_imapIdle | default('true') }}
+imapMaxConnections={{ davmail_imapMaxConnections | default('10') }}
+
+# POP3-specific settings
+popPort={{ davmail_popPort | default('1110') }}
+popDeletePolicy={{ davmail_popDeletePolicy | default('never') }}
+popMaxMessages={{ davmail_popMaxMessages | default('5000') }}
+
+# SMTP-specific settings
+smtpPort={{ davmail_smtpPort | default('1025') }}
+smtpAuth={{ davmail_smtpAuth | default('true') }}
+smtpRequireAuth={{ davmail_smtpRequireAuth | default('false') }}
+smtpStarttls={{ davmail_smtpStarttls | default('false') }}
+smtpUseSSL={{ davmail_smtpUseSSL | default('false') }}
+smtpAllowLocalFrom={{ davmail_smtpAllowLocalFrom | default('true') }}
+
+# CalDAV/CardDAV settings
+{% if davmail_caldav_enabled | default(false) %}
+caldavPort={{ davmail_caldavPort | default('1080') }}
+{% endif %}
+{% if davmail_carddav_enabled | default(false) %}
+carddavPort={{ davmail_carddavPort | default('1081') }}
+{% endif %}
+
+# Web interface (optional, for diagnostics)
+{% if davmail_web_enabled | default(false) %}
+webPort={{ davmail_webPort | default('8080') }}
+{% endif %}
+
+# Mailbox-specific options
+{% for mailbox in davmail_mailboxes %}
+# Mailbox: {{ mailbox.name }}
+{% if mailbox.name == 'default' %}
+folderPrefix={{ mailbox.folderPrefix | default('') }}
+folderInbox={{ mailbox.folderInbox | default('Inbox') }}
+folderSent={{ mailbox.folderSent | default('Sent Items') }}
+folderDrafts={{ mailbox.folderDrafts | default('Drafts') }}
+folderTrash={{ mailbox.folderTrash | default('Deleted Items') }}
+folderJunk={{ mailbox.folderJunk | default('Junk Email') }}
+folderArchive={{ mailbox.folderArchive | default('') }}
+{% else %}
+{{ mailbox.name }}.folderPrefix={{ mailbox.folderPrefix | default('') }}
+{{ mailbox.name }}.folderInbox={{ mailbox.folderInbox | default('Inbox') }}
+{{ mailbox.name }}.folderSent={{ mailbox.folderSent | default('Sent Items') }}
+{{ mailbox.name }}.folderDrafts={{ mailbox.folderDrafts | default('Drafts') }}
+{{ mailbox.name }}.folderTrash={{ mailbox.folderTrash | default('Deleted Items') }}
+{{ mailbox.name }}.folderJunk={{ mailbox.folderJunk | default('Junk Email') }}
+{{ mailbox.name }}.folderArchive={{ mailbox.folderArchive | default('') }}
+{% endif %}
+{% endfor %}
+
+# Certificate validation (for self-signed certificates)
+{% if davmail_allow_untrusted_certificates | default(false) %}
+allowUntrustedCertificates=true
+{% endif %}
+
+# Server ID (required for Outlook Web Access + Outlook client compatibility)
+serverId={{ davmail_serverId | default('DavMail-Server') }}

@@ -1,0 +1,124 @@
+{
+  "root_dir": {
+    "type": "string",
+    "default": "/opt/firebird",
+    "description": "Absolute path to the Firebird installation directory (contains bin/, system/DBs, etc.)."
+  },
+  "tcpip_port": {
+    "type": "number",
+    "default": 3050,
+    "description": "TCP port for client connections. Standard Firebird port is 3050."
+  },
+  "tcpip_bind_address": {
+    "type": "string",
+    "default": "localhost",
+    "description": "IP address(es) the server listens on. Use 'localhost', '0.0.0.0' (all), or specific IPs (comma-separated)."
+  },
+  "max_connect_count": {
+    "type": "number",
+    "default": 20,
+    "description": "Maximum number of concurrent client connections allowed. Increase for high-traffic apps."
+  },
+  "security_database_path": {
+    "type": "string",
+    "default": "{{ root_dir }}/security2.fdb",
+    "description": "Path to the security database (gsec-managed users). Usually security2.fdb inside the root dir."
+  },
+  "default_database_path": {
+    "type": "string",
+    "default": "/var/lib/firebird/3.0/data",
+    "description": "Default directory where database files are stored if no full path is given in SQL."
+  },
+  "log_filename": {
+    "type": "string",
+    "default": "{{ root_dir }}/firebird.log",
+    "description": "Path to the main server log file. Use empty string '' or 'none' to disable."
+  },
+  "log_max_size": {
+    "type": "number",
+    "default": 50,
+    "description": "Max log file size (MB) before rotation. Set 0 to disable rotation."
+  },
+  "trace_sql": {
+    "type": "boolean",
+    "default": false,
+    "description": "Enable SQL tracing (detailed query logs). Only for debugging \u2014 not for production."
+  },
+  "trace_auth": {
+    "type": "boolean",
+    "default": false,
+    "description": "Enable authentication event logging (successful/unsuccessful logins)."
+  },
+  "trace_filename": {
+    "type": "string",
+    "default": "{{ root_dir }}/trace.log",
+    "description": "Path for authentication/SQL trace logs (if enabled)."
+  },
+  "default_db_cache_pages": {
+    "type": "number",
+    "default": 2048,
+    "description": "Default number of cache pages (\u2248 8 KB each) per database. Larger caches improve performance."
+  },
+  "temp_cache_limit": {
+    "type": "number",
+    "default": 8192,
+    "description": "Max temp memory (KB) per transaction for sorting/joins. Increase for complex OLAP queries."
+  },
+  "transaction_memory_limit": {
+    "type": "number",
+    "default": 100,
+    "description": "Max memory (MB) per transaction. Adjust for large multi-statement transactions."
+  },
+  "lock_hash_slots": {
+    "type": "number",
+    "default": 262144,
+    "description": "Hash table size for lock management. Must be power of 2; larger values reduce contention."
+  },
+  "shadow_path": {
+    "type": "string",
+    "default": "/var/lib/firebird/3.0/shadows",
+    "description": "Directory for auto-created shadow database files. Shadows provide crash redundancy."
+  },
+  "remote_access": {
+    "type": "boolean",
+    "default": true,
+    "description": "Allow remote (network) client connections. Disable for local-only use."
+  },
+  "user_password_policy": {
+    "type": "boolean",
+    "default": true,
+    "description": "Enforce password policy (min length, complexity) for new/changed users."
+  },
+  "idle_connection_timeout": {
+    "type": "number",
+    "default": 1800,
+    "description": "Seconds of inactivity before auto-closing idle connections (0 = no timeout)."
+  },
+  "worker_threads": {
+    "type": "number",
+    "default": 20,
+    "description": "Number of worker threads for SuperServer mode. Increase under high concurrency."
+  },
+  "query_timeout": {
+    "type": "number",
+    "default": 0,
+    "description": "Max query execution time (ms). 0 = no timeout (use with caution)."
+  },
+  "max_open_files": {
+    "type": "number",
+    "default": 1024,
+    "description": "Max open file descriptors. Ensure system limits (ulimit) support this value."
+  },
+  "alias_resolution": {
+    "type": "list",
+    "default": [
+      "{{ root_dir }}/aliases.conf",
+      "/etc/firebird/aliases.conf"
+    ],
+    "items": {
+      "type": "string",
+      "description": "Search path(s) for alias definition files. Ordered priority."
+    },
+    "description": "List of paths where Firebird looks for .conf files defining database aliases (e.g., alias.conf)."
+  }
+}

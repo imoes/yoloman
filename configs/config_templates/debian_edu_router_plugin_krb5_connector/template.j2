@@ -1,0 +1,93 @@
+# Enable or disable the Kerberos connector plugin
+enabled = {{ enabled }}
+
+# Path to the Kerberos configuration file (krb5.conf)
+krb5_conf = {{ krb5_conf }}
+
+# Path to the keytab file used for service principal authentication
+keytab_path = {{ keytab_path }}
+
+# Kerberos service principal (e.g., HTTP/router.example.com@REALM)
+service_principal = {{ service_principal }}
+
+# Realm to use for Kerberos authentication
+realm = {{ realm }}
+
+# KDC server hostname(s); multiple entries supported for redundancy
+{% for kdc in kdcs %}kdc = {{ kdc.host }}{% if kdc.port %}:{{ kdc.port }}{% endif %}
+{% endfor %}
+
+# Admin server hostname (used for administrative operations like password changes)
+admin_server = {{ admin_server.host }}{% if admin_server.port %}:{{ admin_server.port }}{% endif %}
+
+# Default ticket lifetime in hours
+default_lifetime = {{ default_lifetime }}
+
+# Maximum renewable ticket lifetime in hours
+max_renewable_lifetime = {{ max_renewable_lifetime }}
+
+# Enable or disable DNS-based realm discovery (uses _kerberos.*._tcp SRV records)
+enable_dns_realms = {{ enable_dns_realms }}
+
+# Enable or disable canonicalization of hostnames in principal names
+canonicalize = {{ canonicalize }}
+
+# Logging level: INFO, DEBUG, WARN, ERROR
+log_level = {{ log_level }}
+
+# Log file path (use 'syslog' for system logging)
+log_file = {{ log_file }}
+
+# LDAP server(s) for Kerberos principal lookups (e.g., if using LDAP backend)
+{% for ldap in ldaps %}ldap_server = ldap://{{ ldap.host }}{% if ldap.port %}:{{ ldap.port }}{% endif %}
+{% endfor %}
+
+# LDAP bind DN and optional password file (for non-anonymous binds)
+ldap_bind_dn = {{ ldap_bind_dn }}
+ldap_bind_password_file = {{ ldap_bind_password_file }}
+
+# LDAP search base for user/principal lookups
+ldap_search_base = {{ ldap_search_base }}
+
+# LDAP filter for user principal lookup (e.g., (krbPrincipalName=%u))
+ldap_user_filter = {{ ldap_user_filter }}
+
+# Enable or disable certificate-based authentication (for HTTPS to KDC/LDAP)
+enable_tls = {{ enable_tls }}
+
+# Path to CA certificate bundle for TLS verification
+ca_cert_path = {{ ca_cert_path }}
+
+# Client certificate and key (optional, for mutual TLS)
+client_cert_path = {{ client_cert_path }}
+client_key_path = {{ client_key_path }}
+
+# Enable or disable OCSP/CRL validation for TLS certificates
+verify_tls = {{ verify_tls }}
+
+# Maximum number of concurrent connections to Kerberos services
+max_connections = {{ max_connections }}
+
+# Connection timeout in seconds
+connect_timeout = {{ connect_timeout }}
+
+# Request timeout in seconds
+request_timeout = {{ request_timeout }}
+
+# Retry count on connection failures
+retry_count = {{ retry_count }}
+
+# Enable or disable fallback to TCP on UDP failure
+fallback_to_tcp = {{ fallback_to_tcp }}
+
+# Enable or disable UDP preference (if network supports it)
+prefer_udp = {{ prefer_udp }}
+
+# Enable or disable FAST (Flexible Authentication Secure Tunneling)
+enable_fast = {{ enable_fast }}
+
+# FAST armor cache (e.g., FILE:/tmp/krb5_fast_armor)
+fast_armor_cache = {{ fast_armor_cache }}
+
+# Preauth mechanisms to try (comma-separated list: e.g., 'paetype1,paetype2')
+preauth_types = {{ preauth_types | join(', ') }}

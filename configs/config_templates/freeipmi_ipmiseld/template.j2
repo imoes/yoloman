@@ -1,0 +1,93 @@
+# Configuration for IPMI System Event Log Daemon (ipmiseld)
+
+# Listen address for the daemon
+{{ bind_address }}
+
+# Port to listen on for incoming connections
+{{ port }}
+
+# Run as the specified user (must exist on the system)
+{{ user }}
+
+# Run as the specified group (must exist on the system)
+{{ group }}
+
+# Path to the IPMI device interface (e.g., /dev/ipmi0 or /dev/ipmidev/0)
+{{ device_interface }}
+
+# Log level: DEBUG, INFO, NOTICE, WARNING, ERROR, CRITICAL
+{{ log_level }}
+
+# Path to log file (use '-' for stderr)
+{{ log_file }}
+
+# Enable or disable debug mode (overrides log_level)
+{% if debug_mode %}
+DebugMode 1
+{% else %}
+DebugMode 0
+{% endif %}
+
+# Timeout (in seconds) for IPMI commands
+{{ ipmi_timeout }}
+
+# Maximum number of retries for IPMI commands
+{{ ipmi_max_retries }}
+
+# Enable or disable local-only mode (no network access required)
+{% if local_only %}
+LocalOnly 1
+{% else %}
+LocalOnly 0
+{% endif %}
+
+# Enable or disable authentication (BMC-side config required)
+{% if auth_enable %}
+AuthEnable 1
+{% else %}
+AuthEnable 0
+{% endif %}
+
+# Session timeout (in seconds) for remote sessions
+{{ session_timeout }}
+
+# Enable or disable SNMP trap forwarding
+{% if snmp_trap_enable %}
+SNMPTrapEnable 1
+{% else %}
+SNMPTrapEnable 0
+{% endif %}
+
+# SNMP trap destination hosts
+{% for trap_dest in snmp_trap_destinations %}
+SNMPTrapDest {{ trap_dest.host }}:{{ trap_dest.port }} {{ trap_dest.community }}
+{% endfor %}
+
+# Enable or disable Syslog forwarding
+{% if syslog_enable %}
+SyslogEnable 1
+{% else %}
+SyslogEnable 0
+{% endif %}
+
+# PID file path
+{{ pid_file }}
+
+# Preload SDRs on startup (improves initial response, but increases startup time)
+{% if preload_sdr %}
+PreloadSDR 1
+{% else %}
+PreloadSDR 0
+{% endif %}
+
+# Use secure authentication (SHA1/MD5) if supported by BMC
+{% if use_secure_auth %}
+UseSecureAuth 1
+{% else %}
+UseSecureAuth 0
+{% endif %}
+
+# Extra command-line options (e.g., additional IPMI options)
+{% if extra_options %}
+{{ extra_options }}
+{% endif %}

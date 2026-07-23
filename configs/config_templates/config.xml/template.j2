@@ -1,0 +1,124 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Gerbera UPnP Media Server Configuration -->
+<!-- https://gerbera.io -->
+<config version="3" xmlns="http://mediatomb.cc/config/3" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://mediatomb.cc/config/3 http://gerbera.io/schemas/config-v3.xsd">
+
+  <!-- Server identification and network settings -->
+  <server>
+    <ui enabled="{{ ui.enabled }}" show-tooltips="{{ ui.show_tooltips }}">
+      <accounts enabled="{{ accounts.enabled }}">
+        {% for account in accounts.list %}
+        <account user="{{ account.user }}" password="{{ account.password }}" />
+        {% endfor %}
+      </accounts>
+      <sessions enabled="{{ sessions.enabled }}" timeout="{{ sessions.timeout }}" />
+    </ui>
+
+    <!-- Network binding and port configuration -->
+    <hostname>{{ network.hostname }}</hostname>
+    <ip>{{ network.ip }}</ip>
+    <port>{{ network.port }}</port>
+    <udn>{{ network.udn }}</udn>
+    <home>{{ network.home }}</home>
+    <webroot>{{ network.webroot }}</webroot>
+
+    <!-- transcoding profiles (optional, only if enabled) -->
+    {% if transcoding.enabled %}
+    <transcoding enabled="yes">
+      {% for profile in transcoding.profiles %}
+      <mimetype-profile-mappings>
+        <map mimetype="{{ profile.mimetype }}" profile="{{ profile.profile }}" />
+      </mimetype-profile-mappings>
+      <profiles>
+        <profile name="{{ profile.profile }}" enabled="{{ profile.enabled }}" type="external">
+          <menu-pattern>playcontainer</menu-pattern>
+          <accept-url>yes</accept-url>
+          <first-resource>yes</first-resource>
+          <agent command="{{ profile.command }}" arguments="{{ profile.args }}" />
+          <buffer size="{{ profile.buffer_size }}" chunk-size="{{ profile.chunk_size }}" fill-size="{{ profile.fill_size }}" />
+        </profile>
+      </profiles>
+      {% endfor %}
+    </transcoding>
+    {% else %}
+    <transcoding enabled="no" />
+    {% endif %}
+
+    <!-- Database configuration -->
+    <database>
+      <engine>{{ db.engine }}</engine>
+      {% if db.engine == 'sqlite3' %}
+      <directory>{{ db.sqlite.path | dir }}</directory>
+      {% elif db.engine == 'mysql' %}
+      <host>{{ db.mysql.host }}</host>
+      <port>{{ db.mysql.port }}</port>
+      <username>{{ db.mysql.username }}</username>
+      <password>{{ db.mysql.password }}</password>
+      <database>{{ db.mysql.database }}</database>
+      {% endif %}
+      <options>
+        {% for opt, val in db.options.items() %}
+        <option name="{{ opt }}">{{ val }}</option>
+        {% endfor %}
+      </options>
+    </database>
+
+    <!-- Logging configuration -->
+    <logging>
+      <level>{{ log.level }}</level>
+      <target>{{ log.target }}</target>
+    </logging>
+
+    <!-- Metadata extraction and custom metadata mappings -->
+    <export>
+      <mimetype-map>
+        {% for ext, mt in export.mimetypes.items() %}
+        <map from=".{{ ext }}" to="{{ mt }}"/>
+        {% endfor %}
+      </mimetype-map>
+      <extension-mimetype>
+        {% for ext, mt in export.ext_map.items() %}
+        <map from="{{ ext }}" to="{{ mt }}"/>
+        {% endfor %}
+      </extension-mimetype>
+    </export>
+
+    <!-- Container browsability and metadata options -->
+    <container-dircleaner>
+      <interval>{{ container_dircleaner.interval }}</interval>
+    </container-dircleaner>
+
+    <!-- Custom metadata (e.g., for album art) -->
+    {% if custom_metadata.enabled %}
+    <custom-metadata>
+      {% for rule in custom_metadata.rules %}
+      <mimetype-rule mimetype="{{ rule.mimetype }}">
+        <metadata>
+          {% for tag, expr in rule.metadata.items() %}
+          <{{ tag }}>{{ expr }}</{{ tag }}>
+          {% endfor %}
+        </metadata>
+      </mimetype-rule>
+      {% endfor %}
+    </custom-metadata>
+    {% endif %}
+
+    <!-- UPnP presentation URL -->
+    <presentation>
+      <url>{{ presentation.url }}</url>
+      <dir-order>{{ presentation.dir_order }}</dir-order>
+    </presentation>
+
+    <!-- File/folder scanning -->
+    <selections>
+      {% for sel in selections %}
+      <whitelist mode="{{ sel.mode }}">
+        {% for path in sel.paths %}
+        <uri>{{ path }}</uri>
+        {% endfor %}
+      </whitelist>
+      {% endfor %}
+    </selections>
+
+  </server>
+</config>

@@ -1,0 +1,228 @@
+{
+  "fai_config_dir": {
+    "type": "string",
+    "default": "/srv/fai/config",
+    "description": "Root directory for FAI configuration files, templates, and classes."
+  },
+  "fai_root_dir": {
+    "type": "string",
+    "default": "/srv/fai/root",
+    "description": "Directory used to build temporary root filesystems for clients during provisioning."
+  },
+  "fai_log_dir": {
+    "type": "string",
+    "default": "/var/log/fai",
+    "description": "Directory where FAI installation logs are stored on the server."
+  },
+  "fai_debootstrap_dir": {
+    "type": "string",
+    "default": "/srv/fai/debootstrap",
+    "description": "Directory containing installation media, kernels, and initrds for network boot."
+  },
+  "default_arch": {
+    "type": "string",
+    "default": "amd64",
+    "description": "Default system architecture for new clients (e.g., 'amd64', 'arm64')."
+  },
+  "tftp_root": {
+    "type": "string",
+    "default": "/srv/tftp",
+    "description": "Root directory for TFTP server (used for PXE boot files like pxelinux.0)."
+  },
+  "tftp_server": {
+    "type": "string",
+    "default": "",
+    "description": "IP address or hostname of the TFTP server. Leave empty to auto-detect."
+  },
+  "dhcp_method": {
+    "type": "string",
+    "default": "isc-dhcpd",
+    "description": "DHCP server management method to integrate with. 'none' disables DHCP."
+  },
+  "dhcp_conf_path": {
+    "type": "string",
+    "default": "/etc/dhcp/dhcpd.conf",
+    "description": "Path to the DHCP configuration file template for client provisioning."
+  },
+  "dns_domain": {
+    "type": "string",
+    "default": "local",
+    "description": "DNS domain to assign to provisioned clients."
+  },
+  "nameservers": {
+    "type": "list",
+    "default": [
+      "8.8.8.8",
+      "1.1.1.1"
+    ],
+    "items": {
+      "type": "string"
+    },
+    "description": "List of DNS server addresses to configure on provisioned clients."
+  },
+  "gateway": {
+    "type": "string",
+    "default": "",
+    "description": "Default gateway for provisioned clients (e.g., '192.168.1.1'). Leave empty for auto."
+  },
+  "ntp_server": {
+    "type": "string",
+    "default": "0.pool.ntp.org",
+    "description": "NTP server used to sync time on provisioned clients."
+  },
+  "enable_raid": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable support for automatic software RAID (mdadm) configuration during installation."
+  },
+  "enable_lvm": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable support for LVM-based logical volume configuration."
+  },
+  "kernel_packages": {
+    "type": "list",
+    "default": [
+      "linux-image-amd64"
+    ],
+    "items": {
+      "type": "string"
+    },
+    "description": "List of kernel packages to install by default on new clients."
+  },
+  "initramfs_options": {
+    "type": "list",
+    "default": [],
+    "items": {
+      "type": "string"
+    },
+    "description": "Additional options passed to update-initramfs (e.g., ['-u', '-t'])."
+  },
+  "ssh_root_keys": {
+    "type": "list",
+    "default": [],
+    "items": {
+      "type": "string"
+    },
+    "description": "SSH public keys to authorize for root login on provisioned hosts."
+  },
+  "extra_env_vars": {
+    "type": "list",
+    "default": [],
+    "items": {
+      "type": "object",
+      "fields": {
+        "name": {
+          "type": "string",
+          "description": "Environment variable name."
+        },
+        "value": {
+          "type": "string",
+          "description": "Environment variable value."
+        }
+      }
+    },
+    "description": "Custom environment variables to export and make available to FAI scripts."
+  },
+  "loglevel": {
+    "type": "string",
+    "default": "info",
+    "description": "Verbosity level for installation logs."
+  },
+  "max_log_size": {
+    "type": "number",
+    "default": 100,
+    "description": "Maximum size (in MB) for individual log files. 0 means no rotation."
+  },
+  "enable_status_monitor": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable the FAI status monitoring web interface."
+  },
+  "status_port": {
+    "type": "number",
+    "default": 8080,
+    "description": "Port for the FAI status monitor web service."
+  },
+  "extra_repositories": {
+    "type": "list",
+    "default": [],
+    "items": {
+      "type": "string"
+    },
+    "description": "Additional APT repository URLs to include during debootstrap."
+  },
+  "base_packages": {
+    "type": "list",
+    "default": [
+      "openssh-server",
+      "sudo",
+      "net-tools",
+      "isc-dhcp-client"
+    ],
+    "items": {
+      "type": "string"
+    },
+    "description": "Base packages to install in the initial root filesystem."
+  },
+  "timezone": {
+    "type": "string",
+    "default": "Etc/UTC",
+    "description": "System timezone for provisioned hosts (e.g., 'America/New_York', 'Europe/Berlin')."
+  },
+  "locale": {
+    "type": "string",
+    "default": "en_US.UTF-8",
+    "description": "Default locale for provisioned systems."
+  },
+  "hostname_prefix": {
+    "type": "string",
+    "default": "node",
+    "description": "Prefix used when auto-generating hostnames (e.g., 'node' \u2192 node01, node02)."
+  },
+  "domain_suffix": {
+    "type": "string",
+    "default": "local",
+    "description": "Domain suffix appended to short hostnames for FQDNs."
+  },
+  "auto_partition": {
+    "type": "bool",
+    "default": true,
+    "description": "Automatically partition disks using the default layout without user interaction."
+  },
+  "partition_layout": {
+    "type": "string",
+    "default": "default",
+    "description": "Name of the partition layout class file (without path or extension)."
+  },
+  "enable_luks": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable full-disk encryption using LUKS for root partition."
+  },
+  "luks_passphrase": {
+    "type": "string",
+    "default": "",
+    "description": "Passphrase for LUKS encryption. In production, use secrets manager instead."
+  },
+  "swap_size": {
+    "type": "string",
+    "default": "auto",
+    "description": "Swap partition size: a number (MB) or 'auto' to use recommended size."
+  },
+  "root_fs_type": {
+    "type": "string",
+    "default": "ext4",
+    "description": "Filesystem type for the root partition (e.g., 'ext4', 'xfs', 'btrfs')."
+  },
+  "install_grub": {
+    "type": "bool",
+    "default": true,
+    "description": "Automatically install GRUB bootloader to disk."
+  },
+  "grub_device": {
+    "type": "string",
+    "default": "",
+    "description": "Target device for GRUB installation (e.g., '/dev/sda'). Leave empty for auto-detect."
+  }
+}

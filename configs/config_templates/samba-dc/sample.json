@@ -1,0 +1,62 @@
+{
+  "workgroup": "EXAMPLE",
+  "realm": "example.com",
+  "netbios_name": "DC1",
+  "dns_forwarder": "10.0.0.1",
+  "log_file": "/var/log/samba/log.%m",
+  "log_level": "2",
+  "idmap_lines": [
+    "idmap config * : backend = tdb",
+    "idmap config EXAMPLE : backend = ad",
+    "idmap config EXAMPLE : schema_mode = rfc2307",
+    "idmap config EXAMPLE : range = 10000-999999"
+  ],
+  "nss_lines": [
+    "winbind nss info = rfc2307",
+    "winbind trusted domains only = no",
+    "winbind use default domain = yes"
+  ],
+  "winbind_lines": [
+    "winbind enum users = yes",
+    "winbind enum groups = yes",
+    "winbind cache time = 300"
+  ],
+  "netlogon_path": "/var/lib/samba/sysvol/example.com/scripts",
+  "netlogon_read_only": true,
+  "netlogon_writable": false,
+  "netlogon_guest_ok": false,
+  "sysvol_path": "/var/lib/samba/sysvol",
+  "sysvol_read_only": true,
+  "sysvol_writable": false,
+  "sysvol_nt_acl_support": true,
+  "sysvol_inherit_acl": true,
+  "shares": [
+    {
+      "name": "data",
+      "path": "/srv/samba/data",
+      "comment": "Shared data for domain users",
+      "read_only": false,
+      "browseable": true,
+      "writable": true,
+      "guest_ok": false,
+      "valid_users": [
+        "EXAMPLE\\domain users"
+      ],
+      "force_create_mode": "0660",
+      "force_directory_mode": "0770"
+    },
+    {
+      "name": "print$",
+      "path": "/var/lib/samba/printers",
+      "comment": "Printer drivers",
+      "read_only": true,
+      "browseable": false,
+      "writable": false,
+      "guest_ok": false,
+      "valid_users": [
+        "EXAMPLE\\domain admins",
+        "EXAMPLE\\print operators"
+      ]
+    }
+  ]
+}

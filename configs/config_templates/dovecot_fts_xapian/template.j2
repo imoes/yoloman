@@ -1,0 +1,47 @@
+# Enable FTS Xapian plugin
+plugin {
+  fts = xapian
+  fts_xapian = full
+
+  # Path to Xapian database directory (per-user, per-mailbox)
+  fts_xapian_db = {{ fts_xapian_db_path }}
+
+  # Enable automatic background indexing
+  fts_xapian_autoindex = {{ fts_xapian_autoindex | lower }}
+
+  # Disable indexing for messages larger than this (in bytes)
+  fts_xapian_max_index_size = {{ fts_xapian_max_index_size }}
+
+  # Number of threads for background indexing (0 = none, i.e., sync-only)
+  fts_xapian_workers = {{ fts_xapian_workers }}
+
+  # Enable fast but less accurate tokenization (for speed over precision)
+  fts_xapian_fast = {{ fts_xapian_fast | lower }}
+
+  # Enable stemming (language-specific) — requires language metadata
+  {% if fts_xapian_stemming_languages %}
+  fts_xapian_languages = {{ fts_xapian_stemming_languages | join(', ') }}
+  {% else %}
+  # fts_xapian_languages =
+  {% endif %}
+
+  # Optional: override database flags (e.g., to use compact or small databases)
+  {% if fts_xapian_db_flags %}
+  fts_xapian_db_flags = {{ fts_xapian_db_flags | join(', ') }}
+  {% endif %}
+
+  # Optional: skip indexing for mailboxes matching these patterns
+  {% if fts_xapian_exclude_mailboxes %}
+  fts_xapian_exclude_mailboxes = {{ fts_xapian_exclude_mailboxes | join(', ') }}
+  {% endif %}
+}
+
+# Ensure IMAP/LMTP/etc. services load the plugin
+service imap {
+  # Ensure plugin is loaded per-session (standard for FTS)
+  executable = imap imap-master
+}
+
+service lmtp {
+  executable = lmtp lmtp-master
+}

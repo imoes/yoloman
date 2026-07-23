@@ -1,0 +1,178 @@
+# Server identification
+IdentName {{ ident_name }}
+
+# Server description
+ServerName "{{ server_name }}"
+
+# Server type (standalone or inetd)
+ServerType {{ server_type }}
+
+# Default umask for new files
+DefaultUmask {{ default_umask }}
+
+# Listen address and port
+{% if listen_address %}
+{% if listen_address | split('.') | length == 4 %}
+# IPv4 listening address
+{% else %}
+# IPv6 listening address
+{% endif %}
+{% endif %}
+{% if listen_address %}Listen {{ listen_address }}{% else %}# Listen address not set (uses default interface)%}
+{% endif %} {{ listen_port }}
+
+# Control socket path
+SystemLog {{ system_log_path }}
+
+# PID file location
+PIDFile {{ pid_file_path }}
+
+# Maximum number of simultaneous clients
+MaxClients {{ max_clients }}
+
+# Maximum number of connections per host (per-IP limit)
+MaxClientsPerHost {{ max_clients_per_host }}
+
+# Maximum connections per user
+MaxHostsPerUser {{ max_hosts_per_user }}
+
+# Maximum connections per user per IP
+MaxUserPerHost {{ max_user_per_host }}
+
+# Maximum login attempts before disconnect
+MaxLoginAttempts {{ max_login_attempts }}
+
+# Timeout settings (seconds)
+TimeoutNoTransfer {{ timeout_no_transfer }}
+TimeoutIdle {{ timeout_idle }}
+TimeoutLinger {{ timeout_linger }}
+
+# Allow/deny reconnection after disconnect
+{% if allow_reconnect %}
+# Reconnection allowed
+{% else %}
+# Reconnection disabled
+{% endif %}
+{% if allow_reconnect %}ReconnectAllowOn {{ allow_reconnect_on }}{% endif %}
+
+# Chroot users to home directories
+{% if chroot_enabled %}
+# Chroot jail for local users
+{% else %}
+# Chroot jail disabled
+{% endif %}
+{% if chroot_enabled %}DefaultRoot ~{% endif %}
+
+# Allow users to override some settings
+{% if allow_override_enabled %}
+# Allow .ftpaccess overrides in user directories
+{% else %}
+# Override disabled
+{% endif %}
+{% if allow_override_enabled %}AllowOverride{% endif %}
+
+# ODBC backend configuration
+{% if odbc_enabled %}
+# Enable ODBC authentication and group lookup
+{% else %}
+# ODBC backend disabled
+{% endif %}
+{% if odbc_enabled %}ODBCDataSource {{ odbc_dsn }}{% endif %}
+{% if odbc_enabled %}ODBCUser {{ odbc_username }}{% endif %}
+{% if odbc_enabled %}ODBCPassword {{ odbc_password }}{% endif %}
+{% if odbc_enabled %}ODBCGetUserInfo "{{ odbc_get_user_info_query }}"{% endif %}
+{% if odbc_enabled %}ODBCGetGroupInfo "{{ odbc_get_group_info_query }}"{% endif %}
+{% if odbc_enabled %}ODBCHomedirQuery "{{ odbc_homedir_query }}"{% endif %}
+{% if odbc_enabled %}ODBCDefaultGID {{ odbc_default_gid }}{% endif %}
+{% if odbc_enabled %}ODBCDefaultUID {{ odbc_default_uid }}{% endif %}
+
+# Log format and verbosity
+{% if log_level in ['none', 'info', 'debug', 'trace'] %}
+# Logging verbosity level
+{% else %}
+# Invalid log level, defaulting to 'info'
+{% endif %}
+{% if log_level in ['none', 'info', 'debug', 'trace'] %}LogLevel {{ log_level }}{% else %}LogLevel info{% endif %}
+
+# Transfer logging (xferlog format)
+{% if transfer_log_enabled %}
+# Enable detailed transfer logging
+{% else %}
+# Transfer logging disabled
+{% endif %}
+{% if transfer_log_enabled %}TransferLog {{ transfer_log_path }}{% endif %}
+
+# Auth modules
+{% if auth_modules | count > 0 %}
+# Auth module configuration
+{% endif %}
+{% for module in auth_modules %}AuthOrder {{ module }}{% endfor %}
+
+# TLS/SSL support
+{% if tls_enabled %}
+# Enable TLS for secure transfers
+{% else %}
+# TLS disabled
+{% endif %}
+{% if tls_enabled %}TLSEngine on{% endif %}
+{% if tls_enabled %}TLSProtocol {{ tls_protocol | join(' ') }}{% endif %}
+{% if tls_enabled %}TLSRequired {{ 'on' if tls_required else 'off' }}{% endif %}
+{% if tls_enabled %}TLSRSACertificateFile {{ tls_cert_file }}{% endif %}
+{% if tls_enabled %}TLSRSACertificateKeyFile {{ tls_key_file }}{% endif %}
+{% if tls_enabled %}TLSCACertificateFile {{ tls_ca_cert_file }}{% endif %}
+{% if tls_enabled %}TLSCipherSuite {{ tls_cipher_suite }}{% endif %}
+
+# Default directory options for anonymous and regular users
+{% if default_dir %}
+# Default directory access for logged-in users
+{% endif %}
+{% if default_dir %}<Directory {{ default_dir }}>{% endif %}
+{% if default_dir %}  Umask {{ default_dir_umask }}{% endif %}
+{% if default_dir %}  <Limit ALL>{% endif %}
+{% if default_dir %}    AllowUser {{ default_dir_allowed_user }}{% endif %}
+{% if default_dir %}  </Limit>{% endif %}
+{% if default_dir %}</Directory>{% endif %}
+
+# Virtual hosting: per-host configuration blocks
+{% for vhost in virtual_hosts %}
+# Virtual host: {{ vhost.hostname }}
+{% if vhost.address %}<VirtualHost {{ vhost.address }}>{% else %}<VirtualHost {% if vhost.address %}{{ vhost.address }}{% else %}*{% endif %}>{% endif %}
+  ServerName "{{ vhost.name }}"
+  {% if vhost.port %}Port {{ vhost.port }}{% endif %}
+  DefaultRoot {{ vhost.chroot | default('~') }}
+  {% if vhost.anonymous_enabled %}
+  # Anonymous access enabled
+  {% else %}
+  # Anonymous access disabled
+  {% endif %}
+  {% if vhost.anonymous_enabled %}
+  <Anonymous {{ vhost.anonymous_path }}>
+    User {{ vhost.anonymous_user }}
+    Group {{ vhost.anonymous_group }}
+    UserAlias anonymous {{ vhost.anonymous_user }}
+    {% if vhost.anonymous_chroot_upload %}
+    <Directory upload>
+      <Limit WRITE>
+        AllowAll
+      </Limit>
+    </Directory>
+    {% endif %}
+    <Limit LOGIN>
+      AllowGroup {{ vhost.anonymous_allowed_group }}
+    </Limit>
+  </Anonymous>
+  {% endif %}
+</VirtualHost>
+{% endfor %}
+
+# Global access control
+{% if global_access_control %}
+# Global access rules
+{% endif %}
+{% if global_access_control %}<Limit LOGIN>{% endif %}
+{% if global_access_control %}  Order {% for rule in global_access_control %}{% if rule.allow %}Allow{% else %}Deny{% endif %} {{ rule.host }}{% if not loop.last %}, {% endif %}{% endfor %}{% endif %}
+{% if global_access_control %}</Limit>{% endif %}
+
+# Custom site-specific directives (e.g., for modules or special behavior)
+{% for directive in custom_directives %}{{ directive }}
+{% endfor %}

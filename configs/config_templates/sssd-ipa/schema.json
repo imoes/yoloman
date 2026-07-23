@@ -1,0 +1,102 @@
+{
+  "sssd_domains": {
+    "type": "list",
+    "default": [],
+    "description": "List of SSSD domain names to configure. Each name must match a domain section."
+  },
+  "sssd_debug_level": {
+    "type": "number",
+    "default": 0,
+    "description": "Global SSSD debug verbosity (0\u20139). Higher values generate more logs."
+  },
+  "sssd_default_domain_suffix": {
+    "type": "string",
+    "default": "",
+    "description": "Suffix to append to short usernames if no realm is provided (e.g., 'example.com'). Leave empty to disable."
+  },
+  "sssd_reconnection_retries": {
+    "type": "number",
+    "default": 3,
+    "description": "Number of times SSSD retries connecting to IPA servers before giving up."
+  },
+  "sssd_services": {
+    "type": "list",
+    "default": [
+      "nss",
+      "pam"
+    ],
+    "description": "List of SSSD services to enable. Common: 'nss' (name resolution), 'pam' (auth), 'ssh', 'sudo', 'ifp'."
+  },
+  "domains": {
+    "type": "list",
+    "default": [],
+    "description": "List of domain configurations (one per IPA domain). Each entry defines an IPA domain.",
+    "items": {
+      "name": {
+        "type": "string",
+        "default": "",
+        "description": "Domain name (e.g., 'example.com' or 'idm.example.com'). Must match the section name."
+      },
+      "ipa_servers": {
+        "type": "list",
+        "default": [],
+        "description": "List of IPA server hostnames or IP addresses. Must include at least one server."
+      },
+      "fallback_homedir": {
+        "type": "string",
+        "default": "/home/%u",
+        "description": "Path template for user home directories (supports %u for username, %d for domain)."
+      },
+      "homedir_template": {
+        "type": "string",
+        "default": "",
+        "description": "Deprecated alias for 'fallback_homedir'. Prefer 'fallback_homedir'."
+      },
+      "cache_credentials": {
+        "type": "bool",
+        "default": false,
+        "description": "Enable credential caching for offline authentication (requires secure storage)."
+      },
+      "ipa_dyndns_update": {
+        "type": "bool",
+        "default": false,
+        "description": "If true, SSSD updates the client\u2019s DNS A/AAAA record in IPA DNS (requires proper permissions)."
+      },
+      "ldap_search_base": {
+        "type": "string",
+        "default": "dc=example,dc=com",
+        "description": "LDAP search base for fallback LDAP lookups. Use IPA\u2019s directory base (e.g., 'cn=accounts,dc=example,dc=com')."
+      },
+      "chpass_provider": {
+        "type": "string",
+        "default": "",
+        "description": "Optional. Set to 'ipa' to enable IPA-based password changes via PAM."
+      },
+      "allow_groups": {
+        "type": "list",
+        "default": [],
+        "description": "List of IPA groups allowed access (via access_provider)."
+      },
+      "deny_groups": {
+        "type": "list",
+        "default": [],
+        "description": "List of IPA groups explicitly denied access."
+      },
+      "allow_users": {
+        "type": "list",
+        "default": [],
+        "description": "List of IPA users allowed access."
+      },
+      "deny_users": {
+        "type": "list",
+        "default": [],
+        "description": "List of IPA users explicitly denied access."
+      },
+      "enumerate": {
+        "type": "bool",
+        "default": true,
+        "description": "Enable enumeration of users/groups (may impact performance on large directories)."
+      }
+    }
+  }
+}

@@ -1,0 +1,74 @@
+# 464XLAT/SIIT-DC Network Translation Daemon (clatd) configuration
+# Global operation mode: 'clat' (464XLAT CLAT mode), 'er' (SIIT-DC Edge Relay mode), or 'both'
+mode = {{ mode }}
+
+# Path to the PID file
+pidfile = {{ pidfile }}
+
+# Log level: 0=error,1=warn,2=info,3=debug,4=trace
+loglevel = {{ loglevel }}
+
+# IPv4 address assigned to the CLAT interface (required in clat mode)
+{% if 'clat' in mode or mode == 'both' %}
+clat_ipv4 = {{ clat_ipv4 }}
+{% endif %}
+
+# IPv6 address of the BR (464XLAT Border Relay) or relay prefix (SIIT-DC)
+{% if 'clat' in mode or mode == 'both' %}
+br_ipv6 = {{ br_ipv6 }}
+{% endif %}
+
+# IPv4 prefix for the ER (SIIT-DC Edge Relay) – e.g., 192.0.0.0/24
+{% if 'er' in mode or mode == 'both' %}
+er_ipv4_prefix = {{ er_ipv4_prefix }}
+{% endif %}
+
+# IPv6 address of the ER's external interface (SIIT-DC)
+{% if 'er' in mode or mode == 'both' %}
+er_ipv6_ext = {{ er_ipv6_ext }}
+{% endif %}
+
+# IPv4 address of the ER's internal interface (SIIT-DC)
+{% if 'er' in mode or mode == 'both' %}
+er_ipv4_int = {{ er_ipv4_int }}
+{% endif %}
+
+# MTU for the CLAT/Tun interface (0 = auto-detect)
+mtu = {{ mtu }}
+
+# DNS suffix appended to IPv4-embedded IPv6 queries (e.g., "v4v6.example.com")
+dns_suffix = {{ dns_suffix }}
+
+# Optional: custom DNS servers to use (list of IPv4 or IPv6 addresses)
+{% if dns_servers | length > 0 %}
+dns_servers = {{ dns_servers | join(', ') }}
+{% endif %}
+
+# Optional: additional search domains
+{% if search_domains | length > 0 %}
+search_domains = {{ search_domains | join(', ') }}
+{% endif %}
+
+# Rate limit: max packets per second (0 = unlimited)
+rate_limit_pps = {{ rate_limit_pps }}
+
+# Enable strict mode (drop malformed packets, enforce RFC compliance)
+strict_mode = {{ strict_mode }}
+
+# Tun interface name (optional; defaults to 'tun0')
+{% if tun_name %}
+tun_name = {{ tun_name }}
+{% endif %}
+
+# Optional: user/group to drop privileges to
+{% if run_as_user %}
+run_as_user = {{ run_as_user }}
+{% endif %}
+{% if run_as_group %}
+run_as_group = {{ run_as_group }}
+{% endif %}
+
+# Optional: extra syscalls allowed (comma-separated list)
+{% if extra_syscalls | length > 0 %}
+extra_syscalls = {{ extra_syscalls | join(', ') }}
+{% endif %}

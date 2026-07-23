@@ -1,0 +1,188 @@
+[DEFAULT]
+# Root directory for Nova's state files (locks, migrations, etc.)
+state_path = /var/lib/nova
+# Logging level: DEBUG, INFO, WARNING, ERROR, CRITICAL
+log_level = INFO
+# Backend driver for the metadata API
+metadata_driver = nova.network.os_vif
+
+# Authentication (keystone v3)
+# Enable use of keystone for auth
+auth_strategy = keystone
+# API endpoint for keystone service
+auth_url = http://{{ keystone_host }}:{{ keystone_auth_port }}/v3
+# Project domain name for service user
+project_domain_name = Default
+# User domain name for service user
+user_domain_name = Default
+# Project name for service user (e.g., 'service')
+project_name = service
+# Username for service user
+username = nova
+# Password for service user
+password = {{ nova_service_password }}
+
+# Message queue configuration
+# Message bus transport URL (e.g., rabbitmq://user:pass@host:port/)
+transport_url = rabbit://{{ nova_rabbit_user }}:{{ nova_rabbit_password }}@{{ nova_rabbit_host }}:{{ nova_rabbit_port }}/
+
+# Database connection
+# SQLAlchemy connection URL for compute node DB
+# Note: compute nodes typically connect to the same DB as nova-conductor
+database_connection = mysql+pymysql://{{ nova_db_user }}:{{ nova_db_password }}@{{ nova_db_host }}/{{ nova_db_name }}
+
+[api]
+# API interface bind address
+bind_host = {{ nova_api_bind_host }}
+# API port to listen on
+port = {{ nova_api_port }}
+
+[api_database]
+# Separate database connection for API DB (optional; compute nodes may share main DB)
+# If separate: connection = mysql+pymysql://user:pass@host/db
+connection = {{ nova_api_db_connection | default(nova_db_connection) }}
+
+[cinder]
+# Enable cinder (block storage) integration
+# Enable cinder API usage
+enable = true
+
+[glance]
+# Glance image service API endpoints
+api_servers = http://{{ glance_host }}:{{ glance_api_port }}
+
+[guestfs]
+# Enable injection of guestfs kernel/initrd for non-kvm guests
+inject_password = true
+inject_key = true
+inject_hostname = true
+
+[libvirt]
+# Hypervisor type: kvm, qemu, lxc, etc.
+hypervisor_type = {{ libvirt_hypervisor_type }}
+# CPUs to reserve for system use (not for instances)
+cpu_allocation_ratio = {{ libvirt_cpu_allocation_ratio }}
+# Memory (RAM) overcommit ratio
+ram_allocation_ratio = {{ libvirt_ram_allocation_ratio }}
+# Disk overcommit ratio for ephemeral storage
+disk_allocation_ratio = {{ libvirt_disk_allocation_ratio }}
+# Enable live migration
+live_migration_enabled = {{ libvirt_live_migration_enabled }}
+# Live migration URI scheme (e.g., qemu+ssh://host/system)
+live_migration_uri = qemu+ssh://{{ nova_compute_host }}.system
+# Migration bandwidth limit (MB/s); 0 = unlimited
+live_migration_bandwidth = {{ libvirt_live_migration_bandwidth }}
+# Enable secure live migration (TLS)
+live_migration_tunnelled = {{ libvirt_live_migration_tunnelled }}
+# Enable secure live migration (TLS) with certificate verification
+live_migration_ca_file = /etc/pki/libvirt/private/ca-cert.pem
+live_migration_client_cert = /etc/pki/libvirt/private/client-cert.pem
+live_migration_key_file = /etc/pki/libvirt/private/client-key.pem
+# Inject SSH host key into instances (if using cloud-init)
+inject_ssh_key = true
+# Path to guest agent socket
+guest_agent_path = /var/lib/qemu-ga/qga.sock
+# Use vhost-user for DPDK-based vhost interfaces (optional)
+# vhostuser_ovs_socket_path = /var/run/openvswitch
+# vhostuser_dpdk_socket_path = /var/run/dpdk
+
+[migration]
+# Target compute node SSH user for live migration
+ssh_username = {{ migration_ssh_username }}
+# Public key path for SSH auth (if using key-based auth)
+ssh_pubkey = /root/.ssh/id_rsa.pub
+
+[network]
+# Network driver: neutron or nova-network (deprecated)
+# Use Neutron for networking
+network_api_class = nova.network.neutronv2.api.API
+# Enable flat network with Neutron
+# (Neutron handles most networking; this is mostly legacy)
+
+[neutron]
+# Neutron API endpoint(s)
+url = http://{{ neutron_host }}:{{ neutron_port }}
+# Project domain name
+project_domain_name = Default
+# User domain name
+user_domain_name = Default
+# Project name
+project_name = service
+# Username
+username = neutron
+# Password
+password = {{ neutron_service_password }}
+# Auth URL
+auth_url = http://{{ keystone_host }}:{{ keystone_auth_port }}/v3
+# Enable service metadata proxy
+service_metadata_proxy = true
+# Shared secret for metadata proxy
+metadata_proxy_shared_secret = {{ metadata_proxy_shared_secret }}
+
+[os_vif]
+# VIF (Virtual Interface) plugin for Open vSwitch (OVS)
+ovs_vif_driver = nova.virt.libvirt.vif.NovaOVSLibvirtVIFDriver
+# Enable SR-IOV support (if hardware supports it)
+sriov_nic_driver = {{ sriov_nic_driver }}
+
+[rdp]
+# Enable RDP console proxy (for Windows VMs)
+enabled = false
+
+[vnc]
+# Enable VNC console access
+enabled = true
+# VNC server bind host (usually the compute node’s IP or localhost)
+server_listen = {{ vnc_server_listen }}
+# VNC proxy host (for remote console access via nova console)
+server_proxy_client_address = {{ vnc_server_proxy_client_address }}
+# VNC keymap for keyboard layout
+keymap = {{ vnc_keymap }}
+# Enable VNC TLS (optional)
+novncproxy_base_url = http://{{ nova_console_host }}:{{ nova_novnc_port }}/vnc_auto.html
+# Console token TTL (seconds)
+token_ttl = {{ vnc_token_ttl }}
+
+[spice]
+# Enable Spice console access (alternative to VNC)
+enabled = false
+
+[serial_console]
+# Enable serial console access
+enabled = {{ serial_console_enabled }}
+# Serial proxy host and port
+proxy_host = {{ serial_proxy_host }}
+proxy_port = {{ serial_proxy_port }}
+
+[workarounds]
+# Disable certain problematic features on older hypervisors
+# e.g., disable NUMA topology for QEMU < 2.6
+
+[_scheduler]
+# Default scheduler filters
+scheduler_default_filters = {{ scheduler_default_filters | join(', ') }}
+# Scheduler weights (e.g.,RamFilter, CpuFilter)
+scheduler_weight_classes = {{ scheduler_weight_classes | join(', ') }}
+
+[filter_scheduler]
+# Allow scheduler to accept instance types with custom properties
+allow_tenant_isolation = true
+# Resource tracking interval (seconds)
+resource_tracking_interval = {{ scheduler_resource_tracking_interval }}
+
+# Host aggregate and availability zone configuration
+# Host aggregates for grouping hosts (e.g., by zone or hardware)
+# Sample: [aggregates]
+# aggregates = zone1,zone2
+
+# Placement API for resource tracking and scheduling
+[placement]
+# Placement API endpoint
+os_region_name = {{ placement_os_region_name }}
+auth_url = http://{{ keystone_host }}:{{ keystone_auth_port }}/v3
+auth_type = password
+project_domain_name = Default
+user_domain_name = Default
+project_name = service
+username = placement
+password = {{ placement_service_password }}

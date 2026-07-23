@@ -1,0 +1,58 @@
+# WebSocket-to-TCP proxy configuration for websockify
+# Listen address (IP or hostname); use '0.0.0.0' to bind all interfaces
+bind_address: {{ bind_address }}
+
+# Port to listen for WebSocket connections
+bind_port: {{ bind_port }}
+
+# Target host to proxy connections to
+target_host: {{ target_host }}
+
+# Target port to proxy connections to
+target_port: {{ target_port }}
+
+# SSL/TLS: path to certificate chain (optional, enables HTTPS/WSS)
+# If present, websockify will serve WSS (secure WebSocket) traffic
+ssl_target: {{ ssl_target }}
+ssl_cert: {{ ssl_cert }}
+ssl_key: {{ ssl_key }}
+
+# Optional: certificate authority bundle for client verification (mTLS)
+ssl_ca: {{ ssl_ca }}
+
+# Logging level: DEBUG, INFO, WARNING, ERROR, CRITICAL
+log_level: {{ log_level }}
+
+# Log output file (leave empty to log to stdout)
+log_file: {{ log_file }}
+
+# Idle timeout in seconds (close connection after this inactivity)
+idle_timeout: {{ idle_timeout }}
+
+# Enable TCP keepalive for backend connections
+tcp_keepalive: {{ tcp_keepalive }}
+
+# List of origins allowed to connect (CORS). Empty list = allow all
+{% for origin in allowed_origins %}origin: {{ origin }}
+{% endfor %}
+
+# List of allowed paths (if proxying multiple backends via path routing)
+# Format: path=host:port (e.g., /vnc=localhost:5900)
+{% for route in routes %}route: {{ route.path }}={{ route.target_host }}:{{ route.target_port }}
+{% endfor %}
+
+# Run as daemon (background process)
+daemonize: {{ daemonize }}
+
+# PID file path (used only if daemonize=true)
+pidfile: {{ pidfile }}
+
+# Run as specific user/group (requires root initially)
+user: {{ user }}
+group: {{ group }}
+
+# Enable compression (permessage-deflate)
+compression: {{ compression }}
+
+# WebSocket path (URL path for the WebSocket endpoint, e.g., /ws or /proxy)
+ws_path: {{ ws_path }}

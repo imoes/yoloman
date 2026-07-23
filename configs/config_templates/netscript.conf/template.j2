@@ -1,0 +1,42 @@
+{# Main network namespace configuration file for netscript #}
+{# Base directory where netscript stores runtime data and scripts #}
+BASE_DIR={{ base_dir }}
+
+{# Directory where generated scripts are stored #}
+SCRIPT_DIR={{ script_dir }}
+
+{# Enable debug output (true/false) #}
+DEBUG={{ debug | lower }}
+
+{# Maximum number of concurrent script executions #}
+MAX_JOBS={{ max_jobs }}
+
+{# Default timeout (in seconds) for script execution #}
+TIMEOUT={{ timeout }}
+
+{# Enable logging to syslog (true/false) #}
+LOG_TO_SYSLOG={{ log_to_syslog | lower }}
+
+{# Syslog facility to use #}
+SYSLOG_FACILITY={{ syslog_facility }}
+
+{# List of network namespaces to manage #}
+{% for ns in namespaces %}
+{# Namespace: {{ ns.name }} #}
+NS_{{ ns.name | upper | replace('-', '_') }}_NAME={{ ns.name }}
+NS_{{ ns.name | upper | replace('-', '_') }}_IFACE={{ ns.iface }}
+NS_{{ ns.name | upper | replace('-', '_') }}_IP={{ ns.ip | default('') }}
+NS_{{ ns.name | upper | replace('-', '_') }}_NETMASK={{ ns.netmask | default('255.255.255.0') }}
+NS_{{ ns.name | upper | replace('-', '_') }}_GATEWAY={{ ns.gateway | default('') }}
+NS_{{ ns.name | upper | replace('-', '_') }}_DNS={{ ns.dns | join(', ') if ns.dns else '' }}
+NS_{{ ns.name | upper | replace('-', '_') }}_ENABLED={{ ns.enabled | lower }}
+{% endfor %}
+
+{# Default DNS servers (comma-separated) used when namespace DNS not specified #}
+DEFAULT_DNS={{ default_dns | join(', ') if default_dns else '' }}
+
+{# Enable systemd integration (true/false) #}
+USE_SYSTEMD={{ use_systemd | lower }}
+
+{# Enable netns cleanup on shutdown (true/false) #}
+CLEANUP_ON_SHUTDOWN={{ cleanup_on_shutdown | lower }}

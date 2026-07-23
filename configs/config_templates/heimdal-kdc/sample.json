@@ -1,0 +1,86 @@
+{
+  "default_realm": "EXAMPLE.COM",
+  "dns_lookup_realm": false,
+  "dns_lookup_kdc": false,
+  "dns_fallback": true,
+  "clockskew": 300,
+  "kdc_timeout": 3,
+  "default_ccache_name": "FILE:/tmp/krb5cc_%{uid}",
+  "ticket_lifetime": "24h",
+  "renew_lifetime": "7d",
+  "forwardable": true,
+  "proxiable": true,
+  "pk_init_anchors": [
+    "/etc/krb5kdc/ca.crt"
+  ],
+  "allow_weak_crypto": false,
+  "realms": [
+    {
+      "name": "example.com",
+      "kdcs": [
+        "kdc1.example.com",
+        "kdc2.example.com"
+      ],
+      "admin_server": "kdc1.example.com",
+      "default_domain": "example.com",
+      "pk_init_anchors": [
+        "/etc/krb5kdc/ca.crt"
+      ],
+      "pk_init_identity": "FILE:/etc/krb5kdc/client.pem,FILE:/etc/krb5kdc/client.key",
+      "pk_init_eku_checking": "kpServerAuth"
+    }
+  ],
+  "domain_realm": [
+    {
+      "domain": ".example.com",
+      "realm": "example.com"
+    },
+    {
+      "domain": "example.com",
+      "realm": "EXAMPLE.COM"
+    }
+  ],
+  "kdc_listen": [
+    "0.0.0.0:88",
+    "[::]:88"
+  ],
+  "kdc_bind": [],
+  "kdc_threads": 4,
+  "kdc_max_time_skew": 300,
+  "kdc_profile": "/etc/krb5.conf",
+  "kdc_database": {
+    "type": "bdb",
+    "path": "/var/lib/krb5kdc/principal",
+    "acls_file": "/etc/krb5kdc/kadm5.acl",
+    "key_stash_file": "/etc/krb5kdc/stash"
+  },
+  "capaths": [],
+  "logging": [
+    {
+      "component": "kdc",
+      "target": "FILE",
+      "level": "INFO"
+    },
+    {
+      "component": "default",
+      "target": "FILE",
+      "level": "INFO"
+    }
+  ],
+  "dbmodules": [],
+  "appdefaults": [
+    {
+      "application": "kinit",
+      "parameters": [
+        {
+          "name": "forwardable",
+          "value": "true"
+        },
+        {
+          "name": "no_address",
+          "value": "true"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,155 @@
+# Exim4 configuration for heavy daemon (exiscan-acl enabled)
+# This is a template for dynamic generation; variables are substituted at install-time.
+
+# Primary configuration mode: split or single file
+# We use a unified single-file config for clarity and compatibility with heavy daemon
+Main_Config_File = /etc/exim4/exim4.conf
+
+# System-wide configuration directory (not used in unified mode, but kept for clarity)
+# Config directory path — kept for compatibility; unified config overrides this
+CONFIG_DIRECTORY = /etc/exim4
+
+# Hostname and domain — used for local delivery and HELO/EHLO
+# Local hostname for SMTP identification
+MAIN_HARDCODE_HOSTNAME = {{ hostname }}
+
+# Primary mail domain — used for unqualified addresses and local delivery
+# Domain used as default for locally-hosted mail
+MAIN_LOCAL_DOMAINS = {{ local_domains | join(':') }}
+
+# Domains that are considered local and should be delivered locally
+# Additional domains treated as local (colon-separated)
+# Note: This variable is used only if local_domains is empty; prefer local_domains list above
+# LOCAL_DOMAINS = {{ local_domains_extra | join(':') if local_domains_extra else '' }}
+
+# Domains we relay for (i.e., allow SMTP relay from these hosts/domains)
+# List of domains allowed to relay through this server
+RELAY_DOMAINS = {{ relay_domains | join(':') }}
+
+# Hosts allowed to relay without authentication (trusted hosts)
+# Comma-separated list of IPs/CIDRs allowed unauthenticated relay
+# IMPORTANT: Restrict this in production; do not use '0.0.0.0/0'
+RELAY_HOSTS = {{ relay_hosts | join(',') }}
+
+# Hosts we accept SMTP connections from (bind/listen hosts)
+# Comma-separated list of addresses for daemon to listen on
+# Use empty string to listen on all interfaces (not recommended for production)
+DAEMON_INTERFACES = {{ daemon_interfaces | join(',') }}
+
+# TCP port for SMTP (MTA) and Submission (client) services
+SMTP_PORT = {{ smtp_port }}
+SUBMISSION_PORT = {{ submission_port }}
+
+# TLS/SSL settings — essential for secure mail handling
+# Enable TLS globally (true/false)
+TLS_ENABLE = {{ tls_enable }}
+
+# Certificate and key paths — required if TLS_ENABLE = true
+# Path to server certificate (PEM format)
+TLS_CERTIFICATE = {{ tls_certificate }}
+
+# Path to server private key (PEM format)
+TLS_PRIVATE_KEY = {{ tls_private_key }}
+
+# Optional CA bundle (for client or relay TLS verification)
+TLS_CA_CERTIFICATES = {{ tls_ca_certificates }}
+
+# TLS minimum protocol version (e.g., 'tls1_2', 'tls1_3')
+TLS_MIN_PROTOCOL = {{ tls_min_protocol }}
+
+# Authentication mechanisms — supported methods for clients
+# Colon-separated list: plaintext, cram_md5, login, digest_md5, etc.
+# Prefer mechanisms supported by client certs if TLS enabled
+# Note: 'plain' and 'login' require TLS or trusted networks (e.g., localhost)
+SASL_PLAINTEXT = {{ auth_sasl_plaintext }}
+AUTH_MECHANISMS = {{ auth_mechanisms | join(':') }}
+
+# Delivery backends — where and how mail is delivered
+# Local delivery method: maildir, mbox, pipe, etc.
+LOCAL_DELIVERY = {{ local_delivery }}
+
+# Maildir path template for local users
+# %h = home, %n = user, %d = domain
+MAILDIR_PATH = {{ maildir_path_template }}
+
+# MBOX spool location (if local_delivery = mbox)
+MBOX_PATH = {{ mbox_path }}
+
+# External transport: how mail is sent to remote hosts
+# Default transport for remote delivery
+REMOTE_TRANSPORT = remote_smtp
+
+# SMTP relay hosts (smart host) — optional fallback for outbound
+# If non-empty, all outbound mail is relayed through this host
+# Example: 'mail.example.com::587'
+SMART_HOST = {{ smart_host }}
+
+# DNS routing: enable/disable A/AAAA lookups
+# Disable only in air-gapped or test environments
+DNS_ROUTING = {{ dns_routing }}
+
+# Rate limiting and connection control
+# Max simultaneous inbound connections
+MAX_PARALLEL_INBOUND = {{ max_parallel_inbound }}
+
+# Max messages per connection (0 = unlimited)
+MSG_PER_CONN = {{ msg_per_conn }}
+
+# Timeout for SMTP connections (seconds)
+SMTP_TIMEOUT = {{ smtp_timeout }}
+
+# Delayed queue runs: interval between queue runs in seconds
+# Set to 0 to disable automatic queue runs
+QUEUE_INTERVAL = {{ queue_interval }}
+
+# ACLs and filtering
+# Enable ACLs globally (required for content scanning)
+ACL_ENABLE = {{ acl_enable }}
+
+# Enable content scanning via exiscan-acl
+# Requires exim4-daemon-heavy (built with exiscan)
+CONTENT_SCAN_ENABLE = {{ content_scan_enable }}
+
+# Path to ClamAV socket or disable scanning
+CLAMD_SOCKET = {{ clamd_socket }}
+
+# SpamAssassin settings (optional; uses spamc/spamd)
+SPAMC_SOCKET = {{ spamc_socket }}
+SPAM_SCORE_HIGH = {{ spam_score_high }}
+SPAM_SCORE_LOW = {{ spam_score_low }}
+
+# Logging
+# Log level: 0 = basic, 1 = verbose, 2 = debug
+LOG_LEVEL = {{ log_level }}
+
+# Log paths — all relative to CONFIG_DIRECTORY
+LOG_FILE_PATH = {{ log_file_path }}
+MAIN_LOG_PATH = {{ main_log_path }}
+REJECT_LOG_PATH = {{ reject_log_path }}
+PANIC_LOG_PATH = {{ panic_log_path }}
+
+# System user/group for dropping privileges after startup
+# Must match Exim's expected user/group (typically 'Debian-exim')
+EXIM_USER = {{ exim_user }}
+EXIM_GROUP = {{ exim_group }}
+
+# Storage and queue settings
+# Max message size in bytes (0 = unlimited)
+# Example: 50 * 1024 * 1024 = 50 MB
+MESSAGE_SIZE_LIMIT = {{ message_size_limit }}
+
+# Max number of messages in queue
+QUEUE_MAX = {{ queue_max }}
+
+# Retention time for deferred messages (seconds)
+# After this, deferred messages are removed (set 0 = no expiry)
+DEFERRED_EXPIRY = {{ deferred_expiry }}
+
+# Additional options: custom macros or runtime overrides
+# These are passed literally — useful for site-specific tuning
+# Example: SETTING_A = value1; SETTING_B = value2
+{% for setting in custom_settings %}{{ setting.name }} = {{ setting.value }}
+{% endfor %}
+
+# End of template — do not edit after this marker
+# Generated by Exim4 Config Wizard (Jinja2 template)

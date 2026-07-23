@@ -1,0 +1,116 @@
+<?php
+/*
+ * DokuWiki local configuration
+ * Managed by configuration management — do not edit manually.
+ */
+
+# Human-readable name of the wiki, shown in page titles and the site header
+$conf['title'] = '{{ wiki_title }}';
+
+# ISO 639-1 language code that controls the DokuWiki UI (e.g. en, de, fr, es)
+$conf['lang'] = '{{ wiki_lang }}';
+
+# Content license key shown in the page footer (cc-by-sa, cc-by, publicdomain, ...)
+$conf['license'] = '{{ wiki_license }}';
+
+# Canonical base URL (https://wiki.example.com); leave empty for automatic HTTP-header detection
+$conf['baseurl'] = '{{ wiki_baseurl }}';
+
+# Filesystem path to the DokuWiki data directory (pages, media, metadata, cache)
+$conf['savedir'] = '{{ savedir }}';
+
+# Page ID used as the wiki home/start page
+$conf['start'] = '{{ wiki_start }}';
+
+# Active theme; must be installed under lib/tpl/ (e.g. dokuwiki, vector, bootstrap3)
+$conf['template'] = '{{ wiki_template }}';
+
+# Short subtitle displayed below the wiki name in the header; empty string hides it
+$conf['tagline'] = '{{ wiki_tagline }}';
+
+# Page ID rendered as the persistent sidebar alongside page content
+$conf['sidebar'] = '{{ wiki_sidebar }}';
+
+# -- Display --
+
+# Maximum heading level included in auto-generated tables of contents (1-5)
+$conf['maxsecdepth'] = {{ max_section_depth }};
+
+# Use a page's first heading as its display title: 0=off, 1=navigation only, 2=everywhere
+$conf['useheading'] = {{ use_heading }};
+
+# Hide the sitemap/index from unauthenticated visitors (1=yes, 0=no)
+$conf['sneaky_index'] = {% if sneaky_index %}1{% else %}0{% endif %};
+
+# PCRE regex; page IDs matching this pattern are excluded from search and the index
+$conf['hidepages'] = '{{ hidden_pages }}';
+
+# -- Access control --
+
+# Enable the ACL access-control system; disable only on fully isolated intranets (1=on, 0=off)
+$conf['useacl'] = {% if use_acl %}1{% else %}0{% endif %};
+
+# Login name or @group granted full superuser privileges (manages everything)
+$conf['superuser'] = '{{ superuser }}';
+
+# Login name or @group granted manager privileges (user and page management)
+$conf['manager'] = '{{ manager }}';
+
+# Allow unauthenticated visitors to self-register an account (1=yes, 0=no)
+$conf['openregister'] = {% if open_register %}1{% else %}0{% endif %};
+
+# Require email confirmation before activating a self-registered account (1=yes, 0=no)
+$conf['emailconfirm'] = {% if email_confirm %}1{% else %}0{% endif %};
+
+# Comma-separated DokuWiki actions to disable site-wide (register, search, revisions, ...)
+$conf['disableactions'] = '{{ disabled_actions | join(',') }}';
+
+# -- Performance & caching --
+
+# Lifetime in seconds for rendered page cache entries; -1=never expire, 0=no caching
+$conf['cachetime'] = {{ cache_time }};
+
+# Seconds a page remains locked after being opened for editing
+$conf['locktime'] = {{ lock_time }};
+
+# Number of entries shown on the Recent Changes page
+$conf['recent'] = {{ recent_count }};
+
+# -- File uploads & media --
+
+# Maximum permitted upload size in bytes; 0 disables uploads entirely
+$conf['maxfilesize'] = {{ max_file_size }};
+
+# JPEG compression quality for resized images (0-100; higher = sharper but larger file)
+$conf['jpg_quality'] = {{ jpg_quality }};
+
+# Absolute path to the ImageMagick convert binary; leave empty to use the GD PHP extension
+$conf['im_convert'] = '{{ im_convert }}';
+
+# -- Email / SMTP --
+
+# Envelope-from address for all outgoing notification and registration emails
+$conf['mailfrom'] = '{{ mail_from }}';
+
+# SMTP relay hostname; leave empty to use PHP built-in mail()
+$conf['smtphost'] = '{{ smtp_host }}';
+
+# TCP port for the SMTP relay (25=plain, 465=implicit TLS, 587=STARTTLS)
+$conf['smtpport'] = {{ smtp_port }};
+
+# SMTP authentication username; leave empty for an anonymous relay
+$conf['smtpuser'] = '{{ smtp_user }}';
+
+# SMTP authentication password
+$conf['smtppass'] = '{{ smtp_pass }}';
+
+# SMTP encryption mode: empty=none, ssl=implicit TLS (port 465), tls=STARTTLS (port 587)
+$conf['smtpsecure'] = '{{ smtp_secure }}';
+{% if extra_conf %}
+
+# -- Additional directives --
+{% for item in extra_conf %}
+# {{ item.description }}
+$conf['{{ item.key }}'] = '{{ item.value }}';
+{% endfor %}
+{% endif %}

@@ -1,0 +1,72 @@
+{
+  "account_key_path": {
+    "type": "string",
+    "default": "/etc/acme-tiny/account_key.pem",
+    "description": "Absolute path to the RSA account private key (4096-bit recommended). Must be generated once and reused for all renewals."
+  },
+  "domain_csr_path": {
+    "type": "string",
+    "default": "/etc/acme-tiny/domain.csr",
+    "description": "Absolute or relative path to the certificate signing request (CSR) file for your domains. If not provided, domains list is used instead."
+  },
+  "acme_directory_url": {
+    "type": "string",
+    "default": "https://acme-v02.api.letsencrypt.org/directory",
+    "description": "ACME CA directory URL. Use 'https://acme-staging-v02.api.letsencrypt.org/directory' for testing (to avoid rate limits)."
+  },
+  "challenge_path": {
+    "type": "string",
+    "default": "/var/www/.well-known/acme-challenge",
+    "description": "File system path where ACME challenge files will be written and served from (must match web server config)."
+  },
+  "webroot_path": {
+    "type": "string",
+    "default": "/var/www",
+    "description": "Web server's document root directory. The `.well-known/acme-challenge` subpath must be publicly accessible from here."
+  },
+  "renew_before_days": {
+    "type": "number",
+    "default": 30,
+    "description": "Renew certificates if they expire within this many days. Lower values increase renewals, higher values risk expiry."
+  },
+  "challenge_retries": {
+    "type": "number",
+    "default": 3,
+    "description": "Number of times to retry the ACME challenge validation before failing."
+  },
+  "challenge_retry_delay": {
+    "type": "number",
+    "default": 5,
+    "description": "Seconds to wait between challenge validation retries."
+  },
+  "post_hook_cmd": {
+    "type": "string",
+    "default": "",
+    "description": "Shell command to run after successful certificate issuance (e.g., to reload web server). Leave empty to skip."
+  },
+  "post_hook_comment": {
+    "type": "string",
+    "default": "Note: post_hook command must be valid shell code and handle errors gracefully.",
+    "description": "Placeholder for comment explaining post_hook usage."
+  },
+  "domains": {
+    "type": "list",
+    "default": [],
+    "description": "List of primary domains (CN) to include in the certificate. Use only if domain_csr is not provided.",
+    "items": {
+      "name": {
+        "type": "string",
+        "description": "Primary domain (must be DNS-resolvable and publicly accessible)."
+      },
+      "alt_names": {
+        "type": "list",
+        "default": [],
+        "description": "List of Subject Alternative Names (SANs) for this domain.",
+        "items": {
+          "type": "string",
+          "description": "A subdomain or additional domain to include."
+        }
+      }
+    }
+  }
+}

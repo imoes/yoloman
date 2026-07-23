@@ -1,0 +1,144 @@
+{
+  "auth_authenticator": {
+    "type": "string",
+    "default": "standalone",
+    "description": "Validation method to prove domain ownership. Common: 'standalone', 'webroot', 'apache', 'nginx'."
+  },
+  "auth_webroot_path": {
+    "type": "string",
+    "default": "/var/www/html",
+    "description": "Web root directory for HTTP-01 challenge files (only if using 'webroot' authenticator)."
+  },
+  "auth_webroot_map": {
+    "type": "list",
+    "default": [],
+    "description": "Per-domain webroot paths. Use when different domains have different web roots.",
+    "items": {
+      "type": "object",
+      "fields": {
+        "domain": {
+          "type": "string",
+          "default": "",
+          "description": "Domain name (e.g., 'example.com')."
+        },
+        "path": {
+          "type": "string",
+          "default": "",
+          "description": "Web root directory for this domain (e.g., '/var/www/example')."
+        }
+      }
+    }
+  },
+  "auth_authenticator_flags": {
+    "type": "string",
+    "default": "",
+    "description": "Extra plugin-specific flags for the authenticator (e.g., '--standalone-supported-challenges http-01')."
+  },
+  "installer_installer": {
+    "type": "string",
+    "default": "none",
+    "description": "How to install the certificate on the server. 'apache', 'nginx', or 'none' if manual install."
+  },
+  "installer_installer_flags": {
+    "type": "string",
+    "default": "",
+    "description": "Extra plugin-specific flags for the installer plugin."
+  },
+  "email": {
+    "type": "string",
+    "default": "",
+    "description": "Email for expiration warnings and security notices. Required for account registration."
+  },
+  "tos": {
+    "type": "string",
+    "default": "https://letsencrypt.org/documents/LE-SA-v1.2-November-15-2017.pdf",
+    "description": "URL of the subscriber agreement to accept. Leave blank to accept latest."
+  },
+  "agree_to_tos": {
+    "type": "bool",
+    "default": false,
+    "description": "Whether to automatically agree to the subscriber agreement during registration."
+  },
+  "preferred_challenges": {
+    "type": "list",
+    "default": [
+      "http-01"
+    ],
+    "description": "Order of challenge types to prefer. Valid values: 'http-01', 'dns-01'. TLS-SNI-01 is deprecated."
+  },
+  "rsa_key_size": {
+    "type": "number",
+    "default": 4096,
+    "description": "RSA key size for new certificates (in bits). 2048 (minimum), 3072, or 4096 recommended."
+  },
+  "staging": {
+    "type": "bool",
+    "default": false,
+    "description": "Use the Let's Encrypt staging environment (rate-limits are higher; certs are untrusted)."
+  },
+  "reuse_key": {
+    "type": "bool",
+    "default": false,
+    "description": "Reuse the existing private key when renewing a certificate."
+  },
+  "renew_by_default": {
+    "type": "bool",
+    "default": false,
+    "description": "Automatically renew certificates if they expire in \u226430 days. (Deprecated; prefer CLI flags.)"
+  },
+  "install_certificate": {
+    "type": "bool",
+    "default": true,
+    "description": "Automatically install the certificate after obtaining it (requires an installer plugin)."
+  },
+  "log_dir": {
+    "type": "string",
+    "default": "/var/log/letsencrypt",
+    "description": "Directory for Certbot log files."
+  },
+  "work_dir": {
+    "type": "string",
+    "default": "/var/lib/letsencrypt",
+    "description": "Working directory for Certbot state (temp files, challenges)."
+  },
+  "config_dir": {
+    "type": "string",
+    "default": "/etc/letsencrypt",
+    "description": "Config directory for certificates, account keys, and CLI config."
+  },
+  "verbosity": {
+    "type": "number",
+    "default": 2,
+    "description": "Log verbosity: 0 (ERROR), 1 (WARN), 2 (INFO), 3 (DEBUG)."
+  },
+  "domains": {
+    "type": "list",
+    "default": [],
+    "description": "List of domain names to include in the certificate (SANs). Required for issuance."
+  },
+  "server": {
+    "type": "string",
+    "default": "https://acme-v02.api.letsencrypt.org/directory",
+    "description": "ACME server URL. Use 'https://acme-staging-v02.api.letsencrypt.org/directory' for staging."
+  },
+  "keep_logs": {
+    "type": "bool",
+    "default": false,
+    "description": "Keep log files after successful renewal (default: cleaned up)."
+  },
+  "disable_auto_renewal": {
+    "type": "bool",
+    "default": false,
+    "description": "Disable automatic renewal via cron/systemd timer."
+  },
+  "account": {
+    "type": "string",
+    "default": "",
+    "description": "Path to existing account private key (e.g., '/etc/letsencrypt/account.json'). Auto-generated if empty."
+  },
+  "force_interactive": {
+    "type": "bool",
+    "default": false,
+    "description": "Force interactive mode even if stdin is not a terminal (e.g., in some containers)."
+  }
+}

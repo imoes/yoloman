@@ -1,0 +1,186 @@
+{# BIND9 main configuration file template #}
+{# Define global options applied to the entire DNS server #}
+options {
+{%- if bind_listen_on_ipv4 | default(true) %}
+    listen-on port {{ bind_port }} { {{ bind_listen_on | join(', ') }}; };
+{% endif %}
+{%- if bind_listen_on_ipv6 | default(false) %}
+    listen-on-v6 port {{ bind_port }} { {{ bind_listen_on_v6 | default([]) | join(', ') }}; };
+{% endif %}
+{%- if bind_directory is defined and bind_directory %}
+    directory "{{ bind_directory }}";
+{% endif %}
+{%- if bind_pid_file is defined and bind_pid_file %}
+    pid-file "{{ bind_pid_file }}";
+{% endif %}
+{%- if bind_recursion | default(true) %}
+    recursion yes;
+{% else %}
+    recursion no;
+{% endif %}
+{%- if bind_allow_query is defined and bind_allow_query %}
+    allow-query { {{ bind_allow_query | join(', ') }}; };
+{% endif %}
+{%- if bind_forwarders is defined and bind_forwarders | length > 0 %}
+    forwarders { {{ bind_forwarders | join('; ') }}; };
+{% endif %}
+    forward {{ 'only' if bind_forward_only | default(false) else 'first' }};
+{%- if bind_dnssec_validation | default(true) %}
+    dnssec-validation auto;
+{% else %}
+    dnssec-validation no;
+{% endif %}
+{%- if bind_dnssec_enabled | default(false) %}
+    dnssec-enable yes;
+{% else %}
+    dnssec-enable no;
+{% endif %}
+{%- if bind_accept_foreign | default(false) %}
+    accept-foreign yes;
+{% else %}
+    accept-foreign no;
+{% endif %}
+{%- if bind_max_cache_size is defined and bind_max_cache_size %}
+    max-cache-size {{ bind_max_cache_size }};
+{% endif %}
+};
+
+{# Define logging configuration #}
+logging {
+{%- if bind_log_queries | default(false) %}
+    querylog yes;
+{% endif %}
+{%- if bind_logging_channels is defined and bind_logging_channels | length > 0 %}
+{% for channel in bind_logging_channels %}
+    channel {{ channel.name | default('default') }} {
+{%- if channel.file is defined and channel.file %}
+        file "{{ channel.file }}" {{ channel.max_size | default('10m') }} {{ channel.versions | default(3) }};
+{%- elif channel.syslog is defined %}
+        syslog {{ channel.syslog }};
+{%- elif channel.null is defined %}
+        null;
+{% endif %}
+{%- if channel.severity is defined %}
+        severity {{ channel.severity }};
+{% endif %}
+{%- if channel.print_time is defined %}
+        print-time {{ 'yes' if channel.print_time else 'no' }};
+{% endif %}
+    };
+{% endfor %}
+{%- if bind_logging_categories is defined and bind_logging_categories | length > 0 %}
+{% for category in bind_logging_categories %}
+    category {{ category.name | default('default') }} {
+        {{ category.channels | join(', ') }};
+    };
+{% endfor %}
+{% endif %}
+{% endif %}
+};
+
+{# Define access control lists (ACLs) #}
+{%- if bind_acls is defined and bind_acls | length > 0 %}
+{% for acl in bind_acls %}
+acl {{ acl.name }} {
+{% for item in acl.items %}
+    {{ item }};
+{% endfor %}
+};
+{% endfor %}
+{% endif %}
+
+{# Define trusted keys for DNSSEC (optional) #}
+{%- if bind_trusted_keys is defined and bind_trusted_keys | length > 0 %}
+trusted-keys {
+{% for key in bind_trusted_keys %}
+    "{{ key.name }}" {{ key.flags }} {{ key.protocol }} {{ key.algorithm }} "{{ key.public_key }}";
+{% endfor %}
+};
+{% endif %}
+
+{# Define zone definitions #}
+{%- if bind_zones is defined and bind_zones | length > 0 %}
+{% for zone in bind_zones %}
+zone "{{ zone.name }}" {
+{%- if zone.type == 'master' %}
+    type master;
+    file "{{ zone.file }}";
+{%- elif zone.type == 'slave' %}
+    type slave;
+    file "{{ zone.file }}";
+    masters { {{ zone.masters | join(', ') }}; };
+{%- elif zone.type == 'stub' %}
+    type stub;
+    masters { {{ zone.masters | join(', ') }}; };
+{%- elif zone.type == 'hint' %}
+    type hint;
+    file "{{ zone.file }}";
+{%- else %}
+    type {{ zone.type }};
+{%- endif %}
+{%- if zone.allow_query is defined and zone.allow_query | length > 0 %}
+    allow-query { {{ zone.allow_query | join(', ') }}; };
+{% endif %}
+{%- if zone.allow_transfer is defined and zone.allow_transfer | length > 0 %}
+    allow-transfer { {{ zone.allow_transfer | join(', ') }}; };
+{% endif %}
+{%- if zone.notify is defined %}
+    notify {{ 'yes' if zone.notify else 'no' }};
+{% endif %}
+{%- if zone also has zone.xfers is defined and zone.xfers | length > 0 %}
+    allow-xfers { {{ zone.xfers | join(', ') }}; };
+{% endif %}
+{%- if zone.check_names is defined %}
+    check-names {{ zone.check_names }};
+{% endif %}
+{%- if zone.dnssec is defined %}
+    dnssec-{{ 'enable' if zone.dnssec else 'disable' }};
+{% endif %}
+};
+{% endfor %}
+{% endif %}
+
+{# Optional view block #}
+{%- if bind_views is defined and bind_views | length > 0 %}
+{% for view in bind_views %}
+view "{{ view.name }}" {
+{%- if view.match_clients is defined and view.match_clients | length > 0 %}
+    match-clients { {{ view.match_clients | join(', ') }}; };
+{% endif %}
+{%- if view.match_destinations is defined and view.match_destinations | length > 0 %}
+    match-destinations { {{ view.match_destinations | join(', ') }}; };
+{% endif %}
+{%- if view.match_query_sources is defined and view.match_query_sources | length > 0 %}
+    match-query-source { {{ view.match_query_sources | join(', ') }}; };
+{% endif %}
+{%- if view.recursion | default(true) %}
+    recursion {{ 'yes' if view.recursion else 'no' }};
+{% endif %}
+{%- if view.zones is defined and view.zones | length > 0 %}
+{% for zone in view.zones %}
+zone "{{ zone.name }}" {
+{%- if zone.type == 'master' %}
+    type master;
+    file "{{ zone.file }}";
+{%- elif zone.type == 'slave' %}
+    type slave;
+    file "{{ zone.file }}";
+    masters { {{ zone.masters | join(', ') }}; };
+{%- elif zone.type == 'stub' %}
+    type stub;
+    masters { {{ zone.masters | join(', ') }}; };
+{%- else %}
+    type {{ zone.type }};
+{%- endif %}
+{%- if zone.allow_query is defined and zone.allow_query | length > 0 %}
+    allow-query { {{ zone.allow_query | join(', ') }}; };
+{% endif %}
+{%- if zone.allow_transfer is defined and zone.allow_transfer | length > 0 %}
+    allow-transfer { {{ zone.allow_transfer | join(', ') }}; };
+{% endif %}
+};
+{% endfor %}
+{% endif %}
+};
+{% endfor %}
+{% endif %}

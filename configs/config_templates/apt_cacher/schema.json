@@ -1,0 +1,157 @@
+{
+  "bind_address": {
+    "type": "string",
+    "default": "0.0.0.0",
+    "description": "IP address the APT-Cacher service binds to. Use 0.0.0.0 for all interfaces."
+  },
+  "port": {
+    "type": "number",
+    "default": 3142,
+    "description": "TCP port the service listens on."
+  },
+  "log_dir": {
+    "type": "string",
+    "default": "/var/log/apt-cacher",
+    "description": "Directory to store log files."
+  },
+  "cache_dir": {
+    "type": "string",
+    "default": "/var/cache/apt-cacher",
+    "description": "Directory where cached package files are stored."
+  },
+  "log_level": {
+    "type": "number",
+    "default": 2,
+    "description": "Verbosity of logs (0=error, 1=warn, 2=info, 3=debug)."
+  },
+  "log_format": {
+    "type": "string",
+    "default": "combined",
+    "description": "Log format \u2014 typically 'combined' (Apache-like) or 'common'."
+  },
+  "allow_remote_requests": {
+    "type": "bool",
+    "default": true,
+    "description": "If true, allow clients from any IP (subject to allowed_clients/hosts). If false, only local (127.0.0.1) requests are accepted."
+  },
+  "allowed_clients": {
+    "type": "list",
+    "default": [
+      "127.0.0.1",
+      "::1"
+    ],
+    "description": "List of allowed client IPs/CIDR subnets. Use 'all' to allow anyone (not recommended)."
+  },
+  "allowed_hosts": {
+    "type": "list",
+    "default": [],
+    "description": "List of allowed hostnames (DNS patterns). Used in combination with allowed_clients."
+  },
+  "max_threads": {
+    "type": "number",
+    "default": 10,
+    "description": "Maximum number of worker threads for handling concurrent requests."
+  },
+  "min_free_space_mb": {
+    "type": "number",
+    "default": 1024,
+    "description": "Minimum free disk space (MB) in the cache directory before the service refuses new downloads."
+  },
+  "devuan_support": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable support for Devuan repositories (disables systemd-specific logic)."
+  },
+  "ignore_expire": {
+    "type": "bool",
+    "default": false,
+    "description": "If true, bypass expiration of stale cache entries (keep all files indefinitely)."
+  },
+  "max_age_days": {
+    "type": "number",
+    "default": 30,
+    "description": "Maximum age (in days) for cached files before they\u2019re considered expired (unless ignore_expire is set)."
+  },
+  "remap_debian": {
+    "type": "string",
+    "default": "http://ftp.debian.org/debian/",
+    "description": "Base URL for remapping the Debian repository. Set to '' to disable remapping."
+  },
+  "remap_ubuntu": {
+    "type": "string",
+    "default": "http://archive.ubuntu.com/ubuntu/",
+    "description": "Base URL for remapping the Ubuntu repository."
+  },
+  "remap_backports": {
+    "type": "string",
+    "default": "http://ftp.debian.org/debian-backports/",
+    "description": "Base URL for Debian backports. Set to '' to disable."
+  },
+  "remap_security": {
+    "type": "string",
+    "default": "http://security.debian.org/",
+    "description": "Base URL for Debian security updates."
+  },
+  "compression": {
+    "type": "bool",
+    "default": true,
+    "description": "If true, serve gzip-compressed files when available and requested by the client."
+  },
+  "compression_type": {
+    "type": "string",
+    "default": "gzip",
+    "description": "Compression type \u2014 usually 'gzip' or 'none'."
+  },
+  "upstream_proxy": {
+    "type": "string",
+    "default": "",
+    "description": "Optional upstream HTTP/HTTPS proxy (e.g., 'http://proxy.example.com:8080'). Leave empty if none."
+  },
+  "upstream_proxy_auth": {
+    "type": "string",
+    "default": "",
+    "description": "Proxy authentication credentials in 'user:pass' format. Only set if needed."
+  },
+  "exclusions": {
+    "type": "list",
+    "default": [],
+    "description": "List of URL patterns (glob-style) to skip caching for. Example: '*/pool/debug/*' excludes debug symbol packages.",
+    "items": {
+      "pattern": {
+        "type": "string",
+        "description": "Glob-style pattern to exclude from caching."
+      },
+      "description": {
+        "type": "string",
+        "description": "Human-readable explanation (e.g., 'Skip debug symbol packages')."
+      }
+    }
+  },
+  "repo_overrides": {
+    "type": "list",
+    "default": [],
+    "description": "Custom per-repository configuration blocks for non-standard repos.",
+    "items": {
+      "name": {
+        "type": "string",
+        "description": "Short identifier (e.g., 'custom' or 'private-repo')."
+      },
+      "enabled": {
+        "type": "bool",
+        "description": "If true, this override is active."
+      },
+      "base_url": {
+        "type": "string",
+        "description": "Base URL to remap for this repo (e.g., 'http://mirror.local/repo/' \u2192 'remap_custom: http://mirror.local/repo/')."
+      },
+      "suite_map": {
+        "type": "string",
+        "description": "Suite mapping override (e.g., 'stable=bookworm') if needed."
+      },
+      "arch_map": {
+        "type": "string",
+        "description": "Architecture mapping override (e.g., 'amd64=amd64,i386=i386')."
+      }
+    }
+  }
+}

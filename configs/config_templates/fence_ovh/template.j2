@@ -1,0 +1,36 @@
+# OVH Cloud Fence Agent configuration
+# This file is sourced by the fence_ovh agent at runtime
+
+# API credentials for OVH API
+endpoint = {{ ovh_endpoint }}
+application_key = {{ ovh_application_key }}
+application_secret = {{ ovh_application_secret }}
+consumer_key = {{ ovh_consumer_key }}
+
+# Optional: API timeout in seconds (default: 30)
+timeout = {{ timeout | default(30) }}
+
+# Optional: Retry count (default: 3)
+retry = {{ retry | default(3) }}
+
+# Optional: Retry sleep in seconds (default: 1)
+retry_sleep = {{ retry_sleep | default(1) }}
+
+# Optional: Enable verbose logging (true/false)
+debug = {{ debug | default(false) | lower }}
+
+# Optional: Use OVH legacy API (true/false)
+# If true, uses /api/ovh instead of /api/me
+legacy_api = {{ legacy_api | default(false) | lower }}
+
+# List of servers (sub-objects)
+{% for server in servers %}
+[{{ server.name }}]
+server_id = {{ server.server_id }}
+domain = {{ server.domain }}
+{% if server.ipmi_ip %}ipmi_ip = {{ server.ipmi_ip }}{% endif %}
+{% if server.ipmi_user %}ipmi_user = {{ server.ipmi_user }}{% endif %}
+{% if server.ipmi_pass %}ipmi_pass = {{ server.ipmi_pass }}{% endif %}
+{% if server.power_wait %}power_wait = {{ server.power_wait }}{% endif %}
+{% if server.use_ipmi %}use_ipmi = {{ server.use_ipmi | lower }}{% endif %}
+{% endfor %}

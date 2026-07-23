@@ -1,0 +1,80 @@
+{
+  "main": {
+    "type": "object",
+    "default": {},
+    "description": "Core daemon settings",
+    "fields": {
+      "port": {
+        "type": "number",
+        "default": 6522,
+        "description": "TCP port on which the MacTelnet daemon listens"
+      },
+      "max_connections": {
+        "type": "number",
+        "default": 10,
+        "description": "Maximum number of concurrent client connections allowed"
+      },
+      "verbose": {
+        "type": "boolean",
+        "default": false,
+        "description": "Enable detailed logging to syslog/stderr"
+      },
+      "pidfile": {
+        "type": "string",
+        "default": "/var/run/mactelnetd.pid",
+        "description": "Absolute path to the PID file for the daemon process"
+      },
+      "tls_private_key": {
+        "type": "string",
+        "default": "",
+        "description": "Absolute path to the private key file (leave empty to disable TLS)"
+      },
+      "tls_certificate": {
+        "type": "string",
+        "default": "",
+        "description": "Absolute path to the TLS certificate file (required if TLS is enabled)"
+      },
+      "allowed_macs": {
+        "type": "list",
+        "default": [],
+        "description": "List of allowed client MAC addresses (if empty, all MACs permitted)"
+      },
+      "session_timeout": {
+        "type": "number",
+        "default": 300,
+        "description": "Idle session timeout in seconds (0 = no timeout)"
+      },
+      "root_dir": {
+        "type": "string",
+        "default": "/",
+        "description": "Root directory visible to authenticated clients (use with caution)"
+      }
+    }
+  },
+  "users": {
+    "type": "list",
+    "default": [],
+    "description": "List of authorized users (required for authentication)",
+    "items": {
+      "type": "object",
+      "description": "Single user entry",
+      "fields": {
+        "name": {
+          "type": "string",
+          "default": "",
+          "description": "Username for MacTelnet login"
+        },
+        "password": {
+          "type": "string",
+          "default": "",
+          "description": "Password (plaintext \u2014 consider hashing in future versions)"
+        },
+        "gid": {
+          "type": "number",
+          "default": null,
+          "description": "Optional GID for file access permissions"
+        }
+      }
+    }
+  }
+}

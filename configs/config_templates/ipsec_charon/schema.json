@@ -1,0 +1,152 @@
+{
+  "log_level": {
+    "type": "string",
+    "default": "2 0,2 0,2 0,2 0",
+    "description": "Charon daemon debug logging level. Format: 'layer subsystem level' (e.g., '2 0,2 0,2 0,2 0' for default minimal verbosity). See strongSwan docs for levels."
+  },
+  "unique_ids": {
+    "type": "bool",
+    "default": true,
+    "description": "Whether to enforce unique IDs for IKE_SAs (prevents duplicate connections from same ID)."
+  },
+  "connections": {
+    "type": "list",
+    "default": [],
+    "description": "List of IPsec connections to configure. Each entry defines one tunnel or transport connection.",
+    "items": {
+      "name": {
+        "type": "string",
+        "default": "",
+        "description": "Connection name (required, used as identifier)."
+      },
+      "type": {
+        "type": "string",
+        "default": "tunnel",
+        "description": "Connection type: 'tunnel' (IPsec between subnets), 'transport' (end-to-end host traffic)."
+      },
+      "ike_version": {
+        "type": "string",
+        "default": "ikev2",
+        "description": "IKE version to use: 'ikev1' or 'ikev2'."
+      },
+      "esp": {
+        "type": "list",
+        "default": [
+          "aes256-sha256-modp2048"
+        ],
+        "description": "ESP (encapsulating security payload) proposal(s) for child SAs, as list of cipher-auth-DH strings."
+      },
+      "ike": {
+        "type": "list",
+        "default": [
+          "aes256-sha256-modp2048"
+        ],
+        "description": "IKE (Internet Key Exchange) proposal(s) for IKE SAs, as list of cipher-auth-DH strings."
+      },
+      "auth_method": {
+        "type": "string",
+        "default": "psk",
+        "description": "Authentication method: 'psk' (pre-shared key) or 'pubkey' (certificate-based)."
+      },
+      "left": {
+        "type": "object",
+        "default": {
+          "type": "%defaultroute"
+        },
+        "description": "Local (left) endpoint configuration.",
+        "items": {
+          "type": {
+            "type": "string",
+            "default": "%defaultroute",
+            "description": "How to identify the left endpoint: 'host' (fixed IP/FQDN), '%any' (accept any), '%defaultroute' (from default route)."
+          },
+          "value": {
+            "type": "string",
+            "default": "",
+            "description": "If type='host', the IP address or hostname of the local endpoint."
+          },
+          "id": {
+            "type": "string",
+            "default": "",
+            "description": "Local identity (e.g., hostname or certificate subject)."
+          },
+          "subnet": {
+            "type": "list",
+            "default": [],
+            "description": "Local subnets to protect behind this connection (e.g., ['10.0.0.0/24'])."
+          },
+          "cert": {
+            "type": "string",
+            "default": "",
+            "description": "Local certificate file (in /etc/ipsec.d/certs/) for pubkey auth."
+          },
+          "private_key": {
+            "type": "string",
+            "default": "",
+            "description": "Local private key file path (in /etc/ipsec.d/private/) \u2014 sets leftfirewall=yes."
+          }
+        }
+      },
+      "right": {
+        "type": "object",
+        "default": {
+          "type": "host",
+          "value": ""
+        },
+        "description": "Remote (right) endpoint configuration.",
+        "items": {
+          "type": {
+            "type": "string",
+            "default": "host",
+            "description": "How to identify the right endpoint: 'host' (fixed IP/FQDN), '%any', '%defaultroute'."
+          },
+          "value": {
+            "type": "string",
+            "default": "",
+            "description": "If type='host', the IP address or hostname of the remote endpoint."
+          },
+          "id": {
+            "type": "string",
+            "default": "",
+            "description": "Remote identity (e.g., hostname, certificate subject)."
+          },
+          "subnet": {
+            "type": "list",
+            "default": [],
+            "description": "Remote subnets to protect behind this connection."
+          },
+          "certificate": {
+            "type": "string",
+            "default": "",
+            "description": "Remote CA or end-entity certificate name (in /etc/ipsec.d/certs/)."
+          }
+        }
+      },
+      "life_seconds": {
+        "type": "number",
+        "default": 3600,
+        "description": "Child SA lifetime in seconds (e.g., 3600 for 1 hour)."
+      },
+      "life_kb": {
+        "type": "number",
+        "default": 1000000,
+        "description": "Child SA lifetime in kilobytes (e.g., 1000000 for ~1 GB)."
+      },
+      "auto": {
+        "type": "string",
+        "default": "start",
+        "description": "Startup behavior: 'start' (auto-connect on startup), 'add', 'route' (only install policy)."
+      },
+      "pfs_group": {
+        "type": "string",
+        "default": "",
+        "description": "Diffie-Hellman group for Perfect Forward Secrecy (e.g., 'modp2048', 'modp4096', or '' for default)."
+      },
+      "comments": {
+        "type": "list",
+        "default": [],
+        "description": "Optional per-connection comments to preserve in config."
+      }
+    }
+  }
+}

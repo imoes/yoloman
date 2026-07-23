@@ -1,0 +1,185 @@
+{
+  "host": {
+    "type": "string",
+    "default": "cyborg-conductor",
+    "description": "Hostname or identifier for this conductor node"
+  },
+  "transport_url": {
+    "type": "string",
+    "default": "rabbit://guest:guest@localhost:5672/",
+    "description": "RPC transport URL for messaging (e.g., RabbitMQ, Redis, or custom)"
+  },
+  "debug": {
+    "type": "boolean",
+    "default": false,
+    "description": "Enable debug-level logging for verbose output"
+  },
+  "verbose": {
+    "type": "boolean",
+    "default": true,
+    "description": "Enable verbose (INFO-level) logging"
+  },
+  "log_file": {
+    "type": "string",
+    "default": "/var/log/cyborg/conductor.log",
+    "description": "Path to the main log file"
+  },
+  "log_dir": {
+    "type": "string",
+    "default": "/var/log/cyborg",
+    "description": "Directory for log files (if log_file not specified)"
+  },
+  "api": {
+    "type": "object",
+    "default": {},
+    "description": "API service configuration",
+    "items": {
+      "host": {
+        "type": "string",
+        "default": "0.0.0.0",
+        "description": "Network interface to bind the conductor API to"
+      },
+      "port": {
+        "type": "number",
+        "default": 6666,
+        "description": "Port to listen on for API requests"
+      },
+      "auth_strategy": {
+        "type": "string",
+        "default": "keystone",
+        "allowed_values": [
+          "keystone",
+          "noauth2"
+        ],
+        "description": "Authentication strategy (use 'keystone' for production)"
+      }
+    }
+  },
+  "database": {
+    "type": "object",
+    "default": {},
+    "description": "Database connection configuration",
+    "items": {
+      "connection": {
+        "type": "string",
+        "default": "mysql+pymysql://cyborg:cyborg@localhost/cyborg?charset=utf8",
+        "description": "SQLAlchemy connection string for the Cyborg database"
+      }
+    }
+  },
+  "resource_provider": {
+    "type": "object",
+    "default": {},
+    "description": "Resource provider backend settings",
+    "items": {
+      "driver": {
+        "type": "string",
+        "default": "cyborg.accelerator.driver.fpga.intel.FPGADriver",
+        "description": "Driver class for managing hardware resource providers"
+      }
+    }
+  },
+  "keystone_authtoken": {
+    "type": "object",
+    "default": {},
+    "description": "Keystone authentication integration",
+    "items": {
+      "auth_uri": {
+        "type": "string",
+        "default": "http://controller:5000",
+        "description": "Public identity endpoint (user-facing)"
+      },
+      "project_domain_name": {
+        "type": "string",
+        "default": "Default",
+        "description": "Domain name for the service project"
+      },
+      "user_domain_name": {
+        "type": "string",
+        "default": "Default",
+        "description": "Domain name for the service user"
+      },
+      "project_name": {
+        "type": "string",
+        "default": "service",
+        "description": "Project name for the Cyborg service"
+      },
+      "username": {
+        "type": "string",
+        "default": "cyborg",
+        "description": "Keystone username for the service"
+      },
+      "password": {
+        "type": "string",
+        "default": "CYBORG_SERVICE_PASSWORD",
+        "description": "Keystone password for the service user (set to secure value in production)"
+      },
+      "auth_url": {
+        "type": "string",
+        "default": "http://controller:35357",
+        "description": "Admin identity endpoint (internal communication)"
+      }
+    }
+  },
+  "memcached_servers": {
+    "type": "list",
+    "default": [
+      "localhost:11211"
+    ],
+    "description": "List of Memcached server addresses for token caching (format: host:port)"
+  },
+  "oslo_messaging_rabbit": {
+    "type": "object",
+    "default": {},
+    "description": "RabbitMQ messaging configuration",
+    "items": {
+      "host": {
+        "type": "string",
+        "default": "localhost",
+        "description": "RabbitMQ server hostname"
+      },
+      "port": {
+        "type": "number",
+        "default": 5672,
+        "description": "RabbitMQ server port"
+      },
+      "user": {
+        "type": "string",
+        "default": "guest",
+        "description": "RabbitMQ username"
+      },
+      "password": {
+        "type": "string",
+        "default": "guest",
+        "description": "RabbitMQ password"
+      },
+      "virtual_host": {
+        "type": "string",
+        "default": "/",
+        "description": "RabbitMQ virtual host"
+      }
+    }
+  },
+  "conductor": {
+    "type": "object",
+    "default": {},
+    "description": "Conductor service tuning",
+    "items": {
+      "workers": {
+        "type": "number",
+        "default": 1,
+        "description": "Number of worker processes for handling RPC requests"
+      },
+      "api_workers": {
+        "type": "number",
+        "default": 1,
+        "description": "Number of worker processes for the internal API (if using PasteDeploy)"
+      }
+    }
+  },
+  "enabled_drivers": {
+    "type": "list",
+    "default": [],
+    "description": "List of accelerator driver names to load (e.g., ['fpga.intel', 'nic.intel']) \u2014 leave empty to load all available"
+  }
+}

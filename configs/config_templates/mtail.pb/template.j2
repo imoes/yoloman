@@ -1,0 +1,87 @@
+# mtail configuration file
+# This file is used by mtail to define which log files to tail and how to process them.
+# Note: mtail primarily uses a binary protobuf format (.pb) for its configuration.
+# Since mtail's config is typically compiled from source or specified via command-line flags,
+# this template provides a structured way to generate a custom config via template variables.
+# In practice, mtail config is usually written in Go code and compiled — but this template
+# assumes a simplified, human-editable JSON-like structure that mtail can consume via --progs
+# or via an embedded config file format (which is non-standard). This template is speculative
+# and based on documented mtail usage patterns, not an official config schema.
+
+{% if programs %}
+# Program definitions — each program is a regular expression + optional label filters
+{% for prog in programs %}
+# Program: {{ prog.name }}
+{% if prog.match %}
+match {{ prog.match }}
+{% endif %}
+{% if prog.labels %}
+labels {
+{% for label_name, label_value in prog.labels.items() %}
+  {{ label_name }} = {{ label_value }}
+{% endfor %}
+}
+{% endif %}
+{% if prog.metrics %}
+metrics {
+{% for metric in prog.metrics %}
+# Metric: {{ metric.name }} ({{ metric.type }})
+{% if metric.type == 'counter' %}
+counter {{ metric.name }}
+{% elif metric.type == 'gauge' %}
+gauge {{ metric.name }}
+{% elif metric.type == 'histogram' %}
+histogram {{ metric.name }} buckets {{ metric.buckets | default([1, 5, 10, 25, 50, 100, 250, 500, 1000]) | join(', ') }}
+{% endif %}
+{% endfor %}
+}
+{% endif %}
+{% if prog.program %}
+program {
+{{ prog.program | indent(2) }}
+}
+{% endif %}
+
+{% endfor %}
+{% else %}
+# No programs defined — mtail will run with default behavior (tailing no files)
+# To use mtail meaningfully, define at least one program.
+{% endif %}
+
+{% if log_patterns %}
+# Log patterns — specify which log files to tail (glob patterns)
+{% for pattern in log_patterns %}
+# Tail files matching: {{ pattern }}
+tail {{ pattern }}
+{% endfor %}
+{% else %}
+# Default log path (can be overridden by CLI flags like --logs)
+tail /var/log/*.log
+{% endif %}
+
+{% if output_path %}
+# Output path for collected metrics (used for /metrics endpoint)
+# This setting is typically controlled by --output_path CLI flag, but can be hardcoded.
+output_path {{ output_path }}
+{% else %}
+# Default output path
+output_path /metrics
+{% endif %}
+
+# Server port for the metrics endpoint
+{% if server_port %}
+# Metrics HTTP server port
+server_port {{ server_port }}
+{% else %}
+# Default server port
+server_port 3903
+{% endif %}
+
+# Log level (debug, info, warn, error)
+{% if log_level %}
+# mtail log verbosity
+log_level {{ log_level }}
+{% else %}
+# Default log level
+log_level warn
+{% endif %}

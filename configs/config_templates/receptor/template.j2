@@ -1,0 +1,87 @@
+{# Receptor daemon configuration — top-level settings #}
+[Receptor]
+{# Enable debug logging for troubleshooting #}
+Debug = {{ debug|default(false) }}
+{# Path to the state directory for persistent data (nodes, work results, etc.) #}
+StateDir = {{ state_dir|default('/var/lib/receptor') }}
+{# Path to the working directory for temporary files #}
+WorkDir = {{ work_dir|default('/var/lib/receptor') }}
+{# Path to the certificate file for TLS (PEM format) #}
+CertFile = {{ tls.cert_file|default('/etc/receptor/node.crt') }}
+{# Path to the private key file for TLS #}
+KeyFile = {{ tls.key_file|default('/etc/receptor/node.key') }}
+{# Path to the CA certificate file for verifying peers #}
+CAFile = {{ tls.ca_file|default('/etc/receptor/ca.crt') }}
+{# Address and port to bind the main Receptor listener (for peer connections) #}
+Listen = {{ listener.listen_addr|default('0.0.0.0:8080') }}
+{# Optional: Advertised address (for NAT/hostname scenarios) #}
+Advertise = {{ listener.advertise_addr|default(listener.listen_addr) }}
+{# Maximum number of incoming worker connections #}
+MaxConns = {{ max_conns|default(100) }}
+{# Time-to-live (in seconds) for work results in state storage #}
+ResultTTL = {{ result_ttl|default(86400) }}
+
+{# Node definition — a single mesh node (often only one per host) #}
+{% for node in nodes %}
+[Node:{{ node.name }}]
+{# Hostname or IP address of this node’s mesh peer #}
+Address = {{ node.address }}
+{# Optional: Node role (e.g., 'worker', 'controller') #}
+Role = {{ node.role|default('worker') }}
+{# Optional: TLS cert fingerprint or name (for pinning) #}
+CertName = {{ node.cert_name|default(node.name) }}
+{% endfor %}
+
+{# Worker definitions — named, reusable job executors #}
+{% for worker in workers %}
+[Worker:{{ worker.name }}]
+{# Backend type: 'exec', 'container', 'python', etc. #}
+Type = {{ worker.type }}
+{# Command or script to run (for 'exec' type) #}
+Command = {{ worker.command|default('') }}
+{# Working directory for the worker process #}
+WorkDir = {{ worker.work_dir|default('') }}
+{# Environment variables (key=value, one per line, quoted) #}
+{% if worker.env %}
+[WorkerEnv:{{ worker.name }}]
+{% for k,v in worker.env.items() %}
+{{ k }} = "{{ v }}"
+{% endfor %}
+{% endif %}
+{# Optional: Max concurrent jobs for this worker #}
+MaxJobs = {{ worker.max_jobs|default(10) }}
+{% endfor %}
+
+{# Service definitions — long-running tasks or daemons managed by Receptor #}
+{% for service in services %}
+[Service:{{ service.name }}]
+{# Backend type: 'tcp', 'http', 'exec', etc. #}
+Type = {{ service.type }}
+{# For TCP/HTTP: listen address and port #}
+Listen = {{ service.listen|default('') }}
+{# For TCP/HTTP: upstream target (host:port) #}
+ForwardTo = {{ service.forward_to|default('') }}
+{# For 'exec' type: command to run as service #}
+Command = {{ service.command|default('') }}
+{% endfor %}
+
+{# Permissions: restrict access to specific peers or roles #}
+{% for acl in acls %}
+[ACL:{{ acl.name }}]
+{# Comma-separated list of allowed peer names (or '*' for all) #}
+AllowPeers = {{ acl.allow_peers | join(', ') }}
+{# Comma-separated list of allowed commands (for exec workers) #}
+AllowCommands = {{ acl.allow_commands | join(', ') }}
+{# Deny access to these peers/commands (overrides allow) #}
+DenyPeers = {{ acl.deny_peers | join(', ') if acl.deny_peers else '*' }}
+DenyCommands = {{ acl.deny_commands | join(', ') if acl.deny_commands else '' }}
+{% endfor %}
+
+{# Logging configuration #}
+[Logging]
+{# Log level: debug, info, warn, error #}
+Level = {{ log.level|default('info') }}
+{# Log format: text or json #}
+Format = {{ log.format|default('text') }}
+{# Log file path (empty = stderr) #}
+File = {{ log.file|default('') }}

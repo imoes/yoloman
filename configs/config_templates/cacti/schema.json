@@ -1,0 +1,228 @@
+{
+  "db": {
+    "type": "object",
+    "default": {
+      "type": "mysql",
+      "name": "cacti",
+      "host": "localhost",
+      "user": "cacti",
+      "pass": "",
+      "port": 3306,
+      "retries": 5,
+      "charset": "utf8mb4"
+    },
+    "description": "Database connection configuration for Cacti (MySQL/MariaDB)",
+    "properties": {
+      "type": {
+        "type": "string",
+        "default": "mysql",
+        "description": "Database type (only 'mysql' supported)"
+      },
+      "name": {
+        "type": "string",
+        "default": "cacti",
+        "description": "Name of the Cacti database"
+      },
+      "host": {
+        "type": "string",
+        "default": "localhost",
+        "description": "Database server hostname or IP address"
+      },
+      "user": {
+        "type": "string",
+        "default": "cacti",
+        "description": "Database username with access to the Cacti database"
+      },
+      "pass": {
+        "type": "string",
+        "default": "",
+        "description": "Password for the database user (leave empty if no password)"
+      },
+      "port": {
+        "type": "number",
+        "default": 3306,
+        "description": "Port number of the database server"
+      },
+      "retries": {
+        "type": "number",
+        "default": 5,
+        "description": "Number of connection retry attempts before failing"
+      },
+      "charset": {
+        "type": "string",
+        "default": "utf8mb4",
+        "description": "Character set for database connections"
+      }
+    }
+  },
+  "auth": {
+    "type": "object",
+    "default": {
+      "client": ""
+    },
+    "description": "Client authentication method (for Apache mod_auth integration)",
+    "properties": {
+      "client": {
+        "type": "string",
+        "default": "",
+        "description": "Authentication client type (e.g., 'mod_auth') or empty to use Cacti's internal auth"
+      }
+    }
+  },
+  "paths": {
+    "type": "object",
+    "default": {
+      "php": "/usr/bin/php",
+      "rrdtool": "/usr/bin/rrdtool",
+      "snmpwalk": "/usr/bin/snmpwalk",
+      "snmpget": "/usr/bin/snmpget",
+      "mysqldump": "/usr/bin/mysqldump",
+      "mysql": "/usr/bin/mysql"
+    },
+    "description": "Absolute paths to required system binaries",
+    "properties": {
+      "php": {
+        "type": "string",
+        "default": "/usr/bin/php",
+        "description": "Path to PHP CLI binary"
+      },
+      "rrdtool": {
+        "type": "string",
+        "default": "/usr/bin/rrdtool",
+        "description": "Path to RRDTool binary (for graph creation)"
+      },
+      "snmpwalk": {
+        "type": "string",
+        "default": "/usr/bin/snmpwalk",
+        "description": "Path to SNMPwalk binary"
+      },
+      "snmpget": {
+        "type": "string",
+        "default": "/usr/bin/snmpget",
+        "description": "Path to SNMPget binary"
+      },
+      "mysqldump": {
+        "type": "string",
+        "default": "/usr/bin/mysqldump",
+        "description": "Path to mysqldump binary"
+      },
+      "mysql": {
+        "type": "string",
+        "default": "/usr/bin/mysql",
+        "description": "Path to mysql CLI binary"
+      }
+    }
+  },
+  "poller": {
+    "type": "object",
+    "default": {
+      "interval": 300,
+      "type": "spine",
+      "threads": 1
+    },
+    "description": "Poller configuration for data collection",
+    "properties": {
+      "interval": {
+        "type": "number",
+        "default": 300,
+        "description": "Polling interval in seconds (typically 300 for 5-minute steps)"
+      },
+      "type": {
+        "type": "string",
+        "default": "spine",
+        "description": "Poller backend: 'cmdline' (php) or 'spine' (C compiler-based)"
+      },
+      "threads": {
+        "type": "number",
+        "default": 1,
+        "description": "Number of concurrent poller threads (use >1 only if poller_type='spine' and server has resources)"
+      }
+    }
+  },
+  "log": {
+    "type": "object",
+    "default": {
+      "level": 2,
+      "method": "database"
+    },
+    "description": "Logging configuration",
+    "properties": {
+      "level": {
+        "type": "number",
+        "default": 2,
+        "description": "Log verbosity: 0=none, 1=errors, 2=warnings, 3=info, 4=debug"
+      },
+      "method": {
+        "type": "string",
+        "default": "database",
+        "description": "Log destination: 'database' or 'file'"
+      }
+    }
+  },
+  "session": {
+    "type": "object",
+    "default": {
+      "timeout": 600
+    },
+    "description": "Session configuration",
+    "properties": {
+      "timeout": {
+        "type": "number",
+        "default": 600,
+        "description": "Session timeout in seconds before auto-logout"
+      }
+    }
+  },
+  "ui": {
+    "type": "object",
+    "default": {
+      "theme": "modern",
+      "timezone": "UTC",
+      "locale": "en_US.UTF-8",
+      "language": "en_US",
+      "date_format": "Y-m-d H:i:s"
+    },
+    "description": "User interface and localization settings",
+    "properties": {
+      "theme": {
+        "type": "string",
+        "default": "modern",
+        "description": "Web UI theme name (e.g., 'modern', 'classic', 'dark')"
+      },
+      "timezone": {
+        "type": "string",
+        "default": "UTC",
+        "description": "Timezone identifier (e.g., 'UTC', 'America/New_York') for UI display"
+      },
+      "locale": {
+        "type": "string",
+        "default": "en_US.UTF-8",
+        "description": "System locale string (must be installed)"
+      },
+      "language": {
+        "type": "string",
+        "default": "en_US",
+        "description": "Cacti UI language code (matches installed language packs)"
+      },
+      "date_format": {
+        "type": "string",
+        "default": "Y-m-d H:i:s",
+        "description": "PHP-style date format for graph timestamps"
+      }
+    }
+  },
+  "server": {
+    "type": "object",
+    "default": {
+      "os": "linux"
+    },
+    "description": "Server environment hints",
+    "properties": {
+      "os": {
+        "type": "string",
+        "default": "linux",
+        "description": "Operating system type (affects path resolution)"
+      }
+    }
+  }
+}

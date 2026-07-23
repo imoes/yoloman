@@ -1,0 +1,132 @@
+# OpenSnitch daemon configuration file
+# Controls runtime behavior of the opensnitchd service
+
+[daemon]
+# Enable/disable the daemon
+enabled = {{ daemon.enabled }}
+
+# PID file path
+pidfile = {{ daemon.pidfile }}
+
+# Log level: DEBUG, INFO, WARNING, ERROR, CRITICAL
+log_level = "{{ daemon.log_level }}"
+
+# Log file path (empty for stdout only)
+log_file = {{ daemon.log_file | tojson }}
+
+# Unix socket path for UI communication
+socket_path = {{ daemon.socket_path }}
+
+# Enable gRPC API (required for GUI connectivity)
+enable_grpc = {{ daemon.enable_grpc }}
+
+# gRPC server address (IP:port)
+grpc_address = "{{ daemon.grpc_address }}"
+
+# Default action when no rule matches
+# One of: allow, drop, deny
+# Note: UI may override per-rule, but this is the global fallback
+default_action = "{{ daemon.default_action }}"
+
+# Enable/disable statistical analysis of network activity
+enable_stats = {{ daemon.enable_stats }}
+
+# Path to store statistics DB
+stats_path = {{ daemon.stats_path }}
+
+# Enable/disable outgoing connection notifications
+notifications_enabled = {{ daemon.notifications_enabled }}
+
+# Notification timeout in seconds
+notification_timeout = {{ daemon.notification_timeout }}
+
+# Enable/disable database auto-compaction
+db_compact = {{ daemon.db_compact }}
+
+# Minimum time (in days) before compaction
+# Only effective if db_compact is true
+db_compact_after_days = {{ daemon.db_compact_after_days }}
+
+# Enable/disable prompt for rules on outbound connections from system processes
+prompt_system_processes = {{ daemon.prompt_system_processes }}
+
+# Enable/disable prompt for rules on inbound connections
+prompt_inbound = {{ daemon.prompt_inbound }}
+
+# Enable/disable prompt for rules on localhost traffic
+prompt_localhost = {{ daemon.prompt_localhost }}
+
+# List of allowed local processes to bypass prompting (e.g., trusted monitoring tools)
+# Format: ['proc_name', 'proc_name', ...]
+local_procs = [
+{% for proc in daemon.local_procs %}  {{ proc | tojson }}{% if not loop.last %},{% endif %}
+{% endfor %}]
+
+# List of allowed local processes to bypass prompting for outbound connections (deprecated; use local_procs instead)
+# Kept for backward compatibility — prefer local_procs
+outbound_local_procs = [
+{% for proc in daemon.outbound_local_procs %}  {{ proc | tojson }}{% if not loop.last %},{% endif %}
+{% endfor %}]
+
+# Enable/disable DNS resolution of remote IPs in alerts (slower but more informative)
+dns_lookup = {{ daemon.dns_lookup }}
+
+# Path to custom CA bundle for TLS verification (e.g., for gRPC with mTLS)
+custom_ca_bundle = {{ daemon.custom_ca_bundle | tojson }}
+
+# Enable/disable TLS for gRPC server
+grpc_use_tls = {{ daemon.grpc_use_tls }}
+
+# Path to gRPC server TLS certificate
+grpc_tls_cert = {{ daemon.grpc_tls_cert | tojson }}
+
+# Path to gRPC server TLS private key
+grpc_tls_key = {{ daemon.grpc_tls_key | tojson }}
+
+# Enable/disable certificate verification for remote gRPC clients (if used)
+grpc_verify_client = {{ daemon.grpc_verify_client }}
+
+# Path to client CA cert for mutual TLS
+grpc_client_ca_cert = {{ daemon.grpc_client_ca_cert | tojson }}
+
+[ui]
+# Default UI server address (IP:port)
+server_address = "{{ ui.server_address }}"
+
+# Enable/disable TLS for UI gRPC server
+use_tls = {{ ui.use_tls }}
+
+# UI TLS certificate path
+server_cert = {{ ui.server_cert | tojson }}
+
+# UI TLS key path
+server_key = {{ ui.server_key | tojson }}
+
+[stats]
+# Enable/disable per-rule statistics collection
+enabled = {{ stats.enabled }}
+
+# Path to SQLite stats database
+path = {{ stats.path }}
+
+# Number of days to retain stats before purging
+retention_days = {{ stats.retention_days }}
+
+[alerts]
+# Enable desktop notifications
+enabled = {{ alerts.enabled }}
+
+# Show alert for outbound connections
+outbound_enabled = {{ alerts.outbound_enabled }}
+
+# Show alert for inbound connections
+inbound_enabled = {{ alerts.inbound_enabled }}
+
+# Show alert for localhost connections
+localhost_enabled = {{ alerts.localhost_enabled }}
+
+# Show alert for system processes
+system_process_enabled = {{ alerts.system_process_enabled }}
+
+# Timeout (ms) before auto-allowing unattended alerts (0 = disable auto-allow)
+auto_allow_timeout_ms = {{ alerts.auto_allow_timeout_ms }}

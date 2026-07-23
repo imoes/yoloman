@@ -1,0 +1,20 @@
+{
+  "rc_local.enable": true,
+  "rc_local.commands": [
+    {
+      "description": "Set system hostname (if not managed by NetworkManager)",
+      "command": "/usr/bin/hostnamectl set-hostname myserver.local || true"
+    },
+    {
+      "description": "Enable custom logging service",
+      "command": "/usr/bin/systemctl restart mylogger",
+      "ignore_failure": false
+    },
+    {
+      "description": "Mount extra storage (NFS share) for user data",
+      "condition": "Only if NFS server is reachable (use after network is up)",
+      "command": "/usr/bin/mount -t nfs 192.168.1.10:/data /mnt/data",
+      "ignore_failure": true
+    }
+  ]
+}

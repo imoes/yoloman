@@ -1,0 +1,61 @@
+# Debian CI Worker Daemon configuration
+# This file is sourced as shell script by the debci-worker service.
+# Site-specific overrides go here — do NOT edit the service unit file.
+
+# Base URL of the DebCI backend API endpoint
+API_BASE_URL={{ api_base_url }}
+
+# Worker identity: unique name for this worker in the DebCI fleet
+WORKER_NAME={{ worker_name }}
+
+# Number of parallel jobs this worker can run
+JOBS={{ jobs }}
+
+# Working directory for job artifacts and chroots
+WORK_DIR={{ work_dir }}
+
+# Minimum free disk space (in MB) required before accepting jobs
+MIN_FREE_SPACE={{ min_free_space }}
+
+# CPU affinity mask (hexadecimal, e.g., 0x3 for CPUs 0–1); empty to use all CPUs
+CPU_MASK={{ cpu_mask }}
+
+# Enable/Disable building for foreign architectures (e.g., arm64 on amd64 host)
+CROSS_BUILD={{ cross_build }}
+
+# List of architectures this worker supports (space-separated)
+{% for arch in supported_architectures %}
+# Support for {{ arch }}
+SUPPORTED_ARCHITECTURES+=" {{ arch }}"
+{% endfor %}
+
+# List of additional APT repositories (in deb822-style format)
+# One entry per line; format: URI Suite Components [Architectures]
+{% for repo in extra_repos %}
+# {{ repo.description }}
+EXTRA_REPOS+="{{ repo.uri }} {{ repo.suite }} {{ repo.components }}"
+{% if repo.architectures %} [{{ repo.architectures | join(', ') }}]"
+{% else %}"
+{% endif %}
+{% endfor %}
+
+# Optional: TLS certificate path for secure API connections
+{% if api_tls_cert %}API_TLS_CERT={{ api_tls_cert }}
+{% endif %}
+
+# Optional: TLS private key path for client cert authentication
+{% if api_tls_key %}API_TLS_KEY={{ api_tls_key }}
+{% endif %}
+
+# Optional: Trusted CA certificate bundle for API TLS verification
+{% if api_ca_cert %}API_CA_CERT={{ api_ca_cert }}
+{% endif %}
+
+# Timeout (in seconds) for job setup (chroot creation, APT update, etc.)
+SETUP_TIMEOUT={{ setup_timeout }}
+
+# Timeout (in seconds) for actual build/test execution
+BUILD_TIMEOUT={{ build_timeout }}
+
+# Enable debug logging (true/false)
+DEBUG={{ debug }}

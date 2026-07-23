@@ -1,0 +1,58 @@
+# IPv6 reverse DNS (rdns) server configuration for all-knowing-dns
+# This service provides low-latency, minimal-resource reverse DNS lookups for IPv6 prefixes
+
+# Basic server settings
+listen_address = "{{ listen_address }}"
+listen_port = {{ listen_port }}
+
+# Path to zone files directory (must contain .rev files in RFC 2317-style naming)
+zone_dir = "{{ zone_dir }}"
+
+# Maximum number of concurrent queries
+max_connections = {{ max_connections }}
+
+# Logging verbosity: 0=error,1=warn,2=info,3=debug
+log_level = {{ log_level }}
+
+# Optional: enable query logging to this file
+{% if query_log_file %}
+query_log_file = "{{ query_log_file }}"
+{% endif %}
+
+# Optional: enable statistics endpoint (HTTP on port 8080 by default)
+{% if stats_enabled %}
+stats_enabled = true
+{% if stats_host %}
+stats_host = "{{ stats_host }}"
+{% endif %}
+{% endif %}
+
+# Zone reloading behavior: interval (seconds) between checks for updated .rev files
+zone_refresh_interval = {{ zone_refresh_interval }}
+
+# TTL for negative responses (NXDOMAIN)
+neg_ttl = {{ neg_ttl }}
+
+# Forwarding rules: if upstream is configured, forward unknown queries
+{% for upstream in upstream_servers %}
+# Forward queries for {{ upstream.network }} to {{ upstream.target }}
+forward_rule = "{{ upstream.network }} {{ upstream.target }}"
+{% endfor %}
+
+# Optional: list of allowed client networks (CIDR notation, one per line)
+{% if allowed_clients %}
+# Restrict queries to these networks
+{% for client in allowed_clients %}
+allow_client = "{{ client }}"
+{% endfor %}
+{% endif %}
+
+# Optional: DNSSEC validation (only checks RRSIG for reverse records)
+{% if dnssec_enabled %}
+dnssec_enabled = true
+{% endif %}
+
+# Optional: EDNS0 padding for privacy (0 = disable, 128 = recommended)
+{% if edns_padding %}
+edns_padding = {{ edns_padding }}
+{% endif %}

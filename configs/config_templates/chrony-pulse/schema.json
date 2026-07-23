@@ -1,0 +1,136 @@
+{
+  "allow_networks": {
+    "type": "list",
+    "default": [],
+    "description": "List of IP subnets or hostnames allowed to query this chrony instance as an NTP server."
+  },
+  "ntp_servers": {
+    "type": "list",
+    "default": [],
+    "items": {
+      "type": "object",
+      "properties": {
+        "hostname": {
+          "type": "string",
+          "default": "",
+          "description": "Hostname or IP address of the NTP server."
+        },
+        "iburst": {
+          "type": "bool",
+          "default": true,
+          "description": "Enable fast initial synchronization with burst of packets."
+        },
+        "prefer": {
+          "type": "bool",
+          "default": false,
+          "description": "Mark this server as preferred (used as a secondary source if others fail)."
+        }
+      }
+    },
+    "description": "List of NTP servers to synchronize with. Each entry defines a server hostname and optional flags."
+  },
+  "pps_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable Pulse Per Second (PPS) reference for high-precision timing, e.g., from GPS receiver."
+  },
+  "pps_device": {
+    "type": "string",
+    "default": "/dev/pps0",
+    "description": "Path to the PPS device (e.g., /dev/pps0)."
+  },
+  "pps_refid": {
+    "type": "string",
+    "default": "PPS",
+    "description": "Reference ID string (max 4 chars) to identify the PPS source in logs and status."
+  },
+  "pps_precision": {
+    "type": "number",
+    "default": 1e-09,
+    "description": "Expected precision of the PPS signal in seconds (e.g., 1e-9 for nanoseconds)."
+  },
+  "leapsectz": {
+    "type": "string",
+    "default": "right/UTC",
+    "description": "Timezone for leap second handling (e.g., 'right/UTC', 'Etc/UTC')."
+  },
+  "log_options": {
+    "type": "list",
+    "default": [
+      "measurements",
+      "statistics",
+      "tracking"
+    ],
+    "description": "Log categories to enable (e.g., 'measurements', 'statistics', 'tracking')."
+  },
+  "ntp_auth_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable NTP authentication using keys in chrony.keys file."
+  },
+  "maxdistance": {
+    "type": "number",
+    "default": 3600.0,
+    "description": "Maximum distance to a synchronization source (seconds); sources farther away are rejected."
+  },
+  "minsources": {
+    "type": "number",
+    "default": 2,
+    "description": "Minimum number of valid sources required before synchronization is allowed."
+  },
+  "sourcereplacementthreshold": {
+    "type": "number",
+    "default": 0,
+    "description": "Threshold (in seconds) for replacing the current reference source (0 = use default)."
+  },
+  "initstepslew": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable initial time step at startup (use with initstepslew_threshold)."
+  },
+  "initstepslew_threshold": {
+    "type": "number",
+    "default": 0,
+    "description": "Maximum clock offset (seconds) to allow step-based initial sync."
+  },
+  "initstepslew_hosts": {
+    "type": "list",
+    "default": [],
+    "description": "List of hosts to consider as time sources during initial slew."
+  },
+  "ntp_server_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable this host to serve time to other NTP clients."
+  },
+  "local_stratum": {
+    "type": "number",
+    "default": 10,
+    "description": "Stratum level when serving time locally (only effective if ntp_server_enabled is true)."
+  },
+  "offline_mode": {
+    "type": "bool",
+    "default": false,
+    "description": "Disable all internet time sources \u2014 useful for air-gapped or offline systems."
+  },
+  "bind_interfaces": {
+    "type": "list",
+    "default": [],
+    "description": "List of IP addresses or interface names to bind NTP commands and queries to (for security)."
+  },
+  "manual_allowed": {
+    "type": "bool",
+    "default": true,
+    "description": "Allow use of 'manpage' (chronyc manual control) for debugging/administration."
+  },
+  "ntp_broadcast_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable broadcast of time to local subnet (requires ntp_broadcast_addr)."
+  },
+  "ntp_broadcast_addr": {
+    "type": "string",
+    "default": "",
+    "description": "Broadcast address for time (e.g., 192.168.1.255)."
+  }
+}

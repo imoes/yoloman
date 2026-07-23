@@ -1,0 +1,111 @@
+{
+  "location": {
+    "type": "string",
+    "default": "/var/lib/tftpboot",
+    "description": "Root directory from which TFTP serves files. Must be accessible and readable by the daemon user."
+  },
+  "address": {
+    "type": "string",
+    "default": "",
+    "description": "IP address to bind the TFTP server to. Leave empty or set to '0.0.0.0' to listen on all interfaces. Use '::' for IPv6 all."
+  },
+  "port": {
+    "type": "number",
+    "default": 69,
+    "description": "UDP port number for TFTP traffic. Standard TFTP uses 69."
+  },
+  "max_blocksize": {
+    "type": "number",
+    "default": 1428,
+    "description": "Maximum TFTP block size in bytes. RFC 2348 allows up to 65464, but typical safe value is ~1428 for Ethernet MTU."
+  },
+  "verbose": {
+    "type": "boolean",
+    "default": false,
+    "description": "Enable verbose logging for TFTP operations (e.g., transfer start/end)."
+  },
+  "debug": {
+    "type": "boolean",
+    "default": false,
+    "description": "Enable debug-level logging for troubleshooting."
+  },
+  "secure": {
+    "type": "boolean",
+    "default": true,
+    "description": "Enable secure mode: chroot into `location` and drop privileges to `user`/`group`. Recommended for production."
+  },
+  "extended": {
+    "type": "boolean",
+    "default": true,
+    "description": "Enable RFC-compliant extensions: blocksize (RFC 2348), timeout (RFC 2349), and tsize (RFC 2347)."
+  },
+  "ipv6": {
+    "type": "boolean",
+    "default": false,
+    "description": "Enable IPv6 support. If `address` is set to '::', this is implied."
+  },
+  "legacy": {
+    "type": "boolean",
+    "default": false,
+    "description": "Disable all RFC extensions and enforce strict RFC 1350 (original TFTP) mode."
+  },
+  "user": {
+    "type": "string",
+    "default": "nobody",
+    "description": "User account under which the TFTP daemon runs when in secure mode."
+  },
+  "group": {
+    "type": "string",
+    "default": "nogroup",
+    "description": "Group account under which the TFTP daemon runs when in secure mode."
+  },
+  "umask": {
+    "type": "string",
+    "default": "022",
+    "description": "Umask for files created during TFTP writes (e.g., '022' \u2192 0o022 \u2192 mode 0644)."
+  },
+  "extra_options": {
+    "type": "list",
+    "default": [],
+    "item_type": "string",
+    "description": "Additional command-line options passed directly to the tftpd-hpa daemon (e.g., `--no-fork`, `--pidfile /run/tftpd.pid`)."
+  },
+  "services": {
+    "type": "list",
+    "default": [],
+    "description": "List of named service instances for multi-tenant or per-path TFTP configurations.",
+    "items": {
+      "name": {
+        "type": "string",
+        "default": "default",
+        "description": "Identifier for this service instance."
+      },
+      "location": {
+        "type": "string",
+        "default": null,
+        "description": "Override root directory for this instance. Falls back to global `location` if omitted."
+      },
+      "address": {
+        "type": "string",
+        "default": null,
+        "description": "Override bind address for this instance. Falls back to global `address` if omitted."
+      },
+      "port": {
+        "type": "number",
+        "default": null,
+        "description": "Override port for this instance. Falls back to global `port` if omitted."
+      },
+      "secure": {
+        "type": "boolean",
+        "default": null,
+        "description": "Override secure mode for this instance. Falls back to global `secure` if omitted."
+      },
+      "extra_options": {
+        "type": "list",
+        "default": [],
+        "item_type": "string",
+        "description": "Additional daemon options for this instance only."
+      }
+    }
+  }
+}

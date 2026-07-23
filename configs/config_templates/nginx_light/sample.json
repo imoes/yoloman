@@ -1,0 +1,42 @@
+{
+  "worker_processes": "auto",
+  "servers": [
+    {
+      "name": [
+        "example.com",
+        "www.example.com"
+      ],
+      "listen": "80",
+      "ssl": true,
+      "ssl_certificate": "/etc/ssl/certs/example.com.crt",
+      "ssl_certificate_key": "/etc/ssl/private/example.com.key",
+      "root": "/var/www/example",
+      "index": [
+        "index.html",
+        "index.php"
+      ],
+      "locations": [
+        {
+          "path": "/api/",
+          "proxy_pass": "http://127.0.0.1:8080"
+        },
+        {
+          "path": "/static/",
+          "alias": "/var/www/example/static"
+        }
+      ]
+    },
+    {
+      "name": [
+        "localhost"
+      ],
+      "listen": "80",
+      "ssl": false,
+      "root": "/var/www/html",
+      "index": [
+        "index.html"
+      ],
+      "locations": []
+    }
+  ]
+}

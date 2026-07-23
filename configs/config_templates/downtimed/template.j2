@@ -1,0 +1,51 @@
+# /etc/downtimed.conf — Main configuration file for Downtime Monitor
+# Listen on this host for incoming connections from clients
+# (use '127.0.0.1' for local-only, '0.0.0.0' for all interfaces)
+HOST={{ host }}
+
+# Listen on this TCP port for client connections
+PORT={{ port }}
+
+# Maximum number of simultaneous client connections allowed
+MAX_CONNECTIONS={{ max_connections }}
+
+# Path to log file (use '-' for stdout/stderr)
+LOG_FILE={{ log_file }}
+
+# Log level: 0=error, 1=warn, 2=info, 3=debug
+LOG_LEVEL={{ log_level }}
+
+# Path to PID file
+PID_FILE={{ pid_file }}
+
+# Enable SSL/TLS for client connections (true/false)
+SSL_ENABLED={{ ssl.enabled }}
+
+# SSL certificate file path (required if SSL_ENABLED=true)
+SSL_CERT={{ ssl.cert_path }}
+
+# SSL private key file path (required if SSL_ENABLED=true)
+SSL_KEY={{ ssl.key_path }}
+
+# List of monitored services with their check configurations
+{% for service in services %}
+# Service: {{ service.name }} — {{ service.description }}
+{% if service.type == 'http' %}HTTP_CHECK={{ service.name }}={{ service.url }},{{ service.interval }},{{ service.timeout }},{{ service.max_retries }}{% endif %}
+{% if service.type == 'tcp' %}TCP_CHECK={{ service.name }}={{ service.host }}:{{ service.port }},{{ service.interval }},{{ service.timeout }},{{ service.max_retries }}{% endif %}
+{% if service.type == 'ping' %}PING_CHECK={{ service.name }}={{ service.host }},{{ service.interval }},{{ service.timeout }},{{ service.max_retries }}{% endif %}
+{% if service.type == 'file' %}FILE_CHECK={{ service.name }}={{ service.path }},{{ service.interval }},{{ service.timeout }},{{ service.max_retries }}{% endif %}
+{% endfor %}
+
+# Alert destinations (email, webhook, etc.)
+{% for alert in alerts %}
+# Alert: {{ alert.name }} — {{ alert.description }}
+{% if alert.type == 'email' %}ALERT_EMAIL={{ alert.name }}={{ alert.email }}{% endif %}
+{% if alert.type == 'webhook' %}ALERT_WEBHOOK={{ alert.name }}={{ alert.url }},{{ alert.method }}{% endif %}
+{% endfor %}
+
+# Enable sending notifications on downtime start/stop
+NOTIFY_ON_START={{ notify_on_start }}
+NOTIFY_ON_STOP={{ notify_on_stop }}
+
+# Enable automatic restart of failed monitored services
+AUTO_RESTART={{ auto_restart }}

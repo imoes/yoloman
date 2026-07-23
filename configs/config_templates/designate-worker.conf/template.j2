@@ -1,0 +1,105 @@
+[DEFAULT]
+# The log level for the worker
+log_level = {{ log_level }}
+
+# Hostname or IP the worker binds to
+bind_host = {{ bind_host }}
+
+# Port the worker listens on
+bind_port = {{ bind_port }}
+
+# Number of worker processes to spawn
+workers = {{ workers }}
+
+# Rate limit for API requests (per second); 0 = unlimited
+rate_limit = {{ rate_limit }}
+
+# Maximum number of DNS queries per second per tenant
+max_ttl = {{ max_ttl }}
+
+# Default TTL for records where not specified
+default_ttl = {{ default_ttl }}
+
+[storage]
+# Driver for storage backend
+driver = {{ storage_driver }}
+
+# SQLAlchemy connection string for the database
+connection = {{ database_connection }}
+
+# Maximum number of database connections in the pool
+connection_recycle_time = {{ connection_recycle_time }}
+
+# Pool size for database connections
+pool_size = {{ pool_size }}
+
+# Pool timeout for database connections
+pool_timeout = {{ pool_timeout }}
+
+[oslo_messaging]
+# Transport URL for message broker
+transport_url = {{ transport_url }}
+
+# Topic to listen on for RPC messages
+topic = {{ rpc_topic }}
+
+# Number of RPC workers for parallel message processing
+rpc_workers = {{ rpc_workers }}
+
+[service:worker]
+# Enable or disable the service
+enabled = {{ service_worker_enabled | lower }}
+
+# Interval (seconds) between status checks
+status_period = {{ status_period }}
+
+# List of zone types this worker handles
+zone_types = [
+{% for zone_type in zone_types %}    "{{ zone_type }}"{% if not loop.last %},{% endif %}
+{% endfor %}]
+
+# List of tenant IDs excluded from processing (empty = none)
+exclude_tenants = [
+{% for tenant_id in exclude_tenants %}    "{{ tenant_id }}"{% if not loop.last %},{% endif %}
+{% endfor %}]
+
+# Maximum records per zone the worker will process
+max_records_per_zone = {{ max_records_per_zone }}
+
+# Maximum transfers to process per cycle
+max_transfers_per_cycle = {{ max_transfers_per_cycle }}
+
+# Enable or disable background maintenance tasks
+background_maintenance = {{ background_maintenance | lower }}
+
+{% for pool in pools %}[pool:{{ pool.id }}]
+# Driver for this pool
+driver = {{ pool.driver }}
+
+# Pool name (for reference)
+name = {{ pool.name }}
+
+# List of nameservers for this pool
+nameservers = [
+{% for ns in pool.nameservers %}    "{{ ns }}"{% if not loop.last %},{% endif %}
+{% endfor %}]
+
+# List of targets for this pool (e.g., bind9, pdns)
+# Target configs are defined in sub-sections
+{% for target in pool.targets %}[pool_target:{{ pool.id }}_{{ target.id }}]
+# Type of target (e.g., 'bind9', 'pdns', 'nsd')
+type = {{ target.type }}
+
+# Hostname/IP of the DNS server
+host = {{ target.host }}
+
+# Port for the DNS server API (if applicable)
+port = {{ target.port }}
+
+# Username (if required)
+username = {{ target.username | default('') }}
+
+# API key or password
+api_endpoint = {{ target.api_endpoint | default('') }}
+
+{% endfor %}{% endfor %}

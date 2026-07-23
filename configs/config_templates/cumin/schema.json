@@ -1,0 +1,151 @@
+{
+  "debug": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable verbose debug logging for troubleshooting."
+  },
+  "log_level": {
+    "type": "string",
+    "default": "INFO",
+    "description": "Minimum severity level for log messages (DEBUG, INFO, WARNING, ERROR, CRITICAL)."
+  },
+  "log_file": {
+    "type": "string",
+    "default": "",
+    "description": "Absolute path to the main log file. Leave empty to log only to stdout/stderr."
+  },
+  "backend": {
+    "type": "string",
+    "default": "sqlite",
+    "description": "Storage backend: either 'sqlite' (file-based) or 'postgresql' (server-based)."
+  },
+  "database": {
+    "type": "string",
+    "default": "/var/lib/cumin/cumin.db",
+    "description": "SQLite file path (if backend=sqlite) or PostgreSQL connection URI (if backend=postgresql)."
+  },
+  "api_host": {
+    "type": "string",
+    "default": "127.0.0.1",
+    "description": "Network interface (IP or hostname) the REST API listens on."
+  },
+  "api_port": {
+    "type": "number",
+    "default": 6382,
+    "description": "Port number for the Cumin REST API endpoint."
+  },
+  "tls_cert": {
+    "type": "string",
+    "default": "",
+    "description": "Path to TLS certificate for HTTPS. Leave blank to use HTTP only."
+  },
+  "tls_key": {
+    "type": "string",
+    "default": "",
+    "description": "Path to TLS private key matching the certificate above."
+  },
+  "max_requests": {
+    "type": "number",
+    "default": 0,
+    "description": "Maximum concurrent API requests. 0 means unlimited."
+  },
+  "command_timeout": {
+    "type": "number",
+    "default": 300,
+    "description": "Seconds to wait before aborting a remote command."
+  },
+  "discovery_timeout": {
+    "type": "number",
+    "default": 30,
+    "description": "Seconds to wait before aborting target discovery (e.g., DNS resolution)."
+  },
+  "allow_shell": {
+    "type": "bool",
+    "default": false,
+    "description": "If true, allows arbitrary shell commands in targets. Not recommended in multi-tenant or untrusted environments."
+  },
+  "auth_backend": {
+    "type": "string",
+    "default": "local",
+    "description": "Authentication provider: 'local' (file-based users) or 'ldap' (LDAP/Active Directory)."
+  },
+  "auth_config": {
+    "type": "string",
+    "default": "",
+    "description": "Path to auth backend config (e.g., /etc/cumin/ldap.conf or /etc/cumin/local_users.yaml)."
+  },
+  "ssh_user": {
+    "type": "string",
+    "default": "root",
+    "description": "Default remote user for SSH connections to targets."
+  },
+  "ssh_key": {
+    "type": "string",
+    "default": "",
+    "description": "Path to SSH private key used for authentication (if not using agent/password)."
+  },
+  "ssh_workers": {
+    "type": "number",
+    "default": 4,
+    "description": "Number of parallel SSH workers. Increase for large target sets."
+  },
+  "ssh_reuse": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable SSH connection reuse to reduce latency and overhead."
+  },
+  "target_groups": {
+    "type": "list",
+    "default": [],
+    "description": "Security groups defining allowed target sets and descriptions.",
+    "items": {
+      "name": {
+        "type": "string",
+        "description": "Unique group name (used in target matching)."
+      },
+      "targets": {
+        "type": "list",
+        "description": "List of target host patterns (e.g., 'web*','db[1-5].example.com')."
+      },
+      "description": {
+        "type": "string",
+        "description": "Human-readable description of the group's purpose."
+      }
+    }
+  },
+  "command_rules": {
+    "type": "list",
+    "default": [],
+    "description": "Permission rules mapping groups to allowed command patterns.",
+    "items": {
+      "group": {
+        "type": "string",
+        "description": "Name of the target group this rule applies to."
+      },
+      "commands": {
+        "type": "list",
+        "description": "List of allowed command patterns or regexes (e.g., 'ping', 'uptime', '^df$')."
+      }
+    }
+  },
+  "audit_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable detailed audit logging of user actions."
+  },
+  "audit_log": {
+    "type": "string",
+    "default": "/var/log/cumin/audit.log",
+    "description": "File path for audit logs (requires write permissions)."
+  },
+  "async_timeout": {
+    "type": "number",
+    "default": 300,
+    "description": "Max time (seconds) an async job may remain pending before timeout."
+  },
+  "max_async_jobs": {
+    "type": "number",
+    "default": 100,
+    "description": "Maximum number of pending async jobs queued at once."
+  }
+}

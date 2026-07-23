@@ -1,0 +1,69 @@
+# Global configuration settings
+# See slapd.conf(5) for details on configuration options.
+
+# Backend type and database type
+{% if backend_type %}# Backend module to load (e.g., hdb, mdb)
+moduleload {{ backend_type }}.la{% endif %}
+
+# Schema definitions
+include {{ schema_dir }}/core.schema
+{% for schema in additional_schemas %}include {{ schema_dir }}/{{ schema }}.schema
+{% endfor %}
+
+# ACL configuration — controls access to directory entries and attributes
+{% if enable_default_acl %}# Default ACL: allow authenticated users read access, admin binddn full access
+acl access to * by users read by * none{% endif %}
+{% for acl in acls %}{{ acl | replace('
+', '
+') }}
+{% endfor %}
+
+# Global parameters
+pidfile {{ pidfile_path }}
+argsfile {{ argsfile_path }}
+
+# Logging configuration
+loglevel {{ loglevel }}
+
+# TLS/SSL configuration
+{% if tls_enabled %}TLSCipherSuite {{ tls_cipher_suite }}
+TLSCertificateFile {{ tls_cert_file }}
+TLSCertificateKeyFile {{ tls_cert_key_file }}
+{% if tls_ca_cert_file %}TLSCACertificateFile {{ tls_ca_cert_file }}{% endif %}
+{% if tls_verify_client is defined %}TLSVerifyClient {{ tls_verify_client }}{% endif %}{% endif %}
+
+# Security settings
+# Enforce TLS for sensitive operations (e.g., password changes)
+{% if security_require_tls %}security ssf=1{% endif %}
+{% if security_require_ssf is defined %}security ssf={{ security_require_ssf }}{% endif %}
+{% if security_require_authc %}security authc=1{% endif %}
+
+# Listener configuration — network binding
+{% for listener in listeners %}# Listen on host:port for LDAP connections
+{% if listener.scheme == 'ldaps' %}ldaps://{% elif listener.scheme == 'ldapi' %}ldapi://{% else %}ldap{% if listener.host %}://{{ listener.host }}{% endif %}{{ ':' ~ listener.port if listener.port else '' }}{% endif %}
+{% endfor %}
+
+# Database configuration
+# Database type and suffix
+{% for database in databases %}database {{ database.type }}
+{% if database.suffix %}suffix "{{ database.suffix }}"
+{% endif %}{% if database.rootdn %}rootdn "{{ database.rootdn }}"
+{% endif %}{% if database.rootpw %}rootpw {{ database.rootpw }}
+{% endif %}{% if database.directory %}directory {{ database.directory }}
+{% endif %}{% if database.index %}{% for index in database.index %}index {{ index.attr }} {{ index.options | join(' ') }}
+{% endfor %}{% endif %}
+{% if database.overlay %}{% for overlay in database.overlay %}overlay {{ overlay.name }}
+{% if overlay.config %}{% for key, value in overlay.config.items() %}{{ key }} {{ value }}
+{% endfor %}{% endif %}{% endfor %}{% endif %}
+{% endfor %}
+
+# Access control: allow rootdn to bypass ACLs
+rootdn {{ rootdn }}
+# Root password: use {SSHA} hash (never plain text in production)
+{% if rootpw %}rootpw {SSHA}{{ rootpw_hash }}{% endif %}
+
+# Monitoring (slapd monitoring overlay)
+{% if monitoring_enabled %}# Enable monitoring overlay for runtime stats
+moduleload back_monitor.la
+database monitor
+{% endif %}

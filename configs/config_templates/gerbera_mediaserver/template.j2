@@ -1,0 +1,156 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Gerbera UPnP Media Server Configuration -->
+<config version="3" xmlns="http://mediatomb.cc/config/3" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://mediatomb.cc/config/3 http://mediatomb.cc/config/3.xsd">
+  <!-- Logging configuration -->
+  <logging>
+    <!-- Log level: ERROR, WARNING, INFO, DEBUG, VERBOSE, TRACE -->
+    <level>{{ logging_level | default('WARNING') }}</level>
+    <!-- Log target file path (leave blank for stderr) -->
+    <target>{{ logging_target | default('') }}</target>
+  </logging>
+
+  <!-- Server identification and basic settings -->
+  <server>
+    <!-- Unique device identifier (UUID format) -->
+    <uuid>{{ server_uuid | default('00000000-0000-0000-0000-000000000000') }}</uuid>
+    <!-- Friendly name of the server on the network -->
+    <name>{{ server_name | default('Gerbera Media Server') }}</name>
+    <!-- Model name displayed in clients -->
+    <model_name>{{ server_model_name | default('Gerbera') }}</model_name>
+    <!-- Model number displayed in clients -->
+    <model_number>{{ server_model_number | default('1') }}</model_number>
+    <!-- Hardware vendor for UPnP compliance -->
+    <hardware>{{ server_hardware | default('Gerbera') }}</hardware>
+    <!-- Software vendor for UPnP compliance -->
+    <software>{{ server_software | default('Gerbera') }}</software>
+    <!-- Enable or disable external ports (UPnP IGD/NAT-PMP) -->
+    <enable_port_mapping>{{ 'yes' if server_enable_port_mapping | default(false) else 'no' }}</enable_port_mapping>
+    <!-- Listen address for control interface -->
+    <control>
+      <listen_address>{{ server_control_address | default('') }}</listen_address>
+      <listen_port>{{ server_control_port | default(49152) }}</listen_port>
+    </control>
+    <!-- Listen address for media streaming -->
+    <virtual_directory>
+      <listen_address>{{ server_virtual_address | default('') }}</listen_address>
+      <listen_port>{{ server_virtual_port | default(49153) }}</listen_port>
+    </virtual_directory>
+    <!-- Additional UPnP interfaces (optional) -->
+    {% if server_interfaces is defined and server_interfaces | length > 0 %}
+    <interfaces>
+      {% for iface in server_interfaces %}
+      <interface>{{ iface }}</interface>
+      {% endfor %}
+    </interfaces>
+    {% endif %}
+  </server>
+
+  <!-- Database backend configuration -->
+  <database>
+    <!-- Database type: sqlite, mysql, postgresql -->
+    <engine>{{ db_engine | default('sqlite') }}</engine>
+    <!-- For SQLite: path to database file -->
+    {% if db_engine | lower == 'sqlite' %}
+    <database_file>{{ db_sqlite_path | default('/var/lib/gerbera/gerbera.db') }}</database_file>
+    {% endif %}
+    <!-- For MySQL/PostgreSQL: connection details -->
+    {% if db_engine | lower in ['mysql', 'postgresql'] %}
+    <host>{{ db_host | default('localhost') }}</host>
+    <port>{{ db_port | default(3306 if db_engine | lower == 'mysql' else 5432) }}</port>
+    <name>{{ db_name | default('gerbera') }}</name>
+    <user>{{ db_user | default('gerbera') }}</user>
+    <password>{{ db_password | default('gerbera') }}</password>
+    {% endif %}
+    <!-- Database tuning options -->
+    <options>
+      <max_connections>{{ db_max_connections | default(5) }}</max_connections>
+    </options>
+  </database>
+
+  <!-- Media library settings -->
+  <container>
+    <!-- Default container type: browse, search, root, etc. -->
+    <default_container>{{ default_container | default('0') }}</default_container>
+    <!-- Allow adding items to playlist? -->
+    <playlist>{{ 'yes' if playlist_enabled | default(true) else 'no' }}</playlist>
+    <!-- Allow adding items to playlist from remote clients? -->
+    <playlist_extension>{{ playlist_extension | default('m3u') }}</playlist_extension>
+    <!-- Allow adding items to playlist from remote clients? -->
+    <playlist_directory>{{ playlist_directory | default('/var/lib/gerbera/playlists') }}</playlist_directory>
+    <!-- Allow adding items to playlist from remote clients? -->
+    <playlist_max_items>{{ playlist_max_items | default(0) }}</playlist_max_items>
+  </container>
+
+  <!-- File scanning configuration -->
+  <import>
+    <!-- How often to rescan media (in seconds); 0 = manual only -->
+    <hidden_files>{{ 'yes' if import_hidden_files | default(false) else 'no' }}</hidden_files>
+    <!-- Scan periodicity (0 = disable auto-scan) -->
+    <scan_mode>{{ import_scan_mode | default('auto') }}</scan_mode>
+    <!-- Maximum depth for recursive directory scanning -->
+    <max_depth>{{ import_max_depth | default(5) }}</max_depth>
+    <!-- Excluded extensions (comma-separated, lowercase) -->
+    <excluded_extensions>{{ import_excluded_extensions | default('tmp,cache,log') }}</excluded_extensions>
+    <!-- Mappings from file extension to media type -->
+    {% if import_mappings is defined and import_mappings | length > 0 %}
+    <mappings>
+      {% for ext, media_type in import_mappings.items() %}
+      <extension mimetype="{{ media_type }}">{{ ext }}</extension>
+      {% endfor %}
+    </mappings>
+    {% endif %}
+    <!-- Custom transcoding profiles (if any) -->
+    {% if transcoding_profiles is defined and transcoding_profiles | length > 0 %}
+    <transcoding>
+      {% for profile in transcoding_profiles %}
+      <profile name="{{ profile.name }}" enabled="{{ 'yes' if profile.enabled | default(true) else 'no' }}" type="{{ profile.type | default('ffmpeg') }}">
+        <agent command="{{ profile.agent_command | default('ffmpeg') }}" arguments="{{ profile.agent_args | default('-i {in} -o {out}') }}"/>
+        <mime-type mimetype="{{ profile.mime_type }}"/>
+        <resolution>{{ profile.resolution | default('') }}</resolution>
+      </profile>
+      {% endfor %}
+    </transcoding>
+    {% endif %}
+  </import>
+
+  <!-- Metadata extraction settings -->
+  <metadata>
+    <!-- Use ExifTool for metadata? -->
+    <use_exiftool>{{ 'yes' if metadata_use_exiftool | default(false) else 'no' }}</use_exiftool>
+    <!-- Path to ExifTool executable (if enabled) -->
+    <exiftool_path>{{ metadata_exiftool_path | default('exiftool') }}</exiftool_path>
+    <!-- Metadata loading timeout (seconds) -->
+    <load_timeout>{{ metadata_load_timeout | default(10) }}</load_timeout>
+  </metadata>
+
+  <!-- Web UI and API settings -->
+  <web>
+    <!-- Enable built-in web UI? -->
+    <enabled>{{ 'yes' if web_enabled | default(true) else 'no' }}</enabled>
+    <!-- UI listen port -->
+    <port>{{ web_port | default(9999) }}</port>
+    <!-- UI listen address (empty = all interfaces) -->
+    <address>{{ web_address | default('') }}</address>
+    <!-- UI skin/theme (default = 'classic') -->
+    <skin>{{ web_skin | default('classic') }}</skin>
+    <!-- Enable admin interface? -->
+    <admin>
+      <enabled>{{ 'yes' if web_admin_enabled | default(true) else 'no' }}</enabled>
+      <user>{{ web_admin_user | default('admin') }}</user>
+      <password>{{ web_admin_password | default('admin') }}</password>
+    </admin>
+    <!-- UI title -->
+    <title>{{ web_title | default('Gerbera Media Server') }}</title>
+    <!-- Enable API? -->
+    <api>{{ 'yes' if web_api_enabled | default(false) else 'no' }}</api>
+  </web>
+
+  <!-- UPnP/AV specific settings -->
+  <protocol_info extend="yes">{% if protocol_info_ext is defined %}
+    {% for proto in protocol_info_ext %}
+    <add mimetype="{{ proto.mimetype }}" profile="{{ proto.profile }}"/>
+    {% endfor %}
+    {% endif %}
+  </protocol_info>
+
+</config>

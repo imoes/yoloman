@@ -1,0 +1,134 @@
+[ovn]
+# OVN NB (Northbound) connection string
+ovn_nb_connection = {{ ovn_nb_connection }}
+
+# OVN SB (Southbound) connection string
+ovn_sb_connection = {{ ovn_sb_connection }}
+
+# Maximum time (in seconds) to wait for OVSDB operations
+ovn_timeout = {{ ovn_timeout }}
+
+# Enable L3 support in OVN
+enable_l3 = {{ enable_l3 | string | lower }}
+
+# Enable QoS support in OVN
+enable_qos = {{ enable_qos | string | lower }}
+
+# Enable NMetadata (metadata server) support
+enable_metadata = {{ enable_metadata | string | lower }}
+
+# Metadata network UUID (used when metadata is enabled)
+metadata_network = {{ metadata_network }}
+
+# Metadata proxy user namespace
+# (typically left blank unless using isolated namespaces)
+metadata_proxy_user_namespace = {{ metadata_proxy_user_namespace }}
+
+# OVN chassis type (e.g., 'local', 'geneve', 'vxlan')
+chassis_type = {{ chassis_type }}
+
+# Number of OVN L3 scheduler workers
+l3_scheduler_workers = {{ l3_scheduler_workers }}
+
+# Number of OVN metadata proxy workers
+metadata_workers = {{ metadata_workers }}
+
+{% if l3_ha %}
+# High availability mode for L3
+# (enables distributed router HA via OVN NAT HA)
+l3_ha = {{ l3_ha | string | lower }}
+{% endif %}
+
+{% if l3_ha and l3_ha %}
+# Number of L3 HA redundant routers per gateway
+max_l3_ha_router_versions = {{ max_l3_ha_router_versions }}
+{% endif %}
+
+# Enable native IPv6 support
+enable_ipv6 = {{ enable_ipv6 | string | lower }}
+
+# Enable multicast replication via OVN multicast groups
+enable_multicast = {{ enable_multicast | string | lower }}
+
+# Enable support for QoS bandwidth limiting
+enable_qos_burst = {{ enable_qos_burst | string | lower }}
+
+# Enable OVSDB monitor mode (optional, auto-reconnect by default)
+enable_ovn_monitor = {{ enable_ovn_monitor | string | lower }}
+
+# Maximum retries for OVSDB reconnection
+ovn_connection_inactivity_probe = {{ ovn_connection_inactivity_probe }}
+
+# SSL/TLS configuration for secure OVN DB connections
+{% if ovn_nb_ssl_key %}
+ovn_nb_ssl_key = {{ ovn_nb_ssl_key }}
+{% endif %}
+{% if ovn_nb_ssl_cert %}
+ovn_nb_ssl_cert = {{ ovn_nb_ssl_cert }}
+{% endif %}
+{% if ovn_nb_ssl_cacert %}
+ovn_nb_ssl_cacert = {{ ovn_nb_ssl_cacert }}
+{% endif %}
+{% if ovn_sb_ssl_key %}
+ovn_sb_ssl_key = {{ ovn_sb_ssl_key }}
+{% endif %}
+{% if ovn_sb_ssl_cert %}
+ovn_sb_ssl_cert = {{ ovn_sb_ssl_cert }}
+{% endif %}
+{% if ovn_sb_ssl_cacert %}
+ovn_sb_ssl_cacert = {{ ovn_sb_ssl_cacert }}
+{% endif %}
+
+# Optional: Custom OVN bridge mappings
+{% for mapping in bridge_mappings %}
+# Bridge mapping: {{ mapping.physical_network }} -> {{ mapping.bridge }}
+bridge_mappings = {{ mapping.physical_network }}:{{ mapping.bridge }}
+{% endfor %}
+
+# Optional: VNI ranges for tenant networks (e.g., 'min:max')
+{% for vni_range in vni_ranges %}
+# VNI range for tenant networks: {{ vni_range }}
+network_vlan_ranges = {{ vni_range }}
+{% endfor %}
+
+# Optional: OVN DNS configuration
+{% if ovn_dns_servers %}
+# DNS servers used by DHCP agents in OVN (list)
+ovn_dns_servers = {{ ovn_dns_servers | join(', ') }}
+{% endif %}
+
+# Optional: Gateway chassis priority (for L3 HA)
+{% for gateway in gateway_chassis %}
+# Gateway chassis: {{ gateway.name }} (priority: {{ gateway.priority }})
+gateway_chassis = {{ gateway.name }}:{{ gateway.priority }}
+{% endfor %}
+
+# Optional: Enable dynamic chassis assignment for distributed gateway
+enable_chassis_as_gw = {{ enable_chassis_as_gw | string | lower }}
+
+# Optional: OVN interconnection settings
+{% if interconn_host %}
+# OVN interconnection: remote NB/SB host
+interconn_host = {{ interconn_host }}
+{% endif %}
+{% if interconn_nb_port %}
+interconn_nb_port = {{ interconn_nb_port }}
+{% endif %}
+{% if interconn_sb_port %}
+interconn_sb_port = {{ interconn_sb_port }}
+{% endif %}
+
+# Optional: OVN NAT external IP pool (for floating IPs)
+{% if nat_external_ip_pool %}
+nat_external_ip_pool = {{ nat_external_ip_pool }}
+{% endif %}
+
+# Optional: Custom log file
+{% if log_file %}
+log_file = {{ log_file }}
+{% endif %}
+
+# Optional: Logging level (debug, info, warning, error, critical)
+{% if log_level %}
+log_level = {{ log_level }}
+{% endif %}

@@ -1,0 +1,89 @@
+{
+  "ports": {
+    "type": "list",
+    "default": [
+      {
+        "number": 4242,
+        "bind_ip": null
+      }
+    ],
+    "description": "List of port configurations for mbtserver to listen on. Each entry specifies a port number and optional bind IP.",
+    "items": {
+      "type": "object",
+      "fields": {
+        "number": {
+          "type": "number",
+          "default": 4242,
+          "description": "TCP port number to bind to."
+        },
+        "bind_ip": {
+          "type": "string",
+          "default": null,
+          "description": "Optional IP address to bind to (e.g., '127.0.0.1'). If omitted, binds to all interfaces."
+        }
+      }
+    }
+  },
+  "model_dir": {
+    "type": "string",
+    "default": "/var/lib/mbtserver/models",
+    "description": "Directory where mbtserver stores and loads trained tagger models and cached data."
+  },
+  "dict_file": {
+    "type": "string",
+    "default": "/usr/share/mbtserver/dict.bin",
+    "description": "Path to the system-wide MBT dictionary file (binary format, read-only)."
+  },
+  "threads": {
+    "type": "number",
+    "default": 4,
+    "description": "Number of worker threads for handling concurrent requests. Adjust based on CPU cores."
+  },
+  "max_connections": {
+    "type": "number",
+    "default": 256,
+    "description": "Maximum number of concurrent connections allowed per listening port."
+  },
+  "connection_timeout": {
+    "type": "number",
+    "default": 30,
+    "description": "Idle timeout (in seconds) before a client connection is closed."
+  },
+  "verbose": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable verbose debug logging (true/false). Not recommended for production unless troubleshooting."
+  },
+  "log_file": {
+    "type": "string",
+    "default": "/var/log/mbtserver/server.log",
+    "description": "Path to the log file. Use '-' to log to stdout instead."
+  },
+  "extra_headers": {
+    "type": "object",
+    "default": {
+      "X-Server": "mbtserver"
+    },
+    "description": "Custom HTTP response headers (key-value map) to add to all responses."
+  },
+  "allowed_subnets": {
+    "type": "list",
+    "default": [
+      "0.0.0.0/0"
+    ],
+    "description": "List of allowed client IP subnets (CIDR). If empty or omitted, all IPs are allowed.",
+    "items": {
+      "type": "string",
+      "description": "An IPv4/IPv6 CIDR subnet (e.g., '10.0.0.0/8', '192.168.1.0/24')."
+    }
+  },
+  "disabled_features": {
+    "type": "list",
+    "default": [],
+    "description": "List of tagger features to disable globally (e.g., 'nbest', 'features', 'morph'). Only disable if not needed and for performance/security.",
+    "items": {
+      "type": "string",
+      "description": "Name of a tagger feature to disable."
+    }
+  }
+}

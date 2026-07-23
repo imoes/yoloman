@@ -1,0 +1,121 @@
+{
+  "pidfile": {
+    "type": "string",
+    "default": "/run/pdudaemon/pdudaemon.pid",
+    "description": "Path where the daemon writes its process ID (PID) file."
+  },
+  "loglevel": {
+    "type": "string",
+    "default": "INFO",
+    "description": "Minimum log level. Messages at or above this level will be logged."
+  },
+  "workers": {
+    "type": "number",
+    "default": 0,
+    "description": "Number of worker threads for concurrent PDU operations. Use 0 to auto-detect based on CPU count."
+  },
+  "timeout": {
+    "type": "number",
+    "default": 10,
+    "description": "Default timeout (in seconds) for PDU communication operations."
+  },
+  "retries": {
+    "type": "number",
+    "default": 3,
+    "description": "Number of automatic retry attempts after a failed PDU operation."
+  },
+  "syslog": {
+    "type": "boolean",
+    "default": true,
+    "description": "Whether to send logs to the system logger (syslog)."
+  },
+  "pdus": {
+    "type": "list",
+    "default": [],
+    "description": "List of PDU devices to control. Each entry defines one physical or logical PDU.",
+    "items": {
+      "name": {
+        "type": "string",
+        "default": "",
+        "description": "Unique identifier for this PDU (used as section name in config)."
+      },
+      "description": {
+        "type": "string",
+        "default": "",
+        "description": "Optional human-readable description (e.g., 'Rack A PDU Top')."
+      },
+      "driver": {
+        "type": "string",
+        "default": "",
+        "description": "Protocol/driver to use (e.g., 'apc', 'tripplite', 'snmp', 'ipower', 'netpdu')."
+      },
+      "host": {
+        "type": "string",
+        "default": "",
+        "description": "Hostname or IP address of the PDU management interface."
+      },
+      "port": {
+        "type": "number",
+        "default": 23,
+        "description": "TCP port used to connect to the PDU (e.g., 23 for telnet, 80/443 for HTTP(S), 161 for SNMP)."
+      },
+      "username": {
+        "type": "string",
+        "default": "",
+        "description": "Username for authentication. If empty, may use default (driver-specific)."
+      },
+      "password": {
+        "type": "string",
+        "default": "",
+        "description": "Password for authentication. If empty, may omit or use default (driver-specific)."
+      },
+      "model": {
+        "type": "string",
+        "default": "",
+        "description": "Optional PDU model string (e.g., 'AP8959A', 'P3RackPDU'). Used to adjust driver behavior."
+      },
+      "snmp_version": {
+        "type": "string",
+        "default": "2c",
+        "description": "SNMP version to use (e.g., '1', '2c', '3'). Only applies to SNMP-based drivers."
+      },
+      "snmp_community": {
+        "type": "string",
+        "default": "public",
+        "description": "SNMP community string. Only applies to SNMPv1/v2c."
+      },
+      "outlet_count": {
+        "type": "number",
+        "default": 0,
+        "description": "Number of controllable outlets on the PDU. If 0, auto-detect (if supported by driver)."
+      },
+      "timeout": {
+        "type": "number",
+        "default": null,
+        "description": "Optional per-PDU timeout override (in seconds). If omitted, uses global timeout."
+      }
+    }
+  },
+  "outlet_mapping": {
+    "type": "list",
+    "default": [],
+    "description": "Optional list of mappings from PDU.outlet \u2192 user-friendly label (e.g., for UI or reporting).",
+    "items": {
+      "pdu_name": {
+        "type": "string",
+        "default": "",
+        "description": "Name of the PDU (must match a section in [pdu:*])."
+      },
+      "outlet": {
+        "type": "number",
+        "default": 1,
+        "description": "Outlet index (1-based) on the PDU."
+      },
+      "label": {
+        "type": "string",
+        "default": "",
+        "description": "Human-readable label for the outlet (e.g., 'Server Rack A-01', 'Network Switch 1')."
+      }
+    }
+  }
+}

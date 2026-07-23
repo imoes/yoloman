@@ -1,0 +1,145 @@
+# Enable detailed debug logging
+#debug on
+#debug off
+debug {{ debug | lower }}
+
+# Location of the web server logs to analyze
+#log /path/to/log/file
+{% for log_file in log_files %}
+log {{ log_file }}
+{% endfor %}
+
+# Base URL used to generate absolute links in reports (required for some features)
+#url http://example.com/awffull/
+url {{ url }}
+
+# Output directory for generated reports
+#output /var/www/awffull/reports
+output {{ output_dir }}
+
+# Use gzip compression for output files
+#use_gzip off
+use_gzip {{ use_gzip | lower }}
+
+# Timezone offset in hours from UTC (e.g., -5 for EST)
+#timezone 0
+timezone {{ timezone }}
+
+# Date format for report headers and file names (strftime-style)
+#date_format %Y-%m-%d
+date_format {{ date_format }}
+
+# Maximum number of days of log data to retain in reports (0 = unlimited)
+#retention 0
+retention {{ retention }}
+
+# Ignore requests from these IP addresses (one per line)
+#ignore_ip 127.0.0.1
+{% for ip in ignore_ips %}
+ignore_ip {{ ip }}
+{% endfor %}
+
+# Exclude specific URLs from reports (supports wildcards)
+#exclude_url *.png
+{% for pattern in exclude_patterns %}
+exclude_url {{ pattern }}
+{% endfor %}
+
+# Include only URLs matching these patterns (overrides exclude_url)
+#include_url /admin/
+{% for pattern in include_patterns %}
+include_url {{ pattern }}
+{% endfor %}
+
+# Enable/disable per-user tracking (requires log format with user field)
+#users off
+users {{ users_enabled | lower }}
+
+# Enable/disable referrer analysis
+#referrer on
+referrer {{ referrer_enabled | lower }}
+
+# Enable/disable search engine keyword extraction
+#keywords on
+keywords {{ keywords_enabled | lower }}
+
+# Enable/disable browser/OS detection
+#browser on
+browser {{ browser_enabled | lower }}
+
+# Enable/disable country/region analysis (requires MaxMind GeoIP database)
+#country off
+country {{ country_enabled | lower }}
+
+# Path to MaxMind GeoIP database (if country analysis is enabled)
+#geoip_db /usr/share/GeoIP/GeoIP.dat
+geoip_db {{ geoip_db_path }}
+
+# Number of top pages/users/referrers/keywords to show
+#top_pages 10
+top_pages {{ top_count }}
+top_users {{ top_count }}
+top_referrers {{ top_count }}
+top_keywords {{ top_count }}
+
+# Number of top countries to show
+#top_countries 10
+top_countries {{ top_count }}
+
+# Hide URLs shorter than N characters in reports
+#hide_short_urls 3
+hide_short_urls {{ hide_short_urls }}
+
+# Use 24-hour time in hourly reports
+#hourly_24h on
+hourly_24h {{ hourly_24h | lower }}
+
+# Skip requests with status codes in this comma-separated list
+#skip_status 304,204
+skip_status {{ skip_status_list | join(',') }}
+
+# Log format specification (must match your web server logs)
+#log_format "%h %l %u %t "%r" %>s %b "%{Referer}i" "%{User-Agent}i""
+log_format {{ log_format }}
+
+# Report title (shown in HTML headers)
+#title AWFFull Web Statistics
+report_title {{ report_title }}
+
+# Enable generation of RSS feeds (requires feed_enabled = on and url set)
+#feed off
+feed {{ feed_enabled | lower }}
+
+# Enable generation of summary HTML index (index.html)
+#summary on
+summary {{ summary_enabled | lower }}
+
+# Use SSL/TLS in generated links (if your site is HTTPS)
+#secure off
+secure {{ secure_enabled | lower }}
+
+# Custom CSS file to use in HTML output
+#css /etc/awffull/custom.css
+css {{ custom_css }}
+
+# Enable hourly reports
+#hourly on
+hourly {{ hourly_enabled | lower }}
+
+# Enable daily/weekly/monthly reports (on by default)
+#daily off
+daily {{ daily_enabled | lower }}
+weekly {{ weekly_enabled | lower }}
+monthly {{ monthly_enabled | lower }}
+
+# Set max age (in days) of log data considered for daily/weekly/monthly reports
+#report_max_age 31
+report_max_age {{ report_max_age }}
+
+# Enable caching to speed up repeated analyses
+#cache on
+cache {{ cache_enabled | lower }}
+
+# Path to cache directory
+#cache_dir /var/cache/awffull
+cache_dir {{ cache_dir }}

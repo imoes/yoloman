@@ -1,0 +1,208 @@
+{
+  "local_address": {
+    "type": "string",
+    "default": "127.0.0.1",
+    "description": "Local IP address to bind the DNS server to (e.g., '0.0.0.0' for all interfaces)."
+  },
+  "local_port": {
+    "type": "number",
+    "default": 53,
+    "description": "UDP/TCP port to listen on for DNS queries."
+  },
+  "api": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable the PowerDNS API (query console) on port 8081."
+  },
+  "api_key": {
+    "type": "string",
+    "default": "",
+    "description": "Secret key used to authenticate API requests (required if API is enabled)."
+  },
+  "recursor": {
+    "type": "string",
+    "default": "",
+    "description": "IP address of a upstream recursive resolver to forward non-authoritative queries to (optional)."
+  },
+  "max_qps": {
+    "type": "number",
+    "default": 500,
+    "description": "Maximum queries per second allowed before throttling starts."
+  },
+  "query_local_address_timeout": {
+    "type": "number",
+    "default": 2000,
+    "description": "Timeout (in ms) for queries to local addresses (e.g., when resolving internal names)."
+  },
+  "threads": {
+    "type": "number",
+    "default": 2,
+    "description": "Number of worker threads to spawn (set to CPU core count for best performance)."
+  },
+  "loglevel": {
+    "type": "number",
+    "default": 3,
+    "description": "Verbosity of logging (0 = minimal, 9 = extremely verbose)."
+  },
+  "log_dns_queries": {
+    "type": "bool",
+    "default": false,
+    "description": "Log every incoming DNS query to syslog."
+  },
+  "dnssec": {
+    "type": "string",
+    "default": "off",
+    "description": "DNSSEC validation behavior. 'process' actively validates; 'log-*' only logs results."
+  },
+  "backends": {
+    "type": "list",
+    "default": [
+      "gsqlite3"
+    ],
+    "items": {
+      "type": "string",
+      "enum": [
+        "gsqlite3",
+        "mysql",
+        "postgresql"
+      ],
+      "description": "Backend database engine(s) to use. Multiple backends can be listed, separated by commas."
+    },
+    "description": "List of backend modules to load. Common options: gsqlite3 (SQLite), mysql, postgresql."
+  },
+  "gsqlite3_database": {
+    "type": "string",
+    "default": "/var/lib/powerdns/pdns.sqlite3",
+    "description": "Path to SQLite database file when using gsqlite3 backend."
+  },
+  "gsqlite3_dnssec": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable DNSSEC support in SQLite backend (requires schema >= v4)."
+  },
+  "gsqlite3_pragma_synchronous": {
+    "type": "string",
+    "default": "FULL",
+    "description": "SQLite synchronous pragma: 'FULL' safest for durability, 'NORMAL' better performance."
+  },
+  "gmysql_host": {
+    "type": "string",
+    "default": "localhost",
+    "description": "MySQL server hostname or IP."
+  },
+  "gmysql_port": {
+    "type": "number",
+    "default": 3306,
+    "description": "MySQL server port."
+  },
+  "gmysql_user": {
+    "type": "string",
+    "default": "pdns",
+    "description": "MySQL username with access to the PowerDNS database."
+  },
+  "gmysql_password": {
+    "type": "string",
+    "default": "",
+    "description": "Password for the MySQL user (empty = prompt or use socket auth)."
+  },
+  "gmysql_dbname": {
+    "type": "string",
+    "default": "pdns",
+    "description": "Name of the MySQL database to use for PowerDNS data."
+  },
+  "gmysql_dnssec": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable DNSSEC in MySQL backend."
+  },
+  "gpostgresql_host": {
+    "type": "string",
+    "default": "localhost",
+    "description": "PostgreSQL server hostname or IP."
+  },
+  "gpostgresql_port": {
+    "type": "number",
+    "default": 5432,
+    "description": "PostgreSQL server port."
+  },
+  "gpostgresql_user": {
+    "type": "string",
+    "default": "pdns",
+    "description": "PostgreSQL username with access to the PowerDNS database."
+  },
+  "gpostgresql_password": {
+    "type": "string",
+    "default": "",
+    "description": "Password for the PostgreSQL user."
+  },
+  "gpostgresql_dbname": {
+    "type": "string",
+    "default": "pdns",
+    "description": "Name of the PostgreSQL database to use."
+  },
+  "gpostgresql_dnssec": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable DNSSEC in PostgreSQL backend."
+  },
+  "allow_axfr_ips": {
+    "type": "list",
+    "default": [],
+    "items": {
+      "type": "string",
+      "format": "ip_cidr",
+      "description": "List of IP addresses or CIDR blocks allowed to perform AXFR (zone transfers)."
+    },
+    "description": "List of trusted IPs permitted to request zone transfers (AXFR)."
+  },
+  "mode": {
+    "type": "string",
+    "default": "master",
+    "description": "Server mode: 'master' for authoritative-only, 'slave' for slave zones only, 'hybrid' for both."
+  },
+  "edns_subnet_processing": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable processing of EDNS Client Subnet (ECS) option to adapt responses to client location."
+  },
+  "neg_query_cache_ttl": {
+    "type": "number",
+    "default": 60,
+    "description": "TTL (seconds) for negative caching (NXDOMAIN/NODATA responses)."
+  },
+  "default_soa_name": {
+    "type": "string",
+    "default": "ns1.example.com.",
+    "description": "Default SOA primary nameserver (must be FQDN with trailing dot)."
+  },
+  "default_soa_mail": {
+    "type": "string",
+    "default": "hostmaster.example.com.",
+    "description": "Default SOA email (must use dot instead of @, e.g., hostmaster.example.com.)."
+  },
+  "tcp_fast_open": {
+    "type": "number",
+    "default": 0,
+    "description": "TCP Fast Open level: 0=disabled, 1=passive, 2=active, 3=both."
+  },
+  "max_tcp_clients": {
+    "type": "number",
+    "default": 30,
+    "description": "Maximum number of TCP connections allowed per client IP."
+  },
+  "affinity_mask": {
+    "type": "string",
+    "default": "0x0",
+    "description": "Hex bitmask to bind threads to specific CPU cores (e.g., '0xff' for cores 0\u20137)."
+  },
+  "delayed_answer_timeout": {
+    "type": "number",
+    "default": 50,
+    "description": "Timeout (ms) before PowerDNS sends a 'delayed answer' header (for slow backends)."
+  },
+  "allow_query_localhost": {
+    "type": "bool",
+    "default": false,
+    "description": "Allow queries for localhost-range addresses (e.g., 127.0.0.1) from external IPs (security risk)."
+  }
+}

@@ -1,0 +1,130 @@
+{
+  "director": {
+    "name": "BaculaDir",
+    "port": 9101,
+    "query_file": "/etc/bacula/scripts/query.sql",
+    "working_directory": "/var/lib/bacula",
+    "pid_directory": "/run/bacula",
+    "max_concurrent_jobs": 20,
+    "password": "secret-dir-password",
+    "address": "0.0.0.0",
+    "acl_enabled": false
+  },
+  "catalog": {
+    "name": "MyCatalog",
+    "db_name": "bacula",
+    "db_user": "bacula",
+    "db_password": "secret-db-password",
+    "db_driver": "postgresql",
+    "db_port": 5432,
+    "db_host": "localhost"
+  },
+  "messages": {
+    "mail_host": "localhost",
+    "from_address": "bacula@example.com",
+    "admin_email": "admin@example.com",
+    "log_file": "/var/log/bacula/bacula.log"
+  },
+  "schedules": [
+    {
+      "name": "Daily",
+      "runs": [
+        {
+          "day_of_week": "Sun",
+          "time": "01:05",
+          "comment": "Sunday full backup"
+        },
+        {
+          "day_of_week": "Mon-Sat",
+          "time": "02:00",
+          "comment": "Daily incremental"
+        }
+      ]
+    }
+  ],
+  "filesets": [
+    {
+      "name": "AllFiles",
+      "enable_checksum": true,
+      "includes": [
+        {
+          "paths": [
+            "/",
+            "/home",
+            "/etc"
+          ],
+          "options": [
+            "Compression=GZIP",
+            "IgnoreFileSize"
+          ],
+          "comment": "Core system files"
+        }
+      ],
+      "excludes": [
+        {
+          "paths": [
+            "/proc",
+            "/sys",
+            "/dev",
+            "/tmp"
+          ],
+          "options": [
+            "WildcardDir = /tmp/*"
+          ],
+          "comment": "System virtual/temp dirs"
+        }
+      ]
+    }
+  ],
+  "clients": [
+    {
+      "name": "client1-fd",
+      "address": "10.0.0.10",
+      "fd_port": 9102,
+      "password": "client1-secret",
+      "file_retention": "30 days",
+      "job_retention": "6 months",
+      "auto_prune": true,
+      "bootstrap_file": "/var/lib/bacula/client1.bsr"
+    }
+  ],
+  "storages": [
+    {
+      "name": "FileStorage",
+      "address": "localhost",
+      "sd_port": 9103,
+      "password": "storage-secret",
+      "device_name": "FileChgr1",
+      "media_type": "File",
+      "max_job_concurrency": 2
+    }
+  ],
+  "pools": [
+    {
+      "name": "Default",
+      "pool_type": "Backup",
+      "recycle": true,
+      "auto_prune": true,
+      "volume_retention": "365 days",
+      "max_volume_bytes": "50G",
+      "max_volumes": 10,
+      "label_format": "Vol-",
+      "volume_use_duration": "24 hours",
+      "max_job_duration": "168 hours"
+    }
+  ],
+  "jobs": [
+    {
+      "name": "BackupClient1",
+      "job_type": "Backup",
+      "client_name": "client1-fd",
+      "fileset_name": "AllFiles",
+      "schedule_name": "Daily",
+      "storage_name": "FileStorage",
+      "pool_name": "Default",
+      "priority": 10,
+      "full_backup_interval_days": 7,
+      "write_bootstrap": "/var/lib/bacula/client1.bsr"
+    }
+  ]
+}

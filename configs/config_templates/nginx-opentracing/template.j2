@@ -1,0 +1,100 @@
+# Main NGINX configuration with OpenTracing support
+# Global user and group context for worker processes
+user nginx;
+worker_processes auto;
+error_log /var/log/nginx/error.log warn;
+pid /var/run/nginx.pid;
+
+# Event-driven I/O model tuning
+events {
+    worker_connections 1024;
+}
+
+# HTTP block: core routing, tracing, and upstream configuration
+http {
+    include /etc/nginx/mime.types;
+    default_type application/octet-stream;
+
+    # Logging format and access log path
+    log_format main '$remote_addr - $remote_user [$time_local] "$request" '
+                    '$status $body_bytes_sent "$http_referer" '
+                    '"$http_user_agent" "$http_x_forwarded_for"';
+    access_log /var/log/nginx/access.log main;
+
+    # Enable sendfile for optimized static file delivery
+    sendfile on;
+    keepalive_timeout 65;
+
+    # OpenTracing global configuration
+    # Initialize OpenTracing library and specify tracing provider
+    opentracing on;
+    opentracing_configuration /etc/nginx/opentracing.json;
+
+    # Load dynamic modules (e.g., opentracing module)
+    include /etc/nginx/modules-enabled/*.conf;
+
+    # Upstream definitions for load-balanced backends
+{% for upstream in upstreams %}
+    # {{ upstream.name }}: {{ upstream.description }}
+    upstream {{ upstream.name }} {
+{%     for server in upstream.servers %}
+        server {{ server.address }}:{{ server.port }} weight={{ server.weight }}{% if server.backup %} backup{% endif %};
+{%     endfor %}
+    }
+{% endfor %}
+
+    # Server blocks (virtual hosts)
+{% for server in servers %}
+    server {
+        listen {{ server.listen.port }}{% if server.listen.ssl %} ssl{% endif %};
+        server_name {{ server.name }};
+
+{%     if server.listen.ssl %}
+        # TLS configuration for HTTPS
+        ssl_certificate /etc/nginx/ssl/{{ server.ssl_cert }};
+        ssl_certificate_key /etc/nginx/ssl/{{ server.ssl_key }};
+        ssl_protocols TLSv1.2 TLSv1.3;
+        ssl_ciphers HIGH:!aNULL:!MD5;
+{%     endif %}
+
+        # Tracing span tags for request context
+        opentracing_propagate_context;
+
+{%     if server.tracing_enabled is not defined or server.tracing_enabled %}
+        # OpenTracing-specific tags for this virtual host
+        opentracing_tag http.method $request_method;
+        opentracing_tag http.url $request_uri;
+{%     endif %}
+
+        # Root location block (default)
+        location / {
+            try_files $uri $uri/ =404;
+        }
+
+{%     for location in server.locations %}
+        # {{ location.path }}: {{ location.description }}
+        location {{ location.path }} {
+{%         if location.upstream %}
+            proxy_pass http://{{ location.upstream }};
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+{%         endif %}
+{%         if location.auth_basic %}
+            auth_basic "{{ location.auth_basic }}";
+            auth_basic_user_file {{ location.auth_basic_file }};
+{%         endif %}
+{%         if location.rate_limit_zone %}
+            limit_req zone={{ location.rate_limit_zone }} burst={{ location.rate_limit_burst }} nodelay;
+{%         endif %}
+{%         if location.root %}
+            root {{ location.root }};
+            index {{ location.index | join(' ') }};
+{%         endif %}
+        }
+{%     endfor %}
+
+    }
+{% endfor %}
+}

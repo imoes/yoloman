@@ -1,0 +1,66 @@
+# FusionInventory agent configuration file
+# This file is managed by the system administrator.
+
+[main]
+# Debug level: 0 = quiet, 1 = info, 2 = debug
+debug = {{ debug_level }}
+# Log file path
+logfile = {{ log_file }}
+# Enable or disable the agent
+enabled = {{ enabled | lower }}
+# Server URL for reporting
+server = {{ server_url }}
+# Interval between inventory runs (in seconds)
+interval = {{ inventory_interval }}
+# Timeout for network operations (in seconds)
+timeout = {{ timeout }}
+# User under which the agent runs (if not root)
+user = {{ user }}
+# Group under which the agent runs (if not root)
+group = {{ group }}
+# Maximum log file size (MB); 0 means no rotation
+log_size = {{ log_size }}
+
+# SSL/TLS options
+{% if ssl_enabled %}
+# Enable SSL/TLS for communication with server
+ssl = 1
+# Path to client certificate (PEM format)
+ssl_cert = {{ ssl_cert_path }}
+# Path to client private key (PEM format)
+ssl_key = {{ ssl_key_path }}
+# Path to CA certificate bundle for verifying server
+ssl_ca_cert = {{ ssl_ca_cert_path }}
+# Allow self-signed certificates (0 = strict, 1 = allow self-signed)
+ssl_allow_self_signed = {{ ssl_allow_self_signed | lower }}
+{% else %}
+ssl = 0
+{% endif %}
+
+# Optional: additional tags to attach to inventory
+{% if extra_tags | length > 0 %}
+tags = {{ extra_tags | join(', ') }}
+{% endif %}
+
+# Plugin configuration sections
+# Each plugin may be enabled/disabled and configured independently
+{% for plugin in plugins %}
+# Plugin: {{ plugin.name }}
+[plugin:{{ plugin.name }}]
+enabled = {{ plugin.enabled | lower }}
+{% if plugin.config %}
+{% for key, value in plugin.config.items() %}
+{{ key }} = {{ value }}
+{% endfor %}
+{% endif %}
+{% endfor %}
+
+# Local execution hooks
+# Command to run before inventory (if any)
+{% if pre_inventory_cmd %}
+pre_inventory_cmd = {{ pre_inventory_cmd }}
+{% endif %}
+# Command to run after inventory (if any)
+{% if post_inventory_cmd %}
+post_inventory_cmd = {{ post_inventory_cmd }}
+{% endif %}

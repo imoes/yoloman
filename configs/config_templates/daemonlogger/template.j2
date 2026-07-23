@@ -1,0 +1,59 @@
+# /etc/default/daemonlogger
+# Shell defaults sourced by /etc/init.d/daemonlogger or systemd EnvironmentFile.
+# All variables map directly to daemonlogger CLI flags; see daemonlogger(8).
+
+# Enable or disable automatic start of the daemon at boot (yes/no)
+START_DAEMONLOGGER="{{ 'yes' if start_enabled else 'no' }}"
+
+# System user daemonlogger drops privileges to after binding the raw capture socket (-u)
+DAEMONLOGGER_USER="{{ daemon_user }}"
+
+# System group daemonlogger drops privileges to after binding the raw capture socket (-g)
+DAEMONLOGGER_GROUP="{{ daemon_group }}"
+
+# Network interface to capture packets from (positional argument passed to daemonlogger)
+INTERFACE="{{ interface }}"
+
+# Directory where rotating pcap log files are written (-l)
+LOGDIR="{{ log_dir }}"
+
+# Filename prefix for pcap log files (-n); a Unix timestamp suffix is appended automatically
+LOG_PREFIX="{{ log_prefix }}"
+
+# Per-packet snapshot length in bytes (-s); 1514 covers a standard 1500-byte Ethernet payload
+SNAPLEN={{ snaplen }}
+
+# Roll over to a new pcap file once this many bytes have been written (-S); 0 disables size-based rollover
+ROLLOVER_SIZE={{ rollover_size }}
+
+# Roll over to a new pcap file after this many seconds (-t); 0 disables time-based rollover
+ROLLOVER_TIME={{ rollover_time }}
+
+# Maximum number of pcap files retained on disk (-M); oldest is deleted when the limit is hit; 0 = unlimited
+MAX_FILES={{ max_files }}
+
+# Soft-tap output interface (-T): a verbatim copy of each captured packet is forwarded here; empty = disabled
+TAP_INTERFACE="{{ tap_interface }}"
+
+# Path to the PID file (-p); the parent directory must exist and be writable by DAEMONLOGGER_USER
+PIDFILE="{{ pid_file }}"
+
+{% if verbose %}
+# Verbose/debug output to syslog enabled (-v); disable in production to avoid log noise
+VERBOSE=1
+{% else %}
+# Verbose/debug output to syslog disabled
+VERBOSE=0
+{% endif %}
+
+{% if bpf_rules %}
+# Berkeley Packet Filter expression passed to libpcap (-f); individual rule atoms are OR-combined
+{% for rule in bpf_rules %}# Rule {{ loop.index }}: {{ rule.description }}
+{% endfor %}BPF_FILTER="{% for rule in bpf_rules %}{% if not loop.first %} or {% endif %}{{ rule.expr }}{% endfor %}"
+{% else %}
+# No BPF filter — all traffic on INTERFACE is captured
+BPF_FILTER=""
+{% endif %}
+
+# Additional command-line flags passed verbatim to daemonlogger (for options not covered above)
+EXTRA_ARGS="{{ extra_args }}"

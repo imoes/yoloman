@@ -1,0 +1,93 @@
+{
+  "bind_address": {
+    "type": "string",
+    "default": "0.0.0.0",
+    "description": "Public IPv4 address the Teredo server will bind to. Must be reachable from the internet."
+  },
+  "port": {
+    "type": "number",
+    "default": 3544,
+    "description": "UDP port number used for Teredo traffic. Must match firewall rules."
+  },
+  "refresh_rate": {
+    "type": "number",
+    "default": 30,
+    "description": "Interval in seconds for Teredo clients to refresh their bindings. Lower values increase traffic."
+  },
+  "max_clients_per_prefix": {
+    "type": "number",
+    "default": 100,
+    "description": "Maximum number of Teredo clients allowed per /32 client prefix. Prevents resource exhaustion."
+  },
+  "log_level": {
+    "type": "number",
+    "default": 3,
+    "description": "Logging verbosity: 1=debug, 2=info, 3=notice (default), 4=warn, 5=error, 6=crit."
+  },
+  "log_file": {
+    "type": "string",
+    "default": "",
+    "description": "Path to log file (e.g., /var/log/miredo/miredo-server.log). Empty string logs to stderr."
+  },
+  "enable_server": {
+    "type": "boolean",
+    "default": true,
+    "description": "Enable Teredo server functionality. Set to false to run only relay or for maintenance."
+  },
+  "relay_interfaces": {
+    "type": "list",
+    "default": [],
+    "description": "List of relay interfaces with IPv4 addresses and optional MTU settings. Required if acting as Teredo relay.",
+    "items": {
+      "type": "object",
+      "fields": {
+        "address": {
+          "type": "string",
+          "description": "Public IPv4 address of the relay interface (e.g., 192.0.2.1)."
+        },
+        "mtu": {
+          "type": "number",
+          "description": "MTU for Teredo packets on this interface (default: 1280 if omitted)."
+        }
+      }
+    }
+  },
+  "client_prefixes": {
+    "type": "list",
+    "default": [],
+    "description": "List of IPv6 prefixes that clients will use (e.g., 2001:0000::/32). Multiple prefixes allow multiple deployment pools.",
+    "items": {
+      "type": "string",
+      "description": "IPv6 prefix (CIDR notation) for client Teredo addresses."
+    }
+  },
+  "trusted_prefixes": {
+    "type": "list",
+    "default": [],
+    "description": "List of IPv4 prefixes considered trusted for relay operations (e.g., 192.0.2.0/24). Prevents spoofing.",
+    "items": {
+      "type": "string",
+      "description": "IPv4 prefix in CIDR notation that is authorized for relay traffic."
+    }
+  },
+  "client_pool_start": {
+    "type": "string",
+    "default": "2001:0000:0000:0001::",
+    "description": "First IPv6 address in the client pool (must be within the client prefix range)."
+  },
+  "client_pool_end": {
+    "type": "string",
+    "default": "2001:0000:0000:ffff::",
+    "description": "Last IPv6 address in the client pool (must be within the client prefix range)."
+  },
+  "server_address": {
+    "type": "string",
+    "default": "2001:0000:4137:9e00::1",
+    "description": "IPv6 address of the Teredo server itself (must be within client pool range)."
+  },
+  "enable_forwarding": {
+    "type": "boolean",
+    "default": true,
+    "description": "Enable kernel IPv6 packet forwarding for Teredo tunneling. Required for relay/forwarding behavior."
+  }
+}

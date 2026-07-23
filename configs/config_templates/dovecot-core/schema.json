@@ -1,0 +1,174 @@
+{
+  "protocols": {
+    "type": "list",
+    "default": [
+      "imap",
+      "pop3",
+      "lmtp"
+    ],
+    "description": "Protocols to enable. Choose from: imap, pop3, lmtp, lda"
+  },
+  "listen": {
+    "type": "list",
+    "default": [],
+    "description": "IP addresses or hostnames to bind to (empty = all interfaces)"
+  },
+  "mail_location": {
+    "type": "string",
+    "default": "maildir:~/.maildir",
+    "description": "Mail storage format and path template (e.g., 'maildir:~/.maildir' or 'mbox:~/mail:INBOX=/var/mail/%u')"
+  },
+  "log_path": {
+    "type": "string",
+    "default": "/var/log/dovecot.log",
+    "description": "Path to main error log file"
+  },
+  "info_log_path": {
+    "type": "string",
+    "default": "/var/log/dovecot-info.log",
+    "description": "Path to info-level log file"
+  },
+  "ssl": {
+    "type": "string",
+    "default": "required",
+    "description": "SSL/TLS mode: 'yes', 'optional', or 'required'"
+  },
+  "ssl_cert": {
+    "type": "string",
+    "default": "/etc/ssl/certs/dovecot.pem",
+    "description": "Path to SSL certificate file"
+  },
+  "ssl_key": {
+    "type": "string",
+    "default": "/etc/ssl/private/dovecot.key",
+    "description": "Path to SSL private key file"
+  },
+  "ssl_min_protocol": {
+    "type": "string",
+    "default": "TLSv1.2",
+    "description": "Minimum SSL/TLS protocol version (e.g., TLSv1.2, TLSv1.3)"
+  },
+  "ssl_prefer_server_ciphers": {
+    "type": "bool",
+    "default": true,
+    "description": "Prefer server cipher order over client"
+  },
+  "disable_plaintext_auth": {
+    "type": "bool",
+    "default": true,
+    "description": "Refuse plaintext authentication unless TLS is active"
+  },
+  "auth_mechanisms": {
+    "type": "list",
+    "default": [
+      "plain",
+      "login"
+    ],
+    "description": "Authentication mechanisms to support (e.g., ['plain', 'login', 'cram-md5', 'digest-md5'])"
+  },
+  "passdb_args": {
+    "type": "object",
+    "default": {
+      "scheme": "sha512-crypt",
+      "ldap_uri": "ldap://ldap.example.com",
+      "ldap_base": "ou=users,dc=example,dc=com"
+    },
+    "description": "Arguments passed to LDAP passdb (JSON object; keys: scheme, ldap_uri, ldap_base, etc.)"
+  },
+  "userdb_args": {
+    "type": "object",
+    "default": {
+      "ldap_uri": "ldap://ldap.example.com",
+      "ldap_base": "ou=users,dc=example,dc=com"
+    },
+    "description": "Arguments passed to LDAP userdb"
+  },
+  "ldap": {
+    "type": "object",
+    "default": {
+      "host": [
+        "ldap.example.com"
+      ],
+      "uris": [
+        "ldap://ldap.example.com"
+      ],
+      "dn": "uid=admin,dc=example,dc=com",
+      "dnpass": "secret",
+      "auth_bind": true,
+      "base": "ou=users,dc=example,dc=com",
+      "scope": "subtree",
+      "user_filter": "(&(objectClass=posixAccount)(uid=%u))",
+      "pass_filter": "(&(objectClass=posixAccount)(uid=%u))",
+      "default_pass_scheme": "sha512-crypt",
+      "user_attrs": [
+        "{homeDirectory} = home",
+        "{mailHomeDirectory} = mail",
+        "{uidNumber} = uid",
+        "{gidNumber} = gid"
+      ],
+      "user_global_uid": "%u"
+    },
+    "description": "LDAP connection and query configuration"
+  },
+  "services": {
+    "type": "object",
+    "default": {
+      "imap": {
+        "port": 143,
+        "ssl_port": 993
+      },
+      "pop3": {
+        "port": 110,
+        "ssl_port": 995
+      },
+      "lmtp": {
+        "mode": "0666",
+        "user": "dovecot",
+        "group": "dovecot"
+      },
+      "lda_auth": {
+        "mode": "0660",
+        "user": "dovecot",
+        "group": "dovecot"
+      },
+      "auth_userdb": {
+        "mode": "0666",
+        "user": "dovecot",
+        "group": "dovecot"
+      },
+      "auth_client": {
+        "mode": "0666",
+        "user": "dovecot"
+      }
+    },
+    "description": "Service-specific listener and socket configuration"
+  },
+  "mail_max_userip_connections": {
+    "type": "number",
+    "default": 10,
+    "description": "Maximum simultaneous IMAP connections per user per IP"
+  },
+  "mail_max_userip_disconnects": {
+    "type": "number",
+    "default": 30,
+    "description": "Maximum disconnects per user per IP before rate-limiting"
+  },
+  "auth_worker_max": {
+    "type": "number",
+    "default": 2,
+    "description": "Maximum auth worker processes (increase for high LDAP load)"
+  },
+  "mail_plugins": {
+    "type": "list",
+    "default": [
+      "acl",
+      "quota"
+    ],
+    "description": "Mail plugins to load (e.g., ['acl', 'quota', 'imap_acl', 'fts', 'fts_lucene'])"
+  },
+  "quota_default_limit": {
+    "type": "number",
+    "default": 1024,
+    "description": "Default per-user quota in megabytes (if quota plugin enabled)"
+  }
+}

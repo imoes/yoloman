@@ -1,0 +1,37 @@
+# SNMP trap daemon configuration
+# Listen on specified ports for SNMP traps
+listen {{ snmptrapd.listen_addresses | join(', ') }} {{ snmptrapd.listen_ports | join(', ') }}
+
+# Enable/disable authentication (SNMPv1/v2c) via community strings
+{% for community in snmptrapd.communities %}
+# Accept SNMPv1/v2c traps with community '{{ community.name }}' for authentication
+authCommunity log,execute {{ community.name }}
+{% endfor %}
+
+# Enable SNMPv3 user authentication and privacy
+{% for user in snmptrapd.v3_users %}
+# SNMPv3 user '{{ user.name }}' with authentication and privacy protocol
+authUser log {{ user.name }}{% if user.auth %},{{ user.auth }}{% endif %}{% if user.priv %},{{ user.priv }}{% endif %}
+{% endfor %}
+
+# Handle traps via external scripts based on OID patterns
+{% for handler in snmptrapd.handlers %}
+# Run '{{ handler.script }}' when trap matches OID pattern '{{ handler.oid }}'
+traphandle {{ handler.oid }} {{ handler.script }}
+{% endfor %}
+
+# Logging options
+# Log to syslog facility
+logOutput {{ snmptrapd.log_output }}
+
+# Do not drop privileges (run as root) or optionally drop to user
+{% if snmptrapd.drop_privileges %}
+# Drop privileges to user '{{ snmptrapd.priv_user }}' after binding to ports
+createUser {{ snmptrapd.priv_user }}
+{% endif %}
+
+# Enable/disable logging of incoming traps (debugging)
+{% if snmptrapd.debug %}
+# Enable full debugging output
+debug
+{% endif %}

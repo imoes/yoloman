@@ -1,0 +1,104 @@
+{
+  "general": {
+    "enabled": true,
+    "hostname": "router.intranet.university.edu",
+    "timezone": "Europe/Berlin"
+  },
+  "interfaces": {
+    "wan_interface": "enp1s0",
+    "lan_interface": "enp2s0",
+    "lan_extra": [
+      "enp2s0.100",
+      "enp2s0.200"
+    ]
+  },
+  "ipam": {
+    "lan_subnet": "10.10.0.0/24",
+    "lan_dhcp_start": "10.10.0.100",
+    "lan_dhcp_end": "10.10.0.200",
+    "lan_dhcp_lease_time": 43200,
+    "lan_dns_servers": [
+      "10.10.0.1",
+      "10.10.0.2",
+      "8.8.8.8"
+    ]
+  },
+  "nat": {
+    "enabled": true,
+    "masquerade_interface": "enp1s0",
+    "enable_port_forwarding": true,
+    "port_forwards": [
+      {
+        "name": "webserver-internal",
+        "proto": "tcp",
+        "external_port": 80,
+        "internal_ip": "10.10.0.10",
+        "internal_port": 80
+      },
+      {
+        "name": "ssh-gateway",
+        "proto": "tcp",
+        "external_port": 2222,
+        "internal_ip": "10.10.0.5",
+        "internal_port": 22
+      }
+    ]
+  },
+  "firewall": {
+    "default_deny_in": true,
+    "allow_established": true,
+    "allow_loopback": true,
+    "allowed_services": [
+      {
+        "name": "ssh",
+        "interfaces": [
+          "lan",
+          "enp2s0",
+          "enp2s0.100"
+        ]
+      },
+      {
+        "name": "https",
+        "interfaces": [
+          "lan",
+          "enp2s0"
+        ]
+      }
+    ]
+  },
+  "ntp": {
+    "server": "ntp.university.edu",
+    "enabled": true
+  },
+  "logging": {
+    "level": "info",
+    "log_target": "syslog"
+  },
+  "backup": {
+    "enabled": true,
+    "backup_dir": "/var/backups/debian-edu-router",
+    "max_backups": 7,
+    "interval_hours": 24
+  },
+  "monitoring": {
+    "health_checks": true,
+    "interval_seconds": 60,
+    "service_timeout": 10,
+    "monitored_services": [
+      {
+        "name": "dhcp",
+        "protocol": "tcp",
+        "host": "127.0.0.1",
+        "port": 67
+      },
+      {
+        "name": "admin-gui",
+        "protocol": "http",
+        "host": "127.0.0.1",
+        "port": 8443,
+        "path": "/status",
+        "expect_status": 200
+      }
+    ]
+  }
+}

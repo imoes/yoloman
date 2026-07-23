@@ -1,0 +1,62 @@
+# Storage backend configuration — where registry data is persisted
+storage:
+  # Use filesystem storage; other backends (s3, gcs, azure, etc.) are possible
+  filesystem:
+    rootdirectory: {{ storage.filesystem.rootdirectory }}
+  # Delete blobs/images only when explicitly requested
+  delete:
+    enabled: {{ storage.delete.enabled }}
+
+# HTTP server configuration — how the registry listens and responds
+http:
+  addr: {{ http.addr }}
+  # TLS configuration (optional; leave commented for plain HTTP)
+  {% if http.tls.enabled %}
+  tls:
+    certificate: {{ http.tls.certificate }}
+    key: {{ http.tls.key }}
+  {% endif %}
+  # Optional: access logging
+  {% if http.debug.enabled %}
+  debug:
+    addr: {{ http.debug.addr }}
+    # Enable pprof for profiling, or just verbose logs
+    {% if http.debug.pprof.enabled %}
+    pprof:
+      enabled: {{ http.debug.pprof.enabled }}
+    {% endif %}
+    # Log request details (paths, methods, etc.)
+    prometheus:
+      enabled: {{ http.debug.prometheus.enabled }}
+  {% endif %}
+
+# Authentication configuration — who can push/pull and with what permissions
+auth:
+  # Use htpasswd for simple username/password auth; replace with tokens or LDAP in production
+  htpasswd:
+    realm: {{ auth.htpasswd.realm }}
+    path: {{ auth.htpasswd.path }}
+
+# Logging configuration — where and how detailed logs are written
+log:
+  level: {{ log.level }}
+  {% if log.formatter %}
+  formatter: {{ log.formatter }}
+  {% endif %}
+  {% if log.fields %}
+  fields:
+    service: {{ log.fields.service }}
+  {% endif %}
+
+# Health check endpoints (for container orchestrators)
+health:
+  {% for name, health_config in health.items() %}
+  {{ name }}:
+    enabled: {{ health_config.enabled }}
+    {% if health_config.interval %}
+    interval: {{ health_config.interval }}
+    {% endif %}
+    {% if health_config.threshold %}
+    threshold: {{ health_config.threshold }}
+    {% endif %}
+  {% endfor %}

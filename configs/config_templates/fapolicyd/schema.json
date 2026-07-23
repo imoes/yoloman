@@ -1,0 +1,98 @@
+{
+  "enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Whether the fapolicyd service is enabled to start at boot."
+  },
+  "log_level": {
+    "type": "number",
+    "default": 3,
+    "description": "Verbosity of logging: 0 (none), 1 (errors only), 2 (warnings), 3 (info), 4 (debug)."
+  },
+  "log_file": {
+    "type": "string",
+    "default": "/var/log/fapolicyd.log",
+    "description": "Path to the log file, or 'syslog' to use system logging."
+  },
+  "trust_network": {
+    "type": "bool",
+    "default": true,
+    "description": "If true, fapolicyd logs access decisions immediately (real-time logging). If false, decisions are buffered (better performance)."
+  },
+  "network_trust": {
+    "type": "bool",
+    "default": false,
+    "description": "If true, trust network-based policy sources (e.g., NIS, LDAP). Enable only on secure networks."
+  },
+  "event_buffer_size": {
+    "type": "number",
+    "default": 10000,
+    "description": "Maximum number of events to buffer before dropping new events during high load."
+  },
+  "rules_dir": {
+    "type": "string",
+    "default": "/etc/fapolicyd/rules.d",
+    "description": "Directory containing `.rules` files that define access policies."
+  },
+  "trust_paths": {
+    "type": "list",
+    "default": [
+      "/bin",
+      "/sbin",
+      "/usr/bin",
+      "/usr/sbin",
+      "/lib",
+      "/lib64",
+      "/usr/lib",
+      "/usr/lib64",
+      "/etc",
+      "/var/log",
+      "/dev"
+    ],
+    "description": "List of paths considered trusted \u2014 files under these paths bypass logging and are implicitly allowed.",
+    "items": {
+      "type": "string",
+      "description": "Absolute path or glob pattern to a trusted directory (e.g., '/usr/bin')."
+    }
+  },
+  "format": {
+    "type": "string",
+    "default": "simple",
+    "description": "Log format: 'simple' (human-readable), 'json' (structured), or 'syslog' (system logger)."
+  },
+  "integrity_check": {
+    "type": "bool",
+    "default": false,
+    "description": "If true, compute checksums on file access (ensures file integrity). May impact performance."
+  },
+  "metadata_cache_ttl": {
+    "type": "number",
+    "default": 60,
+    "description": "Time in seconds to cache file metadata before revalidating. 0 disables caching."
+  },
+  "security_label": {
+    "type": "bool",
+    "default": false,
+    "description": "If true, integrate with AppArmor/SELinux security labels for labeling-based policies."
+  },
+  "pid_file": {
+    "type": "string",
+    "default": "/run/fapolicyd/fapolicyd.pid",
+    "description": "Path to the PID file used to track the daemon process."
+  },
+  "workers": {
+    "type": "number",
+    "default": 0,
+    "description": "Number of worker threads for policy evaluation. 0 = auto-detect (CPU count)."
+  },
+  "rule_cache": {
+    "type": "bool",
+    "default": true,
+    "description": "If true, cache compiled policy rules for faster daemon startup."
+  },
+  "rule_cache_file": {
+    "type": "string",
+    "default": "/var/cache/fapolicyd/rules.cache",
+    "description": "Path to the compiled policy cache file."
+  }
+}

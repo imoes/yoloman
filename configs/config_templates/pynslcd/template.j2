@@ -1,0 +1,99 @@
+# URI(s) of LDAP server(s) to query
+uri {{ ldap_uris | join(' ') }}
+
+# Base DN for directory searches
+base {{ ldap_base }}
+
+# LDAP protocol version (3 is standard)
+ldap_version {{ ldap_version }}
+
+# Bind DN for simple bind authentication (optional)
+{% if ldap_bind_dn %}# Bind DN for authentication
+binddn {{ ldap_bind_dn }}
+{% endif %}
+
+# Bind credentials for the above DN (optional, may use SASL instead)
+{% if ldap_bind_pw %}# Credentials for bind DN
+bindpw {{ ldap_bind_pw }}
+{% endif %}
+
+# SASL mechanism (e.g., GSSAPI); leave empty to disable SASL
+{% if sasl_mech %}# SASL authentication mechanism
+sasl_mech {{ sasl_mech }}
+{% endif %}
+
+# Path to SASL credential cache (e.g., for Kerberos)
+{% if sasl_authzid %}# AuthzID to use with SASL
+sasl_authzid {{ sasl_authzid }}
+{% endif %}
+
+# Root CA certificate for TLS (optional, enables start_tls or ldaps)
+{% if tls_cacert %}# CA certificate file for TLS verification
+tls_cacert {{ tls_cacert }}
+{% endif %}
+
+# Certificate and key for client TLS (optional)
+{% if tls_cert %}tls_cert {{ tls_cert }}
+{% endif %}
+{% if tls_key %}tls_key {{ tls_key }}
+{% endif %}
+
+# Verify TLS server certificate (on/off)
+tls_reqcert {{ tls_reqcert }}
+
+# SSL/TLS mode: 'start_tls', 'ldaps', or '' (plain ldap)
+ssl {{ ssl_mode }}
+
+# Reconnect interval on connection loss (seconds)
+reconnect_retry {{ reconnect_retry }}
+
+# Number of concurrent threads
+threads {{ nslcd_threads }}
+
+# Minimum and maximum number of file descriptors per thread
+min_uid {{ min_uid }}
+max_uid {{ max_uid }}
+
+# LDAP search base and filter for users
+{% for user in user_maps %}
+# Map: {{ user.name }}
+map passwd {{ user.map_passwd | default('') }}
+map shadow {{ user.map_shadow | default('') }}
+map group {{ user.map_group | default('') }}
+{% if user.filter %}filter {{ user.filter }}
+{% endif %}
+{% endfor %}
+
+# LDAP search base and filter for groups
+{% for group in group_maps %}
+# Group map: {{ group.name }}
+group {{ group.ldap_attr }} {{ group.local_attr }}
+{% endfor %}
+
+# PAM-specific mappings
+{% for pam in pam_maps %}
+# PAM mapping: {{ pam.name }}
+pam_filter {{ pam.filter }}
+pam_login_attribute {{ pam.login_attr }}
+{% if pam.ssh_authz_attr %}pam_ssh_authz_attribute {{ pam.ssh_authz_attr }}
+{% endif %}
+{% endfor %}
+
+# Cache TTLs (seconds)
+base_time {{ base_time }}
+reconnect_time {{ reconnect_time }}
+
+# User/group to run daemon as
+uid {{ daemon_uid }}
+gid {{ daemon_gid }}
+
+# Listen address and port (for PAM socket, if used)
+{% if listen_addr %}# Listen address for local socket
+uri unix://{{ listen_addr }}
+{% endif %}
+
+# PID file
+pidfile {{ pidfile }}
+
+# Debug mode (on/off)
+debug {{ debug }}

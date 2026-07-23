@@ -1,0 +1,29 @@
+<?xml version="1.0"?>
+<!-- Root element for iwatch configuration -->
+<iwatch>
+  <!-- Path to the PID file for the daemon -->
+  <pidfile>/var/run/iwatch.pid</pidfile>
+  <!-- Email address to receive security alerts -->
+  <email>{{ email_to }}</email>
+  <!-- Logging level: debug, info, notice, warning, error, critical, alert, emergency -->
+  <loglevel>{{ log_level }}</loglevel>
+  <!-- Path to the log file for iwatch -->
+  <logfile>{{ log_file }}</logfile>
+  <!-- Number of worker processes (0 = autodetect based on CPU cores) -->
+  <worker>{{ worker_count }}</worker>
+  <!-- Timeout (seconds) for inotify event processing -->
+  <timeout>{{ timeout_seconds }}</timeout>
+  <!-- Enable or disable inotify kernel support (always true for modern Linux) -->
+  <use_kernel>{{ use_kernel }}</use_kernel>
+  <!-- List of monitored directories with alert rules -->
+  {% for dir in watch_dirs %}
+  <!-- Monitor directory: {{ dir.path }} with mode {{ dir.mode }} and alert types {{ dir.alerts | join(', ') }} -->
+  <watchlist>
+    <dir path="{{ dir.path }}" mode="{{ dir.mode }}" recursive="{{ dir.recursive }}">
+      <include pattern="{{ dir.include_pattern }}" />
+      <exclude pattern="{{ dir.exclude_pattern }}" />
+      <alert type="{{ dir.alert }}" to="{{ dir.alert_to | default(email_to) }}" />
+    </dir>
+  </watchlist>
+  {% endfor %}
+</iwatch>

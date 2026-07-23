@@ -1,0 +1,378 @@
+# Rendered by Netplan — YAML network configuration for systemd-networkd
+# See: https://netplan.io
+
+# Network version (required for Netplan to parse this file)
+network:
+  version: 2
+
+  # Optional: Define software-only (non-rendered) metadata
+  # renderer: optional, 'networkd' (default) or 'NetworkManager'
+  # renderer: {{ renderer | default('networkd') }}
+  {% if renderer is defined %}
+  renderer: {{ renderer }}
+  {% endif %}
+
+  # Define physical or virtual interfaces
+  {% if ethernets %}
+  ethernets:
+    {% for name, cfg in ethernets.items() %}
+    # Interface: {{ name }}
+    {{ name }}:
+      {% if cfg.get('dhcp4') is defined %}
+      dhcp4: {{ cfg.dhcp4 }}
+      {% endif %}
+      {% if cfg.get('dhcp6') is defined %}
+      dhcp6: {{ cfg.dhcp6 }}
+      {% endif %}
+      {% if cfg.get('addresses') is defined %}
+      addresses:
+        {% for addr in cfg.addresses %}
+        - {{ addr }}
+        {% endfor %}
+      {% endif %}
+      {% if cfg.get('gateway4') is defined %}
+      gateway4: {{ cfg.gateway4 }}
+      {% endif %}
+      {% if cfg.get('gateway6') is defined %}
+      gateway6: {{ cfg.gateway6 }}
+      {% endif %}
+      {% if cfg.get('nameservers') is defined %}
+      nameservers:
+        {% if cfg.nameservers.get('addresses') is defined %}
+        addresses:
+          {% for addr in cfg.nameservers.addresses %}
+          - {{ addr }}
+          {% endfor %}
+        {% endif %}
+        {% if cfg.nameservers.get('search') is defined %}
+        search:
+          {% for domain in cfg.nameservers.search %}
+          - {{ domain }}
+          {% endfor %}
+        {% endif %}
+      {% endif %}
+      {% if cfg.get('mtu') is defined %}
+      mtu: {{ cfg.mtu }}
+      {% endif %}
+      {% if cfg.get('optional') is defined %}
+      optional: {{ cfg.optional }}
+      {% endif %}
+      {% if cfg.get('link-local') is defined %}
+      link-local:
+        {% for ll in cfg['link-local'] %}
+        - {{ ll }}
+        {% endfor %}
+      {% endif %}
+      {% if cfg.get('accept-ra') is defined %}
+      accept-ra: {{ cfg.accept-ra }}
+      {% endif %}
+      {% if cfg.get('wake-on-lan') is defined %}
+      wake-on-lan: {{ cfg['wake-on-lan'] }}
+      {% endif %}
+      {% if cfg.get(' MAC') is defined %}
+      macaddress: {{ cfg[' MAC'] }}
+      {% endif %}
+    {% endfor %}
+  {% endif %}
+
+  # Define WiFi interfaces
+  {% if wifis %}
+  wifis:
+    {% for name, cfg in wifis.items() %}
+    # WiFi interface: {{ name }}
+    {{ name }}:
+      {% if cfg.get('access-points') is defined %}
+      access-points:
+        {% for ssid, ap_cfg in cfg.access-points.items() %}
+        "{{ ssid }}":
+          {% if ap_cfg.get('password') is defined %}
+          password: "{{ ap_cfg.password }}"
+          {% endif %}
+          {% if ap_cfg.get('hidden') is defined %}
+          hidden: {{ ap_cfg.hidden }}
+          {% endif %}
+          {% if ap_cfg.get('mode') is defined %}
+          mode: {{ ap_cfg.mode }}
+          {% endif %}
+          {% if ap_cfg.get('band') is defined %}
+          band: {{ ap_cfg.band }}
+          {% endif %}
+          {% if ap_cfg.get('channel') is defined %}
+          channel: {{ ap_cfg.channel }}
+          {% endif %}
+          {% if ap_cfg.get('bssid') is defined %}
+          bssid: "{{ ap_cfg.bssid }}"
+          {% endif %}
+    {% if ap_cfg.get('dhcp4') is defined %}
+          dhcp4: {{ ap_cfg.dhcp4 }}
+          {% endif %}
+          {% if ap_cfg.get('addresses') is defined %}
+          addresses:
+            {% for addr in ap_cfg.addresses %}
+            - {{ addr }}
+            {% endfor %}
+          {% endif %}
+          {% if ap_cfg.get('gateway4') is defined %}
+          gateway4: {{ ap_cfg.gateway4 }}
+          {% endif %}
+          {% if ap_cfg.get('nameservers') is defined %}
+          nameservers:
+            {% if ap_cfg.nameservers.get('addresses') is defined %}
+            addresses:
+              {% for addr in ap_cfg.nameservers.addresses %}
+              - {{ addr }}
+              {% endfor %}
+            {% endif %}
+          {% endif %}
+        {% endfor %}
+      {% endif %}
+      {% if cfg.get('dhcp4') is defined %}
+      dhcp4: {{ cfg.dhcp4 }}
+      {% endif %}
+      {% if cfg.get('dhcp6') is defined %}
+      dhcp6: {{ cfg.dhcp6 }}
+      {% endif %}
+    {% endfor %}
+  {% endif %}
+
+  # Define bridges (L2 switching between interfaces)
+  {% if bridges %}
+  bridges:
+    {% for name, cfg in bridges.items() %}
+    # Bridge: {{ name }}
+    {{ name }}:
+      {% if cfg.get('interfaces') is defined %}
+      interfaces:
+        {% for iface in cfg.interfaces %}
+        - {{ iface }}
+        {% endfor %}
+      {% endif %}
+      {% if cfg.get('parameters') is defined %}
+      parameters:
+        {% if cfg.parameters.get('stp') is defined %}
+        stp: {{ cfg.parameters.stp }}
+        {% endif %}
+        {% if cfg.parameters.get('forward-delay') is defined %}
+        forward-delay: {{ cfg.parameters.forward-delay }}
+        {% endif %}
+        {% if cfg.parameters.get('hello-time') is defined %}
+        hello-time: {{ cfg.parameters.hello-time }}
+        {% endif %}
+        {% if cfg.parameters.get('max-age') is defined %}
+        max-age: {{ cfg.parameters.max-age }}
+        {% endif %}
+        {% if cfg.parameters.get('priority') is defined %}
+        priority: {{ cfg.parameters.priority }}
+        {% endif %}
+      {% endif %}
+      {% if cfg.get('addresses') is defined %}
+      addresses:
+        {% for addr in cfg.addresses %}
+        - {{ addr }}
+        {% endfor %}
+      {% endif %}
+      {% if cfg.get('gateway4') is defined %}
+      gateway4: {{ cfg.gateway4 }}
+      {% endif %}
+      {% if cfg.get('gateway6') is defined %}
+      gateway6: {{ cfg.gateway6 }}
+      {% endif %}
+      {% if cfg.get('mtu') is defined %}
+      mtu: {{ cfg.mtu }}
+      {% endif %}
+      {% if cfg.get('optional') is defined %}
+      optional: {{ cfg.optional }}
+      {% endif %}
+      {% if cfg.get('accept-ra') is defined %}
+      accept-ra: {{ cfg.accept-ra }}
+      {% endif %}
+      {% if cfg.get('nameservers') is defined %}
+      nameservers:
+        {% if cfg.nameservers.get('addresses') is defined %}
+        addresses:
+          {% for addr in cfg.nameservers.addresses %}
+          - {{ addr }}
+          {% endfor %}
+        {% endif %}
+        {% if cfg.nameservers.get('search') is defined %}
+        search:
+          {% for domain in cfg.nameservers.search %}
+          - {{ domain }}
+          {% endfor %}
+        {% endif %}
+      {% endif %}
+    {% endfor %}
+  {% endif %}
+
+  # Define bonds (link aggregation)
+  {% if bonds %}
+  bonds:
+    {% for name, cfg in bonds.items() %}
+    # Bond: {{ name }}
+    {{ name }}:
+      {% if cfg.get('interfaces') is defined %}
+      interfaces:
+        {% for iface in cfg.interfaces %}
+        - {{ iface }}
+        {% endfor %}
+      {% endif %}
+      {% if cfg.get('parameters') is defined %}
+      parameters:
+        {% if cfg.parameters.get('mode') is defined %}
+        mode: {{ cfg.parameters.mode }}
+        {% endif %}
+        {% if cfg.parameters.get('mii-monitor-interval') is defined %}
+        mii-monitor-interval: {{ cfg.parameters['mii-monitor-interval'] }}
+        {% endif %}
+        {% if cfg.parameters.get('min-links') is defined %}
+        min-links: {{ cfg.parameters['min-links'] }}
+        {% endif %}
+        {% if cfg.parameters.get('transmit-hash-policy') is defined %}
+        transmit-hash-policy: {{ cfg.parameters['transmit-hash-policy'] }}
+        {% endif %}
+        {% if cfg.parameters.get('lacp-rate') is defined %}
+        lacp-rate: {{ cfg.parameters.lacp-rate }}
+        {% endif %}
+        {% if cfg.parameters.get('primary') is defined %}
+        primary: {{ cfg.parameters.primary }}
+        {% endif %}
+      {% endif %}
+      {% if cfg.get('addresses') is defined %}
+      addresses:
+        {% for addr in cfg.addresses %}
+        - {{ addr }}
+        {% endfor %}
+      {% endif %}
+      {% if cfg.get('gateway4') is defined %}
+      gateway4: {{ cfg.gateway4 }}
+      {% endif %}
+      {% if cfg.get('gateway6') is defined %}
+      gateway6: {{ cfg.gateway6 }}
+      {% endif %}
+      {% if cfg.get('mtu') is defined %}
+      mtu: {{ cfg.mtu }}
+      {% endif %}
+      {% if cfg.get('accept-ra') is defined %}
+      accept-ra: {{ cfg.accept-ra }}
+      {% endif %}
+      {% if cfg.get('optional') is defined %}
+      optional: {{ cfg.optional }}
+      {% endif %}
+      {% if cfg.get('nameservers') is defined %}
+      nameservers:
+        {% if cfg.nameservers.get('addresses') is defined %}
+        addresses:
+          {% for addr in cfg.nameservers.addresses %}
+          - {{ addr }}
+          {% endfor %}
+        {% endif %}
+        {% if cfg.nameservers.get('search') is defined %}
+        search:
+          {% for domain in cfg.nameservers.search %}
+          - {{ domain }}
+          {% endfor %}
+        {% endif %}
+      {% endif %}
+    {% endfor %}
+  {% endif %}
+
+  # Define VLANs
+  {% if vlans %}
+  vlans:
+    {% for name, cfg in vlans.items() %}
+    # VLAN: {{ name }} (parent={{ cfg.parent }}, id={{ cfg.id }})
+    {{ name }}:
+      id: {{ cfg.id }}
+      link: {{ cfg.parent }}
+      {% if cfg.get('addresses') is defined %}
+      addresses:
+        {% for addr in cfg.addresses %}
+        - {{ addr }}
+        {% endfor %}
+      {% endif %}
+      {% if cfg.get('gateway4') is defined %}
+      gateway4: {{ cfg.gateway4 }}
+      {% endif %}
+      {% if cfg.get('gateway6') is defined %}
+      gateway6: {{ cfg.gateway6 }}
+      {% endif %}
+      {% if cfg.get('mtu') is defined %}
+      mtu: {{ cfg.mtu }}
+      {% endif %}
+      {% if cfg.get('accept-ra') is defined %}
+      accept-ra: {{ cfg.accept-ra }}
+      {% endif %}
+      {% if cfg.get('optional') is defined %}
+      optional: {{ cfg.optional }}
+      {% endif %}
+      {% if cfg.get('nameservers') is defined %}
+      nameservers:
+        {% if cfg.nameservers.get('addresses') is defined %}
+        addresses:
+          {% for addr in cfg.nameservers.addresses %}
+          - {{ addr }}
+          {% endfor %}
+        {% endif %}
+        {% if cfg.nameservers.get('search') is defined %}
+        search:
+          {% for domain in cfg.nameservers.search %}
+          - {{ domain }}
+          {% endfor %}
+        {% endif %}
+      {% endif %}
+    {% endfor %}
+  {% endif %}
+
+  # Define routing rules and routes
+  {% if routes %}
+  routes:
+    {% for route in routes %}
+    # Route: to={{ route.to }} via={{ route.via }}
+    - to: {{ route.to }}
+      via: {{ route.via }}
+      {% if route.get('from') is defined %}
+      from: {{ route.from }}
+      {% endif %}
+      {% if route.get('on-link') is defined %}
+      on-link: {{ route['on-link'] }}
+      {% endif %}
+      {% if route.get('metric') is defined %}
+      metric: {{ route.metric }}
+      {% endif %}
+      {% if route.get('table') is defined %}
+      table: {{ route.table }}
+      {% endif %}
+      {% if route.get('scope') is defined %}
+      scope: {{ route.scope }}
+      {% endif %}
+    {% endfor %}
+  {% endif %}
+
+  # Define routing policies (policy-based routing)
+  {% if routing-policy %}
+  routing-policy:
+    {% for rule in routing-policy %}
+    # Routing policy rule: from={{ rule.from | default('any') }} to={{ rule.to | default('any') }}
+    - from: {{ rule.from | default('any') }}
+      to: {{ rule.to | default('any') }}
+      {% if rule.get('table') is defined %}
+      table: {{ rule.table }}
+      {% endif %}
+      {% if rule.get('type') is defined %}
+      type: {{ rule.type }}
+      {% endif %}
+      {% if rule.get('priority') is defined %}
+      priority: {{ rule.priority }}
+      {% endif %}
+    {% endfor %}
+  {% endif %}
+
+  # Define rules for routing tables
+  {% if routing-tables %}
+  routing-tables:
+    {% for idx, tbl in routing-tables.items() %}
+    # Routing table: index={{ idx }}, name={{ tbl.name }}
+    {{ idx }}:
+      name: {{ tbl.name }}
+    {% endfor %}
+  {% endif %}

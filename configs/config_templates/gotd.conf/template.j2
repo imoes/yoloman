@@ -1,0 +1,52 @@
+# gotd.conf — Main configuration file for gotd (Git over HTTP daemon)
+# Enable verbose logging for debugging
+{% if debug %}debug = {{ debug }}{% endif %}
+
+# Host address to bind to
+bind = {{ bind }}
+
+# Port to listen on
+port = {{ port }}
+
+# Path to the Git repository root
+repo_root = {{ repo_root }}
+
+# Enable SSL/TLS support
+{% if ssl_enabled %}
+ssl_cert = {{ ssl_cert }}
+ssl_key = {{ ssl_key }}
+{% endif %}
+
+# Authentication method: 'none', 'htpasswd', or 'ldap'
+auth = {{ auth }}
+
+# Path to htpasswd file (used only when auth = 'htpasswd')
+{% if auth == 'htpasswd' %}htpasswd_file = {{ htpasswd_file }}{% endif %}
+
+# LDAP connection settings (used only when auth = 'ldap')
+{% if auth == 'ldap' %}
+ldap_uri = {{ ldap_uri }}
+ldap_base = {{ ldap_base }}
+ldap_bind_dn = {{ ldap_bind_dn }}
+{% if ldap_bind_password %}ldap_bind_password = {{ ldap_bind_password }}{% endif %}
+{% endif %}
+
+# Repository permissions (optional per-repo ACLs)
+{% for repo in repos %}# Repository: {{ repo.path }}
+[{{ repo.path }}]
+{% if repo.read %}read = {{ repo.read | join(', ') }}
+{% endif %}{% if repo.write %}write = {{ repo.write | join(', ') }}
+{% endif %}{% if repo.admin %}admin = {{ repo.admin | join(', ') }}
+{% endif %}{% endfor %}
+
+# Maximum number of concurrent requests
+max_concurrent = {{ max_concurrent }}
+
+# Timeout (in seconds) for idle connections
+idle_timeout = {{ idle_timeout }}
+
+# Enable repository auto-detection (scan repo_root for new repos)
+{% if auto_detect_repos %}auto_detect_repos = {{ auto_detect_repos }}{% endif %}
+
+# Log file path (leave empty for stdout)
+log_file = {{ log_file }}

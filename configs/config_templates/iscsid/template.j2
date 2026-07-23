@@ -1,0 +1,54 @@
+# iSCSI Target configuration for tgtd (tgt package)
+# Each target is defined by a <target> ... </target> block
+# Global defaults and options may be specified outside target blocks
+
+# Log level: 0=silent, 1=error, 2=warning, 3=notice, 4=info, 5=debug
+log_level = {{ log_level }}
+
+# Default authentication method for new targets (none|chap|mutual_chap)
+default_auth_type = "{{ default_auth_type }}"
+
+# Default CHAP secret (should be overridden per target in production)
+{% if default_auth_secret %}default_auth_password = "{{ default_auth_secret }}"{% endif %}
+
+# Listen on all interfaces by default, or bind to specific address(es)
+{% for addr in bind_addresses %}# Bind to address {{ loop.index }}
+bind = {{ addr }}{% endfor %}
+
+{% for target in targets %}# Target: {{ target.name }}
+# Backing store: {{ target.backing_store }} (block device or file)
+# LUN 0 is the primary storage device; additional LUNs are optional
+# Access control: authorized initiators and/or CHAP secrets
+
+<target {{ target.name }}>
+    driver {{ target.driver | default('libiscsi') }}
+    backing-store {{ target.backing_store }}
+    
+    {% if target.luns %}
+    # Additional LUNs
+    {% for lun in target.luns %}lun {{ lun.id }} file={{ lun.path | default(lun.device) }},io_mode={{ lun.io_mode | default('rw') }},removable={{ lun.removable | lower | default('false') }}{% endfor %}
+    {% endif %}
+
+    # Access control
+    {% if target.initiators %}# Allow only specific initiators
+    {% for initiator in target.initiators %}initiator-address {{ initiator }}{% endfor %}{% else %}# Allow all initiators (not recommended for production)
+    # initiator-address ALL{% endif %}
+
+    # CHAP authentication
+    {% if target.chap %}
+    # CHAP user: {{ target.chap.user }}
+    # Authentication type: {{ 'mutual' if target.chap.mutual else 'one-way' }}
+    incominguser {{ target.chap.user }} {{ target.chap.password }}
+    {% if target.chap.mutual %}outgoinguser {{ target.chap.mutual_user | default('') }} {{ target.chap.mutual_password | default('') }}{% endif %}
+    {% else %}
+    # No CHAP authentication (use only in trusted environments)
+    # NoAuth
+    {% endif %}
+
+    # Optional settings
+    {% if target.write_cache is defined %}write-cache {{ 'on' if target.write_cache else 'off' }}{% endif %}
+    {% if target.nacl %}# Explicit ACL settings
+    {% for acl in target.nacl %}allow-address {{ acl }}{% endfor %}{% endif %}
+</target>
+
+{% endfor %}

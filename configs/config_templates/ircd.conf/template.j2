@@ -1,0 +1,127 @@
+# Server name and description
+serverinfo {
+  name = "{{ serverinfo.name }}";
+  description = "{{ serverinfo.description }}";
+  network_name = "{{ serverinfo.network_name }}";
+}
+
+# Listen on specific ports and addresses
+listen {
+  {% for item in listen_items %}
+  host = "{{ item.host }}";
+  port = {{ item.port }};
+  {% if item.ssl is defined %}
+  ssl = {{ item.ssl | lower }};
+  {% endif %}
+  {% if item.options is defined %}
+  options {
+    {% for opt_key, opt_val in item.options.items() %}
+    {{ opt_key }} = {{ opt_val | lower if opt_val|lower in ['yes', 'no', 'true', 'false'] else opt_val }};
+    {% endfor %}
+  }
+  {% endif %}
+  {% endfor %}
+}
+
+# Global settings
+global {
+  max_clients = {{ global.max_clients }};
+  max_accept = {{ global.max_accept }};
+  kline_address = "{{ global.kline_address }}";
+  antinode_expires = {{ global.antinode_expires }};
+  enable_dcc_flood_protect = {{ global.enable_dcc_flood_protect | lower }};
+  enable_server_hiding = {{ global.enable_server_hiding | lower }};
+  enable_cloaking = {{ global.enable_cloaking | lower }};
+  ident_timeout = {{ global.ident_timeout }};
+  max_hostname = {{ global.max_hostname }};
+  max_username = {{ global.max_username }};
+  max_global_connections = {{ global.max_global_connections }};
+  min_nick_length = {{ global.min_nick_length }};
+  max_nick_length = {{ global.max_nick_length }};
+  min_user_length = {{ global.min_user_length }};
+  max_user_length = {{ global.max_user_length }};
+  max_ircd_restarts = {{ global.max_ircd_restarts }};
+  max_unknown_connections = {{ global.max_unknown_connections }};
+  enable_cloaking = {{ global.enable_cloaking | lower }};
+  enable_dns_check = {{ global.enable_dns_check | lower }};
+  enable_no_ident = {{ global.enable_no_ident | lower }};
+  enable_oper_only_mode = {{ global.enable_oper_only_mode | lower }};
+  enable_oper_snotice = {{ global.enable_oper_snotice | lower }};
+  enable_oper_snooper = {{ global.enable_oper_snooper | lower }};
+  enable_server_linking = {{ global.enable_server_linking | lower }};
+  enable_stats_oper = {{ global.enable_stats_oper | lower }};
+  enable_admin_snotice = {{ global.enable_admin_snotice | lower }};
+  enable_admin_snooper = {{ global.enable_admin_snooper | lower }};
+  enable_admin_linking = {{ global.enable_admin_linking | lower }};
+  enable_admin_stats = {{ global.enable_admin_stats | lower }};
+}
+
+# Operators
+oper {
+  name = "{{ item.name }}";
+  user = "{{ item.user }}";
+  host = "{{ item.host }}";
+  password = "{{ item.password }}";
+  sasl_auth = {{ item.sasl_auth | lower if item.sasl_auth is defined else 'false' }};
+  sasl_account = "{{ item.sasl_account }}";
+  {% if item.classes is defined %}
+  class = "{{ item.classes }}";
+  {% endif %}
+  flags {
+    {% for flag in item.flags %}
+    {{ flag }};
+    {% endfor %}
+  }
+}
+{% endfor %}
+
+# Classes for resource limiting
+class {
+  name = "{{ item.name }}";
+  ping_time = {{ item.ping_time }};
+  max_users = {{ item.max_users }};
+  sendq = {{ item.sendq }};
+  recvq = {{ item.recvq }};
+  max_links = {{ item.max_links }};
+  max_local = {{ item.max_local }};
+  max_global = {{ item.max_global }};
+  connect_freq = {{ item.connect_freq }};
+  min_clients = {{ item.min_clients }};
+}
+{% endfor %}
+
+# Allow connections with access control
+allow {
+  ip = "{{ item.ip }}";
+  hostname = "{{ item.hostname }}";
+  user = "{{ item.user }}";
+  max_per_ip = {{ item.max_per_ip }};
+  class = "{{ item.class }}";
+  password = "{{ item.password }}";
+  spoof = "{{ item.spoof }}";
+  spoof_notify = {{ item.spoof_notify | lower }};
+  spoof_sasl = {{ item.spoof_sasl | lower if item.spoof_sasl is defined else 'false' }};
+  flags = {
+    {% for flag in item.flags %}
+    {{ flag }};
+    {% endfor %}
+  }
+}
+{% endfor %}
+
+# Deny connections
+deny {
+  ip = "{{ item.ip }}";
+  hostname = "{{ item.hostname }}";
+  user = "{{ item.user }}";
+  reason = "{{ item.reason }}";
+}
+{% endfor %}
+
+# Include additional config files if needed
+{% if include_files %}
+# Include additional config fragments
+{% for inc in include_files %}
+include "{{ inc }}";
+{% endfor %}
+{% endif %}

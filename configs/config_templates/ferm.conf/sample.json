@@ -1,0 +1,56 @@
+{
+  "modules": [
+    "ip",
+    "tcp",
+    "udp",
+    "icmp",
+    "conntrack"
+  ],
+  "default_input_policy": "DROP",
+  "default_output_policy": "ACCEPT",
+  "default_forward_policy": "DROP",
+  "chains": [
+    {
+      "comment": "SSH-only chain for limiting connections",
+      "table": "filter",
+      "chain": "ssh_chain",
+      "rules": [
+        "limit --limit 3/min --limit-burst 4 ACCEPT",
+        "DROP"
+      ]
+    }
+  ],
+  "services": [
+    {
+      "name": "ssh",
+      "port": 22,
+      "daddr": "10.0.0.0/8"
+    },
+    {
+      "name": "http",
+      "port": 80
+    },
+    {
+      "name": "https",
+      "port": 443
+    },
+    {
+      "name": "icmp",
+      "comment": "Allow ping from trusted networks"
+    },
+    {
+      "name": "custom",
+      "comment": "Allow Docker API from internal network",
+      "rules": [
+        "INPUT [ 172.17.0.0/16 ] TCP dport 2375 ACCEPT"
+      ]
+    }
+  ],
+  "load_modules": [
+    "limit"
+  ],
+  "drop_invalid": true,
+  "final_policy_input": "DROP",
+  "final_policy_output": "ACCEPT",
+  "final_policy_forward": "DROP"
+}

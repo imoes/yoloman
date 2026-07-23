@@ -1,0 +1,370 @@
+{
+  "server": {
+    "type": "object",
+    "default": {
+      "host": "0.0.0.0",
+      "port": 8080,
+      "use_tls": false,
+      "ssl_cert": "/etc/bosixnet/ssl/server.crt",
+      "ssl_key": "/etc/bosixnet/ssl/server.key"
+    },
+    "description": "Web server binding and TLS configuration.",
+    "properties": {
+      "host": {
+        "type": "string",
+        "default": "0.0.0.0",
+        "description": "IP address to bind the web UI to (e.g., 0.0.0.0 for all interfaces, or 127.0.0.1 for localhost only)."
+      },
+      "port": {
+        "type": "number",
+        "default": 8080,
+        "description": "TCP port for HTTP(S) access to the web UI."
+      },
+      "use_tls": {
+        "type": "boolean",
+        "default": false,
+        "description": "Enable TLS (HTTPS) for encrypted connections."
+      },
+      "ssl_cert": {
+        "type": "string",
+        "default": "/etc/bosixnet/ssl/server.crt",
+        "description": "File path to the TLS certificate (PEM format)."
+      },
+      "ssl_key": {
+        "type": "string",
+        "default": "/etc/bosixnet/ssl/server.key",
+        "description": "File path to the TLS private key (PEM format)."
+      }
+    }
+  },
+  "ui": {
+    "type": "object",
+    "default": {
+      "allow_public_registration": false,
+      "require_2fa": false,
+      "locale": "en_US",
+      "site_title": "BOSIXNET IPv6 Network"
+    },
+    "description": "User interface behavior and branding.",
+    "properties": {
+      "allow_public_registration": {
+        "type": "boolean",
+        "default": false,
+        "description": "Allow anonymous users to create new accounts."
+      },
+      "require_2fa": {
+        "type": "boolean",
+        "default": false,
+        "description": "Enforce two-factor authentication (2FA) for all new user registrations."
+      },
+      "locale": {
+        "type": "string",
+        "default": "en_US",
+        "description": "Default language and locale code (e.g., 'en_US', 'de_DE'). Must match available translations."
+      },
+      "site_title": {
+        "type": "string",
+        "default": "BOSIXNET IPv6 Network",
+        "description": "Title displayed in the browser tab and main UI header."
+      }
+    }
+  },
+  "auth": {
+    "type": "object",
+    "default": {
+      "backend": "local",
+      "max_login_attempts": 5,
+      "lockout_duration": 900,
+      "token_ttl": 3600
+    },
+    "description": "Authentication configuration (local, LDAP, or SAML).",
+    "properties": {
+      "backend": {
+        "type": "string",
+        "default": "local",
+        "description": "Authentication backend to use: 'local' (built-in), 'ldap', or 'saml'."
+      },
+      "max_login_attempts": {
+        "type": "number",
+        "default": 5,
+        "description": "Number of failed login attempts before account lockout."
+      },
+      "lockout_duration": {
+        "type": "number",
+        "default": 900,
+        "description": "Lockout duration in seconds (e.g., 900 = 15 minutes)."
+      },
+      "token_ttl": {
+        "type": "number",
+        "default": 3600,
+        "description": "Expiration time in seconds for password-reset tokens, API keys, and similar."
+      }
+    }
+  },
+  "auth.ldap": {
+    "type": "object",
+    "default": null,
+    "description": "LDAP integration settings (required when auth.backend = 'ldap').",
+    "properties": {
+      "uri": {
+        "type": "string",
+        "default": "ldaps://ldap.example.com:636",
+        "description": "LDAP server URI (ldaps:// or ldap://)."
+      },
+      "base_dn": {
+        "type": "string",
+        "default": "dc=example,dc=com",
+        "description": "Base distinguished name for user searches."
+      },
+      "bind_dn": {
+        "type": "string",
+        "default": "",
+        "description": "Service account DN for binding (leave blank for anonymous bind)."
+      },
+      "bind_password": {
+        "type": "string",
+        "default": "",
+        "description": "Password for the service account (leave blank if anonymous)."
+      },
+      "user_attr": {
+        "type": "string",
+        "default": "uid",
+        "description": "LDAP attribute used as the username (e.g., 'uid', 'sAMAccountName')."
+      },
+      "group_dn": {
+        "type": "string",
+        "default": "",
+        "description": "Optional group DN to restrict access to members of a specific group."
+      }
+    }
+  },
+  "auth.saml": {
+    "type": "object",
+    "default": null,
+    "description": "SAML integration settings (required when auth.backend = 'saml').",
+    "properties": {
+      "metadata_url": {
+        "type": "string",
+        "default": "https://idp.example.com/metadata",
+        "description": "URL to the IdP's SAML metadata XML document."
+      },
+      "sp_entity_id": {
+        "type": "string",
+        "default": "https://bosixnet.example.com",
+        "description": "Service Provider entity ID (must match IdP configuration)."
+      },
+      "acs_url": {
+        "type": "string",
+        "default": "",
+        "description": "ACS endpoint URL (usually auto-generated; override only if behind a proxy)."
+      },
+      "nameid_format": {
+        "type": "string",
+        "default": "urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress",
+        "description": "SAML NameID format expected from the IdP."
+      },
+      "sign_requests": {
+        "type": "boolean",
+        "default": true,
+        "description": "Sign outgoing AuthnRequest messages (recommended)."
+      },
+      "sign_cert": {
+        "type": "string",
+        "default": "/etc/bosixnet/ssl/saml-sign.crt",
+        "description": "Certificate file for signing SAML requests (PEM format)."
+      }
+    }
+  },
+  "logging": {
+    "type": "object",
+    "default": {
+      "level": "INFO",
+      "format": "text",
+      "file": "/var/log/bosixnet/bosixnet.log",
+      "max_size_mb": 50,
+      "max_files": 5
+    },
+    "description": "Application logging behavior.",
+    "properties": {
+      "level": {
+        "type": "string",
+        "default": "INFO",
+        "description": "Minimum log level (DEBUG, INFO, WARNING, ERROR, CRITICAL)."
+      },
+      "format": {
+        "type": "string",
+        "default": "text",
+        "description": "Log format: 'text' for human-readable or 'json' for structured logs."
+      },
+      "file": {
+        "type": "string",
+        "default": "/var/log/bosixnet/bosixnet.log",
+        "description": "Path to the log file."
+      },
+      "max_size_mb": {
+        "type": "number",
+        "default": 50,
+        "description": "Maximum size (MB) per log file before rotation."
+      },
+      "max_files": {
+        "type": "number",
+        "default": 5,
+        "description": "Number of rotated log files to retain."
+      }
+    }
+  },
+  "backend": {
+    "type": "object",
+    "default": {
+      "control_socket": "/var/run/bosixnet/control.sock",
+      "operation_timeout": 30,
+      "services": []
+    },
+    "description": "Backend integration settings for network operations.",
+    "properties": {
+      "control_socket": {
+        "type": "string",
+        "default": "/var/run/bosixnet/control.sock",
+        "description": "Path to the Unix domain socket or URL to the backend service API."
+      },
+      "operation_timeout": {
+        "type": "number",
+        "default": 30,
+        "description": "Timeout in seconds for backend operations (e.g., route creation, firewall rules)."
+      },
+      "services": {
+        "type": "list",
+        "default": [],
+        "description": "Optional list of additional backend services to integrate with (e.g., monitoring, analytics).",
+        "items": {
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string",
+              "description": "Unique identifier for the service."
+            },
+            "enabled": {
+              "type": "boolean",
+              "description": "Enable or disable this service integration."
+            },
+            "url": {
+              "type": "string",
+              "description": "HTTP(S) endpoint URL for the service API."
+            },
+            "auth_token": {
+              "type": "string",
+              "description": "Bearer token or API key for service authentication."
+            }
+          },
+          "required": [
+            "name",
+            "enabled",
+            "url"
+          ]
+        }
+      }
+    }
+  },
+  "security": {
+    "type": "object",
+    "default": {
+      "hsts_max_age": 31536000,
+      "csp_enabled": true,
+      "csp_report_only": false,
+      "report_uri": "/csp-violation-report",
+      "xframe_options": "DENY"
+    },
+    "description": "HTTP security headers and protections.",
+    "properties": {
+      "hsts_max_age": {
+        "type": "number",
+        "default": 31536000,
+        "description": "HSTS max-age in seconds (0 to disable; recommended \u22651 year)."
+      },
+      "csp_enabled": {
+        "type": "boolean",
+        "default": true,
+        "description": "Enable Content Security Policy (CSP) header."
+      },
+      "csp_report_only": {
+        "type": "boolean",
+        "default": false,
+        "description": "Enable CSP in report-only mode (no blocking, only reports)."
+      },
+      "report_uri": {
+        "type": "string",
+        "default": "/csp-violation-report",
+        "description": "Relative or absolute URL to receive CSP violation reports."
+      },
+      "xframe_options": {
+        "type": "string",
+        "default": "DENY",
+        "description": "X-Frame-Options value: 'DENY', 'SAMEORIGIN', or 'ALLOW-FROM <uri>'."
+      }
+    }
+  },
+  "session": {
+    "type": "object",
+    "default": {
+      "name": "bosixnet_session",
+      "lifetime": 86400,
+      "secure": true,
+      "httponly": true,
+      "samesite": "Lax"
+    },
+    "description": "HTTP session cookie behavior.",
+    "properties": {
+      "name": {
+        "type": "string",
+        "default": "bosixnet_session",
+        "description": "Name of the session cookie."
+      },
+      "lifetime": {
+        "type": "number",
+        "default": 86400,
+        "description": "Session lifetime in seconds (e.g., 86400 = 1 day)."
+      },
+      "secure": {
+        "type": "boolean",
+        "default": true,
+        "description": "Send cookie only over HTTPS."
+      },
+      "httponly": {
+        "type": "boolean",
+        "default": true,
+        "description": "Prevent client-side JavaScript from accessing the cookie."
+      },
+      "samesite": {
+        "type": "string",
+        "default": "Lax",
+        "description": "SameSite policy: 'Lax' (recommended), 'Strict', or 'None'."
+      }
+    }
+  },
+  "rate_limit": {
+    "type": "object",
+    "default": {
+      "enabled": true,
+      "requests_per_window": 100,
+      "window_seconds": 60
+    },
+    "description": "Per-IP request rate limiting for API and web UI.",
+    "properties": {
+      "enabled": {
+        "type": "boolean",
+        "default": true,
+        "description": "Enable rate limiting."
+      },
+      "requests_per_window": {
+        "type": "number",
+        "default": 100,
+        "description": "Maximum allowed requests per window."
+      },
+      "window_seconds": {
+        "type": "number",
+        "default": 60,
+        "description": "Time window in seconds."
+      }
+    }
+  }
+}

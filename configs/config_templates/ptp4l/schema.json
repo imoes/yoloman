@@ -1,0 +1,164 @@
+{
+  "domain_number": {
+    "type": "number",
+    "default": 0,
+    "description": "PTP domain number (0\u201365535). All devices in the same time domain must match."
+  },
+  "transport_mode": {
+    "type": "string",
+    "default": "udp",
+    "description": "Transport mode. Use 'udp' for most deployments; 'ieee_1588' for legacy L2-only setups."
+  },
+  "clock_identity_source": {
+    "type": "string",
+    "default": "hw",
+    "description": "How clock identity is generated: 'hw' (MAC-based, recommended) or 'sw' (random)."
+  },
+  "slave_only": {
+    "type": "bool",
+    "default": true,
+    "description": "If true, this device behaves only as a slave (ordinary clock). Set false for boundary clocks."
+  },
+  "allow_multiple_sources": {
+    "type": "bool",
+    "default": false,
+    "description": "Allow multiple timing sources. Useful for redundancy or grandmaster failover."
+  },
+  "log_level": {
+    "type": "number",
+    "default": 3,
+    "description": "Logging verbosity (0=fatal, 7=debug). Set to 2 or 3 for production; 4+ for debugging."
+  },
+  "log_sync_messages": {
+    "type": "bool",
+    "default": false,
+    "description": "Log every SYNC message for deep diagnostics (can be very verbose)."
+  },
+  "announce_interval": {
+    "type": "number",
+    "default": 1,
+    "description": "Interval between Announce messages (seconds). Typical: 1 or 2."
+  },
+  "sync_interval": {
+    "type": "number",
+    "default": 1,
+    "description": "Interval between Sync messages (seconds). Use -1 for 'as fast as hardware allows'."
+  },
+  "delay_req_interval": {
+    "type": "number",
+    "default": 1,
+    "description": "Minimum interval between Delay_Req messages (seconds). Set to 1 or 2."
+  },
+  "primary_domain": {
+    "type": "number",
+    "default": 0,
+    "description": "Fallback domain number when domain mismatch occurs."
+  },
+  "hw_timestamping": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable hardware timestamping for sub-microsecond precision (recommended)."
+  },
+  "ptp_device": {
+    "type": "string",
+    "default": "",
+    "description": "Explicit PTP device (e.g., '/dev/ptp0'). Leave empty to auto-detect."
+  },
+  "interfaces": {
+    "type": "list",
+    "default": [],
+    "description": "List of network interfaces to configure for PTP. At least one is required.",
+    "items": {
+      "name": {
+        "type": "string",
+        "default": "eth0",
+        "description": "Interface name (e.g., 'eth0', 'enp3s0f0')."
+      },
+      "enabled": {
+        "type": "bool",
+        "default": true,
+        "description": "Enable or disable this interface. Disabled interfaces are commented out in config."
+      },
+      "hw_timestamping": {
+        "type": "bool",
+        "default": true,
+        "description": "Override global hardware timestamping for this interface (if needed)."
+      },
+      "priority1": {
+        "type": "number",
+        "default": 128,
+        "description": "Priority1 for best master clock election (0\u2013254). Lower = higher preference."
+      },
+      "priority2": {
+        "type": "number",
+        "default": 128,
+        "description": "Priority2 (typically same as priority1). Lower = higher preference."
+      },
+      "clock_class": {
+        "type": "number",
+        "default": 248,
+        "description": "Clock class (0\u2013255). 6 = boundary clock, 13 = ordinary slave clock."
+      },
+      "clock_identity": {
+        "type": "string",
+        "default": "",
+        "description": "Explicit 8-byte clock identity (hex string or MAC). Leave blank to auto-generate."
+      },
+      "clock_offset": {
+        "type": "number",
+        "default": 0,
+        "description": "Fixed offset (nanoseconds) to apply to this interface's clock."
+      },
+      "master_only": {
+        "type": "bool",
+        "default": false,
+        "description": "If true, this interface never becomes a slave (use only for boundary clocks)."
+      },
+      "announce_interval": {
+        "type": "number",
+        "default": null,
+        "description": "Per-interface override of announce interval (seconds), or null to use global."
+      },
+      "sync_interval": {
+        "type": "number",
+        "default": null,
+        "description": "Per-interface override of sync interval (seconds), or null to use global."
+      },
+      "delay_req_interval": {
+        "type": "number",
+        "default": null,
+        "description": "Per-interface override of delay request interval (seconds), or null to use global."
+      },
+      "dscp": {
+        "type": "number",
+        "default": null,
+        "description": "DSCP value (0\u201363) for PTP traffic QoS marking on this interface."
+      }
+    }
+  },
+  "redundant_interfaces": {
+    "type": "list",
+    "default": [],
+    "description": "List of interface names to group as redundant (for redundant domain support)."
+  },
+  "unicast_addresses": {
+    "type": "list",
+    "default": [],
+    "description": "List of unicast master addresses (IPs) to negotiate with (instead of multicast)."
+  },
+  "delay_mechanism": {
+    "type": "string",
+    "default": "e2e",
+    "description": "Delay measurement method: 'e2e' (end-to-end, default), 'p2p' (peer-to-peer), or 'auto'."
+  },
+  "delay_asymmetry": {
+    "type": "number",
+    "default": 0,
+    "description": "One-way path asymmetry (nanoseconds). Used only with peer-to-peer delay mechanism."
+  },
+  "initial_frequency": {
+    "type": "number",
+    "default": 0,
+    "description": "Initial frequency correction (parts-per-billion) applied at startup."
+  }
+}

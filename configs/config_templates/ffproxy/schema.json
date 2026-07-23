@@ -1,0 +1,200 @@
+{
+  "listen_address": {
+    "type": "string",
+    "default": "127.0.0.1",
+    "description": "IP address (IPv4 or IPv6) the proxy will bind to. Use 0.0.0.0 to bind to all interfaces."
+  },
+  "listen_port": {
+    "type": "number",
+    "default": 8080,
+    "description": "Port number the proxy listens on."
+  },
+  "user": {
+    "type": "string",
+    "default": "nobody",
+    "description": "System username to drop privileges to after startup (must exist)."
+  },
+  "group": {
+    "type": "string",
+    "default": "nogroup",
+    "description": "System group for the privileged user."
+  },
+  "max_connections": {
+    "type": "number",
+    "default": 1000,
+    "description": "Maximum number of concurrent client connections."
+  },
+  "client_timeout": {
+    "type": "number",
+    "default": 30,
+    "description": "Seconds to wait for client request data before closing the connection."
+  },
+  "server_timeout": {
+    "type": "number",
+    "default": 60,
+    "description": "Seconds to wait for upstream server response before timing out."
+  },
+  "enable_ipv6": {
+    "type": "bool",
+    "default": true,
+    "description": "Whether to enable IPv6 support for outgoing and incoming connections."
+  },
+  "log_file": {
+    "type": "string",
+    "default": "/var/log/ffproxy/ffproxy.log",
+    "description": "Path to log file; use '-' to log to standard output."
+  },
+  "log_level": {
+    "type": "number",
+    "default": 3,
+    "description": "Verbosity of logs: 0 (silent) to 4 (debug)."
+  },
+  "auth_users": {
+    "type": "list",
+    "default": [],
+    "description": "List of users allowed to use the proxy via HTTP Basic authentication.",
+    "items": {
+      "type": "object",
+      "fields": {
+        "username": {
+          "type": "string",
+          "default": "",
+          "description": "Username for authentication."
+        },
+        "password": {
+          "type": "string",
+          "default": "",
+          "description": "Password for authentication (plaintext in config)."
+        }
+      }
+    }
+  },
+  "allowed_hosts": {
+    "type": "list",
+    "default": [],
+    "description": "List of allowed destination hosts/globs (e.g., '*.example.com'). If empty, all hosts are allowed unless denied.",
+    "items": {
+      "type": "string"
+    }
+  },
+  "blocked_hosts": {
+    "type": "list",
+    "default": [],
+    "description": "List of denied destination hosts/globs. Checked after 'allowed_hosts' rules.",
+    "items": {
+      "type": "string"
+    }
+  },
+  "enable_pipelining": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable HTTP/1.1 request pipelining for improved performance on fast upstream links."
+  },
+  "max_request_size_kb": {
+    "type": "number",
+    "default": 0,
+    "description": "Maximum HTTP request body size in KB. Set to 0 for no limit."
+  },
+  "enable_keepalive": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable HTTP/1.1 keep-alive for upstream connections."
+  },
+  "request_headers": {
+    "type": "list",
+    "default": [],
+    "description": "Custom headers to add to all outgoing HTTP requests.",
+    "items": {
+      "type": "object",
+      "fields": {
+        "name": {
+          "type": "string",
+          "default": "",
+          "description": "Header name (e.g., X-Forwarded-For)."
+        },
+        "value": {
+          "type": "string",
+          "default": "",
+          "description": "Header value."
+        }
+      }
+    }
+  },
+  "response_headers": {
+    "type": "list",
+    "default": [],
+    "description": "Custom headers to add to all incoming HTTP responses.",
+    "items": {
+      "type": "object",
+      "fields": {
+        "name": {
+          "type": "string",
+          "default": "",
+          "description": "Header name."
+        },
+        "value": {
+          "type": "string",
+          "default": "",
+          "description": "Header value."
+        }
+      }
+    }
+  },
+  "body_replacements": {
+    "type": "list",
+    "default": [],
+    "description": "Search-and-replace patterns applied to response bodies (first match per line only).",
+    "items": {
+      "type": "object",
+      "fields": {
+        "search": {
+          "type": "string",
+          "default": "",
+          "description": "Text to search for (case-sensitive)."
+        },
+        "replace_with": {
+          "type": "string",
+          "default": "",
+          "description": "Replacement text."
+        }
+      }
+    }
+  },
+  "upstream_proxy": {
+    "type": "object",
+    "default": null,
+    "description": "Upstream proxy server to forward requests to (optional chain).",
+    "fields": {
+      "host": {
+        "type": "string",
+        "default": "",
+        "description": "Host address of upstream proxy."
+      },
+      "port": {
+        "type": "number",
+        "default": 0,
+        "description": "Port of upstream proxy."
+      },
+      "username": {
+        "type": "string",
+        "default": "",
+        "description": "Username for upstream proxy auth (leave blank if none)."
+      },
+      "password": {
+        "type": "string",
+        "default": "",
+        "description": "Password for upstream proxy auth."
+      }
+    }
+  },
+  "disable_via_header": {
+    "type": "bool",
+    "default": false,
+    "description": "If true, suppress the 'Via:' header in requests to avoid proxy identification."
+  },
+  "user_agent": {
+    "type": "string",
+    "default": "ffproxy/1.4.1",
+    "description": "HTTP User-Agent string sent to upstream servers. Leave empty to use default."
+  }
+}

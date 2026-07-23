@@ -1,0 +1,82 @@
+[DEFAULT]
+# Enable debug mode for detailed logging
+{% if debug %}debug = True{% else %}debug = False{% endif %}
+
+# Log directory path
+log_dir = {{ log_dir }}
+
+# Logging format string
+log_format = %(asctime)s.%(msecs)03d %(process)d %(levelname)s %(name)s [-] %(message)s
+
+# Logging level
+log_level = {{ log_level }}
+
+# Default store for image data (e.g., 'file', 'swift', 's3')
+default_store = {{ default_store }}
+
+# Default filesystem store directory
+filesystem_store_datadir = {{ filesystem_store_datadir }}
+
+# Maximum image size in bytes (e.g., 10737418240 = 10 GiB)
+{% if max_image_size is defined %}image_size_cap = {{ max_image_size }}{% endif %}
+
+# List of enabled image formats (used for validation)
+enabled_import_methods = {{ enabled_import_methods | join(', ') }}
+
+[keystone_authtoken]
+# Auth provider configuration
+auth_type = {{ keystone.auth_type }}
+auth_url = {{ keystone.auth_url }}
+project_domain_name = {{ keystone.project_domain_name }}
+user_domain_name = {{ keystone.user_domain_name }}
+project_name = {{ keystone.project_name }}
+username = {{ keystone.username }}
+password = {{ keystone.password }}
+{% if keystone.insecure %}insecure = True{% else %}insecure = False{% endif %}
+
+[paste_deploy]
+# API pipeline configuration
+flavor = {{ paste_deploy.flavor }}
+
+[glance_store]
+# Store configuration for filesystem backend
+{% for store in glance_stores %}
+{% if loop.first %}[glance_store]# Note: Single glance_store block used (stores are configured via default_store and store-specific sections above){{""}}{% endif %}
+{% if store.name == 'file' %}stores = file
+filesystem_store_datadir = {{ store.options.filesystem_store_datadir }}
+file://default_store = file
+{% endif %}
+{% if store.name == 'swift' %}stores = swift
+swift_store_auth_address = {{ store.options.swift_store_auth_address }}
+swift_store_user = {{ store.options.swift_store_user }}
+swift_store_key = {{ store.options.swift_store_key }}
+swift_store_container = {{ store.options.swift_store_container }}
+{% endif %}
+{% if store.name == 's3' %}stores = s3
+s3_store_auth_address = {{ store.options.s3_store_auth_address }}
+s3_store_user = {{ store.options.s3_store_user }}
+s3_store_key = {{ store.options.s3_store_key }}
+s3_store_bucket = {{ store.options.s3_store_bucket }}
+{% endif %}
+{% endfor %}
+
+[database]
+# Database connection string (SQLite for dev/test, MySQL/PostgreSQL for production)
+{% if database.connection.startswith('sqlite') %}connection = {{ database.connection }}
+# SQLite uses shared cache mode for concurrency
+sqlite_synchronous = False{% else %}connection = {{ database.connection }}
+max_pool_size = {{ database.max_pool_size }}
+max_overflow = {{ database.max_overflow }}
+pool_timeout = {{ database.pool_timeout }}{% endif %}
+
+[oslo_concurrency]
+# Path to lock directory
+lock_path = {{ lock_path }}
+
+[oslo_middleware]
+# Enable CORS for cross-origin requests (e.g., for web UI)
+{% if enable_cors %}enable_cors = True{% else %}enable_cors = False{% endif %}
+
+[oslo_policy]
+# Path to policy file
+policy_file = {{ policy_file }}

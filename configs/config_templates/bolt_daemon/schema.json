@@ -1,0 +1,72 @@
+{
+  "acl_policy": {
+    "type": "string",
+    "default": "deny",
+    "description": "Default policy for newly connected devices: 'authorize' to allow, 'deny' to block, or 'unauthorize' to remove from authorization list."
+  },
+  "state_dir": {
+    "type": "string",
+    "default": "/var/lib/bolt",
+    "description": "Directory where Bolt stores persistent device authorization state."
+  },
+  "max_devices": {
+    "type": "number",
+    "default": 100,
+    "description": "Maximum number of devices to track; older entries are pruned if exceeded."
+  },
+  "log_level": {
+    "type": "string",
+    "default": "warn",
+    "description": "Verbosity of the daemon log output (none, error, warn, info, debug)."
+  },
+  "device_timeout": {
+    "type": "number",
+    "default": 15,
+    "description": "Seconds to wait for a device response before marking it disconnected."
+  },
+  "auto_auth_trusted": {
+    "type": "bool",
+    "default": false,
+    "description": "When enabled, automatically authorize devices that are cryptographically trusted (requires secure boot + signed kernel modules)."
+  },
+  "auto_auth_pci_bdfs": {
+    "type": "list",
+    "default": [],
+    "description": "PCI BDF identifiers (e.g., '00:1f.0') of internal devices that should always be auto-authenticated.",
+    "items": {
+      "type": "string",
+      "description": "PCI BDF in Bus:Device.Function format (e.g., '00:02.0')"
+    }
+  },
+  "auth_groups": {
+    "type": "list",
+    "default": [
+      "wheel"
+    ],
+    "description": "System groups whose members may authorize/deny Thunderbolt devices via D-Bus.",
+    "items": {
+      "type": "string",
+      "description": "Group name (e.g., 'wheel', 'adm', 'plugdev')"
+    }
+  },
+  "auth_users": {
+    "type": "list",
+    "default": [],
+    "description": "Additional individual users allowed to manage device authorization (supersedes groups).",
+    "items": {
+      "type": "string",
+      "description": "System username (e.g., 'admin', 'deploy')"
+    }
+  },
+  "udev_dir": {
+    "type": "string",
+    "default": "",
+    "description": "Optional path to custom udev rules directory (leave empty to use bundled rules).",
+    "example": "/etc/udev/rules.d/99-thunderbolt"
+  },
+  "enable_legacy_enumeration": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable fallback to legacy Thunderbolt enumeration (for older platforms missing ACPI support)."
+  }
+}

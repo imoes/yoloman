@@ -1,0 +1,80 @@
+{# Kea DHCP Server configuration file #}
+{# This configuration controls the DHCP service behavior, interfaces, subnets, and logging #}
+{
+  "Dhcp4": {
+    "control-socket": {
+      "socket-type": "unix",
+      "socket-name": "{{ control_socket_path }}"
+    },
+    "hooks-libraries": [
+      {"library": "{{ hooks_lease_file_path }}"}
+    ],
+    "host-reservations-identifiers": [ "hw-address", "duid" ],
+    "interface-config": {
+      "interfaces": [{{ interfaces | map('quote') | join(', ') }}],
+      "re-detect": {{ interface_re_detect | lower }}
+    },
+    "lease-database": {
+      "type": "{{ lease_database_type }}",
+      {{- "lfc-interval": "{{ lease_file_cleanup_interval }}", "name": "{{ lease_database_name }}" if lease_database_type == "memfile" else "" | indent(6) }}
+      {{- "name": "{{ lease_database_name }}", "user": "{{ lease_database_user }}", "password": "{{ lease_database_password }}" if lease_database_type == "mysql" or lease_database_type == "postgresql" else "" | indent(6) }}
+      {{- "host": "{{ lease_database_host }}", "port": {{ lease_database_port }}" if lease_database_type == "mysql" or lease_database_type == "postgresql" else "" | indent(6) }}
+    },
+    {{- "loggers": [{"name": "kea-dhcp4", "output_options": [{"output": "{{ log_output }}"{{- ", flush": "{{ log_flush | lower }}" if log_flush is defined else "" }}{{- ", max_size": "{{ log_max_size }}" if log_max_size is defined else "" }}{{- ", max_ver": "{{ log_max_ver }}" if log_max_ver is defined else "" }}], "severity": "{{ log_severity | upper }}"{{- ", debuglevel": {{ log_debuglevel }} if log_debuglevel is defined else "" }}], "prepend": false, "severity": "{{ log_global_severity | upper }}"{{- ", debuglevel": {{ log_global_debuglevel }} if log_global_debuglevel is defined else "" }}]" | indent(4) }}
+    ],
+    {{- "option-data": [" | indent(4) }}
+    {% for option in dhcp_option_data %}
+    {{- "{\"name\": "\"" + option.name + "\"", "space\": \"" + option.space + "\"", "data\": \"" + option.data + "\"}" }}{{ "," if not loop.last else "" }}
+    {% endfor %}
+    {{- "]" | indent(4) }}
+    ],
+    "subnet4": [
+      {% for subnet in subnets %}
+      {
+        "id": {{ subnet.id }},
+        "subnet": "{{ subnet.network }}/{{ subnet.prefix }}",
+        {{- "" | indent(8) }}
+        "pool": [
+          {% for pool in subnet.pools %}
+          {
+            "pool": "{{ pool.start }} - {{ pool.end }}"
+          }{{ "," if not loop.last else "" }}
+          {% endfor %}
+        ],
+        {{- "" | indent(8) }}
+        "option-data": [
+          {% for opt in subnet.option_data %}
+          {
+            "name": "{{ opt.name }}",
+            "space": "{{ opt.space }}",
+            "data": "{{ opt.data }}"
+          }{{ "," if not loop.last else "" }}
+          {% endfor %}
+        ],
+        {{- "" | indent(8) }}
+        "valid-lifetime": {{ subnet.valid_lifetime }},
+        "min-valid-lifetime": {{ subnet.min_valid_lifetime }},
+        "max-valid-lifetime": {{ subnet.max_valid_lifetime }},
+        {{- "renew-timer": {{ subnet.renew_timer }}, "rebind-timer": {{ subnet.rebind_timer }}," if subnet.renew_timer is defined else "" | indent(8) }}
+        "reservations": [
+          {% for reservation in subnet.reservations %}
+          {
+            "hw-address": "{{ reservation.mac }}",
+            "hostname": "{{ reservation.hostname }}",
+            "ip-address": "{{ reservation.ip }}"
+          }{{ "," if not loop.last else "" }}
+          {% endfor %}
+        ]
+      }{{ "," if not loop.last else "" }}
+      {% endfor %}
+    ],
+    "shared-networks": [],
+    "server-id": {
+      "type": "{{ server_id_type }}",
+      "value": "{{ server_id_value }}"
+    },
+    "valid-lifetime": {{ default_valid_lifetime }},
+    "renew-timer": {{ default_renew_timer }},
+    "rebind-timer": {{ default_rebind_timer }}
+  }
+}

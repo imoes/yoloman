@@ -1,0 +1,123 @@
+# /etc/monerod.conf — Main configuration file for the Monero daemon (monerod)
+# This file is parsed line-by-line; lines starting with '#' or ';' are comments.
+
+# Listen for P2P connections on this port
+p2p-bind-port={{ p2p_port }}
+
+# Bind to this address for P2P communication
+p2p-bind-ip={{ p2p_bind_ip }}
+
+# Allow incoming P2P connections (set to false to run in client-only mode)
+no-igd={{ not p2p_incoming_enabled }}
+
+# RPC listen port for external clients (e.g., wallets, explorers)
+rpc-bind-port={{ rpc_port }}
+
+# Bind RPC server to this address (typically 127.0.0.1 for security)
+rpc-bind-ip={{ rpc_bind_ip }}
+
+# Enable RPC server (if false, disables JSON-RPC API)
+enable-cors={{ rpc_enabled }}
+
+# Require authentication for RPC (username:password or token)
+rpc-login={{ rpc_login }}
+
+# Enable public RPC (if true, allows unauthenticated RPC access — not recommended for public nodes)
+public-node={{ rpc_public }}
+
+# Data directory for blockchain and wallet storage
+data-dir={{ data_dir }}
+
+# Log file path (optional — if omitted, logs to stderr)
+log-file={{ log_file }}
+
+# Log level: 0=none, 1=info, 2=debug, 3=trace
+log-level={{ log_level }}
+
+# Maximum number of P2P connections (peers)
+max-concurrency={{ max_concurrency }}
+
+# Limit number of incoming P2P connections
+limit-rate={{ limit_rate }}
+
+# Preserve transaction fee (true = keep miner fee in tx; false = deduct from amount)
+preserve-transaction-fee={{ preserve_tx_fee }}
+
+# Enable DNSSEC validation for DNS seed resolution
+dns-secure={{ dnssec_enabled }}
+
+# Use specific DNS seeds (comma-separated list); if empty, use defaults
+seed-node={{ seed_nodes | join(',') if seed_nodes else '' }}
+
+# Additional trusted daemon(s) for bootstrap (comma-separated)
+add-exclusive-node={{ exclusive_nodes | join(',') if exclusive_nodes else '' }}
+
+# Additional seeds to try (comma-separated)
+add-node={{ additional_nodes | join(',') if additional_nodes else '' }}
+
+# Disable block download during initial sync (for slow/historical nodes)
+no-sync={{ not sync_enabled }}
+
+# Enable pruning (reduces disk usage by discarding old block data)
+prune-blockchain={{ pruning_enabled }}
+
+# Prune threshold (in MB); used only if pruning is enabled
+prune-threshold={{ pruning_threshold }}
+
+# Disable mining (always true for most users)
+disable-mining={{ not mining_enabled }}
+
+# Mining thread count (0 = auto-select)
+miner-threads={{ mining_threads }}
+
+# Mining address (required if mining enabled)
+miner-address={{ mining_address }}
+
+# Background mining (requires user consent on first run)
+background-mining-enabled={{ background_mining_enabled }}
+
+# Allow local network discovery
+local-peer-discovery={{ local_peer_discovery_enabled }}
+
+# Allow remote RPC (if false, only localhost may connect to RPC)
+confirm-external-bind={{ rpc_allow_remote }}
+
+# Disable IPv6 (if true, disables IPv6 binding/listening)
+disable-ipv6={{ not ipv6_enabled }}
+
+# Allow UPnP port mapping (deprecated; may cause issues on some routers)
+upnp={{ upnp_enabled }}
+
+# Set maximum number of connections to RPC clients
+rpc-max-connections={{ rpc_max_connections }}
+
+# Set maximum size of incoming RPC request body (in bytes)
+rpc-max-request-size={{ rpc_max_request_size }}
+
+# Set timeout for RPC requests (in ms)
+rpc-timeout={{ rpc_timeout }}
+
+# Set fee threshold for low-fee tx rejection (in monero per KB, e.g. 0.00001)
+fee-override={{ fee_override }}
+
+# Sync from snapshot (URL or 'auto')
+sync-from-snapshot-url={{ sync_snapshot_url }}
+
+# Sync from snapshot height (0 = auto)
+sync-from-snapshot-height={{ sync_snapshot_height }}
+
+# Enable ZMQ for real-time transaction/block notifications
+enable-zmq={{ zmq_enabled }}
+
+# ZMQ publish address for transactions
+zmq-pub-tx-address={{ zmq_pub_tx_addr }}
+
+# ZMQ publish address for blocks
+zmq-pub-block-address={{ zmq_pub_block_addr }}
+
+# ZMQ publish address for raw blocks
+zmq-pub-raw-block-address={{ zmq_pub_raw_block_addr }}
+
+# Extra arguments (unparsed lines passed directly to daemon)
+{% for extra_line in extra_lines %}{{ extra_line }}
+{% endfor %}

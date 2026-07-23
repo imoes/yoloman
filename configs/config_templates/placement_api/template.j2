@@ -1,0 +1,74 @@
+# [DEFAULT] General configuration options
+[DEFAULT]
+# Enable debug logging
+debug = {{ debug }}
+# Logging level
+log_level = {{ log_level }}
+# Log file path (use 'syslog' for syslog, '-' for stdout/stderr)
+log_file = {{ log_file }}
+
+# [placement] Core placement service configuration
+[placement]
+# Keystone authentication endpoint (auth_url + /v3)
+auth_url = {{ keystone_auth_url }}
+# Project domain name for service user
+project_domain_name = {{ project_domain_name }}
+# Project name for service user
+project_name = {{ project_name }}
+# User domain name for service user
+user_domain_name = {{ user_domain_name }}
+# Username for service user (e.g., 'placement')
+username = {{ service_username }}
+# Password for service user
+password = {{ service_password }}
+# API endpoint for placement service (used by other services to reach placement)
+api_endpoint = {{ api_endpoint }}
+# Enable database integration
+use_database = {{ use_database }}
+
+# [database] Database connection (only if use_database is true)
+{% if use_database %}[database]
+# Database connection URI (e.g., 'mysql+pymysql://user:pass@host/dbname?charset=utf8')
+connection = {{ database_connection }}
+{% endif %}
+
+# [api_database] Dedicated placement database (optional, overrides [database])
+{% if use_api_database %}[api_database]
+connection = {{ api_database_connection }}
+{% endif %}
+
+# [oslo_concurrency] Locking configuration (for multi-process deployments)
+[oslo_concurrency]
+# Lock path for file-based locking
+lock_path = {{ lock_path }}
+
+# [oslo_middleware] HTTP middleware options
+[oslo_middleware]
+# Maximum allowed request body size (in bytes)
+max_request_body_size = {{ max_request_body_size }}
+
+# [oslo_policy] Policy file configuration
+[oslo_policy]
+# Path to policy JSON file
+policy_file = {{ policy_file }}
+
+# [keystone_authtoken] Keystone auth token middleware (if using proxy auth)
+{% if use_keystone_authtoken %}[keystone_authtoken]
+# Same as [placement] auth config (kept separate for middleware independence)
+auth_url = {{ keystone_auth_url }}
+project_domain_name = {{ project_domain_name }}
+project_name = {{ project_name }}
+user_domain_name = {{ user_domain_name }}
+username = {{ service_username }}
+password = {{ service_password }}
+# Ingress endpoint for keystone auth (e.g., for reverse proxy setups)
+www_authenticate_uri = {{ www_authenticate_uri }}
+{% endif %}
+
+# [oslo_db] Database connection pooling (for advanced tuning)
+{% if use_database %}[oslo_db]
+# Enable connection pool
+connection_recycle = {{ connection_recycle }}
+max_overflow = {{ max_overflow }}
+pool_size = {{ pool_size }}
+{% endif %}

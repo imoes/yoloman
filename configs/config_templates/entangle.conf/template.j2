@@ -1,0 +1,37 @@
+{# Top-level configuration file for Entangle, the distributed rendering management system #}
+# Entangle configuration
+# Global settings for the Entangle system
+
+{{ global_settings }}
+
+# List of renderer instances to manage
+{% for renderer in renderers %}
+[{{ renderer.name }}]
+  # Host address for this renderer instance
+  host = {{ renderer.host | default('localhost') }}
+  # Port on which the renderer service listens
+  port = {{ renderer.port | default(18888) }}
+  # Number of worker threads for this renderer
+  workers = {{ renderer.workers | default(4) }}
+  # Path to the render output directory
+  output_dir = {{ renderer.output_dir | default('/var/entangle/render/' + renderer.name) }}
+  # Enable or disable GPU acceleration for this renderer
+  use_gpu = {{ renderer.use_gpu | default(true) | lower }}
+  # Maximum render job timeout in seconds
+  timeout = {{ renderer.timeout | default(3600) }}
+  # Optional custom environment variables
+  {% if renderer.env_vars %}
+  env_vars =
+{% for key, value in renderer.env_vars.items() %}
+    {{ key }} = {{ value }}
+{% endfor %}
+  {% endif %}
+{% endfor %}
+
+# Notification endpoints for system alerts
+{% if notifications %}
+[notifications]
+{% for notice in notifications %}
+  {{ notice.type }} = {{ notice.endpoint }}
+{% endfor %}
+{% endif %}

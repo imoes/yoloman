@@ -1,0 +1,196 @@
+{
+  "log_level": {
+    "type": "number",
+    "default": 4,
+    "description": "Logging verbosity: 0 (none) to 7 (debug). Higher = more verbose."
+  },
+  "log_file": {
+    "type": "string",
+    "default": "/var/log/conntrackd.log",
+    "description": "Path to the log file, or 'Syslog' to send logs to the system logger."
+  },
+  "network": {
+    "type": "object",
+    "items": {
+      "bind_addr": {
+        "type": "string",
+        "default": "127.0.0.1",
+        "description": "IP address for internal communication (e.g., kernel interface)."
+      },
+      "port": {
+        "type": "number",
+        "default": 3780,
+        "description": "Port used for internal communication."
+      },
+      "protocol": {
+        "type": "string",
+        "default": "IPv4",
+        "enum": [
+          "IPv4",
+          "IPv6"
+        ],
+        "description": "Network protocol (IPv4 or IPv6) for internal communication."
+      }
+    }
+  },
+  "conntrack": {
+    "type": "object",
+    "items": {
+      "table_size": {
+        "type": "number",
+        "default": 65536,
+        "description": "Size of the connection tracking table (number of entries)."
+      },
+      "timeout": {
+        "type": "object",
+        "items": {
+          "established": {
+            "type": "number",
+            "default": 432000,
+            "description": "Timeout (seconds) for established connections (default ~5 days)."
+          },
+          "close": {
+            "type": "number",
+            "default": 10,
+            "description": "Timeout (seconds) for closing connections."
+          },
+          "time_wait": {
+            "type": "number",
+            "default": 60,
+            "description": "Timeout (seconds) for TIME_WAIT state."
+          }
+        }
+      },
+      "flush_on_start": {
+        "type": "bool",
+        "default": true,
+        "description": "If true, flush the connection tracking table on daemon start."
+      },
+      "sync": {
+        "type": "object",
+        "items": {
+          "enabled": {
+            "type": "bool",
+            "default": true,
+            "description": "If true, enable connection tracking synchronization (required for HA)."
+          },
+          "mode": {
+            "type": "string",
+            "default": "normal",
+            "enum": [
+              "normal",
+              "flood"
+            ],
+            "description": "Sync mode: 'normal' for peer-to-peer, 'flood' for broadcast in LAN."
+          },
+          "queue_maxlen": {
+            "type": "number",
+            "default": 256,
+            "description": "Maximum number of queued sync messages."
+          },
+          "log_sync": {
+            "type": "bool",
+            "default": false,
+            "description": "If true, log sync-related events."
+          }
+        }
+      }
+    }
+  },
+  "event": {
+    "type": "object",
+    "items": {
+      "new_command": {
+        "type": "string",
+        "default": "",
+        "description": "Shell command to execute when a new connection is created (optional)."
+      },
+      "destroy_command": {
+        "type": "string",
+        "default": "",
+        "description": "Shell command to execute when a connection is destroyed (optional)."
+      }
+    }
+  },
+  "helper": {
+    "type": "object",
+    "items": {
+      "ftp": {
+        "type": "object",
+        "items": {
+          "enabled": {
+            "type": "bool",
+            "default": true,
+            "description": "If true, enable FTP connection tracking helper."
+          },
+          "port": {
+            "type": "number",
+            "default": 21,
+            "description": "Port used for FTP control connections."
+          },
+          "timeout": {
+            "type": "number",
+            "default": 300,
+            "description": "Timeout (seconds) for FTP helper sessions."
+          }
+        }
+      }
+    }
+  },
+  "snmp": {
+    "type": "object",
+    "items": {
+      "agentx": {
+        "type": "bool",
+        "default": false,
+        "description": "If true, enable SNMP AgentX support for external monitoring."
+      }
+    }
+  },
+  "ha": {
+    "type": "object",
+    "items": {
+      "mode": {
+        "type": "string",
+        "default": "",
+        "enum": [
+          "active",
+          "backup",
+          "full",
+          ""
+        ],
+        "description": "HA mode: 'active' (primary node), 'backup' (standby), 'full' (both active), or '' (HA disabled)."
+      },
+      "peers": {
+        "type": "list",
+        "default": [],
+        "description": "List of HA peer nodes for multi-node setups.",
+        "items": {
+          "type": "object",
+          "items": {
+            "addr": {
+              "type": "string",
+              "default": "",
+              "description": "IP address of the HA peer node."
+            },
+            "port": {
+              "type": "number",
+              "default": 3780,
+              "description": "Port for HA peer communication."
+            }
+          }
+        }
+      },
+      "secret": {
+        "type": "string",
+        "default": "",
+        "description": "Secret passphrase used for HA authentication (required if HA enabled)."
+      },
+      "interval": {
+        "type": "number",
+        "default": 2,
+        "description": "Interval (seconds) between HA heartbeat messages."
+      }
+    }
+  }
+}

@@ -1,0 +1,33 @@
+# /etc/default/nodm: Configuration file for nodm, the NODM Display Manager
+
+# Enable/disable automatic login
+NODM_ENABLED={{ enabled | string | lower }}
+
+# User to auto-login (must exist)
+NODM_USER='{{ user }}'
+
+# Minimum UID for auto-login user
+NODM_MINIMUM_UID={{ minimum_uid }}
+
+# X session command to run (e.g., desktop environment)
+NODM_XSESSION='{{ xsession }}'
+
+# X server options (e.g., vt, display, etc.)
+NODM_XSERVER_OPTIONS='{{ xserver_options }}'
+
+# Wait time (seconds) before attempting auto-login
+NODM_INITIALIZE_DELAY={{ initialize_delay }}
+
+# Maximum time (seconds) to wait for user session to start before giving up
+NODM_MAX_STARTUP_TIME={{ max_startup_time }}
+
+# Path to nodm PID file (for service management)
+NODM_PID_FILE='{{ pid_file }}'
+
+# Extra environment variables to set before launching session (space-separated KEY=VALUE pairs)
+{% if environment %}
+# Custom environment variables
+{% for kv in environment %}
+export {{ kv.key }}='{{ kv.value }}'
+{% endfor %}
+{% endif %}

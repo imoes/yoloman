@@ -1,0 +1,93 @@
+# Enable metrics storage backend (e.g., 'storage')
+# [storage]
+[storage]
+# Driver to use for metric storage (e.g., 'file', 'ceph', 'redis', 'elasticsearch')
+# Default: file
+driver = {{ storage_driver }}
+
+# Base path for file-based storage (ignored for non-file drivers)
+# Only used if `driver = file`
+file_basepath = {{ file_basepath }}
+
+# Redis host and port (used if `driver = redis`)
+redis_host = {{ redis_host }}
+redis_port = {{ redis_port }}
+redis_password = {{ redis_password }}
+redis_db = {{ redis_db }}
+
+# Elasticsearch cluster URL(s) (comma-separated list if `driver = elasticsearch`)
+# Example: 'http://host1:9200,http://host2:9200'
+elasticsearch_url = {{ elasticsearch_url }}
+
+# Elasticsearch index prefix
+elasticsearch_index_prefix = {{ elasticsearch_index_prefix }}
+
+# Elasticsearch number of shards and replicas for new indices
+elasticsearch_number_of_shards = {{ elasticsearch_number_of_shards }}
+elasticsearch_number_of_replicas = {{ elasticsearch_number_of_replicas }}
+
+# Ceph configuration (if `driver = ceph`)
+ceph_conffile = {{ ceph_conffile }}
+ceph_pool = {{ ceph_pool }}
+
+# Enable SSL/TLS for Elasticsearch or Redis (if supported)
+elasticsearch_verify_ssl = {{ elasticsearch_verify_ssl | lower }}
+
+# [metricd] section: metric processing daemon configuration
+# [metricd]
+[metricd]
+# Number of worker processes for metric processing
+workers = {{ metricd_workers }}
+
+# Timeout for metric processing (seconds)
+metric_processing_timeout = {{ metric_processing_timeout }}
+
+# Maximum metrics to process per batch
+metrics_per_batch = {{ metrics_per_batch }}
+
+# Maximum metrics to queue before backpressure
+metrics_queue_max = {{ metrics_queue_max }}
+
+# Retry configuration
+retry_attempts = {{ retry_attempts }}
+retry_delay = {{ retry_delay }}
+
+# Log level: DEBUG, INFO, WARNING, ERROR, CRITICAL
+log_level = {{ log_level }}
+
+# Enable or disable incoming metric ingestion (e.g., for read-only mode)
+enable_ingestion = {{ enable_ingestion | lower }}
+
+# [keystone_authtoken] section: authentication with OpenStack Identity
+# [keystone_authtoken]
+[keystone_authtoken]
+auth_type = password
+auth_url = {{ keystone_auth_url }}
+project_domain_name = {{ keystone_project_domain_name }}
+user_domain_name = {{ keystone_user_domain_name }}
+project_name = {{ keystone_project_name }}
+username = {{ keystone_username }}
+password = {{ keystone_password }}
+service_token_roles_required = true
+
+# [coordination] section: distributed coordination (e.g., for HA)
+# [coordination]
+[coordination]
+# URL for coordination backend (e.g., 'redis://', 'file://')
+url = {{ coordination_url }}
+
+# [indexer] section: storage for metadata (e.g., 'sqlalchemy')
+# [indexer]
+[indexer]
+url = {{ indexer_url }}
+
+# [archive_policy] section: archive policy settings (optional override)
+# [archive_policy]
+[archive_policy]
+{% for policy in archive_policies %}
+# Archive policy: {{ policy.name }}
+[archive_policy:{{ policy.name }}]
+back_window = {{ policy.back_window }}
+definition = {{ policy.definition | join(', ') }}
+aggregation_methods = {{ policy.aggregation_methods | join(', ') }}
+{% endfor %}

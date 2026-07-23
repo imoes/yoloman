@@ -1,0 +1,57 @@
+{
+  "services": [
+    "nss",
+    "pam",
+    "sudo"
+  ],
+  "domains": [
+    {
+      "name": "example.com",
+      "auth_provider": "ldap",
+      "id_provider": "ldap",
+      "ldap_uri": [
+        "ldap://ldap1.example.com",
+        "ldap://ldap2.example.com"
+      ],
+      "ldap_search_base": "dc=example,dc=com",
+      "ldap_schema": "rfc2307",
+      "tls_cacert": "/etc/pki/tls/certs/ca.crt",
+      "tls_reqcert": "demand",
+      "cache_credentials": true,
+      "ldap_user_name": "uid",
+      "override_homedir": "/home/%u",
+      "min_id": 1000,
+      "max_id": 200000,
+      "fallback_to_localhost": false,
+      "allow_groups": [
+        "developers",
+        "admins"
+      ]
+    },
+    {
+      "name": "ad.example.com",
+      "auth_provider": "ad",
+      "id_provider": "ad",
+      "ad_domain": "ad.example.com",
+      "ad_server": "dc1.ad.example.com",
+      "cache_credentials": true,
+      "ldap_user_name": "sAMAccountName"
+    }
+  ],
+  "services_config": [
+    {
+      "name": "nss",
+      "debug_level": 2,
+      "timeout": 60,
+      "max_connections": 50,
+      "service_specific": "filter_groups = root\nfilter_users = root"
+    },
+    {
+      "name": "pam",
+      "debug_level": 0,
+      "timeout": 30,
+      "max_connections": 20,
+      "service_specific": "pam_pwd_expiration_warning = 7"
+    }
+  ]
+}

@@ -1,0 +1,26 @@
+# Enable client-launch functionality
+client-launch = {{ client_launch.enabled | string | lower }}
+
+# Hostname pattern to match clients (glob-style; empty = all clients)
+client-hosts = {{ client_launch.client_hosts | join(', ') }}
+
+# Interval (in seconds) between client checks
+client-interval = {{ client_launch.client_interval }}
+
+# Maximum number of concurrent client launch attempts
+client-max-concurrent = {{ client_launch.max_concurrent }}
+
+# Command prefix for launching client tests (e.g., 'sudo -u hobbit')
+client-cmd-prefix = {{ client_launch.cmd_prefix }}
+
+# Base directory for client test scripts
+client-base-dir = {{ client_launch.base_dir }}
+
+{% for test in client_launch.tests %}# Test: {{ test.name }}
+# Command: {{ test.cmd }}
+# Timeout (seconds)
+test-{{ test.name | lower }}-timeout = {{ test.timeout }}
+# Enable this test?
+test-{{ test.name | lower }}-enabled = {{ test.enabled | string | lower }}
+
+{% endfor %}

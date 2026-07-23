@@ -1,0 +1,39 @@
+{
+  "bind": "unix:/run/gunicorn.sock",
+  "workers": 4,
+  "worker_class": "sync",
+  "timeout": 30,
+  "accesslog": "/var/log/gunicorn/access.log",
+  "errorlog": "/var/log/gunicorn/error.log",
+  "loglevel": "info",
+  "threads": 1,
+  "max_requests": 5000,
+  "graceful_timeout": 15,
+  "pidfile": "/run/gunicorn.pid",
+  "user": "www-data",
+  "group": "www-data",
+  "env": [
+    {
+      "key": "DJANGO_SETTINGS_MODULE",
+      "value": "myproject.settings.production"
+    },
+    {
+      "key": "PYTHONPATH",
+      "value": "/opt/myapp"
+    }
+  ],
+  "extra_args": [
+    {
+      "key": "--preload",
+      "value": true
+    }
+  ],
+  "ssl": {
+    "certfile": "/etc/ssl/certs/myapp.crt",
+    "keyfile": "/etc/ssl/private/myapp.key"
+  },
+  "backlog": 2048,
+  "keepalive": 5,
+  "proc_name": "myapp",
+  "pre_load": "print('Loading application...')"
+}

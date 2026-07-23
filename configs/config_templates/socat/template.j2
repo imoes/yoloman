@@ -1,0 +1,9 @@
+# socat.conf — main configuration for socat multipurpose relay
+# Each line defines one or more address pairs to relay traffic between
+# Syntax: [options] <addr1>[,<addr2>,...] [[options]] <addr3>[,...]
+# For more details: man socat or https://www.dest-unreach.org/socat/
+
+{% for rule in rules %}
+# {{ rule.description | default('Relay traffic from ' + rule.from + ' to ' + rule.to) }}
+{% if rule.options %}{{ rule.options | join(' ') }} {% endif %}{{ rule.from }}{{ ',' + rule.to if rule.to else '' }}{% if rule.post_options %} {{ rule.post_options | join(' ') }}{% endif %}
+{% endfor %}

@@ -1,0 +1,75 @@
+# mairix configuration file — indexes and searches locally-stored email
+# Base folder containing your mail (MBox, Maildir, etc.)
+base={{ mail_base }}
+
+# Database file used for indexing (must be absolute path or relative to base)
+db={{ db_path }}
+
+# Folders to index (comma- or space-separated; supports wildcards like * and ?)
+folder={{ mail_folders | join(',') }}
+
+# Optional: extra folders to index (e.g., for backup or secondary inboxes)
+{% if extra_folders %}
+# Extra folders to index
+folder={{ extra_folders | join(',') }}
+{% endif %}
+
+# Path to your MTA’s sendmail-compatible command (used for reply/forward via mairix)
+{% if sendmail_path %}
+sendmail={{ sendmail_path }}
+{% endif %}
+
+# Maximum number of results to display in search output (0 = unlimited)
+resultlimit={{ result_limit }}
+
+# Whether to include message IDs in search results
+{% if include_message_ids %}
+msgid=1
+{% else %}
+msgid=0
+{% endif %}
+
+# Whether to use case-insensitive search (default: on)
+{% if case_insensitive_search %}
+casefold=1
+{% else %}
+casefold=0
+{% endif %}
+
+# Whether to include headers in search (default: on)
+{% if search_headers %}
+search_headers=1
+{% else %}
+search_headers=0
+{% endif %}
+
+# Whether to include message bodies in search (default: on)
+{% if search_bodies %}
+search_bodies=1
+{% else %}
+search_bodies=0
+{% endif %}
+
+# Optional: custom mxfolder definitions (for non-standard folder names)
+{% for name, pattern in custom_folders.items() %}
+# Custom folder mapping: {{ name }}
+mxfolder.{{ name }}={{ pattern }}
+{% endfor %}
+
+# Optional: pattern to ignore files (e.g., for Maildir: ".*, tmp, cache")
+{% if ignore_pattern %}
+# Ignore patterns (comma-separated)
+ignore={{ ignore_pattern }}
+{% endif %}
+
+# Optional: prefix to strip from folder names in search output
+{% if folder_prefix %}
+# Strip this prefix from displayed folder names
+folderprefix={{ folder_prefix }}
+{% endif %}
+
+# Optional: path to an external indexer script (e.g., for non-MBox formats)
+{% if external_indexer %}
+# Use external indexer script (must accept folder path as argument)
+indexer={{ external_indexer }}
+{% endif %}

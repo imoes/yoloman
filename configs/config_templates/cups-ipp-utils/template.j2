@@ -1,0 +1,57 @@
+# Listen for IPP connections on specified address and port
+Listen {{ listen_address }}:{{ listen_port }}
+
+# Enable the server to accept IPP requests from the network
+# (Set to 'No' to disable network access entirely)
+{% if network_access %}Network yes{% else %}Network no{% endif %}
+
+# Allow remote administration of this IPP service
+{% if admin_access %}RemoteAdmin yes{% else %}RemoteAdmin no{% endif %}
+
+# Enable browsing of printers via the Internet Printing Protocol
+{% if browsing_enabled %}Browsing On{% else %}Browsing Off{% endif %}
+
+# Default job timeout in seconds
+MaxJobTime {{ max_job_time }}
+
+# Maximum number of jobs to keep in history
+MaxJobs {{ max_jobs }}
+
+# Log level: none, warn, error, info, debug, debug2, etc.
+LogLevel {{ log_level }}
+
+# Log file path
+{% if log_file %}ErrorLog {{ log_file }}{% else %}ErrorLog /var/log/cups/ipp_error_log{% endif %}
+
+# Access log file path
+{% if access_log_file %}AccessLog {{ access_log_file }}{% else %}AccessLog /var/log/cups/ipp_access_log{% endif %}
+
+# SSL/TLS configuration — enabled only if certificates provided
+{% if ssl_enabled %}
+# Enable HTTPS for IPP (Port 631 with encryption)
+Port 631
+# SSL certificate file
+ServerCertificate /etc/ssl/certs/ipp.crt
+# SSL private key file
+ServerKey /etc/ssl/private/ipp.key
+{% endif %}
+
+# Access control: allow/deny per subnet
+{% for rule in access_rules %}
+# {{ rule.description | default('Access control rule') }}
+{% if rule.action == 'allow' %}Allow{% else %}Deny{% endif %} {{ rule.source | default('*') }}
+{% endfor %}
+
+# Printer discovery via DNS-SD / Avahi
+{% if dns_sd_enabled %}Browsing On{% else %}Browsing Off{% endif %}
+# DNS-SD service name (e.g., _ipp._tcp)
+{% if dns_sd_service_name %}DNSSDServiceName {{ dns_sd_service_name }}{% endif %}
+
+# Default printer options (applied if not overridden)
+{% for option in default_printer_options %}
+# Default option: {{ option.description }}
+Default {{ option.name }}={{ option.value }}
+{% endfor %}
+
+# Limit on request body size (KB) — prevents memory exhaustion attacks
+MaxRequestSize {{ max_request_size_kb }}

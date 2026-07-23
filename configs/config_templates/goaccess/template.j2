@@ -1,0 +1,142 @@
+# GoAccess configuration file
+# Real-time web log analyzer for Apache/Nginx logs
+
+# Enable HTML output (true/false)
+{{ output_html | tojson | lower }}
+
+# Enable JSON output (true/false)
+{{ output_json | tojson | lower }}
+
+# Enable CSV output (true/false)
+{{ output_csv | tojson | lower }}
+
+# Enable raw TSV output (true/false)
+{{ output_tsv | tojson | lower }}
+
+# Enable daemon mode (true/false)
+{{ daemon_mode | tojson | lower }}
+
+# Enable syslog integration (true/false)
+{{ use_syslog | tojson | lower }}
+
+# Time zone for timestamps (e.g., UTC, America/New_York)
+{{ time_zone | default('') | tojson }}
+
+# Log format specification (see docs for placeholders)
+# Example: %h %^[%d:%^] "%r" %s %b "%R" "%u"
+log_format {{ log_format }}
+
+# Input log file(s) — use with --log-file=... at runtime for multiple
+# Can be a single path or a glob pattern (e.g., /var/log/nginx/*.log)
+log_file {{ log_file }}
+
+# HTML output path (only used if output_html is true)
+html_output_path {{ html_output_path }}
+
+# JSON output path (only used if output_json is true)
+json_output_path {{ json_output_path }}
+
+# CSV output path (only used if output_csv is true)
+csv_output_path {{ csv_output_path }}
+
+# TSV output path (only used if output_tsv is true}
+tsv_output_path {{ tsv_output_path }}
+
+# Enable WebSocket server on specified host:port (e.g., 0.0.0.0:7890)
+# Required for real-time HTML dashboard streaming
+ws_server {{ ws_server }}
+
+# Enable HTTPS for WebSocket server (true/false)
+{{ ws_ssl | tojson | lower }}
+
+# SSL certificate path (required if ws_ssl=true)
+ssl_cert {{ ssl_cert | default('') | tojson }}
+
+# SSL private key path (required if ws_ssl=true)
+ssl_key {{ ssl_key | default('') | tojson }}
+
+# Enable GeoIP lookups (true/false)
+{{ geoip_database | tojson | lower | replace('false', '') | replace('true', '') | trim }}
+# Note: The option is actually `geoip_database` with path, not boolean.
+# Adjusted below:
+
+# Enable GeoIP support and specify database path
+{% if geoip_database | default('') | length > 0 %}
+geoip_database {{ geoip_database }}
+{% endif %}
+
+# Enable real-time updates every N seconds
+real_time_refresh {{ real_time_refresh }}
+
+# Ignore referer list (space-separated or list)
+ignore_referer {% for ref in ignore_referer_list %}{{ ref }}{% if not loop.last %} {% endif %}{% endfor %}
+
+# Ignore search engine queries (true/false)
+ignore_search_engine {% if ignore_search_engine %}true{% else %}false{% endif %}
+
+# Ignore static files (space-separated extensions or list)
+ignore_static_files {% for ext in ignore_static_extensions %}{{ ext }}{% if not loop.last %} {% endif %}{% endfor %}
+
+# Date format (e.g., %d/%b/%Y, %Y-%m-%d)
+date_format {{ date_format }}
+
+# Time format (e.g., %H:%M:%S)
+time_format {{ time_format }}
+
+# HTTP methods to treat as valid requests
+http_method {{ http_methods }}
+
+# HTTP status codes to treat as hits (space-separated list)
+http_status {% for code in http_status_codes %}{{ code }}{% if not loop.last %} {% endif %}{% endfor %}
+
+# Enable color scheme (true/false)
+{{ color_scheme | tojson | lower }}
+
+# Enable HTML terminal support (true/false)
+{{ html_terminal | tojson | lower }}
+
+# Enable mouse support (true/false)
+{{ mouse_support | tojson | lower }}
+
+# Number of top lines for each report (e.g., 10, 20, 100)
+top_lines {{ top_lines }}
+
+# Enable custom report title
+report_title {{ report_title }}
+
+# Enable virtual-host support (true/false)
+virtual_host {% if virtual_host %}true{% else %}false{% endif %}
+
+# Enable all options (not recommended; overrides most settings)
+# all_options {% if all_options %}true{% else %}false{% endif %}
+
+# Optional: Enable specific report types
+# (e.g., `--reports=visitors,hits` — not in conf file normally, but supported via CLI)
+# We do not include CLI-only options here.
+
+# Skip log parsing for requests matching this regex (one per line)
+{% for skip_regex in skip_log_regex_list %}
+skip_log_regex {{ skip_regex }}
+{% endfor %}
+
+# Ignore IP/CIDR ranges (space-separated or list)
+ignore_ip {% for ip in ignore_ips %}{{ ip }}{% if not loop.last %} {% endif %}{% endfor %}
+
+# Treat IP in X-Forwarded-For header as client IP (true/false)
+real_ip {{ real_ip | tojson | lower }}
+
+# Custom 404 page path (only used if output_html=true)
+{% if custom_404_page %}
+html_custom_404 {{ custom_404_page }}
+{% endif %}
+
+# Hide request for static assets from reports (true/false)
+hide_requests {{ hide_requests | tojson | lower }}
+
+# Log level: 0=Quiet, 1=Info, 2=Debug, 3=Verbose
+log_level {{ log_level }}
+
+# Enable debug log to specified file
+{% if debug_log %}
+debug_log {{ debug_log }}
+{% endif %}

@@ -1,0 +1,63 @@
+# Configuration for GNOME Crypto Services (GCR4)
+# See 'man gcr.conf' for detailed documentation
+
+[ui]
+# Enable/disable the PIN entry dialog (true/false)
+show_pin_entry={{ ui.show_pin_entry }}
+
+# Timeout (in seconds) before PIN entry dialog auto-closes
+pin_entry_timeout={{ ui.pin_entry_timeout }}
+
+# Enable/disable password echo (show characters as typed)
+pin_entry_echo={{ ui.pin_entry_echo }}
+
+[storage]
+# Path to the certificate storage directory
+storage_dir={{ storage.storage_dir }}
+
+# Enable/disable persistent storage of keys and certificates
+enable_storage={{ storage.enable_storage }}
+
+# Enable/disable secure erase of sensitive data (e.g., keys on cleanup)
+secure_erase={{ storage.secure_erase }}
+
+[logging]
+# Logging level: 0=error, 1=warn, 2=info, 3=debug
+level={{ logging.level }}
+
+# Path to log file (empty means stderr only)
+log_file={{ logging.log_file | default('') }}
+
+# Enable/disable logging to systemd journal
+log_to_journal={{ logging.log_to_journal }}
+
+[trust]
+# Enable/disable automatic trust policy evaluation
+auto_trust={{ trust.auto_trust }}
+
+# Default trust level for newly imported CA certificates: 'none', 'partial', 'full'
+default_ca_trust={{ trust.default_ca_trust }}
+
+[daemon]
+# Enable/disable the GCR daemon (gcr-daemon)
+enabled={{ daemon.enabled }}
+
+# List of services to auto-start (empty means none)
+{% for service in daemon.auto_start_services %}
+autostart_service={{ service }}
+{% endfor %}
+
+# Maximum number of concurrent operations
+max_concurrent={{ daemon.max_concurrent }}
+
+[ssh]
+# Enable/disable SSH agent support (SSH_AUTH_SOCK forwarding)
+enabled={{ ssh.enabled }}
+
+# Path to the SSH socket (if enabled)
+socket_path={{ ssh.socket_path | default('') }}
+
+# List of keys to import from SSH agent (empty means all)
+{% for key in ssh.import_keys %}
+import_key={{ key }}
+{% endfor %}

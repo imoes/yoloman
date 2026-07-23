@@ -1,0 +1,35 @@
+# renderd.conf — Main configuration file for renderd, the Mapnik tile renderer
+# General renderd daemon settings
+[renderd]
+  # Number of worker threads to spawn for tile rendering
+  num_threads={{ renderd.num_threads }}
+  # Timeout in seconds for tile rendering tasks
+  tile_timeout={{ renderd.tile_timeout }}
+  # Mapnik XML configuration file(s) to use for rendering
+  xml={{ renderd.xml | join(',') }}
+  # Host and port for the internal HTTP tile server
+  socketname={{ renderd.socket_name }}
+  # Maximum number of connections to the tile server
+  max_conn={{ renderd.max_conn }}
+  # Enable/disable verbose debugging output
+  debug={{ renderd.debug | string | lower }}
+{% for map in maps %}
+# Map {{ map.name }} — Configuration for individual map layer
+[{{ map.name }}]
+  # Path to the Mapnik XML file for this map
+  xml={{ map.xml }}
+  # Hostname or IP address to bind the map layer's tile server
+  host={{ map.host }}
+  # TCP port to bind the map layer's tile server
+  port={{ map.port }}
+  # Tile directory (where rendered tiles are stored)
+  tile_dir={{ map.tile_dir }}
+  # Mapnik stylesheet (same as xml for most cases, but can differ)
+  mapnik_image_type={{ map.mapnik_image_type }}
+  # Image compression quality (for formats that support it, e.g. jpeg/png)
+  mapnik_image_quality={{ map.mapnik_image_quality }}
+  # Minimum zoom level to render
+  min_zoom={{ map.min_zoom }}
+  # Maximum zoom level to render
+  max_zoom={{ map.max_zoom }}
+{% endfor %}

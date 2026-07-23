@@ -1,0 +1,47 @@
+# IPv4 rules for iptables (managed by netfilter-persistent)
+*filter
+:INPUT DROP [0:0]
+:FORWARD DROP [0:0]
+:OUTPUT ACCEPT [0:0]
+
+# Allow loopback interface
+-A INPUT -i lo -j ACCEPT
+
+# Allow established and related connections
+-A INPUT -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
+
+# Allow SSH (configure port dynamically)
+-A INPUT -p tcp --dport {{ ssh_port }} -m conntrack --ctstate NEW -j ACCEPT
+
+# Allow HTTP/HTTPS
+{% if http_enabled %}
+-A INPUT -p tcp --dport 80 -m conntrack --ctstate NEW -j ACCEPT
+{% endif %}
+{% if https_enabled %}
+-A INPUT -p tcp --dport 443 -m conntrack --ctstate NEW -j ACCEPT
+{% endif %}
+
+# Allow ICMP ping (optional)
+{% if icmp_enabled %}
+-A INPUT -p icmp --icmp-type echo-request -j ACCEPT
+{% endif %}
+
+# Custom rules: per service
+{% for service in services %}
+# {{ service.name }}: {{ service.description | default('custom service') }}
+{% if service.protocol == 'tcp' %}
+-A INPUT -p tcp --dport {{ service.port }} -m conntrack --ctstate NEW -j ACCEPT
+{% elif service.protocol == 'udp' %}
+-A INPUT -p udp --dport {{ service.port }} -m conntrack --ctstate NEW -j ACCEPT
+{% elif service.protocol == 'icmp' %}
+-A INPUT -p icmp --icmp-type {{ service.icmp_type }} -j ACCEPT
+{% endif %}
+{% endfor %}
+
+# Log dropped packets (optional)
+{% if log_dropped %}
+-A INPUT -j LOG --log-prefix "IPTABLES_DROPPED: " --log-level 4
+{% endif %}
+
+-A INPUT -j DROP
+COMMIT

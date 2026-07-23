@@ -1,0 +1,17 @@
+# /etc/cryptmount/cmtab — Encrypted Filesystem Configuration
+# Each entry defines an encrypted filesystem target for cryptmount.
+# Format: <target> { ... }
+{% for entry in entries %}
+{{ entry.target }} {
+{% if entry.dev %}    dev = {{ entry.dev }}
+{% endif %}{% if entry.crypto %}    crypto = {{ entry.crypto }}
+{% endif %}{% if entry.keyfile %}    keyfile = {{ entry.keyfile }}
+{% endif %}{% if entry.keyformat %}    keyformat = {{ entry.keyformat }}
+{% endif %}{% if entry.uuid %}    uuid = {{ entry.uuid }}
+{% endif %}{% if entry.fstype %}    fstype = {{ entry.fstype }}
+{% endif %}{% if entry.mountpoint %}    mountpoint = {{ entry.mountpoint }}
+{% endif %}{% if entry.options %}    options = {{ entry.options | join(', ') }}
+{% endif %}{% if entry.allow_auto %}    allow = {{ 'auto' if entry.allow_auto else 'none' }}
+{% endif %}
+}
+{% endfor %}

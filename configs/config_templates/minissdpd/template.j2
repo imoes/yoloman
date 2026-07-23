@@ -1,0 +1,28 @@
+# UPnP device cache daemon configuration
+# Listen addresses and ports
+# Interface(s) to listen on (e.g., eth0, br0); leave empty for all (but not recommended)
+INTERFACE={{ interface }}
+
+# Port for HTTP-based discovery (standard: 80)
+PORT={{ port }}
+
+# IPv4 address to bind to for SSDP multicast traffic
+SSDP_ADDRESS={{ ssdp_address }}
+
+# Maximum number of devices to cache (prevents memory exhaustion)
+MAX_ENTRIES={{ max_entries }}
+
+# Enable or disable logging to syslog
+LOGGING={{ logging | lower }}
+
+# Optional: additional interface-specific network interfaces (one per line)
+{% for iface in extra_interfaces %}# Interface: {{ iface.name }}
+# Description: {{ iface.description }}
+INTERFACES+=({{ iface.device }})
+{% endfor %}
+
+# PID file location
+PIDFILE={{ pidfile }}
+
+# Extra daemon arguments (e.g., -d for daemonize, -f for foreground)
+DAEMON_ARGS={{ daemon_args }}

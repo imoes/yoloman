@@ -1,0 +1,87 @@
+{
+  "teredo_server": {
+    "type": "string",
+    "default": "teredo.ipv6.utwente.nl",
+    "description": "Primary Teredo server hostname or IP address (required for client mode)"
+  },
+  "teredo_fallback_server": {
+    "type": "string",
+    "default": "",
+    "description": "Fallback Teredo server hostname or IP address if primary is unreachable"
+  },
+  "teredo_type": {
+    "type": "string",
+    "default": "client",
+    "description": "Operation mode: 'client' (standard), 'automatic' (auto-configure), or 'relay' (server-side)"
+  },
+  "teredo_interface": {
+    "type": "string",
+    "default": "teredo",
+    "description": "Name of the virtual interface to create for Teredo tunneling"
+  },
+  "teredo_port": {
+    "type": "number",
+    "default": 3544,
+    "description": "UDP port number used for Teredo communication (must match server if custom)"
+  },
+  "log_level": {
+    "type": "string",
+    "default": "notice",
+    "description": "Verbosity of logging: debug (most verbose) to error (only critical)"
+  },
+  "log_file": {
+    "type": "string",
+    "default": "/var/log/miredo.log",
+    "description": "Path to log file (e.g., /var/log/miredo.log); use /dev/stdout for console logging"
+  },
+  "teredo_cone_nat": {
+    "type": "boolean",
+    "default": true,
+    "description": "Assume NAT is cone-type (simpler mapping); set false for symmetric NATs if supported"
+  },
+  "prefer_teredo": {
+    "type": "boolean",
+    "default": false,
+    "description": "Give Teredo-prefixed addresses higher priority when selecting source address"
+  },
+  "teredo_servers": {
+    "type": "list",
+    "default": [],
+    "description": "List of Teredo servers with optional metadata (e.g., for redundancy)",
+    "items": {
+      "type": "object",
+      "fields": {
+        "host": {
+          "type": "string",
+          "required": true,
+          "description": "Hostname or IP address of the Teredo server"
+        },
+        "port": {
+          "type": "number",
+          "default": 3544,
+          "description": "Optional UDP port (default 3544)"
+        },
+        "priority": {
+          "type": "number",
+          "default": 10,
+          "description": "Priority for ordering fallback (higher = higher priority)"
+        }
+      }
+    }
+  },
+  "bind_address": {
+    "type": "string",
+    "default": "",
+    "description": "Local IPv4 address to bind to (e.g., 192.168.1.100); leave empty for auto-detect"
+  },
+  "max_associations": {
+    "type": "number",
+    "default": 50,
+    "description": "Maximum number of concurrent Teredo peer associations"
+  },
+  "enabled": {
+    "type": "boolean",
+    "default": true,
+    "description": "Enable or disable the Teredo client entirely"
+  }
+}

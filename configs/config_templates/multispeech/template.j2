@@ -1,0 +1,90 @@
+# Multilingual Speech Server configuration for Emacspeak
+[general]
+# Global log level (debug, info, warn, error)
+log_level = {{ log_level }}
+
+# Path to the main data directory
+home_dir = {{ home_dir }}
+
+# Default voice engine (e.g., flite, mbrola, pico, festival)
+default_engine = {{ default_engine }}
+
+# Default voice variant (e.g., en-us, en-gb, fr-fr, de-de)
+default_voice = {{ default_voice }}
+
+# Default speech rate (words per minute)
+default_rate = {{ default_rate }}
+
+# Default pitch adjustment (0 to 99, higher = higher pitch)
+default_pitch = {{ default_pitch }}
+
+# Default volume adjustment (0 to 100, higher = louder)
+default_volume = {{ default_volume }}
+
+# Enable/disable multi-threaded rendering
+threaded_render = {{ threaded_render }}
+
+# Maximum number of concurrent render jobs
+max_jobs = {{ max_jobs }}
+
+# Timeout for rendering job (seconds)
+job_timeout = {{ job_timeout }}
+
+[engine_flite]
+# Enable FLITE engine
+enabled = {{ engines.flite.enabled }}
+
+# Path to FLITE binary
+binary = {{ engines.flite.binary }}
+
+# Voice variants provided by FLITE (comma-separated list)
+voices = {% for voice in engines.flite.voices %}{{ voice }}{% if not loop.last %}, {% endif %}{% endfor %}
+
+[engine_mbrola]
+# Enable MBROLA engine
+enabled = {{ engines.mbrola.enabled }}
+
+# Path to MBROLA binary
+binary = {{ engines.mbrola.binary }}
+
+# Path to MBROLA voice data directory
+voice_dir = {{ engines.mbrola.voice_dir }}
+
+# Voice variants provided by MBROLA (comma-separated list)
+voices = {% for voice in engines.mbrola.voices %}{{ voice }}{% if not loop.last %}, {% endif %}{% endfor %}
+
+[engine_pico]
+# Enable Pico TTS engine
+enabled = {{ engines.pico.enabled }}
+
+# Path to Pico TTS binary
+binary = {{ engines.pico.binary }}
+
+# Default language code for Pico (e.g., en-US, fr-FR, de-DE)
+default_lang = {{ engines.pico.default_lang }}
+
+# Additional language variants to load
+langs = {% for lang in engines.pico.langs %}{{ lang }}{% if not loop.last %}, {% endif %}{% endfor %}
+
+[engine_festival]
+# Enable Festival engine
+enabled = {{ engines.festival.enabled }}
+
+# Path to Festival server binary
+server_binary = {{ engines.festival.server_binary }}
+
+# Path to Festival config directory
+config_dir = {{ engines.festival.config_dir }}
+
+# Festival server host and port
+server_host = {{ engines.festival.server_host }}
+server_port = {{ engines.festival.server_port }}
+
+# Voice variants provided by Festival
+voices = {% for voice in engines.festival.voices %}{{ voice }}{% if not loop.last %}, {% endif %}{% endfor %}
+
+[voices]
+# Define voice aliases for easy reference (e.g., 'en-male' -> 'en-us+clb')
+# Each alias maps to a voice in the format: <engine>+<voice-id>
+{% for alias, mapping in voice_aliases.items() %}{{ alias }} = {{ mapping }}
+{% endfor %}

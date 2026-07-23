@@ -1,0 +1,43 @@
+# Main listen address and port for the DICOD service
+bind: {{ bind_address }}:{{ bind_port }}
+
+# Maximum number of concurrent connections
+max_connections: {{ max_connections }}
+
+# Path to the database directory
+storage:
+  path: {{ storage_path }}
+  # Enable background compaction of old data
+  compact: {{ compact_enabled | lower }}
+
+# Logging configuration
+log:
+  level: {{ log_level }}
+  file: {{ log_file }}
+
+# Worker pool configuration
+workers:
+  count: {{ worker_count }}
+  queue_size: {{ worker_queue_size }}
+
+# Allowed clients (CIDR blocks or hostnames)
+{% for client in allowed_clients %}allow: {{ client }}
+{% endfor %}
+
+# TLS configuration (optional)
+{% if tls_enabled %}tls:
+  cert_file: {{ tls_cert_file }}
+  key_file: {{ tls_key_file }}
+{% endif %}
+
+# Rate limiting per client IP (optional)
+{% for rate_limit in rate_limits %}rate_limit:
+  ip: {{ rate_limit.ip }}
+  requests_per_minute: {{ rate_limit.requests_per_minute }}
+{% endfor %}
+
+# Metrics endpoint (optional)
+{% if metrics_enabled %}metrics:
+  enabled: {{ metrics_enabled | lower }}
+  port: {{ metrics_port }}
+{% endif %}

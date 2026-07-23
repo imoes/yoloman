@@ -1,0 +1,210 @@
+{
+  "enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable or disable the netconfd service overall."
+  },
+  "log_level": {
+    "type": "string",
+    "default": "info",
+    "description": "Minimum logging level: debug, info, notice, warning, error, critical."
+  },
+  "log_file": {
+    "type": "string",
+    "default": "/var/log/netconfd/netconfd.log",
+    "description": "Path to the log file; use 'stdout' to log to console."
+  },
+  "pid_file": {
+    "type": "string",
+    "default": "/run/netconfd/netconfd.pid",
+    "description": "Path where the process PID file is written."
+  },
+  "max_sessions_per_user": {
+    "type": "number",
+    "default": 10,
+    "description": "Maximum number of concurrent sessions allowed per authenticated user."
+  },
+  "max_sessions_total": {
+    "type": "number",
+    "default": 100,
+    "description": "Maximum total number of concurrent sessions across all users."
+  },
+  "session_timeout": {
+    "type": "number",
+    "default": 600,
+    "description": "Session inactivity timeout in seconds (0 disables timeout)."
+  },
+  "ssh_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable NETCONF over SSH transport."
+  },
+  "ssh_host": {
+    "type": "string",
+    "default": "0.0.0.0",
+    "description": "Host address for SSH listener (e.g., 127.0.0.1, 0.0.0.0)."
+  },
+  "ssh_port": {
+    "type": "number",
+    "default": 830,
+    "description": "Port number for SSH listener."
+  },
+  "ssh_host_key": {
+    "type": "string",
+    "default": "/etc/ssh/netconfd_host_key",
+    "description": "Path to the SSH private host key file."
+  },
+  "ssh_authorized_keys": {
+    "type": "string",
+    "default": "/etc/ssh/netconfd_authorized_keys",
+    "description": "Path to the SSH authorized_keys file for public key authentication. Optional."
+  },
+  "tls_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable NETCONF over TLS transport."
+  },
+  "tls_host": {
+    "type": "string",
+    "default": "0.0.0.0",
+    "description": "Host address for TLS listener."
+  },
+  "tls_port": {
+    "type": "number",
+    "default": 6513,
+    "description": "Port number for TLS listener."
+  },
+  "tls_cert": {
+    "type": "string",
+    "default": "/etc/ssl/netconfd.crt",
+    "description": "Path to the TLS certificate chain file."
+  },
+  "tls_key": {
+    "type": "string",
+    "default": "/etc/ssl/netconfd.key",
+    "description": "Path to the TLS private key file."
+  },
+  "tls_ca_cert": {
+    "type": "string",
+    "default": "",
+    "description": "Optional CA certificate for mutual TLS client verification."
+  },
+  "restconf_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable RESTCONF over HTTPS (uses TLS)."
+  },
+  "restconf_host": {
+    "type": "string",
+    "default": "0.0.0.0",
+    "description": "Host address for RESTCONF listener."
+  },
+  "restconf_port": {
+    "type": "number",
+    "default": 443,
+    "description": "Port number for RESTCONF listener."
+  },
+  "restconf_tls_cert": {
+    "type": "string",
+    "default": "",
+    "description": "Optional TLS certificate for RESTCONF (overrides global TLS cert)."
+  },
+  "restconf_tls_key": {
+    "type": "string",
+    "default": "",
+    "description": "Optional TLS key for RESTCONF (overrides global TLS key)."
+  },
+  "validate_yang_on_startup": {
+    "type": "bool",
+    "default": true,
+    "description": "Validate YANG modules and configuration at startup."
+  },
+  "yang_module_paths": {
+    "type": "list",
+    "default": [
+      "/usr/share/yang/modules",
+      "/etc/yang/modules"
+    ],
+    "description": "List of directories to search for YANG modules."
+  },
+  "startup_config": {
+    "type": "string",
+    "default": "/etc/netconfd/startup.xml",
+    "description": "Path to the NETCONF :startup configuration file (XML format)."
+  },
+  "candidate_config": {
+    "type": "string",
+    "default": "/etc/netconfd/candidate.xml",
+    "description": "Path to the NETCONF :candidate configuration file (XML format)."
+  },
+  "running_config": {
+    "type": "string",
+    "default": "/etc/netconfd/running.xml",
+    "description": "Path to the NETCONF :running configuration file (XML format)."
+  },
+  "notifications_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable NETCONF notification subscriptions (RFC 5277)."
+  },
+  "notification_streams_dir": {
+    "type": "string",
+    "default": "/etc/netconfd/streams",
+    "description": "Directory containing YANG stream definition modules (e.g., ietf-netconf-notifications)."
+  },
+  "extensions": {
+    "type": "list",
+    "default": [],
+    "description": "List of additional NETCONF protocol extensions to load. Each element defines path and optional arguments.",
+    "items": {
+      "type": "object",
+      "fields": {
+        "path": {
+          "type": "string",
+          "description": "Path to the extension plugin/shared library."
+        },
+        "args": {
+          "type": "string",
+          "default": "",
+          "description": "Optional comma-separated arguments for the extension."
+        }
+      }
+    }
+  },
+  "users": {
+    "type": "list",
+    "default": [
+      {
+        "name": "netconf",
+        "password": "",
+        "public_key": "/etc/ssh/keys/netconf.pub",
+        "role": "admin"
+      }
+    ],
+    "description": "List of authenticated users with access to NETCONF.",
+    "items": {
+      "type": "object",
+      "fields": {
+        "name": {
+          "type": "string",
+          "description": "Username for authentication."
+        },
+        "password": {
+          "type": "string",
+          "default": "",
+          "description": "Optional plaintext password (for testing only). Use empty string and rely on public key."
+        },
+        "public_key": {
+          "type": "string",
+          "default": "",
+          "description": "Path to the user's public key file (for SSH public key auth)."
+        },
+        "role": {
+          "type": "string",
+          "default": "operator",
+          "description": "User role: admin, operator, or reader."
+        }
+      }
+    }
+  }
+}

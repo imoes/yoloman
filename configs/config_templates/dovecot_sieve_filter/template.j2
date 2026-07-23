@@ -1,0 +1,63 @@
+# Enable the Sieve plugin for LDA/LMTP
+{% if sieve_enabled %}plugin {
+  sieve = {{ sieve_global_script_dir }}/{{ sieve_global_script }}
+  sieve_global_dir = {{ sieve_global_script_dir }}
+  sieve_global_script_name = {{ sieve_global_script }}
+{% for plugin, value in sieve_plugins.items() %}  sieve_{{ plugin }} = {{ 'yes' if value else 'no' }}
+{% endfor %}}
+
+# Load Sieve plugin in LDA and LMTP services
+{% if sieve_in_lda %}protocol lda {
+  mail_plugins = $mail_plugins sieve
+}
+{% endif %}{% if sieve_in_lmtp %}protocol lmtp {
+  mail_plugins = $mail_plugins sieve
+}
+{% endif %}# Sieve script storage and management
+{% if sieve_storage_dir %}plugin {
+  sieve_storage = {{ sieve_storage_dir }}
+}
+{% endif %}# Optional: default Sieve script (e.g., for vacation/autoreply)
+{% if sieve_default_script %}plugin {
+  sieve_default = {{ sieve_default_script }}
+}
+{% endif %}# Optional: Sieve before/after scripts (run before user scripts, or after)
+{% if sieve_before_scripts %}plugin {
+  sieve_before = {% for script in sieve_before_scripts %}{{ script }}{% if not loop.last %}; {% endif %}{% endfor %}
+}
+{% endif %}{% if sieve_after_scripts %}plugin {
+  sieve_after = {% for script in sieve_after_scripts %}{{ script }}{% if not loop.last %}; {% endif %}{% endfor %}
+}
+{% endif %}# Sieve interpreter limits (hard limits to prevent abuse)
+{% if sieve_max_script_size is defined %}plugin {
+  sieve_max_script_size = {{ sieve_max_script_size }}
+}
+{% endif %}{% if sieve_max_actions is defined %}plugin {
+  sieve_max_actions = {{ sieve_max_actions }}
+}
+{% endif %}{% if sieve_max_redirects is defined %}plugin {
+  sieve_max_redirects = {{ sieve_max_redirects }}
+}
+{% endif %}# Optional: Sieve debug logging
+{% if sieve_debug %}plugin {
+  sieve_debug = yes
+}
+{% endif %}# Enable LDA/LMTP services if needed (only if not already enabled elsewhere)
+{% if sieve_in_lda and not lda_enabled %}# LDA service — required if using sieve with LDA
+service lda {
+  # unix listener for maildrop (common with Postfix)
+  unix_listener /var/spool/postfix/private/dovecot-lda {
+    mode = 0600
+    user = postfix
+    group = postfix
+  }
+}
+{% endif %}{% if sieve_in_lmtp and not lmtp_enabled %}# LMTP service — required if using sieve with LMTP
+service lmtp {
+  unix_listener /var/spool/postfix/private/dovecot-lmtp {
+    mode = 0600
+    user = postfix
+    group = postfix
+  }
+}
+{% endif %}

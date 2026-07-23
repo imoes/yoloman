@@ -1,0 +1,103 @@
+# Listen on this IP address (use 0.0.0.0 for all interfaces)
+bindaddr = "{{ server.bindaddr }}"
+
+# Listen on this TCP port
+port = {{ server.port }}
+
+# Maximum number of concurrent players
+maxplayers = {{ limits.maxplayers }}
+
+# Maximum number of AI players allowed
+max_ai_players = {{ limits.max_ai_players }}
+
+# Path to the world file (map database); leave empty to generate new maps each run
+worldpath = "{{ paths.worldpath }}"
+
+# Path to savegames; if empty, defaults to worldpath
+savepath = "{{ paths.savepath }}"
+
+# Enable or disable logging to file
+logtofile = {{ logging.logtofile }}
+
+# Log file path (used only if logtofile is true)
+logfile = "{{ logging.logfile }}"
+
+# Log level: 0=none, 1=fatal, 2=error, 3=warning, 4=info, 5=debug, 6=debug-all
+loglevel = {{ logging.loglevel }}
+
+# Enable or disable remote administration (RCON)
+remoteadmin = {{ features.remoteadmin }}
+
+# RCON password (empty disables RCON)
+password = "{{ features.rcon_password }}"
+
+# Game rules: map generation type (0=Earth, 1=Random, 2=Pangaea, 3=Isles)
+mapgen = {{ rules.mapgen }}
+
+# World size multiplier: 0=small, 1=medium, 2=large, 3=very large
+worldsize = {{ rules.worldsize }}
+
+# Climate: 0=cold, 1=temp, 2=trop, 3=earth (default)
+climate = {{ rules.climate }}
+
+# Terrain generation noise (0=smooth, 1=normal, 2=rough)
+terrain_noise = {{ rules.terrain_noise }}
+
+# Starting year
+startyear = {{ rules.startyear }}
+
+# Number of starting positions (0=auto, -1=one per player)
+startpos = {{ rules.startpos }}
+
+# Enable or disable nuclear weapons
+nuclear = {{ rules.nuclear }}
+
+# Enable or disable city walls
+walls = {{ rules.walls }}
+
+# Enable or disable advanced diplomacy (e.g., secret treaties)
+advdiplomacy = {{ rules.advdiplomacy }}
+
+# List of ruleset overrides — each overrides a specific ruleset parameter
+{% for rule in rules.overrides %}
+# Set {{ rule.key }} to {{ rule.value }}
+{{ rule.key }} = {{ rule.value }}
+{% endfor %}
+
+# List of allowed player types and their defaults
+# Format: player_type = [username, ai_type, email, password]
+{% for player in players %}
+# {{ player.name }}: type={{ player.type }}, AI={{ 'yes' if player.ai else 'no' }}
+{{ player.name }} = {
+  type: {{ player.type | quote }},
+  ai: {{ 'true' if player.ai else 'false' }},
+  ai_type: {{ player.ai_type | quote }},
+  email: {{ player.email | quote }},
+  password: {{ player.password | quote }},
+  team: {{ player.team | quote }}
+}
+{% endfor %}
+
+# Enable or disable autosaves (per-turn or per-player actions)
+autosave = {{ features.autosave }}
+
+# Autosave prefix (e.g., "save-" → "save-turn-100")
+autosave_prefix = "{{ features.autosave_prefix }}"
+
+# Enable or disable the built-in web server for game info (JSON status)
+webstatus = {{ features.webstatus }}
+
+# Port for the built-in web status server (0=disabled)
+webstatus_port = {{ features.webstatus_port }}
+
+# Timeout (in seconds) for idle connections
+idletimeout = {{ limits.idletimeout }}
+
+# Maximum turns before forced savegame
+maxturn = {{ limits.maxturn }}
+
+# Enable or disable the chat history
+chatlog = {{ features.chatlog }}
+
+# Chat history file (if chatlog is enabled)
+chatlog_file = "{{ features.chatlog_file }}"

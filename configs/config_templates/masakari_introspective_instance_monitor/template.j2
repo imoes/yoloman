@@ -1,0 +1,93 @@
+# Masakari Introspective Instance Monitor configuration
+# This service monitors instance health via introspective (agent-based) methods.
+
+[DEFAULT]
+# Enable debug logging
+{% if debug %}debug = true{% else %}debug = false{% endif %}
+# Log directory path
+log_dir = {{ log_dir }}
+# Log file name
+{% if log_file %}log_file = {{ log_file }}{% endif %}
+# Logging format
+log_format = {{ log_format }}
+
+# Hostname of this introspective monitor node
+host = {{ host }}
+
+# Path to the introspective agent executable
+{% if introspective_agent_path %}introspective_agent_path = {{ introspective_agent_path }}{% endif %}
+
+# Time (in seconds) between health check attempts
+{% if health_check_interval %}health_check_interval = {{ health_check_interval }}{% endif %}
+
+# Time (in seconds) to wait before declaring a host unhealthy
+{% if host_unhealthy_timeout %}host_unhealthy_timeout = {{ host_unhealthy_timeout }}{% endif %}
+
+# Number of consecutive failures before marking instance/host as unhealthy
+{% if max_failures_before_unhealthy %}max_failures_before_unhealthy = {{ max_failures_before_unhealthy }}{% endif %}
+
+# API endpoint for Masakari notifications
+masakari_api_uri = {{ masakari_api_uri }}
+
+# Authentication method for Masakari API
+masakari_auth_strategy = {{ masakari_auth_strategy }}
+
+# Keystone auth URL (used only if masakari_auth_strategy = keystone)
+{% if keystone_auth_url %}keystone_auth_url = {{ keystone_auth_url }}{% endif %}
+
+# Project name for Masakari API access
+{% if project_name %}project_name = {{ project_name }}{% endif %}
+
+# Username for Masakari API access
+{% if username %}username = {{ username }}{% endif %}
+
+# Password for Masakari API access
+{% if password %}password = {{ password }}{% endif %}
+
+# Region name for Masakari service endpoint lookup
+{% if region_name %}region_name = {{ region_name }}{% endif %}
+
+# Enable SSL verification for Masakari API calls
+{% if verify_ssl %}verify_ssl = true{% else %}verify_ssl = false{% endif %}
+
+# List of instance IDs to monitor (empty list = monitor all instances on host)
+{% for instance_id in monitored_instance_ids %}
+{% if loop.first %}monitored_instance_ids = {% endif %}{% if loop.first or loop.last %}{{ instance_id }}{% else %}, {{ instance_id }}{% endif %}
+{% endfor %}
+{% if not monitored_instance_ids %}monitored_instance_ids =
+{% endif %}
+
+# Path to the introspective agent config override file
+{% if introspective_agent_config %}introspective_agent_config = {{ introspective_agent_config }}{% endif %}
+
+# Path to store introspective agent logs
+{% if introspective_agent_log_dir %}introspective_agent_log_dir = {{ introspective_agent_log_dir }}{% endif %}
+
+# Retry count for agent invocation failures
+{% if agent_retry_count %}agent_retry_count = {{ agent_retry_count }}{% endif %}
+
+# Delay (in seconds) between agent retries
+{% if agent_retry_delay %}agent_retry_delay = {{ agent_retry_delay }}{% endif %}
+
+[notifications]
+# Enable sending notifications on host/instance failure
+{% if notifications_enabled %}enabled = true{% else %}enabled = false{% endif %}
+
+# Notification transport URL (e.g., rabbit://user:pass@host:5672/)
+{% if transport_url %}transport_url = {{ transport_url }}{% endif %}
+
+# List of notification topics
+{% for topic in notification_topics %}
+{% if loop.first %}topics = {% endif %}{% if loop.first or loop.last %}{{ topic }}{% else %}, {{ topic }}{% endif %}
+{% endfor %}
+{% if not notification_topics %}topics =
+{% endif %}
+
+# Notification format (e.g., 'default', 'notification_event_api')
+{% if notification_format %}notification_format = {{ notification_format }}{% endif %}
+
+# Retry attempts for notification delivery
+{% if notification_retry_count %}notification_retry_count = {{ notification_retry_count }}{% endif %}
+
+# Delay (in seconds) between notification retries
+{% if notification_retry_delay %}notification_retry_delay = {{ notification_retry_delay }}{% endif %}

@@ -1,0 +1,93 @@
+# logstalgia.conf — web server access log visualiser defaults
+
+# Display resolution as WIDTHxHEIGHT
+viewport={{ viewport_width }}x{{ viewport_height }}
+
+{% if fullscreen %}
+# Launch in fullscreen mode instead of a window
+fullscreen=true
+
+{% endif %}
+# Background fill colour as a 6-digit RGB hex value (no leading #)
+background={{ background_color }}
+
+# Point size of the on-screen font used for request and host labels
+font-size={{ font_size }}
+
+# Pixel gap between adjacent request balls sharing the same time slot
+padding={{ padding }}
+
+# Width in pixels of the left-hand label gutter
+gutter-width={{ gutter_width }}
+
+# Paddle rendering mode: single (one paddle), pid (per server process), vhost (per virtual host)
+paddle-mode={{ paddle_mode }}
+
+# Vertical paddle position as a fraction of screen height (0.0 = top, 1.0 = bottom)
+paddle-position={{ paddle_position }}
+
+{% if hide_paddle %}
+# Hide the paddle entirely — useful for kiosk / display-only mode
+hide-paddle=true
+
+{% endif %}
+{% if hide_url_prefix %}
+# Strip protocol and hostname from URL labels, showing only the path component
+hide-url-prefix=true
+
+{% endif %}
+{% if hide_response_code %}
+# Do not display the HTTP response-code badge on each request ball
+hide-response-code=true
+
+{% endif %}
+{% if hide_progress %}
+# Do not render the playback-progress bar at the bottom of the screen
+hide-progress=true
+
+{% endif %}
+# Replay speed multiplier: 1.0 = real-time, 2.0 = double speed, 0.5 = half speed
+speed={{ speed }}
+
+{% if sync %}
+# Lock replay speed to wall-clock time (overrides speed; useful for live log tailing)
+sync=true
+
+{% endif %}
+{% if disable_auto_skip %}
+# Prevent automatic time-jumping over long idle gaps in the log
+disable-auto-skip=true
+
+{% endif %}
+{% if start_position is not none %}
+# Begin playback this many seconds into the log file
+start-position={{ start_position }}
+
+{% endif %}
+{% if stop_position is not none %}
+# Stop playback at this fraction of the total log length (0.0–1.0)
+stop-position={{ stop_position }}
+
+{% endif %}
+# Access-log format to parse: combined | common | vhost_combined | squid | w3c
+log-format={{ log_format }}
+
+# Maximum number of in-flight request balls rendered simultaneously
+max-connects={{ max_connects }}
+
+# Truncate URL/host labels longer than this many characters (0 = no limit)
+label-truncation={{ label_truncation }}
+
+{% if output_ppm_stream %}
+# Write raw uncompressed PPM frames to stdout for piping into ffmpeg or avconv
+output-ppm-stream=true
+
+# Target frame rate in fps for the PPM output stream
+output-framerate={{ output_framerate }}
+
+{% endif %}
+{% for group in groups %}
+# Request group: balls whose URL matches the regex are labelled "{{ group.label }}" in colour {{ group.color }}
+group={{ group.regex }}={{ group.label }},{{ group.color }}
+
+{% endfor %}

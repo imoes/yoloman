@@ -1,0 +1,37 @@
+# Listen for HTTP connections on specified host and port
+listen:
+  - host: {{ http.listen_host }}
+    port: {{ http.listen_port }}
+    ssl: {{ http.ssl.enabled }}
+{% if http.ssl.enabled %}
+    ssl_cert_file: {{ http.ssl.cert_file }}
+    ssl_key_file: {{ http.ssl.key_file }}
+{% endif %}
+
+# WebSocket-specific settings
+websocket:
+  # Maximum number of concurrent WebSocket connections
+  max_connections: {{ websocket.max_connections }}
+  # Ping interval in seconds (0 to disable)
+  ping_interval: {{ websocket.ping_interval }}
+  # Ping timeout in seconds
+  ping_timeout: {{ websocket.ping_timeout }}
+  # Enable per-message deflate compression
+  compression: {{ websocket.compression }}
+
+# Upstream backends for proxying requests
+backends:
+{% for backend in backends %}
+  - name: {{ backend.name }}
+    host: {{ backend.host }}
+    port: {{ backend.port }}
+{% if backend.ssl %}
+    ssl: true
+    ssl_verify: {{ backend.ssl_verify }}
+{% endif %}
+{% endfor %}
+
+# Logging configuration
+log:
+  level: {{ log.level }}
+  format: {{ log.format }}

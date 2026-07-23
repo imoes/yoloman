@@ -1,0 +1,40 @@
+# GDB Remote Server configuration
+# Launch gdbserver with a listening address and optionally a debuggee process
+# Usage: gdbserver [OPTIONS] <host:port> <program> [args...]
+# OR:    gdbserver [OPTIONS] --multi <host:port>
+
+# Bind to this host (IP or hostname); use '0.0.0.0' for all interfaces
+host: {{ host }}
+
+# TCP port to listen on
+port: {{ port }}
+
+# Enable extended remote protocol (recommended for most clients)
+extended_remote: {{ extended_remote | default(false) | lower }}
+
+# Enable remote debugging without spawning a new process (attach to existing PID)
+attach_pid: {{ attach_pid | default(null) }}
+
+# Command to invoke gdbserver; typically not overridden, but included for completeness
+command: gdbserver
+
+# List of processes to debug (for --multi mode or static launch configuration)
+{% if processes %}
+# Debug these processes (only in multi-mode or pre-spawn scenarios)
+{% for proc in processes %}
+# Process: {{ proc.name | default('unnamed') }} (PID: {{ proc.pid | default('N/A') }})
+process:
+  - name: {{ proc.name | default('unnamed') }}
+    pid: {{ proc.pid | default(null) | int(0) }}
+{% endfor %}
+{% endif %}
+
+# Optional: extra command-line arguments (e.g., --no-stop, --wrapper, etc.)
+{% if extra_args %}
+# Pass these extra arguments directly to gdbserver
+{% for arg in extra_args %}
+# Arg: {{ arg }}
+extra_args:
+  - {{ arg }}
+{% endfor %}
+{% endif %}

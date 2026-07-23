@@ -1,0 +1,49 @@
+# Debian Package Builder Daemon (buildd) configuration
+# Controls daemon behavior: listening address, ports, build limits, repository URLs, and accepted suites
+# Base directory for buildd data (builds, logs, queues)
+BASEDIR={{ base_dir }}
+
+# TCP port to listen on for incoming uploads and status updates
+PORT={{ port }}
+
+# Hostname or IP address to bind to (use `0.0.0.0` for all interfaces)
+BINDADDR={{ bind_addr }}
+
+# Maximum number of concurrent builds (set to `0` for unlimited)
+MAX_JOBS={{ max_jobs }}
+
+# Maximum size (in MB) of a single build log before truncation
+MAX_LOG_SIZE={{ max_log_size }}
+
+# Maximum age (in days) of logs kept in the spool directory
+LOG_RETENTION_DAYS={{ log_retention_days }}
+
+# Whether to enable debug logging
+DEBUG={{ debug | lower }}
+
+# Space-separated list of architectures this buildd may build for
+ARCHITECTURES="{{ architectures | join(' ') }}"
+
+# Comma-separated list of suites (distributions) to accept sources from
+SUITES="{{ suites | join(', ') }}"
+
+# Upload target host (e.g., upload server or FTP master)
+UPLOAD_HOST={{ upload_host }}
+
+# SSH key file to use when uploading built packages
+UPLOAD_KEYFILE={{ upload_keyfile }}
+
+# Optional: additional APT sources (e.g., for custom repos) — one per line, in `deb` format
+{% for source in apt_sources %}
+# Source: {{ source.comment | default('custom') }}
+APT_SOURCE_{{ loop.index }}="deb [signed-by={{ source.keyring | default('/dev/null') }}] {{ source.url }} {{ source.suite }} {{ source.components | join(' ') }}"
+{% endfor %}
+
+# Directory containing APT keyrings for repository verification
+KEYRING_DIR={{ keyring_dir }}
+
+# Whether to automatically accept and process incoming build requests
+AUTO_ACCEPT={{ auto_accept | lower }}
+
+# Optional: custom build script template override (leave empty to use defaults)
+BUILDCMD={{ buildcmd | default('') | trim | replace('\n', '\\n') }}

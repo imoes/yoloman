@@ -1,0 +1,148 @@
+[DEFAULT]
+# Base directory for Heat runtime data (e.g., lock files, temp files)
+# heat-common sets this to /var/lib/heat but operators may override per deployment
+working_dir = {{ paths.working_dir }}
+
+# Default log file; use empty string to log only to stdout
+log_file = {{ logging.log_file }}
+
+# Logging level: DEBUG, INFO, WARNING, ERROR, CRITICAL
+log_level = {{ logging.level }}
+
+# Name of the region for multi-region deployments (used in trust creation and endpoint discovery)
+region_name = {{ region.name }}
+
+# Enable/Disable debug mode (very verbose logging)
+debug = {{ debug }}
+
+# Enable/Disable verbose logging (extra detail, less concise than debug)
+verbose = {{ verbose }}
+
+[database]
+# Database connection URL (SQLAlchemy format)
+connection = {{ database.connection }}
+
+# Maximum number of database connections in the pool
+max_retries = {{ database.max_retries }}
+
+# Interval between database retry attempts (seconds)
+retry_interval = {{ database.retry_interval }}
+
+[oslo_messaging_notifications]
+# Driver to use for sending notifications; 'noop' disables notifications
+driver = {{ notifications.driver }}
+
+[oslo_messaging_rabbit]
+# RabbitMQ host hostname
+host = {{ rabbit.host }}
+
+# RabbitMQ port
+port = {{ rabbit.port }}
+
+# RabbitMQ user
+user = {{ rabbit.user }}
+
+# RabbitMQ password
+password = {{ rabbit.password }}
+
+# RabbitMQ virtual host
+virtual_host = {{ rabbit.virtual_host }}
+
+# Enable HA for RabbitMQ (requires mirrored queues on the broker side)
+ha_queues = {{ rabbit.ha_queues }}
+
+# Connection retry timeout (seconds)
+connection_retry_timeout = {{ rabbit.connection_retry_timeout }}
+
+[keystone_authtoken]
+# Identity service (Keystone) auth URL (v3 recommended)
+auth_url = {{ keystone.auth_url }}
+
+# Service project name for Heat service account
+project_name = {{ keystone.project_name }}
+
+# Service user name
+username = {{ keystone.username }}
+
+# Service user password
+password = {{ keystone.password }}
+
+# Service user domain name (Keystone v3+)
+user_domain_name = {{ keystone.user_domain_name }}
+
+# Project domain name (Keystone v3+)
+project_domain_name = {{ keystone.project_domain_name }}
+
+# Insecure TLS (skip certificate verification) — avoid in production
+insecure = {{ keystone.insecure }}
+
+# Enable/Disable service token validation (for API requests with service tokens)
+service_token_roles_required = {{ keystone.service_token_roles_required }}
+
+[trustee]
+# Trustee user for delegated operations (typically heat user)
+auth_type = password
+
+# Same credentials as keystone_authtoken block above
+username = {{ keystone.username }}
+password = {{ keystone.password }}
+auth_url = {{ keystone.auth_url }}
+user_domain_name = {{ keystone.user_domain_name }}
+project_domain_name = {{ keystone.project_domain_name }}
+
+[trustee_client]
+# Trustee client endpoint interface: public, internal, or admin
+interface = {{ keystone.interface }}
+
+[cors]
+# Enable Cross-Origin Resource Sharing (CORS)
+enabled = {{ cors.enabled }}
+
+# Allowed origins for CORS (comma-separated list of hostnames)
+allowed_origin = {{ cors.allowed_origin | join(', ') }}
+
+[oslo_policy]
+# Policy file location
+policy_file = {{ policy.file }}
+
+[conductor]
+# Hostname or IP of the conductor service; leave empty to use local conductor
+host = {{ conductor.host }}
+
+# Number of conductor workers for parallel request handling
+workers = {{ conductor.workers }}
+
+[api]
+# Hostname/IP to bind the Heat API server
+bind_host = {{ api.bind_host }}
+
+# Port to listen on
+bind_port = {{ api.bind_port }}
+
+# API backend implementation: 'heat' or 'cfn'
+api_bind_engine = {{ api.api_bind_engine }}
+
+# Enable/Disable the CFN API (AWS CloudFormation-compatible API)
+enable_cfn_api = {{ api.enable_cfn_api }}
+
+# Enable/Disable the Heat native API
+enable_heat_api = {{ api.enable_heat_api }}
+
+# Number of API worker processes
+workers = {{ api.workers }}
+
+# Timeout for API requests (seconds)
+api_rate_limit = {{ api.api_rate_limit }}
+
+[engine]
+# Name of the heat-engine worker node; used for heartbeat & lock management
+host = {{ engine.host }}
+
+# Number of engine workers
+workers = {{ engine.workers }}
+
+# Timeout for stack operation (seconds)
+stack_action_timeout = {{ engine.stack_action_timeout }}
+
+# Enable/Disable signal receivers (for WaitCondition, etc.)
+signal_receiver_use_cfn = {{ engine.signal_receiver_use_cfn }}

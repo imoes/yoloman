@@ -1,0 +1,102 @@
+# Fossil DSCM configuration — site-specific settings
+# Path to the SQLite database file (includes tickets, wiki, etc.)
+database: {{ database_path }}
+
+# Hostname or IP address the HTTP server binds to
+host: {{ server.host }}
+
+# Port the HTTP server listens on
+port: {{ server.port }}
+
+# Default CGI path (used only if Fossil is invoked via CGI)
+cgi-path: {{ server.cgi_path }}
+
+# Enable/disable HTTPS (set to 'on' or 'off')
+ssl: {{ server.ssl | lower }}
+
+# Path to SSL certificate (required if ssl=on)
+ssl-cert: {{ server.ssl_cert }}
+
+# Path to SSL private key (required if ssl=on)
+ssl-key: {{ server.ssl_key }}
+
+# Enable/disable password authentication (if off, anonymous read-only access allowed)
+authentication: {{ auth.enabled | lower }}
+
+# Default user for anonymous access (empty = fully anonymous; 'anonymous' = named anonymous user)
+anonymous-user: {{ auth.anonymous_user }}
+
+# Require login to create accounts (on/off)
+self-register: {{ auth.self_register | lower }}
+
+# Enable/disable the built-in wiki
+wiki: {{ features.wiki | lower }}
+
+# Enable/disable ticketing system
+tickets: {{ features.tickets | lower }}
+
+# Enable/disable timeline/changeset graph
+graph: {{ features.graph | lower }}
+
+# Enable/disable JSON remote API
+json-api: {{ features.json_api | lower }}
+
+# Maximum number of concurrent HTTP connections (0 = unlimited)
+max-connections: {{ server.max_connections }}
+
+# Time (in seconds) before idle connections are closed
+keep-alive-timeout: {{ server.keep_alive_timeout }}
+
+# Log file path (leave empty to log to stderr)
+log-file: {{ server.log_file }}
+
+# Enable/disable debug mode (verbose logging)
+debug: {{ server.debug | lower }}
+
+# Repository-specific defaults for new check-ins (applies to all projects)
+{% for repo_default in repo_defaults %}
+# {{ repo_default.description }}
+repo-default: {{ repo_default.name }} {{ repo_default.value }}
+{% endfor %}
+
+# Access control: user permissions per repository/project
+{% if access_rules %}
+# Access control rules (format: user:permission:project)
+{% for rule in access_rules %}
+access: {{ rule.user }}:{{ rule.permission }}:{{ rule.project }}
+{% endfor %}
+{% else %}
+# No access rules defined — default public access (if auth disabled) or per-user defaults
+{% endif %}
+
+# SMTP mail settings for ticket notifications (optional)
+{% if mail.smtp_host %}
+# Mail server host
+smtp-host: {{ mail.smtp_host }}
+
+# Mail server port
+smtp-port: {{ mail.smtp_port }}
+
+# Use STARTTLS?
+smtp-starttls: {{ mail.smtp_starttls | lower }}
+
+# SMTP username (leave blank for anonymous)
+smtp-user: {{ mail.smtp_user }}
+
+# SMTP password (leave blank if not required)
+smtp-pass: {{ mail.smtp_pass }}
+
+# Email address used as sender for notifications
+smtp-from: {{ mail.smtp_from }}
+{% endif %}
+
+# Base URL for generating absolute links (e.g., for email notifications)
+url: {{ server.url }}
+
+# Site title displayed in web UI
+site-title: {{ server.site_title }}
+
+# Custom header HTML snippet (e.g., analytics, CSS, scripts)
+{% if server.custom_header %}
+header: {{ server.custom_header }}
+{% endif %}

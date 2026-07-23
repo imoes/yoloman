@@ -1,0 +1,60 @@
+{
+  "base_dir": "/var/lib/mini-buildd",
+  "log_dir": "/var/log/mini-buildd",
+  "log_level": 2,
+  "max_jobs": 4,
+  "bind_address": "0.0.0.0",
+  "bind_port": 8080,
+  "use_ssl": true,
+  "ssl_cert": "/etc/mini-buildd/ssl/cert.pem",
+  "ssl_key": "/etc/mini-buildd/ssl/key.pem",
+  "build_timeout": 7200,
+  "min_free_disk_mb": 2048,
+  "apt_sources_url": "http://deb.debian.org/debian",
+  "extra_apt_keys": [
+    "/etc/mini-buildd/keys/debian-11.gpg"
+  ],
+  "distributions": [
+    {
+      "name": "bullseye",
+      "suites": [
+        "stable",
+        "updates"
+      ],
+      "architectures": [
+        "amd64",
+        "arm64"
+      ]
+    },
+    {
+      "name": "bookworm",
+      "suites": [
+        "testing"
+      ],
+      "architectures": [
+        "amd64"
+      ]
+    }
+  ],
+  "builders": [
+    {
+      "name": "local",
+      "host": "localhost",
+      "port": 22,
+      "ssh_user": "mini-buildd"
+    },
+    {
+      "name": "builder2",
+      "host": "builder2.example.com",
+      "port": 2222,
+      "ssh_user": "mini-buildd",
+      "ssh_key_file": "/var/lib/mini-buildd/.ssh/builder2_id_ed25519",
+      "priority": 20,
+      "enabled": true
+    }
+  ],
+  "repo_sign_key_fingerprint": "ABCD 1234 EFGH 5678 IJKL 9012 MNOP 3456 QRST 6789",
+  "repo_distribution": "unstable",
+  "enable_auth": true,
+  "auth_users_file": "/etc/mini-buildd/htpasswd"
+}

@@ -1,0 +1,66 @@
+# Enable daemon to listen on all interfaces for NTP clients
+bindcmdaddress 0.0.0.0
+bindcmdaddress ::
+
+# Allow NTP clients from these networks (CIDR notation)
+{% for network in allowed_networks %}allow {{ network }}
+{% endfor %}
+
+# Enable rate limiting to prevent abuse
+cmdratelimit {{ cmd_rate_limit }}
+
+# Specify local reference clock (e.g., GPS or PPS) as a fallback when external sources unavailable
+{% if use_local_clock %}refclock PHC /dev/ptp0 poll 3 dpoll -2 offset 0 trust
+{% endif %}
+
+# Define upstream NTP servers — pool or server entries
+{% for server in ntp_servers %}server {{ server.host }} iburst{% if server.options %} {{ server.options | join(' ') }}{% endif %}
+{% endfor %}
+
+# Enable drift file to persist clock rate adjustments across reboots
+driftfile /var/lib/chrony/drift
+
+# Enable RTC tracking
+rtcsync
+
+# Log activity to this directory
+logdir /var/log/chrony
+
+# Log specific metrics
+{% for metric in log_metrics %}log {{ metric }}
+{% endfor %}
+
+# Minimum sources required before stepping (0–7; default 1)
+minsources {{ min_sources }}
+
+# Maximum allowed clock error before stepping (seconds)
+maxslewrate {{ max_slew_rate }}
+
+# Key file for command authentication (optional)
+{% if auth_enabled %}keyfile /etc/chrony/chrony.keys
+makestep {{ makestep_threshold }} {{ makestep_interval }}
+{% endif %}
+
+# Enable NTPv4 only (recommended for interoperability)
+rtconutc
+
+# Disable hardware timestamping if unreliable (optional override)
+{% if disable_hwtimestamp %}nohwtimestamp
+{% endif %}
+
+# Enable NTP server functionality explicitly
+{% if server_enabled %}ntpsync
+{% endif %}
+
+# Source step threshold for initial sync (0 = no step, >0 = step within N seconds)
+stepback {{ stepback_threshold }}
+
+# Enable tracking statistics
+trackstats
+
+# Maximum age (in seconds) of source data before discarding
+sourcestale {{ sources_stale_threshold }}
+
+# Enable SECCOMP sandbox for improved security (if supported)
+{% if seccomp_enabled %}seccomp
+{% endif %}

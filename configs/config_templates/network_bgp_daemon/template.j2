@@ -1,0 +1,85 @@
+# Enable process supervision and daemonization
+service exabgp {
+    daemonize: true
+    pid: /run/exabgp/exabgp.pid
+}
+
+# Global BGP settings
+bgp {
+    router-id: {{ bgp_router_id }};
+    local-address: {{ bgp_local_address }};
+    local-as: {{ bgp_local_as }};
+    {{# Authentication for peers (MD5 if enabled) is optional; use peer.auth_key only when needed
+    {{% for peer in bgp_peers }}
+    neighbor {{ peer.address }} {
+        remote-as: {{ peer.remote_as }};
+        {{% if peer.auth_key is defined and peer.auth_key | length > 0 }}
+        password: "{{ peer.auth_key }}";
+        {{% endif %}}
+        {{% if peer.description is defined and peer.description | length > 0 }}
+        description: "{{ peer.description }}";
+        {{% endif %}}
+        {{% if peer.hold_time is defined }}
+        hold-time: {{ peer.hold_time }};
+        {{% endif %}}
+        {{% if peer.connect_retry is defined }}
+        connect-retry: {{ peer.connect_retry }};
+        {{% endif %}}
+        {{% if peer.keepalive is defined }}
+        keepalive: {{ peer.keepalive }};
+        {{% endif %}}
+        {{% if peer.add_paths is defined and peer.add_paths is true }}
+        add-paths: send;
+        {{% endif %}}
+        {
+            family:
+                ipv4 unicast;
+                ipv6 unicast;
+        }
+        {{% if peer.inbound_filter or peer.outbound_filter }}
+        route-filter {
+            {{% if peer.inbound_filter }}
+            inbound-filter: {{ peer.inbound_filter }};
+            {{% endif %}}
+            {{% if peer.outbound_filter }}
+            outbound-filter: {{ peer.outbound_filter }};
+            {{% endif %}}
+        }
+        {{% endif %}}
+    }
+    {{% endfor %}}
+}
+
+# API listener for external control (optional — disable for hardened deployments)
+api {
+    processes [
+        "neighbor-up-down"
+    ]
+    parser: "text"
+    {{% if api_enabled }}
+    connect:
+        host: {{ api_host }};
+        port: {{ api_port }};
+        {{% if api_tls_enabled }}
+        tls:
+            certificate: "{{ api_tls_cert }}";
+            key: "{{ api_tls_key }}";
+            ca: "{{ api_tls_ca }}";
+        {{% endif %}}
+    {{% else %}}
+    # API disabled — remove or comment to enable
+    # connect: ...
+    {{% endif %}}
+}
+
+# Process hooks (e.g., for BGP state change notifications)
+process neighbor-up-down {
+    run: /usr/local/bin/exabgp-notify.sh;
+    {{% if process_env }}
+    env {
+        {{% for key, val in process_env.items() }}
+        {{ key }} "{{ val }}";
+        {{% endfor %}}
+    }
+    {{% endif %}}
+}

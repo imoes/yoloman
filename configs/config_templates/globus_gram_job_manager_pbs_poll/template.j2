@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Global GridFTP server configuration -->
+<GridFTPConfig>
+  <!-- PBS Job Manager polling setup for Globus GRAM -->
+  <JobManager>
+    <!-- Type of job manager; 'pbs_poll' enables polling-based PBS integration -->
+    <Type>pbs_poll</Type>
+    <!-- Path to the PBS 'qstat' command used to poll job status -->
+    <QstatPath>{{ qstat_path }}</QstatPath>
+    <!-- Path to the PBS 'qdel' command used to terminate jobs -->
+    <QdelPath>{{ qdel_path }}</QdelPath>
+    <!-- Path to the PBS 'qsub' command used to submit jobs -->
+    <QsubPath>{{ qsub_path }}</QsubPath>
+    <!-- Polling interval in seconds between status checks for each job -->
+    <PollInterval>{{ poll_interval }}</PollInterval>
+    <!-- Maximum number of jobs to poll concurrently per GridFTP endpoint -->
+    <MaxConcurrentPolls>{{ max_concurrent_polls }}</MaxConcurrentPolls>
+    <!-- Whether to enable verbose PBS job status parsing for debugging -->
+    <VerboseOutput>{{ verbose_output }}</VerboseOutput>
+    <!-- Whether to preserve job working directory after job completion (on failure/success) -->
+    <PreserveWorkingDir>{{ preserve_working_dir }}</PreserveWorkingDir>
+    <!-- List of environment variables to export in PBS job scripts -->
+    <EnvVars>
+{% for env in env_vars %}      <!-- {{ env.description | default('Environment variable') }}: {{ env.name }}={{ env.value }} -->
+      <Env name="{{ env.name }}">{{ env.value }}</Env>
+{% endfor %}    </EnvVars>
+  </JobManager>
+  <!-- PBS queue selection policy: static queue name or dynamic mapping per user/group -->
+{% if queue_mode == 'static' %}  <!-- Use a single fixed PBS queue for all jobs -->
+  <Queue>{{ queue_name }}</Queue>
+{% elif queue_mode == 'dynamic' %}  <!-- Use dynamic queue assignment based on user/group -->
+  <QueueMapping>
+{% for mapping in queue_mappings %}    <!-- Map {{ mapping.user_or_group }} (type: {{ mapping.type }}) to PBS queue '{{ mapping.queue }}' -->
+    <Entry user="{{ mapping.user }}" group="{{ mapping.group }}" type="{{ mapping.type }}">{{ mapping.queue }}</Entry>
+{% endfor %}  </QueueMapping>
+{% endif %}</GridFTPConfig>

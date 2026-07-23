@@ -1,0 +1,143 @@
+{
+  "enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable gamemode system-wide on boot."
+  },
+  "cpu_governor": {
+    "type": "string",
+    "default": "performance",
+    "description": "CPU frequency scaling governor to use when gamemode is active (e.g., performance, schedutil, powersave)."
+  },
+  "gpu_governor": {
+    "type": "string",
+    "default": "performance",
+    "description": "GPU frequency scaling governor to use when gamemode is active (if supported by hardware)."
+  },
+  "idle_time": {
+    "type": "number",
+    "default": 10,
+    "description": "Number of seconds to wait after a game exits before restoring original settings."
+  },
+  "exclude_processes": {
+    "type": "list",
+    "default": [],
+    "description": "List of process name patterns to exclude from gamemode (supports glob patterns like '*steam*').",
+    "items": {
+      "pattern": {
+        "type": "string",
+        "description": "Shell-style glob pattern to match process names (e.g., 'steamwebhelper', '*minecraft*')."
+      }
+    }
+  },
+  "scripts": {
+    "type": "list",
+    "default": [],
+    "description": "List of custom scripts to run during gamemode lifecycle events.",
+    "items": {
+      "event": {
+        "type": "string",
+        "enum": [
+          "enter",
+          "exit"
+        ],
+        "description": "When to run the script: 'enter' when entering gamemode, 'exit' when exiting."
+      },
+      "path": {
+        "type": "string",
+        "description": "Absolute path to the script file (must be executable)."
+      }
+    }
+  },
+  "gpu_boost": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable GPU boost (if hardware/driver supports it).",
+    "optional": true
+  },
+  "max_concurrent_games": {
+    "type": "number",
+    "default": 5,
+    "description": "Maximum number of concurrent game sessions allowed."
+  },
+  "log_level": {
+    "type": "number",
+    "default": 1,
+    "description": "Logging verbosity: 0=error, 1=warn (default), 2=info, 3=debug."
+  },
+  "log_file": {
+    "type": "string",
+    "default": "/var/log/gamemode.log",
+    "description": "Path to the gamemode log file."
+  },
+  "nice": {
+    "type": "object",
+    "default": {
+      "enabled": false,
+      "value": 10
+    },
+    "description": "Adjust process nice priority for games.",
+    "items": {
+      "enabled": {
+        "type": "bool",
+        "description": "Enable nice priority adjustment for game processes."
+      },
+      "value": {
+        "type": "number",
+        "description": "Nice value to apply (range: -20 to 19; higher value = lower priority)."
+      }
+    }
+  },
+  "io": {
+    "type": "object",
+    "default": {
+      "enabled": false,
+      "class": 1,
+      "priority": 7
+    },
+    "description": "Adjust I/O scheduling for game processes.",
+    "items": {
+      "enabled": {
+        "type": "bool",
+        "description": "Enable I/O priority adjustment for game processes."
+      },
+      "class": {
+        "type": "number",
+        "enum": [
+          0,
+          1,
+          2,
+          3
+        ],
+        "description": "I/O scheduling class: 0=none, 1=idle, 2=best-effort, 3=realtime."
+      },
+      "priority": {
+        "type": "number",
+        "description": "I/O priority level (0-7; only used with best-effort class; higher = lower priority)."
+      }
+    }
+  },
+  "renice": {
+    "type": "object",
+    "default": {
+      "enabled": false,
+      "value": -10
+    },
+    "description": "Adjust process priority via renice (legacy alias; prefer 'nice' setting).",
+    "items": {
+      "enabled": {
+        "type": "bool",
+        "description": "Enable renice priority adjustment (negative values increase priority)."
+      },
+      "value": {
+        "type": "number",
+        "description": "Renice value to apply (range: -20 to 19; negative = higher priority)."
+      }
+    }
+  },
+  "reset_fpu": {
+    "type": "bool",
+    "default": true,
+    "description": "Reset FPU state on gamemode entry (recommended for Intel CPUs to prevent floating-point inconsistencies)."
+  }
+}

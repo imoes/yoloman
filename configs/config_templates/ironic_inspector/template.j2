@@ -1,0 +1,146 @@
+# Main configuration file for OpenStack Ironic Inspector
+# (hardware introspection/discovery service for Ironic)
+# Generated via Jinja2 template — do not edit directly
+
+[DEFAULT]
+# Logging configuration
+log_file = {{ log_file }}
+log_dir = {{ log_dir }}
+# Verbosity of logging: debug, info, warning, error, critical
+log_level = {{ log_level }}
+
+# Enable or disable debug mode
+debug = {{ debug }}
+
+# API service configuration
+[api]
+# Host and port to bind the API server
+host = {{ api_host }}
+port = {{ api_port }}
+# Enable TLS for the API endpoint
+tls_enabled = {{ tls_enabled }}
+# Path to the API certificate
+api_cert_file = {{ api_cert_file }}
+# Path to the API private key
+api_key_file = {{ api_cert_key_file }}
+# Path to CA cert for validating client certs
+api_ca_cert_file = {{ api_ca_cert_file }}
+
+# Authentication configuration (Keystone endpoint)
+[keystone]
+# Auth URL for keystone (e.g., http://keystone:5000/v3)
+auth_url = {{ keystone_auth_url }}
+# Project name for ironic-inspector service
+project_name = {{ keystone_project_name }}
+# Username for service account
+username = {{ keystone_username }}
+# Password for service account
+password = {{ keystone_password }}
+# Region name (optional)
+region_name = {{ keystone_region_name }}
+# Auth type: password (default) or token
+auth_type = {{ keystone_auth_type }}
+# Service token (used only if auth_type = token)
+service_token = {{ keystone_service_token }}
+
+# Database configuration (used for storing introspection data)
+[database]
+# SQLAlchemy connection string
+connection = {{ db_connection }}
+# Max number of DB connection retries
+max_retries = {{ db_max_retries }}
+# Retry interval (seconds)
+retry_interval = {{ db_retry_interval }}
+
+# Ironic client configuration (to interact with Ironic API)
+[ironic]
+# Ironic API endpoint
+auth_url = {{ ironic_auth_url }}
+# Project name for ironic service
+project_name = {{ ironic_project_name }}
+# Username for ironic service account
+username = {{ ironic_username }}
+# Password for ironic account
+password = {{ ironic_password }}
+# Region name (optional)
+region_name = {{ ironic_region_name }}
+# Auth type: password (default)
+auth_type = {{ ironic_auth_type }}
+# Service token (if token-based auth)
+service_token = {{ ironic_service_token }}
+# Insecure TLS (disable cert verification)
+insecure = {{ ironic_insecure }}
+# CA cert for TLS verification (if not using insecure)
+cafile = {{ ironic_cafile }}
+
+# PXE and DHCP configuration (for network boot)
+[dhcp]
+# DHCP provider: neutron or none
+dhcp_provider = {{ dhcp_provider }}
+# Neutron URL (if using Neutron DHCP)
+neutron_url = {{ neutron_url }}
+# Neutron project ID for network operations
+neutron_project_id = {{ neutron_project_id }}
+# Neutron admin username/password (if required)
+neutron_username = {{ neutron_username }}
+neutron_password = {{ neutron_password }}
+neutron_auth_url = {{ neutron_auth_url }}
+neutron_region_name = {{ neutron_region_name }}
+neutron_auth_type = {{ neutron_auth_type }}
+# Allow overwriting existing PXE boot files
+allow_overwrite = {{ allow_overwrite }}
+
+# Discovery configuration
+[processing]
+# Additional hooks (Python modules) to process introspection data
+extra_hooks = {{ extra_hooks | join(', ') }}
+# Default ports to open in security group (if applicable)
+ports_to_open = {{ ports_to_open | join(', ') }}
+# Enable or disable automatic node cleanup after processing
+node_cleanup = {{ node_cleanup }}
+# Time-to-live (seconds) for nodes in 'inspect' state before cleanup
+cleanup_delay = {{ cleanup_delay }}
+# Enable or disable automatic power-off after successful introspection
+power_off = {{ power_off }}
+# Timeout (seconds) to wait for power-off after introspection
+power_off_timeout = {{ power_off_timeout }}
+# Enable or disable sending events to Nova (e.g., for scheduling)
+event_notifications = {{ event_notifications }}
+# Enable or disable sending alerts to Ceilometer (deprecated)
+metrics_notifications = {{ metrics_notifications }}
+# Enable or disable sending notifications to Telemetry (deprecated)
+notification_level = {{ notification_level }}
+
+# TLS/SSL configuration for internal services (e.g., ironic client)
+[ssl]
+# Enable TLS for ironic-inspector service
+enabled = {{ ssl_enabled }}
+# Path to server certificate
+cert_file = {{ ssl_cert_file }}
+# Path to private key
+key_file = {{ ssl_key_file }}
+# Path to CA cert
+ca_file = {{ ssl_ca_file }}
+
+# Reporting configuration
+[report]
+# Enable or disable reporting of processed nodes to Ironic
+store_data = {{ store_data }}
+# Directory to store raw introspection data (if store_data = true)
+data_dir = {{ data_dir }}
+
+# Hooks configuration (for custom introspection logic)
+[dispatch]
+# Enable or disable hooks during processing
+enabled = {{ hooks_enabled }}
+
+# Time configuration (e.g., timeouts)
+[timeouts]
+# Time (seconds) to wait for node to power on
+power_on_timeout = {{ power_on_timeout }}
+# Time (seconds) to wait for PXE boot
+ipmi_timeout = {{ ipmi_timeout }}
+# Time (seconds) to wait for node to appear in ironic
+node_present_timeout = {{ node_present_timeout }}
+# Time (seconds) to wait for discovery process
+discovery_timeout = {{ discovery_timeout }}

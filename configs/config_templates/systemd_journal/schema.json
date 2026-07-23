@@ -1,0 +1,141 @@
+{
+  "persistent": {
+    "type": "bool",
+    "default": true,
+    "description": "If true, store journal files persistently on disk (in /var/log/journal). If false, store in RAM only (/run/log/journal), losing logs on reboot."
+  },
+  "data_directory": {
+    "type": "string",
+    "default": "",
+    "description": "Absolute path to store persistent journal files. Leave empty to auto-select (/var/log/journal if Storage=persistent, /run/log/journal otherwise)."
+  },
+  "system_max_use": {
+    "type": "string",
+    "default": "10%",
+    "description": "Maximum disk space allowed for journal files. Supports units: K, M, G, T, P (or percentages like 10% of the filesystem)."
+  },
+  "system_max_free_space": {
+    "type": "string",
+    "default": "1G",
+    "description": "Maximum free space to leave on the filesystem before removing old journal files."
+  },
+  "system_max_file_size": {
+    "type": "string",
+    "default": "100M",
+    "description": "Maximum size of a single journal file before rotation."
+  },
+  "system_keep_free": {
+    "type": "string",
+    "default": "20%",
+    "description": "Minimum free space to keep on the filesystem (prevents journal from consuming all free space)."
+  },
+  "max_file_lifetime": {
+    "type": "string",
+    "default": "6months",
+    "description": "Maximum time to retain journal entries (e.g. 30d, 1year, 2weeks)."
+  },
+  "volatile_max_file_lifetime": {
+    "type": "string",
+    "default": "1week",
+    "description": "Maximum retention time for volatile (RAM) journal files."
+  },
+  "compress": {
+    "type": "bool",
+    "default": true,
+    "description": "Whether to compress journal files using a configurable algorithm."
+  },
+  "compress_threshold": {
+    "type": "string",
+    "default": "30s",
+    "description": "Journal entries newer than this are not compressed. Set to '0' to disable time-based threshold."
+  },
+  "rate_limit_interval": {
+    "type": "string",
+    "default": "30s",
+    "description": "Time window for rate limiting journal writes (e.g. 30s, 2min)."
+  },
+  "rate_limit_burst": {
+    "type": "number",
+    "default": 10000,
+    "description": "Maximum number of log messages allowed within the interval before throttling."
+  },
+  "timestamp": {
+    "type": "string",
+    "default": "monotonic",
+    "description": "Timestamp format for journal entries: 'monotonic', 'boot', 'realtime', or 'hires'."
+  },
+  "forward_to_syslog": {
+    "type": "bool",
+    "default": true,
+    "description": "If true, forward entries to the system syslog daemon (e.g., rsyslog)."
+  },
+  "syslog_socket": {
+    "type": "string",
+    "default": "/run/systemd/journal/syslog",
+    "description": "Path to the Unix socket used to forward to syslog. Set to empty string to disable."
+  },
+  "forward_to_kmsg": {
+    "type": "bool",
+    "default": true,
+    "description": "If true, write entries to the kernel log buffer (dmesg)."
+  },
+  "forward_to_console": {
+    "type": "bool",
+    "default": true,
+    "description": "If true, send entries to the system console (visible on serial/tty)."
+  },
+  "console_device": {
+    "type": "string",
+    "default": "/dev/console",
+    "description": "Device file for console output (e.g., /dev/ttyS0)."
+  },
+  "console_level": {
+    "type": "string",
+    "default": "info",
+    "description": "Minimum log level (debug, info, notice, warning, err, crit, alert, emerg) for console output."
+  },
+  "max_lines": {
+    "type": "number",
+    "default": 1000,
+    "description": "Maximum number of journal lines shown per file during interactive display."
+  },
+  "show_catalog": {
+    "type": "bool",
+    "default": true,
+    "description": "If true, show human-friendly descriptions (from message catalogs) when viewing logs."
+  },
+  "header": {
+    "type": "bool",
+    "default": true,
+    "description": "If true, read kernel messages and include them in journal (equivalent to ReadKMsg)."
+  },
+  "extra_fields": {
+    "type": "list",
+    "default": [],
+    "description": "List of static key-value fields to append to all journal entries (e.g., for environment tagging). Each item is a field object.",
+    "items": {
+      "name": {
+        "type": "string",
+        "description": "Field name (must start with uppercase letter and contain only uppercase letters, digits, and underscore)."
+      },
+      "value": {
+        "type": "string",
+        "description": "Field value (arbitrary string)."
+      }
+    }
+  },
+  "namespace": {
+    "type": "string",
+    "default": "",
+    "description": "Namespace name for journal isolation (e.g., for containers). Leave blank to disable."
+  },
+  "exclude_units": {
+    "type": "list",
+    "default": [],
+    "description": "List of systemd unit names whose logs should be excluded from journald capture.",
+    "items": {
+      "type": "string",
+      "description": "Unit name (e.g., 'docker.service', 'nginx.service')"
+    }
+  }
+}

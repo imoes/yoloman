@@ -1,0 +1,53 @@
+# Daemon user and group for ipp-usb
+User {{ daemon_user }}
+Group {{ daemon_group }}
+
+# Listening port for the HTTP interface (0 = disable HTTP, use Unix socket only)
+Port {{ http_port }}
+
+# Enable or disable HTTPS (requires TLS certificates)
+HTTPS {{ enable_https | string | lower }}
+
+# Path to SSL certificate (used only if HTTPS is enabled)
+SSLCertificateFile {{ ssl_cert_file }}
+
+# Path to SSL private key (used only if HTTPS is enabled)
+SSLPrivateKeyFile {{ ssl_key_file }}
+
+# Timeout for USB device detection and communication (seconds)
+Timeout {{ device_timeout }}
+
+# Maximum number of concurrent devices to support
+MaxDevices {{ max_devices }}
+
+# Log level: DEBUG, INFO, NOTICE, WARNING, ERROR, CRITICAL
+LogLevel {{ log_level }}
+
+# Enable debug logging (overrides LogLevel if true)
+Debug {{ debug_logging | string | lower }}
+
+# Paths where ipp-usb looks for backend drivers (colon-separated list)
+BackendPaths {{ backend_paths | join(':') }}
+
+# Unix socket path (if HTTP port is 0 or to complement HTTP)
+Listen {{ unix_socket_path }}
+
+# Allow remote clients (if true, binds to all interfaces)
+AllowRemote {{ allow_remote | string | lower }}
+
+# List of allowed remote hosts/networks (ignored if AllowRemote is false)
+{% for host in allowed_hosts %}Allow {{ host }}{% endfor %}
+
+# List of denied remote hosts/networks (takes precedence over Allow)
+{% for host in denied_hosts %}Deny {{ host }}{% endfor %}
+
+# Preserve original device naming (e.g., /dev/usb/lp0) or use stable names (e.g., by-id/by-path)
+StableNames {{ stable_names | string | lower }}
+
+# EnableBonjour {{ enable_bonjour | string | lower }}
+
+# Service name advertised via mDNS (only if Bonjour is enabled)
+BonjourServiceName {{ bonjour_service_name }}
+
+# Extra arguments passed to the ipp-usb backend on startup
+{% for arg in extra_backend_args %}# {{ arg }}{% endfor %}

@@ -1,0 +1,114 @@
+{
+  "qstat_path": {
+    "type": "string",
+    "default": "/usr/bin/qstat",
+    "description": "Full path to the PBS qstat command used to query job status."
+  },
+  "qsub_path": {
+    "type": "string",
+    "default": "/usr/bin/qsub",
+    "description": "Full path to the PBS qsub command used to submit jobs."
+  },
+  "qdel_path": {
+    "type": "string",
+    "default": "/usr/bin/qdel",
+    "description": "Full path to the PBS qdel command used to delete jobs."
+  },
+  "qacct_path": {
+    "type": "string",
+    "default": "",
+    "description": "Optional full path to PBS qacct command for accounting logs."
+  },
+  "qhost_path": {
+    "type": "string",
+    "default": "",
+    "description": "Optional full path to PBS qhost command for node status."
+  },
+  "qrun_path": {
+    "type": "string",
+    "default": "",
+    "description": "Optional full path to PBS qrun command for immediate job execution (e.g., Moab/Torque)."
+  },
+  "max_jobs_per_query": {
+    "type": "number",
+    "default": 1000,
+    "description": "Maximum number of jobs to query in a single PBS qstat call. Lower values reduce memory load on the scheduler."
+  },
+  "poll_interval": {
+    "type": "number",
+    "default": 30,
+    "description": "Seconds between polling PBS for job status updates. Shorter intervals improve responsiveness but increase load."
+  },
+  "verbose": {
+    "type": "bool",
+    "default": false,
+    "description": "If enabled, logs detailed PBS interaction debug messages."
+  },
+  "allowed_queues": {
+    "type": "list",
+    "default": [
+      "batch"
+    ],
+    "description": "List of PBS queue names that users may submit jobs to.",
+    "items": {
+      "type": "string",
+      "description": "Valid PBS queue name (e.g., 'batch', 'highprio')."
+    }
+  },
+  "default_queue": {
+    "type": "string",
+    "default": "batch",
+    "description": "PBS queue used when a user does not specify one during job submission."
+  },
+  "default_resources": {
+    "type": "string",
+    "default": "walltime=01:00:00,mem=1gb,nodes=1:ppn=1",
+    "description": "Default resource request string applied to jobs missing explicit resource specs (PBS Torque/Moab format)."
+  },
+  "prolog_path": {
+    "type": "string",
+    "default": "",
+    "description": "Optional absolute path to a PBS prolog script executed before each job starts."
+  },
+  "epilog_path": {
+    "type": "string",
+    "default": "",
+    "description": "Optional absolute path to a PBS epilog script executed after each job completes."
+  },
+  "env_vars": {
+    "type": "list",
+    "default": [
+      "HOME",
+      "PATH",
+      "LD_LIBRARY_PATH"
+    ],
+    "description": "List of environment variable names (without values) to preserve and pass to the job environment via SEG.",
+    "items": {
+      "type": "string",
+      "description": "Name of environment variable to preserve (e.g., 'MYAPP_CONFIG')."
+    }
+  },
+  "attr_mappings": {
+    "type": "list",
+    "default": [],
+    "description": "Custom mappings between PBS attributes and Globus job attributes. Useful for exposing scheduler-specific data.",
+    "items": {
+      "type": "object",
+      "fields": {
+        "name": {
+          "type": "string",
+          "description": "Unique identifier for this mapping (used only in config to disambiguate).",
+          "default": "map1"
+        },
+        "pbs_attr": {
+          "type": "string",
+          "description": "PBS job attribute name (e.g., 'Resource_List.walltime')."
+        },
+        "globus_attr": {
+          "type": "string",
+          "description": "Globus job attribute name to expose (e.g., 'walltime_seconds')."
+        }
+      }
+    }
+  }
+}

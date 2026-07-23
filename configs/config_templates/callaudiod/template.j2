@@ -1,0 +1,64 @@
+# Route audio streams based on input source and sink types
+[general]
+# Log level: 0=quiet, 1=error, 2=warn, 3=info, 4=debug
+log_level = {{ log_level }}
+# PID file location
+pid_file = {{ pid_file }}
+# Default sample rate for all routes
+sample_rate = {{ sample_rate }}
+# Enable or disable echo cancellation globally
+echo_cancellation = {{ echo_cancellation }}
+
+{% for route in routes %}
+# Route: {{ route.name }}
+[route:{{ route.name }}]
+# Input source type: 'mic', 'bt', 'usb', 'line_in', etc.
+source = {{ route.source }}
+# Output sink type: 'speaker', 'headset', 'bt_sco', 'usb_out', etc.
+sink = {{ route.sink }}
+# Gain applied to input (0.0–1.0)
+gain = {{ route.gain }}
+# Optional mute flag
+{% if route.mute is defined %}
+mute = {{ route.mute | string | lower }}
+{% else %}
+mute = false
+{% endif %}
+# Delay in milliseconds to apply (e.g., for lip-sync alignment)
+{% if route.delay_ms is defined %}
+delay_ms = {{ route.delay_ms }}
+{% else %}
+delay_ms = 0
+{% endif %}
+# Enable volume control for this route
+{% if route.volume_control is defined %}
+volume_control = {{ route.volume_control | string | lower }}
+{% else %}
+volume_control = true
+{% endif %}
+{% endfor %}
+
+# Predefined routing policies
+[policies]
+# Default policy applied on daemon start
+default = {{ default_policy }}
+{% for policy_name, policy_routes in policies.items() %}
+# Policy: {{ policy_name }}
+{{ policy_name }} = {{ policy_routes | join(', ') }}
+{% endfor %}
+
+# USB audio device overrides (e.g., for specific vendor/product IDs)
+[usb_overrides]
+{% for override in usb_overrides %}
+# Match by vendor:product ID (hex) and route to specific sink
+{{ override.vendor_id }}:{{ override.product_id }} = {{ override.sink }}
+{% endfor %}
+
+# Bluetooth SCO device settings
+[bt_sco]
+# SCO codec preference: 'cvsd', 'msbc'
+codec = {{ bt_sco.codec }}
+# Maximum number of concurrent SCO connections
+max_connections = {{ bt_sco.max_connections }}
+{% endfor %}
+# Not used — just placeholder to avoid trailing comment; actual [bt_sco] block is above

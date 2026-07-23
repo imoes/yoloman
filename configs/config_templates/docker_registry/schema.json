@@ -1,0 +1,102 @@
+{
+  "storage.filesystem.rootdirectory": {
+    "type": "string",
+    "default": "/var/lib/registry",
+    "description": "Absolute path on disk where Docker image layers and metadata are stored."
+  },
+  "storage.delete.enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Allow deletion of blobs and tags via the API (required for garbage collection)."
+  },
+  "http.addr": {
+    "type": "string",
+    "default": "0.0.0.0:5000",
+    "description": "IP:port pair the registry server binds to (e.g., '127.0.0.1:5000')."
+  },
+  "http.tls.enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable TLS (HTTPS). Requires valid cert/key paths below."
+  },
+  "http.tls.certificate": {
+    "type": "string",
+    "default": "/etc/registry/server.crt",
+    "description": "Path to the TLS certificate file (PEM format)."
+  },
+  "http.tls.key": {
+    "type": "string",
+    "default": "/etc/registry/server.key",
+    "description": "Path to the TLS private key file (PEM format)."
+  },
+  "http.debug.enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable debug endpoints (pprof, prometheus metrics) \u2014 not for production unless carefully secured."
+  },
+  "http.debug.addr": {
+    "type": "string",
+    "default": "0.0.0.0:5001",
+    "description": "IP:port for debug/metrics server (separate from main API)."
+  },
+  "http.debug.pprof.enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Expose pprof heap/cpu profiles for profiling."
+  },
+  "http.debug.prometheus.enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Expose Prometheus-compatible metrics at /metrics."
+  },
+  "auth.htpasswd.realm": {
+    "type": "string",
+    "default": "Registry Realm",
+    "description": "Auth realm shown in HTTP 401 responses."
+  },
+  "auth.htpasswd.path": {
+    "type": "string",
+    "default": "/etc/registry/htpasswd",
+    "description": "Path to htpasswd file containing user:password entries."
+  },
+  "log.level": {
+    "type": "string",
+    "default": "info",
+    "description": "Minimum log level: 'debug', 'info', 'warning', or 'error'."
+  },
+  "log.formatter": {
+    "type": "string",
+    "default": "text",
+    "description": "Log output format: 'text' (human) or 'json' (machine-readable)."
+  },
+  "log.fields.service": {
+    "type": "string",
+    "default": "registry",
+    "description": "Service name added to log fields for filtering."
+  },
+  "health": {
+    "type": "list",
+    "default": [],
+    "items": {
+      "type": "object",
+      "fields": {
+        "enabled": {
+          "type": "bool",
+          "default": false,
+          "description": "Enable this health check."
+        },
+        "interval": {
+          "type": "string",
+          "default": "",
+          "description": "Interval between checks (e.g., '30s')."
+        },
+        "threshold": {
+          "type": "number",
+          "default": 3,
+          "description": "Number of consecutive failures before marking unhealthy."
+        }
+      }
+    },
+    "description": "List of health checks (e.g., 'disk', 'redis') \u2014 keys are check names, values are config objects."
+  }
+}

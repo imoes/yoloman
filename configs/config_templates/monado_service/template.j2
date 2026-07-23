@@ -1,0 +1,49 @@
+# Monado XR Service configuration file
+# See: https://monado.freedesktop.org/
+[core]
+# Path to the XR runtime library directory
+runtime_path = {{ runtime_path }}
+# Comma-separated list of enabled XR runtime modules
+runtimes = {{ runtimes | join(', ') }}
+# Maximum number of concurrent XR sessions
+max_sessions = {{ max_sessions }}
+
+# Composition and rendering settings
+[comp]
+# Enable GPU-based composition
+enable_composition = {{ enable_composition | lower }}
+# Composition resolution (width x height) or 'auto'
+composition_resolution = {{ composition_resolution }}
+# Composition scaling factor (0.0–1.0); 1.0 = full resolution
+composition_scale = {{ composition_scale }}
+# Enable GPU composition for Vulkan-based compositors
+enable_vulkan_composition = {{ enable_vulkan_composition | lower }}
+
+# Hardware device selection
+[udev]
+# List of GPU devices to consider for composition and rendering (by path or bus ID)
+gpu_devices = [
+{% for device in gpu_devices %}  "{{ device.path }}"{% if not loop.last %},{% endif %}{{ "  # " ~ device.description if device.description else "" }}
+{% endfor %}]
+
+# Logging and debugging
+[logging]
+# Log level: none, error, warn, info, debug, trace
+level = "{{ log_level }}"
+# Log to syslog
+syslog = {{ syslog | lower }}
+# Log to stderr (useful for debugging in foreground mode)
+stderr = {{ stderr | lower }}
+
+# Input device configuration
+[input]
+# Enable raw input handling via udev (e.g., for vive controllers)
+raw_input = {{ raw_input | lower }}
+# Path to the input event device for default HMD tracking
+# Leave empty to auto-detect
+hmd_event_device = "{{ hmd_event_device }}"
+
+# Optional: additional backend-specific config sections (e.g., for OpenXR or vendor plugins)
+# Uncomment and customize as needed for your hardware
+# [openxr]
+# enabled_extensions = {{ openxr_enabled_extensions | join(', ') }}

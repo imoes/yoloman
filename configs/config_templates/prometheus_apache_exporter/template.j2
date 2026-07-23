@@ -1,0 +1,47 @@
+# /etc/default/prometheus-apache-exporter
+# Environment variables for the prometheus-apache-exporter service
+# Used by systemd to start the exporter with specified options
+
+# Apache server URL(s) to scrape; comma-separated list of full URLs
+APACHE_EXPORTER_URLS="{{ urls | join(',') }}"
+
+# Listen address for the exporter HTTP endpoint
+APACHE_EXPORTER_WEB_LISTEN_ADDRESS="{{ listen_address }}"
+
+# Port on which the exporter exposes metrics
+APACHE_EXPORTER_WEB_PORT="{{ port | string }}"
+
+# Path to Apache mod_status page (usually "/server-status")
+APACHE_EXPORTER_PATH="{{ status_path }}"
+
+# Enable TLS (set to 'true' to use HTTPS for scrape targets; exporter itself remains HTTP)
+APACHE_EXPORTER_TLS_ENABLED="{{ tls_enabled | string | lower }}"
+
+# Optional basic auth username for Apache mod_status endpoint
+{% if auth_username %}
+APACHE_EXPORTER_AUTH_USERNAME="{{ auth_username }}"
+{% endif %}
+
+# Optional basic auth password for Apache mod_status endpoint
+{% if auth_password %}
+APACHE_EXPORTER_AUTH_PASSWORD="{{ auth_password }}"
+{% endif %}
+
+# Timeout in seconds for requests to Apache (default: 2)
+{% if request_timeout is defined %}
+APACHE_EXPORTER_REQUEST_TIMEOUT="{{ request_timeout | string }}"
+{% endif %}
+
+# Enable collection of SSL/TLS metrics (requires Apache SSL module and proper config)
+APACHE_EXPORTER_COLLECT_SSL="{{ collect_ssl | string | lower }}"
+
+# Additional command-line arguments (e.g., --no-collect-vhost)
+{% if extra_args %}
+APACHE_EXPORTER_EXTRA_ARGS="{{ extra_args | join(' ') }}"
+{% endif %}
+
+# Optional HTTP headers to send when scraping Apache status
+{% for header in headers %}
+# HTTP header: {{ header.name }}
+APACHE_EXPORTER_HEADER_{{ header.name | upper | replace('-', '_') }}="{{ header.value }}"
+{% endfor %}

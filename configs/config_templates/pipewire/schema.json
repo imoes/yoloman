@@ -1,0 +1,486 @@
+{
+  "settings": {
+    "type": "object",
+    "default": {},
+    "description": "Core settings: log level, timing, and period limits.",
+    "properties": {
+      "log_level": {
+        "type": "number",
+        "default": 2,
+        "description": "Verbosity of logging: 0=error, 1=warn, 2=info (default), 3=debug."
+      },
+      "default_timer_quantum": {
+        "type": "number",
+        "default": 1024,
+        "description": "Default timer quantum (samples/frame); controls buffer size and scheduling."
+      },
+      "max_periods": {
+        "type": "number",
+        "default": 4,
+        "description": "Maximum periods per node (affects latency and stability)."
+      }
+    }
+  },
+  "paths": {
+    "type": "object",
+    "default": {},
+    "description": "File system paths for modules and SPA plugins.",
+    "properties": {
+      "module_paths": {
+        "type": "list",
+        "default": [
+          "/usr/lib/pipewire-0.3",
+          "/usr/local/lib/pipewire-0.3"
+        ],
+        "description": "List of directories to search for pipewire modules.",
+        "items": {
+          "type": "string",
+          "description": "Path to a module directory."
+        }
+      },
+      "default_module_path": {
+        "type": "string",
+        "default": "/usr/lib/pipewire-0.3",
+        "description": "Default path where pipewire modules are installed."
+      }
+    }
+  },
+  "default_device": {
+    "type": "string",
+    "default": "",
+    "description": "Default ALSA device (e.g., 'hw:0') to use when none specified."
+  },
+  "device_props": {
+    "type": "object",
+    "default": {},
+    "description": "Key-value pairs of device properties applied by default to new devices (e.g., audio latency tuning).",
+    "properties": {},
+    "additionalProperties": {
+      "type": "string"
+    }
+  },
+  "spa_plugins": {
+    "type": "object",
+    "default": {},
+    "description": "Configuration for SPA (Simple Plugin API) plugins.",
+    "properties": {
+      "paths": {
+        "type": "list",
+        "default": [
+          "/usr/lib/spa-0.2",
+          "/usr/local/lib/spa-0.2"
+        ],
+        "description": "Search paths for SPA plugin libraries.",
+        "items": {
+          "type": "string"
+        }
+      },
+      "props": {
+        "type": "object",
+        "default": {},
+        "description": "Global SPA plugin properties.",
+        "properties": {},
+        "additionalProperties": {
+          "type": "string"
+        }
+      }
+    }
+  },
+  "jack": {
+    "type": "object",
+    "default": {},
+    "description": "JACK session support settings.",
+    "properties": {
+      "session_id": {
+        "type": "string",
+        "default": "pipewire",
+        "description": "Unique JACK session ID used for session restoration."
+      },
+      "start_daemon": {
+        "type": "boolean",
+        "default": false,
+        "description": "Whether to automatically start JACK daemon if needed."
+      }
+    }
+  },
+  "latency": {
+    "type": "object",
+    "default": {},
+    "description": "Audio graph latency tuning (used in pro audio setups).",
+    "properties": {
+      "mode": {
+        "type": "string",
+        "default": "normal",
+        "description": "Latency mode: 'low', 'normal', or 'high'."
+      },
+      "nominal": {
+        "type": "number",
+        "default": 1024,
+        "description": "Nominal period size in frames."
+      },
+      "max": {
+        "type": "number",
+        "default": 4096,
+        "description": "Maximum allowed period size in frames."
+      }
+    }
+  },
+  "pulse": {
+    "type": "object",
+    "default": {},
+    "description": "PulseAudio compatibility bridge configuration.",
+    "properties": {
+      "server_name": {
+        "type": "string",
+        "default": "pipewire-pulse",
+        "description": "PulseAudio server name."
+      },
+      "server_path": {
+        "type": "string",
+        "default": "/run/user/1000/pipewire-pulse",
+        "description": "Socket path for PulseAudio server."
+      },
+      "nfrags": {
+        "type": "number",
+        "default": 16,
+        "description": "Number of fragments in buffer."
+      },
+      "frag_size": {
+        "type": "number",
+        "default": 4096,
+        "description": "Size of each fragment in bytes."
+      }
+    }
+  },
+  "alsa_devices": {
+    "type": "list",
+    "default": [],
+    "description": "Custom ALSA device configurations (e.g., to override default sample rates or channel counts).",
+    "items": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Identifier for this device config block."
+        },
+        "device_id": {
+          "type": "string",
+          "description": "ALSA device ID (e.g., 'hw:0')."
+        },
+        "device_name": {
+          "type": "string",
+          "description": "Device name as seen by PipeWire."
+        },
+        "channels": {
+          "type": "number",
+          "description": "Number of channels (optional)."
+        },
+        "rate": {
+          "type": "number",
+          "description": "Default sample rate (Hz) (optional)."
+        },
+        "profile": {
+          "type": "string",
+          "description": "Device profile (e.g., 'output:stereo') (optional)."
+        }
+      },
+      "required": [
+        "name",
+        "device_id",
+        "device_name"
+      ]
+    }
+  },
+  "wireplumber": {
+    "type": "object",
+    "default": {},
+    "description": "WirePlumber session manager integration (required for modern PipeWire setups).",
+    "properties": {
+      "path": {
+        "type": "string",
+        "default": "/usr/libexec/wireplumber",
+        "description": "WirePlumber binary path."
+      },
+      "dbus": {
+        "type": "string",
+        "default": "session",
+        "description": "D-Bus session type ('session' or 'system')."
+      }
+    }
+  },
+  "policy": {
+    "type": "object",
+    "default": {},
+    "description": "Audio policy engine settings (auto routing, suspend behavior).",
+    "properties": {
+      "auto_connect": {
+        "type": "boolean",
+        "default": true,
+        "description": "Automatically connect new nodes to matching endpoints."
+      },
+      "auto_suspend": {
+        "type": "boolean",
+        "default": true,
+        "description": "Suspend inactive nodes after timeout."
+      },
+      "default_route": {
+        "type": "string",
+        "default": "",
+        "description": "Default route profile (e.g., 'output:analog-stereo')."
+      }
+    }
+  },
+  "resample_filters": {
+    "type": "list",
+    "default": [
+      {
+        "name": "default",
+        "length": 32,
+        "taps": 64,
+        "quality": 1
+      }
+    ],
+    "description": "Resampler configuration blocks (one per filter preset).",
+    "items": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Resampler profile name (e.g., 'default', 'high', 'low')."
+        },
+        "length": {
+          "type": "number",
+          "description": "Filter length in samples (higher = better quality, slower)."
+        },
+        "taps": {
+          "type": "number",
+          "description": "Number of filter taps (must be multiple of 8)."
+        },
+        "quality": {
+          "type": "number",
+          "description": "Quality level (1\u20133, where 3 is highest)."
+        }
+      },
+      "required": [
+        "name",
+        "length",
+        "taps"
+      ]
+    }
+  },
+  "streams": {
+    "type": "object",
+    "default": {},
+    "description": "Default properties for audio streams.",
+    "properties": {
+      "args": {
+        "type": "object",
+        "default": {},
+        "description": "Stream module arguments.",
+        "properties": {
+          "capture.props": {
+            "type": "string",
+            "description": "Properties for capture streams (e.g., 'node.name=CaptureStream')"
+          },
+          "playback.props": {
+            "type": "string",
+            "description": "Properties for playback streams"
+          }
+        },
+        "additionalProperties": {
+          "type": "string"
+        }
+      }
+    }
+  },
+  "metadata": {
+    "type": "object",
+    "default": {},
+    "description": "Metadata service configuration (node properties, ports, links).",
+    "properties": {
+      "name": {
+        "type": "string",
+        "default": "libpipewire-module-metadata",
+        "description": "Metadata module name."
+      }
+    }
+  },
+  "loopbacks": {
+    "type": "list",
+    "default": [],
+    "description": "Loopback device configurations (for audio capture/monitor).",
+    "items": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Loopback module name (e.g., 'libpipewire-module-loopback')."
+        },
+        "args": {
+          "type": "object",
+          "properties": {
+            "capture.node": {
+              "type": "string",
+              "description": "Source node to capture (e.g., 'alsa_input.pci-0000_00_1b.0.analog-stereo')"
+            },
+            "playback.node": {
+              "type": "string",
+              "description": "Sink node to play to"
+            },
+            "latency.msec": {
+              "type": "number",
+              "description": "Target latency in milliseconds"
+            }
+          },
+          "additionalProperties": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "name",
+        "args"
+      ]
+    }
+  },
+  "node_factory": {
+    "type": "object",
+    "default": {},
+    "description": "Node factory defaults.",
+    "properties": {
+      "args": {
+        "type": "object",
+        "default": {},
+        "description": "Node factory arguments.",
+        "properties": {
+          "node.description": {
+            "type": "string",
+            "description": "Default description for created nodes"
+          },
+          "node.name": {
+            "type": "string",
+            "description": "Default name pattern for nodes"
+          }
+        },
+        "additionalProperties": {
+          "type": "string"
+        }
+      }
+    }
+  },
+  "rtkit": {
+    "type": "object",
+    "default": {},
+    "description": "RTKit real-time scheduling settings (requires rtkit package).",
+    "properties": {
+      "nice_value": {
+        "type": "number",
+        "default": -11,
+        "description": "Nice value for non-RT processes."
+      },
+      "rt_prio": {
+        "type": "number",
+        "default": 88,
+        "description": "Real-time priority (max 99)."
+      },
+      "rt_timeouts": {
+        "type": "boolean",
+        "default": false,
+        "description": "Enable RT time limits (may prevent lockups)."
+      }
+    }
+  },
+  "protocols": {
+    "type": "object",
+    "default": {},
+    "description": "Protocol module (native/remote) settings.",
+    "properties": {
+      "args": {
+        "type": "object",
+        "default": {},
+        "description": "Native protocol arguments.",
+        "properties": {
+          "auth.anonymous.uuid": {
+            "type": "string",
+            "description": "Anonymous auth UUID"
+          },
+          "auth.cookie.enable": {
+            "type": "boolean",
+            "description": "Enable cookie-based auth"
+          },
+          "protocol.native.max-buffers": {
+            "type": "number",
+            "description": "Max shared buffers per stream"
+          }
+        },
+        "additionalProperties": {
+          "type": "string"
+        }
+      }
+    }
+  },
+  "core": {
+    "type": "object",
+    "default": {},
+    "description": "Core server identity and security.",
+    "properties": {
+      "name": {
+        "type": "string",
+        "default": "pipewire-0",
+        "description": "Core server name (used for D-Bus/service identity)."
+      },
+      "auth_key": {
+        "type": "string",
+        "default": "",
+        "description": "Authentication key for secure mode (e.g., SHA256 hex)."
+      }
+    }
+  },
+  "logger": {
+    "type": "object",
+    "default": {},
+    "description": "Logging configuration.",
+    "properties": {
+      "name": {
+        "type": "string",
+        "default": "libpipewire-module-logger",
+        "description": "Logger module name."
+      },
+      "level": {
+        "type": "number",
+        "default": 2,
+        "description": "Log level (0\u20133)."
+      },
+      "flags": {
+        "type": "list",
+        "default": [],
+        "description": "Logging flags (e.g., 'time', 'pid').",
+        "items": {
+          "type": "string"
+        }
+      }
+    }
+  },
+  "clients": {
+    "type": "object",
+    "default": {},
+    "description": "Client behavior toggles.",
+    "properties": {
+      "allow-negotiate": {
+        "type": "boolean",
+        "default": true,
+        "description": "Allow clients to negotiate format/latency."
+      },
+      "allow-resample": {
+        "type": "boolean",
+        "default": true,
+        "description": "Allow resampling for clients."
+      },
+      "auto-link-nodes": {
+        "type": "boolean",
+        "default": true,
+        "description": "Auto-link nodes with compatible formats."
+      }
+    }
+  }
+}

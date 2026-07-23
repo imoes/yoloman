@@ -1,0 +1,56 @@
+# NUT Web Interface configuration (nut_cgi)
+# Enable the CGI interface for the Network UPS Tools
+MODE=standalone
+
+# Hostname and port for the CGI interface
+# (HOST is whereupsd listens; leave empty to use local socket)
+HOST={{ nut_cgi.host }}
+PORT={{ nut_cgi.port }}
+
+# Path to the upsmon configuration file (for user/ACL enforcement)
+UPSMON_CONFIG=/etc/nut/upsmon.conf
+
+# Path to the upsd configuration file (optional, for status display)
+UPSD_CONFIG=/etc/nut/upsd.conf
+
+# Path to the CGI binary (leave as default unless custom build)
+CGI_BIN={{ nut_cgi.cgi_bin }}
+
+# User and group to run the CGI as (for security)
+USER={{ nut_cgi.user }}
+GROUP={{ nut_cgi.group }}
+
+# Log level: 0 (quiet) to 7 (debug)
+LOG_LEVEL={{ nut_cgi.log_level }}
+
+# Enable or disable SSL for HTTPS (if web server fronting supports it)
+# Note: nut_cgi itself does not serve HTTPS — this toggle affects behavior if fronted by SSL terminator
+SSL_ENABLED={{ nut_cgi.ssl_enabled }}
+
+# Access control: list of allowed IP addresses/networks
+# If empty, all IPs are allowed (not recommended in production)
+{% if nut_cgi.allowed_networks | length > 0 %}
+ALLOWED_NETWORKS=
+{% for network in nut_cgi.allowed_networks %}
+{% if network.netmask %}
+  {{ network.address }}/{{ network.netmask }}
+{% else %}
+  {{ network.address }}
+{% endif %}
+{% endfor %}
+{% else %}
+ALLOWED_NETWORKS=
+{% endif %}
+
+# List of UPS devices exposed via web interface
+{% for ups in nut_cgi.ups_list %}
+[{{ ups.name }}]
+  # Description shown in UI
+  DESC="{{ ups.description }}"
+  # Device-specific monitoring options (optional overrides)
+  MONITOR={{ ups.monitor | default('false') }}
+  # Password for read-only or admin access (if auth is enabled)
+  PASSWORD="{{ ups.password | default('') }}"
+  # ACL group (if used with upsmon ACLs)
+  ACL_GROUP="{{ ups.acl_group | default('') }}"
+{% endfor %}

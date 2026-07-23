@@ -1,0 +1,64 @@
+# /etc/cntlm.conf — cntlm NTLM authentication proxy
+
+# Windows domain account username for NTLM authentication
+Username        {{ username }}
+
+# Windows NetBIOS or FQDN domain name
+Domain          {{ domain }}
+
+# Workstation name sent in NTLM negotiation (defaults to system hostname if blank)
+Workstation     {{ workstation }}
+
+# NTLMv2 password hash — generate with: cntlm -H -u username@DOMAIN -d DOMAIN
+PassNTLMv2      {{ pass_ntlmv2 }}
+
+# Legacy LM hash — required when Auth includes LM; generate with cntlm -H
+PassLM          {{ pass_lm }}
+
+# NT hash — required when Auth includes NT; generate with cntlm -H
+PassNT          {{ pass_nt }}
+
+# NTLM auth method: NTLMv2 (recommended), NTLM, NTLM2SR, LM, NT, or space-separated combination
+Auth            {{ auth }}
+
+# NTLM protocol flags bitmask — 0x06820000 is the safe default for NTLMv2
+Flags           {{ flags }}
+
+# Upstream corporate proxy (host:port); multiple entries are tried in order for failover
+{% for proxy in proxies %}
+Proxy           {{ proxy.host }}:{{ proxy.port }}
+{% endfor %}
+
+# Comma-separated hostnames, IPs, or wildcard patterns to bypass the proxy
+NoProxy         {{ no_proxy | join(', ') }}
+
+# Local TCP port cntlm listens on for outbound HTTP/HTTPS client connections
+Listen          {{ listen_port }}
+
+# Gateway mode: yes binds 0.0.0.0 (all interfaces); no binds 127.0.0.1 only (safer)
+Gateway         {{ 'yes' if gateway else 'no' }}
+
+# Bypass ISA virus scanner pre-auth for responses larger than N kB; 0 disables bypass
+ISAScannerSize  {{ isa_scanner_size }}
+
+# Access control: Allow rules are evaluated first; 0/0 matches all addresses
+{% for rule in allow_rules %}
+Allow           {{ rule }}
+{% endfor %}
+{% for rule in deny_rules %}
+Deny            {{ rule }}
+{% endfor %}
+{% if socks5_enabled %}
+
+# SOCKS5 listener port — enables SOCKS-capable clients to tunnel through cntlm
+SOCKS5Proxy     {{ socks5_port }}
+{% if socks5_user %}
+# Require SOCKS5 clients to authenticate with this username
+SOCKS5User      {{ socks5_user }}
+{% endif %}
+{% endif %}
+{% for tunnel in tunnels %}
+
+# TCP tunnel: forward local port {{ tunnel.local_port }} to {{ tunnel.remote_host }}:{{ tunnel.remote_port }} via proxy
+Tunnel          {{ tunnel.local_port }}:{{ tunnel.remote_host }}:{{ tunnel.remote_port }}
+{% endfor %}

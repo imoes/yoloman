@@ -1,0 +1,284 @@
+{
+  "protocols": {
+    "type": "list",
+    "default": [
+      "imap",
+      "pop3"
+    ],
+    "description": "List of protocols to enable (e.g., ['imap', 'pop3', 'lmtp'])"
+  },
+  "listen": {
+    "type": "list",
+    "default": [
+      "*",
+      "::"
+    ],
+    "description": "IP addresses or hostnames to listen on (use '*' for all)"
+  },
+  "base_dir": {
+    "type": "string",
+    "default": "/var/run/dovecot",
+    "description": "Base directory for runtime files (sockets, PID files, etc.)"
+  },
+  "mail_location": {
+    "type": "string",
+    "default": "maildir:~/Maildir",
+    "description": "Mail storage format and path (e.g., 'maildir:~/Maildir', 'mbox:~/mbox')"
+  },
+  "ssl": {
+    "type": "string",
+    "default": "yes",
+    "description": "SSL mode: 'yes' (required), 'no' (disabled), or 'optional' (allow plaintext with fallback)"
+  },
+  "ssl_cert": {
+    "type": "string",
+    "default": "</etc/ssl/certs/dovecot.pem",
+    "description": "Path to SSL certificate (if SSL is enabled)"
+  },
+  "ssl_key": {
+    "type": "string",
+    "default": "</etc/ssl/private/dovecot.pem",
+    "description": "Path to SSL private key (if SSL is enabled)"
+  },
+  "mail_uid": {
+    "type": "number",
+    "default": 5000,
+    "description": "Numeric UID for mail processes (must match system mail user)"
+  },
+  "mail_gid": {
+    "type": "number",
+    "default": 5000,
+    "description": "Numeric GID for mail processes (must match system mail group)"
+  },
+  "first_valid_uid": {
+    "type": "number",
+    "default": 5000,
+    "description": "Lowest allowed UID for real users (auth users)"
+  },
+  "last_valid_gid": {
+    "type": "number",
+    "default": 5000,
+    "description": "Highest allowed GID for real users"
+  },
+  "auth_mechanisms": {
+    "type": "list",
+    "default": [
+      "plain",
+      "login"
+    ],
+    "description": "Supported authentication mechanisms; each added as a separate block in config"
+  },
+  "passdbs": {
+    "type": "list",
+    "default": [
+      {
+        "driver": "passwd-file",
+        "args": {
+          "scheme": "crypt",
+          "password": "/etc/dovecot/passwd"
+        }
+      }
+    ],
+    "items": {
+      "driver": {
+        "type": "string",
+        "description": "Password database driver (e.g., 'passwd-file', 'sql', 'ldap')",
+        "required": true
+      },
+      "args": {
+        "type": "object",
+        "description": "Driver-specific arguments as key=value pairs (e.g., {'scheme': 'crypt'})"
+      },
+      "description": {
+        "type": "string",
+        "description": "Optional human-readable description"
+      }
+    }
+  },
+  "userdbs": {
+    "type": "list",
+    "default": [
+      {
+        "driver": "passwd-file",
+        "args": {
+          "schema": "/etc/dovecot/userdb.schema"
+        }
+      }
+    ],
+    "items": {
+      "driver": {
+        "type": "string",
+        "description": "User database driver (e.g., 'passwd-file', 'sql', 'static')",
+        "required": true
+      },
+      "args": {
+        "type": "object",
+        "description": "Driver-specific arguments (e.g., {'default_fields': 'mail=maildir:~/Maildir'})"
+      },
+      "description": {
+        "type": "string",
+        "description": "Optional human-readable description"
+      }
+    }
+  },
+  "log_path": {
+    "type": "string",
+    "default": "/var/log/dovecot/dovecot.log",
+    "description": "Path to Dovecot error log file"
+  },
+  "info_log_path": {
+    "type": "string",
+    "default": "/var/log/dovecot/dovecot-info.log",
+    "description": "Path to Dovecot info log file"
+  },
+  "login_log_format_elements": {
+    "type": "list",
+    "default": [
+      "user=<%u>",
+      "method=%m",
+      "rip=%r",
+      "lip=%l",
+      "rport=%R",
+      "localport=%L"
+    ],
+    "description": "Elements to include in login log format"
+  },
+  "mail_max_userip_connections": {
+    "type": "number",
+    "default": 10,
+    "description": "Maximum number of connections per user per IP (prevents abuse)"
+  },
+  "mail_plugins": {
+    "type": "list",
+    "default": [
+      "imap_quota"
+    ],
+    "description": "Space-separated list of mail plugins to load"
+  },
+  "services": {
+    "type": "list",
+    "default": [
+      {
+        "name": "imap",
+        "unix_listener": [
+          {
+            "path": "imap-login",
+            "user": "dovecot",
+            "group": "dovecot"
+          }
+        ]
+      },
+      {
+        "name": "pop3",
+        "unix_listener": [
+          {
+            "path": "pop3-login",
+            "user": "dovecot",
+            "group": "dovecot"
+          }
+        ]
+      }
+    ],
+    "items": {
+      "name": {
+        "type": "string",
+        "description": "Service name (e.g., 'imap', 'pop3', 'lmtp', 'submission')",
+        "required": true
+      },
+      "chroot": {
+        "type": "string",
+        "description": "Chroot directory for service (e.g., '$default_chroot')"
+      },
+      "user": {
+        "type": "string",
+        "description": "User to run service as (e.g., 'dovecot')"
+      },
+      "group": {
+        "type": "string",
+        "description": "Group to run service as (e.g., 'dovecot')"
+      },
+      "unix_listener": {
+        "type": "list",
+        "items": {
+          "path": {
+            "type": "string",
+            "description": "Unix socket path (required)",
+            "required": true
+          },
+          "mode": {
+            "type": "string",
+            "description": "File permissions (e.g., '0666')"
+          },
+          "user": {
+            "type": "string",
+            "description": "Owner user"
+          },
+          "group": {
+            "type": "string",
+            "description": "Owner group"
+          }
+        }
+      },
+      "inet_listener": {
+        "type": "list",
+        "items": {
+          "name": {
+            "type": "string",
+            "description": "Listener type: 'imap', 'pop3', 'lmtp', 'submission', etc.",
+            "required": true
+          },
+          "port": {
+            "type": "number",
+            "description": "TCP port number (if not default)"
+          },
+          "address": {
+            "type": "string",
+            "description": "Bind address (e.g., '127.0.0.1')"
+          },
+          "ssl": {
+            "type": "string",
+            "description": "Enable SSL for listener: 'yes' or 'no'"
+          }
+        }
+      }
+    }
+  },
+  "namespaces": {
+    "type": "list",
+    "default": [
+      {
+        "name": "",
+        "type": "private",
+        "prefix": "",
+        "location": "maildir:~/Maildir"
+      }
+    ],
+    "items": {
+      "name": {
+        "type": "string",
+        "description": "Namespace identifier (empty string for default)",
+        "required": true
+      },
+      "type": {
+        "type": "string",
+        "description": "Namespace type: 'private', 'shared', 'public', or 'recipient'"
+      },
+      "hidden": {
+        "type": "boolean",
+        "description": "Hide this namespace from clients?"
+      },
+      "prefix": {
+        "type": "string",
+        "description": "Mailbox name prefix (e.g., 'Shared/' for shared namespaces)"
+      },
+      "location": {
+        "type": "string",
+        "description": "Mailbox storage location override (e.g., 'maildir:/var/mail/shared')"
+      },
+      "subscriptions": {
+        "type": "string",
+        "description": "Subscription handling: 'yes', 'no', or 'no-hidden'"
+      }
+    }
+  }
+}

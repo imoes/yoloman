@@ -1,0 +1,94 @@
+{
+  "server_name": "c-icap-proxy",
+  "server_ident": "c-icap/0.5.11",
+  "server_admin": "admin@example.com",
+  "server_ip": "0.0.0.0",
+  "server_port": 1344,
+  "timeout": 300,
+  "connect_timeout": 30,
+  "connect_retry_interval": 10,
+  "max_keepalive_requests": 100,
+  "keepalive_timeout": 300,
+  "log_dir": "/var/log/c-icap",
+  "debug_level": 0,
+  "log_level": "warn",
+  "pid_file": "/run/c-icap/c-icap.pid",
+  "threads_per_child": 8,
+  "max_servers": 4,
+  "min_spare_threads": 4,
+  "max_spare_threads": 32,
+  "max_requests_per_child": 5000,
+  "access_control_list": "allow all",
+  "modules": [
+    {
+      "name": "clamav",
+      "path": "/usr/lib/c-icap/clamav.so",
+      "description": "ClamAV antivirus scanning module"
+    }
+  ],
+  "services": [
+    {
+      "name": "clamav",
+      "type": "service-reqmod",
+      "module": "clamav",
+      "options": [
+        {
+          "key": "Timeout",
+          "value": "10"
+        },
+        {
+          "key": "MaxContentLength",
+          "value": "10240"
+        }
+      ]
+    }
+  ],
+  "request_headers": [
+    {
+      "name": "X-Client-IP",
+      "value": "%a"
+    },
+    {
+      "name": "X-ICAP-Server",
+      "value": "{{ server_name }}"
+    }
+  ],
+  "response_headers": [
+    {
+      "name": "X-Content-Type-Options",
+      "value": "nosniff"
+    },
+    {
+      "name": "X-Frame-Options",
+      "value": "DENY"
+    }
+  ],
+  "acls": [
+    {
+      "name": "localnet",
+      "match_type": "src",
+      "pattern": "10.0.0.0/8"
+    },
+    {
+      "name": "internal",
+      "match_type": "src",
+      "pattern": "192.168.0.0/16"
+    }
+  ],
+  "rules": [
+    {
+      "name": "route_internal_to_clamav",
+      "condition": "acl localnet src 10.0.0.0/8",
+      "action": "service",
+      "service_name": "clamav"
+    },
+    {
+      "name": "deny_external",
+      "action": "deny",
+      "service_name": "clamav"
+    }
+  ],
+  "enable_safe_mode": true,
+  "enable_chroot": true,
+  "chroot_dir": "/var/lib/c-icap"
+}

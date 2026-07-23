@@ -1,0 +1,154 @@
+{
+  "font_embedding": {
+    "type": "boolean",
+    "default": false,
+    "description": "Whether to embed fonts in generated PDFs (helpful for font portability)"
+  },
+  "font_dir": {
+    "type": "string",
+    "default": "/usr/share/fonts",
+    "description": "Directory containing fonts available for embedding"
+  },
+  "ghostscript_path": {
+    "type": "string",
+    "default": "/usr/bin/gs",
+    "description": "Full path to the Ghostscript binary"
+  },
+  "ghostscript_options": {
+    "type": "string",
+    "default": "-q -dBATCH -dSAFER -dNOPAUSE -r600x600 -sDEVICE=ps2write -dTextAlphaBits=4 -dGraphicsAlphaBits=4",
+    "description": "Additional options passed to Ghostscript (avoid unsafe overrides like -dNOPROMPT)"
+  },
+  "max_filter_processes": {
+    "type": "number",
+    "default": 10,
+    "description": "Maximum number of concurrent filter worker processes"
+  },
+  "default_raster_format": {
+    "type": "string",
+    "default": "auto",
+    "description": "Raster format to use for PDF-to-raster conversion (e.g., auto, rgb, cmyk, gray)"
+  },
+  "ipp_everywhere": {
+    "type": "boolean",
+    "default": true,
+    "description": "Enable IPP Everywhere compliance, including fallback defaults for media and color"
+  },
+  "ppd_path": {
+    "type": "string",
+    "default": "/usr/share/cups/ppd",
+    "description": "Directory where PPD files for legacy drivers are stored"
+  },
+  "pdf_optimize": {
+    "type": "boolean",
+    "default": true,
+    "description": "Strip unused objects and optimize PDFs before printing"
+  },
+  "pdf_rendering_engine": {
+    "type": "string",
+    "default": "ghostscript",
+    "description": "PDF rendering engine to use; choose ghostscript, poppler, or qpdf"
+  },
+  "raster_scaling": {
+    "type": "boolean",
+    "default": true,
+    "description": "Enable automatic scaling (e.g., fit-to-page, shrink-to-fit)"
+  },
+  "raster_dpi_list": {
+    "type": "list",
+    "default": [
+      300,
+      600
+    ],
+    "items": {
+      "type": "number"
+    },
+    "description": "List of DPI resolutions used during raster conversion fallback"
+  },
+  "http_proxy_host": {
+    "type": "string",
+    "default": "",
+    "description": "HTTP proxy hostname/IP for network printer discovery (optional)"
+  },
+  "http_proxy_port": {
+    "type": "number",
+    "default": 8080,
+    "description": "HTTP proxy port (used only if http_proxy_host is set)"
+  },
+  "log_level": {
+    "type": "string",
+    "default": "warn",
+    "description": "Verbosity of logs: error, warn, info, or debug"
+  },
+  "log_path": {
+    "type": "string",
+    "default": "/var/log/cups/cupsfilters.log",
+    "description": "Path to the cups-filters log file; empty string means syslog only"
+  },
+  "dnssd_discovery": {
+    "type": "boolean",
+    "default": true,
+    "description": "Enable DNS-SD (Bonjour/mDNS) printer discovery"
+  },
+  "extra_mime_types": {
+    "type": "list",
+    "default": [],
+    "items": {
+      "type": "string",
+      "example": "image/pwg-raster"
+    },
+    "description": "Additional MIME types to support (e.g., for vendor-specific filters)"
+  },
+  "filter_mappings": {
+    "type": "list",
+    "default": [],
+    "items": {
+      "type": "object",
+      "fields": {
+        "app_type": {
+          "type": "string",
+          "description": "MIME type or application type (e.g., application/pdf)"
+        },
+        "filter": {
+          "type": "string",
+          "description": "Path or name of filter binary to invoke (e.g., pdftopdf)"
+        },
+        "priority": {
+          "type": "number",
+          "description": "Priority of this mapping; lower numbers have higher precedence"
+        }
+      }
+    },
+    "description": "Custom mapping from input types to filters (e.g., legacy driver support)"
+  },
+  "filter_timeout": {
+    "type": "number",
+    "default": 300,
+    "description": "Maximum seconds to wait for a filter before failing the job"
+  },
+  "color_management": {
+    "type": "boolean",
+    "default": false,
+    "description": "Enable ICC-based color management for color-critical printing"
+  },
+  "icc_profile_paths": {
+    "type": "list",
+    "default": [
+      "/usr/share/color/icc"
+    ],
+    "items": {
+      "type": "string"
+    },
+    "description": "Directories to search for ICC profiles"
+  },
+  "default_rgb_profile": {
+    "type": "string",
+    "default": "sRGB",
+    "description": "Default ICC profile for RGB output; can be a known name or full path"
+  },
+  "default_cmyk_profile": {
+    "type": "string",
+    "default": "Coated_FOGRA27",
+    "description": "Default ICC profile for CMYK output; common names: Coated_FOGRA27, SWOP_Coated"
+  }
+}

@@ -1,0 +1,168 @@
+{
+  "listen_address": {
+    "type": "string",
+    "default": "127.0.0.1",
+    "description": "Local IP address the proxy will bind to. Use 0.0.0.0 to accept connections on all interfaces (not recommended for security)."
+  },
+  "port": {
+    "type": "number",
+    "default": 8118,
+    "description": "Port number for the HTTP proxy listener."
+  },
+  "socks5_host": {
+    "type": "string",
+    "default": "",
+    "description": "SOCKS5 upstream proxy host (leave empty to disable)."
+  },
+  "socks5_port": {
+    "type": "number",
+    "default": 1080,
+    "description": "Port for SOCKS5 upstream proxy."
+  },
+  "socks5_local": {
+    "type": "string",
+    "default": "",
+    "description": "Local addresses to forward directly, bypassing SOCKS5 (e.g., '.local,.example.com')"
+  },
+  "socks4a_host": {
+    "type": "string",
+    "default": "",
+    "description": "SOCKS4a upstream proxy host (leave empty to disable)."
+  },
+  "socks4a_port": {
+    "type": "number",
+    "default": 1080,
+    "description": "Port for SOCKS4a upstream proxy."
+  },
+  "socks4a_local": {
+    "type": "string",
+    "default": "",
+    "description": "Local addresses to bypass SOCKS4a."
+  },
+  "socks4_host": {
+    "type": "string",
+    "default": "",
+    "description": "SOCKS4 upstream proxy host (leave empty to disable)."
+  },
+  "socks4_port": {
+    "type": "number",
+    "default": 1080,
+    "description": "Port for SOCKS4 upstream proxy."
+  },
+  "socks4_local": {
+    "type": "string",
+    "default": "",
+    "description": "Local addresses to bypass SOCKS4."
+  },
+  "forwards": {
+    "type": "list",
+    "default": [],
+    "description": "List of custom forward rules. Each object maps a scheme prefix (e.g., 'https:') to a target proxy (e.g., 'localhost:8080').",
+    "items": {
+      "scheme": {
+        "type": "string",
+        "description": "Scheme prefix (e.g., 'http:', 'https:', 'ftp:')"
+      },
+      "target": {
+        "type": "string",
+        "description": "Upstream proxy host:port to forward matching requests to"
+      }
+    }
+  },
+  "enable_acl": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable access control list (ACL) rules to restrict who can use the proxy."
+  },
+  "acls": {
+    "type": "list",
+    "default": [],
+    "description": "List of ACL rules (only used if enable_acl is true).",
+    "items": {
+      "action": {
+        "type": "string",
+        "description": "Action keyword: 'allow', 'deny'"
+      },
+      "source": {
+        "type": "string",
+        "description": "Source IP or CIDR range (e.g., '192.168.0.0/24', '127.0.0.1')"
+      }
+    }
+  },
+  "filters": {
+    "type": "list",
+    "default": [],
+    "description": "List of custom filter rules (e.g., for blocking or rewriting headers).",
+    "items": {
+      "name": {
+        "type": "string",
+        "description": "Name of the filter rule"
+      },
+      "pattern": {
+        "type": "string",
+        "description": "Regex pattern (POSIX extended) to match"
+      }
+    }
+  },
+  "actionsfile_path": {
+    "type": "string",
+    "default": "/etc/privoxy/actionsfile",
+    "description": "Primary actions file defining content filtering rules (e.g., 'user.action')."
+  },
+  "extra_actionsfiles": {
+    "type": "list",
+    "default": [],
+    "description": "Additional actions files to include.",
+    "items": {
+      "path": {
+        "type": "string",
+        "description": "Absolute path to an extra actions file"
+      }
+    }
+  },
+  "obfuscate_user_agent": {
+    "type": "bool",
+    "default": true,
+    "description": "Replace the original User-Agent header with Privoxy\u2019s generic one to reduce fingerprinting."
+  },
+  "remove_server_headers": {
+    "type": "bool",
+    "default": false,
+    "description": "Remove the Server header from HTTP responses to hide server software info."
+  },
+  "enable_https": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable HTTPS proxy listener (requires valid certificate files)."
+  },
+  "https_port": {
+    "type": "number",
+    "default": 8443,
+    "description": "Port for the HTTPS proxy listener (only used if enable_https is true)."
+  },
+  "ssl_cert_file": {
+    "type": "string",
+    "default": "/etc/ssl/certs/privoxy.crt",
+    "description": "Path to SSL certificate for HTTPS listener."
+  },
+  "ssl_key_file": {
+    "type": "string",
+    "default": "/etc/ssl/private/privoxy.key",
+    "description": "Path to SSL private key for HTTPS listener."
+  },
+  "confdir": {
+    "type": "string",
+    "default": "/etc/privoxy",
+    "description": "Directory where config and actions files are stored."
+  },
+  "optdir": {
+    "type": "string",
+    "default": "/etc/privoxy",
+    "description": "Directory for optional config files (e.g., 'templates' subdirectory)."
+  },
+  "template_dir": {
+    "type": "string",
+    "default": "",
+    "description": "Optional custom template directory (leave empty to use built-in)."
+  }
+}

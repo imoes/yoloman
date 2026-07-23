@@ -1,0 +1,79 @@
+{
+  "scrape_interval": "15s",
+  "scrape_timeout": "10s",
+  "evaluation_interval": "15s",
+  "external_labels": {
+    "environment": "production",
+    "region": "us-central1"
+  },
+  "rule_files": [
+    "/etc/prometheus/rules/node.rules.yml",
+    "/etc/prometheus/rules/alerts.yml"
+  ],
+  "scrape_configs": [
+    {
+      "job_name": "prometheus",
+      "static_configs": [
+        {
+          "targets": [
+            "localhost:9090"
+          ],
+          "labels": {
+            "instance_type": "self"
+          }
+        }
+      ]
+    },
+    {
+      "job_name": "node-exporter",
+      "scheme": "https",
+      "metrics_path": "/metrics",
+      "basic_auth": {
+        "username": "prometheus",
+        "password": "secret123"
+      },
+      "static_configs": [
+        {
+          "targets": [
+            "node1.example.com:9100",
+            "node2.example.com:9100"
+          ],
+          "labels": {
+            "job_group": "infra"
+          }
+        }
+      ],
+      "relabel_configs": [
+        {
+          "source_labels": [
+            "__address__"
+          ],
+          "regex": "(.*)",
+          "target_label": "hostname",
+          "replacement": "$1"
+        }
+      ]
+    }
+  ],
+  "storage_path": "/var/lib/prometheus/data",
+  "wal_compression": true,
+  "retention_size_limit": 1073741824,
+  "alertmanagers": [
+    {
+      "static_configs": [
+        {
+          "targets": [
+            "alertmanager1.example.com:9093",
+            "alertmanager2.example.com:9093"
+          ]
+        }
+      ],
+      "scheme": "https",
+      "enable_http2": true,
+      "authorization": {
+        "type": "Bearer",
+        "credentials": "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9..."
+      }
+    }
+  ]
+}

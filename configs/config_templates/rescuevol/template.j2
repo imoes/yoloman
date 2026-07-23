@@ -1,0 +1,34 @@
+#!/bin/sh
+# Add rescue volume logic: mount a rescue filesystem if specified and available
+set -e
+
+# Use variables for configurable paths and flags
+RESUE_PATH="{{ rescue_vol_path }}"
+RESUE_DEV="{{ rescue_vol_device }}"
+RESUE_FS="{{ rescue_vol_fstype }}"
+RESUE_OPTS="{{ rescue_vol_mount_opts }}"
+
+# Only attempt rescue mount if enabled
+{% if rescue_vol_enabled %}
+
+# Ensure the rescue device exists
+if [ -e "{{ rescue_vol_device }}" ]; then
+    # Create mount point if it doesn't exist
+    mkdir -p "{{ rescue_vol_path }}"
+
+    # Mount the rescue volume
+    mount -t "{{ rescue_vol_fstype }}" {{ rescue_vol_mount_opts | default('', true) }} "{{ rescue_vol_device }}" "{{ rescue_vol_path }}" 2>/dev/null || true
+    
+    # Optional: copy rescue artifacts after mount (custom post-mount steps)
+{% for step in rescue_vol_post_mount_steps %}
+{% if step.enabled %}
+    # {{ step.description }}
+    {{ step.cmd }}
+{% endif %}
+{% endfor %}
+fi
+
+{% else %}
+# Rescue volume is disabled — skip mounting
+exit 0
+{% endif %}

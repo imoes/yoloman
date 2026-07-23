@@ -1,0 +1,23 @@
+# OpenDKIM configuration file — defines signing/verification behavior
+KeyTable          {{ values.key_table_path }}
+SigningTable      {{ values.signing_table_path }}
+InternalHosts     {{ values.internal_hosts | join(', ') }}
+ExternalIgnoreList {{ values.external_ignore_list | join(', ') }}
+SignatureAlgorithm rsa-sha256
+Mode              {{ values.mode }}
+Syslog            {{ values.syslog | string | lower }}
+SyslogSuccess     {{ values.syslog_success | string | lower }}
+Canonicalization  {{ values.canonicalization }}
+Selector          {{ values.selector }}
+Domain            {{ values.domain }}
+Socket            {{ values.socket }}
+PIDFile           {{ values.pid_file }}
+TempFileDirectory {{ values.temp_file_directory }}
+{
+% for host in values.trusted_keys_hosts %}  {{ host }}
+{% endfor %}
+}{{ '' }}
+{
+% for rule in values.signing_rules %}{{ rule.pattern }}  {{ rule.key_path }}
+{% endfor %}
+}{{ '' }}

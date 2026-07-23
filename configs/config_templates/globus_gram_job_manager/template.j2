@@ -1,0 +1,62 @@
+# Listen address for the GRAM Job Manager service
+listen: {{ listen_host }}:{{ listen_port }}
+
+# Authentication method: 'gridftp', 'gsi', or 'none'
+auth_method: {{ auth_method }}
+
+# Path to the GSI proxy certificate (used when auth_method is 'gridftp' or 'gsi')
+proxy_cert: {{ proxy_cert_path }}
+
+# Path to the GSI proxy key (used when auth_method is 'gridftp' or 'gsi')
+proxy_key: {{ proxy_key_path }}
+
+# Path to the CA certificate directory
+ca_cert_dir: {{ ca_cert_dir }}
+
+# Enable verbose logging
+verbose: {{ verbose }}
+
+# Log file path (empty string disables file logging)
+log_file: {{ log_file }}
+
+# Maximum number of concurrent job submissions
+max_jobs: {{ max_jobs }}
+
+# Maximum job submission queue depth (0 = unlimited)
+max_queue_depth: {{ max_queue_depth }}
+
+# GridFTP server endpoints for staging files
+{% for endpoint in gridftp_endpoints %}
+# GridFTP endpoint: {{ endpoint.description }}
+gridftp_endpoint: {{ endpoint.host }}:{{ endpoint.port }}
+{% if endpoint.proxy_mode %}gridftp_proxy_mode: {{ endpoint.proxy_mode }}
+{% endif %}{% endfor %}
+
+# Allowed job contact methods: 'jobmanager', 'jobmanager+lsf', etc.
+{% for jm in jobmanager_types %}
+# Allowed job manager type: {{ jm }}
+jobmanager: {{ jm }}
+{% endfor %}
+
+# Execution environment: path to job execution wrapper (e.g., shell wrapper script)
+{% if job_wrapper_path %}job_wrapper: {{ job_wrapper_path }}
+{% endif %}
+
+# Resource manager plugin configuration
+{% if resource_manager_plugin %}resource_manager_plugin: {{ resource_manager_plugin }}
+resource_manager_config: {{ resource_manager_config_path }}
+{% endif %}
+
+# GSH (Grid Shell) configuration for job execution
+{% if gsh_enabled %}gsh_enabled: {{ gsh_enabled }}
+gsh_shell: {{ gsh_shell }}
+gsh_working_dir: {{ gsh_working_dir }}
+{% endif %}
+
+# Service contact URL (used by clients to discover the service)
+service_contact: https://{{ service_hostname }}:{{ service_port }}/jobmanager
+
+# Enable SSL for service contact (TLS on port {{ service_port }})
+ssl_enabled: {{ ssl_enabled }}
+ssl_cert: {{ ssl_cert_path }}
+ssl_key: {{ ssl_key_path }}

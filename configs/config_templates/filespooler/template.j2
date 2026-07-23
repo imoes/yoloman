@@ -1,0 +1,52 @@
+# Global operation mode: 'single' or 'distributed'
+{{ mode }}
+
+# Base working directory for spooled jobs and metadata
+base_dir {{ base_dir }}
+
+# Network listening address (ignored in single mode)
+listen_addr {{ listen_addr }}
+
+# TCP port for client and peer communication
+port {{ port }}
+
+# Number of worker threads per processing slot
+worker_threads {{ worker_threads }}
+
+# Maximum jobs queued before blocking producers
+max_queue_depth {{ max_queue_depth }}
+
+# Maximum time (seconds) a job may remain unprocessed before timeout
+job_timeout {{ job_timeout }}
+
+# Log level: DEBUG, INFO, WARN, ERROR, FATAL
+log_level {{ log_level }}
+
+# Path to the log file (use '-' for stdout)
+log_file {{ log_file }}
+
+# Enable TLS for peer-to-peer communication
+{% if enable_tls %}tls_enabled true{% else %}tls_enabled false{% endif %}
+
+# TLS certificate chain file (required if TLS enabled)
+{% if enable_tls %}tls_cert_file {{ tls_cert_file }}{% endif %}
+
+# TLS private key file (required if TLS enabled)
+{% if enable_tls %}tls_key_file {{ tls_key_file }}{% endif %}
+
+# TLS CA certificate file for verifying peers (optional)
+{% if enable_tls %}tls_ca_file {{ tls_ca_file }}{% endif %}
+
+# TLS server name override for peer verification (optional)
+{% if enable_tls %}tls_server_name {{ tls_server_name }}{% endif %}
+
+# List of peer nodes in the distributed cluster
+{% for peer in peers %}peer {{ peer.host }} {{ peer.port }}{% endfor %}
+
+# Per-queue configuration blocks (one per queue name)
+{% for queue in queues %}
+queue {{ queue.name }}
+  retry_limit {{ queue.retry_limit }}
+  max_retries_before_dlq {{ queue.max_retries_before_dlq }}
+  dead_letter_queue {{ queue.dead_letter_queue | default('') }}
+{% endfor %}

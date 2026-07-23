@@ -1,0 +1,98 @@
+[core]
+# The name of the backend that handles the music library and playback queue
+library = {{ library_backend }}
+
+# Maximum number of tracks allowed in the playback history
+max_history_size = {{ core_max_history_size }}
+
+[local]
+# Enable local file scanning and playback
+enabled = {{ local_enabled | lower }}
+
+# Directory where local music files are stored
+media_dir = {{ local_media_dir }}
+
+# Time (in seconds) to wait before scanning for new/changed files
+scan_timeout = {{ local_scan_timeout }}
+
+# Number of files to scan in parallel
+scan_flush_threshold = {{ local_scan_flush_threshold }}
+
+# List of filename patterns to skip during scanning
+scan_ignore_patterns = {{ local_scan_ignore_patterns | join(', ') }}
+
+[local-images]
+# Enable local image search (e.g., album art from embedded or sidecar files)
+enabled = {{ local_images_enabled | lower }}
+
+# Directory to search for images (defaults to media_dir if not set)
+# If empty, uses media_dir; if omitted, uses default behavior
+{% if local_images_search_dirs %}search_dirs = {{ local_images_search_dirs | join(', ') }}{% endif %}
+
+[file]
+# Enable the file backend for local playback
+enabled = {{ file_enabled | lower }}
+
+# Base path for music files (if not using local backend's media_dir)
+media_dir = {{ file_media_dir }}
+
+# List of music file extensions to allow
+allowed_extensions = {{ file_allowed_extensions | join(', ') }}
+
+[http]
+# Enable the HTTP frontend (web UI & API)
+enabled = {{ http_enabled | lower }}
+
+# Host interface to bind to (e.g., '0.0.0.0' for all, or '127.0.0.1' for local only)
+hostname = {{ http_hostname }}
+
+# Port for HTTP API & web UI
+port = {{ http_port }}
+
+# Allow cross-origin requests from these domains (comma-separated list)
+allowed_origins = {{ http_allowed_origins | join(', ') }}
+
+# CORS headers (empty by default)
+{% if http_cors_headers %}cors_headers = {{ http_cors_headers | join(', ') }}{% endif %}
+
+[mpd]
+# Enable the MPD protocol (for legacy clients like ncmpcpp)
+enabled = {{ mpd_enabled | lower }}
+
+# Host to bind to
+hostname = {{ mpd_hostname }}
+
+# Port to listen on
+port = {{ mpd_port }}
+
+# Password to require for clients (empty = no auth)
+{% if mpd_password %}password = {{ mpd_password }}{% else %}password = {% endif %}
+
+[webstats]
+# Enable the webstats extension (tracks listen statistics via HTTP API)
+enabled = {{ webstats_enabled | lower }}
+
+[spotify]
+# Enable Spotify support (requires credentials)
+enabled = {{ spotify_enabled | lower }}
+
+# Spotify client credentials (not secrets — exposed to frontend if web UI is used)
+username = {{ spotify_username }}
+client_id = {{ spotify_client_id }}
+client_secret = {{ spotify_client_secret }}
+
+# Cache credentials in file for reuse
+{% if spotify_cache_path %}cache_credentials = {{ spotify_cache_path }}{% endif %}
+
+# Enable OAuth token refresh (recommended)
+enabled_oauth = {{ spotify_enabled_oauth | lower }}
+
+# Preferred bitrate for streaming: 96 (low), 160 (normal), 320 (high)
+bitrate = {{ spotify_bitrate }}
+
+{% for extension in extensions %}[{{ extension.name }}]
+# {{ extension.description }}
+enabled = {{ extension.enabled | lower }}
+{% if extension.config %}{% for key, value in extension.config.items() %}{{ key }} = {{ value }}
+{% endfor %}{% endif %}
+{% endfor %}

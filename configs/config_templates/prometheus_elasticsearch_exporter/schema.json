@@ -1,0 +1,183 @@
+{
+  "es_uri": {
+    "type": "string",
+    "default": "http://localhost:9200",
+    "description": "Base URI of your Elasticsearch cluster (e.g., http://es-cluster:9200). Used if ES_NODES is not specified."
+  },
+  "es_nodes": {
+    "type": "list",
+    "default": [],
+    "description": "List of specific node URIs to scrape (e.g., ['http://node1:9200', 'http://node2:9200']). Overrides ES_URI.",
+    "items": {
+      "type": "string",
+      "description": "Full URI of an Elasticsearch node"
+    }
+  },
+  "es_username": {
+    "type": "string",
+    "default": "",
+    "description": "Username for basic authentication to Elasticsearch (required if security features are enabled)."
+  },
+  "es_password": {
+    "type": "string",
+    "default": "",
+    "description": "Password for basic authentication to Elasticsearch. Keep secret!",
+    "sensitive": true
+  },
+  "es_tls": {
+    "type": "boolean",
+    "default": false,
+    "description": "Enable TLS (HTTPS) when connecting to Elasticsearch."
+  },
+  "es_ca_cert": {
+    "type": "string",
+    "default": "",
+    "description": "Absolute path to the CA certificate file used to verify Elasticsearch's TLS certificate (e.g., /etc/ssl/certs/es-ca.crt)."
+  },
+  "es_tls_skip_verify": {
+    "type": "boolean",
+    "default": false,
+    "description": "Skip verification of Elasticsearch's TLS certificate. \u26a0\ufe0f Only for testing \u2014 never in production."
+  },
+  "es_client_cert": {
+    "type": "string",
+    "default": "",
+    "description": "Absolute path to the client certificate for mutual TLS authentication (optional)."
+  },
+  "es_client_key": {
+    "type": "string",
+    "default": "",
+    "description": "Absolute path to the client private key for mutual TLS authentication (optional)."
+  },
+  "cluster_health": {
+    "type": "boolean",
+    "default": true,
+    "description": "Collect cluster health metrics (status, number of nodes, etc.)."
+  },
+  "indices_stats": {
+    "type": "boolean",
+    "default": true,
+    "description": "Collect per-index statistics (docs, store size, queries, etc.)."
+  },
+  "nodes_stats": {
+    "type": "boolean",
+    "default": true,
+    "description": "Collect per-node JVM, OS, and transport metrics."
+  },
+  "shards_stats": {
+    "type": "boolean",
+    "default": false,
+    "description": "Collect per-shard metrics. \u26a0\ufe0f Can be expensive on large clusters with many shards."
+  },
+  "snapshots": {
+    "type": "boolean",
+    "default": false,
+    "description": "Collect snapshot repository and snapshot status metrics."
+  },
+  "circuit_breakers": {
+    "type": "boolean",
+    "default": true,
+    "description": "Collect Elasticsearch circuit breaker stats (memory usage limits)."
+  },
+  "thread_pools": {
+    "type": "boolean",
+    "default": true,
+    "description": "Collect thread pool size, queue, and activity metrics per node."
+  },
+  "index_templates": {
+    "type": "boolean",
+    "default": false,
+    "description": "Collect index template stats (matching patterns, order, etc.)."
+  },
+  "ingest_pipelines": {
+    "type": "boolean",
+    "default": false,
+    "description": "Collect ingest pipeline stats (processors, failures, etc.)."
+  },
+  "features": {
+    "type": "boolean",
+    "default": false,
+    "description": "Collect feature usage metrics (e.g., machine learning, watchlists)."
+  },
+  "extra_labels": {
+    "type": "list",
+    "default": [],
+    "description": "List of key=value labels to attach to every metric (e.g., ['env=prod', 'team=observability']).",
+    "items": {
+      "type": "string",
+      "pattern": "^[^=]+=.+$",
+      "description": "Label in key=value format"
+    }
+  },
+  "http_timeout": {
+    "type": "number",
+    "default": 30,
+    "description": "HTTP request timeout to Elasticsearch in seconds. Increase for slow or large clusters."
+  },
+  "listen_port": {
+    "type": "number",
+    "default": 9114,
+    "description": "Port on which the exporter exposes its /metrics endpoint."
+  },
+  "listen_host": {
+    "type": "string",
+    "default": "0.0.0.0",
+    "description": "Network interface to bind the exporter to (e.g., 127.0.0.1 to restrict locally)."
+  },
+  "log_level": {
+    "type": "string",
+    "default": "info",
+    "description": "Verbosity of exporter logs (debug for troubleshooting)."
+  },
+  "metric_filtering": {
+    "type": "boolean",
+    "default": false,
+    "description": "Enable experimental filtering of metrics by regex patterns."
+  },
+  "metric_filters": {
+    "type": "list",
+    "default": [],
+    "description": "List of regex patterns; metrics matching any pattern are excluded from output.",
+    "items": {
+      "type": "string",
+      "description": "Perl-compatible regular expression (regex) to match metric names"
+    }
+  },
+  "exclude_indices": {
+    "type": "list",
+    "default": [
+      ".*",
+      ".*-.*"
+    ],
+    "description": "List of index name patterns (glob or regex) to skip when collecting indices stats.",
+    "items": {
+      "type": "string",
+      "description": "Index name pattern to exclude (e.g., '.kibana*', 'log-*')"
+    }
+  },
+  "exclude_node_roles": {
+    "type": "list",
+    "default": [],
+    "description": "List of node roles to exclude (e.g., 'master', 'data'). Only core roles: master, data, ingest, ml.",
+    "items": {
+      "type": "string",
+      "enum": [
+        "master",
+        "data",
+        "ingest",
+        "ml"
+      ],
+      "description": "Elasticsearch node role to exclude from stats"
+    }
+  },
+  "ilm": {
+    "type": "boolean",
+    "default": false,
+    "description": "Collect Index Lifecycle Management (ILM) policy and phase metrics."
+  },
+  "data_streams": {
+    "type": "boolean",
+    "default": false,
+    "description": "Collect data stream stats (backing indices, generation, size)."
+  }
+}

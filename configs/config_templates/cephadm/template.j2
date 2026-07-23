@@ -1,0 +1,75 @@
+[global]
+# Cluster ID — unique identifier for the Ceph cluster
+fsid = {{ cluster_fsid }}
+
+# Default monitor port
+mon initial members = {{ monitor_initial_members | join(', ') if monitor_initial_members else '' }}
+mon host = {{ monitor_host | join(', ') }}
+
+# Logging and debug settings
+log file = {{ log_file_path }}
+max open files = {{ max_open_files }}
+
+# Network and public/private network configuration
+public network = {{ public_network }}
+cluster network = {{ cluster_network }}
+
+# Authentication (CephX enabled by default)
+auth cluster required = {{ auth_cluster_required }}
+auth service required = {{ auth_service_required }}
+auth client required = {{ auth_client_required }}
+
+# Daemon timeouts and heartbeat intervals
+mon clock drift allowed = {{ mon_clock_drift_allowed }}
+mon clock drift warn extra allowed = {{ mon_clock_drift_warn_extra_allowed }}
+mon sync timeout = {{ mon_sync_timeout }}
+
+# OSD settings
+osd journal size = {{ osd_journal_size }}
+osd op threads = {{ osd_op_threads }}
+osd max object name len = {{ osd_max_object_name_len }}
+osd max object namespace len = {{ osd_max_object_namespace_len }}
+
+# RADOS gateway (RGW) settings — optional, only if enabled
+{% if rgw_enabled %}
+rgw frontends = {{ rgw_frontends }}
+rgw dns name = {{ rgw_dns_name }}
+{% endif %}
+
+# Monitors
+{% for mon in monitors %}
+[mon.{{ mon.name }}]
+host = {{ mon.host }}
+mon addr = {{ mon.address }}
+{% endfor %}
+
+# OSDs — defined only if manual OSD configuration is used (not typical with cephadm)
+{% for osd in osds %}
+[osd.{{ osd.id }}]
+host = {{ osd.host }}
+{% if osd.device %}
+bluestore_block_db_path = {{ osd.device }}
+{% endif %}
+{% endfor %}
+
+# Metadata servers (MDS)
+{% for mds in mdss %}
+[mds.{{ mds.name }}]
+host = {{ mds.host }}
+{% endfor %}
+
+# RGW daemons (if multiple instances)
+{% for rgw in rgws %}
+[client.rgw.{{ rgw.name }}]
+host = {{ rgw.host }}
+rgw frontends = {{ rgw.frontends }}
+{% endfor %}
+
+# mgr daemons — cephadm typically manages this, but explicit entries allowed
+{% for mgr in mgrs %}
+[mgr.{{ mgr.name }}]
+host = {{ mgr.host }}
+{% endfor %}
+
+# Final boilerplate — do not modify
+osd crush chooseleaf type = 0

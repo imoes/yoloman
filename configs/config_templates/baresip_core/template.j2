@@ -1,0 +1,56 @@
+# SIP User-Agent configuration — baresip core
+# Global SIP settings
+{% if username %}USERNAME={{ username }}{% endif %}
+{% if password %}PASSWORD={{ password }}{% endif %}
+{% if displayname %}DISPLAY_NAME={{ displayname }}{% endif %}
+
+# SIP registrar and account settings
+{% for account in accounts %}
+# SIP account: {{ account.display_name }}
+{% if account.uri %}ACCOUNT_URI={{ account.uri }}{% endif %}
+{% if account.alias %}ACCOUNT_ALIAS={{ account.alias }}{% endif %}
+{% if account.host %}ACCOUNT_HOST={{ account.host }}{% endif %}
+{% if account.transport %}ACCOUNT_TRANSPORT={{ account.transport }}{% endif %}
+{% if account.priority is defined and account.priority != 0 %}ACCOUNT_PRIORITY={{ account.priority }}{% endif %}
+{% if account.pubname %}ACCOUNT_PUBNAME={{ account.pubname }}{% endif %}
+{% if account.register is defined %}ACCOUNT_REGISTER={{ 'yes' if account.register else 'no' }}{% endif %}
+{% if account.rtp_ipv6 is defined %}ACCOUNT_RTP_IPV6={{ 'yes' if account.rtp_ipv6 else 'no' }}{% endif %}
+{% if account.rtp_force_ipv4 is defined %}ACCOUNT_RTP_FORCE_IPV4={{ 'yes' if account.rtp_force_ipv4 else 'no' }}{% endif %}
+{% if account.media_ipv4 is defined %}ACCOUNT_MEDIA_IPV4={{ 'yes' if account.media_ipv4 else 'no' }}{% endif %}
+{% if account.sips_contact is defined %}ACCOUNT_SIPS_CONTACT={{ account.sips_contact }}{% endif %}
+{% endfor %}
+
+# Audio device / backend
+{% if audio_device %}AUD_DEV={{ audio_device }}{% endif %}
+{% if audio_sample_rate %}AUD_SR={{ audio_sample_rate }}{% endif %}
+{% if audio_channels %}AUD_CH={{ audio_channels }}{% endif %}
+{% if audio_buffer_size %}AUD_BUFSIZE={{ audio_buffer_size }}{% endif %}
+
+# Video device / settings
+{% if video_device %}VID_DEV={{ video_device }}{% endif %}
+{% if video_size %}VID_SIZE={{ video_size }}{% endif %}
+{% if video_bitrate %}VID_BITRATE={{ video_bitrate }}{% endif %}
+{% if video_fps %}VID_FPS={{ video_fps }}{% endif %}
+{% if video_display is defined %}VID_DISPLAY={{ 'yes' if video_display else 'no' }}{% endif %}
+{% if video_encode is defined %}VID_ENCODE={{ 'yes' if video_encode else 'no' }}{% endif %}
+{% if video_decode is defined %}VID_DECODE={{ 'yes' if video_decode else 'no' }}{% endif %}
+
+# NAT traversal
+{% if stun_server %}STUN_SERVER={{ stun_server }}{% endif %}
+{% if natpmp_enabled is defined %}NATPMP={{ 'yes' if natpmp_enabled else 'no' }}{% endif %}
+{% if upnp_enabled is defined %}UPNP={{ 'yes' if upnp_enabled else 'no' }}{% endif %}
+
+# Logging
+{% if log_level is defined %}LOG_LEVEL={{ log_level }}{% endif %}
+{% if log_file %}LOG_FILE={{ log_file }}{% endif %}
+{% if log_timestamps is defined %}LOG_TIMESTAMPS={{ 'yes' if log_timestamps else 'no' }}{% endif %}
+
+# Modules
+{% for module in modules %}# Load module: {{ module.name }}
+{% if module.config is defined and module.config %}{{ module.name }}_CONFIG={{ module.config }}{% endif %}
+{% endfor %}
+
+# TLS settings
+{% if tls_cert %}TLS_CERT={{ tls_cert }}{% endif %}
+{% if tls_cafile %}TLS_CAFILE={{ tls_cafile }}{% endif %}
+{% if tls_verify_server is defined %}TLS_VERIFY_SERVER={{ 'yes' if tls_verify_server else 'no' }}{% endif %}

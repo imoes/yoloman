@@ -1,0 +1,93 @@
+<?xml version="1.0"?>
+<!-- Root configuration element; defines the iWatch service instance -->
+<iwatch>
+  <!-- Global settings for the monitoring daemon -->
+  <config>
+    <!-- User and group under which the daemon runs (security best practice) -->
+    <user>{{ daemon_user }}</user>
+    <group>{{ daemon_group }}</group>
+
+    <!-- Path to PID file for daemon process management -->
+    <pidfile>{{ pid_file }}</pidfile>
+
+    <!-- Log file path for daemon output (empty = syslog) -->
+    <logfile>{{ log_file }}</logfile>
+
+    <!-- Logging level: debug, info, notice, warning, error, critical, alert, emergency -->
+    <loglevel>{{ log_level }}</loglevel>
+
+    <!-- Interval (in seconds) between filesystem scans (for fallback or legacy events) -->
+    <scaninterval>{{ scan_interval }}</scaninterval>
+
+    <!-- Enable or disable inotify-based real-time monitoring -->
+    <inotify>{{ use_inotify | lower }}</inotify>
+
+    <!-- Maximum number of files to monitor simultaneously -->
+    <maxfiles>{{ max_files }}</maxfiles>
+
+    <!-- Enable XML-RPC interface for remote management (optional) -->
+    <xmlrpc>
+      <enabled>{{ xmlrpc_enabled | lower }}</enabled>
+      <port>{{ xmlrpc_port }}</port>
+      <bindaddress>{{ xmlrpc_bind_address }}</bindaddress>
+    </xmlrpc>
+
+    <!-- Email alert settings (if email notification is enabled) -->
+    <email>
+      <use_smtp>{{ email_use_smtp | lower }}</use_smtp>
+      <mailfrom>{{ email_from }}</mailfrom>
+      <mailto>{{ email_to | join(', ') }}</mailto>
+      <smtpserver>{{ smtp_server }}</smtpserver>
+      <smtpport>{{ smtp_port }}</smtpport>
+    </email>
+  </config>
+
+  <!-- List of directories to monitor, each with custom rules and alerts -->
+  {% for watch in watches %}
+  <watchlist>
+    <!-- Directory to monitor (required, absolute path) -->
+    <path>{{ watch.path }}</path>
+
+    <!-- Event types to monitor: modify, access, create, delete, rename, chmod, attrib, move, all -->
+    <event>{{ watch.events | join(', ') }}</event>
+
+    <!-- Alert recipients for events in this watch (overrides global email setting) -->
+    <email>
+      <enable>{{ watch.alert_email_enabled | lower }}</enable>
+      <mailto>{{ watch.alert_email_to | join(', ') if watch.alert_email_to else '' }}</mailto>
+    </email>
+
+    <!-- Optional: include/exclude patterns using shell globs or regex (if regex enabled) -->
+    {% if watch.include_patterns or watch.exclude_patterns %}
+    <regex>{{ watch.use_regex | lower }}</regex>
+    {% endif %}
+    {% if watch.include_patterns %}
+    <include>
+      {% for pattern in watch.include_patterns %}
+      <pattern>{{ pattern }}</pattern>
+      {% endfor %}
+    </include>
+    {% endif %}
+    {% if watch.exclude_patterns %}
+    <exclude>
+      {% for pattern in watch.exclude_patterns %}
+      <pattern>{{ pattern }}</pattern>
+      {% endfor %}
+    </exclude>
+    {% endif %}
+
+    <!-- Optional: action to run on event (e.g., script execution) -->
+    {% if watch.on_event_script %}
+    <onchange>{{ watch.on_event_script }}</onchange>
+    {% endif %}
+
+    <!-- Optional: depth limit (0 = infinite) -->
+    {% if watch.max_depth is defined %}
+    <depth>{{ watch.max_depth }}</depth>
+    {% endif %}
+
+    <!-- Optional: ignore events from self (for scripts that modify watched dirs) -->
+    <ignoreself>{{ watch.ignore_self | lower }}</ignoreself>
+  </watchlist>
+  {% endfor %}
+</iwatch>

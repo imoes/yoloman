@@ -1,0 +1,43 @@
+# D-Bus system bus configuration
+# Loaded by dbus-daemon on startup. See dbus-daemon(1) for details.
+
+# Allow root to connect (usually needed for system services)
+<policy user="root">
+  <allow own="*"/>
+  <allow send_destination="*"/>
+  <allow receive_sender="*"/>
+</policy>
+
+# Permit authenticated system services to connect and send/receive messages
+<policy context="default">
+  <allow send_destination="*"/>
+  <allow receive_sender="*"/>
+</policy>
+
+# Restrict access to specific system services via <limit> and <limit_type> directives
+<limit name="max_connections_per_user">{{ max_connections_per_user }}</limit>
+<limit name="max_pending_service_activations">{{ max_pending_activations }}</limit>
+<limit name="max_services_per_user">{{ max_services_per_user }}</limit>
+<limit name="max_replies_per_connection">{{ max_replies_per_connection }}</limit>
+<limit name="max_match_rules_per_connection">{{ max_match_rules_per_connection }}</limit>
+<limit name="max_matches_per_rule">{{ max_matches_per_rule }}</limit>
+
+# Audit logging (optional)
+{% if enable_audit %}<audit type="enabled"/>{% endif %}
+
+# Bind to specific Unix socket path
+<listen>unix:path={{ socket_path }}</listen>
+
+# Enable or disable systemd activation support
+{% if enable_systemd %}<servicehelper>/usr/lib/dbus-1.0/dbus-daemon-launch-helper</servicehelper>{% endif %}
+
+# Explicitly set the bus ID file path (for debugging or containers)
+<standard_session_servicedirs>
+  <servicedir>/usr/share/dbus-1/system-services</servicedir>
+</standard_session_servicedirs>
+
+<!-- Default service directory for system services -->
+<servicedir>/etc/dbus-1/system.d</servicedir>
+
+# Security: enable or disable kernel-assisted filesystem access control (SELinux/AppArmor integration)
+{% if enforce_security %}<apparmor mode="enforce"/>{% endif %}

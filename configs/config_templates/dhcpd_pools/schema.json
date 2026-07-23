@@ -1,0 +1,129 @@
+{
+  "lease_file": {
+    "type": "string",
+    "default": "/var/lib/dhcp/dhcpd.leases",
+    "description": "Absolute path to the ISC DHCP server lease database file."
+  },
+  "html_output_dir": {
+    "type": "string",
+    "default": "/var/www/dhcpd-pools/reports",
+    "description": "Directory where HTML reports are generated. Set to empty string '' to disable."
+  },
+  "csv_output_dir": {
+    "type": "string",
+    "default": "/var/lib/dhcpd-pools/csv",
+    "description": "Directory where CSV reports are generated. Set to empty string '' to disable."
+  },
+  "json_output_dir": {
+    "type": "string",
+    "default": "/var/lib/dhcpd-pools/json",
+    "description": "Directory where JSON reports are generated. Set to empty string '' to disable."
+  },
+  "report_date_format": {
+    "type": "string",
+    "default": "%Y-%m-%d %H:%M:%S",
+    "description": "Date/time format used in report headers and timestamps (Python strptime syntax)."
+  },
+  "recent_days": {
+    "type": "number",
+    "default": 7,
+    "description": "Number of days into the past considered 'recent' for activity analysis."
+  },
+  "stale_days": {
+    "type": "number",
+    "default": 30,
+    "description": "Minimum number of days since last activity before a lease is flagged as 'stale'."
+  },
+  "detailed_subnets": {
+    "type": "bool",
+    "default": true,
+    "description": "Whether to include per-subnet statistics (more accurate but heavier on large files)."
+  },
+  "exclude_subnets": {
+    "type": "list",
+    "default": [],
+    "description": "List of subnet CIDR or dotted-quad ranges to exclude from analysis.",
+    "items": {
+      "type": "string",
+      "description": "A subnet in CIDR notation (e.g., 192.168.1.0/24) or dotted-quad (e.g., 192.168.1.0)."
+    }
+  },
+  "include_subnets": {
+    "type": "list",
+    "default": [],
+    "description": "If non-empty, only these subnets are analyzed (others ignored). Leave empty to include all.",
+    "items": {
+      "type": "string",
+      "description": "A subnet in CIDR or dotted-quad notation to include."
+    }
+  },
+  "thresholds": {
+    "type": "object",
+    "default": {},
+    "description": "Thresholds for warning and critical alerts across different metrics.",
+    "items": {
+      "pool_warn_pct": {
+        "type": "number",
+        "default": 80,
+        "description": "Pool usage % above which warning is triggered."
+      },
+      "pool_crit_pct": {
+        "type": "number",
+        "default": 90,
+        "description": "Pool usage % above which critical alert is triggered."
+      },
+      "stale_warn_count": {
+        "type": "number",
+        "default": 10,
+        "description": "Number of stale leases above which warning is triggered."
+      },
+      "stale_crit_count": {
+        "type": "number",
+        "default": 50,
+        "description": "Number of stale leases above which critical alert is triggered."
+      },
+      "active_warn_count": {
+        "type": "number",
+        "default": 1000,
+        "description": "Total active leases above which warning is triggered."
+      },
+      "active_crit_count": {
+        "type": "number",
+        "default": 2000,
+        "description": "Total active leases above which critical alert is triggered."
+      }
+    }
+  },
+  "reports": {
+    "type": "object",
+    "default": {},
+    "description": "Toggle for optional sections included in reports.",
+    "items": {
+      "pool_stats": {
+        "type": "bool",
+        "default": true,
+        "description": "Include per-pool statistics (address usage, ranges, counts)."
+      },
+      "class_stats": {
+        "type": "bool",
+        "default": true,
+        "description": "Include per-class statistics (DHCP classes, vendor options, etc.)."
+      },
+      "host_reservations": {
+        "type": "bool",
+        "default": true,
+        "description": "Include static host reservations in reports."
+      },
+      "mac_vendor_lookup": {
+        "type": "bool",
+        "default": false,
+        "description": "Look up MAC OUI to human-readable vendor (adds processing time)."
+      },
+      "time_series": {
+        "type": "bool",
+        "default": false,
+        "description": "Include trend/time-series analysis (requires multiple report runs and retention of reports)."
+      }
+    }
+  }
+}

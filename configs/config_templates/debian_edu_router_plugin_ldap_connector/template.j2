@@ -1,0 +1,109 @@
+# LDAP server URI(s) — space-separated list of LDAP URLs (ldap:// or ldaps://)
+ldap_uris = {{ ldap_uris | join(' ') }}
+
+# Base DN for LDAP searches — root of the directory tree to query
+base_dn = {{ base_dn }}
+
+# Bind DN — user DN for bind authentication (leave empty for anonymous bind)
+bind_dn = {{ bind_dn | default('') }}
+
+# Bind password — secret for bind DN; store securely, e.g., via file or secret manager
+bind_password = {{ bind_password | default('') }}
+
+# Password file path — alternative to bind_password; reads password from file (e.g., /etc/debian-edu-router/.ldap-passwd)
+bind_password_file = {{ bind_password_file | default('') }}
+
+# TLS/SSL mode — one of: starttls, simple, off
+ssl_mode = {{ ssl_mode }}
+
+# CA certificate file — full path to CA cert for verifying LDAP server TLS
+ca_cert_file = {{ ca_cert_file }}
+
+# Client certificate file — optional client cert for mutual TLS
+client_cert_file = {{ client_cert_file | default('') }}
+
+# Client key file — optional client key for mutual TLS
+client_key_file = {{ client_key_file | default('') }}
+
+# User search base — OU or DC subtree to search for user entries
+user_search_base = {{ user_search_base | default(base_dn) }}
+
+# Group search base — OU or DC subtree to search for group entries
+group_search_base = {{ group_search_base | default(base_dn) }}
+
+# User filter — LDAP filter to locate user entries (e.g., (&(objectClass=posixAccount)(uid={{username}})))
+user_filter = {{ user_filter }}
+
+# Group filter — LDAP filter to locate group entries (e.g., (&(objectClass=posixGroup)(cn={{groupname}})))
+group_filter = {{ group_filter }}
+
+# User attributes to retrieve — comma-separated list of LDAP attributes for user mapping
+user_attrs = {{ user_attrs | join(',') }}
+
+# Group attributes to retrieve — comma-separated list of LDAP attributes for group mapping
+group_attrs = {{ group_attrs | join(',') }}
+
+# Enable nested group expansion (recursive memberOf or memberOfGroupOfNames)
+nested_groups = {{ nested_groups | lower }}
+
+# Cache TTL (seconds) — how long to cache LDAP results
+cache_ttl = {{ cache_ttl }}
+
+# Enable result caching
+cache_enabled = {{ cache_enabled | lower }}
+
+# Minimum UID/GID — smallest valid UID/GID to accept (prevents system entries)
+min_uid = {{ min_uid }}
+min_gid = {{ min_gid }}
+
+# Maximum UID/GID — largest valid UID/GID to accept (e.g., avoid conflict with AD RIDs > 1M)
+max_uid = {{ max_uid }}
+max_gid = {{ max_gid }}
+
+# Home directory template — shell-style template for user home path (e.g., /home/%u or /home/%{uidNumber})
+home_dir_template = {{ home_dir_template }}
+
+# Shell template — shell path template (e.g., /bin/bash or %s if using loginShell attr)
+shell_template = {{ shell_template }}
+
+# Sudo rule search base — optional search subtree for sudoers entries
+sudo_search_base = {{ sudo_search_base | default('') }}
+
+# Sudo filter — filter to locate sudo rules (e.g., (&(objectClass=sudoRole)(sudoUser=%u)))
+sudo_filter = {{ sudo_filter }}
+
+# Sudo attribute for command list
+sudo_cmd_attr = {{ sudo_cmd_attr }}
+
+# Sudo attribute for run-as user
+sudo_runas_attr = {{ sudo_runas_attr }}
+
+# Enable sudo integration
+sudo_enabled = {{ sudo_enabled | lower }}
+
+# LDAP connection timeout (seconds)
+timeout = {{ timeout }}
+
+# LDAP network timeout (seconds)
+sizelimit = {{ sizelimit }}
+
+# Enable dereferencing of aliases
+alias_dereference = {{ alias_dereference }}
+
+# Log level — one of: error, warn, info, debug
+log_level = {{ log_level }}
+
+# Log file path — leave empty for syslog
+log_file = {{ log_file }}
+
+# Service principal — for SASL/GSSAPI auth (e.g., host/router.example.com@EXAMPLE.COM)
+sasl_principal = {{ sasl_principal | default('') }}
+
+# Kerberos keytab file — for SASL/GSSAPI auth
+keytab_file = {{ keytab_file | default('') }}
+
+# SASL mechanism — e.g., GSSAPI, DIGEST-MD5, CRAM-MD5
+sasl_mech = {{ sasl_mech | default('GSSAPI') }}
+
+# LDAP referrals — one of: follow, ignore, return
+referral_mode = {{ referral_mode }}

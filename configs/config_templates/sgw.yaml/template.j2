@@ -1,0 +1,86 @@
+# Core SGW configuration
+sgw:
+  # List of GTP-U interfaces for S1-U and S5/S8
+  gtpu_interfaces:
+    {% for iface in gtpu_interfaces %}
+    - name: {{ iface.name }}
+      ip: {{ iface.ip }}
+      network: {{ iface.network }}
+      {% if iface.mtu %}mtu: {{ iface.mtu }}{% endif %}
+      {% if iface.gateway %}gateway: {{ iface.gateway }}{% endif %}
+    {% endfor %}
+
+  # MME and PGW peer addresses
+  peers:
+    mme_ip: {{ peers.mme_ip }}
+    pgw_ip: {{ peers.pgw_ip }}
+    s5_gtp_ip: {{ peers.s5_gtp_ip }}
+
+  # Control plane parameters
+  control:
+    # GTP-C port (default 2123)
+    gtpc_port: {{ control.gtpc_port }}
+    # GTP-U port (default 2152)
+    gtpu_port: {{ control.gtpu_port }}
+    # Node ID for identification
+    node_id: {{ control.node_id }}
+    # SGW FQDN (optional, used for S5/S8)
+    {% if control.fqdn %}fqdn: {{ control.fqdn }}{% endif %}
+
+  #Bearer limits and thresholds
+  limits:
+    # Max concurrent bearers per UE
+    max_bearers_per_ue: {{ limits.max_bearers_per_ue }}
+    # Max concurrent UEs
+    max_ues: {{ limits.max_ues }}
+    # Max concurrent bearers total
+    max_bearers_total: {{ limits.max_bearers_total }}
+
+  # Logging configuration
+  logging:
+    level: {{ logging.level }}
+    file: {{ logging.file }}
+    # Syslog server (optional)
+    {% if logging.syslog_server %}syslog_server: {{ logging.syslog_server }}{% endif %}
+
+  # S5/S8 interface mode: GTP or PMIPv6
+  s5s8_mode: {{ s5s8_mode }}
+
+  # Optional: SPGW-C (if used in split mode)
+  {% if spgwc_config %}spgwc:
+    enabled: {{ spgwc_config.enabled }}
+    s11_ip: {{ spgwc_config.s11_ip }}
+  {% endif %}
+
+  # Optional: Metrics export (e.g., for Prometheus)
+  metrics:
+    enabled: {{ metrics.enabled }}
+    port: {{ metrics.port }}
+    path: {{ metrics.path }}
+
+  # Database backend (e.g., for session state)
+  database:
+    type: {{ database.type }}
+    host: {{ database.host }}
+    port: {{ database.port }}
+    name: {{ database.name }}
+    {% if database.user %}user: {{ database.user }}{% endif %}
+    {% if database.password %}password: {{ database.password }}{% endif %}
+
+  # Optional: DNS configuration for UE IP assignment
+  {% if dns_servers %}dns_servers:
+    primary: {{ dns_servers.primary }}
+    secondary: {{ dns_servers.secondary }}
+  {% endif %}
+
+  # Optional: APN-specific configurations
+  apns:
+    {% for apn in apns %}
+    - apn: {{ apn.apn }}
+      paa_type: {{ apn.paa_type }}
+      pdn_gateway_ip: {{ apn.pdn_gateway_ip }}
+      qci: {{ apn.qci }}
+      priority: {{ apn.priority }}
+      max_bitrate_uplink: {{ apn.max_bitrate_uplink }}
+      max_bitrate_downlink: {{ apn.max_bitrate_downlink }}
+    {% endfor %}

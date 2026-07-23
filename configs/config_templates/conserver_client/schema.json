@@ -1,0 +1,125 @@
+{
+  "hosts": {
+    "type": "list",
+    "default": [],
+    "description": "List of console hosts to manage; each entry specifies connection details to a console server.",
+    "items": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "default": "",
+          "description": "Unique name for this console host (used as identifier in consoletty commands)."
+        },
+        "aliases": {
+          "type": "list",
+          "default": [],
+          "description": "Optional list of alternate names for this host.",
+          "items": {
+            "type": "string",
+            "default": "",
+            "description": "Alias name."
+          }
+        },
+        "console_server": {
+          "type": "string",
+          "default": "",
+          "description": "Hostname or IP address of the console server to connect to."
+        },
+        "port": {
+          "type": "number",
+          "default": 3038,
+          "description": "Port on the console server (typically 3038 for conserver)."
+        },
+        "password": {
+          "type": "string",
+          "default": "",
+          "description": "Password for console server authentication (leave blank if using key-based auth or not required)."
+        },
+        "username": {
+          "type": "string",
+          "default": "",
+          "description": "Username for console server authentication (if required)."
+        },
+        "readonly": {
+          "type": "bool",
+          "default": true,
+          "description": "If true, only permit read access (prevent input)."
+        },
+        "compression": {
+          "type": "bool",
+          "default": true,
+          "description": "Enable/disable data compression for the connection."
+        },
+        "timeout": {
+          "type": "number",
+          "default": 30,
+          "description": "Connection timeout in seconds."
+        },
+        "retrydelay": {
+          "type": "number",
+          "default": 5,
+          "description": "Seconds to wait between connection retries."
+        },
+        "ports": {
+          "type": "list",
+          "default": [],
+          "description": "Optional per-port configuration overrides (e.g., for hosts with multiple console ports).",
+          "items": {
+            "type": "object",
+            "properties": {
+              "port": {
+                "type": "number",
+                "default": 1,
+                "description": "Console port number on the console server."
+              },
+              "password": {
+                "type": "string",
+                "default": "",
+                "description": "Optional password override for this specific port."
+              },
+              "readonly": {
+                "type": "bool",
+                "default": true,
+                "description": "Per-port override for readonly access."
+              }
+            },
+            "required": [
+              "port"
+            ]
+          }
+        }
+      },
+      "required": [
+        "name",
+        "console_server"
+      ]
+    }
+  },
+  "defaults": {
+    "type": "object",
+    "default": {
+      "timeout": 30,
+      "retrydelay": 5,
+      "compression": true
+    },
+    "description": "Global default settings applied to all hosts unless overridden.",
+    "properties": {
+      "timeout": {
+        "type": "number",
+        "default": 30,
+        "description": "Global default connection timeout (seconds)."
+      },
+      "retrydelay": {
+        "type": "number",
+        "default": 5,
+        "description": "Global default retry delay (seconds)."
+      },
+      "compression": {
+        "type": "bool",
+        "default": true,
+        "description": "Enable/disable compression globally."
+      }
+    }
+  }
+}

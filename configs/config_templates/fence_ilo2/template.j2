@@ -1,0 +1,37 @@
+# iLO2 fence agent configuration
+# This file is sourced by fence_ilo2 via fence.agents(7)
+# Site-specific credentials and connection parameters must be set below
+
+# Hostname or IP address of the iLO2 interface
+hostname = {{ hostname }}
+
+# iLO2 username with admin privileges (e.g., ' Administrator')
+login = {{ login }}
+
+# iLO2 password (securely managed — prefer environment variable or keyring)
+password = {{ password }}
+
+# Optional: Port used for iLO2 web service (default: 443 for HTTPS)
+port = {{ port }}
+
+# Optional: SSL/TLS options (0=disabled, 1=enabled, 2=verify peer cert)
+ssl = {{ ssl }}
+
+# Optional: Timeout (in seconds) for connection and operation
+login_timeout = {{ login_timeout }}
+
+# Optional: Command timeout (in seconds)
+command_timeout = {{ command_timeout }}
+
+# Optional: Power retry behavior (number of retries on failure)
+power_wait = {{ power_wait }}
+
+# Optional: List of additional devices (for multi-node clusters)
+# Each item: hostname, login, password (passwords should be secured separately in production)
+{% for device in devices %}
+device {{ device.name | default('unnamed') }} {
+  hostname = {{ device.hostname }}
+  login    = {{ device.login }}
+  password = {{ device.password }}
+}
+{% endfor %}

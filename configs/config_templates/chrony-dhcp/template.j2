@@ -1,0 +1,34 @@
+# Source NTP servers from DHCP option 120 (if available)
+{% if enable_dhcp_source %}dhcpcd --request-option 120{% if interface %} {{ interface }}{% endif %}{% endif %}
+
+# Use NTP servers discovered via DHCP
+{% if enable_dhcp_source %}pool 0.pool.ntp.org iburst dhcp{% else %}pool 0.pool.ntp.org iburst{% endif %}
+
+# Allow local NTP client queries
+{% if allow_local_client %}allow 127.0.0.1{% endif %}
+
+# Allow LAN clients if enabled
+{% if allow_lan_clients %}
+{% for lan_subnet in lan_subnets %}allow {{ lan_subnet }}{% endfor %}
+{% endif %}
+
+# Logging configuration
+log measurements statistics tracking
+logdir {{ log_dir }}
+maxloglines {{ max_log_lines }}
+
+# Drift file and RTC adjustment
+driftfile {{ drift_file }}
+rtcsync
+makestep {{ makestep_threshold }} {{ max_steps }}
+
+# NTP source priority and fallback
+keyfile {{ keyfile_path }}
+leapsectz right/UTC
+
+# Hardware timestamping (if supported)
+{% if enable_hwtimestamp %}hwtimestamp *{% endif %}
+
+# Additional NTP servers (static fallback, e.g., for offline scenarios)
+{% for server in static_servers %}server {{ server.host }} iburst{% if server.options %} {{ server.options | join(' ') }}{% endif %}
+{% endfor %}

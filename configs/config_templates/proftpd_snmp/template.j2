@@ -1,0 +1,35 @@
+# SNMP community string for read-only access
+SNMPCommunity {{ snmp.community }}
+
+# Enable SNMP support
+SNMPEnable on
+
+# SNMP agent location
+SNMPLocation "{{ snmp.location }}"
+
+# SNMP contact person/email
+SNMPContact "{{ snmp.contact }}"
+
+# SNMP log level (0–7, 7 = verbose)
+SNMPLogLevel {{ snmp.log_level }}
+
+# Enable SNMP traps for specific events
+{% for event in snmp.trap_events %}SNMPTrapEvent {{ event }}
+{% endfor %}
+
+# SNMP trap destination(s)
+{% for trap_dest in snmp.trap_destinations %}SNMPTrapDest {{ trap_dest.host }}:{{ trap_dest.port }} {{ trap_dest.community | default('public') }}
+{% endfor %}
+
+# SNMP PID file location
+SNMPPIDFile {{ snmp.pid_file }}
+
+# Enable MIB-2 system tree (required for basic SNMP monitoring)
+SNMPSystemMIB on
+
+# Enable ProFTPD-specific MIB extensions
+SNMPProFTPCMIB on
+
+# SNMP access control — allow only specific hosts
+{% for host in snmp.allowed_hosts %}SNMPOption {{ host }}
+{% endfor %}

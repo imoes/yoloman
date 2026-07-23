@@ -1,0 +1,68 @@
+# Gunicorn configuration file (Python syntax, Jinja2-renderable)
+
+# Bind to host:port (or Unix socket path)
+bind = "{{ bind }}"
+
+# Number of worker processes
+workers = {{ workers }}
+
+# Worker class (e.g., 'sync', 'gevent', 'tornado', 'uvicorn.workers.UvicornWorker')
+worker_class = "{{ worker_class }}"
+
+# Maximum number of simultaneous clients per worker
+worker_connections = {{ worker_connections }}
+
+# Timeout for requests (seconds)
+timeout = {{ timeout }}
+
+# Graceful timeout before force-killing workers (seconds)
+graceful_timeout = {{ graceful_timeout }}
+
+# Logging
+accesslog = "{{ accesslog }}"
+errorlog = "{{ errorlog }}"
+loglevel = "{{ loglevel }}"
+
+# Process naming
+daemon = {{ daemon }}
+proc_name = "{{ proc_name }}"
+
+# PID file path
+pidfile = "{{ pidfile }}"
+
+# User and group to drop privileges to
+user = {{ user | default('None', true) }}
+group = {{ group | default('None', true) }}
+
+# SSL/TLS support (optional — only set if enabled)
+{% if ssl_enabled %}
+keyfile = "{{ ssl_keyfile }}"
+certfile = "{{ ssl_certfile }}"
+{% endif %}
+
+# Worker lifecycle hooks (optional — only include if non-empty)
+{% if preload_app %}
+preload_app = True
+{% endif %}
+
+# Worker development/debug options
+{% if reload %}
+reload = True
+{% endif %}
+
+# Limit memory per worker (bytes) — optional
+{% if max_requests > 0 %}
+max_requests = {{ max_requests }}
+{% endif %}
+max_requests_jitter = {{ max_requests_jitter }}
+
+# Server socket backlog size
+backlog = {{ backlog }}
+
+# TCP keepalive (seconds)
+keepalive = {{ keepalive }}
+
+# Additional config options as key-value pairs (for dynamic/extensible configs)
+{% for key, value in extra_config.items() %}
+{{ key }} = {{ value | tojson }}
+{% endfor %}

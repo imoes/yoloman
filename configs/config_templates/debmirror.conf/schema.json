@@ -1,0 +1,186 @@
+{
+  "mirror_base": {
+    "type": "string",
+    "default": "/mirror",
+    "description": "Root directory where the mirror will be stored (must be an absolute path)."
+  },
+  "arches": {
+    "type": "list",
+    "default": [
+      "amd64"
+    ],
+    "description": "List of CPU architectures to mirror.",
+    "items": {
+      "type": "string",
+      "description": "A supported Debian architecture (e.g., amd64, i386, arm64)."
+    }
+  },
+  "dists": {
+    "type": "list",
+    "default": [
+      "stable"
+    ],
+    "description": "List of distributions (releases) to mirror.",
+    "items": {
+      "type": "string",
+      "description": "A Debian distribution codename (e.g., stable, testing, bookworm, sid)."
+    }
+  },
+  "sections": {
+    "type": "list",
+    "default": [
+      "main"
+    ],
+    "description": "List of component sections to include.",
+    "items": {
+      "type": "string",
+      "description": "A section (component) in Debian repos (e.g., main, contrib, non-free)."
+    }
+  },
+  "method": {
+    "type": "string",
+    "default": "http",
+    "description": "Protocol to use for mirroring (http, https, ftp, or rsync)."
+  },
+  "remote_host": {
+    "type": "string",
+    "default": "deb.debian.org",
+    "description": "Hostname or IP address of the remote Debian mirror."
+  },
+  "remote_dir": {
+    "type": "string",
+    "default": "/debian",
+    "description": "Remote directory path to mirror (relative to the remote host's root)."
+  },
+  "local_dir": {
+    "type": "string",
+    "default": "/var/www/mirror/debian",
+    "description": "Local absolute path to store the mirror (must exist and be writable)."
+  },
+  "arch_filter": {
+    "type": "list",
+    "default": [],
+    "description": "Override architectures for generated .deb files. Leave empty to use 'arches'.",
+    "items": {
+      "type": "string",
+      "description": "Architecture to include in local package index (e.g., amd64, i386)."
+    }
+  },
+  "exclude_sections": {
+    "type": "list",
+    "default": [],
+    "description": "Sections to explicitly exclude from mirroring.",
+    "items": {
+      "type": "string",
+      "description": "Section to exclude (e.g., non-free-firmware)."
+    }
+  },
+  "exclude_packages": {
+    "type": "list",
+    "default": [],
+    "description": "Space-separated list of package names to exclude.",
+    "items": {
+      "type": "string",
+      "description": "Package name to exclude (e.g., linux-image-*, firmware-linux)."
+    }
+  },
+  "include_packages": {
+    "type": "list",
+    "default": [],
+    "description": "Space-separated list of packages to *only* include (if set, overrides excludes).",
+    "items": {
+      "type": "string",
+      "description": "Package name or pattern to include (e.g., openssh-server)."
+    }
+  },
+  "compression": {
+    "type": "string",
+    "default": "gzip",
+    "description": "Compression format for .diff indices (gzip, bzip2, xz, or none)."
+  },
+  "udebs": {
+    "type": "bool",
+    "default": false,
+    "description": "Whether to mirror udeb packages (used by Debian installer)."
+  },
+  "debug": {
+    "type": "bool",
+    "default": false,
+    "description": "Whether to mirror debug symbol packages."
+  },
+  "skip_nonfree": {
+    "type": "bool",
+    "default": false,
+    "description": "Skip non-free sections (set to true to exclude non-free)."
+  },
+  "skip_contrib": {
+    "type": "bool",
+    "default": false,
+    "description": "Skip contrib sections (set to true to exclude contrib)."
+  },
+  "skip_source": {
+    "type": "bool",
+    "default": false,
+    "description": "Skip source packages (set to true to exclude source archives)."
+  },
+  "skip_translations": {
+    "type": "bool",
+    "default": false,
+    "description": "Skip translation files (set to true to exclude po files)."
+  },
+  "rsync_options": {
+    "type": "string",
+    "default": "--progress --delete-during",
+    "description": "Options passed to rsync command. Ignored if method is not rsync."
+  },
+  "rsync_extra_options": {
+    "type": "string",
+    "default": "",
+    "description": "Additional rsync options (e.g., --exclude='*.diff/index')."
+  },
+  "proxy_url": {
+    "type": "string",
+    "default": "",
+    "description": "HTTP/FTP proxy URL (e.g., http://proxy.example.com:8080/). Empty to disable."
+  },
+  "gzip_indices": {
+    "type": "bool",
+    "default": true,
+    "description": "Generate gzipped Packages/Sources index files."
+  },
+  "timeout": {
+    "type": "number",
+    "default": 300,
+    "description": "Timeout in seconds for network connections."
+  },
+  "retries": {
+    "type": "number",
+    "default": 3,
+    "description": "Number of retry attempts for failed downloads."
+  },
+  "logfile": {
+    "type": "string",
+    "default": "-",
+    "description": "Path to log file, or '-' to log to stdout."
+  },
+  "md5sum_check": {
+    "type": "bool",
+    "default": true,
+    "description": "Verify MD5 checksums of downloaded files."
+  },
+  "gpg_sign": {
+    "type": "bool",
+    "default": false,
+    "description": "Sign the Release file with GPG (enables offline integrity verification)."
+  },
+  "gpg_keyring": {
+    "type": "string",
+    "default": "",
+    "description": "Path to GPG keyring (e.g., /etc/debmirror.gpg). Required if gpg_sign=true."
+  },
+  "gpg_sign_key": {
+    "type": "string",
+    "default": "",
+    "description": "GPG key ID or email address used for signing (e.g., A1B2C3D4, maint@example.com)."
+  }
+}

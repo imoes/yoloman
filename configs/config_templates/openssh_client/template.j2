@@ -1,0 +1,120 @@
+# Default SSH client configuration file
+# This file provides global defaults for SSH client behavior
+# See `man ssh_config` for detailed options
+
+# Disable host key checking for known_hosts (not recommended for production)
+# Set to 'no' to strictly enforce known_hosts verification
+StrictHostKeyChecking {{ strict_host_key_checking | default('ask') }}
+
+# Automatically add new host keys to known_hosts file
+# Set to 'yes' to auto-add; 'no' to reject unknown hosts
+UserKnownHostsFile {{ user_known_hosts_file | default('~/.ssh/known_hosts') }}
+
+# Log level: QUIET, FATAL, ERROR, INFO, VERBOSE, DEBUG, DEBUG1, DEBUG2, DEBUG3
+# INFO is typical for normal use; DEBUG for troubleshooting
+LogLevel {{ log_level | default('INFO') }}
+
+# Default port for SSH connections (change only if non-standard)
+Port {{ default_port | default(22) }}
+
+# Connection timeout in seconds before giving up
+ConnectTimeout {{ connect_timeout | default(10) }}
+
+# Number of authentication attempts before disconnecting
+PasswordAuthentication {{ password_authentication | default('yes') }}
+
+# Use agent forwarding only to trusted hosts
+ForwardAgent {{ forward_agent | default('no') }}
+
+# Disable X11 forwarding by default (enable per-host if needed)
+ForwardX11 {{ forward_x11 | default('no') }}
+
+# Enable TCP keepalive to detect dead connections
+TCPKeepAlive {{ tcp_keep_alive | default('yes') }}
+
+# Default identity file(s) to try for public key authentication
+# Order matters: first available key is used
+{% for key_path in identity_files | default(['~/.ssh/id_rsa', '~/.ssh/id_ed25519']) %}IdentityFile {{ key_path }}
+{% endfor %}
+
+# Preferred authentication methods (order: from most to least preferred)
+# Common values: 'publickey,password,keyboard-interactive'
+PreferredAuthentications {{ preferred_authentications | default('publickey,keyboard-interactive,password') }}
+
+# Disable GSSAPI authentication unless explicitly needed (e.g., Kerberos)
+GSSAPIAuthentication {{ gssapi_authentication | default('no') }}
+
+# Use compression only for slow links
+Compression {{ compression | default('yes') }}
+
+# Enable control master for connection sharing (requires ControlPath)
+ControlMaster {{ control_master | default('no') }}
+
+# Path for control socket when using connection sharing
+ControlPath {{ control_path | default('~/.ssh/sockets/%r@%h-%p') }}
+
+# Timeout (in seconds) for control sockets
+ControlPersist {{ control_persist | default('0') }}
+
+# Global proxy configuration (commented out by default)
+{% if proxy_command %}ProxyCommand {{ proxy_command }}
+{% else %}# ProxyCommand none
+{% endif %}
+
+# Global exit status behavior: 0 if at least one host succeeds
+# Set to 'any' to require success on all hosts when using -M/-A
+ExitOnForwardFailure {{ exit_on_forward_failure | default('no') }}
+
+# Quiet mode: suppress most output
+{% if quiet_mode | default(false) %}Quiet yes
+{% else %}# Quiet no
+{% endif %}
+
+# Optional: enable IPv6 by default (set to 'yes' or 'no')
+AddressFamily {{ address_family | default('any') }}
+
+# Enable stream local forwarding (e.g., for Docker sockets)
+StreamLocalBindUnlink {{ stream_local_bind_unlink | default('no') }}
+
+# Cipher and MAC settings (only if custom policies enforced)
+{% if ciphers %}Ciphers {{ ciphers | join(',') }}
+{% endif %}
+{% if macs %}MACs {{ macs | join(',') }}
+{% endif %}
+
+# Host-specific settings can be added below using Host blocks
+# Example:
+# Host example
+#   HostName example.com
+#   User myuser
+#   Port 2222
+
+# Default Host block (applies to all hosts not matched above)
+# Use `*` for wildcard matching
+Host *
+{% if add_keys_to_agent | default('no') != 'no' %}  AddKeysToAgent {{ add_keys_to_agent }}
+{% endif %}
+{% if identity_only | default(false) %}  IdentityOnly yes
+{% endif %}
+{% if server_alive_interval | default(0) > 0 %}  ServerAliveInterval {{ server_alive_interval }}
+{% endif %}
+{% if server_alive_count_max | default(3) > 0 %}  ServerAliveCountMax {{ server_alive_count_max }}
+{% endif %}
+  RequestTTY {{ request_tty | default('no') }}
+  PubkeyAuthentication {{ pubkey_authentication | default('yes') }}
+  PasswordAuthentication {{ password_authentication | default('yes') }}
+{% for host in extra_hosts %}  # Extra host entry (user-defined)
+  Host {{ host.name }}
+{% if host.hostname %}    HostName {{ host.hostname }}
+{% endif %}
+{% if host.user %}    User {{ host.user }}
+{% endif %}
+{% if host.port is defined %}    Port {{ host.port }}
+{% endif %}
+{% if host.forward_agent is defined %}    ForwardAgent {{ 'yes' if host.forward_agent else 'no' }}
+{% endif %}
+{% if host.forward_x11 is defined %}    ForwardX11 {{ 'yes' if host.forward_x11 else 'no' }}
+{% endif %}
+{% if host.identity_file %}    IdentityFile {{ host.identity_file }}
+{% endif %}
+{% endfor %}

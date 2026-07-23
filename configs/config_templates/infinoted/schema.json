@@ -1,0 +1,147 @@
+{
+  "log_level": {
+    "type": "number",
+    "default": 3,
+    "description": "Logging verbosity level (0 = none, 5 = debug). Higher values produce more verbose logs."
+  },
+  "pid_file": {
+    "type": "string",
+    "default": "/var/run/infinoted/infinoted.pid",
+    "description": "Path to the file where the server process ID will be stored."
+  },
+  "interface": {
+    "type": "string",
+    "default": "",
+    "description": "IP address or hostname to bind to. Leave empty to bind to all interfaces."
+  },
+  "port": {
+    "type": "number",
+    "default": 3333,
+    "description": "TCP port to listen on for client connections."
+  },
+  "ssl_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable SSL/TLS encryption for client connections."
+  },
+  "ssl_certificate_path": {
+    "type": "string",
+    "default": "/etc/infinoted/ssl/server.crt",
+    "description": "Path to the SSL certificate file (PEM format)."
+  },
+  "ssl_private_key_path": {
+    "type": "string",
+    "default": "/etc/infinoted/ssl/server.key",
+    "description": "Path to the SSL private key file (PEM format)."
+  },
+  "ssl_ca_certificate_path": {
+    "type": "string",
+    "default": "/etc/infinoted/ssl/ca.crt",
+    "description": "Path to the CA certificate file (PEM format) for client certificate verification."
+  },
+  "max_connections": {
+    "type": "number",
+    "default": 100,
+    "description": "Maximum number of simultaneous client connections allowed."
+  },
+  "max_document_size": {
+    "type": "number",
+    "default": 0,
+    "description": "Maximum size (in bytes) allowed for a single document. Use 0 for no limit."
+  },
+  "client_timeout": {
+    "type": "number",
+    "default": 600,
+    "description": "Seconds of inactivity after which a client connection is closed."
+  },
+  "auth_backend": {
+    "type": "string",
+    "default": "simple",
+    "description": "Authentication backend to use. Options: 'none' (no auth), 'simple' (local users), 'ldap' (LDAP server)."
+  },
+  "auth_users": {
+    "type": "list",
+    "default": [],
+    "description": "List of local users (only used when auth_backend = 'simple'). Each user has a username and SHA256-hashed password.",
+    "items": {
+      "username": {
+        "type": "string",
+        "description": "Username for the local account."
+      },
+      "password_hash": {
+        "type": "string",
+        "description": "SHA256 hash of the user's password (hex-encoded, no prefix)."
+      }
+    }
+  },
+  "ldap_uri": {
+    "type": "string",
+    "default": "ldap://ldap.example.com",
+    "description": "LDAP server URI (e.g., ldap://host:port or ldaps://host:port)."
+  },
+  "ldap_base_dn": {
+    "type": "string",
+    "default": "ou=users,dc=example,dc=com",
+    "description": "Base distinguished name (DN) for LDAP user searches."
+  },
+  "ldap_bind_dn": {
+    "type": "string",
+    "default": "cn=admin,dc=example,dc=com",
+    "description": "DN used to bind to the LDAP server for searching users."
+  },
+  "ldap_bind_password": {
+    "type": "string",
+    "default": "",
+    "description": "Password for the LDAP bind DN (leave empty if using SASL or no bind)."
+  },
+  "ldap_filter": {
+    "type": "string",
+    "default": "(uid={{username}})",
+    "description": "LDAP search filter to find users; '{{username}}' is replaced with the login username."
+  },
+  "ldap_user_attribute": {
+    "type": "string",
+    "default": "uid",
+    "description": "LDAP attribute used as the unique user identifier (e.g., 'uid', 'mail')."
+  },
+  "storage_backend": {
+    "type": "string",
+    "default": "file",
+    "description": "Storage backend for collaborative documents. 'file' stores documents on disk; 'memory' keeps them in RAM (for testing only)."
+  },
+  "storage_path": {
+    "type": "string",
+    "default": "/var/lib/infinoted/documents",
+    "description": "Directory path where documents are stored (used only when storage_backend = 'file')."
+  },
+  "auto_save_interval": {
+    "type": "number",
+    "default": 60,
+    "description": "Seconds between automatic document saves. Use 0 to disable auto-save."
+  },
+  "session_timeout": {
+    "type": "number",
+    "default": 3600,
+    "description": "Maximum session duration in seconds. Users are logged out after this time."
+  },
+  "history_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable revision history tracking for collaborative editing (undo/redo support)."
+  },
+  "history_max_entries": {
+    "type": "number",
+    "default": 100,
+    "description": "Maximum number of history entries stored per document. Use 0 for unlimited entries."
+  },
+  "service_hostname": {
+    "type": "string",
+    "default": "",
+    "description": "Public hostname to advertise in service discovery (e.g., 'infinote.example.com'). Leave empty to use system hostname or IP."
+  },
+  "websocket_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable WebSocket transport for real-time collaborative editing."
+  }
+}

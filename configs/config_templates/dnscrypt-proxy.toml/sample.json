@@ -1,0 +1,66 @@
+{
+  "listen_addresses": [
+    "127.0.0.1:53"
+  ],
+  "max_clients": 512,
+  "rate_limit": 50,
+  "http3": true,
+  "require_dnssec": true,
+  "log_file": "/var/log/dnscrypt-proxy/dnscrypt-proxy.log",
+  "log_level": 2,
+  "certificates_cache": "/var/cache/dnscrypt-proxy/certificates",
+  "blocklist_file": "/etc/dnscrypt-proxy/blocklist.txt",
+  "sources": "[sources.public]\n  urls = ['https://raw.githubusercontent.com/DNSCrypt/dnscrypt-resolvers/master/v3/public-resolvers.md']\n  minisign_key = 'RWQf6LRCGA9z595dl7fVS5276k6hD2GpAKdYjRkHt90tN75i1XkO'\n  cache_file = 'public-resolvers.md'",
+  "static_servers": [
+    {
+      "name": "internal-dns",
+      "stamp": "sdns://AgUAAAAAAAAABzE5Mi4xNjguMS4xDjI1LjAuMC4wLjAuMA",
+      "is_blocked": false
+    }
+  ],
+  "filters": [
+    {
+      "type": "domain",
+      "name": "ads",
+      "domains": [
+        "doubleclick.net",
+        "googleadservices.com"
+      ],
+      "enabled": true
+    },
+    {
+      "type": "regex",
+      "name": "tracking",
+      "pattern": "^.*\\.tracking.*\\..*",
+      "replacement": "",
+      "enabled": true
+    }
+  ],
+  "forwarding_rules": [
+    {
+      "comment": "Forward all queries for internal.example.com to internal resolver",
+      "pattern": "*.internal.example.com",
+      "targets": [
+        "internal-dns"
+      ]
+    }
+  ],
+  "public_suffix_list": "/etc/dnscrypt-proxy/public_suffix_list.dat",
+  "cache_enabled": true,
+  "cache_size": 100000,
+  "cache_min_ttl": 60,
+  "cache_max_ttl": 86400,
+  "cache_temp_failure_ttl": 60,
+  "net_timeout": 15,
+  "net_ipv6_enabled": false,
+  "net_tcp_fast_open": true,
+  "net_dscp": 0,
+  "proxy_url": "",
+  "network_security_ecdhe_min_size": 224,
+  "network_security_rsa_min_size": 2048,
+  "network_security_dh_min_size": 2048,
+  "network_security_tls_min_version": "TLS13",
+  "network_security_cipher_suites": [],
+  "network_security_allow_insecure": false,
+  "ca_cert_file": ""
+}

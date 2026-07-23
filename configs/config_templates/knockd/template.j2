@@ -1,0 +1,27 @@
+[options]
+# Enable verbose logging for debugging
+verbose = {{ verbose | lower }}
+
+# Log file path for knockd messages
+log_file = {{ log_file }}
+
+{% for idx, seq in enumerate(sequence_list) %}[{{ seq.name }}]
+# Sequence {{ seq.name }}: opens/closes {{ seq.action }} ports
+sequence = {{ seq.sequence | join(',') }}
+{% if seq.seq_timeout is not none %}seq_timeout = {{ seq.seq_timeout }}{% endif %}
+{% if seq.start_command is not none %}start_command = {{ seq.start_command }}{% endif %}
+{% if seq.stop_command is not none %}stop_command = {{ seq.stop_command }}{% endif %}
+{% if seq.tcpflags is not none %}tcpflags = {{ seq.tcpflags }}{% endif %}
+{% if seq.synctime is not none %}synctime = {{ seq.synctime }}{% endif %}
+{% if seq.endtimeout is not none %}endtimeout = {{ seq.endtimeout }}{% endif %}
+{% if seq.use_tcp is not none %}use_tcp = {{ seq.use_tcp | lower }}{% endif %}
+{% if seq.use_udp is not none %}use_udp = {{ seq.use_udp | lower }}{% endif %}
+{% if seq.use_http is not none %}use_http = {{ seq.use_http | lower }}{% endif %}
+{% if seq.http_url is not none %}http_url = {{ seq.http_url }}{% endif %}
+{% if seq.http_timeout is not none %}http_timeout = {{ seq.http_timeout }}{% endif %}
+{% if seq.http_method is not none %}http_method = {{ seq.http_method }}{% endif %}
+{% if seq.http_body is not none %}http_body = {{ seq.http_body | replace('\n', '\\n') | replace('\r', '\\r') }}{% endif %}
+{% if seq.http_headers is not none %}{% for header, value in seq.http_headers.items() %}http_header_{{ header }} = {{ value }}{% endfor %}{% endif %}
+{% if seq.interface is not none %}interface = {{ seq.interface }}{% endif %}
+{% if seq.client_ip is not none %}client_ip = {{ seq.client_ip }}{% endif %}
+{% endfor %}

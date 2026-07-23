@@ -1,0 +1,161 @@
+{
+  "listen_addresses": {
+    "type": "string",
+    "default": "*",
+    "description": "IP addresses or hostnames on which pgpool-II listens for client connections. Use '*' to listen on all interfaces."
+  },
+  "port": {
+    "type": "number",
+    "default": 9999,
+    "description": "Port number pgpool-II listens on for client connections."
+  },
+  "unix_socket_directories": {
+    "type": "string",
+    "default": "/var/run/postgresql",
+    "description": "Directory path for Unix domain socket. Used for local client connections."
+  },
+  "num_init_children": {
+    "type": "number",
+    "default": 32,
+    "description": "Number of child processes to handle client requests. Set higher for more concurrent clients."
+  },
+  "max_pool": {
+    "type": "number",
+    "default": 4,
+    "description": "Maximum number of connections per child process to each PostgreSQL backend. Avoid exceeding backend's max_connections."
+  },
+  "backends": {
+    "type": "list",
+    "default": [],
+    "description": "List of backend PostgreSQL servers. Each server must have a unique hostname, port, and status.",
+    "items": {
+      "hostname": {
+        "type": "string",
+        "default": "",
+        "description": "Hostname or IP address of the backend PostgreSQL server."
+      },
+      "port": {
+        "type": "number",
+        "default": 5432,
+        "description": "Port number of the backend PostgreSQL server."
+      },
+      "weight": {
+        "type": "number",
+        "default": 1,
+        "description": "Load balancing weight (higher = more connections routed)."
+      },
+      "data_directory": {
+        "type": "string",
+        "default": "/var/lib/pgsql/data",
+        "description": "Data directory on the backend server (used for health checks and failover)."
+      },
+      "status": {
+        "type": "number",
+        "default": 1,
+        "description": "Server status: 0=down, 1=up (0 to disable temporarily)."
+      }
+    }
+  },
+  "num_backends": {
+    "type": "number",
+    "default": 2,
+    "description": "Number of backend servers defined in `backends`. Must match the list length."
+  },
+  "load_balance_mode": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable or disable SQL load balancing. Must be enabled for read scaling."
+  },
+  "health_check_period": {
+    "type": "number",
+    "default": 10,
+    "description": "Interval (seconds) between health checks to backends. Set 0 to disable."
+  },
+  "health_check_timeout": {
+    "type": "number",
+    "default": 20,
+    "description": "Timeout (seconds) for a health check connection. Lower values detect failures faster."
+  },
+  "failover_on_backend_error": {
+    "type": "bool",
+    "default": true,
+    "description": "If true, pgpool-II automatically promotes a standby if a backend fails health check."
+  },
+  "log_connections": {
+    "type": "bool",
+    "default": false,
+    "description": "Log all client connections (for auditing or troubleshooting)."
+  },
+  "log_hostname": {
+    "type": "bool",
+    "default": false,
+    "description": "Include client hostname in log entries (requires reverse DNS lookups)."
+  },
+  "log_statement": {
+    "type": "bool",
+    "default": false,
+    "description": "Log all SQL statements (impact: high disk usage). Use for debugging only."
+  },
+  "log_per_node_statement": {
+    "type": "bool",
+    "default": false,
+    "description": "Log SQL statements per backend node (useful for multi-tier replication)."
+  },
+  "authentication_timeout": {
+    "type": "number",
+    "default": 60,
+    "description": "Maximum time (seconds) to complete client authentication."
+  },
+  "ssl": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable SSL/TLS encryption for client and/or backend connections."
+  },
+  "delay_threshold": {
+    "type": "number",
+    "default": 0,
+    "description": "Delay threshold (in bytes) for standby lag. Queries to standbys are blocked if lag exceeds this. Set 0 for no check."
+  },
+  "ignore_missing_postmaster_parameter": {
+    "type": "bool",
+    "default": false,
+    "description": "If true, skip health check failures when `pg_control` parameter is missing (helpful for older Postgres versions)."
+  },
+  "memory_cache_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable query result caching in shared memory for read queries."
+  },
+  "use_watchdog": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable Watchdog for high availability (synchronizes pgpool nodes via Pacemaker-like protocol)."
+  },
+  "watchdog_hostname": {
+    "type": "string",
+    "default": "",
+    "description": "Hostname/IP of this pgpool instance when Watchdog is enabled.",
+    "conditional": {
+      "if": "use_watchdog",
+      "then": "required"
+    }
+  },
+  "watchdog_port": {
+    "type": "number",
+    "default": 9000,
+    "description": "Port for Watchdog communication between pgpool instances.",
+    "conditional": {
+      "if": "use_watchdog",
+      "then": "required"
+    }
+  },
+  "watchdog_interval": {
+    "type": "number",
+    "default": 1,
+    "description": "Heartbeat interval (seconds) for Watchdog health monitoring.",
+    "conditional": {
+      "if": "use_watchdog",
+      "then": "required"
+    }
+  }
+}

@@ -1,0 +1,37 @@
+{
+  "options": {
+    "use_syslog": true,
+    "interface": "eth0",
+    "tcp_timeout": 10
+  },
+  "sequences": {
+    "open": [
+      {
+        "port": 7000,
+        "command": "/usr/bin/iptables -I INPUT -s %IP% -p tcp --dport 22 -j ACCEPT"
+      },
+      {
+        "port": 8000,
+        "command": "/usr/bin/iptables -I INPUT -s %IP% -p tcp --dport 80 -j ACCEPT"
+      },
+      {
+        "port": 9000,
+        "command": "/usr/bin/iptables -I INPUT -s %IP% -p tcp --dport 443 -j ACCEPT"
+      }
+    ],
+    "close": [
+      {
+        "port": 9000,
+        "command": "/usr/bin/iptables -D INPUT -s %IP% -p tcp --dport 443 -j ACCEPT"
+      },
+      {
+        "port": 8000,
+        "command": "/usr/bin/iptables -D INPUT -s %IP% -p tcp --dport 80 -j ACCEPT"
+      },
+      {
+        "port": 7000,
+        "command": "/usr/bin/iptables -D INPUT -s %IP% -p tcp --dport 22 -j ACCEPT"
+      }
+    ]
+  }
+}

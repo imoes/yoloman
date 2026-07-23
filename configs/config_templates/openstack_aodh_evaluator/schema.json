@@ -1,0 +1,223 @@
+{
+  "log_dir": {
+    "type": "string",
+    "default": "/var/log/aodh",
+    "description": "Directory where log files are written."
+  },
+  "log_file": {
+    "type": "string",
+    "default": "aodh-evaluator.log",
+    "description": "Base name of the log file (in log_dir)."
+  },
+  "debug": {
+    "type": "boolean",
+    "default": false,
+    "description": "Enable verbose debug logging."
+  },
+  "workers": {
+    "type": "number",
+    "default": 1,
+    "description": "Number of parallel worker processes for evaluating alarms."
+  },
+  "batch_size": {
+    "type": "number",
+    "default": 100,
+    "description": "Maximum number of alarms evaluated in one batch to avoid overload."
+  },
+  "evaluation_interval": {
+    "type": "number",
+    "default": 60,
+    "description": "Interval (in seconds) between successive alarm evaluation cycles."
+  },
+  "evaluation_timeout": {
+    "type": "number",
+    "default": 30,
+    "description": "Timeout (in seconds) for a single alarm evaluation. Alarms exceeding this are marked as error."
+  },
+  "enabled": {
+    "type": "boolean",
+    "default": true,
+    "description": "Set to false to temporarily disable alarm evaluation (e.g., for maintenance)."
+  },
+  "database.connection": {
+    "type": "string",
+    "default": "sqlite:///var/lib/aodh/aodh.db",
+    "description": "SQLAlchemy connection URL for the alarm history database (e.g., mysql+pymysql://user:pass@host/db)."
+  },
+  "database.max_retries": {
+    "type": "number",
+    "default": 10,
+    "description": "Maximum attempts to reconnect to the database if connection fails."
+  },
+  "database.retry_interval": {
+    "type": "number",
+    "default": 2,
+    "description": "Seconds to wait between database reconnection attempts."
+  },
+  "database.pool_timeout": {
+    "type": "number",
+    "default": 30,
+    "description": "Seconds to wait for a database connection from the pool (0 = no timeout)."
+  },
+  "keystone_authtoken.auth_type": {
+    "type": "string",
+    "default": "password",
+    "description": "Keystone authentication method (e.g., password, token, v3password)."
+  },
+  "keystone_authtoken.auth_url": {
+    "type": "string",
+    "default": "http://localhost:5000/v3",
+    "description": "Keystone identity service endpoint URL."
+  },
+  "keystone_authtoken.project_domain_name": {
+    "type": "string",
+    "default": "Default",
+    "description": "Domain name containing the project (tenant)."
+  },
+  "keystone_authtoken.project_name": {
+    "type": "string",
+    "default": "service",
+    "description": "Project (tenant) name used for authentication."
+  },
+  "keystone_authtoken.user_domain_name": {
+    "type": "string",
+    "default": "Default",
+    "description": "Domain name containing the user account."
+  },
+  "keystone_authtoken.username": {
+    "type": "string",
+    "default": "aodh",
+    "description": "Username for the Aodh service account in Keystone."
+  },
+  "keystone_authtoken.password": {
+    "type": "string",
+    "default": "",
+    "description": "Password for the Aodh service account (required, secret)."
+  },
+  "keystone_authtoken.interface": {
+    "type": "string",
+    "default": "internal",
+    "description": "Keystone endpoint interface: public, internal, or admin."
+  },
+  "keystone_authtoken.insecure": {
+    "type": "boolean",
+    "default": false,
+    "description": "If true, skip SSL certificate verification (not recommended in production)."
+  },
+  "keystone_authtoken.cafile": {
+    "type": "string",
+    "default": "",
+    "description": "Path to a CA bundle for verifying Keystone certificates (if not using system trust)."
+  },
+  "oslo_messaging_notifications.transport_url": {
+    "type": "string",
+    "default": "rabbit://guest:guest@localhost:5672/",
+    "description": "Message bus transport URL (e.g., for RabbitMQ, Kafka, or others)."
+  },
+  "oslo_messaging_notifications.driver": {
+    "type": "string",
+    "default": "messagingv2",
+    "description": "Notification driver (usually 'messagingv2' for oslo.messaging)."
+  },
+  "oslo_messaging_notifications.topics": {
+    "type": "list",
+    "default": [
+      "alarm_notification"
+    ],
+    "description": "List of notification topics to subscribe to for alarm events.",
+    "items": {
+      "type": "string",
+      "description": "Topic name for alarm notifications."
+    }
+  },
+  "oslo_messaging_rpc.transport_url": {
+    "type": "string",
+    "default": "rabbit://guest:guest@localhost:5672/",
+    "description": "Transport URL for RPC communication between Aodh components."
+  },
+  "rabbit.host": {
+    "type": "string",
+    "default": "localhost",
+    "description": "RabbitMQ server hostname or IP."
+  },
+  "rabbit.port": {
+    "type": "number",
+    "default": 5672,
+    "description": "RabbitMQ server port."
+  },
+  "rabbit.userid": {
+    "type": "string",
+    "default": "guest",
+    "description": "RabbitMQ username."
+  },
+  "rabbit.password": {
+    "type": "string",
+    "default": "guest",
+    "description": "RabbitMQ password (secret)."
+  },
+  "rabbit.virtual_host": {
+    "type": "string",
+    "default": "/",
+    "description": "RabbitMQ virtual host (VHost)."
+  },
+  "rabbit.heartbeat": {
+    "type": "number",
+    "default": 60,
+    "description": "RabbitMQ heartbeat interval (seconds)."
+  },
+  "eventlet_executor.threads": {
+    "type": "number",
+    "default": 10,
+    "description": "Size of the thread pool for eventlet-based async execution."
+  },
+  "service_credentials.auth_type": {
+    "type": "string",
+    "default": "password",
+    "description": "Authentication method for service credentials (e.g., password)."
+  },
+  "service_credentials.auth_url": {
+    "type": "string",
+    "default": "http://localhost:5000/v3",
+    "description": "Keystone URL for service credentials (often same as keystone_authtoken.auth_url)."
+  },
+  "service_credentials.project_domain_name": {
+    "type": "string",
+    "default": "Default",
+    "description": "Domain for the service project."
+  },
+  "service_credentials.project_name": {
+    "type": "string",
+    "default": "service",
+    "description": "Service project name."
+  },
+  "service_credentials.user_domain_name": {
+    "type": "string",
+    "default": "Default",
+    "description": "Domain for the service user."
+  },
+  "service_credentials.username": {
+    "type": "string",
+    "default": "aodh",
+    "description": "Service username (may differ from keystone_authtoken.username if using separate creds)."
+  },
+  "service_credentials.password": {
+    "type": "string",
+    "default": "",
+    "description": "Service password (secret)."
+  },
+  "service_credentials.interface": {
+    "type": "string",
+    "default": "internal",
+    "description": "Service endpoint interface."
+  },
+  "service_credentials.insecure": {
+    "type": "boolean",
+    "default": false,
+    "description": "Skip SSL verification for service credentials."
+  },
+  "service_credentials.cafile": {
+    "type": "string",
+    "default": "",
+    "description": "CA cert file for service credentials."
+  }
+}

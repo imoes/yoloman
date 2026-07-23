@@ -1,0 +1,137 @@
+# Listen address for the DNSCrypt proxy (IPv4 and/or IPv6)
+listen_addresses = ['127.0.0.1:53', '[::1]:53']
+
+# Maximum number of simultaneous connections (0 = unlimited)
+max_clients = 256
+
+# IPv4 and IPv6 fallback resolvers (used when upstream servers fail or are slow)
+fallback_resolvers = ['9.9.9.9:53', '1.1.1.1:53']
+
+# Disable IPv6 for the proxy itself (does not affect upstream servers)
+disable_ipv6 = false
+
+# Log level: 0=quiet, 1=info, 2=debug, 3=trace
+log_level = 1
+
+# Log file path; empty string means stdout
+log_file = '/var/log/dnscrypt-proxy/dnscrypt-proxy.log'
+
+# Use system logging (e.g., systemd/journald) instead of file logging
+use_syslog = false
+
+# Paths to server certificate and key files (if using custom local relay)
+server_cert = ''
+server_key = ''
+
+# Path to the cached server list
+cache_file = '/var/lib/dnscrypt-proxy/dnscrypt-proxy.cache'
+
+# Minimum time to keep server list in cache (seconds)
+cache_file_min_time = 86400
+
+# Maximum time to keep server list in cache (seconds); 0 = disable expiration
+cache_file_max_time = 604800
+
+# Whether to use an encrypted, authenticated resolver list
+# If true, uses the built-in 'public-resolvers' list over HTTPS
+disable_insecure_resolver_selection = true
+
+# Source for the server list: local file or remote HTTPS URL
+# 'public-resolvers' = built-in list of public resolvers
+server_names = ['cloudflare', 'cloudflare-ipv6', 'nextdns', 'quad9']
+
+# Timeout (in seconds) for queries to resolvers
+resolver_timeout = 5
+
+# Timeout (in seconds) for the initial connection to resolvers
+dnscrypt_connect_timeout = 2
+
+# Timeout (in seconds) for DoH requests
+doh_connect_timeout = 4
+
+# Maximum number of retries per query
+max_connections_per_query = 3
+
+# Maximum number of queries per second (0 = unlimited)
+rate_limit = 0
+
+# Path to the firewall rules file (for automatic firewall configuration)
+firewall_rules_file = ''
+
+# Block queries for blacklisted domains
+[blocklist]
+  # Optional: list of domains to block
+  domains = ['doubleclick.net', 'googlesyndication.com']
+  # Optional: list of files containing domain patterns (one per line)
+  # file = '/etc/dnscrypt-proxy/blocklist-domains.txt'
+
+# Path to the blocked domains file
+  # file = ''
+
+# Block queries for IPs in private ranges (RFC1918, RFC4193, etc.)
+  # private_addresses = true
+
+# Path to the blocklist IP file
+  # ip_blocks = []
+
+# Allow queries for specific domains even if they appear in blocklist
+[whitelist]
+  # Optional: list of domains to always allow
+  domains = []
+  # file = '/etc/dnscrypt-proxy/whitelist-domains.txt'
+
+# Paths to the blacklist and whitelist files
+  # file = ''
+
+# IP-based access control
+[ip_filters]
+  # Block IPs in these ranges (CIDR notation)
+  blocked_ranges = []
+  # Allow only these IPs (CIDR notation); if non-empty, only these are allowed
+  allowed_ranges = []
+  # Block localhost queries (e.g., from 127.0.0.1) — usually false
+  block_localhost = false
+
+# Per-IP query log directory (empty = no per-IP logging)
+per_ip_log_directory = ''
+
+# Per-IP query log retention (days)
+per_ip_log_retention_days = 7
+
+# Enable per-server statistics (via stats_file or Prometheus metrics)
+stats_per_resolver = true
+
+# Path to the stats file (JSON format)
+stats_file = '/var/lib/dnscrypt-proxy/dnscrypt-proxy.stats'
+
+# Stats file max age (seconds); 0 = no rotation
+stats_max_age = 604800
+
+# Prometheus metrics endpoint (empty = disabled)
+[metrics]
+  enabled = true
+  listen_address = '127.0.0.1:9153'
+
+# Override upstream resolver timeouts per resolver or per resolver group
+[resolver_overrides]
+  # Example: increase timeout for Cloudflare
+  # cloudflare = { dnscrypt_connect_timeout = 5 }
+
+# Optional: path to a script to run after config reload
+post_reload_command = ''
+
+# Optional: path to a script to run before config reload
+pre_reload_command = ''
+
+# Optional: path to a script to run on startup
+on_startup = ''
+
+# Optional: path to a script to run on shutdown
+on_shutdown = ''
+
+# Optional: path to the logrotate configuration file
+logrotate_config = '/etc/logrotate.d/dnscrypt-proxy'
+
+# Path to the initial resolver list (if not using built-in)
+# If empty, uses embedded public-resolvers list
+# extra_resolvers_file = ''

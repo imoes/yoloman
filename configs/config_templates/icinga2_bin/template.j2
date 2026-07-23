@@ -1,0 +1,141 @@
+# Icinga 2 global configuration
+# This is the main configuration file for Icinga 2.
+
+# Global variables
+{{% if vars.debug_mode %}}
+# Enable debug logging
+const DebugLogLevel = 2
+const DebugFile = "{{ vars.debug_log_file }}"
+{{% else %}}
+const DebugLogLevel = 0
+{{% endif %}}
+
+# Feature configuration
+{{% for feature in vars.features %}}
+// Enable/disable feature {{ feature.name }}
+{{% if feature.enabled %}}Features/{{ feature.name }}!{{ feature.name }} {
+{{% if feature.config %}}
+{{% for key, val in feature.config.items() %}}  {{ key }} = {{ val | tojson }}
+{{% endfor %}}
+{{% endif %}}
+}
+{{% else %}}
+// Feature {{ feature.name }} is disabled
+{{% endif %}}
+{{% endfor %}}
+
+# API configuration
+{{% if vars.api_enabled %}}
+// Enable Icinga 2 API
+library "api"
+
+const NodeName = "{{ vars.api_node_name }}"
+const ZoneName = "{{ vars.api_zone_name }}"
+
+// API listener configuration
+endpoints = {
+  {{ vars.api_node_name }} = {
+    host = "{{ vars.api_host }}"
+    port = {{ vars.api_port }}
+  }
+}
+
+zones = {
+  {{ vars.api_zone_name }} = {
+    endpoints = [ "{{ vars.api_node_name }}" ]
+{{% if vars.api_parent_zone %}}    parent = "{{ vars.api_parent_zone }}"
+{{% endif %}}  }
+}
+{{% else %}}
+// Icinga 2 API is disabled
+{{% endif %}}
+
+# Notification & command endpoints
+{{% if vars.notifications_enabled %}}
+// Notification configuration
+apply Notification "mail-{{ vars.hostname }}" to Service {
+  user_groups = [ "icingaadmins" ]
+  intervals = { 
+    notification = {{ vars.notification_interval }}
+  }
+  vars.mail_address = "{{ vars.admin_email }}"
+  command = "mail-notification"
+  {{% if vars.notification_period %}}  period = "{{ vars.notification_period }}"
+  {{% endif %}}
+  {{% if vars.notification_types %}}  types = [ {{ vars.notification_types | map('quote') | join(", ") | safe }} ]
+  {{% endif %}}
+  users = [ "icingaadmin" ]
+  assign where service.name
+}
+{{% endif %}}
+
+# Host & Service configuration (simplified skeleton)
+{{% if vars.hosts %}}
+// Host definitions
+{{% for host in vars.hosts %}}
+object Host "{{ host.name }}" {
+  display_name = "{{ host.display_name or host.name }}"
+  address = "{{ host.address }}"
+{{% if host.vars %}}
+{{% for k, v in host.vars.items() %}}  vars.{{ k }} = {{ v | tojson }}
+{{% endfor %}}
+{{% endif %}}
+}
+{{% endfor %}}
+
+// Service definitions
+{{% for service in vars.services %}}
+object Service "{{ service.host_name }}!{{ service.name }}" {
+  display_name = "{{ service.display_name or service.name }}"
+  check_command = "{{ service.check_command }}"
+  host_name = "{{ service.host_name }}"
+{{% if service.interval %}}  check_interval = {{ service.interval }}
+{{% endif %}}
+{{% if service.retry_interval %}}  retry_interval = {{ service.retry_interval }}
+{{% endif %}}
+{{% if service.max_check_attempts %}}  max_check_attempts = {{ service.max_check_attempts }}
+{{% endif %}}
+{{% if service.vars %}}
+{{% for k, v in service.vars.items() %}}  vars.{{ k }} = {{ v | tojson }}
+{{% endfor %}}
+{{% endif %}}
+}
+{{% endfor %}}
+{{% endif %}}
+
+# Timeperiods (sample)
+object TimePeriod "24x7" {
+  display_name = "Always"
+  ranges = {
+    "monday" = "00:00-24:00"
+    "tuesday" = "00:00-24:00"
+    "wednesday" = "00:00-24:00"
+    "thursday" = "00:00-24:00"
+    "friday" = "00:00-24:00"
+    "saturday" = "00:00-24:00"
+    "sunday" = "00:00-24:00"
+  }
+}
+
+object TimePeriod "workhours" {
+  display_name = "WorkHours"
+  ranges = {
+    "monday" = "09:00-17:00"
+    "tuesday" = "09:00-17:00"
+    "wednesday" = "09:00-17:00"
+    "thursday" = "09:00-17:00"
+    "friday" = "09:00-17:00"
+  }
+}
+
+# Users
+object User "icingaadmin" {
+  display_name = "Icinga Admin"
+  email = "{{ vars.admin_email }}"
+  pager = "{{ vars.admin_pager or '' }}"
+  groups = [ "icingaadmins" ]
+}
+
+object UserGroup "icingaadmins" {
+  display_name = "Icinga Admins"
+}

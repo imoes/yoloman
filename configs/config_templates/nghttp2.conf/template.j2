@@ -1,0 +1,144 @@
+# nghttp2 reverse proxy upstream configuration
+[upstream]
+# Group of backend servers to which requests are load-balanced
+backends = {{ backends }}
+
+# Maximum number of concurrent streams per HTTP/2 connection
+max_concurrent_streams = {{ max_concurrent_streams }}
+
+# Timeout for backend connection establishment (in milliseconds)
+connect_timeout = {{ connect_timeout }}
+
+# Idle timeout for upstream connections (in milliseconds)
+idle_timeout = {{ idle_timeout }}
+
+# Enable TLS for upstream connections (requires backend:port to be https)
+tls = {{ tls }}
+
+# Path to CA certificate for validating upstream TLS servers (if tls=true)
+# Leave empty to use system CA store
+tls_ca_cert = {{ tls_ca_cert }}
+
+# Path to client certificate for mutual TLS with upstream (if mutual_tls=true)
+tls_client_cert = {{ tls_client_cert }}
+
+# Path to private key for client certificate (if mutual_tls=true)
+tls_client_key = {{ tls_client_key }}
+
+# Enable mutual TLS with upstream backends
+mutual_tls = {{ mutual_tls }}
+
+# Verify upstream TLS certificate hostname against SNI
+tls_verify_hostname = {{ tls_verify_hostname }}
+
+# Enable HTTP/1.1 fallback if HTTP/2 negotiation fails
+fallback = {{ fallback }}
+
+# Retry failed requests to other backends (only safe for idempotent methods)
+retry_on_failure = {{ retry_on_failure }}
+
+# Number of retries per failed request
+retry_count = {{ retry_count }}
+
+# Delay between retries (in milliseconds)
+retry_interval = {{ retry_interval }}
+
+# Retry on specific HTTP status codes (comma-separated list)
+retry_on_status = {{ retry_on_status }}
+
+[fronted]
+# Listening address for incoming HTTP/2 connections
+listen = {{ fronted.listen }}
+
+# Listening port (if not embedded in 'listen')
+port = {{ fronted.port }}
+
+# Path to server certificate for TLS
+server_cert = {{ fronted.server_cert }}
+
+# Path to private key for server certificate
+server_private_key = {{ fronted.server_private_key }}
+
+# Enable TLS on front-facing listener
+tls = {{ fronted.tls }}
+
+# Minimum TLS version (e.g., '1.2', '1.3')
+tls_min_version = {{ fronted.tls_min_version }}
+
+# Comma-separated list of TLS cipher suites (OpenSSL format)
+ciphers = {{ fronted.ciphers }}
+
+# Enable ALPN negotiation for HTTP/2
+alpn = {{ fronted.alpn }}
+
+# Maximum number of HTTP/2 concurrent streams per client connection
+client_max_concurrent_streams = {{ fronted.client_max_concurrent_streams }}
+
+# Request header buffer size in bytes
+request_header_buffer_size = {{ fronted.request_header_buffer_size }}
+
+# Maximum request header size in bytes
+max_request_header_size = {{ fronted.max_request_header_size }}
+
+# Enable proxy protocol (e.g., for HAProxy frontends)
+proxy_protocol = {{ fronted.proxy_protocol }}
+
+# Enable HTTP/1.1 upgrade to HTTP/2
+http1_upgrade = {{ fronted.http1_upgrade }}
+
+# Enable access logging
+access_log = {{ fronted.access_log }}
+
+# Path to access log file (if access_log=true)
+access_log_path = {{ fronted.access_log_path }}
+
+# Log format (optional); defaults to combined
+access_log_format = {{ fronted.access_log_format }}
+
+# Enable error logging
+error_log = {{ fronted.error_log }}
+
+# Path to error log file (if error_log=true)
+error_log_path = {{ fronted.error_log_path }}
+
+# Log level (e.g., 'DEBUG', 'INFO', 'WARN', 'ERROR', 'OFF')
+log_level = {{ fronted.log_level }}
+
+# Number of worker threads
+workers = {{ workers }}
+
+# Enable daemonizing (run as background process)
+daemon = {{ daemon }}
+
+# Path to PID file
+daemon_pid_file = {{ daemon_pid_file }}
+
+# User to drop privileges to after binding to privileged ports
+daemon_user = {{ daemon_user }}
+
+# Group to drop privileges to after binding to privileged ports
+daemon_group = {{ daemon_group }}
+
+# Enable strict HTTP/2 frame size limits (RFC-compliant)
+strict_frame_size = {{ strict_frame_size }}
+
+# Enable HTTP/2 server push (disabled by default)
+server_push = {{ server_push }}
+
+# Enable OCSP stapling for front-facing TLS
+ocsp_stapling = {{ fronted.ocsp_stapling }}
+
+# Path to OCSP responder certificate (optional)
+ocsp_responder_cert = {{ fronted.ocsp_responder_cert }}
+
+# Preload HPKP headers (for backward compatibility; not recommended for new deployments)
+hpkp = {{ fronted.hpkp }}
+
+# Enable HSTS with max-age (in seconds); set 0 to disable
+hsts = {{ fronted.hsts }}
+
+# HSTS includeSubDomains directive
+hsts_include_subdomains = {{ fronted.hsts_include_subdomains }}
+
+# HSTS preload directive
+hsts_preload = {{ fronted.hsts_preload }}

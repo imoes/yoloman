@@ -1,0 +1,65 @@
+# IPMI configuration for ipmitool(1)
+# This file is sourced by ipmitool when invoked with -f or -I lanplus/etc.
+# It defines default connection parameters for BMC access.
+
+# BMC hostname or IP address
+IPMI_HOST={{ bmc_host }}
+
+# BMC interface type (e.g., 'lan', 'lanplus', 'serial', 'kcs')
+IPMI_INTERFACE={{ bmc_interface }}
+
+# BMC username for authentication
+IPMI_USER={{ bmc_username }}
+
+# BMC password (preferably set via IPMI_PASSPHRASE_FILE or secure storage)
+IPMI_PASS={{ bmc_password }}
+
+# Session timeout in seconds
+IPMI_TIMEOUT={{ session_timeout }}
+
+# Retransmit attempts before giving up
+IPMI_RETRIES={{ retransmit_retries }}
+
+# Enable or disable payload encryption (for lanplus)
+IPMI_ENCRYPT={{ enable_encryption }}
+
+# Enable or disable authentication (e.g., 'none', 'md2', 'md5', 'straight', 'oem')
+IPMI_AUTH={{ auth_type }}
+
+# Serial device path (used only when IPMI_INTERFACE='serial')
+{% if bmc_interface == 'serial' %}
+IPMI_SERIAL_DEVICE={{ serial_device }}
+{% endif %}
+
+# Serial baud rate (used only when IPMI_INTERFACE='serial')
+{% if bmc_interface == 'serial' %}
+IPMI_SERIAL_BAUD={{ serial_baud }}
+{% endif %}
+
+# Payload cipher suite IDs for lanplus (comma-separated list of allowed ciphers)
+IPMI_CIPHER_SUITES={{ cipher_suites | join(', ') }}
+
+# Alternative: use a passphrase file instead of plaintext password
+# IPMI_PASSPHRASE_FILE=/etc/ipmitool/passphrase.txt
+
+# Default realm for IPMI v2.0 RAKP authentication (optional)
+{% if bmc_realm is defined and bmc_realm != '' %}
+IPMI_REALM={{ bmc_realm }}
+{% endif %}
+
+# BMC MAC address (optional; used for LAN boot or some OEM extensions)
+{% if bmc_mac is defined and bmc_mac != '' %}
+IPMI_MAC={{ bmc_mac }}
+{% endif %}
+
+# Optional: list of additional BMCs (for multi-BMC systems)
+{% for bmc in extra_bcms %}
+{% if bmc.enabled %}
+# Extra BMC: {{ bmc.name }} ({{ bmc.host }})
+IPMI_HOST_{{ bmc.index }}={{ bmc.host }}
+IPMI_USER_{{ bmc.index }}={{ bmc.username }}
+IPMI_PASS_{{ bmc.index }}={{ bmc.password }}
+IPMI_INTERFACE_{{ bmc.index }}={{ bmc.interface | default('lan') }}
+IPMI_AUTH_{{ bmc.index }}={{ bmc.auth_type | default('md5') }}
+{% endif %}
+{% endfor %}

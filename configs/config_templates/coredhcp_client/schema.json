@@ -1,0 +1,144 @@
+{
+  "listen_addr": {
+    "type": "string",
+    "default": "0.0.0.0",
+    "description": "IP address to listen on for incoming DHCP requests."
+  },
+  "listen_port": {
+    "type": "number",
+    "default": 67,
+    "description": "UDP port to listen on for DHCP requests (standard DHCP is 67)."
+  },
+  "server_address": {
+    "type": "string",
+    "default": "",
+    "description": "DHCP server address to forward requests to (when operating in relay mode). Leave empty for standalone operation."
+  },
+  "interfaces": {
+    "type": "list",
+    "default": [],
+    "description": "List of network interface names to bind to. If empty, all interfaces are used.",
+    "items": {
+      "type": "string",
+      "description": "Interface name (e.g., eth0, eth1)."
+    }
+  },
+  "log_level": {
+    "type": "string",
+    "default": "info",
+    "description": "Logging verbosity level: debug, info, warn, error, fatal."
+  },
+  "log_format": {
+    "type": "string",
+    "default": "text",
+    "description": "Log output format: 'text' (human-readable) or 'json' (machine-parseable)."
+  },
+  "log_file": {
+    "type": "string",
+    "default": "",
+    "description": "Path to log file. Empty string means standard output."
+  },
+  "request_handlers": {
+    "type": "list",
+    "default": [],
+    "description": "List of plugins that handle incoming DHCP requests (e.g., assign IP, log, validate).",
+    "items": {
+      "type": "object",
+      "description": "Request handler plugin configuration.",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Handler plugin name (e.g., 'file', 'log', 'validate', 'assign')."
+        },
+        "options": {
+          "type": "object",
+          "description": "Plugin-specific options (boolean/string/number key-value pairs)."
+        },
+        "params": {
+          "type": "object",
+          "description": "Plugin-specific parameters (e.g., filename, next-server for file handler)."
+        }
+      },
+      "required": [
+        "name"
+      ]
+    }
+  },
+  "response_modifiers": {
+    "type": "list",
+    "default": [],
+    "description": "List of plugins that modify outgoing DHCP responses (e.g., vendor-class, options).",
+    "items": {
+      "type": "object",
+      "description": "Response modifier plugin configuration.",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Modifier plugin name (e.g., 'options', 'vendor-class', 'relay-agent')."
+        },
+        "options": {
+          "type": "object",
+          "description": "Plugin-specific options."
+        },
+        "params": {
+          "type": "object",
+          "description": "Plugin-specific parameters."
+        }
+      },
+      "required": [
+        "name"
+      ]
+    }
+  },
+  "identity_mode": {
+    "type": "string",
+    "default": "mac",
+    "description": "How clients are identified: 'mac' (standard MAC-based), 'duid' (for DHCPv6), or 'custom' (uses a custom key)."
+  },
+  "identity_custom_key": {
+    "type": "string",
+    "default": "",
+    "description": "DHCP option code to use as identity key (only if identity_mode = 'custom'). Example: '61' (Client Identifier)."
+  },
+  "lease_db_path": {
+    "type": "string",
+    "default": "/var/lib/coredhcp/leases.json",
+    "description": "File path for the persistent lease database."
+  },
+  "persist_leases": {
+    "type": "bool",
+    "default": true,
+    "description": "Whether to persist leases to disk between restarts."
+  },
+  "lease_ttl": {
+    "type": "number",
+    "default": 86400,
+    "description": "Default lease duration in seconds (0 = infinite)."
+  },
+  "static_mappings": {
+    "type": "list",
+    "default": [],
+    "description": "List of static MAC-to-IP/hostname mappings for fixed clients.",
+    "items": {
+      "type": "object",
+      "description": "Static mapping entry.",
+      "properties": {
+        "mac": {
+          "type": "string",
+          "description": "Client MAC address (e.g., 'aa:bb:cc:dd:ee:ff')."
+        },
+        "hostname": {
+          "type": "string",
+          "description": "Hostname to assign (optional; leave blank to omit)."
+        },
+        "ip": {
+          "type": "string",
+          "description": "Static IP address to assign (optional; omit if only hostname is desired)."
+        }
+      },
+      "required": [
+        "mac"
+      ]
+    }
+  }
+}

@@ -1,0 +1,87 @@
+{
+  "min_fan_speed": {
+    "type": "number",
+    "default": 2000,
+    "description": "Minimum fan speed in RPM. Set to 0 for percent-based control (0\u2013100%)."
+  },
+  "max_fan_speed": {
+    "type": "number",
+    "default": 6200,
+    "description": "Maximum fan speed in RPM. Set to 100 for percent-based control."
+  },
+  "temp_thresholds": {
+    "type": "object",
+    "default": {},
+    "description": "Temperature thresholds per sensor zone in \u00b0C. Keys are sensor names (e.g., cpu, gpu, chassis); values are temperatures triggering fan increases.",
+    "items": {
+      "type": "number",
+      "default": 55,
+      "description": "Temperature threshold for the zone in degrees Celsius."
+    }
+  },
+  "hysteresis": {
+    "type": "number",
+    "default": 5,
+    "description": "Seconds to wait before changing fan speed after crossing a temperature threshold (prevents rapid oscillation)."
+  },
+  "poll_interval": {
+    "type": "number",
+    "default": 1000,
+    "description": "How often (in milliseconds) to read sensor and fan status."
+  },
+  "fan_mode": {
+    "type": "string",
+    "default": "auto",
+    "description": "Control mode: 'auto' lets macfanctld adjust fan speeds; 'manual' sets fixed speeds based on min_fan_speed/max_fan_speed."
+  },
+  "sensor_source": {
+    "type": "string",
+    "default": "smbios",
+    "description": "Source for temperature readings. 'smbios' is recommended for most MacBooks."
+  },
+  "log_to_syslog": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable logging to system journal/syslog."
+  },
+  "log_level": {
+    "type": "string",
+    "default": "info",
+    "description": "Verbosity of logs."
+  },
+  "custom_sensor_map_path": {
+    "type": "string",
+    "default": "",
+    "description": "Path to a custom YAML or JSON file mapping hardware sensors to names (e.g., /etc/macfanctld/sensors.yml). Leave empty to use defaults."
+  },
+  "fan_offset": {
+    "type": "number",
+    "default": 0,
+    "description": "Offset added to computed fan speed for fine-tuning (useful if fan tachs are misreported)."
+  },
+  "fan_multiplier": {
+    "type": "number",
+    "default": 1.0,
+    "description": "Multiplier applied to computed fan speed (e.g., 1.05 to increase by 5%)."
+  },
+  "critical_temp": {
+    "type": "number",
+    "default": 90,
+    "description": "Temperature (\u00b0C) at which fans spin at maximum speed and warnings are logged."
+  },
+  "shutdown_temp": {
+    "type": "number",
+    "default": 100,
+    "description": "Dangerous temperature (\u00b0C) triggering forced system shutdown to prevent hardware damage."
+  },
+  "fan_sleep_mode": {
+    "type": "bool",
+    "default": true,
+    "description": "When enabled, reduces fan speed during system sleep/suspend to minimize noise."
+  },
+  "ignore_sensor_failure": {
+    "type": "bool",
+    "default": false,
+    "description": "If true, daemon continues even if one or more sensors are missing or unreadable."
+  }
+}

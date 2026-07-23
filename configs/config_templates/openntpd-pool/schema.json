@@ -1,0 +1,48 @@
+{
+  "ntp_servers": {
+    "type": "list",
+    "default": [
+      "0.pool.ntp.org",
+      "1.pool.ntp.org",
+      "2.pool.ntp.org",
+      "3.pool.ntp.org"
+    ],
+    "description": "List of NTP server hostnames or IPs to synchronize with. Use public pools or your own infrastructure.",
+    "items": {
+      "type": "string",
+      "description": "A single NTP server address (hostname or IP)."
+    }
+  },
+  "restrict_subnets": {
+    "type": "list",
+    "default": [],
+    "description": "List of IP subnets (e.g., '127.0.0.1', '192.168.1.0/24') allowed to query this NTP server. Leave empty to allow all clients (not recommended for public-facing servers).",
+    "items": {
+      "type": "string",
+      "description": "A subnet or host IP in CIDR or dotted-decimal notation."
+    }
+  },
+  "handle_leap_seconds": {
+    "type": "bool",
+    "default": true,
+    "description": "Whether to enable leap second handling using the IANA leap-seconds file."
+  },
+  "log_level": {
+    "type": "number",
+    "default": 3,
+    "description": "Logging verbosity: 0 (none) to 4 (debug). Value 3 is recommended for production to capture warnings and errors.",
+    "constraints": {
+      "min": 0,
+      "max": 4
+    }
+  },
+  "max_offset": {
+    "type": "number",
+    "default": 300.0,
+    "description": "Maximum absolute time offset (in seconds) allowed before OpenNTPD refuses to sync (prevents large time jumps). Set higher for unstable networks.",
+    "constraints": {
+      "min": 0.01,
+      "max": 86400
+    }
+  }
+}

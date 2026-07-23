@@ -1,0 +1,46 @@
+{
+  "db_host": "db.internal.example.com",
+  "db_port": 5432,
+  "db_user": "pg_loader",
+  "db_password": "secret123",
+  "db_name": "analytics_prod",
+  "log_level": "info",
+  "log_file": "/var/log/pg_fact_loader/pg_fact_loader.log",
+  "worker_count": 4,
+  "max_tasks_per_worker": 50,
+  "task_timeout_seconds": 7200,
+  "poll_interval_seconds": 3,
+  "max_retries": 3,
+  "retry_delay_seconds": 2,
+  "max_retry_delay_seconds": 120,
+  "fact_tables": [
+    {
+      "name": "daily_sales_summary",
+      "schema": "dw",
+      "table": "fact_daily_sales",
+      "query": "INSERT INTO dw.fact_daily_sales (date_id, product_id, total_revenue, units_sold)\nSELECT ds.date_id, ds.product_id, SUM(ds.revenue), SUM(ds.quantity)\nFROM staging.sales_raw ds\nWHERE ds.sale_date >= CURRENT_DATE - INTERVAL '1 day'\nGROUP BY ds.date_id, ds.product_id\nON CONFLICT (date_id, product_id) DO UPDATE SET\n  total_revenue = EXCLUDED.total_revenue,\n  units_sold = EXCLUDED.units_sold;",
+      "schedule": "0 1 * * *",
+      "truncate_before_load": false,
+      "tags": [
+        "sales",
+        "daily",
+        "retail"
+      ]
+    },
+    {
+      "name": "customer_acquisition",
+      "schema": "dw",
+      "table": "fact_customer_acquisition",
+      "query": "TRUNCATE dw.fact_customer_acquisition;\nINSERT INTO dw.fact_customer_acquisition (customer_id, signup_date, first_order_date, region)\nSELECT c.customer_id, c.signup_date, MIN(o.order_date), c.region\nFROM staging.customers c\nLEFT JOIN staging.orders o ON c.customer_id = o.customer_id\nGROUP BY c.customer_id, c.signup_date, c.region;",
+      "schedule": "30 3 * * 0",
+      "truncate_before_load": true,
+      "tags": [
+        "customers",
+        "weekly"
+      ]
+    }
+  ],
+  "monitoring.enabled": true,
+  "monitoring.port": 9187,
+  "monitoring.path": "/healthz"
+}

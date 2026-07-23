@@ -1,0 +1,74 @@
+[DEFAULT]
+# Log output level (INFO, DEBUG, etc.)
+log_level = {{ log_level }}
+
+# RPC transport URL for communicating with other OpenStack services
+rpc_backend = {{ rpc_backend }}
+
+# RabbitMQ host for RPC
+rabbit_host = {{ rabbit_host }}
+
+# RabbitMQ port
+rabbit_port = {{ rabbit_port }}
+
+# RabbitMQ user
+rabbit_user = {{ rabbit_user }}
+
+# RabbitMQ password
+rabbit_password = {{ rabbit_password }}
+
+# API server listen address
+bind_host = {{ bind_host }}
+
+# API server listen port
+bind_port = {{ bind_port }}
+
+# Path to the Cyborg API WSGI application
+api_paste_config = {{ api_paste_config }}
+
+[accelerators]
+# List of hardware accelerator types supported by this agent
+# Format: type=driver_name, e.g., FPGA=fpga_intel, FPGA=fpga_xilinx
+{% for acc in accelerators %}{{ acc.type }} = {{ acc.driver }}
+{% endfor %}
+
+[api_database]
+# Connection string for the Cyborg API database
+connection = {{ api_db_connection }}
+
+[database]
+# Connection string for the Cyborg main database
+connection = {{ db_connection }}
+
+[keystone_authtoken]
+# Authentication URL to authenticate against keystone
+auth_url = {{ keystone_auth_url }}
+
+# Project domain name
+project_domain_name = {{ project_domain_name }}
+
+# User domain name
+user_domain_name = {{ user_domain_name }}
+
+# Project name for the Cyborg service account
+project_name = {{ project_name }}
+
+# Username for the Cyborg service account
+username = {{ service_username }}
+
+# Password for the Cyborg service account
+password = {{ service_password }}
+
+# Interface type (public, internal, admin)
+interface = {{ keystone_interface }}
+
+# Insecure TLS (true = disable certificate verification)
+insecure = {{ keystone_insecure | lower }}
+
+[oslo_concurrency]
+# Path to the lock directory
+lock_path = {{ lock_path }}
+
+[oslo_messaging_notifications]
+# Driver(s) for sending notifications (e.g., 'messaging', 'messagingv2', 'log')
+driver = {{ notification_driver }}

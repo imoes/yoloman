@@ -1,0 +1,64 @@
+# pnopaste.ini — Main configuration for pnopaste pastebin server
+# Bind address and port for the HTTP(S) listener
+bind: {{ bind_address }}
+port: {{ http_port }}
+
+# Enable TLS/SSL for HTTPS (requires cert/key paths below)
+ssl_enabled: {{ ssl_enabled }}
+{% if ssl_enabled %}
+ssl_cert: {{ ssl_cert_path }}
+ssl_key: {{ ssl_key_path }}
+{% endif %}
+
+# Base URL (used for generating paste links; must include protocol and trailing slash)
+base_url: {{ base_url }}
+
+# Data storage backend type (e.g., 'filesystem', 'sqlite', 'postgresql')
+backend: {{ backend_type }}
+
+# Path for filesystem backend (ignored for other backends)
+{% if backend_type == 'filesystem' %}
+data_dir: {{ data_dir }}
+{% endif %}
+
+# Database connection string (for database backends)
+{% if backend_type in ['sqlite', 'postgresql', 'mysql'] %}
+database_url: {{ database_url }}
+{% endif %}
+
+# Maximum paste size in bytes
+max_paste_size: {{ max_paste_size_bytes }}
+
+# Default expiration for pastes (in seconds); 0 = never expire
+default_expires: {{ default_expiration_seconds }}
+
+# Enable syntax highlighting (if supported by backend)
+syntax_highlighting: {{ syntax_highlighting }}
+
+# List of allowed languages (blank = allow all; if set, only these will appear)
+# Language codes follow Pygments lexer names (e.g., 'python', 'rust', 'html')
+allowed_languages:
+{% for lang in allowed_languages_list %}  - {{ lang }}
+{% endfor %}
+
+# Optional: rate limiting (per IP, per minute)
+rate_limit_enabled: {{ rate_limit_enabled }}
+{% if rate_limit_enabled %}
+rate_limit_requests: {{ rate_limit_requests_per_minute }}
+rate_limit_burst: {{ rate_limit_burst_size }}
+{% endif %}
+
+# Optional: public paste creation only (disallow private/unlisted pastes)
+public_only: {{ public_only }}
+
+# Enable admin panel (requires auth below)
+admin_enabled: {{ admin_enabled }}
+{% if admin_enabled %}
+admin_token: {{ admin_token }}
+{% endif %}
+
+# Logging level: debug, info, warning, error, critical
+log_level: {{ log_level }}
+
+# Log to file (leave blank to log to stderr)
+log_file: {{ log_file }}

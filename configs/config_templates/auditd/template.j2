@@ -1,0 +1,88 @@
+# Enable or disable audit logging
+active = {{ active }}
+
+# Log file location
+log_file = {{ log_file }}
+
+# Maximum size of each log file in MB (before rotation)
+log_format = {{ log_format }}
+
+# Number of log files to keep
+max_log_file = {{ max_log_file }}
+
+# Disk space limit (in MB) for all audit logs combined
+max_log_file_action = {{ max_log_file_action }}
+
+# Space remaining (in MB) before action is triggered
+space_left = {{ space_left }}
+
+# Action to take when disk space is low
+space_left_action = {{ space_left_action }}
+
+# Use syslog for emergency messages (true/false)
+use_syslog = {{ use_syslog }}
+
+# Verbosity level (0–2)
+verbosity = {{ verbosity }}
+
+# Priority to use for syslog messages
+priority_boost = {{ priority_boost }}
+
+# Flush settings: 'none', 'data', 'sync'
+flush = {{ flush }}
+
+# Frequency of flush (in seconds) — used only if flush == 'incremental'
+freq = {{ freq }}
+
+# Number of retries on write failure
+max_retries = {{ max_retries }}
+
+# Timeout (in seconds) for write retries
+retry_timeout = {{ retry_timeout }}
+
+# Enable or disable log buffering
+log_group = {{ log_group }}
+
+# Enable or disable remote logging
+remote_log = {{ remote_log }}
+
+# Remote audit server address
+remote_address = {{ remote_address | default('') }}
+
+# Remote audit server port
+remote_port = {{ remote_port | default('') }}
+
+# Enable or disable local logging (even when remote is enabled)
+local_logging = {{ local_logging }}
+
+# Path to audit event queue (if used)
+queue_len = {{ queue_len }}
+
+# Name of the audit daemon user (usually 'root' or 'audit')
+admin_space_left = {{ admin_space_left }}
+admin_space_left_action = {{ admin_space_left_action }}
+
+# Disk full action (halt, suspend, single, none)
+disk_full_action = {{ disk_full_action }}
+
+# Pause audit logging when disk space is critically low
+pause = {{ pause }}
+
+# Time (in seconds) to wait before resuming after pause
+resume_after = {{ resume_after }}
+
+# Maximum number of events to buffer in kernel before dropping
+capability = {{ capability }}
+
+# Additional flags for auditd startup
+args = {{ args }}
+
+# List of additional log files to rotate (not in stock auditd.conf; often used in deployments)
+{% for extra_log in extra_logs %}
+# Extra log file: {{ extra_log.path }}
+{% endfor %}
+
+# List of log rotation settings for extra log files
+{% if extra_logs %}
+# (Handled by external logrotate — not written to auditd.conf by default)
+{% endif %}

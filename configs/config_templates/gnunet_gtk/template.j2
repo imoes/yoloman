@@ -1,0 +1,125 @@
+[PATHS]
+# Default database directory for GNU GNUnet
+DATABASE_HOME = {{ paths.database_home }}
+
+# Default configuration directory
+CONFIG_HOME = {{ paths.config_home }}
+
+[resolver]
+# Enable or disable the DNS resolver service
+ENABLE = {{ services.resolver.enabled }}
+
+[nat]
+# Enable or disable the NAT traversal helper
+ENABLE = {{ services.nat.enabled }}
+
+# Force local addresses (for testing behind NAT)
+FORCE_LOCAL = {{ services.nat.force_local }}
+
+[peerinfo]
+# Enable or disable the peer information service
+ENABLE = {{ services.peerinfo.enabled }}
+
+# Comma-separated list of trusted peers (empty = none)
+TRUSTED = {{ peerinfo.trusted_peers | join(', ') }}
+
+[transport]
+# List of enabled transports (e.g., tcp, udp, http, https)
+PLUGINS = {{ transport.plugins | join(' ') }}
+
+{% for plugin in transport.plugins %}
+# Configuration for {{ plugin }} transport
+[transport-{{ plugin }}]
+PORT = {{ transport.plugin_configs[plugin].port }}
+LISTEN = {{ transport.plugin_configs[plugin].listen }}
+{% if transport.plugin_configs[plugin].bind_to %}
+BIND_TO = {{ transport.plugin_configs[plugin].bind_to }}
+{% endif %}
+{% endfor %}
+
+[ats]
+# Enable automatic transport selection
+ENABLE = {{ services.ats.enabled }}
+
+# Traffic shaping: bandwidth limits in bytes/s
+WANquota_IN = {{ ats.wan_quota_in }}
+WANquota_OUT = {{ ats.wan_quota_out }}
+
+[vpn]
+# Enable VPN service for tunneled traffic
+ENABLE = {{ services.vpn.enabled }}
+
+[tun]
+# Enable TUN interface for IPv4/IPv6 routing
+ENABLE = {{ services.tun.enabled }}
+
+[consensus]
+# Enable consensus service for distributed agreement
+ENABLE = {{ services.consensus.enabled }}
+
+[dht]
+# Enable DHT (distributed hash table) service
+ENABLE = {{ services.dht.enabled }}
+
+# Storage size limit in bytes
+DEBUG_NO_DISK = {{ dht.debug_no_disk }}
+DATA_DIR = {{ paths.dht_data_dir }}
+
+[fs]
+# Enable GNUnet file-sharing service
+ENABLE = {{ services.fs.enabled }}
+
+# Default namespace for anonymous publishing
+DEFAULT_NAMESPACE = {{ fs.default_namespace }}
+
+# Search timeout in milliseconds
+SEARCH_TIMEOUT = {{ fs.search_timeout_ms }}
+
+# Number of concurrent searches
+MAX_CONCURRENT_SEARCHES = {{ fs.max_concurrent_searches }}
+
+[identity]
+# Enable identity service
+ENABLE = {{ services.identity.enabled }}
+
+# Default identity name
+DEFAULT_NAME = {{ identity.default_name }}
+
+[revocation]
+# Enable key revocation service
+ENABLE = {{ services.revocation.enabled }}
+
+[set]
+# Enable social set operations (e.g., private set intersection)
+ENABLE = {{ services.set.enabled }}
+
+[gns]
+# Enable GNU Name System (decentralized DNS)
+ENABLE = {{ services.gns.enabled }}
+
+# Zone signing key directory
+ZONEKEY_DIR = {{ paths.zonekey_dir }}
+
+# Enable DHT caching for GNS
+CACHE_ENABLED = {{ gns.cache_enabled }}
+
+[nse]
+# Enable network size estimation
+ENABLE = {{ services.nse.enabled }}
+
+[statistics]
+# Enable local statistics collection
+ENABLE = {{ services.statistics.enabled }}
+
+[transport-http]
+PORT = {{ transport.plugin_configs['http'].port }}
+
+[transport-https]
+PORT = {{ transport.plugin_configs['https'].port }}
+
+[transport-tcp]
+PORT = {{ transport.plugin_configs['tcp'].port }}
+BIND_TO = {{ transport.plugin_configs['tcp'].bind_to }}
+
+[transport-udp]
+PORT = {{ transport.plugin_configs['udp'].port }}

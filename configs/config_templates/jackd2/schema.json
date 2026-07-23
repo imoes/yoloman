@@ -1,0 +1,66 @@
+{
+  "driver": {
+    "type": "string",
+    "default": "alsa",
+    "description": "Audio driver backend (e.g., 'alsa', 'firewire', 'dummy', 'net'). Choose based on your hardware."
+  },
+  "device": {
+    "type": "string",
+    "default": "",
+    "description": "Device name (e.g., 'hw:0' for ALSA). Leave empty for default device."
+  },
+  "rate": {
+    "type": "number",
+    "default": 48000,
+    "description": "Sample rate in Hz. Common values: 44100, 48000, 96000. Match your audio interface's supported rate."
+  },
+  "period": {
+    "type": "number",
+    "default": 1024,
+    "description": "Period size (frames per period). Lower = lower latency but higher CPU load. Must be a power of 2 (e.g., 64, 128, 256, 512, 1024, 2048)."
+  },
+  "nperiods": {
+    "type": "number",
+    "default": 2,
+    "description": "Number of periods in the buffer. Usually 2 or 3. Higher values may improve robustness but increase latency."
+  },
+  "input_channels": {
+    "type": "number",
+    "default": 0,
+    "description": "Number of input channels. Set to 0 to disable capture, or match your interface's physical inputs."
+  },
+  "output_channels": {
+    "type": "number",
+    "default": 2,
+    "description": "Number of output channels. Set to 0 to disable playback, or match your interface's physical outputs."
+  },
+  "realtime_priority": {
+    "type": "number",
+    "default": 10,
+    "description": "Real-time priority (1\u201399). Higher values increase priority but may starve other processes. JACK typically works well at 5\u201315."
+  },
+  "extra_args": {
+    "type": "list",
+    "default": [],
+    "description": "Additional command-line arguments (e.g., ['--sync'] for ALSA sync mode, or ['-r'] for resampling). One argument per list item (include leading hyphen)."
+  },
+  "start_delay": {
+    "type": "number",
+    "default": 2,
+    "description": "Seconds to wait before starting JACK (for system boot-time delays)."
+  },
+  "auto_connect": {
+    "type": "bool",
+    "default": false,
+    "description": "If true, auto-connect ports on startup using jack_connect (requires jack_control or external script)."
+  },
+  "post_start_commands": {
+    "type": "list",
+    "default": [],
+    "description": "Shell commands to run after JACK starts successfully (e.g., connecting clients). One command per list item.",
+    "items": {
+      "type": "string",
+      "description": "A shell command to execute after JACK starts."
+    }
+  }
+}

@@ -1,0 +1,17 @@
+# Allow principals (with optional patterns) to have replication privileges
+{% for principal in acls %}
+# Principal: {{ principal.principal }}
+{% if principal.pattern %}
+{% if principal.pattern == 'exact' %}
+{{ principal.principal }} *
+{% elif principal.pattern == 'wildcard' %}
+{{ principal.principal }} *
+{% elif principal.pattern == 'suffix' %}
+{{ principal.principal }} *
+{% else %}
+{{ principal.principal }} *
+{% endif %}
+{% else %}
+{{ principal.principal }} *
+{% endif %}
+{% endfor %}

@@ -1,0 +1,157 @@
+# Rspamd main configuration file — global settings
+# Enable debug mode (for troubleshooting only)
+# debug_modules = ["symbols"];  # Uncomment to enable debug for specific modules
+
+# Worker type — 'controller' (web UI), 'proxy', or 'worker' (filtering)
+worker {
+  type = "{{ worker_type }}";
+  bind_socket = "{{ worker_bind_socket }}";
+  count = {{ worker_count }};
+}
+
+# Paths for data storage
+# Directories for cache, learns, and temporary files
+# Ensure these paths exist and are writable by the rspamd user
+fuzzy_storage {
+  path = "{{ fuzzy_storage_path }}";
+  # auto_expire = 1d;  # Uncomment to auto-expire old entries
+}
+
+# Learning paths for spam/ham
+learning {
+  # Default paths for classifier data
+  path = "{{ learning_path }}";
+}
+
+# Statistics backend (classifier) —Bayesian classifier settings
+# Controls thresholds, token limits, and storage
+statistic {
+  driver = "{{ stat_driver }}";
+  # Bayes classifier settings
+  bayes {
+    tokenizer {
+      name = "{{ tokenizer_name }}";
+    }
+    # Minimum number of messages required to start classifying
+    min_tokens = {{ bayes_min_tokens }};
+    min_learns = {{ bayes_min_learns }};
+  }
+  # Learn mode: auto (default), manual, or disabled
+  mode = "{{ learn_mode }}";
+}
+
+# Redis backend for shared state (used by multiple Rspamd nodes)
+# Optional — uncomment only if Redis is used
+{% if redis_servers %}# Redis servers for shared data (classifier, fuzzy, symbols)
+redis {
+{% for server in redis_servers %}  {{ server.host | default('localhost') }}:{{ server.port | default(6379) }} {
+{% if server.password %}    password = "{{ server.password }}";
+{% endif %}    database = {{ server.database | default(0) }};
+  }
+{% endfor %}
+}
+{% endif %}
+
+# Clustering and consensus (for multi-node deployments)
+# Not required for single-node setups
+{% if clustering_servers %}# Clustering: distribute workload across nodes
+clustering {
+{% for node in clustering_servers %}  node {
+    host = "{{ node.host }}";
+    port = {{ node.port }};
+  }
+{% endfor %}
+}
+{% endif %}
+
+# Symbol priorities and scores — define per-symbol behavior
+# Lower priority = executed earlier; negative scores penalize; positive reward
+symbols {
+{% for symbol in symbols_config %}  "{{ symbol.name }}" {
+    score = {{ symbol.score | default(1.0) }};
+    description = "{{ symbol.description | default('') }}";
+    group = "{{ symbol.group | default('default') }}";
+    priority = {{ symbol.priority | default(0) }};
+{% if symbol.flags %}    flags = [{{ symbol.flags | join(', ') | d() }}];
+{% endif %}  }
+{% endfor %}
+}
+
+# Whitelists and blacklists — global overrides
+# Use sparingly; prefer user-level rules
+# Example: blocklist for known good senders
+{% if whitelist %}# Whitelist addresses (exact match or CIDR)
+whitelist {
+{% for entry in whitelist %}  "{{ entry }}";
+{% endfor %}
+}
+{% endif %}
+
+{% if blacklist %}# Blacklist addresses (exact match or CIDR)
+blacklist {
+{% for entry in blacklist %}  "{{ entry }}";
+{% endfor %}
+}
+{% endif %}
+
+# Scanning options — timeouts, size limits, recursion depth
+scanning {
+  max_size = {{ max_message_size | default(0) }};
+  max_recipients = {{ max_recipients | default(100) }};
+  timeout = {{ scan_timeout | default(60.0) }};
+  # Don’t scan messages larger than max_size (0 = unlimited)
+}
+
+# DNS resolver settings — critical for RBL checks
+# Use local recursive resolver or upstream DNS
+{% if dns_servers %}# DNS servers for RBL, MX, SPF, DKIM checks
+dns {
+{% for server in dns_servers %}  server = "{{ server }}";
+{% endfor %}
+}
+{% else %}# Fallback to system resolv.conf if none specified
+dns {
+  # server = "127.0.0.1";
+}
+{% endif %}
+
+# Authentication for controller (web UI) — required for admin access
+# Strongly recommend TLS + strong passwords or token-based auth
+{% if controller_auth %}# Controller authentication (web UI / API)
+auth {
+{% if controller_auth.password %}  password = "{{ controller_auth.password }}";
+{% endif %}
+{% if controller_auth.hash %}  hash = "{{ controller_auth.hash }}";
+{% endif %}
+{% if controller_auth.tokens %}  tokens = [{{ controller_auth.tokens | join(', ') }}];
+{% endif %}
+}
+{% endif %}
+
+# Logging configuration
+# Prefer syslog for production; file logging useful for debugging
+logging {
+  type = "{{ log_type }}";
+{% if log_type == 'file' %}  file = "{{ log_file }}";
+{% endif %}
+  level = "{{ log_level }}";
+  debug_modules = [{{ log_debug_modules | join(', ') | d() }}];
+}
+
+# Optional: modules explicitly enabled/disabled
+# Most modules are auto-enabled by rules; disable only if causing issues
+{% if modules_disabled %}# Explicitly disabled modules
+{% for mod in modules_disabled %}# disabled_modules = "{{ mod }}";
+{% endfor %}
+{% endif %}
+
+# Final: include optional site rules and overrides
+# These should be placed in /etc/rspamd/local.d/ and /etc/rspamd/override.d/
+# Rspamd merges configs from: default.d/ → local.d/ → override.d/
+# This line ensures local customizations load last
+# include_confdir = "{{ confdir_override }}";
+# include_confdir = "{{ confdir_local }}";
+
+# Override paths (typically auto-loaded, but explicit for clarity)
+# confdir_local = "/etc/rspamd/local.d";
+# confdir_override = "/etc/rspamd/override.d";

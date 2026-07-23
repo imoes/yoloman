@@ -1,0 +1,54 @@
+{
+  "log_level": "INFO",
+  "log_file": "/var/log/email-reminder/email-reminder.log",
+  "pid_file": "/run/email-reminder/email-reminder.pid",
+  "smtp": {
+    "host": "smtp.gmail.com",
+    "port": 587,
+    "use_tls": true,
+    "use_ssl": false,
+    "user": "reminders@example.com",
+    "password": "REDACTED_SECURELY",
+    "from_address": "reminders@example.com"
+  },
+  "templates": {
+    "default_subject": "Reminder: {{ event.title }} is starting soon!",
+    "default_body": "Hi,\n\nThis is a reminder about your upcoming event:\n\nEvent: {{ event.title }}\nWhen: {{ event.start_time | format_datetime('medium') }}\nWhere: {{ event.location or 'TBD' }}\n\nYou\u2019re receiving this because you subscribed via Email Reminder.\n\n\u2014 Your friendly reminder bot"
+  },
+  "reminders": {
+    "default_lead_time": 30,
+    "max_lead_time": 1440
+  },
+  "event_sources": [
+    {
+      "name": "work-calendar",
+      "enabled": true,
+      "type": "google",
+      "url": "https://calendar.google.com/calendar/ical/abc%40group.calendar.google.com/public/basic.ics",
+      "interval_minutes": 15,
+      "query": ""
+    },
+    {
+      "name": "personal-ics",
+      "enabled": true,
+      "type": "ics",
+      "url": "/etc/email-reminder/personal.ics",
+      "interval_minutes": 60
+    }
+  ],
+  "recipient_groups": [
+    {
+      "name": "dev-team",
+      "recipients": [
+        "alice@example.com",
+        "bob@example.com"
+      ]
+    },
+    {
+      "name": "managers",
+      "recipients": [
+        "manager@example.com"
+      ]
+    }
+  ]
+}

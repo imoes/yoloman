@@ -1,0 +1,83 @@
+# miniupnpd configuration file
+# Listen interface (e.g., eth0, br0) for UPnP/PCP/NAT-PMP traffic
+listen_address={{ listen_address }}
+
+# External network interface (WAN) providing Internet access
+ext_ifname={{ ext_ifname }}
+
+# Optional: internal network interface(s) for trusted clients (if not auto-detected)
+# Use multiple `listen_address` lines or set `listening_ip` instead
+# (This config uses explicit `listening_ip` for clarity)
+{% for addr in listening_ips %}
+listening_ip={{ addr }}
+{% endfor %}
+
+# UPnP enabled? (set to 'no' to disable UPnP, default 'yes')
+upnp_enabled={{ upnp_enabled | lower }}
+
+# NAT-PMP enabled? (set to 'no' to disable NAT-PMP, default 'yes')
+natpmp_enabled={{ natpmp_enabled | lower }}
+
+# PCP (Port Control Protocol) enabled? (requires kernel support and newer miniupnpd)
+pcp_enabled={{ pcp_enabled | lower }}
+
+# Enable secure mode: restricts UPnP to local subnet and requires authentication
+secure_mode={{ secure_mode | lower }}
+
+# Enable UPnP for legacy devices (e.g., Windows XP-era clients)
+legacy_module={{ legacy_module | lower }}
+
+# System uptime threshold (in seconds) before port mapping cleanup runs
+# Set to 0 to disable automatic cleanup (default: 0)
+system_uptime_threshold={{ system_uptime_threshold }}
+
+# Maximum number of port mappings per device/user (0 = unlimited, default: 0)
+max_ports_per_device={{ max_ports_per_device }}
+
+# Maximum total port mappings (0 = unlimited, default: 0)
+max_total_ports={{ max_total_ports }}
+
+# Minimum and maximum port range for automatic allocation (0 = use OS default)
+port_range_min={{ port_range_min }}
+port_range_max={{ port_range_max }}
+
+# Enable UPnP lease support (set to 'yes' to allow duration-based mappings)
+lease_enabled={{ lease_enabled | lower }}
+
+# Default lease duration (in seconds), 0 = infinite
+lease_duration={{ lease_duration }}
+
+# Enable UPnP for IGMP (multicast) support (e.g., for IPTV relay)
+igmp_enabled={{ igmp_enabled | lower }}
+
+# Enable SSDP notification broadcasting (set to 'no' to suppress announcements)
+ssdp_notify_enabled={{ ssdp_notify_enabled | lower }}
+
+# SSDP multicast interface (usually same as ext_ifname)
+ssdp_broadcast_interval={{ ssdp_broadcast_interval }}
+
+# SSDP server UUID (leave blank for auto-generated, or set custom UUID)
+%suuid={{ upnp_uuid | default('') }}
+
+# Friendly name for UPnP device (sent in SSDP M-SEARCH replies)
+friendly_name={{ friendly_name }}
+
+# Model name and number for UPnP device
+model_name={{ model_name }}
+model_number={{ model_number }}
+
+# Manufacturer name and URL
+manufacturer={{ manufacturer }}
+manufacturer_url={{ manufacturer_url }}
+
+# Presentation URL for web UI (e.g., router admin page)
+presentation_url={{ presentation_url }}
+
+# Enable debug logging (set to 'yes' or 'debug')
+debug={{ debug | lower }}
+
+# Log file path (set to '-' for stdout)
+log_filename={{ log_filename }}
+
+# Log level: 0=none, 1=errors, 2=warnings, 3=info, 4=debug
+log_level={{ log_level }}

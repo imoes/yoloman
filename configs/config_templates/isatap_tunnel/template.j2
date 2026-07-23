@@ -1,0 +1,52 @@
+# ISATAP Tunnel Client configuration file — see isatapd(8) and RFC 5214
+# Enable ISATAP client mode (required)
+enable_isatap = {{ enable_isatap }}
+
+# Local IPv4 address to use as ISATAP router interface (must be globally routable)
+isatap_router_ipv4 = {{ isatap_router_ipv4 }}
+
+# Interface name for the ISATAP tunnel interface
+tunnel_interface = {{ tunnel_interface }}
+
+# IPv6 prefix delegated to ISATAP clients (e.g., 2001:db8:1::/64)
+ipv6_prefix = {{ ipv6_prefix }}
+
+# Maximum number of concurrent ISATAP tunnels
+max_tunnels = {{ max_tunnels }}
+
+# Enable logging of ISATAP events (debug, info, warn, error)
+log_level = {{ log_level }}
+
+# Optional: Static host entries for known ISATAP routers
+# Format: IPv4 address or hostname
+{% for router in routers %}static_router = {{ router }}{% endfor %}
+
+# Optional: Enable IPv4 multicast support for router discovery (requires IGMP)
+enable_multicast = {{ enable_multicast }}
+
+# Optional: Enable periodic router solicitations (in seconds)
+router_solicit_interval = {{ router_solicit_interval }}
+
+# Optional: Time-to-live for router discovery messages
+router_ttl = {{ router_ttl }}
+
+# Optional: Enable stateful address configuration (DHCPv6 fallback)
+enable_stateful = {{ enable_stateful }}
+
+# Optional: Enable stateless address autoconfiguration (SLAAC)
+enable_stateless = {{ enable_stateless }}
+
+# Optional: Custom DNS servers for ISATAP clients
+{% for dns in dns_servers %}dns_server = {{ dns }}{% endfor %}
+
+# Optional: Default route metric for ISATAP tunnel
+route_metric = {{ route_metric }}
+
+# Optional: Interface MTU for the ISATAP tunnel (default: 1280)
+mtu = {{ mtu }}
+
+# Optional: Enable keepalive (in seconds); 0 disables keepalive
+keepalive_interval = {{ keepalive_interval }}
+
+# Optional: Authentication key for ISATAP router discovery (hex or base64)
+auth_key = {{ auth_key | default('') }}

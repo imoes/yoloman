@@ -1,0 +1,139 @@
+{
+  "serverinfo": {
+    "name": "irc.myserver.net",
+    "description": "Primary IRC Server",
+    "network_name": "MyNet",
+    "network_desc": "Community-focused IRC network",
+    "max_clients": 200
+  },
+  "opers": [
+    {
+      "name": "admin",
+      "password": "$6$rounds=5000$abc123$...",
+      "class": "oper_class",
+      "flags": [
+        "kline",
+        "unkline",
+        "global",
+        "restart",
+        "kill",
+        "admin"
+      ],
+      "max_local": 2,
+      "max_remote": 1,
+      "whois_display": "Network Administrator",
+      "gecos": "SysAdmin"
+    }
+  ],
+  "listeners": [
+    {
+      "host": "*",
+      "port": 6667,
+      "ssl": false,
+      "options": []
+    },
+    {
+      "host": "0.0.0.0",
+      "port": 6697,
+      "ssl": true,
+      "ssl_cert": "/etc/ircd-irc2/tls.crt",
+      "ssl_key": "/etc/ircd-irc2/tls.key",
+      "options": [
+        "ssl_only"
+      ]
+    }
+  ],
+  "client": {
+    "max_clients": 250,
+    "max_connections_per_ip": 4,
+    "ping_timeout": 120,
+    "connect_timeout": 45,
+    "away_timeout": 1200,
+    "nick_timeout": 20,
+    "dead_ip_timeout": 600
+  },
+  "channel": {
+    "max_channels_per_user": 15,
+    "max_bans": 50,
+    "max_nick_changes": 6,
+    "max_join": 8,
+    "kick_on_invalid_chanmsg": true
+  },
+  "log": {
+    "level": "OPER",
+    "files": [
+      {
+        "name": "main",
+        "path": "/var/log/ircd/ircd.log",
+        "max_size": 10485760
+      },
+      {
+        "name": "errors",
+        "path": "/var/log/ircd/errors.log",
+        "max_size": 5242880
+      }
+    ]
+  },
+  "klines": [
+    {
+      "mask": "spammer@*.tld",
+      "reason": "Spamming botnet",
+      "set_by": "admin@irc.myserver.net"
+    }
+  ],
+  "modules": [
+    {
+      "path": "/usr/lib/ircd-irc2/m_ircv3.so"
+    },
+    {
+      "path": "/usr/lib/ircd-irc2/m_ssl.so"
+    }
+  ],
+  "links": [
+    {
+      "name": "us.irc.myserver.net",
+      "password": "securelinkpass",
+      "outgoing": {
+        "host": "192.168.1.10",
+        "port": 7000,
+        "ssl": true
+      },
+      "class": "server_class",
+      "flags": [
+        "autoconnect"
+      ]
+    }
+  ],
+  "classes": [
+    {
+      "name": "server_class",
+      "ping_freq": 60,
+      "connect_freq": 60,
+      "max_sendq": 409600,
+      "max_recvq": 8192,
+      "max_users": 1
+    },
+    {
+      "name": "oper_class",
+      "ping_freq": 120,
+      "connect_freq": 120,
+      "max_sendq": 262144,
+      "max_recvq": 8192,
+      "max_users": 1
+    }
+  ],
+  "options": {
+    "ssl": true,
+    "ssl_cert": "/etc/ircd-irc2/tls.crt",
+    "ssl_key": "/etc/ircd-irc2/tls.key",
+    "ssl_ca": "/etc/ircd-irc2/ca.crt",
+    "enable_dns": true,
+    "enable_ident": false,
+    "hide_servers": true,
+    "hide_oper": true,
+    "default_server": "irc.myserver.net",
+    "default_floodcount": 12,
+    "default_sendq": 102400,
+    "default_recvq": 8192
+  }
+}

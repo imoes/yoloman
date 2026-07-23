@@ -1,0 +1,145 @@
+{
+  "debug": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable verbose debugging output. Set to true only when troubleshooting."
+  },
+  "server": {
+    "type": "object",
+    "default": {},
+    "description": "Canna server runtime and network configuration.",
+    "properties": {
+      "bindings": {
+        "type": "list",
+        "default": [
+          {
+            "address": "127.0.0.1",
+            "port": 10080
+          }
+        ],
+        "description": "Network addresses and ports the server listens on.",
+        "items": {
+          "type": "object",
+          "properties": {
+            "address": {
+              "type": "string",
+              "default": "127.0.0.1",
+              "description": "IP address or hostname to bind to (e.g., 127.0.0.1, 0.0.0.0)."
+            },
+            "port": {
+              "type": "number",
+              "default": 10080,
+              "description": "TCP port number (Canna default is 10080)."
+            }
+          }
+        }
+      },
+      "max_clients": {
+        "type": "number",
+        "default": 100,
+        "description": "Maximum number of simultaneous client connections allowed."
+      },
+      "idle_timeout": {
+        "type": "number",
+        "default": 300,
+        "description": "Seconds of inactivity before an idle client session is terminated."
+      },
+      "client_mem_limit": {
+        "type": "number",
+        "default": 4096,
+        "description": "Maximum memory (in KB) a single client session may use."
+      },
+      "persistent_sessions": {
+        "type": "bool",
+        "default": false,
+        "description": "Persist session state across reconnections (e.g., user dictionaries)."
+      },
+      "log_level": {
+        "type": "number",
+        "default": 2,
+        "description": "Verbosity: 0=quiet, 1=error, 2=info, 3=debug."
+      },
+      "log_file": {
+        "type": "string",
+        "default": "/var/log/canna/canna.log",
+        "description": "Path to the log file. Use '-' to log to stdout."
+      },
+      "default_locale": {
+        "type": "string",
+        "default": "ja_JP.UTF-8",
+        "description": "Default locale for new sessions (e.g., ja_JP.eucJP, ja_JP.UTF-8)."
+      },
+      "kanji_code": {
+        "type": "string",
+        "default": "euc",
+        "description": "Default kanji encoding for I/O: euc, sjis, jis, or utf8."
+      },
+      "user_dict_enabled": {
+        "type": "bool",
+        "default": true,
+        "description": "Allow per-user custom dictionaries."
+      },
+      "dict_update_perm": {
+        "type": "number",
+        "default": 2,
+        "description": "Who may update dictionaries: 0=none, 1=admin only, 2=all users."
+      }
+    }
+  },
+  "canna": {
+    "type": "object",
+    "default": {},
+    "description": "Filesystem and dictionary configuration.",
+    "properties": {
+      "dic_dir": {
+        "type": "string",
+        "default": "/var/lib/canna/dic",
+        "description": "Directory containing system dictionary files (e.g., .dic, .kanji)."
+      },
+      "shm_dir": {
+        "type": "string",
+        "default": "/var/lib/canna/shm",
+        "description": "Directory for shared memory segments (must be owned by canna user)."
+      },
+      "dictionaries": {
+        "type": "list",
+        "default": [
+          "sys",
+          "jisyo"
+        ],
+        "description": "List of dictionary names (without path or extension) to load at startup.",
+        "items": {
+          "type": "string",
+          "description": "Dictionary base name (e.g., sys, jisyo)."
+        }
+      }
+    }
+  },
+  "security": {
+    "type": "object",
+    "default": {},
+    "description": "Access control configuration.",
+    "properties": {
+      "allowed_hosts": {
+        "type": "list",
+        "default": [
+          "127.0.0.1"
+        ],
+        "description": "List of hostnames/IPs explicitly allowed to connect.",
+        "items": {
+          "type": "string",
+          "description": "Fully qualified domain name or IP address."
+        }
+      },
+      "allowed_networks": {
+        "type": "list",
+        "default": [],
+        "description": "CIDR-formatted networks allowed to connect (e.g., 192.168.1.0/24).",
+        "items": {
+          "type": "string",
+          "description": "CIDR notation for allowed subnets."
+        }
+      }
+    }
+  }
+}

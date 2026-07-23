@@ -1,0 +1,57 @@
+# Enable TFTP server functionality
+tftp-root=/var/lib/tftpboot
+
+# Enable TFTP server
+tftp
+
+# Enable verbose TFTP logging (optional; comment to disable)
+# log-tftp
+
+# Restrict TFTP to read-only mode (prevents uploads)
+tftp-no-fail
+
+# Maximum number of concurrent TFTP transfers
+tftp-connections=256
+
+# Set the TFTP port (0 = use default port 69)
+tftp-port=0
+
+# Enable TFTP blocksize negotiation (RFC 2348)
+tftp-blocksize=512
+
+# Enable support for TFTP options (e.g., blksize, tsize, octet)
+tftp-unique-root
+
+# Optional: restrict TFTP access to specific interface(s)
+{% for iface in tftp_interfaces %}# TFTP only on interface {{ iface }}
+interface={{ iface }}
+{% endfor %}
+
+# Optional: exclude interfaces from TFTP
+{% for iface in tftp_no_interfaces %}# Do not serve TFTP on interface {{ iface }}
+except-interface={{ iface }}
+{% endfor %}
+
+# Optional: bind TFTP to specific address(es)
+{% for addr in tftp_bind_addresses %}# Bind TFTP to address {{ addr }}
+bind-interfaces
+local={{ addr }}
+{% endfor %}
+
+# Optional: TFTP boot file override (for PXE-like use cases)
+{% if tftp_boot_file %}# Default boot file name for TFTP (e.g., pxelinux.0)
+boot-file={{ tftp_boot_file }}
+{% endif %}
+
+# Optional: PXE menu prompt (if using TFTP for PXE)
+{% if pxe_prompt %}# Enable PXE boot prompt
+pxe-prompt={{ pxe_prompt|quote }}
+{% endif %}
+
+# Optional: PXE boot services (one per menu entry)
+{% for entry in pxe_services %}# PXE service: {{ entry.name }}
+pxe-service={{ entry.type }}, {{ entry.desc|quote }}{% if entry.bootfile %}, {{ entry.bootfile }}{% endif %}
+{% endfor %}
+
+# Optional: disable TFTP over IPv6
+no-dhcp-ipv6

@@ -1,0 +1,67 @@
+{
+  "listen": [
+    {
+      "addr": "0.0.0.0",
+      "port": 53,
+      "protocol": "dns"
+    },
+    {
+      "addr": "127.0.0.1",
+      "port": 5353,
+      "protocol": "dns"
+    }
+  ],
+  "workers": 2,
+  "identity": "knot-primary",
+  "log": {
+    "level": "info",
+    "target": "file",
+    "file": "/var/log/knot/knot.log"
+  },
+  "modules": [
+    "acl",
+    "control"
+  ],
+  "zones": [
+    {
+      "domain": "example.com",
+      "file": "/var/lib/knot/zones/example.com",
+      "acl": [
+        {
+          "action": "allow",
+          "address": "192.0.2.0/24"
+        },
+        {
+          "action": "notify",
+          "address": "198.51.100.0/24"
+        }
+      ]
+    },
+    {
+      "domain": "example.net",
+      "file": "/var/lib/knot/zones/example.net"
+    }
+  ],
+  "control": {
+    "listen": "/run/knot/control.sock"
+  },
+  "remotes": [
+    {
+      "id": "backup-dns",
+      "address": "198.51.100.1",
+      "key": "transfer-key"
+    }
+  ],
+  "acl": [
+    {
+      "id": "transfer-servers",
+      "action": "transfer",
+      "address": "198.51.100.0/24"
+    },
+    {
+      "id": "local-only",
+      "action": "query",
+      "address": "127.0.0.0/8"
+    }
+  ]
+}

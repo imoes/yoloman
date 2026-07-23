@@ -1,0 +1,46 @@
+# [kdc] section: Key Distribution Center daemon configuration
+[kdc]
+# Enable verbose logging
+verbose = {{ kdc.verbose }}
+# Enable debug mode (very verbose output)
+debug = {{ kdc.debug }}
+# Maximum number of simultaneous client connections
+max_connections = {{ kdc.max_connections }}
+# Path to the KDC database file
+database = {{ kdc.database }}
+# Kerberos realm name (automatically derived, but可 override if needed)
+realm = {{ kdc.realm }}
+# Listen address for KDC service (IPv4/IPv6, or hostname)
+listen_addresses = {{ kdc.listen_addresses | join(', ') }}
+# UDP port for Kerberos KDC requests
+port = {{ kdc.port }}
+# TCP port for Kerberos KDC requests
+tcp_port = {{ kdc.tcp_port }}
+# Enable PKINIT support (public key cryptography for initial authentication)
+enable_pkinit = {{ kdc.enable_pkinit }}
+# Enable FAST (Flexible Authentication Secure Tunneling)
+enable_fast = {{ kdc.enable_fast }}
+# Keytab file for KDC service principal (used for Kerberos key rotation)
+keytab = {{ kdc.keytab }}
+# Enable pre-authentication (recommended for security)
+require_preauth = {{ kdc.require_preauth }}
+# Maximum lifetime for TGT (in seconds)
+tgt_lifetime = {{ kdc.tgt_lifetime }}
+# Maximum renewable lifetime for tickets (in seconds)
+ticket_lifetime = {{ kdc.ticket_lifetime }}
+# Renewable lifetime (in seconds)
+renewable_lifetime = {{ kdc.renewable_lifetime }}
+# Clock skew tolerance (in seconds)
+clockskew = {{ kdc.clockskew }}
+# Enable support for PKCS#10 certificate requests (for PKINIT)
+ pkinit_identity = {{ kdc.pkinit_identity }}
+{% if kdc.acl | length > 0 %}
+# [acl] section: Access control list for KDC operations
+[acl]
+{% for rule in kdc.acl %}{{ rule }}
+{% endfor %}{% endif %}
+{% if kdc.policy | length > 0 %}
+# [policies] section: Per-principal policies (name = min_lifetime, max_lifetime, max_renewable)
+[policies]
+{% for name, policy_data in kdc.policy.items() %}{{ name }} = {{ policy_data.min_lifetime }}, {{ policy_data.max_lifetime }}, {{ policy_data.max_renewable }}
+{% endfor %}{% endif %}

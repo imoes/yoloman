@@ -1,0 +1,70 @@
+# Configuration for fort-validator, a RPKI validation tool
+# Global settings controlling validation behavior and logging
+# Root CA trust anchors and repository locations
+# Resource limit enforcement and worker parallelism
+
+log_level: {{ log_level }}
+
+# How many minutes to wait before refreshing the trust anchor list
+refresh_interval: {{ refresh_interval }}
+
+# Maximum number of concurrent validation sessions
+max_sessions: {{ max_sessions }}
+
+# Enable/Disable strict mode (strict validation rejects invalid data)
+strict_mode: {{ strict_mode }}
+
+# Maximum depth for certificate chain validation
+max_chain_depth: {{ max_chain_depth }}
+
+# Paths to trust anchor locator (TAL) files
+tal_files:
+{% for tal in tal_files %}
+  - {{ tal }}
+{% endfor %}
+
+# List of repositories to use for validation
+repositories:
+{% for repo in repositories %}
+  - uri: {{ repo.uri }}
+    name: {{ repo.name | default(repo.uri) }}
+{% endfor %}
+
+# Optional: Override CA trust anchor certificates
+trust_anchors:
+{% for ta in trust_anchors %}
+  - name: {{ ta.name }}
+    cert_file: {{ ta.cert_file }}
+{% endfor %}
+
+# Optional: Custom CA repository endpoints (e.g., for testing)
+ca_repos:
+{% for repo in ca_repos %}
+  - uri: {{ repo.uri }}
+    name: {{ repo.name | default(repo.uri) }}
+{% endfor %}
+
+# Optional: Local file cache path (defaults to system temp if omitted)
+{% if cache_dir %}
+cache_dir: {{ cache_dir }}
+{% endif %}
+
+# Optional: Enable/disable HTTP/2 support for repositories
+{% if http2_enabled is defined %}
+http2_enabled: {{ 'true' if http2_enabled else 'false' }}
+{% endif %}
+
+# Optional: Timeout settings (in seconds)
+timeouts:
+  connect: {{ timeouts.connect }}
+  read: {{ timeouts.read }}
+  write: {{ timeouts.write }}
+
+# Optional: Rate limiting per repository
+{% if rate_limits is defined %}
+rate_limits:
+{% for rl in rate_limits %}
+  - uri: {{ rl.uri }}
+    requests_per_minute: {{ rl.requests_per_minute }}
+{% endfor %}
+{% endif %}

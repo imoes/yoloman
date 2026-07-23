@@ -1,0 +1,69 @@
+# Server mode — enable server functionality
+mode server
+
+# Listening interface and port
+bindaddress {{ bindaddress }}
+port {{ port }}
+
+# Directory where backups are stored
+storage_dir {{ storage_dir }}
+
+# Maximum number of concurrent client connections
+max_connections {{ max_connections }}
+
+# Whether to allow clients to delete their own backups
+allow_delete {{ 'yes' if allow_delete else 'no' }}
+
+# Whether to compress backups (default: yes)
+compression {{ 'yes' if compression else 'no' }}
+
+# Optional CA and certificate paths for TLS
+ca_crt {{ ca_crt }}
+server_crt {{ server_crt }}
+server_key {{ server_key }}
+
+# Optional client certificate verification
+ca_crl {{ ca_crl | default('') | trim or '' | replace('', '') }}
+{% if ca_crl %}
+ca_crl {{ ca_crl }}
+{% endif %}
+
+# Client access control — one `client` block per client
+{% for client in clients %}
+client {{ client.name }} {
+  # Required client certificate CN (Common Name) or IP
+  cert_cn {{ client.cert_cn }}
+  
+  # Optional: restrict client to specific backup directory under storage_dir
+  {% if client.backup_dir %}
+  chroot {{ storage_dir }}{{ client.backup_dir | replace(storage_dir, '') | replace('//', '/') | replace('//', '/') }}
+  {% else %}
+  # No chroot (client uses default storage root)
+  {% endif %}
+  
+  # Optional: set client-specific password (if using password auth instead of certs)
+  {% if client.password %}
+  password {{ client.password }}
+  {% endif %}
+  
+  # Optional: list of allowed IP addresses (CIDR or single IP)
+  {% if client.allowed_ips %}
+  allow {{ client.allowed_ips | join('\n  allow ') }}
+  {% endif %}
+}
+{% endfor %}
+
+# Optional: global client allow/deny (fallback if no per-client block matches)
+{% if allow_clients %}
+# Allow only listed clients (by cert CN or IP)
+{% for host in allow_clients %}
+allow {{ host }}
+{% endfor %}
+{% else %}
+# Allow all clients (not recommended in production)
+allow 0.0.0.0/0
+{% endif %}
+
+# Logging configuration
+log_file {{ log_file }}
+log_file_level {{ log_file_level }}

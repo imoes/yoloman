@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Globus GridFTP server configuration with PBS SEG support -->
+<!-- Enable the PBS Job Manager support module -->
+<Configuration>
+  <Service name="globus_gram_job_manager_pbs_seg">
+    <!-- Path to the PBS qstat executable -->
+    <Option name="qstat_path" value="{{ qstat_path }}" />
+    <!-- Path to the PBS qsub executable -->
+    <Option name="qsub_path" value="{{ qsub_path }}" />
+    <!-- Path to the PBS qdel executable -->
+    <Option name="qdel_path" value="{{ qdel_path }}" />
+    <!-- Path to the PBS qacct executable (if used) -->
+    {% if qacct_path %}<Option name="qacct_path" value="{{ qacct_path }}" />{% endif %}
+    <!-- Path to the PBS qhost executable (if used) -->
+    {% if qhost_path %}<Option name="qhost_path" value="{{ qhost_path }}" />{% endif %}
+    <!-- Path to the PBS qrun executable (if used for job submission) -->
+    {% if qrun_path %}<Option name="qrun_path" value="{{ qrun_path }}" />{% endif %}
+    <!-- Maximum number of jobs to query per batch (PBS qstat) -->
+    <Option name="max_jobs_per_query" value="{{ max_jobs_per_query }}" />
+    <!-- Time (in seconds) between polling PBS for job status updates -->
+    <Option name="poll_interval" value="{{ poll_interval }}" />
+    <!-- Enable verbose logging for PBS interactions -->
+    <Option name="verbose" value="{{ verbose }}" />
+    <!-- Comma-separated list of PBS queue names allowed for job submission -->
+    <Option name="allowed_queues" value="{{ allowed_queues | join(', ') }}" />
+    <!-- Default PBS queue for job submission -->
+    <Option name="default_queue" value="{{ default_queue }}" />
+    <!-- Default resource limits (walltime, memory, nodes) for jobs submitted via SEG -->
+    <Option name="default_resources" value="{{ default_resources }}" />
+    <!-- Path to the PBS prolog script (run before job start) -->
+    {% if prolog_path %}<Option name="prolog_path" value="{{ prolog_path }}" />{% endif %}
+    <!-- Path to the PBS epilog script (run after job completion) -->
+    {% if epilog_path %}<Option name="epilog_path" value="{{ epilog_path }}" />{% endif %}
+    <!-- List of environment variables to preserve for jobs (passed via SEG) -->
+    {% for var in env_vars %}    <Option name="preserve_env_{{ loop.index0 }}" value="{{ var }}" />{% endfor %}
+    <!-- List of PBS job attributes to map to Globus job attributes -->
+    {% for mapping in attr_mappings %}    <Option name="attr_map_{{ mapping.name | replace('"', '&quot;') }}" value="{{ mapping.pbs_attr | replace('"', '&quot;') }}:{{ mapping.globus_attr | replace('"', '&quot;') }}" />{% endfor %}
+  </Service>
+</Configuration>

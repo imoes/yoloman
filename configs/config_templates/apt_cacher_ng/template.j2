@@ -1,0 +1,59 @@
+# Base directory for cached files and internal state
+BaseDir: {{ base_dir }}
+
+# Directory for temporary files
+TempDir: {{ temp_dir }}
+
+# Directory for logs
+LogDir: {{ log_dir }}
+
+# Network address to bind to (use 0.0.0.0 for all interfaces)
+BindAddress: {{ bind_address }}
+
+# Port to listen on
+Port: {{ port }}
+
+# Maximum number of concurrent connections
+MaxConnections: {{ max_connections }}
+
+# Enable debug logging (0=none, 1=normal, 2=verbose)
+# 0 is recommended for production
+DebugLevel: {{ debug_level }}
+
+# Time (in seconds) before stale cached files are considered expired
+MaxAge: {{ max_age }}
+
+# Time (in seconds) to wait for upstream response before timeout
+Timeout: {{ timeout }}
+
+# Compression format for cached files: gzip, none
+Compression: {{ compression }}
+
+# Enable support for HTTP/1.1 pipelining (improves performance)
+# May cause issues with some broken proxies; set to 0 if problems occur
+UsePipelining: {{ use_pipelining | lower }}
+
+# Enable support for gzip-encoded responses from clients (reduces bandwidth)
+UseGzipEncoding: {{ use_gzip_encoding | lower }}
+
+# Enable support for DEB822-style Sources files (for apt ≥ 2.7)
+SupportDeb822: {{ support_deb822 | lower }}
+
+# Enable path normalization (prevents duplicate caches for same URI with different paths)
+NormalizePath: {{ normalize_path | lower }}
+
+# List of upstream proxies to use, if any (format: host:port;user:pass)
+# Example: "proxy.example.com:3128;user:pass"
+UpstreamProxies: {% for proxy in upstream_proxies %}{{ loop.index > 1 and ', ' or '' }}{{ proxy }}{% endfor %}
+
+# Per-repository or per-mirror configuration
+# Format: <scheme>://<host>[:<port>]/<path> → local_path
+# Comments start with #
+{% for mirror in mirrors %}
+# {{ mirror.name }}: cache from {{ mirror.url }} to {{ mirror.local_path }}
+{{ mirror.url }}: {{ mirror.local_path }}
+{% endfor %}
+
+# Additional configuration files to include (path relative to config dir or absolute)
+# Use for modular or per-site overrides
+# Include: extra.conf

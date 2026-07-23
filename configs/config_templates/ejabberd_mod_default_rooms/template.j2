@@ -1,0 +1,25 @@
+# Load the ejabberd_mod_default_rooms module
+modules:
+  mod_default_rooms:
+    # Directory where bookmark files are stored (per user, by JID hash)
+    # This path should be writable by the ejabberd user
+    storage:
+      file:
+        # Base directory for storing user bookmarks
+        dir: {{ storage_dir }}
+
+    # Default MUC rooms to add to new users' bookmarks
+    # Each entry defines a room JID, nickname, autojoin flag, and optional name
+    default_rooms:
+{% for room in default_rooms %}
+      - jid: {{ room.jid | to_json }}
+        # Nickname to use when joining the room
+        nick: {{ room.nick | to_json }}
+        # Whether to autojoin this room on first login
+        autojoin: {{ room.autojoin | lower }}
+        # Human-readable room name (optional; uses room's displayed name if missing)
+        name: {{ room.name | to_json if room.name is defined else 'none' | to_json }}
+{% endfor %}
+
+    # Whether to merge with existing bookmarks (if any) vs. replace entirely
+    merge_with_existing: {{ merge_with_existing | lower }}

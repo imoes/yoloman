@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- D-Bus service configuration for oddjobd -->
+<!DOCTYPE busconfig PUBLIC "-//freedesktop//DTD D-BUS Bus Configuration 1.0//EN"
+ "http://www.freedesktop.org/standards/dbus/1.0/busconfig.dtd">
+<busconfig>
+  <!-- Allow oddjobd to be started by D-Bus activation -->
+  <servicename>com.redhat.oddjob</servicename>
+
+  <!-- Define allowed users/groups to own the service -->
+  {% for user in service_owners %}
+  <!-- Owner: {{ user.name }} -->
+  <user>{{ user.name }}</user>
+  {% endfor %}
+
+  <!-- Allow specific groups to access oddjob operations -->
+  {% for group in allowed_groups %}
+  <!-- Allow group: {{ group.name }} to access service -->
+  <policy group="{{ group.name }}">
+    <allow own="com.redhat.oddjob"/>
+    <allow send_destination="com.redhat.oddjob"/>
+    <allow receive_sender="com.redhat.oddjob"/>
+  </policy>
+  {% endfor %}
+
+  <!-- Configure the service's executable and arguments -->
+  <serviceexec>{{ service_exec }}</serviceexec>
+  {% for arg in service_args %}
+  <servicearg>{{ arg }}</servicearg>
+  {% endfor %}
+
+  <!-- Set process priority (nice level) -->
+  <!-- Nice level: {{ nice_level }} -->
+  <nice>{{ nice_level }}</nice>
+
+  <!-- Set resource limits for worker processes -->
+  <!-- Max running jobs: {{ max_jobs }} -->
+  <maxjobs>{{ max_jobs }}</maxjobs>
+
+  <!-- Maximum number of jobs per user -->
+  <!-- Max jobs per user: {{ max_jobs_per_user }} -->
+  <maxjobsperuser>{{ max_jobs_per_user }}</maxjobsperuser>
+
+  <!-- Job execution timeout in seconds (0 = no timeout) -->
+  <!-- Job timeout: {{ job_timeout }} seconds -->
+  <jobtimeout>{{ job_timeout }}</jobtimeout>
+
+  <!-- Enable/disable logging to syslog -->
+  {% if enable_syslog %}
+  <!-- Logging to syslog is enabled -->
+  <syslog>true</syslog>
+  {% else %}
+  <!-- Logging to syslog is disabled -->
+  <syslog>false</syslog>
+  {% endif %}
+
+  <!-- Log level: 0=error, 1=warn, 2=info, 3=debug -->
+  <!-- Log level: {{ log_level }} -->
+  <loglevel>{{ log_level }}</loglevel>
+
+  <!-- Path to custom job helper scripts directory -->
+  <!-- Helper scripts directory: {{ helper_dir }} -->
+  <helperdir>{{ helper_dir }}</helperdir>
+</busconfig>

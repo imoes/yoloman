@@ -1,0 +1,45 @@
+# Enable or disable debug logging
+{% if debug %}debug{% endif %}
+
+# Set the default policy for handling multiple plugins (e.g., 'first_ok', 'all', 'any')
+policy {{ policy }}
+
+# Base directory for plugin and data files
+plugin_dir {{ plugin_dir }}
+data_dir {{ data_dir }}
+
+# Default timeout (in seconds) for network operations
+network_timeout {{ network_timeout }}
+
+# Enable or disable IPv6 support
+{% if enable_ipv6 %}enable_ipv6{% endif %}
+
+# List of services and their associated plugins
+{% for service in services %}
+# Service: {{ service.name }} — plugin: {{ service.plugin }}
+service {{ service.name }} {{ service.plugin }}
+{% endfor %}
+
+# Per-service plugin options (key=value pairs)
+{% for service in services %}
+{% if service.options %}
+# Options for service: {{ service.name }}
+{% for key, value in service.options.items() %}{{ key }} {{ value }}
+{% endfor %}
+{% endif %}
+{% endfor %}
+
+# List of hostname entries to update (host:provider:plugin:address_type:address_source)
+{% for host in hosts %}
+# Host: {{ host.hostname }} — provider: {{ host.provider }} — plugin: {{ host.plugin }}
+host {{ host.hostname }} {{ host.provider }} {{ host.plugin }} {{ host.address_type }} {{ host.address_source }}
+{% endfor %}
+
+# Global plugin options (e.g., user, password, api_key, etc.)
+{% for key, value in global_options.items() %}# Global option: {{ key }}
+{{ key }} {{ value }}
+{% endfor %}
+
+# Logging configuration
+{% if log_file %}log_file {{ log_file }}{% endif %}
+log_level {{ log_level }}

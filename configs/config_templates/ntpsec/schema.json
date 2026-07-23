@@ -1,0 +1,88 @@
+{
+  "pool": {
+    "type": "string",
+    "default": "pool.ntp.org",
+    "description": "Default NTP server pool to use for time synchronization."
+  },
+  "internal_networks": {
+    "type": "list",
+    "default": [],
+    "description": "List of internal networks to grant limited NTP access (e.g., for LAN time distribution).",
+    "items": {
+      "type": "object",
+      "properties": {
+        "ip": {
+          "type": "string",
+          "description": "Network IP address (e.g., '192.168.10.0')."
+        },
+        "mask": {
+          "type": "string",
+          "description": "Network mask in dotted-decimal (e.g., '255.255.255.0')."
+        }
+      }
+    }
+  },
+  "stats_logging": {
+    "type": "boolean",
+    "default": false,
+    "description": "Enable logging of loop, peer, and clock statistics to files."
+  },
+  "leap_seconds_file": {
+    "type": "string",
+    "default": null,
+    "description": "Path to leap seconds definition file (e.g., '/usr/share/zoneinfo/leap-seconds.list'). Leave null to skip."
+  },
+  "settle_threshold": {
+    "type": "number",
+    "default": 120,
+    "description": "Time (in seconds) to wait after startup before allowing time slewing. Use 0 for immediate."
+  },
+  "force_ipv4_only": {
+    "type": "boolean",
+    "default": false,
+    "description": "Force NTP daemon to use only IPv4. Conflicts with force_ipv6_only."
+  },
+  "force_ipv6_only": {
+    "type": "boolean",
+    "default": false,
+    "description": "Force NTP daemon to use only IPv6. Conflicts with force_ipv4_only."
+  },
+  "broadcast_enabled": {
+    "type": "boolean",
+    "default": false,
+    "description": "Enable NTP broadcast mode on a designated subnet. Not recommended in secure environments unless needed for legacy clients."
+  },
+  "peers": {
+    "type": "list",
+    "default": [],
+    "description": "List of explicit peer servers (beyond the main pool), useful for hybrid or high-availability setups.",
+    "items": {
+      "type": "object",
+      "properties": {
+        "host": {
+          "type": "string",
+          "description": "Hostname or IP address of the peer server."
+        },
+        "prefer": {
+          "type": "boolean",
+          "description": "Mark this peer as preferred (adds 'prefer' keyword to server line)."
+        }
+      }
+    }
+  },
+  "log_level": {
+    "type": "string",
+    "default": "info",
+    "description": "NTP logging verbosity level: 'info', 'warning', 'error', 'event'. Leave null for default."
+  },
+  "enable_keys": {
+    "type": "boolean",
+    "default": false,
+    "description": "Enable symmetric key authentication (rarely needed; use only if legacy clients require it)."
+  },
+  "enable_monitoring_stats": {
+    "type": "boolean",
+    "default": false,
+    "description": "Enable runtime monitoring statistics output for external analysis (e.g., NTP monitoring tools)."
+  }
+}

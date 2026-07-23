@@ -1,0 +1,198 @@
+{
+  "debug_mode": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable debug logging to file."
+  },
+  "debug_log_file": {
+    "type": "string",
+    "default": "/var/log/icinga2/debug.log",
+    "description": "Path to the debug log file (only used if debug_mode is true)."
+  },
+  "features": {
+    "type": "list",
+    "default": [
+      {
+        "name": "api",
+        "enabled": true,
+        "config": {}
+      },
+      {
+        "name": "checker",
+        "enabled": true,
+        "config": {}
+      },
+      {
+        "name": "notification",
+        "enabled": true,
+        "config": {}
+      },
+      {
+        "name": "mainlog",
+        "enabled": true,
+        "config": {}
+      }
+    ],
+    "items": {
+      "type": "object",
+      "fields": {
+        "name": {
+          "type": "string",
+          "description": "Feature name (e.g., 'api', 'checker', 'notification')."
+        },
+        "enabled": {
+          "type": "bool",
+          "description": "Whether to enable the feature."
+        },
+        "config": {
+          "type": "object",
+          "description": "Feature-specific configuration key-value pairs (type depends on feature)."
+        }
+      }
+    },
+    "description": "List of Icinga 2 features to enable. Each feature has a name, enable flag, and optional config dict."
+  },
+  "api_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable Icinga 2 API (required for distributed monitoring)."
+  },
+  "api_node_name": {
+    "type": "string",
+    "default": "icinga2-node",
+    "description": "Hostname/identifier for this Icinga 2 instance in the cluster."
+  },
+  "api_zone_name": {
+    "type": "string",
+    "default": "master",
+    "description": "Zone name this node belongs to."
+  },
+  "api_host": {
+    "type": "string",
+    "default": "127.0.0.1",
+    "description": "IP address or hostname the API listener binds to."
+  },
+  "api_port": {
+    "type": "number",
+    "default": 5665,
+    "description": "Port the API listener listens on."
+  },
+  "api_parent_zone": {
+    "type": "string",
+    "default": "",
+    "description": "Optional parent zone (for hierarchical zones)."
+  },
+  "notifications_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable notification logic (e.g., mail)."
+  },
+  "notification_interval": {
+    "type": "number",
+    "default": 300,
+    "description": "Interval between repeated notifications (in seconds)."
+  },
+  "admin_email": {
+    "type": "string",
+    "default": "icinga-admin@localhost",
+    "description": "Email address for admin notifications."
+  },
+  "admin_pager": {
+    "type": "string",
+    "default": "",
+    "description": "Pager/SMSTP email or number for admin alerts."
+  },
+  "notification_period": {
+    "type": "string",
+    "default": "24x7",
+    "description": "Time period during which notifications are sent (e.g., '24x7', 'workhours')."
+  },
+  "notification_types": {
+    "type": "list",
+    "default": [
+      "Warning",
+      "Critical",
+      "Recovery",
+      "Acknowledgement",
+      "FlappingStart",
+      "FlappingEnd"
+    ],
+    "items": {
+      "type": "string"
+    },
+    "description": "Notification types to send (e.g., 'Warning', 'Critical', 'Recovery')."
+  },
+  "hosts": {
+    "type": "list",
+    "default": [],
+    "items": {
+      "type": "object",
+      "fields": {
+        "name": {
+          "type": "string",
+          "description": "Unique host identifier."
+        },
+        "display_name": {
+          "type": "string",
+          "description": "Human-readable host name (optional)."
+        },
+        "address": {
+          "type": "string",
+          "description": "IP address or hostname to monitor."
+        },
+        "vars": {
+          "type": "object",
+          "description": "Custom host variables (e.g., os, rack, team)."
+        }
+      }
+    },
+    "description": "List of hosts to monitor. Each host defines name, optional display name, address, and custom vars."
+  },
+  "services": {
+    "type": "list",
+    "default": [],
+    "items": {
+      "type": "object",
+      "fields": {
+        "host_name": {
+          "type": "string",
+          "description": "Host this service belongs to."
+        },
+        "name": {
+          "type": "string",
+          "description": "Service name (e.g., 'Ping', 'HTTP')."
+        },
+        "display_name": {
+          "type": "string",
+          "description": "Human-readable service name (optional)."
+        },
+        "check_command": {
+          "type": "string",
+          "description": "Name of the check command (must be defined elsewhere)."
+        },
+        "interval": {
+          "type": "number",
+          "description": "Check interval in seconds (optional)."
+        },
+        "retry_interval": {
+          "type": "number",
+          "description": "Retry interval in seconds (optional)."
+        },
+        "max_check_attempts": {
+          "type": "number",
+          "description": "Number of retries before alerting (optional)."
+        },
+        "vars": {
+          "type": "object",
+          "description": "Custom service variables (e.g., http_port, ssl)."
+        }
+      }
+    },
+    "description": "List of services to monitor per host. Each service specifies host, name, command, and optional timing/vars."
+  },
+  "hostname": {
+    "type": "string",
+    "default": "icinga2",
+    "description": "Hostname of this machine (used in notification apply rules)."
+  }
+}

@@ -1,0 +1,68 @@
+# LogWatch Configuration File
+# This file controls global LogWatch behavior.
+
+# Where to send the report (email address or 'stdout')
+MailTo = {{ mail_to }}
+
+# Who the report should appear to be from
+MailFrom = {{ mail_from }}
+
+# Should the report be sent as plain text or HTML?
+Format = {{ format }}
+
+# Should the report include details (high = verbose, low = minimal)
+Detail = {{ detail }}
+
+# List of services to include in the report (leave empty to include all enabled services)
+{% if service_whitelist %}
+Service = {% for s in service_whitelist %}{{ s }}{% if not loop.last %}, {% endif %}{% endfor %}
+{% endif %}
+
+# List of services to explicitly exclude
+{% if service_blacklist %}
+Service = -{% for s in service_blacklist %}{{ s }}{% if not loop.last %}, {% endfor %}{% endif %}
+{% endif %}
+
+# Directory where LogWatch stores its temporary files
+TempDir = {{ temp_dir }}
+
+# Directory containing LogWatch configuration files (logs, services, etc.)
+LogDir = {{ log_dir }}
+
+# Maximum age (in days) of logs to process
+Archive = {{ archive }}
+
+# Whether to compress processed logs
+Compress = {{ compress }}
+
+# Whether to ignore logs older than Archive (true/false)
+IgnoreOld = {{ ignore_old }}
+
+# Whether to include unassociated lines in the report
+Unassociated = {{ unassociated }}
+
+# Whether to print the full date/time for each log line
+DatePrefix = {{ date_prefix }}
+
+# Whether to include split log lines in the report (for logs split across days)
+SplitLongLines = {{ split_long_lines }}
+
+# Whether to include the hostname in the report header
+Hostnames = {{ hostnames }}
+
+# Whether to include only today's logs (true) or the full date range (false)
+Range = {{ range }}
+
+# Whether to include verbose debug info (for troubleshooting)
+Debug = {{ debug }}
+
+# Whether to use systemd-journald as a log source (true/false)
+UseJournal = {{ use_journal }}
+
+# Journalctl filter options when UseJournal is enabled (e.g., "-u sshd -u cron")
+{% if journal_filters %}
+JournalFilter = {% for f in journal_filters %}{{ f }}{% if not loop.last %} {% endif %}{% endfor %}
+{% endif %}
+
+# How many days of history to retain for archived reports (0 = never delete)
+ArchiveDays = {{ archive_days }}

@@ -1,0 +1,115 @@
+# System user and group for the CUPS scheduler
+User {{ cups_user }}
+Group {{ cups_group }}
+
+# Port on which the scheduler listens for HTTP connections (0 to disable)
+Port {{ http_port }}
+
+# Port on which the scheduler listens for HTTPS connections (0 to disable)
+Port {{ https_port }}
+
+# Maximum number of concurrent jobs the scheduler will process
+MaxClients {{ max_clients }}
+
+# Maximum number of jobs to keep in the job history (0 for unlimited)
+MaxJobs {{ max_jobs }}
+
+# Maximum size (in bytes) of a job file
+MaxJobSize {{ max_job_size }}
+
+# Timeout (in seconds) for client connections
+Timeout {{ timeout }}
+
+# Directory where printer drivers and PPD files are stored
+ServerRoot {{ server_root }}
+
+# Directory where temporary files are stored
+TempDir {{ temp_dir }}
+
+# Enable remote administration via web interface
+WebInterface {{ web_interface }}
+
+# Log level: debug, info, warn, error, critical
+LogLevel {{ log_level }}
+
+# Log file path for CUPS logs
+LogDir {{ log_dir }}
+
+# Enable logging of printer events (e.g., job completed, printer added)
+SystemGroup {{ system_group }}
+
+# Enable encryption (TLS) for server connections
+Encryption {{ encryption }}
+
+# Default printer URI scheme (e.g., ipp, http, https)
+DefaultProtocol {{ default_protocol }}
+
+# Allow printing from remote hosts
+RemoteRoot {{ remote_root }}
+
+# List of allowed hosts for remote administration (comma-separated or use RemoteAdminAllow/RemoteAdminDeny below)
+{% for host in remote_admin_allow %}RemoteAdminAllow {{ host }}
+{% endfor %}{% if not remote_admin_allow %}# RemoteAdminAllow none  # (optional — uncomment to restrict)
+{% endif %}{% for host in remote_admin_deny %}RemoteAdminDeny {{ host }}
+{% endfor %}{% if not remote_admin_deny %}# RemoteAdminDeny all  # (optional — uncomment to deny all by default)
+{% endif %}
+
+# List of allowed hosts for printing (comma-separated or use ServerAllow/ServerDeny below)
+{% for host in server_allow %}ServerAllow {{ host }}
+{% endfor %}{% if not server_allow %}# ServerAllow none  # (optional — uncomment to restrict)
+{% endif %}{% for host in server_deny %}ServerDeny {{ host }}
+{% endfor %}{% if not server_deny %}# ServerDeny all  # (optional — uncomment to deny all by default)
+{% endif %}
+
+# List of allowed hosts for remote printing (via ipp:// URI)
+{% for host in remote_printers_allow %}RemotePrintersAllow {{ host }}
+{% endfor %}{% if not remote_printers_allow %}# RemotePrintersAllow none  # (optional — uncomment to restrict)
+{% endif %}{% for host in remote_printers_deny %}RemotePrintersDeny {{ host }}
+{% endfor %}{% if not remote_printers_deny %}# RemotePrintersDeny all  # (optional — uncomment to deny all by default)
+{% endif %}
+
+# Path to the authentication helper binary for PAM/LDAP auth
+AuthHelper {{ auth_helper }}
+
+# Enable authentication for remote printers (requires cups-pk-helper or similar)
+EnableRemoteAdmin {{ enable_remote_admin }}
+EnableRemotePrinters {{ enable_remote_printers }}
+
+# Default language and character set for server responses
+ServerName {{ server_name }}
+ServerPort {{ server_port }}
+
+# Path to the BCP-47 language file for localization
+LanguageFile {{ language_file }}
+
+# Enable job encryption (if printer supports it)
+JobPrivateAccess {{ job_private_access }}
+JobPrivateValues {{ job_private_values }}
+
+# Default printer access control
+PrinterPrivateAccess {{ printer_private_access }}
+PrinterPrivateValues {{ printer_private_values }}
+
+# Browsing settings
+Browsing {{ browsing }}
+BrowseLocalProtocols {{ browse_local_protocols | join(', ') }}
+{% if browse_remote_protocols %}BrowseRemoteProtocols {{ browse_remote_protocols | join(', ') }}
+{% endif %}
+
+# Default printer sharing policy
+DefaultShared {{ default_shared }}
+
+# Enable Page Logic (for printer-specific job control)
+PageLogic {{ page_logic }}
+
+# Path to the cache directory
+CacheDir {{ cache_dir }}
+
+# Path to the state directory
+StateDir {{ state_dir }}
+
+# Path to the ppd directory
+PPDPath {{ ppd_path }}
+
+# Enable support for SNMP printer discovery
+SNMPSupport {{ snmp_support }}

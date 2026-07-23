@@ -1,0 +1,41 @@
+{
+  "tb_path": {
+    "type": "string",
+    "default": "/var/lib/chess-tablebases/gaviota",
+    "description": "Absolute filesystem path to the directory containing Gaviota .gtb tablebase files (e.g., 5-piece endgame databases). Must contain at least one .gtb file."
+  },
+  "io_threads": {
+    "type": "number",
+    "default": 4,
+    "description": "Maximum number of parallel I/O threads for reading tablebase files. Increase for high-core-count systems or large databases; keep \u2264 CPU core count for best efficiency."
+  },
+  "use_compression": {
+    "type": "bool",
+    "default": true,
+    "description": "Whether to use Gaviota's compression scheme. Enabled (true) reduces memory usage but increases CPU load during table lookup. Disable (false) for maximum speed on systems with ample RAM."
+  },
+  "cache_size": {
+    "type": "number",
+    "default": 256,
+    "description": "Maximum cache size (in MiB) for decompressed tablebase chunks. Larger caches reduce disk I/O and improve response latency, but consume RAM."
+  },
+  "preload": {
+    "type": "bool",
+    "default": false,
+    "description": "If true, preloads all tablebase files into memory at service startup. Use only on systems with sufficient RAM (e.g., \u2265 1 GiB for 5-piece databases)."
+  },
+  "preload_files": {
+    "type": "list",
+    "default": [],
+    "description": "List of specific tablebase filenames (e.g., ['KQvK.gtb', 'KRNvK.gtb']) to preload instead of all files. Only honored if preload=true.",
+    "items": {
+      "type": "string",
+      "description": "A .gtb tablebase filename (e.g., 'KQvK.gtb') to preload on startup."
+    }
+  },
+  "fallback_path": {
+    "type": "string",
+    "default": null,
+    "description": "Optional secondary path to check if the primary TB_PATH is missing or empty. Usually not needed unless running multiple tablebase sets."
+  }
+}

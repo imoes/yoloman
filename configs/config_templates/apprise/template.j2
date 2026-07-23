@@ -1,0 +1,61 @@
+# Apprise Configuration File
+# Define global settings for Apprise notification service
+
+# Enable debug mode (for detailed logging)
+{{ 'debug: true' if debug else 'debug: false' }}
+
+# Default timeout (in seconds) for outgoing notifications
+timeout: {{ timeout }}
+
+# Default retries (number of attempts on failure)
+retry_attempts: {{ retry_attempts }}
+
+# Default retry delay (in seconds)
+retry_delay: {{ retry_delay }}
+
+# Default log level (critical, error, warning, info, debug)
+log_level: "{{ log_level }}"
+
+# Define notification services (URLs or references to config files)
+# Each service can optionally include a tag for targeting
+urls:
+{% for service in services %}
+  # {{ service.comment | default('Notification service') }}
+  - {{ service.url }}
+{% if service.tags %}
+    tags: [{{ service.tags | join(', ') }}]
+{% endif %}
+{% endfor %}
+
+# Optional: Define custom tags (for grouping/labeling services)
+{% if tags %}
+tags:
+{% for tag_name, tag_desc in tags.items() %}
+  # {{ tag_desc }}
+  {{ tag_name }}: {}
+{% endfor %}
+{% endif %}
+
+# Optional: Define inline YAML-based services (advanced usage)
+{% if inline_services %}
+# Inline service definitions (e.g., custom plugins or extended configs)
+{% for svc in inline_services %}
+  # {{ svc.comment | default('Inline service definition') }}
+  {{ svc.name }}:
+{% for key, val in svc.config.items() %}
+    {{ key }}: {{ val }}
+{% endfor %}
+{% endfor %}
+{% endif %}
+
+# Optional: Define webhook notification overrides
+{% if webhook_defaults %}
+webhook:
+  # Default webhook content type (application/json or application/x-www-form-urlencoded)
+  content_type: "{{ webhook_defaults.content_type }}"
+  # Default HTTP method for webhooks
+  method: "{{ webhook_defaults.method }}"
+{% endif %}
+
+# Optional: Disable SSL verification (NOT recommended for production)
+{{ 'disable_ssl_verification: true' if disable_ssl_verification else '' }}

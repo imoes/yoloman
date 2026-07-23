@@ -1,0 +1,237 @@
+{
+  "hostname": {
+    "type": "string",
+    "default": "mail.example.com",
+    "description": "Fully-qualified domain name (FQDN) used for SMTP HELO and banner identification."
+  },
+  "local_domains": {
+    "type": "list",
+    "default": [
+      "example.com",
+      "example.org"
+    ],
+    "description": "List of domains whose mail is delivered locally (not relayed)."
+  },
+  "local_domains_extra": {
+    "type": "list",
+    "default": [],
+    "description": "Additional local domains (deprecated; prefer `local_domains`)."
+  },
+  "relay_domains": {
+    "type": "list",
+    "default": [],
+    "description": "Domains for which this server will accept and relay mail (e.g., partner domains)."
+  },
+  "relay_hosts": {
+    "type": "list",
+    "default": [
+      "127.0.0.1",
+      "::1"
+    ],
+    "description": "List of IPs/CIDRs allowed to relay mail without authentication. Restrict to trusted hosts only."
+  },
+  "daemon_interfaces": {
+    "type": "list",
+    "default": [
+      "0.0.0.0",
+      "::0"
+    ],
+    "description": "IP addresses the SMTP daemon listens on. Use ['127.0.0.1'] to restrict to localhost only."
+  },
+  "smtp_port": {
+    "type": "number",
+    "default": 25,
+    "description": "TCP port for inbound SMTP (MTA) connections."
+  },
+  "submission_port": {
+    "type": "number",
+    "default": 587,
+    "description": "TCP port for authenticated SMTP submission (client mail agents)."
+  },
+  "tls_enable": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable TLS encryption for inbound and outbound connections."
+  },
+  "tls_certificate": {
+    "type": "string",
+    "default": "/etc/ssl/certs/mail.example.com.crt",
+    "description": "Path to server TLS certificate (PEM format)."
+  },
+  "tls_private_key": {
+    "type": "string",
+    "default": "/etc/ssl/private/mail.example.com.key",
+    "description": "Path to server TLS private key (PEM format)."
+  },
+  "tls_ca_certificates": {
+    "type": "string",
+    "default": "/etc/ssl/certs/ca-certificates.crt",
+    "description": "Path to CA bundle for verifying client/relay certificates."
+  },
+  "tls_min_protocol": {
+    "type": "string",
+    "default": "tls1_2",
+    "description": "Minimum TLS protocol version supported (e.g., 'tls1_2' or 'tls1_3')."
+  },
+  "auth_sasl_plaintext": {
+    "type": "bool",
+    "default": false,
+    "description": "Allow PLAIN and LOGIN mechanisms over unencrypted connections (dangerous\u2014set to false unless restricted to localhost)."
+  },
+  "auth_mechanisms": {
+    "type": "list",
+    "default": [
+      "cram-md5",
+      "login",
+      "plain"
+    ],
+    "description": "List of SASL authentication mechanisms to support (order matters)."
+  },
+  "local_delivery": {
+    "type": "string",
+    "default": "maildir_format",
+    "description": "Local delivery method: 'maildir_format', 'mbox_format', or 'pipe'."
+  },
+  "maildir_path_template": {
+    "type": "string",
+    "default": "%h/Maildir/",
+    "description": "Template for Maildir path (uses %h = home dir, %n = user, %d = domain)."
+  },
+  "mbox_path": {
+    "type": "string",
+    "default": "/var/mail/%n",
+    "description": "Path pattern for MBOX delivery (used only if local_delivery = mbox)."
+  },
+  "smart_host": {
+    "type": "string",
+    "default": "",
+    "description": "Optional smart host for relaying all outbound mail (e.g., 'smtp-relay.example.com::587'). Leave empty for direct delivery."
+  },
+  "dns_routing": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable DNS lookups for remote delivery. Disable only in isolated environments."
+  },
+  "max_parallel_inbound": {
+    "type": "number",
+    "default": 20,
+    "description": "Maximum concurrent inbound SMTP connections (protect against resource exhaustion)."
+  },
+  "msg_per_conn": {
+    "type": "number",
+    "default": 100,
+    "description": "Maximum messages allowed per SMTP connection (0 = unlimited)."
+  },
+  "smtp_timeout": {
+    "type": "number",
+    "default": 300,
+    "description": "SMTP connection timeout in seconds (including read/write)."
+  },
+  "queue_interval": {
+    "type": "number",
+    "default": 300,
+    "description": "Seconds between automatic queue runs (0 = disable)."
+  },
+  "acl_enable": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable access control lists (ACLs) for fine-grained policy enforcement."
+  },
+  "content_scan_enable": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable content scanning (virus/spam) via exiscan-acl."
+  },
+  "clamd_socket": {
+    "type": "string",
+    "default": "localhost:3310",
+    "description": "ClamAV daemon socket (host:port or /path/to/socket). Set to '' to disable."
+  },
+  "spamc_socket": {
+    "type": "string",
+    "default": "localhost:783",
+    "description": "SpamAssassin spamc socket (host:port or /path/to/socket). Set to '' to disable."
+  },
+  "spam_score_high": {
+    "type": "number",
+    "default": 15,
+    "description": "SpamAssassin score above which mail is auto-rejected."
+  },
+  "spam_score_low": {
+    "type": "number",
+    "default": 5,
+    "description": "SpamAssassin score above which mail is tagged as spam but accepted."
+  },
+  "log_level": {
+    "type": "number",
+    "default": 1,
+    "description": "Log verbosity: 0 = minimal, 1 = verbose, 2 = debug (use sparingly in production)."
+  },
+  "log_file_path": {
+    "type": "string",
+    "default": "/var/log/exim4",
+    "description": "Base directory for Exim log files."
+  },
+  "main_log_path": {
+    "type": "string",
+    "default": "mainlog",
+    "description": "Relative path (from log_file_path) for main transaction log."
+  },
+  "reject_log_path": {
+    "type": "string",
+    "default": "rejectlog",
+    "description": "Relative path for log of rejected messages."
+  },
+  "panic_log_path": {
+    "type": "string",
+    "default": "paniclog",
+    "description": "Relative path for panic/error log (critical failures only)."
+  },
+  "exim_user": {
+    "type": "string",
+    "default": "Debian-exim",
+    "description": "System user for dropping privileges after startup (must exist)."
+  },
+  "exim_group": {
+    "type": "string",
+    "default": "Debian-exim",
+    "description": "System group for dropping privileges."
+  },
+  "message_size_limit": {
+    "type": "number",
+    "default": 52428800,
+    "description": "Maximum message size in bytes (0 = unlimited). Default: 50 MB."
+  },
+  "queue_max": {
+    "type": "number",
+    "default": 100000,
+    "description": "Maximum number of messages allowed in the queue."
+  },
+  "deferred_expiry": {
+    "type": "number",
+    "default": 604800,
+    "description": "Seconds to retain deferred messages before removal (0 = never expire). Default: 7 days."
+  },
+  "custom_settings": {
+    "type": "list",
+    "default": [],
+    "description": "Additional Exim configuration directives (name-value pairs).",
+    "items": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Directive name (e.g., LOG_SELECTOR)"
+        },
+        "value": {
+          "type": "string",
+          "description": "Directive value (e.g., '+all_address_rewrite +all_parents')"
+        }
+      },
+      "required": [
+        "name",
+        "value"
+      ]
+    }
+  }
+}

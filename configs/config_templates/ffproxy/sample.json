@@ -1,0 +1,60 @@
+{
+  "listen_address": "0.0.0.0",
+  "listen_port": 3128,
+  "user": "ffproxy",
+  "group": "ffproxy",
+  "max_connections": 2048,
+  "client_timeout": 20,
+  "server_timeout": 45,
+  "enable_ipv6": true,
+  "log_file": "/var/log/ffproxy/access.log",
+  "log_level": 3,
+  "auth_users": [
+    {
+      "username": "alice",
+      "password": "s3cr3t!"
+    },
+    {
+      "username": "bob",
+      "password": "b0bpass"
+    }
+  ],
+  "allowed_hosts": [
+    "*.internal.example.com",
+    "www.example.com",
+    "cdn.*"
+  ],
+  "blocked_hosts": [
+    "*.malware.net",
+    "ads.*"
+  ],
+  "enable_pipelining": true,
+  "max_request_size_kb": 5120,
+  "enable_keepalive": true,
+  "request_headers": [
+    {
+      "name": "X-Client-IP",
+      "value": "{{ remote_addr }}"
+    }
+  ],
+  "response_headers": [
+    {
+      "name": "X-Proxy-Server",
+      "value": "ffproxy"
+    }
+  ],
+  "body_replacements": [
+    {
+      "search": "old-cdn.example.com",
+      "replace_with": "new-cdn.example.com"
+    }
+  ],
+  "upstream_proxy": {
+    "host": "upstream-proxy.example.com",
+    "port": 8080,
+    "username": "proxy-user",
+    "password": "upstr3am!"
+  },
+  "disable_via_header": true,
+  "user_agent": "ffproxy/1.4.1 (secure)"
+}

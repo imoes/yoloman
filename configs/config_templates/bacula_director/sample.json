@@ -1,0 +1,185 @@
+{
+  "director_name": "MyDirector",
+  "director_port": 9101,
+  "query_file_path": "/etc/bacula/query.sql",
+  "working_directory": "/var/lib/bacula",
+  "pid_directory": "/var/run/bacula",
+  "max_concurrent_jobs": 20,
+  "director_address": "10.0.0.10",
+  "dir_tls_enable": true,
+  "catalog_name": "MyCatalog",
+  "catalog_dbname": "bacula",
+  "catalog_dbuser": "bacula",
+  "catalog_dbpassword": "secret123",
+  "catalog_dbaddress": "localhost",
+  "catalog_dbport": 5432,
+  "catalog_dbsocket": "",
+  "filesets": [
+    {
+      "name": "FullSet",
+      "description": "Full system backup including all user files",
+      "enable_vss": true,
+      "includes": [
+        {
+          "options": {
+            "signature": "SHA256",
+            "compression": "GZIP",
+            "hardlinks": true
+          },
+          "paths": [
+            "/",
+            "/home",
+            "/var",
+            "/etc"
+          ]
+        }
+      ],
+      "excludes": [
+        {
+          "path": "/proc"
+        },
+        {
+          "path": "/sys"
+        },
+        {
+          "path": "/dev"
+        },
+        {
+          "path": "/tmp"
+        }
+      ]
+    }
+  ],
+  "clients": [
+    {
+      "name": "workstation1-fd",
+      "fd_port": 9102,
+      "fd_address": "10.0.1.15",
+      "tls_enable": true,
+      "tls_ca_certificate_file": "/etc/bacula/ssl/ca-cert.pem",
+      "tls_cert_file": "/etc/bacula/ssl/workstation1-cert.pem",
+      "tls_key_file": "/etc/bacula/ssl/workstation1-key.pem",
+      "tls_ca_certificate_dir": "/etc/bacula/ssl/certs"
+    }
+  ],
+  "storages": [
+    {
+      "name": "FileStorage",
+      "description": "File-based storage on local disk",
+      "address": "10.0.0.10",
+      "sd_port": 9103,
+      "device_name": "File",
+      "media_type": "File",
+      "max_jbs": 10,
+      "max_volumes": 50,
+      "tls_enable": false
+    }
+  ],
+  "devices": [
+    {
+      "name": "File",
+      "description": "Local disk backup storage",
+      "device_type": "File",
+      "media_type": "File",
+      "archive_device": "/backup/volumes",
+      "label_media": "yes",
+      "random_access": true,
+      "automatic_mount": false,
+      "removable_media": false,
+      "always_open": false,
+      "maximum_concurrent_jobs": 10,
+      "maximum_volume_bytes": "10G",
+      "maximum_file_size": "2G"
+    }
+  ],
+  "schedules": [
+    {
+      "name": "WeeklyCycle",
+      "description": "Full on Sunday, Incremental other days",
+      "run_type": "Daily",
+      "level": "Full",
+      "day": "Sun",
+      "time": "01:00"
+    },
+    {
+      "name": "DailyIncremental",
+      "description": "Daily incremental backup at 2am",
+      "run_type": "Daily",
+      "level": "Incremental",
+      "day": "Mon-Sat",
+      "time": "02:00"
+    }
+  ],
+  "jobs": [
+    {
+      "name": "BackupClient1",
+      "jobdefs": "DefaultJob",
+      "level": "Incremental",
+      "client": "workstation1-fd",
+      "fileset": "FullSet",
+      "schedule": "DailyIncremental",
+      "storage": "FileStorage",
+      "pool": "Incremental",
+      "priority": 10,
+      "write_bootstrap": "/var/lib/bacula/workstation1.bsr"
+    }
+  ],
+  "jobdefs": [
+    {
+      "name": "DefaultJob",
+      "description": "Default job template",
+      "type": "Backup",
+      "level": "Incremental",
+      "client": "workstation1-fd",
+      "fileset": "FullSet",
+      "schedule": "WeeklyCycle",
+      "storage": "FileStorage",
+      "pool": "Default",
+      "priority": 10,
+      "full_backup_pool": "Full",
+      "incremental_backup_pool": "Incremental",
+      "differential_backup_pool": "Differential",
+      "accurate": "yes"
+    }
+  ],
+  "pools": [
+    {
+      "name": "Default",
+      "pool_type": "Backup",
+      "recycle": true,
+      "auto_prune": true,
+      "volume_retention": "30 days",
+      "maximum_volume_bytes": "50G",
+      "maximum_volumes": 100,
+      "label_format": "Pool-"
+    },
+    {
+      "name": "Full",
+      "pool_type": "Backup",
+      "recycle": true,
+      "auto_prune": true,
+      "volume_retention": "60 days",
+      "maximum_volume_bytes": "50G",
+      "maximum_volumes": 100,
+      "label_format": "Full-"
+    },
+    {
+      "name": "Incremental",
+      "pool_type": "Backup",
+      "recycle": true,
+      "auto_prune": true,
+      "volume_retention": "14 days",
+      "maximum_volume_bytes": "50G",
+      "maximum_volumes": 100,
+      "label_format": "Inc-"
+    }
+  ],
+  "messages_standard": "mail = admin@backup.local all = /dev/stderr",
+  "messages_smtp_host": "localhost",
+  "messages_from_addr": "bacula@backup.local",
+  "messages_to_addrs": [
+    "admin@backup.local",
+    "ops@backup.local"
+  ],
+  "domain": "backup.local"
+}

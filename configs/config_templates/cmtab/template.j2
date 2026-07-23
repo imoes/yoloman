@@ -1,0 +1,13 @@
+# /etc/cryptmount/cmtab - Cryptmount mount table
+# Each line defines a ciphered filesystem to be managed by cryptmount
+# Syntax: <label> <device> <target> <cipher> <keyfile> <keylength> <flags> [options]
+# <label>      - symbolic name for the filesystem
+# <device>     - underlying block device or file (e.g., /dev/sda2, /path/to/image)
+# <target>     - name of the device-mapper target (appears under /dev/mapper/)
+# <cipher>     - encryption cipher (e.g., aes-cbc-essiv:sha256)
+# <keyfile>    - path to key file (or '-' to prompt interactively, or 'none' for no key)
+# <keylength>  - key length in bits (e.g., 256)
+# <flags>      - comma-separated options (e.g., 'bootwait,exec,umount')
+# <options>    - additional mount options (e.g., 'utf8,uid=1000,gid=1000')
+{% for entry in cmtab_entries %}{{ entry.label }} {{ entry.device }} {{ entry.target }} {{ entry.cipher }} {{ entry.keyfile }} {{ entry.keylength }} {{ entry.flags | join(',') }}{% if entry.options %} {{ entry.options | join(' ') }}{% endif %}
+{% endfor %}

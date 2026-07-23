@@ -1,0 +1,74 @@
+# CUPS Filters configuration — controls filtering, conversion, and driver logic for CUPS
+# This file is read by cupsd and filters (e.g., pstoraster, pdftopdf, etc.) at runtime.
+
+# Enable or disable automatic font embedding in PDFs (Ghostscript-based filters)
+{% if font_embedding %}FontEmbedding yes{% else %}FontEmbedding no{% endif %}
+
+# Default font directory for embedded fonts; set to empty for system fonts only
+FontDir {{ font_dir | default('/usr/share/fonts') }}
+
+# Ghostscript command path (used by pstoraster, pdftops, etc.)
+Ghostscript {{ ghostscript_path | default('/usr/bin/gs') }}
+
+# Ghostscript options — passed directly to gs; avoid overriding -q -dBATCH -dSAFER
+GhostscriptOptions {{ ghostscript_options | default('-q -dBATCH -dSAFER -dNOPAUSE -r600x600 -sDEVICE=ps2write -dTextAlphaBits=4 -dGraphicsAlphaBits=4') }}
+
+# Maximum number of concurrent filter processes (cups-filters internal worker pool)
+MaxFilterProcesses {{ max_filter_processes | default(10) }}
+
+# Default raster format for PDF-to-raster conversion (cups-filters >= 1.2.0)
+# Options: auto, cmyk, rgb, gray, srgb, adobe-rgb, etc.
+DefaultRasterFormat {{ default_raster_format | default('auto') }}
+
+# Enable or disable IPP Everywhere support (e.g., color model fallback, media size defaults)
+{% if ipp_everywhere %}IPPEverywhere yes{% else %}IPPEverywhere no{% endif %}
+
+# Path to PPD files (if not using CUPS’ built-in driverless logic)
+PPDPath {{ ppd_path | default('/usr/share/cups/ppd') }}
+
+# Enable or disable PDF optimization (e.g., stripping unnecessary objects)
+{% if pdf_optimize %}PDFOptimize yes{% else %}PDFOptimize no{% endif %}
+
+# PDF rendering engine: ghostscript, poppler, qpdf
+PDFRenderingEngine {{ pdf_rendering_engine | default('ghostscript') }}
+
+# Enable or disable automatic raster scaling (fit-to-page, shrink-to-fit, etc.)
+{% if raster_scaling %}RasterScaling yes{% else %}RasterScaling no{% endif %}
+
+# Raster DPIs used during conversion (for fallback or specific use-cases)
+{% for dpi in raster_dpi_list %}RasterDPI {{ dpi }}{% endfor %}
+
+# Proxy settings — for IPP over HTTPS printer discovery (if enabled)
+{% if http_proxy_host %}HTTPProxy {{ http_proxy_host }}:{{ http_proxy_port | default('8080') }}{% endif %}
+
+# Logging level: error, warn, info, debug
+LogLevel {{ log_level | default('warn') }}
+
+# Path to log file (use '' for syslog-only)
+LogPath {{ log_path | default('/var/log/cups/cupsfilters.log') }}
+
+# Enable or disable automatic discovery of printers via DNS-SD/Bonjour
+{% if dnssd_discovery %}DNSSDDiscovery yes{% else %}DNSSDDiscovery no{% endif %}
+
+# List of additional MIME types to support (e.g., 'image/pwg-raster', 'application/vnd.hp-PCLxl')
+{% for mime in extra_mime_types %}AddMIMEType {{ mime }}{% endfor %}
+
+# Map custom application types to filters (e.g., for legacy drivers)
+{% for mapping in filter_mappings %}# Map {{ mapping.app_type }} to filter {{ mapping.filter }}
+{{ mapping.app_type }} {{ mapping.filter }} {{ mapping.priority }}
+{% endfor %}
+
+# Timeout (seconds) for filter execution (prevents stuck jobs)
+FilterTimeout {{ filter_timeout | default(300) }}
+
+# Enable or disable color management via ICC profiles
+{% if color_management %}ColorManagement yes{% else %}ColorManagement no{% endif %}
+
+# ICC profile search paths (colon-separated if multiple)
+{% for path in icc_profile_paths %}ICCProfilePath {{ path }}{% endfor %}
+
+# Default ICC profile for RGB output (e.g., 'sRGB.icc' or full path)
+DefaultRGBProfile {{ default_rgb_profile | default('sRGB') }}
+
+# Default ICC profile for CMYK output
+DefaultCMYKProfile {{ default_cmyk_profile | default('Coated_FOGRA27') }}

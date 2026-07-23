@@ -1,0 +1,22 @@
+# Enable PL/Perl procedural language extension
+{% if enable_plperl %}
+shared_preload_libraries = 'plperl'
+{% endif %}
+# PL/Perl configuration: whether to allow trusted (safe) PL/Perl functions
+{% if enable_plperlu is defined %}
+# Note: PL/PerlU (untrusted) is disabled by default for security
+plperl.use_strict = {% if enable_plperlu %}off{% else %}on{% endif %}
+{% endif %}
+# PL/Perl runtime options: control warnings and error behavior
+plperl.on_init = {{ plperl_on_init | default('', true) }}
+plperl.on_plperl_init = {{ plperl_on_plperl_init | default('', true) }}
+# PL/Perl interpreter execution limits (to prevent runaway scripts)
+plperl.max_mem = {{ plperl_max_mem | default('0', true) }}
+# Optional: specify Perl include paths for PL/Perl functions (e.g., @INC tweaks)
+{% if plperl_inc_paths %}
+plperl.include_paths = {{ plperl_inc_paths | join(', ') }}
+{% endif %}
+# PL/Perl version (auto-detected; usually not needed)
+{% if plperl_version %}
+# plperl.version = '{{ plperl_version }}'
+{% endif %}

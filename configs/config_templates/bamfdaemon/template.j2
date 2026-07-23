@@ -1,0 +1,40 @@
+# Enable verbose logging for debugging
+{% if debug %}Debug = true{% else %}Debug = false{% endif %}
+
+# Path to the BAMF daemon runtime directory
+RuntimeDir = {{ runtime_dir }}
+
+# Path to the BAMF state file (persisted window matches)
+StateFile = {{ state_file }}
+
+# Number of worker threads for event processing
+WorkerThreads = {{ worker_threads }}
+
+# Timeout (in milliseconds) for window matching queries
+MatchTimeout = {{ match_timeout }}
+
+# Enable/Disable X11 integration (required on X11 sessions)
+{% if x11_enabled %}UseX11 = true{% else %}UseX11 = false{% endif %}
+
+# Enable/Disable Wayland integration (required on Wayland sessions)
+{% if wayland_enabled %}UseWayland = true{% else %}UseWayland = false{% endif %}
+
+# List of application-specific matching rules
+{% for rule in matching_rules %}# Match rule: {{ rule.name }}
+{{ rule.section }} {
+  Name = {{ rule.name }}
+  Exec = {{ rule.exec }}
+  Icon = {{ rule.icon | default('') | trim | default('') | replace('None', '') | replace('', '') }}
+{% if rule.wmclass %}  WMClass = {{ rule.wmclass }}{% endif %}
+{% if rule.wmname %}  WMName = {{ rule.wmname }}{% endif %}
+{% if rule.regex %}  Regex = {{ rule.regex }}{% endif %}
+}
+{% endfor %}
+
+# Signal handling: reload on SIGHUP, exit gracefully on SIGTERM
+ReloadSignal = SIGHUP
+ExitSignal = SIGTERM
+
+# Logging destination: syslog or file
+{% if log_to_file %}LogFile = {{ log_file }}{% endif %}
+LogLevel = {{ log_level }}

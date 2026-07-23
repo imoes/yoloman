@@ -1,0 +1,46 @@
+[linux_bridge]
+# Physical network device to map virtual networks onto
+physical_interface_mappings = {{ physical_interface_mappings | default('') | join(', ') }}
+
+# VLAN range for tenant networks
+vni_ranges = {{ vni_ranges | default('') | join(', ') }}
+
+# Enable or disable VXLAN overlay network
+enable_vxlan = {{ enable_vxlan | string | lower }}
+
+# TTL for VXLAN packets
+vxlan_ttl = {{ vxlan_ttl }}
+
+# Enable or disable ARP responder for VXLAN
+arp_responder = {{ arp_responder | string | lower }}
+
+# Maximum transmission unit for VXLAN interface
+vxlan_local_ip = {{ vxlan_local_ip | default('') }}
+
+[network_types]
+# Supported network types for tenant networks
+tenant_network_types = {{ tenant_network_types | default('flat,vlan,vxlan') | join(', ') }}
+
+[linux_bridge]
+# Physical bridge interface for flat and VLAN networks
+bridge_mappings = {{ bridge_mappings | default('') | join(', ') }}
+
+[securitygroup]
+# Enable or disable security groups
+enable_security_group = {{ enable_security_group | string | lower }}
+
+# Firewall driver for security groups
+firewall_driver = {{ firewall_driver | default('neutron.agent.linux.iptables_firewall.IptablesFirewallDriver') }}
+
+# Enable or disable DHCP options for security groups
+enable_dhcp_options = {{ enable_dhcp_options | string | lower }}
+
+[agent]
+# Minimum number of seconds between agent state reports
+min_agent_rounds = {{ min_agent_rounds }}
+
+# Polling interval for agent state reports
+polling_interval = {{ polling_interval }}
+
+# Maximum time to wait for agent to register with server
+registration_delay = {{ registration_delay }}

@@ -1,0 +1,80 @@
+{
+  "type": "users",
+  "users": [
+    {
+      "user": "demo",
+      "password": "pass",
+      "permissions": {
+        "publish": [
+          "public.*"
+        ],
+        "subscribe": [
+          "public.*"
+        ],
+        "allow_responses": true
+      }
+    }
+  ],
+  "cluster": {
+    "name": "nats-cluster",
+    "hosts": [
+      "nats1.example.com:6222",
+      "nats2.example.com:6222"
+    ],
+    "port": 6222,
+    "tls": {
+      "ca": "/etc/nats/tls/ca.pem",
+      "cert": "/etc/nats/tls/server.pem",
+      "key": "/etc/nats/tls/server-key.pem",
+      "verify": true
+    }
+  },
+  "system_account": "SYS",
+  "jetstream": {
+    "enabled": true,
+    "store_dir": "/var/lib/nats/jetstream",
+    "max_mem": 2048000000,
+    "max_file": 10737418240,
+    "limits": {
+      "stream_max_consumers": 100,
+      "stream_max_bytes": 107374182400,
+      "stream_max_age": "30d",
+      "consumer_max_waiting": 8192
+    }
+  },
+  "leafnodes": {
+    "enabled": true,
+    "port": 7422,
+    "remotes": [
+      {
+        "account": "LEAF",
+        "urls": [
+          "leaf.example.com:7422"
+        ]
+      }
+    ]
+  },
+  "websocket": {
+    "enabled": true,
+    "port": 4223,
+    "hostname": "nats.example.com",
+    "tls": {
+      "ca": "/etc/nats/tls/wss-ca.pem",
+      "cert": "/etc/nats/tls/wss-server.pem",
+      "key": "/etc/nats/tls/wss-server-key.pem"
+    }
+  },
+  "monitor": {
+    "port": 8222,
+    "username": "monitor",
+    "password": "monpass"
+  },
+  "log_file": "/var/log/nats/nats.log",
+  "log_time": true,
+  "debug": false,
+  "trace": false,
+  "max_connections": 10000,
+  "max_control_line": 4096,
+  "ping_interval": 120,
+  "ping_max": 2
+}

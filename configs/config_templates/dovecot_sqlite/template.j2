@@ -1,0 +1,110 @@
+# Base Dovecot configuration — SQLite backend enabled
+# Protocol settings: enable IMAP/POP3 and disable plaintext unless SSL/TLS is used
+protocols = {{ protocols | join(' ') }}
+
+# Listen on specified addresses and ports
+# (empty string = all interfaces; specify 'localhost' for local-only)
+listen = {{ listen | join(', ') }}
+
+# Mail location: where user mailboxes are stored
+# '%u' expands to username, '%d' to domain, '%n' to user part
+mail_location = "{{ mail_location }}"
+
+# Authentication mechanism configuration
+# Use plain or login only over SSL/TLS for security
+auth_mechanisms = {{ auth_mechanisms | join(' ') }}
+
+# Passdb (password database) using SQLite
+passdb {
+  driver = sql
+  # Path to SQL configuration file (template-generated separately or inline here)
+  args = {{ sql_passdb_config_path | tojson }}
+}
+
+# Userdb (user database) using SQLite
+userdb {
+  driver = sql
+  # Path to SQL configuration file (same file as passdb usually)
+  args = {{ sql_userdb_config_path | tojson }}
+}
+
+# Logging configuration
+# Log to syslog and optionally to a file
+log_path = {{ log_path | tojson }}
+syslog_facility = {{ syslog_facility | tojson }}
+
+# SSL/TLS settings — mandatory for secure auth
+ssl = {{ ssl | tojson }}
+ssl_cert = {{ ssl_cert | tojson }}
+ssl_key = {{ ssl_key | tojson }}
+
+# Mailbox limits and timeouts (in seconds)
+mail_max_userip_connections = {{ mail_max_userip_connections }}
+imap_max_connections = {{ imap_max_connections }}
+pop3_max_connections = {{ pop3_max_connections }}
+login_greeting = {{ login_greeting | tojson }}
+
+# Mail plugins
+# Enable quota and quota warning plugin if configured
+{% if mail_plugins | length > 0 %}
+mail_plugins = {{ mail_plugins | join(' ') }}
+{% endif %}
+
+# Quota plugin configuration (if used)
+{% if quota_enabled %}
+plugin {
+  quota = maildir:User quota
+  quota_rule = *:storage={{ quota_storage_limit_mb }}M
+  quota_grace = 10%%
+  quota_warning = storage={{ quota_warning_percent }}%% quota-warning {{ quota_warning_percent }} %u
+}
+
+# Quota warning service (shell script or command)
+service quota-warning {
+  executable = script /usr/local/bin/quota-warning.sh
+  user = dovecot
+  unix_listener quota-warning {
+    user = dovecot
+  }
+}
+{% endif %}
+
+# Service-specific settings
+# IMAP service
+service imap-login {
+  inet_listener imap {
+    port = {{ imap_port }}
+  }
+{% if ssl_imap_port is not none %}
+  inet_listener imaps {
+    port = {{ ssl_imap_port }}
+    ssl = yes
+  }
+{% endif %}
+}
+
+# POP3 service
+service pop3-login {
+  inet_listener pop3 {
+    port = {{ pop3_port }}
+  }
+{% if ssl_pop3_port is not none %}
+  inet_listener pop3s {
+    port = {{ ssl_pop3_port }}
+    ssl = yes
+  }
+{% endif %}
+}
+
+# Auth service (used by LDA, SASL, etc.)
+service auth {
+  unix_listener auth-userdb {
+    mode = 0600
+    user = {{ mail_user }}
+    group = {{ mail_group }}
+  }
+}
+
+# Final note: This config assumes doveconf -n shows minimal required settings.
+# The actual SQL queries are defined in external .conf files (sql_passdb_config_path & sql_userdb_config_path).
+# For simplicity, they may be inlined here if needed — but external files improve security & modularity.

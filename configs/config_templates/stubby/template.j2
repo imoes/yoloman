@@ -1,0 +1,78 @@
+# DNS-over-TLS upstream servers to use for queries (list of DNS over TLS servers)
+upstream_servers:
+{% for server in upstream_servers %}  - address_data: {{ server.address_data }}
+{% if server.fqdn is defined %}    tls_auth_name: {{ server.fqdn }}
+{% endif %}{% endfor %}
+
+# DNS-over-TLS authentication method: 'name' for domain name verification (RFC 7671), 'pubkey' for pinned certificate
+authentication_mode: {{ authentication_mode }}
+
+# Certificate file or directory for verifying TLS connections
+# If not specified, system CA store is used; set to '/etc/ssl/certs' or similar for Linux
+# On minimal systems, may need to install 'ca-certificates' and set to '/etc/ssl/certs'
+cacert_file_or_path: {{ cacert_file_or_path }}
+
+# Minimum TLS version to negotiate (1.2 or 1.3); 1.2 is widely supported, 1.3 is more secure
+# Prefer 'tls1.3' if all upstreams support it
+tls_min_version: {{ tls_min_version }}
+
+# Listen addresses and ports for DNS queries (IPv4 and IPv6 supported)
+listen_addresses:
+{% for addr in listen_addresses %}  - {{ addr }}
+{% endfor %}
+
+# Port to listen on for DNS queries (default 53); usually keep 53 to avoid iptables redirects
+listen_port: {{ listen_port }}
+
+# Query type handling: 0=IPv4 only, 1=IPv6 only, 2=IPv4 & IPv6 (default)
+# Set to 0 or 1 if your network lacks IPv6 or IPv4, respectively
+# Set to 3 to always use IPv6 for upstream connections
+dnssec: {{ dnssec }}
+
+# Enable DNSSEC validation (requires upstream servers to support DNSSEC)
+# Set to 0 to disable (not recommended)
+# Set to 1 to enable strict validation
+# Set to 2 to enable aggressive NSEC validation
+dnssec_validate: {{ dnssec_validate }}
+
+# Log verbosity: 0=errors only, 1=warnings, 2=info, 3=debug
+# Use 2 in production; increase to 3 temporarily for troubleshooting
+log_level: {{ log_level }}
+
+# Local DNS cache settings
+# Cache size in entries (max 150 recommended for embedded devices; 1000+ for servers)
+cache_size: {{ cache_size }}
+
+# Cache retention time in seconds (0 = no expiry, but not recommended)
+# 86400 = 24 hours is typical; shorter for testing
+cache_min_ttl: {{ cache_min_ttl }}
+cache_max_ttl: {{ cache_max_ttl }}
+
+# Retry behavior when upstream is unreachable
+# Number of retries before failing a query
+retry_attempts: {{ retry_attempts }}
+
+# Timeout in seconds for upstream connection/queries
+# 2–5 seconds typical; longer for high-latency links
+timeout: {{ timeout }}
+
+# Prefer IPv6 upstream connections (true/false)
+# Only effective if 'dnssec' or 'listen_addresses' include IPv6
+prefer_ipv6: {{ prefer_ipv6 }}
+
+# Round-robin upstream servers (true) or strict order (false)
+# 'true' spreads load; 'false' uses first available server first
+round_robin_upstreams: {{ round_robin_upstreams }}
+
+# TLS session tickets (for performance); disable if privacy is critical
+# Session tickets allow resuming TLS sessions without full handshake
+use_tls_session_tickets: {{ use_tls_session_tickets }}
+
+# TLS ALPN extension: enable 'dot' ALPN protocol negotiation
+# RFC 7858 compliant; usually safe to enable
+add_tls_query_padding_blocksize: {{ add_tls_query_padding_blocksize }}
+
+# Padding blocksize for TLS queries (0 = disabled; recommended: 128 or 256)
+# Helps obscure query patterns (privacy); use 128 or 256 for DoT
+# Must be power of two ≤ 1232
+

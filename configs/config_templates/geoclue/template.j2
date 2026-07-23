@@ -1,0 +1,57 @@
+# Geoclue 2.0 global configuration file
+# This file controls core Geoclue service behavior.
+
+[general]
+# Enable or disable the Geoclue service entirely
+enabled={{ general.enabled }}
+
+# Maximum number of registered clients allowed
+max-clients={{ general.max_clients }}
+
+# Path to the data directory where Geoclue stores cached location data
+# (e.g., location history, geolocation providers state)
+data-dir={{ general.data_dir }}
+
+# Logging level: 0=ERROR, 1=WARNING, 2=INFO, 3=DEBUG
+log-level={{ general.log_level }}
+
+# Whether to require user consent before providing location data
+require-consent={{ general.require_consent }}
+
+# List of allowed origin hostnames/domains (each entry is a string)
+allowed-origins={% for origin in general.allowed_origins %}
+  {{ origin | join(' ') }}
+{% endfor %}
+
+# List of allowed locales (e.g., 'en-US', 'de-DE')
+allowed-locales={% for locale in general.allowed_locales %}
+  {{ locale }}
+{% endfor %}
+
+# Time-to-live (TTL) for location entries in the cache, in seconds
+cache-ttl={{ general.cache_ttl }}
+
+# Time-to-live (TTL) for geolocation provider status, in seconds
+provider-ttl={{ general.provider_ttl }}
+
+[whitelist]
+# Enable or disable the whitelist mode (if enabled, only listed services may access location)
+enabled={{ whitelist.enabled }}
+
+# List of allowed service names (D-Bus names, e.g., 'org.freedesktop.GeoClue2.Client')
+services={% for service in whitelist.services %}
+  {{ service }}
+{% endfor %}
+
+[providers]
+# List of geolocation providers to enable; each provider has name, enabled, and optional config
+{% for provider in providers %}
+[provider:{{ provider.name }}]
+# Enable or disable this provider
+enabled={{ provider.enabled }}
+
+{% if provider.config %}{% for k, v in provider.config.items() %}
+# {{ k | replace('_', ' ') | title }}
+{{ k }}={{ v }}
+{% endfor %}
+{% endif %}{% endfor %}

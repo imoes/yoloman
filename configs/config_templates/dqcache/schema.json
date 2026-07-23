@@ -1,0 +1,123 @@
+{
+  "config_root": {
+    "type": "string",
+    "default": "/usr",
+    "description": "Base directory where dqcache binaries and support files are installed."
+  },
+  "run_user": {
+    "type": "string",
+    "default": "nobody",
+    "description": "Unix user account to drop privileges to at runtime (security best practice)."
+  },
+  "run_dir": {
+    "type": "string",
+    "default": "/var/run/dqcache",
+    "description": "Directory for runtime files (e.g., PID file, socket if used)."
+  },
+  "config_dir": {
+    "type": "string",
+    "default": "/etc/dqcache",
+    "description": "Directory containing configuration files (e.g., trusted keys, local overrides)."
+  },
+  "cache_size": {
+    "type": "number",
+    "default": 536870912,
+    "description": "Maximum DNS cache size in bytes (e.g., 512 MiB = 536870912)."
+  },
+  "max_connections": {
+    "type": "number",
+    "default": 1000,
+    "description": "Maximum number of concurrent client connections allowed."
+  },
+  "listen_addresses": {
+    "type": "list",
+    "default": [
+      "127.0.0.1",
+      "::1"
+    ],
+    "items": {
+      "type": "string",
+      "pattern": "^([0-9]{1,3}\\.){3}[0-9]{1,3}$|^[0-9a-fA-F:]+$",
+      "description": "Local IP addresses to bind the DNS resolver to (IPv4 or IPv6)."
+    },
+    "description": "List of IP addresses to listen on for incoming DNS queries."
+  },
+  "listen_port": {
+    "type": "number",
+    "default": 53,
+    "description": "UDP/TCP port to listen on for DNS queries (standard: 53)."
+  },
+  "dnscurve_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable DNSCurve protocol support for encrypted queries/responses (requires keys)."
+  },
+  "dnscurve_keyfile": {
+    "type": "string",
+    "default": "/etc/dqcurve/keypair",
+    "description": "Path to the DNSCurve key file (contains private key for signing/encrypting responses).",
+    "condition": "dnscurve_enabled"
+  },
+  "dnscurve_pubkey": {
+    "type": "string",
+    "default": "",
+    "description": "Optional DNSCurve public key for verifying client signatures (if mutual auth is needed).",
+    "condition": "dnscurve_enabled"
+  },
+  "dnscurve_auth_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Require DNSCurve client authentication (mutual trust mode).",
+    "condition": "dnscurve_enabled"
+  },
+  "log_level": {
+    "type": "number",
+    "default": 3,
+    "description": "Verbosity of logs: 0 (silent) to 9 (extremely verbose); recommend 2\u20134 for production."
+  },
+  "recursion_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable recursive resolution (required for a recursive resolver)."
+  },
+  "upstream_servers": {
+    "type": "list",
+    "default": [],
+    "items": {
+      "type": "string",
+      "pattern": "^([0-9]{1,3}\\.){3}[0-9]{1,3}(:[0-9]+)?$|^[0-9a-fA-F:]+(:[0-9]+)?$",
+      "description": "Upstream DNS resolver(s) in IP[:port] format (e.g., '8.8.8.8', '1.1.1.53')."
+    },
+    "description": "Comma-separated list of upstream DNS servers to forward queries to. Empty = use system resolvers or root hints."
+  },
+  "upstream_timeout_ms": {
+    "type": "number",
+    "default": 5000,
+    "description": "Timeout in milliseconds for upstream queries before retry or fail."
+  },
+  "max_query_depth": {
+    "type": "number",
+    "default": 10,
+    "description": "Maximum recursive depth (e.g., 10 levels) to prevent infinite loops or stack exhaustion."
+  },
+  "edns_disabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Disable EDNS0 support (useful for buggy upstream servers)."
+  },
+  "dnssec_disabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Disable DNSSEC validation (if upstream does not support it or validation fails)."
+  },
+  "chroot_dir": {
+    "type": "string",
+    "default": "/var/dqcache/chroot",
+    "description": "Chroot directory for sandboxing; empty string '' disables chrooting."
+  },
+  "debug_mode": {
+    "type": "bool",
+    "default": false,
+    "description": "Run dqcache in foreground (useful for debugging or systemd --user services)."
+  }
+}

@@ -1,0 +1,63 @@
+{
+  "server_host": "0.0.0.0",
+  "server_port": 8080,
+  "storage": {
+    "type": "postgres",
+    "connection_string": "postgres://balboa:secret@localhost:5432/pdns?sslmode=disable",
+    "pool_size": 10,
+    "max_open_conns": 50,
+    "max_idle_conns": 10
+  },
+  "auth": {
+    "enabled": true,
+    "type": "jwt",
+    "jwt_secret": "super-secret-key-change-in-production",
+    "jwt_expiry_seconds": 43200
+  },
+  "frontend": {
+    "enabled": true,
+    "static_dir": "/usr/share/balboa/frontend",
+    "cors_origins": [
+      "https://dashboard.example.com"
+    ]
+  },
+  "logging": {
+    "level": "info",
+    "format": "json",
+    "output": "stderr"
+  },
+  "rate_limit": {
+    "enabled": true,
+    "requests_per_second": 20,
+    "burst_size": 50
+  },
+  "graphql": {
+    "path": "/graphql",
+    "playground_enabled": false,
+    "introspection_enabled": false
+  },
+  "ingestion": {
+    "enabled": true,
+    "listen_host": "127.0.0.1",
+    "listen_port": 53,
+    "max_record_size": 512,
+    "min_ttl": 60,
+    "max_cname_chain_depth": 5,
+    "allowed_source_subnets": [
+      "127.0.0.0/8",
+      "10.0.0.0/8"
+    ],
+    "upstream_resolvers": [
+      "9.9.9.9:53",
+      "149.112.112.112:53"
+    ]
+  },
+  "backup": {
+    "enabled": true,
+    "dir": "/var/backups/balboa",
+    "format": "sql",
+    "compression": "gzip",
+    "schedule_cron": "0 3 * * *",
+    "retention_days": 14
+  }
+}

@@ -1,0 +1,119 @@
+{
+  "global_settings": {
+    "type": "object",
+    "default": {},
+    "description": "Global Icinga 2 settings.",
+    "items": {
+      "log_level": {
+        "type": "string",
+        "default": "3",
+        "description": "Logging verbosity level (0=emergency, 1=alert, 2=critical, 3=warning, 4=notice, 5=info, 6=debug)."
+      },
+      "log_file": {
+        "type": "string",
+        "default": "/var/log/icinga2/icinga2.log",
+        "description": "Path to the main log file."
+      },
+      "pid_file": {
+        "type": "string",
+        "default": "/run/icinga2/icinga2.pid",
+        "description": "Path to the PID file."
+      },
+      "enable_remote_commands": {
+        "type": "bool",
+        "default": false,
+        "description": "Enable or disable remote command execution (e.g., from Director or external sources)."
+      },
+      "ignore_on_weekend": {
+        "type": "bool",
+        "default": false,
+        "description": "Ignore scheduled downtimes on weekends (Saturday/Sunday)."
+      }
+    }
+  },
+  "endpoints": {
+    "type": "list",
+    "default": [],
+    "description": "List of Endpoint objects (nodes in the cluster). Each endpoint defines a node's identity and network address.",
+    "items": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "default": "",
+          "description": "Unique name of the endpoint (usually matches hostname)."
+        },
+        "host": {
+          "type": "string",
+          "default": "",
+          "description": "IP address or hostname of this endpoint for cluster communication."
+        },
+        "port": {
+          "type": "number",
+          "default": 5665,
+          "description": "TCP port for Icinga 2 API/cluster communication."
+        }
+      }
+    }
+  },
+  "zones": {
+    "type": "list",
+    "default": [],
+    "description": "List of Zone objects defining cluster topology. Zones group endpoints hierarchically.",
+    "items": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "default": "",
+          "description": "Unique zone name."
+        },
+        "endpoints": {
+          "type": "list",
+          "default": [],
+          "description": "List of endpoint names belonging to this zone.",
+          "items": {
+            "type": "string",
+            "default": ""
+          }
+        },
+        "parent": {
+          "type": "string",
+          "default": "",
+          "description": "Name of the parent zone (for multi-tier hierarchies). Omit for top-level zones."
+        }
+      }
+    }
+  },
+  "global_zones": {
+    "type": "object",
+    "default": {
+      "global-templates": {
+        "is_global": true
+      },
+      "global-hosts": {
+        "is_global": true
+      }
+    },
+    "description": "Global zones (e.g., for templates, global hosts). Keys are zone names; values define `is_global` flag and optional `endpoints`.",
+    "items": {
+      "type": "object",
+      "properties": {
+        "is_global": {
+          "type": "bool",
+          "default": true,
+          "description": "Set to true for zone to be globally distributed (no parent required)."
+        },
+        "endpoints": {
+          "type": "list",
+          "default": [],
+          "description": "Optional list of endpoint names allowed to run this global zone.",
+          "items": {
+            "type": "string",
+            "default": ""
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,57 @@
+# Interface to capture traffic from
+interface {{ interface }}
+
+# Network interface to capture packets from (alias for 'interface')
+{% if interface_alt %}interface {{ interface_alt }}{% endif %}
+
+# IP address to send NetFlow/IPFIX records to (collector)
+{% if collector_ip %}collector {{ collector_ip }}{% if collector_port %}:{{ collector_port }}{% endif %}{% endif %}
+
+# UDP port for NetFlow/IPFIX (default: 2055)
+{% if collector_port %}port {{ collector_port }}{% endif %}
+
+# Protocol version for flow records: netflow5, netflow9, ipfix (default: ipfix)
+{% if flow_version %}flow-version {{ flow_version }}{% endif %}
+
+# Packet sampling rate: 1 = every packet, 10 = every 10th packet, etc. (default: 1)
+{% if sampling_rate %}sampling-rate {{ sampling_rate }}{% endif %}
+
+# Flow active timeout in seconds (default: 1800)
+{% if active_timeout %}active-timeout {{ active_timeout }}{% endif %}
+
+# Flow idle timeout in seconds (default: 300)
+{% if idle_timeout %}idle-timeout {{ idle_timeout }}{% endif %}
+
+# Maximum number of flows per packet (0 = unlimited) (default: 0)
+{% if max_flows_per_packet %}max-flows-per-packet {{ max_flows_per_packet }}{% endif %}
+
+# Enable IPFIX extension for TCP flags (default: true)
+{% if ipfix_tcp_flags is defined %}ipfix-tcp-flags {{ 'true' if ipfix_tcp_flags else 'false' }}{% endif %}
+
+# Enable IPFIX extension for IPv6 extension headers (default: true)
+{% if ipfix_ipv6_ext is defined %}ipfix-ipv6-ext {{ 'true' if ipfix_ipv6_ext else 'false' }}{% endif %}
+
+# Enable IPFIX extension for BGP next-hop (default: false)
+{% if ipfix_bgp_next_hop is defined %}ipfix-bgp-next-hop {{ 'true' if ipfix_bgp_next_hop else 'false' }}{% endif %}
+
+# Set source IP for outbound flows (default: auto-detected interface IP)
+{% if source_ip %}source-ip {{ source_ip }}{% endif %}
+
+# Set system ID for IPFIX (default: 0 = use device IP as identifier)
+{% if system_id %}system-id {{ system_id }}{% endif %}
+
+# Set observation domain ID for IPFIX (default: 0)
+{% if observation_domain_id %}observation-domain-id {{ observation_domain_id }}{% endif %}
+
+# Log level: debug, info, notice, warning, error, crit, alert, emerg (default: notice)
+{% if log_level %}log-level {{ log_level }}{% endif %}
+
+# Log to file instead of syslog
+{% if log_file %}log-file {{ log_file }}{% endif %}
+
+# PID file path
+{% if pid_file %}pid-file {{ pid_file }}{% endif %}
+
+# Extra options (key-value pairs), one per line
+{% for item in extra_options %}{{ item.key }} {{ item.value }}
+{% endfor %}

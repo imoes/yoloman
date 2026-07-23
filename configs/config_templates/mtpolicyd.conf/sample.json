@@ -1,0 +1,55 @@
+{
+  "base_dir": "/var/lib/mtpolicyd",
+  "pid_file": "/run/mtpolicyd.pid",
+  "max_connections": 200,
+  "smtp_timeout": 300,
+  "log_level": 3,
+  "debug_mode": false,
+  "tls_enabled": true,
+  "ca_bundle_path": "/etc/ssl/certs/ca-certificates.crt",
+  "server_cert_path": "/etc/mtpolicyd/server.crt",
+  "server_key_path": "/etc/mtpolicyd/server.key",
+  "database": {
+    "type": "sqlite",
+    "path": "/var/lib/mtpolicyd/policy.sqlite"
+  },
+  "listener": {
+    "bind_v4": "0.0.0.0",
+    "bind_v6": "::",
+    "port": 125,
+    "smtps_enabled": true,
+    "smtps_port": 465
+  },
+  "limits": {
+    "max_recipients": 100,
+    "max_message_size": 26214400,
+    "rate_limit_ppm": 30,
+    "burst_tolerance": 10,
+    "retry_delay": 60
+  },
+  "domains": {
+    "domain_policy_enabled": true,
+    "allowed_senders_path": "/etc/mtpolicyd/allowed_domains.txt",
+    "blocked_senders_path": "/etc/mtpolicyd/blocked_domains.txt"
+  },
+  "senders": {
+    "sender_policy_enabled": true,
+    "sender_overrides_path": "/etc/mtpolicyd/sender_overrides.json",
+    "sender_rate_limits_path": "/etc/mtpolicyd/sender_rate_limits.json"
+  },
+  "policies": [
+    {
+      "name": "block_tor",
+      "description": "Block known Tor exit nodes",
+      "enabled": true,
+      "conditions": {
+        "client_type": "tor_exit",
+        "source": "public_blocklist"
+      },
+      "actions": {
+        "action": "reject",
+        "reason": "Tor exit nodes are not permitted"
+      }
+    }
+  ]
+}

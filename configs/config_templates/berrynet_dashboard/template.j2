@@ -1,0 +1,87 @@
+# Deep Learning Gateway Dashboard Configuration
+# Server host and port for the web UI
+bind_address: {{ bind_address }}
+port: {{ port }}
+
+# Debug mode (set to 'true' for verbose logging)
+debug: {{ debug }}
+
+# Path to the model cache directory
+model_cache_dir: {{ model_cache_dir }}
+
+# Path to the database file
+ database_path: {{ database_path }}
+
+# Maximum number of concurrent inference requests
+max_concurrent_inferences: {{ max_concurrent_inferences }}
+
+# Inference timeout in seconds
+inference_timeout: {{ inference_timeout }}
+
+# Enable HTTPS (requires valid cert/key paths)
+use_https: {{ use_https }}
+{% if use_https %}
+# TLS certificate file path
+cert_file: {{ cert_file }}
+# TLS private key file path
+key_file: {{ key_file }}
+{% endif %}
+
+# Logging configuration
+log_level: {{ log_level }}
+log_file: {{ log_file }}
+
+# Authentication backends (e.g., 'basic', 'ldap', 'oauth2')
+auth_backend: {{ auth_backend | default('basic') }}
+{% if auth_backend == 'ldap' %}
+# LDAP-specific settings
+ldap_uri: {{ ldap_uri }}
+ldap_bind_dn: {{ ldap_bind_dn }}
+ldap_password: {{ ldap_password | default('') }}
+ldap_search_base: {{ ldap_search_base }}
+ldap_search_filter: {{ ldap_search_filter | default('(uid={{username}})') }}
+ldap_user_group: {{ ldap_user_group | default('cn=users,cn=accounts,dc=example,dc=com') }}
+{% elif auth_backend == 'oauth2' %}
+# OAuth2 provider settings
+oauth2_provider_url: {{ oauth2_provider_url }}
+oauth2_client_id: {{ oauth2_client_id }}
+oauth2_client_secret: {{ oauth2_client_secret }}
+oauth2_redirect_uri: {{ oauth2_redirect_uri }}
+{% endif %}
+
+# List of enabled deep learning models (per model, specify name, path, and optional label mapping)
+models:
+{% for model in models %}- name: {{ model.name }}
+  path: {{ model.path }}
+  {% if model.labels %}labels: {{ model.labels }}{% endif %}
+  {% if model.input_size %}input_size: [{{ model.input_size | join(', ') }}]{% endif %}
+{% endfor %}
+
+# Default device for inference (e.g., 'cpu', 'cuda:0', 'vpu:MYRIAD')
+default_device: {{ default_device }}
+
+# Device mapping for multi-device deployments
+# (each device block configures a specific inference accelerator)
+devices:
+{% for dev in devices %}- device_id: {{ dev.device_id }}
+  type: {{ dev.type }}
+  {% if dev.label %}label: {{ dev.label }}{% endif %}
+{% endfor %}
+
+# Rate limiting (requests per minute per IP)
+rate_limit_rpm: {{ rate_limit_rpm }}
+
+# CORS allowed origins (comma-separated list of domains or '*' for all)
+cors_origins: {{ cors_origins | join(', ') }}
+
+# Session timeout in seconds
+session_timeout: {{ session_timeout }}
+
+# Enable audit logging
+audit_logging: {{ audit_logging }}
+
+# Audit log file
+audit_log_file: {{ audit_log_file }}
+
+# Frontend asset directory
+frontend_dir: {{ frontend_dir }}

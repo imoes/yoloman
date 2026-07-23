@@ -1,0 +1,44 @@
+# Thunderbolt device authorization policy: 'authorize' (allow), 'deny' (block), or 'unauthorize' (remove from list)
+acl_policy = {{ acl_policy }}
+
+# Path to store persistent authorization state (must be writable by bolt daemon)
+state_dir = {{ state_dir }}
+
+# Maximum number of authorized devices to retain in state; older entries may be pruned
+max_devices = {{ max_devices }}
+
+# Log level: 'none', 'error', 'warn', 'info', 'debug'
+log_level = {{ log_level }}
+
+# Timeout (in seconds) before an unresponsive device is considered disconnected
+device_timeout = {{ device_timeout }}
+
+# Enable or disable automatic authorization for trusted devices (requires secure boot + authenticated kernel)
+auto_auth_trusted = {{ auto_auth_trusted | lower }}
+
+# List of PCI BDFs (Bus:Device.Function) to auto-authorize unconditionally (e.g., ['00:02.0', '00:14.0'])
+{% if auto_auth_pci_bdfs | length > 0 %}
+auto_auth_pci = {{ auto_auth_pci | join(', ') }}
+{% else %}
+auto_auth_pci =
+{% endif %}
+
+# Optional: specify users/groups allowed to manage authorization via D-Bus
+{% for group in auth_groups %}
+auth_group = {{ group }}
+{% endfor %}
+
+# Optional: specify users explicitly allowed to manage authorization
+{% for user in auth_users %}
+auth_user = {{ user }}
+{% endfor %}
+
+# Path to optional udev rules override directory (if present, used instead of bundled rules)
+{% if udev_dir %}
+udev_dir = {{ udev_dir }}
+{% endif %}
+
+# Enable fallback to legacy (non-ACPI) Thunderbolt enumeration on platforms without proper support
+{% if enable_legacy_enumeration %}
+enable_legacy_enumeration = true
+{% endif %}

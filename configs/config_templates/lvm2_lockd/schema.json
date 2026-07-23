@@ -1,0 +1,66 @@
+{
+  "use_lvmlockd": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable the lvmlockd daemon. Set to true if using shared storage or cluster-aware LVM operations."
+  },
+  "pidfile": {
+    "type": "string",
+    "default": "/run/lvmlockd.pid",
+    "description": "Path to the PID file for lvmlockd."
+  },
+  "locking_type": {
+    "type": "string",
+    "default": "disk",
+    "description": "Locking mechanism to use: 'none' (single host), 'disk' (file-based locking), or 'sanlock' (cluster-aware)."
+  },
+  "lockspace_dir": {
+    "type": "string",
+    "default": "/run/lvm/lockspace",
+    "description": "Directory used to hold lock space metadata files when using 'disk' locking mode."
+  },
+  "worker_threads": {
+    "type": "number",
+    "default": 4,
+    "description": "Number of worker threads to process lock requests. Increase under high lock contention."
+  },
+  "lock_timeout": {
+    "type": "number",
+    "default": 30,
+    "description": "Maximum time (in seconds) to wait for a lock before timing out. Adjust based on storage latency."
+  },
+  "max_lock_resources": {
+    "type": "number",
+    "default": 4096,
+    "description": "Maximum number of lock resources the daemon will track. Increase for environments with many shared volumes."
+  },
+  "auto_recover": {
+    "type": "bool",
+    "default": true,
+    "description": "If enabled, lvmlockd will attempt to automatically recover lock state on restart (e.g., after crash or reboot)."
+  },
+  "sanlock_resources": {
+    "type": "list",
+    "default": [],
+    "description": "List of SANLOCK resources for cluster-aware distributed locking (requires sanlock package).",
+    "items": {
+      "name": {
+        "type": "string",
+        "description": "Unique name of the SANLOCK resource (must be consistent across cluster nodes)."
+      },
+      "path": {
+        "type": "string",
+        "description": "Block device or file path used to store SANLOCK resource metadata."
+      },
+      "offset": {
+        "type": "number",
+        "description": "Byte offset within the resource path where the SANLOCK metadata starts (must be unique per resource)."
+      }
+    }
+  },
+  "log_level": {
+    "type": "number",
+    "default": 1,
+    "description": "Logging verbosity: 0=error, 1=warning, 2=info, 3=debug. Higher values produce more verbose logs."
+  }
+}

@@ -1,0 +1,166 @@
+{
+  "distro": {
+    "type": "string",
+    "default": "ubuntu",
+    "description": "The Linux distribution name (e.g., ubuntu, debian, rocky). Used to tailor cloud-init behavior."
+  },
+  "search_domain": {
+    "type": "list",
+    "default": [],
+    "description": "List of DNS search domains to append to /etc/resolv.conf. Empty means no domains added."
+  },
+  "search_dns": {
+    "type": "bool",
+    "default": false,
+    "description": "Whether to add DNS servers to /etc/resolv.conf when using search domains."
+  },
+  "network_renderer": {
+    "type": "string",
+    "default": "netplan",
+    "description": "Network backend renderer for netplan-style configs (e.g., netplan, networkd, ifupdown)."
+  },
+  "network_interfaces": {
+    "type": "list",
+    "default": [
+      {
+        "name": "eth0",
+        "type": "ethernet"
+      }
+    ],
+    "items": {
+      "type": "object",
+      "description": "A network interface definition for netplan-like YAML",
+      "fields": [
+        {
+          "field": "name",
+          "type": "string",
+          "default": "",
+          "description": "Interface name (e.g., eth0, enp0s3)"
+        },
+        {
+          "field": "type",
+          "type": "string",
+          "default": "ethernet",
+          "enum": [
+            "ethernet",
+            "bridge",
+            "bond",
+            "vlan"
+          ],
+          "description": "Interface type. Only 'ethernet' is auto-rendered in this template."
+        }
+      ]
+    },
+    "description": "List of network interfaces. Each defines an interface block in the network config."
+  },
+  "default_user.name": {
+    "type": "string",
+    "default": "ubuntu",
+    "description": "Username for the system's default admin user."
+  },
+  "default_user.sudo": {
+    "type": "string",
+    "default": "ALL=(ALL) NOPASSWD:ALL",
+    "description": "Sudo rule for the default user. Set to empty string to disable sudo."
+  },
+  "ssh_authorized_keys": {
+    "type": "list",
+    "default": [],
+    "description": "List of SSH public keys to install for the default user."
+  },
+  "package_update": {
+    "type": "bool",
+    "default": true,
+    "description": "Run 'apt-get update' on first boot (or equivalent for other distros)."
+  },
+  "package_upgrade": {
+    "type": "bool",
+    "default": false,
+    "description": "Run 'apt-get upgrade' on first boot (or equivalent). Use with caution in production."
+  },
+  "package_reboot_if_required": {
+    "type": "bool",
+    "default": false,
+    "description": "Reboot automatically if a package upgrade requires it (e.g., kernel updates)."
+  },
+  "boot_commands": {
+    "type": "list",
+    "default": [],
+    "description": "List of shell commands to run during early boot (bootcmd), before networking is fully up."
+  },
+  "runcmd": {
+    "type": "list",
+    "default": [],
+    "description": "List of shell commands to run once, after the system is fully initialized."
+  },
+  "final_message": {
+    "type": "string",
+    "default": "The system is finally up, after $uptime seconds",
+    "description": "Message printed at the end of cloud-init processing. Supports $uptime variable."
+  },
+  "preserve_hostname": {
+    "type": "bool",
+    "default": false,
+    "description": "If true, do not change the hostname set by metadata (e.g., EC2/CloudStack)."
+  },
+  "timezone": {
+    "type": "string",
+    "default": "Etc/UTC",
+    "description": "System timezone, as recognized by tzdata (e.g., America/New_York)."
+  },
+  "datasource_list": {
+    "type": "list",
+    "default": [
+      "Azure",
+      "GCE",
+      "OpenStack",
+      "Ec2",
+      "None"
+    ],
+    "description": "Ordered list of datasource backends to probe. First success stops probing."
+  },
+  "cloud_init_modules": {
+    "type": "list",
+    "default": [
+      "migrator",
+      "seed_random",
+      "bootcmd",
+      "write_files",
+      "generate_hostname",
+      "ssh_authkey_fingerprints",
+      "keys_to_console",
+      "install_ssh"
+    ],
+    "description": "List of early cloud-init modules (modules that run before full system config). Add custom modules if installed."
+  },
+  "cloud_config_modules": {
+    "type": "list",
+    "default": [
+      "mounts",
+      "locale",
+      "set_passwords",
+      "ssh",
+      "ubuntu-advantage",
+      "update_etc_hosts",
+      "resize_fs"
+    ],
+    "description": "List of core cloud-config modules (run after bootcmd). Add custom modules as needed."
+  },
+  "cloud_final_modules": {
+    "type": "list",
+    "default": [
+      "package-update-upgrade-install",
+      "fan",
+      "landscape",
+      "lxd",
+      "ubuntu-drivers",
+      "puppet",
+      "chef",
+      "salt-minion",
+      "mcollective",
+      "disable-ec2-metadata",
+      "runcmd"
+    ],
+    "description": "List of final modules (cleanup, hooks, last-run actions)."
+  }
+}

@@ -1,0 +1,137 @@
+[Match]
+# Match against hardware interface(s) by name, MAC address, or other criteria
+Name={{ interface_name }}
+
+# Optional: Match by MAC address (for deterministic assignment)
+{% if mac_address %}# Match by MAC address
+MACAddress={{ mac_address }}
+{% endif %}
+
+[Network]
+# Enable DHCPv4 client (default is yes, but explicit is clearer)
+DHCP=yes
+
+# Optional: Request additional DHCP options (e.g., NTP, routes, DNS search domains)
+{% if request_options %}# Request additional DHCP options
+RequestOptions={{ request_options | join(', ') }}
+{% endif %}
+
+# Optional: Use only IPv4 (disable IPv6 autoconfiguration if not desired)
+{% if not ipv6_autoconf %}# Disable IPv6 autoconfiguration
+IPv6AcceptRA=no
+{% endif %}
+
+# Optional: Set static IPv4 address if fallback is desired (e.g., for out-of-band access)
+{% if fallback_ipv4 %}# Fallback static IPv4 address
+Address={{ fallback_ipv4 }}/24
+{% if fallback_ipv4_gw %}Gateway={{ fallback_ipv4_gw }}
+{% endif %}{% endif %}
+
+# Optional: Set static DNS servers (e.g., when DHCP doesn’t supply them)
+{% if dns_servers %}# Static DNS servers
+DNS={{ dns_servers | join(' ') }}
+{% endif %}
+
+# Optional: Set NTP servers via DHCP or manually
+{% if ntp_servers %}# Static NTP servers (if DHCP not supplying them)
+NTP={{ ntp_servers | join(' ') }}
+{% endif %}
+
+# Optional: Configure time-sync service integration
+{% if use_timesyncd %}# Let systemd-timesyncd handle time sync (default behavior)
+{% else %}# Disable systemd-timesyncd use (e.g., for chrony or manual config)
+Timesyncd=false
+{% endif %}
+
+# Optional: Set link-local addressing behavior
+{% if link_local %}# Link-local addressing (e.g., 169.254.0.0/16 for IPv4)
+LinkLocalAddressing=ipv4
+{% else %}# Disable link-local addressing
+LinkLocalAddressing=no
+{% endif %}
+
+# Optional: Set IPv6 link-local addressing
+{% if ipv6_link_local %}# Enable IPv6 link-local addressing
+IPv6LinkLocalAddress=yes
+{% else %}# Disable IPv6 link-local addressing
+IPv6LinkLocalAddress=no
+{% endif %}
+
+# Optional: Set IPv4LL (IPv4 Link Layer) behavior
+{% if ipv4ll %}# Enable IPv4LL (for fallback when DHCP fails)
+IPv4LL=yes
+{% else %}# Disable IPv4LL
+IPv4LL=no
+{% endif %}
+
+# Optional: Set routing metric for this interface
+{% if routing_metric %}# Custom routing metric (lower = higher priority)
+RouteMetric={{ routing_metric }}
+{% endif %}
+
+# Optional: Set DHCP client ID (e.g., for vendor-specific lease tracking)
+{% if dhcp_client_id %}# DHCP client identifier (e.g., MAC-based or custom)
+DHCPClientIdentifier={{ dhcp_client_id }}
+{% endif %}
+
+# Optional: Set hostname sent to DHCP server
+{% if send_hostname %}# Hostname to send to DHCP server
+SendHostname={{ send_hostname }}
+{% else %}# Do not send hostname (use system hostname if none provided)
+SendHostname=no
+{% endif %}
+
+# Optional: Set hostname to use for DHCP client (instead of system hostname)
+{% if hostname %}# Custom hostname to send to DHCP server (overrides SendHostname)
+Hostname={{ hostname }}
+{% endif %}
+
+# Optional: Set DHCP server fallback for static config (e.g., when server unreachable)
+{% if fallback_dns %}# Fallback DNS servers (if DHCP server doesn’t provide any)
+FallbackDNS={{ fallback_dns | join(' ') }}
+{% endif %}
+
+# Optional: Set fallback gateway (e.g., for single-homed failover)
+{% if fallback_gw %}# Fallback gateway (used only when no gateway from DHCP)
+FallbackGateway={{ fallback_gw }}
+{% endif %}
+
+# Optional: Configure LLMNR (Link-Local Multicast Name Resolution)
+{% if llmnr %}# Enable LLMNR
+LLMNR=resolve
+{% else %}# Disable LLMNR
+LLMNR=no
+{% endif %}
+
+# Optional: Configure mDNS (multicast DNS)
+{% if mdns %}# Enable mDNS
+MulticastDNS=yes
+{% else %}# Disable mDNS
+MulticastDNS=no
+{% endif %}
+
+# Optional: Configure DNSSEC support
+{% if dnssec %}# Enable DNSSEC (requires upstream DNS support)
+DNSSEC=yes
+{% else %}# Disable DNSSEC
+DNSSEC=no
+{% endif %}
+
+# Optional: Configure DNS-over-TLS (DoT)
+{% if dns_over_tls %}# Enable DNS-over-TLS
+DNSOverTLS=yes
+{% else %}# Disable DNS-over-TLS
+DNSOverTLS=no
+{% endif %}
+
+# Optional: Configure DHCPv4 rapid commit (fast lease acquisition)
+{% if rapid_commit %}# Enable DHCPv4 rapid commit (RFC 4039)
+RapidCommit=yes
+{% else %}# Disable rapid commit
+RapidCommit=no
+{% endif %}
+
+# Optional: Set IPv6 router preference (low/medium/high)
+{% if ipv6_router_preference %}# IPv6 router preference (for RA selection)
+IPv6RouterPreference={{ ipv6_router_preference }}
+{% endif %}

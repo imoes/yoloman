@@ -1,0 +1,58 @@
+# Listen on this IPv4 address and port
+listen {{ listen_addr }} {{ listen_port }}
+
+# Maximum number of simultaneous connections
+max_connections {{ max_connections }}
+
+# Timeout for idle connections (in seconds)
+timeout {{ timeout_seconds }}
+
+# Enable debug logging? (yes/no)
+debug {{ debug | lower }}
+
+# Log level: none, info, warn, error, debug
+loglevel {{ loglevel }}
+
+# Path to log file (empty = syslog)
+logfile {{ logfile if logfile else 'syslog' }}
+
+# Allow only authenticated users?
+auth_required {{ auth_required | lower }}
+
+# Path to user database (optional, used if auth_required=yes)
+{% if auth_required %}
+auth_db {{ auth_db }}
+{% endif %}
+
+# MAC address access control: list of allowed entries
+# Format: mac_address username description
+{% for entry in allowed_macs %}
+allow {{ entry.mac | upper }} {{ entry.username }} {{ entry.description }}
+{% endfor %}
+
+# Optional: deny specific MACs (if defined)
+{% if denied_macs | length > 0 %}
+# Explicitly denied MAC addresses
+{% for entry in denied_macs %}
+deny {{ entry.mac | upper }} {{ entry.reason }}
+{% endfor %}
+{% endif %}
+
+# Optional: bind to a specific TTY device (e.g., /dev/ttys000)
+{% if tty_device %}
+tty {{ tty_device }}
+{% endif %}
+
+# Banner file to display on connect (optional)
+{% if banner_file %}
+banner {{ banner_file }}
+{% endif %}
+
+# Enforce HTTPS for web-based management? (mactelnet-web optional plugin)
+{% if enable_web_interface %}
+web_listen {{ web_addr }} {{ web_port }}
+{% if web_ssl %}
+web_ssl_cert {{ web_ssl_cert }}
+web_ssl_key {{ web_ssl_key }}
+{% endif %}
+{% endif %}

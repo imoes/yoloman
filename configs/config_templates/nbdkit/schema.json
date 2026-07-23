@@ -1,0 +1,87 @@
+{
+  "loglevel": {
+    "type": "number",
+    "default": 4,
+    "description": "Logging verbosity: 0 = silent, 1 = errors only, 2 = warnings, 3 = info, 4 = debug"
+  },
+  "logfile": {
+    "type": "string",
+    "default": "syslog",
+    "description": "Path to log file (e.g., '/var/log/nbdkit.log'). Empty or 'syslog' routes to syslog"
+  },
+  "logflush": {
+    "type": "boolean",
+    "default": false,
+    "description": "Flush log output after every write (for real-time debugging)"
+  },
+  "listen": {
+    "type": "string",
+    "default": "127.0.0.1",
+    "description": "IP address to bind to (e.g., '0.0.0.0' for all interfaces)"
+  },
+  "port": {
+    "type": "number",
+    "default": 10809,
+    "description": "TCP port number for NBD connections"
+  },
+  "unixsocket": {
+    "type": "string",
+    "default": "",
+    "description": "Path to Unix domain socket (e.g., '/var/run/nbdkit.sock'). If set, `port` is ignored"
+  },
+  "unixsocketperm": {
+    "type": "string",
+    "default": "0660",
+    "description": "Unix socket file permissions (octal)"
+  },
+  "timeout": {
+    "type": "number",
+    "default": 300,
+    "description": "Idle connection timeout in seconds"
+  },
+  "maxconnections": {
+    "type": "number",
+    "default": 10,
+    "description": "Maximum simultaneous client connections"
+  },
+  "allow_disk_create": {
+    "type": "boolean",
+    "default": false,
+    "description": "Allow disk creation via NBD_CMD_FLUSH or write-zeroes (dangerous; enables write access even with read-only clients)"
+  },
+  "read_only": {
+    "type": "boolean",
+    "default": false,
+    "description": "Force all connections to be read-only (overrides client write attempts)"
+  },
+  "plugin_path": {
+    "type": "string",
+    "default": "/usr/lib64/nbdkit/plugins:/usr/lib/nbdkit/plugins",
+    "description": "Search paths for plugin shared libraries (colon-separated). Do not change unless installing custom plugins"
+  },
+  "servers": {
+    "type": "list",
+    "default": [],
+    "description": "List of NBD export definitions \u2014 each creates a separate server endpoint",
+    "items": {
+      "name": {
+        "type": "string",
+        "description": "Unique name of the server (used as section header)"
+      },
+      "description": {
+        "type": "string",
+        "default": "",
+        "description": "Human-readable description (e.g., 'Primary storage disk')"
+      },
+      "plugin": {
+        "type": "string",
+        "description": "Name of the nbdkit plugin to use (e.g., 'file', 'memory', 'curl')"
+      },
+      "args": {
+        "type": "object",
+        "default": {},
+        "description": "Key\u2013value arguments passed to the plugin (e.g., { 'path': '/data/disk.img', 'readonly': true })"
+      }
+    }
+  }
+}

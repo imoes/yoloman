@@ -1,0 +1,62 @@
+{# Define global options #}
+set smtp {# Host and port for outgoing mail relay #}
+  host {{ smtp_host | default('127.0.0.1') }}
+  port {{ smtp_port | default(25) }};
+
+{# Set default sender address #}
+set from {{ default_from | default('root@localhost') }};
+
+{# Enable or disable verbose logging #}
+{% if verbose | default(false) %}verbose;{% endif %}
+
+{# Define TLS/SSL settings #}
+{% if tls_enabled | default(false) %}set tls;{% endif %}
+{% if tls_required | default(false) %}set tls require;{% endif %}
+{% if tls_cafile %}set tls cafile {{ tls_cafile }};{% endif %}
+{% if tls_ciphers %}set tls ciphers {{ tls_ciphers }};{% endif %}
+
+{# Define routing rules for specific domains or addresses #}
+{% for rule in routes %}
+{# Route messages to/from certain addresses to specific relays #}
+route {
+  {# Match criteria: can be 'for domain', 'for user', 'for any', etc. #}
+  {{ rule.match }} {
+    {% if rule.domain %}domain {{ rule.domain }};{% endif %}
+    {% if rule.user %}user {{ rule.user }};{% endif %}
+    {% if rule.any %}any;{% endif %}
+  }
+  {
+    {# Target relay #}
+    host {{ rule.relay_host }}
+    {% if rule.relay_port %}port {{ rule.relay_port }};{% else %};{% endif %}
+    {% if rule.auth_user %}auth user {{ rule.auth_user }};{% endif %}
+    {% if rule.auth_pass %}auth pass {{ rule.auth_pass }};{% endif %}
+    {% if rule.tls_enabled is not none %}{% if rule.tls_enabled %}  set tls;{% endif %}{% endif %}
+  }
+};
+{% endfor %}
+
+{# Define local delivery (optional) #}
+{% if local_delivery_enabled | default(true) %}
+{# Deliver to local mailboxes (e.g., /var/mail) #}
+local {
+  maildir {{ local_maildir_path | default('/var/mail') }};
+};
+{% endif %}
+
+{# Define aliases (optional) #}
+{% for alias in aliases %}
+{# Forward email for one local user to another or to external address #}
+{% if alias.local_user %}alias {{ alias.local_user }} {% endif %}
+{% if alias.to_user %}{{ alias.to_user }}{% endif %}
+{% if alias.to_external %}{{ alias.to_external }}{% endif %};
+{% endfor %}
+
+{# Define authentication backend (optional) #}
+{% if auth_backend %}
+{# Use external auth (e.g., passwd file, LDAP, etc.) #}
+auth {{ auth_backend.type }} {
+  {% for key, value in auth_backend.options.items() %}{{ key }} {{ value }};
+  {% endfor %}
+};
+{% endif %}

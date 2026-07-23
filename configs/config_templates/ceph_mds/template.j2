@@ -1,0 +1,101 @@
+# Global Ceph configuration
+[global]
+# Cluster ID for the Ceph cluster
+fsid = {{ fsid }}
+
+# Monitor public network(s) for client communication
+public network = {{ public_network }}
+
+# Monitor cluster network(s) for internal Ceph traffic
+cluster network = {{ cluster_network }}
+
+# Monitors to connect to (comma-separated list of host:port)
+mon host = {{ mon_hosts | join(', ') }}
+
+# Authentication method (none, cephx)
+auth cluster required = {{ auth_cluster_required }}
+auth service required = {{ auth_service_required }}
+auth client required = {{ auth_client_required }}
+
+# Logging configuration
+log file = {{ log_file }}
+# Maximum log file size before rotation (MB); 0 = disable rotation
+max log size = {{ max_log_size }}
+
+# Default data pool for metadata (if not specified per MDS)
+mds default data pool = {{ mds_default_data_pool }}
+
+# Enable/disallow insecure (non-cephx) authentication
+allow insecure global id reclaim = {{ allow_insecure_global_id_reclaim }}
+
+# MDS-specific configuration
+[mds]
+# Enable metadata server daemons
+mds mode = {{ mds_mode }}
+
+# Maximum number of MDS daemons that can be active simultaneously
+mds max mds = {{ mds_max_mds }}
+
+# Maximum number of MDS instances that may be active (including standbys)
+mds max mds instances = {{ mds_max_mds_instances }}
+
+# Filesystem name (used if auto-creating a filesystem)
+mds filesystem = {{ mds_filesystem }}
+
+# Standby MDS daemons to keep in reserve (comma-separated list of daemon IDs or "*" for auto-allocate)
+mds standby = {{ mds_standby | join(', ') }}
+
+# Standby replay daemons (if using standby-replay mode)
+{% if mds_standby_replay | length > 0 %}
+[mds.standby-replay]
+{% for item in mds_standby_replay %}
+mds standby replay = {{ item.daemon_id }}
+mds standby replay extra features = {{ item.extra_features }}
+{% endfor %}
+{% endif %}
+
+# Optional MDS daemon-specific overrides (one per daemon)
+{% if mds_configs | length > 0 %}
+{% for cfg in mds_configs %}
+[mds.{{ cfg.daemon_id }}]
+# Hostname/IP to bind to for this MDS instance
+host = {{ cfg.host }}
+
+# Optional: custom log file per daemon
+log file = {{ cfg.log_file }}
+
+# Optional: enable standby-replay for this daemon
+mds standby replay = {{ cfg.mds_standby_replay | default(false) | lower }}
+
+# Optional: specify filesystem for this daemon (overrides global mds filesystem)
+mds filesystem = {{ cfg.mds_filesystem | default('') }}
+
+# Optional: custom root export path (default: /)
+mds root path = {{ cfg.mds_root_path | default('/') }}
+
+# Optional: disable client connections (e.g., for maintenance)
+mds standby = {{ cfg.mds_standby | default(false) | lower }}
+
+{% endfor %}
+{% endif %}
+
+# Optional: filesystem-specific section (for multi-filesystem setups)
+{% if filesystems | length > 0 %}
+{% for fs in filesystems %}
+[mds.{{ fs.name }}_meta]
+mds filesystem = {{ fs.name }}
+mds mode = active
+{% if fs.metadata_pool %}
+mds metadata pool = {{ fs.metadata_pool }}
+{% else %}
+mds metadata pool = {{ fs.name }}_metadata
+{% endif %}
+{% if fs.data_pools | length > 0 %}
+mds data pools = {{ fs.data_pools | join(', ') }}
+{% else %}
+mds data pools = {{ fs.name }}_data
+{% endif %}
+mds standby for rank = {{ fs.standby_for_rank | default(0) }}
+mds standby replay = {{ fs.standby_replay | default(false) | lower }}
+{% endfor %}
+{% endif %}

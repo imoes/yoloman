@@ -1,0 +1,257 @@
+{
+  "listen_port": {
+    "type": "number",
+    "default": 5222,
+    "description": "Port on which c2s listens for client connections."
+  },
+  "listen_host": {
+    "type": "string",
+    "default": "0.0.0.0",
+    "description": "IP address or hostname to bind the listener to."
+  },
+  "tls_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable TLS encryption for client connections."
+  },
+  "tls_cert_file": {
+    "type": "string",
+    "default": "/etc/jabberd2/server.pem",
+    "description": "Path to the server certificate file for TLS."
+  },
+  "tls_key_file": {
+    "type": "string",
+    "default": "/etc/jabberd2/server.pem",
+    "description": "Path to the server private key file for TLS (can be same as cert file)."
+  },
+  "tls_ca_file": {
+    "type": "string",
+    "default": "",
+    "description": "Optional: Path to CA certificate bundle for client cert verification."
+  },
+  "tls_verify_mode": {
+    "type": "string",
+    "default": "optional",
+    "description": "Level of client certificate verification (none, request, require, optional)."
+  },
+  "max_connections": {
+    "type": "number",
+    "default": 1024,
+    "description": "Maximum number of simultaneous client connections allowed."
+  },
+  "idle_timeout": {
+    "type": "number",
+    "default": 120,
+    "description": "Seconds of inactivity before disconnecting a client."
+  },
+  "auth_timeout": {
+    "type": "number",
+    "default": 60,
+    "description": "Seconds allowed for a client to complete authentication."
+  },
+  "auth_backend": {
+    "type": "string",
+    "default": "local",
+    "description": "Authentication backend: 'local' for internal user DB, 'mysql' or 'ldap' for external."
+  },
+  "mysql_host": {
+    "type": "string",
+    "default": "localhost",
+    "description": "MySQL server hostname or IP.",
+    "depends_on": {
+      "field": "auth_backend",
+      "value": "mysql"
+    }
+  },
+  "mysql_port": {
+    "type": "number",
+    "default": 3306,
+    "description": "MySQL server port.",
+    "depends_on": {
+      "field": "auth_backend",
+      "value": "mysql"
+    }
+  },
+  "mysql_user": {
+    "type": "string",
+    "default": "jabberd",
+    "description": "MySQL user for Jabberd.",
+    "depends_on": {
+      "field": "auth_backend",
+      "value": "mysql"
+    }
+  },
+  "mysql_pass": {
+    "type": "string",
+    "default": "",
+    "description": "MySQL password for the user (use secure storage).",
+    "depends_on": {
+      "field": "auth_backend",
+      "value": "mysql"
+    }
+  },
+  "mysql_db": {
+    "type": "string",
+    "default": "jabberd",
+    "description": "MySQL database name.",
+    "depends_on": {
+      "field": "auth_backend",
+      "value": "mysql"
+    }
+  },
+  "mysql_table": {
+    "type": "string",
+    "default": "users",
+    "description": "Table containing user records.",
+    "depends_on": {
+      "field": "auth_backend",
+      "value": "mysql"
+    }
+  },
+  "mysql_user_field": {
+    "type": "string",
+    "default": "username",
+    "description": "Column name storing the username.",
+    "depends_on": {
+      "field": "auth_backend",
+      "value": "mysql"
+    }
+  },
+  "mysql_pass_field": {
+    "type": "string",
+    "default": "password",
+    "description": "Column name storing the (hashed) password.",
+    "depends_on": {
+      "field": "auth_backend",
+      "value": "mysql"
+    }
+  },
+  "ldap_uri": {
+    "type": "string",
+    "default": "ldap://localhost/",
+    "description": "LDAP server URI (e.g., ldap://host/ or ldaps://host/).",
+    "depends_on": {
+      "field": "auth_backend",
+      "value": "ldap"
+    }
+  },
+  "ldap_binddn": {
+    "type": "string",
+    "default": "cn=admin,dc=example,dc=com",
+    "description": "DN to bind as for user lookups.",
+    "depends_on": {
+      "field": "auth_backend",
+      "value": "ldap"
+    }
+  },
+  "ldap_bindpass": {
+    "type": "string",
+    "default": "",
+    "description": "Password for bind DN (use secure storage).",
+    "depends_on": {
+      "field": "auth_backend",
+      "value": "ldap"
+    }
+  },
+  "ldap_basedn": {
+    "type": "string",
+    "default": "ou=users,dc=example,dc=com",
+    "description": "Base DN to search for users.",
+    "depends_on": {
+      "field": "auth_backend",
+      "value": "ldap"
+    }
+  },
+  "ldap_scope": {
+    "type": "string",
+    "default": "sub",
+    "description": "LDAP search scope: base, one, or sub.",
+    "depends_on": {
+      "field": "auth_backend",
+      "value": "ldap"
+    }
+  },
+  "ldap_filter": {
+    "type": "string",
+    "default": "(uid=%u)",
+    "description": "LDAP search filter; %u is replaced by the username.",
+    "depends_on": {
+      "field": "auth_backend",
+      "value": "ldap"
+    }
+  },
+  "quota_sessions_per_user": {
+    "type": "number",
+    "default": 3,
+    "description": "Maximum concurrent sessions allowed per user."
+  },
+  "quota_messages_per_minute": {
+    "type": "number",
+    "default": 60,
+    "description": "Maximum number of messages a user can send per minute."
+  },
+  "log_file": {
+    "type": "string",
+    "default": "/var/log/jabberd/c2s.log",
+    "description": "Path to the c2s log file."
+  },
+  "log_level": {
+    "type": "string",
+    "default": "warn",
+    "description": "Minimum log level to record."
+  },
+  "rate_limit_rules": {
+    "type": "list",
+    "default": [],
+    "description": "List of rate-limiting rules to apply to incoming stanzas.",
+    "items": {
+      "type": "object",
+      "fields": {
+        "type": {
+          "type": "string",
+          "default": "iq",
+          "enum": [
+            "iq",
+            "message",
+            "presence"
+          ],
+          "description": "Stanza type to limit."
+        },
+        "max": {
+          "type": "number",
+          "default": 10,
+          "description": "Maximum number of stanzas allowed per interval."
+        },
+        "interval": {
+          "type": "number",
+          "default": 60,
+          "description": "Time window (seconds) for counting stanzas."
+        }
+      }
+    }
+  },
+  "acls": {
+    "type": "list",
+    "default": [],
+    "description": "List of access control rules (e.g., block specific JIDs).",
+    "items": {
+      "type": "object",
+      "fields": {
+        "action": {
+          "type": "string",
+          "default": "deny",
+          "enum": [
+            "allow",
+            "deny"
+          ],
+          "description": "Whether to allow or deny matching traffic."
+        },
+        "match": {
+          "type": "string",
+          "default": "",
+          "description": "JID or pattern to match (supports wildcards like *)."
+        }
+      }
+    }
+  }
+}

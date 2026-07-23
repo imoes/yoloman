@@ -1,0 +1,55 @@
+{
+  "ntp_servers": {
+    "type": "list",
+    "default": [
+      "0.pool.ntp.org",
+      "1.pool.ntp.org",
+      "2.pool.ntp.org",
+      "3.pool.ntp.org"
+    ],
+    "description": "List of primary NTP servers for time synchronization. Prefer reliable, geographically close servers."
+  },
+  "fallback_ntp_servers": {
+    "type": "list",
+    "default": [
+      "0.pool.ntp.org",
+      "1.pool.ntp.org"
+    ],
+    "description": "Fallback NTP servers used when primary servers are unreachable. Must be a subset of or distinct from primary servers."
+  },
+  "root_distance_max_sec": {
+    "type": "number",
+    "default": 256,
+    "description": "Maximum allowed root distance (round-trip delay to authoritative time source) in seconds. Servers exceeding this are rejected."
+  },
+  "poll_interval_min_sec": {
+    "type": "number",
+    "default": 32,
+    "description": "Minimum interval (in seconds) between successive polls to the same server. Lower values increase responsiveness but traffic."
+  },
+  "poll_interval_max_sec": {
+    "type": "number",
+    "default": 2048,
+    "description": "Maximum interval (in seconds) between polls. Higher values reduce network usage but slow detection of clock drift."
+  },
+  "max_steps_threshold_sec": {
+    "type": "number",
+    "default": 180,
+    "description": "Maximum clock offset (in seconds) that triggers a step instead of gradual slew. Offsets beyond this cause an immediate jump."
+  },
+  "step_backward": {
+    "type": "bool",
+    "default": false,
+    "description": "Whether to allow stepping the clock backward (e.g., after network partition recovery). Set to `true` only if your services tolerate backward time jumps."
+  },
+  "preserve_system_clock": {
+    "type": "bool",
+    "default": true,
+    "description": "If enabled, systemd will save and restore system time across reboots to reduce drift. Safe and recommended for most systems."
+  },
+  "server_poll_interval_dampening": {
+    "type": "number",
+    "default": 2,
+    "description": "Poll interval growth factor during instability (e.g., 2 = exponential backoff). Higher values reduce oscillation but slow recovery."
+  }
+}

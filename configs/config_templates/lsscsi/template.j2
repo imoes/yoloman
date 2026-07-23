@@ -1,0 +1,48 @@
+# SCSI device listing configuration for lsscsi(8)
+# See lsscsi(8) man page for details
+# This file is sourced by /usr/bin/lsscsi
+# Default values are shown; uncomment and edit to customize
+
+# Enable verbose output (same as -v flag)
+VERBOSE={{ verbose | default(false) | lower }}
+
+# Enable device type description (same as -d flag)
+DESCRIBE_TYPES={{ describe_types | default(false) | lower }}
+
+# Enable HBA (host bus adapter) identification (same as -H flag)
+SHOW_HBA={{ show_hba | default(false) | lower }}
+
+# Enable device transport attributes (same as -T flag)
+SHOW_TRANSPORT={{ show_transport | default(false) | lower }}
+
+# Enable numeric IDs only (same as -n flag)
+NUMERIC={{ numeric | default(false) | lower }}
+
+# List only devices matching these patterns (space-separated glob patterns)
+# Example: "0:* 3:1:*"
+FILTER_PATTERNS="{{ filter_patterns | default([]) | join(' ') }}"
+
+# Additional arguments passed to each lsscsi subprocess (e.g., --scsi_only)
+LSSCSI_ARGS="{{ lsscsi_args | default('') }}"
+
+# Multipath-specific: prefer multipath device names (e.g., /dev/mapper/mpathX)
+PREFER_MULTIPATH={{ prefer_multipath | default(false) | lower }}
+
+# List of SCSI transport types to *include* (others excluded)
+# Options: 'fibre_channel', 'sas', 'sata', 'scsi', 'usb', 'nvme', etc.
+TRANSPORT_INCLUDE={{ transport_include | default([]) | join(' ') }}
+
+# List of SCSI transport types to *exclude* (others included)
+TRANSPORT_EXCLUDE={{ transport_exclude | default([]) | join(' ') }}
+
+# Path to sysfs root (usually /sys; override for chroot or custom environments)
+SYSFS_PATH="{{ sysfs_path | default('/sys') }}"
+
+# Path to procfs root (usually /proc; required for some device info)
+PROCFS_PATH="{{ procfs_path | default('/proc') }}"
+
+# Timeout (in seconds) for sysfs/procfs access; 0 = no timeout
+TIMEOUT={{ timeout | default(10) }}
+
+# Enable debug logging to stderr
+DEBUG={{ debug | default(false) | lower }}

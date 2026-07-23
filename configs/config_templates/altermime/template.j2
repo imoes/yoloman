@@ -1,0 +1,102 @@
+# AlterMIME configuration file — controls MIME scanning, replacement, and quarantine behavior
+# General settings for MIME modification behavior
+altermime {
+    # Enable or disable MIME scanning
+    enabled = {{ enabled | lower }}
+
+    # Maximum size (in bytes) of message body to scan; 0 = unlimited
+    max_body_size = {{ max_body_size }}
+
+    # Log level: 0=quiet, 1=errors, 2=warnings, 3=info, 4=debug
+    log_level = {{ log_level }}
+
+    # Log file path (empty string to log to stderr)
+    log_file = {{ log_file | default('') | tojson }}
+
+    # Timeout (seconds) for external filters
+    filter_timeout = {{ filter_timeout }}
+}
+
+# Define replacement rules — each entry replaces matched content with custom text
+{% for rule in replacement_rules %}# Replacement rule: {{ rule.name }}
+{% if rule.enabled | default(true) %}
+repl {{ rule.type }} {
+    # MIME type pattern (shell-style glob or regex if prefixed with 're:')
+    pattern = {{ rule.pattern | tojson }}
+
+    # Replacement text (use \n for line breaks, \t for tabs)
+    text = {{ rule.text | tojson }}
+
+    # Optional: prepend or append custom headers
+{% if rule.headers %}    headers = {{ rule.headers | map(attribute='name') | join(', ') | tojson }}
+{% for hdr in rule.headers %}    header_{{ loop.index }}_name = {{ hdr.name | tojson }}
+    header_{{ loop.index }}_value = {{ hdr.value | tojson }}
+{% endfor %}
+{% else %}    # no custom headers
+{% endif %}
+}
+{% endif %}
+{% endfor %}
+
+# Define quarantine settings — where modified/infected messages are stored
+quarantine {
+    # Enable quarantine feature
+    enabled = {{ quarantine.enabled | default(false) | lower }}
+
+    # Base directory for quarantined messages
+    base_dir = {{ quarantine.base_dir | tojson }}
+
+    # Retention period (days) before auto-deletion; 0 = keep forever
+    retention_days = {{ quarantine.retention_days }}
+
+    # Permission mask for quarantine files (octal string, e.g., '0640')
+    file_mode = {{ quarantine.file_mode | tojson }}
+
+    # Group ownership for quarantined files
+    group = {{ quarantine.group | tojson }}
+
+    # User ownership for quarantined files
+    user = {{ quarantine.user | tojson }}
+}
+
+# Define external filter commands (e.g., antivirus scanners)
+{% for filter in external_filters %}# External filter: {{ filter.name }}
+{% if filter.enabled | default(true) %}
+ext_filter {{ filter.name }} {
+    # Command to run (must be executable and accept stdin, stdout, stderr)
+    command = {{ filter.command | tojson }}
+
+    # Input MIME types this filter applies to (comma-separated, or `*` for all)
+    input_types = {{ filter.input_types | join(', ') | tojson }}
+
+    # Action on scan result: `pass`, `quarantine`, `reject`, `replace`
+    action = {{ filter.action | tojson }}
+
+    # Optional: custom text to use for replacement (if `action=replace`)
+{% if filter.action == 'replace' %}    replacement_text = {{ filter.replacement_text | tojson }}
+{% endif %}
+}
+{% endif %}
+{% endfor %}
+
+# Define MIME type mapping overrides
+{% for mapping in mime_overrides %}# MIME override: {{ mapping.description }}
+{% if mapping.enabled | default(true) %}
+mime_override {{ mapping.source_type }} {
+    # Replace source MIME type with this target type
+    target_type = {{ mapping.target_type | tojson }}
+}
+{% endif %}
+{% endfor %}
+
+# Security and access control
+security {
+    # Drop privileges to this user after initialization
+    user = {{ security.user | tojson }}
+
+    # Drop privileges to this group after initialization
+    group = {{ security.group | tojson }}
+
+    # Restrict file system access to chroot jail (empty = no chroot)
+    chroot = {{ security.chroot | tojson }}
+}

@@ -1,0 +1,140 @@
+# Configures the systemd-journald service to accept syslog messages via a stream socket
+[Journal]
+# Path to the directory where journal files are stored
+# {{ journal_storage_dir }}
+{% if journal_storage_dir %}
+#Storage={{ journal_storage_dir }}
+{% endif %}
+
+# Size limit for individual journal files before rotation
+# {{ journal_system_max_use }}
+{% if journal_system_max_use %}
+SystemMaxUse={{ journal_system_max_use }}
+{% endif %}
+
+# Maximum size of all journal files combined
+# {{ journal_system_max_file_size }}
+{% if journal_system_max_file_size %}
+SystemMaxFile={{ journal_system_max_file_size }}
+{% endif %}
+
+# Number of journal files to keep for each user
+# {{ journal_system_keep_free }}
+{% if journal_system_keep_free %}
+SystemKeepFree={{ journal_system_keep_free }}
+{% endif %}
+
+# Enable or disable synchronous writes to disk
+# {{ journal_sync_interval_sec }}
+{% if journal_sync_interval_sec is number %}
+SyncIntervalSec={{ journal_sync_interval_sec }}
+{% endif %}
+
+# Maximum number of journal files to retain
+# {{ journal_max_file_sec }}
+{% if journal_max_file_sec %}
+MaxFileSec={{ journal_max_file_sec }}
+{% endif %}
+
+# Forward legacy syslog messages to journald
+# {{ syslog_forward_to_socket }}
+{% if syslog_forward_to_socket %}
+ForwardToSyslog={{ 'yes' if syslog_forward_to_socket else 'no' }}
+{% endif %}
+
+# Forward to the systemd journal (default: yes)
+# {{ forward_to_journal }}
+{% if forward_to_journal is not none %}
+ForwardToJournal={{ 'yes' if forward_to_journal else 'no' }}
+{% endif %}
+
+# Forward to kernel log buffer (kmsg)
+# {{ forward_to_kmsg }}
+{% if forward_to_kmsg is not none %}
+ForwardToKMsg={{ 'yes' if forward_to_kmsg else 'no' }}
+{% endif %}
+
+# Forward to console (tty)
+# {{ forward_to_console }}
+{% if forward_to_console is not none %}
+ForwardToConsole={{ 'yes' if forward_to_console else 'no' }}
+{% endif %}
+
+# Path to the journal socket for reading logs
+# {{ journal_runtime_journal_dir }}
+{% if journal_runtime_journal_dir %}
+RuntimeDirectory={{ journal_runtime_journal_dir }}
+{% endif %}
+
+# Path to the system journal directory (persistent)
+# {{ journal_system_journal_dir }}
+{% if journal_system_journal_dir %}
+SystemDirectory={{ journal_system_journal_dir }}
+{% endif %}
+
+# Socket path for syslog input stream
+# {{ syslog_stream_socket }}
+{% if syslog_stream_socket %}
+StreamSocket={{ syslog_stream_socket }}
+{% endif %}
+
+# Optional list of additional journal fields to expose via the stream socket
+# {{ stream_socket_extra_fields }}
+{% for field in stream_socket_extra_fields %}
+StreamSocketExtraFields={{ field }}
+{% endfor %}
+
+# Rate-limiting of incoming journal entries (per time window)
+# {{ rate_limit_interval_sec }} and {{ rate_limit_burst }}
+{% if rate_limit_interval_sec is number and rate_limit_burst is number %}
+RateLimitIntervalSec={{ rate_limit_interval_sec }}
+RateLimitBurst={{ rate_limit_burst }}
+{% endif %}
+
+# Enable or disable compression of old journal files
+# {{ compress }}
+{% if compress is not none %}
+Compress={{ 'yes' if compress else 'no' }}
+{% endif %}
+
+# Log level for internal journald messages (debug, info, notice, warning, error, critical, alert, emergency)
+# {{ log_level }}
+{% if log_level %}
+LogLevel={{ log_level }}
+{% endif %}
+
+# Select which facilities to log (e.g., auth, cron, daemon, kern, user, local0–local7)
+# {{ log_facility }}
+{% for facility in log_facility %}
+LogFacility={{ facility }}
+{% endfor %}
+
+# Maximum number of readahead threads
+# {{ readahead_max_threads }}
+{% if readahead_max_threads is number %}
+ReadaheadMaxThreads={{ readahead_max_threads }}
+{% endif %}
+
+# Enable binary journal format (default: yes)
+# {{ binary_journal }}
+{% if binary_journal is not none %}
+BinaryJournal={{ 'yes' if binary_journal else 'no' }}
+{% endif %}
+
+# Maximum number of entries to keep in memory (default: 10000)
+# {{ journal_max_entries }}
+{% if journal_max_entries is number %}
+MaxEntries={{ journal_max_entries }}
+{% endif %}
+
+# Maximum time entries are kept in memory before being flushed to disk
+# {{ journal_max_entries_sec }}
+{% if journal_max_entries_sec is number %}
+MaxEntriesSec={{ journal_max_entries_sec }}
+{% endif %}
+
+# Maximum number of entries per user
+# {{ journal_user_max_entries }}
+{% if journal_user_max_entries is number %}
+UserMaxEntries={{ journal_user_max_entries }}
+{% endif %}

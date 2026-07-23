@@ -1,0 +1,51 @@
+[ws]
+# Bind the Cockpit web service to a specific address (IP or hostname); use `*` to bind to all interfaces
+Address = {{ ws_address }}
+
+# Listen port for the Cockpit web service
+Port = {{ ws_port }}
+
+# Use HTTPS (TLS) for secure connections (requires valid TLS certificates)
+TLS = {{ ws_tls }}
+
+# Path to TLS certificate file (must be readable by the cockpit-ws process)
+TLSCert = {{ ws_tls_cert }}
+
+# Path to TLS private key file (must be secure and readable by the cockpit-ws process)
+TLSKey = {{ ws_tls_key }}
+
+{% if ws_cors_domains %}
+# Comma-separated list of allowed origins for CORS (Cross-Origin Resource Sharing); empty or absent disables CORS
+CorsDomains = {{ ws_cors_domains | join(', ') }}
+{% endif %}
+
+[login]
+# Disable login banner (set to `false` to remove or hide it)
+Banner = {{ login_banner }}
+
+# Banner text shown on the login page
+BannerText = {{ login_banner_text }}
+
+{% if session_timeout_minutes is not none %}
+# Session timeout in minutes; 0 means no timeout (not recommended for production)
+SessionTimeout = {{ session_timeout_minutes }}
+{% endif %}
+
+{% if session_idle_timeout_minutes is not none %}
+# Session idle timeout in minutes; 0 means no idle timeout (not recommended)
+IdleTimeout = {{ session_idle_timeout_minutes }}
+{% endif %}
+
+[session]
+# Maximum number of concurrent sessions per user (0 = no limit)
+MaxSessionsPerUser = {{ session_max_per_user }}
+
+{% if session_recording_path %}
+# Enable session recording and store logs at this path
+SessionRecording = {{ session_recording_path }}
+{% endif %}
+
+{% if session_recording_exclude_users %}
+# List of users excluded from session recording
+SessionRecordingExcludeUsers = {{ session_recording_exclude_users | join(', ') }}
+{% endif %}

@@ -1,0 +1,42 @@
+# Foremost configuration file — controls file carving behavior
+# Enable verbose logging to syslog
+verbose {{ verbose | default(false) | lower }}
+
+# Output directory for recovered files
+output {{ output_dir }}
+
+# Log file for recovery operations
+log {{ log_file }}
+
+# Maximum file size to recover (in bytes) — set to 0 for unlimited
+max {{ max_file_size }}
+
+# Image or device to scan (e.g., /dev/sda1, image.dd)
+device {{ device_path }}
+
+# File type signatures to recover — one per line, format: ext: magic_bytes: offset: description
+# Supported types: jpeg, png, gif, bmp, avi, exe, mpg, wav, pdf, doc, zip, etc.
+{% for rule in file_types %}
+{{ rule.ext }} {{ rule.offset }} {{ rule.magic }} {{ rule.desc | default('') | replace(' ', '_') }}
+{% endfor %}
+
+# Number of blocks to read per pass (lower = slower but safer on damaged media)
+block {{ block_size }}
+
+# Output format: write files to subdirs per extension (true) or flat (false)
+subdirs {{ subdirs | default(true) | lower }}
+
+# Overwrite existing output files (dangerous — only for test/overwrite mode)
+overwrite {{ overwrite | default(false) | lower }}
+
+# Stop after recovering this many files (0 = unlimited)
+files {{ max_files }}
+
+# Only scan for files starting at these offsets (hex) — useful for known header positions
+start {{ start_offsets | join(', ') }}
+
+# Timezone offset (hours from UTC) for timestamp-based recovery (if supported by version)
+tz {{ tz_offset }}
+
+# Case sensitivity for extension matching: on/off (legacy — usually ignored in modern versions)
+case {{ case_sensitive | default('off') }}

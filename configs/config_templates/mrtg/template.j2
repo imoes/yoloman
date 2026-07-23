@@ -1,0 +1,115 @@
+# mrtg.cfg — main configuration file for Multi Router Traffic Grapher
+#
+# Global settings
+WorkDir: {{ work_dir }}
+Language: {{ language }}
+
+# Logging
+LogFormat: logvar
+LogDir: {{ log_dir }}
+
+# SNMP settings
+Interval: {{ snmp_interval }}
+Timeout: {{ snmp_timeout }}
+
+# Default community (used if per-target community not specified)
+DefaultAuthName: {{ snmp_default_authname }}
+DefaultAuthPass: {{ snmp_default_authpass }}
+{% if snmp_default_version %}
+DefaultVersion: {{ snmp_default_version }}
+{% endif %}
+
+# Graphing options
+Options[_]: growright, bits
+{% if enable_ipv6 %}EnableIPv6: yes{% else %}EnableIPv6: no{% endif %}
+
+# Mail alerts (optional)
+{% if mail_alert_enabled %}
+MailAlert: {{ mail_alert_recipient }}
+{% endif %}
+
+# HTML options
+{% if html_title %}
+Title[^]: {{ html_title }}
+{% endif %}
+{% if html_directory %}
+HTMLDir: {{ html_directory }}
+{% endif %}
+{% if png_directory %}
+PNGDir: {{ png_directory }}
+{% endif %}
+{% if html_background_color %}
+Background[.]: {{ html_background_color }}
+{% endif %}
+
+# Global thresholds (optional, applied to all targets unless overridden)
+{% if threshold_enabled %}
+Threshold[_]: {{ threshold_value }}
+{% endif %}
+
+# Per-target device configurations
+{% for target in targets %}
+#
+# Target: {{ target.name }} — {{ target.description | default('No description') }}
+#
+Target[{{ target.name }}]: {{ target.oid_in }}:{{ target.snmp_community | default(snmp_default_authname) }}@{{ target.host }}/{{ target.oid_out | default(target.oid_in) }}:{{ target.snmp_community | default(snmp_default_authname) }}@{{ target.host }}
+
+# SNMP version (if different from global default)
+{% if target.snmp_version %}
+Version[{{ target.name }}]: {{ target.snmp_version }}
+{% endif %}
+
+# SNMP auth (for v3)
+{% if target.snmp_v3_user %}
+AuthName[{{ target.name }}]: {{ target.snmp_v3_user }}
+{% if target.snmp_v3_auth_pass %}
+AuthPass[{{ target.name }}]: {{ target.snmp_v3_auth_pass }}
+{% endif %}
+{% if target.snmp_v3_priv_pass %}
+PrivPass[{{ target.name }}]: {{ target.snmp_v3_priv_pass }}
+{% endif %}
+{% endif %}
+
+# Graph titles and labels
+Title[{{ target.name }}]: {{ target.title }}
+PageTop[{{ target.name }}]: <h1>{{ target.page_top }}</h1>
+MaxBytes[{{ target.name }}]: {{ target.max_bytes }}
+WithPeak[{{ target.name }}]: {{ 'yes' if target.with_peak else 'no' }}
+
+# Units and formatting
+YLegend[{{ target.name }}]: {{ target.ylegend }}
+ShortLegend[{{ target.name }}]: {{ target.short_legend }}
+LegendI[{{ target.name }}]: {{ target.legend_in }}
+LegendO[{{ target.name }}]: {{ target.legend_out }}
+Legend1[{{ target.name }}]: {{ target.legend_1 }}
+Legend2[{{ target.name }}]: {{ target.legend_2 }}
+
+# Thresholds (per-target override)
+{% if target.threshold_in is defined and target.threshold_out is defined %}
+Threshold[{{ target.name }}]: {{ target.threshold_in }}/{{ target.threshold_out }}
+{% endif %}
+
+# Color options
+Color[{{ target.name }}][1]: {{ target.color_in }}
+Color[{{ target.name }}][2]: {{ target.color_out }}
+Color[{{ target.name }}][3]: {{ target.color_background | default('#FFFFFF') }}
+Color[{{ target.name }}][4]: {{ target.color_text | default('#000000') }}
+
+# HTML file output
+{% if target.html_filename %}
+HTMLFile[{{ target.name }}]: {{ target.html_filename }}
+{% endif %}
+
+# Mail alerting (per-target override)
+{% if target.mail_alert_enabled %}
+MailAlert[{{ target.name }}]: {{ target.mail_alert_recipient }}
+{% endif %}
+
+# Additional options
+{% if target.add_options %}
+{% for opt, val in target.add_options.items() %}
+{{ opt }}[{{ target.name }}]: {{ val }}
+{% endfor %}
+{% endif %}
+
+{% endfor %}

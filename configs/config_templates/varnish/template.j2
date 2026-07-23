@@ -1,0 +1,142 @@
+# Varnish Configuration File (default.vcl)
+# Generated from template
+
+# Define backend servers for the VCL
+{% for backend in backends %}
+backend {{ backend.name }} {
+    .host = "{{ backend.host }}";
+    .port = "{{ backend.port }}";
+{% if backend.connect_timeout is defined %}    .connect_timeout = {{ backend.connect_timeout }}s;{% endif %}
+{% if backend.first_byte_timeout is defined %}    .first_byte_timeout = {{ backend.first_byte_timeout }}s;{% endif %}
+{% if backend.between_bytes_timeout is defined %}    .between_bytes_timeout = {{ backend.between_bytes_timeout }}s;{% endif %}
+{% if backend.max_connections is defined %}    .max_connections = {{ backend.max_connections }};{% endif %}
+}
+{% endfor %}
+
+# Optional: Define director(s) (backend pools with load balancing)
+{% for director in directors %}
+director {{ director.name }} {{ director.algorithm }} {
+{% for member in director.members %}    {
+        .backend = {{ member.backend }};
+{% if member.weight is defined %}        .weight = {{ member.weight }};{% endif %}
+    }
+{% endfor %}
+}
+{% endfor %}
+
+# Default backend if no director selected
+{% if backends | length > 0 %}
+set req.backend_hint = {{ backends[0].name }};
+{% endif %}
+
+# Subroutines
+sub vcl_init {
+    new vsc = vsthrottle.init(1000, 1000, 0.1);
+}
+
+sub vcl_recv {
+    # Normalize Host header (remove port if present)
+    if (req.http.Host) {
+        set req.http.Host = regsub(req.http.Host, ":\d+", "");
+    }
+
+    # Strip unwanted cookies (unless admin/secure paths)
+    if (req.url !~ "^(?:/admin|/user|/checkout|/cart)") {
+        unset req.http.cookie;
+    }
+
+    # Skip caching for non-GET/HEAD requests
+    if (req.method != "GET" && req.method != "HEAD") {
+        return (pass);
+    }
+
+    # Normalize query string (order-insensitive hashing)
+    set req.url = std.querysort(req.url);
+
+    # Handle compression
+    if (req.http.Accept-Encoding) {
+        if (req.http.Accept-Encoding ~ "gzip") {
+            set req.http.Accept-Encoding = "gzip";
+        } else if (req.http.Accept-Encoding ~ "deflate") {
+            set req.http.Accept-Encoding = "deflate";
+        } else {
+            unset req.http.Accept-Encoding;
+        }
+    }
+
+    # Allow purging via PURGE method (if enabled)
+    if (req.method == "PURGE") {
+        if (client.ip !~ purge_acl) {
+            return (synth(405, "Not allowed"));
+        }
+        return (purge);
+    }
+
+    # Optional: Enable debug header
+{% if debug_headers %}    set req.http.X-Varnish-Debug = "true";{% endif %}
+
+    return (hash);
+}
+
+sub vcl_backend_response {
+    # Set cache TTL based on status and headers
+    if (bereq.http.Cache-Control ~ "no-cache" ||
+        beresp.http.Cache-Control ~ "no-cache" ||
+        beresp.http.Cache-Control ~ "no-store") {
+        set beresp.ttl = 0s;
+        set beresp.uncacheable = true;
+        return (deliver);
+    }
+
+    # Default TTLs
+    if (beresp.status == 200 || beresp.status == 203 ||
+        beresp.status == 204 || beresp.status == 300 ||
+        beresp.status == 301 || beresp.status == 302) {
+{% if default_ttl is defined %}        set beresp.ttl = {{ default_ttl }}s;{% else %}        set beresp.ttl = 3600s;{% endif %}
+    } else if (beresp.status == 404 || beresp.status == 403) {
+{% if error_ttl is defined %}        set beresp.ttl = {{ error_ttl }}s;{% else %}        set beresp.ttl = 60s;{% endif %}
+    } else {
+        set beresp.ttl = 300s;
+    }
+
+    # Respect backend Cache-Control max-age when lower than default
+    if (beresp.http.Cache-Control ~ "max-age=" &&
+        beresp.ttl > std.integer(regsub(beresp.http.Cache-Control, "max-age=(\d+)", "\1"), 300)) {
+        set beresp.ttl = std.integer(regsub(beresp.http.Cache-Control, "max-age=(\d+)", "\1"), 300)s;
+    }
+
+{% if add_age_header %}    set beresp.http.X-Varnish-Original-Age = beresp.http.Age;
+    unset beresp.http.Age;{% endif %}
+
+{% if serve_stale_on_error %}    # Enable stale-while-revalidate / stale-if-error
+    set beresp.http.X-Stale-On-Error = "true";
+    set beresp.saintmode = 10s;
+    set beresp.grace = 5m;{% endif %}
+
+    return (deliver);
+}
+
+sub vcl_deliver {
+{% if add_x_varnish_headers %}    # Add debugging headers
+    if (obj.hits > 0) {
+        set resp.http.X-Cache = "HIT";
+        set resp.http.X-Cache-Hits = obj.hits;
+    } else {
+        set resp.http.X-Cache = "MISS";
+    }
+    set resp.http.X-Varnish = obj.vxid;
+{% endif %}
+
+    # Remove internal headers unless debug
+{% if !debug_headers %}    unset resp.http.X-Varnish;
+    unset resp.http.X-Varnish-Debug;{% endif %}
+    unset resp.http.Via;
+    return (deliver);
+}
+
+# ACL for PURGE clients
+{% if purge_acl is defined %}acl purge_acl {
+{% for ip in purge_acl %}    "{{ ip }}";
+{% endfor %}
+}
+{% endif %}

@@ -1,0 +1,18 @@
+{# Interface configuration block: defines which interfaces to proxy on #}
+{% for iface in interfaces %}
+{% if iface.enabled | default(true) %}interface {{ iface.name }};
+{% endif %}{% endfor %}
+
+{# Proxy configuration: which IPv6 prefixes to announce via NDP proxy #}
+{% for prefix in prefixes %}
+{% if prefix.enabled | default(true) %}
+proxy {{ prefix.address }}/{{ prefix.length }} {{ prefix.interface }};
+{% endif %}{% endfor %}
+
+{# Global settings #}
+{% if log_level is defined %}loglevel {{ log_level }};
+{% endif %}
+{% if pid_file is defined %}pidfile {{ pid_file }};
+{% endif %}
+{% if debug is defined %}debug {{ 'true' if debug else 'false' }};
+{% endif %}

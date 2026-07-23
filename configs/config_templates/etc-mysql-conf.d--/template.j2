@@ -1,0 +1,82 @@
+[mysqld]
+# Base directory for MySQL data and runtime files
+basedir = {{ mysql_basedir }}
+# Directory where MySQL stores its data files
+dataadir = {{ mysql_dataadir }}
+# Unix socket file for local connections
+socket = {{ mysql_socket }}
+# Port to listen on for TCP connections
+port = {{ mysql_port }}
+# Maximum number of simultaneous client connections
+max_connections = {{ mysql_max_connections }}
+# Maximum size of one packet or any generated/intermediate string
+max_allowed_packet = {{ mysql_max_allowed_packet }}
+# Default character set for new databases
+character_set_server = {{ mysql_character_set_server }}
+# Default collation for new databases
+collation_server = {{ mysql_collation_server }}
+{% if mysql_skip_name_resolve %}
+# Skip DNS resolution for client connections (improves security and startup time)
+skip-name-resolve
+{% endif %}
+{% if mysql_bind_address %}
+# IP address to bind to (empty = all interfaces); set to 127.0.0.1 for local-only
+bind-address = {{ mysql_bind_address }}
+{% endif %}
+{% if mysql_sql_mode %}
+# SQL mode defines strictness and behavior of SQL statements
+sql_mode = {{ mysql_sql_mode | join(', ') }}
+{% endif %}
+# Time (seconds) to wait before closing idle connections
+timeout_connect = {{ mysql_timeout_connect }}
+# Time (seconds) to wait for a read/write operation before aborting
+timeout_wait = {{ mysql_timeout_wait }}
+# Number of seconds to wait for more data from a client before aborting the read
+timeout_read = {{ mysql_timeout_read }}
+# Number of seconds to wait for more data from a client before aborting the write
+timeout_write = {{ mysql_timeout_write }}
+# Number of seconds to wait for a lock before timing out
+lock_wait_timeout = {{ mysql_lock_wait_timeout }}
+# Number of seconds a transaction can run before being killed automatically
+innodb_lock_wait_timeout = {{ mysql_innodb_lock_wait_timeout }}
+# Number of seconds the server waits for activity before closing the connection
+interactive_timeout = {{ mysql_interactive_timeout }}
+# Number of seconds the server waits for activity on a non-interactive connection before closing it
+net_read_timeout = {{ mysql_net_read_timeout }}
+net_write_timeout = {{ mysql_net_write_timeout }}
+# InnoDB buffer pool size — main cache for InnoDB tables and indexes
+innodb_buffer_pool_size = {{ mysql_innodb_buffer_pool_size }}
+# InnoDB log file size — affects crash recovery and write performance
+innodb_log_file_size = {{ mysql_innodb_log_file_size }}
+# InnoDB log buffer size — affects how often logs are flushed to disk
+innodb_log_buffer_size = {{ mysql_innodb_log_buffer_size }}
+# Enable or disable binary logging for replication and point-in-time recovery
+log_bin = {{ 'ON' if mysql_log_bin else 'OFF' }}
+# Server ID for replication — must be unique per server in the topology
+server_id = {{ mysql_server_id }}
+# Format of binary log entries (STATEMENT, ROW, MIXED)
+binlog_format = {{ mysql_binlog_format }}
+# Retention period (days) for binary logs before automatic purging
+expire_logs_days = {{ mysql_expire_logs_days }}
+# Max total size of binary logs — older logs are purged when exceeded
+max_binlog_size = {{ mysql_max_binlog_size }}
+# Path to the error log file
+log_error = {{ mysql_log_error }}
+# Enable slow query logging
+slow_query_log = {{ 'ON' if mysql_slow_query_log else 'OFF' }}
+# Log queries taking more than this many seconds
+long_query_time = {{ mysql_long_query_time }}
+# Path to the slow query log file
+slow_query_log_file = {{ mysql_slow_query_log_file }}
+{% for key, value in mysql_custom_ini.items() %}
+# Custom user-defined config option
+{{ key }} = {{ value }}
+{% endfor %}
+
+[client]
+# Default character set for clients
+default-character-set = {{ mysql_character_set_server }}
+
+[mysql]
+# Default character set for mysql CLI
+default-character-set = {{ mysql_character_set_server }}

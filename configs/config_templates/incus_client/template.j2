@@ -1,0 +1,64 @@
+# Incus client configuration file
+# This file configures client-side behavior for the Incus CLI.
+# See `incus man config` for full documentation.
+
+[core]
+# The directory where Incus stores client-side state (aliases, images, etc.)
+# Default: ~/.local/share/incus or $XDG_DATA_HOME/incus
+store = {{ store_path }}
+
+# Remote to connect to by default when no remote is specified
+# Use `incus remote list` to see available remotes
+remote = {{ default_remote }}
+
+# Server to connect to (if using a direct remote URL or custom remote)
+# Not used if `remote` points to a known named remote
+server = {{ server_url }}
+
+# Whether to use local UNIX socket instead of network (ignored if server is set)
+# Default: true
+networked = {{ networked | lower }}
+
+# Enable/disable verbose debug logging
+# Default: false
+debug = {{ debug | lower }}
+
+# Enable/disable quiet mode (minimal output)
+# Default: false
+quiet = {{ quiet | lower }}
+
+[aliases]
+# Custom command aliases
+{% for alias_name, alias_cmd in aliases.items() %}{{ alias_name }} = {{ alias_cmd }}
+{% endfor %}
+
+[images]
+# Default image server protocol (e.g., `simplestreams`, `direct`, `http`, `https`)
+protocol = {{ image_protocol }}
+
+# Auto-update cached images? (true/false)
+auto_update = {{ auto_update_images | lower }}
+
+# List of public image servers to trust (by fingerprint)
+{% for fp in trusted_image_fingerprints %}# Fingerprint: {{ fp }}
+{% endfor %}
+
+[devices]
+# Default disk device mount options (e.g., `pool=default`, `path=/`)
+{% for dev_name, dev_config in default_disk_devices.items() %}[devices.{{ dev_name }}]
+# Mount configuration for disk device '{{ dev_name }}'
+path = {{ dev_config.path }}
+source = {{ dev_config.source }}
+{% if dev_config.pool is defined %}pool = {{ dev_config.pool }}{% endif %}
+{% endfor %}
+
+[profiles]
+# Default profile(s) to apply when launching containers/VMs
+profiles = {{ profiles | join(', ') }}
+
+# Optional per-profile configuration overrides
+{% for profile in profile_configs %}[profiles.{{ profile.name }}]
+# Configuration for profile '{{ profile.name }}'
+{% for key, val in profile.config.items() %}{{ key }} = {{ val }}
+{% endfor %}
+{% endfor %}

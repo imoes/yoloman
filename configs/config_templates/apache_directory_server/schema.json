@@ -1,0 +1,110 @@
+{
+  "jvm_heap_min_mb": {
+    "type": "number",
+    "default": 256,
+    "description": "Initial heap size (in MB) for the Apache Directory Server JVM. Increase for larger directories (>100k entries)."
+  },
+  "jvm_heap_max_mb": {
+    "type": "number",
+    "default": 1024,
+    "description": "Maximum heap size (in MB) for the JVM. Must be \u2265 initial heap; set based on available system RAM and directory size."
+  },
+  "enable_gc_logging": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable detailed garbage collection logging for performance analysis and troubleshooting."
+  },
+  "gc_log_path": {
+    "type": "string",
+    "default": "/var/log/apacheds/gc.log",
+    "description": "File path where GC logs will be written (only used if GC logging is enabled)."
+  },
+  "instance_dir": {
+    "type": "string",
+    "default": "/var/lib/apacheds",
+    "description": "Root directory containing one or more Apache Directory Server instances."
+  },
+  "instance_uid": {
+    "type": "string",
+    "default": "default",
+    "description": "Name of the instance directory under `instance_dir` (e.g., `/var/lib/apacheds/instances/default`)."
+  },
+  "log_level": {
+    "type": "string",
+    "default": "INFO",
+    "description": "Logging verbosity level: OFF, ERROR, WARN, INFO, DEBUG, or TRACE. Use DEBUG only for diagnostics due to performance impact."
+  },
+  "ldap_port": {
+    "type": "number",
+    "default": 10389,
+    "description": "TCP port on which the unencrypted LDAP service listens (standard port is 389, but 10389 is the default for apacheds)."
+  },
+  "ldap_bind_address": {
+    "type": "string",
+    "default": "0.0.0.0",
+    "description": "IP address (or hostname) to bind the LDAP service to. Use '127.0.0.1' for local-only access, or a specific interface IP for production."
+  },
+  "enable_ldaps": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable LDAPS (LDAP over SSL/TLS). Requires keystore configuration in the instance\u2019s config."
+  },
+  "ldaps_port": {
+    "type": "number",
+    "default": 10636,
+    "description": "TCP port for LDAPS (used only if LDAPS is enabled)."
+  },
+  "ldaps_bind_address": {
+    "type": "string",
+    "default": "0.0.0.0",
+    "description": "IP address for LDAPS binding (used only if LDAPS is enabled)."
+  },
+  "enable_rmi": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable RMI management port (used by JMX tools). Not recommended in production due to security risks."
+  },
+  "rmi_port": {
+    "type": "number",
+    "default": 16891,
+    "description": "RMI port for JMX monitoring (used only if RMI is enabled)."
+  },
+  "enable_debug": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable low-level JVM and Kerberos debug flags (useful for troubleshooting authentication issues)."
+  },
+  "extra_system_properties": {
+    "type": "list",
+    "default": [],
+    "description": "Additional JVM system properties in `key=value` format (e.g., for custom environment overrides).",
+    "items": {
+      "type": "object",
+      "properties": {
+        "key": {
+          "type": "string",
+          "description": "Property key (e.g., 'myapp.config.path')"
+        },
+        "value": {
+          "type": "string",
+          "description": "Property value (e.g., '/etc/myapp/config.yml')"
+        }
+      }
+    }
+  },
+  "thread_stack_size_kb": {
+    "type": "number",
+    "default": 256,
+    "description": "Thread stack size in KB. Increase only if encountering stack overflow errors."
+  },
+  "disable_biased_locking": {
+    "type": "bool",
+    "default": false,
+    "description": "Disable biased locking in the JVM. Useful for high-contention multi-threaded workloads (rarely needed)."
+  },
+  "classpath": {
+    "type": "string",
+    "default": "/usr/share/apacheds/lib/*",
+    "description": "JVM classpath. Usually should not be changed unless custom libraries are added."
+  }
+}

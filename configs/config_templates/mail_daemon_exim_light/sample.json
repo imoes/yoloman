@@ -1,0 +1,40 @@
+{
+  "primary_hostname": "mail.acme.com",
+  "message_size_limit": "50M",
+  "max_rcpt": 100,
+  "daemon_smtp_ports": [
+    "25",
+    "587"
+  ],
+  "local_interfaces": [],
+  "qualify_domain": "acme.com",
+  "qualify_recipient": "acme.com",
+  "local_domains": [
+    "acme.com",
+    "mail.acme.com"
+  ],
+  "relay_to_domains": [],
+  "relay_from_hosts": [
+    "10.0.0.0/8",
+    "192.168.0.0/16"
+  ],
+  "ignore_bounce_errors_after": "2d",
+  "timeout_frozen_after": "7d",
+  "freeze_tell": "postmaster@acme.com",
+  "log_selector": "+smtp_protocol_error +smtp_syntax_error +tls_certificate_verified",
+  "tls_enabled": true,
+  "tls_certificate": "/etc/letsencrypt/live/mail.acme.com/fullchain.pem",
+  "tls_privatekey": "/etc/letsencrypt/live/mail.acme.com/privkey.pem",
+  "smarthost": "smtp.sendgrid.net",
+  "smarthost_auth": true,
+  "smarthost_user": "apikey",
+  "smarthost_password": "SG.xxxxxxxxxxxxxxxxxxxx",
+  "rewrite_rules": [
+    {
+      "description": "Rewrite outbound envelope-from to canonical primary domain to avoid SPF failures",
+      "pattern": "*@+local_domains",
+      "replacement": "${local_part}@acme.com",
+      "flags": "F"
+    }
+  ]
+}

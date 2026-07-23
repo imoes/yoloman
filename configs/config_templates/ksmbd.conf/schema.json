@@ -1,0 +1,197 @@
+{
+  "netbios_name": {
+    "type": "string",
+    "default": "KSMBD",
+    "description": "NetBIOS name of the server as seen by Windows clients."
+  },
+  "workgroup": {
+    "type": "string",
+    "default": "WORKGROUP",
+    "description": "Windows workgroup or domain name. Must match the clients\u2019 workgroup for unauthenticated access."
+  },
+  "smb_ports": {
+    "type": "list",
+    "default": [
+      "445"
+    ],
+    "description": "TCP ports to listen on for SMB traffic. Typically [445].",
+    "items": {
+      "type": "string",
+      "description": "Port number as string (e.g., \"445\")"
+    }
+  },
+  "server_signing": {
+    "type": "string",
+    "default": "yes",
+    "description": "Enable SMB packet signing for integrity and anti-replay protection. Options: 'yes', 'no', 'auto'."
+  },
+  "max_connections": {
+    "type": "number",
+    "default": 100,
+    "description": "Maximum number of concurrent client connections allowed."
+  },
+  "log_level": {
+    "type": "number",
+    "default": 1,
+    "description": "Verbosity of logging: 0 (none) to 10 (debug). Higher values increase I/O and log size."
+  },
+  "log_file": {
+    "type": "string",
+    "default": "/var/log/ksmbd/ksmbd.log",
+    "description": "Absolute path to the log file. Set to empty string to disable logging to file (logs only to syslog)."
+  },
+  "time_server": {
+    "type": "bool",
+    "default": false,
+    "description": "If enabled, act as an SMB time server for clients to sync clocks."
+  },
+  "unix_extensions": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable SMB Unix extensions for POSIX semantics (required for Linux/macOS clients)."
+  },
+  "winbind_domain": {
+    "type": "string",
+    "default": "",
+    "description": "Active Directory domain name to integrate with via winbind (optional)."
+  },
+  "winbind_separator": {
+    "type": "string",
+    "default": "+",
+    "description": "Character used to separate domain and username in winbind lookups (e.g., 'DOMAIN+user')."
+  },
+  "winbind_enum_users": {
+    "type": "bool",
+    "default": false,
+    "description": "Allow winbind to enumerate users for this server (discovery). May affect performance."
+  },
+  "winbind_enum_groups": {
+    "type": "bool",
+    "default": false,
+    "description": "Allow winbind to enumerate groups for this server (discovery). May affect performance."
+  },
+  "default_file_permission": {
+    "type": "string",
+    "default": "0644",
+    "description": "Octal permission mask applied to new files (if inherit_permissions=false)."
+  },
+  "default_directory_permission": {
+    "type": "string",
+    "default": "0755",
+    "description": "Octal permission mask applied to new directories (if inherit_permissions=false)."
+  },
+  "inherit_permissions": {
+    "type": "bool",
+    "default": true,
+    "description": "If enabled, new files/dirs inherit parent directory's permissions."
+  },
+  "inherit_owner": {
+    "type": "bool",
+    "default": true,
+    "description": "If enabled, new files/dirs inherit parent directory\u2019s ownership (owner and group)."
+  },
+  "client_idle_timeout": {
+    "type": "number",
+    "default": 0,
+    "description": "Idle timeout in milliseconds before disconnecting inactive clients (0 = disabled)."
+  },
+  "shares": {
+    "type": "list",
+    "default": [
+      {
+        "name": "shared",
+        "path": "/srv/ksmbd/shared",
+        "read_only": false,
+        "comment": "Shared documents"
+      }
+    ],
+    "description": "List of shares to expose. Each share defines a directory and access rules.",
+    "items": {
+      "type": "object",
+      "fields": {
+        "name": {
+          "type": "string",
+          "default": "",
+          "description": "Share name (e.g., 'shared', 'public'). Must be unique and not contain spaces/special chars."
+        },
+        "path": {
+          "type": "string",
+          "default": "/srv/ksmbd/shared",
+          "description": "Absolute path to the directory to share."
+        },
+        "read_only": {
+          "type": "bool",
+          "default": false,
+          "description": "If true, users can only read files; otherwise, write access is allowed (subject to permissions)."
+        },
+        "comment": {
+          "type": "string",
+          "default": "Shared directory",
+          "description": "Optional human-readable description shown in client browse lists."
+        },
+        "guest_ok": {
+          "type": "bool",
+          "default": false,
+          "description": "Allow guest (anonymous) access without credentials."
+        },
+        "valid_users": {
+          "type": "list",
+          "default": [],
+          "description": "List of allowed users/groups (e.g., ['user1', '@admin']).",
+          "items": {
+            "type": "string",
+            "description": "User or group (prefixed with '@')."
+          }
+        },
+        "write_list": {
+          "type": "list",
+          "default": [],
+          "description": "Subset of users/groups allowed to write, even in read-only shares.",
+          "items": {
+            "type": "string",
+            "description": "User or group (prefixed with '@')."
+          }
+        },
+        "force_user": {
+          "type": "string",
+          "default": "",
+          "description": "Force all file operations to run as this system user."
+        },
+        "force_group": {
+          "type": "string",
+          "default": "",
+          "description": "Force all file operations to run as this system group."
+        },
+        "create_mask": {
+          "type": "string",
+          "default": "0644",
+          "description": "Octal mask applied to new files (overrides default_file_permission for this share)."
+        },
+        "directory_mask": {
+          "type": "string",
+          "default": "0755",
+          "description": "Octal mask applied to new directories (overrides default_directory_permission for this share)."
+        },
+        "browsable": {
+          "type": "bool",
+          "default": true,
+          "description": "If true, the share appears in browse lists (e.g., 'net view')."
+        },
+        "printable": {
+          "type": "bool",
+          "default": false,
+          "description": "If true, the share acts as a printer queue (not typical for file shares)."
+        },
+        "hide_files": {
+          "type": "list",
+          "default": [],
+          "description": "Glob patterns of files/dirs to hide in the share (e.g., ['.hidden*', '*.tmp']).",
+          "items": {
+            "type": "string",
+            "description": "Wildcard pattern for matching filenames."
+          }
+        }
+      }
+    }
+  }
+}

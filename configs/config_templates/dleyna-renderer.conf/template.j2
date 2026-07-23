@@ -1,0 +1,20 @@
+{# Main dleyna-renderer configuration #}
+{
+  "{# Hostname to advertise on D-Bus and mDNS #}": "{{ hostname }}",
+  "{# Port for the REST API endpoint (0 = disable) #}": {{ rest_api_port }},
+  "{# Port for the D-Bus system bus connection (0 = use default system bus) #}": {{ dbus_port }},
+  "{# Maximum number of concurrent transcoding sessions #}": {{ max_transcoding_sessions }},
+  "{# Enable or disable UPnP/AV device discovery #}": {{ enable_discovery | lower }},
+  "{# List of supported media profiles with transcoding options #}": [
+{% for profile in media_profiles %}    {
+      "{# Human-readable profile name #}": "{{ profile.name }}",
+      "{# Encoder command (supports substitution like %i, %o, %f) #}": {{ profile.encoder | tojson }},
+      "{# MIME type of the output format #}": "{{ profile.mime_type }}",
+      "{# Enable transcoding for this profile #}": {{ profile.enabled | lower }},
+      "{# Maximum resolution (WxH) allowed for this profile #}": "{{ profile.max_resolution | default('') }}"
+    }{{ ',' if not loop.last else '' }}
+{% endfor %}  ],
+  "{# Logging level: 0=ERROR, 1=WARN, 2=INFO, 3=DEBUG, 4=TRACE #}": {{ log_level }},
+  "{# Path to custom D-Bus service file override (optional) #}": "{{ dbus_service_file | default('') }}",
+  "{# Enable glib main loop integration (recommended) #}": {{ enable_glib | lower }}
+}

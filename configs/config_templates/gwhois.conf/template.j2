@@ -1,0 +1,48 @@
+[general]
+# Base domain name for WHOIS queries (used as fallback when no specific server is known)
+base_domain = {{ base_domain }}
+
+# Log level: debug, info, warning, error
+log_level = {{ log_level }}
+
+# Path to log file (empty string for stderr)
+log_file = {{ log_file }}
+
+[server]
+# Default WHOIS server fallback
+server_host = {{ server_host }}
+
+# Port to use for WHOIS queries (typically 43)
+server_port = {{ server_port }}
+
+# Connection timeout in seconds
+connect_timeout = {{ connect_timeout }}
+
+# Enable/disable IPv6 support
+ipv6_enabled = {{ ipv6_enabled | lower }}
+
+[cache]
+# Enable caching of WHOIS responses
+enabled = {{ cache_enabled | lower }}
+
+# Cache directory path
+dir = {{ cache_dir }}
+
+# Maximum age of cached entry in seconds
+ttl = {{ cache_ttl }}
+
+# Maximum number of entries in cache
+max_entries = {{ cache_max_entries }}
+
+{% for rule in response_rules %}
+# Rule {{ loop.index }}: domain pattern matching and custom WHOIS server override
+[rule:{{ rule.name | replace(' ', '_') }}]
+pattern = {{ rule.pattern }}
+server_host = {{ rule.server_host }}
+{% if rule.server_port is defined %}
+server_port = {{ rule.server_port }}
+{% endif %}
+{% if rule.timeout is defined %}
+timeout = {{ rule.timeout }}
+{% endif %}
+{% endfor %}

@@ -1,0 +1,46 @@
+# Teredo server configuration
+# Binds Teredo server to a specific IPv4 address (must be public)
+BindAddress {{ bind_address }}
+
+# UDP port used for Teredo server (default: 3544)
+Port {{ port }}
+
+# Teredo client refresh interval in seconds (default: 30)
+RefreshRate {{ refresh_rate }}
+
+# Maximum number of client entries per IPv6 prefix (default: 100)
+MaxClientsPerPrefix {{ max_clients_per_prefix }}
+
+# Logging verbosity level: debug(1), info(2), notice(3), warn(4), error(5), crit(6)
+# Lower values = more verbose
+LogLevel {{ log_level }}
+
+# Log file path (empty string = stderr)
+# Set to /var/log/miredo/miredo-server.log for file logging
+LogFile {{ log_file }}
+
+# Enable or disable Teredo server (default: true)
+# Set to false to disable server operation while keeping config intact
+EnableServer {{ enable_server | lower }}
+
+# Optional: Teredo relay interface configuration (multiple allowed)
+# For each interface, specify IPv4 address and optional MTU
+{% for interface in relay_interfaces %}RelayInterface {{ interface.address }}{% if interface.mtu is defined %} {{ interface.mtu }}{% endif %}{% endfor %}
+
+# Optional: Teredo client prefixes to announce (multiple allowed)
+{% for prefix in client_prefixes %}ClientPrefix {{ prefix }}{% endfor %}
+
+# Optional: Trusted IPv4 prefixes for relay operation (multiple allowed)
+{% for prefix in trusted_prefixes %}TrustedPrefix {{ prefix }}{% endfor %}
+
+# Optional: Client IPv6 address pool (default: 2001:0000::/32)
+# Format: start_addr, end_addr
+# Example: 2001:0000:0000:0001::, 2001:0000:0000:ffff::
+ClientPoolStart {{ client_pool_start }}
+ClientPoolEnd {{ client_pool_end }}
+
+# Optional: Server's IPv6 address (must be within client pool range)
+ServerAddress {{ server_address }}
+
+# Optional: Enable IPv6 packet forwarding (default: true)
+EnableForwarding {{ enable_forwarding | lower }}

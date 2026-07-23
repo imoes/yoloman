@@ -1,0 +1,84 @@
+{# MOM configuration file — dynamically adjusts host resource allocation for virtualization workloads based on policy #}
+[general]
+{# Enable or disable MOM daemon #}
+enabled = {{ enabled }}
+{# Log level: debug, info, warning, error #}
+log_level = "{{ log_level }}"
+{# Path to MOM runtime state file #}
+state_file = "{{ state_file }}"
+{# Path to policy configuration directory #}
+policy_directory = "{{ policy_directory }}"
+{# Interval (seconds) between policy evaluations #}
+poll_interval = {{ poll_interval }}
+
+{# Memory policy settings #}
+[memory]
+{# Enable memory overcommitment policy #}
+enabled = {{ memory_enabled }}
+{# Maximum memory overcommitment ratio (guest total / host total) #}
+max_overcommit_ratio = {{ memory_max_overcommit_ratio }}
+{# Minimum free memory to maintain (MiB) #}
+min_free_memory = {{ min_free_memory }}
+{# Threshold (MiB) below which aggressive balancing triggers #}
+balancer_threshold = {{ balancer_threshold }}
+{# Enable dynamic memory ballooning #}
+ballooning_enabled = {{ ballooning_enabled }}
+
+{# CPU policy settings #}
+[cpu]
+{# Enable CPU overcommitment policy #}
+enabled = {{ cpu_enabled }}
+{# Maximum CPU overcommitment ratio (vCPUs / physical cores) #}
+max_overcommit_ratio = {{ cpu_max_overcommit_ratio }}
+{# Minimum guaranteed CPU shares for each VM (0–1024) #}
+min_shares_per_vm = {{ min_shares_per_vm }}
+{# CPU throttling policy: none, constant, adaptive #}
+throttling_policy = "{{ cpu_throttling_policy }}"
+
+{# Disk I/O policy settings #}
+[disk]
+{# Enable disk I/O throttling policy #}
+enabled = {{ disk_enabled }}
+{# Max total IOPS for all VMs combined #}
+max_total_iops = {{ max_total_iops }}
+{# Max IOPS per VM #}
+max_per_vm_iops = {{ max_per_vm_iops }}
+{# Burst allowed (percentage over max) #}
+burst_allowed_percent = {{ burst_allowed_percent }}
+
+{# Network I/O policy settings #}
+[network]
+{# Enable network QoS policy #}
+enabled = {{ network_enabled }}
+{# Max total bandwidth (Mbps) for all VMs combined #}
+max_total_bandwidth = {{ max_total_bandwidth }}
+{# Max bandwidth per VM (Mbps) #}
+max_per_vm_bandwidth = {{ max_per_vm_bandwidth }}
+{# Burst allowed (percentage over max) #}
+burst_allowed_percent = {{ network_burst_allowed_percent }}
+
+{# Policy actions (hooks) #}
+[actions]
+{# Command to run when memory pressure occurs (supports placeholders: {vm}, {action}, {reason}) #}
+memory_pressure = {{ memory_pressure_cmd }}
+{# Command to run when CPU throttling is applied #}
+cpu_throttling = {{ cpu_throttling_cmd }}
+{# Command to run when VM migration is triggered #}
+migration = {{ migration_cmd }}
+
+{# List of VMs to exclude from resource management #}
+[exclusions]
+{% for vm in excluded_vms %}{{ vm }}
+{% endfor %}
+
+{# List of VM-specific policies (overrides global defaults) #}
+{% if vm_policies %}[vm]
+{% for policy in vm_policies %}
+{# Override for VM: {{ policy.vm_name }} #}
+{% if policy.memory_limit %}{{ policy.vm_name }}.memory_limit = {{ policy.memory_limit }}
+{% endif %}{% if policy.cpu_shares %}{{ policy.vm_name }}.cpu_shares = {{ policy.cpu_shares }}
+{% endif %}{% if policy.disk_iops_limit %}{{ policy.vm_name }}.disk_iops_limit = {{ policy.disk_iops_limit }}
+{% endif %}{% if policy.network_bandwidth_limit %}{{ policy.vm_name }}.network_bandwidth_limit = {{ policy.network_bandwidth_limit }}
+{% endif %}
+{% endfor %}
+{% endif %}

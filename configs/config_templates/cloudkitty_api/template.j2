@@ -1,0 +1,111 @@
+[DEFAULT]
+# Enable or disable debug-level logging; set false in production
+debug = {{ debug }}
+
+# Directory where CloudKitty writes its log files
+log_dir = {{ log_dir }}
+
+# Log file name written inside log_dir
+log_file = {{ log_file }}
+
+# AMQP transport URL for oslo.messaging (RabbitMQ); format: rabbit://<user>:<pass>@<host>:<port>/<vhost>
+transport_url = {{ transport_url }}
+
+[api]
+# IP address the API service binds to; 0.0.0.0 listens on all interfaces
+host = {{ api_host }}
+
+# TCP port the CloudKitty API server listens on
+port = {{ api_port }}
+
+# Number of parallel WSGI worker processes; tune to vCPU count
+workers = {{ api_workers }}
+
+[database]
+# SQLAlchemy connection URL for the main CloudKitty relational database
+connection = {{ db_connection }}
+
+[keystone_authtoken]
+# Public Keystone endpoint URI returned to clients in WWW-Authenticate challenge headers
+www_authenticate_uri = {{ keystone_www_authenticate_uri }}
+
+# Internal Keystone endpoint this service uses to validate bearer tokens
+auth_url = {{ keystone_auth_url }}
+
+# Comma-separated Memcached servers used to cache validated Keystone tokens
+memcached_servers = {{ memcached_servers | join(',') }}
+
+# Keystone auth plugin type for this service account credentials
+auth_type = {{ keystone_auth_type }}
+
+# Keystone domain that owns the service project
+project_domain_name = {{ keystone_project_domain_name }}
+
+# Keystone domain that owns the service user account
+user_domain_name = {{ keystone_user_domain_name }}
+
+# Keystone project (tenant) the CloudKitty service account belongs to
+project_name = {{ keystone_project_name }}
+
+# Keystone username of the CloudKitty service account
+username = {{ keystone_username }}
+
+# Password for the CloudKitty Keystone service account
+password = {{ keystone_password }}
+
+# OpenStack region this CloudKitty instance serves
+region_name = {{ keystone_region_name }}
+
+[storage]
+# Backend driver for persisting rated data frames: sqlalchemy or elasticsearch
+backend = {{ storage_backend }}
+
+# Storage API version; version 2 is required for CloudKitty >= Stein
+version = {{ storage_version }}
+
+{% if storage_backend == 'elasticsearch' %}
+[storage_elasticsearch]
+# Elasticsearch cluster host URL for the storage backend
+host = {{ elasticsearch_host }}
+
+# Index name prefix used for all CloudKitty Elasticsearch indices
+index_name = {{ elasticsearch_index }}
+{% endif %}
+
+[fetcher]
+# Backend used to enumerate projects/tenants to rate: keystone or source
+backend = {{ fetcher_backend }}
+
+[fetcher_keystone]
+# Keystone Identity API version used by the project fetcher
+keystone_version = 3
+
+# Config section whose credentials the fetcher reuses for Keystone API calls
+auth_section = keystone_authtoken
+
+# OpenStack region the fetcher targets when listing projects
+region_name = {{ fetcher_region_name }}
+
+[collect]
+# Width in seconds of each metrics time slice fetched per collection run
+window = {{ collect_window }}
+
+# Length in seconds of each billing/rating period
+period = {{ collect_period }}
+
+# Comma-separated CloudKitty service identifiers to collect and rate
+services = {{ collect_services | join(',') }}
+
+[rating]
+# Rating module backend: hashmap (rule tables), pyscripts (Python scripts), or noop
+backend = {{ rating_backend }}
+
+{% if rating_backend == 'hashmap' %}
+[hashmap]
+# SQLAlchemy connection URL for the hashmap rating-rules database (usually same as [database].connection)
+database_connection = {{ hashmap_db_connection }}
+{% endif %}
+
+[oslo_policy]
+# Directories relative to the config dir containing additional policy override files
+policy_dirs = {{ oslo_policy_dirs | join(',') }}

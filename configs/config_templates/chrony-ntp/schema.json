@@ -1,0 +1,55 @@
+{
+  "ntp_servers": {
+    "type": "list",
+    "default": [
+      {
+        "hostname": "0.pool.ntp.org"
+      },
+      {
+        "hostname": "1.pool.ntp.org"
+      },
+      {
+        "hostname": "2.pool.ntp.org"
+      },
+      {
+        "hostname": "3.pool.ntp.org"
+      }
+    ],
+    "description": "List of NTP servers to use for time synchronization. Each item must include a 'hostname'. Optional fields: 'iburst' (bool, default true), 'burst' (bool, default false), 'minpoll' (int), 'maxpoll' (int), 'prefer' (bool), etc. Most systems use 'iburst' for faster initial sync.",
+    "items": {
+      "hostname": {
+        "type": "string",
+        "description": "FQDN or IP address of the NTP server."
+      },
+      "iburst": {
+        "type": "bool",
+        "default": true,
+        "description": "If true, send a burst of packets when the server is unreachable (recommended for faster startup sync)."
+      },
+      "burst": {
+        "type": "bool",
+        "default": false,
+        "description": "If true, send a burst of packets even after initial synchronization."
+      },
+      "prefer": {
+        "type": "bool",
+        "default": false,
+        "description": "If true, this server is preferred over others with similar accuracy."
+      }
+    }
+  },
+  "allow_clients": {
+    "type": "list",
+    "default": [],
+    "description": "List of CIDR networks allowed to query this chrony NTP server. Set to [] to allow only localhost (127.0.0.1). Common values: ['192.168.1.0/24'] for local LAN.",
+    "items": {
+      "type": "string",
+      "description": "A CIDR network (e.g., '192.168.1.0/24') or IP address (e.g., '127.0.0.1')."
+    }
+  },
+  "max_init_stepslew": {
+    "type": "number",
+    "default": 10,
+    "description": "Maximum number of initial updates to perform step slew (instant time correction) before switching to gradual slewing. Set to 0 to disable step slewing."
+  }
+}

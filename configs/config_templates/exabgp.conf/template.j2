@@ -1,0 +1,81 @@
+# ExaBGP main configuration file
+# General process settings
+process router {
+    run /usr/bin/bird -c /etc/bird/bird.conf;
+}
+
+# Neighbor definitions
+{% for neighbor in neighbors %}
+neighbor {{ neighbor.ip }} {
+    # Autonomous System number
+    router-id {{ neighbor.router_id | default(router_id) }};
+    local-as {{ neighbor.local_as }};
+    peer-as {{ neighbor.peer_as }};
+
+    # Connection settings
+    description "{{ neighbor.description | default('ExaBGP peer') }}";
+    hold-time {{ neighbor.hold_time | default(90) }};
+    connect-retry {{ neighbor.connect_retry | default(120) }};
+    keepalive {{ neighbor.keepalive | default(30) }};
+    multiprotocol {
+        ipv4 unicast;
+        ipv6 unicast;
+    }
+
+    # Route filtering (optional)
+    {% if neighbor.in_filter %}
+    import {
+        {% for filter in neighbor.in_filter %}
+        {{ filter.type }} {{ filter.policy }};
+        {% endfor %}
+    }
+    {% endif %}
+
+    {% if neighbor.out_filter %}
+    export {
+        {% for filter in neighbor.out_filter %}
+        {{ filter.type }} {{ filter.policy }};
+        {% endfor %}
+    }
+    {% endif %}
+
+    # Graceful restart support (optional)
+    {% if neighbor.graceful_restart is defined and neighbor.graceful_restart %}
+    graceful-restart;
+    {% endif %}
+
+    # Passive mode (optional)
+    {% if neighbor.passive is defined and neighbor.passive %}
+    passive;
+    {% endif %}
+}
+{% endfor %}
+
+# Static configuration (optional)
+{% if static_routes is defined and static_routes %}
+static {
+    {% for route in static_routes %}
+    route {{ route.prefix }} {
+        next-hop {{ route.next_hop }};
+        {% if route.community is defined %}
+        community {{ route.community }};
+        {% endif %}
+    }
+    {% endfor %}
+}
+{% endif %}
+
+# API settings (optional)
+{% if api is defined and api.enabled %}
+api {
+    processes {
+        run /usr/local/bin/exabgp-api-handler;
+    }
+    {% if api.fork is defined %}
+    fork {% if api.fork %}enabled{% else %}disabled{% endif %};
+    {% endif %}
+    {% if api.threads is defined %}
+    threads {{ api.threads }};
+    {% endif %}
+}
+{% endif %}

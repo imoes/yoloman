@@ -1,0 +1,99 @@
+[DEFAULT]
+# The log file location
+log_file = {{ log_file }}
+
+# Enable debug logging
+debug = {{ debug }}
+
+# Name of this host
+host = {{ host }}
+
+# RPC backend URL
+rpc_backend = {{ rpc_backend }}
+
+# RabbitMQ connection string (used by rpc_backend = rabbit)
+{% if rpc_backend == 'rabbit' %}
+rabbit_host = {{ rabbit.host }}
+rabbit_port = {{ rabbit.port }}
+rabbit_user = {{ rabbit.user }}
+rabbit_password = {{ rabbit.password }}
+rabbit_virtual_host = {{ rabbit.virtual_host }}
+{% endif %}
+
+# Path to SSL certificate for rabbit (optional)
+{% if rabbit.ssl_enabled %}
+rabbit_use_ssl = {{ rabbit.ssl_enabled }}
+rabbit_ssl_version = {{ rabbit.ssl_version }}
+rabbit_ssl_ca_certs = {{ rabbit.ssl_ca_certs }}
+{% endif %}
+
+# Authentication credentials for keystone
+auth_uri = {{ keystone.auth_uri }}
+auth_url = {{ keystone.auth_url }}
+auth_type = {{ keystone.auth_type }}
+project_domain_name = {{ keystone.project_domain_name }}
+user_domain_name = {{ keystone.user_domain_name }}
+project_name = {{ keystone.project_name }}
+username = {{ keystone.username }}
+password = {{ keystone.password }}
+
+# Notification driver for sending notifications
+notification_driver = {{ notification_driver }}
+
+# Database connection string
+db_connection = {{ database.connection }}
+
+# Enable HA (High Availability) feature
+enabled = {{ ha.enabled }}
+
+# Segment driver for HA segment management
+segment_driver = {{ ha.segment_driver }}
+
+# List of enabled notification drivers (if using multi-driver)
+# (Each element represents a notification driver config)
+{% for driver in notification_drivers %}
+[notification_driver:{{ driver.name }}]
+# Driver class to use
+notification_driver = {{ driver.class }}
+# Extra config fields per driver
+{% for key, value in driver.options.items() %}{{ key }} = {{ value }}
+{% endfor %}
+{% endfor %}
+
+# List of failover segments (for HA segmentation)
+# (Each segment defines a set of hosts to monitor/fail over together)
+{% for segment in failover_segments %}
+[segment:{{ segment.name }}]
+# Segment type: vm, host, or custom
+segment_type = {{ segment.segment_type }}
+# List of hosts in this segment
+hosts = {{ segment.hosts | join(', ') }}
+# Auto-create new hosts in this segment?
+auto_create = {{ segment.auto_create }}
+# Recovery method: auto, remote_shell, etc.
+recovery_method = {{ segment.recovery_method }}
+# Notification destination
+notification_destination = {{ segment.notification_destination }}
+{% endfor %}
+
+[api]
+# API binding host and port
+host = {{ api.host }}
+port = {{ api.port }}
+
+# Enable SSL for API
+ssl_enabled = {{ api.ssl.enabled }}
+ssl_cert_file = {{ api.ssl.cert_file }}
+ssl_key_file = {{ api.ssl.key_file }}
+
+# Rate limiting (requests per second)
+rate_limit = {{ api.rate_limit }}
+
+# Enable CORS
+{% if api.cors.enabled %}
+enabled = {{ api.cors.enabled }}
+allow_origin = {{ api.cors.allow_origin }}
+{% endif %}
+
+# Service name (for WSGI)
+service_name = masakari

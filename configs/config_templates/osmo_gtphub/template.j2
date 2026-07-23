@@ -1,0 +1,29 @@
+# Osmocom GTP Hub Proxy configuration file
+# Listen address and port for the GTP-C interface (SGSN side)
+gtphub gtpc-listen-ip {{ gtpc_listen_ip }}
+gtphub gtpc-listen-port {{ gtpc_listen_port }}
+
+# Listen address and port for the GTP-U interface (SGSN side)
+gtphub gtpu-listen-ip {{ gtpu_listen_ip }}
+gtphub gtpu-listen-port {{ gtpu_listen_port }}
+
+# GTP-C and GTP-U peer definitions (upstream GGSNs or downstream SGSNs)
+{% for peer in peers %}
+# Peer {{ peer.name }}: {{ peer.description | default('No description') }}
+gtphub peer {{ peer.name }} ip {{ peer.ip }}
+gtphub peer {{ peer.name }} gtpc-port {{ peer.gtpc_port | default(2123) }}
+gtphub peer {{ peer.name }} gtpu-port {{ peer.gtpu_port | default(2152) }}
+{% if peer.type %}gtphub peer {{ peer.name }} type {{ peer.type }}{% endif %}
+{% if peer.teid_range_start %}gtphub peer {{ peer.name }} teid-start {{ peer.teid_range_start }}{% endif %}
+{% if peer.teid_range_end %}gtphub peer {{ peer.name }} teid-end {{ peer.teid_range_end }}{% endif %}
+{% endfor %}
+
+# Logging configuration
+gtphub log-level {{ log_level }}
+gtphub log-color {{ log_color }}
+
+# Statistics and metrics
+gtphub stats-interval {{ stats_interval }}
+
+# Optional: MME/SGSN identity (used for routing decisions in multi-homing setups)
+{% if realm %}gtphub realm {{ realm }}{% endif %}

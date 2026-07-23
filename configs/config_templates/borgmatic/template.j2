@@ -1,0 +1,75 @@
+# Global configuration options
+config_version: 1
+
+# Repository to back up to
+repository: {{ repository }}
+
+# Enable or disable verification after backups
+verification: {{ verification }}
+
+# Enable or disable pruning of old archives
+pruning: {{ pruning }}
+
+# Retention policy: how many archives to keep
+retention:
+  keep_daily: {{ retention_keep_daily }}
+  keep_weekly: {{ retention_keep_weekly }}
+  keep_monthly: {{ retention_keep_monthly }}
+  keep_yearly: {{ retention_keep_yearly }}
+  prefix: {{ retention_prefix }}
+
+# Source directories/files to back up (list of strings)
+source_directories:
+{% for dir in source_directories %}  - {{ dir | quote }}
+{% endfor %}
+
+# Directories/files to exclude (list of strings)
+excludes:
+{% for pattern in excludes %}  - {{ pattern | quote }}
+{% endfor %}
+
+# Extra borg create options (list of strings)
+extra_borg_create_options:
+{% for opt in extra_borg_create_options %}  - {{ opt | quote }}
+{% endfor %}
+
+# Pre-backup hook: command to run before backup
+pre_backup:
+{% for hook in pre_backup %}  - {{ hook | quote }}
+{% endfor %}
+
+# Post-backup hook: command to run after backup
+post_backup:
+{% for hook in post_backup %}  - {{ hook | quote }}
+{% endfor %}
+
+# On-error hook: command to run on backup failure
+on_error:
+{% for hook in on_error %}  - {{ hook | quote }}
+{% endfor %}
+
+# Storage options (e.g., encryption, compression)
+storage:
+  encryption: {{ storage_encryption }}
+  chunker_params: {{ storage_chunker_params | quote }}
+  compression: {{ storage_compression }}
+  archive_name_format: {{ storage_archive_name_format | quote }}
+{% if storage_relimit %}
+  limit_reads: {{ storage_relimit.reads }}
+  limit_writes: {{ storage_relimit.writes }}
+{% endif %}
+
+# Monitoring: optional healthcheck endpoints
+monitoring:
+  monitors:
+{% for monitor in monitoring_monitors %}    - type: {{ monitor.type | quote }}
+      url: {{ monitor.url | quote }}
+{% if monitor.success_rate_threshold is defined %}      success_rate_threshold: {{ monitor.success_rate_threshold }}
+{% endif %}
+{% endfor %}
+
+# Logging verbosity
+log_level: {{ log_level }}
+
+# Enable JSON logging (for structured logs)
+log_json: {{ log_json }}

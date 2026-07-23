@@ -1,0 +1,80 @@
+# Celery worker configuration - main settings file for /etc/celery/celery.conf
+# Replace this file with a symlink to a Jinja2-rendered template in production if desired
+
+# Broker URL (where messages are queued); supports Redis, RabbitMQ, etc.
+BROKER_URL = '{{ broker_url }}'
+
+# Result backend URL (where task results are stored); often same as broker or Redis
+CELERY_RESULT_BACKEND = '{{ result_backend }}'
+
+# Default message serialization format (json recommended for compatibility and performance)
+CELERY_TASK_SERIALIZER = '{{ task_serializer }}'
+CELERY_RESULT_SERIALIZER = '{{ result_serializer }}'
+CELERY_ACCEPT_CONTENT = [{{ accept_content | map('quote') | join(', ') }}]
+
+# Time-to-live for task messages (in seconds); tasks expire and are discarded if not consumed
+CELERY_TASK_TIME_LIMIT = {{ task_time_limit }}
+CELERY_TASK_SOFT_TIME_LIMIT = {{ task_soft_time_limit }}
+
+# Maximum number of tasks a worker processes before restarting (prevents memory leaks)
+CELERY_WORKER_MAX_TASKS_PER_CHILD = {{ worker_max_tasks_per_child }}
+
+# Worker concurrency: number of concurrent worker processes/threads/greenlets
+# Default 0 = number of CPU cores; set explicitly for control
+CELERY_WORKER_CONCURRENCY = {{ worker_concurrency }}
+
+# Enable prefetch optimization: number of tasks to prefetch per worker (0 = unlimited)
+CELERY_WORKER_PREFETCH_MULTIPLIER = {{ worker_prefetch_multiplier }}
+
+# Default queue name for tasks without explicit routing
+CELERY_TASK_DEFAULT_QUEUE = '{{ task_default_queue }}'
+
+# Enable task routing via exchange/queue (optional; leave empty list to disable explicit routing)
+# Each element defines a routing rule: {exchange: str, queue: str, routing_key: str}
+CELERY_TASK_ROUTES = [
+{% for route in task_routes %}
+    {
+        'exchange': '{{ route.exchange }}',
+        'queue': '{{ route.queue }}',
+        'routing_key': '{{ route.routing_key }}'
+    },
+{% endfor %}
+]
+
+# Task result expiration time (in seconds); results are deleted after this
+CELERY_TASK_RESULT_EXPIRES = {{ task_result_expires }}
+
+# Enable task annotations (e.g., for custom logging or monitoring)
+CELERY_TASK_ANNOTATIONS = {
+    '*': {
+        'rate_limit': '{{ task_rate_limit }}'
+    } if task_rate_limit else {}
+}
+
+# Timezone for scheduling (must match system timezone; e.g., 'UTC', 'America/New_York')
+CELERY_TIMEZONE = '{{ timezone }}'
+
+# Enable event logging for monitoring (e.g., Flower or custom consumers)
+CELERY_WORKER_SEND_EVENTS = {{ worker_send_events }}
+
+# Logging level: DEBUG, INFO, WARNING, ERROR, CRITICAL
+CELERY_WORKER_LOG_LEVEL = '{{ worker_log_level }}'
+
+# Optional: enable beat scheduler for periodic tasks (false if using external cron/celery beat)
+CELERY_BEAT_SCHEDULE = {
+{% for name, schedule in beat_schedule.items() %}
+    '{{ name }}': {
+        'task': '{{ schedule.task }}',
+        'schedule': {{ schedule.schedule | tojson }},
+        'args': {{ schedule.args | default('[]') | tojson }},
+        'kwargs': {{ schedule.kwargs | default('{}') | tojson }}
+    }{% if not loop.last %},{% endif %}
+{% endfor %}
+}
+
+# Optional: enable extended task tracing (for detailed error reporting)
+CELERY_TASK_EAGER_PROPAGATES = {{ task_eager_propagates }}
+
+# Optional: enable task acknowledgment to broker only after completion (default safe mode)
+CELERY_TASK_ACKS_LATE = {{ task_acks_late }}
+CELERY_TASK_REJECT_ON_WORKER_LOST = {{ task_reject_on_worker_lost }}

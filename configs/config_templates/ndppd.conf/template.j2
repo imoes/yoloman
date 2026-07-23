@@ -1,0 +1,30 @@
+# ndppd.conf: Neighbor Discovery Proxy configuration
+# Global parameters
+proxy {{ proxy_iface }} {
+    {{- 'router' in rules and 'router' }}
+    {{- 'host' in rules and 'host' }}
+    {{- 'static' in rules and 'static' }}
+    timeout {{ timeout }}
+}
+
+# Per-interface proxy rules
+{% for iface in interfaces %}
+proxy {{ iface.name }} {
+    # {{ iface.description | default('Proxy rules for interface') }}
+    {{- 'router' in iface.rules and 'router' }}
+    {{- 'host' in iface.rules and 'host' }}
+    {{- 'static' in iface.rules and 'static' }}
+    {{- 'autonomous' in iface.rules and 'autonomous' }}
+    {{- 'managed' in iface.rules and 'managed' }}
+    {{- 'other' in iface.rules and 'other' }}
+    timeout {{ iface.timeout | default('3600') }}
+    {{- 'router_priority' in iface and iface.router_priority is not none and 'router_priority ' ~ iface.router_priority }}
+    {{- 'router_lifetime' in iface and iface.router_lifetime is not none and 'router_lifetime ' ~ iface.router_lifetime }}
+}
+{% endfor %}
+
+# Static neighbor entries
+{% for entry in static_entries %}
+# Static entry: {{ entry.description | default('IPv6 neighbor') }}
+static {{ entry.mac }} {{ entry.ip }} {{ entry.iface }}
+{% endfor %}

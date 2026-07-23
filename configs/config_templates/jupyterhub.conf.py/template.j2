@@ -1,0 +1,77 @@
+# JupyterHub configuration file
+# Set the service to run in the background as a daemon
+# Specify the base directory for JupyterHub data
+# Define the database connection string
+# Configure the authenticator class
+# Configure the spawner class
+# Set maximum number of concurrent users
+# Set maximum age of the Hub's database
+# Configure proxy settings
+# Define hub IP and port
+# Define public-facing URL
+# Define SSL/TLS settings
+# Configure idle timeout behavior
+# Define custom resources for spawners
+# Define docker image for single-user servers
+# Configure OAuth settings (if used)
+# Define custom service endpoints
+
+# Whether to start the Hub in daemon mode
+daemonize = {{ daemonize }}
+
+# Base directory for JupyterHub data (config, certs, logs, etc.)
+cwd = '{{ cwd }}'
+
+# Database connection string (e.g., 'sqlite:///jupyterhub.sqlite', 'postgresql+psycopg2://user:pass@host/db')
+c.JupyterHub.db_url = '{{ db_url }}'
+
+# Authenticator class to use for login (e.g., 'jupyterhub.auth.PAMAuthenticator')
+c.JupyterHub.authenticator_class = '{{ authenticator_class }}'
+
+# Spawner class to use for launching user servers (e.g., 'jupyterhub.spawner.LocalProcessSpawner')
+c.JupyterHub.spawner_class = '{{ spawner_class }}'
+
+# Maximum number of concurrent users that can be spawned at once
+c.JupyterHub.concurrent_spawn_limit = {{ concurrent_spawn_limit }}
+
+# Maximum age (in seconds) of the Hub's database before it is auto-archived
+# Set to 0 to disable archival
+c.JupyterHub.db_archive_max_age = {{ db_archive_max_age }}
+
+# Proxy API IP and port
+c.ConfigurableHTTPProxy.api_ip = '{{ proxy_api_ip }}'
+c.ConfigurableHTTPProxy.api_port = {{ proxy_api_port }}
+
+# Hub IP address (usually '127.0.0.1')
+c.JupyterHub.hub_ip = '{{ hub_ip }}'
+
+# Hub port (internal port for JupyterHub UI and API)
+c.JupyterHub.hub_port = {{ hub_port }}
+
+# Public-facing URL of the JupyterHub (e.g., 'https://hub.example.com/')
+c.JupyterHub.base_url = '{{ base_url }}'
+
+# SSL/TLS: Path to SSL certificate and key
+c.JupyterHub.certfile = '{{ ssl_certfile }}'
+c.JupyterHub.keyfile = '{{ ssl_keyfile }}'
+
+# Idle timeout settings (seconds before idle user servers are stopped)
+c.JupyterHub.idle_timeout = {{ idle_timeout }}
+
+# Enable container image configuration via per-user config
+c.LocalProcessSpawner.docker_image = '{{ docker_image }}'
+
+# OAuth settings (e.g., for GitHub authentication)
+{% for oauth in oauth_configs %}
+c.{{ oauth.config_var }} = {{ oauth.value }}
+{% endfor %}
+
+# Custom services (e.g., Prometheus exporter)
+{% for service in services %}
+c.JupyterHub.services.append({
+    'name': '{{ service.name }}',
+    'url': '{{ service.url }}',
+    'admin': {{ service.admin|lower }},
+    'api_token': '{{ service.api_token }}'
+})
+{% endfor %}

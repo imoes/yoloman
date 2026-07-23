@@ -1,0 +1,96 @@
+{
+  "modules_list": {
+    "type": "bool",
+    "default": true,
+    "description": "Whether the mod_spam_filter module is enabled in ejabberd.yml"
+  },
+  "spam_filter": {
+    "type": "object",
+    "default": {},
+    "description": "Configuration for the ejabberd spam filter module",
+    "items": {
+      "enabled": {
+        "type": "bool",
+        "default": true,
+        "description": "Enable the spam filter module"
+      },
+      "ignore_jids": {
+        "type": "list",
+        "default": [],
+        "description": "List of JIDs to exclude from spam filtering",
+        "items": {
+          "type": "string",
+          "pattern": "^[^@]+@[^@]+$"
+        }
+      },
+      "block_from_jids": {
+        "type": "list",
+        "default": [],
+        "description": "Block all messages from these JIDs",
+        "items": {
+          "type": "string",
+          "pattern": "^[^@]+@[^@]+$"
+        }
+      },
+      "block_content_substrings": {
+        "type": "list",
+        "default": [],
+        "description": "Block messages containing any of these substrings (case-insensitive)",
+        "items": {
+          "type": "string"
+        }
+      },
+      "max_message_size": {
+        "type": "number",
+        "default": 10240,
+        "description": "Maximum allowed message size in bytes (0 = no limit)"
+      },
+      "max_recipients": {
+        "type": "number",
+        "default": 100,
+        "description": "Maximum number of recipients per message (0 = no limit)"
+      },
+      "log_blocked": {
+        "type": "bool",
+        "default": true,
+        "description": "Log blocked messages to ejabberd logs"
+      },
+      "block_content_regexes": {
+        "type": "list",
+        "default": [],
+        "description": "Block messages matching any of these PCRE regex patterns (case-sensitive by default)",
+        "items": {
+          "type": "string"
+        }
+      },
+      "user_thresholds": {
+        "type": "list",
+        "default": [],
+        "description": "Per-user spam thresholds (override global defaults)",
+        "items": {
+          "type": "object",
+          "fields": {
+            "user": {
+              "type": "string",
+              "description": "JID of the user"
+            },
+            "score_threshold": {
+              "type": "number",
+              "description": "Spam score at or above which the user\u2019s outgoing messages are blocked"
+            }
+          }
+        }
+      },
+      "score_threshold": {
+        "type": "number",
+        "default": 5,
+        "description": "Global spam score threshold above which messages are blocked"
+      },
+      "warning_threshold": {
+        "type": "number",
+        "default": 3,
+        "description": "Global spam score at which warnings are issued to the sender"
+      }
+    }
+  }
+}

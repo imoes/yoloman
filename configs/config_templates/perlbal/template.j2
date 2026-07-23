@@ -1,0 +1,53 @@
+# Perlbal configuration — see https://perlbal.github.io/perlbal/
+# Set global settings for the service
+SET pid_file = {{ pid_file }}
+{% if enable_ssl %}
+# Enable SSL support globally (if certs provided per-service)
+SET ssl_cert = {{ ssl_cert }}
+SET ssl_key = {{ ssl_key }}
+{% endif %}
+
+{% for service in services %}
+# Service: {{ service.name }} — {{ service.description | default('Reverse proxy / load balancer service') }}
+CREATE SERVICE {{ service.name }}
+
+# Basic service configuration
+SET role = {{ service.role | default('reverse_proxy') }}
+SET listen = {{ service.listen_ip | default('0.0.0.0') }}:{{ service.listen_port }}
+SET pool_size = {{ service.pool_size }}
+
+# Backend servers — iterate over a list of hosts
+{% if service.backends | count > 0 %}
+{% for backend in service.backends %}
+# Backend: {{ backend.host }}:{{ backend.port }} (weight {{ backend.weight }}, status: {{ backend.status }})
+{% if backend.status == 'enabled' %}ADD {{ backend.host }}:{{ backend.port }}{{ ' weight=' ~ backend.weight if backend.weight != 1 else '' }}{% endif %}
+{% endfor %}
+{% else %}
+# Warning: No backends configured for service '{{ service.name }}'
+SET enabled = 0
+{% endif %}
+
+# Health check settings (optional, if provided)
+{% if service.health_check_interval %}
+SET health_check_interval = {{ service.health_check_interval }}
+{% endif %}
+{% if service.health_check_path %}
+SET health_check_path = {{ service.health_check_path }}
+{% endif %}
+
+# Timeout & buffer tuning
+SET max_connections = {{ service.max_connections }}
+SET client_timeout = {{ service.client_timeout }}
+SET server_timeout = {{ service.server_timeout }}
+
+# Virtual hosting / host headers (optional)
+{% if service.vhost %}
+SET vhost = {{ service.vhost }}
+{% endif %}
+
+# Enable service
+ENABLE {{ service.name }}
+{% endfor %}
+
+# Finalize configuration
+LOAD

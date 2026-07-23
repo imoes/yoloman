@@ -1,0 +1,127 @@
+{
+  "storage_root": {
+    "type": "string",
+    "default": "$HOME/.local/share/containers/storage",
+    "description": "Root directory where container layers, images, and metadata are stored. Must be writable by the current user."
+  },
+  "storage_runroot": {
+    "type": "string",
+    "default": "$HOME/.local/share/containers/storage",
+    "description": "Runtime directory for transient storage (e.g., mount points, lock files). Can be the same as storage_root."
+  },
+  "additional_image_stores": {
+    "type": "list",
+    "default": [],
+    "description": "List of additional directories containing read-only container images (e.g., shared caches). Each path must be accessible by the user.",
+    "items": {
+      "type": "string"
+    }
+  },
+  "max_layer_count": {
+    "type": "number",
+    "default": 128,
+    "description": "Maximum number of overlay layers that can be stacked per container image."
+  },
+  "uidmap_host_id": {
+    "type": "number",
+    "default": 100000,
+    "description": "First host UID in the user namespace mapping (typically from /etc/subuid)."
+  },
+  "uidmap_size": {
+    "type": "number",
+    "default": 65536,
+    "description": "Size of the first UID mapping block (commonly set to 65536)."
+  },
+  "uidmap_container_offset": {
+    "type": "number",
+    "default": 100000,
+    "description": "First container UID offset for secondary mapping (if present)."
+  },
+  "uidmap_host_offset": {
+    "type": "number",
+    "default": 165536,
+    "description": "Host UID offset for the secondary UID mapping block."
+  },
+  "uidmap_size_offset": {
+    "type": "number",
+    "default": 65536,
+    "description": "Size of the secondary UID mapping block."
+  },
+  "gidmap_host_id": {
+    "type": "number",
+    "default": 100000,
+    "description": "First host GID in the user namespace mapping (typically from /etc/subgid)."
+  },
+  "gidmap_size": {
+    "type": "number",
+    "default": 65536,
+    "description": "Size of the first GID mapping block."
+  },
+  "gidmap_container_offset": {
+    "type": "number",
+    "default": 100000,
+    "description": "First container GID offset for secondary mapping."
+  },
+  "gidmap_host_offset": {
+    "type": "number",
+    "default": 165536,
+    "description": "Host GID offset for the secondary GID mapping block."
+  },
+  "gidmap_size_offset": {
+    "type": "number",
+    "default": 65536,
+    "description": "Size of the secondary GID mapping block."
+  },
+  "fuse_overlayfs_enabled": {
+    "type": "boolean",
+    "default": true,
+    "description": "If true, forces use of fuse-overlayfs (required for rootless when no kernel overlay is available)."
+  },
+  "log_level": {
+    "type": "string",
+    "default": "info",
+    "description": "Logging verbosity level for container storage operations."
+  },
+  "mountopt": {
+    "type": "string",
+    "default": "",
+    "description": "Comma-separated mount options for the overlay filesystem. Leave empty for defaults."
+  },
+  "workers": {
+    "type": "number",
+    "default": 4,
+    "description": "Number of parallel workers used for image operations (e.g., copy, verification)."
+  },
+  "disable_vfs_fallback": {
+    "type": "boolean",
+    "default": false,
+    "description": "If true, disables fallback to VFS-based operations if overlay mount fails."
+  },
+  "imagestore": {
+    "type": "string",
+    "default": "",
+    "description": "Path to an additional image store directory (e.g., for sharing images across users)."
+  },
+  "use_mount_program": {
+    "type": "boolean",
+    "default": true,
+    "description": "If true, uses an external mount program (e.g., fuse-overlayfs) instead of kernel overlay."
+  },
+  "mount_program": {
+    "type": "string",
+    "default": "/usr/bin/fuse-overlayfs",
+    "description": "Path to the mount program binary (typically fuse-overlayfs)."
+  },
+  "mountopt_fuse": {
+    "type": "list",
+    "default": [
+      "allow_other",
+      "uid=1000",
+      "gid=1000"
+    ],
+    "description": "List of mount options passed directly to fuse-overlayfs.",
+    "items": {
+      "type": "string"
+    }
+  }
+}

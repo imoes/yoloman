@@ -1,0 +1,133 @@
+{
+  "spool_directory": {
+    "type": "string",
+    "default": "/var/spool/mmsd-tng",
+    "description": "Directory used for storing pending, queued, and archived MMS messages."
+  },
+  "database": {
+    "type": "string",
+    "default": "/var/lib/mmsd-tng/mmsd.db",
+    "description": "Path to the SQLite database used for storing message metadata and user information."
+  },
+  "debug": {
+    "type": "boolean",
+    "default": false,
+    "description": "Enable verbose debug logging to stderr and logs."
+  },
+  "max_outgoing_transfers": {
+    "type": "number",
+    "default": 5,
+    "description": "Maximum number of simultaneous outgoing MMS transfers (e.g., to other MMSCs or SMSCs)."
+  },
+  "max_incoming_transfers": {
+    "type": "number",
+    "default": 10,
+    "description": "Maximum number of simultaneous incoming MMS transfers (e.g., from mobile subscribers)."
+  },
+  "max_message_size": {
+    "type": "number",
+    "default": 1048576,
+    "description": "Maximum allowed size (in bytes) for an MMS message. Set to 0 to disable size limits."
+  },
+  "bind_address": {
+    "type": "string",
+    "default": "127.0.0.1",
+    "description": "Network interface IP address to bind the HTTP proxy port to (e.g., 0.0.0.0 for all interfaces)."
+  },
+  "port": {
+    "type": "number",
+    "default": 8080,
+    "description": "TCP port on which the MMSC HTTP proxy listens for incoming MMS submissions and retrieval."
+  },
+  "upstream_timeout": {
+    "type": "number",
+    "default": 60,
+    "description": "Timeout (in seconds) for outgoing connections to upstream MMSCs or SMSCs."
+  },
+  "enable_wap_push": {
+    "type": "boolean",
+    "default": true,
+    "description": "Enable WAP Push (SI/SL) delivery reports for MMS notifications."
+  },
+  "mms_hostname": {
+    "type": "string",
+    "default": "mms.local",
+    "description": "Hostname used in MMS headers (e.g., X-Mms-Message-ID) and MMSC identification."
+  },
+  "default_sender": {
+    "type": "string",
+    "default": "mmsc",
+    "description": "Default sender address used when the original sender cannot be determined (e.g., for MO relay)."
+  },
+  "allowed_subnets": {
+    "type": "list",
+    "default": [
+      "127.0.0.0/8",
+      "192.168.0.0/16"
+    ],
+    "description": "List of IPv4 CIDR subnets allowed to send MMS via this MMSC (e.g., for relay or internal use).",
+    "items": {
+      "type": "string",
+      "description": "IPv4 subnet in CIDR notation (e.g., '10.0.0.0/8')."
+    }
+  },
+  "smscs": {
+    "type": "list",
+    "default": [],
+    "description": "List of SMSC gateway definitions for routing messages to/from external SMSCs.",
+    "items": {
+      "type": "object",
+      "fields": {
+        "name": {
+          "type": "string",
+          "required": true,
+          "description": "Unique identifier for this SMSC (e.g., 'vodafone-smpp')."
+        },
+        "host": {
+          "type": "string",
+          "required": true,
+          "description": "Hostname or IP address of the SMSC (e.g., 'smsc.vodafone.net')."
+        },
+        "port": {
+          "type": "number",
+          "default": 5000,
+          "description": "TCP port for SMSC interface (typically 5000 for SMPP)."
+        },
+        "username": {
+          "type": "string",
+          "default": "",
+          "description": "Authentication username for SMSC (if required)."
+        },
+        "password": {
+          "type": "string",
+          "default": "",
+          "description": "Authentication password for SMSC (if required)."
+        },
+        "system_id": {
+          "type": "string",
+          "default": "",
+          "description": "Optional SMSC system ID (used in some SMPP configurations)."
+        },
+        "type": {
+          "type": "string",
+          "default": "smpp",
+          "description": "SMSC interface type (e.g., 'smpp', 'cmsm', 'local')."
+        },
+        "enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Whether this SMSC is active."
+        }
+      }
+    }
+  },
+  "mo_allowed_prefixes": {
+    "type": "list",
+    "default": [],
+    "description": "List of allowed caller ID prefixes for Mobile-Originated (MO) messages in relay mode (e.g., '+1' or '+44').",
+    "items": {
+      "type": "string",
+      "description": "E.164-style phone number prefix (e.g., '+1' for US/CA, '+44' for UK)."
+    }
+  }
+}

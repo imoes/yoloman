@@ -1,0 +1,89 @@
+## Networking: AMQP TCP listener — interface and port for plain AMQP 0-9-1 connections
+listeners.tcp.default = {{ tcp_interface }}:{{ tcp_port }}
+
+## Heartbeat: keepalive interval in seconds; 0 disables detection of dead connections (not recommended)
+heartbeat = {{ heartbeat }}
+
+## Frame max: maximum AMQP frame payload size in bytes; larger values reduce framing overhead for big messages
+frame_max = {{ frame_max }}
+
+## Channel max: maximum AMQP channels per connection; 0 = unlimited — always set a bound in production
+channel_max = {{ channel_max }}
+
+## Consumer timeout: milliseconds a delivery may remain unacknowledged before the channel is force-closed
+consumer_timeout = {{ consumer_timeout }}
+
+## Default virtual host created automatically on first broker startup
+default_vhost = {{ default_vhost }}
+
+## Default administrator username created on first startup; replace before exposing the broker to a network
+default_user = {{ default_user }}
+
+## Password for the default administrator account; must be changed for any non-local deployment
+default_pass = {{ default_pass }}
+
+## Loopback users: usernames that may only connect from localhost (127.0.0.1 / ::1)
+{% for user in loopback_users %}
+loopback_users.{{ user }} = true
+{% endfor %}
+
+## Memory high watermark: fraction of total RAM (0.0–1.0) at which publishers are flow-controlled
+vm_memory_high_watermark.relative = {{ memory_high_watermark }}
+
+## Disk free limit: minimum free disk space below which all publishers are blocked to prevent data loss
+disk_free_limit.absolute = {{ disk_free_limit }}
+
+## Log directory: path where RabbitMQ writes its log files; must be writable by the rabbitmq OS user
+log.dir = {{ log_dir }}
+
+## Log level for the main log file: debug | info | warning | error | critical | none
+log.file.level = {{ log_level }}
+
+## Management plugin: IP address the HTTP API and web UI listens on
+management.tcp.ip = {{ management_bind_address }}
+
+## Management plugin: TCP port for the HTTP API and web UI
+management.tcp.port = {{ management_port }}
+{% if ssl_enabled %}
+
+## TLS listener: port for encrypted AMQP 0-9-1 connections over TLS
+listeners.ssl.default = {{ ssl_port }}
+
+## TLS CA bundle: PEM file containing trusted CA certificates used to verify client certificates
+ssl_options.cacertfile = {{ ssl_cacertfile }}
+
+## TLS server certificate: PEM file presented to connecting clients to prove server identity
+ssl_options.certfile = {{ ssl_certfile }}
+
+## TLS private key: PEM file for the private key paired with ssl_options.certfile
+ssl_options.keyfile = {{ ssl_keyfile }}
+
+## TLS peer verification: verify_peer requires a valid client certificate; verify_none accepts any client
+ssl_options.verify = {{ ssl_verify }}
+
+## Reject TLS connections from clients that present no certificate (meaningful only when verify = verify_peer)
+ssl_options.fail_if_no_peer_cert = {{ ssl_fail_if_no_peer_cert | lower }}
+{% endif %}
+{% if cluster_nodes | length > 0 %}
+
+## Cluster peer discovery: classic_config uses a static list of known seed nodes
+cluster_formation.peer_discovery_backend = rabbit_peer_discovery_classic_config
+
+## Cluster seed nodes used to bootstrap formation on first startup; list all nodes in the cluster
+{% for node in cluster_nodes %}
+cluster_formation.classic_config.nodes.{{ loop.index }} = {{ node }}
+{% endfor %}
+{% endif %}
+{% if mqtt_enabled %}
+
+## MQTT plugin: TCP port for MQTT 3.1/3.1.1 client connections
+mqtt.listeners.tcp.default = {{ mqtt_port }}
+
+## MQTT plugin: virtual host that MQTT clients are mapped to
+mqtt.vhost = {{ default_vhost }}
+{% endif %}
+{% if stomp_enabled %}
+
+## STOMP plugin: TCP port for STOMP text-protocol client connections
+stomp.listeners.tcp.1 = {{ stomp_port }}
+{% endif %}

@@ -1,0 +1,50 @@
+# Munin node configuration file
+# List of allowed hosts (CIDR or IP) that can connect
+{% for host in allowed_hosts %}allow ^{{ host }}$
+{% endfor %}
+
+# Port the munin-node daemon listens on
+port 4949
+
+# User and group under which the munin-node daemon runs
+user root
+
+# Group for log files and temporary files
+group root
+
+# Directory for plugin configuration and runtime data
+dirdir /etc/munin/plugin-conf.d
+
+# Directory for log files
+logdir /var/log/munin
+
+# Directory for run-time data (PID files, etc.)
+rundir /var/run/munin
+
+# Directory for HTML output (if served locally)
+htmldir /var/www/munin
+
+# Whether to log plugin output (0=off, 1=on)
+log_level 1
+
+# Maximum number of concurrent connections
+max_connections 30
+
+# Timeout for connections (in seconds)
+timeout 3600
+
+# Whether to enable strict host verification
+strict_host_verification 0
+
+# Hostname the node reports to the master (if empty, FQDN is used)
+# set this to override auto-detection
+{% if node_hostname %}host_name {{ node_hostname }}
+{% endif %}
+
+# Plugin configuration includes
+{% for conf in plugin_conf_includes %}includedir {{ conf }}
+{% endfor %}
+
+# Per-plugin configuration (example format for documentation only)
+# [plugin_name]
+# env.variable_name value

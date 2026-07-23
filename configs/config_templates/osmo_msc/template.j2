@@ -1,0 +1,148 @@
+# OsmoMSC configuration file
+# Generated from template — do not edit directly
+
+# Global settings
+log
+  file {{ log_file }}
+  level {{ log_level }}
+  color {{ log_color | lower }}
+  timestamp {{ log_timestamp | lower }}
+end
+
+# Control interface for remote management
+ctrl
+  bind {{ ctrl_bind_addr }}
+  port {{ ctrl_port }}
+end
+
+# VTY interface (local CLI)
+vtys
+  bind {{ vty_bind_addr }}
+  port {{ vty_port }}
+end
+
+# A-interface (BSC → MSC)
+a-interface
+  ip
+    bind {{ a_interface_bind_ip }}
+    point-to-point
+  end
+  ccm
+    ip {{ a_interface_ccm_ip }}
+  end
+  bscs
+{% for bsc in bscs %}
+    bsc {{ bsc.name }}
+      bsc-id {{ bsc.id }}
+      ip {{ bsc.ip }}
+      rtp-ip {{ bsc.rtp_ip }}
+      dscp {{ bsc.dscp }}
+      lac {{ bsc.lac }}
+      ci {{ bsc.ci }}
+      rsl-ccm-id {{ bsc.rsl_ccm_id }}
+      mgw {{ bsc.mgw_name }}
+      sccp-address {{ bsc.sccp_address | default('') }}
+{% endfor %}
+  end
+end
+
+# Iu-CS interface (RNC → MSC for UMTS)
+iu-cs
+  mgw
+    rtcp {{ iu_cs_mgw_rtcp }}
+  end
+  rncs
+{% for rnc in rncs %}
+    rnc {{ rnc.name }}
+      rnc-id {{ rnc.id }}
+      ip {{ rnc.ip }}
+      rtp-ip {{ rnc.rtp_ip }}
+      dscp {{ rnc.dscp }}
+      lac {{ rnc.lac }}
+      rac {{ rnc.rac }}
+      sac {{ rnc.sac }}
+      mgw {{ rnc.mgw_name }}
+      sccp-address {{ rnc.sccp_address | default('') }}
+{% endfor %}
+  end
+end
+
+# Core network MSC settings
+msc
+  name {{ msc_name }}
+  uuid {{ msc_uuid }}
+  cs7-instance {{ cs7_instance }}
+  # HLR integration
+  hlr
+    bind {{ hlr_bind_addr }}
+    port {{ hlr_port }}
+  end
+  # Authentication & security
+  auth-policy
+    auth-optional {{ auth_policy_auth_optional | lower }}
+    order {{ auth_policy_order }}
+  end
+  # SMS & USSD
+  sms
+    smpp
+{% for smpp in smpps %}
+      system-id {{ smpp.system_id }}
+      password {{ smpp.password }}
+      bind-tx {{ smpp.bind_tx | lower }}
+      bind-rx {{ smpp.bind_rx | lower }}
+      host {{ smpp.host }}
+      port {{ smpp.port }}
+{% endfor %}
+    end
+    smpp-defaults
+      smsc-id {{ smsc_default_smsc_id }}
+      source-addr {{ smsc_default_source_addr }}
+    end
+  end
+  # SS7 routing (for ISUP/DTAP)
+  cs7
+    point-code {{ cs7_point_code }}
+    routing-context {{ cs7_routing_context }}
+    dpc {{ cs7_dpc }}
+    opc {{ cs7_opc }}
+    type {{ cs7_type }}
+    ssn {{ cs7_ssn }}
+  end
+  # Location Area Code (LAC) for IMSI-based routing
+  lac {{ default_lac }}
+  # Mobile Identity prefixes (e.g., for routing by IMSI prefix)
+  prefixes
+{% for prefix in imsi_prefixes %}
+    prefix {{ prefix.match }} {{ prefix.routing_area }}
+{% endfor %}
+  end
+  # Rate limiting for SMPP sessions
+  smpp-rate-limit {{ smpp_rate_limit }}
+  # SS7 congestion control
+  ss7-congestion {{ ss7_congestion | lower }}
+end
+
+# MGW (Media Gateway) configuration
+mgw
+  name {{ mgw_default_name }}
+  endpoint
+    local-ip {{ mgw_local_ip }}
+    local-port-base {{ mgw_port_base }}
+    remote-ip {{ mgw_remote_ip }}
+  end
+  mediasrv
+    sdp-offer {{ mgw_sdp_offer | lower }}
+    rtcp {{ mgw_rtcp | lower }}
+  end
+  codecs
+{% for codec in codecs %}
+    {{ codec.name }} {{ codec.payload_type }}
+{% endfor %}
+  end
+end
+
+# VTY/CLI authentication
+login
+  username {{ cli_username }}
+  password {{ cli_password }}
+end

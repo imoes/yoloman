@@ -1,0 +1,117 @@
+{
+  "core": {
+    "type": "object",
+    "description": "Global core settings for ConnMan behavior",
+    "properties": {
+      "IgnoredInterfaces": {
+        "type": "list",
+        "default": [],
+        "description": "List of network interfaces (e.g., 'eth0', 'virbr0') that ConnMan should ignore. Set to ['any'] to disable all interface management.",
+        "items": {
+          "type": "string"
+        }
+      },
+      "OfflineMode": {
+        "type": "bool",
+        "default": false,
+        "description": "Start ConnMan in offline mode (no external network access). Useful for maintenance or air-gapped systems."
+      },
+      "TechnologyOrder": {
+        "type": "list",
+        "default": [],
+        "description": "Preferred order of network technologies (e.g., ['wifi', 'ethernet']). Higher-priority technologies are selected when multiple are available.",
+        "items": {
+          "type": "string",
+          "enum": [
+            "ethernet",
+            "wifi",
+            "gsm",
+            "cdma",
+            "bluetooth",
+            "vpn",
+            "gadget"
+          ]
+        }
+      },
+      "ManualConnect": {
+        "type": "bool",
+        "default": false,
+        "description": "Disable automatic reconnection attempts. Connections must be explicitly initiated by the user or app."
+      },
+      "AutoConnect": {
+        "type": "bool",
+        "default": true,
+        "description": "Automatically reconnect to previously used networks when in range."
+      },
+      "AutoConnectEnabled": {
+        "type": "bool",
+        "default": true,
+        "description": "Allow Wi-Fi networks to be automatically connected (only effective when AutoConnect is true)."
+      }
+    }
+  },
+  "wifi": {
+    "type": "object",
+    "description": "Wi-Fi technology-specific settings",
+    "properties": {
+      "Enabled": {
+        "type": "bool",
+        "default": true,
+        "description": "Enable or disable the Wi-Fi radio globally."
+      },
+      "PowerSaving": {
+        "type": "bool",
+        "default": true,
+        "description": "Enable power-saving mode (e.g., suspend Wi-Fi scanning when idle). May delay reconnection."
+      },
+      "RandomizeMAC": {
+        "type": "bool",
+        "default": false,
+        "description": "Use randomized MAC addresses for scanning and connecting. Improves privacy, but may break MAC-based network policies."
+      },
+      "WFD": {
+        "type": "bool",
+        "default": true,
+        "description": "Enable Wi-Fi Direct support for peer-to-peer connections."
+      }
+    }
+  },
+  "ethernet": {
+    "type": "object",
+    "description": "Wired Ethernet technology settings",
+    "properties": {
+      "Enabled": {
+        "type": "bool",
+        "default": true,
+        "description": "Enable or disable the Ethernet technology globally."
+      }
+    }
+  },
+  "offlinemode": {
+    "type": "object",
+    "description": "Offline mode behavior settings",
+    "properties": {
+      "Enable": {
+        "type": "bool",
+        "default": false,
+        "description": "Automatically enter offline mode when no known networks are reachable."
+      }
+    }
+  },
+  "proxysvc": {
+    "type": "object",
+    "description": "System proxy service settings (transparent HTTP proxy support)",
+    "properties": {
+      "Enabled": {
+        "type": "bool",
+        "default": true,
+        "description": "Enable the system proxy service (used by proxy-aware applications)."
+      },
+      "PAC": {
+        "type": "bool",
+        "default": true,
+        "description": "Enable support for Proxy Auto-Configuration (PAC) files."
+      }
+    }
+  }
+}

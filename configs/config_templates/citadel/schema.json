@@ -1,0 +1,139 @@
+{
+  "host": {
+    "type": "string",
+    "default": "localhost",
+    "description": "Hostname or IP address of the Citadel server to connect to."
+  },
+  "port": {
+    "type": "number",
+    "default": 504,
+    "description": "TCP port on which the Citadel server listens (standard: 504)."
+  },
+  "datadir": {
+    "type": "string",
+    "default": "/var/lib/citadel",
+    "description": "Path to Citadel's data directory (contains user databases, cache, etc.)."
+  },
+  "configdir": {
+    "type": "string",
+    "default": "/etc/citadel",
+    "description": "Path to Citadel's configuration directory (e.g., containing modules, startup scripts)."
+  },
+  "logfile": {
+    "type": "string",
+    "default": "/var/log/citadel/client.log",
+    "description": "Path to the client log file. Use '-' to log to stderr."
+  },
+  "verbose": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable verbose debug logging (includes protocol traces and internal state)."
+  },
+  "ssl_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable encrypted communication with the Citadel server via TLS."
+  },
+  "ssl_ca_file": {
+    "type": "string",
+    "default": "/etc/ssl/certs/ca-certificates.crt",
+    "description": "Path to CA certificate bundle for server certificate validation (only if SSL enabled)."
+  },
+  "ssl_client_cert": {
+    "type": "string",
+    "default": "",
+    "description": "Path to client certificate for mutual TLS (leave blank to disable)."
+  },
+  "ssl_client_key": {
+    "type": "string",
+    "default": "",
+    "description": "Path to client private key for mutual TLS (must accompany client_cert)."
+  },
+  "default_domain": {
+    "type": "string",
+    "default": "example.com",
+    "description": "Default domain suffix to append to usernames that lack one (e.g., 'user' becomes 'user@example.com')."
+  },
+  "allow_anonymous": {
+    "type": "bool",
+    "default": false,
+    "description": "Permit login without credentials (typically only for public rooms or testing)."
+  },
+  "auth_backends": {
+    "type": "list",
+    "default": [
+      "local",
+      "ldap"
+    ],
+    "description": "Ordered list of authentication backends to try (e.g., local, ldap, radius, pam)."
+  },
+  "auth_backend_options": {
+    "type": "list",
+    "default": [],
+    "items": {
+      "type": "object",
+      "fields": {
+        "name": {
+          "type": "string",
+          "description": "Name of the backend (must match an entry in auth_backends)."
+        },
+        "options": {
+          "type": "object",
+          "description": "Key-value configuration for this backend (structure depends on backend type)."
+        }
+      }
+    },
+    "description": "Per-backend tuning parameters (e.g., LDAP bind DN, server URIs, timeouts)."
+  },
+  "connect_timeout": {
+    "type": "number",
+    "default": 10,
+    "description": "Maximum seconds to wait for a TCP connection to complete."
+  },
+  "read_timeout": {
+    "type": "number",
+    "default": 30,
+    "description": "Maximum seconds to wait for a response from the server after sending a command."
+  },
+  "max_retries": {
+    "type": "number",
+    "default": 3,
+    "description": "Number of times to retry failed operations due to transient errors (e.g., timeouts)."
+  },
+  "auto_reconnect": {
+    "type": "bool",
+    "default": true,
+    "description": "Automatically reconnect if the server closes the connection unexpectedly."
+  },
+  "default_charset": {
+    "type": "string",
+    "default": "UTF-8",
+    "description": "Default character encoding for text content (e.g., UTF-8, ISO-8859-1)."
+  },
+  "compression_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable payload compression (if both client and server support it)."
+  },
+  "trusted_subnets": {
+    "type": "list",
+    "default": [
+      "127.0.0.0/8",
+      "::1/128"
+    ],
+    "items": {
+      "type": "string",
+      "description": "CIDR notation of trusted subnets (e.g., '192.168.1.0/24'). Bypass authentication if enabled server-side."
+    },
+    "description": "List of network ranges where clients may connect without authentication."
+  },
+  "trusted_hosts": {
+    "type": "list",
+    "default": [],
+    "items": {
+      "type": "string",
+      "description": "Exact hostname to accept as valid regardless of certificate chain (dangerous; for testing only)."
+    },
+    "description": "Hostnames whose TLS certificates are trusted even if unverifiable."
+  }
+}

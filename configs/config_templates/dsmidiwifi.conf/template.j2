@@ -1,0 +1,89 @@
+[global]
+# Base directory for configuration and runtime files
+base_dir = {{ config.base_dir }}
+
+# Log level: 0=error, 1=warn, 2=info, 3=debug
+log_level = {{ config.log_level }}
+
+# Enable/disable logging to syslog
+syslog = {{ config.syslog|lower }}
+
+# Network interface to bind to (empty = all)
+interface = {{ config.interface|default('') }}
+
+[server]
+# TCP port for HTTP control interface
+http_port = {{ server.http_port }}
+
+# Hostname/IP to bind HTTP server to (empty = all interfaces)
+http_host = {{ server.http_host|default('') }}
+
+# Enable/disable HTTPS
+enable_https = {{ server.enable_https|lower }}
+
+# TLS certificate and key paths (only used if enable_https is true)
+ssl_cert = {{ server.ssl_cert }}
+ssl_key = {{ server.ssl_key }}
+
+[midi]
+# Enable/disable MIDI input (from hardware interfaces)
+input_enabled = {{ midi.input_enabled|lower }}
+
+# Enable/disable MIDI output (to hardware interfaces)
+output_enabled = {{ midi.output_enabled|lower }}
+
+# Default MIDI clock source: 'internal' or 'external'
+default_clock_source = {{ midi.default_clock_source }}
+
+# List of MIDI ports to expose (one per line or space-separated in INI)
+{% for port in midi.ports %}port_{{ loop.index }} = {{ port.name }}{% if port.direction %} ({{ port.direction }}){% endif %}
+{% endfor %}
+
+[websocket]
+# WebSocket port for real-time MIDI streaming
+ws_port = {{ websocket.ws_port }}
+
+# Enable/disable CORS for WebSocket
+enable_cors = {{ websocket.enable_cors|lower }}
+
+# Allowed origins (comma-separated)
+allowed_origins = {{ websocket.allowed_origins | join(', ') }}
+
+[ntp]
+# NTP server for time synchronization
+server = {{ ntp.server }}
+
+# Update interval in seconds
+update_interval = {{ ntp.update_interval }}
+
+# Enable/disable NTP sync
+enabled = {{ ntp.enabled|lower }}
+
+[mqtt]
+# MQTT broker hostname or IP
+broker = {{ mqtt.broker }}
+
+# MQTT broker port
+port = {{ mqtt.port }}
+
+# Enable/disable MQTT bridge
+enabled = {{ mqtt.enabled|lower }}
+
+# MQTT client ID (if empty, auto-generated)
+client_id = {{ mqtt.client_id|default('') }}
+
+# Base topic for MIDI messages
+topic_base = {{ mqtt.topic_base }}
+
+# QoS level for MQTT messages: 0, 1, or 2
+qos = {{ mqtt.qos }}
+
+# Enable/disable retained messages
+retained = {{ mqtt.retained|lower }}
+
+[webui]
+# Enable/disable built-in web UI
+enabled = {{ webui.enabled|lower }}
+
+# Web UI theme: 'light' or 'dark'
+theme = {{ webui.theme }}

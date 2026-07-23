@@ -1,0 +1,193 @@
+{
+  "server": {
+    "type": "object",
+    "default": {},
+    "description": "Top-level server configuration for mDNS/DNS-SD behavior and publishing",
+    "properties": {
+      "use_ipv4": {
+        "type": "bool",
+        "default": true,
+        "description": "Enable IPv4 support for mDNS/DNS-SD. Disable only on IPv6-only systems."
+      },
+      "use_ipv6": {
+        "type": "bool",
+        "default": true,
+        "description": "Enable IPv6 support for mDNS/DNS-SD. Disable only on IPv4-only systems."
+      },
+      "publish_hinfo": {
+        "type": "bool",
+        "default": true,
+        "description": "Publish host information (CPU/OS) via HINFO records."
+      },
+      "publish_workstation": {
+        "type": "bool",
+        "default": true,
+        "description": "Publish the workstation service (used by some legacy clients)."
+      },
+      "publish_domain": {
+        "type": "string",
+        "default": "local",
+        "description": "Default domain to advertise (usually 'local' for mDNS)."
+      },
+      "publish_resolved": {
+        "type": "bool",
+        "default": true,
+        "description": "Advertise that the local resolver supports DNS-SD via unicast."
+      },
+      "publish_addr": {
+        "type": "bool",
+        "default": true,
+        "description": "Publish address records (A/AAAA) for hostnames."
+      },
+      "publish_cname": {
+        "type": "bool",
+        "default": true,
+        "description": "Publish canonical name (CNAME) records."
+      },
+      "rr_ttl": {
+        "type": "number",
+        "default": 7200,
+        "description": "Time-to-live (TTL) in seconds for published DNS records."
+      },
+      "host_name": {
+        "type": "string",
+        "default": "",
+        "description": "Optional custom host name to advertise. If empty, system hostname is used."
+      },
+      "reflector": {
+        "type": "object",
+        "default": {},
+        "description": "Configuration for mDNS reflection between network segments",
+        "properties": {
+          "enabled": {
+            "type": "bool",
+            "default": false,
+            "description": "Enable mDNS reflector mode to forward mDNS queries/responses across subnets."
+          },
+          "rr_ttl": {
+            "type": "number",
+            "default": 7200,
+            "description": "TTL for reflected DNS records."
+          },
+          "network_namespace": {
+            "type": "bool",
+            "default": false,
+            "description": "Enable reflection across Linux network namespaces (requires systemd >= v248)."
+          }
+        }
+      },
+      "wide_area": {
+        "type": "object",
+        "default": {},
+        "description": "Configuration for Wide Area mDNS (for non-local domains, rarely used)",
+        "properties": {
+          "enabled": {
+            "type": "bool",
+            "default": false,
+            "description": "Enable wide-area (non-local) DNS-SD discovery. Requires special infrastructure."
+          }
+        }
+      },
+      "lua": {
+        "type": "object",
+        "default": {},
+        "description": "Lua scripting extension (for advanced customization)",
+        "properties": {
+          "enabled": {
+            "type": "bool",
+            "default": false,
+            "description": "Enable Lua scripting in the daemon (advanced users only)."
+          },
+          "directory": {
+            "type": "string",
+            "default": "/etc/avahi/services",
+            "description": "Directory containing Lua scripts and service definitions."
+          }
+        }
+      },
+      "watch_config": {
+        "type": "bool",
+        "default": true,
+        "description": "Automatically reload configuration when the file changes."
+      },
+      "dbus": {
+        "type": "object",
+        "default": {},
+        "description": "D-Bus integration settings",
+        "properties": {
+          "system_pub_sub": {
+            "type": "bool",
+            "default": true,
+            "description": "Allow D-Bus clients to publish and subscribe to services via the system bus."
+          }
+        }
+      },
+      "rate_limiting": {
+        "type": "object",
+        "default": {},
+        "description": "Rate limiting to prevent abuse/mDNS storms",
+        "properties": {
+          "enabled": {
+            "type": "bool",
+            "default": false,
+            "description": "Enable rate limiting for incoming mDNS packets."
+          },
+          "interval_sec": {
+            "type": "number",
+            "default": 30,
+            "description": "Time window (in seconds) for counting packets."
+          },
+          "max_packets": {
+            "type": "number",
+            "default": 50,
+            "description": "Maximum packets allowed per interval before throttling."
+          }
+        }
+      },
+      "publish_services": {
+        "type": "list",
+        "default": [],
+        "description": "List of additional custom services to publish (beyond automatic discovery)",
+        "items": {
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string",
+              "description": "Service instance name (e.g., 'My Web Server')"
+            },
+            "type": {
+              "type": "string",
+              "description": "Service type (e.g., '_http._tcp') or omit to auto-detect"
+            },
+            "port": {
+              "type": "number",
+              "description": "TCP/UDP port number"
+            },
+            "txt": {
+              "type": "string",
+              "description": "Optional TXT record data (e.g., 'path=/index.html')"
+            }
+          }
+        }
+      },
+      "publish_domains": {
+        "type": "list",
+        "default": [],
+        "description": "List of domains to announce (in addition to the default 'local' domain)",
+        "items": {
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string",
+              "description": "Domain name (e.g., 'company.internal')"
+            },
+            "ttl": {
+              "type": "number",
+              "description": "Optional TTL (seconds) for domain announcement"
+            }
+          }
+        }
+      }
+    }
+  }
+}

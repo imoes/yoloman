@@ -1,0 +1,108 @@
+{
+  "tor_control_socket": {
+    "type": "string",
+    "default": "/run/tor/control.socket",
+    "description": "Path to the Unix domain socket of the local Tor control interface (e.g., /run/tor/control.socket). Requires Tor to be configured with ControlSocket enabled."
+  },
+  "state_directory": {
+    "type": "string",
+    "default": "/var/lib/onionbalance",
+    "description": "Persistent state directory where OnionBalance saves service descriptors, session keys, and internal metadata."
+  },
+  "descriptor_directory": {
+    "type": "string",
+    "default": "/var/lib/onionbalance/descriptors",
+    "description": "Directory for storing plaintext descriptor files (if not using state_directory only). Optional but recommended for diagnostics."
+  },
+  "debug": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable verbose logging for debugging. Set to true during setup or troubleshooting; false for production."
+  },
+  "services": {
+    "type": "list",
+    "default": [],
+    "description": "List of hidden services to load-balance. Each service must have a .onion hostname and at least one backend.",
+    "items": {
+      "hostname": {
+        "type": "string",
+        "default": "",
+        "description": "The base32-encoded .onion hostname (e.g., exampleonionxyz.onion). Must match the public key of the service."
+      },
+      "version": {
+        "type": "number",
+        "default": 3,
+        "description": "Hidden service protocol version (2 or 3). Must match the backend's service version."
+      },
+      "private_key": {
+        "type": "string",
+        "default": "",
+        "description": "Ed25519 private key (in base64 or PEM format) for the hidden service. Required for v3 services if not pre-installed in Tor."
+      },
+      "v3_public_key": {
+        "type": "string",
+        "default": "",
+        "description": "Ed25519 public key (base64 or hex) for the hidden service. Required for v3 services unless private_key is provided."
+      },
+      "authorized_clients": {
+        "type": "list",
+        "default": [],
+        "description": "Optional list of clients allowed to submit descriptor updates (for multi-admin setups).",
+        "items": {
+          "client_name": {
+            "type": "string",
+            "default": "",
+            "description": "Descriptive name for the client (e.g., 'frontend-1')"
+          },
+          "client_key": {
+            "type": "string",
+            "default": "",
+            "description": "Ed25519 private key of the client (used to sign descriptor uploads)."
+          },
+          "v3_auth_key": {
+            "type": "string",
+            "default": "",
+            "description": "Optional Ed25519 public key (base64) of the client for authentication (if using v3 auth keys)."
+          }
+        }
+      },
+      "backends": {
+        "type": "list",
+        "default": [],
+        "description": "List of backend hidden services (or real servers behind v2-only proxies) to route traffic to.",
+        "items": {
+          "address": {
+            "type": "string",
+            "default": "",
+            "description": "Onion address of the backend (e.g., backend1xyz.onion). Must be a valid .onion v2 or v3 address."
+          },
+          "weight": {
+            "type": "number",
+            "default": 1,
+            "description": "Relative traffic weight for this backend (e.g., 2 means it receives ~2\u00d7 traffic of a backend with weight 1)."
+          }
+        }
+      }
+    }
+  },
+  "max_upload_threads": {
+    "type": "number",
+    "default": 4,
+    "description": "Maximum number of parallel descriptor upload jobs to Tor. Increase if upload latency is high."
+  },
+  "upload_timeout": {
+    "type": "number",
+    "default": 30,
+    "description": "Timeout (seconds) per descriptor upload attempt. Increase on slow or unreliable Tor control connections."
+  },
+  "heartbeat_interval": {
+    "type": "number",
+    "default": 60,
+    "description": "Interval (seconds) between descriptor updates and backend health checks."
+  },
+  "num_descriptors": {
+    "type": "number",
+    "default": 3,
+    "description": "Number of descriptors OnionBalance should keep per service (for redundancy and Tor\u2019s descriptor rotation logic)."
+  }
+}

@@ -1,0 +1,146 @@
+<?xml version="1.0"?>
+<!-- Icecast2 configuration file -->
+<!-- Server identification -->
+<icecast>
+    <!-- Hostname of this server (e.g., 'radio.example.com') -->
+    <hostname>{{ hostname }}</hostname>
+
+    <!-- Ports to listen on (HTTP and HTTPS) -->
+    <listensocket>
+        <port>{{ ports.http }}</port>
+        {% if ports.https %}
+        <ssl-port>{{ ports.https }}</ssl-port>
+        {% endif %}
+    </listensocket>
+
+    <!-- Paths to server data and logs -->
+    <paths>
+        <!-- Base directory for web root (HTML/JS assets for admin) -->
+        <basedir>/usr/share/icecast2</basedir>
+        <!-- Web root within basedir -->
+        <webroot>{{ paths.webroot }}</webroot>
+        <!-- Path for admin files (e.g., templates, icons) -->
+        <adminroot>{{ paths.adminroot }}</adminroot>
+        <!-- Path for SSL certificate & key (if HTTPS enabled) -->
+        <ssl_certificate>{{ paths.ssl_certificate }}</ssl_certificate>
+        <ssl_certificate_key>{{ paths.ssl_certificate_key }}</ssl_certificate_key>
+        <!-- Optional CA bundle for client cert verification -->
+        {% if paths.ssl_ca_list %}
+        <ssl_ca_list>{{ paths.ssl_ca_list }}</ssl_ca_list>
+        {% endif %}
+    </paths>
+
+    <!-- Logging configuration -->
+    <logging>
+        <!-- Log level: 0=error,1=warn,2=info,3=debug -->
+        <accesslog>{{ logging.accesslog }}</accesslog>
+        <errorlog>{{ logging.errorlog }}</errorlog>
+        <!-- Rotate logs after N bytes (0 = no rotation) -->
+        <logsize>{{ logging.logsize }}</logsize>
+        <!-- Rotate logs after N days (0 = disable) -->
+        <logsize>{{ logging.logsize }}</logsize>
+        <!-- Log format: 0=text,1=json (Icecast ≥2.5.0) -->
+        <logjson>{{ logging.logjson | lower | string }}</logjson>
+        <!-- Log level (Icecast ≥2.5.0) -->
+        <loglevel>{{ logging.loglevel }}</loglevel>
+    </logging>
+
+    <!-- Authentication for sources and clients -->
+    <authentication>
+        <!-- Source user: password and role -->
+        <source-password>{{ auth.source.password }}</source-password>
+        <source-username>{{ auth.source.username }}</source-username>
+        <!-- Relay user (for relaying from other servers) -->
+        <relay-password>{{ auth.relay.password }}</relay-password>
+        <relay-username>{{ auth.relay.username }}</relay-username>
+        <!-- Admin user (for web interface) -->
+        <admin-password>{{ auth.admin.password }}</admin-password>
+        <admin-username>{{ auth.admin.username }}</admin-username>
+    </authentication>
+
+    <!-- Relay configuration (for pulling from upstream) -->
+    {% if relays %}
+    <relays>
+        {% for r in relays %}
+        <relay>
+            <server>{{ r.server }}</server>
+            <port>{{ r.port | default(8000) }}</port>
+            <mount>{{ r.mount }}</mount>
+            <local-mount>{{ r.local_mount }}</local-mount>
+            <relay-password>{{ r.password }}</relay-password>
+            <on-demand>{{ r.on_demand | lower | string }}</on-demand>
+            <relay-shoutcast-metadata>{{ r.shoutcast_metadata | lower | string }}</relay-shoutcast-metadata>
+            {% if r.timeout %}
+            <timeout>{{ r.timeout }}</timeout>
+            {% endif %}
+        </relay>
+        {% endfor %}
+    </relays>
+    {% endif %}
+
+    <!-- Mount point definitions (static mounts) -->
+    {% if mounts %}
+    <mounts>
+        {% for m in mounts %}
+        <mount>
+            <mount-name>{{ m.name }}</mount-name>
+            <username>{{ m.username | default('source') }}</username>
+            {% if m.password %}
+            <password>{{ m.password }}</password>
+            {% endif %}
+            <!-- Optional: fallback mount (stream fallback on disconnect) -->
+            {% if m.fallback_mount %}
+            <fallback-mount>{{ m.fallback_mount }}</fallback-mount>
+            {% endif %}
+            <!-- Optional: fallback location (URL redirect on disconnect) -->
+            {% if m.fallback_location %}
+            <fallback-location>{{ m.fallback_location }}</fallback-location>
+            {% endif %}
+            <!-- Max listeners (0 = unlimited) -->
+            <max-listeners>{{ m.max_listeners | default(0) }}</max-listeners>
+            <!-- Default listener timeout in seconds -->
+            <listener-timeout>{{ m.listener_timeout | default(60) }}</listener-timeout>
+            <!-- Optional: genre -->
+            {% if m.genre %}
+            <genre>{{ m.genre }}</genre>
+            {% endif %}
+            <!-- Optional: public (broadcasts to YP directory) -->
+            <public>{{ m.public | default(1) | lower | string }}</public>
+            <!-- Optional: stream description/title -->
+            {% if m.description %}
+            <description>{{ m.description }}</description>
+            {% endif %}
+            {% if m.name %}
+            <name>{{ m.name }}</name>
+            {% endif %}
+            <!-- Optional: bitrate (for YP display) -->
+            {% if m.bitrate %}
+            <bitrate>{{ m.bitrate }}</bitrate>
+            {% endif %}
+            <!-- Optional: type (e.g., 'audio/mpeg', 'audio/ogg') -->
+            {% if m.type %}
+            <type>{{ m.type }}</type>
+            {% endif %}
+        </mount>
+        {% endfor %}
+    </mounts>
+    {% endif %}
+
+    <!-- Rate limiting (per-IP burst & total) -->
+    <burst-on-connect>{{ limits.burst_on_connect | default(1) | lower | string }}</burst-on-connect>
+    <burst-size>{{ limits.burst_size }}</burst-size>
+    <client-timeout>{{ limits.client_timeout }}</client-timeout>
+
+    <!-- Connection rate limiting (sources/clients per second) -->
+    <rate-limits>
+        <!-- Max connections per source IP for sources -->
+        <source-ip-limit>{{ limits.source_ip_limit }}</source-ip-limit>
+        <!-- Max connections per source IP for clients -->
+        <client-ip-limit>{{ limits.client_ip_limit }}</client-ip-limit>
+        <!-- Rate-limit burst size (IP burst) -->
+        <burst-limit>{{ limits.burst_limit }}</burst-limit>
+    </rate-limits>
+
+    <!-- Changelog & version -->
+    <version>2.5.0</version>
+</icecast>

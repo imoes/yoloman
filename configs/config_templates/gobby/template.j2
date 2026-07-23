@@ -1,0 +1,76 @@
+# Gobby server configuration file (infinote-based collaborative text editor)
+# Listen address and port for incoming connections
+[server]
+listen={{ server.listen_address }}:{{ server.port }}
+
+# Maximum number of simultaneous connections
+max_connections={{ server.max_connections }}
+
+# SSL/TLS configuration (disabled by default)
+{% if server.ssl.enabled %}
+# Enable SSL/TLS encryption
+ssl_enabled=true
+ssl_certificate={{ server.ssl.certificate_path }}
+ssl_key={{ server.ssl.key_path }}
+{% else %}
+ssl_enabled=false
+{% endif %}
+
+# Authentication method (none|password|ldap)
+auth={{ server.auth.method }}
+
+{% if server.auth.method == 'password' %}
+# Path to password file for basic auth (HMAC-SHA256 hashed passwords)
+password_file={{ server.auth.password_file }}
+{% endif %}
+
+{% if server.auth.method == 'ldap' %}
+# LDAP configuration
+ldap_url={{ server.auth.ldap.url }}
+ldap_bind_dn={{ server.auth.ldap.bind_dn }}
+ldap_bind_password={{ server.auth.ldap.bind_password }}
+ldap_base_dn={{ server.auth.ldap.base_dn }}
+ldap_filter={{ server.auth.ldap.filter }}
+ldap_user_attribute={{ server.auth.ldap.user_attribute }}
+{% endif %}
+
+# Session timeout (in seconds)
+session_timeout={{ server.session_timeout }}
+
+# Document persistence directory
+{% if server.persistent_storage.enabled %}
+# Enable persistent storage of documents
+storage_dir={{ server.persistent_storage.path }}
+{% else %}
+# Documents are stored in memory only (non-persistent)
+storage_dir=
+{% endif %}
+
+# Maximum document size (in bytes)
+max_doc_size={{ server.max_doc_size }}
+
+# Log level: debug, info, warning, error, critical
+log_level={{ server.log_level }}
+
+# Log file path (empty = stderr)
+log_file={{ server.log_file }}
+
+{% for group in server.groups %}
+# Document group: {{ group.name }}
+group_{{ loop.index }}_name={{ group.name }}
+group_{{ loop.index }}_description={{ group.description | default('') }}
+group_{{ loop.index }}_members={{ group.members | join(',') }}
+{% endfor %}
+
+# Server hostname for WebSocket/SSE fallback (optional)
+{% if server.hostname %}
+hostname={{ server.hostname }}
+{% endif %}
+
+# WebSocket support (required for real-time sync)
+{% if server.websocket.enabled %}
+websocket_enabled=true
+websocket_path={{ server.websocket.path }}
+{% else %}
+websocket_enabled=false
+{% endif %}

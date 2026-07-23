@@ -1,0 +1,87 @@
+# Guerilla Backup Daemon configuration - primary config file
+# Base runtime settings
+runtime:
+  data_dir: {{ data_dir }}
+  cache_dir: {{ cache_dir }}
+  log_file: {{ log_file }}
+  log_level: {{ log_level }}
+
+# Network and identity
+identity:
+  node_id: "{{ node_id }}"
+  node_name: "{{ node_name }}"
+  cluster_name: "{{ cluster_name }}"
+
+# Storage backends — each backend is independently configured and named
+backends:
+{% for backend in backends %}  - name: "{{ backend.name }}"
+    type: "{{ backend.type }}"
+    enabled: {{ backend.enabled }}
+{% if backend.type == 's3' %}    endpoint: "{{ backend.endpoint }}"
+    region: "{{ backend.region }}"
+    bucket: "{{ backend.bucket }}"
+    access_key: "{{ backend.access_key }}"
+    secret_key: "{{ backend.secret_key }}"
+{% elif backend.type == 'local' %}    path: "{{ backend.path }}"
+{% elif backend.type == 'ssh' %}    host: "{{ backend.host }}"
+    port: {{ backend.port }}
+    user: "{{ backend.user }}"
+    key_file: "{{ backend.key_file }}"
+    path: "{{ backend.path }}"
+{% endif %}    compression: {{ backend.compression }}
+    encryption: {{ backend.encryption }}
+{% endfor %}
+
+# Backup schedules — list of cron-style or interval-based jobs
+schedules:
+{% for schedule in schedules %}  - name: "{{ schedule.name }}"
+    enabled: {{ schedule.enabled }}
+    policy: "{{ schedule.policy }}"
+    source_dirs:
+{% for dir in schedule.source_dirs %}      - "{{ dir }}"
+{% endfor %}    retention:
+      keep_daily: {{ schedule.retention.keep_daily }}
+      keep_weekly: {{ schedule.retention.keep_weekly }}
+      keep_monthly: {{ schedule.retention.keep_monthly }}
+{% if schedule.cron %}    cron: "{{ schedule.cron }}"
+{% else %}    interval_seconds: {{ schedule.interval_seconds }}
+{% endif %}
+{% endfor %}
+
+# Worker and resource limits
+workers:
+  max_concurrent_backups: {{ workers.max_concurrent_backups }}
+  max_upload_workers_per_backend: {{ workers.max_upload_workers_per_backend }}
+  chunk_size_mb: {{ workers.chunk_size_mb }}
+  cache_ttl_seconds: {{ workers.cache_ttl_seconds }}
+  mem_limit_mb: {{ workers.mem_limit_mb }}
+
+# Network and reliability tuning
+network:
+  connect_timeout_seconds: {{ network.connect_timeout_seconds }}
+  read_timeout_seconds: {{ network.read_timeout_seconds }}
+  retry_max_attempts: {{ network.retry_max_attempts }}
+  retry_backoff_seconds: {{ network.retry_backoff_seconds }}
+  enable_tls: {{ network.enable_tls }}
+  ca_cert_file: "{{ network.ca_cert_file }}"
+
+# Notification and alerting
+notifications:
+  email_enabled: {{ notifications.email_enabled }}
+  smtp_host: "{{ notifications.smtp_host }}"
+  smtp_port: {{ notifications.smtp_port }}
+  from_address: "{{ notifications.from_address }}"
+  recipients:
+{% for email in notifications.recipients %}    - "{{ email }}"
+{% endfor %}
+  on_error: {{ notifications.on_error }}
+  on_success: {{ notifications.on_success }}
+
+# Security and auditing
+security:
+  enable_audit_log: {{ security.enable_audit_log }}
+  audit_log_file: "{{ security.audit_log_file }}"
+  require_client_cert: {{ security.require_client_cert }}
+  allowed_client_ips:
+{% for ip in security.allowed_client_ips %}    - "{{ ip }}"
+{% endfor %}

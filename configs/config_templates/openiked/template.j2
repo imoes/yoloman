@@ -1,0 +1,76 @@
+# Global configuration settings
+config {
+{% ifikev2_psk_enabled %}  # Pre-Shared Key (PSK) authentication
+  psk "{{ psk_secret }}"
+{% endif %}
+
+{% ifikev2_cert_enabled %}  # Certificate-based authentication
+  local-cert "{{ local_cert_path }}"
+{% if local_key_path %}  local-key "{{ local_key_path }}"
+{% endif %}{% if ca_cert_path %}  ca-cert "{{ ca_cert_path }}"
+{% endif %}
+{% endif %}
+
+{% ifikev2_dpd_enabled %}  # Dead Peer Detection
+  dpd-delay {{ dpd_delay }}
+  dpd-maxfail {{ dpd_maxfail }}
+{% endif %}
+
+  # Logging and debugging
+  log {{ log_level }}
+{% ifikev2_debug %}  debug
+{% endif %}
+}
+
+{% for peer in peers %}
+# Peer: {{ peer.name }}
+peer "{{ peer.address }}" {
+{% if peer.psk %}  psk "{{ peer.psk }}"
+{% endif %}
+{% if peer.cert_subject %}  ident by cert
+  cert-subject "{{ peer.cert_subject }}"
+{% endif %}
+
+  ike esp
+  ike esp {{ peer.ike_phase1_algo | join(', ') }}
+  esp {{ peer.esp_phase2_algo | join(', ') }}
+
+{% if peer.local_subnet %}  local {{ peer.local_subnet }}
+{% endif %}
+{% if peer.remote_subnets %}  remote {% for subnet in peer.remote_subnets %}{{ subnet }}{% if not loop.last %}, {% endif %}{% endfor %}
+{% endif %}
+
+{% if peer.pfs_group %}  pfs-group {{ peer.pfs_group }}
+{% endif %}
+
+{% if peer.keepalive %}  keepalive
+{% endif %}
+}
+{% endfor %}
+
+{% ifikev2_mobike_enabled %}
+# Mobile IKE (MOBIKE) support
+mobike yes
+{% endif %}
+
+# Virtual IP pool for clients (if used as roadwarrior)
+{% ifikev2_pool_enabled %}
+pool "{{ pool_name }}" {
+{% for subnet in pool_subnets %}  {{ subnet }}
+{% endfor %}
+  dns "{{ pool_dns }}"
+{% if pool_domain %}  domain "{{ pool_domain }}"
+{% endif %}
+}
+{% endif %}
+
+# Phase 2 proposals (for older compat or explicit definition)
+{% ifikev2_proposals %}
+# Explicit Phase 2 proposals
+{% for prop in ikev2_proposals %}
+proposal {{ prop.name }} {
+  ike {{ prop.ike_algo | join(', ') }}
+  esp {{ prop.esp_algo | join(', ') }}
+}
+{% endfor %}
+{% endif %}

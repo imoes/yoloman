@@ -1,0 +1,44 @@
+[server]
+  # Server port to listen on
+  Port={{ server.port }}
+
+  # Hostname or IP to bind to (empty = all interfaces)
+  Host={{ server.host | default('') }}
+
+  # Protocol to use (curses, hid, etc.)
+  Protocol={{ server.protocol }}
+
+  # Path to the LCD device
+  Device={{ server.device }}
+
+  # Driver to load (e.g., hd44780, IOWarrior)
+  Driver={{ server.driver }}
+
+  # Driver-specific settings path (optional)
+  {% if server.driver_settings_path %}
+  DriverPath={{ server.driver_settings_path }}
+  {% endif %}
+
+  # Background color for text (0–7)
+  Backlight={{ server.backlight | default('on') }}
+
+  # Wait time (ms) between screen updates
+  ScreenChangeWait={{ server.screen_change_wait | default(1000) }}
+
+{% for driver in drivers %}
+[{{ driver.name }}]
+  # Driver-specific section for {{ driver.name }}
+  {% for key, value in driver.options.items() %}
+  {{ key }}={{ value }}
+  {% endfor %}
+{% endfor %}
+
+{% for client in clients %}
+[client]
+  # Client definition: name, group, and allowed screens
+  Name={{ client.name }}
+  Group={{ client.group }}
+  {% if client.screens | length > 0 %}
+  Screens={{ client.screens | join(',') }}
+  {% endif %}
+{% endfor %}

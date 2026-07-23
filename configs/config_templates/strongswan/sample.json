@@ -1,0 +1,50 @@
+{
+  "crl_check_interval": 600,
+  "charon_debug": "cfg 2, dmn 2, ike 2, chd 2",
+  "strict_crl_policy": false,
+  "nat_traversal": true,
+  "dpd_action": "clear",
+  "dpd_delay": 30,
+  "dpd_timeout": 150,
+  "ike_lifetime": 28800,
+  "key_lifetime": 3600,
+  "connections": [
+    {
+      "name": "vpn-gateway",
+      "type": "tunnel",
+      "ike_version": "2",
+      "esp_suite": "aes256-sha256-modp2048",
+      "auth_by": "pubkey",
+      "left": "192.0.2.10",
+      "left_id": "@vpn.example.com",
+      "left_subnet": [
+        "10.10.0.0/16"
+      ],
+      "left_cert": "vpn-server-cert.pem",
+      "right": "%any",
+      "right_id": "%any",
+      "right_subnet": [
+        "10.20.0.0/16"
+      ],
+      "right_sourceip": "10.10.10.0/24",
+      "eap_identity": "%identity",
+      "auto": "start"
+    },
+    {
+      "name": "branch-office",
+      "type": "tunnel",
+      "ike_version": "1",
+      "esp_suite": "aes128-sha1-modp1024",
+      "auth_by": "psk",
+      "left": "192.0.2.10",
+      "left_subnet": [
+        "10.10.0.0/16"
+      ],
+      "right": "203.0.113.50",
+      "right_subnet": [
+        "172.16.0.0/12"
+      ],
+      "auto": "start"
+    }
+  ]
+}

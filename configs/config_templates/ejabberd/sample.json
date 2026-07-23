@@ -1,0 +1,114 @@
+{
+  "listeners": [
+    {
+      "port": 5222,
+      "module": "ejabberd_c2s",
+      "options": {
+        "starttls": true,
+        "certfile": "/etc/ejabberd/cert.pem",
+        "max_stanza_size": 65536,
+        "shaper": "normal",
+        "access": "c2s"
+      }
+    },
+    {
+      "port": 5269,
+      "module": "ejabberd_s2s_in",
+      "options": {
+        "max_stanza_size": 131072
+      }
+    },
+    {
+      "port": 5280,
+      "module": "ejabberd_http",
+      "options": {
+        "ip": "127.0.0.1",
+        "request_handlers": {
+          "/admin": "ejabberd_web_admin",
+          "/bosh": "ejabberd_http_bosh"
+        }
+      }
+    }
+  ],
+  "auth": {
+    "method": "sql",
+    "sql": {
+      "type": "postgresql",
+      "host": "db.example.com",
+      "database": "ejabberd",
+      "username": "ejabberd",
+      "password": "dbsecret123"
+    }
+  },
+  "hosts": [
+    "chat.example.com"
+  ],
+  "modules": {
+    "mod_roster": {},
+    "mod_vcard": {},
+    "mod_muc": {
+      "access_muc": "muc",
+      "access_muc_create": "muc_create",
+      "storage": "sql",
+      "default_room_options": {
+        "muc_temporary": false
+      }
+    },
+    "mod_pubsub": {
+      "access_createnode": "pubsub_createnode",
+      "storage": "sql",
+      "plugins": [
+        "flat",
+        "pep"
+      ]
+    }
+  },
+  "log": {
+    "path": "/var/log/ejabberd/ejabberd.log",
+    "level": "info"
+  },
+  "limits": {
+    "max_fsm_queue": 10000,
+    "max_fsm_sessions": 100000,
+    "queue_type": "normal"
+  },
+  "cluster": {
+    "enabled": true,
+    "node": "ejabberd@node1",
+    "nodes": [
+      "ejabberd@node1",
+      "ejabberd@node2"
+    ],
+    "sql": {
+      "pool_size": 5
+    }
+  },
+  "tls": {
+    "enabled": true,
+    "cert_dir": "/etc/ejabberd/certs"
+  },
+  "s2s": {
+    "use_starttls": true,
+    "timeout": 45,
+    "allow_domains": [
+      "jabber.org",
+      "matrix.org"
+    ]
+  },
+  "acl": {
+    "admin": [
+      {
+        "user": "admin",
+        "server": "chat.example.com"
+      }
+    ],
+    "local": [
+      {
+        "ip": "127.0.0.0/8"
+      }
+    ]
+  },
+  "admins": [
+    "admin@chat.example.com"
+  ]
+}

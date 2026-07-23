@@ -1,0 +1,117 @@
+{# syslog-ng main configuration file #}
+{# Global options: tuning, time-reaping, stats, etc. #}
+options {
+  {{ "log_fifo_size" | comment_for('Number of messages queued in output FIFOs') }}
+  log-fifo-size({{ log_fifo_size }});
+
+  {{ "use_dns" | comment_for('Enable reverse DNS lookups for source IPs') }}
+  use-dns({{ 'yes' if use_dns else 'no' }});
+
+  {{ "dns_cache_hosts" | comment_for('Static hostname-to-IP mapping (path to hosts file or empty to disable)') }}
+  {% if dns_cache_hosts %}
+  dns-cache-hosts("{{ dns_cache_hosts }}");
+  {% endif %}
+
+  {{ "use_fqdn" | comment_for('Use fully-qualified domain names in logs') }}
+  use-fqdn({{ 'yes' if use_fqdn else 'no' }});
+
+  {{ "create_dirs" | comment_for('Create destination directories if missing') }}
+  create-dirs({{ 'yes' if create_dirs else 'no' }});
+
+  {{ "perm_dir" | comment_for('Default directory permissions for auto-created paths') }}
+  perm-dir({{ perm_dir }});
+
+  {{ "template_escape" | comment_for('Escape control characters in messages') }}
+  template-escape({{ 'yes' if template_escape else 'no' }});
+
+  {{ "keep_timestamps" | comment_for('Preserve original timestamps from incoming messages') }}
+  keep-timestamps({{ 'yes' if keep_timestamps else 'no' }});
+};
+
+{# Global parser definitions #}
+parser {{ parser_name | join(', ') }} {
+  {% if parser_name | length == 0 %}
+  # No custom parsers defined
+  {% else %}
+  # Custom parsers defined (see individual parser blocks)
+  {% endif %}
+};
+
+{# Source definitions: where logs come from #}
+{% for src in sources %}
+source {{ src.name }} {
+  {{ src.type | comment_for('Type of source (e.g., internal, unix-stream, tcp, udp, file, etc.)') }}
+  {% if src.type == 'internal' %}
+  internal();
+  {% elif src.type == 'unix-stream' %}
+  unix-stream("{{ src.path }}"{% if src.perm | length %} perm({{ src.perm }}){% endif %}{% if src.group | length %} group({{ src.group }}){% endif %}{% if src.owner | length %} owner({{ src.owner }}){% endif %});
+  {% elif src.type == 'tcp' %}
+  tcp(port({{ src.port }}) host("{{ src.bind_address }}"){% if src.max_connections | default(0) > 0 %} max-connections({{ src.max_connections }}){% endif %}{% if src_tls.enabled %} tls( peer-verify({% if src_tls.verify == 'optional' %}optional{% else %}required{% endif %}) ca-file("{{ src_tls.ca_file }}") cert-file("{{ src_tls.cert_file }}") key-file("{{ src_tls.key_file }}")) {% endif %});
+  {% elif src.type == 'udp' %}
+  udp(port({{ src.port }}) host("{{ src.bind_address }}"){% if src.recv_buffer | default(0) > 0 %} recv-buffer-size({{ src.recv_buffer }}){% endif %});
+  {% elif src.type == 'file' %}
+  file("{{ src.path }}" follow-freq({{ src.follow_freq }}) flags({{ src.flags | join(', ') }}));
+  {% elif src.type == 'pipe' %}
+  pipe("{{ src.path }}" flags({{ src.flags | join(', ') }}));
+  {% endif %}
+};
+{% endfor %}
+
+{# Destination definitions: where logs go #}
+{% for dst in destinations %}
+destination {{ dst.name }} {
+  {{ dst.type | comment_for('Destination type: file, syslog, tcp, udp, db, network, etc.') }}
+  {% if dst.type == 'file' %}
+  file("{{ dst.path }}"{% if dst.template | length %} template("{{ dst.template }}"){% endif %}{% if dst.template_escape %} template-escape(yes){% endif %}{% if dst.perm | length %} perm({{ dst.perm }}){% endif %}{% if dst.dir_perm | length %} dir-perm({{ dst.dir_perm }}){% endif %});
+  {% elif dst.type == 'syslog' %}
+  syslog(host("{{ dst.host }}") port({{ dst.port }}){% if dst_tls.enabled %} tls( peer-verify({% if dst_tls.verify == 'optional' %}optional{% else %}required{% endif %}) ca-file("{{ dst_tls.ca_file }}") cert-file("{{ dst_tls.cert_file }}") key-file("{{ dst_tls.key_file }}")) {% endif %});
+  {% elif dst.type == 'tcp' %}
+  tcp("{{ dst.host }}" port({{ dst.port }}){{ ' keep-alives()' if dst.tcp_keepalive else '' }});
+  {% elif dst.type == 'udp' %}
+  udp("{{ dst.host }}" port({{ dst.port }}));
+  {% elif dst.type == 'network' %}
+  network("{{ dst.host }}" port({{ dst.port }}) transport("{{ dst.transport }}"){% if dst_tls.enabled %} tls( peer-verify({% if dst_tls.verify == 'optional' %}optional{% else %}required{% endif %}) ca-file("{{ dst_tls.ca_file }}") cert-file("{{ dst_tls.cert_file }}") key-file("{{ dst_tls.key_file }}")) {% endif %}{% if dst.sanitize %} sanitize-keys(yes) sanitize-dots(yes){% endif %});
+  {% elif dst.type == 'db' %}
+  sql("{{ dst.connstr }}" table("{{ dst.table_name }}") columns("{{ dst.columns | join('", "') }}") values("$ISODATE", "$HOST", "$PROGRAM", "$PID", "$MSGONLY"{% if dst.extra_columns %}, {{ dst.extra_columns | join(', ') }}{% endif %}));
+  {% elif dst.type == 'syslog-ng-internal' %}
+  internal();
+  {% elif dst.type == 'null' %}
+  null();
+  {% endif %}
+};
+{% endfor %}
+
+{# Filter definitions: selection criteria #}
+{% for flt in filters %}
+filter {{ flt.name }} {
+  {{ flt.expression | comment_for('Filter expression using syslog-ng filter operators') }}
+  {{ flt.expression }};
+};
+{% endfor %}
+
+{# Log paths: connect sources → filters → destinations #}
+{% for path in logpaths %}
+log {
+  {{ path.sources | map(attribute='name') | join(', ') | comment_for('Sources involved in this log path') }}
+  source({{ path.sources | map(attribute='name') | join(', ') }});
+  {% if path.filters | length > 0 %}
+  {{ path.filters | map(attribute='name') | join(', ') | comment_for('Filters applied (AND logic)') }}
+  filter({{ path.filters | map(attribute='name') | join(') and filter(') }});
+  {% endif %}
+  {{ path.destinations | map(attribute='name') | join(', ') | comment_for('Destinations to forward matched messages') }}
+  destination({{ path.destinations | map(attribute='name') | join(', ') }});
+};
+{% endfor %}
+
+{# Statistics options — optional #}
+{% if stats %}
+stats(
+  {{ "stats_freq" | comment_for('Frequency of stats reporting in seconds') }}
+  freq({{ stats_freq }});
+);
+{% endif %}
+
+{# Include additional config snippets (optional) #}
+{% if include_dir %}
+@include "{{ include_dir }}/*.conf";
+{% endif %}

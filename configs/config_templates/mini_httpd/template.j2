@@ -1,0 +1,79 @@
+# User and group to run as (must exist on system)
+user={{ web_user }}
+group={{ web_group }}
+
+# Port to listen on (0 = disable)
+port={{ port }}
+
+# Hostname to bind to (empty = all interfaces)
+host={{ host }}
+
+# Document root directory (must be absolute path)
+dir={{ document_root }}
+
+# CGI program directory (optional, empty = disable CGI)
+cgidir={{ cgidir | default('') }}
+
+# User-specific CGI program directory (optional, empty = disable per-user CGI)
+userdir={{ userdir | default('') }}
+
+# Default index file(s) for directories (comma-separated)
+default={{ default_index | default('index.html,index.htm') }}
+
+# Log file path (empty = disable access logging)
+log={{ access_log_path | default('') }}
+
+# Error log file path (empty = disable error logging)
+errorlog={{ error_log_path | default('') }}
+
+# Maximum number of connections (0 = system default)
+maxconn={{ max_connections }}
+
+# Timeout in seconds for requests
+timeout={{ timeout_seconds }}
+
+# Enable or disable CGI execution
+cgi={{ enable_cgi | string | lower }}
+
+# Enable or disable directory listing
+listdirs={{ enable_directory_listing | string | lower }}
+
+# Enable or disable virtual hosts
+vhost={{ enable_vhosts | string | lower }}
+
+# Enable or disable SSL/TLS
+ssl={{ enable_ssl | string | lower }}
+
+# Path to SSL certificate file (required if ssl=true)
+certfile={{ ssl_cert_path | default('') }}
+
+# Path to SSL private key file (required if ssl=true)
+keyfile={{ ssl_key_path | default('') }}
+
+# TLS protocol versions to allow (e.g., tlsv1_2 tlsv1_3)
+protocols={{ ' '.join(ssl_protocols) | default('tlsv1_2 tlsv1_3') }}
+
+# MIME types additional mapping lines
+{% for extension, mime_type in mime_types.items() %}ext={{ extension }}={{ mime_type }}
+{% endfor %}
+
+# Extra command-line-like options per virtual host
+{% for vhost in virtual_hosts %}vhost={{ vhost.name }}={{ vhost.root }}
+{% if vhost.host %}    host={{ vhost.host }}
+{% endif %}{% if vhost.port %}    port={{ vhost.port }}
+{% endif %}{% if vhost.ssl %}    ssl={{ vhost.ssl | string | lower }}
+{% endif %}{% if vhost.certfile %}    certfile={{ vhost.certfile }}
+{% endif %}{% if vhost.keyfile %}    keyfile={{ vhost.keyfile }}
+{% endif %}{% endfor %}
+
+# Custom headers to send (format: name=value)
+{% for header, value in custom_headers.items() %}header={{ header }}={{ value }}
+{% endfor %}
+
+# Redirects (format: from=to)
+{% for from_path, to_path in redirects.items() %}redirect={{ from_path }}={{ to_path }}
+{% endfor %}
+
+# Environment variables for CGI (format: name=value)
+{% for env_name, env_value in cgi_env.items() %}cgisetenv={{ env_name }}={{ env_value }}
+{% endfor %}

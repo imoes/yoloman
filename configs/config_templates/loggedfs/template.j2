@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Root element for loggedfs configuration -->
+<loggedfs>
+  <!-- Path where loggedfs should mount the virtual filesystem -->
+  <mount_point>{{ mount_point }}</mount_point>
+
+  <!-- Enable or disable logging to a central log file -->
+  <logging enabled="{{ logging.enabled }}">
+    <!-- Path to the central log file -->
+    <log_file>{{ logging.log_file }}</log_file>
+    <!-- Log format: 'syslog', 'json', or 'text' -->
+    <format>{{ logging.format }}</format>
+  </logging>
+
+  <!-- List of rules defining which files/directories to log and how -->
+  <rules>
+{% for rule in rules %}    <!-- Rule #{{ loop.index }}: {{ rule.description | default('No description') }} -->
+    <rule path="{{ rule.path }}" mode="{{ rule.mode }}" {% if rule.recursive %}recursive="true"{% endif %}>
+{% if rule.actions %}      <actions>
+{% for action in rule.actions %}        <action type="{{ action.type }}" {% if action.target %}target="{{ action.target }}"{% endif %} />
+{% endfor %}      </actions>
+{% endif %}    </rule>
+{% endfor %}  </rules>
+
+  <!-- User/group access control (optional) -->
+{% if allow_user %}  <!-- Allow specified user to control logging behavior -->
+  <user>{{ allow_user }}</user>
+{% endif %}
+{% if allow_group %}  <!-- Allow specified group to control logging behavior -->
+  <group>{{ allow_group }}</group>
+{% endif %}
+
+  <!-- Maximum size (in bytes) for a single log file before rotation -->
+  <max_log_size>{{ max_log_size }}</max_log_size>
+
+  <!-- Number of rotated log files to retain -->
+  <log_rotation_count>{{ log_rotation_count }}</log_rotation_count>
+
+  <!-- Buffer size (in bytes) for in-memory logging -->
+  <buffer_size>{{ buffer_size }}</buffer_size>
+</loggedfs>

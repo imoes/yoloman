@@ -1,0 +1,97 @@
+{
+  "programs": {
+    "type": "list",
+    "default": [],
+    "description": "List of mtail program definitions (regex patterns + metric rules + code).",
+    "items": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "default": "unnamed_program",
+          "description": "Name of the program (for identification)."
+        },
+        "match": {
+          "type": "string",
+          "default": "",
+          "description": "Glob or regex pattern for matching log lines."
+        },
+        "labels": {
+          "type": "object",
+          "default": {},
+          "description": "Static labels to apply to metrics from this program."
+        },
+        "metrics": {
+          "type": "list",
+          "default": [],
+          "description": "List of metric definitions (counters, gauges, histograms).",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string",
+                "default": "",
+                "description": "Metric name."
+              },
+              "type": {
+                "type": "string",
+                "default": "counter",
+                "description": "Metric type: counter, gauge, or histogram.",
+                "enum": [
+                  "counter",
+                  "gauge",
+                  "histogram"
+                ]
+              },
+              "buckets": {
+                "type": "list",
+                "default": [
+                  1,
+                  5,
+                  10,
+                  25,
+                  50,
+                  100,
+                  250,
+                  500,
+                  1000
+                ],
+                "description": "Bucket boundaries for histogram (only for histogram type).",
+                "items": {
+                  "type": "number"
+                }
+              }
+            }
+          }
+        },
+        "program": {
+          "type": "string",
+          "default": "",
+          "description": "mtail program code (Go-like syntax with regex capture groups and metric operations)."
+        }
+      }
+    }
+  },
+  "log_patterns": {
+    "type": "list",
+    "default": [
+      "/var/log/*.log"
+    ],
+    "description": "List of glob patterns for log files to tail."
+  },
+  "output_path": {
+    "type": "string",
+    "default": "/metrics",
+    "description": "HTTP path where metrics are exposed (e.g., /metrics)."
+  },
+  "server_port": {
+    "type": "number",
+    "default": 3903,
+    "description": "HTTP server port for serving metrics."
+  },
+  "log_level": {
+    "type": "string",
+    "default": "warn",
+    "description": "Verbosity of mtail's own logs. Valid values: debug, info, warn, error."
+  }
+}

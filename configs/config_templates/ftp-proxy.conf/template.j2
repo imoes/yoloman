@@ -1,0 +1,45 @@
+[global]
+# Global settings for the FTP proxy
+port = {{ global.port }}
+interface = {{ global.interface }}
+log_level = {{ global.log_level }}
+
+[auth]
+# Authentication backend configuration
+backend = {{ auth.backend }}
+{% if auth.backend == 'file' %}
+# Path to user database file
+userdb = {{ auth.userdb }}
+{% elif auth.backend == 'ldap' %}
+# LDAP connection settings
+ldap_uri = {{ auth.ldap.uri }}
+ldap_base = {{ auth.ldap.base }}
+ldap_bind_dn = {{ auth.ldap.bind_dn }}
+ldap_bind_password = {{ auth.ldap.bind_password | default('') }}
+ldap_user_filter = {{ auth.ldap.user_filter }}
+{% endif %}
+
+[limits]
+# Connection and resource limits
+max_connections = {{ limits.max_connections }}
+max_connections_per_ip = {{ limits.max_connections_per_ip }}
+idle_timeout = {{ limits.idle_timeout }}
+transfer_timeout = {{ limits.transfer_timeout }}
+
+[upstream]
+# Upstream FTP servers to proxy to
+{% for server in upstream.servers %}
+# Upstream server: {{ server.name }}
+{{ server.name }}_host = {{ server.host }}
+{{ server.name }}_port = {{ server.port }}
+{{ server.name }}_use_tls = {{ server.use_tls }}
+{% endfor %}
+
+[logging]
+# Logging configuration
+file = {{ logging.file }}
+{% if logging.syslog %}
+syslog = true
+{% else %}
+syslog = false
+{% endif %}

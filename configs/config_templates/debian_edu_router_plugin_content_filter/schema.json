@@ -1,0 +1,186 @@
+{
+  "enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable the content filtering plugin. When false, filtering rules are not enforced."
+  },
+  "backend": {
+    "type": "string",
+    "default": "squidguard",
+    "description": "Content filtering backend: 'squid' for basic URL filtering via ACLs, 'squidguard' for advanced category-based filtering."
+  },
+  "squid": {
+    "type": "object",
+    "default": {
+      "port": 3128,
+      "conf_path": "/etc/squid/squid.conf"
+    },
+    "items": {
+      "port": {
+        "type": "number",
+        "default": 3128,
+        "description": "Port on which the Squid proxy listens for HTTP proxy requests."
+      },
+      "conf_path": {
+        "type": "string",
+        "default": "/etc/squid/squid.conf",
+        "description": "Path to Squid main configuration file. Typically managed by this plugin."
+      }
+    }
+  },
+  "squidguard": {
+    "type": "object",
+    "default": {
+      "db_path": "/var/lib/squidguard/db",
+      "conf_path": "/etc/squidguard/squidGuard.conf",
+      "url_timeout": 5,
+      "db_refresh": 3600
+    },
+    "items": {
+      "db_path": {
+        "type": "string",
+        "default": "/var/lib/squidguard/db",
+        "description": "Directory containing SquidGuard category databases (e.g., domains, urls)."
+      },
+      "conf_path": {
+        "type": "string",
+        "default": "/etc/squidguard/squidGuard.conf",
+        "description": "Path to SquidGuard configuration file."
+      },
+      "url_timeout": {
+        "type": "number",
+        "default": 5,
+        "description": "Seconds to wait for a URL classification lookup before failing open."
+      },
+      "db_refresh": {
+        "type": "number",
+        "default": 3600,
+        "description": "Seconds between automatic database reload checks."
+      }
+    }
+  },
+  "categories": {
+    "type": "list",
+    "default": [
+      "adult",
+      "malware",
+      "phishing",
+      "social"
+    ],
+    "items": {
+      "type": "string"
+    },
+    "description": "Filtering categories to block by default (e.g., adult, malware, violence). Categories must exist in SquidGuard DB."
+  },
+  "ssl_inspection": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable HTTPS traffic inspection via SSL MITM. Increases security coverage but may break some sites and raises privacy considerations."
+  },
+  "allowlist": {
+    "type": "object",
+    "default": {
+      "domains": [
+        "edu.jisc.ac.uk",
+        "nationaleducation.fr"
+      ]
+    },
+    "items": {
+      "domains": {
+        "type": "list",
+        "default": [],
+        "items": {
+          "type": "string"
+        },
+        "description": "Domains explicitly exempted from filtering (whitelisted)."
+      }
+    }
+  },
+  "blocklist": {
+    "type": "object",
+    "default": {
+      "domains": []
+    },
+    "items": {
+      "domains": {
+        "type": "list",
+        "default": [],
+        "items": {
+          "type": "string"
+        },
+        "description": "Additional domains to explicitly block, beyond those in category DBs."
+      }
+    }
+  },
+  "exception_groups": {
+    "type": "list",
+    "default": [],
+    "items": {
+      "type": "string"
+    },
+    "description": "Unix groups (e.g., 'teachers', 'admin') whose members are exempt from filtering (if supported by auth helper)."
+  },
+  "log": {
+    "type": "object",
+    "default": {
+      "level": 2,
+      "file_path": "/var/log/debian-edu-router/content-filter.log"
+    },
+    "items": {
+      "level": {
+        "type": "number",
+        "default": 2,
+        "description": "Log verbosity (0=none to 6=debug). Level 2 (error) is recommended for production."
+      },
+      "file_path": {
+        "type": "string",
+        "default": "/var/log/debian-edu-router/content-filter.log",
+        "description": "Path to the filter plugin's own log file (not Squid's access.log)."
+      }
+    }
+  },
+  "bandwidth": {
+    "type": "object",
+    "default": {
+      "max_kbps": 0,
+      "max_connections": 8
+    },
+    "items": {
+      "max_kbps": {
+        "type": "number",
+        "default": 0,
+        "description": "Per-client bandwidth limit in KB/s. 0 means unlimited."
+      },
+      "max_connections": {
+        "type": "number",
+        "default": 8,
+        "description": "Maximum concurrent connections allowed per client IP."
+      }
+    }
+  },
+  "upstream_proxy": {
+    "type": "object",
+    "default": {
+      "enabled": false,
+      "host": "cache.example.org",
+      "port": 3128
+    },
+    "items": {
+      "enabled": {
+        "type": "bool",
+        "default": false,
+        "description": "Use an upstream proxy for outbound connections (e.g., in multi-school deployments)."
+      },
+      "host": {
+        "type": "string",
+        "default": "cache.example.org",
+        "description": "Hostname or IP of upstream proxy."
+      },
+      "port": {
+        "type": "number",
+        "default": 3128,
+        "description": "Port of upstream proxy."
+      }
+    }
+  }
+}

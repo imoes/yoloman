@@ -1,0 +1,47 @@
+# Gearman job server configuration file
+# Listen address and port
+bind={{ bind_address }}:{{ bind_port }}
+{% if log_file %}
+# Log file path
+log-file={{ log_file }}
+{% endif %}
+{% if log_level %}
+# Logging verbosity (DEBUG, INFO, WARNING, ERROR, CRITICAL)
+log-level={{ log_level }}
+{% endif %}
+{% if worker_timeout is defined %}
+# Worker timeout in seconds (0 = no timeout)
+worker-timeout={{ worker_timeout }}
+{% endif %}
+{% if max_threads is defined %}
+# Maximum number of worker threads
+max-threads={{ max_threads }}
+{% endif %}
+{% if queue_type %}
+# Queue backend type (memory, sqlite, etc.)
+queue-type={{ queue_type }}
+{% endif %}
+{% if queue_size is defined %}
+# Maximum queue size (for queue types that support it)
+queue-size={{ queue_size }}
+{% endif %}
+{% if sqlite_db %}
+# Path to SQLite database (used when queue-type=sqlite)
+sqlite-db={{ sqlite_db }}
+{% endif %}
+{% if sqlite_queue_table %}
+# SQLite queue table name
+sqlite-queue-table={{ sqlite_queue_table }}
+{% endif %}
+{% if pid_file %}
+# PID file path
+pid-file={{ pid_file }}
+{% endif %}
+{% if foreground %}
+# Run in foreground (overrides daemonization)
+foreground
+{% endif %}
+{% for worker in workers %}
+# Worker configuration: executable + optional job function name
+worker={{ worker.executable }}{% if worker.function %} {{ worker.function }}{% endif %}
+{% endfor %}

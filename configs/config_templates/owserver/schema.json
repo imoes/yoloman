@@ -1,0 +1,140 @@
+{
+  "server.bind": {
+    "type": "string",
+    "default": "0.0.0.0",
+    "description": "IP address owserver binds to (e.g., 127.0.0.1 for localhost only, or 0.0.0.0 for all interfaces)."
+  },
+  "server.port": {
+    "type": "number",
+    "default": 4304,
+    "description": "TCP port on which owserver listens for API connections."
+  },
+  "server.allow": {
+    "type": "list",
+    "default": [
+      "127.0.0.1"
+    ],
+    "items": {
+      "type": "string",
+      "pattern": "^\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}$|^[a-fA-F0-9:]+$",
+      "description": "Allowed host(s) for TCP connections. Each entry is an IPv4 address or IPv6 address."
+    },
+    "description": "List of IP addresses permitted to connect to the owserver API."
+  },
+  "buses": {
+    "type": "list",
+    "default": [
+      {
+        "name": "main",
+        "type": "usb",
+        "device": "/dev/ttyUSB0"
+      }
+    ],
+    "items": {
+      "type": "object",
+      "required": [
+        "name",
+        "type"
+      ],
+      "fields": {
+        "name": {
+          "type": "string",
+          "default": "bus1",
+          "description": "Descriptive name for this 1-Wire bus."
+        },
+        "type": {
+          "type": "string",
+          "default": "usb",
+          "allowed": [
+            "usb",
+            "serial",
+            "network",
+            "fake"
+          ],
+          "description": "Type of 1-Wire interface for this bus."
+        },
+        "device": {
+          "type": "string",
+          "default": "/dev/ttyUSB0",
+          "description": "Device path (e.g., /dev/ttyUSB0 or /dev/ttyS0) when type is 'usb' or 'serial'."
+        },
+        "server": {
+          "type": "string",
+          "default": "",
+          "description": "Remote server hostname/IP for a networked 1-Wire bus when type is 'network'."
+        },
+        "port": {
+          "type": "number",
+          "default": 4304,
+          "description": "Port on the remote server for networked buses."
+        }
+      }
+    },
+    "description": "List of 1-Wire bus configurations. Each bus defines how owserver connects to a physical 1-Wire network."
+  },
+  "features.cache": {
+    "type": "boolean",
+    "default": true,
+    "description": "Enable caching of 1-Wire device values to reduce bus traffic. Recommended for most deployments."
+  },
+  "features.allow_set": {
+    "type": "boolean",
+    "default": false,
+    "description": "Allow clients to set (write) configuration parameters on devices (e.g., alarm thresholds)."
+  },
+  "features.allow_write": {
+    "type": "boolean",
+    "default": false,
+    "description": "Allow clients to write to device memory (e.g., EEPROM). Use with caution."
+  },
+  "timeouts.connection": {
+    "type": "number",
+    "default": 5,
+    "description": "Maximum seconds to wait when establishing a connection to a 1-Wire device or bus adapter."
+  },
+  "timeouts.read": {
+    "type": "number",
+    "default": 2,
+    "description": "Maximum seconds to wait for a read operation on a 1-Wire device."
+  },
+  "timeouts.write": {
+    "type": "number",
+    "default": 2,
+    "description": "Maximum seconds to wait for a write operation on a 1-Wire device."
+  },
+  "logging.level": {
+    "type": "string",
+    "default": "warning",
+    "allowed": [
+      "debug",
+      "info",
+      "notice",
+      "warning",
+      "error",
+      "critical",
+      "alert",
+      "emergency"
+    ],
+    "description": "Logging verbosity. 'debug' is very verbose; 'warning' or 'error' recommended for production."
+  },
+  "logging.file": {
+    "type": "string",
+    "default": "",
+    "description": "Path to log file. If empty, logs are written to standard output."
+  },
+  "fuse.mount_point": {
+    "type": "string",
+    "default": "",
+    "description": "Directory where OWFS filesystem will be mounted (requires FUSE). Example: /mnt/1wire. Leave empty to disable FUSE."
+  },
+  "fuse.allow_other": {
+    "type": "boolean",
+    "default": true,
+    "description": "Allow other users (besides the owserver user) to access the FUSE mount. Required for most web interfaces."
+  },
+  "fuse.default_permissions": {
+    "type": "boolean",
+    "default": true,
+    "description": "Let the kernel enforce file permissions on the FUSE mount (recommended for security)."
+  }
+}

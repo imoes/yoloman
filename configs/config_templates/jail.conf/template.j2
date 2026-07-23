@@ -1,0 +1,72 @@
+[DEFAULT]
+# Global default settings applied to all jails unless overridden
+ignorip = {{ defaults.ignorip | join(', ') }}
+
+# Number of seconds a host remains banned
+bantime  = {{ defaults.bantime }}
+
+# Time window in seconds for counting failures
+findtime = {{ defaults.findtime }}
+
+# Number of failures before banning
+maxretry = {{ defaults.maxretry }}
+
+# Backend used to monitor log files (e.g., systemd, gamin, auto)
+backend  = {{ defaults.backend }}
+
+# Email destination for ban notifications
+destemail = {{ defaults.destemail }}
+
+# Sender address for emails
+sender = {{ defaults.sender }}
+
+# MTA command to send emails
+mta = {{ defaults.mta }}
+
+# Action to take on ban (e.g., send email, iptables rule)
+action = {{ defaults.action | join(', ') }}
+
+{% for jail in jails %}
+[{{ jail.name }}]
+{% if jail.enabled %}
+# Enable this jail
+enabled = true
+{% else %}
+enabled = false
+{% endif %}
+
+# Comma-separated list of backends for this jail (overrides global if set)
+{% if jail.backend %}backend = {{ jail.backend }}
+{% endif %}
+
+# Filter name used to parse logs for this jail
+filter = {{ jail.filter }}
+
+# Path(s) to log file(s), space- or comma-separated
+{% if jail.logpath %}logpath = {{ jail.logpath | join(' ') }}
+{% endif %}
+
+# Number of failures before banning (overrides global if set)
+{% if jail.maxretry is not none %}maxretry = {{ jail.maxretry }}
+{% endif %}
+
+# Time window in seconds (overrides global if set)
+{% if jail.findtime is not none %}findtime = {{ jail.findtime }}
+{% endif %}
+
+# Ban duration in seconds (overrides global if set)
+{% if jail.bantime is not none %}bantime = {{ jail.bantime }}
+{% endif %}
+
+# Additional ignore IPs (comma- or space-separated)
+{% if jail.ignorip %}ignorip = {{ jail.ignorip | join(' ') }}
+{% endif %}
+
+# Custom actions (overrides default action list)
+{% if jail.action %}action = {{ jail.action | join(', ') }}
+{% endif %}
+
+# Additional filters or parameters as key=value lines
+{% for key, value in jail.options.items() %}{{ key }} = {{ value }}
+{% endfor %}
+{% endfor %}

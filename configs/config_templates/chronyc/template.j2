@@ -1,0 +1,53 @@
+# Source NTP servers or peers for time synchronization
+# Each 'server' line specifies a time source with optional parameters
+{% for server in servers %}server {{ server.host }}{{ ' iburst' if server.iburst else '' }}{{ ' prefer' if server.prefer else '' }}{{ ' key ' + server.key_id | string if server.key_id else '' }}
+{% endfor %}
+
+# Local reference clock (e.g., for stand-alone or virtualized environments)
+# Enable 'local stratum' only if no external sources are available
+{% if local_stratum.enabled %}local stratum {{ local_stratum.level }}
+{% endif %}
+
+# Allow clients from specific networks or hosts
+# Use 'allow' for IPv4/IPv6 subnets, 'deny' to restrict
+{% for rule in access_rules %}{{ 'allow' if rule.allow else 'deny' }}{{ ' ' + rule.net }}{{ ' mask ' + rule.mask if rule.mask else '' }}
+{% endfor %}
+
+# Network interface binding for NTP traffic
+# Bind to specific interface(s), or leave blank for all (default)
+{% for iface in bind_interfaces %}bindaddress {{ iface }}
+{% endfor %}
+
+# Set maximum rate of client requests per second (DDoS mitigation)
+maxupdateskew {{ max_update_skew }}
+
+# Frequency file path (persistent drift correction)
+driftfile {{ paths.driftfile }}
+
+# RTC file path (real-time clock offset tracking)
+rtconutc {{ paths.rtcoutc }}
+
+# Enable hardware timestamping if supported
+{% if hardware_timestamping %}hwtimestamp *{% endif %}
+
+# Logging configuration
+log measurements statistics tracking
+logdir {{ paths.logdir }}
+
+# Key file and trusted key IDs for authentication (if enabled)
+{% if authentication.enabled %}keyfile {{ paths.keyfile }}
+{% for key_id in authentication.trusted_keys %}trustedkey {{ key_id }}
+{% endfor %}
+{% endif %}
+
+# Command access control for chronyd/chronyc
+# 'cmdport 0' disables the command port entirely
+{% if cmdport_disabled %}cmdport 0
+{% else %}cmdport {{ cmd_port }}
+{% endif %}
+
+# Make step adjustments only during initial synchronization
+makestep {{ step_threshold }} {{ max_steps }}
+
+# Enable leap seconds handling
+leapsectz {{ leap_sec_tz }}

@@ -1,0 +1,112 @@
+{
+  "tftp_bind_address": {
+    "type": "string",
+    "default": "0.0.0.0",
+    "description": "IP address (IPv4 or IPv6) the TFTP server should listen on. Use 0.0.0.0 for all interfaces."
+  },
+  "tftp_port": {
+    "type": "number",
+    "default": 69,
+    "description": "UDP port number for the TFTP server. Standard TFTP uses port 69."
+  },
+  "tftp_root": {
+    "type": "string",
+    "default": "/srv/tftp",
+    "description": "Absolute filesystem path to the TFTP root directory. Must be readable and contain boot files (e.g., pxelinux.0, initrd, vmlinuz)."
+  },
+  "ipv6_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable IPv6 support for TFTP. Not all clients support IPv6 TFTP \u2014 disable if issues occur."
+  },
+  "max_connections": {
+    "type": "number",
+    "default": 100,
+    "description": "Maximum number of concurrent TFTP sessions. Adjust based on server capacity."
+  },
+  "secure_mode": {
+    "type": "bool",
+    "default": true,
+    "description": "Enforce strict security: chroot, disable directory listing, and require minimal file permissions. Recommended for production."
+  },
+  "allowed_subnets": {
+    "type": "list",
+    "default": [],
+    "items": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+\\.[0-9]+/[0-9]+$|^\\[[0-9a-fA-F:]+\\]/[0-9]+$",
+      "description": "CIDR-restricted IPv4 or IPv6 subnets allowed to access the TFTP server. Empty list allows all."
+    },
+    "description": "List of allowed client subnets in CIDR notation. Restrict for security."
+  },
+  "log_level": {
+    "type": "string",
+    "default": "info",
+    "description": "Logging verbosity level. Use 'debug' only for troubleshooting."
+  },
+  "log_file": {
+    "type": "string",
+    "default": "-",
+    "description": "Path to log file, or '-' to log to standard output (e.g., for systemd journal)."
+  },
+  "default_bootfile": {
+    "type": "string",
+    "default": "pxelinux.0",
+    "description": "Name of the default boot file (e.g., pxelinux.0, grubx64.efi) served to clients that don't request a specific one."
+  },
+  "bootfile_prefix": {
+    "type": "string",
+    "default": "",
+    "description": "Optional path prefix prepended to bootfile names (e.g., '/pxe/' \u2192 /pxe/pxelinux.0)."
+  },
+  "dhcp_assist_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable DHCP request relay to an external DHCP server (e.g., for IPAM, DNS, or advanced lease control)."
+  },
+  "dhcp_assist_server": {
+    "type": "string",
+    "default": "192.168.0.1",
+    "description": "IP address of the external DHCP server to relay requests to (only if dhcp_assist_enabled=true)."
+  },
+  "https_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable HTTPS fallback for downloading large files (e.g., ISOs) when TFTP is insufficient. Requires a web server."
+  },
+  "https_server": {
+    "type": "string",
+    "default": "https://debainedu.example.org",
+    "description": "Base URL of the HTTPS web server for fallback downloads (e.g., https://mirror/)."
+  },
+  "https_base_path": {
+    "type": "string",
+    "default": "/debian-edu/router/",
+    "description": "Path prefix on the HTTPS server where boot assets are served (e.g., /debian-edu/router/iso/)."
+  },
+  "https_cert": {
+    "type": "string",
+    "default": "/etc/ssl/certs/debian-edu-router.crt",
+    "description": "Path to the SSL certificate chain file (PEM format) for the HTTPS fallback server."
+  },
+  "pxe_proxy": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable PXE proxy mode (e.g., when using dnsmasq to handle both DHCP and TFTP in one service)."
+  },
+  "post_boot_script": {
+    "type": "string",
+    "default": "",
+    "description": "Optional command/script to run after a successful boot (e.g., /usr/local/bin/log-boot.sh). Empty disables it."
+  },
+  "transfer_timeout": {
+    "type": "number",
+    "default": 0,
+    "description": "TFTP transfer timeout in seconds. 0 = no timeout. Non-zero may cause failures on high-latency links."
+  },
+  "tftp_blocksize": {
+    "type": "number",
+    "default": 1408,
+    "description": "Block size (in bytes) for TFTP transfers. 1408 is optimal for standard Ethernet (avoids fragmentation)."
+  }
+}

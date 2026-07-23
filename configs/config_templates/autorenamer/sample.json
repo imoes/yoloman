@@ -1,0 +1,40 @@
+{
+  "debug": true,
+  "log_file": "/var/log/autorenamer/autorenamer.log",
+  "max_log_size": 10,
+  "max_log_backups": 5,
+  "work_dir": "/tmp/autorenamer",
+  "source_dir": "/media/videos",
+  "dest_dir": "",
+  "create_dest_dir": true,
+  "filename_pattern": "(?P<title>.+?)\\.S(?P<season>\\d+)E(?P<episode>\\d+).*\\.(?P<ext>\\w+)$",
+  "output_pattern": "{title} - S{season:02d}E{episode:02d}.{ext}",
+  "worker_count": 2,
+  "max_file_size_mb": 1024,
+  "recursive_scan": true,
+  "include_hidden": false,
+  "file_extensions": [
+    ".mp4",
+    ".mkv",
+    ".avi"
+  ],
+  "exclude_patterns": [
+    {
+      "regex": "^/media/videos/backup/.*",
+      "description": "Skip backup directory"
+    },
+    {
+      "regex": "\\.sample\\."
+    }
+  ],
+  "rename_rules": [
+    {
+      "description": "Handle special episodes (season 0)",
+      "condition": "{season} == 0",
+      "then": "{title} - S00E{episode:02d} - Special.{ext}",
+      "else": ""
+    }
+  ],
+  "mtime_handling": "preserve",
+  "dry_run": false
+}

@@ -1,0 +1,59 @@
+{
+  "host": {
+    "type": "string",
+    "default": "0.0.0.0",
+    "description": "IP address the diod server listens on. Use '0.0.0.0' for all interfaces, or '127.0.0.1' for localhost-only."
+  },
+  "port": {
+    "type": "number",
+    "default": 8765,
+    "description": "TCP port number for the diod server to bind to."
+  },
+  "export_root": {
+    "type": "string",
+    "default": "/srv/diod",
+    "description": "Base directory under which export paths are resolved (unless absolute paths are used in export definitions)."
+  },
+  "max_clients": {
+    "type": "number",
+    "default": 100,
+    "description": "Maximum number of concurrent client connections allowed."
+  },
+  "verbose": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable detailed logging (true) or minimal logging (false)."
+  },
+  "exports": {
+    "type": "list",
+    "default": [],
+    "description": "List of export definitions, each exposing a filesystem path with specific access rules.",
+    "items": {
+      "name": {
+        "type": "string",
+        "default": "",
+        "description": "Unique name of the export (used as mount point identifier)."
+      },
+      "path": {
+        "type": "string",
+        "default": "",
+        "description": "Absolute or relative (to export_root) filesystem path to export."
+      },
+      "read_only": {
+        "type": "bool",
+        "default": false,
+        "description": "If true, clients can only read from this export; otherwise, write access is allowed."
+      },
+      "allowed_hosts": {
+        "type": "list",
+        "default": [
+          "*"
+        ],
+        "description": "List of allowed client hostnames/IPs or CIDR subnets. Use ['*'] to allow all.",
+        "items": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}

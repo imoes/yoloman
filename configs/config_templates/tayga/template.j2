@@ -1,0 +1,49 @@
+# Tayga NAT64/DNS64 configuration file
+# Prefix for the NAT64 translation (IPv4-mapped IPv6 prefix)
+# Must be a /96 prefix per RFC 6052
+# Example: 64:ff9b::/96
+prefix {{ prefix_v6 }}
+
+# IPv4 address pool for dynamic allocation (CIDR notation)
+# Used for dynamic NAT64 mappings
+pool {{ pool_v4 }}
+
+# Static IPv4-IPv6 mappings (one per line)
+# Format: IPv4 IPv6
+{% for mapping in static_mappings %}# Static mapping: {{ mapping.v4 }} -> {{ mapping.v6 }}
+map {{ mapping.v4 }} {{ mapping.v6 }}
+{% endfor %}
+
+# Path to the TUNTAP interface (virtual network device)
+# Tayga creates this interface for IPv6 traffic
+# Example: /dev/net/tun
+dev {{ tuntap_dev }}
+
+# IPv4 address assigned to the TUNTAP interface
+# Must be in the same /24 subnet as `pool` (if dynamic NAT64 is used)
+addr {{ tuntap_addr }}
+
+# MTU for the TUNTAP interface
+# Recommended: 1500 (default) or 1480 to accommodate overhead
+mtu {{ tuntap_mtu }}
+
+# Enable DNS64 (DNS translation for IPv6-only clients querying IPv4 records)
+# Requires a local DNS resolver (e.g., unbound, BIND) to use Tayga’s DNS64 plugin
+{% if dns64_enabled %}
+dns64 yes
+# DNS64 prefix (typically the same as NAT64 prefix)
+# Must match `prefix` above
+dns64prefix {{ prefix_v6 }}
+# Timeout (seconds) for DNS queries from Tayga
+# Tayga can act as a DNS64 proxy when configured with a recursive resolver
+dnstimeout {{ dns_timeout }}
+{% else %}
+dns64 no
+{% endif %}
+
+# Log level: 0 (error), 1 (warn), 2 (info), 3 (debug)
+loglevel {{ log_level }}
+
+# Path to PID file
+# Ensures single instance and enables service management
+pidfile {{ pid_file }}

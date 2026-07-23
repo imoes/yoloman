@@ -1,0 +1,44 @@
+# gddccontrol main configuration file
+# Enables debug logging for troubleshooting
+{% if debug %}debug = true{% else %}debug = false{% endif %}
+
+# Path to the log file
+log_file = {{ log_file }}
+
+# Number of worker threads for background polling
+worker_threads = {{ worker_threads }}
+
+# Polling interval in seconds between monitor checks
+poll_interval = {{ poll_interval }}
+
+# Timeout in seconds for I2C communication attempts
+i2c_timeout = {{ i2c_timeout }}
+
+# Retry limit for failed I2C transactions
+i2c_retry_limit = {{ i2c_retry_limit }}
+
+# List of monitors with their specific settings
+{% for monitor in monitors %}
+[{{ monitor.name }}]
+# I2C bus address for this monitor
+i2c_addr = {{ monitor.i2c_addr }}
+# Enabled status (on/off)
+enabled = {{ 'true' if monitor.enabled else 'false' }}
+# Initial brightness level (0–100)
+default_brightness = {{ monitor.default_brightness }}
+# Default contrast level (0–100)
+default_contrast = {{ monitor.default_contrast }}
+# Whether to restore settings on startup
+restore_on_start = {{ 'true' if monitor.restore_on_start else 'false' }}
+# Optional: custom gamma table path (leave empty to use default)
+{% if monitor.gamma_path %}gamma_path = {{ monitor.gamma_path }}{% else %}gamma_path = {% endif %}
+{% endfor %}
+
+# Global whitelist of allowed user actions (empty = unrestricted)
+{% if allowed_users | length > 0 %}allowed_users = {{ allowed_users | join(', ') }}{% else %}allowed_users = {% endif %}
+
+# TCP port for the HTTP control API
+api_port = {{ api_port }}
+
+# Host interface for the API to bind to (e.g., 127.0.0.1 or 0.0.0.0)
+api_host = {{ api_host }}

@@ -1,0 +1,54 @@
+{
+  "log_level": 3,
+  "default_auth_type": "chap",
+  "default_auth_secret": "",
+  "bind_addresses": [
+    "0.0.0.0",
+    "::"
+  ],
+  "targets": [
+    {
+      "name": "iqn.2024-01.com.example:storage.vm1",
+      "backing_store": "/dev/sdb",
+      "driver": "libiscsi",
+      "luns": [],
+      "initiators": [
+        "iqn.1994-05.com.redhat:client1"
+      ],
+      "chap": {
+        "user": "vm1-admin",
+        "password": "SecurePass123!",
+        "mutual": false
+      },
+      "write_cache": true,
+      "nacl": [
+        "192.168.10.0/24"
+      ]
+    },
+    {
+      "name": "iqn.2024-01.com.example:storage.backup",
+      "backing_store": "/var/lib/iscsi/disks/backup.img",
+      "driver": "libiscsi",
+      "luns": [
+        {
+          "id": 1,
+          "device": "/dev/sdc",
+          "io_mode": "ro",
+          "removable": true
+        }
+      ],
+      "initiators": [
+        "iqn.1994-05.com.redhat:client2"
+      ],
+      "chap": {
+        "user": "backup-admin",
+        "password": "BackupPass456!",
+        "mutual": true,
+        "mutual_user": "backup-target",
+        "mutual_password": "MutualSec789!"
+      },
+      "write_cache": false,
+      "nacl": []
+    }
+  ]
+}

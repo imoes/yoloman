@@ -1,0 +1,57 @@
+# EntropyBroker configuration — generated via template
+# Global settings
+[global]
+# Listening address and port for the entropy distribution service
+listen = {{ listen_address }}:{{ listen_port }}
+
+# Number of worker processes for handling entropy requests
+workers = {{ workers }}
+
+# Maximum queue size for pending requests
+max_queue_size = {{ max_queue_size }}
+
+# Entropy source type: 'kernel', 'rdseed', 'rdrand', or 'hwrng'
+entropy_source = {{ entropy_source }}
+
+# Buffer size (in bytes) per entropy chunk
+chunk_size = {{ chunk_size }}
+
+# Enable TLS for secure delivery
+tls_enabled = {{ 'true' if tls_enabled else 'false' }}
+
+# TLS certificate and key paths (only if tls_enabled)
+{% if tls_enabled %}
+tls_cert = {{ tls_cert_path }}
+tls_key = {{ tls_key_path }}
+{% endif %}
+
+# Logging level: debug, info, warn, error
+log_level = {{ log_level }}
+
+# Path for PID file
+pid_file = {{ pid_file }}
+
+# Metrics endpoint configuration
+[metrics]
+enabled = {{ 'true' if metrics_enabled else 'false' }}
+listen = {{ metrics_listen_address }}:{{ metrics_listen_port }}
+
+# Upstream entropy sources (replication pool)
+{% for upstream in upstream_sources %}
+[upstream:{{ upstream.name }}]
+host = {{ upstream.host }}
+port = {{ upstream.port }}
+weight = {{ upstream.weight }}
+{% endfor %}
+
+# Allowed client networks (CIDR notation)
+{% for network in allowed_networks %}
+# Allow entropy distribution to: {{ network.description }}
+allow_network = {{ network.cidr }}
+{% endfor %}
+
+# Rate limiting per client IP
+[rate_limit]
+enabled = {{ 'true' if rate_limiting_enabled else 'false' }}
+max_requests_per_second = {{ rate_limit_max_rps }}
+burst_size = {{ rate_limit_burst_size }}

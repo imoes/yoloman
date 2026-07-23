@@ -1,0 +1,21 @@
+# Module to execute shell commands via XMPP — DO NOT enable on production servers
+# This module grants XMPP users the ability to execute arbitrary shell commands — EXTREMELY DANGEROUS
+# Only enable if you fully understand the security implications and have strict access controls
+{% if mod_shcommands_enabled %}
+modules:
+  mod_shcommands:
+    # Path to the shell interpreter used for command execution
+    shell: {{ mod_shcommands_shell }}
+    # Maximum number of concurrent shell processes
+    max_processes: {{ mod_shcommands_max_processes }}
+    # Timeout (in seconds) for each command execution
+    timeout: {{ mod_shcommands_timeout }}
+    # List of allowed commands (empty list = all commands allowed — NOT RECOMMENDED)
+{% if mod_shcommands_allowed_commands | length > 0 %}
+    allowed_commands:
+{% for cmd in mod_shcommands_allowed_commands %}      - {{ cmd }}
+{% endfor %}
+{% else %}
+    # WARNING: No allowed commands list; ALL commands are permitted
+{% endif %}
+{% endif %}

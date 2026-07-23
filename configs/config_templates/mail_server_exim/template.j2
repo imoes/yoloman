@@ -1,0 +1,144 @@
+# Main Exim4 configuration file (split into parts for clarity)
+# This file is a template — variables are replaced at deploy time.
+
+# === System-wide settings ===
+# Primary domain used in message headers and for local delivery
+primary_hostname = {{ primary_hostname }}
+
+# List of domains that this machine considers local (i.e., final destination)
+# Format: space- or comma-separated list of domain names
+local_domains = {{ local_domains | join(', ') }}
+
+# IP addresses to bind for incoming SMTP connections (comma-separated)
+# Use '0.0.0.0' to bind to all interfaces
+daemon_smtp_ports = {{ smtp_port }}
+listen_address = {{ listen_address }}
+
+# Enable or disable TLS support
+use_tls = {{ use_tls }}
+
+# TLS certificate and key paths (only if use_tls is true)
+{% if use_tls %}
+rsa_private_key = {{ tls_private_key_path }}
+certificate = {{ tls_certificate_path }}
+{% endif %}
+
+# === Spool and log paths ===
+# Directories for queue, log, and spool files
+spool_directory = {{ spool_directory }}
+log_directory = {{ log_directory }}
+
+# === Authentication backends ===
+# Supported auth mechanisms (e.g., 'cram_md5', 'plain', 'login')
+{% for mech in auth_mechanisms %}
+{% if loop.first %}begin authenticators{% endif %}
+
+{{ mech.name }}:
+  driver = {{ mech.driver }}
+{% if mech.public_name %}  public_name = {{ mech.public_name }}{% endif %}
+{% if mech.server_condition %}  server_condition = {{ mech.server_condition }}{% endif %}
+{% if mech.server_set_id %}  server_set_id = {{ mech.server_set_id }}{% endif %}
+{% if mech.server_prompts %}  server_prompts = {{ mech.server_prompts | join(' : ') }}{% endif %}
+{% if mech.client_name %}  client_name = {{ mech.client_name }}{% endif %}
+{% if mech.client_send %}  client_send = "{{ mech.client_send }}"{% endif %}
+{% endfor %}
+{% if auth_mechanisms %}
+# end of authenticators block
+{% endif %}
+
+# === Routers ===
+# Route mail based on domain/user patterns
+begin routers
+
+{% for route in routers %}
+{{ route.name }}:
+  driver = {{ route.driver }}
+{% if route.domainlist %}  domainlist = {{ route.domainlist | join(', ') }}{% endif %}
+{% if route.local_parts %}  local_parts = {{ route.local_parts | join(', ') }}{% endif %}
+{% if route.transport %}  transport = {{ route.transport }}{% endif %}
+{% if route.route_data %}  route_data = {{ route.route_data }}{% endif %}
+{% if route.host_find_failed %}  host_find_failed = {{ route.host_find_failed }}{% endif %}
+{% if route.ignore_target_hosts %}  ignore_target_hosts = {{ route.ignore_target_hosts | join(':') }}{% endif %}
+{% if route.directors %}  directors = {{ route.directors | join(', ') }}{% endif %}
+{% endfor %}
+
+# === Transports ===
+# Define how mail is actually delivered (e.g., remote_smtp, appendfile)
+begin transports
+
+{% for transport in transports %}
+{{ transport.name }}:
+  driver = {{ transport.driver }}
+{% if transport.file %}  file = {{ transport.file }}{% endif %}
+{% if transport.directory %}  directory = {{ transport.directory }}{% endif %}
+{% if transport.maildir_format %}  maildir_format{% endif %}
+{% if transport.user %}  user = {{ transport.user }}{% endif %}
+{% if transport.group %}  group = {{ transport.group }}{% endif %}
+{% if transport.mode %}  mode = {{ transport.mode }}{% endif %}
+{% if transport.append_condition %}  append_condition = {{ transport.append_condition }}{% endif %}
+{% if transport.remote_group %}  remote_group = {{ transport.remote_group }}{% endif %}
+{% if transport.remote_sort_order %}  remote_sort_order = {{ transport.remote_sort_order }}{% endif %}
+{% if transport.hosts_try_auth %}  hosts_try_auth = {{ transport.hosts_try_auth | join(', ') }}{% endif %}
+{% endfor %}
+
+# === Retry rules ===
+# Define retry behavior for failed deliveries
+begin retry
+
+{% for retry_rule in retry_rules %}
+{% if loop.first %}# Format: domain-pattern transport-pattern retry-time-options{% endif %}
+* * F,2h,15m; G,16h,1h,1.5; F,4d,8h
+{% endfor %}
+
+# === Rewrite rules (optional) ===
+{% if enable_rewrite_rules %}
+begin rewrite
+
+{% for rule in rewrite_rules %}
+{{ rule.pattern }} {{ rule.replacement }} {{ rule.flags }}
+{% endfor %}
+{% endif %}
+
+# === ACLs (Access Control Lists) ===
+{% if enable_acls %}
+begin acl
+
+{% for acl in acls %}
+{% if acl.name == 'main' %}# Main ACL: controls connection and mail submission
+{% elif acl.name == 'rcpt' %}# RCPT ACL: controls accepted recipients
+{% elif acl.name == 'data' %}# DATA ACL: inspects message content
+{% endif %}
+
+acl_{{ acl.name }}:
+{% for stmt in acl.statements %}
+{% if stmt.condition %}  {% if stmt.negated %}!{% endif %}{{ stmt.condition }}{% endif %}
+{% if stmt.action == 'accept' %}  accept{% endif %}
+{% if stmt.action == 'deny' %}  deny{% endif %}
+{% if stmt.action == 'defer' %}  defer{% endif %}
+{% if stmt.action == 'reject' %}  reject{% endif %}
+{% if stmt.message %}  message = {{ stmt.message }}{% endif %}
+{% if stmt.log_message %}  log_message = {{ stmt.log_message }}{% endif %}
+{% if stmt.set %}  set = {{ stmt.set }}{% endif %}
+{% if stmt.add_header %}  add_header = {{ stmt.add_header }}{% endif %}
+{% if stmt.deny_message %}  deny message = {{ stmt.deny_message }}{% endif %}
+{% endfor %}
+{% endfor %}
+{% endif %}
+
+# === Special options ===
+# Runtime configuration overrides
+begin options
+
+# Number of simultaneous incoming connections
+max_message_size = {{ max_message_size }}
+
+# Timeout for SMTP commands (seconds)
+smtp_accept_timeout = {{ smtp_accept_timeout }}
+
+# Queue timeout settings
+queue_run_timeout = {{ queue_run_timeout }}
+queue_run_max = {{ queue_run_max }}
+
+# Disable DNS lookups if not needed
+dns_retimeout = {{ dns_retimeout }}
+{% if disable_dns_lookup %}dns_again_means_nonexist = true{% endif %}

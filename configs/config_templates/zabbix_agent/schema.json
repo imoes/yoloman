@@ -1,0 +1,132 @@
+{
+  "server": {
+    "type": "string",
+    "default": "127.0.0.1",
+    "description": "Comma-separated list of Zabbix server IP addresses (or hostnames) allowed to connect to this agent for passive checks."
+  },
+  "server_active": {
+    "type": "string",
+    "default": "",
+    "description": "Comma-separated list of Zabbix server IP addresses (or hostnames) for active checks. Defaults to `server` if not specified."
+  },
+  "hostname": {
+    "type": "string",
+    "default": "{{ ansible_hostname | default('Zabbix server') }}",
+    "description": "Unique hostname of this host as configured on the Zabbix server."
+  },
+  "enable_active_checks": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable sending\u4e3b\u52a8 checks to the server (requires `server_active`)."
+  },
+  "refresh_active_checks": {
+    "type": "number",
+    "default": 120,
+    "description": "Interval (seconds) between active checks refresh (minimum 10)."
+  },
+  "buffer_send": {
+    "type": "number",
+    "default": 60,
+    "description": "Time (seconds) to wait before sending unsent data to server."
+  },
+  "buffer_size": {
+    "type": "number",
+    "default": 100,
+    "description": "Maximum number of unsent data lines to buffer."
+  },
+  "max_connections": {
+    "type": "number",
+    "default": 100,
+    "description": "Maximum number of simultaneous incoming connections for passive checks."
+  },
+  "timeout": {
+    "type": "number",
+    "default": 3,
+    "description": "Timeout (seconds) for processing a request."
+  },
+  "include_dir": {
+    "type": "string",
+    "default": "/etc/zabbix/zabbix_agentd.d",
+    "description": "Directory containing additional `.conf` files with user parameters and settings."
+  },
+  "log_remote_commands": {
+    "type": "number",
+    "default": 0,
+    "description": "Log level for remote commands execution (0\u20134). Higher values increase logging verbosity."
+  },
+  "enable_remote_commands": {
+    "type": "bool",
+    "default": false,
+    "description": "Allow the server to execute arbitrary commands on this agent. Disabled by default for security."
+  },
+  "tls_enable": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable TLS encryption for agent communications (requires Zabbix server with TLS support)."
+  },
+  "psk_identity": {
+    "type": "string",
+    "default": "PSK default identity",
+    "description": "PSK identity string used in TLS-PSK handshake."
+  },
+  "psk_file": {
+    "type": "string",
+    "default": "/etc/zabbix/psk/zabbix_agentd.psk",
+    "description": "Path to the PSK file (must exist and have correct permissions)."
+  },
+  "user_parameters": {
+    "type": "list",
+    "default": [],
+    "description": "List of custom user-defined parameters (e.g., monitoring scripts).",
+    "items": {
+      "type": "object",
+      "fields": {
+        "enabled": {
+          "type": "bool",
+          "default": true,
+          "description": "Whether to include this parameter in the config."
+        },
+        "name": {
+          "type": "string",
+          "default": "",
+          "description": "Descriptive name of this user parameter."
+        },
+        "description": {
+          "type": "string",
+          "default": "Custom user parameter",
+          "description": "Brief description for documentation."
+        },
+        "key": {
+          "type": "string",
+          "default": "",
+          "description": "The metric key (must be unique; e.g., `app.status`)"
+        },
+        "command": {
+          "type": "string",
+          "default": "",
+          "description": "Shell command to execute (supports Zabbix macro expansion)."
+        }
+      }
+    }
+  },
+  "debug_level": {
+    "type": "number",
+    "default": null,
+    "description": "Debug level (0\u20135); only set temporarily for troubleshooting (overlays LogRemoteCommands)."
+  },
+  "listen_port": {
+    "type": "number",
+    "default": 10050,
+    "description": "Port to listen on for incoming agent connections."
+  },
+  "listen_ip": {
+    "type": "string",
+    "default": "0.0.0.0",
+    "description": "IP address(es) to bind to. Use `127.0.0.1` to restrict to localhost only."
+  },
+  "start_agents": {
+    "type": "number",
+    "default": 3,
+    "description": "Number of pre-forked agent processes (0 disables passive checks)."
+  }
+}

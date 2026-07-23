@@ -1,0 +1,148 @@
+{
+  "active": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable or disable audit logging at boot."
+  },
+  "log_file": {
+    "type": "string",
+    "default": "/var/log/audit/audit.log",
+    "description": "Full path to the primary audit log file."
+  },
+  "log_format": {
+    "type": "string",
+    "default": "raw",
+    "description": "Format of audit logs \u2014 'raw' (no timestamps) or 'inc' (incremental format)."
+  },
+  "max_log_file": {
+    "type": "number",
+    "default": 6,
+    "description": "Maximum number of audit log files to retain after rotation."
+  },
+  "max_log_file_action": {
+    "type": "string",
+    "default": "rotate",
+    "description": "Action to take when a single log file reaches max_log_file_size \u2014 typically 'rotate', 'suspend', 'restart', 'keep_logs'."
+  },
+  "space_left": {
+    "type": "number",
+    "default": 75,
+    "description": "Disk space (in MB) remaining before space_left_action is triggered."
+  },
+  "space_left_action": {
+    "type": "string",
+    "default": "email",
+    "description": "Action to take when free disk space drops below space_left \u2014 'email', 'syslog', 'suspend', 'single', 'halt', 'none'."
+  },
+  "use_syslog": {
+    "type": "bool",
+    "default": true,
+    "description": "Send emergency messages to syslog instead of the audit log."
+  },
+  "verbosity": {
+    "type": "number",
+    "default": 2,
+    "description": "Audit daemon verbosity (0 = silent, 1 = normal, 2 = verbose)."
+  },
+  "priority_boost": {
+    "type": "number",
+    "default": 4,
+    "description": "Priority to boost syslog messages (0 = no boost, higher = higher priority)."
+  },
+  "flush": {
+    "type": "string",
+    "default": "incremental",
+    "description": "Flush mode: 'none' (defer writes), 'data' (sync after every record), 'sync' (full sync), 'incremental' (periodic flush)."
+  },
+  "freq": {
+    "type": "number",
+    "default": 50,
+    "description": "Number of records to buffer before flushing (used only in 'incremental' mode)."
+  },
+  "max_retries": {
+    "type": "number",
+    "default": 3,
+    "description": "Number of times to retry a write operation on failure."
+  },
+  "retry_timeout": {
+    "type": "number",
+    "default": 1,
+    "description": "Seconds to wait between write retries."
+  },
+  "log_group": {
+    "type": "string",
+    "default": "audit",
+    "description": "Name of the log file group (affects permissions)."
+  },
+  "remote_log": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable sending audit logs to a remote server via auditd protocol."
+  },
+  "remote_address": {
+    "type": "string",
+    "default": "",
+    "description": "Hostname or IP of the remote audit server (required if remote_log = true)."
+  },
+  "remote_port": {
+    "type": "number",
+    "default": 60,
+    "description": "Port for remote audit logging (default 60)."
+  },
+  "local_logging": {
+    "type": "bool",
+    "default": true,
+    "description": "Keep local copies of logs even when remote logging is enabled."
+  },
+  "queue_len": {
+    "type": "number",
+    "default": 0,
+    "description": "Number of events to buffer in kernel (0 = use kernel default)."
+  },
+  "admin_space_left": {
+    "type": "number",
+    "default": 25,
+    "description": "Disk space (MB) remaining before admin_space_left_action is triggered."
+  },
+  "admin_space_left_action": {
+    "type": "string",
+    "default": "single",
+    "description": "Action when free space drops below admin_space_left \u2014 'email', 'syslog', 'single', 'halt', 'none'."
+  },
+  "disk_full_action": {
+    "type": "string",
+    "default": "suspend",
+    "description": "Action when disk is full \u2014 'halt', 'suspend', 'single', 'none'."
+  },
+  "pause": {
+    "type": "number",
+    "default": 0,
+    "description": "Seconds to pause logging when disk space is critically low (0 = no pause)."
+  },
+  "resume_after": {
+    "type": "number",
+    "default": 30,
+    "description": "Seconds to wait before resuming logging after a pause."
+  },
+  "capability": {
+    "type": "number",
+    "default": 0,
+    "description": "Set audit capabilities (e.g., CAP_AUDIT_WRITE); 0 = default."
+  },
+  "args": {
+    "type": "string",
+    "default": "",
+    "description": "Additional command-line arguments passed to the auditd binary at startup."
+  },
+  "extra_logs": {
+    "type": "list",
+    "default": [],
+    "description": "List of additional log files to rotate manually (handled by external logrotate, not native to auditd.conf).",
+    "items": {
+      "path": {
+        "type": "string",
+        "description": "Absolute path to the extra log file."
+      }
+    }
+  }
+}

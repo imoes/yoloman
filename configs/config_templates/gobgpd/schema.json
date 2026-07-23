@@ -1,0 +1,362 @@
+{
+  "global.config.as": {
+    "type": "number",
+    "default": 64512,
+    "description": "Local BGP Autonomous System Number (ASN). Must be a 2-byte or 4-byte ASN."
+  },
+  "global.config.router_id": {
+    "type": "string",
+    "default": "192.168.1.1",
+    "description": "Router ID for this BGP speaker. Must be an IPv4 address (standard BGP requirement)."
+  },
+  "global.graceful_restart.enabled": {
+    "type": "boolean",
+    "default": false,
+    "description": "Enable graceful restart support (RFC 4724)."
+  },
+  "global.graceful_restart.restart_time": {
+    "type": "number",
+    "default": 120,
+    "description": "Graceful restart timer (seconds) \u2014 maximum time to keep stale routes."
+  },
+  "global.graceful_restart.stale_routes_time": {
+    "type": "number",
+    "default": 300,
+    "description": "Time after restart to consider routes stale and withdraw them."
+  },
+  "logging.config.level": {
+    "type": "string",
+    "default": "info",
+    "description": "Logging verbosity: 'debug', 'info', 'warn', 'error', or 'fatal'."
+  },
+  "admin_state.enabled": {
+    "type": "boolean",
+    "default": true,
+    "description": "Whether the BGP daemon should be active on startup."
+  },
+  "peers": {
+    "type": "list",
+    "default": [],
+    "description": "List of BGP peer configurations. Each peer represents a BGP session to a neighbor.",
+    "items": {
+      "type": "object",
+      "fields": {
+        "peer.config.neighbor_address": {
+          "type": "string",
+          "required": true,
+          "description": "IP address of the BGP neighbor."
+        },
+        "peer.config.peer_as": {
+          "type": "number",
+          "required": true,
+          "description": "ASN of the neighbor."
+        },
+        "peer.config.auth_password": {
+          "type": "string",
+          "default": "",
+          "description": "MD5 password for BGP session authentication (optional)."
+        },
+        "peer.config.local_as": {
+          "type": "number",
+          "default": null,
+          "description": "Override the local ASN for this peer (e.g., for confederations or 2-byte/4-byte transitions)."
+        },
+        "peer.config.description": {
+          "type": "string",
+          "default": "",
+          "description": "Human-readable description of the peer."
+        },
+        "peer.config.peer_type": {
+          "type": "string",
+          "default": "EXTERNAL",
+          "enum": [
+            "INTERNAL",
+            "EXTERNAL"
+          ],
+          "description": "Peer type \u2014 'INTERNAL' (same ASN, iBGP), 'EXTERNAL' (different ASN, eBGP)."
+        },
+        "peer.timers.config.connect_retry": {
+          "type": "number",
+          "default": 120,
+          "description": "Connect retry timer (seconds) \u2014 how long to wait before retrying connection."
+        },
+        "peer.timers.config.hold_time": {
+          "type": "number",
+          "default": 90,
+          "description": "BGP hold timer (seconds). Should be \u2265 3\u00d7 keepalive interval."
+        },
+        "peer.timers.config.keepalive_interval": {
+          "type": "number",
+          "default": 30,
+          "description": "Keepalive interval (seconds). Recommended = hold_time/3."
+        },
+        "peer.timers.config.idle_hold_time_after_restart": {
+          "type": "number",
+          "default": null,
+          "description": "Idle hold time (seconds) after graceful restart (RFC 8538)."
+        },
+        "peer.transport.config.remote_port": {
+          "type": "number",
+          "default": 179,
+          "description": "Remote port (BGP default is 179)."
+        },
+        "peer.transport.config.local_address": {
+          "type": "string",
+          "default": null,
+          "description": "Local source IP address for the TCP connection (for multihoming or source routing)."
+        },
+        "peer.transport.config.tcp_mss": {
+          "type": "number",
+          "default": null,
+          "description": "TCP Maximum Segment Size for BGP session (optional, e.g., 1460 for typical Ethernet)."
+        },
+        "peer.af_safis": {
+          "type": "list",
+          "default": null,
+          "description": "List of (AFI, SAFI, enabled) tuples. Each defines an address family for this peer.",
+          "items": {
+            "type": "tuple3",
+            "fields": [
+              {
+                "name": "afi",
+                "type": "string",
+                "enum": [
+                  "IPV4",
+                  "IPV6",
+                  "L2VPN",
+                  "FSH"
+                ],
+                "required": true
+              },
+              {
+                "name": "safi",
+                "type": "string",
+                "enum": [
+                  "UNICAST",
+                  "MULTICAST",
+                  "VPLS",
+                  "EVPN",
+                  "FLOW",
+                  "VPN"
+                ],
+                "required": true
+              },
+              {
+                "name": "enabled",
+                "type": "boolean",
+                "required": true
+              }
+            ]
+          }
+        },
+        "peer.route_server.client": {
+          "type": "boolean",
+          "default": false,
+          "description": "If true, treat this peer as a route server client (iBGP full-mesh simulation)."
+        }
+      }
+    }
+  },
+  "policies": {
+    "type": "list",
+    "default": [],
+    "description": "List of BGP route policies for filtering and modifying routes (import/export).",
+    "items": {
+      "type": "object",
+      "fields": {
+        "policy.definition.config.name": {
+          "type": "string",
+          "required": true,
+          "description": "Unique name for this policy."
+        },
+        "policy.definition.config.default_action": {
+          "type": "string",
+          "default": "ACCEPT",
+          "enum": [
+            "ACCEPT",
+            "REJECT"
+          ],
+          "description": "Default action if no statements match."
+        },
+        "policy.definition.statements": {
+          "type": "list",
+          "default": [],
+          "description": "Ordered list of policy statements (conditions + actions).",
+          "items": {
+            "type": "object",
+            "fields": {
+              "stmt.config.name": {
+                "type": "string",
+                "default": null,
+                "description": "Optional name for the statement."
+              },
+              "stmt.config.type": {
+                "type": "string",
+                "default": "ACCEPT",
+                "enum": [
+                  "ACCEPT",
+                  "REJECT",
+                  "NEXT-STATEMENT"
+                ],
+                "description": "Result if all conditions match."
+              },
+              "stmt.conditions": {
+                "type": "dict",
+                "default": {},
+                "description": "Match conditions (key = condition type, value = condition data).",
+                "keys": {
+                  "MATCH_NEIGHBOR": {},
+                  "values_schema": {
+                    "global.config.as": {
+                      "type": "number",
+                      "default": 64512,
+                      "description": "Local BGP Autonomous System Number (ASN)."
+                    },
+                    "global.config.router_id": {
+                      "type": "string",
+                      "default": "192.168.1.1",
+                      "description": "Router ID (must be IPv4)."
+                    },
+                    "logging.config.level": {
+                      "type": "string",
+                      "default": "info",
+                      "description": "Logging level: debug/info/warn/error/fatal."
+                    },
+                    "admin_state.enabled": {
+                      "type": "boolean",
+                      "default": true,
+                      "description": "Enable the BGP daemon on start."
+                    },
+                    "peers": {
+                      "type": "list",
+                      "default": [],
+                      "description": "List of BGP peers to establish sessions with.",
+                      "items": {
+                        "type": "object",
+                        "fields": {
+                          "peer.config.neighbor_address": {
+                            "type": "string",
+                            "required": true,
+                            "description": "IP address of the BGP neighbor."
+                          },
+                          "peer.config.peer_as": {
+                            "type": "number",
+                            "required": true,
+                            "description": "Neighbor's ASN."
+                          },
+                          "peer.config.auth_password": {
+                            "type": "string",
+                            "default": "",
+                            "description": "MD5 password (optional)."
+                          },
+                          "peer.config.peer_type": {
+                            "type": "string",
+                            "default": "EXTERNAL",
+                            "enum": [
+                              "INTERNAL",
+                              "EXTERNAL"
+                            ],
+                            "description": "Peer type: INTERNAL (iBGP), EXTERNAL (eBGP)."
+                          },
+                          "peer.timers.config.hold_time": {
+                            "type": "number",
+                            "default": 90,
+                            "description": "Hold timer in seconds (RFC 4271)."
+                          },
+                          "peer.timers.config.keepalive_interval": {
+                            "type": "number",
+                            "default": 30,
+                            "description": "Keepalive interval in seconds."
+                          },
+                          "peer.transport.config.local_address": {
+                            "type": "string",
+                            "default": "",
+                            "description": "Local source IP for the BGP session (optional)."
+                          },
+                          "peer.af_safis": {
+                            "type": "list",
+                            "default": [],
+                            "description": "Address families enabled for this peer.",
+                            "items": {
+                              "type": "object",
+                              "fields": {
+                                "afi": {
+                                  "type": "string",
+                                  "enum": [
+                                    "IPV4",
+                                    "IPV6"
+                                  ],
+                                  "required": true,
+                                  "description": "Address Family Identifier."
+                                },
+                                "safi": {
+                                  "type": "string",
+                                  "enum": [
+                                    "UNICAST"
+                                  ],
+                                  "default": "UNICAST",
+                                  "description": "Subsequent Address Family Identifier."
+                                },
+                                "enabled": {
+                                  "type": "boolean",
+                                  "default": true,
+                                  "description": "Enable this address family."
+                                }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  },
+                  "sample_values": {
+                    "global.config.as": 64512,
+                    "global.config.router_id": "10.0.0.1",
+                    "logging.config.level": "info",
+                    "admin_state.enabled": true,
+                    "peers": [
+                      {
+                        "peer.config.neighbor_address": "192.168.100.2",
+                        "peer.config.peer_as": 64513,
+                        "peer.config.peer_type": "EXTERNAL",
+                        "peer.timers.config.hold_time": 90,
+                        "peer.timers.config.keepalive_interval": 30,
+                        "peer.transport.config.local_address": "10.0.0.1",
+                        "peer.af_safis": [
+                          {
+                            "afi": "IPV4",
+                            "safi": "UNICAST",
+                            "enabled": true
+                          }
+                        ]
+                      },
+                      {
+                        "peer.config.neighbor_address": "192.168.200.3",
+                        "peer.config.peer_as": 64512,
+                        "peer.config.peer_type": "INTERNAL",
+                        "peer.timers.config.hold_time": 90,
+                        "peer.timers.config.keepalive_interval": 30,
+                        "peer.af_safis": [
+                          {
+                            "afi": "IPV4",
+                            "safi": "UNICAST",
+                            "enabled": true
+                          },
+                          {
+                            "afi": "IPV6",
+                            "safi": "UNICAST",
+                            "enabled": false
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

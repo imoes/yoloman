@@ -1,0 +1,81 @@
+# Global settings for GarageMQ broker
+{{ global | to_yaml | indent(2) }}
+
+# Clustering configuration
+cluster:
+  {{- cluster.enabled | to_yaml | indent(2) }}
+  {{- if cluster.enabled }}
+  seed_nodes:
+    {% for node in cluster.seed_nodes -%}
+    - {{ node }}
+    {% endfor %}
+  node_name: "{{ cluster.node_name }}"
+  cookie: "{{ cluster.cookie | default('garage-cluster-cookie') }}"
+  rpc_timeout_ms: {{ cluster.rpc_timeout_ms | default(5000) }}
+  join_retry_interval_sec: {{ cluster.join_retry_interval_sec | default(10) }}
+  {%- endif %}
+
+# Network listening configuration
+listener:
+  host: "{{ listener.host | default('0.0.0.0') }}"
+  port: {{ listener.port | default(1883) }}
+  max_connections: {{ listener.max_connections | default(1000) }}
+
+# TLS configuration
+listener.tls:
+  enabled: {{ listener.tls.enabled | default(false) }}
+  cert_file: "{{ listener.tls.cert_file | default('/etc/garagemq/tls/cert.pem') }}"
+  key_file: "{{ listener.tls.key_file | default('/etc/garagemq/tls/key.pem') }}"
+  ca_file: "{{ listener.tls.ca_file | default('') }}"
+
+# Authentication and authorization
+auth:
+  enabled: {{ auth.enabled | default(false) }}
+  providers:
+    {% for provider in auth.providers -%}
+    - type: "{{ provider.type }}"
+      {{ provider | to_yaml | indent(6) | replace(': true', ': true\n') | replace(': false', ': false\n') }}
+    {% endfor %}
+
+# Persistence settings
+storage:
+  backend: "{{ storage.backend | default('leveldb') }}"
+  data_dir: "{{ storage.data_dir | default('/var/lib/garagemq/data') }}"
+  max_segment_size_mb: {{ storage.max_segment_size_mb | default(64) }}
+  compaction_threshold: {{ storage.compaction_threshold | default(0.75) }}
+  sync_write: {{ storage.sync_write | default(true) }}
+
+# Logging configuration
+log:
+  level: "{{ log.level | default('info') }}"
+  format: "{{ log.format | default('text') }}"
+  output: "{{ log.output | default('stdout') }}"
+  {{- if log.output == 'file' }}
+  file_path: "{{ log.file_path | default('/var/log/garagemq/garagemq.log') }}"
+  max_size_mb: {{ log.max_size_mb | default(100) }}
+  max_backups: {{ log.max_backups | default(5) }}
+  compress: {{ log.compress | default(false) }}
+  {%- endif %}
+
+# Telemetry & metrics
+metrics:
+  enabled: {{ metrics.enabled | default(false) }}
+  port: {{ metrics.port | default(9090) }}
+  path: "{{ metrics.path | default('/metrics') }}"
+  {{- if metrics.enabled }}
+  enable_histograms: {{ metrics.enable_histograms | default(false) }}
+  histogram_buckets: [{{ metrics.histogram_buckets | join(', ') | default('0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10') }}]
+  {%- endif %}
+
+# System limits
+limits:
+  max_message_size_kb: {{ limits.max_message_size_kb | default(256) }}
+  max_inflight_messages: {{ limits.max_inflight_messages | default(1000) }}
+  queue_depth_warning_threshold: {{ limits.queue_depth_warning_threshold | default(10000) }}
+  session_expiry_sec: {{ limits.session_expiry_sec | default(3600) }}
+
+# Default subscription options
+defaults:
+  subscription:
+    max_topic_levels: {{ defaults.subscription.max_topic_levels | default(10) }}
+    max_wildcards_per_topic: {{ defaults.subscription.max_wildcards_per_topic | default(3) }}

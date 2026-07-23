@@ -1,0 +1,124 @@
+{
+  "interface": {
+    "type": "string",
+    "default": "fastd0",
+    "description": "Name of the TAP interface to create (e.g., 'fastd0')."
+  },
+  "mode": {
+    "type": "string",
+    "default": "server",
+    "description": "Operational mode: client (outgoing only), server (incoming only), or hybrid (both)."
+  },
+  "method": {
+    "type": "string",
+    "default": "handshake",
+    "description": "Authentication and key exchange method."
+  },
+  "peers_dir": {
+    "type": "string",
+    "default": "/etc/fastd/peers",
+    "description": "Directory containing peer public key files (required for 'manual' and 'password' methods)."
+  },
+  "pre_shared_key_file": {
+    "type": "string",
+    "default": "/etc/fastd/pre_shared_keys.txt",
+    "description": "Path to file with pre-shared keys (required for 'psk' method)."
+  },
+  "secrets_dir": {
+    "type": "string",
+    "default": "/etc/fastd/secrets",
+    "description": "Directory containing secret key files (required for 'handshake' method)."
+  },
+  "bind_address": {
+    "type": "string",
+    "default": "",
+    "description": "Local IP address to bind the UDP socket (optional)."
+  },
+  "port": {
+    "type": "number",
+    "default": 9696,
+    "description": "UDP port to listen on (default: 9696; only used in server/hybrid mode)."
+  },
+  "mtu": {
+    "type": "number",
+    "default": 1426,
+    "description": "Maximum transmission unit for the VPN interface."
+  },
+  "log_level": {
+    "type": "string",
+    "default": "notice",
+    "description": "Verbosity of logging output."
+  },
+  "user": {
+    "type": "string",
+    "default": "fastd",
+    "description": "System user to drop privileges to after startup."
+  },
+  "group": {
+    "type": "string",
+    "default": "fastd",
+    "description": "System group to drop privileges to after startup."
+  },
+  "dns_servers": {
+    "type": "list",
+    "default": [],
+    "description": "List of DNS servers to push to connecting peers (server/hybrid mode only)."
+  },
+  "allowed_ips": {
+    "type": "list",
+    "default": [
+      "10.255.0.0/24"
+    ],
+    "description": "List of allowed IP subnets for peer traffic (server/hybrid mode only)."
+  },
+  "keepalive_interval": {
+    "type": "number",
+    "default": 10,
+    "description": "Seconds between keep-alive packets (0 disables)."
+  },
+  "handshake_timeout": {
+    "type": "number",
+    "default": 60,
+    "description": "Seconds to wait before aborting a handshake."
+  },
+  "peers": {
+    "type": "list",
+    "default": [],
+    "items": {
+      "type": "object",
+      "fields": {
+        "id": {
+          "type": "string",
+          "required": true,
+          "description": "Peer identifier (typically short hex fingerprint or alias)."
+        },
+        "name": {
+          "type": "string",
+          "default": "",
+          "description": "Human-readable name for the peer (for comments/logs only)."
+        },
+        "public_key": {
+          "type": "string",
+          "required": true,
+          "description": "Base32-encoded public key of the peer."
+        },
+        "ip": {
+          "type": "string",
+          "default": "",
+          "description": "Static IPv4 address assigned to this peer (e.g., '10.255.0.5')."
+        },
+        "address": {
+          "type": "string",
+          "default": "",
+          "description": "Remote host:port for outgoing connections (e.g., 'vpn.example.com:9696')."
+        },
+        "psk": {
+          "type": "string",
+          "default": "",
+          "description": "Base32-encoded pre-shared key for this peer (only for 'psk' method)."
+        }
+      }
+    },
+    "description": "List of trusted peers with static configuration."
+  }
+}

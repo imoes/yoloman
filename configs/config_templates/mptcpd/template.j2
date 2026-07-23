@@ -1,0 +1,53 @@
+# Configuration for the Multipath TCP Daemon (mptcpd)
+# This file controls runtime behavior of mptcpd, including network
+# interfaces, path manager policies, and logging.
+
+# Enable or disable mptcpd daemon startup
+{% if enabled %}
+[mptcpd]
+enabled = true
+{% else %}
+[mptcpd]
+enabled = false
+{% endif %}
+
+# Path manager policy for new MPTCP connections
+# Valid options: fullmesh, subflow, limited, fallback
+# Default: fullmesh
+path_manager = {{ path_manager }}
+
+# Log level: debug, info, notice, warning, error, critical
+# Default: notice
+log_level = {{ log_level }}
+
+# Path to the log file (leave empty for stderr only)
+# Default: empty (stderr)
+{% if log_file %}
+log_file = {{ log_file }}
+{% endif %}
+
+# Allowlisted interfaces for multipath use
+# Interfaces not listed here will be ignored by MPTCP path management
+{% for iface in allowed_interfaces %}
+[interface:{{ iface.name }}]
+enabled = {{ iface.enabled | lower }}
+priority = {{ iface.priority }}
+addr_type = {{ iface.addr_type }}
+{% endfor %}
+
+# Additional socket options (optional, for fine-tuning)
+{% if socket_opts %}
+[socket_opts]
+{% for opt, val in socket_opts.items() %}
+{{ opt }} = {{ val }}
+{% endfor %}
+{% endif %}
+
+# Paths for specific addresses or subnets (advanced use)
+# Each entry maps a destination to a preferred interface
+{% for path in custom_paths %}
+[path:{{ path.id }}]
+dst = {{ path.dst }}
+ifname = {{ path.ifname }}
+metric = {{ path.metric }}
+{% endfor %}

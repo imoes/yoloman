@@ -1,0 +1,106 @@
+# Default listen address and port for the entropybroker service
+listen: {{ listen_addr }}:{{ listen_port }}
+
+# Path to the entropy source device (e.g., /dev/hwrng, /dev/urandom)
+entropy_source: {{ entropy_source_path }}
+
+# Optional fallback entropy source (set to null to disable)
+{% if fallback_entropy_source_path is defined and fallback_entropy_source_path is not none %}
+fallback_entropy_source: {{ fallback_entropy_source_path }}
+{% endif %}
+
+# Minimum required entropy pool size (in bits)
+min_pool_size: {{ min_pool_size }}
+
+# Maximum number of bits to draw per request (0 = unlimited)
+max_draw_bits: {{ max_draw_bits }}
+
+# Worker count for parallel entropy gathering
+workers: {{ workers }}
+
+# Enable or disable metrics collection
+metrics_enabled: {{ metrics_enabled }}
+
+# Prometheus metrics endpoint (only used if metrics_enabled=true)
+{% if metrics_enabled %}
+metrics_listen: {{ metrics_addr }}:{{ metrics_port }}
+{% endif %}
+
+# Logging configuration
+log_level: {{ log_level }}
+log_format: {{ log_format }}
+{% if log_file is defined and log_file is not none %}
+log_file: {{ log_file }}
+{% endif %}
+
+# Hostname or FQDN to report as source identifier in logs/metrics
+{% if report_hostname is defined and report_hostname is not none %}
+report_hostname: {{ report_hostname }}
+{% else %}
+report_hostname: auto
+{% endif %}
+
+# Whitelist of allowed client CIDRs (empty list = allow all)
+{% if allowed_clients is defined and allowed_clients | length > 0 %}
+allowed_clients:
+{% for client in allowed_clients %}  - {{ client }}
+{% endfor %}
+{% else %}
+allowed_clients: []
+{% endif %}
+
+# TLS configuration (set tls.enabled to true to activate)
+tls:
+  enabled: {{ tls.enabled }}
+{% if tls.enabled %}
+  cert_file: {{ tls.cert_file }}
+  key_file: {{ tls.key_file }}
+{% if tls.ca_file is defined and tls.ca_file is not none %}
+  ca_file: {{ tls.ca_file }}
+{% endif %}
+{% endif %}
+
+# Rate limiting configuration
+rate_limit:
+  requests_per_second: {{ rate_limit.requests_per_second }}
+  burst_size: {{ rate_limit.burst_size }}
+
+# Backend-specific settings (e.g., for integration with external entropy services)
+{% if backends is defined and backends | length > 0 %}
+backends:
+{% for backend in backends %}  - name: {{ backend.name }}
+    enabled: {{ backend.enabled }}
+{% if backend.enabled %}
+{% if backend.type == 'remote' %}
+    url: {{ backend.url }}
+{% endif %}
+{% if backend.type == 'local' %}
+    device: {{ backend.device }}
+{% endif %}
+{% if backend.timeout is defined and backend.timeout is not none %}
+    timeout: {{ backend.timeout }}
+{% endif %}
+{% endif %}
+{% endfor %}
+{% endif %}
+
+# Health check endpoint path
+health_check_path: {{ health_check_path }}
+
+# Readiness probe path
+readiness_path: {{ readiness_path }}
+
+# Graceful shutdown timeout (seconds)
+shutdown_timeout: {{ shutdown_timeout }}
+
+# Interval between entropy pool refreshes (seconds)
+refresh_interval: {{ refresh_interval }}
+
+# Enable/disable entropy stirring (mixing from multiple sources)
+stirring_enabled: {{ stirring_enabled }}
+
+# Memory limit for internal buffers (in bytes, 0 = use default)
+buffer_memory_limit: {{ buffer_memory_limit }}
+
+# Enable/disable entropy compression (e.g., using gzip on pool data before export)
+compression_enabled: {{ compression_enabled }}

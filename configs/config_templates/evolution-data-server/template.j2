@@ -1,0 +1,83 @@
+# Evolution Data Server main configuration
+# This file controls global behavior of EDS services (CalDAV, CardDAV, etc.)
+# Most settings are inherited from user-specific configs under ~/.config/evolution/
+# and daemon-specific configs in /etc/evolution-data-server/
+
+# Authentication backend settings
+auth_module = "unix"
+
+# Path to the extension modules
+extensions_directory = "{{ extensions_directory }}"
+
+# Enable/disable calendar backend
+enable_calendar = {{ enable_calendar | lower }}
+
+# Enable/disable contacts backend
+enable_addressbook = {{ enable_addressbook | lower }}
+
+# Enable/disable tasks backend
+enable_tasks = {{ enable_tasks | lower }}
+
+# Enable/disable memo backend
+enable_memo = {{ enable_memo | lower }}
+
+# Enable/disable mail backend (not typical for EDS; kept for completeness)
+# Note: Mail handling is usually done by Evolution client, not the EDS daemon
+enable_mail = {{ enable_mail | lower }}
+
+# Enable offline mode (for portable clients)
+enable_offline = {{ enable_offline | lower }}
+
+# Maximum number of connections per client
+max_connections_per_client = {{ max_connections_per_client }}
+
+# Time (in seconds) before idle connections are closed
+idle_connection_timeout = {{ idle_connection_timeout }}
+
+# URI for the internal SQLite database cache
+# (Used only if offline mode is enabled)
+cache_uri = "sqlite://{{ cache_path }}?mode=memory"
+
+# Logging verbosity: 0 (critical), 1 (error), 2 (warning), 3 (info), 4 (debug)
+log_level = {{ log_level }}
+
+# List of enabled EDS extensions (e.g., caldav, carddav, evolution-alarm-notify)
+extensions = [{{ extensions | map('quote') | join(', ') | default('') }}]
+
+# Source-specific configuration (per user/backing-store)
+# These are loaded from per-user config files under /etc/evolution-data-server/sources/
+# Each entry in `sources` corresponds to a `.source` file
+{% for source in sources %}
+# Source: {{ source.name }}
+[source_{{ loop.index }}]
+name = {{ source.name | quote }}
+type = {{ source.type }}
+uri = {{ source.uri | quote }}
+{% if source.caldav_url %}
+caldav_url = {{ source.caldav_url | quote }}
+{% endif %}
+{% if source.carddav_url %}
+carddav_url = {{ source.carddav_url | quote }}
+{% endif %}
+{% if source.auth_method %}
+auth_method = {{ source.auth_method }}
+{% endif %}
+{% if source.username %}
+username = {{ source.username | quote }}
+{% endif %}
+{% if source.display_name %}
+display_name = {{ source.display_name | quote }}
+{% endif %}
+{% if source.icon_name %}
+icon_name = {{ source.icon_name }}
+{% endif %}
+{% if source.ssl_trust_file %}
+ssl_trust_file = {{ source.ssl_trust_file | quote }}
+{% endif %}
+{% if source.oauth2_client_id %}
+oauth2_client_id = {{ source.oauth2_client_id | quote }}
+{% endif %}
+{% if source.oauth2_token_uri %}
+oauth2_token_uri = {{ source.oauth2_token_uri | quote }}
+{% endif %}
+{% endfor %}

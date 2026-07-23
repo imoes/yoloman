@@ -1,0 +1,105 @@
+{
+  "bind_address": {
+    "type": "string",
+    "default": "0.0.0.0",
+    "description": "IP address the HTTP tunnel server binds to (e.g., '127.0.0.1' for localhost only, '0.0.0.0' for all interfaces)."
+  },
+  "bind_port": {
+    "type": "number",
+    "default": 8080,
+    "description": "Port number the server listens on for incoming HTTP tunnel requests."
+  },
+  "max_connections": {
+    "type": "number",
+    "default": 100,
+    "description": "Maximum number of concurrent client connections the server accepts."
+  },
+  "compression": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable gzip compression of the tunneled payload to reduce bandwidth."
+  },
+  "log_file": {
+    "type": "string",
+    "default": "/var/log/httptunnel/httptunnel.log",
+    "description": "Path to the log file. Use '-' to log to standard error."
+  },
+  "log_level": {
+    "type": "number",
+    "default": 3,
+    "description": "Verbosity of logging: 0 (none) to 5 (debug). Recommended: 3 (info)."
+  },
+  "idle_timeout": {
+    "type": "number",
+    "default": 300,
+    "description": "Seconds before an idle connection is closed (0 = no timeout)."
+  },
+  "auth_type": {
+    "type": "string",
+    "default": "none",
+    "description": "Authentication method: 'none' (no auth) or 'file' (user:password lines in auth_file)."
+  },
+  "auth_file": {
+    "type": "string",
+    "default": "/etc/httptunnel/htpasswd",
+    "description": "Path to the file containing user:password credentials (used only when auth_type='file')."
+  },
+  "forward_address": {
+    "type": "string",
+    "default": "127.0.0.1",
+    "description": "Destination host (IP or hostname) where tunneled traffic is forwarded."
+  },
+  "forward_port": {
+    "type": "number",
+    "default": 22,
+    "description": "Destination port for forwarded traffic (e.g., 22 for SSH, 80 for HTTP)."
+  },
+  "allowed_ips": {
+    "type": "list",
+    "default": [],
+    "description": "List of IP addresses allowed to connect (if empty, all IPs allowed).",
+    "items": {
+      "type": "string",
+      "description": "Allowed IPv4 or IPv6 address."
+    }
+  },
+  "denied_ips": {
+    "type": "list",
+    "default": [],
+    "description": "List of IP addresses explicitly denied, overriding allow list.",
+    "items": {
+      "type": "string",
+      "description": "Denied IPv4 or IPv6 address."
+    }
+  },
+  "ssl_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable TLS encryption for the HTTP tunnel connection."
+  },
+  "ssl_cert": {
+    "type": "string",
+    "default": "/etc/httptunnel/server.crt",
+    "description": "Path to the SSL certificate file (PEM format). Required if ssl_enabled=true."
+  },
+  "ssl_key": {
+    "type": "string",
+    "default": "/etc/httptunnel/server.key",
+    "description": "Path to the SSL private key file (PEM format). Required if ssl_enabled=true."
+  },
+  "ssl_ciphers": {
+    "type": "string",
+    "default": "ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256",
+    "description": "TLS cipher suite list, colon- or comma-separated. Defaults to modern secure ciphers."
+  },
+  "daemonize": {
+    "type": "bool",
+    "default": true,
+    "description": "Run as a background daemon (recommended for production)."
+  },
+  "pid_file": {
+    "type": "string",
+    "default": "/run/httptunnel.pid",
+    "description": "Path to write the daemon's PID file (used only if daemonize=true)."
+  }
+}

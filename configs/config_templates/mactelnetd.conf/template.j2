@@ -1,0 +1,32 @@
+[main]
+# Base port for MacTelnet daemon
+port = {{ main.port }}
+
+# Maximum simultaneous client connections
+max_connections = {{ main.max_connections }}
+
+# Enable/disable verbose logging
+verbose = {{ main.verbose | lower }}
+
+# Path to PID file
+pidfile = {{ main.pidfile }}
+
+# Path to private key for TLS (optional)
+{% if main.tls_private_key %}tls_private_key = {{ main.tls_private_key }}
+{% endif %}
+{% if main.tls_certificate %}tls_certificate = {{ main.tls_certificate }}
+{% endif %}
+
+# Access control: allowed MAC addresses (comma-separated)
+{% if main.allowed_macs %}allowed_macs = {{ main.allowed_macs | join(', ') }}
+{% endif %}
+
+# Access control: allowed usernames
+{% for user in users %}user = {{ user.name }}:{{ user.password }}{% if user.gid is defined %}:{{ user.gid }}{% endif %}
+{% endfor %}
+
+# Session timeout in seconds
+session_timeout = {{ main.session_timeout }}
+
+# Root directory for file system access
+root_dir = {{ main.root_dir }}

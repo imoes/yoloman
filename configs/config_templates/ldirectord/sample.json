@@ -1,0 +1,74 @@
+{
+  "checktimeout": 10,
+  "checkinterval": 2,
+  "verbose": false,
+  "logfile": "/var/log/ldirectord.log",
+  "emailalert": false,
+  "emailalertfreq": 0,
+  "emailalertsubject": "ldirectord: {{service}} is now {{state}}",
+  "emailalertfrom": "ldirectord@example.com",
+  "emailalertto": [
+    "ops@example.com"
+  ],
+  "quiesce": true,
+  "scheduler": "wrr",
+  "protocol": "tcp",
+  "persistence": 0,
+  "persistence_timeout": 0,
+  "netmask": "255.255.255.255",
+  "gateway": "",
+  "services": [
+    {
+      "vip": "192.168.1.100",
+      "port": 80,
+      "group": "web-servers",
+      "protocol": "tcp",
+      "scheduler": "wrr",
+      "checktype": "http",
+      "checkpath": "/health",
+      "httpmethod": "GET",
+      "domain": "www.example.com",
+      "receive": "OK",
+      "send": "",
+      "statuscode": 200,
+      "reals": [
+        {
+          "ip": "10.0.0.10",
+          "port": 80,
+          "weight": 5,
+          "family": "inet",
+          "inactive": false,
+          "backup": false
+        },
+        {
+          "ip": "10.0.0.11",
+          "port": 80,
+          "weight": 3,
+          "family": "inet",
+          "inactive": false,
+          "backup": true
+        }
+      ]
+    },
+    {
+      "vip": "192.168.1.100",
+      "port": 443,
+      "checktype": "tcp",
+      "reals": [
+        {
+          "ip": "10.0.0.10",
+          "port": 443,
+          "weight": 5,
+          "family": "inet"
+        },
+        {
+          "ip": "10.0.0.11",
+          "port": 443,
+          "weight": 3,
+          "family": "inet",
+          "backup": true
+        }
+      ]
+    }
+  ]
+}

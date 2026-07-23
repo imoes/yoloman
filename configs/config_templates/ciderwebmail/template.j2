@@ -1,0 +1,89 @@
+# Core application settings
+[application]
+# Base URL path where the webmail is accessible
+base_url = {{ base_url }}
+# Directory where application templates are stored
+template_dir = {{ template_dir }}
+# Directory for static assets (CSS, JS, images)
+static_dir = {{ static_dir }}
+# Logging level: DEBUG, INFO, WARNING, ERROR, CRITICAL
+log_level = {{ log_level }}
+# Path to log file (empty string disables file logging)
+log_file = {{ log_file }}
+
+# IMAP server configuration
+[imap]
+# Default IMAP hostname
+host = {{ imap.host }}
+# IMAP port (143 for unencrypted/plain, 993 for IMAPS)
+port = {{ imap.port }}
+# Enable STARTTLS if supported by the server
+use_tls = {{ imap.use_tls }}
+# Enable SSL/TLS from the start (IMAPS)
+use_ssl = {{ imap.use_ssl }}
+# IMAP authentication mechanism: LOGIN, PLAIN, CRAM-MD5, etc.
+auth_method = {{ imap.auth_method }}
+
+# Session and security settings
+[security]
+# Secret key for session signing and encryption (must be kept secret)
+secret_key = {{ secret_key }}
+# Session cookie name
+session_cookie_name = {{ session_cookie_name }}
+# Session cookie path
+session_cookie_path = {{ session_cookie_path }}
+# Session cookie domain (leave blank for auto-detect)
+session_cookie_domain = {{ session_cookie_domain }}
+# Session timeout in seconds
+session_timeout = {{ session_timeout }}
+# Force secure cookie (HTTPS only)
+secure_cookie = {{ secure_cookie }}
+
+# Mailbox and display options
+[mail]
+# Default IMAP mailbox folder to show on login
+inbox_folder = {{ inbox_folder }}
+# Separator used by IMAP server for folder hierarchy (e.g., '/', '.', or None)
+folder_separator = {{ folder_separator }}
+# Maximum number of messages to fetch per page
+messages_per_page = {{ messages_per_page }}
+# Maximum number of recipients shown before truncation
+max_recipients_displayed = {{ max_recipients_displayed }}
+# List of folders that should be hidden from the folder list (e.g., ['Drafts', 'Trash'])
+hidden_folders = {{ hidden_folders | join(', ') }}
+
+# SMTP outbound mail configuration
+[smtp]
+# SMTP relay hostname
+host = {{ smtp.host }}
+# SMTP port (25, 465, 587)
+port = {{ smtp.port }}
+# Enable STARTTLS
+use_tls = {{ smtp.use_tls }}
+# Enable SSL/TLS (port 465)
+use_ssl = {{ smtp.use_ssl }}
+# SMTP authentication username (leave blank for anonymous)
+username = {{ smtp.username }}
+# SMTP authentication password (leave blank for anonymous)
+password = {{ smtp.password }}
+# SMTP HELO/EHLO hostname
+helo_hostname = {{ helo_hostname }}
+
+# Theme and localization
+[ui]
+# Default UI theme name
+theme = {{ theme }}
+# Default language (BCP 47 tag, e.g., 'en-US')
+language = {{ language }}
+# Enable auto-detection of user language from Accept-Language header
+auto_detect_language = {{ auto_detect_language }}
+
+# Backend plugin options
+[plugins]
+# Comma-separated list of enabled plugins (e.g., 'auth_ldap,quota_check')
+enabled = {{ plugins.enabled | join(', ') }}
+{% for plugin in plugins.configs %}
+# Configuration for plugin: {{ plugin.name }}
+[plugins.{{ plugin.name }}]
+{% for key, value in plugin.settings.items() %}{{ key }} = {{ value }}
+{% endfor %}{% endfor %}

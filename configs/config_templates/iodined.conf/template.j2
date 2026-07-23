@@ -1,0 +1,50 @@
+# iodined configuration file — DNS tunnel server
+# Listen address (IP or hostname) for incoming connections
+listen = {{ server.listen_addr }}
+
+# Port to listen on (typically 53 for DNS tunneling)
+port = {{ server.port }}
+
+# Password for client authentication
+password = {{ auth.password }}
+
+# Domain to serve (must be a subdomain you control)
+domain = {{ server.domain }}
+
+# Maximum number of concurrent sessions
+max_sessions = {{ limits.max_sessions }}
+
+# Timeout for idle sessions (in seconds)
+timeout = {{ limits.timeout }}
+
+# Buffer size for outgoing packets (in bytes)
+mtu = {{ limits.mtu }}
+
+# Enable debug logging (true/false)
+debug = {{ logging.debug }}
+
+# Log to stdout (true/false) — ignored if log_file is set
+log_stdout = {{ logging.log_stdout }}
+
+# Path to log file (set empty string to disable file logging)
+log_file = {{ logging.log_file }}
+
+{% if features.tos is defined %}
+# Type of Service (ToS) byte for outgoing packets (0x00–0xff)
+tos = {{ features.tos }}
+{% endif %}
+
+{% if features.ipv6 is defined %}
+# Enable IPv6 support (true/false)
+ipv6 = {{ features.ipv6 }}
+{% endif %}
+
+{% if features.zlib is defined %}
+# Enable zlib compression (true/false)
+zlib = {{ features.zlib }}
+{% endif %}
+
+{% for user in users %}
+# User-specific IP assignment: username -> IP
+{{ user.name }} = {{ user.ip }}
+{% endfor %}

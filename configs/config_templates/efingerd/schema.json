@@ -1,0 +1,140 @@
+{
+  "bind_address": {
+    "type": "string",
+    "default": "0.0.0.0",
+    "description": "IP address the daemon listens on (e.g., 127.0.0.1, 0.0.0.0)"
+  },
+  "port": {
+    "type": "number",
+    "default": 79,
+    "description": "TCP port for finger connections"
+  },
+  "max_connections": {
+    "type": "number",
+    "default": 100,
+    "description": "Maximum number of simultaneous client connections"
+  },
+  "timeout": {
+    "type": "number",
+    "default": 60,
+    "description": "Idle connection timeout in seconds"
+  },
+  "verbose": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable detailed logging for debugging"
+  },
+  "log_file": {
+    "type": "string",
+    "default": "",
+    "description": "Path to log file; empty string means log to stderr"
+  },
+  "response_prefix": {
+    "type": "string",
+    "default": "",
+    "description": "Static text prepended to all finger responses (e.g., for organizational disclaimer)"
+  },
+  "enable_user_enumeration": {
+    "type": "bool",
+    "default": false,
+    "description": "Allow listing all system users via finger (security-sensitive: disable in production)"
+  },
+  "backend_module": {
+    "type": "string",
+    "default": "unix",
+    "description": "Backend module to use for user data (unix or ldap)"
+  },
+  "backend_passwd_file": {
+    "type": "string",
+    "default": "/etc/passwd",
+    "description": "Path to passwd file (used by unix backend)"
+  },
+  "backend_group_file": {
+    "type": "string",
+    "default": "/etc/group",
+    "description": "Path to group file (used by unix backend)"
+  },
+  "backend_shell_file": {
+    "type": "string",
+    "default": "/etc/shells",
+    "description": "Path to shells file (used by unix backend)"
+  },
+  "ldap_uri": {
+    "type": "string",
+    "default": "ldap://localhost/",
+    "description": "LDAP server URI (used by ldap backend)"
+  },
+  "ldap_base_dn": {
+    "type": "string",
+    "default": "dc=example,dc=com",
+    "description": "Base DN for LDAP searches (used by ldap backend)"
+  },
+  "ldap_bind_dn": {
+    "type": "string",
+    "default": "",
+    "description": "Bind DN for authenticated LDAP access (leave blank for anonymous)"
+  },
+  "ldap_bind_password": {
+    "type": "string",
+    "default": "",
+    "description": "Password for LDAP bind (use secrets management in production)"
+  },
+  "ldap_user_filter": {
+    "type": "string",
+    "default": "(uid={{ query_user }})",
+    "description": "LDAP filter for user lookup; '{{ query_user }}' is replaced with the requested username"
+  },
+  "custom_handlers": {
+    "type": "list",
+    "default": [],
+    "description": "List of custom command-based response handlers",
+    "items": {
+      "name": {
+        "type": "string",
+        "description": "Unique handler name (e.g., 'project', 'status')"
+      },
+      "command": {
+        "type": "string",
+        "description": "Shell command to execute for this handler"
+      },
+      "enabled": {
+        "type": "bool",
+        "description": "Whether this handler is active"
+      }
+    }
+  },
+  "rate_limits": {
+    "type": "list",
+    "default": [],
+    "description": "Per-IP rate limiting rules (optional)",
+    "items": {
+      "name": {
+        "type": "string",
+        "description": "Descriptive label for this limit rule"
+      },
+      "ip": {
+        "type": "string",
+        "description": "IP address or subnet (e.g., 192.168.1.0/24, 10.0.0.5)"
+      },
+      "max_per_minute": {
+        "type": "number",
+        "description": "Maximum finger requests allowed per minute"
+      }
+    }
+  },
+  "tls_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable TLS encryption for connections"
+  },
+  "tls_cert_file": {
+    "type": "string",
+    "default": "/etc/efingerd/tls.crt",
+    "description": "Path to TLS certificate (PEM format)"
+  },
+  "tls_key_file": {
+    "type": "string",
+    "default": "/etc/efingerd/tls.key",
+    "description": "Path to TLS private key (PEM format)"
+  }
+}

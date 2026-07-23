@@ -1,0 +1,28 @@
+# MySQL configuration for Pure-FTPd
+# Database connection parameters
+MYSQLSocket		{{ mysql_socket | default('') }}
+MYSQLServer		{{ mysql_server }}
+MYSQLPort		{{ mysql_port }}
+MYSQLUser		{{ mysql_user }}
+MYSQLPassword		{{ mysql_password }}
+MYSQLDatabase		{{ mysql_database }}
+# Query templates for authentication, quota, bandwidth, and home dir
+MYSQLGetPW		{{ mysql_getpw | default('SELECT User FROM ftpd WHERE User="\$1" AND Status="1"') }}
+MYSQLGetUID		{{ mysql_getuid | default('SELECT Uid FROM ftpd WHERE User="\$1"') }}
+MYSQLGetGID		{{ mysql_getgid | default('SELECT Gid FROM ftpd WHERE User="\$1"') }}
+MYSQLGetDir		{{ mysql_getdir | default('SELECT Dir FROM ftpd WHERE User="\$1"') }}
+MYSQLGetQTASZ		{{ mysql_getqtasz | default('SELECT QuotaSize FROM ftpd WHERE User="\$1"') }}
+MYSQLGetQTAFS		{{ mysql_getqtafs | default('SELECT QuotaFiles FROM ftpd WHERE User="\$1"') }}
+MYSQLGetBandwidthIN	{{ mysql_getbandwidthin | default('SELECT UploadBandwidth FROM ftpd WHERE User="\$1"') }}
+MYSQLGetBandwidthOUT	{{ mysql_getbandwidthout | default('SELECT DownloadBandwidth FROM ftpd WHERE User="\$1"') }}
+# Optional: password encryption (MD5, CRPT, etc.)
+MYSQLCrypt		{{ mysql_crypt | default('md5') }}
+# Optional: default home directory for virtual users without explicit Dir
+MYSQLDefaultHomeDir	{{ mysql_default_homedir | default('/var/ftp') }}
+# Optional: additional filters for login validation
+MYSQLGetUserDir		{{ mysql_getuserdir | default('SELECT Dir FROM ftpd WHERE User="\$1" AND Status="1"') }}
+# Enable MySQL logging (if supported by Pure-FTPd build)
+# Comment out or set to 'no' to disable
+# MYSQLLogQueries	no
+# Optional: TLS/SSL integration (separate config, but referenced here for completeness)
+# TLS			1

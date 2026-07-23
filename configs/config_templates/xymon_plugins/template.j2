@@ -1,0 +1,16 @@
+# /etc/xymon/client-launch.cfg — Launch configuration for client-side Xymon plugins
+# Each line defines a plugin command, its interval, and optional environment or options
+
+# Global default timeout for plugins (seconds)
+DEFAULTTIMEOUT=60
+
+# Global default retry count for failed plugins
+DEFAULTRETRIES=1
+
+# Enable verbose logging for plugin execution (true/false)
+DEBUG={% if debug %}true{% else %}false{% endif %}
+
+{% for plugin in plugins %}
+# {{ plugin.name }}: {{ plugin.description }}
+{% if plugin.enabled | default(true) %}{{ plugin.name }}{% else %}#{{ plugin.name }}{% endif %} {% if plugin.interval is defined %}{{ plugin.interval }}{% else %}300{% endif %} {% if plugin.env is defined %}{{ plugin.env | join(' ') }}{% endif %}{{ plugin.cmd }}{% if plugin.args is defined %} {{ plugin.args | join(' ') }}{% endif %}
+{% endfor %}

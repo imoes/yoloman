@@ -1,0 +1,52 @@
+# ntpd-rs configuration file
+# Reference: https://github.com/autonomys/ntpd-rs
+
+# Listen interface and address binding
+bind = {{ bind_address | quote }}
+
+# Port to listen on for standard NTP (UDP 123)
+port = {{ ntp_port }}
+
+# Enable or disable NTS (Network Time Security) support
+nts_enable = {{ nts_enable }}
+
+# NTS key and certificate file paths (only required if nts_enable = true)
+nts_key_file = {{ nts_key_file | quote }}
+nts_cert_file = {{ nts_cert_file | quote }}
+
+# Allow clients from these subnets (CIDR notation). Empty list = deny all.
+{% for subnet in allowed_subnets %}# Allow NTP queries from {{ subnet }}
+{% endfor %}allowed_subnets = [{{ allowed_subnets | map('quote') | join(', ') }}]
+
+# Refclock configuration — only enable if hardware PPS/serial GPS is present
+{% if refclock_enabled %}# Hardware reference clock (e.g., GPS DO-178B/PPS via /dev/pps0)
+refclock = [
+  {
+    driver = {{ refclock_driver | quote }},
+    path   = {{ refclock_path | quote }},
+    flags  = {{ refclock_flags | quote }}
+  }
+]
+{% else %}# No reference clock configured
+refclock = []
+{% endif %}
+
+# Peers (stratum-1 servers or other trusted NTP sources)
+# Each peer may include NTS support via `nts = true`
+{% for peer in peers %}# Sync with {{ peer.name }} ({{ peer.address }}){{ ' using NTS' if peer.nts else '' }}
+{% endfor %}peers = [
+{% for peer in peers %}  { address = {{ peer.address | quote }}{{ ', nts = true' if peer.nts else '' }} }{% if not loop.last %},{% endif %}
+{% endfor %}]
+
+# Logging level: "error", "warn", "info", "debug", "trace"
+log_level = {{ log_level | quote }}
+
+# Path for persistent state (e.g., drift file, leap seconds table)
+state_dir = {{ state_dir | quote }}
+
+# Optional: restrict access via rate limiting
+max_rate = {{ max_rate }}  # packets per second (0 = no limit)
+
+# Optional: initial synchronization mode
+# - "normal" (default), "fast" (aggressive sync at startup), "disabled"
+init_sync_mode = {{ init_sync_mode | quote }}

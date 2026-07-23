@@ -1,0 +1,113 @@
+{
+  "data_dir": "/var/lib/guerillabackup/data",
+  "cache_dir": "/var/lib/guerillabackup/cache",
+  "log_file": "/var/log/guerillabackup/guerillabackup.log",
+  "log_level": "info",
+  "node_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+  "node_name": "us-east-backup-1",
+  "cluster_name": "prod-backup-cluster",
+  "backends": [
+    {
+      "name": "s3-primary",
+      "type": "s3",
+      "enabled": true,
+      "endpoint": "https://s3.us-east-1.amazonaws.com",
+      "region": "us-east-1",
+      "bucket": "prod-backup-bucket",
+      "access_key": "file:/etc/guerillabackup/s3_access_key",
+      "secret_key": "file:/etc/guerillabackup/s3_secret_key",
+      "compression": true,
+      "encryption": true
+    },
+    {
+      "name": "local-archive",
+      "type": "local",
+      "enabled": false,
+      "path": "/mnt/backup-archive",
+      "compression": true,
+      "encryption": true
+    },
+    {
+      "name": "ssh-dr",
+      "type": "ssh",
+      "enabled": true,
+      "host": "dr-backup.internal.example.com",
+      "port": 22,
+      "user": "guerillabackup",
+      "key_file": "/etc/guerillabackup/ssh_key_dr",
+      "path": "/data/dr-backups",
+      "compression": true,
+      "encryption": true
+    }
+  ],
+  "schedules": [
+    {
+      "name": "daily-incremental",
+      "enabled": true,
+      "policy": "incremental",
+      "source_dirs": [
+        "/home",
+        "/var/www",
+        "/etc"
+      ],
+      "retention": {
+        "keep_daily": 7,
+        "keep_weekly": 4,
+        "keep_monthly": 6
+      },
+      "cron": "0 2 * * *"
+    },
+    {
+      "name": "weekly-full",
+      "enabled": true,
+      "policy": "full",
+      "source_dirs": [
+        "/var/lib/mysql",
+        "/var/lib/postgresql"
+      ],
+      "retention": {
+        "keep_daily": 0,
+        "keep_weekly": 8,
+        "keep_monthly": 0
+      },
+      "cron": "0 3 * * 0"
+    }
+  ],
+  "workers": {
+    "max_concurrent_backups": 3,
+    "max_upload_workers_per_backend": 4,
+    "chunk_size_mb": 8,
+    "cache_ttl_seconds": 7200,
+    "mem_limit_mb": 1024
+  },
+  "network": {
+    "connect_timeout_seconds": 30,
+    "read_timeout_seconds": 900,
+    "retry_max_attempts": 5,
+    "retry_backoff_seconds": 5,
+    "enable_tls": true,
+    "ca_cert_file": "/etc/ssl/certs/guerilla-ca.pem"
+  },
+  "notifications": {
+    "email_enabled": true,
+    "smtp_host": "smtp.internal.example.com",
+    "smtp_port": 587,
+    "from_address": "guerilla-backup@internal.example.com",
+    "recipients": [
+      "ops-team@example.com",
+      "oncall@example.com"
+    ],
+    "on_error": true,
+    "on_success": false
+  },
+  "security": {
+    "enable_audit_log": true,
+    "audit_log_file": "/var/log/guerillabackup/audit.log",
+    "require_client_cert": true,
+    "allowed_client_ips": [
+      "127.0.0.1",
+      "10.0.0.0/8",
+      "172.16.0.0/12"
+    ]
+  }
+}

@@ -1,0 +1,93 @@
+# Core backend service identity
+[server]
+name = {{ server.name }}
+host = {{ server.host }}
+port = {{ server.port }}
+
+# TLS/SSL settings (enabled only if cert/key provided)
+{% if server.tls.enabled %}
+{% if server.tls.cert_path and server.tls.key_path %}
+ssl_cert = {{ server.tls.cert_path }}
+ssl_key = {{ server.tls.key_path }}
+{% else %}
+# Warning: TLS enabled but cert/key missing — SSL disabled
+{% endif %}
+{% else %}
+# TLS disabled
+ssl_enabled = false
+{% endif %}
+
+# Connection handling
+max_connections = {{ connection.max_connections }}
+connection_timeout = {{ connection.timeout }}
+idle_timeout = {{ connection.idle_timeout }}
+read_buffer_size = {{ connection.read_buffer_size }}
+write_buffer_size = {{ connection.write_buffer_size }}
+
+# Rate limiting
+rate_limit_messages = {{ rate_limit.messages }}
+rate_limit_burst = {{ rate_limit.burst }}
+rate_limit_per_ip = {{ rate_limit.per_ip }}
+
+# Authentication and user management
+{% if auth.enabled %}
+auth_backend = {{ auth.backend }}
+{% for auth_backend, opts in auth.backends.items() %}
+# Settings for {{ auth_backend }} auth backend
+{% for key, val in opts.items() %}
+{{ auth_backend }}_{{ key }} = {{ val }}
+{% endfor %}
+{% endfor %}
+{% else %}
+# Auth disabled — anonymous connections allowed
+auth_enabled = false
+{% endif %}
+
+# Logging configuration
+{% if logging.enabled %}
+log_level = {{ logging.level }}
+log_format = {{ logging.format }}
+log_file = {{ logging.file }}
+log_syslog = {{ logging.syslog | lower }}
+{% else %}
+# Logging disabled
+log_enabled = false
+{% endif %}
+
+# Upstream IRC server pool
+[upstreams]
+{% for upstream in upstreams %}
+# Upstream server: {{ upstream.name }}
+{% if upstream.ssl %}
+{% if upstream.cert_verify is not none %}
+{{ upstream.name }} = {{ upstream.host }}:{{ upstream.port }};ssl;verify={{ upstream.cert_verify }}
+{% else %}
+{{ upstream.name }} = {{ upstream.host }}:{{ upstream.port }};ssl
+{% endif %}
+{% else %}
+{{ upstream.name }} = {{ upstream.host }}:{{ upstream.port }}
+{% endif %}
+{% endfor %}
+
+# Channel auto-join settings (optional per-user or global)
+{% if auto_join.enabled %}
+[auto_join]
+enabled = {{ auto_join.enabled }}
+{% if auto_join.channels is not none %}
+channels = {{ auto_join.channels | join(', ') }}
+{% endif %}
+{% if auto_join.nickserv is not none %}
+nickserv_nick = {{ auto_join.nickserv.nick }}
+{% if auto_join.nickserv.password %}
+nickserv_password = {{ auto_join.nickserv.password }}
+{% endif %}
+{% endif %}
+{% endif %}
+
+# Persistence and state
+[state]
+db_path = {{ state.db_path }}
+{% if state.backup.enabled %}
+backup_interval = {{ state.backup.interval }}
+backup_dir = {{ state.backup.dir }}
+{% endif %}

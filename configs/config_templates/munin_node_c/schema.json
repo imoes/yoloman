@@ -1,0 +1,136 @@
+{
+  "listen_address": {
+    "type": "string",
+    "default": "0.0.0.0",
+    "description": "IP address the node listens on. Use 0.0.0.0 for all interfaces, or a specific IP."
+  },
+  "listen_port": {
+    "type": "number",
+    "default": 4949,
+    "description": "TCP port the node listens on. Standard Munin port."
+  },
+  "munin_user": {
+    "type": "string",
+    "default": "munin",
+    "description": "System user account under which the node daemon runs for security isolation."
+  },
+  "log_level": {
+    "type": "number",
+    "default": 1,
+    "description": "Verbosity level: 0 (quiet), 1 (errors only), 2 (warnings), 3 (info), 4 (debug)."
+  },
+  "pid_file": {
+    "type": "string",
+    "default": "/var/run/munin/munin-node.pid",
+    "description": "Path to the PID file for the munin-node process."
+  },
+  "max_connections": {
+    "type": "number",
+    "default": 10,
+    "description": "Maximum number of simultaneous client connections allowed."
+  },
+  "use_tls": {
+    "type": "boolean",
+    "default": false,
+    "description": "Enable TLS encryption for client-server communication."
+  },
+  "tls_cert_file": {
+    "type": "string",
+    "default": "/etc/munin/munin-node.crt",
+    "description": "Path to TLS certificate file (used only if TLS enabled)."
+  },
+  "tls_key_file": {
+    "type": "string",
+    "default": "/etc/munin/munin-node.key",
+    "description": "Path to TLS private key file (used only if TLS enabled)."
+  },
+  "allowed_hosts": {
+    "type": "list",
+    "default": [
+      "^127\\.0\\.0\\.1$",
+      "^::1$"
+    ],
+    "description": "List of client host patterns (in regex-like form with dots escaped, wildcards as *) allowed to connect.",
+    "items": {
+      "type": "string",
+      "example": "192.168.1.",
+      "description": "A CIDR prefix or partial hostname. Must be safe for regex matching in config (e.g., use dots, avoid regex metacharacters unless intended)."
+    }
+  },
+  "excluded_plugins": {
+    "type": "list",
+    "default": [
+      "proc",
+      "uptime"
+    ],
+    "description": "Plugins to disable even if found in plugin_dir. Useful for hiding sensitive or unstable plugins.",
+    "items": {
+      "type": "string",
+      "example": "proc",
+      "description": "Name of a Munin plugin to exclude (as found in plugin_dir)."
+    }
+  },
+  "plugin_configs": {
+    "type": "object",
+    "default": {},
+    "description": "Per-plugin configuration overrides (e.g., set timeouts, environment variables). Keys are plugin names, values are key-value maps.",
+    "items": {
+      "type": "object",
+      "properties": {
+        "timeout": {
+          "type": "number",
+          "description": "Execution timeout in seconds for this plugin"
+        },
+        "env.something": {
+          "type": "string",
+          "description": "Environment variable override for plugin"
+        }
+      }
+    }
+  },
+  "host_configs": {
+    "type": "list",
+    "default": [],
+    "description": "List of remote hosts that this node serves as a proxy for (optional advanced use case).",
+    "items": {
+      "type": "object",
+      "properties": {
+        "host_name": {
+          "type": "string",
+          "description": "Name of the proxied host"
+        },
+        "address": {
+          "type": "string",
+          "description": "IP or hostname of the actual host"
+        },
+        "use_tls": {
+          "type": "boolean",
+          "description": "Use TLS to connect to the proxied host"
+        },
+        "port": {
+          "type": "number",
+          "description": "Port on the proxied host (default 4949)"
+        }
+      },
+      "required": [
+        "host_name",
+        "address"
+      ]
+    }
+  },
+  "plugin_dir": {
+    "type": "string",
+    "default": "/usr/share/munin/plugins",
+    "description": "Directory where Munin plugins are stored. Must be readable by the munin user."
+  },
+  "plugin_timeout": {
+    "type": "number",
+    "default": 10,
+    "description": "Maximum time (in seconds) allowed for any plugin to execute before termination."
+  },
+  "plugin_load_include": {
+    "type": "boolean",
+    "default": true,
+    "description": "Include the 'load' plugin in auto-discovered list if no explicit plugin list is given."
+  }
+}

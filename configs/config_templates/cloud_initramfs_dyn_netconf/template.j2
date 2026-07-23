@@ -1,0 +1,100 @@
+#!/bin/sh
+# /etc/initramfs-tools/scripts/init-bottom/dyn-netconf
+# cloud-initramfs-dyn-netconf: resolve the BOOTIF MAC address to a network
+# interface name and write an ifupdown snippet into /run so the installed
+# system can bring up the PXE boot interface with the correct protocol.
+
+PREREQ="{{ prereq }}"
+
+# Print prerequisite script names so initramfs orders execution correctly
+prereqs()
+{
+    echo "$PREREQ"
+}
+
+case $1 in
+prereqs)
+    prereqs
+    exit 0
+    ;;
+esac
+
+. /scripts/functions
+
+# Destination directory for per-interface ifupdown snippets; must reside on a
+# tmpfs that survives the pivot_root into the real root filesystem
+RUN_INTERFACES_DIR="{{ run_interfaces_dir }}"
+
+# Seconds the DHCP client waits for a lease before declaring failure
+DHCP_TIMEOUT={{ dhcp_timeout }}
+
+# Route metric for the PXE boot interface; higher values deprioritise it
+# relative to interfaces configured later by cloud-init
+INTERFACE_METRIC={{ interface_metric }}
+
+# Create the snippet directory if it does not already exist
+[ -d "${RUN_INTERFACES_DIR}" ] || mkdir -p "${RUN_INTERFACES_DIR}"
+
+# BOOTIF is set on the kernel command line by PXE firmware as 01-<MAC-with-dashes>
+BOOTIF=""
+for x in $(cat /proc/cmdline); do
+    case $x in
+        BOOTIF=*)
+            BOOTIF="${x#BOOTIF=}"
+            ;;
+    esac
+done
+
+{% if fallback_interface %}
+# Use the configured fallback interface when no BOOTIF is present
+if [ -z "${BOOTIF}" ]; then
+    IFACE="{{ fallback_interface }}"
+else
+    # Strip hardware-type prefix 01- and normalise dashes to colons
+    BOOTIF="${BOOTIF#01-}"
+    BOOTIF=$(echo "${BOOTIF}" | tr '-' ':')
+    IFACE=""
+    for iface in /sys/class/net/*; do
+        iface="${iface##*/}"
+        [ -f "/sys/class/net/${iface}/address" ] || continue
+        [ "$(cat /sys/class/net/${iface}/address)" = "${BOOTIF}" ] && IFACE="${iface}" && break
+    done
+fi
+{% else %}
+# No BOOTIF means the system was not PXE-booted; nothing to configure
+[ -z "${BOOTIF}" ] && exit 0
+
+# Strip hardware-type prefix 01- and normalise dashes to colons
+BOOTIF="${BOOTIF#01-}"
+BOOTIF=$(echo "${BOOTIF}" | tr '-' ':')
+
+# Walk sysfs to find which interface owns the BOOTIF MAC address
+IFACE=""
+for iface in /sys/class/net/*; do
+    iface="${iface##*/}"
+    [ -f "/sys/class/net/${iface}/address" ] || continue
+    [ "$(cat /sys/class/net/${iface}/address)" = "${BOOTIF}" ] && IFACE="${iface}" && break
+done
+{% endif %}
+
+# Exit cleanly if no matching interface was found
+[ -z "${IFACE}" ] && exit 0
+
+# Write the ifupdown snippet consumed by cloud-init and ifupdown-extra on first boot
+{
+{% if dhcp4 %}
+    # Bring the interface up automatically and acquire an IPv4 address via DHCP
+    printf "auto %s\n" "${IFACE}"
+    printf "iface %s inet dhcp\n" "${IFACE}"
+    printf "\tmetric %s\n" "${INTERFACE_METRIC}"
+    printf "\ttimeout %s\n" "${DHCP_TIMEOUT}"
+{% for opt in dhcp4_options %}
+    # {{ opt.description }}
+    printf "\t{{ opt.key }} {{ opt.value }}\n"
+{% endfor %}
+{% endif %}
+{% if dhcp6 %}
+    # Request an IPv6 address via DHCPv6 on the boot interface
+    printf "iface %s inet6 dhcp\n" "${IFACE}"
+{% endif %}
+} > "${RUN_INTERFACES_DIR}/${IFACE}"

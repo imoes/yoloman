@@ -1,0 +1,54 @@
+# N2N supernode configuration file
+# List of interfaces to listen on (UDP)
+listen_addr = {{ listen_addr }}
+
+# Port the supernode listens on
+port = {{ port }}
+
+# Network name (community)
+network_name = {{ network_name }}
+
+# Network key (base64-encoded); if not set, uses the deprecated 'key' option
+network_key = {{ network_key | default('') }}
+
+# Encryption algorithm (e.g., 'aes', 'twofish', 'blowfish'); empty or 'none' disables encryption
+encryption = {{ encryption }}
+
+# Log level: 0=quiet, 1=error, 2=warn, 3=info, 4=debug
+log_level = {{ log_level }}
+
+# Enable multicast peer discovery
+enable_multicast = {{ 'true' if enable_multicast else 'false' }}
+
+# Maximum number of active peers (0 = unlimited)
+max_peers = {{ max_peers | default(0) }}
+
+# Path to PID file
+pid_file = {{ pid_file }}
+
+# Optional: bind to specific interface
+bind_interface = {{ bind_interface | default('') }}
+
+# Optional: whitelist-only mode (reject peers not in whitelist)
+whitelist_only = {{ 'true' if whitelist_only else 'false' }}
+
+# Whitelist file (one MAC per line); only used if whitelist_only=true
+whitelist_file = {{ whitelist_file | default('') }}
+
+# Optional: forward traffic for unknown peers (risky in production)
+forward_unknown = {{ 'true' if forward_unknown else 'false' }}
+
+# Optional: TTL for edge registrations
+registration_ttl = {{ registration_ttl }}
+
+{% if edge_interfaces %}
+# Edge interfaces to auto-create on startup
+{% for iface in edge_interfaces %}
+[{{ loop.index }}]
+device = {{ iface.device }}
+ip = {{ iface.ip }}
+netmask = {{ iface.netmask }}
+{% if iface.gateway %}gateway = {{ iface.gateway }}{% endif %}
+{% if iface.mtu %}mtu = {{ iface.mtu }}{% endif %}
+{% endfor %}
+{% endif %}

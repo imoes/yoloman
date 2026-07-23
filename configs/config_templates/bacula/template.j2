@@ -1,0 +1,207 @@
+# Director resource configuration for Bacula (bacula-dir.conf)
+# Global settings
+Director {
+  Name = {{ director.name }}
+  DIRport = {{ director.port }}
+  QueryFile = "{{ director.query_file }}"
+  WorkingDirectory = "{{ director.working_directory }}"
+  PidDirectory = "{{ director.pid_directory }}"
+  MaximumConcurrentJobs = {{ director.max_concurrent_jobs }}
+  Password = "{{ director.password }}"
+  Messages = "Daemon"
+  DirAddress = {{ director.address | default('0.0.0.0') }}
+{% if director.acl_enabled %}
+  ACLEnabled = yes
+{% else %}
+  ACLEnabled = no
+{% endif %}
+}
+
+# Catalog resource — shared among director, FDs, and SDs
+Catalog {
+  Name = {{ catalog.name }}
+  dbname = "{{ catalog.db_name }}"
+  dbuser = "{{ catalog.db_user }}"
+  dbpassword = "{{ catalog.db_password }}"
+{% if catalog.db_port %}
+  dbport = {{ catalog.db_port }}
+{% endif %}
+{% if catalog.db_host %}
+  dbhost = "{{ catalog.db_host }}"
+{% endif %}
+  dbdriver = {{ catalog.db_driver | to_json }}
+}
+
+# Messages resource — how the director reports events
+Messages {
+  Name = Daemon
+  mailcommand = "/usr/lib/bacula/bsmtp -h {{ messages.mail_host }} -f \"{{ messages.from_address }}\" -s \"Bacula: %r %s %m\" %r"
+  operatorcommand = "/usr/lib/bacula/bsmtp -h {{ messages.mail_host }} -f \"{{ messages.from_address }}\" -s \"Bacula: Intervention needed %r\" %r"
+  mail = {{ messages.admin_email | to_json }} = all, !skipped
+  operator = {{ messages.admin_email | to_json }} = mount
+  append = "{{ messages.log_file }}" = all, !skipped
+}
+
+# Scheduler resource — defines when automatic jobs run
+{% for schedule in schedules %}
+{% if schedule.comment %}
+# {{ schedule.comment }}
+{% endif %}
+Schedule {
+  Name = "{{ schedule.name }}"
+{% for run in schedule.runs %}
+{% if run.comment %}
+  # {{ run.comment }}
+{% endif %}
+  Run = {{ run.day_of_week | default('Sun') }} {{ run.time | default('23:05') }}
+{% endfor %}
+}
+{% endfor %}
+
+# FileSet resource — which files to backup
+{% for fileset in filesets %}
+{% if fileset.comment %}
+# {{ fileset.comment }}
+{% endif %}
+FileSet {
+  Name = "{{ fileset.name }}"
+{% if fileset.enable_checksum %}
+  EnableChecksum = yes
+{% endif %}
+{% for include in fileset.includes %}
+{% if include.comment %}
+  # {{ include.comment }}
+{% endif %}
+  Include {
+{% if include.options %}
+    Options {
+{% for opt in include.options %}
+      {{ opt }}
+{% endfor %}
+    }
+{% endif %}
+{% for path in include.paths %}
+      File = {{ path | to_json }}
+{% endfor %}
+  }
+{% endfor %}
+{% for exclude in fileset.excludes %}
+{% if exclude.comment %}
+  # {{ exclude.comment }}
+{% endif %}
+  Exclude {
+{% if exclude.options %}
+    Options {
+{% for opt in exclude.options %}
+      {{ opt }}
+{% endfor %}
+    }
+{% endif %}
+{% for path in exclude.paths %}
+      File = {{ path | to_json }}
+{% endfor %}
+  }
+{% endfor %}
+}
+{% endfor %}
+
+# Client (File Daemon) resource
+{% for client in clients %}
+{% if client.comment %}
+# {{ client.comment }}
+{% endif %}
+Client {
+  Name = "{{ client.name }}"
+  Address = {{ client.address }}
+  FDPort = {{ client.fd_port }}
+  Catalog = {{ client.catalog_name | default(catalog.name) | to_json }}
+  Password = "{{ client.password }}"
+  FileRetention = {{ client.file_retention | to_json }}
+  JobRetention = {{ client.job_retention | to_json }}
+{% if client.auto_prune %}
+  AutoPrune = yes
+{% else %}
+  AutoPrune = no
+{% endif %}
+{% if client.bootstrap_file %}
+  Bootstrap = "{{ client.bootstrap_file }}"
+{% endif %}
+}
+{% endfor %}
+
+# Storage resource (Storage Daemon)
+{% for storage in storages %}
+{% if storage.comment %}
+# {{ storage.comment }}
+{% endif %}
+Storage {
+  Name = "{{ storage.name }}"
+  Address = {{ storage.address }}
+  SDPort = {{ storage.sd_port }}
+  Password = "{{ storage.password }}"
+  Device = "{{ storage.device_name }}"
+  Media Type = {{ storage.media_type | to_json }}
+{% if storage.max_job_concurrency %}
+  Maximum Concurrent Jobs = {{ storage.max_job_concurrency }}
+{% endif %}
+{% if storage.auto_changer %}
+  AutoChanger = yes
+{% endif %}
+}
+{% endfor %}
+
+# Pool resource — storage pool definitions
+{% for pool in pools %}
+{% if pool.comment %}
+# {{ pool.comment }}
+{% endif %}
+Pool {
+  Name = "{{ pool.name }}"
+  Pool Type = {{ pool.pool_type | to_json }}
+  Recycle = {{ pool.recycle | to_json }}
+  AutoPrune = {{ pool.auto_prune | to_json }}
+  Volume Retention = {{ pool.volume_retention | to_json }}
+  Maximum Volume Bytes = {{ pool.max_volume_bytes | to_json }}
+  Maximum Volumes = {{ pool.max_volumes | to_json }}
+  Label Format = {{ pool.label_format | to_json }}
+{% if pool.volume_use_duration %}
+  Volume Use Duration = {{ pool.volume_use_duration | to_json }}
+{% endif %}
+{% if pool.max_job_duration %}
+  Maximum Job Duration = {{ pool.max_job_duration | to_json }}
+{% endif %}
+{% if pool.pool_id %}
+  Pool ID = {{ pool.pool_id }}
+{% endif %}
+}
+{% endfor %}
+
+# Job resource — defines what gets backed up and when
+{% for job in jobs %}
+{% if job.comment %}
+# {{ job.comment }}
+{% endif %}
+Job {
+  Name = "{{ job.name }}"
+  Job Type = {{ job.job_type | to_json }}
+  Client = {{ job.client_name | to_json }}
+  FileSet = {{ job.fileset_name | to_json }}
+  Schedule = {{ job.schedule_name | to_json }}
+  Storage = {{ job.storage_name | to_json }}
+  Pool = {{ job.pool_name | to_json }}
+  Messages = {{ job.messages_name | default('Daemon') | to_json }}
+  Priority = {{ job.priority | default(10) }}
+{% if job.full_backup_interval_days %}
+  Full Backup Interval = {{ job.full_backup_interval_days }} days
+{% endif %}
+{% if job.max_run_schedules %}
+  Max Run Schedules = {{ job.max_run_schedules }}
+{% endif %}
+{% if job.write_bootstrap %}
+  Write Bootstrap = "{{ job.write_bootstrap }}"
+{% endif %}
+{% if job.priority != 10 %}
+  # Priority controls execution order; lower = higher priority
+{% endif %}
+}
+{% endfor %}

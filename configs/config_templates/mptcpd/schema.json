@@ -1,0 +1,85 @@
+{
+  "enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable or disable the mptcpd daemon at boot."
+  },
+  "path_manager": {
+    "type": "string",
+    "default": "fullmesh",
+    "description": "Path manager policy to use for new MPTCP connections. Options: fullmesh (all addresses connected), subflow (one per interface), limited (up to 2 subflows), fallback (no MPTCP if path manager unavailable)."
+  },
+  "log_level": {
+    "type": "string",
+    "default": "notice",
+    "description": "Verbosity of logging. Options: debug, info, notice, warning, error, critical. Lower levels = more verbose."
+  },
+  "log_file": {
+    "type": "string",
+    "default": "",
+    "description": "Path to write log output (e.g., /var/log/mptcpd.log). If empty, logs only to stderr."
+  },
+  "allowed_interfaces": {
+    "type": "list",
+    "default": [
+      {
+        "name": "eth0",
+        "enabled": true,
+        "priority": 10,
+        "addr_type": "ipv4"
+      }
+    ],
+    "description": "List of network interfaces allowed for MPTCP path management. Each interface can be enabled/disabled and assigned a priority.",
+    "items": {
+      "name": {
+        "type": "string",
+        "description": "Interface name (e.g., eth0, wlan0)."
+      },
+      "enabled": {
+        "type": "bool",
+        "description": "Whether this interface is used for MPTCP."
+      },
+      "priority": {
+        "type": "number",
+        "description": "Interface priority (higher = preferred). Used for subflow scheduling."
+      },
+      "addr_type": {
+        "type": "string",
+        "enum": [
+          "ipv4",
+          "ipv6",
+          "both"
+        ],
+        "description": "Address family(s) allowed on this interface."
+      }
+    }
+  },
+  "socket_opts": {
+    "type": "object",
+    "default": {},
+    "description": "Optional low-level socket options for MPTCP connections (e.g., mptcp.nodelay, net.ipv4.tcp_congestion_control). Use only if you understand MPTCP internals."
+  },
+  "custom_paths": {
+    "type": "list",
+    "default": [],
+    "description": "Override default routing for specific destinations (e.g., force all traffic to a subnet via a specific interface).",
+    "items": {
+      "id": {
+        "type": "string",
+        "description": "Unique identifier for the path rule."
+      },
+      "dst": {
+        "type": "string",
+        "description": "Destination network/CIDR (e.g., 10.0.0.0/24) or hostname (rarely)."
+      },
+      "ifname": {
+        "type": "string",
+        "description": "Interface to use for this destination."
+      },
+      "metric": {
+        "type": "number",
+        "description": "Route metric (lower = preferred). Optional."
+      }
+    }
+  }
+}

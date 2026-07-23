@@ -1,0 +1,77 @@
+# Global PGW configuration
+pgw:
+  # Instance identity and hostname
+  name: "{{ pgw.name }}"
+  ip_address: "{{ pgw.ip_address }}"
+
+  # Interface endpoints
+  s5_s8:
+    # FQDN or IP for S5/S8 interface to SGW/SGSN
+    fqdn: "{{ pgw.s5_s8.fqdn }}"
+    # S5/S8 SDSA/IP address and port
+    address: "{{ pgw.s5_s8.address }}"
+    port: {{ pgw.s5_s8.port }}
+
+  s4:
+    # S4 interface to eNodeB (SGi is handled separately)
+    enabled: {{ pgw.s4.enabled }}
+    address: "{{ pgw.s4.address }}"
+    port: {{ pgw.s4.port }}
+
+  # SGi (public/Gi) interface to external network
+  sgi:
+    # Interface name and IP configuration
+    interface: "{{ pgw.sgi.interface }}"
+    address: "{{ pgw.sgi.address }}"
+    netmask: "{{ pgw.sgi.netmask }}"
+    # Optional gateway
+    {% if pgw.sgi.gateway %}gateway: "{{ pgw.sgi.gateway }}"{% endif %}
+
+  # DNS configuration
+  dns:
+    primary: "{{ pgw.dns.primary }}"
+    secondary: "{{ pgw.dns.secondary }}"
+
+  # DHCP configuration for UE address assignment
+  dhcp:
+    enabled: {{ pgw.dhcp.enabled }}
+    pool:
+      start: "{{ pgw.dhcp.pool.start }}"
+      end: "{{ pgw.dhcp.pool.end }}"
+
+  # APN configuration (list of APNs)
+  apns:
+    {% for apn in pgw.apns %}
+    - name: "{{ apn.name }}"
+      # Network type (ipv4, ipv6, ipv4v6)
+      type: "{{ apn.type }}"
+      # UE address pool (if not using DHCP globally)
+      {% if apn.dns %}dns:
+        primary: "{{ apn.dns.primary }}"
+        secondary: "{{ apn.dns.secondary }}"{% endif %}
+      # QoS configuration (optional per-APN)
+      qci: {{ apn.qci }}
+      arp:
+        priority_level: {{ apn.arp.priority_level }}
+        preemption_capability: {{ apn.arp.preemption_capability }}
+        preemption_vulnerability: {{ apn.arp.preemption_vulnerability }}
+      {% if apn.mbr %}mbr:
+        uplink: {{ apn.mbr.uplink }}
+        downlink: {{ apn.mbr.downlink }}{% endif %}
+      # Optional SGi interface override
+      {% if apn.sgi_interface %}sgi_interface: "{{ apn.sgi_interface }}"{% endif %}
+    {% endfor %}
+
+  # Logging
+  logging:
+    level: "{{ pgw.logging.level }}"
+    file: "{{ pgw.logging.file }}"
+
+  # Statistics and monitoring
+  stats:
+    enabled: {{ pgw.stats.enabled }}
+    interval: {{ pgw.stats.interval }}
+
+  # System resources and concurrency
+  workers: {{ pgw.workers }}
+  max_connections: {{ pgw.max_connections }}

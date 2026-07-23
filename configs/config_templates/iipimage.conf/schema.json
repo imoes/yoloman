@@ -1,0 +1,241 @@
+{
+  "verbose": {
+    "type": "number",
+    "default": 0,
+    "description": "Verbosity level: 0=quiet, 1=normal, 2=debug"
+  },
+  "log_level": {
+    "type": "string",
+    "default": "INFO",
+    "description": "Minimum logging level: TRACE, DEBUG, INFO, WARN, ERROR, or FATAL"
+  },
+  "max_image_cache_size": {
+    "type": "number",
+    "default": 100,
+    "description": "Maximum number of images to cache (in memory)"
+  },
+  "cache_expiration_time": {
+    "type": "number",
+    "default": 3600,
+    "description": "Cache entry expiration time in seconds"
+  },
+  "max_size": {
+    "type": "number",
+    "default": 8192,
+    "description": "Maximum pixel dimension (width or height) allowed for source images"
+  },
+  "jpeg_quality": {
+    "type": "number",
+    "default": 75,
+    "description": "JPEG compression quality (1\u2013100)"
+  },
+  "webp_quality": {
+    "type": "number",
+    "default": 80,
+    "description": "WebP compression quality (1\u2013100)"
+  },
+  "max_jpeg_size": {
+    "type": "number",
+    "default": 100,
+    "description": "Maximum dimensions (in percent of original) for JPEG output before resizing is skipped"
+  },
+  "min_zoom_level": {
+    "type": "number",
+    "default": 0,
+    "description": "Minimum zoom level (tile pyramid level)"
+  },
+  "max_zoom_level": {
+    "type": "number",
+    "default": 20,
+    "description": "Maximum zoom level allowed"
+  },
+  "tile_size": {
+    "type": "number",
+    "default": 256,
+    "description": "Tile size in pixels (both width and height)"
+  },
+  "tile_overlap": {
+    "type": "number",
+    "default": 0,
+    "description": "Overlap between adjacent tiles in pixels"
+  },
+  "compression": {
+    "type": "string",
+    "default": "jpeg",
+    "description": "Default compression format for tiles: 'jpeg', 'png', 'webp'"
+  },
+  "allow_animated_gif": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable support for animated GIF images"
+  },
+  "allow_animated_webp": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable support for animated WebP images"
+  },
+  "use_caching": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable caching of rendered tiles"
+  },
+  "use_shared_memory": {
+    "type": "bool",
+    "default": false,
+    "description": "Use system shared memory for caching (requires shared memory support)"
+  },
+  "shared_memory_key": {
+    "type": "number",
+    "default": 17767,
+    "description": "Hexadecimal key for shared memory segment (e.g., 0x4567)"
+  },
+  "log_file": {
+    "type": "string",
+    "default": "/var/log/iipimage/iipimage.log",
+    "description": "Path to log file"
+  },
+  "log_format": {
+    "type": "string",
+    "default": "%Y-%m-%d %H:%M:%S",
+    "description": "Log timestamp format (strftime-compatible)"
+  },
+  "bind_address": {
+    "type": "string",
+    "default": "0.0.0.0",
+    "description": "Network address to bind the server to (e.g., '127.0.0.1' or '0.0.0.0')"
+  },
+  "port": {
+    "type": "number",
+    "default": 80,
+    "description": "HTTP port to listen on"
+  },
+  "max_connections": {
+    "type": "number",
+    "default": 100,
+    "description": "Maximum simultaneous client connections"
+  },
+  "timeout": {
+    "type": "number",
+    "default": 30,
+    "description": "Connection and request timeout in seconds"
+  },
+  "max_workers": {
+    "type": "number",
+    "default": 4,
+    "description": "Maximum number of worker processes (for prefork mode)"
+  },
+  "max_threads": {
+    "type": "number",
+    "default": 10,
+    "description": "Maximum number of threads per worker"
+  },
+  "enable_ssl": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable HTTPS support"
+  },
+  "ssl_cert_file": {
+    "type": "string",
+    "default": "/etc/ssl/certs/iipimage.crt",
+    "description": "Path to SSL certificate file"
+  },
+  "ssl_key_file": {
+    "type": "string",
+    "default": "/etc/ssl/private/iipimage.key",
+    "description": "Path to SSL private key file"
+  },
+  "formats": {
+    "type": "list",
+    "default": [
+      {
+        "type": "tiff",
+        "loader": "tiff",
+        "options": ""
+      },
+      {
+        "type": "jp2",
+        "loader": "j2k",
+        "options": ""
+      },
+      {
+        "type": "jpeg",
+        "loader": "jpeg",
+        "options": ""
+      },
+      {
+        "type": "png",
+        "loader": "png",
+        "options": ""
+      },
+      {
+        "type": "webp",
+        "loader": "webp",
+        "options": ""
+      },
+      {
+        "type": "bmp",
+        "loader": "bmp",
+        "options": ""
+      },
+      {
+        "type": "gif",
+        "loader": "gif",
+        "options": ""
+      }
+    ],
+    "description": "List of supported image formats and their loader plugins",
+    "items": {
+      "type": "object",
+      "fields": {
+        "type": {
+          "type": "string",
+          "description": "File extension or MIME type (e.g., 'tiff', 'jp2')"
+        },
+        "loader": {
+          "type": "string",
+          "description": "Name of the loader plugin (e.g., 'tiff', 'j2k')"
+        },
+        "options": {
+          "type": "string",
+          "default": "",
+          "description": "Comma-separated options for the loader (e.g., 'threads=4,verbose=0')"
+        }
+      }
+    }
+  },
+  "paths": {
+    "type": "list",
+    "default": [
+      {
+        "alias": "/",
+        "path": "/data/images",
+        "read_only": false,
+        "recursive": true
+      }
+    ],
+    "description": "Filesystem path mappings for image directories",
+    "items": {
+      "type": "object",
+      "fields": {
+        "alias": {
+          "type": "string",
+          "description": "URL path prefix (e.g., '/' or '/collectionA')"
+        },
+        "path": {
+          "type": "string",
+          "description": "Absolute filesystem path to image directory"
+        },
+        "read_only": {
+          "type": "bool",
+          "default": false,
+          "description": "Disable write operations (e.g., for image uploads)"
+        },
+        "recursive": {
+          "type": "bool",
+          "default": true,
+          "description": "Recursively scan subdirectories for images"
+        }
+      }
+    }
+  }
+}

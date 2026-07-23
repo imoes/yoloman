@@ -1,0 +1,41 @@
+# mDNS daemon configuration
+[General]
+# Enable or disable the mDNS responder
+Enabled={{ enabled }}
+# Hostname to advertise (empty uses system hostname)
+Hostname={{ hostname | default('') }}
+# Domain to use for mDNS (typically 'local')
+Domain={{ domain | default('local') }}
+# Interface to bind to (empty = all interfaces, use 'any' or interface name like 'eth0')
+Interface={{ interface | default('') }}
+# Port to listen on (typically 5353)
+Port={{ port | default(5353) }}
+# Enable or disable aggressive NSEC response caching
+NsecCache={{ nsec_cache | default(false) }}
+
+# Logging configuration
+[Logging]
+# Log level: 0=none, 1=error, 2=warn, 3=info, 4=debug
+Level={{ log_level | default(2) }}
+# Log file path (empty = stdout/stderr)
+File={{ log_file | default('') }}
+
+# Service advertising configuration
+[Services]
+# List of services to advertise (one per line)
+{% for svc in services %}
+# {{ svc.description | default('Service advertisement') }}
+{{ svc.type }}={{ svc.name | default('') }}
+{% endfor %}
+
+# HTTP service example:
+# _http._tcp=My Web Server
+
+# Additional per-service metadata (e.g., TXT records) can be added in [ServiceMetadata]
+[ServiceMetadata]
+{% for svc in services %}
+{% if svc.metadata %}
+# Metadata for {{ svc.type }}/{{ svc.name | default('unnamed') }}
+{{ svc.type }}={{ svc.metadata | to_json() }}
+{% endif %}
+{% endfor %}

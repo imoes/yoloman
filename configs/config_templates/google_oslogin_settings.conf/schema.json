@@ -1,0 +1,98 @@
+{
+  "use_oslogin": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable or disable OS Login globally. When true, user and SSH key management is handled by Google's OS Login service."
+  },
+  "ssh_public_key_cache_ttl": {
+    "type": "number",
+    "default": 86400,
+    "description": "Time-to-live (in seconds) for cached SSH public keys. After this period, keys are refreshed from metadata."
+  },
+  "ssh_public_key_sync": {
+    "type": "bool",
+    "default": true,
+    "description": "When enabled, SSH public keys are automatically synchronized from Google Compute Engine metadata."
+  },
+  "sudoers_file": {
+    "type": "string",
+    "default": "/etc/sudoers.d/oslogin",
+    "description": "Path to the sudoers configuration file used to grant sudo access to OS Login users. Set to an empty string to disable sudo support."
+  },
+  "authorized_keys_file": {
+    "type": "string",
+    "default": "/etc/oslogin/authorized_keys",
+    "description": "Path to the file where OS Login writes user-specific SSH public keys. Set to an empty string to disable authorized_keys file generation."
+  },
+  "sshd_oslogin_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "When enabled, the SSH daemon integrates with OS Login to allow Google-managed SSH access."
+  },
+  "sshd_key_types": {
+    "type": "list",
+    "default": [
+      "ecdsa-sha2-nistp256",
+      "ecdsa-sha2-nistp384",
+      "ecdsa-sha2-nistp521",
+      "ssh-ed25519",
+      "ssh-rsa"
+    ],
+    "items": {
+      "type": "string",
+      "description": "SSH key type (algorithm) allowed for OS Login authentication. Typically includes modern key types."
+    },
+    "description": "List of allowed SSH key types. Only keys matching these types will be accepted from metadata."
+  },
+  "cache_dir": {
+    "type": "string",
+    "default": "/var/cache/oslogin",
+    "description": "Directory used for caching OS Login metadata and configuration data."
+  },
+  "cache_use_cache": {
+    "type": "bool",
+    "default": true,
+    "description": "When enabled, cached metadata is used instead of fetching fresh data (subject to TTL)."
+  },
+  "cache_expiration": {
+    "type": "number",
+    "default": 300,
+    "description": "Time in seconds after which cached metadata is considered stale and refreshed."
+  },
+  "cache_gpg_verify": {
+    "type": "bool",
+    "default": true,
+    "description": "When enabled, cached metadata files are verified using GPG signatures before use for security."
+  },
+  "metadata_retries": {
+    "type": "number",
+    "default": 3,
+    "description": "Number of retry attempts when fetching metadata from the metadata server."
+  },
+  "metadata_timeout": {
+    "type": "number",
+    "default": 10,
+    "description": "Timeout (in seconds) for each metadata request attempt."
+  },
+  "metadata_servers": {
+    "type": "list",
+    "default": [
+      "metadata.google.internal"
+    ],
+    "items": {
+      "type": "string",
+      "description": "Metadata server hostname to query for OS Login data."
+    },
+    "description": "List of metadata server hostnames. Used for fallback in case the primary server is unreachable."
+  },
+  "log_level": {
+    "type": "string",
+    "default": "INFO",
+    "description": "Minimum logging level. Valid values: DEBUG, INFO, WARNING, ERROR, CRITICAL."
+  },
+  "log_file": {
+    "type": "string",
+    "default": "/var/log/oslogin.log",
+    "description": "Path to the log file. Set to an empty string to disable file logging and log to stdout/stderr only."
+  }
+}

@@ -1,0 +1,54 @@
+{
+  "debug": false,
+  "spool_dir": "/var/spool/lpd",
+  "lpd_user": "lp",
+  "max_jobs": 5,
+  "max_job_size": 0,
+  "remote_printer_connect_timeout": 60,
+  "bind_addr": "0.0.0.0",
+  "port": 515,
+  "ipv6": false,
+  "extended": true,
+  "log_job": true,
+  "log_level": 1,
+  "default_printer": "hp_laser",
+  "printers": [
+    {
+      "name": "hp_laser",
+      "comment": "HP LaserJet in Engineering Lab",
+      "device": "socket://192.168.10.50:9100",
+      "backend": "",
+      "filter": "/usr/bin/gs -dSAFER -dBATCH -dNOPAUSE -sDEVICE=hpcups -sstdout=%stderr -",
+      "options": [
+        "preintercept=/usr/bin/pstops",
+        "job_timeout=600"
+      ],
+      "auth_required": false
+    },
+    {
+      "name": "inkjet_1",
+      "comment": "Shared color printer",
+      "device": "/dev/usb/lp1",
+      "backend": "",
+      "filter": "",
+      "options": [
+        "job_timeout=300"
+      ],
+      "auth_required": true
+    }
+  ],
+  "access_rules": [
+    {
+      "action": "allow",
+      "source": "192.168.10.0/24"
+    },
+    {
+      "action": "allow",
+      "source": "localhost"
+    },
+    {
+      "action": "deny",
+      "source": "0.0.0.0/0"
+    }
+  ]
+}

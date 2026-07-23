@@ -1,0 +1,32 @@
+[Unit]
+# Enables the systemd OOMD (Out-Of-Memory Daemon) unit file (loaded automatically by systemd when enabled)
+# This unit file is provided by systemd-oomd and should not be edited directly
+# Instead, configure oomd behavior via /etc/systemd/oomd.conf
+
+[Unit]
+Description=Systemd Out-Of-Memory Daemon
+Documentation=man:systemd-oomd(8)
+After=systemd-sysusers.service
+
+[Service]
+Type=notify
+ExecStart={{ exec_start }}
+EnvironmentFile=-{{ environment_file }}
+Restart=always
+RestartSec=3s
+
+# Memory pressure monitoring behavior
+# Tune aggressiveness and thresholds for memory pressure handling
+MemoryPressureThreshold=0
+MemoryPressureFrequency=0
+
+# Optional: limit memory for OOMD itself (leave empty or comment out to use defaults)
+# MemoryMax={{ memory_max }}
+# MemoryHigh={{ memory_high }}
+
+# Optional: CPU limits
+# CPUQuota={{ cpu_quota }}
+# CPUShares={{ cpu_shares }}
+
+[Install]
+WantedBy=multi-user.target

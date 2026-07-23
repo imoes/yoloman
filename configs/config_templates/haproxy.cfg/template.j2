@@ -1,0 +1,100 @@
+{# Global settings: process-wide defaults for HAProxy #}
+global
+    log /dev/log local0
+    maxconn {{ global_maxconn }}
+    chroot /var/lib/haproxy
+    user haproxy
+    group haproxy
+    daemon
+    stats socket /run/haproxy/admin.sock mode 660 level admin
+    {%- if global_ssl_default_bind is defined and global_ssl_default_bind %}
+    ssl-default-bind-options ssl-min-ver TLSv1.2 no-tls-tickets
+    {%- endif %}
+
+{# Default settings: applied to all frontends/backends unless overridden #}
+defaults
+    log     global
+    mode    {{ defaults_mode }}
+    option  {{ defaults_option_httplog | default('dontlognull') }}
+    {%- if defaults_timeout_connect is defined %}
+    timeout connect {{ defaults_timeout_connect }}
+    {% endif %}
+    timeout client  {{ defaults_timeout_client }}
+    timeout server  {{ defaults_timeout_server }}
+    retries         {{ defaults_retries }}
+    option          redispatch
+    option          http-server-close
+
+{# Frontend definitions: entry points handling incoming HTTP(S) traffic #}
+{%- for frontend in frontends %}
+frontend {{ frontend.name }}
+    {%- if frontend.bind_address is defined and frontend.bind_port is defined %}
+    bind {{ frontend.bind_address }}:{{ frontend.bind_port }}
+    {%- else %}
+    bind *:{{ frontend.bind_port }}
+    {%- endif %}
+    {%- if frontend.ssl_cert is defined %}
+    bind *:{{ frontend.ssl_port | default(443) }} ssl crt {{ frontend.ssl_cert }}
+    {%- endif %}
+    {%- if frontend.mode is defined %}
+    mode {{ frontend.mode }}
+    {%- else %}
+    mode http
+    {%- endif %}
+    {%- if frontend.option_forwardfor is not defined or frontend.option_forwardfor %}
+    option forwardfor
+    {%- endif %}
+    {%- if frontend.acl_rules is defined %}
+    {%- for acl in frontend.acl_rules %}
+    acl {{ acl.name }} {{ acl.condition }}
+    {%- endfor %}
+    {%- endif %}
+    {%- if frontend.use_backend_rules is defined %}
+    {%- for rule in frontend.use_backend_rules %}
+    use_backend {{ rule.backend_name }} if {{ rule.condition_name }}
+    {%- endfor %}
+    {%- else %}
+    default_backend {{ frontends[0].default_backend | default('default_backend') }}
+    {%- endif %}
+    {%- if frontend.stats_enable %}
+    stats enable
+    stats uri {{ frontend.stats_uri | default('/stats') }}
+    stats refresh {{ frontend.stats_refresh }}
+    {%- endif %}
+
+{%- endfor %}
+
+{# Backend definitions: server pools serving requests #}
+{%- for backend in backends %}
+backend {{ backend.name }}
+    mode {{ backend.mode | default('http') }}
+    balance {{ backend.balance }}
+    {%- if backend.health_check_path is defined %}
+    option httpchk GET {{ backend.health_check_path }}
+    {%- elif backend.health_check_port is defined %}
+    option httpchk GET / HTTP/1.1\r\nHost:\ localhost
+    {%- endif %}
+    {%- if backend.server_options %}
+    option http-server-close
+    {%- endif %}
+    {%- for server in backend.servers %}
+    server {{ server.name }} {{ server.address }}:{{ server.port }}
+        {%- if server.check is defined and server.check %} check{%- endif %}
+        {%- if server.maxconn is defined %} maxconn {{ server.maxconn }}{%- endif %}
+        {%- if server.weight is defined %} weight {{ server.weight }}{%- endif %}
+        {%- if server.backup is defined and server.backup %} backup{%- endif %}
+    {%- endfor %}
+
+{%- endfor %}
+
+{# Optional stats frontend (dedicated stats UI) #}
+{%- if stats_frontend_enable %}
+listen stats
+    bind *:{{ stats_frontend_port }}
+    stats enable
+    stats uri {{ stats_frontend_uri }}
+    stats refresh {{ stats_frontend_refresh }}
+    {%- if stats_frontend_auth_user is defined and stats_frontend_auth_user %}
+    stats auth {{ stats_frontend_auth_user }}:{{ stats_frontend_auth_pass }}
+    {%- endif %}
+{%- endif %}

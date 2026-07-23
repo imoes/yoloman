@@ -1,0 +1,57 @@
+# Listen on this port for HTTP connections
+port: {{ server.port }}
+
+# Host address to bind to (0.0.0.0 = all interfaces)
+host: "{{ server.host }}"
+
+# Base directory where MP3 files are stored
+music_dir: "{{ server.music_dir }}"
+
+# Enable or disable metadata caching (improves performance for large libraries)
+metadata_cache: {{ server.metadata_cache | lower }}
+
+# Maximum number of concurrent connections
+max_connections: {{ server.max_connections }}
+
+# Log level: debug, info, warn, error
+log_level: "{{ server.log_level }}"
+
+# Log file path (use '-' for stdout)
+log_file: "{{ server.log_file }}"
+
+# Web interface title (shown in browser title bar)
+web_title: "{{ web.title }}"
+
+# Enable or disable the web interface
+web_enabled: {{ web.enabled | lower }}
+
+# Admin user credentials (basic auth)
+{% if web.admin_user and web.admin_pass %}
+admin_user: "{{ web.admin_user }}"
+admin_pass: "{{ web.admin_pass }}"
+{% else %}
+# Admin credentials omitted (anonymous access if web_enabled)
+{% endif %}
+
+# Streaming quality (kbit/s): 64, 96, 128, 160, 192, 256, 320
+stream_quality: {{ stream.quality }}
+
+# Allow clients to request direct file download instead of streaming
+allow_download: {{ stream.allow_download | lower }}
+
+# Supported playlist formats (comma-separated list)
+{% for fmt in playlists.supported_formats %}playlist_format: {{ fmt }}
+{% endfor %}
+
+# Enable or disable transcoding (requires ffmpeg)
+transcode_enabled: {{ transcode.enabled | lower }}
+{% if transcode.enabled %}
+# Transcoding command (ffmpeg format string with %i input, %o output)
+transcode_cmd: "{{ transcode.cmd }}"
+{% endif %}
+
+# Random play seed (set to a fixed integer for reproducible shuffles)
+shuffle_seed: {{ shuffle.seed }}
+
+# Time zone for log timestamps (e.g., UTC, America/New_York)
+timezone: "{{ timezone }}"

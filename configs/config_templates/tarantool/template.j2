@@ -1,0 +1,95 @@
+--- Instance name for identification in logs and metrics
+instance_name = "{{ instance_name }}"
+
+--- Root directory for instance data, logs, and backups
+work_dir = "{{ work_dir }}"
+
+--- Directory where configuration snippets are loaded from
+conf_dir = "{{ conf_dir }}"
+
+--- Enable or disable read-only mode (replica without write access)
+read_only = {{ read_only | lower }}
+
+--- listen: box.cfg{} — network listen address and port
+listen = "{{ listen_host }}:{{ listen_port }}"
+
+--- replicate: replication sources (for master-master or multi-master setups)
+{% for replica in replicas %}box.cfg({{ '{' }}replication = "{{ replica.uri }}",{{ '}' }})
+{% endfor %}
+
+--- log: logging configuration
+log_level = {{ log_level }}
+log_format = "{{ log_format }}"
+log_nonblock = {{ log_nonblock | lower }}
+
+--- memtx: memory allocator settings for in-memory space
+memtx_memory = {{ memtx_memory }}
+memtx_min_tuple_size = {{ memtx_min_tuple_size }}
+memtx_max_tuple_size = {{ memtx_max_tuple_size }}
+
+--- vinyl: disk-based space settings
+vinyl_memory = {{ vinyl_memory }}
+vinyl_cache = {{ vinyl_cache }}
+vinyl_timeout = {{ vinyl_timeout }}
+
+--- snapshot: periodic snapshot settings
+snapshot_by_xlog = {{ snapshot_by_xlog | lower }}
+snapshot_interval = {{ snapshot_interval }}
+snapshot_count = {{ snapshot_count }}
+snapshot_in_background = {{ snapshot_in_background | lower }}
+
+--- replication_synchro: synchronous replication settings
+replication_synchro_timeout = {{ replication_synchro_timeout }}
+replication_synchro_quorum = {{ replication_synchro_quorum }}
+
+--- checkpoint_interval: automatic checkpoint interval
+checkpoint_interval = {{ checkpoint_interval }}
+
+--- quota: disk write quota (bytes)
+quota = {{ quota }}
+
+--- background worker pool
+worker_pool_threads = {{ worker_pool_threads }}
+
+--- Default space engine (memtx or vinyl)
+default_engine = "{{ default_engine }}"
+
+--- box.cfg{} — apply configuration after all above setup
+box.cfg({{ '{' }}
+    listen          = "{{ listen_host }}:{{ listen_port }}",
+    work_dir        = "{{ work_dir }}",
+    memtx_memory    = {{ memtx_memory }},
+    vinyl_memory    = {{ vinyl_memory }},
+    log             = "{{ work_dir }}/tarantool.log",
+    log_level       = {{ log_level }},
+    snapshot_in_background = {{ snapshot_in_background | lower }},
+    checkpoint_interval = {{ checkpoint_interval }},
+    replication_synchro_quorum = {{ replication_synchro_quorum }},
+    replication_synchro_timeout = {{ replication_synchro_timeout }},
+{% for replica in replicas %}    replication     = "{{ replica.uri }}",{% endfor %}
+{% if replication_id %}    replication_id  = {{ replication_id }},{% endif %}
+{% if replication_connect_timeout %}    replication_connect_timeout = {{ replication_connect_timeout }},{% endif %}
+{% if replication_connect_quorum %}    replication_connect_quorum = {{ replication_connect_quorum }},{% endif %}
+{% if replication_skip_conflict %}    replication_skip_conflict = {{ replication_skip_conflict | lower }},{% endif %}
+{% if quota %}    quota           = {{ quota }},{% endif %}
+{% if default_engine %}    default_engine  = "{{ default_engine }}",{% endif %}
+{% if read_only %}    read_only       = true,{% endif %}
+    
+    // Add additional box.cfg options here if needed
+{{ '}' }})
+
+--- Optional: declare spaces and indexes programmatically (if not in separate *.sql/.lua files)
+{% if spaces %}
+{% for space in spaces %}
+--- Space: {{ space.name }}
+{% if space.engine %}box.schema.space.create("{{ space.name }}", {{ '{' }}engine = "{{ space.engine }}"{{ '}' }})
+{% else %}box.schema.space.create("{{ space.name }}")
+{% endif %}{% if space.field_count %}box.space["{{ space.name }}"]:create_index("primary", {{ '{' }}
+    type = "tree",
+    parts = {{ space.primary_parts | default('[{1, "str"}]') | tojson }},
+{% if space.is_unique %}    unique = true,{% endif %}
+    fields = {{ space.field_count }}
+{{ '}' }})
+{% endif %}
+{% endfor %}
+{% endif %}

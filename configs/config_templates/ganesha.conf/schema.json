@@ -1,0 +1,208 @@
+{
+  "log_level": {
+    "type": "string",
+    "default": "EVENT",
+    "description": "Verbosity level of logs. Valid values: NONE, MAJ, MIN, EVENT, DEBUG, TRACE"
+  },
+  "protocols": {
+    "type": "list",
+    "default": [
+      "4"
+    ],
+    "description": "List of NFS protocol versions to enable (e.g., 3, 4, 4.1, 4.2)"
+  },
+  "transports": {
+    "type": "list",
+    "default": [
+      "tcp"
+    ],
+    "description": "List of network transport protocols (e.g., 'tcp', 'udp', 'rdma')"
+  },
+  "grace_period": {
+    "type": "number",
+    "default": 90,
+    "description": "Duration (seconds) for the NFSv4 grace period after restart"
+  },
+  "enable_locking": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable file locking via BSD/POSIX locks (required for NFSv4 locking)"
+  },
+  "enable_gss": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable RPC security (GSSAPI/Kerberos) for authenticated access"
+  },
+  "export_default": {
+    "type": "object",
+    "default": {
+      "path": "/exports",
+      "clients": [
+        "*"
+      ],
+      "pseudo": "/export",
+      "access_async": true,
+      "squash": "root",
+      "fsal_flags": []
+    },
+    "description": "Default settings applied to all exports (override per-export if needed)",
+    "items": {
+      "path": {
+        "type": "string",
+        "default": "/exports",
+        "description": "Base filesystem path used for exports (can be overridden per export)"
+      },
+      "clients": {
+        "type": "list",
+        "default": [
+          "*"
+        ],
+        "items": {
+          "type": "string"
+        },
+        "description": "List of client hosts/subnets allowed to mount this export (supports CIDR, wildcards)"
+      },
+      "pseudo": {
+        "type": "string",
+        "default": "/export",
+        "description": "Virtual path (namespace) exposed to NFS clients for this export (NFSv4 only)"
+      },
+      "access_async": {
+        "type": "bool",
+        "default": true,
+        "description": "Allow asynchronous writes (improves performance; may risk data loss on crash)"
+      },
+      "squash": {
+        "type": "string",
+        "default": "root",
+        "enum": [
+          "none",
+          "root",
+          "all"
+        ],
+        "description": "UID/GID squashing policy: 'none' (keep client UIDs), 'root' (map root to nobody), 'all' (map all to nobody)"
+      },
+      "fsal_flags": {
+        "type": "list",
+        "default": [],
+        "items": {
+          "type": "string"
+        },
+        "description": "Export-level FSAL behavior flags (e.g., 'No_Sync', 'No_Async_Write')"
+      }
+    }
+  },
+  "exports": {
+    "type": "list",
+    "default": [],
+    "description": "List of exports to configure (minimum 1 required)",
+    "items": {
+      "export_id": {
+        "type": "number",
+        "default": 1,
+        "description": "Unique numeric ID for this export (required; must be positive integer)"
+      },
+      "description": {
+        "type": "string",
+        "default": "",
+        "description": "Human-readable description (optional, shown in logs)"
+      },
+      "path": {
+        "type": "string",
+        "default": "",
+        "description": "Absolute filesystem path to export (overrides export_default.path if set)"
+      },
+      "clients": {
+        "type": "list",
+        "default": [],
+        "items": {
+          "type": "string"
+        },
+        "description": "Client list (overrides export_default.clients if set)"
+      },
+      "pseudo": {
+        "type": "string",
+        "default": "",
+        "description": "Virtual namespace path (overrides export_default.pseudo if set)"
+      },
+      "squash": {
+        "type": "string",
+        "default": "",
+        "enum": [
+          "none",
+          "root",
+          "all"
+        ],
+        "description": "Squash policy override"
+      },
+      "access_async": {
+        "type": "bool",
+        "default": false,
+        "description": "Override async writes setting"
+      },
+      "fsal_flags": {
+        "type": "list",
+        "default": [],
+        "items": {
+          "type": "string"
+        },
+        "description": "FSAL flags override"
+      },
+      "fsal": {
+        "type": "object",
+        "default": {
+          "name": "VFS",
+          "fs_id": "0"
+        },
+        "description": "Filesystem Abstraction Layer (FSAL) configuration for this export",
+        "items": {
+          "name": {
+            "type": "string",
+            "enum": [
+              "VFS",
+              "CEPH",
+              "LUSTRE"
+            ],
+            "default": "VFS",
+            "description": "FSAL backend: VFS (local filesystem), Ceph (CephFS), or Lustre"
+          },
+          "fs_id": {
+            "type": "string",
+            "default": "0",
+            "description": "Filesystem ID for VFS FSAL (used in FSAL name resolution)"
+          },
+          "root_id": {
+            "type": "number",
+            "default": 1,
+            "description": "Root inode number (only needed if root inode != 2)"
+          },
+          "xattr_name": {
+            "type": "string",
+            "default": "user.ganesha.",
+            "description": "Extended attribute prefix for locking state (VFS only)"
+          },
+          "ceph_conf": {
+            "type": "string",
+            "default": "/etc/ceph/ceph.conf",
+            "description": "Path to Ceph config file (CEPH FSAL only)"
+          },
+          "user_id": {
+            "type": "string",
+            "default": "admin",
+            "description": "Ceph client ID (e.g., 'admin', 'client.admin')"
+          },
+          "cluster": {
+            "type": "string",
+            "default": "ceph",
+            "description": "Ceph cluster name (optional)"
+          },
+          "lnet_lpid": {
+            "type": "string",
+            "default": "0",
+            "description": "LNet LPID for Lustre FSAL (Lustre network identifier)"
+          }
+        }
+      }
+    }
+  }
+}

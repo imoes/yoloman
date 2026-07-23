@@ -1,0 +1,155 @@
+# ProFTPD configuration with SQLite3 backend
+# Global server settings
+ServerName "{{ server_name }}"
+ServerType standalone
+DeferGlobbing off
+DefaultServer on
+
+# Listening socket
+{% if listen_address %}
+ListenAddress {{ listen_address }}
+{% else %}
+# Listen on all interfaces
+{% endif %}
+Port {{ port }}
+
+# User/Group for daemon process
+{% if daemon_user %}
+User {{ daemon_user }}
+{% endif %}
+{% if daemon_group %}
+Group {{ daemon_group }}
+{% endif %}
+
+# Umask for file creation
+Umask {{ umask }}
+
+# Logging
+{% if log_file %}
+<Directory {{ log_dir | default('/var/log/proftpd') }}>
+  LogFormat logformat "%h %l %u %t \"%r\" %s %b"
+  ExtendedLog {{ log_file | default('/var/log/proftpd/proftpd.log') }} write logformat
+</Directory>
+{% else %}
+# Logging to syslog (default)
+SystemLog /var/log/syslog
+{% endif %}
+
+# TLS/SSL (optional)
+{% if tls_enabled %}
+TLSEngine on
+TLSProtocol TLSv1.2
+{% if tls_cert %}
+TLSCertificateCert {{ tls_cert }}
+{% else %}
+# Certificate not specified — disable TLS
+TLSEngine off
+{% endif %}
+{% if tls_key %}
+TLSCertificateKey {{ tls_key }}
+{% else %}
+# Key not specified — disable TLS
+TLSEngine off
+{% endif %}
+{% if tls_cacert %}
+TLSCACertificate {{ tls_cacert }}
+{% endif %}
+TLSOptions NoSessionReuseRequired
+TLSRequired off  # Use TLS when possible (explicit client request)
+{% else %}
+# TLS disabled globally
+TLSEngine off
+{% endif %}
+
+# Authentication: SQL backend (SQLite3)
+<IfModule mod_sql.c>
+  SQLBackend sqlite3
+  SQLAuthTypes SQLite
+  SQLConnectInfo {{ sqlite_path }}
+  SQLUserInfo ftpusers userid passwd uid gid homedir shell
+  SQLGroupInfo ftpgroups groupname gid members
+  SQLHomedirOnDemand on
+  SQLLog PASS updatecount
+  SQLNamedQuery updatecount UPDATE "count=count+1 WHERE userid='%u'" ftpusers
+  {% if max_conn_per_ip %}
+  SQLLog CONNECT connectcount
+  SQLNamedQuery connectcount UPDATE "connect_count=connect_count+1 WHERE userid='%u'" ftpusers
+  MaxConnectionPerUser {{ max_conn_per_ip }}
+  {% endif %}
+</IfModule>
+
+# Default root directory
+DefaultRoot ~
+
+# Require valid shell (optional — set to false to allow virtual users)
+{% if require_valid_shell %}
+RequireValidShell on
+{% else %}
+RequireValidShell off
+{% endif %}
+
+# Access control
+{% if allow_users %}
+<Limit LOGIN>
+  Order deny,allow
+  DenyGroup !{{ allow_users | join(',') }}
+</Limit>
+{% elif allow_groups %}
+<Limit LOGIN>
+  Order deny,allow
+  AllowGroup {{ allow_groups | join(',') }}
+</Limit>
+{% else %}
+# Allow all authenticated users by default
+{% endif %}
+
+# User quota (optional)
+{% if quotas_enabled %}
+<IfModule mod_quotatab.c>
+  QuotaDirectory /var/lib/proftpd/quotas
+  QuotaLimitTable sql:/quotatab_limits
+  QuotaTallyTable sql:/quotatab_tallies
+  QuotaShowQuotas on
+</IfModule>
+{% endif %}
+
+# Passive ports for FTP data connections
+{% if passive_ports_start %}
+PassivePorts {{ passive_ports_start }} {{ passive_ports_end }}
+{% endif %}
+
+# Timeout settings
+{% if timeout_idle %}
+TimeoutIdle {{ timeout_idle }}
+{% endif %}
+{% if timeout_nolisten %}
+TimeoutNoTransfer {{ timeout_nolisten }}
+{% endif %}
+
+# Limit operations per user/group
+{% for rule in access_rules %}
+# Access rule: {{ rule.description | default('Custom rule') }}
+{% if rule.user %}
+<User {{ rule.user }}>
+{% elif rule.group %}
+<Group {{ rule.group }}>
+{% endif %}
+  {% for op in rule.allow_operations %}
+  <Limit {{ op | upper }}>
+    AllowAll
+  </Limit>
+  {% endfor %}
+  {% for op in rule.deny_operations %}
+  <Limit {{ op | upper }}>
+    DenyAll
+  </Limit>
+  {% endfor %}
+{% if rule.user or rule.group %}
+</User>
+{% endif %}
+{% endfor %}
+
+# Include optional site-specific configs
+{% if include_dir %}
+Include {{ include_dir }}/*.conf
+{% endif %}

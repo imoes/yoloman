@@ -1,0 +1,74 @@
+# Kernel module configuration for Falco/Sysdig (falcosecurity-scap-dkms)
+# This file is managed by DKMS and should NOT be edited manually.
+# Changes persist only across reboots if made via modprobe configuration or
+# by setting module parameters via /etc/modprobe.d/ (e.g., falco.conf).
+# Below is the canonical runtime config for the Falco kernel driver (syscall events).
+# Set the maximum number of concurrent events to buffer per CPU.
+# Increase if you see 'dropped events' in Falco logs.
+{% if kernel_module_params.buffers_per_cpu is defined %}
+buffers_per_cpu = {{ kernel_module_params.buffers_per_cpu }}
+{% else %}
+buffers_per_cpu = 128
+{% endif %}
+
+# Set the total number of events to preallocate per CPU (must be >= buffers_per_cpu).
+# Preallocation improves performance and avoids runtime allocation overhead.
+{% if kernel_module_params.prealloc_events is defined %}
+prealloc_events = {{ kernel_module_params.prealloc_events }}
+{% else %}
+prealloc_events = 256
+{% endif %}
+
+# Enable/disable full event payload capture (e.g., command arguments, file paths).
+# If false, only metadata is captured — reduces memory & CPU usage.
+{% if kernel_module_params.capture_payloads is defined %}
+capture_payloads = {{ kernel_module_params.capture_payloads | lower }}
+{% else %}
+capture_payloads = true
+{% endif %}
+
+# Set the maximum payload size (in bytes) to capture (0 = unlimited).
+# Use this to cap memory usage for high-throughput systems.
+{% if kernel_module_params.max_payload_size is defined %}
+max_payload_size = {{ kernel_module_params.max_payload_size }}
+{% else %}
+max_payload_size = 8192
+{% endif %}
+
+# Set the number of concurrent system calls tracked per CPU (must be >= buffers_per_cpu).
+# Controls how many in-flight syscalls the kernel driver can track.
+{% if kernel_module_params.max_concurrent_syscalls is defined %}
+max_concurrent_syscalls = {{ kernel_module_params.max_concurrent_syscalls }}
+{% else %}
+max_concurrent_syscalls = 128
+{% endif %}
+
+# Enable/disable tracepoint-based event capture (e.g., for bpftrace compatibility).
+# Only required if using advanced tracing features.
+{% if kernel_module_params.enable_tracepoints is defined %}
+enable_tracepoints = {{ kernel_module_params.enable_tracepoints | lower }}
+{% else %}
+enable_tracepoints = false
+{% endif %}
+
+# Comma-separated list of syscalls to exclude from capture (e.g., 'open,close').
+# Use sparingly — exclusions reduce noise but may miss security events.
+{% if kernel_module_params.excluded_syscalls is defined %}
+{% for syscall in kernel_module_params.excluded_syscalls %}
+# Exclude syscall: {{ syscall }}
+{% endfor %}
+{% endif %}
+
+# Enable kernel event deduplication (prevents burst flooding).
+{% if kernel_module_params.enable_dedup is defined %}
+enable_dedup = {{ kernel_module_params.enable_dedup | lower }}
+{% else %}
+enable_dedup = true
+{% endif %}
+
+# Enable strict mode: fail to load if any parameter is invalid.
+{% if kernel_module_params.strict_mode is defined %}
+strict_mode = {{ kernel_module_params.strict_mode | lower }}
+{% else %}
+strict_mode = true
+{% endif %}

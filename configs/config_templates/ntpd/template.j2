@@ -1,0 +1,68 @@
+{# Enable/Disable logging of NTP events to syslog #}
+{% if logging_enabled | default(true) %}log level info
+{% endif %}
+
+{# Define fallback/initial time sources (servers) for synchronization #}
+{% if servers | length > 0 %}
+{% for server in servers %}
+{# Server hostname/IP with optional port and flags #}
+{% if server.flags %}server {{ server.host }} port {{ server.port | default(123) }} {{ server.flags }}
+{% else %}server {{ server.host }} port {{ server.port | default(123) }}
+{% endif %}
+{% endfor %}
+{% else %}
+server 0.pool.ntp.org
+server 1.pool.ntp.org
+server 2.pool.ntp.org
+server 3.pool.ntp.org
+{% endif %}
+
+{# Listen addresses and ports #}
+{% if listen_addresses | length > 0 %}
+{% for addr in listen_addresses %}
+{# Bind to specific addresses, optionally with port #}
+{% if addr.port %}listen on {{ addr.address }} port {{ addr.port }}
+{% else %}listen on {{ addr.address }}
+{% endif %}
+{% endfor %}
+{% else %}
+listen on 127.0.0.1
+listen on ::1
+{% endif %}
+
+{# Enable server mode (accept client queries) #}
+{% if server_mode | default(false) %}listen on *
+{% endif %}
+
+{# Allow specific networks or hosts to query this NTP server #}
+{% if allowed_networks | length > 0 %}
+{% for net in allowed_networks %}
+{% if net.mask %}allow {{ net.network }}/{{ net.mask }}
+{% else %}allow {{ net.network }}
+{% endif %}
+{% endfor %}
+{% endif %}
+
+{# Restrict specific hosts/networks (deny access) #}
+{% if restricted_networks | length > 0 %}
+{% for net in restricted_networks %}
+{% if net.mask %}restrict {{ net.network }}/{{ net.mask }}
+{% else %}restrict {{ net.network }}
+{% endif %}
+{% endfor %}
+{% endif %}
+
+{# Set initial drift file location (stores clock drift) #}
+driftfile /var/db/ntpd.drift
+
+{# Set leap seconds file location (optional) #}
+{% if leapfile %}leapfile {{ leapfile }}
+{% endif %}
+
+{# Disable Step time on first sync (for smoother startup) #}
+{% if no_initial_step | default(false) %}nostep
+{% endif %}
+
+{# Enable strict synchronization (reject unstable sources) #}
+{% if strict_sync | default(false) %}strict
+{% endif %}

@@ -1,0 +1,35 @@
+{
+  {# List of Cloudflare zone configurations; one entry per DNS zone to manage #}
+  "cloudflare": [
+    {% for zone in zones %}
+    {
+      {# Authentication block — scoped API token is preferred over legacy Global API Key #}
+      "authentication": {
+        {# API token from dash.cloudflare.com/profile/api-tokens with Zone:DNS:Edit permission #}
+        "api_token": "{{ zone.api_token }}"
+      },
+      {# Zone ID (32-char hex) for the domain — found on the Overview tab of the zone #}
+      "zone_id": "{{ zone.zone_id }}",
+      {# Subdomains to keep in sync; use name="" for the apex/root domain #}
+      "subdomains": [
+        {% for sub in zone.subdomains %}
+        {
+          {# Subdomain label: empty string for apex, "www" for www.<domain>, "vpn" etc. #}
+          "name": "{{ sub.name }}",
+          {# proxied: true routes traffic through Cloudflare CDN+WAF and hides the real IP #}
+          "proxied": {% if sub.proxied %}true{% else %}false{% endif %}
+        }{% if not loop.last %},{% endif %}
+        {% endfor %}
+      ]
+    }{% if not loop.last %},{% endif %}
+    {% endfor %}
+  ],
+  {# a: update IPv4 A records with the current public IPv4 address of this host #}
+  "a": {% if update_ipv4 %}true{% else %}false{% endif %},
+  {# aaaa: update IPv6 AAAA records with the current public IPv6 address of this host #}
+  "aaaa": {% if update_ipv6 %}true{% else %}false{% endif %},
+  {# purgeUnknownRecords: delete records in managed zones that were not created by this tool #}
+  "purgeUnknownRecords": {% if purge_unknown_records %}true{% else %}false{% endif %},
+  {# ttl: DNS record time-to-live in seconds; 1 = let Cloudflare set it automatically #}
+  "ttl": {{ ttl }}
+}

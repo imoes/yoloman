@@ -1,0 +1,158 @@
+{
+  "passenger_root": {
+    "type": "string",
+    "default": "/usr/lib/passenger",
+    "description": "The root directory where Passenger is installed. Usually detected automatically."
+  },
+  "passenger_ruby": {
+    "type": "string",
+    "default": "/usr/bin/ruby",
+    "description": "The Ruby interpreter path used by Passenger by default (for Ruby apps)."
+  },
+  "passenger_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable Passenger globally (for all apps on this server)."
+  },
+  "passenger_min_instances": {
+    "type": "number",
+    "default": 1,
+    "description": "Minimum number of idle application instances to keep for each app."
+  },
+  "passenger_max_instances": {
+    "type": "number",
+    "default": 6,
+    "description": "Maximum number of application instances across all apps. Controls memory/CPU usage."
+  },
+  "passenger_max_preloader_idle_time": {
+    "type": "number",
+    "default": 300,
+    "description": "Maximum seconds a preloader may stay idle before shutting down (0 = unlimited)."
+  },
+  "passenger_pool_idle_time": {
+    "type": "number",
+    "default": 300,
+    "description": "Maximum seconds an application instance may remain idle before being shut down."
+  },
+  "passenger_status_display": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable the built-in Passenger status page (e.g., for monitoring)."
+  },
+  "passenger_max_requests": {
+    "type": "number",
+    "default": 0,
+    "description": "Maximum requests per instance before it restarts. Set to 0 to disable."
+  },
+  "passenger_buffer_response": {
+    "type": "bool",
+    "default": true,
+    "description": "Buffer app responses to clients. Helps with slow clients but increases memory use."
+  },
+  "startup_file": {
+    "type": "string",
+    "default": "",
+    "description": "Optional custom startup file for the main app (e.g., 'config.ru' or 'app.py')."
+  },
+  "passenger_log_level": {
+    "type": "number",
+    "default": 0,
+    "description": "Logging verbosity: 0=error, 1=warn, 2=info, 3=debug."
+  },
+  "env_vars": {
+    "type": "list",
+    "default": [],
+    "description": "Global environment variables passed to all Passenger-managed applications.",
+    "items": {
+      "type": "object",
+      "items": {
+        "name": {
+          "type": "string",
+          "description": "Environment variable name (e.g., RACK_ENV)"
+        },
+        "value": {
+          "type": "string",
+          "description": "Environment variable value (e.g., production)"
+        }
+      }
+    }
+  },
+  "apps": {
+    "type": "list",
+    "default": [],
+    "description": "List of applications to host with Passenger.",
+    "items": {
+      "type": "object",
+      "items": {
+        "name": {
+          "type": "string",
+          "description": "Human-readable app name (e.g., 'my-rails-app')"
+        },
+        "base_uri": {
+          "type": "string",
+          "description": "URL path prefix for this app (e.g., '/' or '/api')"
+        },
+        "document_root": {
+          "type": "string",
+          "description": "Path to app's public/ or root directory"
+        },
+        "interpreter": {
+          "type": "string",
+          "description": "Custom interpreter path for this app (e.g., /opt/ruby-3.0/bin/ruby)"
+        },
+        "interpreter_type": {
+          "type": "string",
+          "enum": [
+            "ruby",
+            "python",
+            "node"
+          ],
+          "description": "Type of interpreter used (ruby/python/node)"
+        },
+        "environment": {
+          "type": "string",
+          "default": "production",
+          "description": "App runtime environment (e.g., development, staging, production)"
+        },
+        "startup_file": {
+          "type": "string",
+          "default": "",
+          "description": "Custom startup file (e.g., 'main.py' or 'server.js')"
+        },
+        "min_instances": {
+          "type": "number",
+          "default": null,
+          "description": "Override global min_instances for this app"
+        },
+        "max_instances": {
+          "type": "number",
+          "default": null,
+          "description": "Override global max_instances for this app"
+        },
+        "buffer_response": {
+          "type": "bool",
+          "default": null,
+          "description": "Override global buffer_response for this app"
+        },
+        "env_vars": {
+          "type": "list",
+          "default": [],
+          "description": "Per-app environment variables.",
+          "items": {
+            "type": "object",
+            "items": {
+              "name": {
+                "type": "string",
+                "description": "Environment variable name"
+              },
+              "value": {
+                "type": "string",
+                "description": "Environment variable value"
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

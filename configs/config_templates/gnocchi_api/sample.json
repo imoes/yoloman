@@ -1,0 +1,58 @@
+{
+  "gnocchi_api_cors_enabled": true,
+  "gnocchi_api_healthcheck_enabled": true,
+  "gnocchi_api_cache_enabled": false,
+  "gnocchi_api_standard_attr_enabled": true,
+  "gnocchi_api_version_negotiation_enabled": true,
+  "gnocchi_api_auth_token_enabled": true,
+  "gnocchi_api_keystoneauth_enabled": true,
+  "keystone_authtoken": {
+    "auth_uri": "http://keystone.openstack:5000/v3",
+    "auth_type": "password",
+    "project_domain_name": "Default",
+    "project_name": "services",
+    "user_domain_name": "Default",
+    "username": "gnocchi",
+    "password": "secure_gnocchi_password",
+    "gnocchi_url": "http://gnocchi-api.openstack:8041",
+    "ssl_verify": true
+  },
+  "api": {
+    "host": "0.0.0.0",
+    "port": 8041,
+    "workers": 4,
+    "debug": false,
+    "paste_config": "/etc/gnocchi/api-paste.ini"
+  },
+  "storage": {
+    "driver": "file",
+    "base_path": "/var/lib/gnocchi"
+  },
+  "indexer": {
+    "driver": "sql",
+    "url": "postgresql://gnocchi:secret@postgres.internal:5432/gnocchi"
+  },
+  "metricd": {
+    "workers": 2,
+    "batch_size": 200
+  },
+  "statsd": {
+    "enabled": true,
+    "host": "127.0.0.1",
+    "port": 8125
+  },
+  "gnocchi_services": [
+    {
+      "name": "archive_policy",
+      "config": {
+        "metric_aggregation_methods": "mean,min,max,sum,count",
+        "aggregation_methods": "mean,min,max,sum,count"
+      }
+    }
+  ],
+  "listener": {
+    "gnocchi_api": {
+      "endpoint": "wsgi://0.0.0.0:8041"
+    }
+  }
+}

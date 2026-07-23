@@ -1,0 +1,44 @@
+; SLIME/SWANK configuration — loaded by cl-swank at startup
+;
+; This file configures the SWANK server (Lisp-side component of SLIME)
+; and is typically loaded by Emacs via `slime-setup` or `slime-connect`.
+;
+; Site-specific values are parameterized here for reusability.
+
+;; Load required contribs (list of strings; each will be wrapped in (require ...))
+{% if contribs %}{% for contrib in contribs %}(require {{ contrib | repr }}){% endfor %}
+{% else %}(require "swank-asdf")
+(require "swank-fancy-inspector")
+{% endif %}
+
+;; Start server only if not already running — toggled by `start-server`
+{% if start_server %}(when (not (member "swank" *features*))
+  (swank:start-server {{ sock | repr }} :documentation t :coding-system "utf-8-unix"))
+{% else %}(when (not (member "swank" *features*))
+  (swank:start-server {{ sock | repr }} :documentation t :coding-system "utf-8-unix"))
+{% endif %}
+
+;; Set preferred communication style (e.g., :spawn, :fork, :pthread)
+(setq swank:*communication-style* {{ communication_style | repr }})
+
+;; Disable pid file (set to nil or a path string)
+(setq swank:*pid-file* {{ pid_file | repr }})
+
+;; Set connection port if not bound to socket file
+{% if not sock %};; If socket file not used, fall back to TCP port
+(swank:create-server :port {{ port }} :dont-close t)
+{% endif %}
+
+;; Control logging — set to nil to disable, or a filename (string)
+(setq swank:*log-output* {{ log_output | repr }})
+
+;; Define allowed connection hosts (list of strings or symbols :any)
+(setq swank:*use-dedicated-output-stream* {{ use_dedicated_output_stream }})
+(setq swank:*use-quicklisp* {{ use_quicklisp }})
+
+;; Limit max listener threads (numeric, or nil for default)
+(setq swank:*max-listener-threads* {{ max_listener_threads | repr }})
+
+;; Extra swank setup forms (list of S-expressions, each rendered as-is)
+{% for setup_form in extra_setup %}{{ setup_form }}
+{% endfor %}

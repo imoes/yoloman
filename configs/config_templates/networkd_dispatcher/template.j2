@@ -1,0 +1,47 @@
+# /etc/networkd-dispatcher/config — Main configuration for networkd-dispatcher
+# Enables/disables the dispatcher service
+RUN_DISPATCHER={{ run_dispatcher | string | lower }}
+
+# Directory containing custom state scripts (must be executable)
+SCRIPT_DIRS="{{ script_dirs | join(':') }}"
+
+# Log level: DEBUG, INFO, WARNING, ERROR
+LOG_LEVEL={{ log_level }}
+
+# Enable logging to journal (systemd journal)
+LOG_TO_JOURNAL={{ log_to_journal | string | lower }}
+
+# Enable logging to file (if enabled, log_dir must be valid)
+LOG_TO_FILE={{ log_to_file | string | lower }}
+LOG_DIR="{{ log_dir }}"
+
+# Enable logging to stdout (useful for debugging in containers)
+LOG_TO_STDOUT={{ log_to_stdout | string | lower }}
+
+# Timeout (in seconds) for individual scripts before they are killed
+SCRIPT_TIMEOUT={{ script_timeout }}
+
+# Exit code handling: if true, exit non-zero on script failure; if false, ignore failures
+FAIL_ON_SCRIPT_ERROR={{ fail_on_script_error | string | lower }}
+
+# Interfaces to monitor (empty = all). If non-empty, only dispatch events for these interfaces.
+MONITORED_INTERFACES="{{ monitored_interfaces | join(' ') }}"
+
+# Exclude interfaces matching these regex patterns (space-separated)
+EXCLUDED_INTERFACES_REGEX="{{ excluded_interfaces_regex | join(' ') }}"
+
+# Allow running scripts as root? (⚠️ security risk — only enable if needed)
+ALLOW_ROOT_SCRIPTS={{ allow_root_scripts | string | lower }}
+
+# Runtime directory for lock files and temporary data
+RUNTIME_DIR="{{ runtime_dir }}"
+
+# Additional environment variables passed to scripts (KEY=VALUE lines)
+{% for env_var in extra_env_vars %}EXTRA_ENV_{{ loop.index }}="{{ env_var }}"
+{% endfor %}
+
+# Optional: Enable/disable specific event types
+# Supported: up, down, carrier, dhcp, dns, route, address, link, master, slave, veth, bridge, vlan, macvlan, ipvlan, vrf, wireguard, etc.
+{% for event_type, enabled in event_filter.items() %}{% if enabled is defined %}{% if enabled %}ENABLE_{{ event_type | upper }}=true
+{% else %}DISABLE_{{ event_type | upper }}=true
+{% endif %}{% endif %}{% endfor %}

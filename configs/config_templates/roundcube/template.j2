@@ -1,0 +1,124 @@
+<?php
+
+/* Main configuration file for Roundcube Webmail */
+/* Database connection settings */
+{{ '{' }}$config['db_dsnw'] = 'mysql://{{ db_user }}:{{ db_pass | e('"') }}@{{ db_host }}:{{ db_port }}/{{ db_name }}';{{ '}' }}
+
+/* Mail server (IMAP) settings */
+{{ '{' }}$config['default_host'] = '{{ imap_host }}';{{ '}' }}
+{{ '{' }}$config['default_port'] = {{ imap_port }};{{ '}' }}
+{{ '{' }}$config['imap_auth_type'] = '{{ imap_auth_type }}';{{ '}' }}
+{{ '{' }}$config['imap_timeout'] = {{ imap_timeout }};{{ '}' }}
+
+/* SMTP server settings */
+{{ '{' }}$config['smtp_server'] = '{{ smtp_host }}';{{ '}' }}
+{{ '{' }}$config['smtp_port'] = {{ smtp_port }};{{ '}' }}
+{{ '{' }}$config['smtp_user'] = '%u';{{ '}' }}
+{{ '{' }}$config['smtp_pass'] = '%p';{{ '}' }}
+
+/* Session and security settings */
+{{ '{' }}$config['session_lifetime'] = {{ session_lifetime }};{{ '}' }}
+{{ '{' }}$config['session_domain'] = '{{ session_domain }}';{{ '}' }}
+{{ '{' }}$config['session_name'] = '{{ session_name }}';{{ '}' }}
+{{ '{' }}$config['des_key'] = '{{ des_key }}';{{ '}' }}
+{{ '{' }}$config['password_charset'] = '{{ password_charset }}';{{ '}' }}
+{{ '{' }}$config['enable_spellcheck'] = {{ 'true' if spellcheck_enabled else 'false' }};{{ '}' }}
+{{ '{' }}$config['spellcheck_engine'] = '{{ spellcheck_engine }}';{{ '}' }}
+
+/* Skin and UI settings */
+{{ '{' }}$config['skin'] = '{{ skin_name }}';{{ '}' }}
+{{ '{' }}$config['language'] = '{{ default_language }}';{{ '}' }}
+{{ '{' }}$config['timezone'] = '{{ timezone }}';{{ '}' }}
+
+/* Message display and composition settings */
+{{ '{' }}$config['preview_pane'] = {{ 'true' if preview_pane_enabled else 'false' }};{{ '}' }}
+{{ '{' }}$config['preview_pane_mark_as_read'] = {{ preview_pane_mark_as_read_delay }};{{ '}' }}
+{{ '{' }}$config['draft_autosave'] = {{ draft_autosave_delay }};{{ '}' }}
+{{ '{' }}$config['max_message_size'] = '{{ max_message_size }}';{{ '}' }}
+{{ '{' }}$config['mime_param_folding'] = {{ mime_param_folding }};{{ '}' }}
+
+/* Plugins */
+{{ '{' }}$config['plugins'] = [{{ plugins | map('quote') | join(', ') }}];{{ '}' }}
+
+/* Logging */
+{{ '{' }}$config['log_driver'] = '{{ log_driver }}';{{ '}' }}
+{{ '{' }}$config['log_dir'] = '{{ log_dir }}';{{ '}' }}
+{{ '{' }}$config['log_date_format'] = '{{ log_date_format }}';{{ '}' }}
+{{ '{' }}$config['syslog_id'] = '{{ syslog_id }}';{{ '}' }}
+{{ '{' }}$config['syslog_facility'] = {{ syslog_facility }};{{ '}' }}
+
+/* Additional IMAP hosts for fallback (if supported) */
+{% if additional_imap_hosts %}{{ '{' }}$config['additional_imap_hosts'] = [
+{% for host in additional_imap_hosts %}    '{{ host.hostname }}' => [
+      'host' => '{{ host.hostname }}',
+      'port' => {{ host.port }},
+      'tls' => {{ 'true' if host.tls else 'false' }}{% if host.auth_type %},
+      'auth_type' => '{{ host.auth_type }}'{% endif %}{% if host.user %},
+      'user' => '{{ host.user }}'{% endif %}{% if host.pass %},
+      'pass' => '{{ host.pass | e('\''') }}'{% endif %}
+    ],{% endfor %}
+];{{ '}' }}
+{% endif %}
+
+/* Optional: LDAP settings for address book */
+{% if ldap_servers %}{{ '{' }}$config['ldap_public'] = [
+{% for server in ldap_servers %}    '{{ server.name }}' => [
+      'name'       => '{{ server.name }}',
+      'hosts'      => ['{{ server.host | join('\',\'') }}'],
+      'port'       => {{ server.port }},
+      'use_tls'    => {{ 'true' if server.use_tls else 'false' }},
+      'bind_dn'    => '{{ server.bind_dn | default(\'\') }}',
+      'bind_pass'  => '{{ server.bind_pass | default(\'\') | e('\''') }}',
+      'base_dn'    => '{{ server.base_dn }}',
+      'filter'     => '{{ server.filter }}',
+      'scope'      => '{{ server.scope }}',
+      'charset'    => '{{ server.charset }}',
+      'fields'     => [
+        'name'  => '{{ server.fields.name | default(\'cn\') }}',
+        'email' => '{{ server.fields.email | default(\'mail\') }}',
+        'phone' => '{{ server.fields.phone | default(\'telephoneNumber\') }}',
+        'title' => '{{ server.fields.title | default(\'title\') }}'
+      ]
+    ],{% endfor %}
+];{{ '}' }}
+{% endif %}
+
+/* Optional: Active Directory / Kerberos integration */
+{{ '{' }}$config['krb5_realm'] = '{{ krb5_realm | default(\'\') }}';{{ '}' }}
+{{ '{' }}$config['krb5_principal'] = '{{ krb5_principal | default(\'\') }}';{{ '}' }}
+
+/* Optional: Custom identity settings */
+{{ '{' }}$config['identity_limit'] = {{ identity_limit }};{{ '}' }}
+{{ '{' }}$config['remove_identity'] = {{ 'true' if remove_identity else 'false' }};{{ '}' }}
+
+/* Optional: Archive settings */
+{{ '{' }}$config['archive_mbox'] = '{{ archive_mbox }}';{{ '}' }}
+{{ '{' }}$config['trash_mbox'] = '{{ trash_mbox }}';{{ '}' }}
+{{ '{' }}$config['sent_mbox'] = '{{ sent_mbox }}';{{ '}' }}
+{{ '{' }}$config['drafts_mbox'] = '{{ drafts_mbox }}';{{ '}' }}
+
+/* Optional: Search folders */
+{% if search_folders %}{{ '{' }}$config['search_folders'] = [
+{% for folder in search_folders %}    '{{ folder.name }}' => '{{ folder.dn }}',{% endfor %}
+];{{ '}' }}
+{% endif %}
+
+/* Optional: IMAP ACL support */
+{{ '{' }}$config['imap_acl'] = {{ 'true' if imap_acl_enabled else 'false' }};{{ '}' }}
+
+/* Optional: Sieve script management */
+{{ '{' }}$config['sieve_script_root'] = '{{ sieve_script_root }}';{{ '}' }}
+{{ '{' }}$config['sieve_max_scripts'] = {{ sieve_max_scripts }};{{ '}' }}
+
+/* Optional: Shared folders */
+{{ '{' }}$config['shared_folder'] = '{{ shared_folder }}';{{ '}' }}
+{{ '{' }}$config['shared_storage'] = '{{ shared_storage }}';{{ '}' }}
+
+/* Optional: User preferences storage (e.g., SQLite fallback) */
+{{ '{' }}$config['preferences_storage'] = '{{ preferences_storage }}';{{ '}' }}
+{{ '{' }}$config['preferences_storage_readonly'] = {{ 'true' if preferences_storage_readonly else 'false' }};{{ '}' }}
+
+/* Optional: Skin-specific settings (e.g., for Elastic) */
+{{ '{' }}$config['skin_include_php'] = {{ 'true' if skin_include_php else 'false' }};{{ '}' }}
+{{ '{' }}$config['product_name'] = '{{ product_name }}';{{ '}' }}
+{{ '{' }}$config['support_url'] = '{{ support_url }}';{{ '}' }}

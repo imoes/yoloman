@@ -1,0 +1,107 @@
+# miniupnpd configuration file
+# This file configures the UPnP IGD service daemon (miniupnpd)
+# See 'man miniupnpd.conf' for full documentation
+
+# Interface to listen on for UPnP requests
+ext_ifname={{ ext_ifname }}
+
+# Network interface for internal (LAN) side
+# If not set, auto-detected from routing table
+# int_ifname=eth1
+
+# IP address of the internal interface (optional; if omitted, auto-detected)
+# ip_addr={{ ip_addr }}
+
+# Enable NAT-PMP support in addition to UPnP-IGD
+enable_natpmp={{ enable_natpmp | lower }}
+
+# Enable UPnP-IGD (Internet Gateway Device) support
+enable_upnp={{ enable_upnp | lower }}
+
+# Log level: 0=quiet, 1=minimal, 2=normal, 3=verbose, 4=debug
+# Higher levels log more details (including full packets)
+log_level={{ log_level }}
+
+# Port for the miniupnpd control interface (for tools like upnpc)
+# If set to 0, disables the control interface
+# control_port={{ control_port }}
+
+# Disable sending SSDP multicast packets (useful for test environments)
+# disable_multicast={{ disable_multicast | lower }}
+
+# SSDP broadcast interval (in seconds)
+ssdp_broadcast_interval={{ ssdp_broadcast_interval }}
+
+# UPnP lease duration (in seconds); 0 means infinite (not recommended)
+# default_lease_duration={{ default_lease_duration }}
+
+# Enable embedded UPnP client support (e.g., for testing)
+# enable_embedded_miniserver={{ enable_embedded_miniserver | lower }}
+
+# Embedded miniserver port (only if embedded server enabled)
+# embedded_miniserver_port={{ embedded_miniserver_port }}
+
+# Friendly name for the device (shown in UPnP clients)
+friendly_name={{ friendly_name }}
+
+# Model name
+model_name={{ model_name }}
+
+# Model URL
+model_url={{ model_url }}
+
+# Manufacturer name
+manufacturer={{ manufacturer }}
+
+# Manufacturer URL
+manufacturer_url={{ manufacturer_url }}
+
+# Serial number
+serial_number={{ serial_number }}
+
+# UUID must be unique per device; generated automatically if omitted
+# uuid={{ uuid }}
+
+# UDN (Unique Device Name) — if omitted, derived from MAC or generated
+# udn={{ udn }}
+
+# Enable presentation URL support
+# presentation_url={{ presentation_url }}
+
+# Optional: define static port mappings (e.g., for known services)
+{% for mapping in port_mappings %}
+# Port mapping: external port -> internal IP:internal port (protocol)
+external_port={{ mapping.external_port }}
+internal_ip={{ mapping.internal_ip }}
+internal_port={{ mapping.internal_port }}
+protocol={{ mapping.protocol | upper }}
+description={{ mapping.description | default('') | replace('
+', ' ') | trim }}
+enabled={{ mapping.enabled | default(true) | lower }}
+{% endfor %}
+
+# Optional: define port ranges for automatic allocation (e.g., for game consoles)
+{% for range_def in port_ranges %}
+# Port range: start–end (protocol)
+port_range_start={{ range_def.start }}
+port_range_end={{ range_def.end }}
+protocol={{ range_def.protocol | upper }}
+description={{ range_def.description | default('') | replace('
+', ' ') | trim }}
+{% endfor %}
+
+# Optional: restrict access to specific internal IP ranges (CIDR or host)
+# If omitted, allows all internal IPs by default
+{% for allowed_ip in allowed_ips %}
+# Allow UPnP from IP/CIDR
+allow_ip={{ allowed_ip }}
+{% endfor %}
+
+# Enable secure mode (requires clients to authenticate before mapping)
+# secure_mode={{ secure_mode | lower }}
+
+# Enable clean rules periodically (to remove stale mappings)
+# clean_ruleset_interval={{ clean_ruleset_interval }}
+
+# Enable clean ruleset on startup
+# clean_ruleset_on_startup={{ clean_ruleset_on_startup | lower }}

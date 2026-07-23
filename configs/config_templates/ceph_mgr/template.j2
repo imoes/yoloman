@@ -1,0 +1,83 @@
+# Global Ceph configuration
+[global]
+# Unique identifier for the Ceph cluster
+fsid = {{ cluster_fsid }}
+
+# Default monitor network(s); leave blank to auto-detect
+mon_initial_members = {{ mon_initial_members | join(', ') }}
+mon_host = {{ mon_host | join(', ') }}
+
+# Secret key for monitor authentication (auto-generated); do not edit manually
+mon_keyring = /etc/ceph/ceph.client.admin.keyring
+
+# Path to log and run directories
+log_file = /var/log/ceph/ceph-$name.log
+pid_file = /var/run/ceph/ceph-$name.pid
+
+# Network bindings for public and cluster traffic
+public_network = {{ public_network }}
+cluster_network = {{ cluster_network }}
+
+# Enable secure monitor and manager authentication
+auth_cluster_required = {{ auth_cluster_required }}
+auth_service_required = {{ auth_service_required }}
+auth_client_required = {{ auth_client_required }}
+
+# Enable or disable automatic balancing of PGs
+osd_pool_default_pg_autoscale_mode = {{ osd_pool_default_pg_autoscale_mode }}
+
+# Default pool settings
+osd_pool_default_size = {{ osd_pool_default_size }}
+osd_pool_default_min_size = {{ osd_pool_default_min_size }}
+osd_pool_default_pg_num = {{ osd_pool_default_pg_num }}
+osd_pool_default_pgp_num = {{ osd_pool_default_pgp_num }}
+
+# Enable mgr modules and daemons
+mgr_initial_modules = {{ mgr_initial_modules | join(', ') }}
+
+# Enable REST API for dashboard
+mgr_modules = {{ mgr_modules | join(', ') }}
+
+# Dashboard configuration
+[mgr]
+# Enable Ceph Dashboard
+mgr_modules = {{ mgr_modules | join(', ') }}
+
+# Dashboard-specific settings (applies only when 'dashboard' is enabled)
+{% if enable_dashboard %}
+[mgr-dashboard]
+# Enable the dashboard module
+dashboard = true
+
+# Dashboard listen address and port
+dashboard_server_addr = {{ dashboard_server_addr }}
+dashboard_server_port = {{ dashboard_server_port }}
+
+# Dashboard SSL (auto-generate cert if none provided)
+dashboard_ssl_cert = {{ dashboard_ssl_cert_path }}
+dashboard_ssl_key = {{ dashboard_ssl_key_path }}
+
+# Enable secure login
+ssl = {{ dashboard_ssl_enabled }}
+
+# Set frontend API prefix
+api_server_addr = {{ dashboard_api_server_addr }}
+api_server_port = {{ dashboard_api_server_port }}
+
+# Enable SSL for API (defaults to dashboard_ssl_enabled)
+api_ssl = {{ dashboard_api_ssl_enabled }}
+
+# API certificate/key paths (can differ from frontend)
+api_ssl_cert = {{ dashboard_api_ssl_cert_path }}
+api_ssl_key = {{ dashboard_api_ssl_key_path }}
+
+# Optional: dashboard admin credentials (set via CLI or later)
+# dashboard_admin_password = {{ dashboard_admin_password }}
+{% endif %}
+
+# Optional per-daemon sections (example: mgr.<host>)
+{% for mgr_daemon in mgr_daemons %}
+# Manager daemon for {{ mgr_daemon.name }}
+[mgr-{{ mgr_daemon.name }}]
+{% if mgr_daemon.priority is defined %}priority = {{ mgr_daemon.priority }}{% endif %}
+{% endfor %}

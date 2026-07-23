@@ -1,0 +1,134 @@
+{
+  "bind_address": {
+    "type": "string",
+    "default": "0.0.0.0",
+    "description": "Network interface IP address to bind the HTTP server to."
+  },
+  "http_port": {
+    "type": "number",
+    "default": 8080,
+    "description": "HTTP port for the camera stream and web interface."
+  },
+  "auth_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable basic HTTP authentication for accessing the stream."
+  },
+  "auth_users": {
+    "type": "list",
+    "default": [],
+    "description": "List of users allowed to access the stream (only used if auth_enabled is true).",
+    "items": {
+      "username": {
+        "type": "string",
+        "default": "",
+        "description": "Username for authentication."
+      },
+      "password_hash": {
+        "type": "string",
+        "default": "",
+        "description": "BCrypt or SHA256 hashed password (never plain-text)."
+      }
+    }
+  },
+  "device_type": {
+    "type": "string",
+    "default": "v4l2",
+    "description": "Source of video input. Use 'v4l2' for webcam, 'file' for static image loop."
+  },
+  "v4l2_device": {
+    "type": "string",
+    "default": "/dev/video0",
+    "description": "V4L2 device node (e.g., /dev/video0). Only used when device_type=v4l2."
+  },
+  "v4l2_resolution": {
+    "type": "string",
+    "default": "1280x720",
+    "description": "Video resolution as WIDTHxHEIGHT. Only used when device_type=v4l2."
+  },
+  "v4l2_fps": {
+    "type": "number",
+    "default": 30,
+    "description": "Frames per second to capture. Only used when device_type=v4l2."
+  },
+  "image_path": {
+    "type": "string",
+    "default": "/var/cam2ip/image.jpg",
+    "description": "Path to static image file to stream in loop. Only used when device_type=file."
+  },
+  "image_loop": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable infinite looping of the static image. Only used when device_type=file."
+  },
+  "stream_format": {
+    "type": "string",
+    "default": "mjpeg",
+    "description": "Output streaming format. 'mjpeg' for Motion JPEG, 'h264' for hardware-encoded H.264 (if supported)."
+  },
+  "mjpeg_quality": {
+    "type": "number",
+    "default": 75,
+    "description": "JPEG quality (0\u2013100) for MJPEG stream. Higher = better quality, larger bandwidth. Only used when stream_format=mjpeg."
+  },
+  "h264_profile": {
+    "type": "string",
+    "default": "main",
+    "description": "H.264 profile. Options: baseline, main, high. Only used when stream_format=h264."
+  },
+  "h264_level": {
+    "type": "string",
+    "default": "4.0",
+    "description": "H.264 level (e.g., 3.1, 4.0, 4.1). Only used when stream_format=h264."
+  },
+  "h264_bitrate": {
+    "type": "number",
+    "default": 2000,
+    "description": "Target H.264 bitrate in kbps. Only used when stream_format=h264."
+  },
+  "motion_detection_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable motion detection on the video stream."
+  },
+  "motion_sensitivity": {
+    "type": "number",
+    "default": 30,
+    "description": "Sensitivity of motion detection (0\u2013100). Higher = more sensitive. Only used if motion_detection_enabled=true."
+  },
+  "motion_min_area": {
+    "type": "number",
+    "default": 500,
+    "description": "Minimum pixel area of motion region to trigger alert. Only used if motion_detection_enabled=true."
+  },
+  "motion_cooldown_secs": {
+    "type": "number",
+    "default": 10,
+    "description": "Seconds to wait between motion alerts. Only used if motion_detection_enabled=true."
+  },
+  "motion_alert_url": {
+    "type": "string",
+    "default": "",
+    "description": "HTTP(S) endpoint to POST motion alert JSON (e.g., http://localhost:3000/alerts). Optional; leave blank to disable external alerts. Only used if motion_detection_enabled=true."
+  },
+  "log_level": {
+    "type": "string",
+    "default": "info",
+    "description": "Logging verbosity. Options: debug, info, warn, error."
+  },
+  "log_file": {
+    "type": "string",
+    "default": "/var/log/cam2ip/cam2ip.log",
+    "description": "Path to log file. Set to '-' to log to stdout."
+  },
+  "webui_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable the built-in web UI for status and configuration."
+  },
+  "webui_path": {
+    "type": "string",
+    "default": "/webui",
+    "description": "URL path for the web UI (e.g., /webui or /)."
+  }
+}

@@ -1,0 +1,94 @@
+# PostgreSQL Cascaded Queue Node (PgQ Node) configuration
+# Main config file for managing a PgQ node in a cascaded queue topology
+
+# Database connection to the local queue database (producer DB)
+host = {{ local_db.host }}
+port = {{ local_db.port }}
+dbname = {{ local_db.name }}
+user = {{ local_db.user }}
+password = {{ local_db.password }}
+
+# Database connection to the upstream (source) queue database
+upstream_host = {{ upstream_db.host }}
+upstream_port = {{ upstream_db.port }}
+upstream_dbname = {{ upstream_db.name }}
+upstream_user = {{ upstream_db.user }}
+upstream_password = {{ upstream_db.password }}
+
+# Node identity (must match PgQ consumer name and topology config)
+node_name = {{ node_name }}
+
+# Worker pool settings for event processing
+worker_count = {{ worker_count }}
+
+# Batch size: how many events to pull and process per transaction
+batch_size = {{ batch_size }}
+
+# Delay (in milliseconds) between polling upstream for new events when queue is empty
+poll_delay_ms = {{ poll_delay_ms }}
+
+# Maximum delay (in seconds) between successful transactions (prevents busy-looping)
+max_idle_seconds = {{ max_idle_seconds }}
+
+# Queue name to consume from upstream (source queue)
+queue_name = {{ queue_name }}
+
+# Log settings
+log_level = {{ log_level }}
+log_file = {{ log_file }}
+log_max_size_mb = {{ log_max_size_mb }}
+log_max_files = {{ log_max_files }}
+
+# Health check endpoint (optional — for orchestration tools like systemd or Kubernetes)
+{% if health_check.enabled %}
+health_check_enabled = true
+health_check_port = {{ health_check.port }}
+health_check_path = {{ health_check.path }}
+{% else %}
+health_check_enabled = false
+{% endif %}
+
+# Replication lag monitoring (critical for cascaded topology)
+{% if lag_monitoring.enabled %}
+lag_check_interval_seconds = {{ lag_monitoring.interval_seconds }}
+lag_warn_threshold_seconds = {{ lag_monitoring.warn_threshold_seconds }}
+lag_crit_threshold_seconds = {{ lag_monitoring.crit_threshold_seconds }}
+{% endif %}
+
+# Failover behavior: whether to pause when upstream is unavailable
+pause_on_upstream_failure = {{ pause_on_upstream_failure }}
+
+# Event processing timeout (seconds per event handler)
+event_timeout_seconds = {{ event_timeout_seconds }}
+
+# Optional: custom SQL for initializing node state (e.g., creating consumer markers)
+{% if init_sql %}
+init_sql_file = {{ init_sql.file }}
+{% endif %}
+
+# Optional: event filtering (e.g., only forward certain event types)
+{% for filter in event_filters %}
+# Filter #{{ loop.index }}: {{ filter.description }}
+filter_{{ loop.index }}_type = {{ filter.type }}
+filter_{{ loop.index }}_pattern = '{{ filter.pattern }}'
+filter_{{ loop.index }}_action = {{ filter.action }}
+{% endfor %}
+
+# Optional: retry policy for failed events
+{% if retry_policy.enabled %}
+retry_enabled = true
+retry_max_attempts = {{ retry_policy.max_attempts }}
+retry_delay_seconds = {{ retry_policy.delay_seconds }}
+retry_backoff_multiplier = {{ retry_policy.backoff_multiplier }}
+{% else %}
+retry_enabled = false
+{% endif %}
+
+# Optional: metrics exporter (e.g., Prometheus) port
+{% if metrics.enabled %}
+metrics_enabled = true
+metrics_port = {{ metrics.port }}
+metrics_path = {{ metrics.path }}
+{% else %}
+metrics_enabled = false
+{% endif %}

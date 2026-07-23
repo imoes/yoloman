@@ -1,0 +1,82 @@
+# Allow NTP client access from specified networks or hosts
+allow {{ allow_networks | default([]) | join('\nallow ') }}
+
+# Specify NTP servers to synchronize with
+{% for server in ntp_servers %}
+server {{ server.hostname }}{{ ' iburst' if server.iburst | default(true) else '' }}{{ ' prefer' if server.prefer | default(false) else '' }}
+{% endfor %}
+
+# Enable and configure PPS (Pulse Per Second) reference
+{% if pps_enabled | default(false) %}
+# PPS reference device (e.g., /devpps0 or /dev/pps0)
+refclock PPS {{ pps_device | default('/dev/pps0') }} refid {{ pps_refid | default('PPS') }} prefer precision {{ pps_precision | default(1e-9) }}
+{% endif %}
+
+# Specify the drift file (rate of RTC oscillator)
+driftfile /var/lib/chrony/drift
+
+# Enable RTC hardware clock synchronization
+rtcsync
+
+# Set leapsource to NTP (default), PPS, or manual
+leapsectz {{ leapsectz | default('right/UTC') }}
+
+# Logging configuration
+logdir /var/log/chrony
+{% for log_item in log_options | default(['measurements', 'statistics', 'tracking']) %}
+log {{ log_item }}
+{% endfor %}
+
+# Key file for NTP authentication (if used)
+{% if ntp_auth_enabled | default(false) %}
+keyfile /etc/chrony/chrony.keys
+{% endif %}
+
+# Command access: allow local control without auth
+makestep 1.0 3
+
+# Enable RTC kernel pll for continuous time adjustments
+rtconutc
+
+# Initial step correction only within first few updates
+maxslewrate 1000
+
+# Maximum distance to sync sources
+maxdistance {{ maxdistance | default(3600.0) }}
+
+# Minimum number of sources to sync
+minsources {{ minsources | default(2) }}
+
+# Synchronization source selection threshold
+sourcereplacementthreshold {{ sourcereplacementthreshold | default(0) }}
+
+# Allow time to be stepped even after initial sync (for recovery)
+initstepslew {{ initstepslew_threshold | default(0) }} {{ initstepslew_hosts | default([]) | join(' ') }}
+
+# Enable NTP server mode (if this host serves time)
+{% if ntp_server_enabled | default(false) %}
+local stratum {{ local_stratum | default(10) }}
+{% endif %}
+
+# Disable internet time sources in air-gapped setups
+{% if offline_mode | default(false) %}
+offline
+{% endif %}
+
+# Bind to specific interfaces (optional, e.g., for security)
+{% if bind_interfaces | default([]) | length > 0 %}
+bindaddress {{ bind_interfaces | join('\nbindaddress ') }}
+{% endif %}
+
+# Allow manual time adjustments via chronyc commands
+{% if manual_allowed | default(true) %}
+manpage
+{% endif %}
+
+# Specify command port (for chronyc)
+cmdport 323
+
+# Disable NTP broadcasts/ multicasts unless explicitly configured
+{% if ntp_broadcast_enabled | default(false) %}
+broadcast {{ ntp_broadcast_addr }}
+{% endif %}

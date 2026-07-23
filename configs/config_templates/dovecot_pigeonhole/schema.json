@@ -1,0 +1,100 @@
+{
+  "sieve_global": {
+    "type": "bool",
+    "default": false,
+    "description": "If true, enables a global Sieve script for all users (not common, typically avoided)"
+  },
+  "sieve_global_script": {
+    "type": "string",
+    "default": "",
+    "description": "Path to the global Sieve script (e.g., /etc/dovecot/sieve/global.sieve). Ignored unless sieve_global is true."
+  },
+  "sieve_global_script_dir": {
+    "type": "string",
+    "default": "/var/lib/dovecot/sieve/global/",
+    "description": "Directory where global Sieve scripts are stored (used by some Sieve implementations for compiled scripts)."
+  },
+  "sieve_user_script": {
+    "type": "string",
+    "default": "file:~/sieve",
+    "description": "Location of per-user Sieve scripts. Common values: file:~/sieve, file:~/.dovecot.sieve, or dir:~/.dovecot.sieve.d/"
+  },
+  "sieve_user_script_dir": {
+    "type": "string",
+    "default": "~/.dovecot.sieve.d/",
+    "description": "Directory where users can store multiple Sieve scripts (used with script name selection via active file)"
+  },
+  "sieve_before": {
+    "type": "string",
+    "default": "",
+    "description": "Path to a global Sieve script that runs *before* user scripts (e.g., for spam filtering or logging)"
+  },
+  "sieve_after": {
+    "type": "string",
+    "default": "",
+    "description": "Path to a global Sieve script that runs *after* user scripts (e.g., for archiving or notifications)"
+  },
+  "sieve_max_script_size": {
+    "type": "number",
+    "default": 102400,
+    "description": "Maximum allowed size (in bytes) of a single Sieve script. Prevents oversized or malicious scripts."
+  },
+  "sieve_max_scripts": {
+    "type": "number",
+    "default": 50,
+    "description": "Maximum total number of Sieve scripts (global + personal) allowed per user."
+  },
+  "sieve_max_personal_scripts": {
+    "type": "number",
+    "default": 30,
+    "description": "Maximum number of personal Sieve scripts (excluding global ones) a user may store."
+  },
+  "sieve_extensions": {
+    "type": "list",
+    "default": [
+      "fileinto",
+      "reject",
+      "envelope",
+      "vacation",
+      "imapflags",
+      "notify",
+      "include",
+      "variables",
+      "date",
+      "editheader",
+      "copy",
+      "subaddress",
+      " relational",
+      "regex"
+    ],
+    "description": "List of Sieve extensions to enable. Omit extensions your site doesn\u2019t need for security.",
+    "items": {
+      "type": "string",
+      "description": "Name of a Sieve extension (e.g., 'fileinto' for moving messages, 'vacation' for auto-reply)"
+    }
+  },
+  "sieve_debug": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable verbose debugging of Sieve script execution (only for troubleshooting \u2014 not for production)"
+  },
+  "sieve_storage": {
+    "type": "string",
+    "default": "maildir",
+    "description": "Storage backend used for Sieve scripts (usually 'maildir' or 'file'). 'maildir' stores scripts in Maildir++ hierarchy."
+  },
+  "sieve_global_scripts_dir": {
+    "type": "string",
+    "default": "",
+    "description": "(Deprecated) Legacy path to global Sieve scripts directory. Prefer sieve_global_script_dir in modern Dovecot."
+  },
+  "sieve_include": {
+    "type": "object",
+    "default": {},
+    "description": "Additional Sieve-related settings (key=value pairs) to include in the plugin block. Use for advanced tuning.",
+    "items": {
+      "type": "string",
+      "description": "A single Sieve plugin setting in the form 'key = value'. Example: sieve_trace_dir = /var/log/dovecot/sieve-trace/"
+    }
+  }
+}

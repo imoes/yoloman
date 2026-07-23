@@ -1,0 +1,96 @@
+[{{ pool_name }}]
+; Listens on a TCP address (host:port) or a Unix socket (path)
+listen = {{ listen_address }}
+
+; User and group under which the pool runs
+user = {{ user }}
+group = {{ group }}
+
+; Address ownership and permissions for Unix socket
+listen.owner = {{ listen_owner }}
+listen.group = {{ listen_group }}
+listen.mode = {{ listen_mode | default('0660') }}
+
+; Maximum number of child processes to spawn
+pm = {{ process_manager }}
+
+{% if process_manager == 'static' %}
+; Exact number of child processes to maintain
+pm.max_children = {{ pm_max_children }}
+{% elif process_manager == 'dynamic' %}
+; Dynamic process management settings
+pm.start_servers = {{ pm_start_servers }}
+pm.min_spare_servers = {{ pm_min_spare_servers }}
+pm.max_spare_servers = {{ pm_max_spare_servers }}
+{% elif process_manager == 'ondemand' %}
+; Ondemand spawning: processes started on demand
+pm.max_children = {{ pm_max_children }}
+pm.max_requests = {{ pm_max_requests }}
+{% endif %}
+
+; How long to wait before timing out a child request (in seconds)
+pm.request_terminate_timeout = {{ pm_request_terminate_timeout }}
+
+; Log level for this pool
+; Levels: alert, error, warning, notice, debug
+pm.log_level = {{ pm_log_level }}
+
+; Path to the pool's access log (use 'syslog' to log to system log)
+access.log = {{ access_log_path }}
+
+; Format for access log entries
+; % {format} % – see PHP-FPM docs for available tokens
+access.format = {{ access_format }}
+
+; Enable capturing of slow requests into a log
+slowlog = {{ slowlog_path }}
+
+; Time in seconds before a request is considered slow
+request_slowlog_timeout = {{ request_slowlog_timeout }}
+
+; PHP ini directives to override (space-separated keys)
+; Example: date.timezone = UTC
+php_admin_value[error_reporting] = {{ php_admin_values.error_reporting | default('E_ALL & ~E_NOTICE') }}
+php_admin_value[display_errors] = {{ php_admin_values.display_errors | default('Off') }}
+php_admin_value[log_errors] = {{ php_admin_values.log_errors | default('On') }}
+php_admin_value[memory_limit] = {{ php_admin_values.memory_limit | default('128M') }}
+
+; Custom PHP values (key = value lines)
+{% for key, value in php_values.items() %}php_value[{{ key }}] = {{ value }}
+{% endfor %}
+
+; Custom PHP environment variables
+{% for var in php_env_vars %}env[{{ var.name }}] = {{ var.value }}
+{% endfor %}
+
+; Chroot/chdir and other security-related options
+chroot = {{ chroot | default('') }}
+chdir = {{ chdir | default('') }}
+
+; Process priority adjustment (nice level)
+; Range: -19 (highest priority) to 20 (lowest)
+process_priority = {{ process_priority | default('') }}
+
+; Optional prefix for process title
+process.prefix = {{ process_prefix | default('') }}
+
+; Number of requests a child will handle before respawning (0 = unlimited)
+pm.max_requests = {{ pm_max_requests | default('0') }}
+
+; File descriptor limit
+rlimit_files = {{ rlimit_files | default('131072') }}
+
+; Maximum size of the process list in /proc (0 = unlimited)
+rlimit_core = {{ rlimit_core | default('0') }}
+
+; Disable specific functions for security
+disable_functions = {{ disable_functions | default('') }}
+
+; Disable specific classes for security
+disable_classes = {{ disable_classes | default('') }}
+
+; Allowed paths for open_basedir (colon-separated)
+open_basedir = {{ open_basedir | default('') }}
+
+; Send headers in PHP output
+catch_workers_output = {{ catch_workers_output | default('yes') }}

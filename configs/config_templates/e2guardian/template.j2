@@ -1,0 +1,95 @@
+# E2Guardian main configuration file
+# This file is automatically managed — do not edit manually
+
+# Listening configuration
+listen = {{ listen_address }}:{{ listen_port }}
+
+# Daemon behavior
+nodaemon = {{ daemon_nodaemon | lower }}
+
+# Process management
+children = {{ children_count }}
+
+# Logging configuration
+loglevel = {{ log_level }}
+logipaddresses = {{ log_ip_addresses | lower }}
+logfilepath = "{{ log_file_path }}"
+
+# Filtering configuration
+bannedmimetypes = "{{ banned_mime_types | join('\',\'') }}"
+
+# Content groups (URL/file filtering)
+contentgroups = {{ content_group_files | join(', ') }}
+
+# Authentication (if enabled)
+{{ '' if auth_type == 'none' else '
+authmodule = "' + auth_module + '"' + '
+authfile = "' + auth_file + '"' + '
+' + ('# Authentication realm
+authrealm = "' + auth_realm + '"' if auth_realm else '') + '
+' if auth_enabled else '' }}authenabled = {{ auth_enabled | lower }}
+
+# Proxy forwarding
+proxyport = {{ upstream_proxy_port }}
+{{ '' if upstream_proxy_host == '' else 'proxyhost = "' + upstream_proxy_host + '"' }}
+
+# Time-based restrictions
+{{ '' if time_restrictions_enabled == false else '
+# Time restrictions
+restrictedtimes = "' + restricted_times + '"' + '
+restrictdays = "' + restrict_days + '"' + '
+' }}
+
+# URL group and phrase group handling
+urllengthlimit = {{ url_length_limit }}
+ phrasegroups = {{ phrase_group_files | join(', ') }}
+urlgroups = {{ url_group_files | join(', ') }}
+
+# Pattern matching options
+{{ '' if pattern_matching_enabled == false else '
+# Pattern matching (regex) enabled
+patterngroups = {{ pattern_group_files | join(', ') }}
+' }}
+
+# IP-based exclusions
+{{ '' if exclude_ips | length == 0 else '# IPs excluded from filtering (CIDR or single)
+' + '
+'.join('# ' + ip if comment is none or comment == '' else '# ' + comment + ': ' + ip for ip, comment in exclude_ips) + '
+' }}excludedips = {{ excluded_ips_list | join(', ') }}
+
+# Domain exclusions
+{{ '' if exclude_domains | length == 0 else '# Domains excluded from filtering
+' + '
+'.join('# ' + d if comment is none or comment == '' else '# ' + comment + ': ' + d for d, comment in exclude_domains) + '
+' }}excludeddomains = {{ excluded_domains_list | join(', ') }}
+
+# Language & encoding
+language = "{{ language }}"
+
+# SSL inspection (if enabled)
+{{ '' if ssl_inspection_enabled == false else '
+# SSL inspection
+sslcertfile = "' + ssl_cert_file + '"' + '
+sslkeyfile = "' + ssl_key_file + '"' + '
+sslchainfile = "' + ssl_chain_file + '" if ssl_chain_file else '' + '
+sslproxyport = ' + ssl_proxy_port | string + '
+' }}sslenabled = {{ ssl_inspection_enabled | lower }}
+
+# Heavy lifting limits
+maxcontentdownload = {{ max_content_download_mb }}
+maxcontentdownloadlimit = {{ max_content_download_limit_mb }}
+
+# Request limits
+maxrequestsize = {{ max_request_size_kb }}
+maxbodysize = {{ max_body_size_kb }}
+
+# Connection tuning
+maxconnecttime = {{ max_connect_time_s }}
+connectiontimeout = {{ connection_timeout_s }}
+
+# Cache settings
+{{ '' if cache_enabled == false else '
+# Cache settings
+cacheenabled = true
+cachepath = "' + cache_path + '"' + '
+' }}cachelimit = {{ cache_limit_mb }}

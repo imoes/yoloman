@@ -1,0 +1,58 @@
+# macfanctld configuration file
+# Controls fan speed and temperature thresholds for Apple hardware
+
+# Minimum fan speed (0-65535 RPM or 0-100% depending on mode)
+min_fan_speed: {{ min_fan_speed }}
+
+# Maximum fan speed (0-65535 RPM or 0-100% depending on mode)
+max_fan_speed: {{ max_fan_speed }}
+
+# Temperature thresholds: temp_<zone> = <temp_threshold> (°C)
+# Each zone corresponds to a sensor (e.g., CPU, GPU, chassis)
+{% for zone, threshold in temp_thresholds.items() %}# Temperature threshold for {{ zone }} zone (°C)
+temp_{{ zone }}: {{ threshold }}
+{% endfor %}
+
+# Hysteresis: delay before fan speed adjustment after crossing threshold (seconds)
+hysteresis: {{ hysteresis }}
+
+# Polling interval for sensor readings (milliseconds)
+poll_interval: {{ poll_interval }}
+
+# Fan control mode: 'manual' or 'auto'
+# In 'auto' mode, macfanctld adjusts fan speed based on thresholds
+fan_mode: {{ fan_mode }}
+
+# Sensor source: 'smbios' (default), 'ec', or 'acpi'
+# Specifies where temperature data is read from
+sensor_source: {{ sensor_source }}
+
+# Enable logging to syslog
+log_to_syslog: {{ log_to_syslog | lower }}
+
+# Log level: 'debug', 'info', 'warn', 'error'
+log_level: {{ log_level }}
+
+# Path to custom sensor mapping file (optional)
+# Used when default SMBIOS/EC sensor mapping is incorrect
+{% if custom_sensor_map_path %}# Use custom sensor mapping file at {{ custom_sensor_map_path }}
+sensor_map: {{ custom_sensor_map_path }}
+{% endif %}
+
+# Fan offset: add/subtract this value to raw fan speed (for calibration)
+fan_offset: {{ fan_offset }}
+
+# Fan multiplier: multiply raw fan speed by this (for calibration)
+fan_multiplier: {{ fan_multiplier }}
+
+# Critical temperature (°C) — fan spins at max speed if exceeded
+critical_temp: {{ critical_temp }}
+
+# Shutdown temperature (°C) — triggers emergency shutdown if exceeded
+shutdown_temp: {{ shutdown_temp }}
+
+# Enable fan sleep mode (reduces fan speed during sleep/suspend)
+fan_sleep_mode: {{ fan_sleep_mode | lower }}
+
+# Ignore sensor failure (do not halt daemon on missing sensors)
+ignore_sensor_failure: {{ ignore_sensor_failure | lower }}

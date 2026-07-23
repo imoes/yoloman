@@ -1,0 +1,43 @@
+# ISATAP daemon configuration
+# Global ISATAP configuration options
+# Enable/disable ISATAP daemon
+enabled: {{ enabled | string | lower }}
+
+# Network interface to use for ISATAP (e.g., 'eth0')
+interface: {{ interface }}
+
+# IPv4 address of the ISATAP router (required for ISATAP operation)
+isatap_router_ipv4: {{ isatap_router_ipv4 }}
+
+# IPv6 prefix for ISATAP-generated addresses (e.g., '2001:db8:1::/64')
+isatap_ipv6_prefix: {{ isatap_ipv6_prefix }}
+
+# Maximum lifetime (in seconds) for ISATAP router advertisements
+router_advert_lifetime: {{ router_advert_lifetime }}
+
+# Interval (in seconds) between router advertisements
+router_advert_interval: {{ router_advert_interval }}
+
+# Enable/disable MTU discovery
+mtu_discovery: {{ mtu_discovery | string | lower }}
+
+# Optional: specify additional ISATAP hosts to trust (list of IPv4 addresses)
+{% for host in trusted_hosts %}# Trusted ISATAP host
+trusted_host: {{ host }}
+{% endfor %}
+
+# Logging level: DEBUG, INFO, NOTICE, WARNING, ERROR, CRITICAL
+log_level: {{ log_level }}
+
+# Log file path (use '-' for stdout)
+log_file: {{ log_file }}
+
+# Enable/disable IPv6 forwarding (system-level)
+ipv6_forwarding: {{ ipv6_forwarding | string | lower }}
+
+# Optional: list of zones (ISATAP zones define administrative domains)
+{% for zone in zones %}# ISATAP zone: {{ zone.name }}
+zone_name: {{ zone.name }}
+zone_prefix: {{ zone.prefix }}
+zone_router: {{ zone.router }}
+{% endfor %}

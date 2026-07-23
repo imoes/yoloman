@@ -1,0 +1,53 @@
+# qdevice configuration for Corosync
+# This file defines the qdevice (quorum device) settings used to provide
+# additional quorum votes in a cluster, especially for split-brain prevention.
+
+# Algorithm used for quorum calculation (3-node, 5-node, etc.)
+algorithm: {{ algorithm }}
+
+# Path to the script that will be executed when the qdevice needs to vote
+tls: {{ tls | to_nice_json }}
+
+# QDevice model parameters
+{
+{% for model_key, model_val in models.items() %}
+  {{ model_key }}: {{ model_val | to_nice_json }}
+{% endfor %}
+}
+
+# Logging configuration
+logging: {{ logging | to_nice_json }}
+
+# Node-specific configuration (usually auto-generated, but可 override)
+nodes: {{ nodes | to_nice_json }}
+
+# Interval (in seconds) between health checks to the qdevice
+heuristics_interval: {{ heuristics_interval }}
+
+# Command(s) to run as heuristics; must return 0 for up, non-zero for down
+heuristics: {{ heuristics | to_nice_json }}
+
+# Priority used in tie-breaking when multiple qdevices are configured
+tie_breaker: {{ tie_breaker }}
+
+# Use dedicated IP for qdevice communication (optional, overrides default routing)
+ip: {{ ip }}
+
+# Port to use for qdevice communication
+port: {{ port }}
+
+# Timeout (in ms) for connection and operation
+{
+  connect: {{ timeout_connect }},
+  exec: {{ timeout_exec }}
+}
+
+# Reconnect interval (in seconds) after failure
+reconnect_interval: {{ reconnect_interval }}
+
+# TLS certificate and key paths (if TLS enabled)
+{
+  cert: {{ tls_cert }},
+  key: {{ tls_key }},
+  ca: {{ tls_ca }}
+}

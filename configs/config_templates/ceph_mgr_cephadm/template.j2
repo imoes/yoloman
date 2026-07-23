@@ -1,0 +1,67 @@
+[global]
+# Global cluster configuration options
+fsid = {{ fsid }}
+{% for key, value in global_opts.items() %}
+{{ key }} = {{ value }}
+{% endfor %}
+
+[mon]
+# Monitor daemon configuration
+mon_host = {{ mon_host | join(', ') }}
+mon_initial_members = {{ mon_initial_members | join(', ') }}
+
+[mgr]
+# Manager daemon configuration
+{% if mgr_modules_enabled | length > 0 %}
+mgr_modules = {{ mgr_modules_enabled | join(',') }}
+{% endif %}
+
+[mds]
+# Metadata server configuration
+mds_data = {{ mds_data }}
+
+[osd]
+# OSD daemon configuration
+osd_journal_size = {{ osd_journal_size }}
+osd_mkfs_type = {{ osd_mkfs_type }}
+osd_mkfs_options_xfs = {{ osd_mkfs_options_xfs }}
+osd_mount_options_xfs = {{ osd_mount_options_xfs }}
+
+[client]
+# Client configuration
+rbd_cache = {{ rbd_cache | lower }}
+rbd_cache_writethrough_until_flush = {{ rbd_cache_writethrough_until_flush | lower }}
+
+[orchestrator]
+# cephadm orchestrator module configuration
+# Enables the cephadm module for cluster orchestration
+orchestrator = cephadm
+# Toggle automatic deployment of daemons (e.g., mon, mgr, osd) via cephadm
+orchestrator_enable_daemon_placement = {{ orchestrator_enable_daemon_placement | lower }}
+# Set the inventory refresh interval (in seconds)
+orchestrator_inventory_refresh_interval = {{ orchestrator_inventory_refresh_interval }}
+# Set the service spec refresh interval (in seconds)
+orchestrator_service_spec_refresh_interval = {{ orchestrator_service_spec_refresh_interval }}
+# Enable container image pull policy: 'always', 'missing', 'latest'
+orchestrator_container_image_base = {{ orchestrator_container_image_base }}
+# Enable secure TLS for cephadm API endpoints (requires cert management)
+orchestrator_secure_monitoring_stack = {{ orchestrator_secure_monitoring_stack | lower }}
+# Prometheus alertmanager URL for integration (optional)
+{% if prometheus_alertmanager_url %}
+orchestrator_alertmanager_url = {{ prometheus_alertmanager_url }}
+{% endif %}
+# Alertmanager basic auth (optional; stored in secrets if encrypted)
+{% if prometheus_alertmanager_basic_user %}
+orchestrator_alertmanager_basic_user = {{ prometheus_alertmanager_basic_user }}
+{% endif %}
+{% if prometheus_alertmanager_basic_password %}
+orchestrator_alertmanager_basic_password = {{ prometheus_alertmanager_basic_password }}
+{% endif %}
+
+# Custom inventory and spec polling (optional; advanced)
+{% if orchestrator_inventory_sources | length > 0 %}
+[orchestrator:inventory_sources]
+{% for src in orchestrator_inventory_sources %}
+{{ src.name }} = {{ src.path }}
+{% endfor %}
+{% endif %}

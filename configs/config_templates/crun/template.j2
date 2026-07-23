@@ -1,0 +1,92 @@
+# Default OCI runtime configuration for crun
+# This file is sourced by crun at runtime.
+# crun is a fast and lightweight OCI runtime written in C.
+
+[runtime]
+# Path to the OCI bundle directory
+bundle_dir = "{{ bundle_dir }}"
+
+# Path to the OCI rootfs directory
+rootfs = "{{ rootfs }}"
+
+# Enable or disable seccomp filtering
+seccomp = {{ seccomp | lower }}
+
+# Enable or disable AppArmor profile enforcement
+apparmor = {{ apparmor | lower }}
+
+# Enable or disable SELinux labeling
+selinux = {{ selinux | lower }}
+
+# Enable or disable capabilities management
+capabilities = {{ capabilities | lower }}
+
+# Path to the seccomp profile JSON file (if seccomp is enabled)
+seccomp_profile = "{{ seccomp_profile }}"
+
+# Path to the AppArmor profile (if apparmor is enabled)
+apparmor_profile = "{{ apparmor_profile }}"
+
+# Default SELinux label (if selinux is enabled)
+selinux_label = "{{ selinux_label }}"
+
+# Default capabilities to drop (list of capability names)
+# Example: ["CAP_SYS_ADMIN", "CAP_NET_RAW"]
+cap_drop = [{{ cap_drop | join(', ') | default('["CAP_SYS_ADMIN", "CAP_NET_RAW"]') }}]
+
+# Default capabilities to retain (list of capability names)
+cap_add = [{{ cap_add | join(', ') | default('[]') }}]
+
+# Default UID/GID for the container process (0 = root)
+default_uid = {{ default_uid }}
+default_gid = {{ default_gid }}
+
+# Enable or disable CRI-O compatibility mode
+crio_compatibility = {{ crio_compatibility | lower }}
+
+# Enable or disable Podman compatibility mode
+podman_compatibility = {{ podman_compatibility | lower }}
+
+# Enable or disable logging to stdout/stderr
+log_level = "{{ log_level }}"
+
+# Path to the log file (if logging to file is desired)
+log_path = "{{ log_path }}"
+
+# Maximum size of log file (in MB) before rotation
+log_size = {{ log_size }}
+
+# Number of rotated log files to retain
+log_files = {{ log_files }}
+
+# Enable or disable systemd cgroup driver
+systemd_cgroup = {{ systemd_cgroup | lower }}
+
+# Path to the cgroup manager binary (e.g., systemd, cgroupfs)
+cgroup_manager = "{{ cgroup_manager }}"
+
+# List of additional annotations to apply to containers
+# Each annotation is a key=value pair
+[annotations]
+{% for item in annotations %}
+{{ item.key }} = "{{ item.value }}"
+{% endfor %}
+
+# List of pre-start hooks to run before container start
+[hooks]
+{% for hook in prestart_hooks %}
+# Pre-start hook: {{ hook.description }}
+prestart = "{{ hook.path }}"
+{% if hook.args %}
+args = [{{ hook.args | join(', ') }}]
+{% endif %}
+{% endfor %}
+
+# List of post-stop hooks to run after container stop
+{% for hook in poststop_hooks %}
+# Post-stop hook: {{ hook.description }}
+poststop = "{{ hook.path }}"
+{% if hook.args %}
+args = [{{ hook.args | join(', ') }}]
+{% endif %}
+{% endfor %}

@@ -1,0 +1,38 @@
+{{ '# Open vSwitch database configuration' }}
+{{ '# This file is managed by ovsdb-tool and should not be edited manually.' }}
+{{ '# Use `ovs-vsctl` commands to modify the database.' }}
+{{ '# See `man ovs-vsctl` and `man ovsdb-schema` for usage.' }}
+{{ '# The actual configuration is stored in /etc/openvswitch/conf.db (binary OVSDB format).' }}
+{{ '# This template is a *documentation reference* for expected configuration values.' }}
+
+{{ '# Database schema definition (not stored in conf.db but used for reference)' }}
+{{ '# The primary tables are: Bridge, Port, Interface, Controller, SSL, Mirror, Flow_Table, NetFlow, sFlow, IPFIX, Flow_Sample_Collection_Set, Collector_Set, Mirrors, QoS, Queue, SSL, Certificate, CA_Cert, Client_Cert, Private_Key, Server_Cert, Bootstrap_Cert_Key, System, Open_vSwitch, Manager, Target, Backup, Rollback, Version, UUID' }}
+
+{{ '# Example row from Bridge table (created via ovs-vsctl add-br)' }}
+{% for bridge in bridges %}
+{{ '# Bridge: ' + bridge.name }}
+{{ '#   - UUID: ' + bridge.uuid }}
+{{ '#   - fail_mode: ' + bridge.fail_mode }}
+{{ '#   - stp_enable: ' + (bridge.stp_enable | string) }}
+{% if bridge.flood_vlans is defined and bridge.flood_vlans | length > 0 %}
+{{ '#   - flood_vlans: ' + (bridge.flood_vlans | join(', ')) }}
+{% endif %}
+{% endfor %}
+
+{{ '# Example row from Port table (created via ovs-vsctl add-port)' }}
+{% for port in ports %}
+{{ '# Port: ' + port.name }}
+{{ '#   - bridge: ' + port.bridge }}
+{{ '#   - interfaces: ' + (port.interfaces | join(', ')) }}
+{% if port.trunks is defined and port.trunks | length > 0 %}
+{{ '#   - trunks: ' + (port.trunks | join(', ')) }}
+{% endif %}
+{% endfor %}
+
+{{ '# Example row from Interface table (created/updated by ovsdb)' }}
+{% for iface in interfaces %}
+{{ '# Interface: ' + iface.name }}
+{{ '#   - type: ' + iface.type }}
+{{ '#   - uuid: ' + iface.uuid }}
+{% if iface.options is defined %}
+{{ '#   - options: ' + (iface.options | to_json | replace('\

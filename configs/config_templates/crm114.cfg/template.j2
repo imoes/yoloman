@@ -1,0 +1,51 @@
+# CRM114 main configuration file — controls spam/ham classification behavior
+[general]
+# Directory where CRM114 keeps its trained data (classifiers, dictionaries, etc.)
+{{ data_dir }}
+
+# Path to the mail spool or mailbox used for training and testing
+{{ mail_spool | default('none') }}
+
+# Enable verbose logging for troubleshooting (true|false)
+{{ debug | default('false') }}
+
+# Maximum memory (in MB) to use during classification (0 = no limit)
+{{ max_memory | default('0') }}
+
+[preprocessor]
+# List of preprocessor filters to apply before classification (each filter path)
+{% for filter in preprocessors %}{{ filter }}
+{% endfor %}
+
+[classifier]
+# Name of the classifier to use (e.g., 'dispm', 'svm', 'bcl')
+{{ classifier_name }}
+
+# Training method (e.g., 'online', 'batch')
+{{ training_method }}
+
+# Minimum word frequency threshold (words below this are ignored)
+{{ min_word_freq | default('2') }}
+
+# Maximum number of features (tokens) to retain in the model
+{{ max_features | default('10000') }}
+
+# Threshold above which an email is classified as spam (0.0–1.0)
+{{ spam_threshold | default('0.95') }}
+
+[discriminators]
+# List of discriminators (tokenizers/filters) to apply to text before classification
+{% for disc in discriminators %}{{ disc }}
+{% endfor %}
+
+[extensions]
+# Optional extensions (e.g., bayes, regexp, keyword)
+{% for ext in extensions %}{{ ext }}
+{% endfor %}
+
+[output]
+# Format for classification output: 'mail', 'text', 'json', etc.
+{{ output_format }}
+
+# Append classification metadata to message headers? (true|false)
+{{ add_headers | default('false') }}

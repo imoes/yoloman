@@ -1,0 +1,56 @@
+[# General server settings]
+[Global]
+  Name = {{ server_name }}
+  Info = {{ server_info }}
+  WebIRC = {{ server_webirc_enabled | string | lower }}
+  MaxConnections = {{ max_connections }}
+  MaxConnectionsPerIP = {{ max_connections_per_ip }}
+  MaxLogEntries = {{ max_log_entries }}
+  Timeout = {{ timeout_seconds }}
+  PingTimeout = {{ ping_timeout_seconds }}
+  PongTimeout = {{ pong_timeout_seconds }}
+  Port = {{ listen_ports | join(', ') }}
+  Listen = {{ listen_addresses | join(', ') }}
+
+[# SSL/TLS configuration]
+[SSL]
+  CipherList = {{ ssl_cipher_list }}
+  DHFile = {{ ssl_dhfile }}
+  KeyFile = {{ ssl_key_file }}
+  CertFile = {{ ssl_cert_file }}
+  CAFile = {{ ssl_ca_file }}
+  VerifyMode = {{ ssl_verify_mode }}
+  Ports = {{ ssl_ports | join(', ') }}
+
+[# Operator and access control]
+[Oper]
+{% for oper in operators %}  Name = {{ oper.name }}
+  Password = {{ oper.password_hash }}
+  Host = {{ oper.host }}
+  Flags = {{ oper.flags | join(', ') }}
+{% endfor %}
+
+[# Channel defaults and limits]
+[Channel]
+  ChannelUsers = {{ channel_max_users_per_channel }}
+  ChannelTopic = {{ channel_topic_protection }}
+  ChannelKey = {{ channel_default_key | default('') }}
+  ChannelLimit = {{ channel_max_channels_per_user }}
+
+[# Logging and debugging]
+[Log]
+  SyslogFacility = {{ syslog_facility }}
+  File = {{ log_file_path }}
+  Level = {{ log_level }}
+
+[# HTTP/CGI support (web proxy via mod_exec)]
+[WebIRC]
+  Enabled = {{ webirc_enabled | string | lower }}
+  URL = {{ webirc_url }}
+  Exec = {{ webirc_exec_path }}
+
+[# Module configuration (for mod_exec)]
+[Module]
+  Path = {{ module_path }}
+  Config = {{ module_config_path }}
+  Exec = {{ module_exec_path }}

@@ -1,0 +1,235 @@
+######################################################################
+# Exim4 configuration — /etc/exim4/exim4.conf.template
+# Generated from Jinja2 template; do not edit directly.
+######################################################################
+
+# ── MAIN CONFIGURATION ─────────────────────────────────────────────
+
+# Canonical hostname announced in SMTP greeting and used as the local mail domain
+primary_hostname = {{ primary_hostname }}
+
+# SMTP greeting banner sent to connecting SMTP clients on connect
+smtp_banner = $primary_hostname ESMTP Exim $version_number $tod_full
+
+# Maximum accepted message size; suffix M/G accepted (0 = unlimited)
+message_size_limit = {{ message_size_limit }}
+
+# Hard ceiling on the number of RCPT TO: addresses per message
+max_rcpt = {{ max_rcpt }}
+
+# Colon-separated list of TCP ports the daemon opens for incoming SMTP
+daemon_smtp_ports = {{ daemon_smtp_ports | join(' : ') }}
+
+{% if local_interfaces %}
+# Network interfaces to bind; omit to bind all available interfaces
+local_interfaces = {{ local_interfaces | join(' : ') }}
+{% endif %}
+
+# Domain appended to unqualified sender addresses (e.g. root -> root@qualify_domain)
+qualify_domain = {{ qualify_domain }}
+
+# Domain appended to unqualified recipient addresses submitted locally
+qualify_recipient = {{ qualify_recipient }}
+
+# Domains accepted as final delivery destination (@ expands to primary_hostname)
+domainlist local_domains = @ : localhost{% if local_domains %} : {{ local_domains | join(' : ') }}{% endif %}
+
+# Domains this server relays outbound mail to without local delivery
+domainlist relay_to_domains = {% if relay_to_domains %}{{ relay_to_domains | join(' : ') }}{% endif %}
+
+# IP addresses or CIDR ranges permitted to relay without SMTP AUTH
+hostlist relay_from_hosts = localhost : 127.0.0.1 : ::1{% if relay_from_hosts %} : {{ relay_from_hosts | join(' : ') }}{% endif %}
+
+# Filesystem path of the spool directory used to queue messages
+spool_directory = /var/spool/exim4
+
+# Give up retrying bounce messages after this period to prevent mail loops
+ignore_bounce_errors_after = {{ ignore_bounce_errors_after }}
+
+# Delete frozen (permanently undeliverable) messages after this period
+timeout_frozen_after = {{ timeout_frozen_after }}
+
+{% if freeze_tell %}
+# Address notified automatically whenever a message enters the frozen state
+freeze_tell = {{ freeze_tell }}
+{% endif %}
+
+# Fine-grained log flags: + enables a class, - disables it relative to the defaults
+log_selector = {{ log_selector }}
+
+{% if tls_enabled %}
+# ── TLS / STARTTLS ────────────────────────────────────────────────
+
+# Advertise STARTTLS capability to all connecting hosts
+tls_advertise_hosts = *
+
+# PEM certificate (may include chain) presented during TLS handshake
+tls_certificate = {{ tls_certificate }}
+
+# PEM private key paired with the certificate above
+tls_privatekey = {{ tls_privatekey }}
+
+# GnuTLS priority string: reject SSL3, TLS 1.0 and TLS 1.1
+tls_require_ciphers = NORMAL:%LATEST_RECORD_VERSION:-VERS-SSL3.0:-VERS-TLS1.0:-VERS-TLS1.1
+{% endif %}
+
+# ACL called once per RCPT TO: command during the SMTP dialogue
+acl_smtp_rcpt = acl_check_rcpt
+
+# ACL called after the complete message body has been received (DATA)
+acl_smtp_data = acl_check_data
+
+######################################################################
+begin acl
+######################################################################
+
+acl_check_rcpt:
+
+  # Accept mail injected by local processes; no network connection present
+  accept  hosts = :
+          control = dkim_disable_verify
+
+  # Reject local-parts that start with a dot or contain dangerous shell meta-chars
+  deny    message       = Restricted characters in address
+          domains       = +local_domains
+          local_parts   = ^[.] : ^.*[@%!/|`#&?]
+
+  # Accept mail to local domains after verifying the recipient mailbox exists
+  accept  domains       = +local_domains
+          endpass
+          message       = unknown user
+          verify        = recipient
+
+  # Accept mail to relay domains after verifying the remote address is routable
+  accept  domains       = +relay_to_domains
+          endpass
+          message       = unrouteable address
+          verify        = recipient
+
+  # Accept relay from explicitly trusted IP ranges without authentication
+  accept  hosts         = +relay_from_hosts
+
+  # Accept relay from any client that passed SMTP AUTH successfully
+  accept  authenticated = *
+          control       = submission
+
+  # Deny everything else as an unauthorised relay attempt
+  deny    message       = relay not permitted
+
+acl_check_data:
+
+  # Accept all messages that cleared the RCPT ACL (add AV/spam hooks here)
+  accept
+
+######################################################################
+begin routers
+######################################################################
+
+{% if smarthost %}
+# Forward all non-local outbound mail to the configured relay host
+smarthost:
+  driver                   = manualroute
+  domains                  = ! +local_domains
+  transport                = remote_smtp_smarthost
+  route_list               = * {{ smarthost }}
+  host_find_failed         = defer
+  same_domain_copy_routing = yes
+  no_more
+
+{% else %}
+# Resolve the destination MX/A record via DNS and deliver directly
+dnslookup:
+  driver                   = dnslookup
+  domains                  = ! +local_domains
+  transport                = remote_smtp
+  same_domain_copy_routing = yes
+  ignore_target_hosts      = 0.0.0.0 : 127.0.0.0/8
+  no_more
+
+{% endif %}
+# Deliver mail addressed to a valid local UNIX account
+localuser:
+  driver                   = accept
+  check_local_user
+  transport                = local_delivery
+  cannot_route_message     = Unknown user
+
+######################################################################
+begin transports
+######################################################################
+
+{% if not smarthost %}
+# Direct SMTP delivery to the remote mail server resolved via DNS
+remote_smtp:
+  driver             = smtp
+  message_size_limit = ${if > {$max_received_linelength}{998}{1}{0}}
+  hosts_try_auth     = <; $host_address
+
+{% endif %}
+{% if smarthost %}
+# SMTP delivery relayed through the configured smarthost
+remote_smtp_smarthost:
+  driver             = smtp
+  message_size_limit = ${if > {$max_received_linelength}{998}{1}{0}}
+  hosts_require_tls  = {{ smarthost }}
+{% if smarthost_auth %}
+  # Require successful SMTP AUTH before the smarthost will accept the message
+  hosts_require_auth = {{ smarthost }}
+{% endif %}
+
+{% endif %}
+# Append message to the local mbox file; set group/mode for shared access
+local_delivery:
+  driver           = appendfile
+  file             = /var/mail/${local_part}
+  delivery_date_add
+  envelope_to_add
+  return_path_add
+  group            = mail
+  mode             = 0660
+
+# Pipe transport invoked for .forward pipe entries
+address_pipe:
+  driver       = pipe
+  return_output
+
+# File-append transport invoked for .forward file entries
+address_file:
+  driver = appendfile
+  delivery_date_add
+  envelope_to_add
+  return_path_add
+
+######################################################################
+begin retry
+######################################################################
+
+# Immediately, then every 15 min for 2 h, then exponential growth, then every 6 h for 4 d
+*   *   F,2h,15m; G,16h,1h,1.5; F,4d,6h
+
+######################################################################
+begin rewrite
+######################################################################
+
+{% for rule in rewrite_rules %}
+# {{ rule.description }}
+{{ rule.pattern }}  {{ rule.replacement }}  {{ rule.flags }}
+{% endfor %}
+
+######################################################################
+begin authenticators
+######################################################################
+
+{% if smarthost_auth %}
+# SASL PLAIN: client sends base64(NUL + user + NUL + password) in a single step
+plain_smarthost:
+  driver      = plaintext
+  public_name = PLAIN
+  client_send = ^{{ smarthost_user }}^{{ smarthost_password }}
+
+# SASL LOGIN: server issues separate username and password prompts
+login_smarthost:
+  driver      = plaintext
+  public_name = LOGIN
+  client_send = : {{ smarthost_user }} : {{ smarthost_password }}
+{% endif %}

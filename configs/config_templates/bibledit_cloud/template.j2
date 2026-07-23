@@ -1,0 +1,74 @@
+# Bible Editor Cloud main configuration file — controls server behavior, ports, paths, and modules
+
+# Server address and port to listen on
+bind_address: {{ bind_address }}
+port: {{ port }}
+
+# Base URL path for reverse proxy compatibility (e.g., /bibledit)
+base_url_path: {{ base_url_path }}
+
+# Data directory — stores user data, projects, Bibles, etc.
+data_directory: {{ data_directory }}
+
+# Temporary files directory
+TempDirectory: {{ temp_directory }}
+
+# Maximum number of simultaneous HTTP connections per user session
+max_connections_per_session: {{ max_connections_per_session }}
+
+# Enable or disable HTTPS (requires valid certificate files when enabled)
+ssl_enabled: {{ ssl_enabled }}
+
+# SSL/TLS certificate and key paths (only used if ssl_enabled is true)
+ssl_certificate_file: {{ ssl_certificate_file }}
+ssl_key_file: {{ ssl_key_file }}
+
+# Logging configuration
+log_level: {{ log_level }}
+log_file: {{ log_file }}
+
+# Optional: Enable external module support (e.g., for plugins or language tools)
+enable_modules: {{ enable_modules }}
+
+# List of external modules to load (if enable_modules is true)
+{% for module in modules %}module: {{ module.path }}
+{% endfor %}
+
+# Authentication backend
+auth_backend: {{ auth_backend }}
+
+# If using internal SQLite auth, path to auth database
+{% if auth_backend == 'sqlite' %}auth_database: {{ auth_database }}
+{% endif %}
+
+# Session timeout in seconds
+session_timeout: {{ session_timeout }}
+
+# Allowed origins for CORS (comma-separated list)
+# Note: Use * for development only; avoid in production
+{% for origin in cors_allowed_origins %}cors_origin: {{ origin }}
+{% endfor %}
+
+# Optional: Set a site-wide branding title
+branding_title: {{ branding_title }}
+
+# Backup settings
+backup_enabled: {{ backup_enabled }}
+backup_interval_hours: {{ backup_interval_hours }}
+backup_retention_days: {{ backup_retention_days }}
+backup_directory: {{ backup_directory }}
+
+# Database backend (currently only SQLite supported by bibledit-cloud)
+database_backend: {{ database_backend }}
+database_file: {{ database_file }}
+
+# Enable debug mode (verbose logging, disable caching, etc.)
+debug_mode: {{ debug_mode }}
+
+# Optional: SMTP server settings for email notifications (e.g., user registration)
+{% if smtp_enabled %}smtp_server: {{ smtp_server }}
+smtp_port: {{ smtp_port }}
+smtp_use_tls: {{ smtp_use_tls }}
+smtp_username: {{ smtp_username }}
+smtp_from_address: {{ smtp_from_address }}
+{% endif %}

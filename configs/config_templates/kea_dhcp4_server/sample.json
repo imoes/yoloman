@@ -1,0 +1,95 @@
+{
+  "interfaces": [
+    "eth0",
+    "br0"
+  ],
+  "lease_db": {
+    "type": "memfile",
+    "persist": true,
+    "lename": "/var/lib/kea/kea-leases4.csv"
+  },
+  "hooks_libraries": [
+    {
+      "library": "/usr/lib/kea/hooks/libdhcp_lease_cmds.so",
+      "parameters": {}
+    },
+    {
+      "library": "/usr/lib/kea/hooks/libdhcp_user_check.so",
+      "parameters": {
+        "control-channel": "/var/run/kea/ctrl-agent.sock"
+      }
+    }
+  ],
+  "subnets": [
+    {
+      "id": 100,
+      "subnet": "192.0.2.0/24",
+      "pools": [
+        "192.0.2.10 - 192.0.2.200",
+        "192.0.2.210 - 192.0.2.250"
+      ],
+      "option_data": [
+        {
+          "name": "routers",
+          "data": [
+            "192.0.2.1"
+          ]
+        },
+        {
+          "name": "domain-name-servers",
+          "data": [
+            "192.0.2.1",
+            "8.8.8.8"
+          ]
+        },
+        {
+          "name": "domain-name",
+          "data": [
+            "example.com"
+          ]
+        }
+      ],
+      "renew_timer": 300,
+      "rebind_timer": 1800,
+      "valid_lifetime": 3600,
+      "min_valid_lifetime": 1800,
+      "max_valid_lifetime": 7200
+    }
+  ],
+  "shared_networks": [
+    {
+      "name": "office-vlan",
+      "subnets": [
+        {
+          "id": 200,
+          "subnet": "10.0.1.0/24",
+          "pools": [
+            {
+              "pool": "10.0.1.10 - 10.0.1.100",
+              "option_data": [
+                {
+                  "name": "routers",
+                  "data": [
+                    "10.0.1.1"
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "renew_timer": 3600,
+      "rebind_timer": 7200,
+      "valid_lifetime": 86400
+    }
+  ],
+  "authoritative": true,
+  "dhcp_queue_control": {
+    "enabled": true,
+    "capacity": 2048
+  },
+  "log_output": "/var/log/kea/kea-dhcp4.log",
+  "log_rotate": "weekly",
+  "log_severity": "INFO",
+  "log_debuglevel": 0
+}

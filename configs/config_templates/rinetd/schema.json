@@ -1,0 +1,54 @@
+{
+  "forwarding_rules": {
+    "type": "list",
+    "default": [],
+    "description": "List of port redirection rules. Each rule specifies how to forward traffic from a local address/port to a remote address/port.",
+    "items": {
+      "type": "object",
+      "properties": {
+        "comment": {
+          "type": "string",
+          "default": "",
+          "description": "Optional comment describing the rule (will appear as # comment in config)"
+        },
+        "protocol": {
+          "type": "string",
+          "default": "tcp",
+          "enum": [
+            "tcp",
+            "udp"
+          ],
+          "description": "Protocol to forward. Must be 'tcp' or 'udp'. Defaults to 'tcp'."
+        },
+        "bind_addr": {
+          "type": "string",
+          "default": "*",
+          "description": "Local IP address or hostname to bind to (use '*' for all interfaces)"
+        },
+        "bind_port": {
+          "type": "number",
+          "default": 0,
+          "minimum": 1,
+          "maximum": 65535,
+          "description": "Local port to listen on (1\u201365535)"
+        },
+        "connect_addr": {
+          "type": "string",
+          "default": "",
+          "description": "Remote IP address or hostname to forward traffic to. If omitted, defaults to bind_addr."
+        },
+        "connect_port": {
+          "type": "number",
+          "default": 0,
+          "minimum": 1,
+          "maximum": 65535,
+          "description": "Remote port to forward traffic to (1\u201365535)"
+        }
+      },
+      "required": [
+        "bind_port",
+        "connect_port"
+      ]
+    }
+  }
+}

@@ -1,0 +1,23 @@
+# /etc/default/prometheus-exporter-exporter — Environment variables for prometheus-exporter-exporter service
+# Controls the exporter-exporter reverse proxy behavior
+
+# Port on which the exporter-exporter itself listens
+EXPORTER_EXPORTER_LISTEN_ADDRESS={{ listen_address }}:{{ listen_port }}
+
+# Comma-separated list of exporter targets to proxy (each 'host:port' is a target exporter)
+EXPORTER_EXPORTER_TARGETS={{ targets | join(',') }}
+
+# Optional: Log level (debug, info, warn, error)
+{% if log_level %}EXPORTER_EXPORTER_LOG_LEVEL={{ log_level }}{% endif %}
+
+# Optional: Timeout (seconds) for upstream exporter connections
+{% if upstream_timeout_seconds %}EXPORTER_EXPORTER_UPSTREAM_TIMEOUT={{ upstream_timeout_seconds }}s{% endif %}
+
+# Optional: Metrics path prefix (e.g., /metrics for standard Prometheus endpoints)
+{% if metrics_path %}EXPORTER_EXPORTER_METRICS_PATH={{ metrics_path }}{% endif %}
+
+# Optional: Disable TLS verification for HTTPS exporters
+{% if not verify_tls %}EXPORTER_EXPORTER_INSECURE_SKIP_VERIFY=true{% endif %}
+
+# Optional: HTTP basic auth for upstream exporters
+{% if upstream_basic_auth %}EXPORTER_EXPORTER_UPSTREAM_BASIC_AUTH={{ upstream_basic_auth.username }}:{{ upstream_basic_auth.password }}{% endif %}

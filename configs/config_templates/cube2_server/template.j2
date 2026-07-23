@@ -1,0 +1,76 @@
+# Server-wide name and description
+# Visible in server browser and to clients
+server_name "{{ server_name }}"
+
+# Game mode: 'ctf', 'dm', 'dd', 'duel', 'race', etc.
+game_mode "{{ game_mode }}"
+
+# Maximum number of players allowed on the server
+maxplayers {{ max_players }}
+
+# Port to listen for game connections (UDP)
+port {{ game_port }}
+
+# Port to listen for HTTP admin/web queries (optional)
+{% if admin_http_port > 0 %}admin_http_port {{ admin_http_port }}
+{% endif %}
+
+# Server password (empty = no password)
+{% if server_password %}password "{{ server_password }}"
+{% endif %}
+
+# Admin password for in-game admin commands
+{% if admin_password %}adminpassword "{{ admin_password }}"
+{% endif %}
+
+# Map rotation: first map to load
+{% if maps %}map "{{ maps[0] }}"
+{% else %}map "arena"
+{% endif %}
+
+# List of maps to rotate through (in order)
+{% if maps | length > 1 %}
+{% for m in maps[1:] %}addmap "{{ m }}"
+{% endfor %}
+{% endif %}
+
+# Enable/disable dedicated mode (always on)
+dedicated {{ 1 if dedicated else 0 }}
+
+# Time limit per map in minutes (0 = unlimited)
+timelimit {{ time_limit }}
+
+# Score limit for match-based modes (0 = unlimited)
+scorelimit {{ score_limit }}
+
+# Enable Friendly Fire
+friendlyfire {{ 1 if friendly_fire else 0 }}
+
+# Enable player names in spectator list
+names_in_spectator {{ 1 if names_in_spectator else 0 }}
+
+# Rate at which physics updates are sent (lower = less bandwidth)
+rate {{ rate }}
+
+# Minimum ping before considering client for connection
+minping {{ min_ping }}
+
+# Maximum ping allowed (kicks if exceeded)
+maxping {{ max_ping }}
+
+# Log file path (empty = no logging)
+{% if log_file %}log "{{ log_file }}"
+{% endif %}
+
+# Enable server in global master list
+{% if master_servers %}# Master servers to register with
+{% for master in master_servers %}addmaster "{{ master }}"
+{% endfor %}
+{% else %}# No master server registration
+addmaster ""
+{% endif %}
+
+# Additional command-line-style options (one per line)
+{% if extra_options %}{% for opt in extra_options %}{{ opt }}
+{% endfor %}
+{% endif %}

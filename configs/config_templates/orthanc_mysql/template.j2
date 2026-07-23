@@ -1,0 +1,33 @@
+{# Enable the MySQL plugin #}
+"Plugins": [
+  "{{ mysql_plugin_path | default('/usr/lib/orthanc/mysql.so') }}"
+],
+
+{# MySQL connection parameters #}
+"MySQL": {
+  "Host": "{{ mysql_host | default('localhost') }}",
+  "Port": {{ mysql_port | default(3306) }},
+  "UserName": "{{ mysql_user | default('orthanc') }}",
+  "Password": "{{ mysql_password }}",
+  "DatabaseName": "{{ mysql_database | default('orthanc') }}"
+},
+
+{# Optional: connection pool settings (for performance tuning) #}
+"MySQLPool": {
+  "MinConnections": {{ mysql_pool_min | default(1) }},
+  "MaxConnections": {{ mysql_pool_max | default(10) }},
+  "ConnectionTimeout": {{ mysql_pool_timeout | default(5) }}
+},
+
+{# Optional: TLS/SSL support for secure connections #}
+"MySQLUseSsl": {{ mysql_use_ssl | default(false) }},
+{# If SSL is enabled, specify paths to certificate files #}
+{% if mysql_use_ssl %}
+"MySQLSslCa": "{{ mysql_ssl_ca | default('/etc/ssl/certs/ca-certificates.crt') }}",
+"MySQLSslCert": "{{ mysql_ssl_cert | default('') }}",
+"MySQLSslKey": "{{ mysql_ssl_key | default('') }}"
+{% endif %}
+
+{# Optional: advanced settings (rarely needed; defaults are safe) #}
+"MySQLInitCommand": "{{ mysql_init_command | default('SET NAMES utf8mb4') }}",
+"MySQLCharacterEncoding": "{{ mysql_encoding | default('utf8mb4') }}"

@@ -1,0 +1,58 @@
+# Listen address and port for the web server
+listen: {{ listen_addr }}:{{ listen_port }}
+
+# Path to the entropy source device (e.g., /dev/hwrng or /dev/random)
+entropy_source: "{{ entropy_source_path }}"
+
+# Maximum number of concurrent requests
+max_concurrent_requests: {{ max_concurrent_requests }}
+
+# Enable TLS? (set to true to use HTTPS)
+{% if tls_enabled %}tls:
+  cert_file: "{{ tls_cert_file }}"
+  key_file: "{{ tls_key_file }}"
+{% else %}tls: disabled
+{% endif %}
+
+# Worker process configuration
+workers:
+  count: {{ worker_count }}
+  type: "{{ worker_type }}"
+
+# Rate limiting settings
+rate_limit:
+  enabled: {{ rate_limit_enabled }}
+  requests_per_second: {{ rate_limit_rps }}
+  burst_size: {{ rate_limit_burst }}
+
+# Logging configuration
+{% if log_level %}log:
+  level: "{{ log_level }}"
+  format: "{{ log_format }}"
+  destination: "{{ log_destination }}"
+{% else %}log: disabled
+{% endif %}
+
+# Allowed client origins (CORS whitelist)
+{% if cors_origins %}cors_origins:
+{% for origin in cors_origins %}  - "{{ origin }}"
+{% endfor %}{% else %}cors_origins: []
+{% endif %}
+
+# Health check endpoint configuration
+health_endpoint: "{{ health_endpoint_path }}"
+
+# Metrics export endpoint
+metrics_endpoint: "{{ metrics_endpoint_path }}"
+
+# Timeout settings (in seconds)
+timeout:
+  connect: {{ timeout_connect }}
+  read: {{ timeout_read }}
+  write: {{ timeout_write }}
+
+# Cache settings for entropy responses
+cache:
+  enabled: {{ cache_enabled }}
+  ttl_seconds: {{ cache_ttl }}
+  max_entries: {{ cache_max_entries }}

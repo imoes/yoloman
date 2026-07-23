@@ -1,0 +1,176 @@
+{
+  "organization": {
+    "type": "string",
+    "default": "Example News Organization",
+    "description": "Organization name shown in Newsgroups headers of locally posted articles"
+  },
+  "server_fqdn": {
+    "type": "string",
+    "default": "news.example.com",
+    "description": "Fully qualified domain name of this news server, used in NNTP banners and Path headers"
+  },
+  "domain": {
+    "type": "string",
+    "default": "example.com",
+    "description": "DNS domain used to qualify bare hostnames appearing in article headers"
+  },
+  "from_host": {
+    "type": "string",
+    "default": "news.example.com",
+    "description": "Hostname placed in the From header of articles posted through this server"
+  },
+  "path_host": {
+    "type": "string",
+    "default": "news.example.com",
+    "description": "Token inserted into the Path header to identify this server in the article propagation chain"
+  },
+  "complaints_email": {
+    "type": "string",
+    "default": "newsmaster@example.com",
+    "description": "E-mail address published for abuse and spam complaints; also serves as the postmaster contact"
+  },
+  "moderator_mailer": {
+    "type": "string",
+    "default": "%s@moderators.example.com",
+    "description": "E-mail address template for contacting newsgroup moderators; INN replaces %s with the group name (dots converted to hyphens)"
+  },
+  "nntp_port": {
+    "type": "number",
+    "default": 119,
+    "description": "TCP port innd listens on for NNTP connections; 119 is the standard plain-text port, 563 is used for NNTPS"
+  },
+  "bind_address": {
+    "type": "string",
+    "default": "",
+    "description": "IPv4 address innd binds to; leave empty to accept connections on all network interfaces"
+  },
+  "bind_address6": {
+    "type": "string",
+    "default": "",
+    "description": "IPv6 address innd binds to; leave empty to accept connections on all network interfaces"
+  },
+  "spool_dir": {
+    "type": "string",
+    "default": "/var/spool/news",
+    "description": "Root directory of the news spool filesystem; all article storage subdirectories are created here \u2014 place on a dedicated partition for production use"
+  },
+  "log_dir": {
+    "type": "string",
+    "default": "/var/log/news",
+    "description": "Directory where INN writes news.notice, news.err, and other operational log files"
+  },
+  "storage_method": {
+    "type": "string",
+    "default": "tradSpool",
+    "description": "Article storage back-end: tradSpool (one file per article in a hierarchy), CNFS (cyclic buffer, fixed size), timehash, or timecaf"
+  },
+  "enable_overview": {
+    "type": "bool",
+    "default": true,
+    "description": "Build and maintain the overview (NOV) database; required for XOVER/OVER support used by virtually all news reader clients"
+  },
+  "overview_method": {
+    "type": "string",
+    "default": "tradindexed",
+    "description": "Overview storage driver: tradindexed (one index file per group, simple), buffindexed (shared buffer pool, faster), or ovdb (Berkeley DB, scalable)"
+  },
+  "article_cutoff_days": {
+    "type": "number",
+    "default": 10,
+    "description": "Reject articles whose Date header is older than this many days; set to 0 to disable age-based rejection"
+  },
+  "max_article_size": {
+    "type": "number",
+    "default": 1000000,
+    "description": "Maximum accepted article size in bytes including all headers for incoming feed articles; 0 means unlimited"
+  },
+  "local_max_article_size": {
+    "type": "number",
+    "default": 1000000,
+    "description": "Maximum article size in bytes for articles submitted by locally connected NNTP posting clients"
+  },
+  "max_to_post": {
+    "type": "number",
+    "default": 5,
+    "description": "Maximum number of articles a single NNTP session may post before the connection is terminated"
+  },
+  "check_included_text": {
+    "type": "bool",
+    "default": false,
+    "description": "Reject followup articles where the ratio of quoted text to new text is too high; reduces content-free quote-only posts"
+  },
+  "spool_first": {
+    "type": "bool",
+    "default": false,
+    "description": "Write the article to spool before sending the 240 acknowledgement; safer against crashes but adds latency for posting clients"
+  },
+  "max_connections": {
+    "type": "number",
+    "default": 50,
+    "description": "Maximum simultaneous inbound NNTP connections accepted by innd; set to 0 for no limit"
+  },
+  "client_timeout": {
+    "type": "number",
+    "default": 900,
+    "description": "Seconds of inactivity before an idle reader connection is forcibly closed; 900 = 15 minutes"
+  },
+  "peer_timeout": {
+    "type": "number",
+    "default": 3600,
+    "description": "Seconds of inactivity before an idle peer feed connection is forcibly closed; 3600 = 1 hour"
+  },
+  "reader_slave": {
+    "type": "bool",
+    "default": false,
+    "description": "Run innd in relay-only slave mode: accept only IHAVE article transfers, refuse articles posted directly by local clients"
+  },
+  "allow_newnews": {
+    "type": "bool",
+    "default": false,
+    "description": "Allow the NEWNEWS command; can generate significant bandwidth on large spools \u2014 disable on public-facing servers"
+  },
+  "allow_ihave": {
+    "type": "bool",
+    "default": true,
+    "description": "Accept article offers from authorised upstream peers via the IHAVE command; disable to prevent all inbound feeds"
+  },
+  "log_art_size": {
+    "type": "bool",
+    "default": true,
+    "description": "Include the byte size of each article in the news.notice transfer log entries"
+  },
+  "log_ip_addr": {
+    "type": "bool",
+    "default": true,
+    "description": "Record the remote IP address of every connecting NNTP client in the log"
+  },
+  "nntp_act_sync": {
+    "type": "number",
+    "default": 200,
+    "description": "Flush the activity log to disk after every N articles; 0 flushes only when a connection closes"
+  },
+  "want_trash": {
+    "type": "bool",
+    "default": false,
+    "description": "Accept articles posted to unrecognised newsgroups and file them in the junk pseudo-group rather than rejecting them outright"
+  },
+  "extra_config": {
+    "type": "list",
+    "default": [],
+    "description": "Additional inn.conf directives not covered by the template, appended verbatim at the end of the file",
+    "items": {
+      "key": {
+        "type": "string",
+        "description": "inn.conf directive name exactly as it appears in inn.conf(5), e.g. innflags or hiscachesize"
+      },
+      "value": {
+        "type": "string",
+        "description": "Directive value as it should appear in the file; manually quote string values that contain spaces"
+      },
+      "comment": {
+        "type": "string",
+        "description": "One-line explanation of why this directive is set, placed as a comment above the directive line"
+      }
+    }
+  }
+}

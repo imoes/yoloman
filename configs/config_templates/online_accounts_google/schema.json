@@ -1,0 +1,156 @@
+{
+  "name": {
+    "type": "string",
+    "default": "Google",
+    "description": "Display name for the plugin in the account settings UI."
+  },
+  "icon": {
+    "type": "string",
+    "default": "account-google",
+    "description": "Theme icon identifier (e.g., 'account-google'). Should match an installed icon in the Lomiri icon theme."
+  },
+  "services": {
+    "type": "list",
+    "default": [
+      {
+        "id": "calendar",
+        "name": "Calendar",
+        "scopes": [
+          "https://www.googleapis.com/auth/calendar.readonly"
+        ],
+        "discovery_url": "https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest",
+        "resource_auth": false
+      },
+      {
+        "id": "contacts",
+        "name": "Contacts",
+        "scopes": [
+          "https://www.googleapis.com/auth/userinfo.email",
+          "https://www.googleapis.com/auth/userinfo.profile"
+        ],
+        "discovery_url": "https://people.googleapis.com/$discovery/rest?version=v1",
+        "resource_auth": true,
+        "default_permissions": "read"
+      },
+      {
+        "id": "drive",
+        "name": "Drive",
+        "scopes": [
+          "https://www.googleapis.com/auth/drive.readonly"
+        ],
+        "discovery_url": "https://www.googleapis.com/discovery/v1/apis/drive/v3/rest",
+        "resource_auth": true,
+        "default_permissions": "read"
+      }
+    ],
+    "description": "List of Google services supported by this plugin. Each service defines its own OAuth scopes and API endpoints.",
+    "items": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "default": "",
+          "description": "Unique lowercase identifier (e.g., 'calendar', 'contacts'). Used in section headers."
+        },
+        "name": {
+          "type": "string",
+          "default": "",
+          "description": "Human-readable name shown in the service selection list."
+        },
+        "scopes": {
+          "type": "list",
+          "default": [],
+          "description": "List of OAuth2 scope URLs required to access the service.",
+          "items": {
+            "type": "string"
+          }
+        },
+        "discovery_url": {
+          "type": "string",
+          "default": "",
+          "description": "Google Discovery API URL for this service (used to fetch service metadata)."
+        },
+        "resource_auth": {
+          "type": "boolean",
+          "default": false,
+          "description": "Whether the service supports fine-grained, resource-specific token permissions."
+        },
+        "default_permissions": {
+          "type": "string",
+          "default": null,
+          "description": "(Optional) Default permission level for token scopes ('read', 'read-write', etc.)."
+        }
+      }
+    }
+  },
+  "auth_client_id": {
+    "type": "string",
+    "default": "",
+    "description": "Google Cloud Console OAuth2 client ID. Required. Must be created with redirect URI matching 'RedirectUri'."
+  },
+  "auth_client_secret": {
+    "type": "string",
+    "default": "",
+    "description": "Google Cloud Console OAuth2 client secret. *Highly sensitive*. Must be stored securely (e.g., via secrets management)."
+  },
+  "auth_redirect_uri": {
+    "type": "string",
+    "default": "urn:ietf:wg:oauth:2.0:oob",
+    "description": "OAuth2 redirect URI. Must be registered in Google Cloud Console. Use 'urn:ietf:wg:oauth:2.0:oob' for desktop or a custom URI scheme (e.g., 'myapp://oauth') for mobile."
+  },
+  "auth_endpoint": {
+    "type": "string",
+    "default": "https://accounts.google.com/o/oauth2/v2/auth",
+    "description": "Google OAuth2 authorization endpoint."
+  },
+  "token_endpoint": {
+    "type": "string",
+    "default": "https://oauth2.googleapis.com/token",
+    "description": "Google OAuth2 token endpoint (for exchange of auth code and refresh tokens)."
+  },
+  "revoke_endpoint": {
+    "type": "string",
+    "default": "https://oauth2.googleapis.com/revoke",
+    "description": "Google OAuth2 revocation endpoint (used to invalidate tokens on sign-out)."
+  },
+  "auth_refresh_mode": {
+    "type": "string",
+    "default": "auto",
+    "description": "Token refresh strategy. 'auto' refreshes tokens transparently; 'manual' prompts user on expiry."
+  },
+  "auth_use_pkce": {
+    "type": "boolean",
+    "default": true,
+    "description": "Enable Proof Key for Code Exchange (PKCE) for additional OAuth security (recommended)."
+  },
+  "allow_auto_provision": {
+    "type": "boolean",
+    "default": true,
+    "description": "If true, users can add Google accounts via the UI. If false, accounts must be pre-provisioned (e.g., for enterprise deployments)."
+  },
+  "sync_max_concurrent": {
+    "type": "number",
+    "default": 3,
+    "description": "Maximum number of simultaneous sync operations per account."
+  },
+  "sync_min_interval": {
+    "type": "number",
+    "default": 300,
+    "description": "Minimum allowed sync interval in seconds (e.g., 5 minutes). Prevents excessive polling."
+  },
+  "sync_default_interval": {
+    "type": "number",
+    "default": 3600,
+    "description": "Default background sync interval in seconds (e.g., 1 hour)."
+  },
+  "sync_enable_background": {
+    "type": "boolean",
+    "default": true,
+    "description": "Enable background sync by default (requires user to disable manually if desired)."
+  },
+  "sync_wifi_only": {
+    "type": "boolean",
+    "default": false,
+    "description": "If true, syncs requiring large transfers will only run when Wi-Fi is available."
+  }
+}

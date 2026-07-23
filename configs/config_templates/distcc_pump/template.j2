@@ -1,0 +1,29 @@
+# Enable pump mode for distributed compilation
+{{ 'PUMP_ENABLE=true' if values.pump_enabled else '#PUMP_ENABLE=true' }}
+
+# Base directory for pump mode state and cache files
+PUMP_DIR={{ values.pump_dir }}
+
+# Maximum number of pump mode sessions (controls concurrency)
+{{ 'PUMP_MAX_SESSIONS=' + values.pump_max_sessions | string if values.pump_max_sessions is not none else '#PUMP_MAX_SESSIONS=4' }}
+
+# Host(s) to use for pump mode; if empty, local-only pump session
+{{ 'PUMP_HOSTS=' + values.pump_hosts | join(',') if values.pump_hosts is not none and values.pump_hosts | length > 0 else '#PUMP_HOSTS=' }}
+
+# Path to the distccd binary (required for pump mode)
+{{ 'PUMP_BIN=' + values.pump_bin if values.pump_bin is not none else '#PUMP_BIN=/usr/bin/distccd' }}
+
+# Extra arguments passed to distccd when started via pump mode
+{{ 'PUMP_ARGS=' + values.pump_args | join(' ') if values.pump_args is not none and values.pump_args | length > 0 else '#PUMP_ARGS=' }}
+
+# Timeout (in seconds) for pump session startup
+{{ 'PUMP_STARTUP_TIMEOUT=' + values.pump_startup_timeout | string if values.pump_startup_timeout is not none else '#PUMP_STARTUP_TIMEOUT=30' }}
+
+# Enable verbose logging for pump mode
+{{ 'PUMP_VERBOSE=true' if values.pump_verbose else '#PUMP_VERBOSE=true' }}
+
+# Path to the pump mode log file (optional; leave empty for syslog)
+{{ 'PUMP_LOG=' + values.pump_log if values.pump_log is not none and values.pump_log != "" else '#PUMP_LOG=' }}
+
+# Enable/disables compression of data over pump sessions
+{{ 'PUMP_COMPRESS=true' if values.pump_compress else '#PUMP_COMPRESS=true' }}

@@ -1,0 +1,58 @@
+# /etc/google_oslogin_settings.conf — Google Compute Engine OS Login configuration
+# Enable or disable OS Login for the instance
+OSLOGIN={{ oslogin_enable }}
+
+# SSH public key cache TTL in seconds (0 = no caching)
+SSH_CACHE_TTL_SECONDS={{ ssh_cache_ttl }}
+
+# Enable or disable 2FA (two-factor authentication) for sudo
+OSLOGIN_2FA={{ oslogin_2fa_enable }}
+
+# Enable or disable SSH key refresh (pull keys from metadata on login)
+SSH_KEY_REFRESH={{ ssh_key_refresh }}
+
+# Path to the SSH public key metadata key (e.g., 'sshKeys' or 'google-ssh-keys')
+SSH_METADATA_KEY={{ ssh_metadata_key }}
+
+# Path to the sudoers configuration file for OS Login
+SUDOERS_CONFIG={{ sudoers_config_path }}
+
+# List of groups to map SSH keys to (each entry: name, gid)
+{% for group in sudo_groups %}# Sudo group mapping: {{ group.name }} (gid {{ group.gid }})
+SUDO_GROUP={{ group.name }},{{ group.gid }}
+{% endfor %}
+
+# Enable or disable group membership sync (pull Unix groups from Active Directory or LDAP)
+SYNC_UNIX_GROUPS={{ sync_unix_groups }}
+
+# List of Unix group names that should be allowed sudo access
+{% for group in sudo_unix_groups %}# Sudo access for Unix group: {{ group.name }}
+SUDO_UNIX_GROUP={{ group.name }}
+{% endfor %}
+
+# Enable or disable SSH key import from metadata (e.g., project/instance metadata)
+IMPORT_SSH_KEYS={{ import_ssh_keys }}
+
+# Enable or disable import of Unix home directory settings
+IMPORT_UNIX_HOME={{ import_unix_home }}
+
+# Home directory base path for OS Login users
+HOME_DIR_BASE={{ home_dir_base }}
+
+# Default shell for OS Login users
+DEFAULT_SHELL={{ default_shell }}
+
+# Enable or disable audit logging for OS Login operations
+AUDIT_LOGGING={{ audit_logging }}
+
+# Path to the audit log file
+AUDIT_LOG_FILE={{ audit_log_file }}
+
+# Enable or disable SELinux support
+SELINUX={{ selinux_enable }}
+
+# Enable or disable PAM session management
+PAM_SESSION={{ pam_session }}
+
+# Enable or disable UseLogin (use /bin/login for SSH sessions)
+USE_LOGIN={{ use_login }}

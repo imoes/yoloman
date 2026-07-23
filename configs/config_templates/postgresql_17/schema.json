@@ -1,0 +1,399 @@
+{
+  "listen_addresses": {
+    "type": "string",
+    "default": "localhost",
+    "description": "IP addresses or hostnames PostgreSQL will listen on for client connections. Use '*' for all."
+  },
+  "port": {
+    "type": "number",
+    "default": 5432,
+    "description": "TCP port number to accept connections on."
+  },
+  "max_connections": {
+    "type": "number",
+    "default": 100,
+    "description": "Maximum number of concurrent connections allowed."
+  },
+  "shared_buffers": {
+    "type": "string",
+    "default": "256MB",
+    "description": "Amount of shared memory used for caching data. Typically 25% of total RAM on a dedicated server."
+  },
+  "work_mem": {
+    "type": "string",
+    "default": "64MB",
+    "description": "Memory per operation (e.g., sort, hash). Larger values speed complex queries but consume memory per connection."
+  },
+  "maintenance_work_mem": {
+    "type": "string",
+    "default": "128MB",
+    "description": "Maximum memory for maintenance operations (e.g., VACUUM, CREATE INDEX)."
+  },
+  "effective_cache_size": {
+    "type": "string",
+    "default": "1GB",
+    "description": "Estimated total memory available for disk caching (including OS cache). Helps planner choose index scans."
+  },
+  "wal_buffers": {
+    "type": "string",
+    "default": "16MB",
+    "description": "Shared memory for WAL (write-ahead log) data before being written to disk."
+  },
+  "checkpoint_completion_target": {
+    "type": "number",
+    "default": 0.9,
+    "description": "Time allowed to spread checkpoint writes (0.0 = immediate, 1.0 = only at end). 0.9 is typical."
+  },
+  "max_wal_size": {
+    "type": "string",
+    "default": "2GB",
+    "description": "Maximum WAL size before forced checkpoint."
+  },
+  "min_wal_size": {
+    "type": "string",
+    "default": "1GB",
+    "description": "Minimum WAL size to retain for reuse."
+  },
+  "logging_collector": {
+    "type": "boolean",
+    "default": true,
+    "description": "Enable collection of log output into files (required for log rotation and centralized logs)."
+  },
+  "log_directory": {
+    "type": "string",
+    "default": "log",
+    "description": "Directory for log files (relative to data_directory or absolute)."
+  },
+  "log_filename": {
+    "type": "string",
+    "default": "postgresql-%Y-%m-%d_%H%M%S.log",
+    "description": "Filename pattern for log files using strftime codes."
+  },
+  "log_min_messages": {
+    "type": "string",
+    "default": "WARNING",
+    "description": "Minimum message level logged (e.g., DEBUG5, INFO, WARNING, ERROR)."
+  },
+  "log_min_duration_statement": {
+    "type": "number",
+    "default": 1000,
+    "description": "Log statements taking longer than this many milliseconds (set to -1 to disable)."
+  },
+  "log_statement": {
+    "type": "string",
+    "default": "ddl",
+    "description": "Which SQL statements to log: 'none', 'ddl', 'mod', 'all'."
+  },
+  "log_lock_waits": {
+    "type": "boolean",
+    "default": true,
+    "description": "Log lock waits exceeding deadlock_timeout."
+  },
+  "log_timezone": {
+    "type": "string",
+    "default": "UTC",
+    "description": "Timezone for log timestamps."
+  },
+  "timezone": {
+    "type": "string",
+    "default": "UTC",
+    "description": "Server-side default timezone for timestamps without explicit TZ."
+  },
+  "locale": {
+    "type": "string",
+    "default": "en_US.UTF-8",
+    "description": "Default locale for collation, formatting, and number representation."
+  },
+  "lc_messages": {
+    "type": "string",
+    "default": "en_US.UTF-8",
+    "description": "Locale for system messages and error strings."
+  },
+  "server_encoding": {
+    "type": "string",
+    "default": "UTF8",
+    "description": "Database server character encoding. Must match client encoding expectations."
+  },
+  "data_directory": {
+    "type": "string",
+    "default": "/var/lib/postgresql/17/main",
+    "description": "Directory containing cluster data files."
+  },
+  "hba_file": {
+    "type": "string",
+    "default": "/etc/postgresql/17/main/pg_hba.conf",
+    "description": "Path to the HBA (host-based authentication) configuration file."
+  },
+  "ident_file": {
+    "type": "string",
+    "default": "/etc/postgresql/17/main/pg_ident.conf",
+    "description": "Path to the user name mapping configuration file."
+  },
+  "max_parallel_workers_per_gather": {
+    "type": "number",
+    "default": 2,
+    "description": "Max parallel workers per parallel query (requires max_worker_processes \u2265 this)."
+  },
+  "max_parallel_maintenance_workers": {
+    "type": "number",
+    "default": 2,
+    "description": "Max parallel workers for maintenance (e.g., CREATE INDEX, VACUUM)."
+  },
+  "max_worker_processes": {
+    "type": "number",
+    "default": 8,
+    "description": "Total background worker processes (required for parallel queries, logical replication, extensions)."
+  },
+  "synchronous_commit": {
+    "type": "string",
+    "default": "on",
+    "description": "Commit behavior: 'on', 'remote_apply', 'remote_write', 'off'. 'on' ensures durability."
+  },
+  "replication_primary_host": {
+    "type": "string",
+    "default": "",
+    "description": "Connection info for primary server when this instance is a standby (e.g., 'host=primary port=5432 user=repl password=secret')."
+  },
+  "replication_standby_hosts": {
+    "type": "list",
+    "default": [],
+    "description": "List of standby hosts allowed to connect for streaming replication. Each item includes host and auth_method.",
+    "items": {
+      "type": "object",
+      "fields": {
+        "host": {
+          "type": "string",
+          "default": "",
+          "description": "Hostname or IP of standby server."
+        },
+        "auth_method": {
+          "type": "string",
+          "default": "trust",
+          "description": "Authentication method (e.g., trust, md5, scram-sha-256)."
+        }
+      }
+    }
+  },
+  "hba_rules": {
+    "type": "list",
+    "default": [],
+    "description": "List of pg_hba.conf rules (not the full file). Each rule specifies access control for clients.",
+    "items": {
+      "type": "object",
+      "fields": {
+        "type": {
+          "type": "string",
+          "default": "local",
+          "description": "Connection type: 'local', 'host', 'hostssl', 'hostnossl'."
+        },
+        "database": {
+          "type": "string",
+          "default": "all",
+          "description": "Database(s) this rule applies to (comma-separated, 'all', 'sameuser', etc.)."
+        },
+        "user": {
+          "type": "string",
+          "default": "all",
+          "description": "User(s) this rule applies to (comma-separated, 'all', 'sameuser', etc.)."
+        },
+        "address": {
+          "type": "string",
+          "default": "",
+          "description": "Client IP/network (e.g., '192.168.1.0/24'). Omit for local sockets."
+        },
+        "method": {
+          "type": "string",
+          "default": "peer",
+          "description": "Authentication method: 'trust', 'reject', 'md5', 'scram-sha-256', 'peer', 'cert', etc."
+        }
+      }
+    }
+  },
+  "wal_compression": {
+    "type": "string",
+    "default": "on",
+    "description": "Compress WAL during archiving or replication: 'on', 'off', or 'pglz'."
+  },
+  "synchronous_standby_names": {
+    "type": "string",
+    "default": "",
+    "description": "List of standby names for synchronous replication (e.g., 'FIRST 1 (standby1, standby2)')."
+  },
+  "wal_level": {
+    "type": "string",
+    "default": "replica",
+    "description": "WAL level: 'minimal', 'replica', 'logical'. 'replica' enables hot standby; 'logical' enables logical decoding."
+  },
+  "max_wal_senders": {
+    "type": "number",
+    "default": 3,
+    "description": "Max WAL sender processes (for streaming replication). Requires wal_level \u2265 replica."
+  },
+  "wal_sender_timeout": {
+    "type": "number",
+    "default": 60000,
+    "description": "Timeout (ms) for WAL sender disconnecting inactive standbys."
+  },
+  "shared_preload_libraries": {
+    "type": "list",
+    "default": [
+      "pg_stat_statements"
+    ],
+    "description": "List of shared libraries to load at server startup (e.g., ['pg_stat_statements', 'auto_explain']).",
+    "items": {
+      "type": "string",
+      "default": "",
+      "description": "Library name (without path or extension)."
+    }
+  },
+  "archive_mode": {
+    "type": "boolean",
+    "default": false,
+    "description": "Enable archiving of WAL segments (required for point-in-time recovery)."
+  },
+  "archive_command": {
+    "type": "string",
+    "default": "cp %p /var/lib/postgresql/archive/%f",
+    "description": "Shell command to copy WAL files to archive location. Use %p (source) and %f (filename)."
+  },
+  "archive_timeout": {
+    "type": "number",
+    "default": 300,
+    "description": "Force WAL switch every N seconds to ensure archival of in-progress segments (0 disables)."
+  },
+  "recovery_target_action": {
+    "type": "string",
+    "default": "pause",
+    "description": "Action on recovery target: 'pause', 'promote' (standby only)."
+  },
+  "recovery_target_lsn": {
+    "type": "string",
+    "default": "",
+    "description": "Recover to a specific WAL LSN."
+  },
+  "recovery_target_time": {
+    "type": "string",
+    "default": "",
+    "description": "Recover to a specific timestamp (ISO 8601 format)."
+  },
+  "recovery_target_xid": {
+    "type": "string",
+    "default": "",
+    "description": "Recover to a specific transaction ID."
+  },
+  "recovery_target_name": {
+    "type": "string",
+    "default": "",
+    "description": "Recover to a named restore point."
+  },
+  "logical_decoding": {
+    "type": "boolean",
+    "default": false,
+    "description": "Enable logical decoding (required for logical replication slots and publications)."
+  },
+  "logical_replication_publications": {
+    "type": "list",
+    "default": [],
+    "description": "List of logical replication publications to define at startup.",
+    "items": {
+      "type": "object",
+      "fields": {
+        "name": {
+          "type": "string",
+          "default": "",
+          "description": "Publication name."
+        },
+        "tables": {
+          "type": "list",
+          "default": [],
+          "description": "Tables included in publication.",
+          "items": {
+            "type": "string",
+            "default": "",
+            "description": "Qualified table name (e.g., 'public.users')."
+          }
+        }
+      }
+    }
+  },
+  "logical_replication_subscriptions": {
+    "type": "list",
+    "default": [],
+    "description": "List of logical replication subscriptions to create at startup.",
+    "items": {
+      "type": "object",
+      "fields": {
+        "name": {
+          "type": "string",
+          "default": "",
+          "description": "Subscription name."
+        },
+        "provider": {
+          "type": "string",
+          "default": "",
+          "description": "Connection info to primary (e.g., 'host=primary port=5432 dbname=app user=repl password=secret')."
+        },
+        "publications": {
+          "type": "list",
+          "default": [],
+          "description": "Publication names to subscribe to.",
+          "items": {
+            "type": "string",
+            "default": "",
+            "description": "Publication name."
+          }
+        }
+      }
+    }
+  },
+  "default_statistics_target": {
+    "type": "number",
+    "default": 100,
+    "description": "Default statistics target for columns (1\u201310000). Higher = more precise plans but longer ANALYZE."
+  },
+  "random_page_cost": {
+    "type": "number",
+    "default": 1.1,
+    "description": "Planner's estimate of relative cost of random disk access. Lower = favor index scans more aggressively."
+  },
+  "jit": {
+    "type": "boolean",
+    "default": true,
+    "description": "Enable JIT compilation for queries (improves complex queries on large datasets)."
+  },
+  "tcp_keepalives_idle": {
+    "type": "number",
+    "default": 7200,
+    "description": "Seconds of idle before TCP starts sending keepalives."
+  },
+  "tcp_keepalives_interval": {
+    "type": "number",
+    "default": 75,
+    "description": "Seconds between TCP keepalive probes."
+  },
+  "tcp_keepalives_count": {
+    "type": "number",
+    "default": 9,
+    "description": "Number of TCP keepalive probes before connection is dropped."
+  },
+  "ssl": {
+    "type": "string",
+    "default": "off",
+    "description": "SSL mode: 'off', 'allow', 'prefer', 'require'. Requires ssl_cert_file and ssl_key_file."
+  },
+  "ssl_cert_file": {
+    "type": "string",
+    "default": "server.crt",
+    "description": "Path to SSL certificate (relative to data_directory or absolute)."
+  },
+  "ssl_key_file": {
+    "type": "string",
+    "default": "server.key",
+    "description": "Path to SSL private key (relative to data_directory or absolute)."
+  },
+  "ssl_ca_file": {
+    "type": "string",
+    "default": "",
+    "description": "Optional: Path to SSL CA certificate for verifying client certs (relative or absolute)."
+  }
+}

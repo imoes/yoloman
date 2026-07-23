@@ -1,0 +1,98 @@
+{
+  "enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Whether the GNSS sharing daemon should be started automatically."
+  },
+  "api.bind_address": {
+    "type": "string",
+    "default": "127.0.0.1",
+    "description": "IP address on which the local HTTP status/metadata API will listen."
+  },
+  "api.port": {
+    "type": "number",
+    "default": 8080,
+    "description": "Port for the local HTTP API (status, metrics, control)."
+  },
+  "gnss.device_path": {
+    "type": "string",
+    "default": "/dev/ttyUSB0",
+    "description": "Device file path to the GNSS receiver (e.g., GPS USB device or serial port)."
+  },
+  "gnss.baud_rate": {
+    "type": "number",
+    "default": 9600,
+    "description": "Serial baud rate for communication with the GNSS device."
+  },
+  "gnss.accepted_nmea_types": {
+    "type": "list",
+    "default": [
+      "GGA",
+      "RMC"
+    ],
+    "description": "List of NMEA sentence types to parse and share. Common types: GGA (position fix), RMC (recommended minimum), VTG (velocity)."
+  },
+  "gnss.min_satellites": {
+    "type": "number",
+    "default": 4,
+    "description": "Minimum satellites required for a valid fix. Prevents sharing low-accuracy locations."
+  },
+  "gnss.max_position_age": {
+    "type": "number",
+    "default": 30,
+    "description": "Maximum age (in seconds) for a position data point before it's considered stale and discarded."
+  },
+  "logging.position_log_path": {
+    "type": "string",
+    "default": "/var/log/gnss-share/positions.log",
+    "description": "Absolute path to the log file where successfully parsed positions are stored."
+  },
+  "logging.log_level": {
+    "type": "string",
+    "default": "info",
+    "description": "Verbosity of daemon logging. Valid values: debug, info, warn, error."
+  },
+  "sharing.peers": {
+    "type": "list",
+    "default": [],
+    "items": {
+      "hostname": {
+        "type": "string",
+        "description": "Hostname or IP address of the sharing peer.",
+        "required": true
+      },
+      "port": {
+        "type": "number",
+        "description": "Port on the peer to connect to.",
+        "default": 8081,
+        "required": true
+      }
+    },
+    "description": "List of remote services to share GNSS position updates with."
+  },
+  "sharing.tls.enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Whether to use TLS (HTTPS) when sharing data with peers."
+  },
+  "sharing.tls.cert_path": {
+    "type": "string",
+    "default": "/etc/gnss-share/tls/gnss-share.crt",
+    "description": "Path to the TLS certificate used for peer authentication and encryption."
+  },
+  "sharing.tls.key_path": {
+    "type": "string",
+    "default": "/etc/gnss-share/tls/gnss-share.key",
+    "description": "Path to the TLS private key used for TLS connections."
+  },
+  "sharing.cache_path": {
+    "type": "string",
+    "default": "/var/lib/gnss-share/cache.json",
+    "description": "Path to the JSON file used to cache recent shared positions for retransmission or recovery."
+  },
+  "sharing.interval": {
+    "type": "number",
+    "default": 10,
+    "description": "Interval (in seconds) between position-sharing attempts to peers (minimum recommended: 5)."
+  }
+}

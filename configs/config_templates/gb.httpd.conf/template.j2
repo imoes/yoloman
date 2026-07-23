@@ -1,0 +1,54 @@
+[httpd]
+; Main listening host:port (IPv4 or IPv6)
+Listen={{ httpd.listen }}
+
+; Maximum number of concurrent connections
+MaxClients={{ httpd.max_clients }}
+
+; Maximum number of requests per connection before restart (0 = no limit)
+MaxRequestsPerChild={{ httpd.max_requests_per_child }}
+
+; Timeout in seconds before a request is aborted
+Timeout={{ httpd.timeout }}
+
+; Document root directory
+DocumentRoot={{ httpd.document_root }}
+
+; Server admin email (used in error pages)
+ServerAdmin={{ httpd.server_admin }}
+
+; Server name (for virtual host identification)
+ServerName={{ httpd.server_name }}
+
+; Enable HTTPS? Set to 'true' to activate SSL/TLS support
+SSLEnabled={{ 'true' if httpd.ssl_enabled else 'false' }}
+
+; SSL certificate file path (required if SSLEnabled=true)
+SSLCertificateFile={{ httpd.ssl_certificate_file }}
+
+; SSL private key file path (required if SSLEnabled=true)
+SSLPrivateKeyFile={{ httpd.ssl_private_key_file }}
+
+; Log level: 0=none, 1=errors, 2=warnings, 3=info, 4=debug
+LogLevel={{ httpd.log_level }}
+
+; Enable directory listing? true|false
+DirectoryIndex={{ 'index.html' | join(', ') if not httpd.directory_index else httpd.directory_index | join(', ') }}
+
+{% for dir in httpd.directory_configs %}; Directory-specific settings for {{ dir.path }}
+<Directory "{{ dir.path }}">
+  Options={{ dir.options | join(' ') }}{% if dir.options %}
+  {% endif %}AllowOverride={{ dir.allow_override | join(' ') }}{% if dir.allow_override %}
+  {% endif %}Require={{ dir.require | join(' ') }}
+</Directory>
+{% endfor %}
+
+{% for vhost in httpd.virtual_hosts %}; Virtual host: {{ vhost.name }}
+<VirtualHost "{{ vhost.address }}:{{ vhost.port }}">
+  ServerName {{ vhost.server_name }}
+  DocumentRoot {{ vhost.document_root }}
+  {% if vhost.ssl_enabled %}  SSLEngine on
+  SSLCertificateFile {{ vhost.ssl_certificate_file }}
+  SSLPrivateKeyFile {{ vhost.ssl_private_key_file }}{% endif %}
+</VirtualHost>
+{% endfor %}

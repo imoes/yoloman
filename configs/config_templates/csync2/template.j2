@@ -1,0 +1,39 @@
+# csync2 configuration file — do not edit manually; managed by configuration management
+# Host identification and cluster membership
+host "{{ host_name }}";
+
+# Define cluster name and member hosts
+cluster "{{ cluster_name }}" {
+{% for member in cluster_members %}    host "{{ member }}";
+{% endfor %}
+};
+
+# Global options
+{% if auto_preload %}auto_preload;
+{% endif %}{% if auto_expire %}auto_expire;
+{% endif %}{% if timeout is defined and timeout > 0 %}timeout {{ timeout }};
+{% endif %}{% if port is defined and port > 0 %}port {{ port }};
+{% endif %}
+
+# Logging configuration
+{% if log_dir is defined and log_dir != "" %}log {
+    file "{{ log_dir }}/csync2.log";
+{% if log_level is defined and log_level != "" %}    level {{ log_level }};
+{% endif %}{% if syslog_enabled %}    syslog;
+{% endif %}};
+{% endif %}
+
+# Define directories and files to synchronize
+{% for group in sync_groups %}group "{{ group.name }}" {
+{% for pattern in group.include %}    include {{ pattern }};
+{% endfor %}{% for pattern in group.exclude %}    exclude {{ pattern }};
+{% endfor %}    key "{{ group.key_path }}";
+{% if group.auto %}    auto;
+{% endif %}{% if group.port is defined and group.port > 0 %}    port {{ group.port }};
+{% endif %}{% if group.check_interval > 0 %}    check_interval {{ group.check_interval }};
+{% endif %}{% if group.prefer is defined and group.prefer != "" %}    prefer "{{ group.prefer }}";
+{% endif %}{% if group.force %}    force;
+{% endif %}{% if group.use_rsync %}    use rsync;
+{% endif %}};
+
+{% endfor %}# End of configuration

@@ -1,0 +1,57 @@
+# ldap2dns main configuration
+# Directory to scan for LDAP changes
+ldap:
+  uri: {{ ldap.uri }}
+  bind_dn: {{ ldap.bind_dn }}
+  bind_password: {{ ldap.bind_password }}
+  base_dn: {{ ldap.base_dn }}
+  search_filter: {{ ldap.search_filter | default('objectClass=dnsZone') }}
+  # Maximum search depth (0 = unlimited)
+  search_depth: {{ ldap.search_depth | default(0) }}
+  # Optional TLS settings
+  tls:
+    ca_cert_file: {{ ldap.tls.ca_cert_file | default('') }}
+    cert_file: {{ ldap.tls.cert_file | default('') }}
+    key_file: {{ ldap.tls.key_file | default('') }}
+    start_tls: {{ ldap.tls.start_tls | default(false) }}
+
+# Zone mapping: maps LDAP DNs to DNS zone names
+zones:
+{% for zone in zones %}  - name: {{ zone.name }}
+    base_dn: {{ zone.base_dn }}
+    template: {{ zone.template | default('') }}
+{% endfor %}
+
+# DNS backend configuration
+dns:
+  backend: {{ dns.backend }}
+  # Backend-specific settings
+{% if dns.backend == 'bind9' %}
+  bind9:
+    server: {{ dns.bind9.server | default('127.0.0.1') }}
+    key_file: {{ dns.bind9.key_file }}
+    key_name: {{ dns.bind9.key_name | default('rndc-key') }}
+    key_algorithm: {{ dns.bind9.key_algorithm | default('hmac-md5') }}
+    # Zone file directory (optional, for view debugging)
+    zone_dir: {{ dns.bind9.zone_dir | default('') }}
+{% elif dns.backend == 'powerdns' %}
+  powerdns:
+    api_url: {{ dns.powerdns.api_url | default('http://127.0.0.1:8080/api/v1') }}
+    api_key: {{ dns.powerdns.api_key }}
+    # Optional: default TTL for created records
+    default_ttl: {{ dns.powerdns.default_ttl | default(3600) }}
+{% elif dns.backend == 'nsd' %}
+  nsd:
+    control_socket: {{ dns.nsd.control_socket | default('/var/run/nsdctl.sock') }}
+    zone_dir: {{ dns.nsd.zone_dir | default('/etc/nsd/zones') }}
+{% endif %}
+
+# Logging configuration
+log:
+  level: {{ log.level | default('info') }}
+  format: {{ log.format | default('text') }}
+
+# Update throttling (optional, to avoid flooding)
+rate_limit:
+  max_updates_per_minute: {{ rate_limit.max_updates_per_minute | default(60) }}
+  burst_size: {{ rate_limit.burst_size | default(10) }}

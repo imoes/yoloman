@@ -1,0 +1,20 @@
+# /etc/insserv.conf - insserv configuration file
+# Controls service dependency ordering and default runlevel behavior
+# Format: key=value, one per line. Empty lines and lines starting with # are ignored.
+
+{% if default_runlevel is defined %}# Default runlevel (if not specified by the init script LSB headers)
+default_runlevel={{ default_runlevel }}
+{% endif %}
+
+# Enable verbose output during dependency resolution (useful for debugging)
+verbose={{ verbose | string | lower }}
+
+# Prevent insserv from removing existing symlinks (for safety during upgrades)
+force_symlinks={{ force_symlinks | string | lower }}
+
+# List of service names to ignore during dependency resolution (space-separated)
+# Useful for excluding services that are managed externally or non-standard
+ignore_services={{ ignore_services | join(' ') | default('') }}
+
+# Maximum number of levels to traverse when resolving dependencies (prevents infinite loops)
+max_depth={{ max_depth }}

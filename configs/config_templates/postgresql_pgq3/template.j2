@@ -1,0 +1,98 @@
+# PostgreSQL Generic Queue Server (pgq) main configuration file
+# Controls global pgq behavior, including connection to the database, worker pools, and queue management.
+
+# Database connection string for the coordinator (required)
+# Example: postgresql://user:pass@host:5432/dbname
+pgq.db = {{ db_conn_string | default("postgresql://pgq:pgq@localhost:5432/pgq") }}
+
+# PostgreSQL user to use for queue operations
+pgq.user = {{ user | default("pgq") }}
+
+# PostgreSQL database name to use for queue metadata
+pgq.database = {{ database | default("pgq") }}
+
+# PostgreSQL host (can be hostname or IP); empty string means use Unix socket
+pgq.host = {{ host | default("") }}
+
+# PostgreSQL port (if host is not a Unix socket path)
+pgq.port = {{ port | default(5432) }}
+
+# Path to Unix socket (optional; if empty, uses default PostgreSQL socket directory)
+# If set, `pgq.host` and `pgq.port` are ignored.
+pgq.socket = {{ socket_path | default("") }}
+
+# Directory where log files are written
+log.dir = {{ log_dir | default("/var/log/pgq") }}
+
+# Log file name (can include strftime `%Y%m%d` etc.); `%s` expands to epoch seconds
+log.file = {{ log_file | default("pgq.log") }}
+
+# Log level: DEBUG, INFO, WARNING, ERROR, FATAL
+log.level = {{ log_level | default("INFO") }}
+
+# Number of worker threads per queue (0 disables worker pool; use only coordinator)
+worker.count = {{ worker_count | default(2) }}
+
+# Maximum number of items to process per worker tick
+worker.max_batch = {{ worker_max_batch | default(100) }}
+
+# Delay (in milliseconds) between worker ticks if no work is done
+worker.tick_delay = {{ worker_tick_delay | default(500) }}
+
+# Delay (in milliseconds) between worker ticks even if work is done
+worker.tick_interval = {{ worker_tick_interval | default(100) }}
+
+# Maximum time (in seconds) a worker may wait for a database connection
+worker.conn_timeout = {{ worker_conn_timeout | default(10) }}
+
+# Maximum time (in seconds) a worker may wait for a query to complete
+worker.query_timeout = {{ worker_query_timeout | default(60) }}
+
+# Enable or disable auto-creation of tables (requires superuser or DDL permissions)
+auto.create_tables = {{ auto_create_tables | default(true) }}
+
+# Enable or disable coordinator mode (true = run coordinator; false = worker-only)
+coordinator.enabled = {{ coordinator_enabled | default(true) }}
+
+# Coordinator tick interval (in seconds)
+coordinator.tick_interval = {{ coordinator_tick_interval | default(1) }}
+
+# Coordinator tick timeout (in seconds)
+coordinator.tick_timeout = {{ coordinator_tick_timeout | default(5) }}
+
+# List of queue definitions — each defines a named queue with its own settings
+{% for queue in queues %}
+# Queue: {{ queue.name }}
+{% if queue.enabled is not false %}# (enabled by default)
+{% endif %}
+pgq.queue.{{ queue.name }}.enabled = {{ queue.enabled | default(true) }}
+{% if queue.consumer_prefix %}
+pgq.queue.{{ queue.name }}.consumer_prefix = {{ queue.consumer_prefix }}
+{% else %}
+# No consumer prefix — consumers must use explicit names
+{% endif %}
+pgq.queue.{{ queue.name }}.worker_count = {{ queue.worker_count | default(1) }}
+pgq.queue.{{ queue.name }}.max_batch = {{ queue.max_batch | default(50) }}
+pgq.queue.{{ queue.name }}.max_lag_ms = {{ queue.max_lag_ms | default(5000) }}
+{% if queue.ticker_enabled is not none %}
+pgq.queue.{{ queue.name }}.ticker_enabled = {{ queue.ticker_enabled }}
+{% else %}
+pgq.queue.{{ queue.name }}.ticker_enabled = {{ coordinator_enabled | default(true) }}
+{% endif %}
+{% endfor %}
+
+# Optional: remote queue forwarding (for multi-tier pgq setups)
+{% for forward in forward_targets %}
+# Forward queue `{{ forward.source_queue }}` to remote database
+pgq.forward.{{ forward.source_queue }}.dest_db = {{ forward.dest_db }}
+pgq.forward.{{ forward.source_queue }}.dest_user = {{ forward.dest_user | default("pgq") }}
+pgq.forward.{{ forward.source_queue }}.dest_table = {{ forward.dest_table | default("pgq.queue_data") }}
+{% endfor %}
+
+# Optional: external monitor hook (executed on coordinator tick)
+{% if monitor_script %}
+# Path to a shell script executed after each coordinator tick
+monitor.script = {{ monitor_script }}
+{% else %}
+# No monitor hook configured
+{% endif %}

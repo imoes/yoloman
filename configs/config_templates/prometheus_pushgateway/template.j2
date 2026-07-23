@@ -1,0 +1,49 @@
+# Listen address and port for the Pushgateway HTTP server
+listen_address: {{ listen_address }}:{{ listen_port }}
+
+# Path prefix under which all web UI and API endpoints are served
+web_route_prefix: {{ web_route_prefix }}
+
+# File to which metrics are persisted (if persistence is enabled)
+persistence_file: {{ persistence_file }}
+
+# Whether to persist pushed metrics to disk
+persisting: {{ persisting }}
+
+# Interval for persisting metrics to disk (only relevant if persisting is true)
+persist_interval: {{ persist_interval }}
+
+# Maximum number of pushed metric groups to retain
+max_connections: {{ max_connections }}
+
+# Timeout for HTTP requests to backend (e.g., when pushing via `-push` flag)
+web_timeout: {{ web_timeout }}
+
+# HTTP basic auth realm name (only used if basic_auth is enabled)
+web_basic_auth_realm: {{ web_basic_auth_realm }}
+
+# Optional: List of static labels to inject into all pushed metrics
+{% for label in static_labels %}# {{ label.name }} = {{ label.value }}
+{% endfor %}{{ static_labels | map(attribute='name') | map(lambda x: 'label:') | join('') }}{% for label in static_labels %}
+  {{ label.name }}: '{{ label.value }}'{% if not loop.last %}
+{% endif %}{% endfor %}
+
+# Optional: Enable HTTP basic auth
+{% if basic_auth_enabled %}# Enable HTTP basic authentication
+web_basic_auth: true
+web_basic_auth_file: {{ web_basic_auth_file }}
+{% endif %}
+
+# Optional: Enable TLS
+{% if tls_enabled %}# Enable HTTPS/TLS
+web_config_file: {{ web_config_file }}
+{% endif %}
+
+# Optional: Enable telemetry endpoint
+{% if metrics_enabled %}# Expose internal Pushgateway metrics (e.g., for self-monitoring)
+{% endif %}{{ '' if not metrics_enabled else 'metrics_path: ' + metrics_path }}
+
+# Optional: Logging configuration (stdout if omitted)
+{% if log_level is defined %}# Log level: debug, info, warn, error
+log_level: {{ log_level }}
+{% endif %}

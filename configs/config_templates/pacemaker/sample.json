@@ -1,0 +1,88 @@
+{
+  "cluster_name": "production-cluster",
+  "dc_deadtime": 30,
+  "start_standby": false,
+  "stonith_enabled": true,
+  "no_quorum_policy": "freeze",
+  "resource_defaults": {
+    "migration_threshold": 3,
+    "op_timeout": 20,
+    "interval_origin": 0,
+    "resource_failure_stickiness": "INFINITY"
+  },
+  "location_constraints": [
+    {
+      "id": "prefer-node1-ip",
+      "comment": "Prefer VIP on primary node",
+      "resource": "vip-1",
+      "score": "INFINITY",
+      "node": "node1"
+    }
+  ],
+  "colocation_constraints": [
+    {
+      "id": "ip-with-web",
+      "score": "INFINITY",
+      "resources": [
+        "vip-1",
+        "web-apache"
+      ]
+    }
+  ],
+  "ordering_constraints": [
+    {
+      "id": "start-ip-before-web",
+      "kind": "Mandatory",
+      "resources": [
+        "vip-1",
+        "web-apache"
+      ]
+    }
+  ],
+  "resources": [
+    {
+      "id": "vip-1",
+      "class": "ocf",
+      "type": "IPaddr2",
+      "comment": "Virtual IP for web services",
+      "op_defaults": [
+        "monitor interval=10s"
+      ],
+      "params": [
+        "ip=192.168.1.50",
+        "cidr_netmask=24",
+        "nic=eth0"
+      ]
+    },
+    {
+      "id": "web-apache",
+      "class": "ocf",
+      "type": "apache",
+      "op_defaults": [
+        "monitor interval=30s timeout=60s"
+      ],
+      "params": [
+        "configfile=/etc/httpd/conf/httpd.conf",
+        "httpd=/usr/sbin/httpd"
+      ]
+    }
+  ],
+  "groups": [
+    {
+      "id": "web-group",
+      "members": [
+        "vip-1",
+        "web-apache"
+      ]
+    }
+  ],
+  "clones": [],
+  "clone_defaults": {
+    "globally_unique": true
+  },
+  "op_defaults": {
+    "timeout": 20,
+    "interval": 60,
+    "record_pending": false
+  }
+}

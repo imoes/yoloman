@@ -1,0 +1,44 @@
+{
+  "global_access_control": true,
+  "global_port": 1701,
+  "global_require_auth": true,
+  "global_ipsec_suffix": "@vpn.example.com",
+  "global_debug_avp": 0,
+  "global_debug_network": 0,
+  "global_debug_state": 0,
+  "global_debug_tunnel": 0,
+  "lns_list": [
+    {
+      "name": "internal_vpn",
+      "ipsec": "yes",
+      "ip_range": "10.20.30.0/24",
+      "local_ip": "192.168.1.100",
+      "ppp_profile": "standard",
+      "min_session_id": 1,
+      "max_session_id": 1000,
+      "access_list": "10.0.0.0/8,172.16.0.0/12"
+    },
+    {
+      "name": "customer_b",
+      "ipsec": "optional",
+      "ip_range": "10.20.40.0/24",
+      "local_ip": "192.168.1.101",
+      "ppp_profile": "restricted",
+      "min_session_id": 1001,
+      "max_session_id": 2000,
+      "access_list": "203.0.113.0/24"
+    }
+  ],
+  "ppp_options_comment": "Global PPP defaults \u2014 disable PAP, require CHAP, enforce MTU",
+  "ppp_options": "auth, require-chap, require-pap, noauth, mppe required, mtu 1400, mru 1400",
+  "ppp_profiles": [
+    {
+      "name": "standard",
+      "options": "require-chap, mppe required, ms-dns 8.8.8.8, ms-dns 8.8.4.4"
+    },
+    {
+      "name": "restricted",
+      "options": "require-pap, noauth, ms-dns 1.1.1.1, mtu 1360"
+    }
+  ]
+}

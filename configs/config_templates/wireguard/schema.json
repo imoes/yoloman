@@ -1,0 +1,118 @@
+{
+  "interface": {
+    "type": "object",
+    "description": "WireGuard interface configuration (the local side of the tunnel)",
+    "properties": {
+      "addresses": {
+        "type": "list",
+        "default": [
+          "10.0.0.1/24"
+        ],
+        "items": {
+          "type": "string",
+          "pattern": "^(?:[0-9]{1,3}\\.){3}[0-9]{1,3}/[0-9]+$|^(?:[0-9a-fA-F]{0,4}:){0,7}[0-9a-fA-F]{0,4}/[0-9]+$"
+        },
+        "description": "List of IPv4 and/or IPv6 addresses assigned to this WireGuard interface (e.g., '10.0.0.1/24')"
+      },
+      "listen_port": {
+        "type": "number",
+        "default": 51820,
+        "description": "UDP port on which this interface listens for incoming connections (1\u201365535)"
+      },
+      "private_key": {
+        "type": "string",
+        "default": "",
+        "description": "Base64-encoded 256-bit private key (generated via wg genkey); must be unique and secret"
+      },
+      "preshared_key": {
+        "type": "string",
+        "default": "",
+        "description": "Optional base64-encoded per-interface pre-shared key for additional encryption (wg genpsk)"
+      },
+      "mtu": {
+        "type": "number",
+        "default": null,
+        "description": "Override default MTU (leave empty or 0 to auto-detect; typical values: 1420)"
+      },
+      "save_config": {
+        "type": "bool",
+        "default": false,
+        "description": "If true, persist peer changes (e.g., from allowed IPs updates) back to config file on shutdown"
+      },
+      "post_up": {
+        "type": "string",
+        "default": "iptables -A FORWARD -i %i -j ACCEPT; iptables -A FORWARD -o %i -j ACCEPT; iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE",
+        "description": "Shell commands to run after interface is brought up (supports %i for interface name)"
+      },
+      "post_down": {
+        "type": "string",
+        "default": "iptables -D FORWARD -i %i -j ACCEPT; iptables -D FORWARD -o %i -j ACCEPT; iptables -t nat -D POSTROUTING -o eth0 -j MASQUERADE",
+        "description": "Shell commands to run after interface is brought down"
+      },
+      "dns": {
+        "type": "list",
+        "default": [
+          "1.1.1.1",
+          "1.0.0.1"
+        ],
+        "items": {
+          "type": "string",
+          "pattern": "^([0-9]{1,3}\\.){3}[0-9]{1,3}$|^[0-9a-fA-F:]+$"
+        },
+        "description": "List of DNS servers to configure (via resolvconf or systemd-resolved) when interface is up"
+      }
+    },
+    "required": [
+      "addresses",
+      "listen_port",
+      "private_key"
+    ]
+  },
+  "peers": {
+    "type": "list",
+    "default": [],
+    "description": "List of WireGuard peer configurations (remote endpoints)",
+    "items": {
+      "type": "object",
+      "properties": {
+        "public_key": {
+          "type": "string",
+          "default": "",
+          "description": "Base64-encoded 256-bit public key of the peer"
+        },
+        "allowed_ips": {
+          "type": "list",
+          "default": [
+            "0.0.0.0/0"
+          ],
+          "items": {
+            "type": "string",
+            "pattern": "^(?:[0-9]{1,3}\\.){3}[0-9]{1,3}/[0-9]+$|^(?:[0-9a-fA-F]{0,4}:){0,7}[0-9a-fA-F]{0,4}/[0-9]+$"
+          },
+          "description": "CIDR blocks this peer is allowed to send/receive traffic for"
+        },
+        "endpoint": {
+          "type": "string",
+          "default": "",
+          "description": "Host:port of the peer (e.g., 'vpn.example.com:51820'); omit for dynamic clients (e.g., mobile)"
+        },
+        "preshared_key": {
+          "type": "string",
+          "default": "",
+          "description": "Optional per-peer pre-shared key (base64); overrides interface-level if present"
+        },
+        "persistent_keepalive": {
+          "type": "number",
+          "default": 25,
+          "minimum": 0,
+          "maximum": 65535,
+          "description": "Seconds between keepalive packets (0 = disabled; useful for NAT traversal)"
+        }
+      },
+      "required": [
+        "public_key",
+        "allowed_ips"
+      ]
+    }
+  }
+}

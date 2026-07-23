@@ -1,0 +1,250 @@
+{
+  "cinder_log_dir": {
+    "type": "string",
+    "default": "/var/log/cinder",
+    "description": "Directory where Cinder API logs will be stored."
+  },
+  "cinder_log_file": {
+    "type": "string",
+    "default": "cinder-api.log",
+    "description": "Name of the main log file for Cinder API."
+  },
+  "api_bind_host": {
+    "type": "string",
+    "default": "0.0.0.0",
+    "description": "IP address or hostname on which the Cinder API listens."
+  },
+  "api_bind_port": {
+    "type": "number",
+    "default": 8776,
+    "description": "Port number the Cinder API listens on."
+  },
+  "auth_strategy": {
+    "type": "string",
+    "default": "keystone",
+    "description": "Authentication method (e.g., 'keystone' for OpenStack Identity)."
+  },
+  "use_database": {
+    "type": "bool",
+    "default": false,
+    "description": "Set to true if the API node needs database access (e.g., for read replicas or deployments where the API stores state). Usually false for stateless API nodes."
+  },
+  "db_connection": {
+    "type": "string",
+    "default": "mysql+pymysql://cinder:password@127.0.0.1/cinder",
+    "description": "Database connection URL (only if use_database=true)."
+  },
+  "rpc_transport_url": {
+    "type": "string",
+    "default": "rabbit://openstack:RABBIT_PASSWORD@controller:5672/",
+    "description": "Message bus transport URL for RPC communication (e.g., RabbitMQ or other backends)."
+  },
+  "debug_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable debug-level logging."
+  },
+  "verbose_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable verbose (INFO-level) logging."
+  },
+  "api_extensions": {
+    "type": "list",
+    "default": [
+      "os-extended-volumes",
+      "os-vol-host-attr",
+      "os-vol-mig-status-attr",
+      "os-volume-type-manage"
+    ],
+    "description": "List of enabled Cinder API extensions. Keep default unless specific features are disabled.",
+    "items": {
+      "type": "string"
+    }
+  },
+  "rate_limits_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable request rate limiting for the API."
+  },
+  "rate_limit_burst": {
+    "type": "number",
+    "default": 10,
+    "description": "Maximum number of requests allowed in a burst before throttling."
+  },
+  "rate_limit_interval": {
+    "type": "number",
+    "default": 1,
+    "description": "Time window (in seconds) for rate limiting."
+  },
+  "ssl_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable HTTPS/TLS encryption for API traffic."
+  },
+  "ssl_cert_file": {
+    "type": "string",
+    "default": "/etc/ssl/certs/cinder.crt",
+    "description": "Path to the SSL certificate file."
+  },
+  "ssl_key_file": {
+    "type": "string",
+    "default": "/etc/ssl/private/cinder.key",
+    "description": "Path to the SSL private key file."
+  },
+  "ssl_ca_file": {
+    "type": "string",
+    "default": "/etc/ssl/certs/ca.crt",
+    "description": "Path to the CA certificate for client verification (optional)."
+  },
+  "cors_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable CORS headers in API responses (for browser-based clients)."
+  },
+  "cors_allowed_origin": {
+    "type": "string",
+    "default": "*",
+    "description": "Allowed origin for CORS requests (e.g., 'https://dashboard.example.com')."
+  },
+  "image_cache_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable Cinder\u2019s image cache manager for image-to-volume creation."
+  },
+  "image_cache_interval": {
+    "type": "number",
+    "default": 3600,
+    "description": "Interval (in seconds) between image cache cleanup runs."
+  },
+  "image_cache_size_gb": {
+    "type": "number",
+    "default": 100,
+    "description": "Maximum size (in GB) of the image cache directory."
+  },
+  "storage_backends": {
+    "type": "list",
+    "default": [
+      {
+        "name": "lvm",
+        "driver": "cinder.volume.drivers.lvm.LVMVolumeDriver",
+        "options": {
+          "volume_group": "cinder-volumes",
+          "iscsi_protocol": "iscsi",
+          "iscsi_helper": "lioadm",
+          "lvm_mirror_cleanup_interval": 0
+        }
+      }
+    ],
+    "description": "List of storage backends to configure. Each backend defines a driver and its options.",
+    "items": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Unique name for the backend (used in [backend_name] section header)."
+        },
+        "driver": {
+          "type": "string",
+          "description": "Full Python import path to the backend driver class."
+        },
+        "options": {
+          "type": "object",
+          "description": "Driver-specific configuration options as key-value pairs."
+        }
+      },
+      "required": [
+        "name",
+        "driver",
+        "options"
+      ]
+    }
+  },
+  "scheduler_driver": {
+    "type": "string",
+    "default": "cinder.scheduler.filter_scheduler.FilterScheduler",
+    "description": "Scheduler class for volume provisioning decisions."
+  },
+  "scheduler_filters": {
+    "type": "list",
+    "default": [
+      "AvailabilityZoneFilter",
+      "CapacityFilter",
+      "CapabilitiesFilter"
+    ],
+    "description": "List of scheduler filters to apply when placing new volumes.",
+    "items": {
+      "type": "string"
+    }
+  },
+  "service_token_roles": {
+    "type": "list",
+    "default": [
+      "service"
+    ],
+    "description": "Required roles for service-to-service API calls.",
+    "items": {
+      "type": "string"
+    }
+  },
+  "service_token_required": {
+    "type": "bool",
+    "default": true,
+    "description": "Enforce service tokens for internal API calls for security."
+  },
+  "message_ttl": {
+    "type": "number",
+    "default": 86400,
+    "description": "Time-to-live (in seconds) for Cinder messages in the message queue."
+  },
+  "backup_driver": {
+    "type": "string",
+    "default": "cinder.backup.drivers.ceph",
+    "description": "Backup driver module (e.g., 'ceph', 'nfs', 'swift')."
+  },
+  "backup_ceph_conf": {
+    "type": "string",
+    "default": "/etc/ceph/ceph.conf",
+    "description": "Path to Ceph configuration file (only if backup_driver=ceph)."
+  },
+  "backup_ceph_user": {
+    "type": "string",
+    "default": "client.cinder-backup",
+    "description": "Ceph user for backup operations (only if backup_driver=ceph)."
+  },
+  "backup_ceph_chunk_size_kb": {
+    "type": "number",
+    "default": 512,
+    "description": "Chunk size (KB) for incremental backups (only if backup_driver=ceph)."
+  },
+  "backup_ceph_pool": {
+    "type": "string",
+    "default": "cinder-backup",
+    "description": "Ceph pool name for backup objects (only if backup_driver=ceph)."
+  },
+  "volume_transfer_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable volume transfer functionality (e.g., for cross-tenant moves)."
+  },
+  "transfer_allow_encrypted": {
+    "type": "bool",
+    "default": false,
+    "description": "Allow transfer of encrypted volumes."
+  },
+  "encryption_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable encryption support in Cinder (requires backend support)."
+  },
+  "encryption_driver": {
+    "type": "string",
+    "default": "cinder.volume.encryption.drivers.lvm.LVMEncryptionDriver",
+    "description": "Default encryption driver (if encryption_enabled=true)."
+  },
+  "host_fqdn": {
+    "type": "string",
+    "default": "https://cinder.example.com:8776",
+    "description": "Fully qualified domain name used in self-referential API links (e.g., for reverse proxy setups)."
+  }
+}

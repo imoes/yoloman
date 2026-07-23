@@ -1,0 +1,110 @@
+# Squid Proxy Configuration — Standard directives for caching and forwarding
+
+# Define ACLs for access control
+{% for acl in acls %}
+# ACL: {{ acl.name }} — {{ acl.description }}
+acl {{ acl.name }} {{ acl.type }} {{ acl.value }}
+{% endfor %}
+
+# HTTP access rules — order matters (first match wins)
+{% for rule in http_access_rules %}
+# HTTP access: {{ rule.action | upper }} traffic from {{ rule.acls | join(', ') | default('all') }}
+http_access {{ rule.action }} {{ rule.acls | join(' ') }}
+{% endfor %}
+
+# HTTP port(s) to listen on
+{% for port in http_port %}
+# Listening port: {{ port }}
+http_port {{ port }}
+{% endfor %}
+
+# Transparent mode support (optional)
+{% if transparent %}
+http_port {{ transparent_port }} transparent
+{% endif %}
+
+# Cache directory configuration
+# Format: dir type location size (MB) max-size (KB) l1=levels l2=levels
+{% for cache_dir in cache_dirs %}
+# Cache directory {{ cache_dir.index }}: {{ cache_dir.location }} ({{ cache_dir.size }} MB)
+cache_dir ufs {{ cache_dir.location }} {{ cache_dir.size }} {{ cache_dir.max_size }} {{ cache_dir.l1 }} {{ cache_dir.l2 }}
+{% endfor %}
+
+# Memory cache size
+# {{ memory_cache_description }}
+cache_mem {{ memory_cache_size }} MB
+
+# Maximum object size to cache in memory
+{% if max_in_mem_cache_size is defined %}
+cache_mem_max {{ max_in_mem_cache_size }} MB
+{% endif %}
+
+# Log settings
+{% if log_location %}
+# Log file location: {{ log_location }}
+logfile_rotate {{ log_rotate_count }}
+{% endif %}
+
+# Access log
+{% if access_log %}
+# Access logging enabled
+access_log {{ access_log }}
+{% endif %}
+
+# Cache log
+{% if cache_log %}
+# Cache log enabled
+cache_log {{ cache_log }}
+{% endif %}
+
+# DNS settings
+# {{ dns_description }}
+dns_nameservers {{ dns_nameservers | join(', ') }}
+
+# IPv6 support
+{% if enable_ipv6 %}
+enable_ipv6 on
+{% else %}
+enable_ipv6 off
+{% endif %}
+
+# Worker processes (for SMP support)
+# {{ worker_processes_description }}
+num_cache_dirs {{ cache_dirs | length }}
+{% if worker_processes > 1 %}
+worker_processes {{ worker_processes }}
+{% endif %}
+
+# Timeout settings (seconds)
+# {{ timeout_description }}
+connect_timeout {{ connect_timeout }} second
+request_timeout {{ request_timeout }} second
+read_timeout {{ read_timeout }} second
+
+# Minimum object size for caching
+minimum_object_size {{ minimum_object_size }} KB
+
+# Maximum object size for caching (default 4GB)
+maximum_object_size {{ maximum_object_size }} MB
+
+# Authentication (optional)
+{% if authentication_enabled %}
+# Authentication enabled
+auth_param basic program {{ auth_param_program }} {{ auth_param_children }}
+auth_param basic children {{ auth_param_children }}
+auth_param basic realm Squid proxy-caching server
+auth_param basic credentialsttl {{ auth_param_ttl }} hours
+
+# Require authenticated users for specific ACLs
+acl authenticated_users proxy_auth REQUIRED
+{% endif %}
+
+# Refresh patterns — controls cache freshness
+{% for refresh_pattern in refresh_patterns %}
+# Refresh pattern: matches {{ refresh_pattern.regex }} — {{ refresh_pattern.min }}-{{ refresh_pattern.percent }}-{{ refresh_pattern.max }}
+refresh_pattern -i {{ refresh_pattern.regex }} {{ refresh_pattern.min }} {{ refresh_pattern.percent }}% {{ refresh_pattern.max }}
+{% endfor %}
+
+# Visible hostname (for error pages and ICP)
+# {{ visible_hostname_description }}
+visible_hostname {{ visible_hostname }}

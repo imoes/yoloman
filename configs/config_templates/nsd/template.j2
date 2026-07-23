@@ -1,0 +1,84 @@
+# NSD configuration file for authoritative-only DNS server
+# Run as a non-iterative, authoritative-only DNS server
+# Enable IPv4 and/or IPv6
+# Configure zones and access controls
+
+# Number of server processes to run (usually equal to CPU cores)
+server-count: {{ server_count }}
+
+# User to run as (must have read access to zone files and config)
+chroot: {{ chroot_path }}
+
+# Directory where zone files are stored
+zones-dir: "{{ zones_dir }}"
+
+# File to write PID to
+pidfile: "{{ pidfile_path }}"
+
+# Logging options
+log-time: yes
+log-queries: {{ log_queries | lower }}
+log-level: "{{ log_level }}"
+
+# TCP connection limits
+tcp-query-count: {{ tcp_query_count }}
+tcp-timeout: {{ tcp_timeout }}
+
+# Interface binding (list of addresses/ports)
+{% for iface in interfaces %}# Listen on {{ iface.address }}:{{ iface.port }}{% if iface.proto %} ({{ iface.proto }}){% endif %}
+ip4-only: {{ iface.ip4_only | lower if iface.proto == 'tcp' else 'no' }}
+ip6-only: {{ iface.ip6_only | lower if iface.proto == 'tcp' else 'no' }}
+local-zone: {{ iface.address }}
+{% if iface.port != 53 %}port: {{ iface.port }}{% endif %}
+{% if iface.proto %}proto: {{ iface.proto }}{% endif %}
+{% endfor %}
+
+# Remote control (rcnd) — disabled by default
+remote-control:
+  control-enable: {{ remote_control_enable | lower }}
+  control-interface: {{ remote_control_interface }}
+  control-port: {{ remote_control_port }}
+  server-key-file: "{{ remote_control_key_file }}"
+  server-cert-file: "{{ remote_control_cert_file }}"
+  control-key-file: "{{ remote_control_cli_key_file }}"
+  control-cert-file: "{{ remote_control_cli_cert_file }}"
+
+# Optional: custom zone list file (alternative to zones-dir)
+{% if zone_list_file %}# Explicit zone list file
+zonefile: "{{ zone_list_file }}"
+{% endif %}
+
+# Zone-specific configuration
+# Each zone block defines an authoritative zone
+{% for zone in zones %}# Zone: {{ zone.name }}
+zone:
+  name: "{{ zone.name }}"
+  zonefile: "{{ zone.zonefile }}"
+  {% if zone.allow_notify %}  allow-notify: {{ zone.allow_notify | join(', ') }}
+  {% endif %}
+  {% if zone.allow_query %}  allow-query: {{ zone.allow_query | join(', ') }}
+  {% endif %}
+  {% if zone.supersede %}  supersede:
+  {% for key, val in zone.supersede.items() %}    {{ key }}: {{ val }}
+  {% endfor %}
+  {% endif %}
+{% endfor %}
+
+# Optional: access control lists (ACLs)
+{% if acls %}# Access control lists
+{% for acl in acls %}acl:
+  name: "{{ acl.name }}"
+  ip-address: {{ acl.ip | join(', ') }}
+  {% if acl.action %}  action: {{ acl.action }}
+  {% endif %}
+  {% if acl.allow %}  allow: {{ acl.allow | join(', ') }}
+  {% endif %}
+  {% if acl.allow_query %}  allow-query: {{ acl.allow_query | join(', ') }}
+  {% endif %}
+  {% if acl.allow_notify %}  allow-notify: {{ acl.allow_notify | join(', ') }}
+  {% endif %}
+{% endfor %}
+{% endif %}
+
+# Optional: debug mode
+debug-mode: {{ debug_mode | lower }}

@@ -1,0 +1,39 @@
+# PostgreSQL HA Failover Slots configuration — manages logical replication slots for failover
+# Enables automatic slot management across primary/standby PostgreSQL instances
+# Defines primary and standby cluster connections and slot behavior
+
+[primary]
+# Host and credentials for the primary database
+host = {{ primary_host }}
+port = {{ primary_port }}
+user = {{ primary_user }}
+password = {{ primary_password }}
+database = {{ primary_database }}
+
+[standby]
+# Host and credentials for the standby database
+host = {{ standby_host }}
+port = {{ standby_port }}
+user = {{ standby_user }}
+password = {{ standby_password }}
+database = {{ standby_database }}
+
+[replication]
+# Logical replication slot(s) to manage for failover
+{% for slot in replication_slots %}
+slot_{{ loop.index0 }}_name = {{ slot.name }}
+slot_{{ loop.index0 }}_plugin = {{ slot.plugin }}
+slot_{{ loop.index0 }}_two_phase = {{ slot.two_phase | lower }}
+{% endfor %}
+
+[monitoring]
+# Interval (in seconds) between health checks and slot sync
+check_interval = {{ check_interval }}
+
+[behavior]
+# Whether to automatically promote slots on failover
+auto_promote = {{ auto_promote | lower }}
+# Whether to fail immediately on slot sync failure (strict mode)
+strict_mode = {{ strict_mode | lower }}
+# Timeout (in seconds) for replication operations
+operation_timeout = {{ operation_timeout }}

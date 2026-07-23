@@ -1,0 +1,87 @@
+# Cumin configuration file
+# Global settings for the Cumin automation framework
+[DEFAULT]
+
+# Enable debug logging for detailed tracing
+{% if debug %}debug = true{% else %}debug = false{% endif %}
+
+# Log level: DEBUG, INFO, WARNING, ERROR, CRITICAL
+log_level = {{ log_level }}
+
+# Path to the log file (set to empty to log only to stdout)
+{% if log_file %}log_file = {{ log_file }}{% else %}log_file = {% endif %}
+
+# Default backend for state storage (sqlite or postgresql)
+backend = {{ backend }}
+
+# SQLite database file path (used when backend=sqlite)
+{% if backend == 'sqlite' %}database = {{ database }}{% endif %}
+
+# PostgreSQL connection URI (used when backend=postgresql)
+{% if backend == 'postgresql' %}database = {{ database }}{% endif %}
+
+# Hostname or IP address the Cumin REST API listens on
+{% if api_host %}api_host = {{ api_host }}{% else %}api_host = 127.0.0.1{% endif %}
+
+# Port the Cumin REST API listens on
+api_port = {{ api_port }}
+
+# Path to TLS certificate for HTTPS (optional)
+{% if tls_cert %}tls_cert = {{ tls_cert }}{% else %}tls_cert = {% endif %}
+
+# Path to TLS private key for HTTPS (optional)
+{% if tls_key %}tls_key = {{ tls_key }}{% else %}tls_key = {% endif %}
+
+# Maximum number of concurrent API requests (0 = unlimited)
+{% if max_requests %}max_requests = {{ max_requests }}{% else %}max_requests = 0{% endif %}
+
+# Timeout (seconds) for remote commands
+command_timeout = {{ command_timeout }}
+
+# Timeout (seconds) for target discovery
+ discovery_timeout = {{ discovery_timeout }}
+
+# Allow execution of arbitrary shell commands (dangerous if untrusted users exist)
+{% if allow_shell %}allow_shell = true{% else %}allow_shell = false{% endif %}
+
+# Authentication backend
+auth_backend = {{ auth_backend }}
+
+# Path to authentication backend configuration (e.g., for LDAP or local users)
+{% if auth_config %}auth_config = {{ auth_config }}{% else %}auth_config = {% endif %}
+
+# Default SSH user for remote execution
+{% if ssh_user %}ssh_user = {{ ssh_user }}{% else %}ssh_user = root{% endif %}
+
+# SSH private key path for non-root execution
+{% if ssh_key %}ssh_key = {{ ssh_key }}{% else %}ssh_key = {% endif %}
+
+# Number of SSH workers (parallel connections)
+{% if ssh_workers %}ssh_workers = {{ ssh_workers }}{% else %}ssh_workers = 4{% endif %}
+
+# Enable SSH connection reuse (reduces latency)
+{% if ssh_reuse %}ssh_reuse = true{% else %}ssh_reuse = false{% endif %}
+
+# List of allowed target groups (each group defines a subset of targets for security isolation)
+{% for group in target_groups %}
+{% if group.name %}# Group: {{ group.name }}
+{% endif %}targets_{{ group.name }} = {{ group.targets | join(', ') }}
+{% if group.description %}# Description: {{ group.description }}{% endif %}
+{% endfor %}
+
+# List of allowed commands per group (format: group: command_regex)
+{% for cmd_rule in command_rules %}
+{% if cmd_rule.group %}command_{{ cmd_rule.group }}_allowed = {{ cmd_rule.commands | join(', ') }}
+{% endif %}{% endfor %}
+
+# Enable audit logging to a dedicated file (requires backend to support it)
+{% if audit_enabled %}audit_enabled = true{% else %}audit_enabled = false{% endif %}
+
+# Audit log file path
+{% if audit_log %}audit_log = {{ audit_log }}{% else %}audit_log = /var/log/cumin/audit.log{% endif %}
+
+# Default timeout for async jobs (seconds)
+{% if async_timeout %}async_timeout = {{ async_timeout }}{% else %}async_timeout = 300{% endif %}
+
+# Maximum number of async jobs pending execution
+{% if max_async_jobs %}max_async_jobs = {{ max_async_jobs }}{% else %}max_async_jobs = 100{% endif %}

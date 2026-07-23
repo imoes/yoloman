@@ -1,0 +1,45 @@
+# wput.conf — configuration file for wput, a lightweight FTP upload tool
+# Default server to upload to (host or IP)
+server = {{ server }}
+
+# Default FTP port (21 is standard; use 22 for FTPS/SFTP only if wput supports it via flags, but wput uses plain FTP)
+port = {{ port }}
+
+# Default username for authentication
+user = {{ user }}
+
+# Default password (note: storing plaintext passwords is insecure; prefer keyring or interactive input in production)
+password = {{ password }}
+
+# Default remote directory (absolute path on server)
+remote_dir = {{ remote_dir }}
+
+# Upload timeout in seconds
+connect_timeout = {{ connect_timeout }}
+
+# Enable passive mode (recommended for NAT/firewall compatibility)
+passive = {{ passive | lower }}
+
+# Enable verbose output (0=quiet, 1=normal, 2=debug)
+# Override with -v CLI flag; here is default fallback
+verbosity = {{ verbosity }}
+
+# Whether to resume partial uploads (on = true, off = false)
+resume = {{ resume | lower }}
+
+# Whether to skip existing files on server (on = true, off = false)
+skip_existing = {{ skip_existing | lower }}
+
+# Whether to use FTPS (explicit FTP over TLS); note: wput has limited/optional TLS support depending on build
+ftps = {{ ftps | lower }}
+
+# List of files/directories to exclude (by glob pattern or exact name)
+{% for pattern in exclude_patterns %}
+exclude = {{ pattern | tojson }}
+{% endfor %}
+
+# List of extra command-line options to apply *every* time (e.g., --retry=3)
+# (Each item is appended literally to the wput command)
+{% for option in extra_args %}
+extra_arg = {{ option | tojson }}
+{% endfor %}

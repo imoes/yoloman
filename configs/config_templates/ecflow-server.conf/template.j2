@@ -1,0 +1,86 @@
+# ecFlow Server configuration file
+# Defines the runtime parameters for the ecFlow server daemon
+host: "{{ host }}"
+port: {{ port }}
+
+# Path to the data directory where ecFlow stores workflow definitions and logs
+data_dir: "{{ data_dir }}"
+
+# Log level: DEBUG, INFO, WARNING, ERROR, or FATAL
+log_level: "{{ log_level }}"
+
+# Path to the log file (empty string to log to stdout only)
+log_file: "{{ log_file }}"
+
+# Maximum size (in MB) of a log file before rotation
+log_max_size_mb: {{ log_max_size_mb }}
+
+# Number of old log files to retain
+log_keep_count: {{ log_keep_count }}
+
+# Number of worker threads to handle client requests
+num_workers: {{ num_workers }}
+
+# HTTP server timeout (seconds)
+http_timeout: {{ http_timeout }}
+
+# Enable HTTPS support
+enable_https: {{ enable_https | default(false) | lower }}
+
+# TLS certificate and key paths (only used if enable_https is true)
+{% if enable_https %}
+tls:
+  cert_file: "{{ tls_cert_file }}"
+  key_file: "{{ tls_key_file }}"
+{% endif %}
+
+# Authentication configuration
+auth:
+  enabled: {{ auth_enabled | default(false) | lower }}
+  # Path to the password file for basic authentication
+  password_file: "{{ auth_password_file }}"
+  # Token expiry time in seconds (for token-based auth)
+  token_expiry: {{ auth_token_expiry }}
+
+# Allowed client CIDR ranges (empty list = allow all)
+# Each item specifies an allowed network and optional description
+{% for client in allowed_clients %}
+  # {{ client.desc | default('Allowed client') }}
+  - network: "{{ client.network }}"
+    description: "{{ client.desc | default('') }}"
+{% endfor %}
+
+# Server restart behavior on configuration reload
+restart_on_config_change: {{ restart_on_config_change | default(false) | lower }}
+
+# Initial heartbeat interval (seconds) for client connections
+heartbeat_interval: {{ heartbeat_interval }}
+
+# Enable debug endpoints (e.g., /debug/vars, /debug/pprof)
+debug_endpoints: {{ debug_endpoints | default(false) | lower }}
+
+# SMTP alert configuration (for email notifications)
+{% if smtp_enabled %}
+smtp:
+  host: "{{ smtp_host }}"
+  port: {{ smtp_port }}
+  from_addr: "{{ smtp_from_addr }}"
+  use_tls: {{ smtp_use_tls | default(false) | lower }}
+  username: "{{ smtp_username }}"
+{% endif %}
+
+# List of admin email recipients for alerts
+admin_emails:
+{% for email in admin_emails %}
+  - "{{ email }}"
+{% endfor %}
+
+# Failover mode (true for active/passive cluster setup)
+failover: {{ failover | default(false) | lower }}
+
+# Failover peer node (only used when failover is true)
+{% if failover %}
+failover_peer:
+  host: "{{ failover_peer_host }}"
+  port: {{ failover_peer_port }}
+{% endif %}

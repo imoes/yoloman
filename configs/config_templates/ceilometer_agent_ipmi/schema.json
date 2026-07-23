@@ -1,0 +1,219 @@
+{
+  "logging.log_dir": {
+    "type": "string",
+    "default": "/var/log/ceilometer",
+    "description": "Directory where log files are stored."
+  },
+  "logging.log_file": {
+    "type": "string",
+    "default": "ceilometer-agent-ipmi.log",
+    "description": "Name of the main log file."
+  },
+  "logging.format": {
+    "type": "string",
+    "default": "%(asctime)s %(levelname)s %(name)s: %(message)s",
+    "description": "Log message format (Python logging format string)."
+  },
+  "debug": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable debug-level logging for verbose troubleshooting."
+  },
+  "verbose": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable verbose logging (more detailed than INFO)."
+  },
+  "messaging.transport_url": {
+    "type": "string",
+    "default": "rabbit://openstack:openstack@controller:5672/",
+    "description": "RabbitMQ or other message bus transport URL for event/metric transport."
+  },
+  "keystone_auth.password": {
+    "type": "string",
+    "default": "",
+    "description": "Keystone user password for authentication to OpenStack services."
+  },
+  "keystone_auth.username": {
+    "type": "string",
+    "default": "ceilometer",
+    "description": "Keystone username used by the Ceilometer IPMI agent."
+  },
+  "keystone_auth.project_name": {
+    "type": "string",
+    "default": "service",
+    "description": "Keystone project (tenant) name for the Ceilometer service account."
+  },
+  "keystone_auth.user_domain_name": {
+    "type": "string",
+    "default": "Default",
+    "description": "Keystone domain name for the user."
+  },
+  "keystone_auth.project_domain_name": {
+    "type": "string",
+    "default": "Default",
+    "description": "Keystone domain name for the project."
+  },
+  "keystone_auth.auth_url": {
+    "type": "string",
+    "default": "http://controller:5000/v3",
+    "description": "Keystone identity service endpoint URL."
+  },
+  "keystone_auth.cacert": {
+    "type": "string",
+    "default": "",
+    "description": "Path to CA certificate bundle for SSL verification (optional)."
+  },
+  "keystone_auth.insecure": {
+    "type": "bool",
+    "default": false,
+    "description": "Disable SSL certificate verification (not recommended in production)."
+  },
+  "keystone_auth.ssl_verify": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable SSL/TLS verification for Keystone connections."
+  },
+  "ipmi.driver": {
+    "type": "string",
+    "default": "pyghmi.ipmi",
+    "description": "IPMI driver library to use (e.g., pyghmi.ipmi, freeipmi)."
+  },
+  "ipmi.polling_interval": {
+    "type": "number",
+    "default": 600,
+    "description": "Interval (in seconds) between IPMI polling cycles."
+  },
+  "ipmi.max_concurrent_polls": {
+    "type": "number",
+    "default": 10,
+    "description": "Maximum number of BMCs that can be polled simultaneously."
+  },
+  "ipmi.bmcs": {
+    "type": "list",
+    "default": [],
+    "description": "List of IPMI Baseboard Management Controllers (BMCs) to monitor.",
+    "items": {
+      "address": {
+        "type": "string",
+        "default": "",
+        "description": "IP address or hostname of the BMC."
+      },
+      "username": {
+        "type": "string",
+        "default": "",
+        "description": "IPMI username for BMC authentication."
+      },
+      "password": {
+        "type": "string",
+        "default": "",
+        "description": "IPMI password for BMC authentication."
+      },
+      "name": {
+        "type": "string",
+        "default": "",
+        "description": "Descriptive name for this BMC (used in comments)."
+      },
+      "interface": {
+        "type": "string",
+        "default": "",
+        "description": "IPMI interface type (e.g., 'lan', 'lanplus'). Optional."
+      }
+    }
+  },
+  "ipmi.metrics": {
+    "type": "list",
+    "default": [
+      {
+        "name": "power"
+      },
+      {
+        "name": "temperature"
+      },
+      {
+        "name": "fan"
+      }
+    ],
+    "description": "List of IPMI metrics to collect (e.g., power, temperature, fan, voltage).",
+    "items": {
+      "name": {
+        "type": "string",
+        "default": "",
+        "description": "Name of the metric to enable (must be supported by the IPMI driver)."
+      },
+      "interval": {
+        "type": "number",
+        "default": null,
+        "description": "Override polling interval for this specific metric (in seconds). Optional."
+      }
+    }
+  },
+  "ipmi.hostnames": {
+    "type": "list",
+    "default": [],
+    "description": "Optional mapping between BMC IP addresses and OpenStack compute node hostnames.",
+    "items": {
+      "ipmi_address": {
+        "type": "string",
+        "default": "",
+        "description": "IPMI BMC IP address."
+      },
+      "compute_hostname": {
+        "type": "string",
+        "default": "",
+        "description": "Corresponding OpenStack compute node hostname (nova hostname)."
+      },
+      "name": {
+        "type": "string",
+        "default": "",
+        "description": "Descriptive label for this mapping (optional)."
+      }
+    }
+  },
+  "ipmi.retry_attempts": {
+    "type": "number",
+    "default": 3,
+    "description": "Number of retry attempts for failed IPMI commands."
+  },
+  "ipmi.retry_delay": {
+    "type": "number",
+    "default": 5,
+    "description": "Delay (in seconds) between IPMI retry attempts."
+  },
+  "ipmi.timeout": {
+    "type": "number",
+    "default": 10,
+    "description": "Timeout (in seconds) for each IPMI command."
+  },
+  "notification.driver": {
+    "type": "string",
+    "default": "message",
+    "description": "Notification driver: 'message' (default), 'log', or 'noop'."
+  },
+  "notification.topics": {
+    "type": "list",
+    "default": [
+      "ceilometer",
+      "notifications"
+    ],
+    "description": "List of topics to publish Ceilometer messages to.",
+    "items": {
+      "type": "string"
+    }
+  },
+  "pipeline.config_file": {
+    "type": "string",
+    "default": "/etc/ceilometer/pipeline.yaml",
+    "description": "Path to the pipeline configuration file."
+  },
+  "events.definitions_file": {
+    "type": "string",
+    "default": "/etc/ceilometer/event_definitions.yaml",
+    "description": "Path to the event definitions file for Ceilometer events."
+  },
+  "metric_source": {
+    "type": "string",
+    "default": "ipmi",
+    "description": "Source of metric data. For this agent, must be 'ipmi'."
+  }
+}

@@ -1,0 +1,54 @@
+# Use local clock as a reference (stratum 0)
+refclock PHC /dev/ptp0 poll 3 dpoll -2 offset 0
+
+# Allow NTP clients to synchronize with this server
+allow all
+
+# Set minimum stratum for local clock to 0 (as per IEEE 1588 PTP reference)
+stratumdiversification 0
+
+# Drift file location
+driftfile /var/lib/chrony/drift
+
+# RTC synchronization
+rtcsync
+
+# Logging
+logdir /var/log/chrony
+log measurements statistics tracking
+
+# Key file for NTP authentication (optional)
+{% if enable_auth %}
+keyfile /etc/chrony/keys
+commandkey 1
+{% endif %}
+
+# NTP source pool (fallback, optional)
+{% if fallback_sources | length > 0 %}
+{% for source in fallback_sources %}# Fallback NTP source {{ loop.index }}
+server {{ source.host }} iburst{% if source.prefer %} prefer{% endif %}
+{% endfor %}
+{% endif %}
+
+# Leap seconds file
+leapsecmode slew
+leapsecfile /usr/share/zoneinfo/leap-seconds.list
+
+# Make step in time only for first few clock updates
+initstepslew 30 {{ fallback_sources | map(attribute='host') | list | join(' ') if fallback_sources | length > 0 else '0.pool.ntp.org 1.pool.ntp.org 2.pool.ntp.org 3.pool.ntp.org' }}
+
+# Enable RTCSYNC only if hardware supports it
+{% if enable_rtcsync %}
+rtcsync
+{% endif %}
+
+# Make step in time immediately after boot
+makestep 0.1 3
+
+# Enable kernel PTP support (for PHC device)
+{% if enable_kernel_ptp %}
+kernelptp
+{% endif %}
+
+# Allow time to be stepped even after large adjustments
+maxslewrate 1000

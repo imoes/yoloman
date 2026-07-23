@@ -1,0 +1,42 @@
+# Teredo client configuration — enables IPv6 connectivity via Teredo tunneling through NATs
+
+# Server to use for Teredo service (required for client operation)
+ServerName {{ teredo_server }}
+
+# Optional: Fallback server if primary is unreachable
+{% if teredo_fallback_server %}FallbackServerName {{ teredo_fallback_server }}{% endif %}
+
+# Teredo client type: client, automatic, or relay
+{% if teredo_type %}TeredoType {{ teredo_type }}{% else %}TeredoType client{% endif %}
+
+# Interface name for the Teredo tunnel (default: teredo)
+{% if teredo_interface %}TeredoInterface {{ teredo_interface }}{% else %}TeredoInterface teredo{% endif %}
+
+# UDP port used for Teredo traffic (default: 3544)
+{% if teredo_port %}TeredoPort {{ teredo_port }}{% else %}TeredoPort 3544{% endif %}
+
+# Logging verbosity: debug, info, notice, warning, error (default: notice)
+{% if log_level %}LogLevel {{ log_level }}{% else %}LogLevel notice{% endif %}
+
+# Log file path (empty or /dev/stdout for stdout)
+{% if log_file %}LogFile {{ log_file }}{% endif %}
+
+# Whether to enable Teredo behind cone NATs (experimental, usually safe)
+{% if teredo_cone_nat %}ConeNAT {{ 'true' if teredo_cone_nat else 'false' }}{% endif %}
+
+# Whether to prefer Teredo over other IPv6 sources
+{% if prefer_teredo %}PreferTeredo {{ 'true' if prefer_teredo else 'false' }}{% endif %}
+
+# List of Teredo servers with fallback support
+{% for server in teredo_servers %}ServerName {{ server.host }}{% if server.port %} {{ server.port }}{% endif %}
+{% if server.priority is defined %}# Priority: {{ server.priority }}{% endif %}
+{% endfor %}
+
+# Optional: Bind to specific local IPv4 address (for multi-homed hosts)
+{% if bind_address %}BindAddress {{ bind_address }}{% endif %}
+
+# Maximum number of simultaneous Teredo associations (default: 50)
+{% if max_associations is defined %}MaxAssociations {{ max_associations }}{% endif %}
+
+# Enable/disable Teredo (default: true)
+{% if enabled is defined %}Enabled {{ 'true' if enabled else 'false' }}{% endif %}

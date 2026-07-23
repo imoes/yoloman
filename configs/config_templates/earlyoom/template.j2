@@ -1,0 +1,25 @@
+# Enable earlyoom system-wide
+{{ 'earlyoom_DISABLE=no' if enabled else 'earlyoom_DISABLE=yes' }}
+
+# Memory low threshold percentage (below which earlyoom starts killing processes)
+MEMORY_MIN_PERCENT={{ memory_min_percent }}
+
+# Swap low threshold percentage (below which earlyoom becomes more aggressive)
+SWAP_MIN_PERCENT={{ swap_min_percent }}
+
+# Memory free threshold in kilobytes (fallback minimum free memory trigger)
+MEMORY_MIN_KB={{ memory_min_kb }}
+
+# Prefer killing processes with large memory usage (higher memory usage = higher kill priority)
+{{ 'earlyoom_PREFER_KILL_MEM=1' if prefer_mem_usage else 'earlyoom_PREFER_KILL_MEM=0' }}
+
+# Prefer killing processes with low OOM score adjustment (more negative = more protected)
+{{ 'earlyoom_PREFER_KILL_OOMSCOREADJ=1' if prefer_oom_score_adj else 'earlyoom_PREFER_KILL_OOMSCOREADJ=0' }}
+
+# Ignore processes in this list (by full command line, space-separated)
+{% for pattern in ignore_patterns %}# Ignore command line matching: {{ pattern }}
+EARLYOOM_IGNORE="${EARLYOOM_IGNORE-} {{ pattern }}"
+{% endfor %}
+
+# Additional CLI arguments to pass to earlyoom
+EARLYOOM_ARGS="{{ cli_args }}"

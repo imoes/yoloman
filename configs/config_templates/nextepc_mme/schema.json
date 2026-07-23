@@ -1,0 +1,249 @@
+{
+  "mme.name": {
+    "type": "string",
+    "default": "mme.nextepc.local",
+    "description": "MME instance name (FQDN), used for identification in logs and interfaces."
+  },
+  "mme.realm": {
+    "type": "string",
+    "default": "nextepc.local",
+    "description": "Diameter realm for MME, typically matching the domain in subscriber HSS."
+  },
+  "mme.mme_code": {
+    "type": "number",
+    "default": 1,
+    "description": "MME Code: 8-bit identifier (0\u2013255) unique within tracking area. Combined with MME GID to form MME-GUI."
+  },
+  "mme.mme_gid": {
+    "type": "number",
+    "default": 1,
+    "description": "MME Group ID: 16-bit identifier (0\u201365535) identifying the MME group. Part of MME-GUI for eNodeB addressing."
+  },
+  "s1ap.server.address": {
+    "type": "string",
+    "default": "10.0.0.1",
+    "description": "Local IP address of the MME for S1-MME (control plane) interface to eNodeB."
+  },
+  "s1ap.server.port": {
+    "type": "number",
+    "default": 36412,
+    "description": "S1-MME port (standard: 36412)."
+  },
+  "s1ap.peers": {
+    "type": "list",
+    "default": [],
+    "description": "List of eNodeB peers (cells) connecting to this MME. Each defines a peer identity and IP.",
+    "items": {
+      "type": "object",
+      "fields": {
+        "name": {
+          "type": "string",
+          "description": "Friendly name for the eNodeB peer."
+        },
+        "address": {
+          "type": "string",
+          "description": "IP address of the eNodeB for S1-MME connection."
+        },
+        "mme_gui": {
+          "type": "number",
+          "description": "Optional MME-GUI override for this peer (default: computed from mme.mme_gid/mme_code)."
+        }
+      }
+    }
+  },
+  "gtpc.server.address": {
+    "type": "string",
+    "default": "10.0.1.1",
+    "description": "Local IP for S11 (GTP-C) interface to SGW-C."
+  },
+  "gtpc.server.port": {
+    "type": "number",
+    "default": 2123,
+    "description": "GTP-C port (standard: 2123)."
+  },
+  "sgwc.server.address": {
+    "type": "string",
+    "default": "10.0.1.1",
+    "description": "SGW-C IP address (S11 peer) \u2014 only required if separate from local gtpc.server."
+  },
+  "sgwc.server.port": {
+    "type": "number",
+    "default": 2123,
+    "description": "SGW-C GTP-C port (standard: 2123)."
+  },
+  "hss.server.address": {
+    "type": "string",
+    "default": "127.0.0.1",
+    "description": "IP address of the HSS (Diameter peer for S6a)."
+  },
+  "hss.server.port": {
+    "type": "number",
+    "default": 3868,
+    "description": "Diameter port (standard: 3868)."
+  },
+  "hss.server.hostname": {
+    "type": "string",
+    "default": "hss.nextepc.local",
+    "description": "Diameter Hostname of the HSS (must match certificate CN/ SAN)."
+  },
+  "hss.server.realm": {
+    "type": "string",
+    "default": "nextepc.local",
+    "description": "Diameter Realm of the HSS (typically same as MME realm)."
+  },
+  "hss.tls.enabled": {
+    "type": "boolean",
+    "default": false,
+    "description": "Enable TLS for secure S6a connection to HSS."
+  },
+  "hss.tls.ca": {
+    "type": "string",
+    "default": "/etc/nextepc/tls/ca.crt",
+    "description": "Path to CA certificate for HSS TLS verification."
+  },
+  "hss.tls.cert": {
+    "type": "string",
+    "default": "/etc/nextepc/tls/mme.crt",
+    "description": "Path to MME client certificate for mutual TLS."
+  },
+  "hss.tls.key": {
+    "type": "string",
+    "default": "/etc/nextepc/tls/mme.key",
+    "description": "Path to MME client private key for mutual TLS."
+  },
+  "sgws": {
+    "type": "list",
+    "default": [],
+    "description": "List of S-GW instances (for load balancing/fallback) for S1-U/S11 (if separate from default SGW).",
+    "items": {
+      "type": "object",
+      "fields": {
+        "name": {
+          "type": "string",
+          "description": "Name of the S-GW instance."
+        },
+        "address": {
+          "type": "string",
+          "description": "IP address of the S-GW."
+        },
+        "port": {
+          "type": "number",
+          "description": "GTP-C port (default 2123)."
+        }
+      }
+    }
+  },
+  "pgwc.server.address": {
+    "type": "string",
+    "default": "10.0.2.1",
+    "description": "IP address of the PGW-C (S5/S8 control plane)."
+  },
+  "pgwc.server.port": {
+    "type": "number",
+    "default": 2123,
+    "description": "GTP-C port to PGW-C (standard: 2123)."
+  },
+  "spgws": {
+    "type": "list",
+    "default": [],
+    "description": "List of SPGW-C/S-GW instances for S5/S8 (e.g., in non-3GPP offload or split PGW scenarios).",
+    "items": {
+      "type": "object",
+      "fields": {
+        "name": {
+          "type": "string",
+          "description": "Name of the SPGW instance."
+        },
+        "address": {
+          "type": "string",
+          "description": "IP address of the SPGW."
+        },
+        "port": {
+          "type": "number",
+          "description": "GTP-C port (default 2123)."
+        }
+      }
+    }
+  },
+  "subscribers": {
+    "type": "list",
+    "default": [],
+    "description": "Static subscriber list (for lab/demo). For production, use Diameter/HSS. Each entry contains IMSI, MSISDN, and APNs.",
+    "items": {
+      "type": "object",
+      "fields": {
+        "imsi": {
+          "type": "string",
+          "description": "Subscriber IMSI (15-digit unique identifier)."
+        },
+        "msisdn": {
+          "type": "string",
+          "description": "Subscriber MSISDN (phone number)."
+        },
+        "ambr": {
+          "type": "object",
+          "description": "Optional per-subscriber AMBR limits (kbps).",
+          "fields": {
+            "uplink": {
+              "type": "number",
+              "description": "Max UL bitrate (kbps)."
+            },
+            "downlink": {
+              "type": "number",
+              "description": "Max DL bitrate (kbps)."
+            }
+          }
+        },
+        "apns": {
+          "type": "list",
+          "description": "List of APNs provisioned for this subscriber.",
+          "items": {
+            "type": "object",
+            "fields": {
+              "name": {
+                "type": "string",
+                "description": "APN name (e.g., 'internet', 'ims')."
+              },
+              "type": "boolean",
+              "qci": {
+                "type": "number",
+                "default": 9,
+                "description": "QCI (QoS Class Identifier) \u2014 e.g., 9 for default bearer, 1 for voice."
+              },
+              "arp": {
+                "type": "boolean",
+                "description": "Can preempt lower-priority bearers?",
+                "fields": {
+                  "priority_level": {},
+                  "type": "number",
+                  "description": "Priority level (1\u201315; lower = higher priority)."
+                },
+                "preemption_capability": {}
+              },
+              "preemption_vulnerability": {},
+              "description": "Can this bearer be preempted?"
+            }
+          }
+        },
+        "pgw_address": {
+          "type": "string",
+          "description": "Static PGW IP address (for fixed PGW assignment)."
+        },
+        "pool": {
+          "type": "string",
+          "description": "Name of the IP pool to allocate subscriber address from."
+        },
+        "dns": {
+          "type": "string",
+          "description": "Secondary DNS server IP.",
+          "fields": {
+            "primary": {},
+            "type": "string",
+            "description": "Primary DNS server IP."
+          },
+          "secondary": {}
+        }
+      }
+    }
+  }
+}

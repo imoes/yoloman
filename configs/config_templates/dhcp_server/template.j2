@@ -1,0 +1,62 @@
+# Default DHCP server options
+# Define the default domain name
+default-domain-name "{{ default_domain_name }}";
+
+# Define the default domain name servers
+default-domain-name-servers {{ default_domain_name_servers | join(', ') }};
+
+# Define the default lease time in seconds
+default-lease-time {{ default_lease_time }};
+
+# Define the maximum lease time in seconds
+max-lease-time {{ max_lease_time }};
+
+# Define the forwarders for DNS recursion (if enabled)
+{% if enable_forwarders %}
+forwarders {
+{% for forwarder in forwarders %}    {{ forwarder }};
+{% endfor %}};
+{% endif %}
+
+# Define the authoritative flag for this server
+authoritative;
+
+# Define shared network(s)
+{% for network in networks %}
+subnet {{ network.subnet }} netmask {{ network.netmask }} {
+  # Range of dynamic addresses to assign
+  range {{ network.range_start }} {{ network.range_end }};
+
+  # Optional: define default gateway
+{% if network.default_gateway is defined %}  option routers {{ network.default_gateway }};
+{% endif %}
+  # Optional: define broadcast address
+{% if network.broadcast_address is defined %}  option broadcast-address {{ network.broadcast_address }};
+{% endif %}
+  # Optional: define subnet mask
+{% if network.subnet_mask is defined and network.subnet_mask != network.netmask %}  option subnet-mask {{ network.subnet_mask }};
+{% endif %}
+  # Optional: define NTP servers
+{% if network.ntp_servers is defined and network.ntp_servers | length > 0 %}  option ntp-servers {{ network.ntp_servers | join(', ') }};
+{% endif %}
+  # Optional: define DNS servers (overrides default)
+{% if network.dns_servers is defined and network.dns_servers | length > 0 %}  option domain-name-servers {{ network.dns_servers | join(', ') }};
+{% endif %}
+
+  # Optional: static host assignments
+{% for host in network.hosts %}
+  host {{ host.hostname | replace('.', '_') | replace('-', '_') }} {
+    hardware ethernet {{ host.mac }};
+    fixed-address {{ host.ip }};
+  }
+{% endfor %}
+}
+{% endfor %}
+
+# Optional: static host definitions outside subnets
+{% for host in standalone_hosts %}
+host {{ host.hostname | replace('.', '_') | replace('-', '_') }} {
+  hardware ethernet {{ host.mac }};
+  fixed-address {{ host.ip }};
+}
+{% endfor %}

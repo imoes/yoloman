@@ -1,0 +1,74 @@
+{
+  "listen_interface": "127.0.0.1",
+  "listen_port": 2003,
+  "workers": 4,
+  "queue_size": 10000,
+  "debug": false,
+  "nice": -5,
+  "pidfile": "/run/carbon-c-relay.pid",
+  "service_name": "graphite-relay",
+  "clusters": [
+    {
+      "name": "graphite",
+      "replication": 2,
+      "backends": [
+        {
+          "host": "graphite1.local",
+          "port": 2003
+        },
+        {
+          "host": "graphite2.local",
+          "port": 2003
+        },
+        {
+          "host": "graphite3.local",
+          "port": 2003
+        }
+      ],
+      "hashing": "consistent"
+    },
+    {
+      "name": "stats",
+      "backends": [
+        {
+          "host": "statsd.local",
+          "port": 8125
+        }
+      ]
+    }
+  ],
+  "rules": [
+    {
+      "description": "Route all metrics starting with 'stats.' to graphite cluster",
+      "condition": "^stats\\.",
+      "action": "send_to",
+      "destination": {
+        "type": "cluster",
+        "name": "graphite"
+      }
+    },
+    {
+      "description": "Route all metrics starting with 'stats.timers.' with aggregation",
+      "condition": "^stats\\.timers\\.",
+      "action": "aggregate",
+      "aggregate": {
+        "metric": "stats.timers.\\1.mean",
+        "window": 60,
+        "destination": "stats"
+      }
+    },
+    {
+      "description": "Drop all metrics starting with 'debug.'",
+      "condition": "^debug\\.",
+      "action": "stop"
+    }
+  ],
+  "default_cluster": "graphite",
+  "stats": {
+    "enabled": true,
+    "destination": {
+      "type": "file",
+      "path": "/var/log/carbon-c-relay/stats.log"
+    }
+  }
+}

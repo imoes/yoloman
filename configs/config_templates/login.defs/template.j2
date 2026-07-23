@@ -1,0 +1,92 @@
+# Shadow login configuration - defines system-wide user account defaults
+# Maximum number of days a password may be used
+# before it must be changed
+PASS_MAX_DAYS    {{ pass_max_days }}
+# Minimum number of days between password changes
+PASS_MIN_DAYS    {{ pass_min_days }}
+# Number of days warning given before password expires
+PASS_WARN_AGE    {{ pass_warn_age }}
+
+# Minimum password length (0 = no limit)
+PASS_MIN_LEN     {{ pass_min_len }}
+
+# UID range for regular users (non-system accounts)
+UID_MIN          {{ uid_min }}
+UID_MAX          {{ uid_max }}
+
+# GID range for regular groups
+GID_MIN          {{ gid_min }}
+GID_MAX          {{ gid_max }}
+
+# First system UID/GID reserved for system accounts
+SYS_UID_MIN      {{ sys_uid_min }}
+SYS_UID_MAX      {{ sys_uid_max }}
+SYS_GID_MIN      {{ sys_gid_min }}
+SYS_GID_MAX      {{ sys_gid_max }}
+
+# Create home directory automatically for new users
+CREATE_HOME      {{ create_home | string | upper }}
+
+# Default shell for new users
+DEFAULT_SHELL    "{{ default_shell }}"
+
+# Default umask for new users
+UMASK            {{ umask }}
+
+# Enforce password quality (requires libpam-pwquality)
+PASS_CHANGE_TRIES {{ pass_change_tries }}
+PASS_ALWAYS_WARN  {{ pass_always_warn | string | upper }}
+
+# Password hashing algorithm (SHA512 recommended)
+ENCRYPT_METHOD   {{ encrypt_method }}
+
+# Number of days after password expires before account is locked
+INACTIVE         {{ inactive }}
+
+# Default group for new users (if CREATE_HOME is yes)
+USERGROUPS_ENAB  {{ usergroups_enab | string | upper }}
+
+# Log failed login attempts to /var/log/faillog
+LOG_FAILED_LOGINS {{ log_failed_logins | string | upper }}
+
+# Maximum number of failed logins before account lockout (0 = unlimited)
+LOGIN_LOCK_FAILED {{ login_lock_failed }}
+LOGIN_LOCK_DURAT{{ login_lock_dur }}
+
+# Allow users to change their UID/GID via usermod
+USERDEL_PREFIX   {{ userdel_prefix }}
+
+# Enable mail spool creation
+MAIL_DIR         {{ mail_dir }}
+MAIL_FILE        {{ mail_file }}
+
+# Enable TCP wrappers support for login (e.g., /etc/hosts.allow/deny)
+# (Only effective if compiled with TCP_WRAPPERS support)
+# TCP_WRAPPERS     {{ tcp_wrappers | string | upper }}
+
+# Default environment variables
+ENV_HZ           "{{ env_hz }}"
+ENV_PATH         "{{ env_path | join(':') }}"
+ENV_SUPATH       "{{ env_supath | join(':') }}"
+
+# Session limits (PAM-based limits take precedence, but values here set defaults)
+# MAXLOGINS        {{ maxlogins }}
+# LOGIN_RETRIES    {{ login_retries }}
+# LOGIN_TIMEOUT    {{ login_timeout }}
+# NOLOGIN_TMPFILE  "{{ nologin_tmpfile }}"
+# DEFMODE          {{ defmode }}
+# PORTTIME_CHECK_ENAB {{ porttime_check_enab | string | upper }}
+# CONSOLE          {{ console }}
+
+{% for group in groups %}# Default groups for new users in {{ group.name }}
+GROUP            {{ group.name }} {{ group.gid }}
+{% endfor %}
+
+# Default umask for new group files
+GROUP_UMASK      {{ group_umask }}
+
+# Enable MD5 passwords (legacy; SHA512 preferred)
+# MD5_ENAB       {{ md5_enab | string | upper }}
+
+# Obsolete: use /etc/default/useradd for defaults instead
+# See useradd(8) and login.defs(5) for details

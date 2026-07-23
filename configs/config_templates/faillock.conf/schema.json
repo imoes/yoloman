@@ -1,0 +1,83 @@
+{
+  "enable_deny": {
+    "type": "bool",
+    "default": false,
+    "description": "Whether to enable the 'deny' limit (if set, overrides default deny=0)."
+  },
+  "deny": {
+    "type": "number",
+    "default": 6,
+    "description": "Number of failed login attempts before the account is locked out."
+  },
+  "unlock_time": {
+    "type": "number",
+    "default": 600,
+    "description": "Time (in seconds) after which a locked account is automatically unlocked. Set to 0 for manual unlock only."
+  },
+  "fail_interval": {
+    "type": "number",
+    "default": 900,
+    "description": "Time window (in seconds) during which failed attempts are counted toward lockout."
+  },
+  "dir": {
+    "type": "string",
+    "default": "/run/faillock",
+    "description": "Directory where faillock state files for each user are stored."
+  },
+  "audit": {
+    "type": "bool",
+    "default": true,
+    "description": "If true, log lockout/unlock events to the systemd journal; otherwise, log only to syslog."
+  },
+  "silent": {
+    "type": "bool",
+    "default": false,
+    "description": "If true, suppress faillock-related messages (e.g., 'Account locked') from being printed to the user."
+  },
+  "deny_root": {
+    "type": "bool",
+    "default": false,
+    "description": "If true, apply lockout policy to the root account as well. By default, root is excluded."
+  },
+  "preauth": {
+    "type": "bool",
+    "default": false,
+    "description": "If true, count failures from PAM pre-authentication stages (e.g., SSH public key rejection) toward lockout."
+  },
+  "deny_users": {
+    "type": "list",
+    "default": [],
+    "description": "List of usernames that should be exempt from faillock lockout entirely.",
+    "items": {
+      "type": "string",
+      "description": "Username to exempt"
+    }
+  },
+  "deny_groups": {
+    "type": "list",
+    "default": [],
+    "description": "List of group names whose members are exempt from faillock lockout.",
+    "items": {
+      "type": "string",
+      "description": "Group name to exempt"
+    }
+  },
+  "allow_users": {
+    "type": "list",
+    "default": [],
+    "description": "List of usernames that are exempt from being locked out \u2014 they still count toward the deny threshold but never lock.",
+    "items": {
+      "type": "string",
+      "description": "Username to allow despite failures"
+    }
+  },
+  "allow_groups": {
+    "type": "list",
+    "default": [],
+    "description": "List of group names whose members are exempt from lockout.",
+    "items": {
+      "type": "string",
+      "description": "Group name whose members should not be locked"
+    }
+  }
+}

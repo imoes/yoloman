@@ -1,0 +1,65 @@
+# gnss-share main configuration file
+# Enables or disables the GNSS data sharing service
+enabled: {{ enabled | lower }}
+
+# Network interface to bind to for incoming connections
+bind_interface: {{ bind_interface }}
+
+# TCP port for the main GNSS data service
+service_port: {{ service_port }}
+
+# UDP port for raw GNSS data streaming
+stream_port: {{ stream_port }}
+
+# Path to the log file (set to 'syslog' to log to system log)
+log_file: {{ log_file }}
+
+# Log level: debug, info, warn, error, critical
+log_level: {{ log_level }}
+
+# Path to the PID file
+pid_file: {{ pid_file }}
+
+# Number of worker threads (0 = auto-detect CPU count)
+worker_count: {{ worker_count }}
+
+# Maximum number of concurrent client connections
+max_connections: {{ max_connections }}
+
+# Timeout (seconds) for client connections
+client_timeout: {{ client_timeout }}
+
+# List of allowed client IP addresses/subnets (empty = allow all)
+{% for entry in allowed_clients %}
+{% if loop.first %}allowed_clients: {% else %}           : {% endif %}{{ entry }}
+{% endfor %}
+
+# Enable SSL/TLS for secure connections
+ssl_enabled: {{ ssl_enabled | lower }}
+
+# Path to SSL certificate file (required if ssl_enabled=true)
+ssl_cert_file: {{ ssl_cert_file }}
+
+# Path to SSL private key file (required if ssl_enabled=true)
+ssl_key_file: {{ ssl_key_file }}
+
+# List of GNSS sources to share
+{% for source in gnss_sources %}
+# Source: {{ source.name }}
+gnss_source_{{ loop.index }}_name: {{ source.name }}
+gnss_source_{{ loop.index }}_type: {{ source.type }}
+gnss_source_{{ loop.index }}_url: {{ source.url }}
+gnss_source_{{ loop.index }}_format: {{ source.format }}
+{% if source.username is defined %}
+gnss_source_{{ loop.index }}_username: {{ source.username }}
+{% endif %}
+{% if source.password is defined %}
+gnss_source_{{ loop.index }}_password: {{ source.password }}
+{% endif %}
+{% endfor %}
+
+# Enable authentication for HTTP(S) endpoints
+auth_enabled: {{ auth_enabled | lower }}
+
+# Path to JSON file with user credentials
+auth_users_file: {{ auth_users_file }}

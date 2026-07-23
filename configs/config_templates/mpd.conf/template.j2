@@ -1,0 +1,248 @@
+{# Music Player Daemon (MPD) configuration file #}
+{# MPD runs as a background service and requires this config file to operate #}
+{# See https://www.musicpd.org/doc/html/user/configuration.html for full reference #}
+
+{# Directory where MPD stores its database and state #}
+db_file            "{{ paths.db }}"
+
+{# Directory where MPD stores its log file (empty means stderr) #}
+log_file           "{{ paths.log }}"
+
+{# Directory for playlists (e.g., .m3u files) #}
+playlist_directory "{{ paths.playlists }}"
+
+{# Path to MPD’s PID file #}
+pid_file           "{{ paths.pid }}"
+
+{# Path to the file containing passwords (if using auth) #}
+password_file      "{{ paths.passwords }}"
+
+{# Path to the music directory #}
+music_directory    "{{ paths.music }}"
+
+{# Optional sticker database file (used by plugins like mpris) #}
+sticker_file        "{{ paths.sticker }}"
+
+{# TCP port for client connections (default 6600) #}
+port               {{ port }}
+
+{# Bind MPD to a specific address (e.g., 127.0.0.1 for local only, or 0.0.0.0 for all interfaces) #}
+bind_to_address    "{{ bind_address }}"
+
+{# Unix socket path for local clients (optional, use empty string to disable) #}
+# To use, enable `bind_to_address` = "" and set this to a path like "/run/mpd.sock"
+# But MPD requires *either* TCP port *or* socket — we’ll use socket only if enabled
+{% if use_socket %}
+# Enable Unix socket for local clients
+{% if socket_path %}
+# Explicit socket path
+socket "{{ socket_path }}"
+{% else %}
+socket "{{ paths.socket }}"
+{% endif %}
+{% endif %}
+
+{# Audio output configuration — MPD supports multiple outputs #}
+{% for output in audio_outputs %}
+{% if loop.first %}
+# Audio output definitions (one per device or backend) #}
+{% endif %}
+audio_output {
+  type        "{{ output.type }}"
+  name        "{{ output.name }}"
+{% if output.device %}
+  device      "{{ output.device }}"
+{% endif %}
+{% if output.format %}
+  format      "{{ output.format }}"
+{% endif %}
+{% if output.dmix %}
+  dmix        "{{ output.dmix }}"
+{% endif %}
+{% if output.samplerate_converter %}
+  samplerate_converter "{{ output.samplerate_converter }}"
+{% endif %}
+{% if output.autosuspend %}
+  autosuspend "{{ output.autosuspend }}"
+{% endif %}
+{% if output.buffer_time %}
+  buffer_time "{{ output.buffer_time }}"
+{% endif %}
+}
+{% endfor %}
+
+{# Audio output format options — optional, applies globally if set #}
+{% if audio_format %}
+# Default audio format (e.g., for transcoding or sample conversion)
+audio_output_format "{{ audio_format }}"
+{% endif %}
+
+{# Optional resampling quality #}
+{% if resample_quality %}
+# Quality of resampling (0=lowest, 7=highest, 4=default) #}
+resample_quality  "{{ resample_quality }}"
+{% endif %}
+
+{# Maximum number of clients allowed to connect simultaneously #}
+max_clients "{{ max_clients }}"
+
+{# Maximum number of players (e.g., concurrent streams) #}
+max_players "{{ max_players }}"
+
+{# Maximum number of parallel file reads (affects performance) #}
+max_readers "{{ max_readers }}"
+
+{# Maximum buffer size in KB (affects memory usage) #}
+max_buffer_size "{{ max_buffer_size }}"
+
+{# Interval for updating file system changes (in seconds) #}
+filesystem_charset "{{ filesystem_charset }}"
+
+{# Enable or disable file system iconv conversion #}
+filesystem_charset "{{ filesystem_charset }}"
+filesystem_iconv   "{{ filesystem_iconv }}"
+
+{# Enable or disable file system change monitoring (inotify) #}
+follow_inside_symlink "{{ follow_symlink }}"
+follow_outside_symlink "{{ follow_outside_symlink }}"
+
+{# Optional: user/group to drop privileges to (if running as root) #}
+{% if user %}
+user "{{ user }}"
+{% endif %}
+{% if group %}
+group "{{ group }}"
+{% endif %}
+
+{# Optional: log level (default: notice, options: verbose, debug, info, notice, warning, error) #}
+{% if log_level %}
+log_level "{{ log_level }}"
+{% endif %}
+
+{# Optional: sticker database timeout (in seconds) #}
+{% if sticker_timeout %}
+sticker_timeout "{{ sticker_timeout }}"
+{% endif %}
+
+{# Optional: randomize playlist playback #}
+{% if randomize_playlist %}
+randomize "{{ randomize_playlist }}"
+{% endif %}
+
+{# Optional: crossfade duration in seconds #}
+{% if crossfade %}
+crossfade "{{ crossfade }}"
+{% endif %}
+
+{# Optional: Replay Gain mode (off, auto, track, album) #}
+{% if replay_gain_mode %}
+replay_gain_mode "{{ replay_gain_mode }}"
+{% endif %}
+
+{# Optional: Replay Gain preamp #}
+{% if replay_gain_preamp %}
+replay_gain_preamp "{{ replay_gain_preamp }}"
+{% endif %}
+
+{# Optional: Replay Gain fallback gain #}
+{% if replay_gain_fallback %}
+replay_gain_fallback "{{ replay_gain_fallback }}"
+{% endif %}
+
+{# Optional: default volume (0–100) #}
+{% if default_volume %}
+default_volume "{{ default_volume }}"
+{% endif %}
+
+{# Optional: restore_volume (on/off) #}
+{% if restore_volume %}
+restore_volume "{{ restore_volume }}"
+{% endif %}
+
+{# Optional: audio_delay in milliseconds #}
+{% if audio_delay %}
+audio_delay "{{ audio_delay }}"
+{% endif %}
+
+{# Optional: audio_buffer_size in KB (deprecated in newer MPD versions, use buffer_time) #}
+{% if audio_buffer_size %}
+audio_buffer_size "{{ audio_buffer_size }}"
+{% endif %}
+
+{# Optional: network settings #}
+{% if network_timeout %}
+network_timeout "{{ network_timeout }}"
+{% endif %}
+{% if network_buffer %}
+network_buffer "{{ network_buffer }}"
+{% endif %}
+
+{# Optional: zeroconf / avahi service discovery #}
+{% if zeroconf_enabled %}
+zeroconf_enabled "{{ zeroconf_enabled }}"
+{% endif %}
+{% if zeroconf_name %}
+zeroconf_name "{{ zeroconf_name }}"
+{% endif %}
+
+{# Optional: HTTP stream settings #}
+{% for stream in http_streams %}
+{% if loop.first %}
+# HTTP stream definitions (e.g., Icecast or direct) #}
+{% endif %}
+audio_output {
+  type        "http"
+  name        "{{ stream.name }}"
+  encoder     "{{ stream.encoder }}"
+  port        "{{ stream.port }}"
+{% if stream.bind_to_address %}
+  bind_to_address "{{ stream.bind_to_address }}"
+{% endif %}
+{% if stream.mimetype %}
+  mimetype    "{{ stream.mimetype }}"
+{% endif %}
+{% if stream.max_clients %}
+  max_clients "{{ stream.max_clients }}"
+{% endif %}
+{% if stream.quality %}
+  quality     "{{ stream.quality }}"
+{% endif %}
+}
+{% endfor %}
+
+{# Optional: input plugins (e.g., curl, http, file) #}
+{% for input in inputs %}
+{% if loop.first %}
+# Input plugin configuration #}
+{% endif %}
+{% if input.enabled is not none %}
+{{ input.type }} {
+{% for k, v in input.items() if k != 'type' and k != 'enabled' %}
+  {{ k }}    "{{ v }}"
+{% endfor %}
+}
+{% endif %}
+{% endfor %}
+
+{# Optional: tag types (for reading metadata) #}
+{% if tag_types %}
+# Metadata reading preferences #}
+tag_types [ "{{ tag_types | join('" "') }}" ]
+{% endif %}
+
+{# Optional: filesystem encoding #}
+filesystem_charset "{{ filesystem_charset }}"
+
+{# Optional: ID3v1 encoding #}
+id3v1_encoding "{{ id3v1_encoding }}"
+
+{# Optional: ID3v2 encoding #}
+id3v2_encoding "{{ id3v2_encoding }}"
+
+{# Optional: gapless MP3 playback #}
+gapless_mp3_playback "{{ gapless_mp3 }}"
+
+{# Optional: buffer fill time in ms #}
+{% if buffer_fill_time %}
+buffer_fill_time "{{ buffer_fill_time }}"
+{% endif %}

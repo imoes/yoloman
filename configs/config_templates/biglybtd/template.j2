@@ -1,0 +1,50 @@
+# Global settings
+listen_address: {{ listen_address }}
+listen_port: {{ listen_port }}
+max_connections: {{ max_connections }}
+max_active_torrents: {{ max_active_torrents }}
+max_uploads_per_torrent: {{ max_uploads_per_torrent }}
+max_downloads: {{ max_downloads }}
+upload_rate_limit: {{ upload_rate_limit }}
+download_rate_limit: {{ download_rate_limit }}
+
+# Directory paths
+data_dir: {{ data_dir }}
+watch_dir: {{ watch_dir }}
+completed_dir: {{ completed_dir }}
+
+# Bandwidth scheduling (optional)
+{% if bandwidth_schedule_enabled %}
+bandwidth_schedule_enabled: true
+bandwidth_schedule:
+  start_time: {{ bandwidth_schedule_start }}
+  end_time: {{ bandwidth_schedule_end }}
+  upload_limit: {{ bandwidth_schedule_upload_limit }}
+  download_limit: {{ bandwidth_schedule_download_limit }}
+{% else %}
+bandwidth_schedule_enabled: false
+{% endif %}
+
+# Trackers (per-torrent defaults)
+tracker_list:
+{% for tracker in default_trackers %}  - url: {{ tracker.url }}
+    enabled: {{ tracker.enabled }}
+    announce_interval: {{ tracker.announce_interval }}
+{% endfor %}
+
+# Peer encryption (Pex, DHT, etc.)
+dht_enabled: {{ dht_enabled }}
+pex_enabled: {{ pex_enabled }}
+lpd_enabled: {{ lpd_enabled }}
+peer_encryption: {{ peer_encryption }}  # 'required', 'preferred', 'disabled'
+
+# UI/remote control (JSON-RPC API)
+api_enabled: {{ api_enabled }}
+api_port: {{ api_port }}
+api_host: {{ api_host }}
+api_username: {{ api_username }}
+api_password_hash: {{ api_password_hash }}
+
+# Logging
+log_level: {{ log_level }}  # 'error', 'warn', 'info', 'debug'
+log_dir: {{ log_dir }}

@@ -1,0 +1,228 @@
+{
+  "cluster_name": {
+    "type": "string",
+    "default": "",
+    "description": "Optional name for the cluster. Useful in multi-cluster deployments for identification."
+  },
+  "server_id": {
+    "type": "string",
+    "default": "",
+    "description": "Unique ID for this server instance. Auto-generated if not set."
+  },
+  "host": {
+    "type": "string",
+    "default": "0.0.0.0",
+    "description": "IP address or hostname the NATS server will bind to for client connections."
+  },
+  "ports": {
+    "type": "object",
+    "items": {
+      "client": {
+        "type": "number",
+        "default": 4222,
+        "description": "Port for client connections."
+      },
+      "monitoring": {
+        "type": "number",
+        "default": 8222,
+        "description": "Port for HTTP monitoring and dashboard (set to 0 or omit to disable)."
+      },
+      "cluster": {
+        "type": "number",
+        "default": 6222,
+        "description": "Port used for server-to-server cluster communication."
+      }
+    }
+  },
+  "cluster_host": {
+    "type": "string",
+    "default": "0.0.0.0",
+    "description": "IP address to bind the cluster listen socket to."
+  },
+  "cluster_auth": {
+    "type": "object",
+    "items": {
+      "user": {
+        "type": "string",
+        "default": "",
+        "description": "Username for intra-cluster authentication."
+      },
+      "password": {
+        "type": "string",
+        "default": "",
+        "description": "Password for intra-cluster authentication (recommended to use JWT or TLS auth instead in production)."
+      },
+      "timeout": {
+        "type": "number",
+        "default": 1,
+        "description": "Authentication timeout (seconds) for cluster connections."
+      }
+    },
+    "default": null,
+    "description": "Cluster authorization credentials (optional). Prefer JWT/TLS auth in production."
+  },
+  "cluster_routes": {
+    "type": "list",
+    "default": [],
+    "description": "List of other NATS servers to connect to for cluster formation (format: nats://host:port).",
+    "items": {
+      "type": "object",
+      "items": {
+        "host": {
+          "type": "string",
+          "default": "",
+          "description": "Hostname or IP of the route peer."
+        },
+        "port": {
+          "type": "number",
+          "default": 6222,
+          "description": "Port of the route peer."
+        }
+      }
+    }
+  },
+  "jetstream_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable JetStream persistent streaming and queueing subsystem."
+  },
+  "jetstream_store_dir": {
+    "type": "string",
+    "default": "/var/lib/nats/jetstream",
+    "description": "Directory for JetStream data storage (required if JetStream is enabled)."
+  },
+  "max_connections": {
+    "type": "number",
+    "default": 65536,
+    "description": "Maximum number of simultaneous client connections allowed."
+  },
+  "max_subscriptions": {
+    "type": "number",
+    "default": 0,
+    "description": "Maximum subscriptions per connection (0 = unlimited)."
+  },
+  "max_pending_bytes": {
+    "type": "number",
+    "default": 0,
+    "description": "Maximum bytes a client can have pending (unprocessed messages) \u2014 0 = unlimited."
+  },
+  "write_deadline": {
+    "type": "number",
+    "default": 10,
+    "description": "Write timeout (seconds) for client connections before disconnect."
+  },
+  "system_account": {
+    "type": "string",
+    "default": "",
+    "description": "System account ID (JWT or nkey) used for internal server operations."
+  },
+  "no_log": {
+    "type": "bool",
+    "default": false,
+    "description": "Disable logging output entirely (not recommended for production)."
+  },
+  "log_file": {
+    "type": "string",
+    "default": "",
+    "description": "Path to log file (if omitted, logs go to stdout/stderr)."
+  },
+  "log_time": {
+    "type": "bool",
+    "default": true,
+    "description": "Include timestamps in log entries."
+  },
+  "trace": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable verbose protocol trace logging (use only for debugging)."
+  },
+  "debug": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable debug-level logging (verbose; impacts performance)."
+  },
+  "tls": {
+    "type": "object",
+    "items": {
+      "cert_file": {
+        "type": "string",
+        "default": "",
+        "description": "Path to TLS certificate file."
+      },
+      "key_file": {
+        "type": "string",
+        "default": "",
+        "description": "Path to TLS private key file."
+      },
+      "ca_file": {
+        "type": "string",
+        "default": "",
+        "description": "Path to CA certificate bundle for client verification (optional)."
+      },
+      "verify": {
+        "type": "bool",
+        "default": false,
+        "description": "Require client certificate verification (set to true when using client certs)."
+      },
+      "timeout": {
+        "type": "number",
+        "default": 2,
+        "description": "TLS handshake timeout (seconds)."
+      }
+    },
+    "default": null,
+    "description": "TLS configuration for secure client connections (recommended in production)."
+  },
+  "accounts": {
+    "type": "list",
+    "default": [],
+    "description": "Static account definitions (use JWT for dynamic/multi-tenancy deployments).",
+    "items": {
+      "type": "object",
+      "items": {
+        "name": {
+          "type": "string",
+          "default": "",
+          "description": "Account name."
+        },
+        "users": {
+          "type": "list",
+          "default": [],
+          "description": "List of users for this account.",
+          "items": {
+            "type": "object",
+            "items": {
+              "user": {
+                "type": "string",
+                "default": "",
+                "description": "Username."
+              },
+              "password": {
+                "type": "string",
+                "default": "",
+                "description": "Password (prefer nkeys or JWT in production)."
+              },
+              "permissions": {
+                "type": "object",
+                "items": {
+                  "publish": {
+                    "type": "list",
+                    "default": [],
+                    "description": "Allowed publish subjects (e.g., ['public.>'])."
+                  },
+                  "subscribe": {
+                    "type": "list",
+                    "default": [],
+                    "description": "Allowed subscribe subjects."
+                  }
+                },
+                "default": null,
+                "description": "Subject permissions for the user."
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

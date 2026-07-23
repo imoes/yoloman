@@ -1,0 +1,55 @@
+# Host-specific settings apply after this line
+Host *
+  # Disable strict host key checking (can be enabled per-host)
+  StrictHostKeyChecking {{ strict_host_key_checking|default('auto') }}
+  # Accept new host keys automatically if strict checking is disabled
+  UserKnownHostsFile /dev/null
+  # Do not cache unknown hosts (prevents prompts)
+  GlobalKnownHostsFile /dev/null
+  # Set verbosity level (quiet, verbose, verbose1, verbose2)
+  LogLevel {{ log_level|default('ERROR') }}
+  # Enable SSH agent forwarding by default
+  ForwardAgent {{ forward_agent|default(false) }}
+  # Enable X11 forwarding (disable for headless use)
+  ForwardX11 {{ forward_x11|default(false) }}
+  # Set connection timeout (in seconds)
+  ConnectTimeout {{ connect_timeout|default(10) }}
+  # Disable password authentication (force key-based only)
+  PasswordAuthentication {{ password_authentication|default(false) }}
+  # Use only the preferred authentication methods
+  PreferredAuthentications {{ preferred_authentications | join(',') }}
+  # Retry key exchange and rekey if needed
+  ServerAliveInterval {{ server_alive_interval|default(60) }}
+  # Number of keepalives before disconnect
+  ServerAliveCountMax {{ server_alive_count_max|default(3) }}
+  # Enable compression (useful over high-latency links)
+  Compression {{ compression|default(false) }}
+  # Protocol version preference (2 only)
+  Protocol {{ protocol|default(2) }}
+  # Enable TCP keepalive
+  TCPKeepAlive {{ tcp_keepalive|default(true) }}
+{% for host in host_configs %}
+  # {{ host.comment|default('Host-specific settings') }}
+Host {{ host.pattern }}
+{%   if host.strict_host_key_checking is defined %}
+  StrictHostKeyChecking {{ host.strict_host_key_checking }}
+{%   endif %}
+{%   if host.user is defined %}
+  User {{ host.user }}
+{%   endif %}
+{%   if host.port is defined %}
+  Port {{ host.port }}
+{%   endif %}
+{%   if host.identity_file is defined %}
+  IdentityFile {{ host.identity_file | join(',') }}
+{%   endif %}
+{%   if host.forward_agent is defined %}
+  ForwardAgent {{ 'yes' if host.forward_agent else 'no' }}
+{%   endif %}
+{%   if host.forward_x11 is defined %}
+  ForwardX11 {{ 'yes' if host.forward_x11 else 'no' }}
+{%   endif %}
+{%   if host.proxy_jump is defined %}
+  ProxyJump {{ host.proxy_jump | join(',') }}
+{%   endif %}
+{% endfor %}

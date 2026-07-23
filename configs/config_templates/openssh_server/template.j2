@@ -1,0 +1,62 @@
+# Listen address (IP or hostname) for SSH daemon to bind to
+# Set to '0.0.0.0' to listen on all interfaces
+Port {{ ssh_port }}
+AddressFamily {{ address_family }}
+ListenAddress {{ listen_address }}
+
+# Authentication settings
+# Disable root login via SSH
+PermitRootLogin {{ permit_root_login }}
+# Require public key authentication
+PubkeyAuthentication {{ pubkey_authentication }}
+# Allow password authentication (less secure; prefer keys)
+PasswordAuthentication {{ password_authentication }}
+# Maximum authentication attempts before disconnection
+MaxAuthTries {{ max_auth_tries }}
+# Authentication methods order (e.g., 'publickey,password')
+AuthenticationMethods {{ authentication_methods | join(',') }}
+
+# Session and environment settings
+# Set login banner (use empty string to disable)
+Banner {{ banner_file | default('') | default('', True) if banner_file else '' }}
+# Allow client to pass environment variables
+PermitUserEnvironment {{ permit_user_environment }}
+# Set idle timeout (seconds); 0 = disabled
+ClientAliveInterval {{ client_alive_interval }}
+ClientAliveCountMax {{ client_alive_count_max }}
+
+# Logging and auditing
+# Verbosity level (e.g., QUIET, FATAL, ERROR, INFO, VERBOSE, DEBUG)
+LogLevel {{ log_level }}
+# Log real IP addresses in logs (helpful for auditing)
+LogVerbose {{ log_verbose }}
+
+# Security hardening
+# Limit number of concurrent unauthenticated connections
+StartupsRateLimit {{ startup_rate_limit }}
+# Use strong MACs and ciphers only
+Ciphers {{ ciphers | join(',') }}
+MACs {{ macs | join(',') }}
+KexAlgorithms {{ kex_algorithms | join(',') }}
+# Disable insecure protocols and features
+Protocol {{ protocol }}
+StrictModes {{ strict_modes }}
+
+# X11 and forwarding control
+X11Forwarding {{ x11_forwarding }}
+AllowTcpForwarding {{ allow_tcp_forwarding }}
+AllowAgentForwarding {{ allow_agent_forwarding }}
+GatewayPorts {{ gateway_ports }}
+
+# Subsystem and SFTP configuration
+Subsystem sftp {{ sftp_subsystem }}
+{% if sftp_chroot_groups %}
+# Chroot SFTP users in specified groups to their home dirs
+{% for group in sftp_chroot_groups %}
+Match Group {{ group.name }}
+    ChrootDirectory {{ group.chroot_path }}
+    ForceCommand internal-sftp
+    AllowTcpForwarding no
+    X11Forwarding no
+{% endfor %}
+{% endif %}

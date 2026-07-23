@@ -1,0 +1,91 @@
+{
+  "syslog_enabled": true,
+  "log_level": "warning",
+  "log_file": "/var/log/fastnetmon/fastnetmon.log",
+  "packet_capture_enabled": true,
+  "packet_capture_interface": "eth0",
+  "sflow_enabled": true,
+  "sflow_port": 6343,
+  "netflow_enabled": false,
+  "netflow_port": 2055,
+  "mirror_enabled": false,
+  "mirror_interface": "eth1",
+  "cli_enabled": true,
+  "cli_address": "127.0.0.1",
+  "cli_port": 11111,
+  "api_enabled": true,
+  "api_address": "192.168.1.2",
+  "api_port": 8080,
+  "api_token": "secret-api-token-2024",
+  "mitigation_enabled": true,
+  "mitigation_backend": "nftables",
+  "bandwidth_threshold_mbps": 5000,
+  "packets_threshold_pps": 250000,
+  "flows_threshold_fps": 10000,
+  "blacklist_cidrs": [
+    "198.51.100.0/24",
+    "203.0.113.0/24"
+  ],
+  "whitelist_cidrs": [
+    "192.0.2.0/24"
+  ],
+  "host_thresholds": [
+    {
+      "ip_or_subnet": "10.0.0.1",
+      "type": "bandwidth",
+      "value": 10000
+    },
+    {
+      "ip_or_subnet": "10.0.0.2/32",
+      "type": "packets",
+      "value": 500000
+    }
+  ],
+  "flow_logging_enabled": true,
+  "flow_log_path": "/var/log/fastnetmon/flows.json",
+  "alert_scripts": [
+    {
+      "path": "/usr/local/bin/alert-irc.sh",
+      "args": [
+        "#ddos-alerts"
+      ]
+    },
+    {
+      "path": "/usr/local/bin/block-bad-actor.sh",
+      "args": [
+        "{ip}"
+      ]
+    }
+  ],
+  "notification_channels": [
+    {
+      "type": "email",
+      "to": "noc@example.com",
+      "from": "fastnetmon@example.com",
+      "smtp_server": "smtp.example.com",
+      "smtp_port": 587,
+      "smtp_use_tls": true
+    },
+    {
+      "type": "webhook",
+      "url": "https://events.example.com/ddos",
+      "method": "POST",
+      "headers": [
+        "Authorization: Bearer xtoken123",
+        "X-Source: fastnetmon"
+      ]
+    }
+  ],
+  "bgp_flowspec_enabled": false,
+  "bgp_local_pref": 100,
+  "bgp_peers": [
+    {
+      "ip": "192.0.2.1",
+      "as": 64496
+    },
+    {
+      "ip": "192.0.2.2",
+      "as": 64496
+    }
+  ]
+}

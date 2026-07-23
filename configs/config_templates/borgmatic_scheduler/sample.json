@@ -1,0 +1,50 @@
+{
+  "source_directories": [
+    "/home",
+    "/etc",
+    "/var/www",
+    "/var/lib/postgresql"
+  ],
+  "repositories": [
+    {
+      "path": "/backup/borg",
+      "encryption_mode": "repokey"
+    },
+    {
+      "path": "backup@example.com:/remote/borg",
+      "encryption_mode": "authenticated"
+    }
+  ],
+  "retention": {
+    "keep_within": "30d",
+    "keep_hourly": 24,
+    "keep_daily": 7,
+    "keep_weekly": 4,
+    "keep_monthly": 6,
+    "keep_yearly": 1
+  },
+  "consistency.frequency": {
+    "repository": "monthly",
+    "archives": "weekly"
+  },
+  "hooks": {
+    "before_backup": [
+      "sudo -u postgres pg_dumpall | borg create --stdin-name=pg_dumpall {{ repositories[0].path }}::{{ 'pgdump-' + now('%Y%m%d-%H%M%S') }}"
+    ],
+    "after_backup": [
+      "systemctl restart borgmatic-reporter.service"
+    ]
+  },
+  "log_level": "info",
+  "log_json": true,
+  "checkpoints": {
+    "checkpoint_interval": 600,
+    "checkpoint_size": 1073741824
+  },
+  "storage": {
+    "compression": "zstd"
+  },
+  "one_file_system": true,
+  "progress": true,
+  "stats": true
+}

@@ -1,0 +1,51 @@
+# Enable or disable the firewalld service at boot
+{% if firewall_enabled %}Enable=yes{% else %}Enable=no{% endif %}
+
+# Default zone for untrusted interfaces
+# Zones define trust levels for network connections
+DefaultZone={{ default_zone }}
+
+# Minimum UID/GID allowed to manage firewalld via D-Bus
+# Set to -1 to allow all users with appropriate Polkit rules
+MinUID={{ min_uid }}
+
+# Maximum UID/GID allowed to manage firewalld via D-Bus
+# Set to -1 to disable upper limit
+MaxUID={{ max_uid }}
+
+# Enable or disable logging of denied packets
+# Options: yes, no
+LogDenied={{ log_denied }}
+
+# Enable or disable automatic loading of kernel modules needed by firewalld
+# Required for full functionality (e.g., nftables backend)
+AutoInstall={{ auto_install }}
+
+# Backend used by firewalld: nftables (modern) or iptables (legacy)
+# Recommended: nftables
+Backend={{ backend }}
+
+# Enable or disable D-Bus usage (required for most management tools)
+D-Bus=yes
+
+# Enable or disable runtime-only mode (no persistent configuration)
+# For testing or embedded environments
+{% if runtime_only %}RuntimeOnly=yes{% else %}RuntimeOnly=no{% endif %}
+
+# Maximum number of concurrent D-Bus connections
+MaxConnections={{ max_connections }}
+
+# Enable or disable IPv6 support
+# Required for dual-stack environments
+{% if ipv6_enabled %}IPv6=yes{% else %}IPv6=no{% endif %}
+
+# Enable or disable direct rules (advanced iptables/nftables integration)
+# Use with caution — bypasses zone-based policy
+{% if direct_rules_enabled %}DirectRules=yes{% else %}DirectRules=no{% endif %}
+
+# Paths to custom XML zone, service, and policy files (colon-separated)
+# These are searched *in addition* to the standard system/user paths
+{% if custom_config_paths | length > 0 %}ConfigDirectory={{ custom_config_paths | join(': ') }}{% else %}# ConfigDirectory= (use defaults only){% endif %}
+
+# Paths to runtime-specific (non-persistent) XML files (colon-separated)
+{% if runtime_config_paths | length > 0 %}RuntimeDirectory={{ runtime_config_paths | join(': ') }}{% else %}# RuntimeDirectory= (use defaults only){% endif %}

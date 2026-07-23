@@ -1,0 +1,69 @@
+{# Globus GRAM Job Manager for PBS Configuration #}
+{% if gss_enabled | default(false) %}
+{% set gss_section %}
+{% for gss_instance in gss_instances %}
+{% if loop.first %}
+  {# GSS (Grid Security Support) configuration #}
+  <GSS>
+{% endif %}
+    <Instance>
+      <Type>{{ gss_instance.type }}</Type>
+      <Name>{{ gss_instance.name }}</Name>
+      {% if gss_instance.authz_module %}
+      <AuthZModule>{{ gss_instance.authz_module }}</AuthZModule>
+      {% endif %}
+      {% if gss_instance.authn_module %}
+      <AuthNModule>{{ gss_instance.authn_module }}</AuthNModule>
+      {% endif %}
+      {% if gss_instance.cred_store %}
+      <CredStore>{{ gss_instance.cred_store }}</CredStore>
+      {% endif %}
+    </Instance>
+{% if loop.last %}
+  </GSS>
+{% endif %}
+{% endfor %}
+{% endset %}
+{{ gss_section }}
+{% endif %}
+
+{# GRAM PBS Job Manager Configuration #}
+<GRAM>
+  {# PBS-specific job manager settings #}
+  <JobManager pbs>
+    <Executable>{{ pbs_job_manager_executable }}</Executable>
+    <JobType>{{ pbs_job_manager_jobtype }}</JobType>
+    <Account>{{ pbs_job_manager_account | default('') }}</Account>
+    <Queue>{{ pbs_job_manager_queue }}</Queue>
+    <Project>{{ pbs_job_manager_project | default('') }}</Project>
+    <WallTime>{{ pbs_job_manager_walltime | default('') }}</WallTime>
+    <Memory>{{ pbs_job_manager_memory | default('') }}</Memory>
+    <Processes>{{ pbs_job_manager_processes | default('') }}</Processes>
+    <ProcessorCount>{{ pbs_job_manager_processor_count | default('') }}</ProcessorCount>
+    <MemoryPerNode>{{ pbs_job_manager_memory_per_node | default('') }}</MemoryPerNode>
+    <ProcessPerNode>{{ pbs_job_manager_processes_per_node | default('') }}</ProcessPerNode>
+    <HostsFile>{{ pbs_job_manager_hosts_file | default('') }}</HostsFile>
+    <Environment>
+{% for env_var in pbs_job_manager_environment %}
+      <Variable name="{{ env_var.name }}">{{ env_var.value }}</Variable>
+{% endfor %}
+    </Environment>
+  </JobManager>
+
+  {# GridFTP integration (for data staging) #}
+  <GridFTP>
+    <Enabled>{{ gridftp_enabled | default(false) | lower }}</Enabled>
+{% for server in gridftp_servers %}
+    <Server>
+      <Host>{{ server.host }}</Host>
+      <Port>{{ server.port }}</Port>
+      <Service>{{ server.service | default('gsiftp') }}</Service>
+      <TransferMode>{{ server.transfer_mode | default('passive') }}</TransferMode>
+      <Certificate>{{ server.certificate | default('') }}</Certificate>
+      <Key>{{ server.key | default('') }}</Key>
+      <CACertificate>{{ server.ca_certificate | default('') }}</CACertificate>
+      <TrustedCACertificatesDirectory>{{ server.trusted_ca_certs_dir | default('') }}</TrustedCACACertificatesDirectory>
+    </Server>
+{% endfor %}
+  </GridFTP>
+</GRAM>

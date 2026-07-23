@@ -1,0 +1,79 @@
+{
+  "listen_address": {
+    "type": "string",
+    "default": "0.0.0.0",
+    "description": "IP address for papd to bind to; use 0.0.0.0 for all interfaces."
+  },
+  "listen_port": {
+    "type": "number",
+    "default": 543,
+    "description": "UDP port to listen on for PAP requests (standard AppleTalk PAP port)."
+  },
+  "pap_active": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable PAP service \u2014 if false, no printers will be accessible via AppleTalk."
+  },
+  "max_jobs": {
+    "type": "number",
+    "default": 10,
+    "description": "Maximum number of print jobs papd will accept per printer at once."
+  },
+  "queue_timeout": {
+    "type": "number",
+    "default": 86400,
+    "description": "Seconds after which queued jobs are purged (0 = never purge)."
+  },
+  "syslog_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Log messages to syslog \u2014 recommended for production use."
+  },
+  "debug_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable verbose debug logging \u2014 use only for troubleshooting."
+  },
+  "printcap_path": {
+    "type": "string",
+    "default": "/etc/printcap",
+    "description": "Path to the printcap file describing available printers."
+  },
+  "default_command": {
+    "type": "string",
+    "default": "lp -d {{printer}} {{job}}",
+    "description": "Template for the shell command used to submit print jobs (variables: job, printer)."
+  },
+  "printers": {
+    "type": "list",
+    "default": [],
+    "description": "List of printers to expose via PAP. Each printer is mapped to an AppleTalk name.",
+    "items": {
+      "name": {
+        "type": "string",
+        "default": "",
+        "description": "Unix/CUPS printer name (must match a queue in printcap)."
+      },
+      "at_name": {
+        "type": "string",
+        "default": "",
+        "description": "AppleTalk name for this printer (max 15 chars; must be unique)."
+      },
+      "queue_name": {
+        "type": "string",
+        "default": "",
+        "description": "Print queue name (often same as 'name' for CUPS)."
+      },
+      "command": {
+        "type": "string",
+        "default": "",
+        "description": "Command template (optional override of DefaultCommand). Use {{job}} and {{printer}} placeholders."
+      }
+    }
+  },
+  "default_printer": {
+    "type": "string",
+    "default": "",
+    "description": "Name of the default printer (if empty, first printer in PrintCap is used)."
+  }
+}

@@ -1,0 +1,150 @@
+{
+  "log_level": {
+    "type": "string",
+    "default": "info",
+    "description": "Logging verbosity: trace, debug, info, warn, error, or off"
+  },
+  "mode": {
+    "type": "string",
+    "default": "resolver",
+    "description": "Server operation mode: resolver (recursive), forwarder (recursive with custom upstreams), or cache-only"
+  },
+  "doh_enabled": {
+    "type": "boolean",
+    "default": false,
+    "description": "Enable DNS over HTTPS listener"
+  },
+  "doh_address": {
+    "type": "string",
+    "default": "127.0.0.1:443",
+    "description": "IP:port for DoH listener (requires valid TLS credentials when enabled)"
+  },
+  "doh_cert_path": {
+    "type": "string",
+    "default": "/etc/hickory-dns/certs/doh.crt",
+    "description": "Path to TLS certificate (PEM format) for DoH"
+  },
+  "doh_key_path": {
+    "type": "string",
+    "default": "/etc/hickory-dns/certs/doh.key",
+    "description": "Path to TLS private key (PEM format) for DoH"
+  },
+  "dot_enabled": {
+    "type": "boolean",
+    "default": false,
+    "description": "Enable DNS over TLS listener"
+  },
+  "dot_address": {
+    "type": "string",
+    "default": "127.0.0.1:853",
+    "description": "IP:port for DoT listener (requires valid TLS credentials when enabled)"
+  },
+  "dot_cert_path": {
+    "type": "string",
+    "default": "/etc/hickory-dns/certs/dot.crt",
+    "description": "Path to TLS certificate (PEM format) for DoT"
+  },
+  "dot_key_path": {
+    "type": "string",
+    "default": "/etc/hickory-dns/certs/dot.key",
+    "description": "Path to TLS private key (PEM format) for DoT"
+  },
+  "tcp_address": {
+    "type": "string",
+    "default": "0.0.0.0:53",
+    "description": "IP:port for TCP DNS listener"
+  },
+  "tcp_idle_timeout": {
+    "type": "number",
+    "default": 300,
+    "description": "Idle connection timeout in seconds (0 = disable timeout)"
+  },
+  "udp_address": {
+    "type": "string",
+    "default": "0.0.0.0:53",
+    "description": "IP:port for UDP DNS listener"
+  },
+  "udp_max_message_size": {
+    "type": "number",
+    "default": 4096,
+    "description": "Maximum UDP message size in bytes (RFC 8467 recommends up to 4096)"
+  },
+  "upstreams": {
+    "type": "list",
+    "default": [
+      "1.1.1.1:53",
+      "1.0.0.1:53"
+    ],
+    "description": "List of upstream DNS resolvers (IP:port or hostname:port) for recursive resolution"
+  },
+  "recursor_query_timeout": {
+    "type": "number",
+    "default": 5,
+    "description": "Maximum time (seconds) to wait for recursive upstream responses"
+  },
+  "recursor_max_concurrent_queries": {
+    "type": "number",
+    "default": 2048,
+    "description": "Maximum number of simultaneous recursive queries"
+  },
+  "recursor_validate": {
+    "type": "boolean",
+    "default": true,
+    "description": "Enable DNSSEC validation of responses (requires valid trust anchor)"
+  },
+  "root_ksk_path": {
+    "type": "string",
+    "default": "/etc/hickory-dns/ksk-keyset-20170711.txt",
+    "description": "Path to root key signing key set file (if not using built-in anchor)"
+  },
+  "zones": {
+    "type": "list",
+    "default": [],
+    "description": "Static zone definitions (authoritative or slave zones)",
+    "items": {
+      "name": {
+        "type": "string",
+        "description": "Zone name (e.g., example.com)"
+      },
+      "file": {
+        "type": "string",
+        "description": "Path to zone file (BIND format)"
+      },
+      "type": {
+        "type": "string",
+        "default": "primary",
+        "description": "Zone type: 'primary' (authoritative), 'secondary' (slave), or 'forward' (delegation)"
+      },
+      "axfr_source": {
+        "type": "string",
+        "default": null,
+        "description": "Source IP for AXFR (zone transfer) requests (optional)"
+      }
+    }
+  },
+  "rrld_enabled": {
+    "type": "boolean",
+    "default": false,
+    "description": "Enable response rate limiting (RRL) to mitigate DNS amplification attacks"
+  },
+  "rrld_max_responses": {
+    "type": "number",
+    "default": 20,
+    "description": "Maximum responses allowed per client window before rate limiting kicks in"
+  },
+  "drop_quietly": {
+    "type": "boolean",
+    "default": true,
+    "description": "Drop oversized/malformed packets without sending errors (improves DoS resilience)"
+  },
+  "server_id": {
+    "type": "string",
+    "default": "",
+    "description": "Server identifier string (for EDNS client subnet scope and server identification)"
+  },
+  "soa_mname": {
+    "type": "string",
+    "default": "",
+    "description": "Primary nameserver hostname for SOA records in authoritative zones"
+  }
+}

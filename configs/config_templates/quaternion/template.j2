@@ -1,0 +1,90 @@
+[general]
+# Enable debug logging (shows verbose debug messages)
+{% if debug %}debug = true{% else %}debug = false{% endif %}
+
+# Log file path (empty = no file logging)
+{% if log_file %}logFile = {{ log_file }}{% else %}#logFile = {% endif %}
+
+# Log level: trace, debug, info, warning, error, critical
+logLevel = {{ log_level }}
+
+# Auto-update policy: none, check, download
+autoUpdate = {{ auto_update }}
+
+# Theme name (e.g., system, light, dark, or custom theme file path)
+theme = {{ theme }}
+
+[cache]
+# Path to cache directory (empty = default Qt cache dir)
+{% if cache_dir %}cacheDir = {{ cache_dir }}{% else %}#cacheDir = {% endif %}
+
+# Maximum cache size in MB (0 = unlimited)
+maxCacheSize = {{ max_cache_size }}
+
+[rooms]
+# Show read receipts for messages
+{% if show_read_receipts %}showReadReceipts = true{% else %}showReadReceipts = false{% endif %}
+
+# Sort rooms by: activity, alphabetical
+sortRoomsBy = {{ room_sort_order }}
+
+# Show hidden events (e.g., encryption changes, power level updates)
+{% if show_hidden_events %}showHiddenEvents = true{% else %}showHiddenEvents = false{% endif %}
+
+[notifications]
+# Enable desktop notifications
+{% if enable_notifications %}enableNotifications = true{% else %}enableNotifications = false{% endif %}
+
+# Play sound on incoming message
+{% if sound_on_message %}soundOnMessage = true{% else %}soundOnMessage = false{% endif %}
+
+# Notification sound file path (empty = default system sound)
+{% if notification_sound %}notificationSound = {{ notification_sound }}{% else %}#notificationSound = {% endif %}
+
+# Notification timeout in seconds (0 = no timeout)
+notificationTimeout = {{ notification_timeout }}
+
+# Show message preview in notifications
+{% if show_message_preview %}showMessagePreview = true{% else %}showMessagePreview = false{% endif %}
+
+# Highlight mentions (e.g., @room, @all, user mentions)
+{% if highlight_mentions %}highlightMentions = true{% else %}highlightMentions = false{% endif %}
+
+[media]
+# Default media size for image previews: small, medium, large
+mediaPreviewSize = {{ media_preview_size }}
+
+# Proxy type for media: none, system, manual
+mediaProxyType = {{ media_proxy_type }}
+
+# Manual proxy host (if mediaProxyType = manual)
+{% if media_proxy_host %}mediaProxyHost = {{ media_proxy_host }}{% else %}#mediaProxyHost = {% endif %}
+
+# Manual proxy port (if mediaProxyType = manual)
+{% if media_proxy_port %}mediaProxyPort = {{ media_proxy_port }}{% else %}#mediaProxyPort = {% endif %}
+
+# Whether to use system proxy settings
+{% if use_system_proxy %}useSystemProxy = true{% else %}useSystemProxy = false{% endif %}
+
+[servers]
+{% for server in servers %}
+# Server: {{ server.name }}
+{% if server.homeserver %}server.{{ loop.index }}.url = {{ server.homeserver }}{% endif %}
+{% if server.user_id %}server.{{ loop.index }}.userId = {{ server.user_id }}{% endif %}
+{% if server.access_token %}server.{{ loop.index }}.accessToken = {{ server.access_token }}{% endif %}
+{% if server.is_default %}server.{{ loop.index }}.isDefault = true{% else %}server.{{ loop.index }}.isDefault = false{% endif %}
+{% if server.auto_join_rooms | length > 0 %}server.{{ loop.index }}.autoJoinRooms = {{ server.auto_join_rooms | join(', ') }}{% endif %}
+{% if server.proxy_type %}server.{{ loop.index }}.proxyType = {{ server.proxy_type }}{% else %}server.{{ loop.index }}.proxyType = system{% endif %}
+{% if server.proxy_host %}server.{{ loop.index }}.proxyHost = {{ server.proxy_host }}{% endif %}
+{% if server.proxy_port %}server.{{ loop.index }}.proxyPort = {{ server.proxy_port }}{% endif %}
+{% endfor %}
+
+[fonts]
+# Use system monospace font
+{% if use_system_font %}useSystemFont = true{% else %}useSystemFont = false{% endif %}
+
+# Custom monospace font family
+{% if font_family %}fontFamily = {{ font_family }}{% else %}#fontFamily = {% endif %}
+
+# Custom font size
+{% if font_size %}fontSize = {{ font_size }}{% else %}#fontSize = 10{% endif %}

@@ -1,0 +1,145 @@
+{
+  "serverinfo": {
+    "name": "irc.example.net",
+    "description": "ExampleNet IRC Server",
+    "network_name": "ExampleNet"
+  },
+  "listen_items": [
+    {
+      "host": "0.0.0.0",
+      "port": 6667,
+      "options": {
+        "ssl": "no"
+      }
+    },
+    {
+      "host": "0.0.0.0",
+      "port": 6697,
+      "ssl": true,
+      "options": {
+        "ssl": "yes",
+        "ssl_cert": "/etc/ircd-hybrid/certs/server.crt",
+        "ssl_key": "/etc/ircd-hybrid/certs/server.key"
+      }
+    }
+  ],
+  "global": {
+    "max_clients": 250,
+    "max_accept": 100,
+    "kline_address": "ircops@example.net",
+    "antinode_expires": 7200,
+    "enable_dcc_flood_protect": true,
+    "enable_server_hiding": true,
+    "enable_cloaking": true,
+    "ident_timeout": 5,
+    "max_hostname": 64,
+    "max_username": 10,
+    "max_global_connections": 500,
+    "min_nick_length": 1,
+    "max_nick_length": 30,
+    "min_user_length": 1,
+    "max_user_length": 10,
+    "max_ircd_restarts": 5,
+    "max_unknown_connections": 10,
+    "enable_dns_check": true,
+    "enable_no_ident": true,
+    "enable_oper_only_mode": false,
+    "enable_oper_snotice": true,
+    "enable_oper_snooper": true,
+    "enable_server_linking": true,
+    "enable_stats_oper": true,
+    "enable_admin_snotice": true,
+    "enable_admin_snooper": true,
+    "enable_admin_linking": true,
+    "enable_admin_stats": true
+  },
+  "operators": [
+    {
+      "name": "Admin",
+      "user": "admin",
+      "host": "admin@example.net",
+      "password": "$6$rounds=5000$salt$hash",
+      "sasl_auth": false,
+      "sasl_account": "",
+      "flags": [
+        "kline",
+        "unkline",
+        "die",
+        "restart",
+        "gline",
+        "glined",
+        "locop",
+        "remote",
+        "admin",
+        "oper",
+        "wallop"
+      ]
+    }
+  ],
+  "classes": [
+    {
+      "name": "staff",
+      "ping_time": 60,
+      "max_users": 50,
+      "sendq": 204800,
+      "recvq": 8192,
+      "max_links": 10,
+      "max_local": 50,
+      "max_global": 20,
+      "connect_freq": 30,
+      "min_clients": 1
+    },
+    {
+      "name": "clients",
+      "ping_time": 120,
+      "max_users": 200,
+      "sendq": 102400,
+      "recvq": 4096,
+      "max_links": 3,
+      "max_local": 200,
+      "max_global": 200,
+      "connect_freq": 120,
+      "min_clients": 1
+    }
+  ],
+  "allows": [
+    {
+      "ip": "*",
+      "hostname": "*",
+      "user": "*",
+      "max_per_ip": 5,
+      "class": "clients",
+      "password": "",
+      "spoof": "",
+      "spoof_notify": false,
+      "spoof_sasl": false,
+      "flags": []
+    },
+    {
+      "ip": "127.0.0.1",
+      "hostname": "localhost",
+      "user": "bot*",
+      "max_per_ip": 20,
+      "class": "staff",
+      "password": "",
+      "spoof": "bot.example.net",
+      "spoof_notify": true,
+      "spoof_sasl": true,
+      "flags": [
+        "autojoin"
+      ]
+    }
+  ],
+  "denies": [
+    {
+      "ip": "10.0.0.0/8",
+      "hostname": "*.spam.example",
+      "user": "spamuser",
+      "reason": "Spam or abuse"
+    }
+  ],
+  "include_files": [
+    "/etc/ircd-hybrid/tls.conf",
+    "/etc/ircd-hybrid/channels.conf"
+  ]
+}

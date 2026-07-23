@@ -1,0 +1,193 @@
+# ProFTPD main configuration file — controls global behavior, modules, authentication, logging, and virtual hosts
+# Include module-specific directives for PostgreSQL-based authentication
+# Load the PostgreSQL authentication module
+{% if module_load_pgsql %}
+<IfModule mod_pgsql.c>
+  PGSQLRoot on
+  PGSQLAuthType passwords
+  PGSQLConnectInfo {{ pgsql_connect_info }}
+</IfModule>
+{% endif %}
+
+# Define server-wide defaults
+ServerName "{{ server_name }}"
+ServerType {{ server_type }}
+ServerIdent {{ server_ident }}
+
+# User and group under which proftpd runs
+DefaultServer {{ default_server }}
+User {{ daemon_user }}
+Group {{ daemon_group }}
+
+# Network and security settings
+Port {{ listen_port }}
+{% if listen_addresses %}
+{% for addr in listen_addresses %}
+{% if addr.ip %}
+{% if addr.port is defined %}
+{% set actual_port = addr.port %}
+{% else %}
+{% set actual_port = listen_port %}
+{% endif %}
+{% if addr.v6 %}
+{% set addr_str = "[" + addr.ip + "]" %}
+{% else %}
+{% set addr_str = addr.ip %}
+{% endif %}
+{% if addr.comment %}
+# {{ addr.comment }}
+{% endif %}
+{% if addr.enabled | default(true) %}
+{% if addr.v6 %}
+{% set bind_directive = "Bind " + addr_str + "," + actual_port|string %}
+{% else %}
+{% set bind_directive = "Bind " + addr_str + "," + actual_port|string %}
+{% endif %}
+{{ bind_directive }}
+{% endif %}
+{% endif %}
+{% endfor %}
+{% endif %}
+
+# Authentication timeout and session limits
+TimeoutNoTransfer {{ timeout_no_transfer }}
+TimeoutIdle {{ timeout_idle }}
+TimeoutSession {{ timeout_session }}
+
+# Maximum connections and data limits
+MaxClients {{ max_clients }}
+MaxClientsPerHost {{ max_clients_per_host }}
+MaxLoginAttempts {{ max_login_attempts }}
+MaxTransferRate {{ max_transfer_rate }}
+
+# Logging configuration
+{% if log_level %}
+LogLevel {{ log_level }}
+{% endif %}
+LogFormat auth "{% if log_auth_format %}{{ log_auth_format }}{% else %}%h %l %u %t \"%r\" %s{% endif %}"
+
+# Chroot users to their home directories (for security)
+{% if chroot_home %}
+DefaultRoot ~
+{% else %}
+DefaultRoot !wheel
+{% endif %}
+
+# Allow/restrict features
+{% if allow_store_pwd %}
+AllowStorePassword on
+{% else %}
+AllowStorePassword off
+{% endif %}
+
+# Set umask for file uploads
+Umask {{ umask }}
+
+# Path mappings for virtual roots
+{% if paths %}
+{% for path in paths %}
+{% if path.enabled | default(true) %}
+{% if path.comment %}
+# {{ path.comment }}
+{% endif %}
+<Directory {{ path.local }}>
+  {% if path.owner is defined %}
+  Owner {{ path.owner }}
+  {% endif %}
+  {% if path.group is defined %}
+  Group {{ path.group }}
+  {% endif %}
+  {% if path.mode is defined %}
+  Umask {{ path.mode }}
+  {% endif %}
+  {% if path.allow_override is defined %}
+  AllowOverride {{ path.allow_override | lower }}
+  {% endif %}
+  {% if path.allow_read is defined %}
+  {% if path.allow_read %}
+  AllowRead on
+  {% else %}
+  AllowRead off
+  {% endif %}
+  {% endif %}
+  {% if path.allow_write is defined %}
+  {% if path.allow_write %}
+  AllowWrite on
+  {% else %}
+  AllowWrite off
+  {% endif %}
+  {% endif %}
+</Directory>
+{% endif %}
+{% endfor %}
+{% endif %}
+
+# Virtual host definitions
+{% if virtual_hosts %}
+{% for vhost in virtual_hosts %}
+{% if vhost.enabled | default(true) %}
+{% if vhost.comment %}
+# {{ vhost.comment }}
+{% endif %}
+<VirtualHost {{ vhost.hostname }}>
+  # Bind to specific address/port if provided
+  {% if vhost.address %}
+  {% if vhost.port is defined %}
+  {% set vport = vhost.port %}
+  {% else %}
+  {% set vport = listen_port %}
+  {% endif %}
+  Bind {{ vhost.address }} {{ vport }}
+  {% endif %}
+
+  ServerName "{{ vhost.server_name | default(vhost.hostname) }}"
+  {% if vhost.description %}
+  ServerInfo "{{ vhost.description }}"
+  {% endif %}
+
+  # Chroot to vhost-specific root (e.g., per-tenant isolation)
+  DefaultRoot {{ vhost.chroot_dir | default('~') }}
+
+  # Authentication for this vhost
+  <IfModule mod_pgsql.c>
+    PGSQLConnectInfo {{ vhost.pgsql_connect_info | default(pgsql_connect_info) }}
+    {% if vhost.pgsql_auth_user %}
+    PGSQLAuthUser {{ vhost.pgsql_auth_user }}
+    {% endif %}
+    {% if vhost.pgsql_auth_group %}
+    PGSQLAuthGroup {{ vhost.pgsql_auth_group }}
+    {% endif %}
+  </IfModule>
+
+  # Per-vhost logging
+  {% if vhost.log_dir %}
+  TransferLog {{ vhost.log_dir }}/xferlog
+  {% endif %}
+
+  # Per-vhost paths (e.g., upload, public areas)
+  {% if vhost.paths %}
+  {% for p in vhost.paths %}
+  {% if p.enabled | default(true) %}
+  {% if p.comment %}
+  # {{ p.comment }}
+  {% endif %}
+  <Directory {{ p.local }}>
+    {% if p.allow_write %}
+    AllowWrite on
+    {% else %}
+    AllowWrite off
+    {% endif %}
+  </Directory>
+  {% endif %}
+  {% endfor %}
+  {% endif %}
+
+</VirtualHost>
+{% endif %}
+{% endfor %}
+{% endif %}
+
+# Include additional config snippets if present
+{% if include_conf.d %}
+Include {{ include_conf.d }}
+{% endif %}

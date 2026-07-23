@@ -1,0 +1,62 @@
+# Base protocol configuration
+protocols = {{ protocols | join(' ') }}
+
+# Listen on all IPv4 and IPv6 interfaces by default
+listen = {{ listen | join(', ') }}
+
+# Disable plaintext auth unless TLS/SSL is used (recommended for production)
+{{ '# ' if disable_plaintext_auth }}disable_plaintext_auth = yes
+
+# Mail location: where user mailboxes are stored
+mail_location = {{ mail_location }}
+
+# Authentication mechanisms: use strong methods only
+auth_mechanisms = {{ auth_mechanisms | join(' ') }}
+
+# Passdb: user authentication backend (e.g., passwd-file or SQL)
+passdb {
+  driver = {{ passdb.driver }}
+  {{ '# ' if passdb.args }}args = {{ passdb.args }}
+}
+
+# Userdb: user info lookup (e.g., passwd-file, SQL, static)
+userdb {
+  driver = {{ userdb.driver }}
+  {{ '# ' if userdb.args }}args = {{ userdb.args }}
+}
+
+# SSL/TLS configuration
+ssl = {{ ssl.mode }}
+ssl_cert = <{{ ssl.cert_path }}
+ssl_key = <{{ ssl.key_path }}
+{{ '# ' if ssl.min_protocol }}ssl_min_protocol = {{ ssl.min_protocol }}
+
+# Mail processes & resource limits
+mail_max_userip_connections = {{ mail_max_userip_connections }}
+
+# Log path
+log_path = {{ log_path }}
+
+# Service definitions for IMAP, POP3, and Submission
+{% for svc in services %}
+service {{ svc.name }} {
+  {{ '# ' if svc.chroot }}chroot = {{ svc.chroot }}
+  {{ '# ' if svc.executable }}executable = {{ svc.executable }}
+  {{ '# ' if svc.user }}user = {{ svc.user }}
+  {{ '# ' if svc.group }}group = {{ svc.group }}
+  {{ '# ' if svc.extra_config }}
+  # Extra service-specific config
+  {{ svc.extra_config | indent(2) }}
+}
+{% endfor %}
+
+# IMAP-specific settings
+imap_max_line_length = {{ imap_max_line_length }}
+
+# Submission port (587) specific options
+submission_port = {{ submission_port }}
+submission_hostname = {{ submission_hostname }}
+
+# Login tray settings (for interactive auth, e.g., Dovecot auth daemon)
+auth_verbose = {{ 'yes' if auth_verbose else 'no' }}
+auth_debug = {{ 'yes' if auth_debug else 'no' }}

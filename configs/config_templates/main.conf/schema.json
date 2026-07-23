@@ -1,0 +1,165 @@
+{
+  "enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable the ConnMan VPN plugin globally."
+  },
+  "default_dns": {
+    "type": "list",
+    "default": [
+      "8.8.8.8",
+      "8.8.4.4"
+    ],
+    "description": "Default DNS servers used when VPN is active (space-separated).",
+    "items": {
+      "type": "string"
+    }
+  },
+  "connect_timeout": {
+    "type": "number",
+    "default": 30,
+    "description": "Maximum seconds to wait for a VPN connection to establish."
+  },
+  "max_connections": {
+    "type": "number",
+    "default": 5,
+    "description": "Maximum number of simultaneous VPN connections allowed."
+  },
+  "ipv6_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable IPv6 support for VPN tunnels."
+  },
+  "auth_method": {
+    "type": "string",
+    "default": "eap",
+    "description": "Authentication method. Supported: 'certificate', 'psk', 'eap', 'userpass'."
+  },
+  "cacert_path": {
+    "type": "string",
+    "default": "",
+    "description": "Absolute path to CA certificate file (for certificate-based auth). Leave blank if not used."
+  },
+  "cert_path": {
+    "type": "string",
+    "default": "",
+    "description": "Absolute path to client certificate (for certificate-based auth). Leave blank if not used."
+  },
+  "key_path": {
+    "type": "string",
+    "default": "",
+    "description": "Absolute path to client private key (for certificate-based auth). Leave blank if not used."
+  },
+  "eap_inner": {
+    "type": "string",
+    "default": "mschapv2",
+    "description": "Inner EAP method (e.g., 'md5', 'mschapv2', 'peap', 'ttls'). Only used when `auth_method = 'eap'`."
+  },
+  "psk": {
+    "type": "string",
+    "default": "",
+    "description": "Pre-shared key for IPsec. Warning: avoid hardcoding in production; use secure storage instead."
+  },
+  "allowed_gateways": {
+    "type": "list",
+    "default": [],
+    "description": "List of allowed remote VPN gateways. Each entry can include a host and optional port (e.g., 'vpn.example.com:500').",
+    "items": {
+      "type": "object",
+      "properties": {
+        "host": {
+          "type": "string",
+          "description": "Hostname or IP address of the VPN gateway."
+        },
+        "port": {
+          "type": "number",
+          "description": "Optional UDP port (e.g., 500 for IKE, 4500 for NAT-T). If omitted, defaults are used."
+        }
+      }
+    }
+  },
+  "excluded_subnets": {
+    "type": "list",
+    "default": [],
+    "description": "List of local subnets (CIDR notation) to exclude from NAT/routing (e.g., '192.168.1.0/24').",
+    "items": {
+      "type": "string"
+    }
+  },
+  "route_priority": {
+    "type": "number",
+    "default": 100,
+    "description": "Priority of routes installed by this VPN. Higher values override lower ones."
+  },
+  "auto_reconnect": {
+    "type": "bool",
+    "default": true,
+    "description": "Automatically attempt to reconnect if the VPN connection drops."
+  },
+  "reconnect_delay": {
+    "type": "number",
+    "default": 5,
+    "description": "Seconds to wait before trying to reconnect after a failure."
+  },
+  "log_level": {
+    "type": "string",
+    "default": "warning",
+    "description": "Verbosity level for logging: 'debug', 'info', 'warning', or 'error'."
+  },
+  "log_file": {
+    "type": "string",
+    "default": "/var/log/connman-vpn.log",
+    "description": "Path to the VPN plugin log file. Empty string disables file logging."
+  },
+  "mobike_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable IKEv2 MOBIKE (Mobility and Multihoming) protocol support."
+  },
+  "dpd_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable Dead Peer Detection (DPD) for IKEv1/IKEv2 to detect orphaned sessions."
+  },
+  "dpd_delay": {
+    "type": "number",
+    "default": 30,
+    "description": "Seconds between DPD probes."
+  },
+  "dpd_timeout": {
+    "type": "number",
+    "default": 10,
+    "description": "Seconds to wait for a DPD response before declaring peer dead."
+  },
+  "dns_search_domains": {
+    "type": "list",
+    "default": [],
+    "description": "Additional DNS search domains to use when VPN is active (space-separated).",
+    "items": {
+      "type": "string"
+    }
+  },
+  "dns_backend": {
+    "type": "string",
+    "default": "systemd-resolved",
+    "description": "DNS resolution backend to use: 'systemd-resolved', 'dnsmasq', or 'none' (manual DNS)."
+  },
+  "extra_options": {
+    "type": "list",
+    "default": [],
+    "description": "Plugin-specific key=value options (e.g., ['ike_reauth_time', '3600']).",
+    "items": {
+      "type": "object",
+      "properties": {
+        "key": {
+          "type": "string",
+          "description": "Configuration option name."
+        },
+        "value": {
+          "type": "string",
+          "description": "Option value."
+        }
+      }
+    }
+  }
+}

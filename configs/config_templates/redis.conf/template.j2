@@ -1,0 +1,91 @@
+# Redis configuration file template — rendered from Jinja2
+# Basic server settings
+bind {{ bind }}
+port {{ port }}
+{% if tls_enabled %}
+# TLS/SSL configuration
+port 0
+tls-port {{ tls_port }}
+tls-cert-file {{ tls_cert_file }}
+tls-key-file {{ tls_key_file }}
+tls-ca-cert-file {{ tls_ca_cert_file }}
+tls-auth-clients {{ 'yes' if tls_auth_clients else 'no' }}
+{% endif %}
+# Daemonization
+daemonize {{ 'yes' if daemonize else 'no' }}
+{% if pidfile %}
+pidfile {{ pidfile }}
+{% endif %}
+# Logging
+loglevel {{ loglevel }}
+logfile {{ logfile }}
+# Snapshotting (RDB)
+save {{ save_intervals | map('lambda x: x[0] + " " + x[1]') | join('\nsave ') }}
+# If no save intervals, disable RDB explicitly
+{% if not save_intervals %}
+save ""
+{% endif %}
+dbfilename {{ dbfilename }}
+dir {{ dir }}
+# Memory management
+maxmemory {{ maxmemory }}
+maxmemory-policy {{ maxmemory_policy }}
+{% if maxmemory_samples %}
+maxmemory-samples {{ maxmemory_samples }}
+{% endif %}
+# Clients
+maxclients {{ maxclients }}
+# Security
+{% if requirepass %}
+requirepass {{ requirepass }}
+{% endif %}
+{% if masterauth %}
+masterauth {{ masterauth }}
+{% endif %}
+# Replication
+{% if replicaof %}
+replicaof {{ replicaof }}
+{% endif %}
+{% if replica_announce_ip %}
+replica-announce-ip {{ replica_announce_ip }}
+{% endif %}
+{% if replica_announce_port %}
+replica-announce-port {{ replica_announce_port }}
+{% endif %}
+# Latency monitor
+latency-monitor-threshold {{ latency_monitor_threshold }}
+# Slow log
+slowlog-log-slower-than {{ slowlog_log_slower_than }}
+slowlog-max-len {{ slowlog_max_len }}
+# Event notification
+notify-keyspace-events {{ notify_keyspace_events }}
+# Advanced config
+tcp-backlog {{ tcp_backlog }}
+timeout {{ timeout }}
+tcp-keepalive {{ tcp_keepalive }}
+# AOF (Append Only File)
+appendonly {{ 'yes' if appendonly else 'no' }}
+appendfilename {{ appendfilename }}
+appendfsync {{ appendfsync }}
+no-appendfsync-on-rewrite {{ 'yes' if no_appendfsync_on_rewrite else 'no' }}
+auto-aof-rewrite-percentage {{ auto_aof_rewrite_percentage }}
+auto-aof-rewrite-min-size {{ auto_aof_rewrite_min_size }}
+aof-load-truncated {{ 'yes' if aof_load_truncated else 'no' }}
+aof-use-rdb-preamble {{ 'yes' if aof_use_rdb_preamble else 'no' }}
+# Cluster (if enabled)
+{% if cluster_enabled %}
+cluster-enabled yes
+cluster-config-file {{ cluster_config_file }}
+cluster-node-timeout {{ cluster_node_timeout }}
+{% endif %}
+# Sentinel mode (if enabled)
+{% if sentinel_mode %}
+sentinel monitor {{ sentinel_master_name }} {{ sentinel_master_ip }} {{ sentinel_master_port }} {{ sentinel_quorum }}
+{% for sentinel_option in sentinel_options %}
+sentinel {{ sentinel_option.key }} {{ sentinel_master_name }} {{ sentinel_option.value }}
+{% endfor %}
+{% endif %}
+# Custom directives — preserved verbatim if provided
+{% for directive in extra_directives %}
+{{ directive.key }} {{ directive.value | replace('"', '\"') }}
+{% endfor %}

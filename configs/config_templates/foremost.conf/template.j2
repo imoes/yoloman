@@ -1,0 +1,30 @@
+# Foremost configuration file
+# Controls what file types to recover, output directory, and logging behavior
+# Uncomment and adjust as needed for your use case
+[defaults]
+output = {{ output_dir }}
+log = {{ log_file }}
+
+# File type definitions: extension, description, signature (magic bytes), and offset
+# Format: ext = description, start, signature_hex, length
+# Signatures are specified as hex byte sequences; '*' matches any byte
+{% for ftype in file_types %}
+{{ ftype.ext }} = {{ ftype.desc }}, {{ ftype.start }}, {{ ftype.sig }}, {{ ftype.len }}
+{% endfor %}
+
+# Global settings
+quiet = {{ quiet }}
+verbose = {{ verbose }}
+# Recursively process subdirectories (true/false)
+recursive = {{ recursive }}
+# Maximum size of output file in KB (0 = unlimited)
+max_size = {{ max_size_kb }}
+# Number of bytes to search before file signature (default: 0)
+offset = {{ offset_bytes }}
+
+# Per-file-type tuning (optional overrides)
+{% for ftype in file_types %}
+[{{ ftype.ext }}]
+# Override settings for {{ ftype.desc }}
+# max_size = {{ max_size_kb }}  # per-type max file size in KB (uncomment to override global)
+{% endfor %}

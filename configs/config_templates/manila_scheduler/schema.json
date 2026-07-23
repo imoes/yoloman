@@ -1,0 +1,125 @@
+{
+  "log_dir": {
+    "type": "string",
+    "default": "/var/log/manila",
+    "description": "Directory to store log files for the Manila scheduler service."
+  },
+  "log_file": {
+    "type": "string",
+    "default": "manila-scheduler.log",
+    "description": "Filename for the main scheduler log file (relative to log_dir)."
+  },
+  "debug": {
+    "type": "boolean",
+    "default": false,
+    "description": "Enable debug-level logging for troubleshooting (verbose output)."
+  },
+  "transport_url": {
+    "type": "string",
+    "default": "rabbit://openstack:openstack@localhost:5672/",
+    "description": "Message broker transport URL. Supports RabbitMQ, Redis, or fake (for testing)."
+  },
+  "db_connection": {
+    "type": "string",
+    "default": "mysql+pymysql://manila:manila@localhost/manila",
+    "description": "Database connection string (SQLAlchemy format)."
+  },
+  "scheduler_driver": {
+    "type": "string",
+    "default": "manila.scheduler.drivers.filter.FilterScheduler",
+    "description": "Scheduler driver class used to select a share backend for new shares."
+  },
+  "scheduler_default_filters": {
+    "type": "list",
+    "default": [
+      "AvailabilityZoneFilter",
+      "CapacitiesFilter",
+      "CapabilitiesFilter",
+      "PoolFilter",
+      "WeightedRandomFilter"
+    ],
+    "description": "Ordered list of scheduler filter classes to apply when choosing a backend. Filters are AND'd together unless negated."
+  },
+  "scheduler_weight_filters": {
+    "type": "list",
+    "default": [
+      "WeightedRandomFilter"
+    ],
+    "description": "List of scheduler weighter classes used to score filtered backends (higher is better)."
+  },
+  "workers": {
+    "type": "number",
+    "default": 1,
+    "description": "Number of separate worker processes to spawn for the scheduler service."
+  },
+  "share_driver": {
+    "type": "string",
+    "default": "manila.share.drivers.lvm.LVMShareDriver",
+    "description": "Default backend share driver class (must be installed and enabled)."
+  },
+  "driver_handles_share_servers": {
+    "type": "boolean",
+    "default": false,
+    "description": "Whether the driver manages share servers (true = driver handles networking, security, etc.), or false = simple driver (no share servers)."
+  },
+  "service_auth_params": {
+    "type": "list",
+    "default": [
+      {
+        "name": "Keystone",
+        "section": "keystone_authtoken",
+        "auth_url": "http://keystone.local:5000",
+        "project_domain_name": "Default",
+        "user_domain_name": "Default",
+        "project_name": "service",
+        "username": "manila",
+        "password": "changeme"
+      },
+      {
+        "name": "Locking",
+        "section": "oslo_concurrency",
+        "lock_path": "/var/lib/manila/tmp"
+      }
+    ],
+    "description": "List of service credential blocks (e.g., for authentication, locking). Each item defines a config section and its key-value pairs.",
+    "items": {
+      "name": {
+        "type": "string",
+        "description": "Human-readable name of the service (for documentation only)."
+      },
+      "section": {
+        "type": "string",
+        "description": "Config file section name (e.g., keystone_authtoken, oslo_concurrency)."
+      },
+      "auth_url": {
+        "type": "string",
+        "description": "Keystone identity endpoint URL (only for keystone_authtoken)."
+      },
+      "project_domain_name": {
+        "type": "string",
+        "description": "Keystone project domain name (only for keystone_authtoken)."
+      },
+      "user_domain_name": {
+        "type": "string",
+        "description": "Keystone user domain name (only for keystone_authtoken)."
+      },
+      "project_name": {
+        "type": "string",
+        "description": "Keystone service project name (only for keystone_authtoken)."
+      },
+      "username": {
+        "type": "string",
+        "description": "Keystone service username (only for keystone_authtoken)."
+      },
+      "password": {
+        "type": "string",
+        "description": "Keystone service user password (only for keystone_authtoken).",
+        "sensitive": true
+      },
+      "lock_path": {
+        "type": "string",
+        "description": "Directory for file-based locking (only for oslo_concurrency)."
+      }
+    }
+  }
+}

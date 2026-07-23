@@ -1,0 +1,146 @@
+{
+  "enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable the I2P daemon to start automatically at boot."
+  },
+  "log_level": {
+    "type": "string",
+    "default": "info",
+    "description": "Logging verbosity. Choices: none, error, warn, info, debug, trace, debuglog."
+  },
+  "log_file": {
+    "type": "string",
+    "default": "/var/log/i2pd/i2pd.log",
+    "description": "Path to the I2P daemon log file. Empty string disables file logging."
+  },
+  "pid_file": {
+    "type": "string",
+    "default": "/run/i2pd/i2pd.pid",
+    "description": "Path to the PID file. Empty string disables PID file creation."
+  },
+  "data_directory": {
+    "type": "string",
+    "default": "/var/lib/i2pd",
+    "description": "Directory where I2P stores keys, router info, and tunnel data."
+  },
+  "host": {
+    "type": "string",
+    "default": "127.0.0.1",
+    "description": "Network interface to bind internal services (HTTP, SAM, etc.)."
+  },
+  "http_port": {
+    "type": "number",
+    "default": 7070,
+    "description": "Port for the HTTP API/web console (e.g., http://localhost:7070)."
+  },
+  "https_port": {
+    "type": "number",
+    "default": 7071,
+    "description": "Port for HTTPS API (optional). Set to 0 to disable."
+  },
+  "sam_port": {
+    "type": "number",
+    "default": 7656,
+    "description": "Port for SAM (Simple Anonymous Messaging) bridge, used by applications."
+  },
+  "i2pcontrol_port": {
+    "type": "number",
+    "default": 7633,
+    "description": "Port for I2PControl (remote management protocol). Enable only if needed."
+  },
+  "i2pcontrol_certfile": {
+    "type": "string",
+    "default": "/etc/i2pd/i2pcontrol.crt",
+    "description": "TLS certificate path for I2PControl (required when enabled)."
+  },
+  "i2pcontrol_keyfile": {
+    "type": "string",
+    "default": "/etc/i2pd/i2pcontrol.key",
+    "description": "TLS private key path for I2PControl."
+  },
+  "bandwidth_limit_up": {
+    "type": "number",
+    "default": 1024,
+    "description": "Upload bandwidth limit in KB/s (0 = unlimited)."
+  },
+  "bandwidth_limit_down": {
+    "type": "number",
+    "default": 4096,
+    "description": "Download bandwidth limit in KB/s (0 = unlimited)."
+  },
+  "client_tunnel_count": {
+    "type": "number",
+    "default": 20,
+    "description": "Maximum number of client (short) tunnels to build."
+  },
+  "transit_tunnel_count": {
+    "type": "number",
+    "default": 10,
+    "description": "Maximum number of transit (long) tunnels to build."
+  },
+  "transit_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Allow this node to forward traffic for others (acts as network transit). Disable for privacy-focused clients."
+  },
+  "floodfill_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable floodfill role \u2014 store and publish router info for the network. Only enable if you have static IP and high uptime."
+  },
+  "reserved_peers": {
+    "type": "list",
+    "default": [],
+    "description": "List of reserved (preferred) peers. Each entry is a peer name and destination base64.",
+    "items": {
+      "type": "object",
+      "fields": {
+        "name": {
+          "type": "string",
+          "description": "Friendly name of the reserved peer."
+        },
+        "destination": {
+          "type": "string",
+          "description": "Base64-encoded router identity hash (destination) of the peer."
+        }
+      }
+    }
+  },
+  "reserved_ips": {
+    "type": "list",
+    "default": [],
+    "description": "List of reserved IP:port entries to prefer for connections (e.g., bootstrap or known good nodes).",
+    "items": {
+      "type": "object",
+      "fields": {
+        "ip": {
+          "type": "string",
+          "description": "IP address (IPv4 or IPv6)."
+        },
+        "port": {
+          "type": "number",
+          "description": "Port to connect to on this host."
+        }
+      }
+    }
+  },
+  "trusted_ips": {
+    "type": "list",
+    "default": [],
+    "description": "List of IPs to trust (e.g., your own nodes or relays). Bypasses some rate limiting."
+  },
+  "addressbooks": {
+    "type": "list",
+    "default": [
+      "http://i2p-projekt.i2p/hosts.txt",
+      "http://netdb.i2p2.no/hosts.txt"
+    ],
+    "description": "URLs of public address books to fetch known hosts. Add custom ones as needed."
+  },
+  "extra_args": {
+    "type": "string",
+    "default": "",
+    "description": "Additional command-line arguments (e.g., --tunconf=/etc/i2pd/tun.conf). Use sparingly."
+  }
+}

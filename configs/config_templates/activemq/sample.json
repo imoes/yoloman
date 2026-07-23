@@ -1,0 +1,101 @@
+{
+  "broker_name": "production-broker",
+  "data_directory": "/var/lib/activemq/data",
+  "use_jmx": true,
+  "management_context_create_connector": false,
+  "use_shutdown_hook": true,
+  "persistence_adapter_type": "kahaDB",
+  "kahadb_directory": "/var/lib/activemq/kahadb",
+  "kahadb_journal_max_file_length": 104857600,
+  "transport_connectors": [
+    {
+      "name": "openwire",
+      "uri": "tcp://0.0.0.0:61616?wireFormat.maxInactivityDuration=30000",
+      "enabled": true
+    },
+    {
+      "name": "stomp",
+      "uri": "stomp://0.0.0.0:61613",
+      "enabled": true
+    }
+  ],
+  "network_connectors": [
+    {
+      "name": "bridge-to-backup",
+      "uri": "static://(tcp://backup-broker:61616)",
+      "prefetch_size": 500
+    }
+  ],
+  "system_usage": {
+    "memory_limit": "2048mb",
+    "store_limit": "50gb",
+    "store_name": "store",
+    "temp_limit": "25gb"
+  },
+  "destination_policies": [
+    {
+      "destination": ">",
+      "memory_limit": "200mb",
+      "prefetch_size": 1000,
+      "gcInactiveDestinations": true,
+      "inactiveTimoutBeforeGC": 300000
+    },
+    {
+      "destination": "TEMP.>",
+      "memory_limit": "50mb",
+      "gcInactiveDestinations": true,
+      "inactiveTimoutBeforeGC": 60000
+    }
+  ],
+  "enable_auth": true,
+  "auth_users": [
+    {
+      "username": "admin",
+      "password": "admin-secret",
+      "groups": [
+        "admins",
+        "users"
+      ]
+    },
+    {
+      "username": "appuser",
+      "password": "app-secret",
+      "groups": [
+        "users"
+      ]
+    }
+  ],
+  "auth_acls": [
+    {
+      "destination": ">",
+      "operation": "read",
+      "groups": [
+        "admins",
+        "users"
+      ]
+    },
+    {
+      "destination": ">",
+      "operation": "write",
+      "groups": [
+        "admins",
+        "users"
+      ]
+    },
+    {
+      "destination": ">",
+      "operation": "admin",
+      "groups": [
+        "admins"
+      ]
+    },
+    {
+      "destination": "ACTIVEMQ.>",
+      "operation": "*",
+      "groups": [
+        "admins"
+      ]
+    }
+  ],
+  "enable_jetty_console": false
+}

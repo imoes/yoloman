@@ -1,0 +1,99 @@
+{{'{{'}}# site.cf — CFEngine policy entry point (inputs bundlesequence and common policy includes)
+{{'{{'}}#site.cf — Define the bundlesequence (order of policy bundles to execute on each agent)
+{{'{{'}} bundlesequence = { {"{{'{{'}}site_bundlesequence | join(", "){{'{{'}}"} };
+
+{{'{{'}}#site.cf — Include core policy files
+{{'{{'}} include_file = { {{# for path in site_include_paths }}
+    "{{'{{'}}path{{'{{'}}}}",{{# endfor }}
+};
+
+{{'{{'}}#site.cf — Define agent-specific policy controls
+{{'{{'}} control = {
+  {{'{{'}}site_cfengine_control_host{{'{{'}}}}:
+    {
+      {{'{{'}}site_cfengine_control_vars{{'{{'}}}}
+    };
+
+{{'{{'}}#site.cf — Define access control (who may connect to this server)
+{{'{{'}} access = {
+  {
+    servers: "{{'{{'}}site_trusted_servers{{'{{'}}}}";
+    users: "{{'{{'}}site_trusted_users{{'{{'}}}}";
+    groups: "{{'{{'}}site_trusted_groups{{'{{'}}}}";
+  };
+};
+
+{{'{{'}}#site.cf — Define promise守 (security & integrity settings)
+{{'{{'}}守 = {
+  {
+    key: "{{'{{'}}site_policy_server_key{{'{{'}}}}";
+    type: "sha";
+  };
+};
+
+{{'{{'}}#site.cf — Define monitoring and reporting (cf-execd, cf-report, etc.)
+{{'{{'}} cfengine = {
+  execd = {
+    # Run every N minutes
+    default:exec_timeout = "{{'{{'}}site_execd_timeout{{'{{'}}}}";
+    default:exec_max_processes = {{'{{'}}site_execd_max_processes{{'{{'}}}};
+  };
+};
+
+{{'{{'}}#site.cf — Define network ports for communication
+{{'{{'}} port = {
+  default:cf_serverd_port = {{'{{'}}site_cf_serverd_port{{'{{'}}}};
+  default:cf_execd_port = {{'{{'}}site_cf_execd_port{{'{{'}}}};
+  default:cf_monitord_port = {{'{{'}}site_cf_monitord_port{{'{{'}}}};
+};
+
+{{'{{'}}#site.cf — Define file server locations for policy distribution
+{{'{{'}} file_server = {
+  {
+    servers: "{{'{{'}}site_policy_server_host{{'{{'}}}}";
+    directory: "{{'{{'}}site_policy_server_dir{{'{{'}}}}";
+  };
+};
+
+{{'{{'}}#site.cf — Define log rotation and verbosity
+{{'{{'}} logging = {
+  {
+    output_directory = "{{'{{'}}site_log_dir{{'{{'}}}}";
+    rotate = {{'{{'}}site_log_rotate_count{{'{{'}}}};
+    size_limit = {{'{{'}}site_log_size_limit{{'{{'}}}};
+    verbose = {{'{{'}}site_verbose{{'{{'}}}};
+  };
+};
+
+{{'{{'}}#site.cf — Define agent-specific package management (optional)
+{{# if site_packages_enabled }}
+{{'{{'}} packages = {
+  {
+    policy: "{{'{{'}}site_packages_policy{{'{{'}}}}";
+    default:package_list = { {{# for pkg in site_packages_list }}
+      "{{'{{'}}pkg{{'{{'}}}}"{{# if not loop.last }},{{# endif }}
+    {{# endfor }}
+    };
+  };
+};
+{{# else }}
+{{'{{'}} packages = { /* disabled */ };
+{{# endif }}
+
+{{'{{'}}#site.cf — Define monitored services (optional)
+{{# if site_monitored_services | length }}
+{{'{{'}} services = {
+  {
+    monitor = { {{# for svc in site_monitored_services }}
+      "{{'{{'}}svc.name{{'{{'}}}" = {
+        {{# if svc.restart }}restart_policy = "{{'{{'}}svc.restart{{'{{'}}}}";{{# endif }}
+        {{# if svc.start }}start_method = "{{'{{'}}svc.start{{'{{'}}}}";{{# endif }}
+        {{# if svc.stop }}stop_method = "{{'{{'}}svc.stop{{'{{'}}}}";{{# endif }}
+      }{{# if not loop.last }},{{# endif }}
+    {{# endfor }}
+    };
+  };
+};
+{{# else }}
+{{'{{'}} services = { /* no services monitored */ };
+{{# endif }}

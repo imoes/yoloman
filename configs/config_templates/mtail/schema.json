@@ -1,0 +1,110 @@
+{
+  "emit_progs": {
+    "type": "string",
+    "default": null,
+    "description": "If provided, write compiled `.pb` programs to this directory (e.g., `/tmp/mtail` for debugging). Optional."
+  },
+  "log_dir": {
+    "type": "string",
+    "default": null,
+    "description": "Top-level directory to recursively scan for log files. If `log_paths` is set, this is ignored."
+  },
+  "log_paths": {
+    "type": "list",
+    "default": [],
+    "description": "List of explicit paths to log files (supports globs via shell-style wildcards, e.g., `/var/log/nginx/*.log`). Each path is tailed independently.",
+    "items": {
+      "type": "string"
+    }
+  },
+  "programs_dir": {
+    "type": "string",
+    "default": "/var/tmp/mtail",
+    "description": "Directory where mtail stores compiled programs (`.pb` files). Not usually changed."
+  },
+  "progs": {
+    "type": "list",
+    "default": [
+      "/etc/mtail/progs"
+    ],
+    "description": "List of directories containing `.mtail` programs (metrics extraction logic). Programs are loaded at startup.",
+    "items": {
+      "type": "string"
+    }
+  },
+  "http_endpoint": {
+    "type": "string",
+    "default": ":3903",
+    "description": "HTTP address and port to serve the metrics UI and health endpoint (e.g., `\":3903\"`)."
+  },
+  "metrics_endpoint": {
+    "type": "string",
+    "default": null,
+    "description": "Optional alternate HTTP endpoint to serve raw metrics in Prometheus text format (e.g., `\"/metrics\"` relative to `http_endpoint`)."
+  },
+  "max_tailer": {
+    "type": "number",
+    "default": null,
+    "description": "Maximum number of concurrent log tailers (limits resource usage on systems with many log files)."
+  },
+  "no_labels_from_filename": {
+    "type": "boolean",
+    "default": false,
+    "description": "Disable automatic label extraction from filenames (e.g., `app=web` from `web.log`). By default, enabled."
+  },
+  "no_auto_labels": {
+    "type": "boolean",
+    "default": false,
+    "description": "Disable automatic label extraction from log lines using regex capture groups. Requires explicit `label` directives in `.mtail` files."
+  },
+  "labels": {
+    "type": "object",
+    "default": {},
+    "description": "Static label key-value pairs applied to all metrics emitted by mtail (e.g., `{\"instance\": \"prod-1\", \"service\": \"nginx\"}`).",
+    "items": {
+      "type": "string"
+    }
+  },
+  "timezone": {
+    "type": "string",
+    "default": null,
+    "description": "IANA timezone name (e.g., `\"UTC\"`, `\"America/New_York\"`) to interpret timestamps in logs without explicit zone info."
+  },
+  "verbose": {
+    "type": "boolean",
+    "default": false,
+    "description": "Enable verbose/debug logging (useful for troubleshooting extraction logic)."
+  },
+  "dump_log_content": {
+    "type": "boolean",
+    "default": false,
+    "description": "Log full line content in error messages (exposes PII; use only in controlled environments)."
+  },
+  "store_memory": {
+    "type": "boolean",
+    "default": true,
+    "description": "Store metrics in memory (required for pushgateway or in-memory querying). Disable only if using external storage backends."
+  },
+  "pushgateway": {
+    "type": "object",
+    "default": null,
+    "description": "Pushgateway configuration for pushing metrics (optional).",
+    "items": {
+      "url": {
+        "type": "string",
+        "default": "",
+        "description": "Pushgateway HTTP endpoint (e.g., `\"http://pushgateway:9091\"`). Required if pushgateway is enabled."
+      },
+      "job_name": {
+        "type": "string",
+        "default": "mtail",
+        "description": "Job name used in Pushgateway (e.g., `\"mtail-nginx\"`)."
+      },
+      "interval": {
+        "type": "number",
+        "default": 60,
+        "description": "Push interval in seconds (e.g., `60`)."
+      }
+    }
+  }
+}

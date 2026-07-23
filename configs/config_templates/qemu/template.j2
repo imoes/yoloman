@@ -1,0 +1,79 @@
+# Default user namespace mapping (userns) settings
+{% if enable_userns %}user = "{{ user }}"
+group = "{{ group }}"{% else %}# user/group not configured (use system defaults)
+{% endif %}
+
+# Network configuration
+{% if network_bridge %}# Use bridged networking with default bridge name
+network_script = "{{ network_script }}"
+network_interface = "{{ network_interface }}"
+{% else %}# Use user-mode networking (slirp)
+network_driver = "user"
+{% endif %}
+
+# Storage backend paths
+{% if storage_pools %}# Custom storage pools
+{% for pool in storage_pools %}# Pool: {{ pool.name }}
+storage_pool_{{ loop.index }}_path = "{{ pool.path }}"
+{% endfor %}{% else %}# Default storage path
+storage_default_path = "/var/lib/libvirt/images"
+{% endif %}
+
+# Security and isolation
+{% if seccomp_sandbox %}seccomp_sandbox = "on"{% else %}seccomp_sandbox = "off"{% endif %}
+{% if apparmor_profile %}apparmor_profile = "{{ apparmor_profile }}"{% else %}# AppArmor disabled
+{% endif %}
+
+# Resource limits
+vcpu_limit = {{ vcpu_limit }}
+memory_limit_mb = {{ memory_limit_mb }}
+max_devices = {{ max_devices }}
+
+# Logging
+log_level = "{{ log_level }}"
+log_outputs = "{{ log_outputs }}"
+
+# Audio backend
+audio_driver = "{{ audio_driver }}"
+
+# TLS/encryption (optional)
+{% if tls_enabled %}tls_port = {{ tls_port }}
+tls_cert_dir = "{{ tls_cert_dir }}"{% else %}# TLS disabled
+tls_port = 0
+{% endif %}
+
+# USB device passthrough
+{% if usb_redir_enabled %}usb_redir_port = {{ usb_redir_port }}
+usb_redir_filter = "{{ usb_redir_filter }}"{% else %}# USB redirection disabled
+usb_redir_port = 0
+{% endif %}
+
+# Console defaults
+console_mode = "{{ console_mode }}"
+console_log_path = "{{ console_log_path }}"
+
+# Migration settings
+{% if migration %}migration_host = "{{ migration.host }}"
+migration_port_min = {{ migration.port_min }}
+migration_port_max = {{ migration.port_max }}{% else %}# Migration disabled
+migration_port_min = 49152
+migration_port_max = 49216
+{% endif %}
+
+# Watchdog policy
+watchdog_action = "{{ watchdog_action }}"
+
+# Default machine type
+{% if default_machine_type %}default_machine_type = "{{ default_machine_type }}"{% else %}default_machine_type = "pc"
+{% endif %}
+
+# Device hotplug
+{% if device_hotplug %}allow_device_hotplug = true{% else %}allow_device_hotplug = false
+{% endif %}
+
+# NUMA support
+{% if numa_enabled %}numa_mode = "strict"
+numa_mem_mode = "interleave"{% else %}# NUMA disabled
+numa_mode = "none"
+numa_mem_mode = "none"
+{% endif %}

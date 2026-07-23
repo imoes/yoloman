@@ -1,0 +1,423 @@
+{
+  "services_name": {
+    "type": "string",
+    "default": "Services",
+    "description": "The services root username \u2014 must exist as a valid user on the services system."
+  },
+  "services_description": {
+    "type": "string",
+    "default": "IRC Services",
+    "description": "Description shown in /whois and user lookups."
+  },
+  "services_umask": {
+    "type": "string",
+    "default": "22",
+    "description": "Octal umask for file creation (e.g., 022)."
+  },
+  "max_connections": {
+    "type": "number",
+    "default": 256,
+    "description": "Maximum number of simultaneous client connections to Atheme."
+  },
+  "max_connections_per_ip": {
+    "type": "number",
+    "default": 4,
+    "description": "Maximum connections allowed from a single IP address."
+  },
+  "strict_dns": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable strict DNS lookups for hostname validation (slower, more secure)."
+  },
+  "dnsbl_check": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable DNS-based blacklist checking for incoming connections."
+  },
+  "user_throttle": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable per-user throttling to prevent message floods."
+  },
+  "modules_path": {
+    "type": "string",
+    "default": "/usr/lib/atheme",
+    "description": "Directory containing Atheme module shared objects (.so)."
+  },
+  "required_modules": {
+    "type": "list",
+    "default": [
+      {
+        "name": "nickserv",
+        "description": "Handles nickname registration and login"
+      },
+      {
+        "name": "chanserv",
+        "description": "Manages channel registration and access"
+      },
+      {
+        "name": "operserv",
+        "description": "Provides operator commands and tools"
+      },
+      {
+        "name": "memoserv",
+        "description": "Enables user-to-user memo messaging"
+      }
+    ],
+    "items": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Module name (without .so)"
+        },
+        "description": {
+          "type": "string",
+          "description": "Short human-readable description"
+        }
+      }
+    },
+    "description": "List of core modules to load. Required modules must be present."
+  },
+  "db_engine": {
+    "type": "string",
+    "default": "sqlite",
+    "description": "Database engine: SQLite (file-based), MySQL/MariaDB, or PostgreSQL."
+  },
+  "db_sqlite_path": {
+    "type": "string",
+    "default": "/var/lib/atheme/atheme.db",
+    "description": "Path to SQLite database file."
+  },
+  "db_mysql_host": {
+    "type": "string",
+    "default": "localhost",
+    "description": "MySQL/MariaDB host or socket path."
+  },
+  "db_mysql_port": {
+    "type": "number",
+    "default": 3306,
+    "description": "MySQL/MariaDB port number."
+  },
+  "db_mysql_dbname": {
+    "type": "string",
+    "default": "atheme",
+    "description": "Name of the MySQL database."
+  },
+  "db_mysql_user": {
+    "type": "string",
+    "default": "atheme",
+    "description": "MySQL username for Atheme."
+  },
+  "db_mysql_password": {
+    "type": "string",
+    "default": "",
+    "description": "Password for the MySQL user (preferably provided at install via secret store)."
+  },
+  "db_mysql_use_tls": {
+    "type": "bool",
+    "default": false,
+    "description": "Use TLS (SSL) for connections to MySQL."
+  },
+  "db_pg_host": {
+    "type": "string",
+    "default": "localhost",
+    "description": "PostgreSQL host."
+  },
+  "db_pg_port": {
+    "type": "number",
+    "default": 5432,
+    "description": "PostgreSQL port."
+  },
+  "db_pg_dbname": {
+    "type": "string",
+    "default": "atheme",
+    "description": "PostgreSQL database name."
+  },
+  "db_pg_user": {
+    "type": "string",
+    "default": "atheme",
+    "description": "PostgreSQL username."
+  },
+  "db_pg_password": {
+    "type": "string",
+    "default": "",
+    "description": "Password for PostgreSQL user."
+  },
+  "db_pg_use_ssl": {
+    "type": "bool",
+    "default": false,
+    "description": "Use SSL for PostgreSQL connections."
+  },
+  "networks": {
+    "type": "list",
+    "default": [
+      {
+        "name": "Libera",
+        "description": "Libera Chat IRC network",
+        "netname": "LIBERA",
+        "sid": "A01",
+        "nicksize": 30,
+        "chansize": 30,
+        "upstream": {
+          "name": "irc.libera.chat",
+          "host": "127.0.0.1",
+          "port": 6667,
+          "ssl": false,
+          "ssl_verify": false,
+          "password": ""
+        },
+        "usermask_pattern": "*!*@%h",
+        "channel_default_flags": "+nst"
+      }
+    ],
+    "items": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Human-readable network name"
+        },
+        "description": {
+          "type": "string",
+          "description": "Optional description"
+        },
+        "netname": {
+          "type": "string",
+          "description": "Uppercase network identifier (must be unique)"
+        },
+        "sid": {
+          "type": "string",
+          "description": "3-character server ID (must match IRCd)"
+        },
+        "nicksize": {
+          "type": "number",
+          "description": "Max nickname length"
+        },
+        "chansize": {
+          "type": "number",
+          "description": "Max channel name length"
+        },
+        "upstream": {
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string",
+              "description": "IRCd name (for internal reference)"
+            },
+            "host": {
+              "type": "string",
+              "description": "IRCd host (IP or hostname)"
+            },
+            "port": {
+              "type": "number",
+              "description": "IRCd port"
+            },
+            "ssl": {
+              "type": "bool",
+              "description": "Connect via SSL/TLS"
+            },
+            "ssl_verify": {
+              "type": "bool",
+              "description": "Verify server certificate"
+            },
+            "password": {
+              "type": "string",
+              "description": "Server password"
+            },
+            "bind_ip": {
+              "type": "string",
+              "description": "Optional local IP to bind on"
+            }
+          }
+        },
+        "usermask_pattern": {
+          "type": "string",
+          "description": "Pattern for usermask matching"
+        },
+        "channel_default_flags": {
+          "type": "string",
+          "description": "Default channel flags for founders"
+        },
+        "flags": {
+          "type": "object",
+          "properties": {
+            "noguest": {
+              "type": "bool",
+              "default": false
+            },
+            "sslonly": {
+              "type": "bool",
+              "default": false
+            },
+            "operspy": {
+              "type": "bool",
+              "default": true
+            },
+            "enforce": {
+              "type": "bool",
+              "default": true
+            }
+          }
+        }
+      }
+    }
+  },
+  "operators": {
+    "type": "list",
+    "default": [],
+    "items": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Oper username (e.g., \"NetAdmin\")"
+        },
+        "password_hash": {
+          "type": "string",
+          "description": "Crypt or SHA256 password hash"
+        },
+        "type": {
+          "type": "string",
+          "description": "Oper type (e.g., 'global', 'local')"
+        },
+        "admin": {
+          "type": "bool",
+          "description": "Is global admin?"
+        },
+        "swhois": {
+          "type": "string",
+          "description": "Special WHOIS line"
+        },
+        "can_rehash": {
+          "type": "bool",
+          "default": false
+        },
+        "can_sethost": {
+          "type": "bool",
+          "default": false
+        },
+        "can_setident": {
+          "type": "bool",
+          "default": false
+        },
+        "can_setvhost": {
+          "type": "bool",
+          "default": false
+        },
+        "can_admin_chans": {
+          "type": "bool",
+          "default": false
+        },
+        "can_set_global_message": {
+          "type": "bool",
+          "default": false
+        },
+        "can_view_logs": {
+          "type": "bool",
+          "default": false
+        }
+      }
+    }
+  },
+  "auth_backend": {
+    "type": "string",
+    "default": "sql",
+    "description": "Authentication backend: 'sql' (use external SQL DB for auth), 'none' (use Atheme's internal DB)."
+  },
+  "log_dir": {
+    "type": "string",
+    "default": "/var/log/atheme",
+    "description": "Directory to write log files to. Set to '' to disable file logging."
+  },
+  "log_prefix": {
+    "type": "string",
+    "default": "",
+    "description": "Prefix for log filenames (e.g., 'services-')."
+  },
+  "log_extension": {
+    "type": "string",
+    "default": "log",
+    "description": "File extension for logs (e.g., 'log', 'txt')."
+  },
+  "log_level": {
+    "type": "string",
+    "default": "DEBUG",
+    "description": "Log verbosity: 'DEBUG', 'INFO', 'NOTICE', 'WARNING', 'ERROR'."
+  },
+  "log_maxsize": {
+    "type": "number",
+    "default": 10485760,
+    "description": "Max log file size (bytes) before rotation."
+  },
+  "log_rotate": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable automatic log rotation."
+  },
+  "log_rotate_count": {
+    "type": "number",
+    "default": 7,
+    "description": "Number of rotated log files to keep."
+  },
+  "log_rotate_interval": {
+    "type": "number",
+    "default": 86400,
+    "description": "Interval between log rotations (seconds)."
+  },
+  "dns_servers": {
+    "type": "list",
+    "default": [
+      "127.0.0.1"
+    ],
+    "items": {
+      "type": "string"
+    },
+    "description": "List of DNS resolvers to use for lookups."
+  },
+  "dns_timeout": {
+    "type": "number",
+    "default": 5,
+    "description": "DNS query timeout (seconds)."
+  },
+  "dns_retries": {
+    "type": "number",
+    "default": 3,
+    "description": "Maximum DNS query retries."
+  },
+  "enable_http": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable built-in HTTP interface (requires atheme-httpd)."
+  },
+  "http_address": {
+    "type": "string",
+    "default": "127.0.0.1",
+    "description": "Bind address for HTTP interface."
+  },
+  "http_port": {
+    "type": "number",
+    "default": 8080,
+    "description": "HTTP port to listen on."
+  },
+  "http_ssl": {
+    "type": "bool",
+    "default": false,
+    "description": "Use HTTPS (TLS) for HTTP interface."
+  },
+  "http_ssl_cert_path": {
+    "type": "string",
+    "default": "",
+    "description": "Path to TLS certificate for HTTPS."
+  },
+  "http_ssl_key_path": {
+    "type": "string",
+    "default": "",
+    "description": "Path to TLS private key for HTTPS."
+  },
+  "http_auth_required": {
+    "type": "bool",
+    "default": true,
+    "description": "Require authentication (via HTTP Basic or cookie) to access the web UI."
+  }
+}

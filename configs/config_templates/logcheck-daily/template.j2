@@ -1,0 +1,48 @@
+{# Daily summary rule set for logcheck-daily #}
+{# Include this file in /etc/logcheck/logcheck.d/ to enable daily log analysis #}
+{# Disable this file by renaming to *.disable or removing execute permission #}
+
+{% if enabled | default(true) %}
+# Daily summary rules (processed once per day, typically at 00:00 via cron)
+
+# Exclude lines matching these patterns (case-insensitive)
+{% for pattern in exclude_patterns %}
+{% if loop.first %}# Exclude patterns:
+{% endif %}
+{{ pattern | regex_escape }}
+{% endfor %}
+
+# Include only lines matching these patterns (case-sensitive by default)
+{% for pattern in include_patterns %}
+{% if loop.first %}# Include patterns:
+{% endif %}
+{{ pattern | regex_escape }}
+{% endfor %}
+
+# Output format: one line per matching event group, with count and sample lines
+{% if sort_output | default(true) %}
+# Sort output by pattern (deterministic for diffing and cron reporting)
+set_sort_output=yes
+{% else %}
+set_sort_output=no
+{% endif %}
+
+# Maximum number of sample lines per group (to avoid huge daily summaries)
+sample_limit={{ sample_limit }}
+
+# Email recipients for daily report (comma-separated)
+report_email={{ report_email | join(', ') }}
+
+# Subject line prefix for email reports
+report_subject_prefix={{ report_subject_prefix }}
+
+# Enable verbose output in syslog (for debugging)
+{% if verbose | default(false) %}
+verbose=yes
+{% else %}
+verbose=no
+{% endif %}
+{% else %}
+# Disabled: Daily summary module is turned off
+exit 0
+{% endif %}

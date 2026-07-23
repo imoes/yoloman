@@ -1,0 +1,66 @@
+# Carbon daemon configuration file
+# This file controls the behavior of the Carbon cache daemon(s)
+
+[common]
+# Enable debug logging
+{% if debug %}DEBUG_MODE = True{% else %}DEBUG_MODE = False{% endif %}
+
+# Log level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
+LOG_LEVEL = {{ log_level }}
+
+# Directory where carbon-cache processes write their PID files
+PID_DIR = {{ pid_dir }}
+
+# Directory where log files are written
+LOG_DIR = {{ log_dir }}
+
+# Maximum number of cache entries to keep in memory
+MAX_CACHE_SIZE = {{ max_cache_size }}
+
+# How often to flush the cache to disk (seconds)
+FLUSH_INTERVAL = {{ flush_interval }}
+
+# Number of cache flush threads
+FLUSH_COUNT = {{ flush_count }}
+
+# Enable/Disable receiver daemons
+# (carbon-cache, carbon-relay, carbon-aggregator — only one instance per type)
+ENABLE_UDP_LISTENER = {% if enable_udp_listener %}True{% else %}False{% endif %}
+
+# Bind address for receiver daemons
+BIND_ADDRESS = {{ bind_address }}
+
+# Port for receiver daemons
+# Note: multiple ports can be used in multi-instance setups
+{% for instance in instances %}
+# Instance: {{ instance.name }}
+[{{ instance.name }}]
+# Enable this instance
+{% if instance.enabled %}ENABLED = True{% else %}ENABLED = False{% endif %}
+
+# Receiver type: cache, relay, aggregator
+# Only 'cache' is used here — relay/aggregator require separate daemons
+TYPE = cache
+
+# Port to listen on for metrics data
+{% if instance.port is defined %}LINE_RECEIVER_PORT = {{ instance.port }}{% else %}LINE_RECEIVER_PORT = 2003{% endif %}
+
+# Port for pickle protocol
+{% if instance.pickle_port is defined %}PICKLE_RECEIVER_PORT = {{ instance.pickle_port }}{% else %}PICKLE_RECEIVER_PORT = 2004{% endif %}
+
+# Max number of connections per receiver
+{% if instance.max_connections is defined %}MAX_RECEIVER_CONNECTIONS = {{ instance.max_connections }}{% else %}MAX_RECEIVER_CONNECTIONS = 1000{% endif %}
+
+# Storage directory for whisper files
+{% if instance.storage_dir is defined %}LOCAL_DATA_DIR = {{ instance.storage_dir }}{% else %}LOCAL_DATA_DIR = /var/lib/graphite/whisper{% endif %}
+
+# Whisper retention policies for new metrics
+{% if instance.retention is defined %}RETENTION_POLICIES = {{ instance.retention | join(', ') }}{% else %}RETENTION_POLICIES = 60:43200,300:525600,3600:43800,21600:21900{% endif %}
+
+# Enable aggregation (only relevant if TYPE=aggregator)
+{% if instance.aggregation is defined %}ENABLE_AGGREGATION = {{ instance.aggregation }}{% endif %}
+
+# Aggregation intervals (e.g., 10s, 60s, 3600s)
+{% if instance.aggregation_intervals is defined %}AGGREGATION_INTERVALS = {{ instance.aggregation_intervals | join(', ') }}{% endif %}
+
+{% endfor %}

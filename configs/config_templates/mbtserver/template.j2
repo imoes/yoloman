@@ -1,0 +1,42 @@
+# mbtserver.conf — Main configuration file for mbtserver
+# List of MBT server ports to listen on (one per interface or purpose)
+# Each port can optionally bind to a specific interface IP (default: all interfaces)
+{% for port in ports %}
+port {{ port.number }}{% if port.bind_ip %} {{ port.bind_ip }}{% endif %}
+{% endfor %}
+
+# Base directory for storing tagger models and runtime data
+model_dir {{ model_dir }}
+
+# Path to the system-wide MBT dictionary (pre-built, read-only)
+dict_file {{ dict_file }}
+
+# Number of worker threads for concurrent request handling
+threads {{ threads }}
+
+# Maximum number of concurrent connections per port
+max_connections {{ max_connections }}
+
+# Timeout (in seconds) for client connections
+connection_timeout {{ connection_timeout }}
+
+# Enable verbose logging for debugging (true/false)
+verbose {{ verbose | lower }}
+
+# Log file path (use '-' for stdout)
+log_file {{ log_file }}
+
+# Optional: Custom HTTP headers to add to all responses (key: value per line)
+{% for header_name, header_value in extra_headers.items() %}
+header {{ header_name }}: {{ header_value }}
+{% endfor %}
+
+# Optional: Allowed client IP subnets (CIDR notation); if empty, allow all
+{% for subnet in allowed_subnets %}
+allow {{ subnet }}
+{% endfor %}
+
+# Optional: Disable specific tagger features (e.g., 'nbest', 'features')
+{% for feature in disabled_features %}
+disable_feature {{ feature }}
+{% endfor %}

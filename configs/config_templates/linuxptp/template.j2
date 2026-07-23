@@ -1,0 +1,54 @@
+[global]
+# Default transport method (Ethernet, UDP, etc.)
+transportSpecific          {{ transport_specific | default('0x00') }}
+# Logging level (0=debug, 1=info, 2=notice, 3=warn, 4=err, 5=crit, 6=alert, 7=emerg)
+logLevel                   {{ log_level | default('3') }}
+# Domain number (0–127); must match between master and slave
+-domainNumber              {{ domain_number | default('0') }}
+# Clock identity (16 hex digits); auto-generated if not set
+# clockIdentity            {{ clock_identity }}
+# Slave-only mode (true/false)
+slaveOnly                  {{ slave_only | default(false) | string | lower }}
+# Enable or disable the primary interface (must be set)
+interface                  {{ interface_name }}
+# Maximum number of ANNOUNCE messages before resetting to master
+# (0 = unlimited)
+masterOnly                 {{ master_only | default(false) | string | lower }}
+# Announce interval (s), sync interval (s), delay request interval (s)
+anounceInterval            {{ announce_interval | default('0') }}
+syncInterval               {{ sync_interval | default('0') }}
+delayReqInterval           {{ delay_req_interval | default('0') }}
+# Path delay threshold (ns); used to detect asymmetric paths
+pathDelayThreshold         {{ path_delay_threshold | default('0') }}
+# Priority1 (0–255); lower = higher priority for master selection
+priority1                  {{ priority1 | default('128') }}
+# Priority2 (0–255); used if priority1 equal
+priority2                  {{ priority2 | default('128') }}
+# Number of slave-only clocks to track (for boundary clock scenarios)
+# maxSlaveOnly               {{ max_slave_only | default('1') }}
+# Enable hardware timestamping (true/false)
+hwTimestamping             {{ hw_timestamping | default(true) | string | lower }}
+# Use the kernel’s PTP stack (true) or userspace (false)
+useKernelTimestamps        {{ use_kernel_timestamps | default(false) | string | lower }}
+# Slave only (legacy alias; prefer slaveOnly)
+# slaveOnly                {{ slave_only | default(false) | string | lower }}
+
+# Interface-specific settings (repeat for multiple interfaces)
+{% for iface in interfaces %}
+[{{ iface.name }}]
+# Transport-specific header byte
+transportSpecific          {{ iface.transport_specific | default('0x00') }}
+# Logging level override
+logLevel                   {{ iface.log_level | default(log_level | default('3')) }}
+# Delay request interval (s)
+delayReqInterval           {{ iface.delay_req_interval | default(delay_req_interval | default('0')) }}
+# Timestamping method: 'hardware', 'software', 'legacy' (only if hwTimestamping disabled)
+# timestamping             {{ iface.timestamping }}
+{% endfor %}
+
+# Optional QoS settings (if used)
+{% if qos_enabled %}
+[global]
+# DSCP value for PTP packets (0–63)
+ptp_dst_dscp               {{ ptp_dst_dscp | default('46') }}
+{% endif %}

@@ -1,0 +1,193 @@
+{
+  "ssl_verify_certificate": {
+    "type": "bool",
+    "default": false,
+    "description": "Whether to verify SSL/TLS certificates during connections (recommended: true in production)."
+  },
+  "ftp_passive_mode": {
+    "type": "bool",
+    "default": true,
+    "description": "Use passive FTP mode to traverse firewalls/NAT (recommended: true)."
+  },
+  "net_timeout": {
+    "type": "number",
+    "default": 30,
+    "description": "Global network timeout (seconds) for idle connections."
+  },
+  "net_reconnect_interval_base": {
+    "type": "number",
+    "default": 1,
+    "description": "Base interval (seconds) for reconnection attempts."
+  },
+  "ftp_reconnect_interval": {
+    "type": "number",
+    "default": 2,
+    "description": "Seconds between FTP reconnect attempts."
+  },
+  "ftp_reconnect_retries": {
+    "type": "number",
+    "default": 5,
+    "description": "Maximum number of FTP reconnect retries before giving up."
+  },
+  "sftp_connect_retries": {
+    "type": "number",
+    "default": 3,
+    "description": "Maximum SFTP connection retries."
+  },
+  "ftp_conn_limit": {
+    "type": "number",
+    "default": 0,
+    "description": "Max simultaneous FTP connections (0 = unlimited)."
+  },
+  "http_conn_limit": {
+    "type": "number",
+    "default": 0,
+    "description": "Max simultaneous HTTP connections (0 = unlimited)."
+  },
+  "ftp_passive_limit": {
+    "type": "number",
+    "default": 0,
+    "description": "Max passive FTP ports to reserve (0 = none)."
+  },
+  "net_socket_buffer": {
+    "type": "number",
+    "default": 0,
+    "description": "Socket buffer size in bytes (0 = system default)."
+  },
+  "file_charset": {
+    "type": "string",
+    "default": "utf-8",
+    "description": "Default character set for file names and listings (e.g., 'utf-8', 'iso-8859-1')."
+  },
+  "ftp_preserve_mtime": {
+    "type": "bool",
+    "default": false,
+    "description": "Preserve original modification time during transfers."
+  },
+  "ftp_use_mdtm": {
+    "type": "bool",
+    "default": true,
+    "description": "Use MDTM command to determine file modification time."
+  },
+  "ftp_use_list_options": {
+    "type": "string",
+    "default": "-a",
+    "description": "Options passed to FTP LIST command (e.g., '-a' to show hidden files)."
+  },
+  "ftp_debug": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable FTP protocol debug output."
+  },
+  "http_debug": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable HTTP protocol debug output."
+  },
+  "sftp_debug": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable SFTP protocol debug output."
+  },
+  "default_alias_cd": {
+    "type": "string",
+    "default": "ls -la",
+    "description": "Default 'cd' command alias (e.g., 'ls -la' to show files on change)."
+  },
+  "default_alias_get": {
+    "type": "string",
+    "default": "mget -c",
+    "description": "Default 'get' alias (e.g., 'mget -c' for continuing transfers)."
+  },
+  "default_alias_put": {
+    "type": "string",
+    "default": "mput -c",
+    "description": "Default 'put' alias (e.g., 'mput -c' for continuing transfers)."
+  },
+  "default_mirror_dir": {
+    "type": "string",
+    "default": "/",
+    "description": "Default root directory for mirror commands."
+  },
+  "default_site_url": {
+    "type": "string",
+    "default": "ftp://anonymous@ftp.example.com",
+    "description": "Default URL opened by 'default-site' alias."
+  },
+  "sites": {
+    "type": "list",
+    "default": [],
+    "description": "List of predefined remote sites with mirrored configurations.",
+    "items": {
+      "name": {
+        "type": "string",
+        "default": "",
+        "description": "Unique identifier for the site (used in alias names)."
+      },
+      "description": {
+        "type": "string",
+        "default": "",
+        "description": "Human-readable description (shown in comments)."
+      },
+      "protocol": {
+        "type": "string",
+        "default": "sftp",
+        "description": "Protocol to use: 'ftp', 'ftps', 'sftp', 'http', 'https'."
+      },
+      "host": {
+        "type": "string",
+        "default": "",
+        "description": "Server hostname or IP address."
+      },
+      "port": {
+        "type": "number",
+        "default": 22,
+        "description": "Server port (e.g., 21 for FTP, 22 for SFTP, 80/443 for HTTP(S))."
+      },
+      "user": {
+        "type": "string",
+        "default": "",
+        "description": "Username for authentication (leave blank for anonymous)."
+      },
+      "mirror_root": {
+        "type": "string",
+        "default": "/",
+        "description": "Remote directory to mirror (root path)."
+      },
+      "mirror_local_path": {
+        "type": "string",
+        "default": "",
+        "description": "Local target directory for mirror (relative or absolute)."
+      },
+      "enabled": {
+        "type": "bool",
+        "default": true,
+        "description": "Whether this site\u2019s mirror alias is active."
+      },
+      "max_parallel": {
+        "type": "number",
+        "default": 2,
+        "description": "Maximum parallel files transferred per mirror job."
+      },
+      "include_patterns": {
+        "type": "list",
+        "default": [],
+        "description": "Glob patterns for files to include in mirror (empty = include all)."
+      },
+      "exclude_patterns": {
+        "type": "list",
+        "default": [],
+        "description": "Glob patterns for files to exclude (e.g., ['*.log', 'tmp/*'])."
+      },
+      "transfer_options": {
+        "type": "list",
+        "default": [
+          "-c",
+          "-P",
+          "2"
+        ],
+        "description": "Extra options for mirror command (e.g., ['-c', '-P', '2'] for continue + parallel)."
+      }
+    }
+  }
+}

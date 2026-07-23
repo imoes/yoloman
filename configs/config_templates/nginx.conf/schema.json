@@ -1,0 +1,355 @@
+{
+  "user": {
+    "type": "string",
+    "default": "www-data",
+    "description": "User account under which worker processes run."
+  },
+  "worker_processes": {
+    "type": "number",
+    "default": 2,
+    "description": "Number of worker processes (often set to number of CPU cores)."
+  },
+  "pid_file": {
+    "type": "string",
+    "default": "/run/nginx.pid",
+    "description": "Path to the file where nginx writes its master process PID."
+  },
+  "error_log_path": {
+    "type": "string",
+    "default": "/var/log/nginx/error.log",
+    "description": "Path to the error log file."
+  },
+  "error_log_level": {
+    "type": "string",
+    "default": "warn",
+    "description": "Minimum level of messages logged to error_log (debug, info, notice, warn, error, crit, alert, emerg)."
+  },
+  "worker_connections": {
+    "type": "number",
+    "default": 1024,
+    "description": "Maximum number of simultaneous connections that each worker can handle."
+  },
+  "event_use": {
+    "type": "string",
+    "default": "epoll",
+    "description": "Event method to use (e.g., epoll, kqueue, select, poll)."
+  },
+  "multi_accept": {
+    "type": "bool",
+    "default": true,
+    "description": "If true, workers accept all new connections at once; otherwise, accept one at a time."
+  },
+  "mime_types_file": {
+    "type": "string",
+    "default": "/etc/nginx/mime.types",
+    "description": "Path to file defining MIME types."
+  },
+  "default_type": {
+    "type": "string",
+    "default": "application/octet-stream",
+    "description": "Fallback MIME type for unknown file types."
+  },
+  "access_log_path": {
+    "type": "string",
+    "default": "/var/log/nginx/access.log",
+    "description": "Path to the access log file."
+  },
+  "access_log_format": {
+    "type": "string",
+    "default": "main",
+    "description": "Named format for access logs (e.g., main, combined, json)."
+  },
+  "sendfile": {
+    "type": "bool",
+    "default": true,
+    "description": "Use sendfile() to serve static files for better performance."
+  },
+  "tcp_nopush": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable TCP_NOPUSH (sendfile optimization)."
+  },
+  "tcp_nodelay": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable TCP_NODELAY on keepalive connections (disables Nagle's algorithm)."
+  },
+  "keepalive_timeout": {
+    "type": "number",
+    "default": 65,
+    "description": "Timeout (in seconds) for keep-alive connections with clients."
+  },
+  "types_hash_max_size": {
+    "type": "number",
+    "default": 2048,
+    "description": "Maximum size of hash tables for MIME types."
+  },
+  "gzip_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable gzip compression for responses."
+  },
+  "gzip_vary": {
+    "type": "bool",
+    "default": true,
+    "description": "Add 'Vary: Accept-Encoding' header for proxied requests."
+  },
+  "gzip_proxied": {
+    "type": "string",
+    "default": "off",
+    "description": "Conditions under which gzip is applied to proxied responses (off, any, expired, etc.)."
+  },
+  "gzip_types": {
+    "type": "list",
+    "default": [
+      "text/plain",
+      "text/css",
+      "application/json",
+      "application/javascript",
+      "text/xml"
+    ],
+    "items": {
+      "type": "string"
+    },
+    "description": "MIME types to compress (applies only to response Content-Type header)."
+  },
+  "gzip_comp_level": {
+    "type": "number",
+    "default": 6,
+    "description": "Gzip compression level (1\u20139); higher = more compression but more CPU."
+  },
+  "http_include_path": {
+    "type": "string",
+    "default": "/etc/nginx/conf.d/*.conf",
+    "description": "Path pattern for additional HTTP context configs (e.g., site-specific files)."
+  },
+  "servers": {
+    "type": "list",
+    "default": [],
+    "items": {
+      "name": {
+        "type": "string",
+        "default": "default",
+        "description": "Identifier for this server block (not used by nginx directly)."
+      },
+      "listen": {
+        "type": "string",
+        "default": "80",
+        "description": "Address/port to listen on (e.g., '80', '443 ssl', '[::]:80')."
+      },
+      "server_name": {
+        "type": "list",
+        "default": [
+          "localhost"
+        ],
+        "items": {
+          "type": "string"
+        },
+        "description": "Hostnames this server responds to (separated by spaces in config)."
+      },
+      "root": {
+        "type": "string",
+        "default": "/var/www/html",
+        "description": "Document root directory for this server."
+      },
+      "index_files": {
+        "type": "list",
+        "default": [
+          "index.html",
+          "index.htm",
+          "index.php"
+        ],
+        "items": {
+          "type": "string"
+        },
+        "description": "Files tried when directory is requested."
+      },
+      "ssl": {
+        "type": "bool",
+        "default": false,
+        "description": "Enable SSL/TLS for this server."
+      },
+      "ssl_certificate": {
+        "type": "string",
+        "default": "",
+        "description": "Path to SSL certificate file (required if SSL is enabled)."
+      },
+      "ssl_certificate_key": {
+        "type": "string",
+        "default": "",
+        "description": "Path to SSL certificate key file (required if SSL is enabled)."
+      },
+      "ssl_protocols": {
+        "type": "list",
+        "default": [
+          "TLSv1.2",
+          "TLSv1.3"
+        ],
+        "items": {
+          "type": "string"
+        },
+        "description": "SSL/TLS protocols to allow."
+      },
+      "ssl_ciphers": {
+        "type": "string",
+        "default": "ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256",
+        "description": "Allowed SSL ciphers (colon-separated)."
+      },
+      "ssl_prefer_server_ciphers": {
+        "type": "bool",
+        "default": true,
+        "description": "Prefer server cipher order over client\u2019s."
+      },
+      "locations": {
+        "type": "list",
+        "default": [],
+        "items": {
+          "path": {
+            "type": "string",
+            "default": "/",
+            "description": "URL path prefix matched by this location (e.g., '/api', '= /health')."
+          },
+          "type": {
+            "type": "string",
+            "default": "static",
+            "enum": [
+              "static",
+              "proxy",
+              "redirect",
+              "rewrite",
+              "static_with_headers"
+            ],
+            "description": "Action for this location block."
+          },
+          "target": {
+            "type": "string",
+            "default": "",
+            "description": "Target for proxy/redirect/rewrite (e.g., 'http://backend:8080', 'https://example.com/')."
+          },
+          "host": {
+            "type": "string",
+            "default": "$host",
+            "description": "Host header to send when proxying (optional)."
+          },
+          "proxy_timeout": {
+            "type": "number",
+            "default": 60,
+            "description": "Timeout for proxy responses (seconds)."
+          },
+          "try_files": {
+            "type": "string",
+            "default": "$uri $uri/ =404",
+            "description": "Directive for static file lookup (e.g., '$uri $uri/ /index.php?$args')."
+          },
+          "regex": {
+            "type": "string",
+            "default": "",
+            "description": "Regular expression for rewrite target (e.g., '^/old/(.*)$')."
+          },
+          "rewrite_flags": {
+            "type": "string",
+            "default": "last",
+            "description": "Rewrite flags (last, break, redirect, permanent)."
+          },
+          "headers": {
+            "type": "list",
+            "default": [],
+            "items": {
+              "name": {
+                "type": "string",
+                "default": "",
+                "description": "HTTP response header name (e.g., 'X-Frame-Options')."
+              },
+              "value": {
+                "type": "string",
+                "default": "",
+                "description": "Header value (e.g., 'SAMEORIGIN')."
+              }
+            },
+            "description": "Additional response headers for static_with_headers locations."
+          },
+          "extra_config": {
+            "type": "string",
+            "default": "",
+            "description": "Additional raw nginx directives for this location (e.g., 'deny 192.168.1.1;')."
+          }
+        },
+        "description": "URL path routing rules for this server."
+      },
+      "error_pages": {
+        "type": "list",
+        "default": [],
+        "items": {
+          "code": {
+            "type": "number",
+            "default": 404,
+            "description": "HTTP status code to handle (e.g., 404, 502)."
+          },
+          "path": {
+            "type": "string",
+            "default": "/error.html",
+            "description": "Path or URI to redirect to (e.g., '/404.html', '@named_location')."
+          }
+        },
+        "description": "Custom error pages to serve for specific status codes."
+      },
+      "extra_config": {
+        "type": "string",
+        "default": "",
+        "description": "Additional raw nginx directives for the entire server block (e.g., 'limit_req zone=one;')."
+      }
+    },
+    "description": "List of virtual host (server) blocks to define."
+  },
+  "upstreams": {
+    "type": "list",
+    "default": [],
+    "items": {
+      "name": {
+        "type": "string",
+        "default": "",
+        "description": "Name of the upstream group (e.g., 'backend')."
+      },
+      "servers": {
+        "type": "list",
+        "default": [],
+        "items": {
+          "address": {
+            "type": "string",
+            "default": "",
+            "description": "Backend server (e.g., '127.0.0.1:8080', 'unix:/var/run/backend.sock')."
+          },
+          "weight": {
+            "type": "number",
+            "default": 1,
+            "description": "Server weight (higher = more requests)."
+          },
+          "backup": {
+            "type": "bool",
+            "default": false,
+            "description": "Mark as backup server (only used when primary is down)."
+          }
+        },
+        "description": "Backend servers in this upstream group."
+      },
+      "hash": {
+        "type": "object",
+        "default": null,
+        "items": {
+          "key": {
+            "type": "string",
+            "default": "$request_uri",
+            "description": "Variable or expression to hash on (e.g., '$remote_addr')."
+          },
+          "consistent": {
+            "type": "bool",
+            "default": true,
+            "description": "Use consistent hashing (ketama)."
+          }
+        },
+        "description": "Optional hashing directive (e.g., for session persistence)."
+      }
+    },
+    "description": "Load-balanced backend server groups for proxying."
+  }
+}

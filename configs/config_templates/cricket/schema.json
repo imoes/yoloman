@@ -1,0 +1,348 @@
+{
+  "global": {
+    "type": "object",
+    "description": "Global Cricket settings",
+    "properties": {
+      "vardir": {
+        "type": "string",
+        "default": "/var/lib/cricket",
+        "description": "Base directory for RRD files, logs, and other runtime data"
+      },
+      "htmldir": {
+        "type": "string",
+        "default": "/var/www/cricket",
+        "description": "Directory where web interface HTML and assets are generated"
+      },
+      "loglevel": {
+        "type": "string",
+        "default": "INFO",
+        "description": "Minimum logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL)"
+      },
+      "workers": {
+        "type": "number",
+        "default": 4,
+        "description": "Number of concurrent collector worker processes"
+      },
+      "collect_timeout": {
+        "type": "number",
+        "default": 15,
+        "description": "Seconds to wait for a single data collection before timing out"
+      },
+      "use_https": {
+        "type": "bool",
+        "default": false,
+        "description": "Enable HTTPS for the web interface (requires valid certificate files)"
+      },
+      "ssl_cert": {
+        "type": "string",
+        "default": "/etc/ssl/certs/cricket.crt",
+        "description": "Path to SSL certificate file (used only if use_https is true)"
+      },
+      "ssl_key": {
+        "type": "string",
+        "default": "/etc/ssl/private/cricket.key",
+        "description": "Path to SSL private key file (used only if use_https is true)"
+      },
+      "web_listen_addr": {
+        "type": "string",
+        "default": "0.0.0.0",
+        "description": "Network address for the web server to bind to"
+      },
+      "web_listen_port": {
+        "type": "number",
+        "default": 8080,
+        "description": "TCP port for the web server"
+      },
+      "auth_backend": {
+        "type": "string",
+        "default": "none",
+        "enum": [
+          "file",
+          "ldap",
+          "none"
+        ],
+        "description": "Authentication method: 'file' (local user DB), 'ldap', or 'none' (no auth)"
+      },
+      "auth_file": {
+        "type": "string",
+        "default": "/etc/cricket/passwd",
+        "description": "Path to htpasswd-style user file (used only if auth_backend = file)"
+      },
+      "ldap_server": {
+        "type": "string",
+        "default": "ldap://localhost",
+        "description": "LDAP server URI (used only if auth_backend = ldap)"
+      },
+      "ldap_bind_dn": {
+        "type": "string",
+        "default": "uid=%%s,ou=users,dc=example,dc=com",
+        "description": "LDAP bind DN template; %%s is replaced with the username"
+      },
+      "ldap_search_base": {
+        "type": "string",
+        "default": "ou=users,dc=example,dc=com",
+        "description": "LDAP base DN for user searches"
+      },
+      "ldap_user_filter": {
+        "type": "string",
+        "default": "(uid=%%s)",
+        "description": "LDAP filter for user lookup"
+      },
+      "ldap_group_filter": {
+        "type": "string",
+        "default": "(member=%%dn%%)",
+        "description": "LDAP filter for group membership lookup"
+      },
+      "timezone": {
+        "type": "string",
+        "default": "UTC",
+        "description": "Default timezone for logs, reports, and UI time display (e.g., 'America/New_York')"
+      }
+    }
+  },
+  "targets": {
+    "type": "list",
+    "description": "List of monitored targets (hosts/services) and their metric definitions",
+    "items": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "default": "example-host",
+          "description": "Unique name for the target (used as identifier)"
+        },
+        "description": {
+          "type": "string",
+          "default": "Monitored server",
+          "description": "Human-readable description"
+        },
+        "host": {
+          "type": "string",
+          "default": "192.0.2.1",
+          "description": "Hostname, IP address, or path (for local protocols)"
+        },
+        "community": {
+          "type": "string",
+          "default": "public",
+          "description": "SNMP community string (used for SNMP v1/v2c)"
+        },
+        "version": {
+          "type": "string",
+          "default": "2c",
+          "enum": [
+            "1",
+            "2c",
+            "3"
+          ],
+          "description": "SNMP version to use (ignored if protocol != snmp)"
+        },
+        "protocol": {
+          "type": "string",
+          "default": "snmp",
+          "description": "Collection protocol (snmp, http, exec, file, or plugin name)"
+        },
+        "plugin": {
+          "type": "string",
+          "default": "",
+          "description": "Path to plugin script or URL (used for exec/http plugins)"
+        },
+        "interval": {
+          "type": "number",
+          "default": 300,
+          "description": "Collection interval in seconds (must be divisor of RRD step)"
+        },
+        "timeout": {
+          "type": "number",
+          "default": 30,
+          "description": "Seconds to wait for data collection before retrying"
+        },
+        "retries": {
+          "type": "number",
+          "default": 2,
+          "description": "Number of retries before marking collection as failed"
+        },
+        "rrd_step": {
+          "type": "number",
+          "default": 300,
+          "description": "RRD step size in seconds (must be \u2265 interval and multiple of it)"
+        },
+        "metrics": {
+          "type": "list",
+          "description": "List of metrics to collect",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string",
+                "default": "if_octets",
+                "description": "Metric name (used internally and in graph labels)"
+              },
+              "oid": {
+                "type": "string",
+                "default": "1.3.6.1.2.1.2.2.1.10",
+                "description": "SNMP OID (required for SNMP-based collection)"
+              },
+              "type": {
+                "type": "string",
+                "default": "COUNTER",
+                "enum": [
+                  "COUNTER",
+                  "GAUGE",
+                  "DERIVE"
+                ],
+                "description": "RRD data source type"
+              },
+              "description": {
+                "type": "string",
+                "default": "Interface traffic",
+                "description": "Human-readable description"
+              },
+              "scale": {
+                "type": "number",
+                "default": 1,
+                "description": "Multiplier applied to raw values (e.g., 8 to convert bytes to bits)"
+              },
+              "offset": {
+                "type": "number",
+                "default": 0,
+                "description": "Additive offset applied to raw values"
+              },
+              "warning": {
+                "type": "string",
+                "default": "",
+                "description": "Threshold expression for warning alerts (e.g., '>50M')"
+              },
+              "critical": {
+                "type": "string",
+                "default": "",
+                "description": "Threshold expression for critical alerts"
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "reports": {
+    "type": "object",
+    "description": "Report definitions",
+    "properties": {
+      "traffic_summary": {
+        "type": "object",
+        "properties": {
+          "targets": {
+            "type": "list",
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "description": "List of target names included in this report"
+          }
+        }
+      },
+      "custom": {
+        "type": "list",
+        "description": "Custom reports (each item is a named report)",
+        "items": {
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string",
+              "description": "Report identifier (key in reports section)"
+            },
+            "title": {
+              "type": "string",
+              "default": "",
+              "description": "Report title shown in UI"
+            },
+            "type": {
+              "type": "string",
+              "default": "stack",
+              "enum": [
+                "stack",
+                "line",
+                "area",
+                "percent"
+              ],
+              "description": "Graph type"
+            },
+            "targets": {
+              "type": "list",
+              "items": {
+                "type": "string"
+              },
+              "description": "Target names to include"
+            },
+            "metrics": {
+              "type": "list",
+              "items": {
+                "type": "string"
+              },
+              "description": "Metric names to plot"
+            },
+            "period": {
+              "type": "string",
+              "default": "week",
+              "enum": [
+                "hour",
+                "day",
+                "week",
+                "month",
+                "year"
+              ],
+              "description": "Default time period"
+            }
+          }
+        }
+      }
+    }
+  },
+  "graph": {
+    "type": "object",
+    "description": "Global graph rendering settings",
+    "properties": {
+      "width": {
+        "type": "number",
+        "default": 800,
+        "description": "Graph width in pixels"
+      },
+      "height": {
+        "type": "number",
+        "default": 200,
+        "description": "Graph height in pixels"
+      },
+      "font": {
+        "type": "string",
+        "default": "DejaVu Sans",
+        "description": "Font family for graph labels"
+      },
+      "font_size": {
+        "type": "number",
+        "default": 10,
+        "description": "Font size in points"
+      },
+      "bg_color": {
+        "type": "string",
+        "default": "#f8f8f8",
+        "description": "Background color (hex or named color)"
+      },
+      "grid_color": {
+        "type": "string",
+        "default": "#cccccc",
+        "description": "Grid line color"
+      },
+      "legend_position": {
+        "type": "string",
+        "default": "bottom",
+        "enum": [
+          "top",
+          "bottom",
+          "right",
+          "left",
+          "none"
+        ],
+        "description": "Legend placement relative to graph"
+      }
+    }
+  }
+}

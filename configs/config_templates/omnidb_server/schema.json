@@ -1,0 +1,199 @@
+{
+  "host": {
+    "type": "string",
+    "default": "0.0.0.0",
+    "description": "Network interface to bind the OmniDB web server to (e.g., '127.0.0.1' for localhost only, or '0.0.0.0' for all interfaces)."
+  },
+  "port": {
+    "type": "number",
+    "default": 8000,
+    "description": "TCP port on which the OmniDB server listens for HTTP(S) requests."
+  },
+  "db_path": {
+    "type": "string",
+    "default": "/var/lib/omnidb/omnidb.db",
+    "description": "Absolute path to the SQLite database file that stores OmniDB\u2019s internal metadata (users, sessions, preferences)."
+  },
+  "secret_key": {
+    "type": "string",
+    "default": "",
+    "description": "Cryptographically strong secret used for signing sessions and encrypting sensitive data. Must be at least 32 characters long."
+  },
+  "ssl_enabled": {
+    "type": "boolean",
+    "default": false,
+    "description": "Enable HTTPS by serving TLS-encrypted traffic. Requires valid SSL certificate and key files."
+  },
+  "ssl_cert": {
+    "type": "string",
+    "default": "/etc/omnidb/certs/server.crt",
+    "description": "Path to the SSL certificate file (PEM format) used for HTTPS."
+  },
+  "ssl_key": {
+    "type": "string",
+    "default": "/etc/omnidb/certs/server.key",
+    "description": "Path to the SSL private key file (PEM format) corresponding to the certificate."
+  },
+  "workers": {
+    "type": "number",
+    "default": 0,
+    "description": "Number of worker processes to spawn. Set to 0 for automatic detection based on CPU cores."
+  },
+  "debug": {
+    "type": "boolean",
+    "default": false,
+    "description": "Enable verbose debugging mode (include stack traces and internal logs). Not recommended for production."
+  },
+  "session_timeout": {
+    "type": "number",
+    "default": 1800,
+    "description": "Session inactivity timeout in seconds (e.g., 1800 = 30 minutes). After this period, the session is invalidated."
+  },
+  "enable_local_auth": {
+    "type": "boolean",
+    "default": true,
+    "description": "Enable OmniDB\u2019s built-in user authentication system. Disable only if using external auth (e.g., LDAP via reverse proxy)."
+  },
+  "max_connections_per_db": {
+    "type": "number",
+    "default": 5,
+    "description": "Maximum number of simultaneous database connections OmniDB will maintain per database (prevents connection exhaustion)."
+  },
+  "allowed_origins": {
+    "type": "list",
+    "default": [],
+    "description": "List of allowed CORS origins (domains) for cross-origin API requests. Leave empty to allow all (not recommended in production)."
+  },
+  "log_level": {
+    "type": "string",
+    "default": "INFO",
+    "description": "Minimum logging level: DEBUG, INFO, WARNING, ERROR, or CRITICAL."
+  },
+  "log_path": {
+    "type": "string",
+    "default": "/var/log/omnidb/omnidb.log",
+    "description": "Absolute path to the main application log file."
+  },
+  "db_templates": {
+    "type": "list",
+    "default": [
+      {
+        "name": "postgres",
+        "title": "PostgreSQL",
+        "type": "postgresql",
+        "host": "localhost",
+        "port": 5432,
+        "db_name": "postgres",
+        "user": "postgres",
+        "use_ssh_tunnel": false,
+        "ssh_host": "",
+        "ssh_port": 22,
+        "ssh_user": "",
+        "ssh_key": ""
+      },
+      {
+        "name": "mysql",
+        "title": "MySQL/MariaDB",
+        "type": "mysql",
+        "host": "localhost",
+        "port": 3306,
+        "db_name": "mysql",
+        "user": "root",
+        "use_ssh_tunnel": false,
+        "ssh_host": "",
+        "ssh_port": 22,
+        "ssh_user": "",
+        "ssh_key": ""
+      },
+      {
+        "name": "sqlite",
+        "title": "SQLite (local file)",
+        "type": "sqlite",
+        "host": "",
+        "port": 0,
+        "db_name": "/var/lib/omnidb/sample.db",
+        "user": "",
+        "use_ssh_tunnel": false,
+        "ssh_host": "",
+        "ssh_port": 22,
+        "ssh_user": "",
+        "ssh_key": ""
+      }
+    ],
+    "description": "List of default database connection templates shown in the OmniDB UI for quick connection creation. Each entry defines connection defaults.",
+    "items": {
+      "name": {
+        "type": "string",
+        "required": true,
+        "description": "Internal identifier for the template (e.g., 'postgres', 'mysql'). Must be unique."
+      },
+      "title": {
+        "type": "string",
+        "required": true,
+        "description": "Human-readable name shown in the OmniDB UI."
+      },
+      "type": {
+        "type": "string",
+        "enum": [
+          "postgresql",
+          "mysql",
+          "sqlite",
+          "oracle",
+          "mssql"
+        ],
+        "required": true,
+        "description": "Database engine type (must match OmniDB's supported engines)."
+      },
+      "host": {
+        "type": "string",
+        "default": "localhost",
+        "description": "Database server hostname or IP address."
+      },
+      "port": {
+        "type": "number",
+        "required": true,
+        "description": "Database server port number."
+      },
+      "db_name": {
+        "type": "string",
+        "required": true,
+        "description": "Default database name. For SQLite, this should be a full file path."
+      },
+      "user": {
+        "type": "string",
+        "default": "",
+        "description": "Default database username."
+      },
+      "password": {
+        "type": "string",
+        "required": false,
+        "description": "Default password (not stored in templates; omit for security). Use only in secure dev/test configs."
+      },
+      "use_ssh_tunnel": {
+        "type": "boolean",
+        "default": false,
+        "description": "Enable SSH tunneling to access a database behind a firewall."
+      },
+      "ssh_host": {
+        "type": "string",
+        "default": "",
+        "description": "SSH bastion host address (required if SSH tunneling is enabled)."
+      },
+      "ssh_port": {
+        "type": "number",
+        "default": 22,
+        "description": "SSH port (usually 22)."
+      },
+      "ssh_user": {
+        "type": "string",
+        "default": "",
+        "description": "SSH username for the tunnel."
+      },
+      "ssh_key": {
+        "type": "string",
+        "required": false,
+        "description": "Path to SSH private key file (PEM format) for authenticating the tunnel."
+      }
+    }
+  }
+}

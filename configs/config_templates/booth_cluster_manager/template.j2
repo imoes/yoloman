@@ -1,0 +1,67 @@
+# Booth configuration file — manages distributed cluster tickets for high-availability services
+# Each ticket represents a critical resource that can be granted to one site at a time
+
+# General settings
+[general]
+# Path to the Booth daemon's PID file
+pid_file = {{ pid_file }}
+# Path to the log file (leave empty for syslog)
+log_file = {{ log_file }}
+# Log level: 0=error, 1=warn, 2=info, 3=debug
+log_level = {{ log_level }}
+# Timeout (in seconds) for internal operations
+auth_timeout = {{ auth_timeout }}
+# Timeout (in seconds) for ticket request responses
+ticket_timeout = {{ ticket_timeout }}
+
+# Authentication settings (optional; if not specified, no auth is used)
+{% if auth.type %}
+[auth]
+# Authentication method: file or key
+method = {{ auth.type }}
+{% if auth.type == 'file' %}
+# Path to the shared secret file
+file = {{ auth.file_path }}
+{% elif auth.type == 'key' %}
+# Key file (PEM format)
+key = {{ auth.key_path }}
+{% endif %}
+{% endif %}
+
+# Ticket definitions — each ticket is an independent HA resource
+{% for ticket in tickets %}
+[ticket:{{ ticket.name }}]
+# Short description of the ticket (human-readable)
+# Note: `description` is for documentation only; not used by Booth
+# default: "Ticket for {{ ticket.name }}"
+#ticket_description = {{ ticket.name | replace(' ', '_') }}_ticket
+# List of sites (IPs or hostnames) that may hold this ticket
+{% if ticket.sites | length == 0 %}
+# WARNING: No sites defined — this ticket will never be granted
+site = none
+{% else %}
+{% for site in ticket.sites %}
+site = {{ site }}
+{% endfor %}
+{% endif %}
+# Priority (0–255); higher values take precedence in争用 (tie-breaker)
+priority = {{ ticket.priority }}
+# Timeout (in seconds) to wait before re-granting after failover
+revoke_timeout = {{ ticket.revoke_timeout }}
+{% endfor %}
+
+# Server (Booth daemon) configuration
+[server]
+# Enable the Booth daemon to act as an arbiter or participant
+{% if server.enabled %}
+enabled = yes
+{% else %}
+enabled = no
+{% endif %}
+# Port to listen on for incoming connections
+port = {{ server.port }}
+# List of peers (other Booth nodes) for cluster synchronization
+{% for peer in server.peers %}
+peer = {{ peer }}
+{% endfor %}
+{% endfor %}

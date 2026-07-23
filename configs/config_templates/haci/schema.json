@@ -1,0 +1,332 @@
+{
+  "base_url": {
+    "type": "string",
+    "default": "https://ipam.example.com/haci",
+    "description": "Full URL to the HACI web interface (e.g., https://ipam.example.com/haci). Must not include trailing slash."
+  },
+  "db": {
+    "type": "object",
+    "default": {
+      "host": "localhost",
+      "port": 3306,
+      "user": "haci",
+      "password": "",
+      "name": "haci"
+    },
+    "description": "Database connection settings for MySQL/MariaDB.",
+    "items": {
+      "host": {
+        "type": "string",
+        "default": "localhost",
+        "description": "Database server hostname or IP address"
+      },
+      "port": {
+        "type": "number",
+        "default": 3306,
+        "description": "Database server port"
+      },
+      "user": {
+        "type": "string",
+        "default": "haci",
+        "description": "Database username"
+      },
+      "password": {
+        "type": "string",
+        "default": "",
+        "description": "Database password",
+        "sensitive": true
+      },
+      "name": {
+        "type": "string",
+        "default": "haci",
+        "description": "Database name"
+      }
+    }
+  },
+  "debug": {
+    "type": "boolean",
+    "default": false,
+    "description": "Enable detailed error messages and debugging output (for development only)."
+  },
+  "session_timeout": {
+    "type": "number",
+    "default": 3600,
+    "description": "Session inactivity timeout in seconds (e.g., 3600 = 1 hour)."
+  },
+  "max_sessions_per_user": {
+    "type": "number",
+    "default": 3,
+    "description": "Maximum number of concurrent sessions allowed per user."
+  },
+  "auth_methods": {
+    "type": "list",
+    "default": [
+      "local"
+    ],
+    "description": "Authentication methods to enable. Select one or more: local (built-in), ldap (LDAP/Active Directory), radius (RADIUS).",
+    "items": {
+      "type": "string",
+      "enum": [
+        "local",
+        "ldap",
+        "radius"
+      ]
+    }
+  },
+  "ldap": {
+    "type": "object",
+    "default": {
+      "url": "ldap://ldap.example.com",
+      "binddn": "cn=admin,dc=example,dc=com",
+      "password": "",
+      "basedn": "dc=example,dc=com",
+      "filter": "(&(objectClass=posixAccount)(uid=%s))",
+      "user_attr": "uid",
+      "group_attr": "cn"
+    },
+    "description": "LDAP configuration (required if 'ldap' is enabled in auth_methods).",
+    "items": {
+      "url": {
+        "type": "string",
+        "default": "ldap://ldap.example.com",
+        "description": "LDAP server URL (ldap:// or ldaps://)"
+      },
+      "binddn": {
+        "type": "string",
+        "default": "cn=admin,dc=example,dc=com",
+        "description": "DN used to bind to the LDAP server"
+      },
+      "password": {
+        "type": "string",
+        "default": "",
+        "description": "Password for bind DN (store securely)",
+        "sensitive": true
+      },
+      "basedn": {
+        "type": "string",
+        "default": "dc=example,dc=com",
+        "description": "Base DN for user/group searches"
+      },
+      "filter": {
+        "type": "string",
+        "default": "(&(objectClass=posixAccount)(uid=%s))",
+        "description": "Search filter (use %s as placeholder for username)"
+      },
+      "user_attr": {
+        "type": "string",
+        "default": "uid",
+        "description": "LDAP attribute used as username"
+      },
+      "group_attr": {
+        "type": "string",
+        "default": "cn",
+        "description": "LDAP attribute used for group name"
+      }
+    }
+  },
+  "radius": {
+    "type": "object",
+    "default": {
+      "servers": [
+        "radius1.example.com",
+        "radius2.example.com"
+      ],
+      "secret": "",
+      "timeout": 3,
+      "retries": 2
+    },
+    "description": "RADIUS configuration (required if 'radius' is enabled in auth_methods).",
+    "items": {
+      "servers": {
+        "type": "list",
+        "default": [
+          "radius.example.com"
+        ],
+        "description": "List of RADIUS server hostnames or IPs",
+        "items": {
+          "type": "string"
+        }
+      },
+      "secret": {
+        "type": "string",
+        "default": "",
+        "description": "Shared RADIUS secret (critical for security)",
+        "sensitive": true
+      },
+      "timeout": {
+        "type": "number",
+        "default": 3,
+        "description": "Timeout per RADIUS server (seconds)"
+      },
+      "retries": {
+        "type": "number",
+        "default": 2,
+        "description": "Number of retries per server before failing"
+      }
+    }
+  },
+  "log": {
+    "type": "object",
+    "default": {
+      "level": "warn",
+      "file": "/var/log/haci/haci.log"
+    },
+    "description": "Logging configuration.",
+    "items": {
+      "level": {
+        "type": "string",
+        "default": "warn",
+        "description": "Minimum log level (error, warn, info, debug)",
+        "enum": [
+          "error",
+          "warn",
+          "info",
+          "debug"
+        ]
+      },
+      "file": {
+        "type": "string",
+        "default": "/var/log/haci/haci.log",
+        "description": "Path to HACI log file"
+      }
+    }
+  },
+  "default_prefix_v4": {
+    "type": "number",
+    "default": 24,
+    "description": "Default subnet mask length (CIDR prefix) for new IPv4 networks."
+  },
+  "default_prefix_v6": {
+    "type": "number",
+    "default": 64,
+    "description": "Default subnet mask length (CIDR prefix) for new IPv6 networks."
+  },
+  "auto_allocate": {
+    "type": "boolean",
+    "default": false,
+    "description": "Automatically allocate IPs from pools for new hosts when possible (like DHCP)."
+  },
+  "email": {
+    "type": "object",
+    "default": {
+      "enabled": false,
+      "from": "haci@example.com",
+      "smtp": {
+        "host": "localhost",
+        "port": 587,
+        "user": "",
+        "pass": "",
+        "secure": "tls"
+      }
+    },
+    "description": "Email notification settings (e.g., for IP assignment alerts).",
+    "items": {
+      "enabled": {
+        "type": "boolean",
+        "default": false,
+        "description": "Enable email notifications"
+      },
+      "from": {
+        "type": "string",
+        "default": "haci@example.com",
+        "description": "Sender email address"
+      },
+      "smtp": {
+        "type": "object",
+        "items": {
+          "host": {
+            "type": "string",
+            "default": "localhost",
+            "description": "SMTP server hostname"
+          },
+          "port": {
+            "type": "number",
+            "default": 587,
+            "description": "SMTP port (25, 465, 587)"
+          },
+          "user": {
+            "type": "string",
+            "default": "",
+            "description": "SMTP username (for auth)"
+          },
+          "pass": {
+            "type": "string",
+            "default": "",
+            "description": "SMTP password",
+            "sensitive": true
+          },
+          "secure": {
+            "type": "string",
+            "default": "tls",
+            "enum": [
+              "tls",
+              "ssl",
+              ""
+            ],
+            "description": "Security protocol: 'tls', 'ssl', or empty for none"
+          }
+        }
+      }
+    }
+  },
+  "theme": {
+    "type": "string",
+    "default": "default",
+    "description": "UI theme: 'default', 'dark', or custom path relative to /assets/themes/"
+  },
+  "timezone": {
+    "type": "string",
+    "default": "UTC",
+    "description": "PHP-compatible timezone (e.g., 'America/New_York', 'UTC')."
+  },
+  "languages": {
+    "type": "list",
+    "default": [
+      "en",
+      "de",
+      "fr"
+    ],
+    "description": "List of supported languages (ISO 639-1 codes).",
+    "items": {
+      "type": "string"
+    }
+  },
+  "lang_default": {
+    "type": "string",
+    "default": "en",
+    "description": "Default language for new users and guests."
+  },
+  "enable_2fa": {
+    "type": "boolean",
+    "default": false,
+    "description": "Enforce two-factor authentication for all users (requires TOTP app)."
+  },
+  "allowed_ranges": {
+    "type": "list",
+    "default": [],
+    "description": "List of allowed IP ranges (CIDR or single IPs) for web UI access. Empty = allow all.",
+    "items": {
+      "type": "string"
+    }
+  },
+  "cli": {
+    "type": "object",
+    "default": {
+      "user": "www-data",
+      "group": "www-data"
+    },
+    "description": "Unix user/group under which CLI scripts run (e.g., cron jobs, sync tools).",
+    "items": {
+      "user": {
+        "type": "string",
+        "default": "www-data",
+        "description": "System username"
+      },
+      "group": {
+        "type": "string",
+        "default": "www-data",
+        "description": "System group"
+      }
+    }
+  }
+}

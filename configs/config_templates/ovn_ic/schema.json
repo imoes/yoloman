@@ -1,0 +1,96 @@
+{
+  "global_enabled": {
+    "type": "boolean",
+    "default": true,
+    "description": "Enable the OVN Interconnection controller daemon on startup."
+  },
+  "log_level": {
+    "type": "string",
+    "default": "info",
+    "description": "Verbosity of logging. Choose from: daemon, trace, debug, info, notice, warning, error, critical."
+  },
+  "log_dir": {
+    "type": "string",
+    "default": "/var/log/ovn",
+    "description": "Directory where OVN-IC logs and runtime files are stored."
+  },
+  "pid_file": {
+    "type": "string",
+    "default": "/run/ovn/ovn-ic.pid",
+    "description": "Path to the PID file for the OVN-IC process."
+  },
+  "sb_db_connection": {
+    "type": "string",
+    "default": "unix:///var/run/ovn/ovnsb_db.sock",
+    "description": "Connection method and path to the OVN Southbound database (e.g., Unix socket or remote TCP)."
+  },
+  "sb_connection_timeout": {
+    "type": "number",
+    "default": 15,
+    "description": "Maximum time (in seconds) to wait for a connection to the Southbound DB before timing out."
+  },
+  "sb_connection_retry_interval": {
+    "type": "number",
+    "default": 5,
+    "description": "Time (in seconds) to wait before retrying a failed Southbound DB connection."
+  },
+  "nb_db_connection": {
+    "type": "string",
+    "default": "unix:///var/run/ovn/ovnnb_db.sock",
+    "description": "Connection method and path to the OVN Northbound database (e.g., Unix socket or remote TCP)."
+  },
+  "nb_connection_timeout": {
+    "type": "number",
+    "default": 15,
+    "description": "Maximum time (in seconds) to wait for a connection to the Northbound DB before timing out."
+  },
+  "nb_connection_retry_interval": {
+    "type": "number",
+    "default": 5,
+    "description": "Time (in seconds) to wait before retrying a failed Northbound DB connection."
+  },
+  "ic_enabled": {
+    "type": "boolean",
+    "default": true,
+    "description": "Enable OVN Interconnection mode (required for multi-region deployments)."
+  },
+  "region_id": {
+    "type": "string",
+    "default": "region-0",
+    "description": "Unique identifier for this OVN region (e.g., 'us-east-1', 'region-alpha')."
+  },
+  "chassis_id": {
+    "type": "string",
+    "default": "chassis-0",
+    "description": "Unique identifier for this chassis (node) within the region. Must be globally unique if multi-region."
+  },
+  "external_ids": {
+    "type": "object",
+    "default": {},
+    "description": "Key-value map of external IDs to attach to the chassis. Often used to bind chassis to physical hosts or cloud metadata."
+  },
+  "interconnection_peers": {
+    "type": "list",
+    "default": [],
+    "description": "List of OVN regions to interconnect with (multi-region support). Each entry defines a peer region connection.",
+    "items": {
+      "name": {
+        "type": "string",
+        "description": "Internal name for this peer configuration block (alphanumeric + hyphen)."
+      },
+      "region_name": {
+        "type": "string",
+        "description": "Name of the peer region (must match its region_id in its ovn-ic.conf)."
+      },
+      "connection": {
+        "type": "string",
+        "description": "Connection string to the peer region\u2019s NB/SB DB (e.g., 'tcp:192.168.10.1:6641')."
+      },
+      "bidirectional": {
+        "type": "boolean",
+        "default": true,
+        "description": "If true, synchronize changes in both directions. If false, sync only from this region to peer."
+      }
+    }
+  }
+}

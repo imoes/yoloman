@@ -1,0 +1,53 @@
+[downtimed]
+; Enable/disable debug logging
+log_level = {{ log_level }}
+
+; Path to the PID file
+pid_file = {{ pid_file }}
+
+; Path to the log file
+log_file = {{ log_file }}
+
+; Maximum number of concurrent downtime sessions
+max_sessions = {{ max_sessions }}
+
+; Interval between health checks (seconds)
+check_interval = {{ check_interval }}
+
+; Time (in seconds) to wait before declaring a service truly down
+down_threshold = {{ down_threshold }}
+
+; Time (in seconds) to wait before declaring a service truly up
+up_threshold = {{ up_threshold }}
+
+; Enable/Disable email notifications
+enable_email = {{ enable_email }}
+
+; Email address to send notifications to
+email_to = {{ email_to }}
+
+; SMTP server for sending email notifications
+smtp_server = {{ smtp_server }}
+
+; SMTP port for sending email notifications
+smtp_port = {{ smtp_port }}
+
+; Enable/Disable TLS for SMTP
+smtp_tls = {{ smtp_tls }}
+
+; SMTP username (if auth required)
+smtp_user = {{ smtp_user | default('') }}
+
+; SMTP password (if auth required)
+smtp_pass = {{ smtp_pass | default('') }}
+
+; List of services to monitor
+[services]
+{% for svc in services %}; Service: {{ svc.name }}
+{{ svc.name }}.host = {{ svc.host }}
+{{ svc.name }}.port = {{ svc.port }}
+{{ svc.name }}.proto = {{ svc.proto | default('tcp') }}
+{{ svc.name }}.timeout = {{ svc.timeout | default(5) }}
+{{ svc.name }}.interval = {{ svc.interval | default(30) }}
+{{ svc.name }}.down_after = {{ svc.down_after | default(3) }}
+{% endfor %}

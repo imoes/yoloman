@@ -1,0 +1,134 @@
+{
+  "debug": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable verbose debug logging for troubleshooting."
+  },
+  "log_level": {
+    "type": "string",
+    "default": "INFO",
+    "description": "Minimum logging level: DEBUG, INFO, WARNING, ERROR, or CRITICAL."
+  },
+  "pid_dir": {
+    "type": "string",
+    "default": "/var/run/carbon",
+    "description": "Directory to store PID files for running Carbon instances."
+  },
+  "log_dir": {
+    "type": "string",
+    "default": "/var/log/carbon",
+    "description": "Directory where Carbon log files are written."
+  },
+  "max_cache_size": {
+    "type": "number",
+    "default": 10000,
+    "description": "Maximum number of metrics to hold in memory per cache instance."
+  },
+  "flush_interval": {
+    "type": "number",
+    "default": 60,
+    "description": "How often (in seconds) the cache is flushed to disk."
+  },
+  "flush_count": {
+    "type": "number",
+    "default": 2,
+    "description": "Number of parallel threads used to write data to disk."
+  },
+  "enable_udp_listener": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable listening for metrics via UDP protocol in addition to TCP."
+  },
+  "bind_address": {
+    "type": "string",
+    "default": "0.0.0.0",
+    "description": "Network interface IP to bind all Carbon receiver daemons to."
+  },
+  "instances": {
+    "type": "list",
+    "default": [
+      {
+        "name": "cache",
+        "enabled": true,
+        "port": 2003,
+        "pickle_port": 2004,
+        "storage_dir": "/var/lib/graphite/whisper",
+        "retention": [
+          "60:43200",
+          "300:525600",
+          "3600:43800",
+          "21600:21900"
+        ]
+      }
+    ],
+    "description": "List of Carbon cache instances to run. Each instance runs independently on its own ports.",
+    "items": {
+      "name": {
+        "type": "string",
+        "required": true,
+        "description": "Unique name for this instance (e.g., 'cache', 'cache-1', 'cache-2')."
+      },
+      "enabled": {
+        "type": "bool",
+        "required": false,
+        "default": true,
+        "description": "Whether this instance should be started."
+      },
+      "port": {
+        "type": "number",
+        "required": false,
+        "default": 2003,
+        "description": "TCP port to listen on for plaintext Line protocol metrics."
+      },
+      "pickle_port": {
+        "type": "number",
+        "required": false,
+        "default": 2004,
+        "description": "TCP port to listen on for Pickle protocol metrics."
+      },
+      "max_connections": {
+        "type": "number",
+        "required": false,
+        "default": 1000,
+        "description": "Maximum concurrent TCP connections allowed for this instance."
+      },
+      "storage_dir": {
+        "type": "string",
+        "required": false,
+        "default": "/var/lib/graphite/whisper",
+        "description": "Directory where Whisper database files for this instance are stored."
+      },
+      "retention": {
+        "type": "list",
+        "required": false,
+        "default": [
+          "60:43200",
+          "300:525600",
+          "3600:43800",
+          "21600:21900"
+        ],
+        "description": "Comma-separated list of retention policies (e.g., '60s:1d,300s:2y' \u2192 '60:86400,300:175200').",
+        "items": {
+          "type": "string",
+          "pattern": "^\\d+:\\d+$",
+          "description": "Retention policy in format 'seconds_per_point:duration_in_points'"
+        }
+      },
+      "aggregation": {
+        "type": "bool",
+        "required": false,
+        "default": false,
+        "description": "Enable metric aggregation for this instance (used only for aggregator instances)."
+      },
+      "aggregation_intervals": {
+        "type": "list",
+        "required": false,
+        "default": [
+          "10s",
+          "60s"
+        ],
+        "description": "Aggregation intervals (e.g., 10, 60, 300 seconds) if aggregation is enabled."
+      }
+    }
+  }
+}

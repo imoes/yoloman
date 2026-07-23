@@ -1,0 +1,78 @@
+[DEFAULT]
+# The name of this node (must be unique in the cluster)
+host = {{ host }}
+
+# Log file name (use '-' for stdout)
+log_file = {{ log_file }}
+
+# Logging debug level
+log_level = {{ log_level }}
+
+# RPC backend to use (e.g., 'rabbit', 'kombu', etc.)
+rpc_backend = {{ rpc_backend }}
+
+# The RabbitMQ broker URL (used when rpc_backend includes 'rabbit')
+# Example: rabbit://user:pass@host:5672/
+rabbit_host = {{ rabbit_host }}
+rabbit_port = {{ rabbit_port }}
+rabbit_user = {{ rabbit_user }}
+rabbit_password = {{ rabbit_password }}
+rabbit_virtual_host = {{ rabbit_virtual_host | default('') }}
+
+# Keystone authentication endpoint (public URL)
+auth_uri = {{ auth_uri }}
+
+# Keystone administrative endpoint (internal URL for service-to-service auth)
+auth_url = {{ auth_url }}
+
+# Service user credentials for internal OpenStack communication
+[keystone_authtoken]
+auth_type = {{ keystone_authtoken_auth_type }}
+project_domain_name = {{ keystone_authtoken_project_domain_name }}
+project_name = {{ keystone_authtoken_project_name }}
+user_domain_name = {{ keystone_authtoken_user_domain_name }}
+username = {{ keystone_authtoken_username }}
+password = {{ keystone_authtoken_password }}
+auth_url = {{ keystone_authtoken_auth_url }}
+
+# Database connection string
+[database]
+connection = {{ database_connection }}
+
+# Magnum driver to use (e.g., 'kubernetes', 'swarm', 'mesos', etc.)
+[cluster]
+default_cooldown = {{ cluster_default_cooldown }}
+
+# TLS settings for Magnum API
+[api]
+host = {{ api_host }}
+port = {{ api_port }}
+
+# Optional TLS key/cert paths (enable only if TLS is required)
+{% if api_enable_tls | default(false) %}
+# Enable TLS for the Magnum API
+ssl_cert_file = {{ api_ssl_cert_file }}
+ssl_key_file = {{ api_ssl_key_file }}
+{% endif %}
+
+# Region name for multi-region deployments
+[trust]
+region_name = {{ trust_region_name }}
+
+# Docker registry credentials for container images
+# Used when pulling images from private registries
+[docker]
+# Comma-separated list of insecure registries
+insecure_registries = {{ docker_insecure_registries | join(', ') }}
+{% if docker_registry_mirror %}
+# URL of Docker registry mirror
+registry_mirror = {{ docker_registry_mirror }}
+{% endif %}
+
+# Conductor worker configuration
+[conductor]
+# Number of worker processes for the conductor service
+workers = {{ conductor_workers }}
+
+# Topic for RPC messages
+rpc_thread_pool_size = {{ conductor_rpc_thread_pool_size }}

@@ -1,0 +1,276 @@
+{
+  "logging.log_dir": {
+    "type": "string",
+    "default": "/var/log/ironic",
+    "description": "Directory for Ironic API server log files."
+  },
+  "logging.log_file": {
+    "type": "string",
+    "default": "ironic-api.log",
+    "description": "Name of the main log file (relative to log_dir or absolute path)."
+  },
+  "rpc.transport_url": {
+    "type": "string",
+    "default": "rabbit://guest:guest@localhost:5672/",
+    "description": "Message broker URL for RPC communication with Conductor and other services (e.g., RabbitMQ, Qpid)."
+  },
+  "database.connection": {
+    "type": "string",
+    "default": "mysql+pymysql://ironic:ironic@localhost/ironic?charset=utf8",
+    "description": "Database connection string (SQLAlchemy format). Should point to a Galera cluster or single DB server."
+  },
+  "keystone.auth_url": {
+    "type": "string",
+    "default": "http://controller:5000/v3",
+    "description": "Keystone authentication endpoint URL (v3 required)."
+  },
+  "keystone.auth_type": {
+    "type": "string",
+    "default": "password",
+    "description": "Keystone authentication method (e.g., password, application_credential)."
+  },
+  "keystone.project_domain_name": {
+    "type": "string",
+    "default": "Default",
+    "description": "Domain name for the service project."
+  },
+  "keystone.user_domain_name": {
+    "type": "string",
+    "default": "Default",
+    "description": "Domain name for the service user."
+  },
+  "keystone.project_name": {
+    "type": "string",
+    "default": "services",
+    "description": "Project (tenant) name for the Ironic service user."
+  },
+  "keystone.username": {
+    "type": "string",
+    "default": "ironic",
+    "description": "Username for the Ironic service account in Keystone."
+  },
+  "keystone.password": {
+    "type": "string",
+    "default": "",
+    "description": "Password for the Ironic service account. Required if using password auth."
+  },
+  "service_credentials.auth_type": {
+    "type": "string",
+    "default": "password",
+    "description": "Auth method for internal service-to-service calls."
+  },
+  "service_credentials.auth_url": {
+    "type": "string",
+    "default": "http://controller:5000/v3",
+    "description": "Keystone endpoint for internal service calls."
+  },
+  "service_credentials.project_domain_name": {
+    "type": "string",
+    "default": "Default",
+    "description": "Domain for service project in internal auth."
+  },
+  "service_credentials.user_domain_name": {
+    "type": "string",
+    "default": "Default",
+    "description": "Domain for service user in internal auth."
+  },
+  "service_credentials.project_name": {
+    "type": "string",
+    "default": "services",
+    "description": "Project name used for internal service auth."
+  },
+  "service_credentials.username": {
+    "type": "string",
+    "default": "ironic",
+    "description": "Username used for internal service auth."
+  },
+  "service_credentials.password": {
+    "type": "string",
+    "default": "",
+    "description": "Password used for internal service auth."
+  },
+  "service_credentials.interface": {
+    "type": "string",
+    "default": "internal",
+    "description": "Keystone endpoint type (admin, internal, or public) used for service-to-service calls."
+  },
+  "service_credentials.region_name": {
+    "type": "string",
+    "default": "RegionOne",
+    "description": "Keystone region name for service endpoints."
+  },
+  "api.host": {
+    "type": "string",
+    "default": "0.0.0.0",
+    "description": "IP address or hostname the API server listens on."
+  },
+  "api.port": {
+    "type": "number",
+    "default": 6385,
+    "description": "TCP port the Ironic API server listens on."
+  },
+  "api.workers": {
+    "type": "number",
+    "default": 1,
+    "description": "Number of worker processes for the API server. Recommended: 1\u20132 per CPU core."
+  },
+  "api.max_limit": {
+    "type": "number",
+    "default": 1000,
+    "description": "Maximum number of items returned per list API call."
+  },
+  "conductor.automated_clean": {
+    "type": "boolean",
+    "default": true,
+    "description": "Whether to automatically clean bare metal nodes after deployment (e.g., erase disks)."
+  },
+  "conductor.api_url": {
+    "type": "string",
+    "default": "http://127.0.0.1:6385",
+    "description": "URL for the local Ironic API server (used by conductor for self-calls)."
+  },
+  "hardware_types.enabled": {
+    "type": "list",
+    "default": [
+      "ipmi",
+      "redfish"
+    ],
+    "description": "List of hardware types to enable (e.g., ipmi, redfish,ilo). These determine supported management protocols."
+  },
+  "inspector.enabled": {
+    "type": "boolean",
+    "default": true,
+    "description": "Enable the Ironic Inspector (hardware introspection) service integration."
+  },
+  "inspector.auth_url": {
+    "type": "string",
+    "default": "http://controller:5050",
+    "description": "URL of the Ironic Inspector API (if enabled)."
+  },
+  "dns.enabled": {
+    "type": "boolean",
+    "default": false,
+    "description": "Enable DNS integration for provisioned nodes (requires Neutron DNS extension)."
+  },
+  "dns.domain": {
+    "type": "string",
+    "default": "openstack.local",
+    "description": "DNS domain used for node hostname resolution."
+  },
+  "ipmi.allow_insecure": {
+    "type": "boolean",
+    "default": false,
+    "description": "Allow IPMI sessions without certificate validation (for testing only)."
+  },
+  "ipmi.remote_console_timeout": {
+    "type": "number",
+    "default": 600,
+    "description": "Timeout (in seconds) for remote console (e.g., IPMI v2.0 RMCP+) sessions."
+  },
+  "pxe.tftp_root": {
+    "type": "string",
+    "default": "/tftpboot",
+    "description": "Directory on the TFTP server where boot images are stored."
+  },
+  "pxe.tftp_server": {
+    "type": "string",
+    "default": "127.0.0.1",
+    "description": "IP address of the TFTP server serving boot images to bare metal nodes."
+  },
+  "pxe.boot_options": {
+    "type": "list",
+    "default": [],
+    "items": {
+      "type": "object",
+      "properties": {
+        "key": {
+          "type": "string",
+          "description": "Config file option name (e.g., 'pxe_append_params')"
+        },
+        "value": {
+          "type": "string",
+          "description": "Option value (e.g., 'console=ttyS0,115200')"
+        }
+      }
+    },
+    "description": "Optional additional kernel boot parameters or PXE-specific settings."
+  },
+  "ssl.enabled": {
+    "type": "boolean",
+    "default": false,
+    "description": "Enable TLS/SSL encryption for the API server."
+  },
+  "ssl.cert_file": {
+    "type": "string",
+    "default": "/etc/ironic/ssl/server.crt",
+    "description": "Path to SSL certificate file."
+  },
+  "ssl.key_file": {
+    "type": "string",
+    "default": "/etc/ironic/ssl/server.key",
+    "description": "Path to SSL private key file."
+  },
+  "ssl.ca_file": {
+    "type": "string",
+    "default": "/etc/ironic/ssl/ca.crt",
+    "description": "Path to CA certificate bundle (for client auth or TLS verification)."
+  },
+  "notify.state_changes": {
+    "type": "list",
+    "default": [
+      "info",
+      "warning",
+      "error"
+    ],
+    "description": "List of notification levels for state change events (e.g., deploy, cleanup)."
+  },
+  "notify.notify_on_deprecation": {
+    "type": "boolean",
+    "default": false,
+    "description": "Send notifications on deprecated API features (for upgrade readiness)."
+  },
+  "healthcheck.backends": {
+    "type": "list",
+    "default": [
+      "disable_by_file"
+    ],
+    "items": {
+      "type": "string",
+      "description": "Healthcheck backend name (e.g., 'disable_by_file', 'disable_by_file_path')."
+    },
+    "description": "Active healthcheck backends (controls how health endpoints behave)."
+  },
+  "healthcheck.backends_extra": {
+    "type": "list",
+    "default": [],
+    "items": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Backend name matching healthcheck.backends list (e.g., 'disable_by_file')"
+        },
+        "options": {
+          "type": "object",
+          "description": "Backend-specific config options as key-value pairs."
+        }
+      }
+    },
+    "description": "Additional per-backend healthcheck configuration (if supported)."
+  },
+  "middleware.rate_limiting_enabled": {
+    "type": "boolean",
+    "default": true,
+    "description": "Enable global rate limiting middleware for the API."
+  },
+  "middleware.rate_limit_burst": {
+    "type": "number",
+    "default": 10,
+    "description": "Max number of requests allowed during burst window."
+  },
+  "middleware.rate_limit_interval": {
+    "type": "number",
+    "default": 1,
+    "description": "Window size (in seconds) for rate limiting calculations."
+  }
+}

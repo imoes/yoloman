@@ -1,0 +1,20 @@
+# ModSecurity CRS Exclusion Rules: Applied BEFORE the core rule set
+# This file contains SecRuleRemoveById / SecRuleRemoveTargetById directives to exclude known false positives
+# or overly aggressive rules per specific application or endpoint requirements
+
+{% for rule_id in excluded_rule_ids %}
+# Exclude rule ID {{ rule_id }} globally
+SecRuleRemoveById {{ rule_id }}
+{% endfor %}
+
+{% for target in excluded_rule_targets %}
+# Exclude rule ID {{ target.rule_id }} for request parameter: {{ target.param_name }}
+SecRuleRemoveTargetById {{ target.rule_id }} REQUEST_{{ target.target_type | upper }}:{{ target.param_name }}
+{% endfor %}
+
+{% if debug_mode %}
+# Debug logging for exclusion rules (operator debug mode)
+SecRuleEngine DebugLogging
+{% endif %}
+
+# Ensure exclusions are processed before CRS rules (via Include directive in main ModSecurity config)

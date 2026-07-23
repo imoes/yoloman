@@ -1,0 +1,127 @@
+# Configuration file for mlmmj mailing list manager
+# Base directory where mailing lists are stored
+BASEDIR={{ base_dir }}
+
+# User and group under which mlmmj processes run
+WEBUSER={{ web_user }}
+WEBGROUP={{ web_group }}
+
+# Path to the sendmail binary (or compatible MTA)
+SENDMAIL={{ sendmail_path }}
+
+# Default language and character set for list messages
+DEFAULTLANG={{ default_lang }}
+DEFAULTCHARSET={{ default_charset }}
+
+# Enable/disable moderation by default for new lists
+DEFAULTMODERATED={{ default_moderated }}
+
+# Default subscription policy: open, confirm, admin-only
+DEFAULTSUBPOLICY={{ default_sub_policy }}
+
+# Default delivery mode: normal, digest, both
+DEFAULTDIGEST={{ default_digest_mode }}
+
+# Default digest frequency (in days)
+DEFAULTDIGESTFREQ={{ default_digest_freq }}
+
+# Maximum size (in bytes) of attachments accepted
+MAXATTACHSIZE={{ max_attach_size }}
+
+# Number of threads for background workers (e.g., bounce processing)
+NUMWORKERS={{ num_workers }}
+
+# Enable/disable HTML sanitization in messages
+SANITIZEHTML={{ sanitize_html }}
+
+# Path to custom HTML sanitization rules file (optional)
+{% if html_sanitization_rules_path %}# Custom HTML sanitization rules
+SANITIZEHTMLRULES={{ html_sanitization_rules_path }}
+{% endif %}
+
+# Logging level: 0=quiet, 1=normal, 2=verbose, 3=debug
+LOGLEVEL={{ log_level }}
+
+# Log directory
+LOGDIR={{ log_dir }}
+
+# Enable/disable archiving of messages
+ARCHIVE={{ archive }}
+
+# Path to archive storage (relative to list directory or absolute)
+ARCHIVEDIR={{ archive_dir }}
+
+# Enable/disable subscription confirmation emails
+SUBSCRIBERCONFIRM={{ subscriber_confirm }}
+
+# Enable/disable welcome email for new subscribers
+WELCOME={{ welcome }}
+
+# Enable/disable farewell email for unsubscribing users
+FAREWELL={{ farewell }}
+
+# Enable/disable rejection notices for moderated posts
+REJECTNOTICE={{ reject_notice }}
+
+# Enable/disable list admin notifications for moderation actions
+ADMINNOTIFY={{ admin_notify }}
+
+# Enable/disable sender address verification (SPF/DKIM checks)
+VERIFYSENDER={{ verify_sender }}
+
+# Enable/disable recipient address verification
+VERIFYRECIPIENT={{ verify_recipient }}
+
+# Enable/disable list hiding from public list of lists
+HIDELIST={{ hide_list }}
+
+# Enable/disable automatic list creation on first subscription
+AUTOCREATE={{ auto_create }}
+
+# Hostname to use in generated URLs and email headers
+HOSTNAME={{ hostname }}
+
+# URLs for list web interface and archives
+WEBURL={{ web_url }}
+ARCHIVEURL={{ archive_url }}
+
+# Default bounce handling: discard, hold, notify
+DEFAULTBOUNCEHANDLING={{ default_bounce_handling }}
+
+# Maximum number of bounces before auto-unsubscribe
+MAXBOUNCES={{ max_bounces }}
+
+# Bounce hold duration (in seconds)
+BOUNCEHOLD={{ bounce_hold }}
+
+# Enable/disable MIME digest mode (MIME-encoded digests)
+MIMEDIGEST={{ mime_digest }}
+
+# Enable/disable daily digests (as opposed to periodic)
+DAILYDIGEST={{ daily_digest }}
+
+# Enable/disable inclusion of message IDs in digests
+DIGESTINCLUDEMSGID={{ digest_include_msgid }}
+
+# Enable/disable inclusion of headers in digests
+DIGESTINCLUDEHEADERS={{ digest_include_headers }}
+
+# Custom headers to append to outgoing messages (one per line, key: value)
+{% for header, value in extra_headers %}EXTRAHEADER{{ loop.index }}={{ header }}: {{ value }}
+{% endfor %}
+
+# Allowed sender domains (optional, one per line)
+{% for domain in allowed_domains %}ALLOWEDDOMAIN={{ domain }}
+{% endfor %}
+
+# Banned sender addresses/regexes (one per line)
+{% for pattern in banned_senders %}BANNEDSENDER={{ pattern }}
+{% endfor %}
+
+# Allowed attachment file types (MIME types, one per line)
+{% for mime_type in allowed_attachment_types %}ALLOWEDATTACHMENT={{ mime_type }}
+{% endfor %}
+
+# Disabled commands for list administration (e.g., subscribe, unsubscribe)
+{% for cmd in disabled_commands %}DISABLEDCOMMAND={{ cmd }}
+{% endfor %}

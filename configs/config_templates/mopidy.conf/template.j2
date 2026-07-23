@@ -1,0 +1,115 @@
+[core]
+# The timeout for the core process (in seconds)
+timeout = {{ core.timeout }}
+
+[logging]
+# Log file path (use 'console' for stdout)
+log_file = {{ logging.log_file }}
+# Log level: debug, info, warning, error, critical
+log_level = {{ logging.log_level }}
+# Log format string
+log_format = {{ logging.log_format }}
+
+[file]
+# Enable/disable the file extension
+enabled = {{ file.enabled | string | lower }}
+# Local media directory
+media_dir = {{ file.media_dir }}
+# Directory to scan for local media
+scan_directories = {% for dir in file.scan_directories %}
+  {{ dir }}
+{% endfor %}
+# Timeout for scanning (in seconds)
+scan_timeout = {{ file.scan_timeout }}
+# Maximum depth to scan
+scan_depth = {{ file.scan_depth }}
+# Follow symlinks
+follow_symlinks = {{ file.follow_symlinks | string | lower }}
+
+[http]
+# Enable/disable the HTTP server
+enabled = {{ http.enabled | string | lower }}
+# Host to bind to
+hostname = {{ http.hostname }}
+# Port to listen on
+port = {{ http.port }}
+# Allow cross-origin requests
+allow_cors = {{ http.allow_cors | string | lower }}
+# Maximum size of a request (in bytes)
+max_request_size = {{ http.max_request_size }}
+
+[stream]
+# Enable/disable the stream extension
+enabled = {{ stream.enabled | string | lower }}
+# Timeout for streams (in seconds)
+timeout = {{ stream.timeout }}
+# Buffer size (in bytes)
+buffer_size = {{ stream.buffer_size }}
+
+[mpd]
+# Enable/disable the MPD server
+enabled = {{ mpd.enabled | string | lower }}
+# Host to bind to
+hostname = {{ mpd.hostname }}
+# Port to listen on
+port = {{ mpd.port }}
+# Maximum number of connections
+max_connections = {{ mpd.max_connections }}
+# Password for authentication (optional)
+{% if mpd.password %}password = {{ mpd.password }}
+{% endif %}
+
+[spotify]
+# Enable/disable the Spotify extension
+enabled = {{ spotify.enabled | string | lower }}
+# Spotify username
+username = {{ spotify.username }}
+# Spotify password
+password = {{ spotify.password }}
+# Spotify bitrate: 96, 160, 320
+bitrate = {{ spotify.bitrate }}
+# Timeout for Spotify actions (in seconds)
+timeout = {{ spotify.timeout }}
+# Allow offline playback
+offline = {{ spotify.offline | string | lower }}
+# Volume normalization (true/false)
+volume_normalization = {{ spotify.volume_normalization | string | lower }}
+# Preferred country for search results
+preferred_language = {{ spotify.preferred_language }}
+# Preferred audio quality: normal, high, very_high
+preferred_quality = {{ spotify.preferred_quality }}
+# Seed devices for Spotify Connect
+{% for device in spotify.devices %}  {{ device.name }} = {{ device.id }}
+{% endfor %}
+
+[local]
+# Enable/disable the local media extension
+enabled = {{ local.enabled | string | lower }}
+# Local media directory
+media_dir = {{ local.media_dir }}
+# Directory to store scanned data
+data_dir = {{ local.data_dir }}
+# Maximum number of workers for scanning
+max_workers = {{ local.max_workers }}
+# Timeout for scanning (in seconds)
+scan_timeout = {{ local.scan_timeout }}
+# Scan depth
+scan_depth = {{ local.scan_depth }}
+# Scan directories to scan
+{% for dir in local.scan_directories %}  {{ dir }}
+{% endfor %}
+# Follow symlinks
+follow_symlinks = {{ local.follow_symlinks | string | lower }}
+
+[iris]
+# Enable/disable the Iris web UI
+enabled = {{ iris.enabled | string | lower }}
+# API key for Iris (optional)
+{% if iris.api_key %}api_key = {{ iris.api_key }}
+{% endif %}
+
+[bandcamp]
+# Enable/disable the Bandcamp extension
+enabled = {{ bandcamp.enabled | string | lower }}
+# Search language
+search_language = {{ bandcamp.search_language }}

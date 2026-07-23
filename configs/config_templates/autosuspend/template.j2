@@ -1,0 +1,90 @@
+# System Autosuspend Daemon configuration file
+# See `man 5 autosuspend.conf` for detailed documentation
+
+# Timeout (in seconds) of inactivity before the first suspension attempt
+timeout = {{ timeout }}
+
+# Timeout (in seconds) of inactivity before forced suspension (after first timeout)
+force_timeout = {{ force_timeout }}
+
+# Action to perform when suspension is triggered
+# Valid values: 'suspend', 'hibernate', 'hybrid', 'shutdown'
+action = "{{ action }}"
+
+# Whether to wake the system before suspension (for maintenance, logs, etc.)
+# Valid values: 'none', 'suspend', 'hibernate', 'hybrid'
+wakeup_action = "{{ wakeup_action }}"
+
+# File to record activity (used by helper scripts or external tools)
+activity_log = "{{ activity_log }}"
+
+# Ignore activity from these users (space-separated list of usernames)
+ignore_users = {{ ignore_users | join(' ') }}
+
+# Ignore activity from these processes (exact names, space-separated)
+ignore_processes = {{ ignore_processes | join(' ') }}
+
+# Ignore activity from these devices (by path, space-separated)
+ignore_devices = {{ ignore_devices | join(' ') }}
+
+# Patterns of files or directories whose modification time indicates activity
+# Each pattern may contain wildcards (glob-style)
+{% for pattern in activity_watch_paths %}activity_watch_path = "{{ pattern }}"
+{% endfor %}
+
+# Whether to suspend when AC power is disconnected
+suspend_on_battery_only = {{ 'true' if suspend_on_battery_only else 'false' }}
+
+# Minimum battery level (percentage) required to allow suspension on battery
+# Set to 0 to disable check
+battery_min_percent = {{ battery_min_percent }}
+
+# Whether to ignore network activity on these interfaces
+# Interface names space-separated (e.g., 'eth0 wlan0')
+ignore_network_interfaces = {{ ignore_network_interfaces | join(' ') }}
+
+# Command(s) to run before and after suspension
+# Commands are executed as-is; use `;` to chain
+{% if pre_suspend_command %}pre_suspend_command = "{{ pre_suspend_command }}"
+{% endif %}
+{% if post_suspend_command %}post_suspend_command = "{{ post_suspend_command }}"
+{% endif %}
+
+# Whether to suspend only if no active X11 sessions are present
+require_no_x11 = {{ 'true' if require_no_x11 else 'false' }}
+
+# Whether to suspend only if no active Wayland sessions are present
+require_no_wayland = {{ 'true' if require_no_wayland else 'false' }}
+
+# Whether to suspend only if no active console sessions (via loginctl) are present
+require_no_console_sessions = {{ 'true' if require_no_console_sessions else 'false' }}
+
+# Whether to suspend only if no active SSH sessions are present
+require_no_ssh_sessions = {{ 'true' if require_no_ssh_sessions else 'false' }}
+
+# Whether to suspend only if no active VNC sessions are present
+require_no_vnc_sessions = {{ 'true' if require_no_vnc_sessions else 'false' }}
+
+# Whether to suspend only if no active UPnP/DLNA players are active
+require_no_upnp_players = {{ 'true' if require_no_upnp_players else 'false' }}
+
+# Whether to suspend only if no active printing jobs are pending
+require_no_printer_jobs = {{ 'true' if require_no_printer_jobs else 'false' }}
+
+# Whether to suspend only if no active media playback is detected
+require_no_media_playback = {{ 'true' if require_no_media_playback else 'false' }}
+
+# Whether to suspend only if no active file transfers (via rsync, cp, etc.) are running
+require_no_file_transfers = {{ 'true' if require_no_file_transfers else 'false' }}
+
+# Whether to suspend only if no active backups are running
+require_no_backups = {{ 'true' if require_no_backups else 'false' }}
+
+# Whether to suspend only if no active database services are running
+require_no_database_services = {{ 'true' if require_no_database_services else 'false' }}
+
+# Whether to suspend only if no active web services are listening
+require_no_web_services = {{ 'true' if require_no_web_services else 'false' }}
+
+# Whether to suspend only if no active container runtimes are active (docker, podman, etc.)
+require_no_containers = {{ 'true' if require_no_containers else 'false' }}

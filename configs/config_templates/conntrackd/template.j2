@@ -1,0 +1,78 @@
+# /etc/conntrackd/conntrackd.conf
+# Global behavior and logging
+# Logging section for verbosity and log file options
+[Log]
+  # Enable verbose logging
+  LogLevel = {{ log_level }}
+  # Path to log file (use 'Syslog' for system logging)
+  LogFile = {{ log_file }}
+
+# Network section for daemon communication
+# Network settings for internal communication (e.g., with kernel)
+[Network]
+  # IP address to bind to for internal communication
+  BindAddr = {{ network.bind_addr }}
+  # Port for internal communication
+  Port = {{ network.port }}
+  # Protocol for internal communication (IPv4 or IPv6)
+  Protocol = {{ network.protocol }}
+
+# Connection tracking section
+# Main connection tracking configuration
+[Conntrack]
+  # Size of the connection tracking table
+  TableSize = {{ conntrack.table_size }}
+  # Timeout values for connections (in seconds)
+  TimeoutEstablished = {{ conntrack.timeout.established }}
+  TimeoutClose = {{ conntrack.timeout.close }}
+  TimeoutTimeWait = {{ conntrack.timeout.time_wait }}
+  # Flush table on startup
+  FlushOnStart = {{ conntrack.flush_on_start }}
+  # Enable sync (for HA setups)
+  Sync = {{ conntrack.sync.enabled }}
+  # Sync method (flood or normal)
+  SyncMode = {{ conntrack.sync.mode }}
+  # Maximum queued messages during sync
+  QueueMaxlen = {{ conntrack.sync.queue_maxlen }}
+  # Log sync events
+  LogSync = {{ conntrack.sync.log_sync }}
+
+# Event handler section for custom actions
+# Hooks for connection creation/deletion events
+[Event]
+  # Command to execute on connection creation
+  New = {{ event.new_command | default('') }}
+  # Command to execute on connection deletion
+  Destroy = {{ event.destroy_command | default('') }}
+
+# FTP helper configuration (if FTP tracking is needed)
+# FTP helper settings
+[Helper]
+  # Enable FTP helper
+  FTP = {{ helper.ftp.enabled }}
+  # FTP helper port
+  FTPPort = {{ helper.ftp.port }}
+  # FTP helper timeout (seconds)
+  FTPTimeout = {{ helper.ftp.timeout }}
+
+# SNMP extension (optional)
+# SNMP settings for monitoring
+[SNMP]
+  # Enable SNMP extension
+  AgentX = {{ snmp.agentx }}
+
+# HA (High Availability) section
+# Configuration for active/standby or load-sharing HA setups
+[HA]
+  # Enable HA mode
+  Mode = {{ ha.mode | default('') }}
+  # List of HA peers (for multi-node HA)
+  {% if ha.peers %}
+  {% for peer in ha.peers %}
+  Peer = {{ peer.addr }}:{{ peer.port }}
+  {% endfor %}
+  {% endif %}
+  # Secret for HA authentication
+  Secret = {{ ha.secret | default('') }}
+  # Interval (in seconds) between heartbeat messages
+  Interval = {{ ha.interval }}

@@ -1,0 +1,107 @@
+# OpenNDS configuration file — controls public Wi-Fi hotspot access
+# This file configures the opennds daemon (Wi-Fi hotspot controller)
+
+# Path to the PID file
+pidfile: /var/run/opennds/opennds.pid
+
+# Interface to monitor for client connections (e.g., the AP interface)
+interface: {{ interface }}
+
+# Network interface connected to the upstream (e.g., LAN/WAN side)
+upstream: {{ upstream }}
+
+# Gateway IP address for NAT (typically the router's IP on the LAN)
+gateway: {{ gateway }}
+
+# Subnet for hotspot clients (CIDR notation)
+subnet: {{ subnet }}
+
+# Start of DHCP range for client IPs
+start_ip: {{ start_ip }}
+
+# End of DHCP range for client IPs
+end_ip: {{ end_ip }}
+
+# DNS servers to hand out via DHCP (comma-separated IPs or 'gateway' for upstream resolver)
+dns_servers: {{ dns_servers | join(', ') }}
+
+# Port the HTTP redirect server listens on (for captive portal)
+redirect_port: {{ redirect_port }}
+
+# Port the main control server listens on (for authentication backend communication)
+control_port: {{ control_port }}
+
+# URL of the external authentication backend (e.g., FreeRADIUS, CoovaChilli NDS, or custom API)
+backend_url: {{ backend_url }}
+
+# Timeout (seconds) for backend HTTP requests
+backend_timeout: {{ backend_timeout }}
+
+# Maximum number of concurrent clients allowed
+max_clients: {{ max_clients }}
+
+# Enable logging to syslog
+log_syslog: {{ log_syslog }}
+
+# Log level: 0=quiet, 1=errors, 2=info, 3=debug
+log_level: {{ log_level }}
+
+# Path to the log file (if log_syslog is false)
+log_file: {{ log_file }}
+
+# Enable WPA-PSK (pre-shared key) authentication (if supported by hardware)
+use_wpa_psk: {{ use_wpa_psk }}
+
+# WPA-PSK passphrase (required if use_wpa_psk is true)
+wpa_psk_passphrase: {{ wpa_psk_passphrase | default('') }}
+
+# Enable HTTPS redirect (requires valid SSL certificate in place)
+use_https: {{ use_https }}
+
+# SSL certificate file (for HTTPS redirect)
+ssl_cert: {{ ssl_cert }}
+
+# SSL private key file (for HTTPS redirect)
+ssl_key: {{ ssl_key }}
+
+# Custom HTML pages (replace default portal pages)
+{% for page in pages %}
+# {{ page.name }}: {{ page.description }}
+{{ page.name | replace(' ', '_') | lower }}: {{ page.path }}
+{% endfor %}
+
+# Optional: Static host entries to add to /etc/hosts (e.g., for local DNS override)
+{% if static_hosts %}
+# Static DNS entries
+{% for host in static_hosts %}
+host_entry: {{ host.ip }} {{ host.hostname }}{% if host.aliases %} {{ host.aliases | join(' ') }}{% endif %}
+{% endfor %}
+{% endif %}
+
+# Optional: Rate limiting per client (in kbps)
+{% if rate_limiting %}
+# Rate limiting: upstream and downstream in kbps
+{% for client in rate_limiting.clients %}
+rate_limit_client: {{ client.mac }} {{ client.up }} {{ client.down }}
+{% endfor %}
+{% endif %}
+
+# Enable MAC-based allowlist (only listed MACs get access)
+use_mac_allowlist: {{ use_mac_allowlist }}
+
+# Optional: List of allowed MAC addresses
+{% if mac_allowlist %}
+# Allowed MAC addresses
+{% for mac in mac_allowlist %}
+mac_allowed: {{ mac }}
+{% endfor %}
+{% endif %}
+
+# Enable session timeout (in minutes); 0 = no timeout
+session_timeout: {{ session_timeout }}
+
+# Enable bandwidth accounting (required for usage-based billing)
+use_bandwidth_accounting: {{ use_bandwidth_accounting }}
+
+# Path to store accounting data (optional, for custom backend use)
+accounting_file: {{ accounting_file }}

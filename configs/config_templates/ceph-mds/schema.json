@@ -1,0 +1,196 @@
+{
+  "fsid": {
+    "type": "string",
+    "default": "",
+    "description": "Unique cluster identifier (UUID). Must be globally unique across clusters."
+  },
+  "mon_initial_members": {
+    "type": "list",
+    "default": [
+      "mon-a",
+      "mon-b",
+      "mon-c"
+    ],
+    "items": {
+      "type": "string"
+    },
+    "description": "Initial monitor hostnames or identifiers for quorum formation."
+  },
+  "mon_host": {
+    "type": "list",
+    "default": [
+      "10.0.0.1",
+      "10.0.0.2",
+      "10.0.0.3"
+    ],
+    "items": {
+      "type": "string"
+    },
+    "description": "IP addresses of monitors (comma-separated list)."
+  },
+  "auth_cluster_required": {
+    "type": "string",
+    "default": "cephx",
+    "description": "Authentication required for cluster communication (e.g., 'cephx', 'none')."
+  },
+  "auth_service_required": {
+    "type": "string",
+    "default": "cephx",
+    "description": "Authentication required for services (e.g., 'cephx', 'none')."
+  },
+  "auth_client_required": {
+    "type": "string",
+    "default": "cephx",
+    "description": "Authentication required for clients (e.g., 'cephx', 'none')."
+  },
+  "mds_id": {
+    "type": "string",
+    "default": "a",
+    "description": "Unique identifier for this MDS daemon (e.g., 'a', 'b', '0')."
+  },
+  "mds_host": {
+    "type": "string",
+    "default": "",
+    "description": "Hostname or IP address for this MDS daemon to bind to. If empty, auto-detected."
+  },
+  "mds_rank": {
+    "type": "number",
+    "default": 0,
+    "description": "MDS rank (0-based). Set manually only for static rank assignment; omit or leave null for dynamic."
+  },
+  "mds_backend": {
+    "type": "string",
+    "default": "bluestore",
+    "description": "Metadata backend storage (e.g., 'bluestore', 'filestore' [deprecated])."
+  },
+  "mds_max_file_size": {
+    "type": "number",
+    "default": 1099511627776,
+    "description": "Maximum file size (in bytes) allowed in CephFS (default: 1 TiB)."
+  },
+  "mds_standby": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable standby mode (true) so daemon waits for active MDS failure to take over."
+  },
+  "mds_standby_for_name": {
+    "type": "string",
+    "default": "",
+    "description": "Name of MDS daemon this standby follows. Empty means standby for any rank."
+  },
+  "mds_standby_replay": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable replay mode: standby MDS replays log in real-time to reduce failover latency."
+  },
+  "mds_cache_memory_limit": {
+    "type": "number",
+    "default": 1073741824,
+    "description": "Memory limit (in bytes) for metadata cache per MDS instance (default: 1 GiB)."
+  },
+  "mds_dir_max_entries": {
+    "type": "number",
+    "default": 100000,
+    "description": "Maximum entries allowed per directory before performance tuning needed."
+  },
+  "mds_decay_halflife": {
+    "type": "number",
+    "default": 5,
+    "description": "Time (in seconds) for cache decay halflife (higher = longer cache retention)."
+  },
+  "mds_beacon_interval": {
+    "type": "number",
+    "default": 60,
+    "description": "Interval (in seconds) between MDS beacon messages to monitor daemons."
+  },
+  "mds_beacon_grace": {
+    "type": "number",
+    "default": 300,
+    "description": "Grace period (in seconds) before an unresponsive MDS is marked failed."
+  },
+  "mds_enforce_unique_name": {
+    "type": "bool",
+    "default": true,
+    "description": "Enforce unique MDS names (prevents duplicate ranks)."
+  },
+  "mds_op_complaint_time": {
+    "type": "number",
+    "default": 30,
+    "description": "Time (in seconds) before an operation is considered slow and logged."
+  },
+  "mds_op_log_debug_time": {
+    "type": "number",
+    "default": 30,
+    "description": "Time (in seconds) after which debug logs for ops are truncated."
+  },
+  "mds_op_log_max_items": {
+    "type": "number",
+    "default": 10000,
+    "description": "Maximum operations logged per MDS instance."
+  },
+  "mds_replay_interval": {
+    "type": "number",
+    "default": 1,
+    "description": "Interval (in seconds) for MDS journal replay attempts during recovery."
+  },
+  "mds_verify_scatter_noscatter": {
+    "type": "bool",
+    "default": false,
+    "description": "Verify consistency between scatter and noscatter metadata modes (diagnostic)."
+  },
+  "client_cache_size": {
+    "type": "number",
+    "default": 1073741824,
+    "description": "Client-side cache size (in bytes) per mount (default: 1 GiB)."
+  },
+  "client_readahead_min": {
+    "type": "number",
+    "default": 1048576,
+    "description": "Minimum read-ahead (in bytes) for sequential reads (default: 1 MiB)."
+  },
+  "client_readahead_max": {
+    "type": "number",
+    "default": 62914560,
+    "description": "Maximum read-ahead (in bytes) for sequential reads (default: 60 MiB)."
+  },
+  "client_snapshots": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable client-side snapshot support (requires compatible client kernel)."
+  },
+  "enable_cephfs_ganesha": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable NFS-Ganesha export for Samba/NFS-compatible access (requires cephfs-ganesha package)."
+  },
+  "ganesha_id": {
+    "type": "string",
+    "default": "1",
+    "description": "Identifier for Ganesha instance (e.g., '1', 'nfs-ganesha-1')."
+  },
+  "ganesha_mount_dir": {
+    "type": "string",
+    "default": "nfs-ganesha",
+    "description": "Mount point path under which Ganesha exposes CephFS (relative to Ganesha root)."
+  },
+  "nfs_exports": {
+    "type": "list",
+    "default": [],
+    "items": {
+      "type": "object",
+      "fields": {
+        "path": {
+          "type": "string",
+          "default": "/export",
+          "description": "NFS export path (e.g., /export/home)."
+        },
+        "ceph_path": {
+          "type": "string",
+          "default": "/exports/home",
+          "description": "CephFS directory path to export (e.g., /exports/home)."
+        }
+      }
+    },
+    "description": "List of NFS export paths and their corresponding CephFS backing paths (for Ganesha)."
+  }
+}

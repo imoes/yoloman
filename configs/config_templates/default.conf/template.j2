@@ -1,0 +1,89 @@
+[client]
+# The name of the IPA domain to which this client will join
+realm = {{ realm }}
+
+# Hostname of the IPA server to contact for authentication
+server = {{ server }}
+
+# Whether to automatically create a home directory for IPA users on first login
+create_homedir = {{ create_homedir }}
+
+# The prompt to use when prompting for a password (e.g., 'Password: ')
+# (typically left blank to use default prompt)
+prompt_password = {{ prompt_password | default('') }}
+
+# Maximum number of DNS lookups to perform when resolving IPA servers
+# Set to 0 to disable recursive DNS SRV record lookups
+dns_lookup_max_depth = {{ dns_lookup_max_depth }}
+
+# Whether to use DNS SRV records to discover IPA servers (if dns_lookup_realm is enabled)
+dns_lookup_realm = {{ dns_lookup_realm }}
+
+# Whether to use DNS to discover IPA domain controllers (Kerberos realm discovery)
+dns_discovery = {{ dns_discovery }}
+
+# The Kerberos realm name (usually matches IPA realm, but can differ)
+krb5_realm = {{ krb5_realm | default(realm) }}
+
+# List of additional KDCs to try if the primary server fails
+{% for kdc in kdcs %}# KDC: {{ kdc }}
+kdc = {{ kdc }}
+{% endfor %}
+
+# List of additional admin servers (for kadmin operations)
+{% for admin_server in admin_servers %}# Admin Server: {{ admin_server }}
+admin_server = {{ admin_server }}
+{% endfor %}
+
+# Path to the Kerberos configuration file (typically /etc/krb5.conf)
+krb5_conf = {{ krb5_conf | default('/etc/krb5.conf') }}
+
+# Whether to use SSH keys for host authentication (for trustedhosts support)
+ssh_keys = {{ ssh_keys | default('false') }}
+
+# Whether to automatically update SSH client config with host keys
+update_ssh_client_config = {{ update_ssh_client_config | default('true') }}
+
+# Whether to automatically add IPA hosts to known_hosts
+add_to_known_hosts = {{ add_to_known_hosts | default('true') }}
+
+# Whether to automatically configure SSSD as the NSS/PAM provider
+configure_sshd = {{ configure_sshd | default('true') }}
+
+# Whether to configure the client to use SSSD instead of legacy /etc/passwd, etc.
+use_sssd = {{ use_sssd | default('true') }}
+
+[domain/{{ realm | lower }}]
+# Enable IPA provider for user and group lookups
+id_provider = ipa
+auth_provider = ipa
+access_provider = ipa
+
+# LDAP URI for IPA server (if custom LDAP endpoint needed)
+{% if ldap_uri %}ldap_uri = {{ ldap_uri }}
+{% endif %}
+
+# Base DN for LDAP queries (usually auto-discovered)
+{% if base_dn %}ldap_search_base = {{ base_dn }}
+{% endif %}
+
+# Whether to allow offline authentication (uses cached credentials)
+cache_credentials = {{ cache_credentials | default('true') }}
+
+# Minimum UID/GID to consider valid (prevents conflicts with local accounts)
+min_id = {{ min_id }}
+
+# Maximum UID/GID to consider valid
+max_id = {{ max_id }}
+
+# Whether to automatically enumerate IPA users and groups (can be expensive on large directories)
+enumerate = {{ enumerate }}
+
+# Whether to allow trusted domains (for multi-domain IPA deployments)
+allow_trusted_domains = {{ allow_trusted_domains | default('false') }}
+
+# Whether to enable DNS updates (requires write access to IPA DNS)
+dns_forwarder = {{ dns_forwarder | default('') }}
+
+# Whether to use OTP for authentication (if enabled server-side)
+use_otp = {{ use_otp | default('false') }}

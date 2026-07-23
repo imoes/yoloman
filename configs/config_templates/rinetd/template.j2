@@ -1,0 +1,7 @@
+# rinetd.conf — Basic TCP/UDP port redirection configuration
+# Format: [Source IP] [Source Port] [Connect IP] [Connect Port]
+# Optional: [Protocol] (tcp or udp)
+
+{% for rule in forwarding_rules %}{% if rule.comment %}# {{ rule.comment }}
+{% endif %}{% if rule.protocol %}{{ rule.protocol | upper }} {% endif %}{{ rule.bind_addr | default('*') }} {{ rule.bind_port }} {{ rule.connect_addr | default(rule.bind_addr) }} {{ rule.connect_port }}
+{% endfor %}

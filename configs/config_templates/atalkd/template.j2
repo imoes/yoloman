@@ -1,0 +1,61 @@
+# Enable AppleTalk protocol support (required for atalkd to start)
+{% if atalk_enabled | default(false) %}
+device = {{ atalk_device }}
+
+# AppleTalk address range (zone will be auto-assigned if omitted)
+{% if atalk_addr_start and atalk_addr_end %}
+range = {{ atalk_addr_start }}-{{ atalk_addr_end }}
+{% endif %}
+
+# Default zone name for this network segment
+{% if default_zone %}
+zone = {{ default_zone }}
+{% endif %}
+
+# Enable NBP (Name Binding Protocol) name registration
+{% if nbp_enabled | default(true) %}
+nbp = on
+{% else %}
+nbp = off
+{% endif %}
+
+# Enable RTMP (Routing Table Maintenance Protocol) routing
+{% if rtmp_enabled | default(false) %}
+rtmp = on
+{% else %}
+rtmp = off
+{% endif %}
+
+# Zone list — define explicit zones and their ranges (overrides auto-discovery)
+{% for zone in zones %}
+zone = {{ zone.name }}
+{% if zone.ranges %}
+{% for r in zone.ranges %}
+range = {{ r.start }}-{{ r.end }}
+{% endfor %}
+{% endif %}
+{% endfor %}
+
+# AppleTalk router interface(s) — enable routing between zones
+{% for iface in router_interfaces %}
+router = {{ iface }}
+{% endfor %}
+
+# Maximum number of concurrent AppleTalk connections
+{% if max_connections %}
+maxconn = {{ max_connections }}
+{% endif %}
+
+# Enable DDP checksum verification (default: off; set to on for strict compliance)
+{% if ddp_checksum | default(false) %}
+ddpchecksum = on
+{% endif %}
+
+# Log level (0–7, where 7 is most verbose)
+{% if log_level %}
+loglevel = {{ log_level }}
+{% endif %}
+{% else %}
+# AppleTalk disabled — atalkd will not start
+atalk = off
+{% endif %}

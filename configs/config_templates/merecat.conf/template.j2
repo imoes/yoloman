@@ -1,0 +1,46 @@
+[# General server settings #]
+host = {{ host }}
+port = {{ port }}
+root = {{ root }}
+
+[# Logging configuration #]
+log_file = {{ log_file }}
+log_level = {{ log_level }}
+
+[# MIME and index settings #]
+mime_file = {{ mime_file }}
+index_files = {{ index_files | join(', ') }}
+
+[# Security & access control #]
+user = {{ user }}
+group = {{ group }}
+allow_symlink = {{ 'yes' if allow_symlink else 'no' }}
+allow_dir_listing = {{ 'yes' if allow_dir_listing else 'no' }}
+
+[# Threading & performance #]
+threads = {{ threads }}
+
+[# TLS / HTTPS support #]
+ssl_enabled = {{ 'yes' if ssl_enabled else 'no' }}
+{% if ssl_enabled %}
+ssl_cert = {{ ssl_cert }}
+ssl_key = {{ ssl_key }}
+{% endif %}
+
+[# Custom server headers #]
+{% for header in server_headers %}header_{{ loop.index }} = {{ header.name }}: {{ header.value }}
+{% endfor %}
+
+[# Access restrictions by IP (optional) #]
+{% if allowed_ips %}# Allow only these IPs
+{% for ip in allowed_ips %}allow_ip = {{ ip }}
+{% endfor %}{% endif %}
+
+[# Custom 404/50x error pages #]
+error_404 = {{ error_404 }}
+{% if error_50x %}error_50x = {{ error_50x }}
+{% endif %}
+
+[# Timeout settings (seconds) #]
+read_timeout = {{ read_timeout }}
+write_timeout = {{ write_timeout }}

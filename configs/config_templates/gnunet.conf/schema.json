@@ -1,0 +1,375 @@
+{
+  "core": {
+    "type": "object",
+    "default": {},
+    "description": "Core service configuration (required infrastructure)",
+    "items": {
+      "port": {
+        "type": "number",
+        "default": 2086,
+        "description": "TCP port for core service"
+      },
+      "hostname": {
+        "type": "string",
+        "default": "localhost",
+        "description": "Bind hostname for core service"
+      },
+      "timeout": {
+        "type": "number",
+        "default": 30,
+        "description": "Connection timeout (seconds)"
+      }
+    }
+  },
+  "arm": {
+    "type": "object",
+    "default": {},
+    "description": "Automatic Restart Manager \u2014 controls when and how services start/stop",
+    "items": {
+      "port": {
+        "type": "number",
+        "default": 2087,
+        "description": "Port for ARM service"
+      },
+      "hostname": {
+        "type": "string",
+        "default": "localhost",
+        "description": "Bind hostname for ARM service"
+      },
+      "default_services": {
+        "type": "list",
+        "default": [
+          "core",
+          "arm",
+          "statistics",
+          "transport",
+          "topology"
+        ],
+        "description": "List of services to start by default"
+      },
+      "start_services": {
+        "type": "list",
+        "default": [],
+        "description": "Additional services to enable (toggle on/off)",
+        "items": {
+          "type": "object",
+          "items": {
+            "name": {
+              "type": "string",
+              "description": "Name of the service (e.g., 'dht', 'vpn')"
+            },
+            "enabled": {
+              "type": "bool",
+              "description": "Whether to enable auto-start for this service"
+            }
+          }
+        }
+      }
+    }
+  },
+  "nat": {
+    "type": "object",
+    "default": {},
+    "description": "Network Address Translation (NAT) and external IP handling",
+    "items": {
+      "enable_upnp": {
+        "type": "bool",
+        "default": true,
+        "description": "Enable UPnP for automatic port forwarding"
+      },
+      "behind_nat": {
+        "type": "bool",
+        "default": false,
+        "description": "Set to true if this node is behind NAT"
+      },
+      "allow_nat": {
+        "type": "bool",
+        "default": true,
+        "description": "Allow other peers to NAT-traverse through this node"
+      },
+      "http_proxy": {
+        "type": "string",
+        "default": "",
+        "description": "HTTP proxy URL (e.g., 'http://proxy.local:8080')"
+      },
+      "external_ip": {
+        "type": "string",
+        "default": "",
+        "description": "Manually override external IP address"
+      }
+    }
+  },
+  "dht": {
+    "type": "object",
+    "default": {},
+    "description": "Distributed Hash Table service configuration",
+    "items": {
+      "port": {
+        "type": "number",
+        "default": 2088,
+        "description": "Port for DHT service"
+      },
+      "hostname": {
+        "type": "string",
+        "default": "localhost",
+        "description": "Bind hostname for DHT"
+      },
+      "cache_size": {
+        "type": "number",
+        "default": 1000,
+        "description": "Maximum number of entries in local DHT cache"
+      },
+      "worker_threads": {
+        "type": "number",
+        "default": 2,
+        "description": "Number of worker threads for DHT processing"
+      }
+    }
+  },
+  "datastore": {
+    "type": "object",
+    "default": {},
+    "description": "Persistent storage backend settings",
+    "items": {
+      "db": {
+        "type": "string",
+        "default": "sqlite",
+        "description": "Database backend ('sqlite', 'mysql', 'postgres')"
+      },
+      "limit": {
+        "type": "string",
+        "default": "10 GB",
+        "description": "Maximum disk space to use for storage"
+      },
+      "prefix": {
+        "type": "string",
+        "default": "gnunet",
+        "description": "Database table prefix"
+      },
+      "path": {
+        "type": "string",
+        "default": "/var/lib/gnunet",
+        "description": "Directory to store database files"
+      }
+    }
+  },
+  "transport": {
+    "type": "object",
+    "default": {},
+    "description": "Transport plugin configuration",
+    "items": {
+      "plugins": {
+        "type": "list",
+        "default": [
+          "tcp",
+          "udp"
+        ],
+        "description": "List of enabled transport plugins"
+      },
+      "timeout": {
+        "type": "number",
+        "default": 300,
+        "description": "Transport connection timeout (seconds)"
+      },
+      "plugins_config": {
+        "type": "list",
+        "default": [],
+        "description": "Per-plugin configuration (only for enabled plugins)",
+        "items": {
+          "type": "object",
+          "items": {
+            "name": {
+              "type": "string",
+              "description": "Name of the transport plugin (e.g., 'tcp')"
+            },
+            "port": {
+              "type": "number",
+              "description": "Port for this transport"
+            },
+            "hostname": {
+              "type": "string",
+              "description": "Bind hostname for this transport"
+            },
+            "listen_addresses": {
+              "type": "list",
+              "description": "Addresses to bind to (e.g., ['0.0.0.0', '::'] for all interfaces)"
+            }
+          }
+        }
+      }
+    }
+  },
+  "peerinfo": {
+    "type": "object",
+    "default": {},
+    "description": "Peer information service (public key directory, peer discovery)",
+    "items": {
+      "port": {
+        "type": "number",
+        "default": 2089,
+        "description": "Port for peerinfo service"
+      },
+      "hostname": {
+        "type": "string",
+        "default": "localhost",
+        "description": "Bind hostname for peerinfo"
+      }
+    }
+  },
+  "vpn": {
+    "type": "object",
+    "default": {},
+    "description": "GNUnet VPN \u2014 enables creating virtual networks (optional)",
+    "items": {
+      "enabled": {
+        "type": "bool",
+        "default": false,
+        "description": "Enable VPN service"
+      },
+      "port": {
+        "type": "number",
+        "default": 2090,
+        "description": "Port for VPN service"
+      },
+      "hostname": {
+        "type": "string",
+        "default": "localhost",
+        "description": "Bind hostname for VPN"
+      },
+      "tunnel_name": {
+        "type": "string",
+        "default": "gnunet-vpn",
+        "description": "Name of the TUN/TAP interface"
+      },
+      "tunnel_server": {
+        "type": "string",
+        "default": "10.5.0.1",
+        "description": "VPN internal gateway IP"
+      }
+    }
+  },
+  "resolver": {
+    "type": "object",
+    "default": {},
+    "description": "Local DNS resolver (for DNS over GNUnet)",
+    "items": {
+      "port": {
+        "type": "number",
+        "default": 5353,
+        "description": "Port for DNS resolver"
+      },
+      "hostname": {
+        "type": "string",
+        "default": "127.0.0.1",
+        "description": "Bind hostname (typically 127.0.0.1)"
+      }
+    }
+  },
+  "gns": {
+    "type": "object",
+    "default": {},
+    "description": "GNU Name System \u2014 decentralized name resolution",
+    "items": {
+      "port": {
+        "type": "number",
+        "default": 2091,
+        "description": "Port for GNS service"
+      },
+      "hostname": {
+        "type": "string",
+        "default": "localhost",
+        "description": "Bind hostname for GNS"
+      },
+      "zone_key_file": {
+        "type": "string",
+        "default": "/etc/gnunet.d/gns/private-zone.key",
+        "description": "File path for private zone key (required for root delegation)"
+      }
+    }
+  },
+  "set": {
+    "type": "object",
+    "default": {},
+    "description": "Secure Set Intersection service",
+    "items": {
+      "port": {
+        "type": "number",
+        "default": 2092,
+        "description": "Port for SET service"
+      },
+      "hostname": {
+        "type": "string",
+        "default": "localhost",
+        "description": "Bind hostname for SET"
+      }
+    }
+  },
+  "cadet": {
+    "type": "object",
+    "default": {},
+    "description": "CADET \u2014 secure messaging channel",
+    "items": {
+      "port": {
+        "type": "number",
+        "default": 2093,
+        "description": "Port for CADET service"
+      },
+      "hostname": {
+        "type": "string",
+        "default": "localhost",
+        "description": "Bind hostname for CADET"
+      }
+    }
+  },
+  "namestore": {
+    "type": "object",
+    "default": {},
+    "description": "Namestore \u2014 stores GNS records locally",
+    "items": {
+      "port": {
+        "type": "number",
+        "default": 2094,
+        "description": "Port for namestore service"
+      },
+      "hostname": {
+        "type": "string",
+        "default": "localhost",
+        "description": "Bind hostname for namestore"
+      }
+    }
+  },
+  "consensus": {
+    "type": "object",
+    "default": {},
+    "description": "Consensus protocol \u2014 distributed agreement",
+    "items": {
+      "port": {
+        "type": "number",
+        "default": 2095,
+        "description": "Port for consensus service"
+      },
+      "hostname": {
+        "type": "string",
+        "default": "localhost",
+        "description": "Bind hostname for consensus"
+      }
+    }
+  },
+  "revocation": {
+    "type": "object",
+    "default": {},
+    "description": "Credential revocation service",
+    "items": {
+      "port": {
+        "type": "number",
+        "default": 2096,
+        "description": "Port for revocation service"
+      },
+      "hostname": {
+        "type": "string",
+        "default": "localhost",
+        "description": "Bind hostname for revocation"
+      }
+    }
+  }
+}

@@ -1,0 +1,174 @@
+{
+  "mode": {
+    "type": "string",
+    "default": "daemon",
+    "description": "Daemon operating mode \u2014 typically 'daemon' or 'standalone'."
+  },
+  "bind_host": {
+    "type": "string",
+    "default": "127.0.0.1",
+    "description": "IP address to bind the service to."
+  },
+  "bind_port": {
+    "type": "number",
+    "default": 8080,
+    "description": "Port number to listen on."
+  },
+  "log_level": {
+    "type": "string",
+    "default": "info",
+    "description": "Verbosity level: 'debug', 'info', 'warn', or 'error'."
+  },
+  "log_file": {
+    "type": "string",
+    "default": "/var/log/alfred/alfred.log",
+    "description": "Path to the main log file."
+  },
+  "worker_count": {
+    "type": "number",
+    "default": 4,
+    "description": "Number of concurrent worker threads."
+  },
+  "max_connections": {
+    "type": "number",
+    "default": 1024,
+    "description": "Maximum number of simultaneous connections."
+  },
+  "use_tls": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable TLS encryption for inbound connections."
+  },
+  "tls_cert_file": {
+    "type": "string",
+    "default": "/etc/alfred/tls.crt",
+    "description": "Path to TLS certificate file (only used if TLS enabled)."
+  },
+  "tls_key_file": {
+    "type": "string",
+    "default": "/etc/alfred/tls.key",
+    "description": "Path to TLS private key file (only used if TLS enabled)."
+  },
+  "endpoints": {
+    "type": "list",
+    "default": [],
+    "description": "List of remote Fact Exchange (RFE) endpoints to call for facts.",
+    "items": {
+      "type": "object",
+      "fields": {
+        "name": {
+          "type": "string",
+          "default": "",
+          "description": "Unique identifier for this endpoint."
+        },
+        "url": {
+          "type": "string",
+          "default": "",
+          "description": "Full HTTP(S) URL of the remote endpoint."
+        },
+        "method": {
+          "type": "string",
+          "default": "GET",
+          "description": "HTTP method: 'GET', 'POST', 'PUT', etc."
+        },
+        "timeout": {
+          "type": "number",
+          "default": 5,
+          "description": "Request timeout in seconds."
+        },
+        "retry_count": {
+          "type": "number",
+          "default": 3,
+          "description": "Number of retry attempts on failure."
+        },
+        "backoff_ms": {
+          "type": "number",
+          "default": 250,
+          "description": "Initial backoff delay in milliseconds."
+        },
+        "headers": {
+          "type": "object",
+          "default": {},
+          "description": "Custom HTTP headers to send (key-value map)."
+        },
+        "auth": {
+          "type": "object",
+          "default": null,
+          "description": "Authentication configuration.",
+          "fields": {
+            "type": {
+              "type": "string",
+              "default": "",
+              "description": "Auth method: 'basic', 'bearer', or empty for none."
+            },
+            "username": {
+              "type": "string",
+              "default": "",
+              "description": "Basic auth username."
+            },
+            "password": {
+              "type": "string",
+              "default": "",
+              "description": "Basic auth password."
+            },
+            "token": {
+              "type": "string",
+              "default": "",
+              "description": "Bearer token."
+            }
+          }
+        }
+      }
+    }
+  },
+  "cache_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable caching of fetched facts."
+  },
+  "cache_type": {
+    "type": "string",
+    "default": "file",
+    "description": "Cache backend type: 'file' or 'redis'."
+  },
+  "cache_file_path": {
+    "type": "string",
+    "default": "/var/lib/alfred/cache.db",
+    "description": "Path to the local cache file (used when cache_type='file')."
+  },
+  "cache_redis_host": {
+    "type": "string",
+    "default": "localhost",
+    "description": "Redis server hostname (used when cache_type='redis')."
+  },
+  "cache_redis_port": {
+    "type": "number",
+    "default": 6379,
+    "description": "Redis server port (used when cache_type='redis')."
+  },
+  "cache_redis_db": {
+    "type": "number",
+    "default": 0,
+    "description": "Redis database number (used when cache_type='redis')."
+  },
+  "cache_ttl_seconds": {
+    "type": "number",
+    "default": 300,
+    "description": "Time-to-live for cached entries, in seconds."
+  },
+  "health_check_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable the built-in health check HTTP endpoint."
+  },
+  "health_check_path": {
+    "type": "string",
+    "default": "/health",
+    "description": "URL path for the health check endpoint."
+  },
+  "health_check_interval_seconds": {
+    "type": "number",
+    "default": 30,
+    "description": "Interval (in seconds) between internal health checks."
+  }
+}

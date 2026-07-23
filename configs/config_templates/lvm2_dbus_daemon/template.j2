@@ -1,0 +1,45 @@
+# LVM2 D-Bus daemon configuration
+# This file controls the behavior of the lvm2-dbusd service
+# Enable debug logging
+{% if debug %}Debug = {{ debug }}{% else %}# Debug = 0{% endif %}
+
+# Path to LVM2 binaries
+{% if lvm_path %}LvmPath = "{{ lvm_path }}"{% else %}# LvmPath = "/sbin:/usr/sbin"{% endif %}
+
+# Maximum number of concurrent D-Bus clients
+{% if max_clients %}MaxClients = {{ max_clients }}{% else %}# MaxClients = 10{% endif %}
+
+# Timeout (in seconds) for LVM command execution
+{% if cmd_timeout %}CommandTimeout = {{ cmd_timeout }}{% else %}# CommandTimeout = 60{% endif %}
+
+# Enable automatic activation of mirrored volumes
+{% if auto_activation_volume_list %}AutoActivationVolumeList = {% for item in auto_activation_volume_list %}"{{ item }}"{% if not loop.last %}, {% endif %}{% endfor %}
+{% else %}# AutoActivationVolumeList = []{% endif %}
+
+# D-Bus service name
+{% if dbus_service_name %}ServiceName = "{{ dbus_service_name }}"{% else %}# ServiceName = "com.redhat.lvmdbus1"{% endif %}
+
+# Path to PID file
+{% if pid_file %}PIDFile = "{{ pid_file }}"{% else %}# PIDFile = "/run/lvm2-dbus.pid"{% endif %}
+
+# Path to D-Bus system bus configuration file (if not default)
+{% if dbus_conf_path %}DBusConfPath = "{{ dbus_conf_path }}"{% else %}# DBusConfPath = ""{% endif %}
+
+# Enable monitoring of volume group metadata changes
+{% if monitor_vg_metadata %}MonitorVGMetadata = {{ monitor_vg_metadata }}{% else %}# MonitorVGMetadata = true{% endif %}
+
+# List of volume groups to exclude from D-Bus management
+{% if excluded_vg %}ExcludedVG = {% for item in excluded_vg %}"{{ item }}"{% if not loop.last %}, {% endif %}{% endfor %}
+{% else %}# ExcludedVG = []{% endif %}
+
+# Enable verbose logging to syslog
+{% if syslog_verbose %}SyslogVerbose = {{ syslog_verbose }}{% else %}# SyslogVerbose = false{% endif %}
+
+# Path to log file (leave empty to use syslog only)
+{% if log_file %}LogFile = "{{ log_file }}"{% else %}# LogFile = ""{% endif %}
+
+# Minimum log level: 0=none, 1=error, 2=warning, 3=info, 4=debug
+{% if log_level %}LogLevel = {{ log_level }}{% else %}# LogLevel = 2{% endif %}
+
+# Enable monitoring of thin pool metadata
+{% if monitor_thin_pool_metadata %}MonitorThinPoolMetadata = {{ monitor_thin_pool_metadata }}{% else %}# MonitorThinPoolMetadata = true{% endif %}

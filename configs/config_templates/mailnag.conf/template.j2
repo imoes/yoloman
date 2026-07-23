@@ -1,0 +1,89 @@
+[general]
+# Enable/disable daemon mode (background service)
+daemon = {{ daemon }}
+
+# Time between mailbox checks in seconds
+check_interval = {{ check_interval }}
+
+# Log level: 0=quiet, 1=normal, 2=verbose, 3=debug
+loglevel = {{ loglevel }}
+
+# Path to PID file
+pidfile = {{ pidfile }}
+
+{% if accounts %}
+# Mail accounts (each account block defines a mailbox to monitor)
+{% for account in accounts %}
+[account_{{ loop.index }}]
+# Account name (for display/log purposes)
+name = {{ account.name }}
+
+# Mailbox type: pop3, imap, oauth2
+protocol = {{ account.protocol }}
+
+# Server hostname
+hostname = {{ account.hostname }}
+
+# Server port
+port = {{ account.port }}
+
+# Enable SSL/TLS
+ssl = {{ account.ssl }}
+
+# Enable STARTTLS (for non-SSL connections)
+starttls = {{ account.starttls }}
+
+# Username for authentication
+username = {{ account.username }}
+
+# Password (should be stored securely via keyring or environment variable in production)
+password = {{ account.password }}
+
+# Mailbox folder (e.g., 'INBOX')
+folder = {{ account.folder }}
+
+{% if account.oauth2 %}
+# OAuth2-specific settings
+oauth2_client_id = {{ account.oauth2.client_id }}
+oauth2_client_secret = {{ account.oauth2.client_secret }}
+oauth2_refresh_token = {{ account.oauth2.refresh_token }}
+oauth2_scopes = {{ account.oauth2.scopes | join(', ') }}
+{% endif %}
+
+{% endfor %}
+{% endif %}
+
+{% if notifications %}
+# Notification plugins (e.g., desktop, email, sound)
+{% for notif in notifications %}
+[notification_{{ loop.index }}]
+# Notification type: desktop, email, sound
+name = {{ notif.name }}
+
+{% if notif.name == 'desktop' %}
+# Desktop notification settings
+summary_template = {{ notif.summary_template }}
+body_template = {{ notif.body_template }}
+icon = {{ notif.icon }}
+{% endif %}
+
+{% if notif.name == 'sound' %}
+# Sound notification settings
+sound_file = {{ notif.sound_file }}
+{% endif %}
+
+{% if notif.name == 'email' %}
+# Email notification settings (for forwarding notifications to another email)
+smtp_server = {{ notif.smtp_server }}
+smtp_port = {{ notif.smtp_port }}
+smtp_use_tls = {{ notif.smtp_use_tls }}
+from_addr = {{ notif.from_addr }}
+to_addr = {{ notif.to_addr }}
+{% endif %}
+
+{% endfor %}
+{% endif %}
+
+[storage]
+# Path to SQLite database for storing mail metadata and seen flags
+path = {{ storage_path }}

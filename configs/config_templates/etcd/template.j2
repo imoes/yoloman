@@ -1,0 +1,86 @@
+# /etc/default/etcd
+# Environment variables for etcd daemon (systemd-friendly)
+
+# Unique name for this member in the cluster
+ETCD_NAME={{ name }}
+
+# Comma-separated list of initial cluster members (e.g., 'node1=http://10.0.0.1:2380,node2=http://10.0.0.2:2380')
+ETCD_INITIAL_CLUSTER={{ initial_cluster | join(',') }}
+
+# Initial cluster state: 'new' for first start, 'existing' for joining
+ETCD_INITIAL_CLUSTER_STATE={{ initial_cluster_state }}
+
+# Comma-separated list of peer URLs for bootstrapping (must match ETCD_INITIAL_CLUSTER format)
+ETCD_INITIAL_CLUSTER_TOKEN={{ initial_cluster_token }}
+
+# Advertised client URLs (used by clients to connect)
+ETCD_ADVERTISE_CLIENT_URLS={{ advertise_client_urls | join(',') }}
+
+# Comma-separated list of peer URLs advertised to other cluster members
+ETCD_INITIAL_ADVERTISE_PEER_URLS={{ initial_advertise_peer_urls | join(',') }}
+
+# Listen client URLs (e.g., 'http://0.0.0.0:2379,https://0.0.0.0:2379')
+ETCD_LISTEN_CLIENT_URLS={{ listen_client_urls | join(',') }}
+
+# Listen peer URLs for internal cluster communication
+ETCD_LISTEN_PEER_URLS={{ listen_peer_urls | join(',') }}
+
+# Data directory for etcd storage
+ETCD_DATA_DIR={{ data_dir }}
+
+# Snapshot count: number of transactions before snapshot is taken
+ETCD_SNAPSHOT_COUNT={{ snapshot_count }}
+
+# Election timeout in milliseconds
+ETCD_ELECTION_TIMEOUT={{ election_timeout }}
+
+# Heartbeat interval in milliseconds
+ETCD_HEARTBEAT_INTERVAL={{ heartbeat_interval }}
+
+# Maximum number of client requests per second (0 = unlimited)
+ETCD_MAX_REQUESTS_PER_SECOND={{ max_requests_per_second }}
+
+# Enable v2 API (deprecated but may be needed for legacy clients)
+ETCD_ENABLE_V2={{ enable_v2 | lower }}
+
+# Enable tracing (detailed request logging)
+ETCD_ENABLE_TRACE={{ enable_trace | lower }}
+
+# Enable pprof profiling endpoint (for debugging)
+ETCD_ENABLE_PPROF={{ enable_pprof | lower }}
+
+# Enable metrics endpoint
+ETCD_METRICS={{ metrics }}
+
+# Log level: 'debug', 'info', 'warn', 'error', 'fatal', 'panic'
+ETCD_LOG_LEVEL={{ log_level }}
+
+# Log format: 'text', 'json'
+ETCD_LOG_FORMAT={{ log_format }}
+
+# Client transport security (TLS) settings
+ETCD_CLIENT_CERT_AUTH={{ client_cert_auth | lower }}
+ETCD_TRUSTED_CA_FILE={{ trusted_ca_file | default('') | quote }}
+ETCD_CERT_FILE={{ cert_file | default('') | quote }}
+ETCD_KEY_FILE={{ key_file | default('') | quote }}
+
+# Peer transport security (TLS) settings
+ETCD_PEER_CLIENT_CERT_AUTH={{ peer_client_cert_auth | lower }}
+ETCD_PEER_TRUSTED_CA_FILE={{ peer_trusted_ca_file | default('') | quote }}
+ETCD_PEER_CERT_FILE={{ peer_cert_file | default('') | quote }}
+ETCD_PEER_KEY_FILE={{ peer_key_file | default('') | quote }}
+
+# Auto compaction retention (e.g., '1h' for 1 hour, 0 to disable)
+ETCD_AUTO_COMPACTION_RETENTION={{ auto_compaction_retention | quote }}
+
+# Auto compaction mode: 'revision' or 'periodic'
+ETCD_AUTO_COMPACTION_MODE={{ auto_compaction_mode }}
+
+# Quota backend bytes: max size of the backend storage (e.g., 8GiB = 8589934592)
+ETCD_QUOTA_BACKEND_BYTES={{ quota_backend_bytes }}
+
+# Maximum number of snapshots to keep
+ETCD_SNAPSHOT_COUNT_MAX={{ snapshot_count_max }}
+
+# Enable leveldb logging (rarely needed)
+ETCD_DEBUG={{ debug | lower }}

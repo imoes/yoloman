@@ -1,0 +1,94 @@
+{
+  "enable_dbserver": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable the database server (VLServer) daemon. Disable only for debugging or maintenance."
+  },
+  "threads": {
+    "type": "number",
+    "default": 4,
+    "description": "Number of worker threads for handling database requests. Set based on expected load and CPU cores."
+  },
+  "maxentries": {
+    "type": "number",
+    "default": 100000,
+    "description": "Maximum number of in-memory database entries (cells, users, groups). Increase for large deployments."
+  },
+  "workdir": {
+    "type": "string",
+    "default": "/var/lib/openafs/dbserver",
+    "description": "Working directory for the database server. Must be writable by the openafs user."
+  },
+  "logpath": {
+    "type": "string",
+    "default": "/var/log/openafs/dbserver.log",
+    "description": "Path to the database server log file. Ensure log rotation is configured."
+  },
+  "peers": {
+    "type": "list",
+    "default": [],
+    "description": "List of other database (VLServer) nodes in the cluster. Each must be reachable and synchronized.",
+    "items": {
+      "host": {
+        "type": "string",
+        "description": "Hostname or IP address of the peer DB server."
+      },
+      "port": {
+        "type": "number",
+        "default": 7007,
+        "description": "Port number for the peer database server (default 7007)."
+      }
+    }
+  },
+  "cells": {
+    "type": "list",
+    "default": [],
+    "description": "List of AFS cells managed by this DB server. At least one cell must be defined.",
+    "items": {
+      "name": {
+        "type": "string",
+        "description": "Name of the AFS cell (e.g., 'example.com')."
+      },
+      "dbpath": {
+        "type": "string",
+        "default": "/usr/afs/db",
+        "description": "Path to the cell's database files (usually /usr/afs/db on the cell server)."
+      }
+    }
+  },
+  "verbose": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable verbose debug logging. Use only for troubleshooting \u2014 may impact performance."
+  },
+  "backup_mode": {
+    "type": "bool",
+    "default": false,
+    "description": "Start in backup (standalone) mode. Use only during recovery or initial setup."
+  },
+  "maxdumpsize": {
+    "type": "number",
+    "default": 1024,
+    "description": "Maximum size (in MB) for each database dump file. Dumps are split at this size."
+  },
+  "dumppath": {
+    "type": "string",
+    "default": "/var/lib/openafs/dump",
+    "description": "Directory to store database dump files for backup and recovery."
+  },
+  "use_tls": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable TLS encryption for inter-server communication (VLServer \u2194 VLServer)."
+  },
+  "tls_cert_path": {
+    "type": "string",
+    "default": "/etc/openafs/AFSDev.cert",
+    "description": "Path to the TLS certificate file (PEM format). Required if TLS is enabled."
+  },
+  "tls_key_path": {
+    "type": "string",
+    "default": "/etc/openafs/AFSDev.key",
+    "description": "Path to the TLS private key file (PEM format). Required if TLS is enabled."
+  }
+}

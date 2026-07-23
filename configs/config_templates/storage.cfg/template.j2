@@ -1,0 +1,31 @@
+{# Main storage configuration file #}
+{# Set the global storage directory for all data #}
+storage_path = {{ storage_path }}
+
+{# Enable or disable caching for read operations #}
+cache_enabled = {{ cache_enabled }}
+
+{# Cache directory path (only used if cache_enabled is true) #}
+cache_path = {{ cache_path }}
+
+{# Maximum size of the cache in megabytes #}
+cache_max_size_mb = {{ cache_max_size_mb }}
+
+{# Number of worker threads for background storage tasks (e.g., compaction, cleanup) #}
+worker_threads = {{ worker_threads }}
+
+{# List of storage volumes (backing stores) with their mount points and options #}
+{% for volume in volumes %}
+[volume]
+name = {{ volume.name }}
+path = {{ volume.path }}
+read_only = {{ volume.read_only }}
+quota_gb = {{ volume.quota_gb }}
+{% endfor %}
+
+{# Optional: Tiered storage configuration (SSD/HDD/etc.) #}
+{% for tier in tiers %}
+[tier:{{ tier.name }}]
+path = {{ tier.path }}
+priority = {{ tier.priority }}
+{% endfor %}

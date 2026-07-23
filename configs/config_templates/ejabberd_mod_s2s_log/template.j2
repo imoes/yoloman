@@ -1,0 +1,26 @@
+# Enable the ejabberd_mod_s2s_log module for logging Server-to-Server (S2S) connections
+{% if modules.ejabberd_mod_s2s_log.enabled %}
+modules:
+  mod_s2s_log:
+    # Log file path for S2S connection logs
+    log_file: "{{ modules.ejabberd_mod_s2s_log.log_file }}"
+    # Verbosity level: 0=none, 1=errors only, 2=errors+info, 3=debug
+    log_level: {{ modules.ejabberd_mod_s2s_log.log_level }}
+    # Maximum number of days to retain log entries before rotation
+    max_days: {{ modules.ejabberd_mod_s2s_log.max_days }}
+    # Maximum size (in bytes) of a log file before rotation
+    max_size: {{ modules.ejabberd_mod_s2s_log.max_size }}
+    # Format of log entries: 'json' or 'text'
+    format: "{{ modules.ejabberd_mod_s2s_log.format }}"
+    # Optional: custom log filters (e.g., only log failed connections)
+{% for filter in modules.ejabberd_mod_s2s_log.filters %}
+{%   if filter.enabled %}
+    # {{ filter.name }}: {{ filter.description }}
+{%   endif %}
+{% endfor %}
+{% else %}
+# ejabberd_mod_s2s_log is disabled — no module configuration applied
+{% endif %}
+
+# Note: The above config is placed under the 'modules:' section in ejabberd.yml.
+# Ensure this is at YAML root level (i.e., sibling to 'listen:', 'hosts:', etc.)

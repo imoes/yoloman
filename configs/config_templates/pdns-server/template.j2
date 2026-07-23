@@ -1,0 +1,114 @@
+# PowerDNS Server Configuration
+# This file controls the behavior of the pdns-server service.
+# Uncomment or adjust parameters as needed for your deployment.
+
+# Local address to listen on for DNS queries
+local_address={{ local_address }}
+
+# Port to listen on for DNS queries
+local_port={{ local_port }}
+
+# Local address to listen on for API/query console
+api={{ api }}
+
+# API key (if enabled)
+api-key={{ api_key }}
+
+# Directory where configuration is stored
+config-dir=/etc/powerdns
+
+# Default domain for recursive queries
+recursor={{ recursor }}
+
+# Enable or disable recursion
+recursor=no
+{% if recursor %}
+recursor={{ recursor }}
+{% endif %}
+
+# Maximum number of concurrent queries
+max_qps={{ max_qps }}
+
+# Timeout for backend queries (milliseconds)
+query-local-address-timeout={{ query_local_address_timeout }}
+
+# Number of worker threads
+threads={{ threads }}
+
+# Log level (0–9, higher = more verbose)
+loglevel={{ loglevel }}
+
+# Enable query logging
+log-dns-queries={{ log_dns_queries }}
+
+# DNSSEC validation mode (off, process, log-fail, log-all)
+dnssec={{ dnssec }}
+
+# Backend module(s) to use
+launch={{ backends | join(',') }}
+
+# Backend-specific options — for each backend, define connection info
+{% for backend in backends %}
+# {{ backend }} backend configuration
+{% if backend == 'gsqlite3' %}
+gsqlite3-database={{ gsqlite3_database }}
+gsqlite3-dnssec={{ gsqlite3_dnssec }}
+gsqlite3-pragma-synchronous={{ gsqlite3_pragma_synchronous }}
+{% elif backend == 'mysql' %}
+gmysql-host={{ gmysql_host }}
+gmysql-port={{ gmysql_port }}
+gmysql-user={{ gmysql_user }}
+gmysql-password={{ gmysql_password }}
+gmysql-dbname={{ gmysql_dbname }}
+gmysql-dnssec={{ gmysql_dnssec }}
+{% elif backend == 'postgresql' %}
+gpostgresql-host={{ gpostgresql_host }}
+gpostgresql-port={{ gpostgresql_port }}
+gpostgresql-user={{ gpostgresql_user }}
+gpostgresql-password={{ gpostgresql_password }}
+gpostgresql-dbname={{ gpostgresql_dbname }}
+gpostgresql-dnssec={{ gpostgresql_dnssec }}
+{% endif %}
+{% endfor %}
+
+# Allow AXFR from these networks
+allow-axfr-ips={{ allow_axfr_ips | join(',') }}
+
+# Enable AXFR (zone transfers)
+allow-axfr-ips=no
+{% if allow_axfr_ips %}
+allow-axfr-ips={{ allow_axfr_ips | join(',') }}
+{% endif %}
+
+# Primary server mode (authoritative only, or recursive + authoritative)
+mode={{ mode }}
+
+# Enable EDNS client subnet (ECS) support
+edns-subnet-processing={{ edns_subnet_processing }}
+
+# Default TTL for negative responses
+neg-query-cache-ttl={{ neg_query_cache_ttl }}
+
+# Default TTL for positive responses (SOA minimum is used if not set)
+default-soa-name={{ default_soa_name }}
+
+# Default SOA maintainer email
+default-soa-mail={{ default_soa_mail }}
+
+# TCP fast open level (0=off, 1=passive, 2=active, 3=both)
+tcp-fast-open={{ tcp_fast_open }}
+
+# Maximum TCP connections per client
+max-tcp-clients={{ max_tcp_clients }}
+
+# Enable CPU affinity for threads (if supported)
+affinity-mask={{ affinity_mask }}
+
+# Use systemd socket activation (if available)
+socket-dir=/run/pdns
+
+# Delayed answer timeout (milliseconds)
+delayed-answer-timeout={{ delayed_answer_timeout }}
+
+# Allow queries for the localhost range from external IPs
+allow-query-localhost={{ allow_query_localhost }}

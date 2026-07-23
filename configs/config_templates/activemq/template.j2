@@ -1,0 +1,143 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Apache ActiveMQ Configuration File -->
+<!-- Enables embedded Jetty HTTP console (set to true/false) -->
+{% if enable_jetty_console %}
+<beans
+  xmlns="http://www.springframework.org/schema/beans"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd
+  http://activemq.apache.org/schema/core http://activemq.apache.org/schema/core/activemq-core.xsd">
+{% else %}
+<beans
+  xmlns="http://www.springframework.org/schema/beans"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd
+  http://activemq.apache.org/schema/core http://activemq.apache.org/schema/core/activemq-core.xsd">
+{% endif %}
+
+  <!-- Broker configuration -->
+  <broker xmlns="http://activemq.apache.org/schema/core"
+          brokerName="{{ broker_name }}"
+          dataDirectory="{{ data_directory }}"
+          useJmx="{{ use_jmx | lower }}"
+          useShutdownHook="{{ use_shutdown_hook | lower }}">
+
+    <!-- JMX management settings -->
+{% if use_jmx %}
+    <managementContext>
+      <managementContext createConnector="{{ management_context_create_connector | lower }}"
+{% if management_context_connector_port is defined %}                         connectorPort="{{ management_context_connector_port }}"{% endif %}/>
+    </managementContext>
+{% endif %}
+
+    <!-- Persistence adapter: choose between file-based or memory-only -->
+    <persistenceAdapter>
+{% if persistence_adapter_type == 'kahaDB' %}
+      <kahaDB directory="{{ kahadb_directory }}"
+{% if kahadb_journal_max_file_length is defined %}              journalMaxFileLength="{{ kahadb_journal_max_file_length }}"{% endif %}
+{% if kahadb_index_cache_size is defined %}              indexCacheSize="{{ kahadb_index_cache_size }}"{% endif %}
+{% if kahadb_concurrent_write_threads is defined %}            concurrentStoreAndDispatchTopics="{{ kahadb_concurrent_write_threads | lower }}"{% endif %}/>
+{% elif persistence_adapter_type == 'memory' %}
+      <memoryPersistenceAdapter/>
+{% else %}
+      <!-- Unknown persistence adapter type, defaulting to kahaDB -->
+      <kahaDB directory="{{ kahadb_directory }}"/>
+{% endif %}
+    </persistenceAdapter>
+
+    <!-- Transport connectors: define endpoints for clients to connect -->
+    <transportConnectors>
+{% for tc in transport_connectors %}
+      <!-- Transport connector: {{ tc.name }} on {{ tc.uri }} -->
+      <transportConnector name="{{ tc.name }}" uri="{{ tc.uri }}"{% if tc.discovery_uri is defined %} discoveryUri="{{ tc.discovery_uri }}"{% endif %}{% if tc.enabled is defined and tc.enabled == false %} enabled="false"{% endif %}/>
+{% endfor %}
+    </transportConnectors>
+
+    <!-- Network connectors (for clustering or bridging) -->
+{% if network_connectors %}
+    <networkConnectors>
+{% for nc in network_connectors %}
+      <!-- Network connector: {{ nc.name }} -> {{ nc.uri }} -->
+      <networkConnector name="{{ nc.name }}" uri="{{ nc.uri }}"
+{% if nc_dynamically_include is defined %}                      dynamicallyInclude="{{ nc_dynamically_include | lower }}"{% endif %}
+{% if nc_static_include is defined %}                      staticInclude="{{ nc_static_include | lower }}"{% endif %}
+{% if nc_prefetch_size is defined %}                      prefetchSize="{{ nc_prefetch_size }}"{% endif %}
+{% if nc_max_network_hops is defined %}                   maxNetworkHops="{{ nc_max_network_hops }}"{% endif %}/>
+{% endfor %}
+    </networkConnectors>
+{% endif %}
+
+    <!-- System usage limits -->
+    <systemUsage>
+      <systemUsage>
+        <!-- Memory limit (bytes or human-readable, e.g. "1024mb") -->
+        <memoryUsage>
+          <memoryUsage limit="{{ system_usage.memory_limit }}"/>
+        </memoryUsage>
+
+        <!-- Disk usage limit -->
+        <storeUsage>
+          <storeUsage limit="{{ system_usage.store_limit }}" name="{{ system_usage.store_name }}"/>
+        </storeUsage>
+
+        <!-- Temp file usage limit -->
+        <tempUsage>
+          <tempUsage limit="{{ system_usage.temp_limit }}"/>
+        </tempUsage>
+      </systemUsage>
+    </systemUsage>
+
+    <!-- Destination policies (per-queue/topic behavior) -->
+    <destinationPolicy>
+      <policyMap>
+        <policyEntries>
+{% for entry in destination_policies %}
+          <!-- Policy entry for {{ entry.destination }} -->
+          <policyEntry queue="{{ entry.destination }}"
+{% if entry.memory_limit is defined %}                       memoryLimit="{{ entry.memory_limit }}"{% endif %}
+{% if entry.maximum_pending_message_policy is defined %}                  maximumPendingMessagePolicy="{{ entry.maximum_pending_message_policy }}"{% endif %}
+{% if entry.prefetch_size is defined %}                     prefetchSize="{{ entry.prefetch_size }}"{% endif %}
+{% if entry.expireMessagesPeriod is defined %}              expireMessagesPeriod="{{ entry.expireMessagesPeriod }}"{% endif %}
+{% if entry.gcInactiveDestinations is defined %}            gcInactiveDestinations="{{ entry.gcInactiveDestinations | lower }}"{% endif %}
+{% if entry.inactiveTimoutBeforeGC is defined %}            inactiveTimoutBeforeGC="{{ entry.inactiveTimoutBeforeGC }}"{% endif %}/>
+{% endfor %}
+        </policyEntries>
+      </policyMap>
+    </destinationPolicy>
+
+    <!-- Authentication & authorization (optional) -->
+{% if enable_auth %}
+    <plugins>
+      <!-- Simple authentication plugin -->
+      <simpleAuthenticationPlugin>
+        <users>
+{% for user in auth_users %}
+          <authenticationUser username="{{ user.username }}" password="{{ user.password }}" groups="{{ user.groups | join(',') }}"/>
+{% endfor %}
+        </users>
+      </simpleAuthenticationPlugin>
+
+      <!-- Authorization plugin (ACLs) -->
+      <authorizationPlugin>
+        <map>
+          <authorizationMap>
+            <authorizationEntries>
+{% for acl in auth_acls %}
+              <!-- ACL: {{ acl.operation }} on {{ acl.destination }} for groups: {{ acl.groups | join(', ') }} -->
+              <authorizationEntry topic="{{ acl.destination }}"
+{% if acl.operation == 'read' %} read="{{ acl.groups | join(',') }}"/>
+{% elif acl.operation == 'write' %} write="{{ acl.groups | join(',') }}"/>
+{% elif acl.operation == 'admin' %} admin="{{ acl.groups | join(',') }}"/>
+{% else %} read="{{ acl.groups | join(',') }}" write="{{ acl.groups | join(',') }}" admin="{{ acl.groups | join(',') }}"/>
+{% endif %}
+{% endfor %}
+            </authorizationEntries>
+          </authorizationMap>
+        </map>
+      </authorizationPlugin>
+    </plugins>
+{% endif %}
+
+  </broker>
+
+</beans>

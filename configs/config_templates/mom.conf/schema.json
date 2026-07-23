@@ -1,0 +1,143 @@
+{
+  "host": {
+    "type": "string",
+    "default": "0.0.0.0",
+    "description": "Network interface to bind to (e.g., 0.0.0.0 for all interfaces or 127.0.0.1 for localhost only)."
+  },
+  "port": {
+    "type": "number",
+    "default": 5555,
+    "description": "Port number on which MOM listens for client connections."
+  },
+  "tls_enabled": {
+    "type": "boolean",
+    "default": false,
+    "description": "Enable TLS encryption for client connections (recommended for production)."
+  },
+  "tls_cert_file": {
+    "type": "string",
+    "default": "/etc/mom/tls/cert.pem",
+    "description": "Path to the TLS certificate file (required if TLS is enabled)."
+  },
+  "tls_key_file": {
+    "type": "string",
+    "default": "/etc/mom/tls/key.pem",
+    "description": "Path to the TLS private key file (required if TLS is enabled)."
+  },
+  "log_level": {
+    "type": "string",
+    "default": "INFO",
+    "description": "Logging verbosity level: DEBUG, INFO, WARN, ERROR, or CRITICAL."
+  },
+  "log_dir": {
+    "type": "string",
+    "default": "/var/log/mom",
+    "description": "Directory where MOM writes log files."
+  },
+  "log_max_size": {
+    "type": "number",
+    "default": 104857600,
+    "description": "Maximum size (in bytes) of a single log file before rotation (100 MB default)."
+  },
+  "log_backup_count": {
+    "type": "number",
+    "default": 5,
+    "description": "Number of old log files to retain after rotation."
+  },
+  "worker_count": {
+    "type": "number",
+    "default": 4,
+    "description": "Number of worker threads for message processing."
+  },
+  "max_queue_size": {
+    "type": "number",
+    "default": 10000,
+    "description": "Maximum number of messages held in memory per queue before applying backpressure."
+  },
+  "message_ttl": {
+    "type": "number",
+    "default": 86400,
+    "description": "Default Time-To-Live (in seconds) for messages (24 hours default)."
+  },
+  "allowed_networks": {
+    "type": "list",
+    "default": [],
+    "description": "List of allowed client IP subnets (CIDR notation); empty list means allow all clients."
+  },
+  "auth_provider": {
+    "type": "string",
+    "default": "none",
+    "description": "Authentication method: 'none' (no auth), 'local' (file-based), or 'ldap'."
+  },
+  "ldap_url": {
+    "type": "string",
+    "default": "ldap://ldap.example.com:389",
+    "description": "LDAP server URL for authentication (used only if auth_provider = 'ldap')."
+  },
+  "ldap_base_dn": {
+    "type": "string",
+    "default": "ou=users,dc=example,dc=com",
+    "description": "Base Distinguished Name (DN) for LDAP user searches."
+  },
+  "persistence_enabled": {
+    "type": "boolean",
+    "default": true,
+    "description": "Persist messages to disk for durability and recovery."
+  },
+  "persistence_dir": {
+    "type": "string",
+    "default": "/var/lib/mom/persist",
+    "description": "Directory used for persistent message storage."
+  },
+  "queues": {
+    "type": "list",
+    "default": [
+      {
+        "name": "default",
+        "max_size": 5000,
+        "ttl": 43200,
+        "dead_letter_queue": "dlq_default"
+      }
+    ],
+    "description": "List of custom queue configurations.",
+    "items": {
+      "name": {
+        "type": "string",
+        "default": "default",
+        "description": "Unique name for the queue."
+      },
+      "max_size": {
+        "type": "number",
+        "default": 5000,
+        "description": "Max messages this queue may hold before backpressure."
+      },
+      "ttl": {
+        "type": "number",
+        "default": 43200,
+        "description": "Per-queue message TTL (seconds); defaults to global message_ttl if omitted."
+      },
+      "dead_letter_queue": {
+        "type": "string",
+        "default": "dlq_default",
+        "description": "Name of the DLQ to which failed messages are routed."
+      }
+    }
+  },
+  "replication_peers": {
+    "type": "list",
+    "default": [],
+    "description": "List of peer MOM nodes for replication (used in HA setups).",
+    "items": {
+      "host": {
+        "type": "string",
+        "default": "",
+        "description": "Hostname or IP of the replication peer."
+      },
+      "port": {
+        "type": "number",
+        "default": 5555,
+        "description": "Port of the replication peer."
+      }
+    }
+  }
+}

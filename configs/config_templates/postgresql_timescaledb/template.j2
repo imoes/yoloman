@@ -1,0 +1,34 @@
+# TimescaleDB extension must be loaded at server startup
+shared_preload_libraries = '{{ shared_preload_libraries }}'
+
+# TimescaleDB-specific settings
+# Control whether TimescaleDB is enabled (cannot be changed after first start)
+timescaledb.allow_version_below = {{ timescaledb_allow_version_below | string | lower }}
+timescaledb.allow_deprecated_guc = {{ timescaledb_allow_deprecated_guc | string | lower }}
+
+# Memory and resource limits
+# Maximum memory used for background workers (e.g., compression, continuous aggregates)
+timescaledb.max_background_workers = {{ timescaledb_max_background_workers }}
+timescaledb.max_background_workers_per_db = {{ timescaledb_max_background_workers_per_db }}
+
+# Resource tracking
+# Enable resource tracking for background workers
+timescaledb.enable_background_workers = {{ timescaledb_enable_background_workers | string | lower }}
+
+# Compression settings
+# Default compression algorithm (lz4, pgzstd, or zstd)
+timescaledb.compress_segmentby = '{{ timescaledb_compress_segmentby }}'
+
+# Continuous aggregates
+# Default refresh interval for continuous aggregates (in seconds)
+timescaledb.compress_time_interval = '{{ timescaledb_compress_time_interval }}'
+
+# License & telemetry
+# Enable TimescaleDB telemetry (anonymous usage reporting)
+timescaledb.telemetry_level = '{{ timescaledb_telemetry_level }}'
+
+# Optional: custom user-defined extension parameters (e.g., for tuning)
+{% for param in timescaledb_extra_params %}
+# {{ param.description }}
+{{ param.name }} = {{ param.value }}
+{% endfor %}

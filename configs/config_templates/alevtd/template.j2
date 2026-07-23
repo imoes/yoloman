@@ -1,0 +1,65 @@
+# Teletext HTTP Daemon configuration
+# Listening interface and port
+listen_address: {{ listen_address }}
+listen_port: {{ listen_port }}
+
+# Maximum number of concurrent connections
+max_connections: {{ max_connections }}
+
+# Timeout for idle connections (seconds)
+idle_timeout: {{ idle_timeout }}
+
+# Root directory for teletext pages
+root_dir: {{ root_dir }}
+
+# Enable/disable gzip compression
+use_compression: {{ use_compression }}
+
+# Log level: debug, info, warn, error
+log_level: {{ log_level }}
+
+# Log file path (empty = stdout)
+log_file: {{ log_file }}
+
+# Virtual hosts configuration
+{% for vhost in vhosts %}# Virtual host: {{ vhost.name }}
+{% if vhost.server_name %}server_name: {{ vhost.server_name }}
+{% endif %}{% if vhost.root_dir %}root_dir: {{ vhost.root_dir }}
+{% endif %}{% if vhost.ssl.enabled %}ssl_cert: {{ vhost.ssl.cert_path }}
+ssl_key: {{ vhost.ssl.key_path }}
+{% endif %}{% endfor %}
+
+# MIME type overrides (optional)
+{% if mime_overrides %}# Custom MIME mappings
+{% for mime_type, ext_list in mime_overrides.items() %}mime_{{ mime_type }}: {{ ext_list | join(', ') }}
+{% endfor %}{% endif %}
+
+# Enable/disable directory listing
+directory_listing: {{ directory_listing }}
+
+# Access control: allow/deny IP ranges
+{% for rule in access_rules %}# Access rule: {{ rule.action }} {{ rule.source }}
+access_{{ rule.action }}: {{ rule.source }}
+{% endfor %}
+
+# Cache settings
+{% if cache.enabled %}# Caching enabled
+max_cache_size_mb: {{ cache.max_size_mb }}
+cache_ttl_sec: {{ cache.ttl_sec }}
+{% else %}# Caching disabled
+use_cache: false
+{% endif %}
+
+# Rate limiting per IP (optional)
+{% if rate_limit.enabled %}# Rate limiting active
+rate_limit_rps: {{ rate_limit.rps }}
+rate_limit_burst: {{ rate_limit.burst }}
+{% endif %}
+
+# Index page fallback
+index_page: {{ index_page }}
+
+# HTTP headers to append to all responses
+{% for header, value in extra_headers.items() %}# Custom header: {{ header }}
+header_{{ header }}: {{ value }}
+{% endfor %}

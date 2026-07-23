@@ -1,0 +1,103 @@
+{
+  "postmaster": {
+    "type": "string",
+    "default": "postmaster",
+    "description": "Local user (or address) that receives mail undeliverable to any fetched recipient."
+  },
+  "daemon_interval": {
+    "type": "number",
+    "default": 300,
+    "description": "Polling interval in seconds when fetchmail runs as a background daemon. 0 disables daemon mode (run once and exit)."
+  },
+  "logfile": {
+    "type": "string",
+    "default": "",
+    "description": "Absolute path for the fetchmail log file. Leave empty to write to syslog instead."
+  },
+  "bounce_mail": {
+    "type": "bool",
+    "default": false,
+    "description": "When true, undeliverable messages are bounced back to the original sender. When false, they are silently dropped."
+  },
+  "global_fetchlimit": {
+    "type": "number",
+    "default": 0,
+    "description": "Maximum total messages fetched across all accounts per daemon cycle. 0 means unlimited."
+  },
+  "global_limit": {
+    "type": "number",
+    "default": 0,
+    "description": "Messages larger than this many bytes are skipped and left on the server. 0 means no size filter."
+  },
+  "accounts": {
+    "type": "list",
+    "default": [],
+    "description": "One entry per remote mailbox fetchmail should poll. Each entry configures the server, credentials, and how mail is delivered locally.",
+    "items": {
+      "name": {
+        "type": "string",
+        "description": "Human-readable label for this account; written as a comment only, not used by fetchmail."
+      },
+      "server": {
+        "type": "string",
+        "description": "Hostname or IP address of the remote mail server."
+      },
+      "protocol": {
+        "type": "string",
+        "description": "Retrieval protocol to use: imap, pop3, pop3s, imaps, apop, or kpop."
+      },
+      "port": {
+        "type": "number",
+        "description": "TCP port on the remote server. 0 lets fetchmail pick the protocol default (143 IMAP, 993 IMAPS, 110 POP3, 995 POP3S)."
+      },
+      "username": {
+        "type": "string",
+        "description": "Login name on the remote mail server."
+      },
+      "password": {
+        "type": "string",
+        "description": "Password for authenticating to the remote server. Keep this file mode 0600."
+      },
+      "local_user": {
+        "type": "string",
+        "description": "Local system account that fetched mail is delivered to."
+      },
+      "ssl": {
+        "type": "bool",
+        "description": "Wrap the connection in SSL/TLS. Required when using port 993 or 995."
+      },
+      "sslcertck": {
+        "type": "bool",
+        "description": "Abort the connection if the server TLS certificate cannot be verified against the system CA store. Requires ssl: true."
+      },
+      "folder": {
+        "type": "string",
+        "description": "Remote mailbox or folder to fetch from. Leave empty to use the server default (usually INBOX)."
+      },
+      "fetchall": {
+        "type": "bool",
+        "description": "Download all messages including those already read on the server. Useful for initial migration."
+      },
+      "keep": {
+        "type": "bool",
+        "description": "Leave messages on the remote server after fetching. Set to false to delete them once delivered."
+      },
+      "mda": {
+        "type": "string",
+        "description": "Shell command to pipe each message into for local delivery, e.g. /usr/bin/procmail -d %T. Leave empty to use SMTP delivery via smtphost."
+      },
+      "smtphost": {
+        "type": "string",
+        "description": "SMTP server to relay fetched mail through when mda is empty. Leave empty to use 127.0.0.1."
+      },
+      "fetchlimit": {
+        "type": "number",
+        "description": "Maximum messages to fetch from this account per poll cycle. 0 means unlimited."
+      },
+      "timeout": {
+        "type": "number",
+        "description": "Seconds to wait for a response from the remote server before abandoning the connection. 0 uses the fetchmail built-in default."
+      }
+    }
+  }
+}

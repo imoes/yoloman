@@ -1,0 +1,44 @@
+# DNS Server Configuration for dnss
+# List of DNS zones to serve
+zones:
+{% for zone in zones %}  - name: {{ zone.name }}
+    domain: {{ zone.domain }}
+    file: {{ zone.file }}
+{% endfor %}
+# Listening addresses (IP:port)
+listen:
+{% for addr in listen %}  - host: {{ addr.host }}
+    port: {{ addr.port }}
+{% endfor %}
+# Upstream DNS resolvers for forwarding
+forwarders:
+{% for resolver in forwarders %}  - address: {{ resolver.address }}
+    port: {{ resolver.port }}
+{% endfor %}
+# Rate limiting configuration
+rate_limit:
+  enabled: {{ rate_limit.enabled }}
+  max_queries_per_second: {{ rate_limit.max_queries_per_second }}
+  burst_size: {{ rate_limit.burst_size }}
+# Caching settings
+cache:
+  enabled: {{ cache.enabled }}
+  size_mb: {{ cache.size_mb }}
+  ttl_min: {{ cache.ttl_min }}
+  ttl_max: {{ cache.ttl_max }}
+# Logging configuration
+logging:
+  level: {{ logging.level }}
+  file: {{ logging.file }}
+  max_size_mb: {{ logging.max_size_mb }}
+  max_backups: {{ logging.max_backups }}
+# Security settings
+security:
+  recursion: {{ security.recursion }}
+  dnssec_validation: {{ security.dnssec_validation }}
+  allow_query:
+{% for allow in security.allow_query %}    - {{ allow }}
+{% endfor %}
+  allow_transfer:
+{% for allow in security.allow_transfer %}    - {{ allow }}
+{% endfor %}

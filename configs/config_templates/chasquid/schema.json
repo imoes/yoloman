@@ -1,0 +1,285 @@
+{
+  "host": {
+    "type": "string",
+    "default": "0.0.0.0",
+    "description": "IP address the SMTP server listens on (e.g., 0.0.0.0 for all interfaces, or 127.0.0.1 for localhost only)."
+  },
+  "port": {
+    "type": "number",
+    "default": 25,
+    "description": "Port for incoming SMTP connections (typically 25 for MTA, 465/587 for submission)."
+  },
+  "ssl": {
+    "type": "object",
+    "default": {
+      "enabled": false
+    },
+    "description": "TLS/SSL configuration for encrypted connections.",
+    "properties": {
+      "enabled": {
+        "type": "bool",
+        "default": false,
+        "description": "Enable TLS (required for port 465/587 submission)."
+      },
+      "cert_path": {
+        "type": "string",
+        "default": "/etc/chasquid/certs/server.crt",
+        "description": "Path to the TLS certificate file (PEM format)."
+      },
+      "key_path": {
+        "type": "string",
+        "default": "/etc/chasquid/certs/server.key",
+        "description": "Path to the TLS private key file (PEM format)."
+      }
+    }
+  },
+  "auth": {
+    "type": "object",
+    "default": {
+      "enabled": false,
+      "backend": "passwd"
+    },
+    "description": "Authentication configuration for SMTP submission (e.g., for mail clients).",
+    "properties": {
+      "enabled": {
+        "type": "bool",
+        "default": false,
+        "description": "Enable authentication for SMTP AUTH."
+      },
+      "backend": {
+        "type": "string",
+        "enum": [
+          "passwd",
+          "ldap"
+        ],
+        "default": "passwd",
+        "description": "Backend used to verify credentials."
+      },
+      "passwd_file": {
+        "type": "string",
+        "default": "/etc/chasquid/passwd",
+        "description": "Path to passwd-style password file (used if backend=passwd)."
+      },
+      "ldap_url": {
+        "type": "string",
+        "default": "ldaps://ldap.example.com",
+        "description": "LDAP server URL (used if backend=ldap)."
+      },
+      "ldap_base": {
+        "type": "string",
+        "default": "ou=users,dc=example,dc=com",
+        "description": "LDAP base DN for user searches."
+      },
+      "ldap_bind_dn": {
+        "type": "string",
+        "default": "cn=admin,dc=example,dc=com",
+        "description": "DN used to bind to LDAP for search."
+      },
+      "ldap_bind_password": {
+        "type": "string",
+        "default": "",
+        "description": "Password for LDAP bind DN (required for non-anonymous bind)."
+      },
+      "ldap_filter": {
+        "type": "string",
+        "default": "(mail=%u)",
+        "description": "LDAP filter pattern for user lookup (use %u as username placeholder)."
+      }
+    }
+  },
+  "log": {
+    "type": "object",
+    "default": {
+      "enabled": true,
+      "level": "info",
+      "file": "/var/log/chasquid.log"
+    },
+    "description": "Logging settings.",
+    "properties": {
+      "enabled": {
+        "type": "bool",
+        "default": true,
+        "description": "Enable logging to file."
+      },
+      "level": {
+        "type": "string",
+        "enum": [
+          "debug",
+          "info",
+          "warn",
+          "error"
+        ],
+        "default": "info",
+        "description": "Minimum log level (debug, info, warn, error)."
+      },
+      "file": {
+        "type": "string",
+        "default": "/var/log/chasquid.log",
+        "description": "Path to log file."
+      }
+    }
+  },
+  "domains": {
+    "type": "list",
+    "default": [],
+    "description": "Per-domain configuration blocks. Each domain can define local delivery, relay, filtering, or limits.",
+    "items": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Domain name (e.g., example.com)."
+        },
+        "enabled": {
+          "type": "bool",
+          "default": true,
+          "description": "Enable handling for this domain."
+        },
+        "local": {
+          "type": "bool",
+          "default": false,
+          "description": "If true, deliver locally (via local mail delivery, e.g., to /var/mail/)."
+        },
+        "remote_smtp": {
+          "type": "list",
+          "items": {
+            "type": "string"
+          },
+          "default": [],
+          "description": "List of next-hop SMTP servers for relay ( MX fallback or direct delivery)."
+        },
+        "relay_host": {
+          "type": "string",
+          "default": "",
+          "description": "Explicit relay host (overrides remote_smtp)."
+        },
+        "relay_port": {
+          "type": "number",
+          "default": 25,
+          "description": "Port on relay host (if relay_host is set)."
+        },
+        "relay_auth_user": {
+          "type": "string",
+          "default": "",
+          "description": "Username for relay authentication (if required)."
+        },
+        "relay_auth_pass": {
+          "type": "string",
+          "default": "",
+          "description": "Password for relay authentication (if required)."
+        },
+        "max_message_size": {
+          "type": "number",
+          "default": 0,
+          "description": "Max message size (in bytes) for this domain (0 = use global)."
+        },
+        "sender_maps": {
+          "type": "list",
+          "items": {
+            "type": "object",
+            "properties": {
+              "pattern": {
+                "type": "string",
+                "description": "Sender pattern (can include * wildcard)."
+              },
+              "target": {
+                "type": "string",
+                "description": "Rewritten sender (e.g., postmaster@example.com)."
+              }
+            }
+          },
+          "default": [],
+          "description": "List of sender address rewriting rules."
+        },
+        "accept_mail_from": {
+          "type": "list",
+          "items": {
+            "type": "string"
+          },
+          "default": [],
+          "description": "List of sender patterns allowed (others rejected). Supports wildcards (*)."
+        },
+        "accept_rcpt_to": {
+          "type": "list",
+          "items": {
+            "type": "string"
+          },
+          "default": [],
+          "description": "List of recipient patterns accepted (others rejected). Supports wildcards."
+        },
+        "reject_mail_from": {
+          "type": "list",
+          "items": {
+            "type": "string"
+          },
+          "default": [],
+          "description": "List of sender patterns explicitly rejected."
+        },
+        "reject_rcpt_to": {
+          "type": "list",
+          "items": {
+            "type": "string"
+          },
+          "default": [],
+          "description": "List of recipient patterns explicitly rejected."
+        }
+      }
+    }
+  },
+  "max_message_size": {
+    "type": "number",
+    "default": 0,
+    "description": "Global maximum message size in bytes (0 = no limit; default chasquid limit is ~10 MB)."
+  },
+  "max_recipients_per_message": {
+    "type": "number",
+    "default": 100,
+    "description": "Maximum number of recipients allowed per message."
+  },
+  "rate_limit": {
+    "type": "object",
+    "default": {
+      "enabled": false,
+      "per_ip": 10,
+      "per_domain": 0
+    },
+    "description": "Rate limiting for incoming connections (per IP and per domain).",
+    "properties": {
+      "enabled": {
+        "type": "bool",
+        "default": false,
+        "description": "Enable rate limiting."
+      },
+      "per_ip": {
+        "type": "number",
+        "default": 10,
+        "description": "Max connections per IP per minute."
+      },
+      "per_domain": {
+        "type": "number",
+        "default": 0,
+        "description": "Max connections per remote domain per minute (0 = disable)."
+      }
+    }
+  },
+  "delivery_timeout": {
+    "type": "number",
+    "default": 60,
+    "description": "Timeout in seconds for outbound delivery attempts (per-connection)."
+  },
+  "delivery_threads": {
+    "type": "number",
+    "default": 4,
+    "description": "Number of concurrent outbound delivery threads."
+  },
+  "queue_dir": {
+    "type": "string",
+    "default": "/var/spool/chasquid/queue",
+    "description": "Directory for the mail queue."
+  },
+  "spool_dir": {
+    "type": "string",
+    "default": "/var/spool/chasquid/spool",
+    "description": "Directory for temporary spool files."
+  }
+}

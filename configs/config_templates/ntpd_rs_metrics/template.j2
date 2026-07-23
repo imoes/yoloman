@@ -1,0 +1,50 @@
+# Address and port to bind the metrics HTTP server to
+bind = "{{ bind_addr }}:{{ bind_port }}"
+
+# Path to the Prometheus metrics endpoint
+metrics_path = "{{ metrics_path }}"
+
+# Interval (in seconds) between metrics scraping from ntpd-rs
+scrape_interval = {{ scrape_interval }}
+
+# Timeout (in seconds) for each scrape attempt
+scrape_timeout = {{ scrape_timeout }}
+
+# Whether to enable TLS for the metrics endpoint
+tls_enabled = {{ tls_enabled }}
+
+{% if tls_enabled %}# Path to the TLS certificate file
+tls_cert = "{{ tls_cert_path }}"
+
+# Path to the TLS private key file
+tls_key = "{{ tls_key_path }}"
+{% endif %}
+
+# Labels to attach to all metrics
+{% for label in labels %}
+# Label: {{ label.name }} = {{ label.value }}
+{% endfor %}
+[labels]
+{% for label in labels %}{{ label.name | replace('.', '_') | replace('-', '_') | lower }} = "{{ label.value }}"
+{% endfor %}
+
+# Optional: extra Prometheus metric filters (e.g., include only specific metrics)
+{% if extra_filters %}# Enable metric filtering
+[filter]
+# Whitelist of metric names (regex patterns)
+whitelist = [
+{% for pattern in extra_filters.whitelist %}  "{{ pattern }}",
+{% endfor %}]
+
+# Blacklist of metric names (regex patterns)
+blacklist = [
+{% for pattern in extra_filters.blacklist %}  "{{ pattern }}",
+{% endfor %}]
+{% endif %}
+
+# HTTP server read/write timeout (seconds)
+read_timeout = {{ server_read_timeout }}
+write_timeout = {{ server_write_timeout }}
+
+# Maximum number of concurrent connections
+max_connections = {{ server_max_connections }}

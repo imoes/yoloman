@@ -1,0 +1,67 @@
+# Service-wide settings
+ServerName {{ server_name }}
+ServerIdent {{ server_ident }}
+ServerAdmin {{ server_admin }}
+ServerIP {{ server_ip }}
+ServerPort {{ server_port }}
+
+# Timeout and connection settings
+Timeout {{ timeout }}
+ConnectTimeout {{ connect_timeout }}
+ConnectRetryInterval {{ connect_retry_interval }}
+MaxKeepAliveRequests {{ max_keepalive_requests }}
+KeepAliveTimeout {{ keepalive_timeout }}
+
+# Logging configuration
+LogDir {{ log_dir }}
+DebugLevel {{ debug_level }}
+LogLevel {{ log_level }}
+PidFile {{ pid_file }}
+
+# Memory and worker tuning
+ThreadsPerChild {{ threads_per_child }}
+MaxServers {{ max_servers }}
+MinSpareThreads {{ min_spare_threads }}
+MaxSpareThreads {{ max_spare_threads }}
+MaxRequestsPerChild {{ max_requests_per_child }}
+
+# Access control
+AccessControlList {{ access_control_list }}
+
+{% for module in modules %}
+# Load {{ module.name }} module ({{ module.description }})
+LoadModule {{ module.name }} {{ module.path }}
+{% endfor %}
+
+{% for service in services %}
+# ICAP service: {{ service.name }}
+Service {{ service.name }} {{ service.type }}
+ServiceModule {{ service.name }} {{ service.module }}
+{% for option in service.options %}
+{{ option.key }} {{ option.value }}
+{% endfor %}
+{% endfor %}
+
+{% for header in request_headers %}
+# Add request header: {{ header.name }}
+RequestHeader add {{ header.name }} {{ header.value }}
+{% endfor %}
+
+{% for header in response_headers %}
+# Add response header: {{ header.name }}
+ResponseHeader add {{ header.name }} {{ header.value }}
+{% endfor %}
+
+{% for acl in acls %}
+# ACL: {{ acl.name }}
+ACL {{ acl.name }} {{ acl.match_type }} {{ acl.pattern }}
+{% endfor %}
+
+{% for rule in rules %}
+# Rule: {{ rule.name }}
+{% if rule.condition %}{{ rule.condition }} {% endif %}{{ rule.action }} {{ rule.service_name }}
+{% endfor %}
+
+# Security hardening (if enabled)
+{% if enable_safe_mode %}SafeMode on{% else %}SafeMode off{% endif %}
+{% if enable_chroot %}Chroot {{ chroot_dir }}{% else %}Chroot off{% endif %}

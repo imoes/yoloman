@@ -1,0 +1,81 @@
+# Listen on specified ports (typically 22 for SSH)
+DROPBEAR_PORT={{ listen_port }}
+
+# Listen on specified addresses (empty = all interfaces)
+{% if listen_addresses %}
+DROPBEAR_ADDRESS={{ listen_addresses | join(' ') }}
+{% else %}
+DROPBEAR_ADDRESS=""
+{% endif %}
+
+# Number of worker processes (0 = auto-detect based on CPU cores)
+DROPBEAR_EXTRA_ARGS="{{ '-p ' + listen_port | string | join(' -p ') }}"
+
+# Enable or disable password authentication
+{% if enable_password_auth %}
+DROPBEAR_PASSWORDAUTH=1
+{% else %}
+DROPBEAR_PASSWORDAUTH=0
+{% endif %}
+
+# Enable or disable public key authentication
+{% if enable_pubkey_auth %}
+DROPBEAR_PUBKEYAUTH=1
+{% else %}
+DROPBEAR_PUBKEYAUTH=0
+{% endif %}
+
+# Path to host key(s); multiple keys supported via -r flag
+{% for key in host_keys %}
+# Host key: {{ key.path }} (type: {{ key.type }})
+DROPBEAR_EXTRA_ARGS="${DROPBEAR_EXTRA_ARGS} -r {{ key.path }}"
+{% endfor %}
+
+# Banner file to display before authentication (optional)
+{% if banner_file %}
+DROPBEAR_BANNER={{ banner_file }}
+{% else %}
+DROPBEAR_BANNER=""
+{% endif %}
+
+# Enable or disable TCP forwarding
+{% if enable_tcp_forwarding %}
+DROPBEAR_TCPFORWARDING=1
+{% else %}
+DROPBEAR_TCPFORWARDING=0
+{% endif %}
+
+# Enable or disable X11 forwarding
+{% if enable_x11_forwarding %}
+DROPBEAR_X11FORWARDING=1
+{% else %}
+DROPBEAR_X11FORWARDING=0
+{% endif %}
+
+# Enable or disable agent forwarding
+{% if enable_agent_forwarding %}
+DROPBEAR_AGENTFORWARDING=1
+{% else %}
+DROPBEAR_AGENTFORWARDING=0
+{% endif %}
+
+# Maximum authentication attempts before disconnect
+DROPBEAR_MAXAUTHTRIES={{ max_auth_tries }}
+
+# Idle timeout (seconds); 0 = disabled
+DROPBEAR_IDLE_TIMEOUT={{ idle_timeout }}
+
+# Disable IPv6 if not needed
+{% if disable_ipv6 %}
+DROPBEAR_EXTRA_ARGS="${DROPBEAR_EXTRA_ARGS} -4"
+{% endif %}
+
+# Enable legacy crypto for compatibility (⚠️ not recommended for new deployments)
+{% if legacy_crypto %}
+DROPBEAR_EXTRA_ARGS="${DROPBEAR_EXTRA_ARGS} -E"
+{% endif %}
+
+# Extra runtime arguments (append only if needed; avoid duplication)
+{% if extra_args %}
+DROPBEAR_EXTRA_ARGS="${DROPBEAR_EXTRA_ARGS} {{ extra_args | join(' ') }}"
+{% endif %}

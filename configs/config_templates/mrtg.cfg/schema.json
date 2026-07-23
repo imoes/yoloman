@@ -1,0 +1,216 @@
+{
+  "work_dir": {
+    "type": "string",
+    "default": "/var/www/mrtg",
+    "description": "Directory where MRTG stores generated HTML pages, graphs (PNGs), and log files. Must be writable by the MRTG user."
+  },
+  "default_snmp_community": {
+    "type": "string",
+    "default": "public",
+    "description": "Default SNMP community string used for devices that don\u2019t specify one in their Target line. Avoid 'public' in production for security."
+  },
+  "default_snmp_version": {
+    "type": "string",
+    "default": "2c",
+    "description": "Default SNMP version (1, 2c, or 3) for targets without explicit version. '2c' is most common for legacy monitoring."
+  },
+  "default_snmp_authname": {
+    "type": "string",
+    "default": "",
+    "description": "SNMPv3 authentication username (used only if SNMPv3 is enabled). Leave blank if not using SNMPv3."
+  },
+  "default_snmp_authpass": {
+    "type": "string",
+    "default": "",
+    "description": "SNMPv3 authentication password. Required if SNMPv3 is enabled with auth (noAuthNoPriv or authNoPriv)."
+  },
+  "default_snmp_privpass": {
+    "type": "string",
+    "default": "",
+    "description": "SNMPv3 privacy (encryption) password. Required if using authPriv (authentication + encryption)."
+  },
+  "default_snmp_authproto": {
+    "type": "string",
+    "default": "md5",
+    "description": "SNMPv3 authentication protocol: 'md5' or 'sha'. 'sha' is more secure, but older devices may require 'md5'."
+  },
+  "default_snmp_privproto": {
+    "type": "string",
+    "default": "des",
+    "description": "SNMPv3 privacy protocol: 'des' or 'aes'. 'aes' is preferred for security; 'des' is legacy."
+  },
+  "interval": {
+    "type": "number",
+    "default": 300,
+    "description": "Polling interval in seconds. Standard is 300 (5 minutes). Must match cron/daemon schedule to avoid gaps or double-sampling."
+  },
+  "log_errors": {
+    "type": "bool",
+    "default": true,
+    "description": "If true, write errors to stderr (helpful during initial setup or troubleshooting)."
+  },
+  "log_syslog": {
+    "type": "bool",
+    "default": false,
+    "description": "If true, send log messages to syslog (e.g., for centralized logging)."
+  },
+  "enable_fast_refresh": {
+    "type": "bool",
+    "default": false,
+    "description": "If true, enables fast refresh \u2014 avoids reprocessing unchanged data, reducing CPU load."
+  },
+  "compress_logs": {
+    "type": "bool",
+    "default": true,
+    "description": "If true, compress old log files to save disk space (uses gzip)."
+  },
+  "generate_pngs": {
+    "type": "bool",
+    "default": true,
+    "description": "If true, generate PNG graph files in addition to HTML and logs. Set to false for log-only mode."
+  },
+  "generate_index": {
+    "type": "bool",
+    "default": true,
+    "description": "If true, generate HTML index pages to summarize monitored targets."
+  },
+  "debug": {
+    "type": "bool",
+    "default": false,
+    "description": "If true, enable verbose debug logging (very verbose \u2014 only for troubleshooting)."
+  },
+  "html_title": {
+    "type": "string",
+    "default": "MRTG Monitor",
+    "description": "Title shown on MRTG HTML pages (e.g., 'Network Traffic \u2013 Datacenter A')."
+  },
+  "mrtg_bin": {
+    "type": "string",
+    "default": "/usr/bin/mrtg",
+    "description": "Absolute path to the MRTG binary (if installed nonstandard). Usually left as default."
+  },
+  "use_24_hour_time": {
+    "type": "bool",
+    "default": true,
+    "description": "If true, use 24-hour format in timestamps; otherwise uses 12-hour (AM/PM)."
+  },
+  "use_timezone": {
+    "type": "string",
+    "default": "UTC",
+    "description": "Timezone for timestamps (e.g., 'UTC', 'America/New_York'). Avoid 'local' in distributed environments."
+  },
+  "daemon_mode": {
+    "type": "bool",
+    "default": false,
+    "description": "If true, run MRTG as a long-lived daemon (polls on schedule). Recommended for high-frequency or many targets. If false, use cron."
+  },
+  "write_pid_file": {
+    "type": "string",
+    "default": "/var/run/mrtg/mrtg.pid",
+    "description": "Path to PID file if daemon_mode=true. Required for service management (e.g., stop/start/restart)."
+  },
+  "targets": {
+    "type": "list",
+    "default": [
+      {
+        "name": "eth0_in",
+        "label": "eth0 Inbound",
+        "spec": "1.3.6.1.2.1.2.2.1.10.2:public@127.0.0.1",
+        "description": "Inbound traffic on eth0 (OID 1.3.6.1.2.1.2.2.1.10.2)",
+        "max_bits": 125000000,
+        "growth_factor": "none",
+        "traffic_unit": "bytes",
+        "options": [
+          "perminute",
+          "gauge",
+          "nosmooth"
+        ],
+        "title": "eth0 Inbound Traffic",
+        "page_top": "<H1>eth0 Inbound Traffic</H1>"
+      }
+    ],
+    "items": {
+      "name": {
+        "type": "string",
+        "default": "",
+        "description": "Unique identifier for this target (e.g., 'router1_eth0'). Used in HTML/Graph filenames."
+      },
+      "label": {
+        "type": "string",
+        "default": "",
+        "description": "Human-readable label for the target (used in logs and HTML)."
+      },
+      "spec": {
+        "type": "string",
+        "default": "",
+        "description": "SNMP specification: OID(s) and host/community in format 'oid:community@host' or 'router@host'."
+      },
+      "description": {
+        "type": "string",
+        "default": "",
+        "description": "Optional description (comment only). Helps document what the target monitors."
+      },
+      "router": {
+        "type": "string",
+        "default": "",
+        "description": "Optional 'router' hostname for routing/aliasing (used by tools like indexmaker)."
+      },
+      "snmp_community": {
+        "type": "string",
+        "default": "",
+        "description": "Override the default SNMP community string for this target (e.g., 'private')."
+      },
+      "snmp_version": {
+        "type": "string",
+        "default": "",
+        "description": "Override default SNMP version (e.g., '1' or '3')."
+      },
+      "max_bits": {
+        "type": "number",
+        "default": 0,
+        "description": "Maximum expected throughput in bits/second (for Y-axis scaling). Set 0 to auto-scale."
+      },
+      "growth_factor": {
+        "type": "string",
+        "default": "none",
+        "description": "Optional growth projection (e.g., 'linear', 'exponential', 'none'). Usually 'none'."
+      },
+      "traffic_unit": {
+        "type": "string",
+        "default": "bytes",
+        "description": "Unit for display: 'bytes', 'bits', 'packets', or 'errors'. Affects scaling labels."
+      },
+      "options": {
+        "type": "list",
+        "default": [
+          "gauge",
+          "perminute"
+        ],
+        "items": {
+          "type": "string",
+          "enum": [
+            "gauge",
+            "perminute",
+            "nosmooth",
+            "growright",
+            "unknassub",
+            "absmax",
+            "gauge",
+            "integer"
+          ]
+        },
+        "description": "List of MRTG options (comma-separated in config). Common: 'gauge' for counters, 'perminute' to scale to per-minute, 'nosmooth' to disable smoothing."
+      },
+      "title": {
+        "type": "string",
+        "default": "",
+        "description": "HTML <title> for this target\u2019s page (overrides global html_title)."
+      },
+      "page_top": {
+        "type": "string",
+        "default": "",
+        "description": "HTML content inserted at top of the generated HTML page for this target (e.g., <H1>...</H1>)."
+      }
+    }
+  }
+}

@@ -1,0 +1,128 @@
+{
+  "bind_address": {
+    "type": "string",
+    "default": "127.0.0.1",
+    "description": "IP address the milter should bind to. Prefer localhost (127.0.0.1) for local Postfix integration."
+  },
+  "bind_port": {
+    "type": "number",
+    "default": 8893,
+    "description": "Port number for the milter service. Must match MTA's milter configuration."
+  },
+  "dns_timeout": {
+    "type": "number",
+    "default": 5,
+    "description": "Seconds to wait for DNS resolution before timing out. Lower values improve latency but may miss slow responses."
+  },
+  "spf_timeout": {
+    "type": "number",
+    "default": 10,
+    "description": "Seconds to wait for full SPF evaluation. Must be \u2265 dns_timeout \u00d7 max_dns_lookups."
+  },
+  "max_dns_lookups": {
+    "type": "number",
+    "default": 10,
+    "description": "Maximum number of DNS lookups allowed per SPF check (per RFC 7208). Setting to 0 disables the limit."
+  },
+  "reject_permerror": {
+    "type": "bool",
+    "default": true,
+    "description": "Reject mail when the SPF record is malformed or invalid (permerror). Enable to block misconfigured senders."
+  },
+  "reject_fail": {
+    "type": "bool",
+    "default": true,
+    "description": "Reject mail when SPF evaluation yields 'fail'. Recommended for spam prevention."
+  },
+  "reject_softfail": {
+    "type": "bool",
+    "default": false,
+    "description": "Reject mail for 'softfail' results. Typically false to warn rather than reject."
+  },
+  "reject_neutral": {
+    "type": "bool",
+    "default": false,
+    "description": "Reject mail for 'neutral' results. Usually false \u2014 neutral is not a rejection signal."
+  },
+  "reject_none": {
+    "type": "bool",
+    "default": false,
+    "description": "Reject mail when no SPF record exists. May cause false positives; enable only if strictly required."
+  },
+  "log_level": {
+    "type": "number",
+    "default": 3,
+    "description": "Logging verbosity: 0=quiet, 1=error, 2=warn, 3=info (default), 4=debug, 5=trace."
+  },
+  "log_file": {
+    "type": "string",
+    "default": "",
+    "description": "Optional path to a dedicated log file (e.g., /var/log/spf-milter.log). If empty, syslog is used."
+  },
+  "trusted_ips": {
+    "type": "list",
+    "default": [],
+    "description": "List of IP addresses or CIDR ranges that bypass SPF checks (e.g., trusted internal mail servers).",
+    "items": {
+      "type": "string",
+      "pattern": "^(\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}(?:/\\d{1,2})?|([0-9a-fA-F:]+(?:/\\d{1,3})?))$",
+      "description": "IPv4 or IPv6 address or subnet in CIDR notation."
+    }
+  },
+  "exempted_domains": {
+    "type": "list",
+    "default": [],
+    "description": "List of domains (exact match, no wildcards) exempted from SPF evaluation (e.g., internal domains).",
+    "items": {
+      "type": "string",
+      "description": "Fully qualified domain name (FQDN), e.g., 'internal.example.com'."
+    }
+  },
+  "local_nets": {
+    "type": "list",
+    "default": [
+      "127.0.0.0/8",
+      "::1/128"
+    ],
+    "description": "Additional private or internal IP ranges to treat as 'local' for sender verification.",
+    "items": {
+      "type": "string",
+      "pattern": "^(\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}/\\d{1,2}|[0-9a-fA-F:]+/\\d{1,3})$",
+      "description": "CIDR notation for a subnet."
+    }
+  },
+  "passthrough_headers": {
+    "type": "list",
+    "default": [],
+    "description": "List of additional email headers to pass through to downstream filters (e.g., X-Forwarded-For for geolocation).",
+    "items": {
+      "type": "string",
+      "description": "Case-insensitive header name (e.g., 'X-Forwarded-For')."
+    }
+  },
+  "add_auth_results": {
+    "type": "bool",
+    "default": true,
+    "description": "Whether to add an Authentication-Results header per RFC 5451 for SPF results."
+  },
+  "auth_results_id": {
+    "type": "string",
+    "default": "milter.pyspf",
+    "description": "Identifier used in the Authentication-Results header (e.g., 'pyspf' or 'milter.pyspf')."
+  },
+  "skip_for_authenticated": {
+    "type": "bool",
+    "default": true,
+    "description": "Skip SPF checks for clients that have successfully authenticated (e.g., via SASL)."
+  },
+  "skip_for_localhost": {
+    "type": "bool",
+    "default": true,
+    "description": "Skip SPF checks for connections from localhost (127.0.0.0/8 and ::1)."
+  },
+  "fallback_policy": {
+    "type": "string",
+    "default": "neutral",
+    "description": "Policy to apply when no SPF record exists or parsing fails. 'neutral' is RFC-compliant default."
+  }
+}

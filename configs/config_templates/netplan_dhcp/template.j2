@@ -1,0 +1,92 @@
+# Netplan DHCP client configuration - managed by configuration system
+# Each file must be named with .yaml extension and placed in /etc/netplan/
+# This template defines a single network device with static or DHCP configuration
+# Network device definition: name, optional description, match criteria, and configuration
+network:
+  version: 2
+  {% for eth in interfaces %}
+  {% if eth.description %}
+  # {{ eth.description }}
+  {% endif %}
+  {{ eth.id }}:
+    {% if eth.match %}
+    match:
+      {% for key, val in eth.match.items() %}
+      {{ key }}: {{ val }}
+      {% endfor %}
+    {% endif %}
+    {% if eth.set_name %}
+    set-name: {{ eth.set_name }}
+    {% endif %}
+    {% if eth.dhcp4 is defined %}
+    dhcp4: {{ eth.dhcp4 | lower }}
+    {% endif %}
+    {% if eth.dhcp6 is defined %}
+    dhcp6: {{ eth.dhcp6 | lower }}
+    {% endif %}
+    {% if eth.dhcp4_overrides %}
+    dhcp4-overrides:
+      {% for key, val in eth.dhcp4_overrides.items() %}
+      {{ key }}: {{ val }}
+      {% endfor %}
+    {% endif %}
+    {% if eth.dhcp6_overrides %}
+    dhcp6-overrides:
+      {% for key, val in eth.dhcp6_overrides.items() %}
+      {{ key }}: {{ val }}
+      {% endfor %}
+    {% endif %}
+    {% if eth.ipv4_addresses %}
+    addresses:
+      {% for addr in eth.ipv4_addresses %}
+      - {{ addr }}
+      {% endfor %}
+    {% endif %}
+    {% if eth.ipv6_addresses %}
+    {% if not eth.ipv4_addresses %}
+    addresses:
+    {% endif %}
+      {% for addr in eth.ipv6_addresses %}
+      - {{ addr }}
+      {% endfor %}
+    {% endif %}
+    {% if eth.gateway4 %}
+    gateway4: {{ eth.gateway4 }}
+    {% endif %}
+    {% if eth.gateway6 %}
+    gateway6: {{ eth.gateway6 }}
+    {% endif %}
+    {% if eth.nameservers %}
+    nameservers:
+      {% if eth.nameservers.search %}
+      search:
+        {% for domain in eth.nameservers.search %}
+        - {{ domain }}
+        {% endfor %}
+      {% endif %}
+      {% if eth.nameservers.addresses %}
+      addresses:
+        {% for addr in eth.nameservers.addresses %}
+        - {{ addr }}
+        {% endfor %}
+      {% endif %}
+    {% endif %}
+    {% if eth.link_local %}
+    link-local:
+      {% for proto in eth.link_local %}
+      - {{ proto }}
+      {% endfor %}
+    {% endif %}
+    {% if eth.accept_ra is defined %}
+    accept-ra: {{ eth.accept_ra | lower }}
+    {% endif %}
+    {% if eth.routable_multicast is defined %}
+    routable-multicast: {{ eth.routable_multicast | lower }}
+    {% endif %}
+    {% if eth.lla is defined %}
+    link-local-addresses:
+      {% for addr in eth.lla %}
+      - {{ addr }}
+      {% endfor %}
+    {% endif %}
+  {% endfor %}

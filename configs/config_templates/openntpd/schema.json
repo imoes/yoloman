@@ -1,0 +1,94 @@
+{
+  "listen_addresses": {
+    "type": "list",
+    "default": [
+      "127.0.0.1",
+      "::1"
+    ],
+    "description": "List of IP addresses the NTP daemon will listen on for incoming NTP requests."
+  },
+  "allowed_networks": {
+    "type": "list",
+    "default": [
+      {
+        "address": "127.0.0.0",
+        "mask": 32
+      }
+    ],
+    "description": "List of allowed client networks/hosts with optional netmask. Each entry must contain 'address' (IPv4/IPv6) and 'mask' (CIDR prefix length).",
+    "items": {
+      "type": "object",
+      "fields": {
+        "address": {
+          "type": "string",
+          "description": "Base IP address of the allowed network (e.g., '192.168.1.0')."
+        },
+        "mask": {
+          "type": "number",
+          "description": "Netmask as CIDR prefix length (e.g., 24 for /24). Use 32 for a single host."
+        }
+      }
+    }
+  },
+  "servers": {
+    "type": "list",
+    "default": [
+      {
+        "hostname": "0.pool.ntp.org",
+        "iburst": true
+      },
+      {
+        "hostname": "1.pool.ntp.org",
+        "iburst": true
+      },
+      {
+        "hostname": "2.pool.ntp.org",
+        "iburst": true
+      },
+      {
+        "hostname": "3.pool.ntp.org",
+        "iburst": true
+      }
+    ],
+    "description": "List of upstream NTP servers to synchronize with. Each server entry includes hostname and optional iburst flag.",
+    "items": {
+      "type": "object",
+      "fields": {
+        "hostname": {
+          "type": "string",
+          "description": "Hostname or IP address of the upstream NTP server (e.g., 'pool.ntp.org')."
+        },
+        "iburst": {
+          "type": "bool",
+          "default": true,
+          "description": "When true, use 'iburst' mode (fast initial sync with burst of packets)."
+        }
+      }
+    }
+  },
+  "fallback_to_local_clock": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable fallback to local clock if all external servers are unreachable. Requires driftfile and optionally allows local-clock synchronization."
+  },
+  "allow_local_clock": {
+    "type": "bool",
+    "default": false,
+    "description": "Allow this host to act as an NTP server even when using local clock as fallback (i.e., unsynchronized). Should only be used in isolated networks."
+  },
+  "log_level": {
+    "type": "number",
+    "default": 0,
+    "description": "Verbosity of logging: 0=quiet, 1=minimal, 2=normal, 3=verbose."
+  },
+  "step_first": {
+    "type": "bool",
+    "default": false,
+    "description": "Step clock immediately on large initial offset instead of slewing. Only effective if enabled; threshold controls the offset limit."
+  },
+  "step_first_threshold": {
+    "type": "number",
+    "default": 1.0,
+    "description": "Maximum offset (in seconds) to trigger immediate clock stepping. Only used if `step_first` is enabled."
+  }
+}

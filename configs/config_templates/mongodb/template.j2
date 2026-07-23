@@ -1,0 +1,65 @@
+# System log configuration
+logPath: {{ log.path }}
+logAppend: {{ log.append }}
+logRotate: {{ log.rotate | default('rename') }}
+
+# Storage configuration
+storage:
+  dbPath: {{ storage.dbPath }}
+  journal:
+    enabled: {{ storage.journal.enabled }}
+  directoryPerDB: {{ storage.directoryPerDB }}
+  wiredTiger:
+    engineConfig:
+      cacheSizeGB: {{ storage.wiredTiger.engineConfig.cacheSizeGB }}
+    collectionConfig:
+      blockCompressor: {{ storage.wiredTiger.collectionConfig.blockCompressor }}
+  directoryForIndexFiles: {{ storage.directoryForIndexFiles }}
+
+# Network configuration
+net:
+  port: {{ net.port }}
+  bindIp: {% for ip in net.bindIp %}{{ ip }}{% if not loop.last %},{% endif %}{% endfor %}
+  ssl:
+    mode: {{ net.ssl.mode }}
+    PEMKeyFile: {{ net.ssl.PEMKeyFile | default('') }}
+    CAFile: {{ net.ssl.CAFile | default('') }}
+    allowConnectionsWithoutCertificates: {{ net.ssl.allowConnectionsWithoutCertificates }}
+
+# Security configuration
+security:
+  authorization: {{ security.authorization | default('disabled') }}
+  keyFile: {{ security.keyFile | default('') }}
+
+# Process management
+processManagement:
+  fork: {{ processManagement.fork }}
+
+# Replication (for replica sets)
+{% if replication.enabled %}
+replication:
+  replSetName: {{ replication.replSetName }}
+  oplogSizeMB: {{ replication.oplogSizeMB }}
+{% endif %}
+
+# Sharding (for config servers/mongos)
+{% if sharding.enabled %}
+sharding:
+  clusterRole: {{ sharding.clusterRole }}
+  configDB: {{ sharding.configDB }}
+{% endif %}
+
+# Audit logging
+{% if audit.enabled %}
+auditLog:
+  destination: {{ audit.destination }}
+  format: {{ audit.format }}
+  path: {{ audit.path }}
+{% endif %}
+
+# SystemLog (alias for logPath, kept for backward compatibility)
+systemLog:
+  destination: {{ systemLog.destination }}
+  path: {{ systemLog.path }}
+  logAppend: {{ systemLog.logAppend }}
+  logRotate: {{ systemLog.logRotate }}

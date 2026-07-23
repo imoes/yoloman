@@ -1,0 +1,35 @@
+# Enable distccd in standalone mode
+{% if enable_standalone | bool %}STANDALONE=true{% else %}STANDALONE=false{% endif %}
+
+# List of allowed clients (CIDR or IP); use '127.0.0.0/8' for localhost only
+ALLOWED_CLIENTS="{{ allowed_clients | join(' ') }}"
+
+# Network interface to bind to (e.g., 'eth0' or '127.0.0.1'); empty binds all
+LISTEN="{{ listen | default('0.0.0.0') }}"
+
+# TCP port for distccd (default 3632)
+PORT={{ port }}
+
+# Maximum number of concurrent jobs
+MAX_JOBS={{ max_jobs }}
+
+# Number of idle jobs to keep warm (0 disables warm pool)
+WARM_JOBS={{ warm_jobs }}
+
+# Log level: zero (quiet) to 4 (verbose)
+LOG_LEVEL={{ log_level }}
+
+# Path to log file (use '-' for stdout)
+LOG_FILE="{{ log_file }}"
+
+# Path to PID file
+PID_FILE="{{ pid_file }}"
+
+# Extra arguments passed to distccd (e.g., '--no-rfc2553')
+EXTRA_ARGS="{{ extra_args }}"
+
+# Enable transparent mode (auto-fallback for non-distributed compiles)
+{% if enable_transparent | bool %}TRANSPARENT_MODE=true{% else %}TRANSPARENT_MODE=false{% endif %}
+
+# Disable insecure features for production safety
+{% if disable_insecure | bool %}DISABLE_INSECURE=true{% else %}DISABLE_INSECURE=false{% endif %}

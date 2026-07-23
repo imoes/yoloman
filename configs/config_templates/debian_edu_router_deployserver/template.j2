@@ -1,0 +1,63 @@
+# Listen address for the TFTP server (IPv4 or IPv6)
+bind-address: {{ tftp_bind_address }}
+
+# TFTP server port (standard is 69; keep 69 unless troubleshooting)
+port: {{ tftp_port }}
+
+# Root directory served via TFTP (must be accessible and contain boot images)
+tftp-root: {{ tftp_root }}
+
+# Enable IPv6 support? (true/false)
+ipv6-enabled: {{ ipv6_enabled }}
+
+# Maximum concurrent connections (limit to prevent resource exhaustion)
+max-connections: {{ max_connections }}
+
+# Enable secure TFTP (using TFTP over DTLS is not standard; here it means restrictive permissions and chroot)
+secure-mode: {{ secure_mode }}
+
+# List of allowed client subnets (CIDR notation); empty = allow all
+{% for subnet in allowed_subnets %}allow-subnet: {{ subnet }}
+{% endfor %}
+
+# Log level: debug, info, notice, warn, error, crit, alert, emerg
+log-level: {{ log_level }}
+
+# Path to log file (use '-' for stdout)
+log-file: {{ log_file }}
+
+# Boot filename to serve by default (e.g., pxelinux.0, grubx64.efi)
+default-bootfile: {{ default_bootfile }}
+
+# Bootfile prefix — prepended to bootfile names for organization (e.g., /pxe/)
+bootfile-prefix: {{ bootfile_prefix }}
+
+# Enable DHCP assist (relay DHCP requests to a DHCP server)
+{% if dhcp_assist_enabled %}
+# DHCP server address to forward requests to
+ dhcp-server: {{ dhcp_assist_server }}
+{% endif %}
+
+# Enable HTTPS-based fallback HTTP download (for large files, e.g., ISOs)
+{% if https_enabled %}
+# HTTPS server (web server) providing fallback downloads
+ https-server: {{ https_server }}
+# Base path for HTTP downloads (e.g., /debian-edu/router/)
+ https-base-path: {{ https_base_path }}
+# SSL certificate chain (PEM format) for HTTPS (if self-hosted)
+ https-cert: {{ https_cert }}
+{% endif %}
+
+# Enable PXE proxy (use dnsmasq or similar to handle DHCP/TFTP together)
+pxe-proxy: {{ pxe_proxy }}
+
+# Command to run on successful boot (e.g., log event, trigger alert)
+# Leave empty to disable
+{% if post_boot_script %}post-boot-cmd: {{ post_boot_script }}
+{% endif %}
+
+# Timeout for TFTP transfers (in seconds; 0 = no timeout)
+transfer-timeout: {{ transfer_timeout }}
+
+# Block size for TFTP transfers (1408 is recommended for UDP MTU safety)
+blocksize: {{ tftp_blocksize }}

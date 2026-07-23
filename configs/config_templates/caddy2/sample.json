@@ -1,0 +1,45 @@
+{
+  "global_options": "auto_https off",
+  "sites": [
+    {
+      "address": "example.com",
+      "options": "root * /var/www/html\nfile_server",
+      "site_directives": [
+        "encode gzip zstd",
+        "log { output file /var/log/caddy/example.log }"
+      ],
+      "routes": [
+        {
+          "matcher": "path /api/*",
+          "handlers": [
+            "reverse_proxy localhost:8080"
+          ]
+        }
+      ]
+    },
+    {
+      "address": "api.example.com",
+      "options": "",
+      "routes": [
+        {
+          "matcher": "",
+          "handlers": [
+            "reverse_proxy localhost:3000"
+          ]
+        }
+      ]
+    },
+    {
+      "address": ":8080",
+      "options": "root * /var/www/internal\nfile_server",
+      "routes": [
+        {
+          "matcher": "path /health",
+          "handlers": [
+            "respond \"OK\" 200"
+          ]
+        }
+      ]
+    }
+  ]
+}

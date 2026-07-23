@@ -1,0 +1,210 @@
+{
+  "gtp0_local_ip": {
+    "type": "string",
+    "default": "10.88.0.1",
+    "description": "Local IP address used by the GGSN for GTP-C/GTP-U (must be reachable by SGSNs)."
+  },
+  "gtp0_remote_ip": {
+    "type": "string",
+    "default": "0.0.0.0",
+    "description": "Remote GTP endpoint (e.g., SGSN) IP; often left as 0.0.0.0 to accept any peer."
+  },
+  "vty_bind_addr": {
+    "type": "string",
+    "default": "127.0.0.1",
+    "description": "IP address for the VTY/CLI management interface (e.g., for telnet or ssh-based vtysh)."
+  },
+  "vty_port": {
+    "type": "number",
+    "default": 9999,
+    "description": "TCP port for the VTY/CLI management interface."
+  },
+  "gsup_local_ip": {
+    "type": "string",
+    "default": "127.0.0.1",
+    "description": "Local IP for the GSUP (Generic Subscriber Update Protocol) server interface."
+  },
+  "gsup_local_port": {
+    "type": "number",
+    "default": 4222,
+    "description": "Local port for GSUP server."
+  },
+  "gsup_remote_ip": {
+    "type": "string",
+    "default": "127.0.0.1",
+    "description": "Remote GSUP peer (e.g., HLR or MSC) IP."
+  },
+  "gsup_remote_port": {
+    "type": "number",
+    "default": 4222,
+    "description": "Remote GSUP peer port."
+  },
+  "ip_pools": {
+    "type": "list",
+    "default": [],
+    "items": {
+      "name": {
+        "type": "string",
+        "default": "default",
+        "description": "Unique name for the IP pool."
+      },
+      "subnet": {
+        "type": "string",
+        "default": "10.89.0.0/24",
+        "description": "IPv4 subnet (CIDR notation) for subscriber addresses."
+      },
+      "gateway": {
+        "type": "string",
+        "default": "10.89.0.1",
+        "description": "Gateway IP for this pool (typically GGSN's interface IP in this subnet)."
+      },
+      "dns1": {
+        "type": "string",
+        "default": "8.8.8.8",
+        "description": "Primary DNS server IP."
+      },
+      "dns2": {
+        "type": "string",
+        "default": "8.8.4.4",
+        "description": "Secondary DNS server IP (optional; leave empty if unused)."
+      },
+      "sntp": {
+        "type": "string",
+        "default": "",
+        "description": "SNTP server IP (optional)."
+      },
+      "wins1": {
+        "type": "string",
+        "default": "",
+        "description": "WINS server 1 IP (optional, for Windows name resolution)."
+      },
+      "wins2": {
+        "type": "string",
+        "default": "",
+        "description": "WINS server 2 IP (optional)."
+      }
+    },
+    "description": "List of IP address pools assigned to APNs."
+  },
+  "apns": {
+    "type": "list",
+    "default": [],
+    "items": {
+      "name": {
+        "type": "string",
+        "default": "internet",
+        "description": "APN name as used in subscriber profiles (e.g., 'internet', 'mms')."
+      },
+      "pool_name": {
+        "type": "string",
+        "default": "default",
+        "description": "Name of the IP pool to assign to this APN."
+      },
+      "type": {
+        "type": "string",
+        "default": "ipv4",
+        "description": "Address type (ipv4, ipv6, ipv4v6)."
+      },
+      "qos": {
+        "type": "string",
+        "default": "6 6 0 0 0",
+        "description": "QCI / ARP / QoS parameters (e.g., '6 6 0 0 0' for best-effort)."
+      },
+      "pco": {
+        "type": "string",
+        "default": "",
+        "description": "Protocol Configuration Options string (e.g., for DNS suffix, MSISDN, etc.)."
+      }
+    },
+    "description": "List of APNs served by this GGSN, each linked to an IP pool."
+  },
+  "gprs_ran": {
+    "type": "object",
+    "default": null,
+    "items": {
+      "mcc": {
+        "type": "string",
+        "default": "001",
+        "description": "Mobile Country Code (3 digits)."
+      },
+      "mnc": {
+        "type": "string",
+        "default": "01",
+        "description": "Mobile Network Code (2 or 3 digits)."
+      },
+      "lac": {
+        "type": "number",
+        "default": 1,
+        "description": "Location Area Code."
+      },
+      "rac": {
+        "type": "number",
+        "default": 1,
+        "description": "Routing Area Code (0\u2013255)."
+      }
+    },
+    "description": "GPRS Routing Area Identity (RAN) \u2014 optional but recommended for inter-SGSN handover."
+  },
+  "sgsn_peers": {
+    "type": "list",
+    "default": [],
+    "items": {
+      "ip": {
+        "type": "string",
+        "default": "10.88.0.2",
+        "description": "IP address of the SGSN peer (for GTP-C/GTP-U)."
+      },
+      "port": {
+        "type": "number",
+        "default": 2152,
+        "description": "GTP-C port (2152 is standard for GGSN<->SGSN)."
+      },
+      "local_ip": {
+        "type": "string",
+        "default": "",
+        "description": "Optional local source IP for GTP connections to this peer."
+      },
+      "local_port": {
+        "type": "number",
+        "default": 2152,
+        "description": "Optional local source port for GTP."
+      },
+      "apn": {
+        "type": "string",
+        "default": "",
+        "description": "Default APN for routing to this peer (optional)."
+      },
+      "tft": {
+        "type": "string",
+        "default": "",
+        "description": "Traffic Flow Template filter string (e.g., 'in 10.0.0.0/8 out 10.0.0.0/8')."
+      }
+    },
+    "description": "List of SGSN peers (one per SGSN in the network)."
+  },
+  "s5_s8_enabled": {
+    "type": "boolean",
+    "default": false,
+    "description": "Enable S5/S8 (EPC) interface for connection to SGW/PGW. If true, configure below fields."
+  },
+  "s5_s8_interface": {
+    "type": "string",
+    "default": "eth1",
+    "description": "Network interface used for S5/S8 (e.g., 'gtp0' or 'eth1')."
+  },
+  "s5_s8_local_ip": {
+    "type": "string",
+    "default": "172.16.0.1",
+    "description": "Local IP address for S5/S8 GTP-C interface."
+  },
+  "s5_s8_remote_ip": {
+    "type": "string",
+    "default": "172.16.0.2",
+    "description": "Remote SGW/PGW IP for S5/S8."
+  },
+  "stats_interval": {
+    "type": "number",
+    "default": 60,
+    "description": "Interval (seconds) between GGSN statistics updates."
+  }
+}

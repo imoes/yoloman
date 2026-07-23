@@ -1,0 +1,80 @@
+# autodir configuration file
+# Global settings
+basedir: {{ basedir }}
+pidfile: {{ pidfile }}
+
+# Logging verbosity (0-5)
+loglevel: {{ loglevel }}
+
+# Backend type: ldap, nis, sql, or local
+backend: {{ backend }}
+
+{% if backend == 'ldap' %}
+# LDAP-specific settings
+ldap_uri: {{ ldap_uri }}
+ldap_base: {{ ldap_base }}
+ldap_binddn: {{ ldap_binddn }}
+ldap_bindpw: {{ ldap_bindpw }}
+ldap_user_filter: {{ ldap_user_filter }}
+ldap_group_filter: {{ ldap_group_filter }}
+ldap_user_basedn: {{ ldap_user_basedn }}
+ldap_group_basedn: {{ ldap_group_basedn }}
+ldap_attr_uid: {{ ldap_attr_uid }}
+ldap_attr_gid: {{ ldap_attr_gid }}
+ldap_attr_homedir: {{ ldap_attr_homedir }}
+{% elif backend == 'nis' %}
+# NIS-specific settings
+nis_domain: {{ nis_domain }}
+nis_server: {{ nis_server }}
+{% elif backend == 'sql' %}
+# SQL-specific settings
+sql_driver: {{ sql_driver }}
+sql_server: {{ sql_server }}
+sql_port: {{ sql_port }}
+sql_database: {{ sql_database }}
+sql_user: {{ sql_user }}
+sql_password: {{ sql_password }}
+sql_user_table: {{ sql_user_table }}
+sql_group_table: {{ sql_group_table }}
+sql_user_query: {{ sql_user_query }}
+sql_group_query: {{ sql_group_query }}
+{% elif backend == 'local' %}
+# Local passwd/group file paths
+passwd_file: {{ passwd_file }}
+shadow_file: {{ shadow_file }}
+group_file: {{ group_file }}
+{% endif %}
+
+# Template for directory creation
+# %u = username, %h = homedir, %g = groupname
+mkdir_template: {{ mkdir_template }}
+
+# Ownership and permissions
+uid_default: {{ uid_default }}
+gid_default: {{ gid_default }}
+mode_dir: {{ mode_dir }}
+mode_file: {{ mode_file }}
+
+# Optional: extra skeleton files to copy
+{% if skeleton_files | length > 0 %}
+skeleton_dir: {{ skeleton_dir }}
+{% endif %}
+
+# Pre- and post-creation hooks
+# Format: command to run (shell-safe); use %u for username
+pre_create: {{ pre_create }}
+post_create: {{ post_create }}
+
+# Rate limiting
+max_creates_per_sec: {{ max_creates_per_sec }}
+max_creates_per_user_per_min: {{ max_creates_per_user_per_min }}
+
+# Timeout settings (seconds)
+lookup_timeout: {{ lookup_timeout }}
+create_timeout: {{ create_timeout }}
+
+# Graceful reload on config change
+reload_on_config_change: {{ reload_on_config_change }}
+
+# Debug mode: verbose logging, no actual writes (dry-run)
+debug: {{ debug }}

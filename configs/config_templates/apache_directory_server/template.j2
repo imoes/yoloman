@@ -1,0 +1,67 @@
+# Apache Directory Server configuration file (apacheds.conf)
+# This file configures the core JVM and server options for Apache Directory Server.
+# IMPORTANT: This is a JVM argument file, not an LDAP configuration file (e.g., for partitions, schema, etc.).
+# For LDAP/DS configuration (e.g., partitions, LDAP ports), use the LDIF-based config under /var/lib/apacheds/instances/default/.
+
+# JVM heap size — minimum and maximum heap size in MB
+-Xms{{ jvm_heap_min_mb }}M
+-Xmx{{ jvm_heap_max_mb }}M
+
+# Garbage collection tuning — use G1GC for better latency
+-XX:+UseG1GC
+
+# GC logging — enable GC logs for troubleshooting (optional)
+{% if enable_gc_logging %}-Xloggc:{{ gc_log_path }}
+-XX:+PrintGCDetails
+-XX:+PrintGCDateStamps
+-XX:+UseGCLogFileRotation
+-XX:NumberOfGCLogFiles=5
+-XX:GCLogFileSize=10M
+{% endif %}
+
+# Directory Server working directory
+-Dapacheds.dir={{ instance_dir }}
+
+# Service instance name (must match instance directory name under apacheds.dir)
+-Dinstance.uid={{ instance_uid }}
+
+# Log level — adjust for production (INFO is recommended; DEBUG for diagnostics)
+-Dlog.level={{ log_level }}
+
+# Bind address for the LDAP service (0.0.0.0 = all interfaces)
+-Dldap.port={{ ldap_port }}
+-Dldap.internet.address={{ ldap_bind_address }}
+
+# LDAPS (LDAP over SSL/TLS) — disable if not needed
+{% if enable_ldaps %}-Dldaps.port={{ ldaps_port }}
+-Dldaps.internet.address={{ ldaps_bind_address }}
+{% endif %}
+
+# JNDI provider URL for embedded LDAP (used by some tools)
+-Djava.naming.provider.url=ldap://{{ ldap_bind_address }}:{{ ldap_port }}
+
+# RMI management port (optional; often disabled in production for security)
+{% if enable_rmi %}-Drmi.port={{ rmi_port }}
+{% endif %}
+
+# Enable debug flags (e.g., for kerberos troubleshooting)
+{% if enable_debug %}-Dcom.sun.management.debug=true
+-Dsun.security.krb5.debug=true
+{% endif %}
+
+# Additional system properties (free-form, one per line)
+{% for prop in extra_system_properties %}-D{{ prop.key }}={{ prop.value }}
+{% endfor %}
+
+# JVM tuning: thread stack size (adjust only if needed for deep recursion)
+-Xss{{ thread_stack_size_kb }}k
+
+# JVM tuning: disable biased locking for high-contention workloads (optional)
+{% if disable_biased_locking %}-XX:-UseBiasedLocking
+{% endif %}
+
+# Classpath — do not modify unless absolutely necessary
+-cp {{ classpath }}
+
+# Main class to launch
+org.apache.directory.server.App

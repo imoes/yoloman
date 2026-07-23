@@ -1,0 +1,297 @@
+{
+  "acls": {
+    "type": "list",
+    "default": [],
+    "description": "Access Control List definitions. Each entry defines a named ACL with type and value.",
+    "items": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Unique ACL name (e.g., 'localnet', 'localhost')"
+        },
+        "type": {
+          "type": "string",
+          "description": "ACL type (e.g., 'src', 'dst', 'url_regex', 'proxy_auth')"
+        },
+        "value": {
+          "type": "string",
+          "description": "ACL value (e.g., '192.168.0.0/16', '^https://', 'REQUIRED')"
+        },
+        "description": {
+          "type": "string",
+          "description": "Human-readable description"
+        }
+      },
+      "required": [
+        "name",
+        "type",
+        "value"
+      ]
+    }
+  },
+  "http_access_rules": {
+    "type": "list",
+    "default": [],
+    "description": "Order matters. First matching rule wins. Use 'deny' before 'allow' to implement defaults.",
+    "items": {
+      "type": "object",
+      "properties": {
+        "action": {
+          "type": "string",
+          "enum": [
+            "allow",
+            "deny"
+          ],
+          "description": "Action to take"
+        },
+        "acls": {
+          "type": "list",
+          "items": {
+            "type": "string"
+          },
+          "description": "List of ACL names to match"
+        }
+      },
+      "required": [
+        "action",
+        "acls"
+      ]
+    }
+  },
+  "http_port": {
+    "type": "list",
+    "default": [
+      "3128"
+    ],
+    "description": "List of ports on which Squid listens for HTTP requests (e.g., ['3128', '8080'])."
+  },
+  "transparent": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable transparent proxy mode (requires iptables NAT redirection)."
+  },
+  "transparent_port": {
+    "type": "string",
+    "default": "3128",
+    "description": "Port for transparent mode (must match one in http_port if enabled). Only used when transparent=true."
+  },
+  "cache_dirs": {
+    "type": "list",
+    "default": [
+      {
+        "index": 1,
+        "location": "/var/spool/squid",
+        "size": 1024,
+        "max_size": 2048,
+        "l1": 16,
+        "l2": 256
+      }
+    ],
+    "description": "Disk cache directories for persistent caching. UFS format only.",
+    "items": {
+      "type": "object",
+      "properties": {
+        "index": {
+          "type": "number",
+          "description": "Directory index (starts at 1)"
+        },
+        "location": {
+          "type": "string",
+          "description": "Absolute path to cache directory"
+        },
+        "size": {
+          "type": "number",
+          "description": "Size in megabytes"
+        },
+        "max_size": {
+          "type": "number",
+          "description": "Maximum object size in kilobytes allowed in this directory"
+        },
+        "l1": {
+          "type": "number",
+          "description": "Number of first-level subdirectories"
+        },
+        "l2": {
+          "type": "number",
+          "description": "Number of second-level subdirectories"
+        }
+      },
+      "required": [
+        "index",
+        "location",
+        "size",
+        "max_size",
+        "l1",
+        "l2"
+      ]
+    }
+  },
+  "memory_cache_size": {
+    "type": "number",
+    "default": 256,
+    "description": "Size of RAM cache in megabytes. Keep \u226450% of system RAM for safety."
+  },
+  "max_in_mem_cache_size": {
+    "type": "number",
+    "default": null,
+    "description": "Maximum size (MB) of objects kept in memory cache. Set to null to omit."
+  },
+  "log_location": {
+    "type": "string",
+    "default": "/var/log/squid",
+    "description": "Directory for log files."
+  },
+  "log_rotate_count": {
+    "type": "number",
+    "default": 5,
+    "description": "Number of rotated log files to keep."
+  },
+  "access_log": {
+    "type": "string",
+    "default": "/var/log/squid/access.log",
+    "description": "Path to access log file. Use 'none' to disable."
+  },
+  "cache_log": {
+    "type": "string",
+    "default": "/var/log/squid/cache.log",
+    "description": "Path to cache log file."
+  },
+  "dns_nameservers": {
+    "type": "list",
+    "default": [
+      "127.0.0.1"
+    ],
+    "description": "DNS servers to use (e.g., public resolvers: ['8.8.8.8', '8.8.4.4'])."
+  },
+  "enable_ipv6": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable IPv6 support (required for dual-stack networks)."
+  },
+  "worker_processes": {
+    "type": "number",
+    "default": 1,
+    "description": "Number of Squid worker processes. Increase on multi-core systems (requires SMP support)."
+  },
+  "connect_timeout": {
+    "type": "number",
+    "default": 30,
+    "description": "Timeout (seconds) for connecting to origin servers."
+  },
+  "request_timeout": {
+    "type": "number",
+    "default": 5,
+    "description": "Timeout (seconds) for receiving client request headers."
+  },
+  "read_timeout": {
+    "type": "number",
+    "default": 2,
+    "description": "Timeout (seconds) for reading responses from origin servers."
+  },
+  "minimum_object_size": {
+    "type": "number",
+    "default": 0,
+    "description": "Minimum object size (KB) to cache (e.g., 0 for all, or 512 to skip tiny objects)."
+  },
+  "maximum_object_size": {
+    "type": "number",
+    "default": 4096,
+    "description": "Maximum object size (MB) to cache (4GB default; adjust for large file caching needs)."
+  },
+  "authentication_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable basic authentication (e.g., with NCSA or LDAP helpers)."
+  },
+  "auth_param_program": {
+    "type": "string",
+    "default": "/usr/lib/squid/ncsa_auth /etc/squid/passwd",
+    "description": "Path to authentication helper program and arguments."
+  },
+  "auth_param_children": {
+    "type": "number",
+    "default": 5,
+    "description": "Number of auth helper processes."
+  },
+  "auth_param_ttl": {
+    "type": "number",
+    "default": 2,
+    "description": "Credential cache TTL in hours."
+  },
+  "refresh_patterns": {
+    "type": "list",
+    "default": [
+      {
+        "regex": "^(?!.*\\.[a-z]{2,4}/).*$",
+        "min": 0,
+        "percent": 20,
+        "max": 1440
+      },
+      {
+        "regex": "\\.[a-z]{2,4}($|\\?)",
+        "min": 10,
+        "percent": 20,
+        "max": 1440
+      }
+    ],
+    "description": "Refresh patterns to determine cache freshness for matched URLs. First match wins.",
+    "items": {
+      "type": "object",
+      "properties": {
+        "regex": {
+          "type": "string",
+          "description": "Regular expression to match URLs"
+        },
+        "min": {
+          "type": "number",
+          "description": "Minimum revalidate time (minutes)"
+        },
+        "percent": {
+          "type": "number",
+          "description": "Percentage of TTL for revalidate"
+        },
+        "max": {
+          "type": "number",
+          "description": "Maximum time to live (minutes)"
+        }
+      },
+      "required": [
+        "regex",
+        "min",
+        "percent",
+        "max"
+      ]
+    }
+  },
+  "visible_hostname": {
+    "type": "string",
+    "default": "proxy",
+    "description": "Hostname used in error pages and ICP queries (must be resolvable or match system hostname)."
+  },
+  "memory_cache_description": {
+    "type": "string",
+    "default": "RAM used for caching active (recent) objects. Not part of disk cache.",
+    "description": "Internal description \u2014 shown only in schema docs."
+  },
+  "dns_description": {
+    "type": "string",
+    "default": "DNS servers used for name resolution.",
+    "description": "Internal description \u2014 shown only in schema docs."
+  },
+  "timeout_description": {
+    "type": "string",
+    "default": "Network timeouts to avoid hung connections.",
+    "description": "Internal description \u2014 shown only in schema docs."
+  },
+  "visible_hostname_description": {
+    "type": "string",
+    "default": "Server identity for error messages and inter-proxy comms.",
+    "description": "Internal description \u2014 shown only in schema docs."
+  },
+  "worker_processes_description": {
+    "type": "string",
+    "default": "Number of parallel worker processes to use (SMP support required).",
+    "description": "Internal description \u2014 shown only in schema docs."
+  }
+}

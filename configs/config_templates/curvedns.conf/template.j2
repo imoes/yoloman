@@ -1,0 +1,61 @@
+# Main listening address and port for the DNS-over-HTTPS resolver
+bind: {{ bind_address }}:{{ bind_port }}
+
+# DNS upstream servers (standard or DoH/DoT endpoints)
+{% for upstream in upstreams %}# Upstream resolver {{ loop.index }}: {{ upstream.name | default('unnamed') }}
+- {{ upstream.server }}{% if upstream.tls_servername %}# TLS server name: {{ upstream.tls_servername }}
+  tls_servername: {{ upstream.tls_servername }}{% endif %}
+{% endfor %}
+
+# Logging level: debug, info, warn, error
+log_level: {{ log_level }}
+
+# Path to the log file (empty string for stdout)
+log_file: {{ log_file }}
+
+# Maximum concurrent queries per client (0 = unlimited)
+max_queries_per_client: {{ max_queries_per_client }}
+
+# Enable EDNS Client Subnet (ECS) support
+ecs: {{ ecs }}
+
+# Enable DNSSEC validation (requires upstream support)
+dnssec: {{ dnssec }}
+
+# Path to trusted root DS records file (if dnssec=true)
+trust_anchor_file: {{ trust_anchor_file }}
+
+# HTTP server timeout (seconds)
+timeout: {{ timeout }}
+
+# Path to the certificate and key for HTTPS (PEM format)
+cert_file: {{ cert_file }}
+key_file: {{ key_file }}
+
+# Hostname to bind SNI to (if omitted, uses bind address)
+sni_hostname: {{ sni_hostname | default('') }}
+
+# Enable IPv6 support
+ipv6: {{ ipv6 }}
+
+# Rate limit burst size
+rate_limit_burst: {{ rate_limit_burst }}
+
+# Rate limit window (seconds)
+rate_limit_window: {{ rate_limit_window }}
+
+# Cache size (number of entries); 0 = disabled
+cache_size: {{ cache_size }}
+
+# Minimum TTL to cache (seconds)
+cache_min_ttl: {{ cache_min_ttl }}
+
+# Maximum TTL to cache (seconds)
+cache_max_ttl: {{ cache_max_ttl }}
+
+# Hosts file to override specific queries (e.g., local services)
+{% for entry in hosts_file %}# Host override: {{ entry.host }} → {{ entry.ip }}
+hosts:
+  - host: {{ entry.host }}
+    ip: {{ entry.ip }}
+{% endfor %}

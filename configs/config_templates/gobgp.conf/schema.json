@@ -1,0 +1,366 @@
+{
+  "global_asn": {
+    "type": "number",
+    "default": 65001,
+    "description": "Autonomous System Number (ASN) for this BGP speaker (32-bit AS, e.g., 65001 or 131072)"
+  },
+  "global_router_id": {
+    "type": "string",
+    "default": "192.0.2.1",
+    "description": "Router ID (IPv4 format recommended, e.g., '192.0.2.1')"
+  },
+  "global_port": {
+    "type": "number",
+    "default": 179,
+    "description": "BGP TCP port to listen on (179 is standard)"
+  },
+  "graceful_restart_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable global graceful restart support"
+  },
+  "graceful_restart_time": {
+    "type": "number",
+    "default": 120,
+    "description": "Graceful restart timer (seconds)"
+  },
+  "graceful_restart_stale_time": {
+    "type": "number",
+    "default": 300,
+    "description": "Time to consider routes stale before removing them (seconds)"
+  },
+  "afi_safis_ipv4_unicast_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable IPv4 unicast address family globally"
+  },
+  "afi_safis_ipv6_unicast_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable IPv6 unicast address family globally"
+  },
+  "route_reflection_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable global route reflection (use only if acting as a route reflector)"
+  },
+  "route_reflection_client_to_client": {
+    "type": "bool",
+    "default": true,
+    "description": "Allow client-to-client route reflection (ignored unless route reflection enabled)"
+  },
+  "neighbors": {
+    "type": "list",
+    "default": [],
+    "description": "List of BGP neighbors (peers) to configure",
+    "items": {
+      "type": "object",
+      "fields": {
+        "name": {
+          "type": "string",
+          "default": "peer1",
+          "description": "Unique identifier for the neighbor (e.g., 'peer1', 'core-rtr1')"
+        },
+        "address": {
+          "type": "string",
+          "default": "192.0.2.2",
+          "description": "Neighbor's IP address (IPv4 or IPv6)"
+        },
+        "asn": {
+          "type": "number",
+          "default": 65002,
+          "description": "Neighbor\u2019s Autonomous System Number"
+        },
+        "description": {
+          "type": "string",
+          "default": "",
+          "description": "Human-readable description (for documentation only)"
+        },
+        "connect_retry": {
+          "type": "number",
+          "default": 120,
+          "description": "TCP connect retry interval (seconds)"
+        },
+        "hold_time": {
+          "type": "number",
+          "default": 90,
+          "description": "BGP hold timer (seconds)"
+        },
+        "keepalive_interval": {
+          "type": "number",
+          "default": 30,
+          "description": "BGP keepalive interval (seconds)"
+        },
+        "minimum_advertisement_interval": {
+          "type": "number",
+          "default": 5,
+          "description": "Minimum time between route advertisements (seconds)"
+        },
+        "idle_hold_time": {
+          "type": "number",
+          "default": 15,
+          "description": "Idle hold time after BGP session reset (seconds)"
+        },
+        "import_policy": {
+          "type": "list",
+          "default": [],
+          "description": "List of policy names to apply to incoming routes"
+        },
+        "export_policy": {
+          "type": "list",
+          "default": [],
+          "description": "List of policy names to apply to outgoing routes"
+        },
+        "route_reflection_enabled": {
+          "type": "bool",
+          "default": false,
+          "description": "Enable route reflection for this specific neighbor"
+        },
+        "route_reflection_client_to_client": {
+          "type": "bool",
+          "default": true,
+          "description": "Allow client-to-client reflection for this neighbor"
+        },
+        "graceful_restart": {
+          "type": "object",
+          "default": {
+            "enabled": false
+          },
+          "description": "Neighbor-specific graceful restart settings",
+          "fields": {
+            "enabled": {
+              "type": "bool",
+              "default": false,
+              "description": "Enable graceful restart for this neighbor"
+            }
+          }
+        },
+        "password": {
+          "type": "string",
+          "default": "",
+          "description": "BGP MD5 authentication password (leave blank to disable)"
+        },
+        "transport_local_address": {
+          "type": "string",
+          "default": "",
+          "description": "Local IP address to use for the TCP connection (e.g., '192.0.2.1')"
+        },
+        "transport_passive_mode": {
+          "type": "bool",
+          "default": false,
+          "description": "Set to true to operate in passive mode (only accept connections)"
+        },
+        "afi_safis_ipv4_unicast_enabled": {
+          "type": "bool",
+          "default": true,
+          "description": "Enable IPv4 unicast SAFI for this neighbor (overrides global if set)"
+        },
+        "afi_safis_ipv6_unicast_enabled": {
+          "type": "bool",
+          "default": true,
+          "description": "Enable IPv6 unicast SAFI for this neighbor (overrides global if set)"
+        },
+        "afi_safis_evpn_enabled": {
+          "type": "bool",
+          "default": false,
+          "description": "Enable EVPN (Layer 2 VPN) for this neighbor"
+        },
+        "afi_safis_mvpn_enabled": {
+          "type": "bool",
+          "default": false,
+          "description": "Enable MVPN (Multicast VPN) for this neighbor"
+        }
+      }
+    }
+  },
+  "policies": {
+    "type": "list",
+    "default": [],
+    "description": "List of routing policies (used for import/export filtering)",
+    "items": {
+      "type": "object",
+      "fields": {
+        "name": {
+          "type": "string",
+          "default": "filter-internal-only",
+          "description": "Policy name (must be unique)"
+        },
+        "description": {
+          "type": "string",
+          "default": "",
+          "description": "Policy description"
+        },
+        "statements": {
+          "type": "list",
+          "default": [],
+          "description": "Ordered list of statement blocks within the policy",
+          "items": {
+            "type": "object",
+            "fields": {
+              "name": {
+                "type": "string",
+                "default": "accept-internal",
+                "description": "Statement name (for reference only)"
+              },
+              "match_prefix_set": {
+                "type": "string",
+                "default": "",
+                "description": "Name of a prefix_set to match against (e.g., 'internal-prefixes')"
+              },
+              "match_neighbor_set": {
+                "type": "string",
+                "default": "",
+                "description": "Name of a neighbor_set (currently unused in GoBGP; may be ignored)"
+              },
+              "match_as_path_set": {
+                "type": "string",
+                "default": "",
+                "description": "Name of an as_path_set to match AS paths"
+              },
+              "match_community_set": {
+                "type": "string",
+                "default": "",
+                "description": "Name of a community_set to match communities"
+              },
+              "match_ext_community_set": {
+                "type": "string",
+                "default": "",
+                "description": "Name of an ext_community_set to match extended communities"
+              },
+              "set_med": {
+                "type": "string",
+                "default": "",
+                "description": "MED value to set (e.g., '+100', '200')"
+              },
+              "set_local_pref": {
+                "type": "number",
+                "default": null,
+                "description": "Local Preference to set (higher = more preferred)"
+              },
+              "set_next_hop": {
+                "type": "string",
+                "default": "",
+                "description": "Next-hop address to set (e.g., '192.0.2.1')"
+              },
+              "set_as_path": {
+                "type": "list",
+                "default": [],
+                "description": "List of ASNs to prepend (e.g., [65001, 65002])"
+              },
+              "set_communities": {
+                "type": "list",
+                "default": [],
+                "description": "List of communities to attach (e.g., ['65001:100', '65001:200'])"
+              },
+              "set_ext_communities": {
+                "type": "list",
+                "default": [],
+                "description": "List of extended communities to attach (e.g., ['rt:65001:100'])"
+              },
+              "action": {
+                "type": "string",
+                "default": "ROUTE_ACCEPT",
+                "description": "Action to take if all match conditions pass (ROUTE_ACCEPT / ROUTE_DROP)"
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "prefix_sets": {
+    "type": "list",
+    "default": [],
+    "description": "List of prefix sets for policy matching",
+    "items": {
+      "type": "object",
+      "fields": {
+        "name": {
+          "type": "string",
+          "default": "internal-prefixes",
+          "description": "Prefix set name (must match those referenced in policies)"
+        },
+        "prefixes": {
+          "type": "list",
+          "default": [],
+          "description": "List of IP prefixes",
+          "items": {
+            "type": "object",
+            "fields": {
+              "ip_prefix": {
+                "type": "string",
+                "default": "10.0.0.0/8",
+                "description": "IPv4 prefix in CIDR notation"
+              },
+              "mask_length_range": {
+                "type": "string",
+                "default": "",
+                "description": "Mask length range (e.g., '24..32' for /24 to /32)"
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "as_path_sets": {
+    "type": "list",
+    "default": [],
+    "description": "List of AS path sets for policy matching",
+    "items": {
+      "type": "object",
+      "fields": {
+        "name": {
+          "type": "string",
+          "default": "internal-asns",
+          "description": "AS path set name"
+        },
+        "members": {
+          "type": "list",
+          "default": [],
+          "description": "List of ASNs or AS_REGEX patterns (e.g., ['65001', '^65002$'])"
+        }
+      }
+    }
+  },
+  "community_sets": {
+    "type": "list",
+    "default": [],
+    "description": "List of standard community sets",
+    "items": {
+      "type": "object",
+      "fields": {
+        "name": {
+          "type": "string",
+          "default": "internal-communities",
+          "description": "Community set name"
+        },
+        "members": {
+          "type": "list",
+          "default": [],
+          "description": "List of community values (e.g., ['65001:100', '65001:200'])"
+        }
+      }
+    }
+  },
+  "ext_community_sets": {
+    "type": "list",
+    "default": [],
+    "description": "List of extended community sets",
+    "items": {
+      "type": "object",
+      "fields": {
+        "name": {
+          "type": "string",
+          "default": "rt-communities",
+          "description": "Extended community set name"
+        },
+        "members": {
+          "type": "list",
+          "default": [],
+          "description": "List of extended community values (e.g., ['rt:65001:100', 'soo:65001:200'])"
+        }
+      }
+    }
+  }
+}

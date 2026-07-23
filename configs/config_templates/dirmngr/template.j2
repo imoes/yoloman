@@ -1,0 +1,57 @@
+# Listen on the specified port for incoming connections from the gpg-agent
+# (0 = disable local socket, -1 = default to standard socket path)
+local-stream-socket {{ dirmngr_local_stream_socket }}
+
+# Listen on the specified TCP port for LDAP connections (default 389)
+# Set to 0 to disable LDAP support
+ldap-port {{ dirmngr_ldap_port }}
+
+# Enable/disable LDAP server pool (default: enabled)
+# When enabled, dirmngr will query multiple LDAP servers if available
+ldap-server-pool {{ 'on' if dirmngr_ldap_server_pool else 'off' }}
+
+# Default LDAP server(s) to use for certificate lookups
+# Format: ldap://hostname[:port] or ldaps://hostname[:port]
+{% for server in dirmngr_ldap_servers %}
+ldap-server {{ server.url | e }}
+{% endfor %}
+
+# Use HTTP proxy for LDAP and HTTP traffic (format: host:port or auto)
+# Set to 'auto' for automatic proxy detection via environment variables
+http-proxy {{ dirmngr_http_proxy | e }}
+
+# Disable DNS lookups (for air-gapped or restricted environments)
+no-allow-dns-cert {{ 'on' if dirmngr_no_allow_dns_cert else 'off' }}
+
+# Disable LDAP over DNS (RFC 4398/6186); improves privacy & compatibility
+no-allow-ldap {{ 'on' if dirmngr_no_allow_ldap else 'off' }}
+
+# Timeout (in seconds) for network operations (default: 30)
+connection-timeout {{ dirmngr_connection_timeout }}
+
+# Maximum number of parallel connections (default: 5)
+max-connections {{ dirmngr_max_connections }}
+
+# Cache validity for certificates in seconds (default: 3600)
+cache-validity {{ dirmngr_cache_validity }}
+
+# Enable/disable OCSP checking (default: off)
+# Requires a configured OCSP responder URL or DNS SRV records
+ocsp {{ 'on' if dirmngr_ocsp else 'off' }}
+
+# OCSP responder URLs (optional; overrides DNS-based discovery)
+{% for responder in dirmngr_ocsp_responders %}
+ocsp-responder {{ responder.url | e }}
+{% endfor %}
+
+# Use system trust store instead of built-in CRL/CA lists
+use-standard-resolver {{ 'on' if dirmngr_use_standard_resolver else 'off' }}
+
+# Log file path (empty = no log file; stdout/stderr otherwise)
+log-file {{ dirmngr_log_file | e }}
+
+# Verbose logging (repeat for more verbosity: -vvv = very verbose)
+# Note: enable only for troubleshooting; may leak sensitive info
+{% if dirmngr_verbose > 0 %}
+{% for _ in range(dirmngr_verbose) %}verbose{% endfor %}
+{% endif %}

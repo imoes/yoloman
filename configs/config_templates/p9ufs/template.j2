@@ -1,0 +1,37 @@
+# Plan 9 Filesystem Server (p9ufs) configuration
+# Listen address and port for the 9P service
+listen: "{{ listen_addr }}:{{ listen_port }}"
+
+# Path to the root directory to export
+root: "{{ root_path }}"
+
+# Authentication mode: 'none', 'user', 'tls'
+auth: "{{ auth_mode }}"
+
+{% if auth_mode == 'tls' %}
+# TLS certificate and key paths (required for TLS auth)
+tls_cert: "{{ tls_cert_path }}"
+tls_key: "{{ tls_key_path }}"
+{% endif %}
+
+# Maximum number of concurrent connections
+max_connections: {{ max_connections }}
+
+# Enable verbose logging
+{% if verbose_logging %}log_verbose{% endif %}
+
+# Optional: additional mounted filesystems (if any)
+{% for fs in extra_filesystems %}
+# Filesystem: {{ fs.name }}
+mount: "{{ fs.path }}:{{ fs.mount_point }}"
+{% endfor %}
+
+# Optional: user mapping for 'user' auth mode
+{% if auth_mode == 'user' and user_map %}
+usermap:
+{% for entry in user_map %}  "{{ entry.username }}": "{{ entry.uid }}:{{ entry.gid }}"
+{% endfor %}
+{% endif %}
+
+# Optional: server ID string (shown in 9P protocol negotiation)
+srvname: "{{ server_name }}"

@@ -1,0 +1,88 @@
+{
+  "log_debug": false,
+  "log_file": "/var/log/carbon/carbon-relay.log",
+  "pid_file": "/var/run/carbon-relay.pid",
+  "max_open_files": 8192,
+  "log_buffer_size": 16384,
+  "log_flush_interval": 10,
+  "listeners": {
+    "tcp": {
+      "enabled": true,
+      "bind_address": "0.0.0.0",
+      "port": 2003,
+      "max_metric_length": 65535,
+      "tcp_keepalive": true
+    },
+    "udp": {
+      "enabled": false,
+      "bind_address": "0.0.0.0",
+      "port": 2003,
+      "max_metric_length": 65535
+    }
+  },
+  "relay_rules": [
+    {
+      "name": "default",
+      "match": ".*",
+      "destinations": [
+        "*"
+      ]
+    },
+    {
+      "name": "high_priority",
+      "match": "prod\\..*",
+      "destinations": [
+        "production_cluster"
+      ],
+      "replicate": false
+    }
+  ],
+  "destination_clusters": [
+    {
+      "name": "production_cluster",
+      "enabled": true,
+      "servers": [
+        "graphite-prod-01.local",
+        "graphite-prod-02.local",
+        "graphite-prod-03.local"
+      ],
+      "port": 2003,
+      "protocol": "tcp",
+      "replication_factor": 2,
+      "connect_timeout": 3,
+      "consistent_hashing": true,
+      "hash_function": "murmur"
+    },
+    {
+      "name": "backup_cluster",
+      "enabled": true,
+      "servers": [
+        "graphite-backup-01.local"
+      ],
+      "port": 2003,
+      "protocol": "tcp",
+      "replication_factor": 1,
+      "connect_timeout": 10,
+      "consistent_hashing": false,
+      "hash_function": "md5"
+    }
+  ],
+  "cache": {
+    "enabled": true,
+    "max_size": 1000000,
+    "write_strategy": "max",
+    "max_updates_before_flush": 500,
+    "flush_interval": 60,
+    "flush_max_packs": 1000
+  },
+  "aggregations": [
+    {
+      "name": "avg_per_minute",
+      "match": "statsd\\..*",
+      "function": "avg",
+      "interval": 60,
+      "prefix": "statsd.aggregated.avg."
+    }
+  ],
+  "forward_rules": []
+}

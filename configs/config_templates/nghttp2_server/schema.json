@@ -1,0 +1,147 @@
+{
+  "listen_addr": {
+    "type": "string",
+    "default": "0.0.0.0",
+    "description": "IP address (IPv4 or IPv6) to bind the server to."
+  },
+  "listen_port": {
+    "type": "number",
+    "default": 8443,
+    "description": "Port to listen on (e.g., 8443 for HTTPS or 8080 for HTTP)."
+  },
+  "worker_processes": {
+    "type": "number",
+    "default": 2,
+    "description": "Number of worker processes to spawn (typically 1\u20132 per CPU core)."
+  },
+  "max_connections": {
+    "type": "number",
+    "default": 1024,
+    "description": "Maximum simultaneous connections allowed per worker process."
+  },
+  "ssl_enabled": {
+    "type": "boolean",
+    "default": true,
+    "description": "Enable TLS/SSL (HTTPS). Must be true if serving secure HTTP/2."
+  },
+  "ssl_cert_file": {
+    "type": "string",
+    "default": "/etc/ssl/certs/server.crt",
+    "description": "Path to the SSL certificate chain file (PEM format). Only used if ssl_enabled is true."
+  },
+  "ssl_key_file": {
+    "type": "string",
+    "default": "/etc/ssl/private/server.key",
+    "description": "Path to the SSL private key file (PEM format). Only used if ssl_enabled is true."
+  },
+  "h2c_enabled": {
+    "type": "boolean",
+    "default": false,
+    "description": "Enable cleartext HTTP/2 (h2c) without TLS. Not recommended for production."
+  },
+  "request_buffer_size": {
+    "type": "number",
+    "default": 65536,
+    "description": "Buffer size (in bytes) for incoming HTTP request headers and body."
+  },
+  "response_buffer_size": {
+    "type": "number",
+    "default": 262144,
+    "description": "Buffer size (in bytes) for outgoing HTTP response headers and body."
+  },
+  "timeout_idle": {
+    "type": "number",
+    "default": 600,
+    "description": "Idle connection timeout (in seconds)."
+  },
+  "timeout_request": {
+    "type": "number",
+    "default": 30,
+    "description": "Timeout for receiving complete HTTP request headers (in seconds)."
+  },
+  "timeout_response": {
+    "type": "number",
+    "default": 300,
+    "description": "Timeout for sending complete HTTP response (in seconds)."
+  },
+  "log_level": {
+    "type": "string",
+    "default": "info",
+    "description": "Logging verbosity: debug, info, warn, error, or fatal."
+  },
+  "log_file": {
+    "type": "string",
+    "default": "/var/log/nghttp2/nghttp2.log",
+    "description": "Path to the main log file."
+  },
+  "access_log_format": {
+    "type": "string",
+    "default": null,
+    "description": "Optional custom access log format (e.g., combined, combined_json, or custom string). If omitted, default combined format is used."
+  },
+  "static_dirs": {
+    "type": "list",
+    "default": [],
+    "description": "List of directories to serve as static content (e.g., for static websites or API docs).",
+    "items": {
+      "type": "object",
+      "fields": {
+        "path": {
+          "type": "string",
+          "default": "",
+          "description": "Absolute filesystem path to the directory."
+        },
+        "prefix": {
+          "type": "string",
+          "default": "",
+          "description": "URL prefix (path) at which this directory is served."
+        }
+      }
+    }
+  },
+  "upstreams": {
+    "type": "list",
+    "default": [],
+    "description": "List of backend servers to use as reverse proxy upstreams (one per group).",
+    "items": {
+      "type": "object",
+      "fields": {
+        "name": {
+          "type": "string",
+          "default": "",
+          "description": "Name of the upstream group (used in routing or default_upstream)."
+        },
+        "host": {
+          "type": "string",
+          "default": "127.0.0.1",
+          "description": "Backend hostname or IP address."
+        },
+        "port": {
+          "type": "number",
+          "default": 8080,
+          "description": "Backend service port."
+        }
+      }
+    }
+  },
+  "default_upstream": {
+    "type": "string",
+    "default": null,
+    "description": "Name of the upstream group to use as fallback for unmatched requests. Omit for static-only mode."
+  },
+  "initial_window_size": {
+    "type": "number",
+    "default": 65535,
+    "description": "Initial peer connection flow control window size (in bytes) per HTTP/2 stream."
+  },
+  "max_frame_size": {
+    "type": "number",
+    "default": 16384,
+    "description": "Maximum size (in bytes) of an HTTP/2 frame to accept."
+  },
+  "server_push_enabled": {
+    "type": "boolean",
+    "default": false,
+    "description": "Enable HTTP/2 server push (resource preloading). Requires client support."
+  }
+}

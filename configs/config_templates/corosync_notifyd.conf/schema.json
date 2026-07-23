@@ -1,0 +1,149 @@
+{
+  "enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable or disable the corosync_notifyd service."
+  },
+  "log_level": {
+    "type": "string",
+    "default": "warning",
+    "description": "Logging verbosity level. Events at this level and above will be logged."
+  },
+  "corosync_config": {
+    "type": "string",
+    "default": "/etc/corosync/corosync.conf",
+    "description": "Path to the main corosync configuration file. Usually auto-detected, but you can override it."
+  },
+  "notifications": {
+    "type": "list",
+    "default": [],
+    "description": "List of notification configurations, each targeting a specific event type (e.g., node join, quorum loss). Each entry defines how to notify on that event.",
+    "items": {
+      "type": "object",
+      "fields": {
+        "type": {
+          "type": "string",
+          "default": "quorum_loss",
+          "description": "The event type to notify on (e.g., 'node_join', 'quorum_loss', 'resource_failed')."
+        },
+        "description": {
+          "type": "string",
+          "default": "",
+          "description": "Optional human-readable description of the notification purpose."
+        },
+        "enabled": {
+          "type": "bool",
+          "default": true,
+          "description": "Enable or disable this specific notification type."
+        },
+        "backend": {
+          "type": "string",
+          "enum": [
+            "email",
+            "syslog",
+            "exec"
+          ],
+          "default": "syslog",
+          "description": "Backend to use for delivering the notification: email, syslog, or execute a command."
+        },
+        "to": {
+          "type": "list",
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "description": "Email recipients (only for 'email' backend)."
+        },
+        "from": {
+          "type": "string",
+          "default": "corosync-notifyd@localhost",
+          "description": "Sender email address (only for 'email' backend)."
+        },
+        "smtp_host": {
+          "type": "string",
+          "default": "localhost",
+          "description": "SMTP server hostname (only for 'email' backend)."
+        },
+        "smtp_port": {
+          "type": "number",
+          "default": 25,
+          "description": "SMTP server port (only for 'email' backend)."
+        },
+        "smtp_use_tls": {
+          "type": "bool",
+          "default": false,
+          "description": "Use TLS for SMTP connection (only for 'email' backend)."
+        },
+        "facility": {
+          "type": "string",
+          "enum": [
+            "kern",
+            "user",
+            "daemon",
+            "auth",
+            "syslog",
+            "lpr",
+            "news",
+            "uucp",
+            "cron",
+            "local0",
+            "local1",
+            "local2",
+            "local3",
+            "local4",
+            "local5",
+            "local6",
+            "local7"
+          ],
+          "default": "daemon",
+          "description": "Syslog facility to use (only for 'syslog' backend)."
+        },
+        "priority": {
+          "type": "string",
+          "enum": [
+            "emerg",
+            "alert",
+            "crit",
+            "error",
+            "warning",
+            "notice",
+            "info",
+            "debug"
+          ],
+          "default": "warning",
+          "description": "Syslog priority level (only for 'syslog' backend)."
+        },
+        "command": {
+          "type": "string",
+          "default": "",
+          "description": "Shell command to execute on event (only for 'exec' backend). Supports environment variable substitution like ${EVENT_TYPE}."
+        },
+        "environment": {
+          "type": "object",
+          "default": {},
+          "description": "Environment variables to set when executing the command (only for 'exec' backend)."
+        }
+      }
+    }
+  },
+  "rate_limit": {
+    "type": "object",
+    "default": {
+      "max_events": 10,
+      "window_seconds": 60
+    },
+    "description": "Global rate-limiting settings to prevent notification storms.",
+    "fields": {
+      "max_events": {
+        "type": "number",
+        "default": 10,
+        "description": "Maximum number of notifications allowed per time window."
+      },
+      "window_seconds": {
+        "type": "number",
+        "default": 60,
+        "description": "Time window (in seconds) for max_events."
+      }
+    }
+  }
+}

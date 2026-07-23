@@ -1,0 +1,265 @@
+{
+  "bind_port": {
+    "type": "number",
+    "default": 53,
+    "description": "The DNS service port (typically 53 for standard DNS)."
+  },
+  "bind_listen_on_ipv4": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable listening for IPv4 DNS queries."
+  },
+  "bind_listen_on": {
+    "type": "list",
+    "default": [
+      "127.0.0.1"
+    ],
+    "description": "List of IPv4 addresses to listen on for DNS queries."
+  },
+  "bind_listen_on_ipv6": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable listening for IPv6 DNS queries."
+  },
+  "bind_listen_on_v6": {
+    "type": "list",
+    "default": [],
+    "description": "List of IPv6 addresses to listen on for DNS queries."
+  },
+  "bind_directory": {
+    "type": "string",
+    "default": "/var/cache/bind",
+    "description": "Working directory for the DNS server (where zone files are stored by default)."
+  },
+  "bind_pid_file": {
+    "type": "string",
+    "default": "/run/named/named.pid",
+    "description": "Path to the PID file for the named process."
+  },
+  "bind_recursion": {
+    "type": "bool",
+    "default": true,
+    "description": "Allow recursive queries (required for forwarder/resolver operation)."
+  },
+  "bind_allow_query": {
+    "type": "list",
+    "default": [
+      "any"
+    ],
+    "description": "List of ACLs or IP ranges permitted to submit queries."
+  },
+  "bind_forwarders": {
+    "type": "list",
+    "default": [],
+    "description": "List of upstream DNS servers to forward queries to (if recursion is enabled)."
+  },
+  "bind_forward_only": {
+    "type": "bool",
+    "default": false,
+    "description": "When forwarding, only forward (don\u2019t try root resolution if forwarder fails)."
+  },
+  "bind_dnssec_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable DNSSEC processing globally."
+  },
+  "bind_dnssec_validation": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable DNSSEC validation (set to false to disable)."
+  },
+  "bind_accept_foreign": {
+    "type": "bool",
+    "default": false,
+    "description": "Accept non-authoritative answers from upstream servers (for stub zones or special setups)."
+  },
+  "bind_max_cache_size": {
+    "type": "string",
+    "default": "256M",
+    "description": "Maximum cache size (e.g., '512M', '1G') \u2014 0 means unlimited."
+  },
+  "bind_log_queries": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable verbose query logging (querylog directive)."
+  },
+  "bind_logging_channels": {
+    "type": "list",
+    "default": [],
+    "description": "List of logging channel definitions. Each item defines where and how to log.",
+    "items": {
+      "name": {
+        "type": "string",
+        "description": "Channel name"
+      },
+      "file": {
+        "type": "string",
+        "description": "Path to log file (if omitted, uses syslog/null)"
+      },
+      "max_size": {
+        "type": "string",
+        "default": "10m",
+        "description": "Maximum file size before rotation"
+      },
+      "versions": {
+        "type": "number",
+        "default": 3,
+        "description": "Number of rotated files to keep"
+      },
+      "syslog": {
+        "type": "string",
+        "description": "Syslog facility (e.g., 'daemon', 'local0')"
+      },
+      "null": {
+        "type": "bool",
+        "description": "If true, discard all messages (sink)"
+      },
+      "severity": {
+        "type": "string",
+        "description": "Minimum severity to log: 'debug', 'info', 'warning', 'error'"
+      },
+      "print_time": {
+        "type": "bool",
+        "description": "Include timestamps in log output"
+      }
+    }
+  },
+  "bind_logging_categories": {
+    "type": "list",
+    "default": [],
+    "description": "List of log categories and the channels they bind to.",
+    "items": {
+      "name": {
+        "type": "string",
+        "description": "Category name (e.g., 'queries', 'security', 'network')"
+      },
+      "channels": {
+        "type": "list",
+        "description": "List of channel names to route this category's logs to"
+      }
+    }
+  },
+  "bind_acls": {
+    "type": "list",
+    "default": [],
+    "description": "Define access control lists (ACLs) for reuse in allow-query/transfer/etc.",
+    "items": {
+      "name": {
+        "type": "string",
+        "description": "ACL name (e.g., 'localnets', 'trusted')"
+      },
+      "items": {
+        "type": "list",
+        "description": "List of IP addresses, networks, or named ACLs"
+      }
+    }
+  },
+  "bind_trusted_keys": {
+    "type": "list",
+    "default": [],
+    "description": "List of DNSSEC trusted keys (used for trust anchor validation).",
+    "items": {
+      "name": {
+        "type": "string",
+        "description": "Key label (e.g., 'root' or domain name)"
+      },
+      "flags": {
+        "type": "number",
+        "default": 256,
+        "description": "DNSKEY flags (256=ZSK, 257=KSK)"
+      },
+      "protocol": {
+        "type": "number",
+        "default": 3,
+        "description": "Protocol (always 3 for DNSSEC)"
+      },
+      "algorithm": {
+        "type": "number",
+        "description": "Algorithm number (e.g., 8 for RSA/SHA-256)"
+      },
+      "public_key": {
+        "type": "string",
+        "description": "Base64-encoded public key"
+      }
+    }
+  },
+  "bind_zones": {
+    "type": "list",
+    "default": [],
+    "description": "List of authoritative zones to serve (master/slave/hint/stub).",
+    "items": {
+      "name": {
+        "type": "string",
+        "description": "Zone domain name (e.g., 'example.com')"
+      },
+      "type": {
+        "type": "string",
+        "description": "Zone type: 'master', 'slave', 'stub', 'hint'",
+        "default": "master"
+      },
+      "file": {
+        "type": "string",
+        "description": "Zone data file path (relative to 'directory' if not absolute)"
+      },
+      "masters": {
+        "type": "list",
+        "description": "List of master server IPs (required for slave/stub)"
+      },
+      "allow_query": {
+        "type": "list",
+        "description": "Override global allow-query for this zone"
+      },
+      "allow_transfer": {
+        "type": "list",
+        "description": "Allow zone transfers to specific IPs/ACLs"
+      },
+      "notify": {
+        "type": "bool",
+        "description": "Send DNS NOTIFY messages to slaves"
+      },
+      "xfers": {
+        "type": "list",
+        "description": "Alias for allow-xfers (zone transfer ACLs)"
+      },
+      "check_names": {
+        "type": "string",
+        "description": "Behavior on zone file name checks: 'warn', 'fail', 'ignore'"
+      },
+      "dnssec": {
+        "type": "bool",
+        "description": "Enable/disable DNSSEC for this zone"
+      }
+    }
+  },
+  "bind_views": {
+    "type": "list",
+    "default": [],
+    "description": "Define conditional views (e.g., split-horizon DNS).",
+    "items": {
+      "name": {
+        "type": "string",
+        "description": "View name (e.g., 'internal', 'external')"
+      },
+      "match_clients": {
+        "type": "list",
+        "description": "ACLs to match clients against (e.g., 'localnets')"
+      },
+      "match_destinations": {
+        "type": "list",
+        "description": "ACLs to match server interface addresses"
+      },
+      "match_query_sources": {
+        "type": "list",
+        "description": "ACLs to match client source addresses"
+      },
+      "recursion": {
+        "type": "bool",
+        "description": "Override global recursion setting for this view"
+      },
+      "zones": {
+        "type": "list",
+        "description": "Zone definitions specific to this view"
+      }
+    }
+  }
+}

@@ -1,0 +1,313 @@
+{
+  "max_daemons": {
+    "type": "number",
+    "default": 20,
+    "description": "Maximum number of simultaneous POP3 daemon processes."
+  },
+  "max_connections_per_ip": {
+    "type": "number",
+    "default": 10,
+    "description": "Maximum number of connections allowed per single IP address."
+  },
+  "pop3_port": {
+    "type": "number",
+    "default": 110,
+    "description": "TCP port for standard POP3 (non-SSL) connections."
+  },
+  "pop3s_port": {
+    "type": "number",
+    "default": 995,
+    "description": "TCP port for POP3 over SSL (POP3S)."
+  },
+  "ssl_cert_path": {
+    "type": "string",
+    "default": "/etc/ssl/certs/courier-pop.pem",
+    "description": "Path to the SSL certificate (PEM format) for POP3S."
+  },
+  "starttls": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable or disable STARTTLS support on the standard POP3 port."
+  },
+  "tls_chain_path": {
+    "type": "string",
+    "default": "",
+    "description": "Path to TLS certificate chain (intermediate CA). Optional."
+  },
+  "allow_plaintext_auth": {
+    "type": "bool",
+    "default": false,
+    "description": "Allow plaintext authentication over non-SSL connections. Enable only if TLS is enforced elsewhere."
+  },
+  "tls_required": {
+    "type": "bool",
+    "default": true,
+    "description": "Require TLS for authentication (overrides ALLOWPLAINTEXT)."
+  },
+  "auth_modules": {
+    "type": "list",
+    "default": [
+      "authpam"
+    ],
+    "items": {
+      "type": "string",
+      "enum": [
+        "authpam",
+        "authshadow",
+        "authdaemon",
+        "authmysql",
+        "authldap"
+      ],
+      "description": "Authentication modules. Common values: 'authpam' for system users, 'authdaemon' for Courier\u2019s internal auth."
+    },
+    "description": "List of authentication modules to load (in order of precedence)."
+  },
+  "auth_modules_orig": {
+    "type": "list",
+    "default": [
+      "authpam"
+    ],
+    "items": {
+      "type": "string",
+      "enum": [
+        "authpam",
+        "authshadow",
+        "authdaemon",
+        "authmysql",
+        "authldap"
+      ],
+      "description": "Backup authentication modules. Usually same as auth_modules."
+    },
+    "description": "Fallback authentication modules (used when modules fail)."
+  },
+  "debug_log": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable verbose debug logging (for troubleshooting only)."
+  },
+  "log_path": {
+    "type": "string",
+    "default": "",
+    "description": "Path to POP3 log file (if empty, uses syslog)."
+  },
+  "log_days": {
+    "type": "number",
+    "default": 7,
+    "description": "Number of days to retain log files (when log_path is set)."
+  },
+  "pop3_banner": {
+    "type": "string",
+    "default": "Courier POP3 server ready",
+    "description": "Greeting banner shown to clients on connect."
+  },
+  "pop3_idle_timeout": {
+    "type": "number",
+    "default": 30,
+    "description": "Idle timeout in seconds before server disconnects the client."
+  },
+  "max_message_size": {
+    "type": "number",
+    "default": 0,
+    "description": "Maximum message size in bytes (0 = unlimited)."
+  },
+  "pop3_log_commands": {
+    "type": "bool",
+    "default": false,
+    "description": "Log all POP3 commands (very verbose)."
+  },
+  "lock_method": {
+    "type": "string",
+    "default": "fcntl",
+    "description": "Locking method for mailbox access. 'fcntl' is recommended."
+  },
+  "maildir_path": {
+    "type": "string",
+    "default": "/var/mail",
+    "description": "Base directory for mailboxes. Default uses Maildir format under each user\u2019s home."
+  },
+  "quota_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable per-user mailbox quota enforcement."
+  },
+  "quota_dir": {
+    "type": "string",
+    "default": "/var/spool/quota",
+    "description": "Directory for quota metadata files (used only if quota is enabled)."
+  },
+  "pipelining_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable or disable POP3 command pipelining for improved performance."
+  },
+  "capa_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable CAPA command to report server capabilities."
+  },
+  "uidl_utf8": {
+    "type": "bool",
+    "default": true,
+    "description": "Use UTF-8 in UIDL responses (RFC 6856 compliant)."
+  },
+  "case_insensitive_login": {
+    "type": "bool",
+    "default": true,
+    "description": "Treat usernames case-insensitively (helpful for legacy clients)."
+  },
+  "autologout_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Automatically log out users after idle timeout."
+  },
+  "proxy_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable proxy mode (forward authentication to another Courier server)."
+  },
+  "proxy_host": {
+    "type": "string",
+    "default": "localhost",
+    "description": "Hostname or IP of the target proxy server (when proxy_enabled)."
+  },
+  "proxy_port": {
+    "type": "number",
+    "default": 110,
+    "description": "Port of the target proxy server."
+  },
+  "ipv6_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable or disable IPv6 support."
+  },
+  "bind_address": {
+    "type": "string",
+    "default": "",
+    "description": "Specific IP address to bind to (empty = all interfaces)."
+  },
+  "tcpwrap_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable TCP Wrappers (hosts.allow/deny) support."
+  },
+  "tcpwrap_config": {
+    "type": "string",
+    "default": "pop3",
+    "description": "Service name for TCP Wrappers lookup (usually 'pop3')."
+  },
+  "smtputf8_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable SMTPUTF8 extension (for non-ASCII email addresses)."
+  },
+  "burl_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable BURL extension (for large attachments via URL)."
+  },
+  "auth_sasl": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable full SASL support via Cyrus SASL library."
+  },
+  "cram_md5_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable CRAM-MD5 authentication mechanism (when SASL disabled)."
+  },
+  "scram_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable SCRAM-SHA-1 mechanism (stronger than CRAM-MD5)."
+  },
+  "ntlm_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable NTLM authentication (for Microsoft clients)."
+  },
+  "login_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable LOGIN mechanism (basic auth, non-standard)."
+  },
+  "digest_md5_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable DIGEST-MD5 authentication mechanism."
+  },
+  "auth_anonymous": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable ANONYMOUS login (for testing only; NOT for production)."
+  },
+  "tls_session_cache_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable TLS session caching for faster reconnections."
+  },
+  "tls_cache_size": {
+    "type": "number",
+    "default": 20000,
+    "description": "Maximum number of cached TLS sessions."
+  },
+  "tls_cache_timeout": {
+    "type": "number",
+    "default": 300,
+    "description": "TLS session cache timeout in seconds."
+  },
+  "tls_min_version": {
+    "type": "string",
+    "default": "TLSv1.2",
+    "description": "Minimum TLS protocol version (e.g., 'TLSv1.2', 'TLSv1.3')."
+  },
+  "tls_cipher_list": {
+    "type": "string",
+    "default": "ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:DHE-RSA-AES128-GCM-SHA256:DHE-RSA-AES256-GCM-SHA384",
+    "description": "Cipher list for TLS (OpenSSL format, secure defaults)."
+  },
+  "ocsp_stapling_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable OCSP stapling for real-time certificate validation."
+  },
+  "proxy_verify_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Verify certificates of proxied servers (for security)."
+  },
+  "proxy_dns_srv": {
+    "type": "bool",
+    "default": false,
+    "description": "Use DNS SRV records for proxy target resolution."
+  },
+  "lmtp_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable LMTP server (for local mail delivery to POP3 users)."
+  },
+  "lmtp_socket": {
+    "type": "string",
+    "default": "/var/lib/courier/courier-lmtp",
+    "description": "UNIX socket path for LMTP (used if enabled)."
+  },
+  "pop3_unix_socket_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable POP3 over UNIX socket (for local clients only)."
+  },
+  "pop3_unix_socket": {
+    "type": "string",
+    "default": "/var/lib/courier/courier-pop3",
+    "description": "Path to POP3 UNIX socket (used if enabled)."
+  },
+  "proxy_auth_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable proxy authentication socket (for multi-tier auth)."
+  },
+  "proxy_auth_socket": {
+    "type": "string",
+    "default": "/var/lib/courier/courier-proxy-auth",
+    "description": "Path to proxy auth socket (used if enabled)."
+  }
+}

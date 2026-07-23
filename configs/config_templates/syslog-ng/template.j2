@@ -1,0 +1,143 @@
+# syslog-ng configuration file — generated from template
+# Global options
+options {
+  # Set the maximum number of open file descriptors
+  long_hostnames({{ options.long_hostnames | default('off') }});
+  # Flush lines on timeout
+  flush_lines({{ options.flush_lines | default('0') }});
+  # Time to wait before dropping messages on full queue
+  time_reopen({{ options.time_reopen | default('10') }});
+  # Use DNS for host name resolution
+  use_dns({{ options.use_dns | default('yes') }});
+  # Use FQDN in log messages
+  use_fqdn({{ options.use_fqdn | default('no') }});
+  # Add host name to log messages
+  add_host_name({{ options.add_host_name | default('no') }});
+  # Use local time instead of UTC
+  use_time_recvd({{ options.use_time_recvd | default('no') }});
+  # Log file permissions
+  perm({{ options.perm | default('0640') }});
+  # Directory permissions for created paths
+  dir_perm({{ options.dir_perm | default('0755') }});
+  # Log file ownership
+  owner({{ options.owner | default('root') }});
+  # Log group ownership
+  group({{ options.group | default('root') }});
+};
+
+# Source definitions
+{% for src in sources %}
+# Source: {{ src.name }}
+source {{ src.name }} {
+  {% if src.type == 'file' %}
+    file("{{ src.path }}" {% if src.flags %}flags({{ src.flags | join(', ') }}) {% endif %});
+  {% elif src.type == 'tcp' or src.type == 'udp' %}
+    {{ src.type }}(
+      ip("{{ src.ip | default('0.0.0.0') }}")
+      port({{ src.port }})
+      {% if src.max_connections %}max_connections({{ src.max_connections }}){% endif %}
+      {% if src.recv_buffer_size %}recv-buffer-size({{ src.recv_buffer_size }}){% endif %}
+      {% if src.flags %}flags({{ src.flags | join(', ') }}){% endif %}
+    );
+  {% elif src.type == 'unix-stream' or src.type == 'unix-dgram' %}
+    {{ src.type }}("{{ src.path }}" {% if src.perm %}perm({{ src.perm }}){% endif %});
+  {% elif src.type == 'internal' %}
+    internal();
+  {% elif src.type == 'syslog' %}
+    syslog(
+      ip("{{ src.ip | default('0.0.0.0') }}")
+      port({{ src.port }})
+      {% if src.flags %}flags({{ src.flags | join(', ') }}){% endif %}
+    );
+  {% elif src.type == 'net' %}
+    net(
+      ip("{{ src.ip | default('0.0.0.0') }}")
+      port({{ src.port }})
+      transport("{{ src.transport | default('tcp') }}")
+      {% if src.max_connections %}max_connections({{ src.max_connections }}){% endif %}
+      {% if src.flags %}flags({{ src.flags | join(', ') }}){% endif %}
+    );
+  {% elif src.type == 'sun-streams' %}
+    sun-streams(device("{{ src.device }}"));
+  {% elif src.type == 'pipe' %}
+    pipe("{{ src.path }}" {% if src.flags %}flags({{ src.flags | join(', ') }}){% endif %});
+  {% endif %}
+};
+{% endfor %}
+
+# Destination definitions
+{% for dst in destinations %}
+# Destination: {{ dst.name }}
+destination {{ dst.name }} {
+  {% if dst.type == 'file' %}
+    file("{{ dst.path }}" {
+      {% if dst.owner %}owner("{{ dst.owner }}"){% endif %}
+      {% if dst.group %}group("{{ dst.group }}"){% endif %}
+      {% if dst.perm %}perm({{ dst.perm }}){% endif %}
+      {% if dst.dir_perm %}dir_perm({{ dst.dir_perm }}){% endif %}
+      {% if dst.template %}template("{{ dst.template | replace('"', '\\"') }}");
+      {% else %}template("${ISODATE} ${HOST} ${MSGHDR}${MSG}\n");
+      {% endif %}
+    });
+  {% elif dst.type == 'tcp' or dst.type == 'udp' %}
+    {{ dst.type }}(
+      ip("{{ dst.ip }}")
+      port({{ dst.port }})
+      {% if dst.localip %}localip("{{ dst.localip }}"){% endif %}
+      {% if dst.transport %}transport("{{ dst.transport }}"){% endif %}
+      {% if dst.template %}template("{{ dst.template | replace('"', '\\"') }}"){% endif %}
+    );
+  {% elif dst.type == 'unix-stream' or dst.type == 'unix-dgram' %}
+    {{ dst.type }}("{{ dst.path }}" {% if dst.perm %}perm({{ dst.perm }}){% endif %});
+  {% elif dst.type == 'syslog' %}
+    syslog(
+      ip("{{ dst.ip }}")
+      port({{ dst.port }})
+      {% if dst.transport %}transport("{{ dst.transport }}"){% endif %}
+    );
+  {% elif dst.type == 'network' %}
+    network(
+      ip("{{ dst.ip }}")
+      port({{ dst.port }})
+      transport("{{ dst.transport | default('tcp') }}")
+      {% if dst.template %}template("{{ dst.template | replace('"', '\\"') }}"){% endif %}
+    );
+  {% elif dst.type == 'db' %}
+    sql(
+      driver("{{ dst.driver }}")
+      host("{{ dst.host }}")
+      port({{ dst.port | default(5432) }})
+      database("{{ dst.database }}")
+      username("{{ dst.username }}")
+      password("{{ dst.password | default('') }}")
+      {% if dst.table %}table("{{ dst.table }}"){% endif %}
+      columns("{{ dst.columns | join('", "') }}")
+      values("${ISODATE}", "${HOST}", "${FACILITY}", "${PRIORITY}", "${MSG}")
+    );
+  {% elif dst.type == 'null' %}
+    null();
+  {% elif dst.type == 'program' %}
+    program("{{ dst.command }}" {% if dst.flags %}flags({{ dst.flags | join(', ') }}){% endif %});
+  {% endif %}
+};
+{% endfor %}
+
+# Log path definitions
+{% for log in logs %}
+# Log path: {{ log.name }}
+log {
+  {% for filter_expr in log.filters %}
+  filter {{ filter_expr.name }} { {{ filter_expr.expr }} };
+  {% endfor %}
+  source({{ log.source }});
+  {% if log.filters %}
+  filter({{ log.filters[0].name }});
+  {% endif %}
+  destination({{ log.destination }});
+};
+{% endfor %}
+
+# Include optional configuration fragments
+{% for fragment in config_fragments %}
+@include "{{ fragment }}"
+{% endfor %}

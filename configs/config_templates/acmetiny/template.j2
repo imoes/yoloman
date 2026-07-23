@@ -1,0 +1,36 @@
+# Path to the account private key (RSA, 4096-bit recommended)
+account_key: {{ account_key_path }}
+
+# Path to the domain CSR or domain config (relative to script directory or absolute)
+domain_csr: {{ domain_csr_path }}
+
+# ACME CA endpoint (Let's Encrypt production or staging)
+acme_directory: {{ acme_directory_url }}
+
+# Base directory for ACME challenge files (must be web-accessible)
+challenge_path: {{ challenge_path }}
+
+# Webroot path (where `.well-known/acme-challenge` is served from)
+webroot_path: {{ webroot_path }}
+
+# Minimum number of days before certificate expiry to renew
+renew_before_days: {{ renew_before_days }}
+
+# Number of retries for ACME challenge validation
+challenge_retries: {{ challenge_retries }}
+
+# Delay (in seconds) between retries
+challenge_retry_delay: {{ challenge_retry_delay }}
+
+# Command to run after successful certificate issuance (optional)
+# {{ post_hook_comment }}
+{% if post_hook_cmd %}
+post_hook: {{ post_hook_cmd }}
+{% endif %}
+
+# List of domains to manage (used only if domain_csr is not specified)
+{% if domains %}
+domains:
+{% for domain in domains %}  - {{ domain.name }}{% if domain.alt_names %} # alt_names: {{ domain.alt_names | join(', ') }}{% endif %}
+{% endfor %}
+{% endif %}

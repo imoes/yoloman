@@ -1,0 +1,135 @@
+{
+  "listen_addr": {
+    "type": "string",
+    "default": "127.0.0.1",
+    "description": "IP address to bind the DNS server to. Use 0.0.0.0 for all interfaces."
+  },
+  "listen_port": {
+    "type": "number",
+    "default": 53,
+    "description": "Port to listen on for DNS queries."
+  },
+  "max_udp_size": {
+    "type": "number",
+    "default": 4096,
+    "description": "Maximum UDP payload size (RFC 6891 EDNS0 buffer size). Set to 512 for strict compatibility."
+  },
+  "tcp_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable TCP support (required for DNS over TCP, large responses, and DoH/DoQ)."
+  },
+  "upstream_servers": {
+    "type": "list",
+    "default": [
+      "1.1.1.1",
+      "8.8.8.8"
+    ],
+    "description": "List of upstream DNS servers to forward queries to by default.",
+    "items": {
+      "type": "string",
+      "description": "IP address or hostname of an upstream DNS resolver."
+    }
+  },
+  "forward_zones": {
+    "type": "list",
+    "default": [],
+    "description": "Domain-specific forwarding rules. Queries matching the domain suffix use the specified upstreams.",
+    "items": {
+      "type": "object",
+      "fields": {
+        "domain": {
+          "type": "string",
+          "description": "Domain suffix (e.g., 'internal.example.com'). Must end with '.' for absolute names."
+        },
+        "upstreams": {
+          "type": "list",
+          "default": [],
+          "description": "Optional upstream servers for this zone only. If omitted, defaults to global upstreams.",
+          "items": {
+            "type": "string",
+            "description": "IP address of an upstream DNS server."
+          }
+        }
+      }
+    }
+  },
+  "local_records": {
+    "type": "list",
+    "default": [],
+    "description": "Static DNS records served locally (bypass upstream). Useful for container hostnames or internal services.",
+    "items": {
+      "type": "object",
+      "fields": {
+        "domain": {
+          "type": "string",
+          "description": "Fully qualified domain name (e.g., 'web.local')."
+        },
+        "type": {
+          "type": "string",
+          "default": "A",
+          "enum": [
+            "A",
+            "AAAA",
+            "CNAME",
+            "MX",
+            "TXT",
+            "SRV",
+            "PTR"
+          ],
+          "description": "DNS record type."
+        },
+        "data": {
+          "type": "string",
+          "description": "Record value (e.g., '192.168.1.10', 'mail.example.com')."
+        }
+      }
+    }
+  },
+  "default_ttl": {
+    "type": "number",
+    "default": 600,
+    "description": "Default TTL (seconds) for cacheable responses from local records or forwarders."
+  },
+  "cache_size": {
+    "type": "number",
+    "default": 10000,
+    "description": "Maximum number of DNS cache entries. Set to 0 to disable caching."
+  },
+  "log_level": {
+    "type": "string",
+    "default": "info",
+    "description": "Verbosity of logs emitted to stderr or log_file."
+  },
+  "log_file": {
+    "type": "string",
+    "default": "",
+    "description": "Path to file where access logs are written. If empty, logs go to stdout."
+  },
+  "dnssec_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable DNSSEC validation of responses. Requires upstream DNSSEC support."
+  },
+  "trust_anchor_file": {
+    "type": "string",
+    "default": "/etc/aardvark-dns/root-ksk-2017.json",
+    "description": "Path to DNSSEC trust anchor file (e.g., ICANN KSK-2017)."
+  },
+  "dns_ecs_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable EDNS Client Subnet (ECS) \u2014 allows upstream resolvers to see client's subnet for geo-aware responses."
+  },
+  "allow_from": {
+    "type": "list",
+    "default": [
+      "0.0.0.0/0"
+    ],
+    "description": "List of allowed networks (CIDR) permitted to query this server.",
+    "items": {
+      "type": "string",
+      "description": "IPv4 or IPv6 CIDR block (e.g., '192.168.0.0/16', 'fc00::/7')."
+    }
+  }
+}

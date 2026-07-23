@@ -1,0 +1,91 @@
+# nfcapd - NetFlow capture daemon configuration
+# Run nfcapd with this config file: nfcapd -c /etc/nfdump/nfcapd.conf
+
+# Listen on these network interfaces (empty = all, or specify e.g. ['eth0', 'eth1'])
+# Use empty list to auto-detect interfaces (not recommended in production)
+{% if interfaces | length > 0 %}Interface {{ interfaces | join(' ') }}
+{% else %}# Interface not specified; use -i flag at runtime
+{% endif %}
+
+# Listen on this UDP port for NetFlow/IPFIX/sFlow data (default: 2055)
+Port {{ port }}
+
+# Listen on this TCP port for sFlow over TCP (default: disabled unless specified)
+{% if tcp_port > 0 %}TcpPort {{ tcp_port }}
+{% endif %}
+
+# Root directory where flow files are stored
+# nfcapd creates subdirectories by date/time: YYYY/MM/DD
+BaseDir {{ base_dir }}
+
+# Subdirectory for compressed archives (relative to BaseDir)
+# Leave empty to disable archive rotation/compression
+{% if archive_dir | length > 0 %}ArchiveDir {{ archive_dir }}
+{% endif %}
+
+# File retention policy: keep files for N days (default: 7)
+Retention {{ retention_days }}
+
+# BPF filter to apply to captured packets (optional, e.g., 'udp port 2055')
+{% if bpf_filter | length > 0 %}Filter {{ bpf_filter }}
+{% endif %}
+
+# Timeout (in seconds) before flushing buffer (default: 20)
+Timeout {{ flush_timeout }}
+
+# Write interval (in seconds) for periodic file rotation (default: 600)
+# Files are rotated every N seconds
+Rotate {{ rotate_interval }}
+
+# Compress rotated files using gzip (true/false)
+{% if compress | lower == 'true' or compress == True %}Compress yes
+{% else %}Compress no
+{% endif %}
+
+# Use binary format (default: nfv9/ipfix/sflow compatible; do not change)
+# 'standard' = default nfcapd format; 'extended' = includes additional metadata
+{% if format == 'extended' %}Format extended
+{% else %}Format standard
+{% endif %}
+
+# Create PID file (optional, useful for service management)
+{% if pidfile | length > 0 %}PIDFile {{ pidfile }}
+{% endif %}
+
+# Set user/group after binding ports (for security, e.g., 'nobody:nobody')
+{% if user | length > 0 %}User {{ user }}
+{% endif %}
+{% if group | length > 0 %}Group {{ group }}
+{% endif %}
+
+# Run in background (daemon mode)
+{% if daemonize | lower == 'true' or daemonize == True %}Daemon yes
+{% else %}Daemon no
+{% endif %}
+
+# Enable extended sFlow support (e.g., for vendor-specific extensions)
+{% if sflow_extended | lower == 'true' or sflow_extended == True %}SFlowExtended yes
+{% else %}SFlowExtended no
+{% endif %}
+
+# Enable support for NetFlow v9/IPFIX templates (default: yes)
+{% if template_cache | lower == 'true' or template_cache == True %}TemplateCache yes
+{% else %}TemplateCache no
+{% endif %}
+
+# Memory pool size for packet buffering (in MB); higher = better for high rates
+{% if mempool_size > 0 %}Mempool {{ mempool_size }}
+{% endif %}
+
+# Max number of open files (ulimit -n); auto-adjusted if not set
+{% if max_open_files > 0 %}MaxOpenFiles {{ max_open_files }}
+{% endif %}
+
+# Skip flow records older than N seconds (to avoid reprocessing stale data)
+# Only effective when using live capture (e.g., from -p pipe input)
+{% if skip_stale > 0 %}SkipStale {{ skip_stale }}
+{% endif %}
+
+# Additional options passed directly to nfcapd (advanced use)
+{% if extra_opts | length > 0 %}{{ extra_opts }}
+{% endif %}

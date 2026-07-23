@@ -1,0 +1,24 @@
+# Enable or disable the Guest Filesystem Daemon
+GUESTFSD_ENABLED={{ enabled | string | lower }}
+
+# User and group to run the daemon as
+GUESTFSD_USER={{ user }}
+GUESTFSD_GROUP={{ group }}
+
+# Path to the virtio-serial device
+GUESTFSD_VIRTIO_PATH={{ virtio_path }}
+
+# Maximum number of concurrent filesystem mounts
+GUESTFSD_MAX_MOUNTS={{ max_mounts }}
+
+# Logging level: 0=error, 1=warn, 2=info, 3=debug
+GUESTFSD_LOG_LEVEL={{ log_level }}
+
+# Optional: additional mount options (space-separated)
+GUESTFSD_MOUNT_OPTS="{{ mount_opts | join(' ') }}"
+
+# List of allowed host paths for bind mounts (one per line)
+{% for path in allowed_host_paths %}GUESTFSD_ALLOWED_PATH_{{ loop.index }}={{ path }}{% endfor %}
+
+# Optional: custom systemd service environment drop-in directory
+{% if systemd_env_dir %}GUESTFSD_SYSTEMD_ENV_DIR={{ systemd_env_dir }}{% endif %}

@@ -1,0 +1,209 @@
+# Listen address(es) for client connections
+listen_addresses = '{{ listen_addresses }}'
+
+# Port number to accept connections
+port = {{ port }}
+
+# Maximum number of concurrent connections
+max_connections = {{ max_connections }}
+
+# Shared memory for shared buffers (e.g., '256MB')
+shared_buffers = '{{ shared_buffers }}'
+
+# Work memory per operation (e.g., '64MB')
+work_mem = '{{ work_mem }}'
+
+# Maintenance work memory (e.g., '128MB')
+maintenance_work_mem = '{{ maintenance_work_mem }}'
+
+# Maximum memory for effective cache (e.g., '1GB')
+effective_cache_size = '{{ effective_cache_size }}'
+
+# WAL buffer size (e.g., '16MB')
+wal_buffers = '{{ wal_buffers }}'
+
+# Checkpoint completion target (0.0–1.0; 0.9 is typical)
+checkpoint_completion_target = {{ checkpoint_completion_target }}
+
+# Maximum WAL size (e.g., '2GB')
+max_wal_size = '{{ max_wal_size }}'
+
+# Minimum WAL size (e.g., '1GB')
+min_wal_size = '{{ min_wal_size }}'
+
+# Logging collector enables logging to files (on/off)
+logging_collector = {{ logging_collector | lower }}
+
+# Directory for log files
+log_directory = '{{ log_directory }}'
+
+# Log filename pattern
+log_filename = '{{ log_filename }}'
+
+# Minimum log level to record
+log_min_messages = '{{ log_min_messages }}'
+
+# Minimum statement duration to log (ms)
+log_min_duration_statement = {{ log_min_duration_statement }}
+
+# Log every query (on/off)
+log_statement = '{{ log_statement }}'
+
+# Log lock waits exceeding this threshold (ms)
+log_lock_waits = {{ log_lock_waits }}
+
+# Timezone for logs and timestamps
+log_timezone = '{{ log_timezone }}'
+
+timezone = '{{ timezone }}'
+
+# Locale for collation, sorting, etc.
+locale = '{{ locale }}'
+
+# Language for system messages
+lc_messages = '{{ lc_messages }}'
+
+# Character set encoding
+server_encoding = '{{ server_encoding }}'
+
+# Data directory (default: /var/lib/postgresql/17/main)
+data_directory = '{{ data_directory }}'
+
+# HBA file for authentication rules
+hba_file = '{{ hba_file }}'
+
+# Identify file for user mappings
+ident_file = '{{ ident_file }}'
+
+# Allow or disallow parallel query execution
+max_parallel_workers_per_gather = {{ max_parallel_workers_per_gather }}
+
+# Allow or disallow parallel workers for maintenance ops
+max_parallel_maintenance_workers = {{ max_parallel_maintenance_workers }}
+
+# Number of background worker processes
+max_worker_processes = {{ max_worker_processes }}
+
+# Number of synchronous replication connections allowed
+synchronous_commit = '{{ synchronous_commit }}'
+
+# Comma-separated list of primary/standby hostnames for replication
+{% if replication_primary_host is defined %}
+primary_conninfo = '{{ replication_primary_host }}'
+{% endif %}
+
+# Comma-separated list of standby hosts for streaming replication
+{% for host in replication_standby_hosts %}
+# Standby host: {{ host.host }}
+{% endfor %}
+
+# List of allowed standby hosts in pg_hba.conf-style entries
+{% for standby in replication_standby_hosts %}
+# Host: {{ standby.host }}, Method: {{ standby.auth_method }}
+{% endfor %}
+
+# List of allowed client connections in pg_hba.conf-style entries
+{% for rule in hba_rules %}
+# Type: {{ rule.type }}, Database: {{ rule.database }}, User: {{ rule.user }}, Address: {{ rule.address }}, Method: {{ rule.method }}
+{% endfor %}
+
+# Compression algorithm for WAL (on/off for zlib, none)
+wal_compression = '{{ wal_compression }}'
+
+# Synchronous replication mode: on, remote_apply, remote_write, off
+synchronous_standby_names = '{{ synchronous_standby_names }}'
+
+# Number of WAL senders (connections for streaming replication)
+wal_level = '{{ wal_level }}'
+
+# Maximum WAL senders
+max_wal_senders = {{ max_wal_senders }}
+
+# Keepalive interval for WAL senders (ms)
+wal_sender_timeout = {{ wal_sender_timeout }}
+
+# List of additional shared preload libraries (e.g., ['pg_stat_statements'])
+{% if shared_preload_libraries %}
+shared_preload_libraries = '{{ shared_preload_libraries | join('\',\'') }}'
+{% else %}
+shared_preload_libraries = ''
+{% endif %}
+
+# Archive mode (on/off)
+archive_mode = {{ archive_mode | lower }}
+
+# Archive command to copy WAL segments (e.g., 'cp %p /backup/wals/%f')
+archive_command = '{{ archive_command }}'
+
+# Archive timeout in seconds (0 disables)
+archive_timeout = {{ archive_timeout }}
+
+# List of recovery target actions
+{% if recovery_target_action is defined %}
+recovery_target_action = '{{ recovery_target_action }}'
+{% endif %}
+
+# Recovery target LSN (e.g., '16/B36D940')
+{% if recovery_target_lsn is defined %}
+recovery_target_lsn = '{{ recovery_target_lsn }}'
+{% endif %}
+
+# Recovery target time (ISO 8601 format)
+{% if recovery_target_time is defined %}
+recovery_target_time = '{{ recovery_target_time }}'
+{% endif %}
+
+# Recovery target XID
+{% if recovery_target_xid is defined %}
+recovery_target_xid = '{{ recovery_target_xid }}'
+{% endif %}
+
+# Recovery target name
+{% if recovery_target_name is defined %}
+recovery_target_name = '{{ recovery_target_name }}'
+{% endif %}
+
+# Enable logical replication slots
+logical_decoding = {{ logical_decoding | lower }}
+
+# List of logical replication publications
+{% for pub in logical_replication_publications %}
+# Publication: {{ pub.name }}, Tables: {{ pub.tables | join(', ') }}
+{% endfor %}
+
+# List of logical replication subscriptions
+{% for sub in logical_replication_subscriptions %}
+# Subscription: {{ sub.name }}, Provider: {{ sub.provider }}, Publications: {{ sub.publications | join(', ') }}
+{% endfor %}
+
+# Default statistics target (1–10000; 100 typical)
+default_statistics_target = {{ default_statistics_target }}
+
+# Random page cost (lower encourages index scans)
+random_page_cost = {{ random_page_cost }}
+
+# Enable JIT compilation (on/off)
+jit = {{ jit | lower }}
+
+# TCP keepalives idle (seconds)
+tcp_keepalives_idle = {{ tcp_keepalives_idle }}
+
+# TCP keepalives interval (seconds)
+tcp_keepalives_interval = {{ tcp_keepalives_interval }}
+
+# TCP keepalives count
+tcp_keepalives_count = {{ tcp_keepalives_count }}
+
+# SSL mode: off, allow, prefer, require
+ssl = '{{ ssl }}'
+
+# Path to SSL certificate
+ssl_cert_file = '{{ ssl_cert_file }}'
+
+# Path to SSL private key
+ssl_key_file = '{{ ssl_key_file }}'
+
+# SSL CA certificate (optional)
+{% if ssl_ca_file %}
+ssl_ca_file = '{{ ssl_ca_file }}'
+{% endif %}

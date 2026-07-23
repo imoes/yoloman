@@ -1,0 +1,54 @@
+# Configuration for Evolution Data Server (EDS)
+# This file controls the behavior of the Evolution Data Server daemon.
+# See 'man evolution-data-server' for detailed documentation.
+
+# Base directories for user data and cache
+{{ base_directory }}
+
+# Runtime directory for sockets and PID files
+{{ runtime_directory }}
+
+# Network settings: listen on specific addresses
+# Set to empty string to listen on all interfaces
+{% if bind_address %}bind_address={{ bind_address }}{% endif %}
+
+# TCP port for CalDAV/CardDAV services
+{% if caldav_port %}caldav_port={{ caldav_port }}{% endif %}
+{% if carddav_port %}carddav_port={{ carddav_port }}{% endif %}
+
+# Enable/disable services
+{% if enable_addressbook %}addressbook={{ 'true' if enable_addressbook else 'false' }}{% endif %}
+{% if enable_calendar %}calendar={{ 'true' if enable_calendar else 'false' }}{% endif %}
+{% if enable_tasks %}tasks={{ 'true' if enable_tasks else 'false' }}{% endif %}
+{% if enable_mail %}mail={{ 'true' if enable_mail else 'false' }}{% endif %}
+
+# Backend-specific configuration
+{% for backend in backends %}# Backend: {{ backend.name }}
+{{ backend.name }}_type={{ backend.type }}
+{% if backend.uri %}{{ backend.name }}_uri={{ backend.uri }}{% endif %}
+{% if backend.user %}{{ backend.name }}_user={{ backend.user }}{% endif %}
+{% if backend.password %}{{ backend.name }}_password={{ backend.password }}{% endif %}
+{% if backend.ssl %}{{ backend.name }}_ssl={{ 'true' if backend.ssl else 'false' }}{% endif %}
+{% if backend.starttls %}{{ backend.name }}_starttls={{ 'true' if backend.starttls else 'false' }}{% endif %}
+{% endfor %}
+
+# Resource limits
+{% if max_connections %}max_connections={{ max_connections }}{% endif %}
+{% if max_cached_connections %}max_cached_connections={{ max_cached_connections }}{% endif %}
+{% if query_timeout %}query_timeout={{ query_timeout }}{% endif %}
+
+# Logging configuration
+{% if log_level %}log_level={{ log_level }}{% endif %}
+{% if log_file %}log_file={{ log_file }}{% endif %}
+
+# Security settings
+{% if require_ssl %}require_ssl={{ 'true' if require_ssl else 'false' }}{% endif %}
+{% if ssl_cert_file %}ssl_cert_file={{ ssl_cert_file }}{% endif %}
+{% if ssl_key_file %}ssl_key_file={{ ssl_key_file }}{% endif %}
+{% if ssl_ca_file %}ssl_ca_file={{ ssl_ca_file }}{% endif %}
+
+# Authentication backends (optional overrides)
+{% for auth_backend in auth_backends %}# Auth backend: {{ auth_backend.name }}
+{% if auth_backend.module %}{{ auth_backend.name }}_module={{ auth_backend.module }}{% endif %}
+{% if auth_backend.method %}{{ auth_backend.name }}_method={{ auth_backend.method }}{% endif %}
+{% endfor %}

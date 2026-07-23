@@ -1,0 +1,74 @@
+# Global worker and event configuration
+worker_processes {{ worker_processes }};
+events {
+    worker_connections {{ worker_connections }};
+}
+
+# HTTP block: core settings, logging, and keepalive tuning
+http {
+    # Enable gzip compression for improved performance
+    gzip on;
+    gzip_types text/plain application/json application/javascript text/css;
+
+    # Logging: access and error logs
+    access_log {{ access_log_path }};
+    error_log {{ error_log_path }};
+
+    # Server tokens off to hide version info
+    server_tokens off;
+
+    # Keepalive timeouts tuned for load-balanced workloads
+    keepalive_timeout {{ keepalive_timeout }};
+    keepalive_requests {{ keepalive_requests }};
+    sendfile on;
+    tcp_nopush on;
+    tcp_nodelay on;
+
+    # Upstream connection reuse settings
+    proxy_http_version 1.1;
+    proxy_set_header Connection "";
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+
+    # Default upstream group — configurable via template
+{% for upstream in upstreams %}    # Upstream group: {{ upstream.name }}
+    upstream {{ upstream.name }} {
+{% for server in upstream.servers %}        server {{ server.address }}:{{ server.port }}{{ ' backup' if server.backup else '' }}{{ ' down' if server.down else '' }};
+{% endfor %}        keepalive {{ upstream.keepalive_connections }};
+    }
+{% endfor %}
+
+    # Server blocks — one per configured virtual host
+{% for server in servers %}    # Virtual host: {{ server.name }}
+    server {
+        listen {{ server.listen }};
+{% if server.ssl %}        ssl_certificate {{ server.ssl_cert_path }};
+        ssl_certificate_key {{ server.ssl_key_path }};
+        ssl_protocols TLSv1.2 TLSv1.3;
+        ssl_ciphers HIGH:!aNULL:!MD5;
+        ssl_prefer_server_ciphers on;
+{% endif %}        server_name {{ server.name }};
+
+{% for location in server.locations %}        # Location: {{ location.path }}
+        location {{ location.path }} {
+{% if location.static_root %}            root {{ location.static_root }};
+            try_files $uri $uri/ =404;
+{% endif %}
+{% if location.proxy_pass %}            proxy_pass http://{{ location.proxy_pass }};
+            proxy_connect_timeout {{ location.proxy_connect_timeout }};
+            proxy_read_timeout {{ location.proxy_read_timeout }};
+{% endif %}
+        }
+{% endfor %}
+    }
+{% endfor %}
+
+    # Default catch-all server block
+    server {
+        listen 80 default_server;
+        listen [::]:80 default_server;
+        server_name _;
+        return 444;
+    }
+}

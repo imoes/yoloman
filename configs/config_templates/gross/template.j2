@@ -1,0 +1,53 @@
+# Greylist server configuration for gross — DNSBL-aware greylisting
+# Server identity and basic settings
+listen_addr: {{ listen_addr }}
+listen_port: {{ listen_port }}
+
+# Worker pool and threading
+worker_count: {{ worker_count }}
+max_concurrent_connections: {{ max_concurrent_connections }}
+
+# Logging
+log_level: {{ log_level }}
+log_file: {{ log_file }}
+
+# Greylisting database backend
+[db]
+type: {{ db_type }}
+path: {{ db_path }}
+max_idle_conns: {{ db_max_idle_conns }}
+max_open_conns: {{ db_max_open_conns }}
+conn_max_lifetime: "{{ db_conn_max_lifetime }}"
+
+# DNSBL configuration — used for initial sender reputation lookup
+[ dnsbl ]
+enabled: {{ dnsbl_enabled }}
+timeout: "{{ dnsbl_timeout }}"
+
+{% for provider in dnsbl_providers %}# DNSBL provider: {{ provider.name }} — {{ provider.description }}
+{{ provider.name }}:
+  servers:
+{% for server in provider.servers %}    - {{ server }}
+{% endfor %}  ttl_pass: {{ provider.ttl_pass | default(3600) }}
+  ttl_fail: {{ provider.ttl_fail | default(1800) }}
+  weight: {{ provider.weight | default(1) }}
+{% endfor %}
+
+# Greylisting policy
+[ policy ]
+min_delay_sec: {{ policy_min_delay_sec }}
+max_delay_sec: {{ policy_max_delay_sec }}
+accept_after_pass_count: {{ policy_accept_after_pass_count }}
+reject_after_fail_count: {{ policy_reject_after_fail_count }}
+
+# Whitelisted networks (CIDR notation)
+[ whitelist ]
+{% for cidr in whitelist_networks %}# {{ cidr }} — {{ 'Local LAN' if cidr.startswith('10.') else ('Loopback' if cidr.startswith('127.') else 'Custom') }}
+{{ cidr }}
+{% endfor %}
+
+# Per-domain exceptions (greylist bypass)
+[ exceptions ]
+{% for domain in exception_domains %}# {{ domain }} — always greylist (true) or skip (false)
+{{ domain }}: {{ exception_greylist[loop.index0] }}
+{% endfor %}

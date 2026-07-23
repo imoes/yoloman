@@ -1,0 +1,103 @@
+# GNUnet service configuration
+# This is the main configuration file for GNUnet. Adjust values to suit your deployment.
+# Each section corresponds to a service (e.g., ARM, NAT, DHT).
+# Use [SECTION_NAME] to define settings; each setting uses KEY = VALUE syntax.
+# Comments start with #.
+
+# [core] — Core service settings (essential infrastructure)
+[core]
+# PORT = {{ core.port }}
+# HOSTNAME = {{ core.hostname }}
+# TIMEOUT = {{ core.timeout }}
+
+# [arm] — Automatic Restart Manager (controls launching/stopping services)
+[arm]
+# PORT = {{ arm.port }}
+# HOSTNAME = {{ arm.hostname }}
+# DEFAULTSERVICES = {{ arm.default_services | join(', ') }}
+{% for svc in arm.start_services %}
+# START {{ svc.name }} = {{ svc.enabled | string | lower }}
+{% endfor %}
+
+# [nat] — NAT traversal and reachability
+[nat]
+# ENABLE_UPNP = {{ nat.enable_upnp | string | lower }}
+# BEHIND_NAT = {{ nat.behind_nat | string | lower }}
+# ALLOW_NAT = {{ nat.allow_nat | string | lower }}
+# HTTP_PROXY = {{ nat.http_proxy }}
+# EXTERNAL_IP = {{ nat.external_ip }}
+
+# [dht] — Distributed Hash Table service
+[dht]
+# PORT = {{ dht.port }}
+# HOSTNAME = {{ dht.hostname }}
+# CACHE_SIZE = {{ dht.cache_size }}
+# WORKER_THREADS = {{ dht.worker_threads }}
+
+# [datastore] — Persistent storage backend
+[datastore]
+# DB = {{ datastore.db }}
+# LIMIT = {{ datastore.limit }}
+# PREFIX = {{ datastore.prefix }}
+# PATH = {{ datastore.path }}
+
+# [transport] — Transport plugins (TCP, UDP, etc.)
+[transport]
+# PLUGINS = {{ transport.plugins | join(', ') }}
+# TIMEOUT = {{ transport.timeout }}
+{% for plugin in transport.plugins_config %}
+[transport-{{ plugin.name }}]
+# PORT = {{ plugin.port }}
+# HOSTNAME = {{ plugin.hostname }}
+# LISTEN_ADDRESSES = {{ plugin.listen_addresses | join(', ') }}
+{% endfor %}
+
+# [peerinfo] — Peer information storage and discovery
+[peerinfo]
+# HOSTNAME = {{ peerinfo.hostname }}
+# PORT = {{ peerinfo.port }}
+
+# [vpn] — GNUnet VPN service (optional)
+{% if vpn.enabled %}
+[vpn]
+# PORT = {{ vpn.port }}
+# HOSTNAME = {{ vpn.hostname }}
+# TUNNEL_NAME = {{ vpn.tunnel_name }}
+# TUNNEL_SERVER = {{ vpn.tunnel_server }}
+{% endif %}
+
+# [resolver] — Local DNS resolver
+[resolver]
+# PORT = {{ resolver.port }}
+# HOSTNAME = {{ resolver.hostname }}
+
+# [gns] — GNU Name System (decentralized DNS)
+[gns]
+# PORT = {{ gns.port }}
+# HOSTNAME = {{ gns.hostname }}
+# ZONE_KEY_FILE = {{ gns.zone_key_file }}
+
+# [set] — Secure Set Intersection
+[set]
+# PORT = {{ set.port }}
+# HOSTNAME = {{ set.hostname }}
+
+# [cadet] — Overlay Communication and Data Exchange Transport
+[cadet]
+# PORT = {{ cadet.port }}
+# HOSTNAME = {{ cadet.hostname }}
+
+# [namestore] — Namestore service for GNS records
+[namestore]
+# PORT = {{ namestore.port }}
+# HOSTNAME = {{ namestore.hostname }}
+
+# [consensus] — Consensus protocol
+[consensus]
+# PORT = {{ consensus.port }}
+# HOSTNAME = {{ consensus.hostname }}
+
+# [revocation] — Credential revocation service
+[revocation]
+# PORT = {{ revocation.port }}
+# HOSTNAME = {{ revocation.hostname }}

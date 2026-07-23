@@ -1,0 +1,128 @@
+# Falco configuration file — controls rule loading, output format, and system call source behavior
+# Rule file paths — where Falco looks for rules files
+rules_files:
+{% for path in rules_files_paths %}
+  - "{{ path }}"
+{% endfor %}
+
+# Enable/disable gvisor support (requires gvisor container runtime)
+gvisor:
+  enabled: {{ gvisor_enabled }}
+
+# Output format: text (human-readable) or json (machine-parsable)
+output:
+  format: "{{ output_format }}"
+
+# Enable/disable JSON output timestamp, include program name, etc.
+output_json:
+  include_output_properties: {{ output_json_include_properties }}
+  add_json_fields: {{ output_json_add_fields }}
+
+# Syscall source configuration — controls kernel module or eBPF behavior
+syscall:
+  # Enable/disable syscall event capture
+  enabled: {{ syscall_enabled }}
+  
+  # eBPF driver settings — preferred over kernel module where supported
+  ebpf:
+    # Path to the eBPF probe (`.so` or `.bpf` file)
+    # Leave blank to use default (Falco will attempt automatic loading)
+    # If specified, must point to a valid, compatible driver binary
+    # Example: "/usr/share/falco/falco-bpf.o"
+    # If not set, Falco will fall back to kernel module (if enabled)
+    # path: "{{ syscall_ebpf_path | default('') }}"
+    
+    # Enable/disable eBPF probe (if available on system)
+    enabled: {{ syscall_ebpf_enabled }}
+
+  # Kernel module driver settings — legacy fallback
+  # Not recommended on modern kernels (eBPF is preferred)
+  # Set enabled=false unless explicitly needed
+  module:
+    enabled: {{ syscall_module_enabled }}
+
+# Buffer settings — for high-throughput environments
+buffers:
+  # Size (in bytes) of per-CPU ring buffers
+  # Increase if you see "syscall event lost" warnings
+  syscalls: {{ buffers_syscalls_size }}
+
+# Logging verbosity and file
+log_level: "{{ log_level }}"
+log_stderr: {{ log_stderr }}
+log_file: "{{ log_file_path }}"
+
+# Metrics configuration — optional Prometheus-style metrics endpoint
+metrics:
+  enabled: {{ metrics_enabled }}
+  # Frequency (seconds) of metrics export to /metrics endpoint
+  interval: "{{ metrics_interval }}"
+  # Path to Prometheus metrics endpoint (e.g., "/metrics" or "/falco-metrics")
+  # Only active if metrics are enabled and Falco is compiled with metrics support
+  # endpoint: "{{ metrics_endpoint }}"
+
+# File integrity monitoring (FIM) — optional, for file integrity monitoring rules
+fim_enabled: {{ fim_enabled }}
+
+# File integrity monitoring intervals and settings
+fim:
+  # Directory paths to monitor for file changes
+  directories:
+{% for dir in fim_directories %}
+    - path: "{{ dir.path }}"
+      recursive: {{ dir.recursive }}
+{% endfor %}
+
+# Syscall source timeout (ms) — max time to wait for events before dropping
+syscall_timeout: {{ syscall_timeout }}
+
+# JSON output fields — customize fields emitted in JSON mode
+json_include_output_properties: {{ json_include_output_properties }}
+json_add_fields:
+{% for field in json_add_fields %}
+  - "{{ field }}"
+{% endfor %}
+
+# Output source — where to send alerts: stdout, file, or gRPC
+# Use file for logging to disk, gRPC for external sinks (e.g., Falcosidekick)
+output_file:
+  # Enable/disable writing to file
+  enabled: {{ output_file_enabled }}
+  # Path to output file (if enabled)
+  path: "{{ output_file_path }}"
+
+# gRPC output configuration — for external alert receivers
+grpc:
+  enabled: {{ grpc_enabled }}
+  output:
+    # Path to gRPC output config (optional, if using external file)
+    # path: "{{ grpc_output_path | default('') }}"
+  # Server settings — only needed if Falco acts as gRPC server
+  server:
+    enabled: {{ grpc_server_enabled }}
+    # Bind address for gRPC server (e.g., "0.0.0.0:5060")
+    bind_address: "{{ grpc_server_bind_address }}"
+    # TLS configuration (optional)
+    # certificate: "{{ grpc_certificate }}"
+    # private_key: "{{ grpc_private_key }}"
+    # client_ca: "{{ grpc_client_ca }}"
+
+# Kubernetes audit configuration — optional, for Kubernetes audit logs
+kubernetes_audit:
+  enabled: {{ k8s_audit_enabled }}
+  # Path to Kubernetes audit policy file (if enabled)
+  policy: "{{ k8s_audit_policy_path }}"
+  # Path to Kubernetes audit log file (or HTTP endpoint if streaming)
+  log:
+    # For file-based: path to audit log file
+    # path: "{{ k8s_audit_log_path }}"
+    # For HTTP streaming: endpoint URL
+    # url: "{{ k8s_audit_log_url }}"
+
+# Rule overrides — disable specific rules or set rule severity
+rules:
+  # Example: disable a known false-positive rule
+  # - rule: "Rule Name"
+  #   enabled: false
+  #   # Optional: override severity (info, error, warning, critical)
+  #   severity: 0

@@ -1,0 +1,76 @@
+# General Barman configuration
+[barman]
+# Directory where Barman stores its own files (logs, status, etc.)
+barman_home = {{ barman_home }}
+# Directory where Barman stores backup data
+barman_locks = {{ barman_locks }}
+# Path to the Barman log file
+log_file = {{ barman_log_file }}
+# Logging level: DEBUG, INFO, WARNING, ERROR, CRITICAL
+log_level = {{ log_level }}
+# Number of days to retain WAL files before cleanup (0 = disable cleanup)
+wal_retention_policy = {{ wal_retention_policy }}
+# Compression method for backups: none, gzip, bzip2, lz4
+compression = {{ compression }}
+# Compression filter (e.g., gzip options)
+compression_filter = {{ compression_filter }}
+# Maximum number of parallel jobs for backup/recovery
+parallel_jobs = {{ parallel_jobs }}
+# SSH command to use when connecting to PostgreSQL servers
+ssh_command = {{ ssh_command }}
+# SSH command to use for rsync operations
+rsync_ssh_command = {{ rsync_ssh_command }}
+
+# Configuration for each PostgreSQL server to manage
+{% for server in servers %}
+# Server: {{ server.name }}
+[{{ server.name }}]
+# Description of the server
+description = "{{ server.description }}"
+# Hostname or IP address of the PostgreSQL server
+conninfo = host={{ server.conninfo_host }} user={{ server.conninfo_user }} dbname={{ server.conninfo_dbname }} port={{ server.conninfo_port }}
+# SSH hostname for remote backup (omit if local backup)
+ssh_command = {{ server.ssh_command }}
+# Path to PostgreSQL data directory on the remote server
+pg_data_directory = {{ server.pg_data_directory }}
+# Path to PostgreSQL binary directory
+pg_bin_directory = {{ server.pg_bin_directory }}
+# Path to PostgreSQL configuration directory
+pg_config_directory = {{ server.pg_config_directory }}
+# Enable base backups
+base_backup_method = {{ server.base_backup_method }}
+# Use streaming for base backups (pg_basebackup)
+streaming_archiver = {{ server.streaming_archiver }}
+# Hostname for streaming connection (e.g., for replication slot)
+streaming_conninfo = host={{ server.streaming_conninfo_host }} user={{ server.streaming_conninfo_user }} port={{ server.streaming_conninfo_port }}
+# WAL archive method: barman_wal_archive, archive_command
+wal_archive_method = {{ server.wal_archive_method }}
+# Archive timeout in seconds (0 = no timeout)
+archive_timeout = {{ server.archive_timeout }}
+# Minimum number of WAL files to keep before rotation
+min_wal_size_to_keep = {{ server.min_wal_size_to_keep }}
+# Maximum number of WAL files to keep before rotation
+max_wal_size_to_keep = {{ server.max_wal_size_to_keep }}
+# Backup method: local, rsync, pg_basebackup
+backup_method = {{ server.backup_method }}
+# Use WAL streaming (if supported)
+streaming_archiver = {{ server.streaming_archiver }}
+# Enable backup compression
+compression = {{ server.compression }}
+# Custom compression command
+compression_filter = {{ server.compression_filter }}
+# Path to archive WAL directory on the Barman server
+archive_directory = {{ server.archive_directory }}
+# Enable check of PostgreSQL server status before backup
+check_postgreSQL = {{ server.check_postgreSQL }}
+# Enable check of WAL archiving
+check_wal_archive = {{ server.check_wal_archive }}
+# Enable check of minimum WAL size before archive
+check_min_wal_size = {{ server.check_min_wal_size }}
+# Enable check of WAL archiver status
+check_archiver = {{ server.check_archiver }}
+# Enable check of backup retention policy
+check_backup = {{ server.check_backup }}
+# Enable check of WAL archiving latency
+check_wal_archive_latency = {{ server.check_wal_archive_latency }}
+{% endfor %}

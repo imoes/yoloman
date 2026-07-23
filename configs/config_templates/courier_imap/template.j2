@@ -1,0 +1,91 @@
+# Maximum number of simultaneous IMAP connections per IP
+MAXDAEMON {{ max_daemon }}
+
+# Maximum number of processes to fork
+MAXPERIP {{ max_per_ip }}
+
+# Log level: 0=quiet, 1=normal, 2=debug
+LOGLEVEL {{ log_level }}
+
+# Path to the IMAP certificate chain (PEM format)
+SSLCERTIFICATE {{ ssl_certificate_path }}
+
+# Path to the CA certificate (optional, for client cert verification)
+{% if ssl_ca_certificate_path %}
+SSLCACERTIFICATE {{ ssl_ca_certificate_path }}
+{% endif %}
+
+# Enable SSL/TLS on IMAP port (default: 993)
+SSLPORT {{ ssl_port }}
+SSLENABLED {{ 1 if ssl_enabled else 0 }}
+
+# Enable plaintext auth only over TLS (prevents insecure password transmission)
+SSLREQUIREAUTH {{ 1 if ssl_require_auth else 0 }}
+
+# List of allowed authentication mechanisms (e.g., "PLAIN LOGIN")
+AUTHMODULES "{{ auth_modules | join(' ') }}"
+
+# IMAP protocol extensions (e.g., "imap4rev1" is always present; others are optional)
+# Enabled extensions: IMAP4rev1 IDLE LISTEXT LITERAL+ CHILDREN
+{% for ext in enabled_extensions %}
+# {{ ext }}
+{% endfor %}
+
+# Base directory for user mailboxes (must be set to match MTA spool location)
+MAILROOT {{ mail_root }}
+
+# Path to the user's maildir (default: Maildir)
+# Change only if using non-default mail storage
+# Maildir format is assumed; change if using mbox or other format
+{% if mail_format == 'maildir' %}
+# Maildir format is default and assumed; no need to set MAILDIRPATH explicitly
+{% elif mail_format == 'mbox' %}
+# Using mbox format
+MAILDIRPATH .maildir
+{% else %}
+# Unknown mail format — please configure explicitly
+{% endif %}
+
+# Timeout values (in seconds)
+IMAPDSTARTUPWAIT {{ imapd_startup_wait }}
+IMAPDLOGINWAIT {{ imapd_login_wait }}
+
+# Maximum message size allowed (in bytes, 0 = unlimited)
+MAXMSG {{ max_message_size }}
+
+# Idle timeout for IMAP connections (seconds)
+IDLETIMEOUT {{ idle_timeout }}
+
+# List of IP addresses/hosts allowed to connect
+# If empty, all IPs allowed
+{% if allowed_hosts | length > 0 %}
+ALLOWEDHOSTS "{{ allowed_hosts | join(', ') }}"
+{% else %}
+ALLOWEDHOSTS ""
+{% endif %}
+
+# Disable plaintext authentication if SSL/TLS is not used
+{% if require_ssl_for_plaintext %}
+REQUIRESSL 1
+{% else %}
+REQUIRESSL 0
+{% endif %}
+
+# Enable or disable the IMAP QUOTA extension
+{% if enable_quota %}
+QUOTA 1
+{% else %}
+QUOTA 0
+{% endif %}
+
+# Enable or disable the IMAP ACL extension
+{% if enable_acl %}
+ACL 1
+{% else %}
+ACL 0
+{% endif %}
+
+# List of additional IMAP-specific options
+{% for option, value in extra_options.items() %}
+{{ option }} {{ value }}
+{% endfor %}

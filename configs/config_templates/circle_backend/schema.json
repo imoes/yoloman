@@ -1,0 +1,357 @@
+{
+  "server": {
+    "type": "object",
+    "default": {
+      "name": "circle-backend",
+      "host": "0.0.0.0",
+      "port": 6697,
+      "tls": {
+        "enabled": true,
+        "cert_path": "/etc/circle/ssl/cert.pem",
+        "key_path": "/etc/circle/ssl/key.pem"
+      }
+    },
+    "description": "Core server identity and TLS settings",
+    "properties": {
+      "name": {
+        "type": "string",
+        "default": "circle-backend",
+        "description": "Logical name for this backend instance"
+      },
+      "host": {
+        "type": "string",
+        "default": "0.0.0.0",
+        "description": "IP address to bind to"
+      },
+      "port": {
+        "type": "number",
+        "default": 6697,
+        "description": "Port to listen on (commonly 6697 for secure IRC)"
+      },
+      "tls": {
+        "type": "object",
+        "default": {
+          "enabled": true,
+          "cert_path": "/etc/circle/ssl/cert.pem",
+          "key_path": "/etc/circle/ssl/key.pem"
+        },
+        "description": "TLS configuration",
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "default": true,
+            "description": "Enable TLS encryption for client connections"
+          },
+          "cert_path": {
+            "type": "string",
+            "default": "/etc/circle/ssl/cert.pem",
+            "description": "Path to TLS certificate file"
+          },
+          "key_path": {
+            "type": "string",
+            "default": "/etc/circle/ssl/key.pem",
+            "description": "Path to TLS private key file"
+          }
+        }
+      }
+    }
+  },
+  "connection": {
+    "type": "object",
+    "default": {
+      "max_connections": 1000,
+      "timeout": 30,
+      "idle_timeout": 300,
+      "read_buffer_size": 65536,
+      "write_buffer_size": 65536
+    },
+    "description": "Connection handling behavior",
+    "properties": {
+      "max_connections": {
+        "type": "number",
+        "default": 1000,
+        "description": "Maximum concurrent client connections"
+      },
+      "timeout": {
+        "type": "number",
+        "default": 30,
+        "description": "Maximum time (seconds) allowed for connection handshake"
+      },
+      "idle_timeout": {
+        "type": "number",
+        "default": 300,
+        "description": "Seconds of inactivity before idle client is disconnected"
+      },
+      "read_buffer_size": {
+        "type": "number",
+        "default": 65536,
+        "description": "Read buffer size (bytes) per connection"
+      },
+      "write_buffer_size": {
+        "type": "number",
+        "default": 65536,
+        "description": "Write buffer size (bytes) per connection"
+      }
+    }
+  },
+  "rate_limit": {
+    "type": "object",
+    "default": {
+      "messages": 5,
+      "burst": 10,
+      "per_ip": true
+    },
+    "description": "Rate limiting to prevent abuse",
+    "properties": {
+      "messages": {
+        "type": "number",
+        "default": 5,
+        "description": "Maximum messages allowed per interval"
+      },
+      "burst": {
+        "type": "number",
+        "default": 10,
+        "description": "Burst capacity before throttling"
+      },
+      "per_ip": {
+        "type": "boolean",
+        "default": true,
+        "description": "Apply rate limits separately per client IP"
+      }
+    }
+  },
+  "auth": {
+    "type": "object",
+    "default": {
+      "enabled": true,
+      "backend": "file",
+      "backends": {
+        "file": {
+          "path": "/etc/circle/auth/users.db",
+          "algorithm": "bcrypt"
+        }
+      }
+    },
+    "description": "Authentication configuration",
+    "properties": {
+      "enabled": {
+        "type": "boolean",
+        "default": true,
+        "description": "Require authentication before allowing connections"
+      },
+      "backend": {
+        "type": "string",
+        "default": "file",
+        "enum": [
+          "file",
+          "ldap",
+          "oauth2"
+        ],
+        "description": "Auth backend type"
+      },
+      "backends": {
+        "type": "object",
+        "default": {
+          "file": {
+            "path": "/etc/circle/auth/users.db",
+            "algorithm": "bcrypt"
+          }
+        },
+        "description": "Backend-specific options keyed by backend name",
+        "additionalProperties": {
+          "type": "object",
+          "additionalProperties": true
+        }
+      }
+    }
+  },
+  "logging": {
+    "type": "object",
+    "default": {
+      "enabled": true,
+      "level": "info",
+      "format": "json",
+      "file": "/var/log/circle/backend.log",
+      "syslog": false
+    },
+    "description": "Logging configuration",
+    "properties": {
+      "enabled": {
+        "type": "boolean",
+        "default": true,
+        "description": "Enable logging to file/syslog"
+      },
+      "level": {
+        "type": "string",
+        "default": "info",
+        "enum": [
+          "debug",
+          "info",
+          "warn",
+          "error"
+        ],
+        "description": "Minimum log level"
+      },
+      "format": {
+        "type": "string",
+        "default": "json",
+        "enum": [
+          "text",
+          "json"
+        ],
+        "description": "Log output format"
+      },
+      "file": {
+        "type": "string",
+        "default": "/var/log/circle/backend.log",
+        "description": "Path to log file"
+      },
+      "syslog": {
+        "type": "boolean",
+        "default": false,
+        "description": "Enable logging to system syslog"
+      }
+    }
+  },
+  "upstreams": {
+    "type": "list",
+    "default": [
+      {
+        "name": "irc.example.com",
+        "host": "irc.example.com",
+        "port": 6697,
+        "ssl": true,
+        "cert_verify": true
+      }
+    ],
+    "description": "List of upstream IRC servers to connect to",
+    "items": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Internal identifier for this upstream"
+        },
+        "host": {
+          "type": "string",
+          "description": "Upstream server hostname or IP"
+        },
+        "port": {
+          "type": "number",
+          "description": "Port to connect to"
+        },
+        "ssl": {
+          "type": "boolean",
+          "description": "Use SSL/TLS for upstream connection"
+        },
+        "cert_verify": {
+          "type": "boolean",
+          "description": "Verify upstream server certificate (only if ssl=true)"
+        }
+      },
+      "required": [
+        "name",
+        "host",
+        "port",
+        "ssl"
+      ]
+    }
+  },
+  "auto_join": {
+    "type": "object",
+    "default": {
+      "enabled": true,
+      "channels": [
+        "#support",
+        "#general"
+      ],
+      "nickserv": {
+        "nick": "NickServ",
+        "password": null
+      }
+    },
+    "description": "Global channel join and NickServ configuration",
+    "properties": {
+      "enabled": {
+        "type": "boolean",
+        "default": true,
+        "description": "Enable auto-join for new clients"
+      },
+      "channels": {
+        "type": "list",
+        "default": [
+          "#support",
+          "#general"
+        ],
+        "description": "Channels to join automatically on connect",
+        "items": {
+          "type": "string"
+        }
+      },
+      "nickserv": {
+        "type": "object",
+        "default": {
+          "nick": "NickServ",
+          "password": null
+        },
+        "description": "NickServ identification settings",
+        "properties": {
+          "nick": {
+            "type": "string",
+            "default": "NickServ",
+            "description": "Service nickname to identify with"
+          },
+          "password": {
+            "type": "string",
+            "description": "Auth password (leave null to skip)"
+          }
+        }
+      }
+    }
+  },
+  "state": {
+    "type": "object",
+    "default": {
+      "db_path": "/var/lib/circle/backend.db",
+      "backup": {
+        "enabled": true,
+        "interval": 3600,
+        "dir": "/var/lib/circle/backups"
+      }
+    },
+    "description": "Persistence configuration",
+    "properties": {
+      "db_path": {
+        "type": "string",
+        "default": "/var/lib/circle/backend.db",
+        "description": "Path to persistent SQLite database"
+      },
+      "backup": {
+        "type": "object",
+        "default": {
+          "enabled": true,
+          "interval": 3600,
+          "dir": "/var/lib/circle/backups"
+        },
+        "description": "Database backup settings",
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "default": true,
+            "description": "Enable automatic database backups"
+          },
+          "interval": {
+            "type": "number",
+            "default": 3600,
+            "description": "Backup interval in seconds"
+          },
+          "dir": {
+            "type": "string",
+            "default": "/var/lib/circle/backups",
+            "description": "Directory to store backup files"
+          }
+        }
+      }
+    }
+  }
+}

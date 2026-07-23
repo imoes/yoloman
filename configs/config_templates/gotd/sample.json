@@ -1,0 +1,57 @@
+{
+  "listen_addr": "0.0.0.0",
+  "listen_port": 8443,
+  "root_path": "/var/got",
+  "max_connections": 0,
+  "anonymous_read": false,
+  "anonymous_write": false,
+  "tls": {
+    "enabled": true,
+    "cert_file": "/etc/ssl/certs/gotd.example.com.crt",
+    "key_file": "/etc/ssl/private/gotd.example.com.key"
+  },
+  "ssh_host_key": "/etc/ssh/ssh_host_ed25519_key",
+  "rate_limit": {
+    "enabled": true,
+    "bytes_per_sec": 524288
+  },
+  "auth_backends": [
+    {
+      "type": "file",
+      "description": "Local user authentication",
+      "path": "/etc/gotd.passwd"
+    },
+    {
+      "type": "ldap",
+      "description": "Corporate LDAP directory",
+      "ldap": {
+        "uri": "ldaps://ldap.internal.example.com",
+        "basedn": "ou=users,dc=internal,dc=example,dc=com",
+        "binddn": "cn=gotd,ou=services,dc=internal,dc=example,dc=com",
+        "bind_password": "secret",
+        "user_filter": "(uid=%u)"
+      }
+    }
+  ],
+  "acls": [
+    {
+      "type": "group",
+      "group": "devs",
+      "paths": [
+        "/projects/*"
+      ]
+    },
+    {
+      "type": "user",
+      "user": "deploy-bot",
+      "paths": [
+        "/projects/*",
+        "/deploy/*"
+      ]
+    }
+  ],
+  "logging": {
+    "level": "warn"
+  },
+  "chroot": "/chroot/gotd"
+}

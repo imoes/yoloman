@@ -1,0 +1,110 @@
+{
+  "backup_location": {
+    "type": "object",
+    "description": "Local directory to back up and associated options",
+    "properties": {
+      "path": {
+        "type": "string",
+        "default": "/home",
+        "description": "Root directory path to scan for changes and back up"
+      },
+      "max_filesize": {
+        "type": "number",
+        "default": 1073741824,
+        "description": "Largest file (in bytes) to back up. Files larger than this are skipped. Set 0 for unlimited."
+      },
+      "skip_patterns": {
+        "type": "list",
+        "default": [
+          "*.tmp",
+          "*.cache",
+          "*.log",
+          "*/.cache/*",
+          "*/.npm/*"
+        ],
+        "description": "List of file/directory patterns (glob-style) to exclude from backup"
+      },
+      "skip_xattrs": {
+        "type": "list",
+        "default": [],
+        "description": "List of extended attribute names (e.g., 'user.cache') to ignore on files"
+      }
+    }
+  },
+  "scan_interval": {
+    "type": "number",
+    "default": 300,
+    "description": "Seconds between scans for file changes (minimum recommended: 60)"
+  },
+  "auto_upload": {
+    "type": "bool",
+    "default": true,
+    "description": "If true, automatically upload changes as soon as they are detected"
+  },
+  "max_upload_rate": {
+    "type": "number",
+    "default": 0,
+    "description": "Maximum bytes per second to upload. Set 0 for unlimited (no throttling)"
+  },
+  "server": {
+    "type": "object",
+    "description": "BoxBackup server connection details",
+    "properties": {
+      "address": {
+        "type": "string",
+        "default": "backup.example.com",
+        "description": "Hostname or IP address of the BoxBackup store server"
+      },
+      "port": {
+        "type": "number",
+        "default": 10025,
+        "description": "Port number for the backup protocol (10025 is standard)"
+      },
+      "certificate_file": {
+        "type": "string",
+        "default": "/etc/boxbackup/bbackupd-server.crt",
+        "description": "Path to the server's SSL/TLS certificate (PEM format) for verification"
+      },
+      "store_public_key_file": {
+        "type": "string",
+        "default": "/etc/boxbackup/bbackupd-storepubkey.pem",
+        "description": "Path to the public key (PEM) of the store \u2014 required for encrypted backups"
+      }
+    }
+  },
+  "account_number": {
+    "type": "string",
+    "default": "00000001",
+    "description": "Account identifier assigned by the BoxBackup store admin (must match server)"
+  },
+  "pid_file": {
+    "type": "string",
+    "default": "/var/run/bbackupd.pid",
+    "description": "Path to write the daemon PID file"
+  },
+  "log_file": {
+    "type": "string",
+    "default": "/var/log/boxbackup/bbackupd.log",
+    "description": "Path to the log file. Use '-' to log to stdout"
+  },
+  "log_verbosity": {
+    "type": "number",
+    "default": 1,
+    "description": "Logging verbosity level: 0 (errors), 1 (normal), 2 (verbose), 3 (debug)"
+  },
+  "encrypted": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable client-side encryption before upload (requires store public key and client private key)"
+  },
+  "warning_age": {
+    "type": "number",
+    "default": 7,
+    "description": "If last backup is older than this many days, issue a warning"
+  },
+  "post_backup_command": {
+    "type": "string",
+    "default": "",
+    "description": "Optional shell command to run after each successful backup (e.g., send notification)"
+  }
+}

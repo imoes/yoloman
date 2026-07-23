@@ -1,0 +1,145 @@
+{
+  "instance_id": {
+    "type": "string",
+    "default": "foomuuri-01",
+    "description": "Unique identifier for this instance; used in logs and monitoring."
+  },
+  "log_level": {
+    "type": "string",
+    "default": "info",
+    "description": "Verbosity level for logging; recommended 'info' for production."
+  },
+  "working_dir": {
+    "type": "string",
+    "default": "/var/lib/foomuuri",
+    "description": "Base directory for runtime data, temp files, and job storage."
+  },
+  "pid_file": {
+    "type": "string",
+    "default": "/run/foomuuri.pid",
+    "description": "Path to the file storing the main process PID."
+  },
+  "server": {
+    "type": "object",
+    "default": {},
+    "description": "Network and connection settings for the main listener.",
+    "items": {
+      "bind_host": {
+        "type": "string",
+        "default": "0.0.0.0",
+        "description": "Network interface to bind (e.g., '127.0.0.1', '::', or '0.0.0.0' for all)."
+      },
+      "bind_port": {
+        "type": "number",
+        "default": 8080,
+        "description": "TCP port for incoming connections."
+      },
+      "max_connections": {
+        "type": "number",
+        "default": 1000,
+        "description": "Maximum number of simultaneous client connections allowed."
+      },
+      "tls_enabled": {
+        "type": "boolean",
+        "default": false,
+        "description": "Enable TLS encryption for all incoming connections."
+      },
+      "server_cert": {
+        "type": "string",
+        "default": "/etc/foomuuri/tls/fullchain.pem",
+        "description": "Path to the TLS certificate chain file (required if TLS is enabled)."
+      },
+      "server_key": {
+        "type": "string",
+        "default": "/etc/foomuuri/tls/privkey.pem",
+        "description": "Path to the TLS private key file (required if TLS is enabled)."
+      },
+      "tls_min_version": {
+        "type": "string",
+        "default": "TLSv1.2",
+        "description": "Minimum acceptable TLS protocol version (e.g., 'TLSv1.2', 'TLSv1.3')."
+      }
+    }
+  },
+  "worker": {
+    "type": "object",
+    "default": {},
+    "description": "Worker process tuning and resource limits.",
+    "items": {
+      "process_count": {
+        "type": "number",
+        "default": 0,
+        "description": "Number of worker processes (0 means auto-detect based on CPU cores)."
+      },
+      "max_jobs_per_worker": {
+        "type": "number",
+        "default": 10000,
+        "description": "Maximum jobs a worker processes before it is recycled for stability."
+      },
+      "memory_limit_mb": {
+        "type": "number",
+        "default": 512,
+        "description": "Maximum memory (in MB) a worker is allowed before forced restart (0 = unlimited)."
+      },
+      "graceful_timeout": {
+        "type": "number",
+        "default": 30,
+        "description": "Seconds to wait for in-flight jobs to complete during shutdown before force-terminating."
+      }
+    }
+  },
+  "queue": {
+    "type": "object",
+    "default": {},
+    "description": "Queue backend configuration.",
+    "items": {
+      "type": {
+        "type": "string",
+        "default": "redis",
+        "description": "Queue backend type: 'memory' (for dev/test only), 'redis', or 'postgres'."
+      },
+      "backends": {
+        "type": "list",
+        "default": [],
+        "description": "List of named backend configurations.",
+        "items": {
+          "type": "object",
+          "items": {
+            "name": {
+              "type": "string",
+              "default": "primary",
+              "description": "Logical name for this backend (e.g., 'primary', 'backup')."
+            },
+            "config": {
+              "type": "object",
+              "default": {},
+              "description": "Backend-specific key-value parameters (e.g., host, port, password)."
+            }
+          }
+        }
+      }
+    }
+  },
+  "metrics": {
+    "type": "object",
+    "default": {},
+    "description": "Prometheus metrics endpoint settings.",
+    "items": {
+      "enabled": {
+        "type": "boolean",
+        "default": true,
+        "description": "Expose metrics for scraping by Prometheus or compatible systems."
+      },
+      "port": {
+        "type": "number",
+        "default": 9090,
+        "description": "Port to listen on for metrics endpoints."
+      },
+      "endpoint": {
+        "type": "string",
+        "default": "/metrics",
+        "description": "Path prefix for the metrics endpoint."
+      }
+    }
+  }
+}

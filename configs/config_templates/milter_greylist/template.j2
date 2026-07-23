@@ -1,0 +1,69 @@
+# milter-greylist configuration — https://untroubled.org/milter-greylist/
+# Global options
+{{ 'graylist' | comment }}
+greylist {{ greylist_enabled | lower }}
+
+# Timeout for Greylisting — default 300 seconds
+{{ 'timeout' | comment }}
+timeout {{ timeout }}
+
+# How many seconds to greylist initially
+{{ 'autowhite' | comment }}
+autowhite {{ autowhite_delay }}
+
+# Path to the greylist database file
+{{ 'dbfile' | comment }}
+dbfile {{ dbfile }}
+
+# Permissions for the greylist socket
+{{ 'socket' | comment }}
+socket {{ socket_path }}
+
+# User/group to run as
+{{ 'user' | comment }}
+user {{ user }}
+usergroup {{ group }}
+
+# Maximum number of connections
+{{ 'maxconn' | comment }}
+maxconn {{ max_connections }}
+
+# Log level: 0=quiet, 1=default, 2=verbose, 3=debug
+{{ 'loglevel' | comment }}
+loglevel {{ log_level }}
+
+# Whitelisted networks (CIDR or hostnames)
+{% for network in whitelist_networks %}# Whitelisted network
+whitelist {{ network }}
+{% endfor %}
+
+# Whitelisted senders (exact email or domain)
+{% for sender in whitelist_senders %}# Whitelisted sender
+whitelist-sender {{ sender }}
+{% endfor %}
+
+# Greylist exceptions (e.g., for known good servers)
+{% for exception in greylist_exceptions %}# Greylist exception for {{ exception.name }}
+exception {{ exception.name }} {{ exception.match | join(' ') }}
+{% endfor %}
+
+# Header to insert for greylisting info
+{{ 'header' | comment }}
+header X-Greylist: delayed {{ delay }} seconds by milter-greylist-{{ version }} ({{ hostname }})
+
+# Delay before reattempting delivery (in seconds)
+{{ 'delay' | comment }}
+delay {{ greylist_delay }}
+
+# TTL for auto-whitelisting (in seconds)
+{{ 'autowhitelife' | comment }}
+autowhitelife {{ autowhite_life }}
+
+# PID file path
+{{ 'pidfile' | comment }}
+pidfile {{ pidfile }}
+
+# Use DNSBL to check sender IP? (optional, true/false)
+{% if use_dnsbl %}# Use DNS blacklist
+use-dnsbl
+{% endif %}

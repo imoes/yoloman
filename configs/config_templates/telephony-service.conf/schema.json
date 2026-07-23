@@ -1,0 +1,163 @@
+{
+  "service_version": {
+    "type": "string",
+    "default": "1.0.0",
+    "description": "Version string of the telephony service (auto-assigned at install)."
+  },
+  "logging.level": {
+    "type": "string",
+    "default": "info",
+    "description": "Logging verbosity: debug, info, warning, error."
+  },
+  "logging.file": {
+    "type": "string",
+    "default": "",
+    "description": "Path to log file. Leave empty to log to stdout only."
+  },
+  "logging.format": {
+    "type": "string",
+    "default": "text",
+    "description": "Log format: 'text' (human-readable) or 'json'."
+  },
+  "network.bind_address": {
+    "type": "string",
+    "default": "0.0.0.0",
+    "description": "IP address to bind SIP/RTP services to (e.g., '0.0.0.0' or '127.0.0.1')."
+  },
+  "network.sip_port": {
+    "type": "number",
+    "default": 5060,
+    "description": "SIP signaling port (typically 5060 or 5061 for TLS)."
+  },
+  "network.rtp_port_min": {
+    "type": "number",
+    "default": 16384,
+    "description": "Lowest port in the RTP media port range."
+  },
+  "network.rtp_port_max": {
+    "type": "number",
+    "default": 16484,
+    "description": "Highest port in the RTP media port range (must be \u2265 min)."
+  },
+  "sip.outbound_proxy": {
+    "type": "string",
+    "default": "",
+    "description": "SIP outbound proxy URI (e.g., 'sip:proxy.example.com:5060'). Empty = use user_identity domain."
+  },
+  "sip.user_identity": {
+    "type": "string",
+    "default": "",
+    "description": "SIP user identity (e.g., '1000@example.com'). Required for registration."
+  },
+  "sip.auth.username": {
+    "type": "string",
+    "default": "",
+    "description": "Username for SIP authentication."
+  },
+  "sip.auth.password": {
+    "type": "string",
+    "default": "",
+    "description": "Password for SIP authentication. Leave blank for certificate-only auth."
+  },
+  "sip.tls_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable TLS (SIPS) for SIP signaling."
+  },
+  "sip.ca_cert_path": {
+    "type": "string",
+    "default": "/etc/ssl/certs/ca-certificates.crt",
+    "description": "Path to CA certificate bundle for TLS verification."
+  },
+  "sip.client_cert_path": {
+    "type": "string",
+    "default": "",
+    "description": "Optional: Path to client certificate for mutual TLS."
+  },
+  "sip.client_key_path": {
+    "type": "string",
+    "default": "",
+    "description": "Optional: Path to client private key for mutual TLS."
+  },
+  "calling.max_calls": {
+    "type": "number",
+    "default": 10,
+    "description": "Maximum number of simultaneous active calls."
+  },
+  "calling.call_waiting_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable call waiting feature."
+  },
+  "calling.codecs": {
+    "type": "list",
+    "default": [
+      "opus",
+      "g722",
+      "pcma",
+      "pcmu"
+    ],
+    "description": "Ordered list of audio codecs (preferred first). Supported: opus, g722, pcma, pcmu, g711, ilbc."
+  },
+  "calling.audio_buffer_ms": {
+    "type": "number",
+    "default": 20,
+    "description": "Audio buffer size in milliseconds (range: 10\u2013200)."
+  },
+  "calling.dtmf_mode": {
+    "type": "string",
+    "default": "inband",
+    "description": "DTMF signaling mode: 'inband', 'rfc2833', or 'sipinfo'."
+  },
+  "pstn_gateways": {
+    "type": "list",
+    "default": [],
+    "description": "List of PSTN gateway definitions (optional). Each entry defines a trunk to a PSTN provider.",
+    "items": {
+      "name": {
+        "type": "string",
+        "description": "Human-readable name for the PSTN gateway."
+      },
+      "host": {
+        "type": "string",
+        "description": "Hostname or IP of the PSTN gateway (SIP proxy or trunk server)."
+      },
+      "port": {
+        "type": "number",
+        "description": "Port (typically 5060 for SIP or 5061 for SIPS)."
+      },
+      "trunk_id": {
+        "type": "string",
+        "description": "Trunk identifier used in SIP From/Contact headers."
+      },
+      "enabled": {
+        "type": "bool",
+        "description": "Enable this PSTN gateway."
+      }
+    }
+  },
+  "devices": {
+    "type": "list",
+    "default": [],
+    "description": "List of telephony hardware devices (e.g., sound cards, Bluetooth profiles). Each device configures its own audio interface.",
+    "items": {
+      "id": {
+        "type": "string",
+        "description": "Unique identifier for the device (e.g., 'hw:0' for ALSA card 0)."
+      },
+      "type": {
+        "type": "string",
+        "description": "Device type: 'alsa', 'voip', or 'bt'."
+      },
+      "config": {
+        "type": "object",
+        "description": "Key-value map of device-specific settings (e.g., 'device: hw:0', 'channels: 1')."
+      }
+    }
+  },
+  "socket_activation": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable systemd socket activation (recommended for on-demand startup)."
+  }
+}

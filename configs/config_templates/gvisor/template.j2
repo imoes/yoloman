@@ -1,0 +1,71 @@
+{# gVisor runsc sandboxed container runtime configuration #}
+{
+{# Log level for the gVisor sandbox (none, info, error, debug) #}
+  "log_level": "{{ log_level }}",
+{# Enable crash reporting to Google (requires network access) #}
+  "crash_reporter": {% if crash_reporter %}"true"{% else %}"false"{% endif %},
+{# Path to the sandbox root directory (must be writable by containerd) #}
+  "root_dir": "{{ root_dir }}",
+{# Number of gRPC server threads (0 = auto) #}
+  "grpc_threads": {{ grpc_threads }},
+{# Enable nested containerization (e.g., Docker-in-Container) #}
+  "nested": {% if nested %}"true"{% else %}"false"{% endif %},
+{# Enable PTY support for interactive containers #}
+  "pty": {% if pty %}"true"{% else %}"false"{% endif %},
+{# Enable debugging features (e.g., netstack debugging) #}
+  "debug_enabled": {% if debug_enabled %}"true"{% else %}"false"{% endif %},
+{# Enable use of the network namespace (if false, host network is used) #}
+  "network_enabled": {% if network_enabled %}"true"{% else %}"false"{% endif %},
+{# List of allowed network interfaces for sandboxed containers (empty = all) #}
+  "allowed_interfaces": [
+{% for iface in allowed_interfaces %}    "{{ iface }}"{% if not loop.last %},{% endif %}
+{% endfor %}  ],
+{# List of allowed network protocols (e.g., tcp, udp) #}
+  "allowed_protocols": [
+{% for proto in allowed_protocols %}    "{{ proto }}"{% if not loop.last %},{% endif %}
+{% endfor %}  ],
+{# Mounts: list of host paths to bind-mount into sandbox #}
+  "mounts": [
+{% for m in mounts %}    {
+      "src": "{{ m.src }}",
+      "dst": "{{ m.dst }}",
+      "options": ["{{ m.options | join('", "') }}"]
+    }{% if not loop.last %},{% endif %}
+{% endfor %}  ],
+{# Enable sandbox logging to journald/syslog #}
+  "log_to_journald": {% if log_to_journald %}"true"{% else %}"false"{% endif %},
+{# Extra kernel arguments to pass to sandbox (e.g., netstack.debug) #}
+  "kernel_args": [
+{% for arg in kernel_args %}    "{{ arg }}"{% if not loop.last %},{% endif %}
+{% endfor %}  ],
+{# Enable use of seccomp filters (default: true) #}
+  "seccomp_filters": {% if seccomp_filters %}"true"{% else %}"false"{% endif %},
+{# Path to seccomp profile (overrides default) #}
+  "seccomp_profile": "{{ seccomp_profile }}",
+{# Enable use of file descriptor pass-through (unsafe, use with caution) #}
+  "fd_passing_enabled": {% if fd_passing_enabled %}"true"{% else %}"false"{% endif %},
+{# Maximum number of open files per sandbox (0 = system limit) #}
+  "max_open_files": {{ max_open_files }},
+{# Enable use of CPU pinning (requires pinned_cores list) #}
+  "cpu_pinning_enabled": {% if cpu_pinning_enabled %}"true"{% else %}"false"{% endif %},
+{# List of host CPU cores to pin sandbox threads to (e.g., [0,1]) #}
+  "pinned_cores": [
+{% for core in pinned_cores %}    {{ core }}{% if not loop.last %},{% endif %}
+{% endfor %}  ],
+{# Enable use of memory limits (enforced via cgroups) #}
+  "memory_limit_enabled": {% if memory_limit_enabled %}"true"{% else %}"false"{% endif %},
+{# Memory limit in bytes (0 = unlimited) #}
+  "memory_limit_bytes": {{ memory_limit_bytes }},
+{# Enable use of CPU quota (cgroup v1/v2 CPU limit) #}
+  "cpu_quota_enabled": {% if cpu_quota_enabled %}"true"{% else %}"false"{% endif %},
+{# CPU quota in microseconds (per period) #}
+  "cpu_quota_us": {{ cpu_quota_us }},
+{# CPU period in microseconds #}
+  "cpu_period_us": {{ cpu_period_us }},
+{# Enable use of swap (if memory limit set) #}
+  "swap_enabled": {% if swap_enabled %}"true"{% else %}"false"{% endif %},
+{# Path to overlay directory for ephemeral storage #}
+  "overlay_dir": "{{ overlay_dir }}",
+{# Enable use of overlay (read/write layer on top of rootfs) #}
+  "overlay_enabled": {% if overlay_enabled %}"true"{% else %}"false"{% endif %}
+}

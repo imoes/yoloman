@@ -1,0 +1,70 @@
+{
+  "api": {
+    "bind_host": "192.168.1.10",
+    "bind_port": 8042,
+    "workers": 4
+  },
+  "auth": {
+    "strategy": "keystone"
+  },
+  "messaging": {
+    "transport_url": "rabbit://aodh:secretpass@10.0.0.5:5672/"
+  },
+  "database": {
+    "connection": "mysql+pymysql://aodh:dbpass@10.0.0.10/aodh?charset=utf8",
+    "connection_retries": 5,
+    "max_overflow": 20,
+    "pool_size": 10
+  },
+  "evaluation": {
+    "enabled": true
+  },
+  "notifications": {
+    "default_method": "mailto",
+    "drivers": [
+      {
+        "name": "mailto",
+        "config": "{\"to\": [\"admin@example.com\", \"ops@example.com\"], \"from\": \"aodh@example.com\"}"
+      }
+    ]
+  },
+  "keystone": {
+    "endpoint_type": "internal",
+    "region_name": "RegionOne",
+    "project_name": "services",
+    "username": "aodh",
+    "password": "keystoneservicepass",
+    "user_domain_name": "Default",
+    "project_domain_name": "Default"
+  },
+  "rate_limit": {
+    "enabled": true,
+    "window": 60,
+    "requests": 50
+  },
+  "cors": {
+    "allowed_origins": [
+      "https://dashboard.example.com"
+    ]
+  },
+  "healthcheck": {
+    "uri": "/healthcheck"
+  },
+  "metrics": {
+    "backend": "gnocchi",
+    "gnocchi": {
+      "project_name": "services",
+      "auth_url": "http://10.0.0.5:5000/v3",
+      "username": "gnocchi",
+      "password": "gnocchipass",
+      "user_domain_name": "Default",
+      "project_domain_name": "Default"
+    }
+  },
+  "alarms": {
+    "action_timeout": 45,
+    "history": {
+      "enabled": true
+    }
+  }
+}

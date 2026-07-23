@@ -1,0 +1,237 @@
+{
+  "server_count": {
+    "type": "number",
+    "default": 2,
+    "description": "Number of NSD server worker processes. Typically set to the number of CPU cores."
+  },
+  "chroot_path": {
+    "type": "string",
+    "default": "/var/chroot/nsd",
+    "description": "Path to chroot directory for security isolation."
+  },
+  "zones_dir": {
+    "type": "string",
+    "default": "/etc/nsd/zones",
+    "description": "Directory where zone data files (zonefiles) are stored."
+  },
+  "pidfile_path": {
+    "type": "string",
+    "default": "/run/nsd.pid",
+    "description": "Path to the file where NSD will write its process ID."
+  },
+  "log_queries": {
+    "type": "bool",
+    "default": false,
+    "description": "Whether to log every DNS query received (increases log volume)."
+  },
+  "log_level": {
+    "type": "string",
+    "default": "3",
+    "description": "Logging verbosity level: 0 (none) to 5 (debug). Higher levels log more details."
+  },
+  "tcp_query_count": {
+    "type": "number",
+    "default": 100,
+    "description": "Maximum number of concurrent TCP connections per server process."
+  },
+  "tcp_timeout": {
+    "type": "number",
+    "default": 30,
+    "description": "TCP connection idle timeout in seconds."
+  },
+  "interfaces": {
+    "type": "list",
+    "default": [
+      {
+        "address": "0.0.0.0",
+        "port": 53,
+        "proto": "udp",
+        "ip4_only": false,
+        "ip6_only": false
+      }
+    ],
+    "description": "List of network interfaces (address, port, protocol) on which NSD listens.",
+    "items": {
+      "address": {
+        "type": "string",
+        "default": "0.0.0.0",
+        "description": "IP address to bind to (IPv4 or IPv6)."
+      },
+      "port": {
+        "type": "number",
+        "default": 53,
+        "description": "Port to listen on (typically 53)."
+      },
+      "proto": {
+        "type": "string",
+        "default": "udp",
+        "enum": [
+          "udp",
+          "tcp"
+        ],
+        "description": "Protocol: 'udp', 'tcp', or both (add two interface entries)."
+      },
+      "ip4_only": {
+        "type": "bool",
+        "default": false,
+        "description": "If true, bind only to IPv4 for this interface."
+      },
+      "ip6_only": {
+        "type": "bool",
+        "default": false,
+        "description": "If true, bind only to IPv6 for this interface."
+      }
+    }
+  },
+  "remote_control_enable": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable remote control via nsd-control (requires key/cert files)."
+  },
+  "remote_control_interface": {
+    "type": "string",
+    "default": "127.0.0.1",
+    "description": "Address for the remote control interface (e.g., '127.0.0.1' or '::1')."
+  },
+  "remote_control_port": {
+    "type": "number",
+    "default": 8953,
+    "description": "Port for the remote control interface."
+  },
+  "remote_control_key_file": {
+    "type": "string",
+    "default": "/etc/nsd/nsd_control.key",
+    "description": "Path to server\u2019s private key file for TLS control channel."
+  },
+  "remote_control_cert_file": {
+    "type": "string",
+    "default": "/etc/nsd/nsd_control.pem",
+    "description": "Path to server\u2019s certificate file for TLS control channel."
+  },
+  "remote_control_cli_key_file": {
+    "type": "string",
+    "default": "/etc/nsd/nsd_control.key",
+    "description": "Path to client\u2019s private key (often same as server key for self-signed)."
+  },
+  "remote_control_cli_cert_file": {
+    "type": "string",
+    "default": "/etc/nsd/nsd_control.pem",
+    "description": "Path to client\u2019s certificate (often same as server cert)."
+  },
+  "zone_list_file": {
+    "type": "string",
+    "default": "",
+    "description": "Optional path to a file listing all zonefiles explicitly (alternative to zones-dir). Leave blank to use zones-dir."
+  },
+  "zones": {
+    "type": "list",
+    "default": [
+      {
+        "name": "example.com",
+        "zonefile": "example.com.zone",
+        "allow_query": [
+          "any"
+        ],
+        "allow_notify": []
+      }
+    ],
+    "description": "List of authoritative zones managed by this NSD instance.",
+    "items": {
+      "name": {
+        "type": "string",
+        "default": "",
+        "description": "Zone name (e.g., 'example.com')."
+      },
+      "zonefile": {
+        "type": "string",
+        "default": "",
+        "description": "Filename (relative to zones-dir) containing the zone data (SOA, records)."
+      },
+      "allow_notify": {
+        "type": "list",
+        "default": [],
+        "description": "List of allowed IP addresses allowed to send notifies for this zone.",
+        "items": {
+          "type": "string"
+        }
+      },
+      "allow_query": {
+        "type": "list",
+        "default": [
+          "any"
+        ],
+        "description": "List of allowed IPs/networks to query this zone; 'any' grants public access.",
+        "items": {
+          "type": "string"
+        }
+      }
+    }
+  },
+  "acls": {
+    "type": "list",
+    "default": [],
+    "description": "Optional access control lists (ACLs) to define reusable permission sets.",
+    "items": {
+      "name": {
+        "type": "string",
+        "default": "",
+        "description": "ACL name (used by zone or remote-control to reference)."
+      },
+      "ip": {
+        "type": "list",
+        "default": [],
+        "description": "List of IP addresses or CIDR networks.",
+        "items": {
+          "type": "string"
+        }
+      },
+      "action": {
+        "type": "string",
+        "default": "",
+        "enum": [
+          "deny",
+          "refuse",
+          "allow",
+          "allow-super",
+          "allow-transfer"
+        ],
+        "description": "Action when match is found."
+      },
+      "allow": {
+        "type": "list",
+        "default": [],
+        "description": "List of actions to allow (e.g., ['notify', 'transfer']).",
+        "items": {
+          "type": "string",
+          "enum": [
+            "notify",
+            "transfer",
+            "resolve",
+            "control"
+          ]
+        }
+      },
+      "allow_query": {
+        "type": "list",
+        "default": [],
+        "description": "List of IPs/networks explicitly allowed to query (overrides default).",
+        "items": {
+          "type": "string"
+        }
+      },
+      "allow_notify": {
+        "type": "list",
+        "default": [],
+        "description": "List of IPs/networks explicitly allowed to send notifies.",
+        "items": {
+          "type": "string"
+        }
+      }
+    }
+  },
+  "debug_mode": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable debug mode (prints verbose details and disables some optimizations). Use only for troubleshooting."
+  }
+}

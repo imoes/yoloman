@@ -1,0 +1,56 @@
+# Performance Metrics Collector (PMCD) configuration
+# Controls core PMCD behavior: log location, port, timeouts, etc.
+# Set the PMCD port (default: 44322)
+PMCD_PORT={{ pcp_pmcd_port }}
+
+# Enable or disable PMCD daemon at boot
+PMCD_START={{ 'yes' if pcp_pmcd_start else 'no' }}
+
+# Directory for PMCD log files
+PMCD_LOGDIR={{ pcp_pmcd_logdir }}
+
+# Maximum size (in KB) of PMCD log files before rotation
+PMCD_LOG_MAX_SIZE={{ pcp_pmcd_log_max_size }}
+
+# Number of old PMCD log files to retain
+PMCD_LOG_HISTORY={{ pcp_pmcd_log_history }}
+
+# Time (in seconds) before PMCD considers a client disconnected
+PMCD_TIMEOUT={{ pcp_pmcd_timeout }}
+
+# Comma-separated list of hosts allowed to connect to this PMCD
+# (Empty means allow all local connections; '*' allows remote, but use with caution)
+PMCD_ALLOW={{ pcp_pmcd_allow | join(', ') }}
+
+# Enable or disable archive logging (pmlogger)
+PMLOGGER_START={{ 'yes' if pcp_pmlogger_start else 'no' }}
+
+# Base directory for archived metric data (used by pmlogger)
+PMLOGGER_LOGDIR={{ pcp_pmlogger_logdir }}
+
+# Archive rotation interval (e.g., daily, weekly, monthly)
+PMLOGGER_INTERVAL={{ pcp_pmlogger_interval }}
+
+# Maximum archive size (in MB) before forced rotation
+PMLOGGER_MAX_SIZE={{ pcp_pmlogger_max_size }}
+
+# Enable or disable real-time metrics collection via pmie
+PMIE_START={{ 'yes' if pcp_pmie_start else 'no' }}
+
+# Directory for pmie rules and logs
+PMIE_LOGDIR={{ pcp_pmie_logdir }}
+
+# Enable or disable the Performance Co-Pilot web UI (pmwebd)
+PMWEBD_START={{ 'yes' if pcp_pmwebd_start else 'no' }}
+
+# Port for the pmwebd HTTP server
+PMWEBD_PORT={{ pcp_pmwebd_port }}
+
+# List of hosts allowed to access pmwebd (empty = allow all local; '*' = allow all remote)
+PMWEBD_ALLOW={{ pcp_pmwebd_allow | join(', ') }}
+
+# Optional: custom metric archives to monitor (pmlogger instances)
+# Each item defines a target host and log directory for per-host metric logging
+{% for instance in pcp_pmlogger_instances %}# Log metrics from host '{{ instance.host }}' to '{{ instance.logdir }}'
+PMLOGGER_LOGDIR_{{ instance.name | upper }}={{ instance.logdir }}
+{% endfor %}

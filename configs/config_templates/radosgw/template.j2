@@ -1,0 +1,61 @@
+# Global Ceph configuration section
+[global]
+# Cluster name for this Ceph cluster
+cluster = {{ cluster_name }}
+
+# Name of this daemon instance
+name = radosgw.{{ instance_name }}
+
+# Path to the Ceph keyring file
+keyring = {{ keyring_path }}
+
+# Path to the Ceph configuration file (for shared cluster config)
+conf = /etc/ceph/{{ cluster_name }}.conf
+
+# Network binding for client-facing RGW frontend
+# Host and port to listen on for client traffic
+rgw_frontends = {{ frontend_config }}
+
+# Enable or disable SSL/TLS for client connections
+rgw_enable_apis = {{ enabled_apis | join(', ') }}
+
+# DNS name for this RGW instance (used in virtual-hosted-style bucket URLs)
+rgw_dns_name = {{ dns_name }}
+
+# Logging configuration
+log_file = {{ log_file_path }}
+
+# Instance-specific RGW settings
+[client.radosgw.{{ instance_name }}]
+# Hosts for metadata and data pools (if using non-default pool layout)
+rgw_metadata_pool = {{ metadata_pool }}
+rgw_data_pool = {{ data_pool }}
+rgw_s3_auth_use_rados = {{ s3_auth_use_rados }}
+
+# Bandwidth limits (in bytes/second); set to 0 for unlimited
+rgw_curl_read_max_mb = {{ max_read_mb }}
+rgw_curl_read_max_time = {{ max_read_time_ms }}
+rgw_max_chunk_size = {{ max_chunk_size }}
+
+# Maximum number of concurrent requests
+rgw_op_thread_pool_size = {{ op_thread_pool_size }}
+rgw_max_open_buckets = {{ max_open_buckets }}
+
+# Bucket index shard configuration (sharding for scalability)
+rgw_bucket_index_max_shards = {{ bucket_index_max_shards }}
+
+# Optional: Multi-site zone settings (commented out by default)
+{% if zone_enabled %}
+# Zone name for multi-site replication
+rgw_zone = {{ zone_name }}
+{% endif %}
+
+# Optional: SSL certificate paths
+{% if ssl_enabled %}
+# Enable TLS termination at RGW level
+rgw_secure_ssl = true
+# Path to TLS certificate
+rgw_ssl_cert = {{ ssl_cert_path }}
+# Path to TLS private key
+rgw_ssl_key = {{ ssl_key_path }}
+{% endif %}

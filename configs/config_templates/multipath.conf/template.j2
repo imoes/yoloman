@@ -1,0 +1,76 @@
+# Default configuration for device-mapper multipath
+# Adjusted for production use with clear structure and site-specific variables
+# See `man 5 multipath.conf` for details
+
+# Global defaults
+defaults {
+    user_friendly_names "{{ defaults.user_friendly_names }}"
+    path_grouping_policy "{{ defaults.path_grouping_policy }}"
+    path_selector "{{ defaults.path_selector }}"
+    failback "{{ defaults.failback }}"
+    no_path_retry "{{ defaults.no_path_retry }}"
+    rr_weight "{{ defaults.rr_weight }}"
+    priority_exponent "{{ defaults.priority_exponent }}"
+    mac_prefix "{{ defaults.mac_prefix }}"
+    fast_io_fail_tmo "{{ defaults.fast_io_fail_tmo }}"
+    dev_loss_tmo "{{ defaults.dev_loss_tmo }}"
+    max_fds "{{ defaults.max_fds }}"
+    detect_prio "{{ defaults.detect_prio }}"
+    checker_timeout "{{ defaults.checker_timeout }}"
+    allow_port_shutdown "{{ defaults.allow_port_shutdown }}"
+}
+
+# Device-specific overrides
+{% for dev in devices %}
+device {
+{% if dev.vendor is defined %}    vendor "{{ dev.vendor }}"{% endif %}
+{% if dev.product is defined %}    product "{{ dev.product }}"{% endif %}
+{% if dev.features is defined %}    features "{{ dev.features }}"{% endif %}
+{% if dev.hwhandler is defined %}    hw_handler "{{ dev.hwhandler }}"{% endif %}
+{% if dev.pgpolicy is defined %}    path_grouping_policy "{{ dev.pgpolicy }}"{% endif %}
+{% if dev.prio is defined %}    prio "{{ dev.prio }}"{% endif %}
+{% if dev.selector is defined %}    path_selector "{{ dev.selector }}"{% endif %}
+    path_checkers "{{ dev.checker or 'readsector0' }}"
+    fast_io_fail_tmo "{{ dev.fast_io_fail_tmo }}"
+    dev_loss_tmo "{{ dev.dev_loss_tmo }}"
+}
+{% endfor %}
+
+# Blacklist rules
+{% for pattern in blacklist.wwids %}
+blacklist {
+    wwid "{{ pattern }}"
+}
+{% endfor %}
+{% for pattern in blacklist.devices %}
+blacklist {
+{% if pattern.vendor is defined %}    vendor "{{ pattern.vendor }}"{% endif %}
+{% if pattern.product is defined %}    product "{{ pattern.product }}"{% endif %}
+{% if pattern.devnode is defined %}    devnode "{{ pattern.devnode }}"{% endif %}
+}
+{% endfor %}
+{% if blacklist.excludes %}
+blacklist {
+{% for exclude in blacklist.excludes %}
+{% if exclude.wwid is defined %}    wwid "{{ exclude.wwid }}"{% endif %}
+{% if exclude.vendor is defined %}    vendor "{{ exclude.vendor }}"{% endif %}
+{% if exclude.product is defined %}    product "{{ exclude.product }}"{% endif %}
+{% if exclude.devnode is defined %}    devnode "{{ exclude.devnode }}"{% endif %}
+{% if exclude.adapter is defined %}    device "{{ exclude.adapter }}"{% endif %}
+{% endfor %}
+}
+{% endif %}
+
+# Blacklist exceptions (devices to include despite matching a blacklist rule)
+{% for pattern in blacklist_exceptions.wwids %}
+blacklist_exceptions {
+    wwid "{{ pattern }}"
+}
+{% endfor %}
+{% for pattern in blacklist_exceptions.devices %}
+blacklist_exceptions {
+{% if pattern.vendor is defined %}    vendor "{{ pattern.vendor }}"{% endif %}
+{% if pattern.product is defined %}    product "{{ pattern.product }}"{% endif %}
+{% if pattern.devnode is defined %}    devnode "{{ pattern.devnode }}"{% endif %}
+}
+{% endfor %}

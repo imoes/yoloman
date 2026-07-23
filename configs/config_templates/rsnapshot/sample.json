@@ -1,0 +1,61 @@
+{
+  "snapshot_root": "/var/backups/rsnapshot",
+  "verbose": 2,
+  "loglevel": 3,
+  "enable_file_logging": true,
+  "log_file_path": "/var/log/rsnapshot.log",
+  "ssh_port": 22,
+  "rsync_short_args": [
+    "-a",
+    "-H",
+    "--delete"
+  ],
+  "rsync_long_args": [
+    "--numeric-ids",
+    "--relative"
+  ],
+  "retention_levels": [
+    {
+      "name": "hourly",
+      "count": 6
+    },
+    {
+      "name": "daily",
+      "count": 7
+    },
+    {
+      "name": "weekly",
+      "count": 5
+    },
+    {
+      "name": "monthly",
+      "count": 12
+    }
+  ],
+  "backups": [
+    {
+      "comment": "Backup root filesystem (excluding virtual filesystems)",
+      "source_dir": "/",
+      "dest_dir": "/server1"
+    },
+    {
+      "comment": "Backup /home from remote host",
+      "source_dir": "user@backup-host:/home",
+      "dest_dir": "/backup-host"
+    }
+  ],
+  "exclude_patterns": [
+    "proc/*",
+    "sys/*",
+    "dev/*",
+    "tmp/*",
+    ".cache/",
+    ".cache"
+  ],
+  "pre_backup": "/usr/local/sbin/mount-backup.sh",
+  "post_backup": "/usr/local/sbin/umount-backup.sh",
+  "lockfile": "/var/run/rsnapshot.pid",
+  "one_file_system": true,
+  "preserve_hardlinks": true,
+  "preserve_symlinks": true
+}

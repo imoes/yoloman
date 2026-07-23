@@ -1,0 +1,57 @@
+[global]
+  ; Access control for LNS (L2TP Network Server) — restricts which IPs can connect
+  {{ global_access_control | default('') | comment('# ') }}
+{% if global_access_control %}  access control = yes{% else %}  access control = no{% endif %}
+  ; Port to listen on for L2TP control messages (default 1701)
+  port = {{ global_port | default(1701) }}
+  ; Require authentication for all connections
+  require authentication = {{ global_require_auth | default(true) | string | lower }}
+  ; Enable IPSEC (requires ipsec.so, usually from StrongSwan)
+  ipsec suffix = {{ global_ipsec_suffix | default('') | comment('# ') }}
+{% if global_ipsec_suffix %}  ipsec suffix = {{ global_ipsec_suffix }}{% endif %}
+  ; Enable debug logging (0=off, 1=normal, 2=verbose)
+  debug avp = {{ global_debug_avp | default(0) }}
+  debug network = {{ global_debug_network | default(0) }}
+  debug state = {{ global_debug_state | default(0) }}
+  debug tunnel = {{ global_debug_tunnel | default(0) }}
+
+{% for lns in lns_list %}
+[lns {{ lns.name | default('default') }}]
+  ; Enables this LNS section and marks it as active
+  {{ lns.name | comment('# ') }}
+{% if lns.name %}  lns = yes{% endif %}
+  ; Secret used to authenticate this LNS to clients (shared secret)
+  ipsec = {{ lns.ipsec | default('no') | comment('# ') }}
+{% if lns.ipsec %}  ipsec = {{ lns.ipsec }}{% endif %}
+  ; Local IP range for assigning to clients (PPP interface IPs)
+  {{ lns.ip_range | default('') | comment('# ') }}
+{% if lns.ip_range %}  ip range = {{ lns.ip_range }}{% endif %}
+  ; Local IP used as the LNS endpoint (must be reachable by clients)
+  local ip = {{ lns.local_ip | default('') }}
+  ; Name of the PPP profile to use (from pppd options)
+  ppp profile = {{ lns.ppp_profile | default('default') }}
+  ; Minimum and maximum session IDs (for troubleshooting)
+  min session id = {{ lns.min_session_id | default(1) }}
+  max session id = {{ lns.max_session_id | default(65535) }}
+  ; Optional: restrict LNS to specific source IPs (comma-separated)
+  {{ lns.access_list | default('') | comment('# ') }}
+{% if lns.access_list %}  access list = {{ lns.access_list }}{% endif %}
+{% endfor %}
+
+[ppp]
+  ; Enable PPP options for all profiles (can be overridden per profile)
+  {{ ppp_options_comment | default('') | comment('# ') }}
+  {{ ppp_options | default('') | comment('# ') }}
+{% if ppp_options %}
+{% for opt in ppp_options | split(',') %}  {{ opt | trim }}
+{% endfor %}{% endif %}
+
+{% for profile in ppp_profiles %}
+[ppp {{ profile.name }}]
+  ; PPP options specific to this profile (e.g., auth, DNS, MTU)
+  {{ profile.name | comment('# ') }}
+  {{ profile.options | default('') | comment('# ') }}
+{% if profile.options %}
+{% for opt in profile.options | split(',') %}  {{ opt | trim }}
+{% endfor %}{% endif %}
+{% endfor %}

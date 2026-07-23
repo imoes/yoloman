@@ -1,0 +1,81 @@
+# Grid Engine Execution Server configuration
+# This file controls execution daemon (execd) behavior
+# DO NOT edit manually unless you know what you're doing
+
+# Qmaster host name (required for execd to find the scheduler)
+{% if qmaster_host %}qmaster_host {{ qmaster_host }}{% endif %}
+
+# Port on which qmaster listens (default 6444)
+{% if qmaster_port %}qmaster_port {{ qmaster_port }}{% endif %}
+
+# Local execution spool directory for job files
+spooldir {{ spool_dir }}
+
+# Directory where execd stores its own state and logs
+execd_spool_dir {{ execd_spool_dir }}
+
+# Directory for temporary files (e.g., job stage-in/out)
+execd_java_dir {{ execd_java_dir }}
+
+# Name of this execution host (must match node name in qmaster)
+{% if hostname %}hostname {{ hostname }}{% endif %}
+
+# Port for execd communication (default 6445)
+{% if execd_port %}execd_port {{ execd_port }}{% endif %}
+
+# Maximum number of concurrent jobs per user
+{% if max_user_jobs is defined %}max_user_jobs {{ max_user_jobs }}{% endif %}
+
+# Maximum number of jobs per queue per user
+{% if max_ujperq is defined %}max_ujperq {{ max_ujperq }}{% endif %}
+
+# Number of parallel environments (PEs) this host can host
+{% if max_pe_jobs is defined %}max_pe_jobs {{ max_pe_jobs }}{% endif %}
+
+# Load thresholds at which the host is marked as busy or unavailable
+{% for key, value in load_thresholds.items() %}
+{% if value is defined %}
+{% set load_key = key | replace('_', '.') %}
+load_adjust_{{ load_key }} {{ value }}
+{% endif %}
+{% endfor %}
+
+# Number of execution slots (i.e., concurrent jobs this host accepts)
+{% if slots is defined %}slots {{ slots }}{% endif %}
+
+# List of additional software packages (loadable via pe or prolog/epilog)
+{% for pkg in packages %}
+package {{ pkg }}
+{% endfor %}
+
+# CPU affinity mode: none, auto, or explicit
+{% if cpu_affinity is defined %}cpu_affinity {{ cpu_affinity }}{% endif %}
+
+# Enable or disable automatic host shutdown when idle
+{% if auto_shutdown is defined %}auto_shutdown {{ auto_shutdown | string | lower }}{% endif %}
+
+# Time (in seconds) before auto-shutdown triggers
+{% if auto_shutdown_delay is defined %}auto_shutdown_delay {{ auto_shutdown_delay }}{% endif %}
+
+# Default shell for jobs (e.g., /bin/bash)
+{% if shell_start_mode is defined %}shell_start_mode {{ shell_start_mode }}{% endif %}
+
+# Extra environment variables to export to jobs
+{% for var_name, var_val in job_env_vars.items() %}
+job_env {{ var_name }}={{ var_val }}
+{% endfor %}
+
+# Path to prolog script executed before each job
+{% if prolog is defined %}prolog {{ prolog }}{% endif %}
+
+# Path to epilog script executed after each job
+{% if epilog is defined %}epilog {{ epilog }}{% endif %}
+
+# Enable resource reporting via psutil or legacy tools
+{% if reporting is defined %}reporting {{ reporting | string | lower }}{% endif %}
+
+# Log level: debug, info, notice, warning, error, critical
+{% if loglevel is defined %}loglevel {{ loglevel }}{% endif %}
+
+# Path to log directory
+{% if logdir is defined %}logdir {{ logdir }}{% endif %}

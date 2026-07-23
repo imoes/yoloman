@@ -1,0 +1,40 @@
+# /etc/lft.conf — Layer-Four Traceroute configuration
+# Global timeout for all probes (in seconds)
+# Increase if high latency links are expected
+Timeout: {{ timeout }}
+
+# Default TTL to start tracing from (usually 1)
+StartTTL: {{ start_ttl }}
+
+# Maximum TTL to probe (limit how far the trace goes)
+MaxTTL: {{ max_ttl }}
+
+# Number of parallel probe streams per hop (1–10 recommended)
+# Higher values may increase accuracy but also network load
+ProbesPerHop: {{ probes_per_hop }}
+
+# Enable or disable use of ICMP ECHO (fallback when UDP is blocked)
+UseICMP: {% if use_icmp %}yes{% else %}no{% endif %}
+
+# Enable or disable verbose logging
+Verbose: {% if verbose %}yes{% else %}no{% endif %}
+
+# Destination ports to probe for each target
+# Define multiple targets with custom port lists below
+{% for target in targets %}# Traceroute to {{ target.hostname }} using ports: {{ target.ports | join(', ') }}
+Host: {{ target.hostname }}
+{% if target.ports %}Ports: {{ target.ports | join(',') }}
+{% endif %}
+{% if target.source_ip %}SourceIP: {{ target.source_ip }}
+{% endif %}
+{% endfor %}
+
+# Optional: default ports if not specified per-host
+# Used only when Host entry lacks Ports line
+DefaultPorts: {{ default_ports | join(',') }}
+
+# Interface to bind source socket (leave blank for auto)
+Interface: {{ interface if interface else 'auto' }}
+
+# Rate limit: max packets per second per target (0 = no limit)
+RateLimit: {{ rate_limit }}

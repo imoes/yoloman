@@ -1,0 +1,39 @@
+[{{ section_name }}]
+# Base port for the service
+port = {{ port }}
+
+# Maximum number of worker processes
+worker_count = {{ worker_count }}
+
+# Log level: DEBUG, INFO, WARNING, ERROR, CRITICAL
+log_level = {{ log_level }}
+
+# Path to the log directory
+log_dir = {{ log_dir }}
+
+# Path to the data directory
+data_dir = {{ data_dir }}
+
+# Enable or disable TLS
+use_tls = {{ use_tls | lower }}
+
+# Comma-separated list of allowed origins (CORS)
+allowed_origins = {{ allowed_origins | join(', ') }}
+
+# Optional: custom hostname (if blank, defaults to system hostname)
+{% if hostname %}hostname = {{ hostname }}
+{% endif %}
+
+# Timeout for incoming requests (seconds)
+timeout = {{ timeout }}
+
+# Maximum upload size in MB
+max_upload_size = {{ max_upload_size }}
+
+{% if extra_sections %}
+# Additional custom sections (e.g., for plugins or integrations)
+{% for extra in extra_sections %}[{{ extra.name }}]
+{% for key, value in extra.options.items() %}{{ key }} = {{ value }}
+{% endfor %}
+{% endfor %}
+{% endif %}

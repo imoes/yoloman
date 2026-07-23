@@ -1,0 +1,45 @@
+# Multicast DNS Daemon configuration
+# Enable or disable mDNS responder functionality
+enable_responder {{ enable_responder | lower }}
+
+# Enable or disable mDNS querier functionality
+enable_querier {{ enable_querier | lower }}
+
+# List of network interfaces to enable mDNS on (empty = all up interfaces)
+interfaces {{ interfaces | join(' ') }}
+
+# Hostname to announce (if empty, use system hostname)
+{% if hostname %}hostname {{ hostname }}{% endif %}
+
+# TTL (in seconds) for mDNS records
+{% if ttl %}ttl {{ ttl }}{% endif %}
+
+# Multicast TTL for outbound packets (1 = loopback, 255 = default)
+{% if multicast_ttl is defined %}multicast_ttl {{ multicast_ttl }}{% endif %}
+
+# Limit on the number of concurrent queries
+{% if max_queries is defined %}max_queries {{ max_queries }}{% endif %}
+
+# Whether to hide local services from being announced
+{% if hide_local_services is defined %}hide_local_services {{ hide_local_services | lower }}{% endif %}
+
+# Service types to explicitly allow (default: allow all)
+{% for service in allow_services %}allow_service {{ service }}{% endfor %}
+
+# Service types to explicitly deny (takes precedence over allow)
+{% for service in deny_services %}deny_service {{ service }}{% endfor %}
+
+# Host-specific DNS-SD TXT record data (one per block)
+{% for entry in txt_records %}
+txt_record
+  name {{ entry.name }}
+  type {{ entry.type }}
+{% for key, value in entry.data.items() %}  {{ key }} {{ value }}
+{% endfor %}end_txt_record
+{% endfor %}
+
+# Logging level (debug, info, warn, error)
+{% if log_level is defined %}log_level {{ log_level }}{% endif %}
+
+# Path to PID file
+{% if pidfile %}pidfile {{ pidfile }}{% endif %}

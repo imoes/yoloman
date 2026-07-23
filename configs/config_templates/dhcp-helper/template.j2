@@ -1,0 +1,30 @@
+# Options to pass to the dhcp-helper daemon
+# Enable or disable the service
+{% if enabled | default(false) %}DHCPHELPER_ENABLED="yes"{% else %}DHCPHELPER_ENABLED="no"{% endif %}
+
+# Comma-separated list of destination DHCP servers
+SERVERS="{{ servers | join(',') }}"
+
+# Interface(s) to listen on (space-separated)
+INTERFACES="{{ interfaces | join(' ') }}"
+
+# Port to listen on (default: 67)
+PORT="{{ port }}"
+
+# Maximum packet size (default: 1500)
+MAXPACKET="{{ max_packet }}"
+
+# Source IP address to use when forwarding requests (empty = auto)
+{% if source_addr %}SOURCE_ADDR="{{ source_addr }}"{% else %}# SOURCE_ADDR=""{% endif %}
+
+# Extra command-line options (e.g., -d for debug, -f for foreground)
+{% if extra_opts %}OPTIONS="{{ extra_opts | join(' ') }}"{% else %}OPTIONS=""{% endif %}
+
+# Syslog facility (default: daemon)
+SYSLOG_FACILITY="{{ syslog_facility }}"
+
+# Log level (default: info)
+LOG_LEVEL="{{ log_level }}"
+
+# Drop packets with invalid checksums (yes/no)
+{% if drop_invalid_checksums %}DROP_INVALID_CHECKSUMS="yes"{% else %}DROP_INVALID_CHECKSUMS="no"{% endif %}

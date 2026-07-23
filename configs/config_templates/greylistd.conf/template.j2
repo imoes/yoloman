@@ -1,0 +1,61 @@
+# greylistd configuration file
+# Controls greylisting behavior for Postfix MTA
+# Enables/disables the greylisting daemon
+enabled: {{ enabled | default(true) | lower }}
+
+# Socket path for communication with Postfix
+socket: {{ socket_path | default('/var/run/greylistd/socket') }}
+
+# Directory to store persistent greylist database
+db_dir: {{ db_dir | default('/var/lib/greylistd') }}
+
+# Database backend type (e.g., 'sqlite' or 'memory')
+db_type: {{ db_type | default('sqlite') }}
+
+# Path to SQLite DB file (only if db_type = 'sqlite')
+db_file: {{ db_file | default('/var/lib/greylistd/greylist.db') }}
+
+# Greylist entry expiration time in seconds
+expires: {{ expires | default(172800) }}
+
+# Minimum delay before first retry is allowed (seconds)
+retry_delay: {{ retry_delay | default(300) }}
+
+# Maximum retry delay (seconds) after repeated failures
+max_retry_delay: {{ max_retry_delay | default(86400) }}
+
+# Delay before re-attempting to deliver greylisted mail (seconds)
+delay: {{ delay | default(60) }}
+
+# Whitelisted networks (CIDR notation) — skip greylisting for these
+{% for net in whitelist_networks %}whitelist: {{ net }}
+{% endfor %}
+
+# DNSBL zones to use for whitelist (if supported)
+{% for zone in dnsbl_whitelist %}dnsbl_whitelist: {{ zone }}
+{% endfor %}
+
+# Logging level: debug, info, notice, warning, error, critical
+log_level: {{ log_level | default('notice') }}
+
+# Log file path (use '-' for stderr)
+log_file: {{ log_file | default('-') }}
+
+# Enable rate limiting for source IPs
+rate_limit: {{ rate_limit | default(false) | lower }}
+
+# Max requests per minute per source IP (only if rate_limit = true)
+rate_limit_max: {{ rate_limit_max | default(20) }}
+
+# Rate limit window in seconds
+rate_limit_window: {{ rate_limit_window | default(60) }}
+
+# Enable logging of greylist actions to syslog
+syslog: {{ syslog | default(true) | lower }}
+
+# Enable experimental features (if any)
+experimental: {{ experimental | default(false) | lower }}
+
+# Custom headers to add to greylisting rejection messages (optional)
+{% for header in custom_headers %}custom_header: {{ header.key }}: {{ header.value }}
+{% endfor %}

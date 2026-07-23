@@ -1,0 +1,76 @@
+{
+  "listen_address": {
+    "type": "string",
+    "default": ":9100",
+    "description": "Address and port on which Node Exporter will listen for incoming Prometheus scrapes (e.g., ':9100' or '0.0.0.0:9100')."
+  },
+  "worker_limit": {
+    "type": "number",
+    "default": 10,
+    "description": "Maximum number of concurrent scrape workers. Increase for high-load environments."
+  },
+  "metrics_path": {
+    "type": "string",
+    "default": "/metrics",
+    "description": "Path under which metrics are exposed. Standard is '/metrics'; change only if needed (e.g., due to reverse proxy routing)."
+  },
+  "collectors": {
+    "type": "list",
+    "default": [],
+    "description": "List of collectors to enable or disable. Each item defines the collector name and whether it's enabled.",
+    "items": {
+      "type": "object",
+      "fields": {
+        "name": {
+          "type": "string",
+          "description": "Name of the collector (e.g., 'cpu', 'diskstats', 'filesystem', 'network', 'system')."
+        },
+        "enabled": {
+          "type": "bool",
+          "default": true,
+          "description": "Whether to enable (true) or explicitly disable (false) the collector."
+        }
+      }
+    }
+  },
+  "collector_options": {
+    "type": "list",
+    "default": [],
+    "description": "List of additional command-line arguments for collector-specific tuning (e.g., '--filesystem.ignored-mount-points=^/(sys|proc|dev|etc|var/lib/docker)($|/)' )."
+  },
+  "log_level": {
+    "type": "string",
+    "default": "info",
+    "description": "Verbosity of logs. Use 'debug' for troubleshooting."
+  },
+  "log_format": {
+    "type": "string",
+    "default": "logfmt",
+    "description": "Format of log output. 'logfmt' is human-friendly; 'json' is better for structured logging."
+  },
+  "pid_file": {
+    "type": "string",
+    "default": "",
+    "description": "Optional path to write PID file (e.g., '/run/node_exporter.pid'). Required for systemd `Type=notify` and safe restarts."
+  },
+  "web_timeout": {
+    "type": "number",
+    "default": 2,
+    "description": "HTTP request timeout in seconds. Reduce if scrape timeouts are frequent."
+  },
+  "web_max_requests": {
+    "type": "number",
+    "default": 0,
+    "description": "Maximum number of concurrent HTTP requests. 0 means unlimited. Set to limit memory/CPU usage."
+  },
+  "web_enable_lifecycle": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable POST endpoints for reload, shutdown, etc. Use only in trusted environments."
+  },
+  "web_enable_admin_api": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable admin API endpoints (e.g., DELETE series). Rarely needed for Node Exporter; keep disabled by default."
+  }
+}

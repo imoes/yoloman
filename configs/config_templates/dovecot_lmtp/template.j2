@@ -1,0 +1,99 @@
+# Enable LMTP service
+protocols = {{ protocols | join(' ') }}
+
+# LMTP-specific settings
+# Listen on specified addresses for LMTP connections
+lmtp_rcpt_check = {{ lmtp_rcpt_check }}
+
+# Authentication realm for LMTP
+lmtp_auth_required = {{ lmtp_auth_required | string | lower }}
+
+# LMTP connection limits (max concurrent LMTP connections per IP)
+lmtp_connection_limit = {{ lmtp_connection_limit }}
+
+# Maximum number of LMTP recipients per transaction
+lmtp_recipient_limit = {{ lmtp_recipient_limit }}
+
+# Timeout settings (in seconds)
+lmtp_connect_timeout = {{ lmtp_connect_timeout }}
+lmtp_linenSize_limit = {{ lmtp_linenSize_limit }}
+
+# LMTP delivery backend
+# Local delivery uses Dovecot LDA or LMTP deliver process
+mail_location = {{ mail_location }}
+
+# Enable LMTP service in the service block
+service lmtp {
+  # Socket path for local mail delivery
+  unix_listener /var/spool/postfix/private/dovecot-lmtp {
+    mode = {{ lmtp_unix_mode }}
+    user = {{ lmtp_unix_user }}
+    group = {{ lmtp_unix_group }}
+  }
+
+  # Optional TCP listener for remote LMTP
+{% if lmtp_tcp_enabled %}
+  inet_listener lmtp {
+    address = {{ lmtp_tcp_address }}
+    port = {{ lmtp_tcp_port }}
+  }
+{% endif %}
+}
+
+# Logging for LMTP
+# Log LMTP failures and successes
+log_path = {{ log_path }}
+info_log_path = {{ info_log_path }}
+
+# Mail plugins for LMTP
+# Common plugins: zlib, sieve, mail_log, notify
+mail_plugins = {{ mail_plugins | join(' ') }}
+
+# Passdb and userdb for LMTP authentication
+# Use PAM or SQL for auth lookup (if lmtp_auth_required = yes)
+{% if lmtp_auth_required %}
+# Authentication source
+auth_mechanisms = {{ auth_mechanisms | join(' ') }}
+
+# Passdb configuration
+passdb {
+  driver = {{ passdb_driver }}
+{% if passdb_args %}
+  args = {{ passdb_args }}
+{% endif %}
+}
+
+# Userdb configuration (for home directory, uid/gid, etc.)
+userdb {
+  driver = {{ userdb_driver }}
+{% if userdb_args %}
+  args = {{ userdb_args }}
+{% endif %}
+}
+{% endif %}
+
+# Mail processes
+# Number of LMTP processes
+mail_fsize_limit = {{ mail_fsize_limit }}
+mail_max_userip_connections = {{ mail_max_userip_connections }}
+
+# SSL/TLS for LMTP (optional but recommended)
+ssl = {{ ssl | lower }}
+{% if ssl == 'yes' or ssl == 'required' %}
+ssl_cert = <{{ ssl_cert_path }}
+ssl_key = <{{ ssl_key_path }}
+{% endif %}
+
+# Logging verbosity
+# Set to debug for troubleshooting
+# verbose_ssl = yes
+
+# Additional LMTP-specific configuration
+# e.g., postmaster_address, hostname, etc.
+postmaster_address = {{ postmaster_address }}
+hostname = {{ hostname }}
+
+# LMTP delivery settings
+# Use Dovecot LDA for final delivery (or leave empty to use internal deliver)
+lda_mailbox_autocreate = {{ lda_mailbox_autocreate | string | lower }}
+lda_mailbox_autosubscribe = {{ lda_mailbox_autosubscribe | string | lower }}

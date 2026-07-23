@@ -1,0 +1,170 @@
+##  inn.conf -- INN 2 main configuration file
+##  See inn.conf(5) for the full parameter reference.
+
+##  IDENTITY
+
+# Organization name included in article headers for locally posted messages
+organization:       "{{ organization }}"
+
+# Fully qualified domain name of this news server
+server:             {{ server_fqdn }}
+
+# DNS domain used to qualify bare hostnames in article headers
+domain:             {{ domain }}
+
+# Hostname placed in the From header of articles posted through this server
+fromhost:           {{ from_host }}
+
+# Token inserted into the Path header to mark this server in the propagation chain
+pathhost:           {{ path_host }}
+
+# E-mail address for abuse and spam complaints about this server
+complaints:         {{ complaints_email }}
+
+# Address template for mailing moderators; %s becomes the group name with dots replaced by hyphens
+moderatormailer:    {{ moderator_mailer }}
+
+##  NETWORK
+
+# TCP port innd listens on for NNTP connections (119 = standard plain-text, 563 = NNTPS)
+port:               {{ nntp_port }}
+
+# IPv4 address innd binds to; empty string listens on all interfaces
+bindaddress:        "{{ bind_address }}"
+
+# IPv6 address innd binds to; empty string listens on all interfaces
+bindaddress6:       "{{ bind_address6 }}"
+
+##  PATHS
+
+# Directory containing INN program binaries installed by the package
+pathbin:            /usr/lib/news/bin
+
+# Directory containing all INN configuration files
+pathetc:            /etc/inn2
+
+# Directory for INN database files: active, newsgroups, history index
+pathdb:             /var/lib/news
+
+# Root of the news spool filesystem; all article subdirectories live here
+pathspool:          {{ spool_dir }}
+
+# Staging area where innd deposits received articles before processing them into the spool
+pathincoming:       {{ spool_dir }}/incoming
+
+# Directory tree where articles are stored on disk (used by the tradSpool back-end)
+patharticles:       {{ spool_dir }}/articles
+
+# Directory for batched outgoing articles queued for delivery to peers
+pathoutgoing:       {{ spool_dir }}/outgoing
+
+# Directory where articles are archived before expiry
+patharchive:        {{ spool_dir }}/archive
+
+# Directory for the overview (NOV) index database
+pathoverview:       {{ spool_dir }}/overview
+
+# Directory for temporary working files created during article processing
+pathtmp:            {{ spool_dir }}/tmp
+
+# Directory where INN writes its news log files
+pathlog:            {{ log_dir }}
+
+# Directory for PID files and the innd control socket
+pathrun:            /run/news
+
+##  STORAGE
+
+# Article storage back-end: tradSpool, CNFS, timehash, or timecaf
+storagemethod:      {{ storage_method }}
+
+# Maintain the overview database to support XOVER/OVER commands for news readers
+enableoverview:     {% if enable_overview %}true{% else %}false{% endif %}
+
+# Write overview records via the overchan channel program instead of inline with innd
+useoverchan:        false
+
+# Overview storage driver: tradindexed, buffindexed, or ovdb
+ovmethod:           {{ overview_method }}
+
+##  ARTICLE LIMITS
+
+# Reject articles older than this many days based on the Date header; 0 disables the cutoff
+artcutoff:          {{ article_cutoff_days }}
+
+# Maximum accepted article size in bytes including all headers; 0 means unlimited
+maxartsize:         {{ max_article_size }}
+
+# Maximum article size in bytes for articles injected by locally connected posting clients
+localmaxartsize:    {{ local_max_article_size }}
+
+# Maximum number of articles a single NNTP posting session may submit
+maxtopost:          {{ max_to_post }}
+
+# Reject followup articles where the ratio of quoted-to-new text exceeds the built-in threshold; false to disable
+checkincludedtext:  {% if check_included_text %}true{% else %}false{% endif %}
+
+# Acknowledge the post only after the article has been durably written to the spool
+spoolfirst:         {% if spool_first %}true{% else %}false{% endif %}
+
+##  CONNECTIONS
+
+# Maximum simultaneous inbound NNTP connections accepted by innd; 0 means no limit
+maxconnections:     {{ max_connections }}
+
+# Seconds of inactivity before an idle reader connection is forcibly closed
+clienttimeout:      {{ client_timeout }}
+
+# Seconds of inactivity before an idle peer feed connection is forcibly closed
+peertimeout:        {{ peer_timeout }}
+
+# Run innd in slave mode: accept only IHAVE feeds and refuse locally posted articles
+readerslave:        {% if reader_slave %}true{% else %}false{% endif %}
+
+##  PROTOCOL FEATURES
+
+# Allow clients to use the NEWNEWS command; disable on public servers to limit bandwidth
+allownewnews:       {% if allow_newnews %}true{% else %}false{% endif %}
+
+# Accept article transfers from authorised upstream peers via the IHAVE command
+allowihave:         {% if allow_ihave %}true{% else %}false{% endif %}
+
+# Send the UUNAME greeting command to peers during the initial connection handshake
+senduuname:         false
+
+# Redirect articles posted to "to.*" gateway groups into the addressed primary group
+mergetogroups:      false
+
+##  LOGGING
+
+# Record the size in bytes of each article in the news.notice transfer log
+logartsize:         {% if log_art_size %}true{% else %}false{% endif %}
+
+# Log each CANCEL control message execution to the news log
+logcancelcomm:      false
+
+# Record the remote IP address of every connecting NNTP client in the log
+logipaddr:          {% if log_ip_addr %}true{% else %}false{% endif %}
+
+# Include the peer site name in per-article transfer log lines
+logsitename:        true
+
+# Flush the activity log after every N articles; 0 flushes only on connection close
+nntpactsync:        {{ nntp_act_sync }}
+
+##  CONTROL MESSAGES
+
+# Accept control messages from unrecognised senders without requiring a valid PGP signature
+dontrejectforeign:  false
+
+# Verify that cancel control messages reference an article that actually exists in the spool
+verifycancels:      false
+
+# Store articles posted to unrecognised newsgroups in the junk pseudo-group instead of rejecting them
+wanttrash:          {% if want_trash %}true{% else %}false{% endif %}
+{% if extra_config %}
+##  ADDITIONAL DIRECTIVES
+{% for item in extra_config %}
+# {{ item.comment }}
+{{ item.key }}: {{ item.value }}
+{% endfor %}{% endif %}

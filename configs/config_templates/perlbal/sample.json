@@ -1,0 +1,54 @@
+{
+  "pid_file": "/var/run/perlbal/perlbal.pid",
+  "enable_ssl": true,
+  "ssl_cert": "/etc/ssl/perlbal.crt",
+  "ssl_key": "/etc/ssl/perlbal.key",
+  "services": [
+    {
+      "name": "frontend-proxy",
+      "description": "Public-facing HTTPS reverse proxy for web apps",
+      "role": "reverse_proxy",
+      "listen_ip": "0.0.0.0",
+      "listen_port": 80,
+      "pool_size": 200,
+      "backends": [
+        {
+          "host": "10.0.0.10",
+          "port": 8080,
+          "weight": 10,
+          "status": "enabled"
+        },
+        {
+          "host": "10.0.0.11",
+          "port": 8080,
+          "weight": 5,
+          "status": "enabled"
+        },
+        {
+          "host": "10.0.0.12",
+          "port": 8080,
+          "weight": 5,
+          "status": "disabled"
+        }
+      ],
+      "health_check_interval": 10,
+      "health_check_path": "/healthz",
+      "max_connections": 2000,
+      "client_timeout": 60,
+      "server_timeout": 120,
+      "vhost": "api.example.com"
+    },
+    {
+      "name": "static-cache",
+      "description": "Static asset caching server (no SSL)",
+      "role": "web_server",
+      "listen_ip": "127.0.0.1",
+      "listen_port": 8080,
+      "pool_size": 50,
+      "backends": [],
+      "max_connections": 500,
+      "client_timeout": 30,
+      "server_timeout": 60
+    }
+  ]
+}

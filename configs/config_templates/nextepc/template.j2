@@ -1,0 +1,111 @@
+# MME configuration for NextEPC Evolved Packet Core
+# Global MME parameters
+mme:
+  # GUMMEI (Globally Unique MME Identity) — identifies the MME in the network
+  gummei:
+    # PLMN ID of the serving network (3-digit MCC + 2-digit MNC, padded to 6 hex chars)
+    plmn_id: "{{ mme_plmn_id | default('00101') }}"
+    # MME Group ID — identifies the group of MMEs
+    mme_gid: {{ mme_gid | default(1) }}
+    # MME Code — distinguishes MMEs within a group
+    mme_code: {{ mme_code | default(1) }}
+
+  # S1-MME interface configuration
+  s1ap:
+    # IP address of the MME's S1-MME interface
+    addr: "{{ s1ap_addr | default('127.0.0.1') }}"
+    # Port for S1-MME (default 36412)
+    port: {{ s1ap_port | default(36412) }}
+
+  # S6a interface (to HSS) configuration
+  s6a:
+    # Hostname or IP of HSS
+    dest_realm: "{{ s6a_dest_realm | default('epc.mnc001.mcc001.3gppnetwork.org') }}"
+    # Destination host (HSS FQDN)
+    dest_host: "{{ s6a_dest_host | default('hss.epc.mnc001.mcc001.3gppnetwork.org') }}"
+    # Local hostname (MME FQDN)
+    origin_host: "{{ s6a_origin_host | default('mme.epc.mnc001.mcc001.3gppnetwork.org') }}"
+    # Origin realm
+    origin_realm: "{{ s6a_origin_realm | default('epc.mnc001.mcc001.3gppnetwork.org') }}"
+    # Listen address for S6a (Diameter server)
+    addr: "{{ s6a_addr | default('127.0.0.1') }}"
+    # Listen port (default 3868)
+    port: {{ s6a_port | default(3868) }}
+
+  # SGW/PGW selection policy
+  pgw:
+    # List of SGWs/PGWs with their addresses and priorities
+    # For each entry: address (IP), name (FQDN), priority (int), weight (int)
+    nodes:
+{% for pgw in pgw_nodes %}      -
+        # SGW/PGW FQDN or hostname
+        name: "{{ pgw.name | default('sgw-pgw.epc.mnc001.mcc001.3gppnetwork.org') }}"
+        # IP address of the SGW/PGW
+        addr: "{{ pgw.addr | default('127.0.0.1') }}"
+        # Routing priority (lower = higher priority)
+        priority: {{ pgw.priority | default(0) }}
+        # Load-balancing weight
+        weight: {{ pgw.weight | default(1) }}
+{% endfor %}
+
+  # APN configuration — default APN settings for non-SIM-provisioned APNs
+  apn:
+    # Default APN name used for EPS bearers if not specified in subscription
+    default: "{{ apn_default | default('internet') }}"
+
+  # PLMN access control (optional; if omitted, all PLMNs allowed)
+  plmn_access_control:
+{% if plmn_access_enabled %}    # Enable PLMN access control (true/false)
+    enabled: true
+    # List of allowed PLMN IDs (MCC+MNC, 5-digit strings)
+    allow:
+{% for plmn in allowed_plmns %}      - "{{ plmn }}"
+{% endfor %}{% else %}    enabled: false
+{% endif %}
+
+  # TAI (Tracking Area Identity) configuration
+  # List of TACs per PLMN to define tracking areas
+  tai:
+{% for tai in tai_list %}    -
+      # PLMN ID (MCC+MNC, 5-digit string)
+      plmn_id: "{{ tai.plmn_id }}"
+      # Tracking Area Code (16-bit integer)
+      tac: {{ tai.tac }}
+{% endfor %}
+
+  # GTP-C (S5/S8/S11) interface to SGW/PGW
+  gtpc:
+    # Local listening address for GTP-C (S11/S5/S8)
+    addr: "{{ gtpc_addr | default('127.0.0.1') }}"
+    # Port for GTP-C (default 2152)
+    port: {{ gtpc_port | default(2152) }}
+
+# Diameter configuration for Cx/Dx interfaces (optional, not always used in basic MME)
+# Diameter server configuration (forCx/Dx interfaces to IMS/ICSF)
+diameter:
+  # Enabled flag for Diameter server (Cx/Dx)
+{% if diameter_enabled %}  enabled: true
+{% else %}  enabled: false
+{% endif %}
+  # Listen address for Diameter Cx/Dx
+  addr: "{{ diameter_addr | default('127.0.0.1') }}"
+  # Listen port (default 3868)
+  port: {{ diameter_port | default(3868) }}
+
+# Logging configuration
+logging:
+  # Log level: trace, debug, info, warn, error, fatal
+  level: "{{ log_level | default('info') }}"
+  # Log file path (or 'stdout' for console)
+  file: "{{ log_file | default('/var/log/nextepc/mme.log') }}"
+
+# Statistics and metrics (optional; used by Prometheus exporter)
+metrics:
+  # Enable metrics endpoint (true/false)
+{% if metrics_enabled %}  enabled: true
+{% else %}  enabled: false
+{% endif %}
+  # Listen address for metrics server
+  addr: "{{ metrics_addr | default('127.0.0.1') }}"
+  # Port for metrics (default 9090)
+  port: {{ metrics_port | default(9090) }}

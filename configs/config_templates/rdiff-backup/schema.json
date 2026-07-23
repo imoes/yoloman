@@ -1,0 +1,198 @@
+{
+  "server_user": {
+    "type": "string",
+    "default": "rdiff-backup",
+    "description": "Unix user account under which the rdiff-backup server runs for security isolation."
+  },
+  "server_group": {
+    "type": "string",
+    "default": "rdiff-backup",
+    "description": "Unix group for the rdiff-backup server process."
+  },
+  "root_path": {
+    "type": "string",
+    "default": "/var/backup/rdiff",
+    "description": "Absolute filesystem path where backup data (including metadata and revision history) are stored."
+  },
+  "server_port": {
+    "type": "number",
+    "default": 873,
+    "description": "TCP port on which the rdiff-backup server listens for client connections."
+  },
+  "server_bind_address": {
+    "type": "string",
+    "default": "0.0.0.0",
+    "description": "IP address the server binds to. Use 127.0.0.1 to restrict to localhost only."
+  },
+  "enable_ssl": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable TLS encryption for client-server communication (recommended over untrusted networks)."
+  },
+  "ssl_cert_path": {
+    "type": "string",
+    "default": "/etc/ssl/rdiff-backup.crt",
+    "description": "Path to the server\u2019s TLS certificate (PEM format). Required if SSL enabled."
+  },
+  "ssl_key_path": {
+    "type": "string",
+    "default": "/etc/ssl/rdiff-backup.key",
+    "description": "Path to the server\u2019s TLS private key (PEM format, unencrypted). Required if SSL enabled."
+  },
+  "ssl_ca_cert_path": {
+    "type": "string",
+    "default": "",
+    "description": "Path to CA certificate for verifying client certificates (optional)."
+  },
+  "allowed_hosts": {
+    "type": "list",
+    "default": [],
+    "description": "List of IP addresses (CIDR or dotted quad) permitted to connect. Empty list allows all.",
+    "items": {
+      "type": "string",
+      "pattern": "^(\\d{1,3}\\.){3}\\d{1,3}(/\\d{1,2})?$"
+    }
+  },
+  "max_connections": {
+    "type": "number",
+    "default": 5,
+    "description": "Maximum number of concurrent client connections allowed."
+  },
+  "compression": {
+    "type": "number",
+    "default": 1,
+    "description": "Compression level for data stream (0=none, 1=fast/low, 3=good/balanced, 6=slower/high, 9=max). Use 0 for CPU-limited environments."
+  },
+  "log_level": {
+    "type": "string",
+    "default": "info",
+    "description": "Verbosity of server logs. Accepts: debug, info, warning, error, critical."
+  },
+  "log_file": {
+    "type": "string",
+    "default": "/var/log/rdiff-backup/server.log",
+    "description": "Path to server log file. Leave empty or omit to log only to stderr (systemd journal)."
+  },
+  "retention_days": {
+    "type": "number",
+    "default": 30,
+    "description": "Number of days to retain backup revisions before automatic pruning. Set to 0 to disable (not recommended)."
+  },
+  "paranoia_mode": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable extra integrity checks (e.g., full hashes on every metadata write). Slower but safer."
+  },
+  "preserve_xattrs": {
+    "type": "bool",
+    "default": true,
+    "description": "Preserve extended attributes (e.g., SELinux, Capabilities) on files and directories."
+  },
+  "preserve_acls": {
+    "type": "bool",
+    "default": true,
+    "description": "Preserve POSIX Access Control Lists (ACLs) if supported by the filesystem."
+  },
+  "exclude_patterns": {
+    "type": "list",
+    "default": [
+      "**/.cache",
+      "**/tmp",
+      "**/Thumbs.db"
+    ],
+    "description": "List of path patterns to exclude from backups. Supports wildcards (*), globstars (**), regex, and rdiff-backup-specific syntax.",
+    "items": {
+      "type": "string",
+      "description": "Exclusion pattern (e.g., `**/*.log`, `/proc/*`, or `/dev/*`)"
+    }
+  },
+  "include_patterns": {
+    "type": "list",
+    "default": [],
+    "description": "List of paths explicitly included (used to override broad excludes). Mostly relevant with wildcard excludes.",
+    "items": {
+      "type": "string",
+      "description": "Inclusion pattern (e.g., `/etc/**`, `/var/www/**`)"
+    }
+  },
+  "windows_compatibility": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable Windows path and filename compatibility (e.g., case-insensitive matching, escape illegal chars)."
+  },
+  "allow_client_restore": {
+    "type": "bool",
+    "default": false,
+    "description": "Allow clients to initiate restores (revert files to older versions). Requires client trust."
+  },
+  "user_mapping": {
+    "type": "list",
+    "default": [],
+    "description": "Map remote usernames to local system accounts during backup/restore. Useful when backing up from heterogeneous systems (e.g., Windows AD).",
+    "items": {
+      "type": "object",
+      "description": "Mapping from remote user to local user",
+      "properties": {
+        "remote_user": {
+          "type": "string",
+          "description": "Remote username (e.g., 'AD\\john' or 'root')"
+        },
+        "local_user": {
+          "type": "string",
+          "description": "Target local system user (e.g., 'backupuser')"
+        }
+      }
+    }
+  },
+  "group_mapping": {
+    "type": "list",
+    "default": [],
+    "description": "Map remote group names to local system groups.",
+    "items": {
+      "type": "object",
+      "description": "Mapping from remote group to local group",
+      "properties": {
+        "remote_group": {
+          "type": "string",
+          "description": "Remote group name (e.g., 'Domain Users')"
+        },
+        "local_group": {
+          "type": "string",
+          "description": "Target local group (e.g., 'users')"
+        }
+      }
+    }
+  },
+  "unix_socket": {
+    "type": "string",
+    "default": "",
+    "description": "Path to Unix domain socket for local management (e.g., '/run/rdiff-backup.sock'). Optional."
+  },
+  "require_auth": {
+    "type": "bool",
+    "default": true,
+    "description": "Require clients to authenticate using username/password (recommended for non-local backups)."
+  },
+  "auth_realm": {
+    "type": "string",
+    "default": "rdiff-backup-backups",
+    "description": "Authentication realm string displayed to clients during auth negotiation."
+  },
+  "trusted_groups": {
+    "type": "list",
+    "default": [
+      "backup",
+      "wheel"
+    ],
+    "description": "List of local Unix groups whose members are allowed to authenticate (only if auth required).",
+    "items": {
+      "type": "string",
+      "description": "Group name (e.g., 'backup')"
+    }
+  },
+  "log_client_ips": {
+    "type": "bool",
+    "default": false,
+    "description": "Log client IP addresses in the server log. May be needed for forensics but consider privacy regulations."
+  }
+}

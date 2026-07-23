@@ -1,0 +1,174 @@
+{
+  "source_directories": {
+    "type": "list",
+    "default": [
+      "/home",
+      "/etc",
+      "/var/www"
+    ],
+    "description": "Directories to back up \u2014 paths to include in each backup.",
+    "items": {
+      "type": "string"
+    }
+  },
+  "repositories": {
+    "type": "list",
+    "default": [
+      {
+        "path": "/backup/borg",
+        "encryption_mode": "repokey"
+      }
+    ],
+    "description": "Backup destination(s). Each entry defines a Borg repository location and optional encryption settings.",
+    "items": {
+      "type": "object",
+      "fields": {
+        "path": {
+          "type": "string",
+          "default": "/backup/borg",
+          "description": "Local path or SSH URL (e.g., user@host:/path) to the Borg repository."
+        },
+        "encryption_mode": {
+          "type": "string",
+          "default": "repokey",
+          "description": "Encryption mode. Common values: `repokey`, `keyfile`, `authenticated`, `none`."
+        },
+        "location": {
+          "type": "string",
+          "default": "",
+          "description": "Optional location label (e.g., `primary`, `secondary`) for multi-repo setups."
+        }
+      }
+    }
+  },
+  "retention": {
+    "type": "object",
+    "default": {
+      "keep_within": "30d",
+      "keep_hourly": 24,
+      "keep_daily": 7,
+      "keep_weekly": 4,
+      "keep_monthly": 6,
+      "keep_yearly": 1
+    },
+    "description": "Define how many backups to retain and for how long.",
+    "fields": {
+      "keep_within": {
+        "type": "string",
+        "default": "30d",
+        "description": "Keep all backups within this time window (e.g., `7d`, `30d`)."
+      },
+      "keep_hourly": {
+        "type": "number",
+        "default": 24,
+        "description": "Number of hourly backups to keep."
+      },
+      "keep_daily": {
+        "type": "number",
+        "default": 7,
+        "description": "Number of daily backups to keep."
+      },
+      "keep_weekly": {
+        "type": "number",
+        "default": 4,
+        "description": "Number of weekly backups to keep."
+      },
+      "keep_monthly": {
+        "type": "number",
+        "default": 6,
+        "description": "Number of monthly backups to keep."
+      },
+      "keep_yearly": {
+        "type": "number",
+        "default": 1,
+        "description": "Number of yearly backups to keep."
+      }
+    }
+  },
+  "consistency.frequency": {
+    "type": "object",
+    "default": {
+      "repository": "monthly",
+      "archives": "weekly"
+    },
+    "description": "How often to run consistency checks on the repository and archives.",
+    "fields": {
+      "repository": {
+        "type": "string",
+        "default": "monthly",
+        "description": "Frequency for repository consistency checks (e.g., `daily`, `weekly`, `monthly`, `annually`)."
+      },
+      "archives": {
+        "type": "string",
+        "default": "weekly",
+        "description": "Frequency for archive integrity checks."
+      }
+    }
+  },
+  "hooks.before_backup": {
+    "type": "list",
+    "default": [],
+    "description": "Commands to run before each backup (e.g., to flush databases).",
+    "items": {
+      "type": "string"
+    }
+  },
+  "hooks.after_backup": {
+    "type": "list",
+    "default": [
+      "echo \"Backup completed\""
+    ],
+    "description": "Commands to run after each backup (e.g., notification scripts).",
+    "items": {
+      "type": "string"
+    }
+  },
+  "hooks.on_error": {
+    "type": "list",
+    "default": [],
+    "description": "Commands to run if the backup fails.",
+    "items": {
+      "type": "string"
+    }
+  },
+  "log_level": {
+    "type": "string",
+    "default": "info",
+    "description": "Verbosity of logs: `debug`, `info`, `warning`, `error`, or `critical`."
+  },
+  "log_json": {
+    "type": "bool",
+    "default": false,
+    "description": "Output logs in structured JSON format for integration with log aggregation tools."
+  },
+  "checkpoints.checkpoint_interval": {
+    "type": "number",
+    "default": 300,
+    "description": "Checkpoint interval in seconds (0 to disable). Helps resume interrupted backups."
+  },
+  "checkpoints.checkpoint_size": {
+    "type": "number",
+    "default": 1073741824,
+    "description": "Checkpoint size in bytes (default ~1 GiB)."
+  },
+  "storage.compression": {
+    "type": "string",
+    "default": "lz4",
+    "description": "Compression algorithm: `lz4`, `zstd`, `zlib`, `auto`, or `none`."
+  },
+  "one_file_system": {
+    "type": "bool",
+    "default": false,
+    "description": "Only back up files on the same filesystem as the starting point (i.e., skip mount points)."
+  },
+  "progress": {
+    "type": "bool",
+    "default": true,
+    "description": "Show a progress bar during backup creation."
+  },
+  "stats": {
+    "type": "bool",
+    "default": false,
+    "description": "Output detailed backup statistics (size, dedup rate, etc.) after each backup."
+  }
+}

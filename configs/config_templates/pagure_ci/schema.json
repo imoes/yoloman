@@ -1,0 +1,189 @@
+{
+  "pagure_name": {
+    "type": "string",
+    "default": "pagure",
+    "description": "The name of the Pagure instance this CI service is integrated with."
+  },
+  "db_url": {
+    "type": "string",
+    "default": "postgresql://pagure_ci:password@localhost/pagure_ci",
+    "description": "Database connection string for Pagure-CI's internal data (e.g., build history)."
+  },
+  "git_clone_dir": {
+    "type": "string",
+    "default": "/var/lib/pagure-ci/git",
+    "description": "Path to directory where source repositories will be cloned during CI builds."
+  },
+  "artifact_dir": {
+    "type": "string",
+    "default": "/var/lib/pagure-ci/artifacts",
+    "description": "Path to directory where build logs, test results, and other artifacts will be stored."
+  },
+  "log_level": {
+    "type": "string",
+    "default": "INFO",
+    "description": "Verbosity level for logging: DEBUG, INFO, WARNING, ERROR, or CRITICAL."
+  },
+  "debug": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable development/debug mode (includes stack traces in UI and verbose logging)."
+  },
+  "num_workers": {
+    "type": "number",
+    "default": 2,
+    "description": "Number of parallel worker processes to run build tasks."
+  },
+  "max_concurrent_builds": {
+    "type": "number",
+    "default": 5,
+    "description": "Maximum number of builds allowed to run concurrently per project."
+  },
+  "build_timeout": {
+    "type": "number",
+    "default": 1800,
+    "description": "Maximum time (in seconds) a build may run before being terminated."
+  },
+  "smtp_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable sending email notifications on build failures or successes."
+  },
+  "smtp_server": {
+    "type": "string",
+    "default": "localhost",
+    "description": "SMTP server hostname to use for sending emails."
+  },
+  "smtp_port": {
+    "type": "number",
+    "default": 587,
+    "description": "SMTP server port (typically 25, 465, or 587)."
+  },
+  "smtp_username": {
+    "type": "string",
+    "default": "",
+    "description": "SMTP username (only if server requires authentication)."
+  },
+  "smtp_password": {
+    "type": "string",
+    "default": "",
+    "description": "SMTP password (only if server requires authentication)."
+  },
+  "smtp_from_addr": {
+    "type": "string",
+    "default": "ci@example.com",
+    "description": "Email address shown as sender in CI notifications."
+  },
+  "webhook_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable webhook support for external systems (e.g., GitHub/GitLab triggers)."
+  },
+  "webhook_secret_token": {
+    "type": "string",
+    "default": "",
+    "description": "Shared secret used to validate authenticity of incoming webhook requests."
+  },
+  "github_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable GitHub integration to post commit statuses and trigger builds on PR/push events."
+  },
+  "github_cid": {
+    "type": "string",
+    "default": "",
+    "description": "GitHub OAuth app Client ID."
+  },
+  "github_csecret": {
+    "type": "string",
+    "default": "",
+    "description": "GitHub OAuth app Client Secret."
+  },
+  "github_api_url": {
+    "type": "string",
+    "default": "https://api.github.com",
+    "description": "Base URL for GitHub API (e.g., https://api.github.com or https://github.example.com/api/v3 for GHE)."
+  },
+  "gitlab_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable GitLab integration to post commit statuses and trigger builds on MR/push events."
+  },
+  "gitlab_cid": {
+    "type": "string",
+    "default": "",
+    "description": "GitLab OAuth app Client ID."
+  },
+  "gitlab_csecret": {
+    "type": "string",
+    "default": "",
+    "description": "GitLab OAuth app Client Secret."
+  },
+  "gitlab_api_url": {
+    "type": "string",
+    "default": "https://gitlab.com/api/v4",
+    "description": "Base URL for GitLab API (e.g., https://gitlab.com/api/v4 or custom instance)."
+  },
+  "builders": {
+    "type": "list",
+    "default": [
+      {
+        "name": "default",
+        "type": "docker",
+        "image": "fedora:latest",
+        "setup_commands": [
+          "pip install -U pip",
+          "pip install -r requirements.txt"
+        ]
+      }
+    ],
+    "description": "List of build environments (builders) to use for testing projects."
+  },
+  "builders.items": {
+    "name": {
+      "type": "string",
+      "default": "default",
+      "description": "Unique identifier for the builder (used in project config)."
+    },
+    "type": {
+      "type": "string",
+      "default": "docker",
+      "description": "Builder backend type: 'docker' (Docker-based) or 'virtualenv' (host Python)."
+    },
+    "image": {
+      "type": "string",
+      "default": "fedora:latest",
+      "description": "Docker image to use for building (only for 'docker' type)."
+    },
+    "docker_extra_args": {
+      "type": "string",
+      "default": "",
+      "description": "Additional arguments to pass to 'docker run' (e.g., '--network=host')."
+    },
+    "python_version": {
+      "type": "string",
+      "default": "3.9",
+      "description": "Python version to use for virtualenv builder (only for 'virtualenv' type)."
+    },
+    "setup_commands": {
+      "type": "list",
+      "default": [
+        "pip install -U pip",
+        "pip install -r requirements.txt"
+      ],
+      "description": "List of shell commands to run before each build (e.g., installing dependencies)."
+    }
+  },
+  "redis_url": {
+    "type": "string",
+    "default": "redis://localhost:6379/0",
+    "description": "Redis connection URL used for task queue (Celery backend)."
+  },
+  "cors_allowed_origins": {
+    "type": "list",
+    "default": [
+      "https://pagure.example.com"
+    ],
+    "description": "Comma-separated list of allowed origins for CORS requests (e.g., your Pagure frontend)."
+  }
+}

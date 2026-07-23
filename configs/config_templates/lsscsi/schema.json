@@ -1,0 +1,84 @@
+{
+  "verbose": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable verbose output (equivalent to lsscsi -v). Shows additional device details such as vendor/model revision and transport attributes."
+  },
+  "describe_types": {
+    "type": "bool",
+    "default": false,
+    "description": "Show human-readable device type descriptions (e.g., 'disk' instead of '0')."
+  },
+  "show_hba": {
+    "type": "bool",
+    "default": false,
+    "description": "Include Host Bus Adapter (HBA) information in the listing (equivalent to -H)."
+  },
+  "show_transport": {
+    "type": "bool",
+    "default": false,
+    "description": "Include transport-specific details (e.g., SATA vs. SAS) in output (equivalent to -T)."
+  },
+  "numeric": {
+    "type": "bool",
+    "default": false,
+    "description": "Use numeric identifiers only (skip symbolic names like /dev/sda)."
+  },
+  "filter_patterns": {
+    "type": "list",
+    "default": [],
+    "description": "List of glob patterns to filter which SCSI devices to display. Patterns match against the device's SCSI address (e.g., '0:0:*' for first host/channel).",
+    "items": {
+      "type": "string",
+      "description": "A glob pattern (supports * and ? wildcards) matching device SCSI addresses (host:channel:id:lun)."
+    }
+  },
+  "lsscsi_args": {
+    "type": "string",
+    "default": "",
+    "description": "Additional command-line arguments to pass directly to the lsscsi binary when invoked (e.g., '--scsi_only', '--nodev')."
+  },
+  "prefer_multipath": {
+    "type": "bool",
+    "default": false,
+    "description": "When multipath devices are detected, prefer showing /dev/mapper/* names instead of /dev/sd* device nodes."
+  },
+  "transport_include": {
+    "type": "list",
+    "default": [],
+    "description": "List of transport types to include (all others excluded). Valid transports: 'fibre_channel', 'sas', 'sata', 'scsi', 'usb', 'nvme', 'ide', 'ieee1394'.",
+    "items": {
+      "type": "string",
+      "description": "A transport type to include (case-insensitive)."
+    }
+  },
+  "transport_exclude": {
+    "type": "list",
+    "default": [],
+    "description": "List of transport types to exclude (others included).",
+    "items": {
+      "type": "string",
+      "description": "A transport type to exclude (case-insensitive)."
+    }
+  },
+  "sysfs_path": {
+    "type": "string",
+    "default": "/sys",
+    "description": "Root path of the sysfs filesystem. Override only in non-standard environments (e.g., chroot, containers)."
+  },
+  "procfs_path": {
+    "type": "string",
+    "default": "/proc",
+    "description": "Root path of the proc filesystem. Required for device topology and host info."
+  },
+  "timeout": {
+    "type": "number",
+    "default": 10,
+    "description": "Timeout (in seconds) for reading from sysfs/procfs. Set to 0 for no timeout."
+  },
+  "debug": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable debug logging to stderr for troubleshooting."
+  }
+}

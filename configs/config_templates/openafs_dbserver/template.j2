@@ -1,0 +1,45 @@
+# OpenAFS Database Server Configuration File
+# Generated from template — do not edit directly
+
+# Enable or disable the database server daemon (VLServer)
+{% if enable_dbserver %}daemon{% else %}nodaemon{% endif %}
+
+# Number of database server threads (VLServer)
+threads {{ threads }}
+
+# Maximum number of database entries (e.g., cells, users, groups) in memory
+maxentries {{ maxentries }}
+
+# Path to the database server working directory
+workdir {{ workdir }}
+
+# Path to the database log file
+logpath {{ logpath }}
+
+# List of database peers (other DB servers in the cluster)
+{% for peer in peers %}dbserver {{ peer.host }} {{ peer.port }}
+{% endfor %}
+
+# List of database partitions to manage (cells)
+{% for cell in cells %}cell {{ cell.name }} {{ cell.dbpath }}
+{% endfor %}
+
+# Enable or disable verbose logging (debug)
+{% if verbose %}debug{% else %}nodb{% endif %}
+
+# Enable or disable backup mode (standalone, for recovery)
+{% if backup_mode %}backup{% else %}primary{% endif %}
+
+# Maximum size (in MB) of a database dump file
+maxdumpsize {{ maxdumpsize }}
+
+# Path to store database dumps
+dumppath {{ dumppath }}
+
+# Enable or disable TLS for inter-server communication
+{% if use_tls %}tls{% else %}notls{% endif %}
+
+# TLS certificate and key paths (if TLS enabled)
+{% if use_tls %}certpath {{ tls_cert_path }}
+keypath {{ tls_key_path }}
+{% endif %}

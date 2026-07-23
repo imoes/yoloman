@@ -1,0 +1,61 @@
+# CDEmu daemon configuration
+# This file controls the behavior of the CDEmu daemon, which provides virtual CD/DVD drives via VMM (Virtual Machine Monitor) interface.
+# The daemon supports multiple virtual drives, audio passthrough, and various backend options.
+
+# Path to the log file (use '-' for stderr/stdout)
+{% if log_file == '-' %}LogPath = -{% else %}LogPath = {{ log_file }}{% endif %}
+
+# Log level: 0=none, 1=error, 2=warn, 3=info, 4=debug, 5=trace
+LogLevel = {{ log_level }}
+
+# Number of virtual drives to expose (1–16)
+NumDevices = {{ num_devices }}
+
+# Audio backend to use: 'none', 'pulse', 'alsa', 'oss'
+AudioBackend = {{ audio_backend }}
+
+{% if audio_backend != 'none' %}
+# Audio buffer size (ms) — latency tradeoff
+AudioBufferSize = {{ audio_buffer_size }}
+{% endif %}
+
+# List of supported image formats (case-insensitive)
+SupportedFormats = {{ supported_formats | join(', ') }}
+
+# Default backend modules (loaded at startup)
+{% for module in backend_modules %}
+LoadModule = {{ module.path }}{% if module.options %} # {{ module.options }}{% endif %}
+{% endfor %}
+
+# Device-specific configuration (one block per virtual drive)
+{% for device in devices %}
+[Device {{ device.id }}]
+# Driver type: 'empty', 'file', 'real', 'audio', 'mixed'
+Driver = {{ device.driver }}
+{% if device.driver in ['file', 'mixed'] %}
+# Path to image file (ISO, CUE, BIN, etc.)
+Image = {{ device.image_path }}
+{% endif %}
+{% if device.driver == 'real' %}
+# Device path for physical drive access (e.g., /dev/sr0)
+Device = {{ device.device_path }}
+{% endif %}
+{% if device.driver == 'mixed' %}
+# Mount point for ISO image (for read-only access)
+MountPoint = {{ device.mount_point }}
+{% endif %}
+{% if device.driver == 'audio' %}
+# Audio track definition (for audio CDs)
+{% for track in device.tracks %}
+Track{{ track.number }} = {{ track.file }} {{ track.type }}{% if track.pre %} PRE{% endif %}{% endfor %}
+{% endif %}
+{% endfor %}
+
+# Optional: TCP/IP listener for remote client connections
+{% if remote_enabled %}
+[Remote]
+# Listen address (e.g., 0.0.0.0 for all, 127.0.0.1 for localhost-only)
+Address = {{ remote_address }}
+# Listen port
+Port = {{ remote_port }}
+{% endif %}

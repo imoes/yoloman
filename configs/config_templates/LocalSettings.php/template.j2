@@ -1,0 +1,128 @@
+<?php
+/**
+ * MediaWiki configuration file.
+ * Generated from template. Do not edit directly; update via configuration management.
+ */
+
+/**
+ * Enable PHP error reporting in development; disable in production.
+ */
+error_reporting({{ error_reporting }});
+ini_set('display_errors', {{ display_errors|lower }});
+
+/**
+ * Database configuration.
+ */
+$wgDBtype = "{{ db_type }}";
+$wgDBserver = "{{ db_host }}";
+$wgDBname = "{{ db_name }}";
+$wgDBuser = "{{ db_user }}";
+$wgDBpassword = "{{ db_password }}";
+{% if db_charset %}
+$wgDBprefix = "{{ db_prefix }}";
+{% endif %}
+
+/**
+ * Site identity.
+ */
+$wgSitename = "{{ site_name }}";
+$wgMetaNamespace = "{{ meta_namespace }}";
+
+/**
+ * URL configuration.
+ */
+$wgScriptPath = "{{ script_path }}";
+$wgScriptExtension = ".php";
+$wgArticlePath = "{{ article_path }}";
+$wgStylePath = "{{ style_path }}";
+$wgServer = "{{ server_url }}";
+
+/**
+ * Uploads.
+ */
+$wgUploadPath = "{{ upload_path }}";
+$wgUploadDirectory = "{{ upload_directory }}";
+{% if upload_disabled %}
+$wgEnableUploads = false;
+{% else %}
+$wgEnableUploads = true;
+{% endif %}
+{% for ext in allowed_upload_extensions %}
+/**
+ * Allow upload extension: {{ ext }}
+ */
+{% endfor %}
+
+/**
+ * Skin configuration.
+ */
+$wgDefaultSkin = "{{ default_skin }}";
+
+/**
+ * Authentication & security.
+ */
+{% if auth_type == "local" %}
+$wgGroupPermissions['*']['createaccount'] = true;
+$wgGroupPermissions['*']['read'] = true;
+{% elif auth_type == "ldap" %}
+require_once "$IP/extensions/LdapAuthentication/LdapAuthentication.php";
+$wgAuth = new LdapAuthenticationPlugin();
+{% endif %}
+
+/**
+ * Cache configuration.
+ */
+$wgCacheDirectory = "{{ cache_directory }}";
+$wgMainCacheType = CACHE_{{ main_cache_type|upper }};
+{% if memcached_servers %}
+$wgMemCachedServers = [
+{% for server in memcached_servers %}    "{{ server.host }}:{{ server.port }}"{% if not loop.last %},{% endif %}
+{% endfor %}];
+{% endif %}
+
+/**
+ * Logging configuration.
+ */
+{% if log_directory %}
+$wgDebugLogFilePath = "{{ log_directory }}/{{ log_file_prefix }}.log";
+{% endif %}
+$wgLogQueries = {{ log_queries|lower }};
+
+/**
+ * Language & locale.
+ */
+$wgLanguageCode = "{{ language_code }}";
+$wgDefaultLanguageVariant = "{{ default_language_variant }}";
+
+/**
+ * Timezone.
+ */
+date_default_timezone_set("{{ timezone }}");
+
+/**
+ * Maintenance script protection.
+ */
+$wgEnableMaintenanceScript = {{ enable_maintenance_script|lower }};
+
+/**
+ * Extensions.
+ */
+{% for ext_name, ext_config in extensions.items() %}
+/**
+ * Load extension: {{ ext_name }}
+ */
+{% if ext_config.path %}
+require_once "{{ ext_config.path }}";
+{% else %}
+wfLoadExtension("{{ ext_name }}");
+{% endif %}
+{% for opt_key, opt_val in ext_config.options.items() %}
+$wg{{ ext_name | replace("-", "") | replace("_", "") }}{{ opt_key | replace("_", "") | replace("-", "") }} = {{ opt_val|json_encode() }};
+{% endfor %}
+{% endfor %}
+
+/**
+ * Final settings.
+ */
+$wgSecretKey = "{{ secret_key }}";
+$wgUpgradeKey = "{{ upgrade_key }}";

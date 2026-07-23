@@ -1,0 +1,72 @@
+# L2TPns main configuration file
+# Global settings for the L2TP daemon
+# Authentication backend: l2tpns
+
+[global]
+# Listen address for L2TP control messages (UDP port 1701)
+# Set to empty to disable L2TP control plane
+listen = {{ listen_ip }}
+
+# Maximum concurrent sessions allowed
+max_sessions = {{ max_sessions }}
+
+# Log level: 0 (none) to 5 (debug)
+log_level = {{ log_level }}
+
+# Enable or disable LAC (L2TP Access Concentrator) mode
+# If false, acts as LNS (L2TP Network Server) — typical for VPN terminators
+lac_mode = {{ lac_mode | lower }}
+
+# Secret used for L2TP control channel authentication (shared with peer)
+control_secret = {{ control_secret }}
+
+# Secret used for data channel authentication (optional)
+data_secret = {{ data_secret | default('') }}
+
+# Tunnel reassignment timeout in seconds (tunnel idle timeout)
+tunnel_timeout = {{ tunnel_timeout }}
+
+# Session timeout in seconds (session idle timeout)
+session_timeout = {{ session_timeout }}
+
+# Enable or disable IP compression
+ipcomp = {{ ipcomp | lower }}
+
+# Enable or disable PPP multilink
+multilink = {{ multilink | lower }}
+
+[ip_pool]
+# IPv4 pool used for assigning tunnel IPs to clients
+# Comma-separated CIDRs or ranges (e.g., 10.0.0.0/24, 10.0.1.0/24)
+ip_pool = {{ ip_pool | join(', ') }}
+
+# Optional: DNS servers to push to clients (comma-separated)
+{% if dns_servers %}
+dns_servers = {{ dns_servers | join(', ') }}
+{% endif %}
+
+# Optional: WINS servers to push to clients (comma-separated)
+{% if wins_servers %}
+wins_servers = {{ wins_servers | join(', ') }}
+{% endif %}
+
+# Optional: Default route for clients (0 = no default route)
+default_route = {{ default_route | lower }}
+
+{% if users %}
+[users]
+# User accounts with static IPs or dynamic pool assignment
+{% for user in users %}
+# {{ user.username }}: {{ user.description | default('user account') }}
+{{ user.username }} = {{ user.password | default('') }}, {{ user.ip | default('') | default('') | default('') }}{% if user.ip %}{{ ', ' | safe }}{% endif %}{% if user.mschapv2 %}mschapv2{% else %}pap{% endif %}, {% if user.session_timeout %}session_timeout={{ user.session_timeout }}{% else %}session_timeout={{ session_timeout }}{% endif %}{% if user.ip_pool %}, ip_pool={{ user.ip_pool }}{% endif %}{% if user.rate_limit %}, rate_limit={{ user.rate_limit }}{% endif %}
+{% endfor %}
+{% endif %}
+
+{% if hosts %}
+[hosts]
+# Predefined peer hosts with static secrets and IPs
+{% for host in hosts %}
+# {{ host.hostname }}: {{ host.description | default('static host') }}
+{{ host.hostname }} = {{ host.ip | default('') | default('') | default('') }}{% if host.ip %}{{ ', ' | safe }}{% endif %}{{ host.secret | default(control_secret) }}{% if host.mschapv2 %}, mschapv2{% endif %}
+{% endfor %}
+{% endif %}

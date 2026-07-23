@@ -1,0 +1,33 @@
+[global]
+# Model of the device connected to the system
+model = {{ model }}
+# Connection port for the device (e.g., /dev/ttyUSB0, com1)
+port = {{ port }}
+# Connection type: serial, Bluetooth, network, etc.
+connection = {{ connection }}
+# Baud rate for serial connections; ignored for non-serial connections
+baudrate = {{ baudrate }}
+# SMS center address (e.g., +1234567890)
+smsc = {{ smsc | default('') }}
+# Timeout in seconds for SMS operations
+timeout = {{ timeout }}
+# Log level: 0 (none) to 7 (debug)
+loglevel = {{ loglevel }}
+# Path to log file (empty string = disable file logging)
+logfile = {{ logfile }}
+
+{% if pin %}[security]
+# PIN code for SIM card (if required)
+pin = {{ pin }}
+{% endif %}
+
+{% if devices %}[devices]
+# List of additional devices to manage
+{% for device in devices %}device_{{ loop.index }} = {{ device.name }}
+  device_{{ loop.index }}_model = {{ device.model | default('') }}
+  device_{{ loop.index }}_port = {{ device.port }}
+  device_{{ loop.index }}_connection = {{ device.connection }}
+  {% if device.baudrate %}device_{{ loop.index }}_baudrate = {{ device.baudrate }}{% endif %}
+  {% if device.pin %}device_{{ loop.index }}_pin = {{ device.pin }}{% endif %}
+{% endfor %}
+{% endif %}

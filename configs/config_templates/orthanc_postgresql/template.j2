@@ -1,0 +1,42 @@
+{# Enable PostgreSQL plugin #}
+"DatabasePlugin": "postgresql",
+
+{# PostgreSQL connection parameters #}
+"PostgreSQL": {
+  {# Hostname or IP address of the PostgreSQL server #}
+  "Host": "{{ postgres.host }}",
+  {# TCP port PostgreSQL listens on #}
+  "Port": {{ postgres.port }},
+  {# Database name to connect to #}
+  "Database": "{{ postgres.database }}",
+  {# Username for authentication #}
+  "UserName": "{{ postgres.username }}",
+  {# Password for authentication (store securely in production) #}
+  "Password": "{{ postgres.password }}",
+  {# Maximum number of concurrent connections to the DB #}
+  "MaximumConnections": {{ postgres.maximum_connections }},
+  {# Enable SSL/TLS for database connections? #}
+  "EnableSsl": {{ postgres.enable_ssl|lower }},
+  {# Path to SSL certificate (optional, used only if EnableSsl is true) #}
+  "SslCertificate": "{{ postgres.ssl_certificate | default('') }}",
+  {# Path to SSL private key (optional, used only if EnableSsl is true) #}
+  "SslKey": "{{ postgres.ssl_key | default('') }}",
+  {# Path to CA certificate bundle for SSL verification (optional) #}
+  "SslCaCertificate": "{{ postgres.ssl_ca_certificate | default('') }}",
+  {# Enable connection pooling (recommended for production) #}
+  "EnableConnectionPooling": {{ postgres.enable_connection_pooling|lower }},
+  {# Minimum number of connections kept open in the pool #}
+  "ConnectionPoolMinSize": {{ postgres.connection_pool_min_size }},
+  {# Maximum number of connections in the pool #}
+  "ConnectionPoolMaxSize": {{ postgres.connection_pool_max_size }},
+  {# Timeout (in seconds) to wait for an available connection #}
+  "ConnectionPoolTimeout": {{ postgres.connection_pool_timeout }},
+  {# List of tables to enable as DICOM studies metadata sources (usually left default) #}
+  "Tables": {
+    {# Prefix for table names (e.g., "orthanc" → tables: orthanc_studies, orthanc_instances, etc.) #}
+    "Prefix": "{{ postgres.tables_prefix }}"
+  }
+},
+
+{# Optional: Enable extended logging for PostgreSQL plugin (verbose, for debugging) #}
+"PostgreSQLLogging": {{ postgres.logging|lower }}

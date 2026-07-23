@@ -1,0 +1,45 @@
+# OBEX server settings
+[OBEX]
+
+# Enable or disable the OBEX server
+Enabled={{ obex_enabled | default(true) | lower }}
+
+# Root directory for OBEX file transfers
+Root={{ obex_root_path | default('/var/lib/bluetooth') }}
+
+# User under which the OBEX daemon runs
+User={{ obex_user | default('root') }}
+
+# Group under which the OBEX daemon runs
+Group={{ obex_group | default('root') }}
+
+# Maximum number of simultaneous connections
+MaxConnections={{ obex_max_connections | default(4) }}
+
+# Enable or disable authentication for transfers
+Auth={{ obex_auth_enabled | default(true) | lower }}
+
+# Enable or disable encryption for transfers
+Encrypt={{ obex_encrypt_enabled | default(false) | lower }}
+
+# Enable or disable automatic acceptance of incoming files
+AutoAccept={{ obex_auto_accept | default(false) | lower }}
+
+# List of allowed peer Bluetooth addresses (MAC format, uppercase, colon-separated)
+# Leave empty or omit to allow all (not recommended for production)
+{% if obex_allowed_peers | length > 0 %}
+AllowedDevices={% for peer in obex_allowed_peers %}{{ peer }}{% if not loop.last %}, {% endif %}{% endfor %}
+{% endif %}
+
+# List of denied peer Bluetooth addresses
+{% if obex_denied_peers | length > 0 %}
+DeniedDevices={% for peer in obex_denied_peers %}{{ peer }}{% if not loop.last %}, {% endif %}{% endfor %}
+{% endif %}
+
+# Logging level: 0=error, 1=warn, 2=info, 3=debug
+LogLevel={{ obex_log_level | default(1) }}
+
+# Log file path (empty = syslog)
+LogToStderr={{ obex_log_stderr | default(false) | lower }}
+{% if obex_log_file %}LogFile={{ obex_log_file }}
+{% endif %}

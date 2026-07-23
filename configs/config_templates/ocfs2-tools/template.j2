@@ -1,0 +1,18 @@
+{# Cluster name for the OCFS2 cluster #}
+name: {{ cluster_name }}
+{# Number of nodes in the cluster #}
+number_nodes: {{ number_nodes }}
+{# List of nodes in the cluster #}
+{% for node in nodes %}
+node:
+  {# Node name (must match `uname -n`) #}
+  name: {{ node.name }}
+  {# Node number (1-indexed, must be unique per cluster) #}
+  number: {{ node.number }}
+  {# Node IP address for heartbeat/cluster communication #}
+  ip_address: {{ node.ip_address }}
+  {# IP port used for O2CB cluster communication (default 7777) #}
+  ip_port: {{ node.ip_port }}
+{% endfor %}
+{# Cluster stack type; usually `o2cb` for OCFS2 #}
+cluster_type: o2cb

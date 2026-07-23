@@ -1,0 +1,221 @@
+{
+  "server_port": {
+    "type": "number",
+    "default": 64738,
+    "description": "UDP and TCP port for Mumble server clients to connect."
+  },
+  "server_host": {
+    "type": "string",
+    "default": "",
+    "description": "IP address or hostname to bind the server to. Empty string binds to all interfaces."
+  },
+  "server_password": {
+    "type": "string",
+    "default": "",
+    "description": "Global password required for all connecting users. Leave empty for no global password."
+  },
+  "superuser_password": {
+    "type": "string",
+    "default": "",
+    "description": "Password for the superuser (admin) account. Must be set initially to create the admin user."
+  },
+  "ssl_certfile": {
+    "type": "string",
+    "default": "/etc/ssl/certs/mumble.crt",
+    "description": "Path to the SSL certificate chain (PEM format) for encrypted connections."
+  },
+  "ssl_keyfile": {
+    "type": "string",
+    "default": "/etc/ssl/private/mumble.key",
+    "description": "Path to the SSL private key (PEM format) matching the certificate."
+  },
+  "web_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable or disable the built-in web interface (for admin and user management)."
+  },
+  "web_host": {
+    "type": "string",
+    "default": "0.0.0.0",
+    "description": "Interface to bind the web interface to."
+  },
+  "web_port": {
+    "type": "number",
+    "default": 0,
+    "description": "Port for the web interface (set to 0 to disable)."
+  },
+  "web_path": {
+    "type": "string",
+    "default": "/usr/share/mumble-server/www",
+    "description": "Filesystem path to the web interface assets."
+  },
+  "max_bandwidth": {
+    "type": "number",
+    "default": 72000,
+    "description": "Maximum audio bandwidth (in bits per second) allowed per user."
+  },
+  "max_users": {
+    "type": "number",
+    "default": 100,
+    "description": "Maximum number of concurrent users allowed on the server."
+  },
+  "worker_threads": {
+    "type": "number",
+    "default": 0,
+    "description": "Number of threads for audio processing. 0 = automatic (recommended)."
+  },
+  "udptunnel": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable or disable UDP packet logging (for debugging)."
+  },
+  "log_level": {
+    "type": "number",
+    "default": 3,
+    "description": "Logging verbosity: 0=quiet, 1=error, 2=warning, 3=info, 4=debug."
+  },
+  "log_file": {
+    "type": "string",
+    "default": "/var/log/mumble-server/mumble-server.log",
+    "description": "Path to the log file. Empty = log to stdout (systemd journals)."
+  },
+  "ban_file": {
+    "type": "string",
+    "default": "/var/lib/mumble-server/ban.db",
+    "description": "Path to the ban list database (SQLite format)."
+  },
+  "channel_last_default": {
+    "type": "bool",
+    "default": true,
+    "description": "If enabled, newly created channels inherit password protection from their parent."
+  },
+  "allow_registration": {
+    "type": "bool",
+    "default": true,
+    "description": "Allow users to register accounts via the client (requires server restart to take full effect)."
+  },
+  "normalize_names": {
+    "type": "bool",
+    "default": true,
+    "description": "Automatically normalize user names to ASCII and remove illegal characters."
+  },
+  "registration_timeout": {
+    "type": "number",
+    "default": 10080,
+    "description": "Minutes after which unactivated user registrations expire (10080 = 7 days)."
+  },
+  "max_channel_depth": {
+    "type": "number",
+    "default": 0,
+    "description": "Maximum depth of channel nesting. 0 = unlimited."
+  },
+  "rtti_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable Runtime Type Information (RTTI). Required only for legacy compatibility."
+  },
+  "cert_required": {
+    "type": "bool",
+    "default": false,
+    "description": "Require clients to present a valid SSL certificate upon connection."
+  },
+  "ca_certfile": {
+    "type": "string",
+    "default": "",
+    "description": "Path to CA certificate for validating client certificates (optional)."
+  },
+  "opus_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable Opus audio codec (required for high-quality, low-latency VoIP)."
+  },
+  "welcome_messages": {
+    "type": "list",
+    "default": [
+      "Welcome to {{ server_name }}!",
+      "Please read our rules in the documentation."
+    ],
+    "items": {
+      "type": "string",
+      "description": "One line of text shown to users on connect."
+    },
+    "description": "List of messages displayed to users upon connection."
+  },
+  "allowed_users": {
+    "type": "list",
+    "default": [],
+    "items": {
+      "type": "object",
+      "fields": {
+        "username": {
+          "type": "string",
+          "description": "Username for pre-registered account."
+        },
+        "password": {
+          "type": "string",
+          "description": "Password for the account (stored in config \u2014 use sparingly)."
+        },
+        "enabled": {
+          "type": "bool",
+          "default": true,
+          "description": "Whether the account is active."
+        }
+      }
+    },
+    "description": "List of pre-created user accounts (admin or limited privilege)."
+  },
+  "static_channels": {
+    "type": "list",
+    "default": [
+      {
+        "name": "root",
+        "display_name": "Root",
+        "description": "Main channel hierarchy root",
+        "position": 0
+      },
+      {
+        "name": "general",
+        "display_name": "General",
+        "description": "General discussion",
+        "position": 1
+      }
+    ],
+    "items": {
+      "type": "object",
+      "fields": {
+        "name": {
+          "type": "string",
+          "description": "Internal channel name (used as key in config)."
+        },
+        "display_name": {
+          "type": "string",
+          "description": "User-facing channel name (supports Unicode)."
+        },
+        "description": {
+          "type": "string",
+          "description": "Short description of the channel."
+        },
+        "position": {
+          "type": "number",
+          "description": "Sort position among siblings (lower = higher in list)."
+        },
+        "max_users": {
+          "type": "number",
+          "optional": true,
+          "description": "Override per-channel max user limit (if omitted, server default applies)."
+        }
+      }
+    },
+    "description": "Pre-create static channels with default properties."
+  },
+  "extra_config": {
+    "type": "object",
+    "default": {},
+    "description": "Arbitrary key-value pairs for advanced or undocumented settings (e.g., 'iceport', 'database')."
+  },
+  "server_name": {
+    "type": "string",
+    "default": "Mumble Server",
+    "description": "Human-readable server name used in welcome messages and UI."
+  }
+}

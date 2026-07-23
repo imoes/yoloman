@@ -1,0 +1,19 @@
+[options]
+# Enable verbose logging
+UseSyslog = {{ options.use_syslog | lower }}
+# Network interface to monitor
+Interface = {{ options.interface }}
+# TCP timeout for open/close sequence (seconds)
+TCPTimeout = {{ options.tcp_timeout }}
+
+[openSequence]
+# Sequence of knock ports/commands to open access
+{% for item in sequences.open %}
+{{ item.port }} = {{ item.command }}
+{% endfor %}
+
+[closeSequence]
+# Sequence of knock ports/commands to close access
+{% for item in sequences.close %}
+{{ item.port }} = {{ item.command }}
+{% endfor %}

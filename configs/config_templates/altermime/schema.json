@@ -1,0 +1,233 @@
+{
+  "enabled": {
+    "type": "boolean",
+    "default": true,
+    "description": "Enable or disable MIME scanning and modification."
+  },
+  "max_body_size": {
+    "type": "number",
+    "default": 0,
+    "description": "Maximum message body size (bytes) to scan; set to 0 for unlimited."
+  },
+  "log_level": {
+    "type": "number",
+    "default": 2,
+    "description": "Log verbosity: 0=quiet, 1=errors, 2=warnings, 3=info, 4=debug."
+  },
+  "log_file": {
+    "type": "string",
+    "default": "",
+    "description": "Path to log file. Leave empty to log to stderr."
+  },
+  "filter_timeout": {
+    "type": "number",
+    "default": 60,
+    "description": "Seconds to wait for external filters before timing out."
+  },
+  "replacement_rules": {
+    "type": "list",
+    "default": [],
+    "description": "List of MIME replacement rules (e.g., for inserting disclaimers or replacing unsafe HTML).",
+    "items": {
+      "type": "object",
+      "fields": {
+        "name": {
+          "type": "string",
+          "default": "",
+          "description": "Rule name (for documentation only)."
+        },
+        "enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Whether this rule is active."
+        },
+        "type": {
+          "type": "string",
+          "default": "text/html",
+          "description": "MIME type pattern (e.g., text/html, text/plain); may use 're:' prefix for regex."
+        },
+        "pattern": {
+          "type": "string",
+          "default": "text/html",
+          "description": "Pattern to match against MIME types (supports globs or regex if prefixed with 're:')."
+        },
+        "text": {
+          "type": "string",
+          "default": "",
+          "description": "Replacement text (supports escape sequences like \\n and \\t)."
+        },
+        "headers": {
+          "type": "list",
+          "default": [],
+          "description": "Optional list of custom headers to prepend.",
+          "items": {
+            "type": "object",
+            "fields": {
+              "name": {
+                "type": "string",
+                "default": "",
+                "description": "Header name (e.g., 'X-Disclaimer')"
+              },
+              "value": {
+                "type": "string",
+                "default": "",
+                "description": "Header value (may use \\n, \\t)."
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "quarantine": {
+    "type": "object",
+    "default": {
+      "enabled": false,
+      "base_dir": "/var/spool/altermime/quarantine",
+      "retention_days": 30,
+      "file_mode": "0640",
+      "group": "mail",
+      "user": "mail"
+    },
+    "description": "Quarantine settings for messages requiring special handling (e.g., after scanning).",
+    "fields": {
+      "enabled": {
+        "type": "boolean",
+        "default": false,
+        "description": "Enable quarantining of matched/modified messages."
+      },
+      "base_dir": {
+        "type": "string",
+        "default": "/var/spool/altermime/quarantine",
+        "description": "Root directory for quarantined messages."
+      },
+      "retention_days": {
+        "type": "number",
+        "default": 30,
+        "description": "Days to retain quarantined messages before deletion; 0 = keep indefinitely."
+      },
+      "file_mode": {
+        "type": "string",
+        "default": "0640",
+        "description": "Octal permission mask for quarantined files (e.g., '0640')."
+      },
+      "group": {
+        "type": "string",
+        "default": "mail",
+        "description": "Group ownership for quarantined files."
+      },
+      "user": {
+        "type": "string",
+        "default": "mail",
+        "description": "User ownership for quarantined files."
+      }
+    }
+  },
+  "external_filters": {
+    "type": "list",
+    "default": [],
+    "description": "External filter commands (e.g., ClamAV, custom scanners).",
+    "items": {
+      "type": "object",
+      "fields": {
+        "name": {
+          "type": "string",
+          "default": "",
+          "description": "Filter name (e.g., 'clamav')."
+        },
+        "enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable this filter."
+        },
+        "command": {
+          "type": "string",
+          "default": "",
+          "description": "Full path and arguments to run the filter (stdin \u2192 filter \u2192 stdout)."
+        },
+        "input_types": {
+          "type": "list",
+          "default": [
+            "*"
+          ],
+          "items": {
+            "type": "string"
+          },
+          "description": "Comma-separated list of MIME types this filter processes; '*' means all."
+        },
+        "action": {
+          "type": "string",
+          "enum": [
+            "pass",
+            "quarantine",
+            "reject",
+            "replace"
+          ],
+          "default": "pass",
+          "description": "Action to take on match: pass (no change), quarantine, reject, or replace."
+        },
+        "replacement_text": {
+          "type": "string",
+          "default": "",
+          "description": "Text to insert if action=replace (supports \\n, \\t)."
+        }
+      }
+    }
+  },
+  "mime_overrides": {
+    "type": "list",
+    "default": [],
+    "description": "Override MIME type assignments (e.g., treat .js as text/plain for safety).",
+    "items": {
+      "type": "object",
+      "fields": {
+        "enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable this override."
+        },
+        "description": {
+          "type": "string",
+          "default": "",
+          "description": "Human-readable description of the override."
+        },
+        "source_type": {
+          "type": "string",
+          "default": "",
+          "description": "Original MIME type to override (e.g., 'application/javascript')."
+        },
+        "target_type": {
+          "type": "string",
+          "default": "",
+          "description": "Replacement MIME type (e.g., 'text/plain')."
+        }
+      }
+    }
+  },
+  "security": {
+    "type": "object",
+    "default": {
+      "user": "altermime",
+      "group": "altermime",
+      "chroot": ""
+    },
+    "description": "Security hardening options (privilege dropping and chroot).",
+    "fields": {
+      "user": {
+        "type": "string",
+        "default": "altermime",
+        "description": "Unix user to drop privileges to."
+      },
+      "group": {
+        "type": "string",
+        "default": "altermime",
+        "description": "Unix group to drop privileges to."
+      },
+      "chroot": {
+        "type": "string",
+        "default": "",
+        "description": "Path to chroot jail (leave empty to disable chroot)."
+      }
+    }
+  }
+}

@@ -1,0 +1,60 @@
+{
+  "webservice_origins": {
+    "type": "list",
+    "default": [],
+    "description": "Allowed origins for cross-origin WebSocket connections. Add every public URL through which Cockpit is reached (e.g. 'https://cockpit.example.com'). Leave empty when not using a reverse proxy.",
+    "items": {
+      "type": "string"
+    }
+  },
+  "webservice_protocol_header": {
+    "type": "string",
+    "default": "X-Forwarded-Proto",
+    "description": "HTTP request header that your reverse proxy sets to indicate whether the client is using HTTPS. Typically 'X-Forwarded-Proto'. Leave empty when Cockpit handles TLS directly."
+  },
+  "webservice_login_title": {
+    "type": "string",
+    "default": "Cockpit",
+    "description": "Title text displayed on the Cockpit login page. Customise to identify the environment (e.g. company name or datacenter)."
+  },
+  "webservice_compression": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable gzip compression for HTTP responses. Reduces bandwidth for slow links; disable if a reverse proxy handles compression upstream."
+  },
+  "webservice_max_startups": {
+    "type": "number",
+    "default": 10,
+    "description": "Maximum number of concurrent unauthenticated connection attempts cockpit-ws will accept. Excess connections are refused until slots free up."
+  },
+  "webservice_allow_multihost": {
+    "type": "bool",
+    "default": false,
+    "description": "Allow users to connect to additional remote hosts from the Cockpit UI. Enable only if the host-switching feature is needed and access is controlled at the network layer."
+  },
+  "webservice_client_cert_auth": {
+    "type": "bool",
+    "default": false,
+    "description": "Require a TLS client certificate for authentication. Only effective when cockpit-ws terminates TLS itself (not behind a proxy). Requires a PKI to issue client certificates."
+  },
+  "session_idle_timeout": {
+    "type": "number",
+    "default": 15,
+    "description": "Minutes of browser inactivity before the session is automatically closed. Set to 0 to keep sessions alive indefinitely (not recommended for shared systems)."
+  },
+  "session_banner": {
+    "type": "string",
+    "default": "",
+    "description": "Absolute path to a plain-text file displayed on the login page before users authenticate (e.g. a legal notice or acceptable-use policy). Leave empty to show no banner."
+  },
+  "log_fatal_channels": {
+    "type": "list",
+    "default": [
+      "stderr"
+    ],
+    "description": "Cockpit bridge log channels treated as fatal \u2014 cockpit-ws exits when an error is emitted on any listed channel. 'stderr' covers the most critical bridge errors; add 'auth' to make authentication errors fatal.",
+    "items": {
+      "type": "string"
+    }
+  }
+}

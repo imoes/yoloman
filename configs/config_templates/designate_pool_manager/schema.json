@@ -1,0 +1,106 @@
+{
+  "pool_default_target": {
+    "type": "string",
+    "default": "http://localhost:5358",
+    "description": "Default URL endpoint for DNS provider (e.g., BIND, PowerDNS) that receives zone updates."
+  },
+  "workers": {
+    "type": "number",
+    "default": 1,
+    "description": "Number of worker threads for the pool manager process to handle DNS updates and health checks."
+  },
+  "healthcheck_interval": {
+    "type": "number",
+    "default": 30,
+    "description": "Interval (in seconds) between health checks to verify provider availability."
+  },
+  "healthcheck_timeout": {
+    "type": "number",
+    "default": 5,
+    "description": "Timeout (in seconds) for each health check request before considering a provider unhealthy."
+  },
+  "healthcheck_max_retries": {
+    "type": "number",
+    "default": 3,
+    "description": "Number of consecutive health check failures before marking a provider as unhealthy."
+  },
+  "retry_interval": {
+    "type": "number",
+    "default": 1,
+    "description": "Initial delay (in seconds) between retries of a failed DNS update."
+  },
+  "retry_max_interval": {
+    "type": "number",
+    "default": 300,
+    "description": "Maximum interval (in seconds) between retries for a failed update. Backoff increases up to this value."
+  },
+  "log_level": {
+    "type": "string",
+    "default": "INFO",
+    "description": "Logging verbosity level (e.g., DEBUG, INFO, WARNING, ERROR, CRITICAL)."
+  },
+  "pid_file": {
+    "type": "string",
+    "default": "/var/run/designate/pool_manager.pid",
+    "description": "Path to the PID file for the pool manager daemon."
+  },
+  "rpc_backend": {
+    "type": "string",
+    "default": "rabbit",
+    "description": "Message broker backend used for RPC communication (e.g., 'rabbit' for RabbitMQ)."
+  },
+  "rpc_response_timeout": {
+    "type": "number",
+    "default": 60,
+    "description": "Timeout (in seconds) for RPC responses from other OpenStack services."
+  },
+  "amqp_url": {
+    "type": "string",
+    "default": "",
+    "description": "Connection URL for the AMQP broker (e.g., 'amqp://guest:guest@localhost:5672/'). If empty, defaults are used."
+  },
+  "ca_cert": {
+    "type": "string",
+    "default": "",
+    "description": "Path to CA certificate file for TLS verification of provider connections (optional)."
+  },
+  "cert_file": {
+    "type": "string",
+    "default": "",
+    "description": "Path to client certificate file for mutual TLS (optional)."
+  },
+  "key_file": {
+    "type": "string",
+    "default": "",
+    "description": "Path to client private key file for mutual TLS (optional)."
+  },
+  "rate_limit": {
+    "type": "number",
+    "default": 0,
+    "description": "Maximum DNS update requests per second (0 = no rate limiting)."
+  },
+  "providers": {
+    "type": "list",
+    "default": [],
+    "description": "List of DNS provider endpoints associated with this pool.",
+    "items": {
+      "name": {
+        "type": "string",
+        "default": "primary",
+        "description": "Unique name for the provider (used as key in config)."
+      },
+      "type": {
+        "type": "string",
+        "default": "powerdns",
+        "description": "Provider type (e.g., 'powerdns', 'bind9', 'nsd', 'dnsdist')."
+      },
+      "urls": {
+        "type": "list",
+        "default": [
+          "http://localhost:5358"
+        ],
+        "description": "List of URLs for this provider (support multiple for HA)."
+      }
+    }
+  }
+}

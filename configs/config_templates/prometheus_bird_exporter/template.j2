@@ -1,0 +1,37 @@
+# /etc/default/prometheus-bird-exporter
+# Configuration for the Prometheus BIRD exporter service
+# Set the BIRD socket path for the exporter to connect to
+BIRD_SOCKET={{ bird_socket }}
+
+# Set the address and port the exporter listens on
+EXPORTER_ADDRESS={{ exporter_address }}
+EXPORTER_PORT={{ exporter_port }}
+
+# Enable/disable collection of BIRD protocol metrics
+METRICS_PROTOCOLS={{ metrics_protocols | string | lower }}
+
+# Enable/disable collection of BIRD route table metrics
+METRICS_ROUTES={{ metrics_routes | string | lower }}
+
+# Enable/disable collection of BIRD interface metrics
+METRICS_INTERFACES={{ metrics_interfaces | string | lower }}
+
+# Enable/disable collection of BIRD kernel table metrics
+METRICS_KERNEL={{ metrics_kernel | string | lower }}
+
+# Enable/disable collection of BIRD route export metrics
+METRICS_EXPORT_TABLES={{ metrics_export_tables | string | lower }}
+
+# Set log level (debug, info, warn, error)
+LOG_LEVEL={{ log_level }}
+
+# Optional: list of BIRD instances to monitor (comma-separated socket paths)
+# Leave empty to use only the default socket (BIRD_SOCKET)
+{% if bird_instances %}
+BIRD_INSTANCES={{ bird_instances | join(',') }}
+{% else %}
+BIRD_INSTANCES=
+{% endif %}
+
+# Optional: timeout for connecting to BIRD (in seconds)
+CONNECT_TIMEOUT={{ connect_timeout }}

@@ -1,0 +1,179 @@
+# Conntrackd configuration file
+# Global settings for connection tracking synchronization
+# 
+# This file controls the behavior of conntrackd, including network interfaces,
+# synchronization protocols (ctnetlink, broadcast, unicast), logging, and failover modes.
+# 
+# For full documentation, see `man 5 conntrackd.conf`.
+
+# General daemon settings
+General {
+  # How often (in seconds) to send periodic heartbeat notifications
+  #{% if heartbeat_interval is defined %}
+  #{%   set heartbeat = heartbeat_interval %}
+  #{% else %}
+  #{%   set heartbeat = 20 %}
+  #{% endif %}
+  #{% if heartbeat == 0 %}
+  #{%   comment 'Disabled (0) means no heartbeat' %}
+  #{% endif %}
+  #{% if heartbeat is defined %}
+  #{%     echo '# Heartbeat interval (seconds)' %}
+  #{%     echo 'Heartbeat ' heartbeat %}
+  #{%   endif %}
+
+  # Number of worker threads for event processing
+  #{% if workers is defined %}
+  #{%   set w = workers %}
+  #{% else %}
+  #{%   set w = 2 %}
+  #{% endif %}
+  #{% if w == 0 %}
+  #{%     comment '0 = auto-detect (recommended)' %}
+  #{% endif %}
+  #{% if workers is defined or workers is not defined %}
+  #{%     echo 'Workers ' w %}
+  #{%   endif %}
+
+  # Maximum size of connection tracking table entries to cache in memory
+  #{% if ctable_size is defined %}
+  #{%   set size = ctable_size %}
+  #{% else %}
+  #{%   set size = 262144 %}
+  #{% endif %}
+  #{% if size is defined %}
+  #{%     echo 'CTTimeouts ' size %}
+  #{%   endif %}
+
+  #{% if log_level is defined %}
+  #{%   echo 'LogLevel ' log_level %}
+  #{% endif %}
+}
+
+# Synchronization protocol configuration
+#{% if sync_mode == 'standard' or sync_mode == 'firewall' or sync_mode is not defined %}
+#{%   set mode = sync_mode | default('firewall') %}
+Sync {
+  # Mode: 'firewall' (active/passive with failover), 'standard' (simple passive), or 'userspace'
+  #{% if mode == 'firewall' %}
+  #{%     echo 'Mode firewall' %}
+  #{%   elif mode == 'standard' %}
+  #{%     echo 'Mode standard' %}
+  #{%   else %}
+  #{%     echo 'Mode userspace' %}
+  #{%   endif %}
+
+  #{% if sync_interface is defined %}
+  #{%     echo 'Interface ' sync_interface %}
+  #{% endif %}
+
+  #{% if sync_protocol == 'tcp' or sync_protocol == 'udp' %}
+  #{%     echo 'Protocol ' sync_protocol %}
+  #{% elif sync_protocol is defined %}
+  #{%     echo 'Protocol ' sync_protocol %}
+  #{% else %}
+  #{%     echo 'Protocol tcp' %}
+  #{% endif %}
+
+  #{% if sync_bind_address is defined %}
+  #{%     echo 'BindAddress ' sync_bind_address %}
+  #{% endif %}
+
+  #{% if sync_port is defined %}
+  #{%     echo 'Port ' sync_port %}
+  #{% else %}
+  #{%     echo 'Port 3780' %}
+  #{% endif %}
+
+  #{% if sync_multicast_group is defined %}
+  #{%     echo 'MulticastGroup ' sync_multicast_group %}
+  #{% endif %}
+
+  #{% if sync_siblings is defined %}
+  #{%     set siblings = sync_siblings %}
+  #{%     for sibling in siblings %}
+  #{%       if sibling.ip is defined %}
+  #{%         echo 'Siblings {' sibling.ip %}
+  #{%         if sibling.port is defined %}
+  #{%           echo '    Port ' sibling.port %}
+  #{%         endif %}
+  #{%         echo '}' %}
+  #{%       endif %}
+  #{%     endfor %}
+  #{% endif %}
+
+  #{% if sync_flush_on_timeout is defined %}
+  #{%     echo 'FlushOnTimeout ' sync_flush_on_timeout %}
+  #{% endif %}
+
+  #{% if sync_heartbeat_enabled is defined %}
+  #{%     echo 'Heartbeat ' ('yes' if sync_heartbeat_enabled else 'no') %}
+  #{% endif %}
+}
+
+#{% if log_target is defined %}
+# Logging configuration
+#{%   echo 'Logfile ' log_target %}
+#{% endif %}
+
+#{% if event_filters is defined %}
+# Event filtering
+#{%   echo 'Filters {' %}
+#{%     for f in event_filters %}
+#{%       if f.name == 'Address' and f.value is defined %}
+#{%         echo '  Address {' f.value '}' %}
+#{%       elif f.name == 'Protocol' and f.value is defined %}
+#{%         echo '  Protocol ' f.value %}
+#{%       elif f.name == 'Timeout' and f.value is defined %}
+#{%         echo '  Timeout ' f.value %}
+#{%       elif f.name == 'Type' and f.value is defined %}
+#{%         echo '  Type ' f.value %}
+#{%       endif %}
+#{%     endfor %}
+#{%   echo '}' %}
+#{% endif %}
+
+#{% if cache_tables is defined %}
+# Custom connection tracking timeouts
+#{%   echo 'Timeouts {' %}
+#{%     for table_name, table_values in cache_tables.items() %}
+#{%     echo '  ' table_name ' {' %}
+#{%       for key, val in table_values.items() %}
+#{%         echo '    ' key ' ' val %}
+#{%       endfor %}
+#{%     echo '  }' %}
+#{%     endfor %}
+#{%   echo '}' %}
+#{% endif %}
+
+#{% if nl_socket_buf_size is defined %}
+# Netlink socket buffer sizes (in bytes)
+#{%   echo 'NetlinkBufferSize ' nl_socket_buf_size %}
+#{% endif %}
+
+#{% if nl_socket_buf_maxsize is defined %}
+#{%   echo 'NetlinkBufferSizeMax ' nl_socket_buf_maxsize %}
+#{% endif %}
+
+#{% if external_cache_enabled is defined %}
+#{%   echo 'ExternalCache ' ('yes' if external_cache_enabled else 'no') %}
+#{% endif %}
+
+#{% if failover_mechanism == 'active' or failover_mechanism == 'backup' or failover_mechanism is defined %}
+# HA / Failover settings
+#{%   if failover_mechanism == 'active' or failover_mechanism == 'backup' %}
+#{%     echo 'FailoverMechanism ' failover_mechanism %}
+#{%   elif failover_mechanism is defined %}
+#{%     echo 'FailoverMechanism ' failover_mechanism %}
+#{%   else %}
+#{%     echo 'FailoverMechanism active' %}
+#{%   endif %}
+
+#{%   if ha_node_id is defined %}
+#{%     echo 'NodeId ' ha_node_id %}
+#{%   endif %}
+
+#{%   if ha_secret is defined %}
+#{%     echo 'Secret ' ha_secret %}
+#{%   endif %}
+#{% endif %}

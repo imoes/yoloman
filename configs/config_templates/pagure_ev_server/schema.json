@@ -1,0 +1,83 @@
+{
+  "bind_host": {
+    "type": "string",
+    "default": "127.0.0.1",
+    "description": "The IP address or hostname the EventSource server binds to. Use `0.0.0.0` to accept connections from all interfaces."
+  },
+  "port": {
+    "type": "number",
+    "default": 5000,
+    "description": "TCP port on which the EventSource server listens for client connections."
+  },
+  "max_connections": {
+    "type": "number",
+    "default": 1000,
+    "description": "Maximum number of concurrent WebSocket connections the server will accept."
+  },
+  "log_dir": {
+    "type": "string",
+    "default": "/var/log/pagure",
+    "description": "Directory where server logs will be written. Ensure the directory is writable by the service user."
+  },
+  "log_level": {
+    "type": "string",
+    "default": "INFO",
+    "description": "Verbosity of logs. Choose from DEBUG, INFO, WARNING, ERROR, or CRITICAL."
+  },
+  "pagure_uri": {
+    "type": "string",
+    "default": "http://localhost:5000",
+    "description": "Base URL of the main Pagure web instance (used for reverse proxy checks, health endpoints, or API calls)."
+  },
+  "idle_timeout": {
+    "type": "number",
+    "default": 60,
+    "description": "Number of seconds after which an idle WebSocket connection is closed."
+  },
+  "use_tls": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable TLS encryption for the EventSource connections (recommended for production deployments)."
+  },
+  "tls_cert": {
+    "type": "string",
+    "default": "/etc/pagure/ssl/server.crt",
+    "description": "Path to the TLS certificate file. Required if `use_tls` is enabled."
+  },
+  "tls_key": {
+    "type": "string",
+    "default": "/etc/pagure/ssl/server.key",
+    "description": "Path to the TLS private key file. Required if `use_tls` is enabled."
+  },
+  "allowed_origins": {
+    "type": "list",
+    "default": [
+      "*"
+    ],
+    "description": "List of allowed origins for WebSocket connections (for CORS). Use `['*']` to allow all, or specify domains like `['https://pagure.example.com']` for stricter security.",
+    "items": {
+      "type": "string",
+      "description": "A valid origin (scheme + domain) to allow for cross-origin WebSocket handshake."
+    }
+  },
+  "redis_url": {
+    "type": "string",
+    "default": "redis://localhost:6379/0",
+    "description": "URL of the Redis instance used for inter-process coordination and event broadcasting across multiple worker nodes."
+  },
+  "workers": {
+    "type": "number",
+    "default": 0,
+    "description": "Number of worker processes. Set to 0 for automatic scaling based on available CPU cores."
+  },
+  "local_db_path": {
+    "type": "string",
+    "default": "/var/lib/pagure/pagure_ev_server.db",
+    "description": "Path to the local SQLite database used as a fallback state store (e.g., for reconnect state when Redis is unavailable)."
+  },
+  "debug": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable verbose debugging mode. Disable in production as it may expose sensitive details."
+  }
+}

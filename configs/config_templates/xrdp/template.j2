@@ -1,0 +1,49 @@
+[globals]
+# Basic RDP server settings
+name=XRDP Server
+lib=libvnc.so
+# Listen address — binds to all interfaces by default
+listen_address={{ listen_address }}
+# Listen port for RDP connections
+listen_port={{ rdp_port }}
+# Security: TLS enabled?
+secure_layer={{ 'yes' if tls_enabled else 'no' }}
+# TLS certificate and key paths (ignored if tls_enabled is false)
+cert=/etc/xrdp/rsakeys.txt
+key=/etc/xrdp/rsakeys.txt
+# Cipher suite (used only if TLS enabled)
+crypt_level={{ tls_level }}
+
+# User session and credential handling
+# Enable logins via username/password (not only via PAM)
+userparam={{ 'N' if disable_local_auth else 'Y' }}
+# Require PAM authentication even for local auth bypass
+pam_username={{ 'xrdp' if use_pam else '' }}
+
+# Session management
+# Maximum number of concurrent sessions
+max_sessions={{ max_sessions }}
+# Session timeout (seconds) — 0 disables timeout
+xrdp_timeout={{ session_timeout }}
+
+# Logging
+# Log level: 0=none, 1=error, 2=warn, 3=info, 4=debug
+log_level={{ log_level }}
+# Log file path
+log_file={{ log_path }}
+
+{% for name, cfg in modules.items() %}
+# Module: {{ name }} — {{ cfg.description or 'RDP channel/module configuration' }}
+[xrdp{{ name }}]
+name={{ cfg.name or name }}
+lib={{ cfg.lib }}
+{% if cfg.value %}value={{ cfg.value }}{% endif %}
+{% endfor %}
+
+# Security: access control by username group
+# Each entry maps an RDP session type (e.g., Xvnc, Xorg) to allowed group(s)
+# Leave empty to allow all authenticated users
+{% for group, types in group_rules.items() %}
+# Allow users in group '{{ group }}' to access session types: {{ types | join(', ') }}
+allow_groups={{ group }}
+{% endfor %}

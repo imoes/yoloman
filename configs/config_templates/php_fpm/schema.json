@@ -1,0 +1,297 @@
+{
+  "pid_file": {
+    "type": "string",
+    "default": "/run/php/php-fpm.pid",
+    "description": "Absolute path to the main FPM PID file."
+  },
+  "error_log": {
+    "type": "string",
+    "default": "/var/log/php8.4-fpm.log",
+    "description": "Path to the global error log file."
+  },
+  "log_level": {
+    "type": "string",
+    "default": "notice",
+    "description": "Logging verbosity: debug, notice, warning, error, or critical."
+  },
+  "syslog_ident": {
+    "type": "string",
+    "default": "php-fpm",
+    "description": "Prefix for syslog entries."
+  },
+  "syslog_facility": {
+    "type": "string",
+    "default": "daemon",
+    "description": "Syslog facility (e.g., daemon, local0)."
+  },
+  "process_manager": {
+    "type": "string",
+    "default": "dynamic",
+    "description": "Process manager mode: static, dynamic, or ondemand."
+  },
+  "pm_max_children": {
+    "type": "number",
+    "default": 10,
+    "description": "Maximum number of child processes (used for static and dynamic pools)."
+  },
+  "pm_max_children_dynamic": {
+    "type": "number",
+    "default": 10,
+    "description": "Maximum number of child processes in dynamic mode (same as `pm_max_children`, but for clarity)."
+  },
+  "pm_max_children_ondemand": {
+    "type": "number",
+    "default": 10,
+    "description": "Maximum number of child processes in ondemand mode."
+  },
+  "pm_start_servers": {
+    "type": "number",
+    "default": 5,
+    "description": "Initial number of child processes in dynamic mode."
+  },
+  "pm_min_spare_servers": {
+    "type": "number",
+    "default": 2,
+    "description": "Minimum idle servers in dynamic mode."
+  },
+  "pm_max_spare_servers": {
+    "type": "number",
+    "default": 5,
+    "description": "Maximum idle servers in dynamic mode."
+  },
+  "pm_process_idle_timeout": {
+    "type": "number",
+    "default": 10,
+    "description": "Seconds before idle processes terminate (ondemand only)."
+  },
+  "pm_max_requests": {
+    "type": "number",
+    "default": 500,
+    "description": "Number of requests after which a child process is respawned."
+  },
+  "user": {
+    "type": "string",
+    "default": "www-data",
+    "description": "User account under which FPM processes run."
+  },
+  "group": {
+    "type": "string",
+    "default": "www-data",
+    "description": "Group under which FPM processes run."
+  },
+  "listen": {
+    "type": "string",
+    "default": "/run/php/php-fpm.sock",
+    "description": "Socket or IP:port to listen on (e.g., `/run/php/php-fpm.sock` or `127.0.0.1:9000`)."
+  },
+  "listen_owner": {
+    "type": "string",
+    "default": "www-data",
+    "description": "Owner of Unix socket (if applicable)."
+  },
+  "listen_group": {
+    "type": "string",
+    "default": "www-data",
+    "description": "Group of Unix socket (if applicable)."
+  },
+  "listen_mode": {
+    "type": "string",
+    "default": "0660",
+    "description": "Permissions (octal) for Unix socket."
+  },
+  "status_allowed_clients": {
+    "type": "list",
+    "default": [
+      "127.0.0.1",
+      "::1"
+    ],
+    "description": "List of IPs allowed to access the global status endpoint."
+  },
+  "php_admin_error_log": {
+    "type": "string",
+    "default": "/var/log/php/php-fpm-error.log",
+    "description": "Path to PHP error log (via `php_admin_value`)."
+  },
+  "php_admin_log_errors": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable PHP internal error logging (`php_admin_flag`)."
+  },
+  "env_vars": {
+    "type": "object",
+    "default": {},
+    "description": "Environment variables passed to PHP processes (key/value map)."
+  },
+  "pools": {
+    "type": "list",
+    "default": [
+      {
+        "name": "www",
+        "listen": "/run/php/php-fpm-www.sock",
+        "request_terminate_timeout": 30,
+        "request_slowlog_timeout": 5,
+        "slowlog": "/var/log/php/php-fpm-slowlog.log",
+        "pm_max_children": 10,
+        "php_values": {
+          "memory_limit": "256M"
+        },
+        "php_flags": {
+          "display_errors": "off"
+        },
+        "php_admin_values": {
+          "upload_max_filesize": "20M"
+        },
+        "php_admin_flags": {
+          "expose_php": "off"
+        }
+      }
+    ],
+    "items": {
+      "type": "object",
+      "fields": {
+        "name": {
+          "type": "string",
+          "default": "www",
+          "description": "Pool name (must be unique)."
+        },
+        "clear_global": {
+          "type": "bool",
+          "default": false,
+          "description": "Reset global settings before applying pool-specific ones."
+        },
+        "pid_file": {
+          "type": "string",
+          "default": "",
+          "description": "Optional per-pool PID file."
+        },
+        "error_log": {
+          "type": "string",
+          "default": "",
+          "description": "Optional per-pool error log."
+        },
+        "log_level": {
+          "type": "string",
+          "default": "",
+          "description": "Optional per-pool log level."
+        },
+        "process_manager": {
+          "type": "string",
+          "default": "",
+          "description": "Optional per-pool process manager (overrides global if set)."
+        },
+        "pm_max_children": {
+          "type": "number",
+          "default": 10,
+          "description": "Max children (static or dynamic mode)."
+        },
+        "pm_start_servers": {
+          "type": "number",
+          "default": 5,
+          "description": "Start servers (dynamic mode)."
+        },
+        "pm_min_spare_servers": {
+          "type": "number",
+          "default": 2,
+          "description": "Min idle servers (dynamic mode)."
+        },
+        "pm_max_spare_servers": {
+          "type": "number",
+          "default": 5,
+          "description": "Max idle servers (dynamic mode)."
+        },
+        "pm_process_idle_timeout": {
+          "type": "number",
+          "default": 10,
+          "description": "Idle timeout (ondemand mode)."
+        },
+        "pm_max_requests": {
+          "type": "number",
+          "default": 500,
+          "description": "Requests before respawn."
+        },
+        "user": {
+          "type": "string",
+          "default": "",
+          "description": "User override for this pool (defaults to global)."
+        },
+        "group": {
+          "type": "string",
+          "default": "",
+          "description": "Group override for this pool (defaults to global)."
+        },
+        "listen": {
+          "type": "string",
+          "default": "",
+          "description": "Socket or IP:port for this pool (required)."
+        },
+        "listen_owner": {
+          "type": "string",
+          "default": "",
+          "description": "Socket owner (defaults to global)."
+        },
+        "listen_group": {
+          "type": "string",
+          "default": "",
+          "description": "Socket group (defaults to global)."
+        },
+        "listen_mode": {
+          "type": "string",
+          "default": "",
+          "description": "Socket permissions (defaults to global)."
+        },
+        "enable_status_endpoint": {
+          "type": "bool",
+          "default": false,
+          "description": "Enable per-pool status endpoint."
+        },
+        "status_path": {
+          "type": "string",
+          "default": "/status",
+          "description": "Path for pool status endpoint."
+        },
+        "status_allowed_clients": {
+          "type": "list",
+          "default": [
+            "127.0.0.1"
+          ],
+          "description": "IPs allowed to access this pool's status endpoint."
+        },
+        "request_terminate_timeout": {
+          "type": "number",
+          "default": 30,
+          "description": "Max execution time per request (seconds)."
+        },
+        "request_slowlog_timeout": {
+          "type": "number",
+          "default": 5,
+          "description": "Slow request threshold (seconds)."
+        },
+        "slowlog": {
+          "type": "string",
+          "default": "/var/log/php/php-fpm-slowlog.log",
+          "description": "Path to the slow log file."
+        },
+        "php_values": {
+          "type": "object",
+          "default": {},
+          "description": "PHP ini `php_value` directives (runtime-override, per-pool)."
+        },
+        "php_flags": {
+          "type": "object",
+          "default": {},
+          "description": "PHP ini `php_flag` directives (on/off, per-pool)."
+        },
+        "php_admin_values": {
+          "type": "object",
+          "default": {},
+          "description": "PHP ini `php_admin_value` directives (cannot be overridden by script, per-pool)."
+        },
+        "php_admin_flags": {
+          "type": "object",
+          "default": {},
+          "description": "PHP ini `php_admin_flag` directives (on/off, cannot be overridden, per-pool)."
+        }
+      }
+    }
+  }
+}

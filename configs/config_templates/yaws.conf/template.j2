@@ -1,0 +1,68 @@
+{{% comment %}}Global Yaws configuration file{% endcomment %}}
+{{% comment %}}Directory where Yaws stores log files, pid files, and temporary files{% endcomment %}}
+logdir = {{ logdir }}
+
+{{% comment %}}Directory where Yaws looks for configuration and appfiles{% endcomment %}}
+docroot = {{ docroot }}
+
+{{% comment %}}Directory where Yaws looks for Erlang code (ebin) for applications{% endcomment %}}
+earl_lib_dir = {{ erl_lib_dir }}
+
+{{% comment %}}Port(s) to listen on for HTTP traffic{% endcomment %}}
+port = {{ port }}
+
+{{% comment %}}Hostname(s) to bind to (empty = all interfaces){% endcomment %}}
+listen = {{ listen }}
+
+{{% comment %}}User/group to run Yaws as (empty = current user){% endcomment %}}
+user = {{ user }}
+group = {{ group }}
+
+{{% comment %}}Maximum number of concurrent connections{% endcomment %}}
+max_connections = {{ max_connections }}
+
+{{% comment %}}TCP send/receive buffer sizes{% endcomment %}}
+recv_timeout = {{ recv_timeout }}
+send_timeout = {{ send_timeout }}
+
+{{% comment %}}Enable/disable directory listing{% endcomment %}}
+directory_listing = {{ directory_listing | lower }}
+
+{{% comment %}}Enable/disable keepalive{% endcomment %}}
+keepalive = {{ keepalive | lower }}
+keepalive_timeout = {{ keepalive_timeout }}
+
+{{% comment %}}Server identity headers{% endcomment %}}
+server_alias = {{ server_alias }}
+
+{{% comment %}}List of SSL-enabled virtual hosts{% endcomment %}}
+{% for vhost in ssl_vhosts %}
+<server {{ vhost.name }}>
+    port = {{ vhost.port }}
+    listen = {{ vhost.listen | default('0.0.0.0') }}
+    ssl = true
+    ssl_cert_file = {{ vhost.ssl_cert_file }}
+    ssl_key_file = {{ vhost.ssl_key_file }}
+    ssl_cacert_file = {{ vhost.ssl_cacert_file | default('') }}
+    docroot = {{ vhost.docroot | default(docroot) }}
+</server>
+{% endfor %}
+
+{{% comment %}}List of non-SSL virtual hosts{% endcomment %}}
+{% for vhost in plain_vhosts %}
+<server {{ vhost.name }}>
+    port = {{ vhost.port | default(80) }}
+    listen = {{ vhost.listen | default('0.0.0.0') }}
+    docroot = {{ vhost.docroot | default(docroot) }}
+    directory_listing = {{ vhost.directory_listing | default(directory_listing) | lower }}
+</server>
+{% endfor %}
+
+{{% comment %}}Path to Yaws log files (stderr, access, error){% endcomment %}}
+trace = {{ trace }}
+
+{{% comment %}}Erlang VM startup arguments (if not managed externally){% endcomment %}}
+erlang_flags = {{ erlang_flags }}
+
+{{% comment %}}Extra beam load paths (ebin) for custom apps{% endcomment %}}
+extra_app_dirs = {{ extra_app_dirs | join(', ') }}

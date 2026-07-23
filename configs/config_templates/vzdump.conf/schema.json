@@ -1,0 +1,115 @@
+{
+  "backup_storage": {
+    "type": "string",
+    "default": "local",
+    "description": "Name of the default storage pool where backups are stored."
+  },
+  "backup_cores": {
+    "type": "number",
+    "default": 2,
+    "description": "Maximum number of concurrent backup jobs allowed. Increase on multi-core systems."
+  },
+  "backup_compression": {
+    "type": "string",
+    "default": "lzo",
+    "description": "Compression algorithm: 'none', 'lzo', 'zstd', 'gzip' (trade-off: speed vs size)."
+  },
+  "enable_snapshot": {
+    "type": "bool",
+    "default": true,
+    "description": "Whether to use snapshots (e.g., LVM/ZFS) instead of stopping the VM/CT during backup."
+  },
+  "enable_resume": {
+    "type": "bool",
+    "default": false,
+    "description": "If true, resume suspended VMs/CTs instead of leaving them paused after backup."
+  },
+  "backup_timeout": {
+    "type": "number",
+    "default": 7200,
+    "description": "Global timeout (seconds) for each backup job. Increase for large VMs."
+  },
+  "exclude_storages": {
+    "type": "list",
+    "default": [],
+    "description": "List of storage IDs (e.g., 'ceph', 'nfs-backup') to skip during backup. Useful for non-essential caches.",
+    "items": {
+      "type": "string",
+      "description": "Name of a storage ID to exclude from backups."
+    }
+  },
+  "mail_notification": {
+    "type": "bool",
+    "default": false,
+    "description": "Send email notifications on backup success/failure?"
+  },
+  "mailnotification_only_on_error": {
+    "type": "bool",
+    "default": true,
+    "description": "If true, send emails only on backup failures or errors."
+  },
+  "mailto": {
+    "type": "string",
+    "default": "",
+    "description": "Email address to receive backup notifications."
+  },
+  "mailfrom": {
+    "type": "string",
+    "default": "vzdump@localhost",
+    "description": "Sender email address for notifications."
+  },
+  "backup_maxfiles": {
+    "type": "number",
+    "default": 0,
+    "description": "Maximum number of backup snapshots per VM/CT to retain. 0 means no limit."
+  },
+  "enable_purge": {
+    "type": "bool",
+    "default": true,
+    "description": "If true, automatically delete old backups when maxfiles is exceeded."
+  },
+  "backup_mode": {
+    "type": "string",
+    "default": "suspend",
+    "description": "Shutdown policy for VMs during backup: 'suspend' (fastest, default), 'shutdown', or 'stop'."
+  },
+  "incremental": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable incremental backups (requires storage with snapshot support, e.g., ZFS)."
+  },
+  "incremental_keep": {
+    "type": "number",
+    "default": 3,
+    "description": "Number of incremental backups to retain (only if incremental=true)."
+  },
+  "skipcleanup": {
+    "type": "bool",
+    "default": false,
+    "description": "Skip automatic cleanup of old snapshots. Disable unless troubleshooting."
+  },
+  "nodes": {
+    "type": "list",
+    "default": [],
+    "description": "List of cluster node names to which this backup policy applies (for multi-node clusters).",
+    "items": {
+      "type": "string",
+      "description": "Name of a Proxmox cluster node."
+    }
+  },
+  "proxy_url": {
+    "type": "string",
+    "default": "",
+    "description": "HTTP/HTTPS proxy URL for backups to remote/cloud storages (e.g., 'http://proxy.example.com:3128')."
+  },
+  "verify_ssl": {
+    "type": "bool",
+    "default": true,
+    "description": "Verify SSL/TLS certificates for remote storages. Disable only for self-signed certs in trusted environments."
+  },
+  "backup_priority": {
+    "type": "number",
+    "default": 50,
+    "description": "Backup job priority (1\u2013100). Higher values get CPU/disk I/O priority during backup."
+  }
+}

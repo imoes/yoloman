@@ -1,0 +1,54 @@
+# Listen address and port for incoming DHCP requests
+listen: {{ listen_addr }}:{{ listen_port }}
+
+# Server address to forward requests to (if acting as relay)
+{% if server_address %}server: {{ server_address }}{% endif %}
+
+# Interface(s) to bind to (empty = all, or list of interface names)
+{% if interfaces | length > 0 %}interfaces:
+{% for iface in interfaces %}  - {{ iface }}
+{% endfor %}{% endif %}
+
+# Logging configuration
+log:
+  level: {{ log_level }}
+  format: {{ log_format }}
+  file: {{ log_file }}
+
+# Plugin configuration
+plugins:
+  # Request handlers
+{% for handler in request_handlers %}  - name: {{ handler.name }}
+{% if handler.options | length > 0 %}    options:
+{% for opt_key, opt_val in handler.options.items() %}      {{ opt_key }}: {{ opt_val | to_json }}
+{% endfor %}    {% endif %}{% if handler.params | length > 0 %}    params:
+{% for key, val in handler.params.items() %}      {{ key }}: {{ val | to_json }}
+{% endfor %}    {% endif %}
+{% endfor %}
+  # Response modifiers
+{% for modifier in response_modifiers %}  - name: {{ modifier.name }}
+{% if modifier.options | length > 0 %}    options:
+{% for opt_key, opt_val in modifier.options.items() %}      {{ opt_key }}: {{ opt_val | to_json }}
+{% endfor %}    {% endif %}{% if modifier.params | length > 0 %}    params:
+{% for key, val in modifier.params.items() %}      {{ key }}: {{ val | to_json }}
+{% endfor %}    {% endif %}
+{% endfor %}
+
+# Client identification strategy
+identity:
+  mode: {{ identity_mode }}
+{% if identity_mode == 'custom' and identity_custom_key %}  key: {{ identity_custom_key }}
+{% endif %}
+
+# Lease management
+leases:
+  database: {{ lease_db_path }}
+  persist: {{ persist_leases }}
+  ttl: {{ lease_ttl }}
+
+# Optional: MAC-to-hostname mapping (for static mappings)
+{% if static_mappings | length > 0 %}static_mappings:
+{% for mapping in static_mappings %}  - mac: {{ mapping.mac }}
+    hostname: {{ mapping.hostname }}
+    ip: {{ mapping.ip }}
+{% endfor %}{% endif %}

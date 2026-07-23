@@ -1,0 +1,192 @@
+{
+  "base_url": {
+    "type": "string",
+    "default": "http://localhost:5000",
+    "description": "Base URL where bepasty will be publicly accessible (including protocol, e.g., https://paste.example.com)"
+  },
+  "upload_dir": {
+    "type": "string",
+    "default": "/var/lib/bepasty/uploads",
+    "description": "Absolute filesystem path where uploaded files are stored"
+  },
+  "secret_key": {
+    "type": "string",
+    "default": "",
+    "description": "Random, cryptographically secure secret key used for signing sessions and tokens. Must be generated and kept secret."
+  },
+  "public_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable the public file upload form (anyone can upload if not rate-limited)"
+  },
+  "listing_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable file listing for authenticated users (e.g., admins)"
+  },
+  "default_expiration": {
+    "type": "number",
+    "default": 86400,
+    "description": "Default upload expiration time in seconds (e.g., 86400 = 24 hours). Use 0 for no expiration."
+  },
+  "max_file_size": {
+    "type": "number",
+    "default": 104857600,
+    "description": "Maximum allowed file size in bytes (e.g., 104857600 = 100 MB). Use 0 for unlimited."
+  },
+  "max_uploads_per_ip_per_day": {
+    "type": "number",
+    "default": 100,
+    "description": "Maximum uploads allowed per IP address per 24-hour window. Set to 0 to disable."
+  },
+  "rate_limit_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable per-IP rate limiting (applies only if max_uploads_per_ip_per_day > 0)"
+  },
+  "allowed_mime_types": {
+    "type": "list",
+    "default": [],
+    "description": "List of allowed MIME types. Empty list = allow all types. Example: ['text/plain', 'image/png', 'application/pdf']"
+  },
+  "inline_mime_types": {
+    "type": "list",
+    "default": [
+      "text/plain",
+      "image/png",
+      "image/jpeg",
+      "image/gif",
+      "text/html"
+    ],
+    "description": "List of MIME types that should be displayed inline in the browser instead of forcing download."
+  },
+  "database_url": {
+    "type": "string",
+    "default": "sqlite:////var/lib/bepasty/bepasty.db",
+    "description": "Database connection URI (SQLite, PostgreSQL, etc.). Example: 'postgresql://user:pass@localhost/bepasty'"
+  },
+  "session_cookie_secure": {
+    "type": "bool",
+    "default": false,
+    "description": "If true, cookies will only be sent over HTTPS. Recommended for production with HTTPS."
+  },
+  "session_cookie_samesite": {
+    "type": "string",
+    "default": "Lax",
+    "description": "SameSite cookie policy: 'Lax', 'Strict', or 'None'. Use 'None' only with Secure flag."
+  },
+  "workers": {
+    "type": "number",
+    "default": 0,
+    "description": "Number of Gunicorn worker processes. Set to 0 to auto-detect (based on CPU cores \u00d7 2 + 1)."
+  },
+  "bind_address": {
+    "type": "string",
+    "default": "127.0.0.1",
+    "description": "IP address to bind the HTTP server to. Use '0.0.0.0' to listen on all interfaces (requires reverse proxy in production)."
+  },
+  "port": {
+    "type": "number",
+    "default": 5000,
+    "description": "Port number for the HTTP server."
+  },
+  "log_level": {
+    "type": "string",
+    "default": "INFO",
+    "description": "Logging verbosity: DEBUG, INFO, WARNING, ERROR, or CRITICAL."
+  },
+  "log_file": {
+    "type": "string",
+    "default": "",
+    "description": "Path to log file. Leave empty to log to stderr instead."
+  },
+  "admin_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable the admin UI for managing uploads and configuration."
+  },
+  "admins": {
+    "type": "list",
+    "default": [],
+    "items": {
+      "type": "string",
+      "description": "Username or email of an admin user (e.g., 'admin@example.com' or 'superuser')"
+    },
+    "description": "List of admin users who can access the admin UI"
+  },
+  "password_protection_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Allow uploaders to protect their uploads with a password (optional field in public form)"
+  },
+  "min_password_length": {
+    "type": "number",
+    "default": 8,
+    "description": "Minimum length required for upload passwords (if enabled)"
+  },
+  "cleanup_expired_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Automatically delete expired uploads during scheduled maintenance."
+  },
+  "cleanup_unclaimed_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Delete uploads that were not claimed (i.e., no metadata set) after a delay."
+  },
+  "cleanup_unclaimed_after_seconds": {
+    "type": "number",
+    "default": 3600,
+    "description": "Seconds after which unclaimed uploads are deleted (only if cleanup_unclaimed_enabled=true)."
+  },
+  "captcha_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable reCAPTCHA v2 for public uploads to mitigate spam."
+  },
+  "captcha_provider": {
+    "type": "string",
+    "default": "",
+    "description": "CAPTCHA provider. Currently only 'recaptcha-v2' is supported."
+  },
+  "recaptcha_site_key": {
+    "type": "string",
+    "default": "",
+    "description": "reCAPTCHA v2 site key (required if CAPTCHA_ENABLED=true and CAPTCHA_PROVIDER='recaptcha-v2')"
+  },
+  "recaptcha_secret_key": {
+    "type": "string",
+    "default": "",
+    "description": "reCAPTCHA v2 secret key (required if CAPTCHA_ENABLED=true and CAPTCHA_PROVIDER='recaptcha-v2')"
+  },
+  "registration_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable user registration for the built-in auth backend (if used)."
+  },
+  "email_verification_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Require email verification before user accounts become active."
+  },
+  "smtp_server": {
+    "type": "string",
+    "default": "localhost",
+    "description": "SMTP server host for sending registration or notification emails."
+  },
+  "smtp_port": {
+    "type": "number",
+    "default": 587,
+    "description": "SMTP server port (typically 587 for TLS, 465 for SSL, 25 for unencrypted)."
+  },
+  "smtp_use_tls": {
+    "type": "bool",
+    "default": true,
+    "description": "Use STARTTLS for SMTP connections."
+  },
+  "smtp_from": {
+    "type": "string",
+    "default": "no-reply@localhost",
+    "description": "Sender email address used for system emails."
+  }
+}

@@ -1,0 +1,111 @@
+{
+  "log_file": {
+    "type": "string",
+    "default": "/var/log/ceilometer/agent-notification.log",
+    "description": "Absolute path to the log file for the notification agent."
+  },
+  "debug": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable or disable debug-level logging."
+  },
+  "verbose": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable or disable verbose logging (includes request/response details)."
+  },
+  "workers": {
+    "type": "number",
+    "default": 1,
+    "description": "Number of worker processes to handle incoming notifications. Increase for higher throughput."
+  },
+  "transport_url": {
+    "type": "string",
+    "default": "rabbit://openstack:password@localhost:5672/",
+    "description": "Message bus transport URL (e.g., RabbitMQ, Kafka) used to consume OpenStack notifications."
+  },
+  "sources": {
+    "type": "list",
+    "default": [
+      "compute",
+      "image",
+      "volume",
+      "network"
+    ],
+    "description": "List of notification sources (handlers) to enable. Each item corresponds to a Ceilometer source configuration block.",
+    "items": {
+      "type": "string"
+    }
+  },
+  "topics": {
+    "type": "list",
+    "default": [
+      "notifications",
+      "notifications.info",
+      "notifications.error",
+      "notifications.warn",
+      "notifications.debug"
+    ],
+    "description": "List of AMQP notification topics to subscribe to (e.g., 'notifications' for all, or specific severity levels)."
+  },
+  "rate_limit": {
+    "type": "number",
+    "default": 0,
+    "description": "Maximum events per second per worker to rate-limit (0 = unlimited)."
+  },
+  "batch_size": {
+    "type": "number",
+    "default": 10,
+    "description": "Maximum number of events to batch before writing to storage."
+  },
+  "storage_url": {
+    "type": "string",
+    "default": "mongodb://ceilometer:password@localhost:27017/ceilometer",
+    "description": "Backend storage URL for event data (MongoDB, SQLAlchemy, etc.)."
+  },
+  "enable_ttl": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable automatic expiration of old event data (requires backend support)."
+  },
+  "time_to_live": {
+    "type": "number",
+    "default": 1209600,
+    "description": "Time (in seconds) after which events are automatically deleted (if TTL enabled). Default: 14 days."
+  },
+  "keystone_auth_url": {
+    "type": "string",
+    "default": "http://localhost:5000/v3",
+    "description": "Keystone authentication endpoint URL."
+  },
+  "keystone_auth_type": {
+    "type": "string",
+    "default": "password",
+    "description": "Authentication method used (typically 'password')."
+  },
+  "keystone_project_domain": {
+    "type": "string",
+    "default": "Default",
+    "description": "Keystone domain name for the project."
+  },
+  "keystone_project_name": {
+    "type": "string",
+    "default": "services",
+    "description": "Keystone service project name (where Ceilometer runs)."
+  },
+  "keystone_user_domain": {
+    "type": "string",
+    "default": "Default",
+    "description": "Keystone domain name for the service user."
+  },
+  "keystone_username": {
+    "type": "string",
+    "default": "ceilometer",
+    "description": "Service username for Ceilometer in Keystone."
+  },
+  "keystone_password": {
+    "type": "string",
+    "default": "ceilometer_password",
+    "description": "Password for the Ceilometer service user in Keystone."
+  }
+}

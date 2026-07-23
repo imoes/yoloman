@@ -1,0 +1,52 @@
+#Ceilometer Polling Agent configuration file
+[DEFAULT]
+{% if debug is defined %}debug = {{ debug }}{% endif %}
+{% if verbose is defined %}verbose = {{ verbose }}{% endif %}
+{% if log_dir is defined %}log_dir = {{ log_dir }}{% endif %}
+{% if log_file is defined %}log_file = {{ log_file }}{% endif %}
+
+# Connection to the messaging bus (RabbitMQ, Redis, or other Oslo Messaging driver)
+[oslo_messaging_notifications]
+{% if transport_url is defined %}transport_url = {{ transport_url }}{% endif %}
+
+# Connection to the OpenStack Identity service (Keystone)
+[keystone_authtoken]
+{% if auth_url is defined %}auth_url = {{ auth_url }}{% endif %}
+{% if project_domain_name is defined %}project_domain_name = {{ project_domain_name }}{% endif %}
+{% if user_domain_name is defined %}user_domain_name = {{ user_domain_name }}{% endif %}
+{% if project_name is defined %}project_name = {{ project_name }}{% endif %}
+{% if username is defined %}username = {{ username }}{% endif %}
+{% if password is defined %}password = {{ password }}{% endif %}
+{% if www_authenticate_uri is defined %}www_authenticate_uri = {{ www_authenticate_uri }}{% endif %}
+{% if auth_type is defined %}auth_type = {{ auth_type }}{% endif %}
+
+# Polling configuration: sources, meters, intervals
+[polling]
+{% if polling_namespaces is defined %}polling_namespaces = {{ polling_namespaces | join(', ') }}{% endif %}
+
+# Per-polling source configuration (for each named source in `polling_namespaces`)
+{% for source in polling_sources %}
+[polling:{{ source.name }}]
+{% if source.meter is defined %}meter = {{ source.meter | join(', ') }}{% endif %}
+{% if source.interval is defined %}interval = {{ source.interval }}{% endif %}
+{% if source.disabled is defined %}disabled = {{ source.disabled }}{% endif %}
+{% if source.resource_types is defined %}resource_types = {{ source.resource_types | join(', ') }}{% endif %}
+{% if source.resource_discovery is defined %}resource_discovery = {{ source.resource_discovery }}{% endif %}
+{% if source.discovery_params is defined %}{% for param, value in source.discovery_params.items() %}discovery_{{ param }} = {{ value }}{% endfor %}{% endif %}
+{% if source.resources is defined %}resources = {{ source.resources | join(', ') }}{% endif %}
+{% endfor %}
+
+# Telemetry storage (Gnocchi or other backend)
+[gnocchi]
+{% if project_domain_name is defined %}project_domain_name = {{ project_domain_name }}{% endif %}
+{% if user_domain_name is defined %}user_domain_name = {{ user_domain_name }}{% endif %}
+{% if project_name is defined %}project_name = {{ project_name }}{% endif %}
+{% if username is defined %}username = {{ username }}{% endif %}
+{% if password is defined %}password = {{ password }}{% endif %}
+{% if auth_url is defined %}auth_url = {{ auth_url }}{% endif %}
+{% if region_name is defined %}region_name = {{ region_name }}{% endif %}
+{% if endpoint_type is defined %}endpoint_type = {{ endpoint_type }}{% endif %}
+{% if archive_policy is defined %}archive_policy = {{ archive_policy }}{% endif %}
+{% if namespace is defined %}namespace = {{ namespace }}{% endif %}
+{% if resource_type is defined %}resource_type = {{ resource_type }}{% endif %}
+{% if timeout is defined %}timeout = {{ timeout }}{% endif %}

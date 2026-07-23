@@ -1,0 +1,105 @@
+{
+  "cluster_name": "engCluster",
+  "spool_dir": "/var/lib/gridengine/engCluster/spool",
+  "admin_user": "sgeadmin",
+  "default_shell": "/bin/bash",
+  "mail_opts": "a",
+  "priority_slots": 1,
+  "max_jobs_per_user": 50,
+  "job_retention_time": 172800,
+  "qmaster_spool_dir": "/var/lib/gridengine/engCluster/spool/qmaster",
+  "qmaster_port": 6444,
+  "execd_port": 6445,
+  "shadow_port": 6446,
+  "use_ssl": false,
+  "log_level": 4,
+  "log_dir": "/var/log/gridengine/engCluster",
+  "use_syslog": true,
+  "penv_list": [
+    {
+      "name": "mpi",
+      "slots": 64,
+      "require_hosts": "",
+      "rule": "round_robin"
+    },
+    {
+      "name": "omp",
+      "slots": 32,
+      "require_hosts": "",
+      "rule": "fill_up"
+    }
+  ],
+  "queue_list": [
+    {
+      "name": "all.q",
+      "hostlist": [
+        "compute01",
+        "compute02",
+        "compute03"
+      ],
+      "seq_no": 0,
+      "priority": 0,
+      "slots": [
+        "8",
+        "8",
+        "8"
+      ],
+      "start_job_prolog": "",
+      "end_job_prolog": "",
+      "hold": false,
+      "submit_hosts": [],
+      "exclude_hosts": [],
+      "reservation": "",
+      "load_thresholds": "cpu=2.0",
+      "suspend_thresholds": "cpu=4.0",
+      "suspend_exit_delay": 120,
+      "resume_thresholds": "cpu=1.0",
+      "ujobs": [],
+      "pjobs": [],
+      "mjobs": [],
+      "maxujobs": 20,
+      "maxpjobs": 0,
+      "maxmjobs": 0,
+      "max_jslots": 10,
+      "min_jslots": 1,
+      "job_factor": 1.0
+    },
+    {
+      "name": "highprio.q",
+      "hostlist": [
+        "gpu01",
+        "gpu02"
+      ],
+      "seq_no": 1,
+      "priority": 50,
+      "slots": [
+        "4",
+        "4"
+      ],
+      "start_job_prolog": "/usr/local/bin/check_gpu.sh",
+      "end_job_prolog": "/usr/local/bin/cleanup.sh",
+      "hold": true,
+      "submit_hosts": [
+        "login01"
+      ],
+      "exclude_hosts": [],
+      "reservation": "now+1h",
+      "load_thresholds": "",
+      "suspend_thresholds": "",
+      "suspend_exit_delay": 60,
+      "resume_thresholds": "",
+      "ujobs": [
+        "alice=5",
+        "bob=3"
+      ],
+      "pjobs": [],
+      "mjobs": [],
+      "maxujobs": 5,
+      "maxpjobs": 0,
+      "maxmjobs": 0,
+      "max_jslots": 2,
+      "min_jslots": 1,
+      "job_factor": 2.0
+    }
+  ]
+}

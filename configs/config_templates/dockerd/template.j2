@@ -1,0 +1,56 @@
+{
+  // Base directory where Docker stores images, containers, volumes, and network metadata
+  "data-root": "{{ data_root }}",
+  // Union filesystem driver for image layer storage; overlay2 is the Linux default
+  "storage-driver": "{{ storage_driver }}",
+{% if storage_opts %}
+  // Extra options forwarded to the storage driver at daemon start
+  "storage-opts": [{% for opt in storage_opts %}"{{ opt }}"{% if not loop.last %}, {% endif %}{% endfor %}],
+{% endif %}
+  // Minimum severity level emitted by the daemon log (debug, info, warn, error, fatal)
+  "log-level": "{{ log_level }}",
+  // Default logging driver attached to every new container
+  "log-driver": "{{ log_driver }}",
+  // Options for the active log driver (max-size and max-file apply to json-file and local)
+  "log-opts": {
+    // Rotate the log file once it exceeds this size (e.g. 10m, 1g)
+    "max-size": "{{ log_max_size }}",
+    // Maximum number of rotated log files retained per container
+    "max-file": "{{ log_max_file }}"
+  },
+  // Keep containers running when dockerd stops or is upgraded (zero-downtime daemon restarts)
+  "live-restore": {{ live_restore | lower }},
+  // Write verbose debug entries to the daemon log; disable in production unless diagnosing
+  "debug": {{ debug | lower }},
+  // Pass runtime options to the OCI shim; systemd cgroup driver is required for Kubernetes
+  "exec-opts": ["native.cgroupdriver={{ cgroup_driver }}"],
+  // Maximum simultaneous image-layer downloads per pull operation
+  "max-concurrent-downloads": {{ max_concurrent_downloads }},
+  // Maximum simultaneous image-layer uploads per push operation
+  "max-concurrent-uploads": {{ max_concurrent_uploads }},
+  // DNS resolvers injected into /etc/resolv.conf of every container
+  "dns": [{% for s in dns_servers %}"{{ s }}"{% if not loop.last %}, {% endif %}{% endfor %}],
+  // DNS search domains appended in every container's resolv.conf
+  "dns-search": [{% for s in dns_search %}"{{ s }}"{% if not loop.last %}, {% endif %}{% endfor %}],
+  // CIDR block assigned to the docker0 bridge interface (must not overlap existing subnets)
+  "bip": "{{ bridge_ip }}",
+  // Subnet pools from which user-defined bridge networks are carved
+  "default-address-pools": [
+{% for pool in default_address_pools %}    {"base": "{{ pool.base }}", "size": {{ pool.size }}}{% if not loop.last %},{% endif %}
+{% endfor %}  ],
+  // Use a userland proxy process instead of kernel NAT for loopback-bound port mappings
+  "userland-proxy": {{ userland_proxy | lower }},
+  // Insert iptables rules for container network isolation and port publishing
+  "iptables": {{ iptables | lower }},
+  // Enable kernel IP forwarding so containers can reach networks beyond the host
+  "ip-forward": {{ ip_forward | lower }}{% if registry_mirrors or insecure_registries or metrics_enabled %},{% endif %}
+{% if registry_mirrors %}
+  // Pull-through cache mirrors tried before the upstream registry
+  "registry-mirrors": [{% for m in registry_mirrors %}"{{ m }}"{% if not loop.last %}, {% endif %}{% endfor %}]{% if insecure_registries or metrics_enabled %},{% endif %}
+{% endif %}{% if insecure_registries %}
+  // Registries reachable over plain HTTP or with self-signed TLS certificates
+  "insecure-registries": [{% for r in insecure_registries %}"{{ r }}"{% if not loop.last %}, {% endif %}{% endfor %}]{% if metrics_enabled %},{% endif %}
+{% endif %}{% if metrics_enabled %}
+  // Address and port on which to expose Prometheus-format engine metrics
+  "metrics-addr": "{{ metrics_addr }}"
+{% endif %}}

@@ -1,0 +1,49 @@
+{
+  "alertmanager_listen_address": "0.0.0.0:9093",
+  "global_smtp_smarthost": "smtp.example.com:587",
+  "global_smtp_from": "alertmanager@example.com",
+  "global_smtp_auth_username": "alertmanager@example.com",
+  "global_smtp_auth_password": "smtp-password",
+  "global_smtp_require_tls": true,
+  "templates": [
+    "/etc/prometheus/templates/default.tmpl"
+  ],
+  "route": {
+    "group_by": [
+      "alertname",
+      "cluster"
+    ],
+    "group_wait": "30s",
+    "group_interval": "5m",
+    "repeat_interval": "4h",
+    "receiver": "email-notifications",
+    "routes": [
+      {
+        "match": {
+          "severity": "critical"
+        },
+        "receiver": "pagerduty-critical"
+      }
+    ]
+  },
+  "receivers": [
+    {
+      "name": "email-notifications",
+      "email_configs": [
+        {
+          "to": "ops@example.com",
+          "send_resolved": true
+        }
+      ]
+    },
+    {
+      "name": "pagerduty-critical",
+      "pagerduty_configs": [
+        {
+          "service_key": "your-pagerduty-service-key",
+          "severity": "critical"
+        }
+      ]
+    }
+  ]
+}

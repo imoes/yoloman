@@ -1,0 +1,141 @@
+[DEFAULT]
+# Enables debug mode for verbose logging
+#debug = false
+#debug = {{ debug }}
+
+# Logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
+#log_level = INFO
+log_level = {{ log_level }}
+
+# Path to log file (empty string disables file logging)
+#log_file = heat-engine.log
+log_file = {{ log_file }}
+
+# Rootwrap configuration to allow privilege escalation for certain operations
+#rootwrap_config = /etc/heat/rootwrap.conf
+rootwrap_config = {{ rootwrap_config }}
+
+# Number of worker processes for the Heat engine (0 = single-process mode)
+#workers = 1
+workers = {{ workers }}
+
+# Transport URL for messaging (RabbitMQ, Redis, etc.)
+#transport_url = rabbit://user:pass@host:5672/
+transport_url = {{ transport_url }}
+
+# Database connection string
+#connection = sqlite:///heat.db
+connection = {{ connection }}
+
+# Authentication URL for keystone (used by engine to talk to other services)
+#auth_uri = http://controller:5000/
+auth_uri = {{ auth_uri }}
+
+# Internal API endpoint (used for internal service-to-service auth)
+#auth_url = http://controller:35357/
+auth_url = {{ auth_url }}
+
+# Service user credentials for Heat to authenticate with keystone
+#auth_type = password
+auth_type = {{ auth_type }}
+
+# Domain, project, user details for service credentials
+#project_domain_name = Default
+project_domain_name = {{ project_domain_name }}
+#project_name = service
+project_name = {{ project_name }}
+#user_domain_name = Default
+user_domain_name = {{ user_domain_name }}
+#username = heat
+username = {{ username }}
+#password = heat_password
+password = {{ password }}
+
+# Trustee delegation is enabled by default for nested stacks
+#trusts_delegated = false
+trusts_delegated = {{ trusts_delegated }}
+
+# Stack domain name for trust delegation (must be unique per deployment)
+#stack_user_domain_name = heat_stack_user_domain
+stack_user_domain_name = {{ stack_user_domain_name }}
+
+# Stack user prefix for heat-managed users (used in trust creation)
+#stack_user_domain_id = None
+stack_user_domain_id = {{ stack_user_domain_id }}
+
+# Heat API endpoint for stack notifications (e.g., scaling events)
+#heat_api_uri = http://controller:8004/v1/%(project_id)s
+heat_api_uri = {{ heat_api_uri }}
+
+# SSL/TLS settings for secure communication
+#ssl_ca_file = /path/to/ca.pem
+ssl_ca_file = {{ ssl_ca_file }}
+#ssl_cert_file = /path/to/cert.pem
+ssl_cert_file = {{ ssl_cert_file }}
+#ssl_key_file = /path/to/key.pem
+ssl_key_file = {{ ssl_key_file }}
+#verify_ssl_for_instances = true
+verify_ssl_for_instances = {{ verify_ssl_for_instances }}
+
+# RPC timeout for synchronous operations (seconds)
+#rpc_response_timeout = 60
+rpc_response_timeout = {{ rpc_response_timeout }}
+
+# Time to wait before marking stack as FAILED if no heartbeat (seconds)
+#stack_operation_timeout = 3600
+stack_operation_timeout = {{ stack_operation_timeout }}
+
+# Enable or disable the default resource types
+#enable_stack_adopt = false
+enable_stack_adopt = {{ enable_stack_adopt }}
+#enable_stack_rollback = true
+enable_stack_rollback = {{ enable_stack_rollback }}
+#enable_stack_abandon = false
+enable_stack_abandon = {{ enable_stack_abandon }}
+
+# Maximum number of resources allowed per stack
+#max_resources_per_stack = 1000
+max_resources_per_stack = {{ max_resources_per_stack }}
+
+# Maximum depth of nested stacks
+#max_nested_stack_depth = 5
+max_nested_stack_depth = {{ max_nested_stack_depth }}
+
+# Default region name (for multi-region deployments)
+#region_name = RegionOne
+region_name = {{ region_name }}
+
+[engine]
+# Heat engine-specific settings
+#convergence_engine = false
+convergence_engine = {{ convergence_engine }}
+
+[database]
+# Database backend options (optional overrides)
+#idle_timeout = 3600
+idle_timeout = {{ db_idle_timeout }}
+#min_pool_size = 1
+min_pool_size = {{ db_min_pool_size }}
+#max_overflow = 10
+max_overflow = {{ db_max_overflow }}
+
+[notifications]
+# Enable sending notifications to Oslo Messaging
+#driver = messagingv2
+driver = {{ notifications_driver }}
+#storage_enabled = true
+storage_enabled = {{ notifications_storage_enabled }}
+
+[trustee]
+# Trustee authentication plugin configuration
+#client = heat
+client = {{ trustee_client }}
+
+[clients]
+# Default timeout for client requests (e.g., Nova, Neutron calls)
+#openstack_stack_domain_admin_password_timeout = 60
+openstack_stack_domain_admin_password_timeout = {{ clients_timeout }}
+
+# List of endpoints to skip SSL verification for (comma-separated hostnames)
+#skip_ssl_verify_endpoints = endpoint1,endpoint2
+skip_ssl_verify_endpoints = {{ skip_ssl_verify_endpoints | join(',') }}

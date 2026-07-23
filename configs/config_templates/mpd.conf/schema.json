@@ -1,0 +1,405 @@
+{
+  "port": {
+    "type": "number",
+    "default": 6600,
+    "description": "TCP port for MPD client connections."
+  },
+  "bind_address": {
+    "type": "string",
+    "default": "0.0.0.0",
+    "description": "Network interface to bind MPD to (e.g., 127.0.0.1 for local-only, or 0.0.0.0 for all interfaces)."
+  },
+  "use_socket": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable Unix socket for local client connections (overrides TCP port if enabled)."
+  },
+  "socket_path": {
+    "type": "string",
+    "default": "/run/mpd.sock",
+    "description": "Path to the Unix socket file (used only if use_socket is true)."
+  },
+  "paths": {
+    "type": "object",
+    "default": {
+      "db": "/var/lib/mpd/database",
+      "log": "/var/log/mpd/mpd.log",
+      "playlists": "/var/lib/mpd/playlists",
+      "pid": "/run/mpd.pid",
+      "passwords": "/etc/mpd.password",
+      "music": "/var/lib/mpd/music",
+      "sticker": "/var/lib/mpd/sticker.sql",
+      "socket": "/run/mpd.sock"
+    },
+    "description": "Core filesystem paths for MPD databases, logs, music, and state files."
+  },
+  "audio_outputs": {
+    "type": "list",
+    "default": [
+      {
+        "type": "alsa",
+        "name": "My ALSA Device",
+        "device": "default",
+        "format": "44100:16:2",
+        "samplerate_converter": "soxr_medium",
+        "autosuspend": "no"
+      }
+    ],
+    "description": "List of audio output devices (e.g., ALSA, PipeWire, PulseAudio). Each item configures one output.",
+    "items": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": [
+            "alsa",
+            "pipewire",
+            "pulse",
+            "oss",
+            "shout",
+            "http",
+            "file",
+            "solaris",
+            "openal",
+            "ao",
+            "nao",
+            "recorder",
+            "null"
+          ],
+          "default": "alsa",
+          "description": "Type of audio backend."
+        },
+        "name": {
+          "type": "string",
+          "default": "My Audio Device",
+          "description": "Human-readable name of the output (shown in clients)."
+        },
+        "device": {
+          "type": "string",
+          "default": "default",
+          "description": "Device name or identifier (e.g., hw:0,0 for ALSA card 0 device 0)."
+        },
+        "format": {
+          "type": "string",
+          "default": "44100:16:2",
+          "description": "Output sample format as `sample_rate:bits:channels` (e.g., 48000:24:2 for 48kHz, 24-bit, stereo). Use 'auto' to inherit from source."
+        },
+        "dmix": {
+          "type": "string",
+          "default": "on",
+          "description": "Enable dmix (shared hardware mixing) for ALSA. Set to 'off' for exclusive access."
+        },
+        "samplerate_converter": {
+          "type": "string",
+          "enum": [
+            "fast",
+            "medium",
+            "best",
+            "sinc_best",
+            "sinc_medium",
+            "soxr_fast",
+            "soxr_medium",
+            "soxr_high",
+            "soxr_extreme"
+          ],
+          "default": "sinc_medium",
+          "description": "Resampling algorithm quality (higher = better quality, more CPU)."
+        },
+        "autosuspend": {
+          "type": "string",
+          "enum": [
+            "yes",
+            "no"
+          ],
+          "default": "no",
+          "description": "Automatically suspend audio device when idle (PulseAudio/PipeWire only)."
+        },
+        "buffer_time": {
+          "type": "number",
+          "default": 500000,
+          "description": "Audio buffer time in microseconds (500,000 = 0.5s). Increase to reduce dropouts on slow systems."
+        }
+      }
+    }
+  },
+  "audio_format": {
+    "type": "string",
+    "default": "",
+    "description": "Global output sample format override (e.g., '44100:24:2'). Leave empty to use input source format."
+  },
+  "resample_quality": {
+    "type": "string",
+    "default": "4",
+    "description": "Legacy resampling quality (0\u20137). Prefer `samplerate_converter` in output blocks for newer MPD."
+  },
+  "max_clients": {
+    "type": "number",
+    "default": 10,
+    "description": "Maximum number of simultaneously connected clients."
+  },
+  "max_players": {
+    "type": "number",
+    "default": 1,
+    "description": "Maximum number of concurrent playback streams (e.g., for multiroom setups)."
+  },
+  "max_readers": {
+    "type": "number",
+    "default": 10,
+    "description": "Maximum number of parallel file reads (improves performance with large libraries)."
+  },
+  "max_buffer_size": {
+    "type": "number",
+    "default": 524288,
+    "description": "Maximum internal buffer size in kilobytes (~0.5 MB). Increase for high-bitrate streaming."
+  },
+  "filesystem_charset": {
+    "type": "string",
+    "default": "UTF-8",
+    "description": "Character set for filesystem paths (should almost always be 'UTF-8')."
+  },
+  "filesystem_iconv": {
+    "type": "string",
+    "default": "no",
+    "description": "Enable iconv-based charset conversion for legacy filesystems (e.g., 'yes', 'no')."
+  },
+  "follow_symlink": {
+    "type": "bool",
+    "default": false,
+    "description": "Follow symlinks inside the music directory."
+  },
+  "follow_outside_symlink": {
+    "type": "bool",
+    "default": false,
+    "description": "Follow symlinks pointing outside the music directory."
+  },
+  "user": {
+    "type": "string",
+    "default": "mpd",
+    "description": "User account to run MPD under (use 'root' only for testing; not recommended)."
+  },
+  "group": {
+    "type": "string",
+    "default": "mpd",
+    "description": "Group for file permissions (e.g., 'audio' to allow audio device access)."
+  },
+  "log_level": {
+    "type": "string",
+    "default": "notice",
+    "description": "Verbosity of log output. Use 'debug' only for troubleshooting."
+  },
+  "sticker_timeout": {
+    "type": "number",
+    "default": 60,
+    "description": "Timeout (in seconds) for sticker database queries."
+  },
+  "randomize_playlist": {
+    "type": "bool",
+    "default": true,
+    "description": "Randomize playback order by default in playlists."
+  },
+  "crossfade": {
+    "type": "number",
+    "default": 5,
+    "description": "Crossfade duration in seconds (0 disables crossfading)."
+  },
+  "replay_gain_mode": {
+    "type": "string",
+    "default": "auto",
+    "description": "Replay Gain processing mode. 'auto' applies track/album gain as needed."
+  },
+  "replay_gain_preamp": {
+    "type": "number",
+    "default": 0,
+    "description": "Additional preamp (in dB) applied to Replay Gain (e.g., +5.0 to boost volume)."
+  },
+  "replay_gain_fallback": {
+    "type": "number",
+    "default": 0,
+    "description": "Gain (in dB) applied if no metadata is present (e.g., -10.0 to avoid clipping)."
+  },
+  "default_volume": {
+    "type": "number",
+    "default": 75,
+    "description": "Initial volume percentage (0\u2013100) on startup."
+  },
+  "restore_volume": {
+    "type": "bool",
+    "default": true,
+    "description": "Restore last volume setting on startup."
+  },
+  "audio_delay": {
+    "type": "number",
+    "default": 0,
+    "description": "Audio delay in milliseconds (useful for lip-sync correction)."
+  },
+  "audio_buffer_size": {
+    "type": "number",
+    "default": 1024,
+    "description": "Audio buffer size in kilobytes (legacy; prefer `buffer_time` in audio_output blocks)."
+  },
+  "network_timeout": {
+    "type": "number",
+    "default": 60,
+    "description": "Timeout in seconds for network I/O (e.g., streaming)."
+  },
+  "network_buffer": {
+    "type": "number",
+    "default": 1000,
+    "description": "Network buffer size in milliseconds (0 = disable buffering)."
+  },
+  "zeroconf_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable Zeroconf/Avahi service discovery for MPD (allows auto-discovery on LAN)."
+  },
+  "zeroconf_name": {
+    "type": "string",
+    "default": "Music Player Daemon",
+    "description": "Service name advertised via Zeroconf (shown in discovery clients)."
+  },
+  "http_streams": {
+    "type": "list",
+    "default": [
+      {
+        "name": "My HTTP Stream",
+        "encoder": "vorbis",
+        "port": 8000,
+        "mimetype": "audio/ogg",
+        "quality": 0.5,
+        "max_clients": 10
+      }
+    ],
+    "description": "HTTP streaming outputs (e.g., Icecast-compatible streams).",
+    "items": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "default": "My Stream",
+          "description": "Stream name (shown to listeners)."
+        },
+        "encoder": {
+          "type": "string",
+          "enum": [
+            "vorbis",
+            "flac",
+            "lame"
+          ],
+          "default": "vorbis",
+          "description": "Encoding format."
+        },
+        "port": {
+          "type": "number",
+          "default": 8000,
+          "description": "HTTP port for stream output."
+        },
+        "bind_to_address": {
+          "type": "string",
+          "default": "0.0.0.0",
+          "description": "Interface to bind stream to."
+        },
+        "mimetype": {
+          "type": "string",
+          "default": "audio/ogg",
+          "description": "HTTP Content-Type header (must match encoder)."
+        },
+        "max_clients": {
+          "type": "number",
+          "default": 10,
+          "description": "Maximum number of concurrent listeners."
+        },
+        "quality": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "default": 0.5,
+          "description": "Encoder quality (0.0\u20131.0; higher = better quality, larger bandwidth)."
+        }
+      }
+    }
+  },
+  "inputs": {
+    "type": "list",
+    "default": [
+      {
+        "type": "curl",
+        "enabled": true,
+        "url": "http://example.com/stream"
+      },
+      {
+        "type": "file",
+        "enabled": true
+      }
+    ],
+    "description": "Optional input plugins (e.g., network streamers).",
+    "items": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": [
+            "curl",
+            "file",
+            "http",
+            "exec"
+          ],
+          "default": "file",
+          "description": "Input plugin type."
+        },
+        "enabled": {
+          "type": "bool",
+          "default": true,
+          "description": "Enable this input plugin."
+        },
+        "*": {
+          "type": "string",
+          "description": "Plugin-specific options (e.g., 'url', 'command', 'buffer_size')."
+        }
+      },
+      "additionalProperties": true
+    }
+  },
+  "tag_types": {
+    "type": "list",
+    "default": [
+      "ID3v1",
+      "ID3v2",
+      "Ape",
+      "Lyrics3",
+      "Flac",
+      "Vorbis",
+      "Musepack",
+      "WavPack",
+      "Spc",
+      "Mpeg",
+      "Wma",
+      "Aiff",
+      "Opus",
+      "Sndfile"
+    ],
+    "description": "Priority order of metadata tag formats to read (left to right).",
+    "items": {
+      "type": "string"
+    }
+  },
+  "id3v1_encoding": {
+    "type": "string",
+    "default": "UTF-8",
+    "description": "Charset for ID3v1 tags (MP3 legacy)."
+  },
+  "id3v2_encoding": {
+    "type": "string",
+    "default": "UTF-8",
+    "description": "Charset for ID3v2 tags (modern MP3/AAC)."
+  },
+  "gapless_mp3": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable gapless playback for MP3 files (requires precise Xing headers)."
+  },
+  "buffer_fill_time": {
+    "type": "number",
+    "default": 2000,
+    "description": "Buffer fill time in milliseconds (used to avoid underruns on startup)."
+  }
+}

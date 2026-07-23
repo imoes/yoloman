@@ -1,0 +1,23 @@
+# Load the ejabberd_mod_pottymouth module
+modules:
+  mod_pottymouth:
+    # Path to the word list file containing banned words (one per line)
+    wordlist_file: {{ wordlist_file }}
+    # Action to take when a banned word is detected: 'block', 'replace', or 'warn'
+    action: {{ action }}
+    # Replacement string used when action is 'replace'
+    replacement: {{ replacement }}
+    # List of user jid globs to exempt from filtering (e.g., admins)
+    exempt_users:
+{% for user in exempt_users %}      - {{ user }}
+{% endfor %}
+    # Enable case-insensitive matching
+    case_insensitive: {{ case_insensitive }}
+    # Enable partial word matching (e.g., match 'bad' inside 'badly')
+    partial_match: {{ partial_match }}
+    # Log blocked messages (requires logging to be enabled in ejabberd.yml)
+    log_blocked: {{ log_blocked }}
+    # List of additional wordlist files to append to the main list
+    additional_wordlists:
+{% for file in additional_wordlists %}      - {{ file }}
+{% endfor %}

@@ -1,0 +1,100 @@
+<?php
+// Database connection settings
+$dbc['pg']['host'] = '{{ db_host }}';
+$dbc['pg']['port'] = {{ db_port }};
+$dbc['pg']['name'] = '{{ db_name }}';
+$dbc['pg']['user'] = '{{ db_user }}';
+$dbc['pg']['password'] = '{{ db_password }}';
+
+// System-wide settings
+$c = array();
+
+// Base URL for the CalDAV/CardDAV server (used in redirects & headers)
+$c['site_url'] = '{{ site_url }}';
+
+// Default language (ISO 639-1 code)
+$c['default_lang'] = '{{ default_lang }}';
+
+// Enable or disable debug logging
+$c['debug'] = {{ debug | lower }};
+
+// Maximum number of simultaneous connections allowed
+$c['max_connections'] = {{ max_connections }};
+
+// Enable HTTPS only for authenticated requests?
+$c['force_https'] = {{ force_https | lower }};
+
+// Allow HTTP Basic auth (for legacy clients)
+$c['allow_basic_auth'] = {{ allow_basic_auth | lower }};
+
+// Enable SSL client certificate auth (optional)
+$c['allow_ssl_client_cert_auth'] = {{ allow_ssl_client_cert_auth | lower }};
+
+// Enable CardDAV support
+$c['enable_carddav'] = {{ enable_carddav | lower }};
+
+// Enable CalDAV support
+$c['enable_caldav'] = {{ enable_caldav | lower }};
+
+// Allow new user self-registration via web UI
+$c['allow_new_users'] = {{ allow_new_users | lower }};
+
+// Default user role (e.g., 'user', 'admin')
+$c['default_user_role'] = '{{ default_user_role }}';
+
+// List of allowed domains for domain-restricted signup (empty list = allow all)
+{% if allowed_domains %}
+$c['allowed_domains'] = array({{ allowed_domains | map('quote') | join(', ') }});
+{% else %}
+$c['allowed_domains'] = array();
+{% endif %}
+
+// Prefix for user calendars (e.g., 'calendars/' or 'user/{username}/')
+$c['cal_prefix'] = '{{ cal_prefix }}';
+
+// Prefix for address books
+$c['addr_prefix'] = '{{ addr_prefix }}';
+
+// Enable caching (APCu recommended for production)
+$c['use_apc'] = {{ use_apc | lower }};
+
+// Session timeout in seconds
+$c['session_timeout'] = {{ session_timeout }};
+
+// Timezone for server (must be valid PHP timezone)
+$c['timezone'] = '{{ timezone }}';
+
+// Enable HTML5 push notifications (requires push server setup)
+$c['enable_push'] = {{ enable_push | lower }};
+
+// Push server URL (e.g., 'https://push.example.com/')
+{% if push_server_url %}
+$c['push_server_url'] = '{{ push_server_url }}';
+{% else %}
+$c['push_server_url'] = null;
+{% endif %}
+
+// Enable rate limiting
+$c['rate_limiting'] = {{ enable_rate_limiting | lower }};
+
+// Rate limit: max requests per IP per minute
+$c['rate_limit_max_requests'] = {{ rate_limit_max_requests }};
+
+// List of trusted reverse proxies (for X-Forwarded-For, X-Forwarded-Proto)
+{% if trusted_proxies %}
+$c['trusted_proxies'] = array({{ trusted_proxies | map('quote') | join(', ') }});
+{% else %}
+$c['trusted_proxies'] = array();
+{% endif %}
+
+// Enable two-factor authentication (requires libotp or similar)
+$c['enable_2fa'] = {{ enable_2fa | lower }};
+
+// Enable password policy enforcement
+$c['enable_password_policy'] = {{ enable_password_policy | lower }};
+
+// Minimum password length
+$c['password_min_length'] = {{ password_min_length }};
+
+// Require mixed-case, numbers, symbols (0=none, 1=case, 2=case+num, 3=full)
+$c['password_complexity'] = {{ password_complexity }};

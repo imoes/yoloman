@@ -1,0 +1,80 @@
+{# Enable/disable the local proxy (must be enabled for most deployments) #}
+{% if enable_proxy | bool %}CONFIG proxy.config.proxy_name STRING {{ proxy_name }}
+{% endif %}
+
+{# Network interfaces and ports #}
+CONFIG proxy.config.http.server_ports STRING {{ server_ports | join(', ') }}
+{% if ssl_enabled | bool %}CONFIG proxy.config.http.server_ssl_port INT {{ server_ssl_port }}
+{% endif %}
+
+{# Network bindings #}
+CONFIG proxy.config.http.accept_enabled INT {{ http_accept_enabled }}
+{% if http_accept_enabled | int == 1 %}CONFIG proxy.config.http.accept_threads INT {{ http_accept_threads }}
+{% endif %}
+
+{# HTTP behavior: origin connection settings #}
+CONFIG proxy.config.http.connect_attempts_timeout INT {{ connect_attempts_timeout }}
+CONFIG proxy.config.http.connect_attempts_max_retries INT {{ connect_attempts_max_retries }}
+CONFIG proxy.config.http.post_connect_attempts_timeout INT {{ post_connect_attempts_timeout }}
+CONFIG proxy.config.http.transaction_no_activity_timeout_in INT {{ transaction_no_activity_timeout_in }}
+CONFIG proxy.config.http.transaction_active_timeout_in INT {{ transaction_active_timeout_in }}
+CONFIG proxy.config.http.response_active_timeout_in INT {{ response_active_timeout_in }}
+
+{# Caching behavior #}
+CONFIG proxy.config.cache.enable_checksum INT {{ cache_enable_checksum }}
+CONFIG proxy.config.cache.enable_read_while_writer INT {{ cache_enable_read_while_writer }}
+CONFIG proxy.config.cache.rw_parallelism INT {{ cache_rw_parallelism }}
+CONFIG proxy.config.cache.min_average_object_size INT {{ cache_min_average_object_size }}
+CONFIG proxy.config.cache.threads_per_disk INT {{ cache_threads_per_disk }}
+
+{# Storage configuration (single volume or multiple volumes via loop) #}
+{% for volume in cache_volumes %}CONFIG proxy.config.cache.volume.{{ loop.index }}.size INT {{ volume.size }}
+CONFIG proxy.config.cache.volume.{{ loop.index }}.remap {{ volume.remap | string | lower }}
+{% endfor %}
+
+{# Log configuration #}
+CONFIG proxy.config.log.logging_enabled INT {{ log_logging_enabled }}
+CONFIG proxy.config.log.logfile_dir STRING {{ log_dir }}
+CONFIG proxy.config.log.logfile_perm STRING {{ log_perm }}
+CONFIG proxy.config.log.rolling_enabled INT {{ log_rolling_enabled }}
+CONFIG proxy.config.log.rolling_interval_sec INT {{ log_rolling_interval_sec }}
+CONFIG proxy.config.log.rolling_size INT {{ log_rolling_size_mb }}
+
+{# Reverse proxy / host routing (optional) #}
+{% if enable_remap | bool %}CONFIG proxy.config.url_remap.remap_required INT {{ remap_required }}
+CONFIG proxy.config.url_remap.pristine_host_hdr INT {{ pristine_host_hdr }}
+{% endif %}
+
+{# HTTP/2 and TLS settings #}
+{% if enable_http2 | bool %}CONFIG proxy.config.http2.enabled INT {{ http2_enabled }}
+CONFIG proxy.config.http2.max_concurrent_streams_per_connection INT {{ http2_max_concurrent_streams }}
+CONFIG proxy.config.http2.min_stream_priority INT {{ http2_min_stream_priority }}
+CONFIG proxy.config.http2.max_frame_size INT {{ http2_max_frame_size }}
+{% endif %}
+
+{% if ssl_enabled | bool %}{# SSL/TLS configuration #}
+CONFIG proxy.config.ssl.enabled INT {{ ssl_enabled }}
+CONFIG proxy.config.ssl.server.cert.path STRING {{ ssl_cert_path }}
+CONFIG proxy.config.ssl.server.private_key.path STRING {{ ssl_key_path }}
+CONFIG proxy.config.ssl.server.cipher_suite STRING {{ ssl_cipher_suite }}
+CONFIG proxy.config.ssl.server.tm.keylog_enabled INT {{ ssl_keylog_enabled }}
+CONFIG proxy.config.ssl.client.verify.server INT {{ ssl_client_verify_server }}
+{% endif %}
+
+{# Debugging and diagnostics #}
+CONFIG proxy.config.dump_config INT {{ dump_config }}
+CONFIG proxy.config.diags.debug.enabled INT {{ diags_debug_enabled }}
+CONFIG proxy.config.diags.debug.tags STRING {{ diags_debug_tags | join(', ') }}
+
+{# Worker / thread pool tuning #}
+CONFIG proxy.config.exec_thread.autoconfig INT {{ exec_thread_autoconfig }}
+{% if not exec_thread_autoconfig | bool %}CONFIG proxy.config.exec_thread.limit INT {{ exec_thread_limit }}
+CONFIG proxy.config.exec_thread.affinity INT {{ exec_thread_affinity }}
+{% endif %}
+
+{# Memory and resource limits #}
+CONFIG proxy.config.cache.ram_cache.size INT {{ ram_cache_size_mb }}
+CONFIG proxy.config.cache.ram_cache.algorithm INT {{ ram_cache_algorithm }}
+CONFIG proxy.config.http.number_of_redirections INT {{ max_redirections }}
+CONFIG proxy.config.net.max_connections_in INT {{ max_connections_in }}
+CONFIG proxy.config.net.connections_throttle INT {{ connections_throttle }}

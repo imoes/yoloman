@@ -1,0 +1,89 @@
+{
+  "debug": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable verbose debug logging for troubleshooting. Enable only when diagnosing issues."
+  },
+  "log_file": {
+    "type": "string",
+    "default": "/var/log/gddccontrol/gddccontrol.log",
+    "description": "Path to the log file. Must be writable by the gddccontrol service user."
+  },
+  "worker_threads": {
+    "type": "number",
+    "default": 2,
+    "description": "Number of worker threads used for background polling of monitor status. Adjust based on system load."
+  },
+  "poll_interval": {
+    "type": "number",
+    "default": 5,
+    "description": "Interval (in seconds) between automatic checks of monitor status and compliance with configured settings."
+  },
+  "i2c_timeout": {
+    "type": "number",
+    "default": 2,
+    "description": "Timeout (in seconds) for I2C communication attempts. Increase if you see frequent timeouts."
+  },
+  "i2c_retry_limit": {
+    "type": "number",
+    "default": 3,
+    "description": "Maximum number of retries for failed I2C operations before marking a monitor as unreachable."
+  },
+  "monitors": {
+    "type": "list",
+    "default": [],
+    "description": "List of monitor configurations. Each entry defines a physical or virtual monitor with its I2C address and settings.",
+    "items": {
+      "name": {
+        "type": "string",
+        "default": "",
+        "description": "Human-readable name for this monitor (e.g., 'primary', 'external-4k')"
+      },
+      "i2c_addr": {
+        "type": "number",
+        "default": 0,
+        "description": "Decimal I2C address of the monitor (e.g., 0x3D = 61). Must match hardware."
+      },
+      "enabled": {
+        "type": "bool",
+        "default": true,
+        "description": "Whether this monitor is actively controlled by gddccontrol."
+      },
+      "default_brightness": {
+        "type": "number",
+        "default": 80,
+        "description": "Default brightness level (0\u2013100) to apply when restoring or starting."
+      },
+      "default_contrast": {
+        "type": "number",
+        "default": 50,
+        "description": "Default contrast level (0\u2013100) to apply when restoring or starting."
+      },
+      "restore_on_start": {
+        "type": "bool",
+        "default": true,
+        "description": "Whether to restore stored or default settings for this monitor on daemon start."
+      },
+      "gamma_path": {
+        "type": "string",
+        "default": "",
+        "description": "Optional path to a custom gamma correction file (e.g., .icm or .csp). Leave empty to use internal defaults."
+      }
+    }
+  },
+  "allowed_users": {
+    "type": "list",
+    "default": [],
+    "description": "List of system usernames allowed to control monitor settings via the API. Empty list = unrestricted (not recommended in production)."
+  },
+  "api_port": {
+    "type": "number",
+    "default": 8080,
+    "description": "TCP port for the HTTP-based control API. Must be free and accessible."
+  },
+  "api_host": {
+    "type": "string",
+    "default": "127.0.0.1",
+    "description": "Network interface to bind the API to (e.g., '127.0.0.1' for localhost-only, '0.0.0.0' for all interfaces)."
+  }
+}

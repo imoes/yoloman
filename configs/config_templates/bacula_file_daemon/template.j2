@@ -1,0 +1,116 @@
+# Bacula File Daemon configuration file
+# This daemon is installed on each machine to be backed up
+# and listens for connections from the Director.
+
+# Global defaults
+# Enables logging to syslog and a dedicated log file
+LogFile = {{ log_file }}
+PidDirectory = {{ pid_directory }}
+
+# Maximum concurrent jobs (number of simultaneous backup/restore jobs)
+MaximumConcurrentJobs = {{ max_concurrent_jobs }}
+
+# Name of this File Daemon (must match what the Director expects)
+Name = {{ fd_name }}
+
+# TCP port the FD listens on
+FDport = {{ fd_port }}
+
+# Working directory for temp files and spooling
+WorkingDirectory = {{ working_directory }}
+
+# Password used to authenticate the Director to this FD
+FDAddresses = {{ fd_addresses }}
+
+# Director connection definitions ( Director -> FD authentication )
+{% for director in directors %}
+# Director {{ director.name }} is authorized to connect and manage backups
+Director {
+  Name = {{ director.name }}
+  DirectorAddress = {{ director.address }}
+  FDport = {{ director.fd_port }}
+  Password = "{{ director.password }}"
+  TLSEnable = {{ director.tls_enable | lower }}
+  TLSCACertificateFile = {{ director.tls_ca_cert | default('none', true) }}
+  TLSCertificateFile = {{ director.tls_cert | default('none', true) }}
+  TLSKeyFile = {{ director.tls_key | default('none', true) }}
+}
+{% endfor %}
+
+# Catalog definition (optional — used for file-level restore queries)
+{% if catalog %}
+# Catalog to use for file metadata lookup during restores
+Catalog {
+  Name = {{ catalog.name }}
+  DBAddress = {{ catalog.db_address }}
+  DBPort = {{ catalog.db_port }}
+  DBName = {{ catalog.db_name }}
+  DBUser = "{{ catalog.db_user }}"
+  DBPassword = "{{ catalog.db_password }}"
+}
+{% endif %}
+
+# Messages configuration (alerts on events like start/complete/failure)
+{% for msg_type, dest in messages.items() %}
+# {{ msg_type | upper }} messages sent to {{ dest.type }} {{ dest.target }}
+Messages {
+  Name = {{ msg_type }}
+  {{ dest.type }} = {{ dest.target }}
+  {% if dest.level %}Level = {{ dest.level }}{% endif %}
+  {
+    console = all, !skipped, !saved
+    append = {{ append_log | default('/var/log/bacula/bacula.log', true) }}
+    mail = {{ mail_to | default('root@localhost', true) }} = all, !skipped
+    catalog = all
+  }
+}
+{% endfor %}
+
+# TLS defaults for encrypted FD communication
+{% if tls_enabled %}
+# TLS is enabled globally — all connections require encryption
+TLSEnable = true
+TLSCACertificateFile = {{ tls_ca_cert_file }}
+TLSCertificateFile = {{ tls_cert_file }}
+TLSKeyFile = {{ tls_key_file }}
+{% endif %}
+
+# Plugin definitions (optional — for custom backup hooks)
+{% for plugin in plugins %}
+# Plugin {{ plugin.name }} loaded from {{ plugin.path }}
+Plugin {
+  Name = {{ plugin.name }}
+  Library = {{ plugin.path }}
+  {% for opt, val in plugin.options.items() %}  {{ opt }} = {{ val }}{% endfor %}
+}
+{% endfor %}
+
+# Device definitions (storage devices used by this FD — rare for file daemon)
+# Note: File Daemons typically don’t define devices; Directors do.
+# Uncomment only if this FD also manages local storage (e.g., SD role)
+# {% for device in devices %}
+# Device {
+#   Name = {{ device.name }}
+#   DeviceType = {{ device.type }}
+#   MediaType = {{ device.media_type }}
+#   ArchiveDevice = {{ device.path }}
+#   LabelMedia = {{ device.label_media | lower }}
+#   RandomAccess = {{ device.random_access | lower }}
+#   AutomaticMount = {{ device.automatic_mount | lower }}
+#   RemovableMedia = {{ device.removable | lower }}
+#   AlwaysOpen = {{ device.always_open | lower }}
+# }
+# {% endfor %}
+
+# Autochanger definition (if used as Storage Daemon too)
+{% if autochanger %}
+# Autochanger for library-based storage operations
+Autochanger {
+  Name = {{ autochanger.name }}
+  ChangerCommand = {{ autochanger.changer_command }}
+  ChangerDevice = {{ autochanger.changer_device }}
+  {
+    Device = {{ autochanger.devices[0].name }}
+  }
+}
+{% endif %}

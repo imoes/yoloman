@@ -1,0 +1,239 @@
+{
+  "error_log": {
+    "type": "string",
+    "default": "/var/log/nginx/error.log warn",
+    "description": "Path and minimum log level for NGINX error messages."
+  },
+  "worker_processes": {
+    "type": "string",
+    "default": "auto",
+    "description": "Number of worker processes (e.g., 'auto', '1', or a fixed integer)."
+  },
+  "worker_cpu_affinity": {
+    "type": "list",
+    "default": [],
+    "description": "CPU affinity masks for worker processes (one mask per worker). Leave empty to disable.",
+    "items": {
+      "type": "string"
+    }
+  },
+  "debug_mode": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable debug-level logging and debug points (use only for troubleshooting)."
+  },
+  "worker_connections": {
+    "type": "number",
+    "default": 768,
+    "description": "Maximum number of simultaneous connections allowed per worker process."
+  },
+  "use_epoll": {
+    "type": "bool",
+    "default": true,
+    "description": "Use Linux epoll() event model (automatically set on Linux if available)."
+  },
+  "use_kqueue": {
+    "type": "bool",
+    "default": false,
+    "description": "Use BSD kqueue() event model (set only on BSD-based systems)."
+  },
+  "log_format_main": {
+    "type": "string",
+    "default": "$remote_addr - $remote_user [$time_local] \"$request\" $status $body_bytes_sent \"$http_referer\" \"$http_user_agent\" \"$http_x_forwarded_for\"",
+    "description": "Custom access log format using NGINX variables. Uses default combined log format if unchanged."
+  },
+  "access_log": {
+    "type": "string",
+    "default": "/var/log/nginx/access.log",
+    "description": "Path to the main access log file."
+  },
+  "sendfile": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable sendfile() for efficient file transfer (improves static file performance)."
+  },
+  "tcp_nopush": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable TCP_CORK/TCP_NOPUSH to minimize packet size."
+  },
+  "tcp_nodelay": {
+    "type": "bool",
+    "default": true,
+    "description": "Disable Nagle\u2019s algorithm for real-time latency-sensitive apps (e.g., WebSockets)."
+  },
+  "keepalive_timeout": {
+    "type": "number",
+    "default": 65,
+    "description": "Timeout (in seconds) for keep-alive connections with clients."
+  },
+  "keepalive_requests": {
+    "type": "number",
+    "default": 1000,
+    "description": "Maximum number of requests served over a single keep-alive connection."
+  },
+  "client_max_body_size": {
+    "type": "string",
+    "default": "10m",
+    "description": "Maximum allowed size of client request body (e.g., '1m', '100k'). Set '0' to disable."
+  },
+  "enable_gzip": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable gzip compression for text-based responses to reduce bandwidth."
+  },
+  "gzip_comp_level": {
+    "type": "number",
+    "default": 4,
+    "description": "Gzip compression level (1\u20139, where 9 is slowest but best compression)."
+  },
+  "gzip_min_length": {
+    "type": "number",
+    "default": 256,
+    "description": "Minimum response size (in bytes) to apply gzip compression."
+  },
+  "gzip_types": {
+    "type": "list",
+    "default": [
+      "text/plain",
+      "text/css",
+      "application/json",
+      "application/javascript",
+      "text/xml",
+      "application/xml"
+    ],
+    "description": "MIME types eligible for gzip compression (text types, JSON, XML, JS, CSS, etc.)."
+  },
+  "sites": {
+    "type": "list",
+    "default": [],
+    "description": "List of additional site configs to include (e.g., virtual hosts in /etc/nginx/sites-enabled/).",
+    "items": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Descriptive name of the site config (e.g., 'myapp').",
+          "required": true
+        },
+        "description": {
+          "type": "string",
+          "description": "Brief description for documentation (optional)."
+        },
+        "include_path": {
+          "type": "string",
+          "description": "Absolute path to the site config file (e.g., '/etc/nginx/sites-enabled/myapp.conf').",
+          "required": true
+        }
+      }
+    }
+  },
+  "upstreams": {
+    "type": "list",
+    "default": [],
+    "description": "List of upstream groups for reverse proxy load balancing.",
+    "items": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Upstream group name (used in proxy_pass).",
+          "required": true
+        },
+        "description": {
+          "type": "string",
+          "description": "Purpose of this upstream (optional)."
+        },
+        "servers": {
+          "type": "list",
+          "description": "Backend servers in this upstream group.",
+          "items": {
+            "type": "object",
+            "properties": {
+              "address": {
+                "type": "string",
+                "description": "Backend host or IP (e.g., '127.0.0.1').",
+                "required": true
+              },
+              "port": {
+                "type": "number",
+                "description": "Backend service port.",
+                "default": 8080,
+                "required": true
+              },
+              "weight": {
+                "type": "number",
+                "description": "Server weight (for weighted round-robin).",
+                "default": 1
+              },
+              "backup": {
+                "type": "bool",
+                "description": "Mark server as backup (only used when primary fail).",
+                "default": false
+              },
+              "max_fails": {
+                "type": "number",
+                "description": "Number of failed attempts before marking server down.",
+                "default": 1
+              },
+              "fail_timeout": {
+                "type": "string",
+                "description": "Time after which a failed server is retried (e.g., '30s').",
+                "default": "10s"
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "proxy_cache_paths": {
+    "type": "list",
+    "default": [],
+    "description": "Define proxy cache storage paths for upstream responses.",
+    "items": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Keys zone name (used in proxy_cache).",
+          "required": true
+        },
+        "description": {
+          "type": "string",
+          "description": "Purpose of this cache (optional)."
+        },
+        "path": {
+          "type": "string",
+          "description": "Absolute filesystem path for cached data.",
+          "required": true
+        },
+        "levels": {
+          "type": "string",
+          "description": "Directory hierarchy depth (e.g., '1:2').",
+          "default": "1:2"
+        },
+        "keys_size": {
+          "type": "string",
+          "description": "Memory size for cache keys (e.g., '10m').",
+          "default": "10m"
+        },
+        "max_size": {
+          "type": "string",
+          "description": "Maximum disk size for cached data (e.g., '1g').",
+          "default": "100m"
+        },
+        "inactive": {
+          "type": "string",
+          "description": "Time before uncached data is purged (e.g., '60m').",
+          "default": "10m"
+        },
+        "use_temp_path": {
+          "type": "bool",
+          "description": "Use temporary path during writes (false recommended for performance).",
+          "default": false
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,279 @@
+{
+  "debug": {
+    "type": "boolean",
+    "default": false,
+    "description": "Enable Django debug mode (show detailed error pages). Should be false in production."
+  },
+  "allow_anonymous_view": {
+    "type": "boolean",
+    "default": true,
+    "description": "Allow unauthenticated users to view dashboards, graphs, and metrics."
+  },
+  "login_required": {
+    "type": "boolean",
+    "default": false,
+    "description": "Require authentication for *all* access to the Graphite UI. Overrides 'allow_anonymous_view'."
+  },
+  "timezone": {
+    "type": "string",
+    "default": "UTC",
+    "description": "Time zone used for displaying timestamps and graph intervals (e.g., 'America/New_York', 'UTC')."
+  },
+  "language_code": {
+    "type": "string",
+    "default": "en-us",
+    "description": "Default language for the UI (e.g., 'en-us', 'de-de')."
+  },
+  "secret_key": {
+    "type": "string",
+    "default": "",
+    "description": "Django secret key \u2014 generate a new unique key (e.g., via 'openssl rand -hex 32'). Required in production."
+  },
+  "db_engine": {
+    "type": "string",
+    "default": "sqlite3",
+    "description": "Database backend: 'sqlite3' (local file), 'postgresql', or 'mysql'."
+  },
+  "db_name": {
+    "type": "string",
+    "default": "/var/lib/graphite/graphite.db",
+    "description": "Path to SQLite DB file, or name of PostgreSQL/MySQL database."
+  },
+  "db_user": {
+    "type": "string",
+    "default": "graphite",
+    "description": "Database user for PostgreSQL/MySQL."
+  },
+  "db_password": {
+    "type": "string",
+    "default": "",
+    "description": "Password for database user (use secrets manager in production)."
+  },
+  "db_host": {
+    "type": "string",
+    "default": "localhost",
+    "description": "Database server hostname or IP for PostgreSQL/MySQL."
+  },
+  "db_port": {
+    "type": "number",
+    "default": 5432,
+    "description": "Database server port (e.g., 5432 for PostgreSQL, 3306 for MySQL)."
+  },
+  "cache_backend": {
+    "type": "string",
+    "default": "locmem",
+    "description": "Django cache backend: 'locmem' (local memory), 'filebased', 'redis', or 'dummy' (no caching)."
+  },
+  "cache_location": {
+    "type": "string",
+    "default": "",
+    "description": "Location for cache (e.g., path for filebased, '127.0.0.1:6379' for Redis)."
+  },
+  "cache_timeout": {
+    "type": "number",
+    "default": 86400,
+    "description": "Cache timeout in seconds (only used for filebased cache)."
+  },
+  "auth_backends": {
+    "type": "list",
+    "default": [
+      "django_auth_ldap.backend.LDAPBackend",
+      "django.contrib.auth.backends.ModelBackend"
+    ],
+    "items": {
+      "type": "string",
+      "description": "Authentication backend class path. Common: 'django.contrib.auth.backends.ModelBackend', 'django_auth_ldap.backend.LDAPBackend'."
+    },
+    "description": "Ordered list of Django authentication backends."
+  },
+  "ldap_enabled": {
+    "type": "boolean",
+    "default": false,
+    "description": "Enable LDAP authentication via django-auth-ldap."
+  },
+  "ldap_server_uri": {
+    "type": "string",
+    "default": "ldap://ldap.example.com",
+    "description": "LDAP server URL (e.g., 'ldap://ldap.example.com' or 'ldaps://ldap.example.com')."
+  },
+  "ldap_bind_dn": {
+    "type": "string",
+    "default": "cn=admin,dc=example,dc=com",
+    "description": "Bind DN for initial LDAP connection (used for user/group search)."
+  },
+  "ldap_bind_password": {
+    "type": "string",
+    "default": "",
+    "description": "Password for LDAP bind DN."
+  },
+  "ldap_user_base_dn": {
+    "type": "string",
+    "default": "ou=users,dc=example,dc=com",
+    "description": "Base DN for searching user entries."
+  },
+  "ldap_user_obj_class": {
+    "type": "string",
+    "default": "inetOrgPerson",
+    "description": "LDAP objectClass filter for user entries."
+  },
+  "ldap_user_cn_attr": {
+    "type": "string",
+    "default": "cn",
+    "description": "Attribute used to match CN (common name) \u2014 e.g., 'cn' or 'uid'."
+  },
+  "ldap_user_uid_attr": {
+    "type": "string",
+    "default": "uid",
+    "description": "Username attribute used in the search filter (typically 'uid' or 'sAMAccountName')."
+  },
+  "ldap_user_first_name_attr": {
+    "type": "string",
+    "default": "givenName",
+    "description": "LDAP attribute for user's first name."
+  },
+  "ldap_user_last_name_attr": {
+    "type": "string",
+    "default": "sn",
+    "description": "LDAP attribute for user's last name."
+  },
+  "ldap_user_email_attr": {
+    "type": "string",
+    "default": "mail",
+    "description": "LDAP attribute for user's email address."
+  },
+  "ldap_group_base_dn": {
+    "type": "string",
+    "default": "ou=groups,dc=example,dc=com",
+    "description": "Base DN for searching group entries."
+  },
+  "ldap_group_obj_class": {
+    "type": "string",
+    "default": "groupOfNames",
+    "description": "ObjectClass for LDAP groups (e.g., 'groupOfNames', 'posixGroup')."
+  },
+  "ldap_staff_group": {
+    "type": "string",
+    "default": "",
+    "description": "DN or CN of LDAP group whose members should get 'is_staff' Django permission."
+  },
+  "ldap_superuser_group": {
+    "type": "string",
+    "default": "",
+    "description": "DN or CN of LDAP group whose members should get 'is_superuser' Django permission."
+  },
+  "email_backend": {
+    "type": "string",
+    "default": "django.core.mail.backends.smtp.EmailBackend",
+    "description": "Django email backend class."
+  },
+  "email_host": {
+    "type": "string",
+    "default": "localhost",
+    "description": "SMTP server hostname."
+  },
+  "email_port": {
+    "type": "number",
+    "default": 587,
+    "description": "SMTP server port (e.g., 587 for TLS, 465 for SSL)."
+  },
+  "email_host_user": {
+    "type": "string",
+    "default": "",
+    "description": "SMTP authentication username."
+  },
+  "email_host_password": {
+    "type": "string",
+    "default": "",
+    "description": "SMTP authentication password."
+  },
+  "email_use_tls": {
+    "type": "boolean",
+    "default": true,
+    "description": "Use STARTTLS for SMTP connection."
+  },
+  "default_from_email": {
+    "type": "string",
+    "default": "graphite@example.com",
+    "description": "Sender email address for outgoing notifications."
+  },
+  "carbon_host": {
+    "type": "string",
+    "default": "127.0.0.1",
+    "description": "Hostname/IP of Carbon cache or aggregator to query for metric data."
+  },
+  "carbon_port": {
+    "type": "number",
+    "default": 7002,
+    "description": "Carbon line-receiver or query port (default 7002 for line-receiver, 7002/7004 for query service)."
+  },
+  "storage_dir": {
+    "type": "string",
+    "default": "/var/lib/graphite/whisper",
+    "description": "Directory containing Whisper data files (if using local Whisper storage)."
+  },
+  "max_retention": {
+    "type": "number",
+    "default": 31536000,
+    "description": "Maximum retention period in seconds for rendered metrics (1 year = 31536000 sec)."
+  },
+  "min_retention": {
+    "type": "number",
+    "default": 60,
+    "description": "Minimum retention (smallest resolution step) in seconds (e.g., 60 for 1-minute data)."
+  },
+  "max_values_per_metric": {
+    "type": "number",
+    "default": 10000,
+    "description": "Maximum number of data points to return per metric in API/graph queries."
+  },
+  "allow_private_ips": {
+    "type": "boolean",
+    "default": true,
+    "description": "Allow metrics from private IP ranges (e.g., 127.0.0.1, 10.x.x.x) to be rendered by the web interface."
+  },
+  "log_rendering_performance": {
+    "type": "boolean",
+    "default": false,
+    "description": "Log performance info for graph rendering."
+  },
+  "log_cache_performance": {
+    "type": "boolean",
+    "default": false,
+    "description": "Log cache performance metrics."
+  },
+  "log_metrics": {
+    "type": "boolean",
+    "default": false,
+    "description": "Log every metric fetch operation (useful for debugging)."
+  },
+  "enable_csrf_cookie_secure": {
+    "type": "boolean",
+    "default": false,
+    "description": "Set CSRF cookie as Secure (only sent over HTTPS). Enabled only if HTTPS is used."
+  },
+  "enable_session_cookie_secure": {
+    "type": "boolean",
+    "default": false,
+    "description": "Set session cookie as Secure (only sent over HTTPS)."
+  },
+  "secure_hsts_seconds": {
+    "type": "number",
+    "default": 0,
+    "description": "Seconds to include in Strict-Transport-Security (HSTS) header. Set to 0 to disable."
+  },
+  "secure_content_type_nosniff": {
+    "type": "boolean",
+    "default": true,
+    "description": "Set X-Content-Type-Options: nosniff header."
+  },
+  "secure_browser_xss_filter": {
+    "type": "boolean",
+    "default": true,
+    "description": "Set X-XSS-Protection header (legacy but still useful)."
+  },
+  "url_prefix": {
+    "type": "string",
+    "default": "",
+    "description": "URL prefix for the app (e.g., '/graphite' if behind proxy at that prefix)."
+  }
+}

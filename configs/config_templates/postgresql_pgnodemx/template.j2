@@ -1,0 +1,38 @@
+# pgnodemx extension configuration
+# Enables collection of OS-level metrics (CPU, memory, disk, network) from within PostgreSQL
+# Activate the pgnodemx extension at server start
+shared_preload_libraries = 'pgnodemx'
+
+# Path to the pgnodemx data directory (where raw metric files may be stored temporarily)
+# If empty, defaults to PostgreSQL's data directory
+pgnodemx.data_directory = '{{ pgnodemx_data_directory | default('') }}'
+
+# Interval (in milliseconds) between OS metric samples
+# Minimum recommended: 1000 (1 second); lower values increase overhead
+pgnodemx.sample_interval_ms = {{ pgnodemx_sample_interval_ms }}
+
+# Enable collection of CPU metrics (user, nice, system, idle, iowait, etc.)
+pgnodemx.cpu_enabled = {{ 'on' if pgnodemx_cpu_enabled else 'off' }}
+
+# Enable collection of memory metrics (total, used, free, buffers, cached, etc.)
+pgnodemx.memory_enabled = {{ 'on' if pgnodemx_memory_enabled else 'off' }}
+
+# Enable collection of disk I/O metrics (read/write bytes, ops, latency)
+pgnodemx.disk_enabled = {{ 'on' if pgnodemx_disk_enabled else 'off' }}
+
+# Enable collection of network interface metrics (bytes in/out, packets, errors)
+pgnodemx.network_enabled = {{ 'on' if pgnodemx_network_enabled else 'off' }}
+
+# List of network interfaces to monitor (empty = all non-loopback interfaces)
+# Interfaces not listed will be ignored in network metrics
+{% for iface in pgnodemx_network_interfaces %}# Interface: {{ iface }}
+pgnodemx.network_interface = '{{ iface }}'
+{% endfor %}
+
+# Optional: Custom file descriptor limit for pgnodemx (affects how many open files it can track)
+# Set to 0 to use system default (typically /proc/sys/fs/file-max)
+pgnodemx.max_file_descriptors = {{ pgnodemx_max_file_descriptors | default(0) }}
+
+# Optional: Log level for pgnodemx internal logging (debug, info, notice, warning, error)
+# Set to 'debug' only for troubleshooting — may produce high log volume
+pgnodemx.log_level = '{{ pgnodemx_log_level }}'

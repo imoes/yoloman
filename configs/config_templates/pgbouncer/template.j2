@@ -1,0 +1,115 @@
+[databases]
+# Each database entry maps a logical name to a real PostgreSQL connection string
+{% for db in databases %}{{ db.name }} = host={{ db.host }} port={{ db.port }} dbname={{ db.dbname }}{% if db.auth_user %} user={{ db.auth_user }}{% endif %}
+{% endfor %}
+
+[pgbouncer]
+# Listen address and port for client connections
+listen_addr = {{ listen_addr }}
+listen_port = {{ listen_port }}
+
+# Unix socket path for local connections (optional)
+{% if unix_socket_dir %}unix_socket_dir = {{ unix_socket_dir }}
+unix_socket_mode = {{ unix_socket_mode }}
+{% endif %}
+
+# Authentication method: `trust`, `plain`, `md5`, `scram-sha-256`, etc.
+auth_type = {{ auth_type }}
+
+# Path to password file (used for `plain`, `md5`, `scram-sha-256`)
+{% if auth_file %}auth_file = {{ auth_file }}{% endif %}
+
+# User for server authentication (when using `auth_user` in database entries, or `admin_users`)
+auth_user = {{ auth_user }}
+
+# Pooling mode: `session`, `transaction`, or `statement`
+pool_mode = {{ pool_mode }}
+
+# Max number of client connections allowed
+max_client_conn = {{ max_client_conn }}
+
+# Default pool size (connections held per server DB per user)
+default_pool_size = {{ default_pool_size }}
+
+# Minimum pool size (pre-allocate these connections)
+min_pool_size = {{ min_pool_size }}
+
+# Max number of server connections allowed (0 = unlimited)
+max_server_conn = {{ max_server_conn }}
+
+# Time to wait before logging idle server connections
+server_idle_timeout = {{ server_idle_timeout }}
+
+# Log level: `1=error, 2=warning, 3=notice, 4=debug` (0=off)
+log_connections = {{ log_connections }}
+log_disconnections = {{ log_disconnections }}
+log_pooler_errors = {{ log_pooler_errors }}
+
+# Admin users (can connect via psql to pgbouncer's internal DB)
+admin_users = {{ admin_users | join(', ') }}
+
+# Stats users (can query `SHOW STATS` etc.)
+stats_users = {{ stats_users | join(', ') }}
+
+# Log file path (omit to log to stdout/stderr)
+{% if log_file %}logfile = {{ log_file }}{% endif %}
+
+# PID file path
+pidfile = {{ pidfile }}
+
+# TCP keepalive settings (seconds)
+server_reset_query_always = {{ server_reset_query_always }}
+
+# Query to run before returning a server connection to pool
+server_reset_query = {{ server_reset_query }}
+
+# Disable server-side cursor usage (recommended for pgbouncer)
+server_check_query = {{ server_check_query }}
+
+# Delay before checking if server is still alive
+server_check_delay = {{ server_check_delay }}
+
+# Maximum query time in seconds before logging warnings
+query_timeout = {{ query_timeout }}
+
+# Maximum connection setup time
+connect_timeout = {{ connect_timeout }}
+
+# Idle client timeout (seconds)
+client_idle_timeout = {{ client_idle_timeout }}
+
+# Idle server timeout (seconds)
+server_idle_timeout = {{ server_idle_timeout }}
+
+# Maximum number of queries before server reset
+max_query_count = {{ max_query_count }}
+
+# Delay before closing an idle server after a query (for pooling)
+delayed_client_start = {{ delayed_client_start }}
+
+# Reserve pool for admin connections
+reserve_pool_size = {{ reserve_pool_size }}
+
+# Reserve pool timeout (seconds)
+reserve_pool_timeout = {{ reserve_pool_timeout }}
+
+# Disable DNS lookups for server addresses
+resolve_conf = {{ resolve_conf }}
+
+# Use TCP Fast Open (if supported)
+tcp_fastopen = {{ tcp_fastopen }}
+
+# TLS support (client ↔ pgbouncer)
+{% if tls_mode %}sslmode = {{ tls_mode }}
+sslcert = {{ tls_cert }}
+sslkey = {{ tls_key }}
+sslca = {{ tls_ca }}
+sslcrl = {{ tls_crl }}
+{% endif %}
+
+# TLS for pgbouncer ↔ PostgreSQL (requires `sslmode` in database connection strings)
+sslmode = {{ server_tls_mode }}
+sslcert = {{ server_tls_cert }}
+sslkey = {{ server_tls_key }}
+sslca = {{ server_tls_ca }}
+sslcrl = {{ server_tls_crl }}

@@ -1,0 +1,179 @@
+{
+  "server_port": {
+    "type": "number",
+    "default": 2811,
+    "description": "TCP port for the GridFTP control connection (standard GridFTP port is 2811)"
+  },
+  "listen_address": {
+    "type": "string",
+    "default": "0.0.0.0",
+    "description": "IP address the GridFTP service listens on (e.g., '10.0.0.5' or '::' for IPv6)"
+  },
+  "data_port_range": {
+    "type": "object",
+    "default": {
+      "start": 50000,
+      "end": 51000
+    },
+    "items": {
+      "start": {
+        "type": "number",
+        "default": 50000,
+        "description": "First port in data connection range"
+      },
+      "end": {
+        "type": "number",
+        "default": 51000,
+        "description": "Last port in data connection range"
+      }
+    },
+    "description": "Range of TCP ports used for passive-mode data transfers (must be open in firewall)"
+  },
+  "max_connections": {
+    "type": "number",
+    "default": 50,
+    "description": "Maximum number of simultaneous client connections allowed"
+  },
+  "trusted_cas": {
+    "type": "list",
+    "default": [],
+    "items": {
+      "type": "object",
+      "items": {
+        "path": {
+          "type": "string",
+          "default": "",
+          "description": "Path to CA certificate file or directory (e.g., '/etc/grid-security/certificates')"
+        }
+      }
+    },
+    "description": "List of trusted certificate authorities for GSI authentication"
+  },
+  "access_rules": {
+    "type": "list",
+    "default": [
+      {
+        "type": "allow",
+        "match_type": "dn",
+        "pattern": ".*"
+      },
+      {
+        "type": "deny",
+        "match_type": "fqan",
+        "pattern": "/Role=Capability.*"
+      }
+    ],
+    "items": {
+      "type": "object",
+      "items": {
+        "type": {
+          "type": "string",
+          "enum": [
+            "allow",
+            "deny"
+          ],
+          "default": "allow",
+          "description": "Action to take on match"
+        },
+        "match_type": {
+          "type": "string",
+          "enum": [
+            "dn",
+            "fqan",
+            "all"
+          ],
+          "default": "dn",
+          "description": "Match criterion: DN (Distinguished Name), FQAN (Fully Qualified Attribute Name), or 'all'"
+        },
+        "pattern": {
+          "type": "string",
+          "default": ".*",
+          "description": "Regex pattern to match DN or FQAN"
+        }
+      }
+    },
+    "description": "Ordered list of allow/deny rules for client access control"
+  },
+  "proxy_storage_path": {
+    "type": "string",
+    "default": "/var/lib/globus/proxy",
+    "description": "Directory path for storing delegated GSI proxies (requires write access)"
+  },
+  "transfer_timeout": {
+    "type": "number",
+    "default": 3600,
+    "description": "Maximum idle time (seconds) before an in-progress transfer is aborted"
+  },
+  "connection_idle_timeout": {
+    "type": "number",
+    "default": 600,
+    "description": "Seconds before an idle control connection is closed"
+  },
+  "max_transfer_rate": {
+    "type": "number",
+    "default": 0,
+    "description": "Maximum transfer rate in bytes/second per client (0 = unlimited)"
+  },
+  "tls_enabled": {
+    "type": "boolean",
+    "default": false,
+    "description": "Enable TLS for control and data connections (GSI+TLS hybrid mode)"
+  },
+  "tls_cipher_list": {
+    "type": "list",
+    "default": [
+      "AES256-SHA",
+      "AES128-SHA",
+      "DES-CBC3-SHA"
+    ],
+    "items": {
+      "type": "string"
+    },
+    "description": "Colon-separated list of allowed TLS cipher suites"
+  },
+  "tls_client_auth_required": {
+    "type": "boolean",
+    "default": true,
+    "description": "Require client certificates for TLS connections (if TLS enabled)"
+  },
+  "log_file": {
+    "type": "string",
+    "default": "syslog",
+    "description": "Path to log file or 'syslog' to use the system logger"
+  },
+  "log_level": {
+    "type": "string",
+    "default": "notice",
+    "description": "Verbosity level of logging (debug is most verbose)"
+  },
+  "dirlist_cache": {
+    "type": "boolean",
+    "default": true,
+    "description": "Enable caching of directory listings for improved performance"
+  },
+  "dirlist_cache_ttl": {
+    "type": "number",
+    "default": 60,
+    "description": "Time-to-live (seconds) for cached directory listings (ignored if dirlist_cache = off)"
+  },
+  "enable_server_side_copy": {
+    "type": "boolean",
+    "default": true,
+    "description": "Enable server-side copy (SSC) between endpoints"
+  },
+  "enable_http_proxy": {
+    "type": "boolean",
+    "default": false,
+    "description": "Enable HTTP CONNECT proxy support (e.g., for web-based clients)"
+  },
+  "http_proxy_host": {
+    "type": "string",
+    "default": "",
+    "description": "Hostname of HTTP proxy server (only used if HTTP proxy enabled)"
+  },
+  "http_proxy_port": {
+    "type": "number",
+    "default": 3128,
+    "description": "Port of HTTP proxy server (only used if HTTP proxy enabled)"
+  }
+}

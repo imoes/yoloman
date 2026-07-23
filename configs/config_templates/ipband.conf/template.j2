@@ -1,0 +1,52 @@
+[global]
+# The maximum number of simultaneous connections ipband will handle
+maxconn = {{ maxconn }}
+
+# The interface(s) to monitor for bandwidth; comma-separated list
+interfaces = {{ interfaces | join(', ') }}
+
+# Path to the PID file for ipband daemon
+pidfile = {{ pidfile }}
+
+# Logging level: 0 (quiet) to 5 (debug)
+loglevel = {{ loglevel }}
+
+# Path to the log file (leave empty to log to syslog only)
+logfile = {{ logfile | default('') }}
+
+# Enable or disable logging to syslog
+logsyslog = {{ 'yes' if logsyslog else 'no' }}
+
+# Path to the stats file for external monitoring tools
+statsfile = {{ statsfile }}
+
+# Interval (in seconds) between stats file updates
+statsinterval = {{ statsinterval }}
+
+[daemon]
+# Run ipband as a daemon (background process)
+daemonize = {{ 'yes' if daemonize else 'no' }}
+
+# User to run as after startup (must be a valid system user)
+user = {{ user }}
+
+# Group to run as after startup
+grp = {{ grp }}
+
+[bandwidth]
+# Global upload limit (in KBytes/sec); 0 = unlimited
+upload_limit = {{ bandwidth.upload_limit }}
+
+# Global download limit (in KBytes/sec); 0 = unlimited
+download_limit = {{ bandwidth.download_limit }}
+
+{% for rule in bandwidth.rules %}[bandwidth:{{ rule.name }}]
+# Rule: {{ rule.description | default('No description') }}
+enabled = {{ 'yes' if rule.enabled else 'no' }}
+upload_limit = {{ rule.upload_limit }}
+download_limit = {{ rule.download_limit }}
+{% if rule.match_type == 'src_ip' %}src_ip = {{ rule.match_value }}
+{% elif rule.match_type == 'dst_ip' %}dst_ip = {{ rule.match_value }}
+{% elif rule.match_type == 'port' %}port = {{ rule.match_value }}
+{% elif rule.match_type == 'proto' %}proto = {{ rule.match_value }}
+{% endif %}{% endfor %}

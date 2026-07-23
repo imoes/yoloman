@@ -1,0 +1,114 @@
+# Lomiri History Service configuration
+# Base directory for data storage (databases, logs, caches)
+base_dir: {{ base_dir }}
+
+# Database configuration
+[database]
+# SQLite database file path
+path: {{ database.path }}
+
+# Max database size in MB (0 = unlimited)
+max_size_mb: {{ database.max_size_mb }}
+
+# Enable journal mode for durability
+journal_mode: {{ database.journal_mode }}
+
+# Max simultaneous connections to the database
+pool_size: {{ database.pool_size }}
+
+# Logging configuration
+[logging]
+# Log level: DEBUG, INFO, WARNING, ERROR, CRITICAL
+level: {{ logging.level }}
+
+# Path to log file (empty string disables file logging)
+file: {{ logging.file }}
+
+# Enable console logging
+console: {{ logging.console }}
+
+# Max size of each log file before rotation (MB)
+max_file_size_mb: {{ logging.max_file_size_mb }}
+
+# Number of rotated log files to keep
+max_file_count: {{ logging.max_file_count }}
+
+# Network service configuration
+[network]
+# Host address to bind to (e.g., '127.0.0.1' or '::' for all IPv6)
+host: {{ network.host }}
+
+# TCP port for the main REST API endpoint
+api_port: {{ network.api_port }}
+
+# TCP port for the metrics endpoint (Prometheus-style)
+metrics_port: {{ network.metrics_port }}
+
+# Enable TLS/SSL for the API endpoint
+tls_enabled: {{ network.tls_enabled }}
+
+# Path to TLS certificate file (required if tls_enabled)
+tls_cert: {{ network.tls_cert }}
+
+# Path to TLS private key file (required if tls_enabled)
+tls_key: {{ network.tls_key }}
+
+# Compression configuration
+[compression]
+# Enable gzip compression for API responses
+enabled: {{ compression.enabled }}
+
+# Minimum response size (in bytes) to trigger compression
+min_size: {{ compression.min_size }}
+
+# Worker and threading configuration
+[workers]
+# Number of worker processes (0 = auto based on CPU count)
+processes: {{ workers.processes }}
+
+# Number of threads per worker
+threads: {{ workers.threads }}
+
+# Maximum number of requests a worker can process before restarting
+max_requests: {{ workers.max_requests }}
+
+# Timeout for worker processes (seconds)
+worker_timeout: {{ workers.worker_timeout }}
+
+# Retention and pruning policy
+[retention]
+# Keep messages for N days (0 = never expire)
+message_days: {{ retention.message_days }}
+
+# Keep calls for N days (0 = never expire)
+call_days: {{ retention.call_days }}
+
+# Enable automatic pruning of expired data
+prune_enabled: {{ retention.prune_enabled }}
+
+# Run pruning at this cron-like interval (e.g., '0 3 * * *' = daily at 03:00)
+prune_schedule: {{ retention.prune_schedule }}
+
+# List of allowed origin hosts for CORS (empty = allow all, but this is not recommended)
+# Format: ["https://example.com", "https://app.example.com"]
+[cors]
+{% if cors.origins %}
+allowed_origins:
+{% for origin in cors.origins %}  - {{ origin }}{% endfor %}
+{% else %}
+allowed_origins: []
+{% endif %}
+
+# Enable sending credentials (cookies, auth headers) with CORS requests
+allow_credentials: {{ cors.allow_credentials }}
+
+# Cache configuration (memory cache, e.g., for recent messages)
+[cache]
+# Max number of entries in cache
+max_entries: {{ cache.max_entries }}
+
+# TTL for cache entries (seconds)
+ttl_seconds: {{ cache.ttl_seconds }}
+
+# Enable stats collection (used for metrics and diagnostics)
+stats_enabled: {{ cache.stats_enabled }}

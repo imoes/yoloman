@@ -1,0 +1,37 @@
+# msmtp configuration file
+# Select default account
+defaults
+{% if 'account' in accounts %}
+{% for account in accounts %}
+# Configure account '{{ account.name }}'
+account {{ account.name }}
+host {{ account.host }}
+port {{ account.port }}
+from {{ account.from_address }}
+auth {{ account.auth }}
+user {{ account.user }}
+password {{ account.password }}
+{% if account.tls %}tls on
+{% endif %}{% if not account.tls %}tls off
+{% endif %}{% if account.tls_starttls %}tls_starttls on
+{% else %}tls_starttls off
+{% endif %}{% if account.tls_trust_file %}tls_trust_file {{ account.tls_trust_file }}
+{% endif %}{% if account.tls_cert_file %}tls_cert_file {{ account.tls_cert_file }}
+{% endif %}{% if account.tls_key_file %}tls_key_file {{ account.tls_key_file }}
+{% endif %}{% if account.syslog %}syslog on
+{% else %}syslog off
+{% endif %}{% if account.log_file %}logfile {{ account.log_file }}
+{% endif %}
+{% if account.timeout %}timeout {{ account.timeout }}
+{% endif %}
+{% endfor %}
+{% endif %}
+# Set default account (must be one of the defined accounts)
+account {{ default_account }}
+
+# Optional: aliases for convenience
+{% if aliases %}
+{% for name, address in aliases.items() %}# Alias '{{ name }}' -> {{ address }}
+alias {{ name }} {{ address }}
+{% endfor %}
+{% endif %}

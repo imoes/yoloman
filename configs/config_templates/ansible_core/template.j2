@@ -1,0 +1,68 @@
+[defaults]
+# Default inventory file (hosts) — path to static or dynamic inventory
+inventory = {{ defaults_inventory }}
+
+# Enable/disable fact gathering — whether to collect system facts before tasks
+# (overrides 'gather_facts' per-task setting)
+gathering = {{ defaults_gathering }}
+
+# Default timeout for SSH connections (seconds)
+timeout = {{ defaults_timeout }}
+
+# Default remote user — username used on target hosts
+remote_user = {{ defaults_remote_user }}
+
+# Default connection type
+# Options: smart, ssh, paramiko, local, etc.
+connection = {{ defaults_connection }}
+
+# Enable/disable pipelining — reduces SSH operations by bundling commands
+# (requires 'sudo' or 'su' without password; may cause issues with some modules)
+pipelining = {{ defaults_pipelining }}
+
+# Control fact caching — where and how long to store collected facts
+fact_caching = {{ defaults_fact_caching }}
+fact_caching_connection = {{ defaults_fact_caching_connection }}
+
+# Logging — optional log file for ansible run events
+# (requires 'log_path' to be set in 'defaults' or 'inventory' section in some versions)
+log_path = {{ defaults_log_path | default('') }}
+
+# Callback plugins — control output and behavior
+# e.g., 'stdout_callback' changes default CLI output format
+callback_whitelist = {{ defaults_callback_whitelist | join(', ') }}
+
+[privilege_escalation]
+# Default method to escalate privileges (e.g., sudo, su, pfexec, doas)
+# 'become' is the modern synonym; this section kept for older versions
+become_method = {{ privilege_escalation_become_method }}
+
+# Default user to become after escalation
+become_user = {{ privilege_escalation_become_user }}
+
+# Whether to prompt for become password
+become_ask_pass = {{ privilege_escalation_become_ask_pass }}
+
+[ssh_connection]
+# SSH control path directory — for connection reuse
+control_path = {{ ssh_connection_control_path }}
+
+# SSH keepalive interval (seconds) — helps avoid stale connections
+ssh_args = -o ControlMaster=auto -o ControlPersist=60s -o UserKnownHostsFile=/dev/null
+
+# Reuse SSH connections — reduces latency
+retries = {{ ssh_connection_retries }}
+
+[inventory]
+# Enable/disable inventory plugins (e.g., host_list, script, yaml, ini)
+enable_plugins = {{ inventory_enable_plugins | join(', ') }}
+
+# Whether to ignore host key checking
+host_key_checking = {{ inventory_host_key_checking }}
+
+# Default script timeout (seconds) for dynamic inventory scripts
+inventory_timeout = {{ inventory_timeout }}
+
+[galaxy]
+# Default server for role installation
+galaxy_server_list = {{ galaxy_server_list | join(', ') }}

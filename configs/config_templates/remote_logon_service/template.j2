@@ -1,0 +1,70 @@
+# Path to the DBus system bus address (typically /run/dbus/system_bus_socket)
+# Set to 'auto' to auto-detect via DBUS_SYSTEM_BUS_ADDRESS or system bus fallback
+bus_address: {{ bus_address }}
+
+# Path to the PID file for the service
+pid_file: {{ pid_file }}
+
+# Maximum number of concurrent connection attempts to remote servers
+max_connection_attempts: {{ max_connection_attempts }}
+
+# Timeout (in seconds) for each remote server connection attempt
+connection_timeout: {{ connection_timeout }}
+
+# Interval (in seconds) between scans for available remote servers
+scan_interval: {{ scan_interval }}
+
+# Enable or disable logging of successful/failed connection events
+enable_logging: {{ enable_logging | lower }}
+
+# Logging verbosity level: 0 (error), 1 (warn), 2 (info), 3 (debug)
+log_level: {{ log_level }}
+
+# Directory where remote server discovery cache is stored
+cache_dir: {{ cache_dir }}
+
+# TTL (in seconds) for cached remote server entries
+cache_ttl: {{ cache_ttl }}
+
+# List of trusted remote servers (by hostname or IP); if non-empty, only these are queried
+{% if trusted_servers | length > 0 %}
+# Trusted remote servers (comma-separated if single-line config, but here listed explicitly)
+trusted_servers:
+{% for server in trusted_servers %}  - {{ server }}
+{% endfor %}
+{% else %}
+# All remote servers (non-trusted mode) are queried
+trusted_servers: []
+{% endif %}
+
+# List of remote server groups to monitor (each group may include a weight and optional filter)
+{% if server_groups | length > 0 %}
+server_groups:
+{% for group in server_groups %}  - name: {{ group.name }}
+    weight: {{ group.weight }}
+    hosts:
+{% for host in group.hosts %}      - hostname: {{ host.hostname }}
+          port: {{ host.port }}
+{% if host.tls %}          tls: {{ host.tls }}
+{% endif %}{% endfor %}
+    filter: {{ group.filter | default('all') }}
+{% endfor %}
+{% else %}
+# No custom server groups configured — use auto-discovered servers only
+server_groups: []
+{% endif %}
+
+# Credentials file for authenticated remote logon (optional; leave empty to disable auth)
+credentials_file: {{ credentials_file }}
+
+# Enable TLS for all outbound connections to remote servers
+enable_tls: {{ enable_tls | lower }}
+
+# Path to CA certificate bundle (required only if enable_tls is true)
+ca_cert_path: {{ ca_cert_path }}
+
+# Path to client certificate (optional; used only if mutual TLS is required)
+client_cert_path: {{ client_cert_path }}
+
+# Path to client private key (optional; used only if mutual TLS is required)
+client_key_path: {{ client_key_path }}

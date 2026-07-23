@@ -1,0 +1,43 @@
+# mbpfan configuration file — Controls fan speed based on CPU/GPU temperature on Apple MacBooks
+[general]
+# Enable or disable mbpfan daemon
+enabled = {{ enabled }}
+
+# Path to the log file (use 'syslog' to log to system log)
+log_file = {{ log_file }}
+
+# Minimum fan speed (percent, 0–65535 or 'auto')
+min_fan_speed = {{ min_fan_speed }}
+
+# Maximum fan speed (percent or 'max')
+max_fan_speed = {{ max_fan_speed }}
+
+# Temperature thresholds (°C) for low, medium, high fan levels
+low_temp_threshold = {{ low_temp_threshold }}
+medium_temp_threshold = {{ medium_temp_threshold }}
+high_temp_threshold = {{ high_temp_threshold }}
+
+# polling interval (seconds)
+poll_interval = {{ poll_interval }}
+
+# Whether to allow manual override via sysfs (true/false)
+allow_manual_override = {{ allow_manual_override }}
+
+# Optional: list of devices to exclude from monitoring
+# Each item must be a device path like '/sys/class/thermal/thermal_zone0'
+{% for exclude_path in exclude_paths %}# Excluded device: {{ exclude_path }}
+{% endfor %}
+
+# Advanced: custom temperature source paths (defaults to automatic detection)
+{% for temp_source in temp_sources %}# Temperature source: {{ temp_source }}
+{% endfor %}
+
+# Optional: fan control method ('smc' for Apple SMC, 'auto' for auto-detect)
+fan_method = {{ fan_method }}
+
+[pid_controller]
+# PID control parameters (only if PID mode is enabled)
+kp = {{ kp }}
+ki = {{ ki }}
+kd = {{ kd }}
+integral_max = {{ integral_max }}

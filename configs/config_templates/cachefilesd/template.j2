@@ -1,0 +1,32 @@
+# Run cachefilesd in foreground or background
+# -d: debug level (0–5); higher = more verbose
+# -r: run as root (if not set, drops to 'cache' user by default)
+# -g: group to switch to (if not -r)
+# -u: user to switch to (if not -r)
+# -p: PID file path
+
+{% if debug %}-d {{ debug }}{% endif %}
+{% if run_as_root %}{% else %}-u {{ user }}{% if group %} -g {{ group }}{% endif %}{% endif %}
+{% if pidfile %}-p {{ pidfile }}{% endif %}
+
+# Cache directory (must be on a mounted filesystem with fscache support)
+# Must be owned by root and mode 700
+# Example: /var/cache/fscache
+{{ cache_dir }}
+
+# Tiered cache directories (optional; list of additional cache paths)
+{% for dir in extra_dirs %}{{ dir }}
+{% endfor %}
+
+# Bounds on cache size
+# cache_lower: minimum cache size (in bytes or suffix like 'G', 'M', 'K')
+# cache_upper: maximum cache size
+{% if cache_lower %}-b {{ cache_lower }}{% endif %}
+{% if cache_upper %}-c {{ cache_upper }}{% endif %}
+
+# Cache scanning behavior
+# scan_interval: seconds between scans (0 = disable scanning)
+{% if scan_interval is defined %}-s {{ scan_interval }}{% endif %}
+
+# Tag to identify cache (optional; for multinode setups)
+{% if tag %}-t {{ tag }}{% endif %}

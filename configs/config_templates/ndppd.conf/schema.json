@@ -1,0 +1,94 @@
+{
+  "proxy_iface": {
+    "type": "string",
+    "default": "eth0",
+    "description": "Default interface to proxy on behalf of when no per-interface rule matches"
+  },
+  "timeout": {
+    "type": "number",
+    "default": 300,
+    "description": "Global neighbor cache timeout in seconds"
+  },
+  "rules": {
+    "type": "list",
+    "default": [
+      "router"
+    ],
+    "description": "Global proxy behavior rules; each must be one of: 'router', 'host', 'static'"
+  },
+  "interfaces": {
+    "type": "list",
+    "default": [],
+    "description": "List of interfaces with per-interface proxy configuration",
+    "items": {
+      "name": {
+        "type": "string",
+        "default": "",
+        "description": "Interface name (e.g. eth1, br0)"
+      },
+      "description": {
+        "type": "string",
+        "default": "",
+        "description": "Human-readable description of this interface's purpose"
+      },
+      "rules": {
+        "type": "list",
+        "default": [],
+        "description": "Proxy behavior rules for this interface; each must be one of: 'router', 'host', 'static', 'autonomous', 'managed', 'other'",
+        "items": {
+          "type": "string",
+          "enum": [
+            "router",
+            "host",
+            "static",
+            "autonomous",
+            "managed",
+            "other"
+          ]
+        }
+      },
+      "timeout": {
+        "type": "number",
+        "default": 3600,
+        "description": "Neighbor cache timeout in seconds for this interface"
+      },
+      "router_priority": {
+        "type": "number",
+        "default": null,
+        "description": "Router priority (0\u2013255) for Router Advertisement messages. Omit (null) to use default."
+      },
+      "router_lifetime": {
+        "type": "number",
+        "default": null,
+        "description": "Router lifetime (seconds) in Router Advertisement messages. Omit (null) to use default (1800\u20139000)."
+      }
+    }
+  },
+  "static_entries": {
+    "type": "list",
+    "default": [],
+    "description": "List of static neighbor entries (IPv6 address to MAC mapping)",
+    "items": {
+      "mac": {
+        "type": "string",
+        "default": "",
+        "description": "MAC address (e.g. '00:11:22:33:44:55')"
+      },
+      "ip": {
+        "type": "string",
+        "default": "",
+        "description": "IPv6 address (e.g. '2001:db8::1')"
+      },
+      "iface": {
+        "type": "string",
+        "default": "",
+        "description": "Interface on which this entry should be announced"
+      },
+      "description": {
+        "type": "string",
+        "default": "",
+        "description": "Optional human-readable label for this entry"
+      }
+    }
+  }
+}

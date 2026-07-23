@@ -1,0 +1,90 @@
+# multipath.conf — Multipath I/O Device Manager configuration
+# Device-specific settings for multipathing
+{% for device in devices %}
+device {
+{% if device.vendor is defined and device.vendor != '' %}    vendor        "{{ device.vendor }}"{% endif %}
+{% if device.product is defined and device.product != '' %}    product       "{{ device.product }}"{% endif %}
+{% if device.path_grouping_policy is defined %}    path_grouping_policy    "{{ device.path_grouping_policy }}"{% endif %}
+{% if device.prio is defined %}    prio          "{{ device.prio }}"{% endif %}
+{% if device.prio_args is defined %}    prio_args     "{{ device.prio_args }}"{% endif %}
+{% if device.features is defined %}    features      "{{ device.features }}"{% endif %}
+{% if device.hwhandler is defined %}    hw_handler    "{{ device.hwhandler }}"{% endif %}
+{% if device.selector is defined %}    selector      "{{ device.selector }}"{% endif %}
+{% if device rr_weight is defined %}    rr_weight     "{{ device.rr_weight }}"{% endif %}
+{% if device.no_path_retry is defined %}    no_path_retry "{{ device.no_path_retry }}"{% endif %}
+{% if device.retain_hwhandler is defined %}    retain_hwhandler "{{ device.retain_hwhandler }}"{% endif %}
+{% if device.failback is defined %}    failback      "{{ device.failback }}"{% endif %}
+{% if device.pg_timeout is defined %}    pg_timeout    "{{ device.pg_timeout }}"{% endif %}
+}
+{% endfor %}
+
+# Default settings applied when no device block matches
+defaults {
+{% if defaults_.path_grouping_policy is defined %}    path_grouping_policy    "{{ defaults_.path_grouping_policy }}"{% endif %}
+{% if defaults_.prio is defined %}    prio          "{{ defaults_.prio }}"{% endif %}
+{% if defaults_.prio_args is defined %}    prio_args     "{{ defaults_.prio_args }}"{% endif %}
+{% if defaults_.features is defined %}    features      "{{ defaults_.features }}"{% endif %}
+{% if defaults_.hw_handler is defined %}    hw_handler    "{{ defaults_.hw_handler }}"{% endif %}
+{% if defaults_.selector is defined %}    selector      "{{ defaults_.selector }}"{% endif %}
+{% if defaults_.rr_weight is defined %}    rr_weight     "{{ defaults_.rr_weight }}"{% endif %}
+{% if defaults_.no_path_retry is defined %}    no_path_retry "{{ defaults_.no_path_retry }}"{% endif %}
+{% if defaults_.retain_hwhandler is defined %}    retain_hwhandler "{{ defaults_.retain_hwhandler }}"{% endif %}
+{% if defaults_.failback is defined %}    failback      "{{ defaults_.failback }}"{% endif %}
+{% if defaults_.pg_timeout is defined %}    pg_timeout    "{{ defaults_.pg_timeout }}"{% endif %}
+{% if defaults_.user_friendly_names is defined %}    user_friendly_names "{{ defaults_.user_friendly_names }}"{% endif %}
+{% if defaults_.max_fds is defined %}    max_fds       "{{ defaults_.max_fds }}"{% endif %}
+{% if defaults_.queue_without_daemon is defined %}    queue_without_daemon "{{ defaults_.queue_without_daemon }}"{% endif %}
+{% if defaults_.checker_timeout is defined %}    checker_timeout "{{ defaults_.checker_timeout }}"{% endif %}
+{% if defaults_.io_timeout is defined %}    io_timeout    "{{ defaults_.io_timeout }}"{% endif %}
+{% if defaults_.dev_loss is defined %}    dev_loss      "{{ defaults_.dev_loss }}"{% endif %}
+}
+
+# Blacklist configuration to exclude devices from multipathing
+blacklist {
+{% for dev in blacklist_devices %}
+    dev "{{ dev }}"
+{% endfor %}
+{% for devnode in blacklist_devnodes %}
+    devnode "{{ devnode }}"
+{% endfor %}
+{% if blacklist_wwids is defined and blacklist_wwids|length > 0 %}
+{% for wwid in blacklist_wwids %}
+    wwid "{{ wwid }}"
+{% endfor %}
+{% endif %}
+}
+
+# Blacklist exceptions (devices to include despite matching blacklist rules)
+{% if blacklist_exceptions is defined and (blacklist_exceptions.devices|length > 0 or blacklist_exceptions.devnodes|length > 0 or blacklist_exceptions.wwids|length > 0) %}
+blacklist_exceptions {
+{% for dev in blacklist_exceptions.devices %}
+    dev "{{ dev }}"
+{% endfor %}
+{% for devnode in blacklist_exceptions.devnodes %}
+    devnode "{{ devnode }}"
+{% endfor %}
+{% if blacklist_exceptions.wwids is defined and blacklist_exceptions.wwids|length > 0 %}
+{% for wwid in blacklist_exceptions.wwids %}
+    wwid "{{ wwid }}"
+{% endfor %}
+{% endif %}
+}
+{% endif %}
+
+# Optional: log level and logging settings
+{% if logging is defined %}
+logging {
+    verbosity     {{ logging.verbosity }}
+{% if logging.log_file is defined %}    log_file      "{{ logging.log_file }}"{% endif %}
+{% if logging.log_priority is defined %}    log_priority  "{{ logging.log_priority }}"{% endif %}
+{% if logging.daemon_log_level is defined %}    daemon_log_level "{{ logging.daemon_log_level }}"{% endif %}
+}
+{% endif %}
+
+# Optional: watchdog support
+{% if watchdog is defined %}
+watchdog {
+{% if watchdog.timeout is defined %}    timeout       "{{ watchdog.timeout }}"{% endif %}
+{% if watchdog.interval is defined %}    interval      "{{ watchdog.interval }}"{% endif %}
+}
+{% endif %}

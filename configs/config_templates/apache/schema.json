@@ -1,0 +1,227 @@
+{
+  "server_root": {
+    "type": "string",
+    "default": "/etc/apache2",
+    "description": "Top-level directory of Apache configuration."
+  },
+  "pid_file": {
+    "type": "string",
+    "default": "/var/run/apache2.pid",
+    "description": "Path to the file where Apache writes its process ID."
+  },
+  "timeout": {
+    "type": "number",
+    "default": 300,
+    "description": "Number of seconds before receives and sends time out."
+  },
+  "keepalive": {
+    "type": "bool",
+    "default": true,
+    "description": "Whether to allow persistent connections."
+  },
+  "max_keepalive_requests": {
+    "type": "number",
+    "default": 100,
+    "description": "Maximum number of requests allowed per persistent connection."
+  },
+  "keepalive_timeout": {
+    "type": "number",
+    "default": 5,
+    "description": "Number of seconds Apache waits for the next request on a persistent connection."
+  },
+  "user": {
+    "type": "string",
+    "default": "www-data",
+    "description": "User account under which Apache runs."
+  },
+  "group": {
+    "type": "string",
+    "default": "www-data",
+    "description": "Group under which Apache runs."
+  },
+  "server_admin": {
+    "type": "string",
+    "default": "admin@example.com",
+    "description": "Email address displayed in server-generated error messages."
+  },
+  "server_name": {
+    "type": "string",
+    "default": "",
+    "description": "Server hostname (optional). If empty, omitted from config."
+  },
+  "directory_index": {
+    "type": "list",
+    "default": [
+      "index.html",
+      "index.htm",
+      "index.php"
+    ],
+    "description": "List of default filenames to serve when a directory is requested."
+  },
+  "error_log": {
+    "type": "string",
+    "default": "/var/log/apache2/error.log",
+    "description": "Path to the global error log file."
+  },
+  "log_level": {
+    "type": "string",
+    "default": "warn",
+    "description": "Verbosity level for error logging (e.g., debug, info, notice, warn, error, crit, alert, emerg)."
+  },
+  "included_module_configs": {
+    "type": "list",
+    "default": [],
+    "description": "List of additional module config files to include. Each item has a 'path' field.",
+    "items": {
+      "path": {
+        "type": "string",
+        "description": "Absolute path to a module configuration file."
+      }
+    }
+  },
+  "modules_to_load": {
+    "type": "list",
+    "default": [],
+    "description": "List of modules to explicitly load. Each item has 'name' and 'path' fields.",
+    "items": {
+      "name": {
+        "type": "string",
+        "description": "Module name (e.g., 'proxy', 'proxy_http')."
+      },
+      "path": {
+        "type": "string",
+        "description": "Absolute or relative (to ServerRoot) path to the module .so file."
+      }
+    }
+  },
+  "listen_addresses": {
+    "type": "list",
+    "default": [
+      "*:80",
+      "[::]:80"
+    ],
+    "description": "List of addresses and ports Apache should listen on (e.g., '80', '127.0.0.1:443')."
+  },
+  "virtual_hosts": {
+    "type": "list",
+    "default": [],
+    "description": "Virtual hosts to configure. Each item defines a <VirtualHost> block.",
+    "items": {
+      "address": {
+        "type": "string",
+        "description": "IP address or wildcard (e.g., '*').",
+        "default": "*"
+      },
+      "port": {
+        "type": "number",
+        "description": "Port number (e.g., 80 or 443).",
+        "default": 80
+      },
+      "server_name": {
+        "type": "string",
+        "description": "Primary domain name for this virtual host.",
+        "default": "example.com"
+      },
+      "server_alias": {
+        "type": "list",
+        "description": "Additional domain names for this host (e.g., 'www.example.com').",
+        "default": [],
+        "items": {
+          "type": "string"
+        }
+      },
+      "document_root": {
+        "type": "string",
+        "description": "Filesystem path to the document root.",
+        "default": "/var/www/html"
+      },
+      "error_log": {
+        "type": "string",
+        "description": "Per-vhost error log path. If empty, uses global.",
+        "default": ""
+      },
+      "custom_log": {
+        "type": "string",
+        "description": "Access log path for this virtual host.",
+        "default": "/var/log/apache2/access.log"
+      },
+      "log_format": {
+        "type": "string",
+        "description": "Log format name or custom spec (e.g., 'combined', '%h %l %u %t \"%r\" %>s %b').",
+        "default": "combined"
+      },
+      "options": {
+        "type": "list",
+        "description": "Options for the DocumentRoot directory (e.g., 'Indexes', 'FollowSymLinks').",
+        "default": [
+          "FollowSymLinks"
+        ],
+        "items": {
+          "type": "string"
+        }
+      },
+      "allow_override": {
+        "type": "string",
+        "description": "Controls which directives may appear in .htaccess (e.g., 'All', 'None', 'AuthConfig').",
+        "default": "All"
+      },
+      "proxy_backend": {
+        "type": "string",
+        "description": "Backend URL to proxy all requests to (e.g., 'http://127.0.0.1:8080'). If empty, omitted.",
+        "default": ""
+      },
+      "balance_name": {
+        "type": "string",
+        "description": "Name of the balancer cluster (used with proxy_balancer).",
+        "default": "mycluster"
+      },
+      "balance_member_list": {
+        "type": "list",
+        "description": "List of backend servers for load balancing.",
+        "default": [],
+        "items": {
+          "url": {
+            "type": "string",
+            "description": "Backend URL (e.g., 'http://10.0.0.1:8000')"
+          },
+          "route": {
+            "type": "string",
+            "description": "Route ID for session stickiness (e.g., 'app1')"
+          }
+        }
+      }
+    }
+  },
+  "load_balancers": {
+    "type": "list",
+    "default": [],
+    "description": "Standalone balancer clusters (for reuse across vhosts or standalone use).",
+    "items": {
+      "name": {
+        "type": "string",
+        "description": "Name of the balancer (e.g., 'myapp').",
+        "default": "myapp"
+      },
+      "members": {
+        "type": "list",
+        "description": "Backend members of this cluster.",
+        "default": [],
+        "items": {
+          "url": {
+            "type": "string",
+            "description": "Backend URL (e.g., 'http://10.0.0.1:8080')"
+          },
+          "route": {
+            "type": "string",
+            "description": "Session route ID (e.g., 'node1')"
+          }
+        }
+      },
+      "sticky_session": {
+        "type": "string",
+        "description": "Query/cookie parameter for session stickiness (e.g., 'JSESSIONID').",
+        "default": "JSESSIONID"
+      }
+    }
+  }
+}

@@ -1,0 +1,68 @@
+# Main configuration for Automated File Renamer Service (autorenamer)
+# Enables/disables debug logging
+{% if debug %}debug = true{% else %}debug = false{% endif %}
+
+# Log file path
+log_file = {{ log_file }}
+
+# Maximum number of log entries to retain (rotated logs)
+max_log_size = {{ max_log_size }}
+
+# Maximum number of old log files to keep
+max_log_backups = {{ max_log_backups }}
+
+# Working directory for temporary file operations
+work_dir = {{ work_dir }}
+
+# Source directory to scan for files
+source_dir = {{ source_dir }}
+
+# Destination directory for renamed files (leave empty to overwrite in-place)
+dest_dir = {{ dest_dir }}
+
+# Whether to create destination directory if missing
+create_dest_dir = {% if create_dest_dir %}true{% else %}false{% endif %}
+
+# Pattern used to parse existing filenames
+# Supported placeholders: {year}, {month}, {day}, {title}, {episode}, {season}, {ext}
+filename_pattern = {{ filename_pattern }}
+
+# Template used to generate new filenames
+# Same placeholders as filename_pattern
+output_pattern = {{ output_pattern }}
+
+# Number of worker threads for parallel processing
+worker_count = {{ worker_count }}
+
+# Maximum file size (in MB) to process (0 = unlimited)
+max_file_size_mb = {{ max_file_size_mb }}
+
+# Enable recursive directory scanning
+recursive_scan = {% if recursive_scan %}true{% else %}false{% endif %}
+
+# Whether to process hidden files (starting with '.')
+include_hidden = {% if include_hidden %}true{% else %}false{% endif %}
+
+# List of filename extensions to process (e.g., ['.mp4', '.mkv'])
+file_extensions = {{ file_extensions | join(', ') }}
+
+# List of exclusion patterns (regex, evaluated against full path)
+{% for pattern in exclude_patterns %}# Exclusion pattern: {{ pattern.description | default('') | trim | replace('
+', ' ') | replace('', '') }}
+exclude_pattern = {{ pattern.regex }}
+{% endfor %}
+
+# List of renaming rules (applied in order)
+{% for rule in rename_rules %}
+# Rule: {{ rule.description | default('No description') }}
+{% if rule.condition %}if {{ rule.condition }}{% endif %}
+{% if rule.then %}then {{ rule.then }}{% endif %}
+{% if rule.else %}else {{ rule.else }}{% endif %}
+{% endfor %}
+
+# File modification time handling
+# Options: 'preserve', 'use_file_date', 'use_current'
+mtime_handling = {{ mtime_handling }}
+
+# Enable dry-run mode (no files modified, just log actions)
+dry_run = {% if dry_run %}true{% else %}false{% endif %}

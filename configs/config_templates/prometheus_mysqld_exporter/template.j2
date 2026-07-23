@@ -1,0 +1,30 @@
+# Environment variables for mysqld_exporter
+# Set the MySQL server connection details
+MYSQLD_EXPORTER_MY_CNF="{{ my_cnf_path }}"
+
+# Optional: Set a custom MySQL user and password (if not using .my.cnf)
+{% if user is defined %}MYSQL_USER="{{ user }}"{% endif %}
+{% if password is defined %}MYSQL_PASSWORD="{{ password }}"{% endif %}
+
+# Set the address (host:port) the exporter listens on
+{% if listen_address is defined %}LISTEN_ADDRESS="{{ listen_address }}"{% else %}LISTEN_ADDRESS="0.0.0.0:9104"{% endif %}
+
+# Enable or disable collectors
+{% if disable_collectors is defined %}DISABLE_COLLECTORS="{{ disable_collectors | join(',') }}"{% endif %}
+{% if enable_collectors is defined %}ENABLE_COLLECTORS="{{ enable_collectors | join(',') }}"{% endif %}
+
+# TLS/SSL configuration (optional)
+{% if tls_cert_file is defined %}TLS_CERT_FILE="{{ tls_cert_file }}"{% endif %}
+{% if tls_key_file is defined %}TLS_KEY_FILE="{{ tls_key_file }}"{% endif %}
+
+# Extra mysqld_exporter arguments (e.g., for data sources)
+{% if extra_args is defined %}EXTRA_ARGS="{{ extra_args | join(' ') }}"{% endif %}
+
+# Logging level (debug, info, warn, error)
+{% if log_level is defined %}LOG_LEVEL="{{ log_level }}"{% endif %}
+
+# Process timeout for metric collection (in seconds)
+{% if scrape_timeout is defined %}SCRAPE_TIMEOUT="{{ scrape_timeout }}"{% endif %}
+
+# Optional: Disable native MySQL metric collections (e.g., for MariaDB compatibility)
+{% if disable_native_metrics is defined %}DISABLE_NATIVE_METRICS="{{ disable_native_metrics }}"{% endif %}

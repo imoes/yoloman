@@ -1,0 +1,42 @@
+// {{ description }}
+// Automatically update package lists, upgrade installed packages, and optionally clean up
+
+APT::Periodic::Update-Package-Lists "{{ apt_periodic_update_package_lists }}";
+APT::Periodic::Download-Upgradeable-Packages "{{ apt_periodic_download_upgradeable_packages }}";
+APT::Periodic::AutocleanInterval "{{ apt_periodic_autoclean_interval }}";
+APT::Periodic::Verbose "{{ apt_periodic_verbose }}";
+
+// Enable automatic unattended upgrades
+Unattended-Upgrade::Enable "{{ unattended_upgrade_enable }}";
+
+// Only apply security updates by default (adjust patterns as needed)
+Unattended-Upgrade::Origins-Pattern {
+{% for origin in origins_pattern %}
+  "{{ origin }}";
+{% endfor %}
+};
+
+// Package blacklist — packages that should never be auto-upgraded
+Unattended-Upgrade::Package-Blacklist {
+{% for pkg in package_blacklist %}
+  "{{ pkg }}";
+{% endfor %}
+};
+
+// Behavior options
+Unattended-Upgrade::AutoFixInterruptedDpkg "{{ unattended_upgrade_auto_fix_interrupted_dpkg }}";
+Unattended-Upgrade::MinimalSteps "{{ unattended_upgrade_minimal_steps }}";
+Unattended-Upgrade::InstallOnShutdown "{{ unattended_upgrade_install_on_shutdown }}";
+
+// Reboot behavior (requires `needrestart` or manual check in some distros)
+Unattended-Upgrade::Automatic-Reboot "{{ automatic_reboot }}";
+Unattended-Upgrade::Automatic-Reboot-Time "{{ automatic_reboot_time }}";
+
+// Email notifications
+Unattended-Upgrade::Mail "{{ email_address }}";
+Unattended-Upgrade::MailOnlyOnError "{{ email_only_on_error }}";
+Unattended-Upgrade::MailReport "{{ email_report }}";
+
+// Log settings
+Unattended-Upgrade::Verbose "{{ unattended_upgrade_verbose }}";
+Unattended-Upgrade::LogDir "/var/log/unattended-upgrades";

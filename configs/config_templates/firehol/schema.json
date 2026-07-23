@@ -1,0 +1,131 @@
+{
+  "default_policy_input": {
+    "type": "string",
+    "default": "ACCEPT",
+    "description": "Default policy for incoming packets on INPUT chain. Set to 'DROP' for stricter security."
+  },
+  "default_policy_output": {
+    "type": "string",
+    "default": "ACCEPT",
+    "description": "Default policy for outgoing packets on OUTPUT chain. Usually safe as 'ACCEPT'."
+  },
+  "default_policy_forward": {
+    "type": "string",
+    "default": "DROP",
+    "description": "Default policy for forwarded packets on FORWARD chain. Critical for routing/NAT hosts."
+  },
+  "log_dropped_packets": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable logging of dropped packets to syslog (requires kernel logging support)."
+  },
+  "interface_tracking": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable interface tracking \u2014FireHOL automatically assigns interface names to rules based on context."
+  },
+  "server_services": {
+    "type": "list",
+    "default": [],
+    "description": "List of server interfaces and allowed ports/services. Each entry defines a firewall profile for a network interface.",
+    "items": {
+      "name": {
+        "type": "string",
+        "description": "Human-readable name for the service (e.g., 'web-server', 'ssh-access')."
+      },
+      "interface": {
+        "type": "string",
+        "description": "Network interface name (e.g., eth0, br0). Must exist on the host."
+      },
+      "level": {
+        "type": "string",
+        "enum": [
+          "server",
+          "transparent",
+          "client",
+          "refuse",
+          "loopback"
+        ],
+        "default": "server",
+        "description": "FireHOL protection level. 'server' enables port-based filtering; others disable/limit filtering."
+      },
+      "ports": {
+        "type": "list",
+        "default": [],
+        "items": {
+          "type": "string"
+        },
+        "description": "List of port specifications (e.g., 'tcp/80', 'udp/53', '12345', 'http', 'https')."
+      }
+    }
+  },
+  "client_rules": {
+    "type": "list",
+    "default": [],
+    "description": "Custom outbound (client) rules to restrict outbound traffic.",
+    "items": {
+      "action": {
+        "type": "string",
+        "enum": [
+          "allow",
+          "deny"
+        ],
+        "default": "allow",
+        "description": "Action to apply: 'allow' or 'deny'."
+      },
+      "destination": {
+        "type": "string",
+        "description": "Destination address or subnet (e.g., 'any', '192.168.0.0/24', '8.8.8.8')."
+      },
+      "port": {
+        "type": "string",
+        "description": "Port or service name (e.g., 'tcp/443', 'udp/53', 'http', 'https')."
+      },
+      "description": {
+        "type": "string",
+        "description": "Short description of the rule purpose (for documentation)."
+      }
+    }
+  },
+  "lan_networks": {
+    "type": "list",
+    "default": [],
+    "description": "List of LAN subnets and their trust level to apply specific rules.",
+    "items": {
+      "name": {
+        "type": "string",
+        "description": "Logical name for the LAN (e.g., 'office', 'dmz')."
+      },
+      "cidr": {
+        "type": "string",
+        "description": "Subnet in CIDR notation (e.g., '192.168.1.0/24')."
+      },
+      "interface": {
+        "type": "string",
+        "description": "Interface connected to this LAN (e.g., eth1)."
+      },
+      "mode": {
+        "type": "string",
+        "enum": [
+          "trusted",
+          "restricted"
+        ],
+        "default": "trusted",
+        "description": "'trusted' allows all traffic from the subnet; 'restricted' requires explicit service rules."
+      },
+      "allowed_services": {
+        "type": "list",
+        "default": [],
+        "items": {
+          "type": "string"
+        },
+        "description": "List of allowed service names (e.g., 'http', 'ssh', 'tcp/22') \u2014 only used if mode='restricted'."
+      }
+    }
+  },
+  "auto_apply": {
+    "type": "bool",
+    "default": true,
+    "description": "Whether to automatically apply firewall rules on service start (recommended for most deployments)."
+  }
+}

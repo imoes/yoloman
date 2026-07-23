@@ -1,0 +1,40 @@
+# phc2sys: Synchronize system clock to PTP hardware clock
+# Source and target clock sources (use -s for system, -h for hardware)
+{{ "-s " ~ source_clock }}{% if dest_clock %}
+{{ "-h " ~ dest_clock }}{% endif %}
+
+# Optional: Set specific PTP domain
+{% if domain is defined and domain is not none %}{{ "-d " ~ domain }}{% endif %}
+
+# Optional: Set path to PHC device (e.g., /dev/ptp0)
+{% if phc_device is defined and phc_device %}{{ "-p " ~ phc_device }}{% endif %}
+
+# Optional: Set clock step threshold (seconds) to prevent large jumps
+{% if step_threshold is defined and step_threshold is not none %}{{ "-t " ~ step_threshold }}{% endif %}
+
+# Optional: Set frequency adjustment range (ppb)
+{% if freq_range is defined and freq_range is not none %}{{ "-f " ~ freq_range }}{% endif %}
+
+# Optional: Set clock identity (e.g., for multiple PHC devices)
+{% if clock_identity is defined and clock_identity %}{{ "-c " ~ clock_identity }}{% endif %}
+
+# Optional: Enable interval logging to syslog
+{% if log_level is defined and log_level is not none %}{{ "-L " ~ log_level }}{% endif %}
+
+# Optional: Run in slave-only mode (do not act as master)
+{% if slave_only %}{{ "-S" }}{% endif %}
+
+# Optional: Set the number of PTP messages to average for offset calculation
+{% if offset_samples is defined and offset_samples is not none %}{{ "-o " ~ offset_samples }}{% endif %}
+
+# Optional: Use PHC timestamping instead of socket timestamping
+{% if phc_timestamping %}{{ "-T" }}{% endif %}
+
+# Optional: Specify transport type (e.g., L2, UDP)
+{% if transport is defined and transport %}{{ "-x " ~ transport }}{% endif %}
+
+# Optional: Enable automatic clock source switching when PHC is lost
+{% if auto_switch %}{{ "-A" }}{% endif %}
+
+# Optional: Run in test mode (no actual clock adjustments)
+{% if test_mode %}{{ "-n" }}{% endif %}

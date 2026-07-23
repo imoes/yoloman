@@ -1,0 +1,39 @@
+# Nutcracker (Twemproxy) configuration
+# Global server pool definitions
+servers:
+{% for server in servers %}  # Server group: {{ server.name }}
+  {{ server.name }}:
+{% if server.listen %}    listen: {{ server.listen }}
+{% endif %}{% if server.hash %}    hash: {{ server.hash }}
+{% endif %}{% if server.hash_tag %}    hash_tag: "{{ server.hash_tag }}"
+{% endif %}{% if server.distribution %}    distribution: {{ server.distribution }}
+{% endif %}{% if server.timeout %}    timeout: {{ server.timeout }}
+{% endif %}{% if server.backlog %}    backlog: {{ server.backlog }}
+{% endif %}{% if server.preconnect %}    preconnect: {{ server.preconnect }}
+{% endif %}{% if server.auto_eject_hosts %}    auto_eject_hosts: {{ server.auto_eject_hosts }}
+{% endif %}{% if server.server_retry_timeout %}    server_retry_timeout: {{ server.server_retry_timeout }}
+{% endif %}{% if server.server_failure_limit %}    server_failure_limit: {{ server.server_failure_limit }}
+{% endif %}{% if server.connections %}    connections: {{ server.connections }}
+{% endif %}{% if server.weights %}    weights: {{ server.weights }}
+{% endif %}{% if server.proto %}    proto: {{ server.proto }}
+{% endif %}{% if server.stats_port %}    stats_port: {{ server.stats_port }}
+{% endif %}{% if server.stats_interval %}    stats_interval: {{ server.stats_interval }}
+{% endif %}{% if server.stats_admin %}    stats_admin: {{ server.stats_admin }}
+{% endif %}{% if server.redis %}    redis: {{ server.redis }}
+{% endif %}
+    servers:
+{% for instance in server.instances %}      # {{ instance.host }}:{{ instance.port }}
+      - {{ instance.host }}:{{ instance.port }}:{{ instance.weight }}{% if instance.timeout %} t:{{ instance.timeout }}{% endif %}{% if instance.family %} f:{{ instance.family }}{% endif %}
+{% endfor %}{% endfor %}
+
+# Global logging configuration
+log_level: {{ log_level | default('info') }}
+log_location: {{ log_location | default('/var/log/nutcracker/nutcracker.log') }}
+
+# Global statistics configuration
+stats_port: {{ stats_port | default(22222) }}
+stats_interval: {{ stats_interval | default(30000) }}
+
+# Global limits
+client_connections: {{ client_connections | default(0) }}  # 0 = unlimited
+# End of configuration

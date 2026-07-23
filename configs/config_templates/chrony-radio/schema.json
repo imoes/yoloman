@@ -1,0 +1,85 @@
+{
+  "network_cidr": {
+    "type": "string",
+    "default": "192.168.1.0/24",
+    "description": "CIDR subnet from which to allow NTP client queries"
+  },
+  "gps_refclock_enable": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable GPS reference clock (PHC/PTP) as primary source"
+  },
+  "radio_model": {
+    "type": "string",
+    "default": "gps",
+    "description": "Radio time source type: 'wwvb' (WWVB receiver), 'gps' (NMEA/PPS receiver)"
+  },
+  "wwvb_pps_enable": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable WWVB PPS signal via /dev/pps0"
+  },
+  "gps_nmea_enable": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable NMEA serial output from GPS receiver"
+  },
+  "gps_nmea_sentences": {
+    "type": "list",
+    "default": [
+      [
+        "GGA",
+        "RMC"
+      ],
+      [
+        "ZDA"
+      ]
+    ],
+    "items": {
+      "type": "list",
+      "description": "List of NMEA sentence types to parse (each item is a list of sentence names)",
+      "items": {
+        "type": "string"
+      }
+    },
+    "description": "NMEA sentence types to enable from GPS device"
+  },
+  "ntp_servers": {
+    "type": "list",
+    "default": [
+      "time.nist.gov",
+      "0.pool.ntp.org",
+      "1.pool.ntp.org"
+    ],
+    "items": {
+      "type": "string",
+      "description": "NTP server hostname or IP for fallback when radio signal is unavailable"
+    },
+    "description": "List of upstream NTP servers to use as backup time sources"
+  },
+  "rtty_latency_us": {
+    "type": "number",
+    "default": 0,
+    "description": "Estimated serial or PPS latency in microseconds"
+  },
+  "bind_cmd_address": {
+    "type": "string",
+    "default": "::1",
+    "description": "IP address for chronyd command socket (0.0.0.0 = all interfaces)"
+  },
+  "bind_address": {
+    "type": "string",
+    "default": "0.0.0.0",
+    "description": "IP address chronyd binds to for NTP traffic (e.g., 0.0.0.0 or 127.0.0.1)"
+  },
+  "ptp_interface": {
+    "type": "string",
+    "default": "ptp0",
+    "description": "PTP hardware timestamping interface (e.g., 'ptp0' for PPS/PHC)"
+  },
+  "hostname": {
+    "type": "list",
+    "default": [],
+    "description": "Hostnames/IPs to include in initial stepslew command (usually left empty or set to refclock sources)"
+  }
+}

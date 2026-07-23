@@ -1,0 +1,67 @@
+{
+  "listeners": [
+    {
+      "port": 1883,
+      "bind_address": "0.0.0.0"
+    },
+    {
+      "port": 8883,
+      "bind_address": "0.0.0.0",
+      "protocol": "mqtts"
+    },
+    {
+      "port": 9001,
+      "bind_address": "0.0.0.0",
+      "protocol": "ws"
+    }
+  ],
+  "allow_zero_length_clientid": false,
+  "allow_anonymous": false,
+  "password_file": "/etc/mosquitto/passwd",
+  "acl_file": "/etc/mosquitto/acl",
+  "persistence": true,
+  "persistence_location": "/var/lib/mosquitto",
+  "max_inflight_messages": 100,
+  "max_packet_size": 1048576,
+  "connection_messages": true,
+  "max_connections": 500,
+  "log_file": "/var/log/mosquitto/mosquitto.log",
+  "log_type": [
+    "error",
+    "warning",
+    "notice",
+    "information",
+    "websockets"
+  ],
+  "log_timestamp": true,
+  "tls_certfile": "/etc/mosquitto/certs/server.crt",
+  "tls_keyfile": "/etc/mosquitto/certs/server.key",
+  "tls_cafile": "/etc/mosquitto/certs/ca.crt",
+  "tls_require_certificate": true,
+  "autosave_interval": 300,
+  "autosave_on_changes": true,
+  "retained_cache_size": 10485760,
+  "retained_persistence": true,
+  "bridges": [
+    {
+      "name": "cloud-sync",
+      "remote_address": "mqtt.cloud.example.com",
+      "remote_port": 8883,
+      "username": "mosq-bridge",
+      "password": "secret123",
+      "attempt_unsubscribe": true,
+      "try_private": true,
+      "notifications": true,
+      "topics": [
+        {
+          "topic": "sensors/+/data",
+          "direction": "out"
+        },
+        {
+          "topic": "alerts/#",
+          "direction": "in"
+        }
+      ]
+    }
+  ]
+}

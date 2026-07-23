@@ -1,0 +1,113 @@
+{
+  "debug": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable verbose debug logging to aid troubleshooting"
+  },
+  "log_path": {
+    "type": "string",
+    "default": "/var/log/gddccontrol.log",
+    "description": "Absolute path to the main log file"
+  },
+  "max_log_size": {
+    "type": "number",
+    "default": 10,
+    "description": "Maximum size (in megabytes) per log file before rotation"
+  },
+  "max_log_files": {
+    "type": "number",
+    "default": 3,
+    "description": "Number of rotated log files to retain"
+  },
+  "monitors": {
+    "type": "list",
+    "default": [],
+    "description": "List of monitor identifiers (e.g., bus+address strings like 'i2c-3:0x37') to control"
+  },
+  "default_brightness": {
+    "type": "number",
+    "default": 50,
+    "description": "Global default brightness level (0\u2013100) applied at startup if not overridden"
+  },
+  "default_contrast": {
+    "type": "number",
+    "default": 50,
+    "description": "Global default contrast level (0\u2013100) applied at startup if not overridden"
+  },
+  "min_interval": {
+    "type": "number",
+    "default": 2,
+    "description": "Minimum seconds between successive brightness changes (prevents flicker)"
+  },
+  "auto_save": {
+    "type": "bool",
+    "default": true,
+    "description": "Automatically save current brightness/contrast settings on exit or DDC/CI timeout"
+  },
+  "monitor_configs": {
+    "type": "list",
+    "default": [],
+    "description": "Per-monitor custom settings \u2014 overrides global defaults",
+    "items": {
+      "id": {
+        "type": "string",
+        "description": "Unique identifier for the monitor config block"
+      },
+      "name": {
+        "type": "string",
+        "description": "Human-readable name (e.g., 'Primary Monitor')"
+      },
+      "bus": {
+        "type": "string",
+        "description": "I\u00b2C bus number or identifier (e.g., 'i2c-3')"
+      },
+      "address": {
+        "type": "string",
+        "description": "DDC/CI device address in hex (e.g., '0x37')"
+      },
+      "curve": {
+        "type": "string",
+        "default": "linear",
+        "description": "Brightness curve type: 'linear', 'sRGB', 'gamma', or 'custom'"
+      },
+      "gamma": {
+        "type": "number",
+        "default": 2.2,
+        "description": "Custom gamma exponent (used only if curve = 'gamma')"
+      },
+      "min_brightness": {
+        "type": "number",
+        "default": 5,
+        "description": "Lowest allowed brightness for this monitor"
+      },
+      "max_brightness": {
+        "type": "number",
+        "default": 100,
+        "description": "Highest allowed brightness for this monitor"
+      }
+    }
+  },
+  "triggers": {
+    "type": "list",
+    "default": [],
+    "description": "Events that invoke external commands (e.g., script execution)",
+    "items": {
+      "id": {
+        "type": "string",
+        "description": "Unique identifier for the trigger"
+      },
+      "description": {
+        "type": "string",
+        "description": "Human-readable description (shown in comments)"
+      },
+      "event": {
+        "type": "string",
+        "description": "Event type: 'brightness-change', 'contrast-change', 'monitor-connect', or 'monitor-disconnect'"
+      },
+      "command": {
+        "type": "string",
+        "description": "Shell command to execute on trigger (e.g., '/usr/local/bin/log-brightness.sh')"
+      }
+    }
+  }
+}

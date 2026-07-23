@@ -1,0 +1,234 @@
+{
+  "bind_ip": {
+    "type": "string",
+    "default": "",
+    "description": "IPv4 address to bind to (leave empty to bind to all interfaces)."
+  },
+  "bind_ipv6": {
+    "type": "string",
+    "default": "",
+    "description": "IPv6 address to bind to (leave empty to disable IPv6)."
+  },
+  "port": {
+    "type": "number",
+    "default": 6667,
+    "description": "TCP port for plain-text IRC connections."
+  },
+  "ssl_port": {
+    "type": "number",
+    "default": 6697,
+    "description": "TCP port for SSL/TLS-encrypted IRC connections."
+  },
+  "ssl_cert": {
+    "type": "string",
+    "default": "/etc/ssl/bip/bip.crt",
+    "description": "Path to SSL certificate file."
+  },
+  "ssl_key": {
+    "type": "string",
+    "default": "/etc/ssl/bip/bip.key",
+    "description": "Path to SSL private key file."
+  },
+  "log_dir": {
+    "type": "string",
+    "default": "/var/log/bip",
+    "description": "Directory where log files (IRC sessions, errors, etc.) are stored."
+  },
+  "log_level": {
+    "type": "number",
+    "default": 5,
+    "description": "Logging verbosity: 1=error, 5=debug (higher = more verbose)."
+  },
+  "pid_file": {
+    "type": "string",
+    "default": "/run/bip/bip.pid",
+    "description": "Path to PID file for process management."
+  },
+  "allow_plaintext": {
+    "type": "bool",
+    "default": true,
+    "description": "Allow plaintext (non-SSL) connections to bip itself (not recommended for production)."
+  },
+  "users": {
+    "type": "list",
+    "default": [],
+    "description": "List of IRC users (each with their own credentials, network defaults, and settings).",
+    "items": {
+      "type": "object",
+      "fields": {
+        "name": {
+          "type": "string",
+          "default": "",
+          "description": "Unique username for login (used in client connections)."
+        },
+        "password": {
+          "type": "string",
+          "default": "",
+          "description": "Password for user authentication (plain text; consider hashing via external auth plugin)."
+        },
+        "realname": {
+          "type": "string",
+          "default": "bip user",
+          "description": "Realname/GECOS shown to IRC servers."
+        },
+        "username": {
+          "type": "string",
+          "default": "",
+          "description": "Username (ident) to send to IRC servers (if not set, defaults to user name)."
+        },
+        "nicks": {
+          "type": "list",
+          "default": [
+            "bip"
+          ],
+          "description": "List of preferred nicks (in fallback order)."
+        },
+        "ident": {
+          "type": "string",
+          "default": "bip",
+          "description": "Ident string (overrides username if set)."
+        },
+        "default_server": {
+          "type": "string",
+          "default": "",
+          "description": "Primary IRC server to connect to by default (e.g., 'irc.libera.chat')."
+        },
+        "default_port": {
+          "type": "number",
+          "default": 6667,
+          "description": "Port for default IRC server connection."
+        },
+        "default_ssl": {
+          "type": "bool",
+          "default": false,
+          "description": "Connect to default server using SSL by default."
+        },
+        "default_password": {
+          "type": "string",
+          "default": "",
+          "description": "Password for default IRC server (e.g., NickServ auth)."
+        },
+        "default_channels": {
+          "type": "list",
+          "default": [],
+          "description": "List of channels to auto-join on the default server."
+        },
+        "use_ssl": {
+          "type": "bool",
+          "default": false,
+          "description": "Force SSL for *all* server connections for this user."
+        },
+        "ssl_verify": {
+          "type": "bool",
+          "default": true,
+          "description": "Verify SSL certificates of IRC servers (set to false to allow self-signed)."
+        },
+        "ssl_cafile": {
+          "type": "string",
+          "default": "",
+          "description": "Path to CA bundle for SSL verification (optional)."
+        },
+        "ssl_capath": {
+          "type": "string",
+          "default": "",
+          "description": "Path to directory with CA certificates for SSL verification (optional)."
+        },
+        "ssl_ciphers": {
+          "type": "string",
+          "default": "",
+          "description": "SSL cipher list (e.g., 'HIGH:!aNULL:!MD5')."
+        },
+        "timeout": {
+          "type": "number",
+          "default": 60,
+          "description": "Connection timeout in seconds for IRC servers."
+        },
+        "reconnect_delay": {
+          "type": "number",
+          "default": 10,
+          "description": "Seconds to wait before reconnecting after disconnect."
+        },
+        "max_history_lines": {
+          "type": "number",
+          "default": 1000,
+          "description": "Maximum number of lines to store per channel/query per user."
+        },
+        "max_history_bytes": {
+          "type": "number",
+          "default": 1048576,
+          "description": "Maximum size (in bytes) of history per channel/query (1 MiB default)."
+        },
+        "history_persist": {
+          "type": "bool",
+          "default": true,
+          "description": "Persist history across restarts (recommended for playback)."
+        },
+        "autoquery": {
+          "type": "bool",
+          "default": true,
+          "description": "Automatically open a query window when someone messages this user."
+        },
+        "autojoin": {
+          "type": "bool",
+          "default": true,
+          "description": "Automatically join channels listed in default_channels."
+        },
+        "flood_protection": {
+          "type": "bool",
+          "default": true,
+          "description": "Enable rate-limiting for outgoing messages to IRC servers."
+        },
+        "irc_debug": {
+          "type": "bool",
+          "default": false,
+          "description": "Log raw IRC protocol traffic (use only for debugging)."
+        },
+        "always_away": {
+          "type": "bool",
+          "default": false,
+          "description": "Set user status to away on connect."
+        },
+        "away_message": {
+          "type": "string",
+          "default": "bip proxy",
+          "description": "Away message to use if always_away is true."
+        }
+      }
+    }
+  },
+  "network_aliases": {
+    "type": "list",
+    "default": [],
+    "description": "Optional named network definitions for reuse by users.",
+    "items": {
+      "type": "object",
+      "fields": {
+        "name": {
+          "type": "string",
+          "default": "",
+          "description": "Alias name (e.g., 'libera') to reference in user configs."
+        },
+        "server": {
+          "type": "string",
+          "default": "",
+          "description": "IRC server hostname (e.g., 'irc.libera.chat')."
+        },
+        "port": {
+          "type": "number",
+          "default": 6667,
+          "description": "Server port."
+        },
+        "ssl": {
+          "type": "bool",
+          "default": false,
+          "description": "Use SSL for this network."
+        },
+        "password": {
+          "type": "string",
+          "default": "",
+          "description": "Optional network password (e.g., SASL or server auth)."
+        }
+      }
+    }
+  }
+}

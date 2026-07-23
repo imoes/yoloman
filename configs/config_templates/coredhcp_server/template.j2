@@ -1,0 +1,25 @@
+# CoreDHCP server configuration — comment lines start with #
+# Server-wide listening addresses (IPv4 and/or IPv6)
+# Format: "host:port", e.g., "0.0.0.0:67" or "[::]:67"
+{% for addr in listen_addresses %}listen {{ addr.host }}:{{ addr.port }}
+{% endfor %}
+
+# Plugin order — plugins are loaded and executed in the order listed
+{% for plugin in plugins %}{% if plugin.args %}plugin {{ plugin.name }} {{ plugin.args | join(' ') }}
+{% else %}plugin {{ plugin.name }}
+{% endif %}{% endfor %}
+
+# Optional: Static host entries (for fixed assignments)
+# Format: hostname mac-address [ipv4] [ipv6]
+{% for host in static_hosts %}host {{ host.hostname }} {{ host.mac }}{% if host.ipv4 %} {{ host.ipv4 }}{% endif %}{% if host.ipv6 %} {{ host.ipv6 }}{% endif %}
+{% endfor %}
+
+# Optional: Log level — one of: debug, info, warn, error
+log {{ log_level }}
+
+# Optional: Lease file path (for persistence across restarts)
+{% if lease_file %}leases {{ lease_file }}
+{% endif %}
+
+# Optional: Graceful shutdown timeout in seconds (default: 5)
+shutdown_timeout {{ shutdown_timeout }}

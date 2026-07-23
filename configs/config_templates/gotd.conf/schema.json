@@ -1,0 +1,122 @@
+{
+  "debug": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable verbose debug logging (for troubleshooting only)"
+  },
+  "bind": {
+    "type": "string",
+    "default": "0.0.0.0",
+    "description": "IP address to bind the service to (e.g., 127.0.0.1, 0.0.0.0)"
+  },
+  "port": {
+    "type": "number",
+    "default": 9418,
+    "description": "TCP port to listen on for HTTP(S) Git requests"
+  },
+  "repo_root": {
+    "type": "string",
+    "default": "/var/git",
+    "description": "Path to the directory containing all Git repositories"
+  },
+  "ssl_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable SSL/TLS encryption for secure Git operations"
+  },
+  "ssl_cert": {
+    "type": "string",
+    "default": "/etc/ssl/certs/gotd.crt",
+    "description": "Path to the SSL certificate file (required when ssl_enabled = true)"
+  },
+  "ssl_key": {
+    "type": "string",
+    "default": "/etc/ssl/private/gotd.key",
+    "description": "Path to the SSL private key file (required when ssl_enabled = true)"
+  },
+  "auth": {
+    "type": "string",
+    "default": "none",
+    "description": "Authentication method: 'none' (public), 'htpasswd' (file-based), or 'ldap' (directory-based)"
+  },
+  "htpasswd_file": {
+    "type": "string",
+    "default": "/etc/gotd/htpasswd",
+    "description": "Path to the Apache htpasswd file (used when auth = 'htpasswd')"
+  },
+  "ldap_uri": {
+    "type": "string",
+    "default": "ldaps://ldap.example.com",
+    "description": "LDAP server URI (used when auth = 'ldap')"
+  },
+  "ldap_base": {
+    "type": "string",
+    "default": "ou=gitusers,dc=example,dc=com",
+    "description": "LDAP base DN to search for users (used when auth = 'ldap')"
+  },
+  "ldap_bind_dn": {
+    "type": "string",
+    "default": "cn=admin,dc=example,dc=com",
+    "description": "LDAP bind DN for performing directory searches (used when auth = 'ldap')"
+  },
+  "ldap_bind_password": {
+    "type": "string",
+    "default": "",
+    "description": "Password for LDAP bind DN (leave blank if using SASL or anonymous bind; used when auth = 'ldap')"
+  },
+  "repos": {
+    "type": "list",
+    "default": [],
+    "description": "List of repository access control rules (if omitted, default permissions apply)",
+    "items": {
+      "path": {
+        "type": "string",
+        "description": "Repository path relative to repo_root (e.g., 'myteam/project.git')"
+      },
+      "read": {
+        "type": "list",
+        "default": [],
+        "items": {
+          "type": "string"
+        },
+        "description": "List of allowed users/groups for read operations"
+      },
+      "write": {
+        "type": "list",
+        "default": [],
+        "items": {
+          "type": "string"
+        },
+        "description": "List of allowed users/groups for write operations"
+      },
+      "admin": {
+        "type": "list",
+        "default": [],
+        "items": {
+          "type": "string"
+        },
+        "description": "List of allowed users/groups with admin (push-to-create, delete, etc.) permissions"
+      }
+    }
+  },
+  "max_concurrent": {
+    "type": "number",
+    "default": 50,
+    "description": "Maximum number of simultaneous client connections"
+  },
+  "idle_timeout": {
+    "type": "number",
+    "default": 300,
+    "description": "Idle connection timeout in seconds"
+  },
+  "auto_detect_repos": {
+    "type": "bool",
+    "default": true,
+    "description": "Automatically discover and serve new repositories under repo_root"
+  },
+  "log_file": {
+    "type": "string",
+    "default": "/var/log/gotd/gotd.log",
+    "description": "Path to log file (if empty, logs to stdout/stderr)"
+  }
+}

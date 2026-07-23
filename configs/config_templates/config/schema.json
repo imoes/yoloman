@@ -1,0 +1,228 @@
+{
+  "enable_cri": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable the CRI plugin to support Kubernetes container runtime API."
+  },
+  "state_dir": {
+    "type": "string",
+    "default": "/run/containerd",
+    "description": "Directory for containerd runtime state (sockets, PID files, etc.)."
+  },
+  "snapshotter": {
+    "type": "string",
+    "default": "overlayfs",
+    "description": "Default snapshotter used for container filesystem layers (e.g., 'overlayfs', 'btrfs', 'devmapper')."
+  },
+  "default_runtime_name": {
+    "type": "string",
+    "default": "runc",
+    "description": "Default container runtime to use for containers (e.g., 'runc', 'kata-runtime')."
+  },
+  "no_pivot": {
+    "type": "bool",
+    "default": false,
+    "description": "Disable pivot root (not recommended for production \u2014 useful only in constrained environments)."
+  },
+  "overlayfs_native_diff": {
+    "type": "bool",
+    "default": true,
+    "description": "Use native diff algorithm for overlayfs snapshots (slower but accurate; fallback if 'diff' fails)."
+  },
+  "registry_mirrors": {
+    "type": "list",
+    "default": [],
+    "description": "Registry mirrors to use for image pulls \u2014 each mirror redirects requests for a registry host.",
+    "items": {
+      "host": {
+        "type": "string",
+        "description": "Registry host (e.g., 'docker.io', 'gcr.io').",
+        "example": "docker.io"
+      },
+      "endpoints": {
+        "type": "list",
+        "description": "One or more mirror endpoints (e.g., ['https://mirror.gcr.io']).",
+        "items": {
+          "type": "string",
+          "description": "Mirror registry endpoint URL.",
+          "example": "https://mirror.gcr.io"
+        }
+      }
+    }
+  },
+  "registry_configs": {
+    "type": "list",
+    "default": [],
+    "description": "Authentication configs for private registries (username/password or token).",
+    "items": {
+      "host": {
+        "type": "string",
+        "description": "Registry host.",
+        "example": "myregistry.example.com"
+      },
+      "username": {
+        "type": "string",
+        "description": "Registry username.",
+        "example": "deployer"
+      },
+      "password": {
+        "type": "string",
+        "description": "Registry password (or access token).",
+        "example": "secret123"
+      },
+      "token": {
+        "type": "string",
+        "description": "Registry auth token (alternative to username/password).",
+        "example": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+      }
+    }
+  },
+  "registry_tls_configs": {
+    "type": "list",
+    "default": [],
+    "description": "TLS certificates and settings for private registries.",
+    "items": {
+      "host": {
+        "type": "string",
+        "description": "Registry host.",
+        "example": "internal-registry.example.com"
+      },
+      "ca_file": {
+        "type": "string",
+        "description": "Path to CA certificate file.",
+        "example": "/etc/containerd/certs/ca.crt"
+      },
+      "cert_file": {
+        "type": "string",
+        "description": "Path to client certificate file (optional).",
+        "example": "/etc/containerd/certs/client.crt"
+      },
+      "key_file": {
+        "type": "string",
+        "description": "Path to client private key file (optional).",
+        "example": "/etc/containerd/certs/client.key"
+      },
+      "insecure_skip_verify": {
+        "type": "bool",
+        "default": false,
+        "description": "Skip TLS certificate verification (DEV/TEST ONLY)."
+      }
+    }
+  },
+  "sandbox_image": {
+    "type": "string",
+    "default": "registry.k8s.io/pause:3.9",
+    "description": "Image used for Kubernetes sandbox (pause) containers."
+  },
+  "image_pull_timeout": {
+    "type": "number",
+    "default": 120,
+    "description": "Timeout for image pull operations in seconds (0 = unlimited)."
+  },
+  "cni_bin_dir": {
+    "type": "string",
+    "default": "/opt/cni/bin",
+    "description": "Path to CNI plugin binaries."
+  },
+  "cni_conf_dir": {
+    "type": "string",
+    "default": "/etc/cni/net.d",
+    "description": "Path to CNI network configuration directory."
+  },
+  "cni_default_network": {
+    "type": "object",
+    "default": null,
+    "description": "Optional fallback CNI network config (when no config file exists).",
+    "items": {
+      "conf_file": {
+        "type": "string",
+        "description": "Path to fallback CNI config file (e.g., /etc/cni/net.d/10-default.conf)."
+      },
+      "ip_range": {
+        "type": "string",
+        "description": "IP subnet for fallback network (CIDR, e.g., '10.1.0.0/16').",
+        "example": "10.1.0.0/16"
+      }
+    }
+  },
+  "stream_address": {
+    "type": "string",
+    "default": "127.0.0.1",
+    "description": "Address for streaming server (exec/attach/port-forward)."
+  },
+  "stream_port": {
+    "type": "number",
+    "default": 0,
+    "description": "Port for streaming server (0 = auto-assign)."
+  },
+  "max_container_log_size": {
+    "type": "number",
+    "default": 16384,
+    "description": "Maximum size (in bytes) of container stdout/stderr logs."
+  },
+  "image_deletion": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable automatic deletion of unused images (recommended in production)."
+  },
+  "grpc_address": {
+    "type": "string",
+    "default": "/run/containerd/containerd.sock",
+    "description": "Unix socket path for containerd gRPC API."
+  },
+  "grpc_max_recv_message_size": {
+    "type": "number",
+    "default": 16777216,
+    "description": "Maximum gRPC receive message size in bytes."
+  },
+  "grpc_max_send_message_size": {
+    "type": "number",
+    "default": 16777216,
+    "description": "Maximum gRPC send message size in bytes."
+  },
+  "debug_level": {
+    "type": "string",
+    "default": "info",
+    "description": "Log level for containerd (debug, info, warn, error, etc.)."
+  },
+  "pprof_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable pprof CPU/memory profiling endpoint (disabled by default)."
+  },
+  "pprof_address": {
+    "type": "string",
+    "default": "",
+    "description": "Address for pprof endpoint (e.g., 'localhost:6060')."
+  },
+  "metrics_address": {
+    "type": "string",
+    "default": "",
+    "description": "Address for Prometheus metrics (e.g., '0.0.0.0:1338')."
+  },
+  "metrics_interval": {
+    "type": "number",
+    "default": 60,
+    "description": "Interval (seconds) between metric exports (set to 0 to disable)."
+  },
+  "root_dir": {
+    "type": "string",
+    "default": "/var/lib/containerd",
+    "description": "Root directory for persistent containerd data (snapshots, image layers)."
+  },
+  "privileged_without_host_devices": {
+    "type": "bool",
+    "default": false,
+    "description": "Grant privileges to containers without exposing host devices (Kubernetes-specific)."
+  },
+  "devmapper_pool_name": {
+    "type": "string",
+    "default": "",
+    "description": "Device mapper pool name (if using devmapper snapshotter)."
+  },
+  "devmapper_base_image_size": {
+    "type": "string",
+    "default": "10GB",
+    "description": "Initial size of devmapper volumes (e.g., '10GB', '20GB')."
+  }
+}

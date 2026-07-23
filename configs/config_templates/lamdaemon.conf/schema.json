@@ -1,0 +1,108 @@
+{
+  "daemon_port": {
+    "type": "number",
+    "default": 2020,
+    "description": "Port number on which the LAM daemon listens for incoming HTTP requests."
+  },
+  "daemon_host": {
+    "type": "string",
+    "default": "",
+    "description": "IP address or hostname to bind the daemon to (empty string means bind to all interfaces)."
+  },
+  "log_level": {
+    "type": "string",
+    "default": "notice",
+    "description": "Verbosity level for daemon logging. Options: debug, info, notice, warning, error, critical."
+  },
+  "log_file": {
+    "type": "string",
+    "default": "/var/log/lamdaemon/lamdaemon.log",
+    "description": "Absolute path to the main log file."
+  },
+  "pid_file": {
+    "type": "string",
+    "default": "/run/lamdaemon.pid",
+    "description": "Absolute path to the PID file used by the daemon."
+  },
+  "worker_count": {
+    "type": "number",
+    "default": 4,
+    "description": "Number of worker processes to spawn for handling requests."
+  },
+  "ldap_servers": {
+    "type": "list",
+    "default": [
+      "ldap://localhost"
+    ],
+    "description": "List of LDAP server URIs to connect to (supports failover).",
+    "items": {
+      "type": "string",
+      "description": "LDAP server URI, e.g., ldap://server.example.com or ldaps://secure.example.com."
+    }
+  },
+  "ldap_basedn": {
+    "type": "string",
+    "default": "dc=example,dc=com",
+    "description": "Base DN under which user/group entries are stored in LDAP."
+  },
+  "ldap_binddn": {
+    "type": "string",
+    "default": "",
+    "description": "DN to bind as for LDAP searches (empty = anonymous bind)."
+  },
+  "ldap_bindpw": {
+    "type": "string",
+    "default": "",
+    "description": "Password for the bind DN. Leave empty if using anonymous or external auth (e.g., SASL/GSSAPI)."
+  },
+  "ldap_starttls": {
+    "type": "boolean",
+    "default": false,
+    "description": "Enable StartTLS to upgrade plain LDAP connections to TLS."
+  },
+  "ldap_cacert": {
+    "type": "string",
+    "default": "",
+    "description": "Absolute path to CA certificate file for verifying LDAP server TLS certificates. Empty disables verification."
+  },
+  "db_driver": {
+    "type": "string",
+    "default": "sqlite",
+    "description": "Database backend for LAM daemon. Currently only 'sqlite' is supported."
+  },
+  "db_file": {
+    "type": "string",
+    "default": "/var/lib/lamdaemon/lamdaemon.db",
+    "description": "Path to SQLite database file (used if db_driver = sqlite)."
+  },
+  "ssl_enabled": {
+    "type": "boolean",
+    "default": false,
+    "description": "Enable HTTPS (SSL/TLS) for incoming daemon connections."
+  },
+  "ssl_cert_path": {
+    "type": "string",
+    "default": "/etc/ssl/certs/lamdaemon.crt",
+    "description": "Absolute path to the SSL certificate file (required if SSL enabled)."
+  },
+  "ssl_key_path": {
+    "type": "string",
+    "default": "/etc/ssl/private/lamdaemon.key",
+    "description": "Absolute path to the SSL private key file (required if SSL enabled)."
+  },
+  "cache_ttl_seconds": {
+    "type": "number",
+    "default": 300,
+    "description": "Time in seconds to cache LDAP results. Set to 0 to disable caching."
+  },
+  "request_logging": {
+    "type": "boolean",
+    "default": true,
+    "description": "Enable logging of individual requests (URL, method, client IP, response status)."
+  },
+  "request_log_file": {
+    "type": "string",
+    "default": "/var/log/lamdaemon/requests.log",
+    "description": "Path to the request log file (only used if request_logging is enabled)."
+  }
+}

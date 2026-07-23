@@ -1,0 +1,102 @@
+# mtail configuration file
+# Defines log sources, regex patterns for extracting metrics, and output settings.
+
+{% if emit_progs -%}
+# Emit program files to disk (for debugging or external use)
+emit_progs: {{ emit_progs }}
+{% endif %}
+
+{% if log_dir -%}
+# Directory to scan for log files (recursive by default)
+log_dir: {{ log_dir | to_json }}
+{% endif %}
+
+{% if log_paths -%}
+# Explicit list of log paths to monitor (overrides log_dir)
+{% for path in log_paths %}
+log_file: {{ path | to_json }}
+{% endfor %}
+{% endif %}
+
+# Path to store compiled programs (default: /var/tmp/mtail)
+{% if programs_dir -%}
+programs_dir: {{ programs_dir | to_json }}
+{% endif %}
+
+# Path to load custom mtail programs (`.mtail` files)
+{% if progs -%}
+progs: {{ progs | to_json }}
+{% endif %}
+
+# HTTP endpoint for serving metrics and UI
+{% if http_endpoint -%}
+http_endpoint: {{ http_endpoint | to_json }}
+{% else %}
+http_endpoint: ":3903"
+{% endif %}
+
+# Metrics export endpoint (for Prometheus-style scraping)
+{% if metrics_endpoint -%}
+metrics_endpoint: {{ metrics_endpoint | to_json }}
+{% endif %}
+
+# Limit number of concurrent log tailers
+{% if max_tailer -%}
+max_tailer: {{ max_tailer }}
+{% endif %}
+
+# Enable/disable label extraction from filenames
+{% if no_labels_from_filename -%}
+no_labels_from_filename: {{ no_labels_from_filename }}
+{% else %}
+no_labels_from_filename: false
+{% endif %}
+
+# Enable/disable automatic label extraction from log line (using regex groups)
+{% if no_auto_labels -%}
+no_auto_labels: {{ no_auto_labels }}
+{% else %}
+no_auto_labels: false
+{% endif %}
+
+# Label key-value pairs to apply globally to all metrics
+{% if labels %}
+# Static labels applied to all emitted metrics
+{% for key, value in labels.items() %}
+label: {{ key | to_json }}={{ value | to_json }}
+{% endfor %}
+{% endif %}
+
+# Timezone for parsing timestamps (e.g., "UTC", "America/New_York")
+{% if timezone -%}
+timezone: {{ timezone | to_json }}
+{% endif %}
+
+# Enable/disable verbose logging
+{% if verbose -%}
+verbose: {{ verbose }}
+{% endif %}
+
+# Enable/disable log line content in error messages (for debugging)
+{% if dump_log_content -%}
+dump_log_content: {{ dump_log_content }}
+{% endif %}
+
+# Enable/disable storage of metrics in memory (required for `--store_memory` mode)
+{% if store_memory -%}
+store_memory: {{ store_memory }}
+{% endif %}
+
+# Enable/disable export to Pushgateway
+{% if pushgateway %}
+# Pushgateway endpoint for pushing metrics
+{% if pushgateway.url %}
+pushgateway_url: {{ pushgateway.url | to_json }}
+{% endif %}
+{% if pushgateway.job_name %}
+pushgateway_job_name: {{ pushgateway.job_name | to_json }}
+{% endif %}
+{% if pushgateway.interval -%}
+pushgateway_interval: {{ pushgateway.interval | to_json }}
+{% endif %}
+{% endif %}

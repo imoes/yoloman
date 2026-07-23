@@ -1,0 +1,104 @@
+[DEFAULT]
+# Global logging level (debug, info, warning, error, critical)
+log_level = {{ log_level }}
+
+# Path to log file (empty string to log to stderr)
+log_file = {{ log_file }}
+
+# Base directory for state and temporary files
+state_path = {{ state_path }}
+
+# RPC backend (e.g., rabbit, zmq, or custom)
+transport_url = {{ transport_url }}
+
+# Default backend to use for volume operations
+default_volume_type = {{ default_volume_type }}
+
+# Maximum number of volumes that can be created simultaneously per tenant
+max_gigs_per_tenant = {{ max_gigs_per_tenant }}
+
+# Maximum number of snapshots that can be created simultaneously per tenant
+max_snapshots_per_tenant = {{ max_snapshots_per_tenant }}
+
+# Maximum number of volumes and snapshots combined per tenant
+max_backups_per_tenant = {{ max_backups_per_tenant }}
+
+# Maximum number of backups that can be created simultaneously per tenant
+max_backup_gigs = {{ max_backup_gigs }}
+
+# Enable or disable thin provisioning by default
+default_volume_type_create = {{ default_volume_type_create }}
+
+# Enable or disable automated scheduler filtering and weighting
+# (enabled by default; set to False only for advanced manual scheduling)
+scheduler_default_filters = {{ scheduler_default_filters | join(', ') }}
+
+# Weighting options for host selection (comma-separated list of classes + weights)
+scheduler_default_weighers = {{ scheduler_default_weighers | join(', ') }}
+
+# Number of worker processes for the scheduler service
+workers = {{ workers }}
+
+# Enable or disable rate limiting of scheduler API requests
+api_rate_limit = {{ api_rate_limit }}
+
+# Enable or disable verbose API logging
+api_debug = {{ api_debug }}
+
+# Maximum number of attempts to allocate a volume (for retrying failed allocations)
+volume_allocate_retries = {{ volume_allocate_retries }}
+
+# Time (in seconds) to wait between allocation retries
+volume_allocate_retry_interval = {{ volume_allocate_retry_interval }}
+
+# Enable or disable cross-tenant volume cloning (requires support in backend)
+enable_cross_tenant_clone = {{ enable_cross_tenant_clone }}
+
+# Enable or disable cross-tenant snapshot restore
+enable_cross_tenant_snapshot_restore = {{ enable_cross_tenant_snapshot_restore }}
+
+# Enable or disable consistency group support
+enable_consistency_groups = {{ enable_consistency_groups }}
+
+# Enable or disable replication support
+enable_replication = {{ enable_replication }}
+
+# Enable or disable backup service (requires cinder-backup)
+enable_backup = {{ enable_backup }}
+
+# Enable or disable volume migration support
+migration_confirm_timeout = {{ migration_confirm_timeout }}
+
+# Enable or disable scheduler caching of host state (improves performance)
+scheduler_host_subset_size = {{ scheduler_host_subset_size }}
+
+# Enable or disable weight-based host selection (if false, only filters are applied)
+scheduler_use_bare_host = {{ scheduler_use_bare_host }}
+
+# Comma-separated list of backend names to use for scheduling (empty = all enabled backends)
+scheduler_available_backends = {% if scheduler_available_backends %}{{ scheduler_available_backends | join(', ') }}{% else %}{% endif %}
+
+# Backing storage drivers and their options (per backend)
+{% for backend in backends %}[{{ backend.name }}]
+# Backend driver to use (e.g., cinder.volume.drivers.lvm.LVMVolumeDriver)
+driver = {{ backend.driver }}
+# Target IP address (for iSCSI/NFS targets)
+volume_backend_name = {{ backend.name }}
+# Optional: override backend name for display in scheduler output
+{% if backend.target_ip %}target_ip = {{ backend.target_ip }}{% endif %}
+# Backend-specific configuration — may include paths, auth, pool names, etc.
+{% for key, value in backend.options.items() %}{{ key }} = {{ value }}
+{% endfor %}{% endfor %}
+
+# Availability zones mapping (optional; one or more zone names)
+# Each backend may be assigned to one or more zones
+{% for zone, backend_names in availability_zones.items() %}[availability_zones]
+# Assign backends to availability zone {{ zone }}
+{% if loop.first %}# (Note: availability_zones section is custom — cinder reads this from [DEFAULT] zone_name and backend_opts)
+{% endif %}
+{% for name in backend_names %}# {{ name }}
+{% endfor %}{% endfor %}
+
+# Debugging: enable scheduler debug logging
+# (typically only set temporarily)
+debug = {{ debug }}

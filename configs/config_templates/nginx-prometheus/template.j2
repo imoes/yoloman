@@ -1,0 +1,87 @@
+# Load the Prometheus metrics module dynamically
+load_module modules/ngx_http_prometheus_module.so;
+
+# Global error logging level (debug, info, notice, warn, error, crit, alert, emerg)
+error_log /var/log/nginx/error.log warn;
+
+# PID file location
+pid /run/nginx.pid;
+
+events {
+  # Maximum number of simultaneous connections (per worker process)
+  worker_connections 1024;
+}
+
+http {
+  # Include MIME types mapping
+  include /etc/nginx/mime.types;
+
+  # Default MIME type for unknown files
+  default_type application/octet-stream;
+
+  # Log format definition for access logs
+  log_format main '$remote_addr - $remote_user [$time_local] "$request" '
+                  '$status $body_bytes_sent "$http_referer" '
+                  '"$http_user_agent" "$http_x_forwarded_for"';
+
+  # Enable access logging to /var/log/nginx/access.log using 'main' format
+  access_log /var/log/nginx/access.log main;
+
+  # Enable or disable sendfile (kernel zero-copy optimization)
+  sendfile on;
+
+  # Keep alive timeout in seconds
+  keepalive_timeout 65;
+
+  # Worker processes: typically set to number of CPU cores
+  worker_processes auto;
+
+  # Prometheus metrics endpoint configuration
+  # Exposes /metrics in Prometheus format
+  server {
+    listen 9113;
+    server_name localhost;
+
+    location /metrics {
+      prometheus_metrics;
+    }
+
+    location / {
+      return 404;
+    }
+  }
+
+  # Include additional server blocks defined in site configurations
+{% for site in sites %}
+  # {{ site.description }}
+  server {
+    listen {{ site.listen }}{% if site.ssl %} ssl{% endif %};
+    server_name {{ site.name }};
+{% if site.ssl %}
+    ssl_certificate {{ site.ssl_cert }};
+    ssl_certificate_key {{ site.ssl_key }};
+{% endif %}
+{% if site.root %}
+    root {{ site.root }};
+{% endif %}
+{% if site.index %}
+    index {{ site.index | join(' ') }};
+{% endif %}
+{% if site.locations %}
+{% for loc in site.locations %}
+    location {{ loc.path }} {
+{% if loc.proxy_pass %}
+      proxy_pass {{ loc.proxy_pass }};
+{% endif %}
+{% if loc.try_files %}
+      try_files {{ loc.try_files | join(' ') }};
+{% endif %}
+{% if loc.return %}
+      return {{ loc.return.code }} {{ loc.return.body | default('') }};
+{% endif %}
+    }
+{% endfor %}
+{% endif %}
+  }
+{% endfor %}
+}

@@ -1,0 +1,27 @@
+# Enable the ejabberd_mod_webpresence module
+modules:
+  mod_webpresence:
+    # List of accounts allowed to publish presence (JIDs as strings)
+    allowed_users:
+{% for jid in allowed_users %}      - "{{ jid }}"
+{% endfor %}
+    # HTTP port for presence publisher endpoint (e.g., /presence)
+    http_port: {{ http_port }}
+    # Base URL used for generating presence URIs (must be reachable by external clients)
+    base_url: "{{ base_url }}"
+    # Enable TLS for the HTTP endpoint? (true/false)
+    tls: {{ tls | lower }}
+    # Path to TLS certificate (only used if tls: true)
+    certfile: "{{ certfile }}"
+    # Path to TLS private key (only used if tls: true)
+    keyfile: "{{ keyfile }}"
+    # HTTP timeout (seconds) for requests to this endpoint
+    timeout: {{ timeout }}
+    # Maximum payload size (in bytes) allowed in presence PUT requests
+    max_payload_size: {{ max_payload_size }}
+    # Enable debug logging for this module?
+    debug: {{ debug | lower }}
+    # Additional HTTP headers to add to responses (e.g., CORS support)
+    extra_headers:
+{% for header, value in extra_headers.items() %}      "{{ header }}": "{{ value }}"
+{% endfor %}

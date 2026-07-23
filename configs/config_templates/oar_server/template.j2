@@ -1,0 +1,81 @@
+# Database connection settings
+{% if db.driver == 'postgresql' %}DB_DRIVER=PGSQL
+DB_HOST={{ db.host }}
+DB_PORT={{ db.port }}
+DB_NAME={{ db.name }}
+DB_USER={{ db.user }}
+DB_PASSWORD={{ db.password }}
+{% elif db.driver == 'mysql' %}DB_DRIVER=MYSQL
+DB_HOST={{ db.host }}
+DB_PORT={{ db.port }}
+DB_NAME={{ db.name }}
+DB_USER={{ db.user }}
+DB_PASSWORD={{ db.password }}
+{% else %}# Unsupported database driver
+DB_DRIVER=NONE
+{% endif %}
+
+# Resource reservation and scheduling
+JOB_RESERVATION_ENABLED={% if job_reservation.enabled %}true{% else %}false{% endif %}
+RESERVATION_MAX_DUR={{ job_reservation.max_duration }}
+
+# Resource monitoring and heartbeat
+RESOURCE_MONITORING_INTERVAL={{ monitoring.resource_interval }}
+RESOURCE_MONITORING_TIMEOUT={{ monitoring.resource_timeout }}
+RESOURCE_MONITORING_MAX_FAILS={{ monitoring.max_failures }}
+
+# Scheduler configuration
+SCHEDULING_POLICY={{ scheduler.policy }}
+SCHEDULING_MAX_JOBS_PER_USER={{ scheduler.max_jobs_per_user }}
+SCHEDULING_MAX_WALLTIME={{ scheduler.max_walltime }}
+SCHEDULING_PREEMPTION_ENABLED={% if scheduler.preemption.enabled %}true{% else %}false{% endif %}
+
+# Logging
+LOG_LEVEL={{ logging.level }}
+LOG_FILE={{ logging.file }}
+
+# API and web interface
+API_PORT={{ api.port }}
+API_HOST={{ api.host }}
+WEBUI_ENABLED={% if webui.enabled %}true{% else %}false{% endif %}
+WEBUI_PORT={{ webui.port }}
+WEBUI_HOST={{ webui.host }}
+WEBUI_ADMIN_EMAIL={{ webui.admin_email }}
+WEBUI_LOGIN_MESSAGE={{ webui.login_message }}
+
+# Worker node configuration
+WORKER_NODES={{ worker_nodes | join(', ') }}
+
+# Job resource limits (per queue)
+{% for queue in queues %}# Queue: {{ queue.name }}
+{{ queue.name | upper() }}_RESOURCE_REQUEST={{ queue.resource_request }}
+{{ queue.name | upper() }}_MAX_WALLTIME={{ queue.max_walltime }}
+{{ queue.name | upper() }}_DEFAULT_WALLTIME={{ queue.default_walltime }}
+{% if queue.priority %}{{ queue.name | upper() }}_PRIORITY={{ queue.priority }}{% endif %}
+{% endfor %}
+
+# NFS and shared filesystem settings
+SHARED_FS_ROOT={{ shared_fs.root }}
+SHARED_FS_USER={{ shared_fs.user }}
+SHARED_FS_GROUP={{ shared_fs.group }}
+SHARED_FS_MODE={{ shared_fs.mode }}
+
+# Mail notification
+MAIL_ENABLED={% if mail.enabled %}true{% else %}false{% endif %}
+MAIL_SMTP_SERVER={{ mail.smtp_server }}
+MAIL_SMTP_PORT={{ mail.smtp_port }}
+MAIL_FROM={{ mail.from_address }}
+
+# Security and authentication
+AUTH_BACKEND={{ auth.backend }}
+{% if auth.backend == 'ldap' %}LDAP_URI={{ auth.ldap.uri }}
+LDAP_BASE_DN={{ auth.ldap.base_dn }}
+LDAP_BIND_DN={{ auth.ldap.bind_dn }}
+LDAP_BIND_PASSWORD={{ auth.ldap.bind_password }}
+LDAP_USER_FILTER={{ auth.ldap.user_filter }}
+{% endif %}
+
+# SSH for remote job launching
+SSH_PORT={{ ssh.port }}
+SSH_USER={{ ssh.user }}
+SSH_KEY_PATH={{ ssh.key_path }}

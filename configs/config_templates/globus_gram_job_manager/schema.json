@@ -1,0 +1,148 @@
+{
+  "listen_host": {
+    "type": "string",
+    "default": "0.0.0.0",
+    "description": "Network interface IP address on which the GRAM Job Manager listens for incoming connections."
+  },
+  "listen_port": {
+    "type": "number",
+    "default": 2119,
+    "description": "TCP port number on which the GRAM Job Manager listens for incoming connections."
+  },
+  "auth_method": {
+    "type": "string",
+    "default": "gridftp",
+    "description": "Authentication method: 'gridftp' (GSI proxy), 'gsi' (GSI credentials only), or 'none' (no authentication)."
+  },
+  "proxy_cert_path": {
+    "type": "string",
+    "default": "/etc/globus/hostcert.pem",
+    "description": "Path to the host certificate used for GSI proxy authentication."
+  },
+  "proxy_key_path": {
+    "type": "string",
+    "default": "/etc/globus/hostkey.pem",
+    "description": "Path to the host private key used for GSI proxy authentication."
+  },
+  "ca_cert_dir": {
+    "type": "string",
+    "default": "/etc/globus/certificates",
+    "description": "Path to the directory containing trusted CA certificates for GSI authentication."
+  },
+  "verbose": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable verbose debug logging to stderr or log file."
+  },
+  "log_file": {
+    "type": "string",
+    "default": "/var/log/globus/gram-job-manager.log",
+    "description": "Path to the log file. Set to empty string to disable file logging."
+  },
+  "max_jobs": {
+    "type": "number",
+    "default": 1000,
+    "description": "Maximum number of concurrently active jobs the manager will handle. Increase for high-throughput sites."
+  },
+  "max_queue_depth": {
+    "type": "number",
+    "default": 5000,
+    "description": "Maximum number of jobs waiting in the submission queue. Set to 0 for unlimited."
+  },
+  "gridftp_endpoints": {
+    "type": "list",
+    "default": [],
+    "description": "List of GridFTP endpoints used for data staging during job execution.",
+    "items": {
+      "host": {
+        "type": "string",
+        "default": "",
+        "description": "Hostname or IP of the GridFTP server."
+      },
+      "port": {
+        "type": "number",
+        "default": 2811,
+        "description": "Port of the GridFTP server."
+      },
+      "description": {
+        "type": "string",
+        "default": "",
+        "description": "Human-readable description of the GridFTP endpoint."
+      },
+      "proxy_mode": {
+        "type": "string",
+        "default": "",
+        "enum": [
+          "delegate",
+          "forward",
+          ""
+        ],
+        "description": "GSI proxy delegation mode for this GridFTP server (optional)."
+      }
+    }
+  },
+  "jobmanager_types": {
+    "type": "list",
+    "default": [
+      "jobmanager",
+      "jobmanager+lsf",
+      "jobmanager+pbs"
+    ],
+    "description": "List of jobmanager types supported by this service (e.g., 'jobmanager', 'jobmanager+pbs'). Must match available jobmanager implementations on the system."
+  },
+  "job_wrapper_path": {
+    "type": "string",
+    "default": "/usr/libexec/globus/globus-job-wrapper.sh",
+    "description": "Path to an optional job execution wrapper script that runs before user jobs."
+  },
+  "resource_manager_plugin": {
+    "type": "string",
+    "default": "pbs",
+    "description": "Resource manager plugin to use (empty to use default auto-detection or legacy behavior)."
+  },
+  "resource_manager_config_path": {
+    "type": "string",
+    "default": "/etc/globus/resource-manager.conf",
+    "description": "Path to the resource manager plugin configuration file."
+  },
+  "gsh_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable Grid Shell (GSH) support for job execution environments."
+  },
+  "gsh_shell": {
+    "type": "string",
+    "default": "/bin/bash",
+    "description": "Default shell for GSH execution environments."
+  },
+  "gsh_working_dir": {
+    "type": "string",
+    "default": "/tmp",
+    "description": "Working directory for GSH execution environments."
+  },
+  "service_hostname": {
+    "type": "string",
+    "default": "grid.example.edu",
+    "description": "Public hostname used in the service contact URL (e.g., for discovery by clients)."
+  },
+  "service_port": {
+    "type": "number",
+    "default": 8443,
+    "description": "HTTPS port used by the service contact URL."
+  },
+  "ssl_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable TLS for the service contact endpoint."
+  },
+  "ssl_cert_path": {
+    "type": "string",
+    "default": "/etc/globus/hostcert.pem",
+    "description": "Path to the SSL certificate used for the service contact endpoint."
+  },
+  "ssl_key_path": {
+    "type": "string",
+    "default": "/etc/globus/hostkey.pem",
+    "description": "Path to the SSL private key used for the service contact endpoint."
+  }
+}

@@ -1,0 +1,94 @@
+{# General server identity #}
+host: {{ host }}
+port: {{ port }}
+{% if ssl.enabled %}
+{# Enable and configure TLS (required for secure submission) #}
+ssl_cert: {{ ssl.cert_path }}
+ssl_key: {{ ssl.key_path }}
+{% endif %}
+{% if auth.enabled %}
+{# Enable authentication (for mail submission) #}
+auth_backend: {{ auth.backend }}
+{% if auth.backend == 'passwd' %}
+auth_passwd_file: {{ auth.passwd_file }}
+{% elif auth.backend == 'ldap' %}
+auth_ldap_url: {{ auth.ldap_url }}
+auth_ldap_base: {{ auth.ldap_base }}
+auth_ldap_bind_dn: {{ auth.ldap_bind_dn }}
+auth_ldap_bind_password: {{ auth.ldap_bind_password }}
+auth_ldap_filter: {{ auth.ldap_filter }}
+{% endif %}
+{% endif %}
+{% if log.enabled %}
+{# Logging configuration #}
+log_level: {{ log.level }}
+log_file: {{ log.file }}
+{% endif %}
+{% for domain in domains %}
+{# per-domain configuration #}
+{% if domain.enabled is not false %}
+domain: {{ domain.name }}
+{% if domain.local %}
+local: true
+{% endif %}
+{% if domain.remote_smtp %}
+remote_smtp: {{ domain.remote_smtp | join(', ') }}
+{% endif %}
+{% if domain.relay_host %}
+relay_host: {{ domain.relay_host }}
+{% if domain.relay_port %}
+relay_port: {{ domain.relay_port }}
+{% endif %}
+{% endif %}
+{% if domain.auth_relay %}
+relay_auth_user: {{ domain.relay_auth_user }}
+relay_auth_pass: {{ domain.relay_auth_pass }}
+{% endif %}
+{% if domain.max_message_size %}
+max_message_size: {{ domain.max_message_size }}
+{% endif %}
+{% if domain.sender_maps %}
+{% for map in domain.sender_maps %}
+sender_map: {{ map.pattern }} = {{ map.target }}
+{% endfor %}
+{% endif %}
+{% if domain.accept_mail_from %}
+accept_mail_from:
+{% for pattern in domain.accept_mail_from %}
+  - {{ pattern }}
+{% endfor %}
+{% endif %}
+{% if domain.accept_rcpt_to %}
+accept_rcpt_to:
+{% for pattern in domain.accept_rcpt_to %}
+  - {{ pattern }}
+{% endfor %}
+{% endif %}
+{% if domain.reject_mail_from %}
+reject_mail_from:
+{% for pattern in domain.reject_mail_from %}
+  - {{ pattern }}
+{% endfor %}
+{% endif %}
+{% if domain.reject_rcpt_to %}
+reject_rcpt_to:
+{% for pattern in domain.reject_rcpt_to %}
+  - {{ pattern }}
+{% endfor %}
+{% endif %}
+{% endif %}
+{% endfor %}
+{# Global limits #}
+max_message_size: {{ max_message_size }}
+max_recipients_per_message: {{ max_recipients_per_message }}
+{% if rate_limit.enabled %}
+{# Rate limiting (per-IP) #}
+rate_limit.enabled: true
+rate_limit.per_ip: {{ rate_limit.per_ip }}
+rate_limit.per_domain: {{ rate_limit.per_domain }}
+{% endif %}
+{# Delivery settings #}
+delivery_timeout: {{ delivery_timeout }}
+delivery_threads: {{ delivery_threads }}
+queue_dir: {{ queue_dir }}
+spool_dir: {{ spool_dir }}

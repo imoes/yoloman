@@ -1,0 +1,70 @@
+# Tripwire configuration file — site key and policy file paths
+KEYFILE=/etc/tripwire/{{ site_key_file }}
+POLFILE=/etc/tripwire/{{ policy_file }}
+
+# Encryption method — use cryptographically secure algorithms
+SITEKEYFILE=/etc/tripwire/{{ site_key_encryption_file }}
+LOCALKEYFILE=/etc/tripwire/{{ local_key_encryption_file }}
+
+# Log file location for tripwire reports
+REPORTFILE=/var/log/tripwire/report.twr
+
+# Directory to store temporary files during signature generation
+TMPDIR=/var/lib/tripwire/tmp
+
+# Directory for database files (for baseline store)
+DBFILE=/var/lib/tripwire/{{ db_name }}
+
+# Path to the Tripwire executable
+TWBIN=/usr/sbin/tripwire
+
+# E-mail settings — alert destination and SMTP configuration
+EMAILREPORTLEVEL={{ email_report_level }}
+MAILPROGRAM=/usr/bin/mail
+
+# Syslog integration
+SYSLOGREPORTING={{ syslogging_enabled | string | lower }}
+SYSLOGLEVEL={{ syslog_level }}
+
+# Report output formats
+TEXTREPORT=/etc/tripwire/report.txt
+HTMLREPORT=/etc/tripwire/report.html
+
+# Alert thresholds
+SECURITYLEVEL={{ security_level }}
+
+# Integrity check settings
+EMAILBODYINCLUDE={{ email_body_include | string | lower }}
+EMAILSUMMARYINCLUDE={{ email_summary_include | string | lower }}
+
+# Email recipients — list of recipients to notify on alerts
+{% for recipient in email_recipients %}
+EMAILADDRESS={{ recipient }}
+{% endfor %}
+
+# Lock database after writing (prevents tampering)
+LOCKDB={{ database_lock_enabled | string | lower }}
+
+# Use GPG for signing reports
+SIGNREPORTS={{ sign_reports_enabled | string | lower }}
+GPGLOCALKEY={{ gpg_local_key }}
+GPGPATH=/usr/bin/gpg
+
+# Compression of archived reports
+COMPRESSREPORTS={{ compress_reports_enabled | string | lower }}
+COMPRESSPROGRAM=/bin/gzip
+UNCOMPRESSPROGRAM=/bin/gunzip
+
+# Database upgrade mode — set to true only when running `twadmin -m P`
+DATABASEUPGRADEMODE={{ database_upgrade_mode | string | lower }}
+
+# Path to the Tripwire policy file (used during init & update)
+POLICYFILE=/etc/tripwire/{{ policy_file }}
+
+# Site passphrase (not stored in config; set at install time)
+# (Leave blank in config; passed via --passphrase on CLI)
+SITEPASSPHRASE=
+
+# Local passphrase (not stored in config)
+# (Leave blank in config; passed via --passphrase on CLI)
+LOCALPASSPHRASE=

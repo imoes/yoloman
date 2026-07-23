@@ -1,0 +1,63 @@
+# slirp4netns configuration file
+# This file is sourced by slirp4netns when invoked with --config
+# Each line is a key=value pair; empty lines and lines starting with # are ignored
+
+# Enable or disable rootless port forwarding
+port_forwarding={{ port_forwarding }}
+
+# Network CIDR for the guest (slirp4netns internal network)
+net_cidr={{ net_cidr }}
+
+# IP address assigned to the host inside the guest network
+host_ip={{ host_ip }}
+
+# IP address assigned to the guest (container side)
+guest_ip={{ guest_ip }}
+
+# DNS server IP to be advertised to guests
+# If omitted, uses /etc/resolv.conf from host (or default 10.0.2.3)
+guest_dns={{ guest_dns | default('') | trim or '10.0.2.3' }}
+
+# Hostname to assign to the guest (optional)
+guest_hostname={{ guest_hostname | default('') | trim }}
+
+# Enable or disable hostname forwarding (set hostname inside guest)
+hostname_forwarding={{ hostname_forwarding }}
+
+# Enable or disable NAT port redirection (legacy behavior)
+natp={{ natp }}
+
+# Enable or disable SLIRP’s built-in DHCP server
+# If disabled, manual IP must be configured in guest
+dhcp_server={{ dhcp_server }}
+
+# Enable or disable IPv6 support
+ipv6={{ ipv6 }}
+
+# IPv6 CIDR for guest network (if ipv6 enabled)
+ipv6_prefix={{ ipv6_prefix }}
+
+# Host IPv6 address inside guest network
+ipv6_host={{ ipv6_host }}
+
+# Enable or disable TAP interface creation (for advanced use)
+tap_ifname={{ tap_ifname | default('') | trim }}
+
+# MTU for the slirp interface (default: 65520)
+mtu={{ mtu }}
+
+# Enable or disable VLAN support
+vlan={{ vlan }}
+
+# VLAN ID (only if vlan is enabled)
+ vlan_id={{ vlan_id }}
+
+# Rootless port mappings — syntax: host_ip:host_port:guest_ip:guest_port
+# Multiple mappings allowed; each on a new line
+{% for mapping in port_mappings %}port_map={{ mapping.host_ip }}:{{ mapping.host_port }}:{{ mapping.guest_ip }}:{{ mapping.guest_port }}
+{% endfor %}
+
+# Additional slirp4netns options (passed as-is; e.g., --disable-host-loopback)
+# Each extra_option goes on its own line
+{% for option in extra_options %}{{ option }}
+{% endfor %}

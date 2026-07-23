@@ -1,0 +1,211 @@
+{
+  "listen_addresses": {
+    "type": "list",
+    "default": [
+      "127.0.0.1:53",
+      "[::1]:53"
+    ],
+    "description": "IP addresses and ports the DNSCrypt proxy listens on for client DNS queries."
+  },
+  "max_clients": {
+    "type": "number",
+    "default": 256,
+    "description": "Maximum number of simultaneous client connections. Set to 0 for no limit."
+  },
+  "fallback_resolvers": {
+    "type": "list",
+    "default": [
+      "9.9.9.9:53",
+      "1.1.1.1:53"
+    ],
+    "description": "Fallback plain DNS resolvers used when upstream encrypted resolvers fail."
+  },
+  "disable_ipv6": {
+    "type": "bool",
+    "default": false,
+    "description": "If true, disable IPv6 support on the proxy itself (does not affect upstream resolvers)."
+  },
+  "log_level": {
+    "type": "number",
+    "default": 1,
+    "description": "Logging verbosity: 0=quiet, 1=info (recommended), 2=debug, 3=trace."
+  },
+  "log_file": {
+    "type": "string",
+    "default": "/var/log/dnscrypt-proxy/dnscrypt-proxy.log",
+    "description": "Path to the main log file. Leave empty to log to stdout."
+  },
+  "use_syslog": {
+    "type": "bool",
+    "default": false,
+    "description": "If true, send logs to the system logger (e.g., systemd/journald) instead of a file."
+  },
+  "server_cert": {
+    "type": "string",
+    "default": "",
+    "description": "Path to the server certificate (PEM format) for local DNSCrypt relays (empty = none)."
+  },
+  "server_key": {
+    "type": "string",
+    "default": "",
+    "description": "Path to the server private key (PEM format) for local DNSCrypt relays (empty = none)."
+  },
+  "cache_file": {
+    "type": "string",
+    "default": "/var/lib/dnscrypt-proxy/dnscrypt-proxy.cache",
+    "description": "Path to the cached resolver list (to reduce repeated downloads)."
+  },
+  "cache_file_min_time": {
+    "type": "number",
+    "default": 86400,
+    "description": "Minimum time (seconds) to keep the resolver cache before checking for updates."
+  },
+  "cache_file_max_time": {
+    "type": "number",
+    "default": 604800,
+    "description": "Maximum time (seconds) to keep the resolver cache before expiry (0 = no expiration)."
+  },
+  "disable_insecure_resolver_selection": {
+    "type": "bool",
+    "default": true,
+    "description": "If true, only use authenticated resolver lists over HTTPS (disables insecure HTTP lists)."
+  },
+  "server_names": {
+    "type": "list",
+    "default": [
+      "cloudflare",
+      "cloudflare-ipv6",
+      "nextdns",
+      "quad9"
+    ],
+    "description": "List of resolver names (from the server list) to use. Must match entries in the server list."
+  },
+  "resolver_timeout": {
+    "type": "number",
+    "default": 5,
+    "description": "Maximum time (seconds) to wait for a response from a resolver per query."
+  },
+  "dnscrypt_connect_timeout": {
+    "type": "number",
+    "default": 2,
+    "description": "Timeout (seconds) for establishing a DNSCrypt connection to a resolver."
+  },
+  "doh_connect_timeout": {
+    "type": "number",
+    "default": 4,
+    "description": "Timeout (seconds) for establishing a DoH (DNS over HTTPS) connection to a resolver."
+  },
+  "max_connections_per_query": {
+    "type": "number",
+    "default": 3,
+    "description": "Maximum number of parallel connections tried for a single query."
+  },
+  "rate_limit": {
+    "type": "number",
+    "default": 0,
+    "description": "Maximum queries per second per resolver (0 = no rate limiting)."
+  },
+  "firewall_rules_file": {
+    "type": "string",
+    "default": "",
+    "description": "Path to an optional script that configures firewall rules for the proxy (e.g., allow port 53)."
+  },
+  "blocklist.domains": {
+    "type": "list",
+    "default": [
+      "doubleclick.net",
+      "googlesyndication.com"
+    ],
+    "description": "List of domain names to block. Matches full domains exactly."
+  },
+  "blocklist.file": {
+    "type": "string",
+    "default": "",
+    "description": "Path to a file with one blocked domain per line (supports wildcards like *.ads.com)."
+  },
+  "whitelist.domains": {
+    "type": "list",
+    "default": [],
+    "description": "List of domains to always allow, even if blocked elsewhere."
+  },
+  "whitelist.file": {
+    "type": "string",
+    "default": "",
+    "description": "Path to a file with one allowed domain per line (whitelist takes precedence over blocklist)."
+  },
+  "ip_filters.blocked_ranges": {
+    "type": "list",
+    "default": [],
+    "description": "List of CIDR ranges to block (e.g., ['192.168.0.0/16'])."
+  },
+  "ip_filters.allowed_ranges": {
+    "type": "list",
+    "default": [],
+    "description": "If non-empty, only allow queries from these CIDR ranges (allowlist mode)."
+  },
+  "ip_filters.block_localhost": {
+    "type": "bool",
+    "default": false,
+    "description": "If true, reject queries from localhost (127.0.0.1 or ::1). Not recommended."
+  },
+  "per_ip_log_directory": {
+    "type": "string",
+    "default": "",
+    "description": "Directory to store per-client IP query logs (empty = disabled)."
+  },
+  "per_ip_log_retention_days": {
+    "type": "number",
+    "default": 7,
+    "description": "Number of days to keep per-IP logs before deletion."
+  },
+  "stats_per_resolver": {
+    "type": "bool",
+    "default": true,
+    "description": "If true, collect per-resolver statistics (used by stats_file and metrics)."
+  },
+  "stats_file": {
+    "type": "string",
+    "default": "/var/lib/dnscrypt-proxy/dnscrypt-proxy.stats",
+    "description": "Path to the JSON file containing resolver usage statistics."
+  },
+  "stats_max_age": {
+    "type": "number",
+    "default": 604800,
+    "description": "Maximum age (seconds) of stats before rotation (0 = no rotation)."
+  },
+  "metrics.enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "If true, enable Prometheus-style metrics endpoint."
+  },
+  "metrics.listen_address": {
+    "type": "string",
+    "default": "127.0.0.1:9153",
+    "description": "IP and port to serve Prometheus metrics on."
+  },
+  "post_reload_command": {
+    "type": "string",
+    "default": "",
+    "description": "Optional shell command to run after the service is reloaded (e.g., to refresh firewall rules)."
+  },
+  "pre_reload_command": {
+    "type": "string",
+    "default": "",
+    "description": "Optional shell command to run before reloading the config (e.g., to backup state)."
+  },
+  "on_startup": {
+    "type": "string",
+    "default": "",
+    "description": "Optional shell command to run once when the proxy starts."
+  },
+  "on_shutdown": {
+    "type": "string",
+    "default": "",
+    "description": "Optional shell command to run when the proxy shuts down cleanly."
+  },
+  "logrotate_config": {
+    "type": "string",
+    "default": "/etc/logrotate.d/dnscrypt-proxy",
+    "description": "Path to the logrotate configuration file for the proxy logs."
+  }
+}

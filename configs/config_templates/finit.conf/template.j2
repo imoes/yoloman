@@ -1,0 +1,48 @@
+# Finit init system configuration
+# Global settings
+pidfile {{ pidfile_path }}
+
+{% if verbosity is defined %}# Set verbosity level (0=silent, 1=minimal, 2=normal, 3=verbose)
+{% endif %}verbosity {{ verbosity | default(2) }}
+
+# Enable or disable syslog integration
+syslog {{ syslog_enabled | default(true) | lower }}
+
+# Console log level (0=none, 1=errors, 2=warnings, 3=info, 4=debug)
+console {{ console_level | default(3) }}
+
+{% if service_dirs is defined and service_dirs %}# Service search paths (multiple allowed)
+{% endif %}{% for dir in service_dirs %}service {{ dir }}
+{% endfor %}
+
+# Default runlevel
+runlevel {{ default_runlevel | default('S') }}
+
+# Default target (alias for runlevel; mutually exclusive with runlevel)
+{% if default_target is not none %}target {{ default_target }}
+{% endif %}
+
+# Console to use for init messages (e.g., /dev/console, tty0)
+console_device {{ console_device | default('/dev/console') }}
+
+# Shutdown behavior: sync before reboot? (true/false)
+{% if sync_on_shutdown is defined %}sync {{ sync_on_shutdown | default(true) | lower }}
+{% endif %}
+
+# Enable or disable plugin support
+plugins {{ plugins_enabled | default(false) | lower }}
+
+{% if plugins_dir is defined %}# Plugin search directory
+{% endif %}{% if plugins_dir is not none %}plugindir {{ plugins_dir }}
+{% endif %}
+
+# Enable or disable network management integration (via runparts hook)
+network {{ network_enabled | default(true) | lower }}
+
+# Enable or disable hostname setting from /etc/hostname
+{% if hostname_enabled is defined %}hostname {{ hostname_enabled | default(true) | lower }}
+{% endif %}
+
+{% if plugins_config is defined and plugins_config %}# Plugin-specific configuration (passed to plugins as-is)
+{% endif %}{% for key, value in plugins_config.items() %}plugin {{ key }} {{ value }}
+{% endfor %}

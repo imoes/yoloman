@@ -1,0 +1,60 @@
+# LCDd.conf — LCDProc server configuration
+# Server-wide settings
+[server]
+  # Core server options
+  CoreServer=yes
+  # Hostname to bind to (use 0.0.0.0 for all interfaces)
+  Host={{ server.host }}
+  # TCP port for client connections
+  Port={{ server.port }}
+  # Path to PID file
+  PIDFile={{ server.pid_file }}
+  # User to drop privileges to (empty = keep root)
+  User={{ server.user | default('') }}
+  # Group to drop privileges to (empty = keep root)
+  Group={{ server.group | default('') }}
+  # Logging level: 0 (none) to 9 (debug)
+  LogLevel={{ server.log_level }}
+  # Log file path (empty = stderr)
+  LogFile={{ server.log_file | default('') }}
+  # Enable background daemonization
+  Background={{ server.background | lower }}
+  # Time to wait before closing LCD after last client disconnect (seconds)
+  IdleTimeout={{ server.idle_timeout }}
+  # Font to use (must exist in FontPath)
+  Font={{ server.font }}
+  # Font path (list of directories)
+  FontPath={{ server.font_path | join(':') }}
+
+# Driver configuration section — loaded on-demand
+{% for driver in drivers %}
+{% if loop.first %}[driver]
+{% else %}
+[{{ driver.name }}]
+{% endif %}
+  # Enable driver
+  Load={{ driver.load | lower }}
+  # Path to driver module (optional; auto-resolved if empty)
+  Path={{ driver.path | default('') }}
+  # Driver-specific options
+{% for key, value in driver.options.items() %}
+  {{ key }}={{ value }}
+{% endfor %}{% endfor %}
+
+# LCD hardware-specific settings (example: hd44780)
+{% if lcd_model %}[lcd]
+  Model={{ lcd_model }}
+  Size={{ lcd_size }}
+{% if 'lcd.backlight' in lcd_extra %}  Backlight={{ 'on' if lcd_backlight else 'off' }}
+{% endif %}{% if 'lcd.contrast' in lcd_extra %}  Contrast={{ lcd_contrast }}
+{% endif %}{% if 'lcd.voltage' in lcd_extra %}  Voltage={{ lcd_voltage }}
+{% endif %}{% if 'lcd.delay' in lcd_extra %}  Delay={{ lcd_delay }}
+{% endif %}{% if 'lcd.cursor' in lcd_extra %}  Cursor={{ 'on' if lcd_cursor else 'off' }}
+{% endif %}
+{% endif %}
+# Client connection limits and timeouts
+[client]
+  # Max clients allowed
+  MaxClients={{ client.max_clients }}
+  # Default client timeout (seconds)
+  Timeout={{ client.timeout }}

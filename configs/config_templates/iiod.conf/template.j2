@@ -1,0 +1,49 @@
+# iiod.conf — Configuration for the Industrial I/O Daemon (iiod)
+# This file controls runtime behavior of iiod, including network binding, I/O backend settings, and optional features.
+# It supports YAML syntax with Jinja2 templating for dynamic site/instance values.
+# Listen address — IP address/interface iiod binds to for remote access
+listen_address: {{ listen_address }}
+
+# Port — TCP port used for I/O connections (default: 1024 for non-root, or 5555 for legacy)
+port: {{ port }}
+
+# Transport — underlying communication method (e.g., 'ip', 'usb', 'local'); controls backend plugin
+transport: {{ transport }}
+
+# Log level — verbosity of logging: 'debug', 'info', 'warning', 'error'
+log_level: {{ log_level }}
+
+# Enable TLS — whether to use encrypted transport (requires TLS cert/key paths below)
+enable_tls: {{ enable_tls }}
+
+# TLS certificate path — PEM-encoded server certificate (required if enable_tls is true)
+tls_cert_path: {{ tls_cert_path }}
+
+# TLS private key path — PEM-encoded private key (required if enable_tls is true)
+tls_key_path: {{ tls_key_path }}
+
+# Trusted CA certificate path — optional; used to validate client certificates in mutual TLS
+ca_cert_path: {{ ca_cert_path }}
+
+# Allowed clients — list of hostnames/IPs (CIDR not supported); empty list = allow all
+{% if allowed_clients is defined and allowed_clients | length > 0 %}
+allowed_clients:
+{% for client in allowed_clients %}  - {{ client }}
+{% endfor %}
+{% else %}
+allowed_clients: []
+{% endif %}
+
+# Enable discovery — publish IIO context via mDNS/DNS-SD (requires Avahi or similar)
+enable_discovery: {{ enable_discovery }}
+
+# Discovery name — hostname advertised via mDNS (defaults to hostname if omitted)
+{% if discovery_name is defined and discovery_name | length > 0 %}
+discovery_name: {{ discovery_name }}
+{% endif %}
+
+# Backend-specific options — arbitrary YAML block passed to the selected I/O backend
+# Example: for 'ip' backend, you can configure timeout, keepalive, etc.
+backend_options:
+{% for key, value in backend_options.items() | sort %}  {{ key }}: {{ value | to_json }}
+{% endfor %}

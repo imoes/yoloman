@@ -1,0 +1,35 @@
+# Listen address and port for incoming IMAP connections
+listen_address = {{ listen_address }}
+listen_port = {{ listen_port }}
+
+# Backend IMAP server(s) to proxy to
+{% for backend in backends %}backend_server = {{ backend.host }}:{{ backend.port }}{% if backend.weight %};weight={{ backend.weight }}{% endif %}
+{% endfor %}
+
+# Enable/Disable SSL/TLS termination at proxy level
+ssl_enabled = {{ ssl_enabled }}
+{% if ssl_enabled %}
+ssl_cert_file = {{ ssl_cert_file }}
+ssl_key_file = {{ ssl_key_file }}
+{% endif %}
+
+# Authentication and session handling
+cache_size = {{ cache_size }}
+connection_cache_ttl = {{ connection_cache_ttl }}
+max_client_connections = {{ max_client_connections }}
+
+# Logging
+log_level = {{ log_level }}
+log_facility = {{ log_facility }}
+
+# Optional: Chroot and user/group dropping
+chroot = {{ chroot | default('') }}
+user = {{ user }}
+group = {{ group }}
+
+# Idle timeout (seconds) for client and backend connections
+client_idle_timeout = {{ client_idle_timeout }}
+backend_idle_timeout = {{ backend_idle_timeout }}
+
+# Enable/Disable PIPELINING support
+enable_pipeline = {{ enable_pipeline }}

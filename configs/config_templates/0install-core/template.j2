@@ -1,0 +1,54 @@
+{# 0install-core configuration #}
+# Global 0install configuration
+[global]
+
+# Where to cache downloaded feeds and binaries
+# {{ cache_dir }}
+cache_dir = {{ cache_dir }}
+
+# Whether to verify signatures of feeds and packages (recommended for security)
+# {{ verify_signatures | string | lower }}
+verify_signatures = {{ verify_signatures | string | lower }}
+
+# List of default repositories to use when resolving dependencies
+# (each entry: name=url)
+# Repositories:
+{% for repo in repositories %}
+{%   if loop.first %}repositories = {% else %}             {% endif %}{{ repo.name }}={{ repo.url }}{% if not loop.last %} \{% endif %}
+{% endfor %}
+
+# Default priority for repositories (higher = preferred)
+# {{ default_priority }}
+default_priority = {{ default_priority }}
+
+# Whether to allow downloading and running unsigned feeds (dangerous, disabled by default)
+# {{ allow_unsigned | string | lower }}
+allow_unsigned = {{ allow_unsigned | string | lower }}
+
+# Where to store user-specific data (e.g., config, cache per-user overrides)
+# {{ user_data_dir }}
+user_data_dir = {{ user_data_dir }}
+
+# Mirror configuration (optional)
+{% if mirrors %}
+[mirrors]
+{%   for mirror in mirrors %}
+# {{ mirror.name }}: {{ mirror.url }}
+{{ mirror.name }} = {{ mirror.url }}
+{%   endfor %}
+{% endif %}
+
+# HTTP proxy settings (optional)
+{% if proxy_url %}
+[http]
+# {{ proxy_url }}
+proxy = {{ proxy_url }}
+{% endif %}
+
+# Disable network access (offline mode)
+# {{ offline | string | lower }}
+offline = {{ offline | string | lower }}
+
+# Timeout for network requests (seconds)
+# {{ network_timeout }}
+network_timeout = {{ network_timeout }}

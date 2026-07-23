@@ -1,0 +1,28 @@
+# Proxmox VE fence agent configuration
+# This file is sourced by fence_pve(8) at runtime to determine connection parameters.
+
+# Base URL of the Proxmox VE API endpoint (e.g., https://pve.example.com:8006/api2/json)
+# Must be accessible from all cluster nodes requiring fencing
+base_url = {{ pve_api_url }}
+
+# API token ID and secret for non-interactive authentication
+# Created in Proxmox VE Web UI under Datacenter → Security → API Tokens
+api_token_id = {{ api_token_id }}
+api_token_secret = {{ api_token_secret }}
+
+# Certificate verification: '1' to enable (default), '0' to disable (unsafe, for test only)
+# Set to '0' only if using self-signed certs in air-gapped environments
+verify_ssl = {{ verify_ssl | default('1') }}
+
+# Optional: custom CA bundle path (if verify_ssl=1 and system CA store doesn’t include PVE cert)
+# Leave empty to use system trust store
+cacert = {{ cacert | default('') }}
+
+# Optional: HTTP timeout in seconds for API requests (default: 30)
+# Increase for slow networks or high-latency connections
+timeout = {{ timeout | default('30') }}
+
+# Optional: List of nodes to pre-populate as candidates for fencing
+# When omitted, agent discovers nodes via /nodes API; useful in multi-cluster or segmented setups
+{% for node in nodes %}
+node = {{ node.hostname }}{% endfor %}

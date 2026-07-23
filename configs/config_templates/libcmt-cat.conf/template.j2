@@ -1,0 +1,26 @@
+# Configuration file for intel-cmt-cat (libcmt-cat) service
+# Enables or disables monitoring of cache and memory bandwidth
+monitor: {{ monitor | default(true) }}
+
+# Path to the cache monitoring device (usually /dev/rdt)
+device_path: "{{ device_path | default('/dev/rdt') }}"
+
+# Maximum number of monitoring groups (CLOS) supported by the system
+max_clos: {{ max_clos | default(4) }}
+
+# List of monitoring groups (CLOS) with their IDs and associated processes
+monitors:
+{% for m in monitors %}# Monitoring group CLOS {{ m.clos_id }}: processes {{ m.processes | join(', ') }}
+- clos_id: {{ m.clos_id }}
+  processes:
+{% for pid in m.processes %}    - {{ pid }}
+{% endfor %}{% endfor %}
+
+# Resource monitoring interval in milliseconds
+poll_interval_ms: {{ poll_interval_ms | default(1000) }}
+
+# Enable or disable detailed cache monitoring (L3, L2, etc.)
+detailed_cache_mon: {{ detailed_cache_mon | default(false) }}
+
+# Path to output log file for monitoring data
+log_file: "{{ log_file | default('/var/log/libcmt-cat/monitor.log') }}"

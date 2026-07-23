@@ -1,0 +1,125 @@
+{
+  "allowed_networks": {
+    "type": "list",
+    "default": [
+      "192.168.0.0/16",
+      "10.0.0.0/8",
+      "172.16.0.0/12"
+    ],
+    "description": "List of IP networks (CIDR notation) allowed to query this Chrony server.",
+    "items": {
+      "type": "string",
+      "description": "An IPv4 or IPv6 subnet in CIDR notation."
+    }
+  },
+  "cmd_rate_limit": {
+    "type": "number",
+    "default": 8,
+    "description": "Maximum rate (commands per second) for the chronyd command interface. Reduces denial-of-service risk."
+  },
+  "use_local_clock": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable a local hardware reference clock (e.g., PTP) as a stratum-0 fallback. Requires compatible hardware."
+  },
+  "ntp_servers": {
+    "type": "list",
+    "default": [
+      {
+        "host": "0.pool.ntp.org",
+        "options": []
+      },
+      {
+        "host": "1.pool.ntp.org",
+        "options": [
+          "iburst"
+        ]
+      },
+      {
+        "host": "2.pool.ntp.org",
+        "options": []
+      },
+      {
+        "host": "3.pool.ntp.org",
+        "options": [
+          "iburst"
+        ]
+      }
+    ],
+    "description": "Upstream NTP servers or pools to synchronize with. Each entry may include extra options (e.g., 'iburst', 'prefer').",
+    "items": {
+      "type": "object",
+      "description": "An upstream NTP server entry.",
+      "fields": {
+        "host": {
+          "type": "string",
+          "description": "Hostname or IP address of the NTP server."
+        },
+        "options": {
+          "type": "list",
+          "default": [],
+          "description": "Optional arguments for the server directive (e.g., iburst, prefer, noselect)."
+        }
+      }
+    }
+  },
+  "log_metrics": {
+    "type": "list",
+    "default": [
+      "measurements",
+      "statistics",
+      "tracking"
+    ],
+    "description": "Categories of logging to enable. Options include: all, measurements, statistics, tracking, rawdata, ratelimit, change."
+  },
+  "min_sources": {
+    "type": "number",
+    "default": 1,
+    "description": "Minimum number of sources (from which at least one is acceptable) before Chrony will step the clock."
+  },
+  "max_slew_rate": {
+    "type": "number",
+    "default": 1000.0,
+    "description": "Maximum slew rate (in ppm) for clock adjustments. Higher values allow faster sync but risk overshoot."
+  },
+  "auth_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable command authentication using keys in /etc/chrony/chrony.keys (requires key management)."
+  },
+  "makestep_threshold": {
+    "type": "number",
+    "default": 1.0,
+    "description": "Clock offset threshold (seconds) above which the clock will be stepped (not slewn) during initial sync. Only effective if `auth_enabled` is false."
+  },
+  "makestep_interval": {
+    "type": "number",
+    "default": 3,
+    "description": "Number of seconds to allow stepping during initial sync (i.e., allow stepping within first N seconds of daemon start)."
+  },
+  "disable_hwtimestamp": {
+    "type": "bool",
+    "default": false,
+    "description": "Disable hardware timestamping support (for systems with unreliable or unsupported PTP/PHC)."
+  },
+  "server_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Explicitly enable serving time to clients (chronyd listens as an NTP server)."
+  },
+  "stepback_threshold": {
+    "type": "number",
+    "default": 0.1,
+    "description": "If the clock is ahead of the reference by this threshold (seconds), it will be stepped backward on initial sync."
+  },
+  "sources_stale_threshold": {
+    "type": "number",
+    "default": 10,
+    "description": "Time (seconds) after which a source is considered stale and excluded from selection."
+  },
+  "seccomp_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable SECCOMP-BPF sandboxing for additional process isolation (Linux kernel \u22653.5, chrony \u22652.4)."
+  }
+}

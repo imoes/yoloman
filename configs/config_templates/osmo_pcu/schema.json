@@ -1,0 +1,209 @@
+{
+  "log_level": {
+    "type": "string",
+    "default": "info",
+    "description": "Global logging level. Controls verbosity of messages logged to stderr/syslog."
+  },
+  "rsl_ip": {
+    "type": "string",
+    "default": "127.0.0.1",
+    "description": "IP address used for RSL (Radio Signalling Link) connections to the BSC."
+  },
+  "bts_type": {
+    "type": "string",
+    "default": "sysmobts",
+    "description": "Type of BTS hardware or emulation backend (e.g., sysmobts, sysmoUsim, osmo-bts-trx)."
+  },
+  "trx_nr": {
+    "type": "number",
+    "default": 0,
+    "description": "Transceiver instance number (0-indexed). Used when multiple TRX units exist."
+  },
+  "ts_nr": {
+    "type": "list",
+    "default": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7
+    ],
+    "description": "List of timeslot numbers to configure. Each timeslot can be individually tuned.",
+    "items": {
+      "type": "number"
+    }
+  },
+  "ts0_type": {
+    "type": "string",
+    "default": "PCU",
+    "description": "Timeslot 0 configuration type (typically 'PCU' or 'TCH/F')."
+  },
+  "ts0_arfcn": {
+    "type": "number",
+    "default": 51,
+    "description": "Absolute RF channel number (ARFCN) for timeslot 0."
+  },
+  "ts0_bsic": {
+    "type": "number",
+    "default": 23,
+    "description": "Base Station Identity Code (BSIC) for timeslot 0 (6-bit value)."
+  },
+  "pdch_rate_limit": {
+    "type": "number",
+    "default": 10000,
+    "description": "Maximum rate (in kbps) for PDCH (Packet Data Channel) allocations."
+  },
+  "pcu_sock_path": {
+    "type": "string",
+    "default": "/var/run/osmocom/osmo-pcu.sock",
+    "description": "Unix domain socket path for local management (e.g., by osmo-bsc or CLI tools)."
+  },
+  "local_ip": {
+    "type": "string",
+    "default": "127.0.0.1",
+    "description": "Local IP address to bind PCU socket (for remote management or proxy)."
+  },
+  "osmo_bsc_ip": {
+    "type": "string",
+    "default": "127.0.0.1",
+    "description": "IP address of the Osmocom BSC (e.g., osmo-bsc) to connect for RSL and NSVC."
+  },
+  "osmo_bsc_port": {
+    "type": "number",
+    "default": 4242,
+    "description": "Port number of the BSC to connect (default 4242 for IPA/IP over IP)."
+  },
+  "max_pdch_alloc": {
+    "type": "number",
+    "default": 8,
+    "description": "Maximum number of PDCHs that may be dynamically allocated per cell."
+  },
+  "tbf_ext": {
+    "type": "string",
+    "default": "no",
+    "description": "Enable extended TBF (Temporary Block Flow) support (yes/no)."
+  },
+  "ta_ctrl_mode": {
+    "type": "string",
+    "default": "closed",
+    "description": "Timing Advance (TA) control mode: 'open', 'closed', or 'hybrid'."
+  },
+  "ta_max": {
+    "type": "number",
+    "default": 63,
+    "description": "Maximum allowed TA value (0\u201363, per GSM specification)."
+  },
+  "ta_step": {
+    "type": "number",
+    "default": 4,
+    "description": "Initial TA step size (in bits, ~550 \u03bcs each) per update."
+  },
+  "ta_tn": {
+    "type": "number",
+    "default": 0,
+    "description": "Initial TA value for new TBFs (timeslot 0 by default)."
+  },
+  "ta_tn_step": {
+    "type": "number",
+    "default": 4,
+    "description": "Per-timeslot TA update step size (similar to global ta_step but per-TN)."
+  },
+  "ta_tn_max": {
+    "type": "number",
+    "default": 63,
+    "description": "Maximum TA value per timeslot (same as global ta_max per TN)."
+  },
+  "ta_tn_min": {
+    "type": "number",
+    "default": 0,
+    "description": "Minimum TA value per timeslot (must be \u2265 0)."
+  },
+  "ta_tn_initial": {
+    "type": "number",
+    "default": 0,
+    "description": "TA value assigned to new TBFs on a given timeslot."
+  },
+  "ta_tn_threshold": {
+    "type": "number",
+    "default": 32,
+    "description": "TA deviation threshold (in bits) to trigger reassignment or rate adjustment."
+  },
+  "ta_tn_hysteresis": {
+    "type": "number",
+    "default": 2,
+    "description": "Hysteresis (bits) to prevent jitter in TA updates."
+  },
+  "ta_tn_decay": {
+    "type": "number",
+    "default": 2,
+    "description": "TA decay rate (bits/frame) when traffic stops, moving back toward initial."
+  },
+  "ta_tn_incr": {
+    "type": "number",
+    "default": 1,
+    "description": "TA increment step for increasing TA (e.g., due to rising delay)."
+  },
+  "ta_tn_decr": {
+    "type": "number",
+    "default": 1,
+    "description": "TA decrement step for decreasing TA."
+  },
+  "ta_tn_step_decay": {
+    "type": "number",
+    "default": 1,
+    "description": "Step decay per frame when adjusting TA downward (e.g., during traffic cessation)."
+  },
+  "ta_tn_incr_decay": {
+    "type": "number",
+    "default": 1,
+    "description": "TA increment decay factor when rate increases (to avoid overshoot)."
+  },
+  "ta_tn_decr_decay": {
+    "type": "number",
+    "default": 1,
+    "description": "TA decrement decay factor when rate decreases."
+  },
+  "ta_tn_initial_hysteresis": {
+    "type": "number",
+    "default": 2,
+    "description": "Hysteresis applied specifically to initial TA assignment."
+  },
+  "ta_tn_threshold_hysteresis": {
+    "type": "number",
+    "default": 2,
+    "description": "Hysteresis applied to threshold-based TA adjustments."
+  },
+  "ta_tn_decay_hysteresis": {
+    "type": "number",
+    "default": 2,
+    "description": "Hysteresis applied during TA decay (restoration to initial)."
+  },
+  "ta_tn_incr_hysteresis": {
+    "type": "number",
+    "default": 2,
+    "description": "Hysteresis for TA increment steps."
+  },
+  "ta_tn_decr_hysteresis": {
+    "type": "number",
+    "default": 2,
+    "description": "Hysteresis for TA decrement steps."
+  },
+  "ta_tn_step_decay_hysteresis": {
+    "type": "number",
+    "default": 2,
+    "description": "Hysteresis during step decay phase."
+  },
+  "ta_tn_incr_decay_hysteresis": {
+    "type": "number",
+    "default": 2,
+    "description": "Hysteresis during increment decay (rate increase mitigation)."
+  },
+  "ta_tn_decr_decay_hysteresis": {
+    "type": "number",
+    "default": 2,
+    "description": "Hysteresis during decrement decay."
+  }
+}

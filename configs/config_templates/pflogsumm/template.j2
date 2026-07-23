@@ -1,0 +1,40 @@
+# /etc/default/pflogsumm — Configuration for the pflogsumm daemon
+# Runs daily via cron to summarize Postfix logs and email the report
+
+# Enable or disable the pflogsumm cron job (true/false)
+ENABLED={{ enabled }}
+
+# Path to the Postfix log file (usually /var/log/mail.log or /var/log/maillog)
+LOG_FILE={{ log_file }}
+
+# Optional: Additional log files to include (space-separated)
+# Set to empty string '' to skip extra logs
+EXTRA_LOGS={{ extra_logs | join(' ') }}
+
+# Recipient address for the summary email
+MAIL_TO={{ mail_to }}
+
+# Sender address for the email (use empty string for default 'postfix' or leave blank)
+MAIL_FROM={{ mail_from | default('') }}
+
+# Subject line prefix for the email report
+MAIL_SUBJECT_PREFIX='{{ mail_subject_prefix }}'
+
+# Optional: Limit the number of days of logs to summarize (0 = all available)
+DAYS={{ days }}
+
+# Optional: Add verbose output (true/false)
+VERBOSE={{ verbose }}
+
+# Optional: Include detailed sender/recipient lists (true/false)
+DETAILED={{ detailed }}
+
+# Optional: Time zone offset in minutes (e.g., +60 for UTC+1)
+# Set to empty string '' to use system default
+TZ_OFFSET='{{ tz_offset }}'
+
+# Optional: Path to a custom pflogsumm binary (defaults to /usr/sbin/pflogsumm)
+PFLOGSUMM_BIN='{{ pflogsumm_bin }}'
+
+# Optional: Additional arguments passed to pflogsumm (e.g., --help --bounce=10)
+PFLOGSUMM_ARGS='{{ pflogsumm_args }}'

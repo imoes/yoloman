@@ -1,0 +1,23 @@
+# nbdkit global configuration
+[general]
+# Log level: none, error, warning, info, debug, verbose
+loglevel = {{ loglevel }}
+# Path to plugin directory
+plugins = {{ plugin_dir }}
+# Number of worker threads
+threads = {{ threads }}
+# Maximum number of connections
+maxconnections = {{ maxconnections }}
+# Idle timeout (seconds); 0 disables idle timeout
+idle_timeout = {{ idle_timeout }}
+
+# Per-plugin and per-export configuration sections are added dynamically
+{% for plugin_section in plugin_sections %}
+# Configuration for {{ plugin_section.name }} plugin
+[{{ plugin_section.name }}]
+# Plugin name (auto-generated from section name)
+plugin = {{ plugin_section.name }}
+{% for key, value in plugin_section.options.items() %}# {{ key }}: {{ plugin_section.options[key] | default('') }}
+{{ key }} = {{ plugin_section.options[key] }}
+{% endfor %}
+{% endfor %}

@@ -1,0 +1,47 @@
+# /etc/insserv.conf — insserv configuration for LSB init script dependency resolution
+# Override default dependencies and control boot order via directives
+
+# Path to the init.d directory containing LSB-compliant init scripts
+{% if init_d_path %}# init.d path (override): {{ init_d_path }}
+{% endif %}
+
+# Default runlevel (used when runlevel is ambiguous)
+# insserv uses this only during dry-run or manual invocation; normally derived from /etc/initscript
+{% if default_runlevel %}# default runlevel: {{ default_runlevel }}
+{% endif %}
+
+# Enable verbose output for debugging dependency resolution
+{% if debug %}# verbose mode enabled
+VERBOSE=yes
+{% else %}VERBOSE=no
+{% endif %}
+
+# Extra directories to scan for LSB headers (beyond /etc/init.d)
+{% for extra_dir in extra_init_dirs %}# additional directory: {{ extra_dir }}
+{% endfor %}
+{% if extra_init_dirs %}# extra directories:
+{% for extra_dir in extra_init_dirs %}{{ extra_dir }}
+{% endfor %}
+{% endif %}
+
+# Override default dependency behavior per script
+# Format: <script> <dependency> <action>
+# actions: +add, -remove, *replace (see insserv(8))
+{% for override in dependency_overrides %}# {{ override.script }}: {{ override.dependency }} -> {{ override.action }}
+{% endfor %}
+{% if dependency_overrides %}# dependency overrides:
+{% for override in dependency_overrides %}{{ override.script }} {{ override.dependency }} {{ override.action }}
+{% endfor %}
+{% endif %}
+
+# Controls whether to ignore missing LSB tags (e.g., `# Default-Start:`)
+{% if ignore_missing_tags %}# ignore missing LSB tags
+{% endif %}
+
+# Path to the insserv database cache (default: /lib/insserv/runlevel.db)
+{% if database_path %}# database path (override): {{ database_path }}
+{% endif %}
+
+# Maximum depth for dependency recursion (prevents infinite loops)
+{% if max_depth %}# max recursion depth: {{ max_depth }}
+{% endif %}

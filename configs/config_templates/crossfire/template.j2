@@ -1,0 +1,49 @@
+# Server identification
+name: {{ server.name }}
+
+# Network configuration
+bind_address: {{ server.bind_address }}
+port: {{ server.port }}
+
+# Logging settings
+log_level: {{ logging.level }}
+log_file: {{ logging.file }}
+
+# World settings
+max_players: {{ world.max_players }}
+map_directory: {{ world.map_directory }}
+
+# Game rules
+turn_time: {{ rules.turn_time }}
+combat_enabled: {{ rules.combat_enabled }}
+
+# Pathfinding
+pathfinder_enabled: {{ pathfinder.enabled }}
+pathfinder_verbose: {{ pathfinder.verbose }}
+
+# Authentication
+auth_enabled: {{ auth.enabled }}
+auth_timeout: {{ auth.timeout }}
+
+# Admin accounts
+{% for admin in admins %}
+admin {{ admin.username }} {{ admin.password_hash }}
+{% endfor %}
+
+# Modules
+{% for module in modules %}
+module {{ module.name }}
+{% if module.options %}
+  options:
+{% for key, value in module.options.items() %}
+    {{ key }}: {{ value }}
+{% endfor %}
+{% endif %}
+{% endfor %}
+
+# Map-specific overrides
+{% for map_override in map_overrides %}
+map {{ map_override.map_name }}
+  max_players {{ map_override.max_players }}
+  turn_time {{ map_override.turn_time }}
+{% endfor %}

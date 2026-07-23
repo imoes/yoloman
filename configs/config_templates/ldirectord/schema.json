@@ -1,0 +1,298 @@
+{
+  "checktimeout": {
+    "type": "number",
+    "default": 10,
+    "description": "How long (in seconds) to wait before declaring a real server as failed."
+  },
+  "checkinterval": {
+    "type": "number",
+    "default": 1,
+    "description": "How often (in seconds) to perform health checks on real servers."
+  },
+  "verbose": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable verbose logging for debugging (true/false)."
+  },
+  "logfile": {
+    "type": "string",
+    "default": "/var/log/ldirectord.log",
+    "description": "Path to the log file for ldirectord messages."
+  },
+  "emailalert": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable email notifications for status changes (true/false)."
+  },
+  "emailalertfreq": {
+    "type": "number",
+    "default": 0,
+    "description": "How often (in seconds) to re-send alert emails (0 = only on state change)."
+  },
+  "emailalertsubject": {
+    "type": "string",
+    "default": "ldirectord alert: {{service}} {{state}}",
+    "description": "Subject line for alert emails. May include {{service}} and {{state}} placeholders."
+  },
+  "emailalertfrom": {
+    "type": "string",
+    "default": "root@localhost",
+    "description": "Sender address for alert emails."
+  },
+  "emailalertto": {
+    "type": "list",
+    "default": [],
+    "description": "List of recipient email addresses for alerts.",
+    "items": {
+      "type": "string",
+      "format": "email"
+    }
+  },
+  "quiesce": {
+    "type": "bool",
+    "default": true,
+    "description": "If true, quiesce (drain) failed servers instead of removing them immediately (true/false)."
+  },
+  "scheduler": {
+    "type": "string",
+    "default": "wrr",
+    "description": "Default load balancing scheduler for all services (e.g., 'wrr' for weighted round robin)."
+  },
+  "protocol": {
+    "type": "string",
+    "default": "tcp",
+    "description": "Default protocol for virtual services (tcp/udp)."
+  },
+  "persistence": {
+    "type": "number",
+    "default": 0,
+    "description": "Default persistence timeout in seconds (0 = no persistence)."
+  },
+  "persistence_timeout": {
+    "type": "number",
+    "default": 0,
+    "description": "Alias for 'persistence' \u2014 timeout in seconds for session persistence."
+  },
+  "netmask": {
+    "type": "string",
+    "default": "255.255.255.255",
+    "description": "Network mask for direct routing (e.g., '255.255.255.255' for DR, '255.255.255.0' for NAT)."
+  },
+  "gateway": {
+    "type": "string",
+    "default": "",
+    "description": "Gateway IP for NAT mode (leave empty if using direct routing)."
+  },
+  "services": {
+    "type": "list",
+    "default": [],
+    "description": "List of LVS virtual services to monitor.",
+    "items": {
+      "type": "object",
+      "fields": {
+        "vip": {
+          "type": "string",
+          "format": "ip",
+          "description": "Virtual IP address of this service."
+        },
+        "port": {
+          "type": "number",
+          "minimum": 1,
+          "maximum": 65535,
+          "description": "Port number for the virtual service."
+        },
+        "group": {
+          "type": "string",
+          "default": "",
+          "description": "Optional service group name (for managing related services together)."
+        },
+        "protocol": {
+          "type": "string",
+          "default": "",
+          "enum": [
+            "",
+            "tcp",
+            "udp"
+          ],
+          "description": "Override global protocol (tcp/udp). Leave empty to inherit."
+        },
+        "scheduler": {
+          "type": "string",
+          "default": "",
+          "enum": [
+            "",
+            "rr",
+            "wrr",
+            "lc",
+            "wlc",
+            "lblc",
+            "dh",
+            "sh",
+            "sed",
+            "nq"
+          ],
+          "description": "Override global scheduler for this service. Leave empty to inherit."
+        },
+        "quiesce": {
+          "type": "bool",
+          "default": null,
+          "description": "Override global quiesce setting for this service. Leave null to inherit."
+        },
+        "persistence": {
+          "type": "number",
+          "default": null,
+          "description": "Override global persistence timeout (seconds) for this service. Leave null to inherit."
+        },
+        "netmask": {
+          "type": "string",
+          "default": null,
+          "description": "Override global netmask for this service. Leave null to inherit."
+        },
+        "checktype": {
+          "type": "string",
+          "enum": [
+            "http",
+            "tcp",
+            "connect",
+            "smtp",
+            "mysql",
+            "pgsql"
+          ],
+          "default": "tcp",
+          "description": "Health check method (http, tcp, connect, smtp, mysql, pgsql)."
+        },
+        "checkpath": {
+          "type": "string",
+          "default": "/",
+          "description": "HTTP request path (used only for HTTP checks)."
+        },
+        "httpmethod": {
+          "type": "string",
+          "default": "GET",
+          "description": "HTTP request method (GET/HEAD/POST)."
+        },
+        "domain": {
+          "type": "string",
+          "default": "",
+          "description": "Virtual host header for HTTP checks."
+        },
+        "receive": {
+          "type": "string",
+          "default": "",
+          "description": "Expected string in HTTP response body or SMTP banner."
+        },
+        "send": {
+          "type": "string",
+          "default": "",
+          "description": "String to send in HTTP request body or SMTP command."
+        },
+        "statuscode": {
+          "type": "number",
+          "default": 200,
+          "description": "Expected HTTP status code (for HTTP checks)."
+        },
+        "smtpmailfrom": {
+          "type": "string",
+          "default": "",
+          "description": "Sender email for SMTP health checks."
+        },
+        "smtphelo": {
+          "type": "string",
+          "default": "",
+          "description": "HELO hostname for SMTP health checks."
+        },
+        "smtpuser": {
+          "type": "string",
+          "default": "",
+          "description": "Username for authenticated SMTP checks."
+        },
+        "smtppass": {
+          "type": "string",
+          "default": "",
+          "description": "Password for authenticated SMTP checks."
+        },
+        "mysqluser": {
+          "type": "string",
+          "default": "",
+          "description": "MySQL username for health checks."
+        },
+        "mysqlpass": {
+          "type": "string",
+          "default": "",
+          "description": "MySQL password for health checks."
+        },
+        "mysqlport": {
+          "type": "number",
+          "default": 3306,
+          "description": "MySQL port number (default 3306)."
+        },
+        "pgsqluser": {
+          "type": "string",
+          "default": "",
+          "description": "PostgreSQL username for health checks."
+        },
+        "pgsqlpass": {
+          "type": "string",
+          "default": "",
+          "description": "PostgreSQL password for health checks."
+        },
+        "pgsqlport": {
+          "type": "number",
+          "default": 5432,
+          "description": "PostgreSQL port number (default 5432)."
+        },
+        "pgsqldatabase": {
+          "type": "string",
+          "default": "template1",
+          "description": "PostgreSQL database name for health checks."
+        },
+        "reals": {
+          "type": "list",
+          "default": [],
+          "description": "Real servers backing this virtual service.",
+          "items": {
+            "type": "object",
+            "fields": {
+              "ip": {
+                "type": "string",
+                "format": "ip",
+                "description": "Real server IP address."
+              },
+              "port": {
+                "type": "number",
+                "minimum": 1,
+                "maximum": 65535,
+                "description": "Port to check on real server."
+              },
+              "weight": {
+                "type": "number",
+                "default": 1,
+                "description": "Relative capacity weight (higher = more traffic)."
+              },
+              "family": {
+                "type": "string",
+                "default": "",
+                "enum": [
+                  "",
+                  "inet",
+                  "inet6"
+                ],
+                "description": "Address family (inet for IPv4, inet6 for IPv6)."
+              },
+              "inactive": {
+                "type": "bool",
+                "default": false,
+                "description": "Start as inactive (true/false)."
+              },
+              "backup": {
+                "type": "bool",
+                "default": false,
+                "description": "Mark as backup server (only used when active servers fail)."
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

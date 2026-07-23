@@ -1,0 +1,60 @@
+# Pure-FTPd configuration directory (one file per setting)
+# This file is auto-generated from a template; manual edits will be overwritten.
+# For per-user or per virtual-host settings, see /etc/pure-ftpd/conf.d/ or use DB-backed configs.
+# Authentication: use Unix system users by default. Override with PureDB, LDAP, etc.
+{{ 'UnixAuthentication' if not values.auth_backend or values.auth_backend == 'unix' else values.auth_backend }}
+
+# Whether to allow anonymous logins
+{{ 'no' if not values.allow_anonymous else 'yes' }}
+
+# Path to the PureDB password database (used only if auth_backend = 'puredb')
+{{ values.puredb_path }}
+
+# Whether to require TLS/SSL for all connections (enforces secure FTPS)
+{{ 'yes' if values.require_tls else 'no' }}
+
+# TLS certificate and key file paths (required if require_tls = yes)
+{{ values.tls_cert_file }}
+{{ values.tls_key_file }}
+
+# Minimal TLS protocol version (e.g., 'TLSv1.2', 'TLSv1.3')
+{{ values.tls_min_version }}
+
+# Whether to enable chroot for all users (recommended for security)
+{{ 'yes' if values.chroot_all else 'no' }}
+
+# Whether to hide IDs from users (hide user/group IDs in listings)
+{{ 'yes' if values.hide_ids else 'no' }}
+
+# Maximum number of simultaneous clients
+{{ values.max_clients }}
+
+# Maximum clients per IP address
+{{ values.max_clients_per_ip }}
+
+# Listen address (empty = all interfaces)
+{{ values.bind_address or '*' }}
+
+# Listen port (default 21)
+{{ values.port }}
+
+# Passive port range for FTP data connections (required for NAT/firewall compatibility)
+{{ values.passive_port_range_start }}
+{{ values.passive_port_range_end }}
+
+# External IP address to advertise (for NAT/dual-stack environments)
+{{ values.public_ip or 'auto' }}
+
+# Whether to create home directories automatically for system users
+{{ 'yes' if values.auto_homedir else 'no' }}
+
+# Maximum upload/download bandwidth per user (in KB/s; 0 = unlimited)
+{{ values.max_bandwidth }}
+
+# Log level: 0=quiet, 1=errors, 2=commands, 3=verbose
+{{ values.log_level }}
+
+# Optional: append extra config lines (e.g., from /etc/pure-ftpd/conf.d/ files)
+# Only included if extra_config is non-empty
+{% for line in values.extra_config %}{{ line }}
+{% endfor %}

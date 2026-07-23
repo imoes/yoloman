@@ -1,0 +1,181 @@
+{
+  "debug": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable debug-level logging \u2014 very verbose, disable in production"
+  },
+  "log_dir": {
+    "type": "string",
+    "default": "/var/log/cloudkitty",
+    "description": "Directory where CloudKitty writes its log files"
+  },
+  "log_file": {
+    "type": "string",
+    "default": "cloudkitty.log",
+    "description": "Log file name within log_dir"
+  },
+  "transport_url": {
+    "type": "string",
+    "default": "rabbit://cloudkitty:cloudkitty@localhost:5672/cloudkitty",
+    "description": "AMQP URL for oslo.messaging; format rabbit://<user>:<pass>@<host>:<port>/<vhost>"
+  },
+  "api_host": {
+    "type": "string",
+    "default": "0.0.0.0",
+    "description": "IP address the CloudKitty API process binds to; 0.0.0.0 binds to all interfaces"
+  },
+  "api_port": {
+    "type": "number",
+    "default": 8889,
+    "description": "TCP port the CloudKitty API server listens on"
+  },
+  "api_workers": {
+    "type": "number",
+    "default": 2,
+    "description": "Number of parallel WSGI worker processes; recommended value is 1-2x the vCPU count"
+  },
+  "db_connection": {
+    "type": "string",
+    "default": "mysql+pymysql://cloudkitty:cloudkitty@localhost/cloudkitty",
+    "description": "SQLAlchemy connection URL for the main CloudKitty database"
+  },
+  "keystone_www_authenticate_uri": {
+    "type": "string",
+    "default": "http://localhost:5000",
+    "description": "Public Keystone endpoint URI advertised to unauthenticated clients in 401 responses"
+  },
+  "keystone_auth_url": {
+    "type": "string",
+    "default": "http://localhost:5000",
+    "description": "Internal Keystone endpoint this service uses to validate tokens and fetch service catalog"
+  },
+  "memcached_servers": {
+    "type": "list",
+    "default": [
+      "localhost:11211"
+    ],
+    "description": "Memcached server(s) for Keystone token cache; reduces repeated Keystone round-trips",
+    "items": {
+      "host_port": {
+        "type": "string",
+        "description": "Memcached server address in host:port format"
+      }
+    }
+  },
+  "keystone_auth_type": {
+    "type": "string",
+    "default": "password",
+    "description": "Keystone authentication plugin for this service account \u2014 almost always 'password'"
+  },
+  "keystone_project_domain_name": {
+    "type": "string",
+    "default": "Default",
+    "description": "Keystone domain that owns the service project"
+  },
+  "keystone_user_domain_name": {
+    "type": "string",
+    "default": "Default",
+    "description": "Keystone domain that owns the cloudkitty service user account"
+  },
+  "keystone_project_name": {
+    "type": "string",
+    "default": "service",
+    "description": "Keystone project the cloudkitty service account is a member of"
+  },
+  "keystone_username": {
+    "type": "string",
+    "default": "cloudkitty",
+    "description": "Keystone username of the CloudKitty service account"
+  },
+  "keystone_password": {
+    "type": "string",
+    "default": "",
+    "description": "Password for the CloudKitty Keystone service account"
+  },
+  "keystone_region_name": {
+    "type": "string",
+    "default": "RegionOne",
+    "description": "OpenStack region this CloudKitty instance is deployed in"
+  },
+  "storage_backend": {
+    "type": "string",
+    "default": "sqlalchemy",
+    "description": "Storage driver for rated data frames: 'sqlalchemy' (default) or 'elasticsearch'"
+  },
+  "storage_version": {
+    "type": "number",
+    "default": 2,
+    "description": "Storage API version \u2014 use 2 for CloudKitty >= Stein; use 1 only on Rocky or older"
+  },
+  "elasticsearch_host": {
+    "type": "string",
+    "default": "http://localhost:9200",
+    "description": "Elasticsearch cluster URL \u2014 required only when storage_backend is 'elasticsearch'"
+  },
+  "elasticsearch_index": {
+    "type": "string",
+    "default": "cloudkitty",
+    "description": "Elasticsearch index name prefix for CloudKitty data \u2014 required only when storage_backend is 'elasticsearch'"
+  },
+  "fetcher_backend": {
+    "type": "string",
+    "default": "keystone",
+    "description": "Backend that discovers projects/tenants to rate: 'keystone' or 'source'"
+  },
+  "fetcher_region_name": {
+    "type": "string",
+    "default": "RegionOne",
+    "description": "OpenStack region the fetcher targets when listing projects via Keystone"
+  },
+  "collect_window": {
+    "type": "number",
+    "default": 1800,
+    "description": "Width in seconds of each metrics time slice fetched per collection run (must divide evenly into collect_period)"
+  },
+  "collect_period": {
+    "type": "number",
+    "default": 3600,
+    "description": "Length in seconds of each billing/rating period \u2014 typically 3600 (hourly) or 86400 (daily)"
+  },
+  "collect_services": {
+    "type": "list",
+    "default": [
+      "compute",
+      "volume",
+      "image",
+      "network.bw.in",
+      "network.bw.out",
+      "network.floating"
+    ],
+    "description": "CloudKitty service identifiers to collect and rate \u2014 must match configured collector metrics",
+    "items": {
+      "service": {
+        "type": "string",
+        "description": "Service identifier, e.g. compute, volume, image, network.bw.in, network.floating"
+      }
+    }
+  },
+  "rating_backend": {
+    "type": "string",
+    "default": "hashmap",
+    "description": "Rating module: 'hashmap' for rule-table pricing, 'pyscripts' for Python scripts, 'noop' to disable rating"
+  },
+  "hashmap_db_connection": {
+    "type": "string",
+    "default": "mysql+pymysql://cloudkitty:cloudkitty@localhost/cloudkitty",
+    "description": "SQLAlchemy connection URL for the hashmap module's rule database \u2014 usually identical to db_connection"
+  },
+  "oslo_policy_dirs": {
+    "type": "list",
+    "default": [
+      "policy.d"
+    ],
+    "description": "Directories relative to the config dir that contain additional policy override YAML files",
+    "items": {
+      "dir": {
+        "type": "string",
+        "description": "Directory name relative to /etc/cloudkitty/"
+      }
+    }
+  }
+}

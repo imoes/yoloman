@@ -1,0 +1,51 @@
+# csync2 configuration file — defines modules, peers, and file lists for cluster-wide synchronization
+# Global options
+home {{ home }}
+
+# Database directory for csync2's local state
+ database {{ database_dir }}
+
+# Log file for csync2 operations
+log {{ log_file }}
+
+# Verbosity level: 0=quiet, 1=normal, 2=verbose, 3=debug
+# Increase if troubleshooting sync issues
+verbose {{ verbose }}
+
+# Enable/exclude specific file patterns from sync
+exclude {
+{% for pattern in exclude_patterns %}
+  {{ pattern }}
+{% endfor %}
+}
+
+# Define authentication (shared secret or SSL-based)
+{% if auth_mode == 'shared_secret' %}
+# Shared secret for peer authentication
+auth {{ secret }}
+{% elif auth_mode == 'ssl' %}
+# SSL/TLS certificate and key paths
+ssl_cert {{ ssl_cert }}
+ssl_key {{ ssl_key }}
+ssl_ca {{ ssl_ca }}
+{% endif %}
+
+# One or more cluster peers (hosts) to synchronize with
+{% for peer in peers %}
+host {{ peer.name }};
+{% endfor %}
+
+# Define groups of files/directories to sync
+{% for group in groups %}
+# Group '{{ group.name }}': synchronize these paths bidirectionally
+{% if group.auto %}auto {{ group.auto }}{% endif %}
+{% if group.group %}group {{ group.group }}{% endif %}
+{% if group.user %}user {{ group.user }}{% endif %}
+{% if group.mode is defined %}mode {{ group.mode }}{% endif %}
+{% if group.timeout is defined %}timeout {{ group.timeout }}{% endif %}
+
+{% for path in group.paths %}
+  {{ path }}
+{% endfor %}
+
+{% endfor %}

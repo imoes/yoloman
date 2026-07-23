@@ -1,0 +1,93 @@
+{
+  "ca_cert": {
+    "type": "string",
+    "default": "/etc/pacemaker/ca.crt",
+    "description": "Absolute path to the cluster's CA certificate used to verify the cluster's identity."
+  },
+  "cert": {
+    "type": "string",
+    "default": "/etc/pacemaker/remote.crt",
+    "description": "Absolute path to this node's TLS certificate, signed by the cluster CA."
+  },
+  "key": {
+    "type": "string",
+    "default": "/etc/pacemaker/remote.key",
+    "description": "Absolute path to this node's TLS private key."
+  },
+  "trusted_certs": {
+    "type": "list",
+    "default": [],
+    "description": "Optional list of additional trusted CA certificate paths (colon-separated in rendered config).",
+    "items": {
+      "type": "string"
+    }
+  },
+  "listen_addr": {
+    "type": "string",
+    "default": "0.0.0.0",
+    "description": "IP address or hostname the daemon binds to. Use '0.0.0.0' to listen on all interfaces."
+  },
+  "listen_port": {
+    "type": "number",
+    "default": 3128,
+    "description": "TCP port the daemon listens on. Standard port for pacemaker-remote is 3128."
+  },
+  "max_connections": {
+    "type": "number",
+    "default": 100,
+    "description": "Maximum number of concurrent client connections allowed."
+  },
+  "enable_tls": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable TLS encryption for all communications. Disable only for testing or internal air-gapped networks."
+  },
+  "auth": {
+    "type": "string",
+    "default": "pam",
+    "description": "Authentication method for connections: 'none' (insecure) or 'pam'."
+  },
+  "pam_service": {
+    "type": "string",
+    "default": "pacemaker-remote",
+    "description": "Name of the PAM service to use for authentication (only if auth='pam')."
+  },
+  "log_level": {
+    "type": "string",
+    "default": "info",
+    "description": "Verbosity level for logging. Choose from: debug, info, notice, warning, error, critical, alert, emergency."
+  },
+  "log_dest": {
+    "type": "string",
+    "default": "syslog",
+    "description": "Log destination: 'syslog' for system logging, or a file path (e.g., '/var/log/pacemaker-remote.log')."
+  },
+  "resources": {
+    "type": "list",
+    "default": [],
+    "description": "List of remote resources managed by this daemon (e.g., systemd services or scripts).",
+    "items": {
+      "type": "object",
+      "fields": {
+        "name": {
+          "type": "string",
+          "description": "Logical name of the remote resource (must be unique)."
+        },
+        "exec": {
+          "type": "string",
+          "description": "Command or service unit to manage (e.g., '/usr/lib/ocf/resource.d/heartbeat/Stateful' or 'httpd.service')."
+        },
+        "user": {
+          "type": "string",
+          "description": "OS user to run the resource as (optional).",
+          "default": ""
+        }
+      }
+    }
+  },
+  "shutdown_timeout": {
+    "type": "number",
+    "default": 60,
+    "description": "Seconds to wait before forcing shutdown during stop operation."
+  }
+}

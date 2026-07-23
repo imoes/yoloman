@@ -1,0 +1,22 @@
+# DLM configuration file — controls kernel device-mapper lock manager behavior
+# Global settings
+[dlm]
+# Enable automatic cluster membership management (true/false)
+auto_debug={{ auto_debug | default(false) | lower }}
+# Log level: 0=quiet, 1=basic, 2=verbose, 3=debug
+log_level={{ log_level | default(1) }}
+# Path to lockspace directory
+lockspace_dir={{ lockspace_dir | default('/run/lock/dlm') }}
+# Minimum number of seconds to wait for a lock request to complete before timing out
+lock_timeout={{ lock_timeout | default(30) }}
+# Enable communication with the kernel via netlink socket
+netlink_socket={{ netlink_socket | default('auto') }}
+
+# Optional: list of additional lockspaces to manage
+{% for ls in lockspaces %}
+[lockspace:{{ ls.name }}]
+# Enable reclaim of abandoned locks in this lockspace (true/false)
+reclaim_strict={{ ls.reclaim_strict | default(true) | lower }}
+# Number of threads to use for this lockspace
+threads={{ ls.threads | default(1) }}
+{% endfor %}

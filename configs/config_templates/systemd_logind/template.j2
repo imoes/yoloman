@@ -1,0 +1,59 @@
+[Login]
+# Number of virtual terminals (VTs) to pre-spawn on boot; 0 disables auto-spawning
+NAutoVTs={{ n_auto_vts }}
+# VT number reserved for the display manager, not released even if unused
+ReserveVT={{ reserve_vt }}
+# Kill all user processes when the last session of that user ends
+KillUserProcesses={{ 'yes' if kill_user_processes else 'no' }}
+{% if kill_only_users %}
+# Restrict process-killing to this whitelist of users (space-separated)
+KillOnlyUsers={{ kill_only_users | join(' ') }}
+{% endif %}
+# Users whose processes are always spared regardless of KillUserProcesses
+KillExcludeUsers={{ kill_exclude_users | join(' ') }}
+# Maximum seconds to honour inhibitor locks during sleep or shutdown
+InhibitDelayMaxSec={{ inhibit_delay_max_sec }}
+# Seconds to wait before stopping the user service manager after all sessions close
+UserStopDelaySec={{ user_stop_delay_sec }}
+# Action on short power-key press (poweroff, reboot, halt, suspend, hibernate, lock, ignore)
+HandlePowerKey={{ handle_power_key }}
+# Action on long power-key press
+HandlePowerKeyLongPress={{ handle_power_key_long_press }}
+# Action on reboot-key press
+HandleRebootKey={{ handle_reboot_key }}
+# Action on long reboot-key press
+HandleRebootKeyLongPress={{ handle_reboot_key_long_press }}
+# Action on suspend-key press
+HandleSuspendKey={{ handle_suspend_key }}
+# Action on long suspend-key press
+HandleSuspendKeyLongPress={{ handle_suspend_key_long_press }}
+# Action on hibernate-key press
+HandleHibernateKey={{ handle_hibernate_key }}
+# Action on long hibernate-key press
+HandleHibernateKeyLongPress={{ handle_hibernate_key_long_press }}
+# Action when lid is closed on battery power
+HandleLidSwitch={{ handle_lid_switch }}
+# Action when lid is closed on external (AC) power
+HandleLidSwitchExternalPower={{ handle_lid_switch_external_power }}
+# Action when lid is closed with a docking station or external display connected
+HandleLidSwitchDocked={{ handle_lid_switch_docked }}
+# Allow lid-switch actions to bypass inhibitor locks
+LidSwitchIgnoreInhibited={{ 'yes' if lid_switch_ignore_inhibited else 'no' }}
+# Inactivity duration before IdleAction fires; supports systemd time units (s, min, h)
+IdleActionSec={{ idle_action_sec }}
+# Action taken when the system has been idle for IdleActionSec
+IdleAction={{ idle_action }}
+# Maximum size of each user's /run/user/<uid> tmpfs (bytes, % of RAM, or K/M/G suffix)
+RuntimeDirectorySize={{ runtime_directory_size }}
+{% if runtime_directory_inodes_max %}
+# Maximum inode count for /run/user/<uid>; derived from RuntimeDirectorySize when unset
+RuntimeDirectoryInodesMax={{ runtime_directory_inodes_max }}
+{% endif %}
+# Remove POSIX IPC objects (shared memory, semaphores, message queues) on user last-logout
+RemoveIPC={{ 'yes' if remove_ipc else 'no' }}
+# Maximum number of concurrent inhibitor locks accepted system-wide
+InhibitorsMax={{ inhibitors_max }}
+# Maximum number of concurrent user sessions managed by logind
+SessionsMax={{ sessions_max }}
+# Terminate sessions that have been idle longer than this; infinity disables the feature
+StopIdleSessionSec={{ stop_idle_session_sec }}

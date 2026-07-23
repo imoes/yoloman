@@ -1,0 +1,112 @@
+{
+  "server.bind": {
+    "type": "string",
+    "default": "127.0.0.1:8000",
+    "description": "Network address and port the server listens on (host:port format)"
+  },
+  "server.workdir": {
+    "type": "string",
+    "default": "/var/lib/debusine/server",
+    "description": "Base directory for job artifacts, logs, and internal state"
+  },
+  "server.max_workers": {
+    "type": "number",
+    "default": 16,
+    "description": "Maximum number of concurrent build jobs the server will accept"
+  },
+  "server.tls.enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable TLS (HTTPS) for the API endpoint"
+  },
+  "server.tls.cert_file": {
+    "type": "string",
+    "default": "/etc/debusine/server.crt",
+    "description": "Path to TLS certificate file (PEM format)"
+  },
+  "server.tls.key_file": {
+    "type": "string",
+    "default": "/etc/debusine/server.key",
+    "description": "Path to TLS private key file (PEM format)"
+  },
+  "database.dsn": {
+    "type": "string",
+    "default": "sqlite:////var/lib/debusine/server.db",
+    "description": "Database connection string. Use SQLite for dev; PostgreSQL for production"
+  },
+  "logging.level": {
+    "type": "string",
+    "default": "info",
+    "description": "Verbosity of server logs"
+  },
+  "logging.file": {
+    "type": "string",
+    "default": "/var/log/debusine/server.log",
+    "description": "Path to log file; use '-' to log to stdout"
+  },
+  "cleanup.job_retention_days": {
+    "type": "number",
+    "default": 30,
+    "description": "Number of days to retain completed jobs before automatic cleanup"
+  },
+  "cleanup.archive_before_delete": {
+    "type": "bool",
+    "default": true,
+    "description": "Whether to compress job artifacts before deleting them after retention period"
+  },
+  "toolchains": {
+    "type": "list",
+    "default": [],
+    "items": {
+      "type": "object",
+      "description": "A supported build toolchain",
+      "properties": {
+        "name": {
+          "type": "string",
+          "required": true,
+          "description": "Unique identifier for the toolchain (e.g., 'gcc-12', 'clang-14')"
+        },
+        "version": {
+          "type": "string",
+          "required": true,
+          "description": "Version string (e.g., '12.2.0')"
+        },
+        "env": {
+          "type": "object",
+          "default": {},
+          "description": "Additional environment variables to inject for builds using this toolchain"
+        }
+      }
+    }
+  },
+  "workers": {
+    "type": "list",
+    "default": [],
+    "items": {
+      "type": "object",
+      "description": "Worker resource profile for build jobs",
+      "properties": {
+        "name": {
+          "type": "string",
+          "required": true,
+          "description": "Name of the worker profile (e.g., 'light', 'heavy')"
+        },
+        "max_jobs": {
+          "type": "number",
+          "required": true,
+          "description": "Maximum concurrent jobs allowed under this profile"
+        },
+        "cpu_limit": {
+          "type": "number",
+          "default": 1000,
+          "description": "CPU share/milliseconds per job (e.g., 1000 = 1 CPU core)"
+        },
+        "memory_limit": {
+          "type": "string",
+          "default": "1G",
+          "description": "Memory limit (e.g., '512M', '2G') per job"
+        }
+      }
+    }
+  }
+}

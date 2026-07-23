@@ -1,0 +1,321 @@
+! FRRouting configuration — generated via Jinja2 template
+! Global configuration
+hostname {{ hostname }}
+{% if router_id %}
+router-id {{ router_id }}
+{% endif %}
+!
+! Logging
+{% if logging.level %}
+log {{ logging.level }}
+{% endif %}
+{% if logging.files %}
+log file {{ logging.files.path }}
+{% endif %}
+!
+! Service configuration
+service integrated-vtysh-config
+!
+! Global IPv4/IPv6 unicast routing
+{% if ipv4_unicast %}
+ipv4 unicast
+{% endif %}
+{% if ipv6_unicast %}
+ipv6 unicast
+{% endif %}
+!
+! BGP configuration
+{% if bgp.enabled %}
+{% if bgp.asn %}
+router bgp {{ bgp.asn }}
+{% endif %}
+{% if bgp.router_id %}
+ bgp router-id {{ bgp.router_id }}
+{% endif %}
+{% if bgp.graceful_restart %}
+ bgp graceful-restart
+{% endif %}
+{% if bgp.log_neighbor_changes %}
+ bgp log-neighbor-changes
+{% endif %}
+{% for peer in bgp.neighbors %}
+ neighbor {{ peer.ip }} remote-as {{ peer.asn }}
+{% if peer.description %}
+ neighbor {{ peer.ip }} description {{ peer.description }}
+{% endif %}
+{% if peer.passive %}
+ neighbor {{ peer.ip }} passive
+{% endif %}
+{% if peer.password %}
+ neighbor {{ peer.ip }} password {{ peer.password }}
+{% endif %}
+{% if peer.update_source %}
+ neighbor {{ peer.ip }} update-source {{ peer.update_source }}
+{% endif %}
+{% if peer.ebgp_multihop is defined %}
+ neighbor {{ peer.ip }} ebgp-multihop {{ peer.ebgp_multihop }}
+{% endif %}
+{% if peer.timers is defined %}
+ neighbor {{ peer.ip }} timers {{ peer.timers.keepalive }} {{ peer.timers.holdtime }}
+{% endif %}
+{% if peer.route_map_in %}
+ neighbor {{ peer.ip }} route-map {{ peer.route_map_in }} in
+{% endif %}
+{% if peer.route_map_out %}
+ neighbor {{ peer.ip }} route-map {{ peer.route_map_out }} out
+{% endif %}
+{% if peer.next_hop_self %}
+ neighbor {{ peer.ip }} next-hop-self
+{% endif %}
+{% if peer.weight is defined %}
+ neighbor {{ peer.ip }} weight {{ peer.weight }}
+{% endif %}
+{% endfor %}
+{% if bgp.networks %}
+{% for net in bgp.networks %}
+ network {{ net.prefix }}
+{% endfor %}
+{% endif %}
+{% if bgp.redistribute %}
+{% for proto in bgp.redistribute %}
+ redistribute {{ proto.protocol }}
+{% if proto.route_map %}
+ redistribute {{ proto.protocol }} route-map {{ proto.route_map }}
+{% endif %}
+{% endfor %}
+{% endif %}
+!
+{% if bgp.address_families.ipv4_unicast %}
+ address-family ipv4 unicast
+{% for af_net in bgp.address_families.ipv4_unicast.networks %}
+  network {{ af_net.prefix }}
+{% endfor %}
+{% if bgp.address_families.ipv4_unicast.redistribute %}
+{% for af_red in bgp.address_families.ipv4_unicast.redistribute %}
+  redistribute {{ af_red.protocol }}
+  {% if af_red.route_map %}
+  redistribute {{ af_red.protocol }} route-map {{ af_red.route_map }}
+  {% endif %}
+{% endfor %}
+{% endif %}
+{% for af_peer in bgp.address_families.ipv4_unicast.neighbors %}
+  neighbor {{ af_peer.ip }} activate
+  {% if af_peer.route_map_in %}
+  neighbor {{ af_peer.ip }} route-map {{ af_peer.route_map_in }} in
+  {% endif %}
+  {% if af_peer.route_map_out %}
+  neighbor {{ af_peer.ip }} route-map {{ af_peer.route_map_out }} out
+  {% endif %}
+{% endfor %}
+ exit-address-family
+{% endif %}
+{% if bgp.address_families.ipv6_unicast %}
+ address-family ipv6 unicast
+{% for af_net in bgp.address_families.ipv6_unicast.networks %}
+  network {{ af_net.prefix }}
+{% endfor %}
+{% for af_peer in bgp.address_families.ipv6_unicast.neighbors %}
+  neighbor {{ af_peer.ip }} activate
+  {% if af_peer.route_map_in %}
+  neighbor {{ af_peer.ip }} route-map {{ af_peer.route_map_in }} in
+  {% endif %}
+  {% if af_peer.route_map_out %}
+  neighbor {{ af_peer.ip }} route-map {{ af_peer.route_map_out }} out
+  {% endif %}
+{% endfor %}
+ exit-address-family
+{% endif %}
+{% if bgp.address_families.ipv4_mpls_labeled_unicast %}
+ address-family ipv4 labeled-unicast
+{% for af_peer in bgp.address_families.ipv4_mpls_labeled_unicast.neighbors %}
+  neighbor {{ af_peer.ip }} activate
+{% endfor %}
+ exit-address-family
+{% endif %}
+!
+{% endif %}
+
+! OSPF configuration
+{% if ospf.enabled %}
+{% if ospf.router_id %}
+router ospf{{ ospf.instance_id | default(0) }}
+{% else %}
+router ospf{{ ospf.instance_id | default(0) }}
+ ospf router-id {{ ospf.router_id }}
+{% endif %}
+{% for area in ospf.areas %}
+ area {{ area.id }} {{ area.type }}
+{% endfor %}
+{% for iface in ospf.interfaces %}
+ interface {{ iface.name }}
+  ip ospf area {{ iface.area }}
+{% if iface.cost %}
+  ip ospf cost {{ iface.cost }}
+{% endif %}
+{% if iface.priority %}
+  ip ospf priority {{ iface.priority }}
+{% endif %}
+{% endfor %}
+{% if ospf.redistribute %}
+{% for proto in ospf.redistribute %}
+ redistribute {{ proto.protocol }}
+{% if proto.route_map %}
+ redistribute {{ proto.protocol }} route-map {{ proto.route_map }}
+{% endif %}
+{% endfor %}
+{% endif %}
+!
+{% endif %}
+
+! RIP configuration
+{% if rip.enabled %}
+router rip
+{% if rip.version %}
+ version {{ rip.version }}
+{% endif %}
+{% if rip.default_information_originate %}
+ default-information originate
+{% endif %}
+{% if rip.networks %}
+{% for net in rip.networks %}
+ network {{ net.prefix }}
+{% endfor %}
+{% endif %}
+{% if rip.redistribute %}
+{% for proto in rip.redistribute %}
+ redistribute {{ proto.protocol }}
+{% endfor %}
+{% endif %}
+!
+{% endif %}
+
+! IS-IS configuration
+{% if isis.enabled %}
+{% if isis.net %}
+router isis{{ isis.instance_id | default('') }}
+ net {{ isis.net }}
+{% endif %}
+{% if isis.is_type %}
+ is-type {{ isis.is_type }}
+{% endif %}
+{% if isis.metric_style %}
+ metric-style {{ isis.metric_style }}
+{% endif %}
+{% for iface in isis.interfaces %}
+ interface {{ iface.name }}
+  ip router isis {{ isis.area_tag }}
+{% if iface.circuit_type %}
+  isis circuit-type {{ iface.circuit_type }}
+{% endif %}
+{% if iface.metric %}
+  isis metric {{ iface.metric }}
+{% endif %}
+{% endfor %}
+{% if isis.redistribute %}
+{% for proto in isis.redistribute %}
+ redistribute {{ proto.protocol }}
+{% endfor %}
+{% endif %}
+!
+{% endif %}
+
+! Route maps
+{% if route_maps %}
+{% for rm in route_maps %}
+{% if rm.description %}
+! Route-map {{ rm.name }}: {{ rm.description }}
+{% endif %}
+route-map {{ rm.name }} {{ rm.action }} {{ rm.sequence }}
+{% if rm.description %}
+ description {{ rm.description }}
+{% endif %}
+{% if rm.match_ip_prefix_list %}
+ match ip address prefix-list {{ rm.match_ip_prefix_list }}
+{% endif %}
+{% if rm.match_as_path %}
+ match as-path {{ rm.match_as_path }}
+{% endif %}
+{% if rm.set_local_pref is defined %}
+ set local-preference {{ rm.set_local_pref }}
+{% endif %}
+{% if rm.set_metric is defined %}
+ set metric {{ rm.set_metric }}
+{% endif %}
+{% if rm.set_next_hop %}
+ set ip next-hop {{ rm.set_next_hop }}
+{% endif %}
+{% if rm.set_community %}
+ set community {{ rm.set_community }}
+{% endif %}
+{% if rm.permit_denied is defined %}
+{{ rm.permit_denied | default('') }}
+{% endif %}
+!
+{% endfor %}
+{% endif %}
+
+! IP prefix lists
+{% if prefix_lists %}
+{% for pl in prefix_lists %}
+{% for entry in pl.entries %}
+ip prefix-list {{ pl.name }} {{ entry.action }} {{ entry.prefix }}
+{% if entry.le is defined %} le {{ entry.le }}{% endif %}
+{% if entry.ge is defined %} ge {{ entry.ge }}{% endif %}
+{% endfor %}
+{% endfor %}
+{% endif %}
+
+! AS path access lists
+{% if as_path_lists %}
+{% for list in as_path_lists %}
+{% for entry in list.entries %}
+ip as-path access-list {{ list.name }} {{ entry.action }} {{ entry.pattern }}
+{% endfor %}
+{% endfor %}
+{% endif %}
+
+! Community lists
+{% if community_lists %}
+{% for list in community_lists %}
+{% for entry in list.entries %}
+{% if list.type == 'standard' %}
+community-list {{ list.name }} {{ entry.action }} {{ entry.value }}
+{% elif list.type == 'expanded' %}
+community-list expanded {{ list.name }} {{ entry.action }} {{ entry.regex }}
+{% endif %}
+{% endfor %}
+{% endfor %}
+{% endif %}
+
+! Zebra
+{% if zebra.enabled %}
+router zebra
+{% if zebra.log_changes %}
+ log zebra changes
+{% endif %}
+{% if zebra.ipv6_unicast %}
+ ipv6 unicast
+{% endif %}
+{% if zebra.ipv4_unicast %}
+ ipv4 unicast
+{% endif %}
+{% if zebra.ecmp is defined %}
+ ip nht max-paths {{ zebra.ecmp }}
+{% endif %}
+{% if zebra.vty_port %}
+ vtysh
+{% endif %}
+!
+{% endif %}
+
+! vtysh configuration (interactive mode)
+vtysh
+{% if zebra.enabled %}
+{% if zebra.vtysh_pager is defined %}
+pager {{ zebra.vtysh_pager }}
+{% endif %}
+{% endif %}
+line vty
+!
+!
+! end

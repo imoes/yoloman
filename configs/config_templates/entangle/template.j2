@@ -1,0 +1,56 @@
+# Main Entangle configuration — enables global daemon settings and logging
+[main]
+# Enable or disable the Entangle daemon on startup
+autostart = {{ autostart }}
+# Logging verbosity: 0=ERROR, 1=WARN, 2=INFO, 3=DEBUG
+log_level = {{ log_level }}
+# Directory where captured images are stored
+image_dir = {{ image_dir }}
+
+# Camera device management — defines how Entangle interacts with connected cameras
+[cameras]
+# Timeout (seconds) to wait for camera response before assuming disconnection
+device_timeout = {{ device_timeout }}
+# Maximum number of images queued for capture before blocking
+max_queue_size = {{ max_queue_size }}
+
+# List of camera models to support (each entry maps model name to optional override settings)
+{% for camera_model in camera_models %}
+# {{ camera_model.name }} — use '{{ camera_model.model }}' as hardware identifier, with optional settings
+[{{ camera_model.model }}]
+{% if camera_model.driver %}driver = {{ camera_model.driver }}{% endif %}
+{% if camera_model.port %}port = {{ camera_model.port }}{% endif %}
+{% if camera_model.baudrate is defined %}baudrate = {{ camera_model.baudrate }}{% endif %}
+{% endfor %}
+
+# Trigger configuration — controls how capture events are initiated
+[trigger]
+# Enable or disable periodic timed capture (interval in seconds)
+timed_capture = {{ trigger.timed_capture }}
+{% if trigger.timed_capture_interval is defined %}interval = {{ trigger.timed_capture_interval }}{% endif %}
+# Enable or disable GPIO-based external trigger (e.g., from shutter button)
+external_trigger = {{ trigger.external_trigger }}
+# GPIO pin number for external trigger (if used)
+external_trigger_pin = {{ trigger.external_trigger_pin }}
+
+# Export & post-processing — defines actions after image capture
+[export]
+# Format to save captured images: 'raw', 'jpeg', 'png'
+format = {{ export.format }}
+# Compression quality (0–100) — only applies to jpeg/png
+quality = {{ export.quality }}
+# Optional post-capture command (e.g., to sync to storage or run a script)
+{% if export.post_process_cmd %}post_process_cmd = {{ export.post_process_cmd }}{% endif %}
+# Whether to delete RAW files after exporting processed version
+delete_raw_after_export = {{ export.delete_raw_after_export }}
+
+# Web UI — controls the built-in HTTP interface
+[web]
+# Host to bind the web interface to (e.g., 127.0.0.1 for localhost only, 0.0.0.0 for all)
+bind = {{ web.bind }}
+# Port to serve the web interface on
+port = {{ web.port }}
+# Enable or disable the web UI
+enabled = {{ web.enabled }}
+# Optional basic auth user (leave blank to disable auth)
+{% if web.auth_user %}auth_user = {{ web.auth_user }}{% endif %}

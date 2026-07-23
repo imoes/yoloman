@@ -1,0 +1,38 @@
+# Enable debug logging to syslog or console
+Debug {{ debug_enabled | lower }}
+
+# Maximum number of concurrent client connections
+MaxClients {{ max_clients }}
+
+# Path to the socket for client communication
+SocketDir {{ socket_dir }}
+
+# Group that owns the socket (must exist)
+SocketGroup {{ socket_group }}
+
+# Enable automatic reader detection
+AutoEnable {{ auto_enable | lower }}
+
+# Path to the PC/SC drivers directory (shared libraries for reader drivers)
+DriversDir {{ drivers_dir }}
+
+# Enable scanner for USB devices (if supported)
+EnableUSBScanner {{ enable_usb_scanner | lower }}
+
+# Reader driver configuration blocks (one per supported reader)
+{% for reader in readers %}
+# Reader: {{ reader.name }}
+# Device path: {{ reader.device }}
+# Driver library (e.g., libccid.so)
+Driver {{ reader.driver }}
+
+{% endfor %}
+
+# Log file path (use 'SysLog' to send logs to systemd journal/syslog)
+LogFile {{ log_file | default('SysLog') }}
+
+# Log level: 0=none, 1=error, 2=info, 3=debug
+LogLevel {{ log_level }}
+
+# Allow external users (non-root) to access smart cards
+AllowExternalCardRdr {{ allow_external_card_rdr | lower }}

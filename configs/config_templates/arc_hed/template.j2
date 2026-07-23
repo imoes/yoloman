@@ -1,0 +1,88 @@
+# Core ARC HED configuration
+[hed]
+
+# Hostname or IP address the daemon listens on
+host = {{ hed.host }}
+
+# Port the daemon listens on
+port = {{ hed.port }}
+
+# Path to the PID file
+pidfile = {{ hed.pidfile }}
+
+# Logging level: DEBUG, INFO, WARNING, ERROR, CRITICAL
+loglevel = {{ hed.loglevel }}
+
+# Path to the log file (empty for stdout only)
+logfile = {{ hed.logfile | default('') }}
+
+# Maximum number of concurrent worker threads
+max_threads = {{ hed.max_threads }}
+
+# Time interval (seconds) between health checks
+check_interval = {{ hed.check_interval }}
+
+# Enable/disable SSL for HTTPS (true/false)
+ssl_enabled = {{ 'true' if hed.ssl_enabled else 'false' }}
+
+# SSL certificate file (required if ssl_enabled=true)
+ssl_cert = {{ hed.ssl_cert | default('') }}
+
+# SSL key file (required if ssl_enabled=true)
+ssl_key = {{ hed.ssl_key | default('') }}
+
+# Optional CA certificate chain for client verification (PEM format)
+ssl_ca_cert = {{ hed.ssl_ca_cert | default('') }}
+
+# Enable/disable client certificate authentication
+client_cert_auth = {{ 'true' if hed.client_cert_auth else 'false' }}
+
+# Path to the shared directory for inter-daemon coordination (e.g., lock files)
+shared_dir = {{ hed.shared_dir }}
+
+# Timeout (seconds) for external command execution
+exec_timeout = {{ hed.exec_timeout }}
+
+# Enable/disable daemon debugging mode
+debug = {{ 'true' if hed.debug else 'false' }}
+
+# Path to the hosting environment configuration template directory
+hetemplates_dir = {{ hed.hetemplates_dir }}
+
+# Path to the hosting environment state directory
+hestate_dir = {{ hed.hestate_dir }}
+
+# List of hosting environments to manage
+{% for env in hed.environments %}
+[hed.environments.{{ loop.index0 }}]
+name = {{ env.name }}
+enabled = {{ 'true' if env.enabled else 'false' }}
+executor = {{ env.executor }}
+{% if env.resources is defined and env.resources %}
+resources = {% for r in env.resources %}{{ r.name }}{% if loop.last %}{% else %}, {% endif %}{% endfor %}
+{% else %}
+resources =
+{% endif %}
+{% endfor %}
+
+# Resource definitions (referenced by hosting environments)
+{% for resource in hed.resources %}
+[hed.resources.{{ loop.index0 }}]
+name = {{ resource.name }}
+host = {{ resource.host }}
+port = {{ resource.port }}
+auth_method = {{ resource.auth_method }}
+{% if resource.auth_method in ['gssapi', 'x509'] %}
+proxy_cert = {{ resource.proxy_cert | default('') }}
+{% endif %}
+{% if resource.auth_method == 'password' %}
+username = {{ resource.username | default('') }}
+password = {{ resource.password | default('') }}
+{% endif %}
+{% endfor %}
+
+# Optional monitoring endpoint (for external health probes)
+[hed.monitoring]
+enabled = {{ 'true' if hed.monitoring.enabled else 'false' }}
+port = {{ hed.monitoring.port }}
+path = {{ hed.monitoring.path }}

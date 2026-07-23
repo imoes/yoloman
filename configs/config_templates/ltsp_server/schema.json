@@ -1,0 +1,230 @@
+{
+  "nbd_root_path": {
+    "type": "string",
+    "default": "/var/lib/nbd/root",
+    "description": "Directory where NBD-served root filesystem images for clients are stored."
+  },
+  "nbd_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable or disable the NBD server that serves the client root filesystem."
+  },
+  "tftp_root_path": {
+    "type": "string",
+    "default": "/var/lib/tftpboot",
+    "description": "Directory containing boot files (kernel, initrd, pxelinux.cfg) served via TFTP."
+  },
+  "tftp_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable or disable the TFTP server required for PXE boot of clients."
+  },
+  "dns_domain": {
+    "type": "string",
+    "default": "ltsp.local",
+    "description": "DNS domain name assigned to LTSP clients (e.g., for hostnames like client01.ltsp.local)."
+  },
+  "default_gateway": {
+    "type": "string",
+    "default": "192.168.1.1",
+    "description": "IP address of the gateway/router clients should use for external networks."
+  },
+  "dhcp_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable the built-in DHCP server (dnsmasq) to assign IP addresses to LTSP clients."
+  },
+  "dhcp_start": {
+    "type": "string",
+    "default": "192.168.1.100",
+    "description": "First IP address in the DHCP lease range for thin clients."
+  },
+  "dhcp_end": {
+    "type": "string",
+    "default": "192.168.1.200",
+    "description": "Last IP address in the DHCP lease range for thin clients."
+  },
+  "subnet_mask": {
+    "type": "string",
+    "default": "24",
+    "description": "IPv4 subnet mask in CIDR notation (e.g., '24' for 255.255.255.0)."
+  },
+  "nameserver": {
+    "type": "string",
+    "default": "192.168.1.1",
+    "description": "Primary DNS server IP address for clients. Typically the server's own IP or gateway."
+  },
+  "nameservers": {
+    "type": "list",
+    "default": [],
+    "items": {
+      "type": "string",
+      "format": "ipv4"
+    },
+    "description": "Additional DNS server IP addresses for clients (comma-separated list of IPs)."
+  },
+  "locale": {
+    "type": "string",
+    "default": "en_US.UTF-8",
+    "description": "Default system locale and language for client sessions."
+  },
+  "keyboard": {
+    "type": "string",
+    "default": "us",
+    "description": "Default keyboard layout (e.g., 'us', 'de', 'fr')."
+  },
+  "timezone": {
+    "type": "string",
+    "default": "Etc/UTC",
+    "description": "Default timezone for clients (e.g., 'America/New_York', 'Europe/Berlin')."
+  },
+  "pulseaudio_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable PulseAudio redirection \u2014 allows clients to stream audio to server or remote hosts."
+  },
+  "xorg_autodetect": {
+    "type": "bool",
+    "default": true,
+    "description": "Let Xorg auto-detect display hardware in clients instead of using static configs."
+  },
+  "client_kernel_modules": {
+    "type": "list",
+    "default": [
+      "nbd",
+      "squashfs",
+      "overlay"
+    ],
+    "items": {
+      "type": "string"
+    },
+    "description": "List of kernel modules that must be loaded in the client image at boot."
+  },
+  "client_packages": {
+    "type": "list",
+    "default": [
+      "ltsp-client-core",
+      "xserver-xorg",
+      "lightdm",
+      "xfce4"
+    ],
+    "items": {
+      "type": "string"
+    },
+    "description": "List of packages to install in the LTSP client root filesystem (chroot)."
+  },
+  "ltsp_image_path": {
+    "type": "string",
+    "default": "/opt/ltsp",
+    "description": "Base path to the client root filesystem directory (chroot) used by LTSP."
+  },
+  "ltsp_compress": {
+    "type": "bool",
+    "default": true,
+    "description": "Compress the client image (squashfs) to reduce network I/O and memory usage."
+  },
+  "nbd_compress": {
+    "type": "string",
+    "default": "gzip",
+    "description": "Compression algorithm to use for NBD-served root filesystems."
+  },
+  "local_login": {
+    "type": "bool",
+    "default": true,
+    "description": "Allow users to log in locally on client machines (e.g., for admin access)."
+  },
+  "allow_root_login": {
+    "type": "bool",
+    "default": false,
+    "description": "Permit root login directly via display manager or SSH on clients."
+  },
+  "session_type": {
+    "type": "string",
+    "default": "xfce",
+    "description": "Default desktop environment for client sessions."
+  },
+  "kernel_params": {
+    "type": "list",
+    "default": [
+      "quiet",
+      "splash"
+    ],
+    "items": {
+      "type": "string"
+    },
+    "description": "Additional kernel command-line parameters passed to clients on boot."
+  },
+  "ltsp_build_scripts_dir": {
+    "type": "string",
+    "default": "",
+    "description": "Optional directory containing custom scripts to override/extend LTSP image build steps."
+  },
+  "ssh_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable SSH server in the client image (for remote admin or debugging)."
+  },
+  "ssh_port": {
+    "type": "number",
+    "default": 22,
+    "description": "SSH port number on client systems (only used if SSH is enabled)."
+  },
+  "ssh_authorized_keys": {
+    "type": "list",
+    "default": [],
+    "items": {
+      "type": "string"
+    },
+    "description": "List of public SSH keys (as single-line strings) to pre-install for root login on clients."
+  },
+  "usb_redirect_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Allow USB devices connected to clients to be redirected to the server (via USBIP or similar)."
+  },
+  "printer_redirect_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable printing from clients via server (IPP or local CUPS)."
+  },
+  "audio_redirect_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Redirect client audio output to the server (requires PulseAudio or similar)."
+  },
+  "serial_redirect_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Allow access to client serial ports from the server (for device control)."
+  },
+  "hw_accel_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable hardware video acceleration (VAAPI/VDPAU) in client X11 sessions."
+  },
+  "persistence_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable per-user persistent storage (overlay) on clients for saved settings/files."
+  },
+  "persistence_root_path": {
+    "type": "string",
+    "default": "/var/lib/ltsp/persistence",
+    "description": "Directory where per-client persistence overlays are stored (used only if enabled)."
+  },
+  "auto_image_update": {
+    "type": "bool",
+    "default": true,
+    "description": "Automatically rebuild the LTSP client image when core packages are updated."
+  },
+  "secure_boot_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable UEFI Secure Boot support for 64-bit UEFI clients."
+  },
+  "uefi_bootloader_path": {
+    "type": "string",
+    "default": "/usr/lib/shim/shim.efi.signed",
+    "description": "Path to the UEFI bootloader (e.g., signed shim) for Secure Boot-enabled clients."
+  }
+}

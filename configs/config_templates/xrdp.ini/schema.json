@@ -1,0 +1,214 @@
+{
+  "machine_id": {
+    "type": "string",
+    "default": "xrdp",
+    "description": "Unique identifier for this XRDP server instance."
+  },
+  "log_file": {
+    "type": "string",
+    "default": "/var/log/xrdp.log",
+    "description": "Path to the main XRDP log file."
+  },
+  "log_level": {
+    "type": "string",
+    "default": "info",
+    "description": "Minimum log level (e.g., 'debug', 'info', 'warn', 'error')."
+  },
+  "security_layer": {
+    "type": "string",
+    "default": "negotiate",
+    "description": "Security layer: 'rdp', 'tls', 'negotiate', or 'x509'."
+  },
+  "certificate": {
+    "type": "string",
+    "default": "",
+    "description": "Path to X.509 certificate file (PEM format), required for 'x509' security layer."
+  },
+  "key_file": {
+    "type": "string",
+    "default": "",
+    "description": "Path to private key file (PEM format), required for 'x509' security layer."
+  },
+  "ssl_protocols": {
+    "type": "string",
+    "default": "TLSv1.2,TLSv1.3",
+    "description": "Comma-separated list of allowed SSL/TLS protocols."
+  },
+  "allow_tls13": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable TLS 1.3 (if supported by underlying OpenSSL)."
+  },
+  "listen_address": {
+    "type": "string",
+    "default": "0.0.0.0",
+    "description": "IP address to bind to. Use '127.0.0.1' to restrict to localhost only."
+  },
+  "listen_port": {
+    "type": "number",
+    "default": 3389,
+    "description": "Port number for RDP connections."
+  },
+  "max_bpp": {
+    "type": "number",
+    "default": 32,
+    "description": "Maximum bits per pixel supported (16, 24, or 32)."
+  },
+  "new_cursors": {
+    "type": "bool",
+    "default": true,
+    "description": "Allow custom cursor shapes (instead of default Windows cursors)."
+  },
+  "fips_mode": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable FIPS-compliant cryptographic operations (requires OpenSSL FIPS module)."
+  },
+  "idle_max_time": {
+    "type": "number",
+    "default": 0,
+    "description": "Maximum idle time (seconds) before session is disconnected. 0 = no limit."
+  },
+  "disconnect_idle": {
+    "type": "bool",
+    "default": false,
+    "description": "Disconnect idle sessions (when `idle_max_time` is > 0)."
+  },
+  "reuse_sessions": {
+    "type": "bool",
+    "default": false,
+    "description": "Reuse existing user sessions instead of creating new ones."
+  },
+  "xserver_startup_delay": {
+    "type": "number",
+    "default": 10,
+    "description": "Delay (seconds) before starting X server after session request."
+  },
+  "font_path": {
+    "type": "string",
+    "default": "/usr/share/fonts/TTF",
+    "description": "Path to directory containing TrueType fonts for XRDP."
+  },
+  "bitmap_cache": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable bitmap caching for improved performance."
+  },
+  "bitmap_compression": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable bitmap compression (requires client support)."
+  },
+  "persistent_bitmap": {
+    "type": "bool",
+    "default": true,
+    "description": "Persist bitmap cache across sessions (requires client support)."
+  },
+  "audio_redirection": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable audio output redirection to client (requires PulseAudio/ALSA on server)."
+  },
+  "smartcard_redirection": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable smartcard (e.g., PIV, PIV-like) redirection."
+  },
+  "clipboard": {
+    "type": "string",
+    "default": "both",
+    "description": "Clipboard sync direction: 'both', 'client-to-server', 'server-to-client', or 'off'."
+  },
+  "drive_redirection": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable local drive (e.g., /home/user/Downloads) mapping into session."
+  },
+  "printer_redirection": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable printing to client-side printers."
+  },
+  "serial_redirection": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable serial port redirection (e.g., COM1 \u2192 /dev/ttyS0)."
+  },
+  "parallel_redirection": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable parallel port redirection (e.g., LPT1 \u2192 /dev/parport0)."
+  },
+  "usb_redirection": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable USB device redirection (requires usbredir and libusb)."
+  },
+  "gdi_rendering": {
+    "type": "bool",
+    "default": true,
+    "description": "Use GDI+ rendering (improves performance with modern clients)."
+  },
+  "xserver_custom_parameters": {
+    "type": "string",
+    "default": "-depth 24 -geometry 1024x768",
+    "description": "Additional command-line arguments passed to the X server (xvnc/xorg)."
+  },
+  "session_types": {
+    "type": "list",
+    "default": [],
+    "description": "Custom session types defined by the administrator. Each item defines a named session backend.",
+    "items": {
+      "name": {
+        "type": "string",
+        "default": "",
+        "description": "Unique name for the session type (must match section header)."
+      },
+      "lib": {
+        "type": "string",
+        "default": "libvnc.so",
+        "description": "Backend library: 'libvnc.so' (VNC) or 'libxup.so' (Xorg/X11rdp)."
+      },
+      "username": {
+        "type": "string",
+        "default": "ask",
+        "description": "How username is obtained: 'ask' (prompt), 'same' (same as login), or a static value."
+      },
+      "password": {
+        "type": "string",
+        "default": "ask",
+        "description": "How password is obtained: 'ask' (prompt), 'same' (same as login), or a static value."
+      },
+      "ip": {
+        "type": "string",
+        "default": "127.0.0.1",
+        "description": "IP address of the backend X server (xvnc/xorg)."
+      },
+      "port": {
+        "type": "number",
+        "default": -1,
+        "description": "Port of the backend X server. -1 = auto-assign."
+      }
+    }
+  },
+  "allowed_users": {
+    "type": "list",
+    "default": null,
+    "description": "List of usernames permitted to connect (if specified, all others are denied)."
+  },
+  "denied_users": {
+    "type": "list",
+    "default": null,
+    "description": "List of usernames explicitly denied from connecting."
+  },
+  "allowed_groups": {
+    "type": "list",
+    "default": null,
+    "description": "List of POSIX groups whose members may connect (if specified, others are denied)."
+  },
+  "denied_groups": {
+    "type": "list",
+    "default": null,
+    "description": "List of POSIX groups whose members are explicitly denied."
+  }
+}

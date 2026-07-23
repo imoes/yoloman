@@ -1,0 +1,138 @@
+# debmirror configuration file
+# Path to the root of the mirror
+{{ mirror_base }}
+
+# Architecture(s) to mirror (comma-separated, e.g., 'amd64,i386')
+{{ arches | join(',') }}
+
+# Distribution(s) to mirror (comma-separated, e.g., 'stable,testing')
+{{ dists | join(',') }}
+
+# Section(s) to mirror (comma-separated, e.g., 'main,contrib,non-free')
+{{ sections | join(',') }}
+
+# Method to use for download: http, https, ftp, rsync
+{{ method }}
+
+# Hostname of the remote server
+{{ remote_host }}
+
+# Remote directory to mirror
+{{ remote_dir }}
+
+# Local directory to mirror to (must be absolute path)
+{{ local_dir }}
+
+# Comma-separated list of host architectures to generate for (default: same as arches)
+{% if arch_filter %}
+{{ arch_filter | join(',') }}
+{% else %}
+{{ arches | join(',') }}
+{% endif %}
+
+# Comma-separated list of components to exclude (optional)
+{% if exclude_sections %}
+{{ exclude_sections | join(',') }}
+{% endif %}
+
+# Comma-separated list of packages to exclude (optional)
+{% if exclude_packages %}
+{{ exclude_packages | join(',') }}
+{% endif %}
+
+# Comma-separated list of packages to include (optional, overrides exclude)
+{% if include_packages %}
+{{ include_packages | join(',') }}
+{% endif %}
+
+# Enable compression of .diff indices (gzip, bzip2, xz, or none)
+{% if compression %}
+{{ compression }}
+{% else %}
+gzip
+{% endif %}
+
+# Whether to mirror .udeb files (true/false)
+{% if udebs %}
+{% if udebs == true %}1{% else %}0{% endif %}
+{% else %}0{% endif %}
+
+# Whether to mirror debug symbols (true/false)
+{% if debug %}
+{% if debug == true %}1{% else %}0{% endif %}
+{% else %}0{% endif %}
+
+# Whether to skip non-free sections (true/false)
+{% if skip_nonfree %}
+{% if skip_nonfree == true %}1{% else %}0{% endif %}
+{% else %}0{% endif %}
+
+# Whether to skip contrib sections (true/false)
+{% if skip_contrib %}
+{% if skip_contrib == true %}1{% else %}0{% endif %}
+{% else %}0{% endif %}
+
+# Whether to skip source packages (true/false)
+{% if skip_source %}
+{% if skip_source == true %}1{% else %}0{% endif %}
+{% else %}0{% endif %}
+
+# Whether to skip translation files (true/false)
+{% if skip_translations %}
+{% if skip_translations == true %}1{% else %}0{% endif %}
+{% else %}0{% endif %}
+
+# Number of parallel rsync/download processes (0 = unlimited, default: 5)
+{% if rsync_options %}
+{{ rsync_options }}
+{% else %}--progress --delete-during{% endif %}
+
+# Rsync options (as passed to rsync command)
+{% if rsync_extra_options %}
+{{ rsync_extra_options }}
+{% endif %}
+
+# Proxy settings (e.g., http://proxy.example.com:8080/)
+{% if proxy_url %}
+{{ proxy_url }}
+{% endif %}
+
+# Whether to use gzip for . Packages/Sources indices (true/false)
+{% if gzip_indices %}
+{% if gzip_indices == true %}1{% else %}0{% endif %}
+{% else %}1{% endif %}
+
+# Timeout for HTTP/FTP connections in seconds
+{% if timeout %}
+{{ timeout }}
+{% else %}300{% endif %}
+
+# Maximum retries for failed downloads
+{% if retries %}
+{{ retries }}
+{% else %}3{% endif %}
+
+# Log file path (use '-' for stdout)
+{% if logfile %}
+{{ logfile }}
+{% else %}-{% endif %}
+
+# Whether to verify MD5 checksums (true/false)
+{% if md5sum_check %}
+{% if md5sum_check == true %}1{% else %}0{% endif %}
+{% else %}1{% endif %}
+
+# Whether to create Release.gpg signature files (true/false)
+{% if gpg_sign %}
+{% if gpg_sign == true %}1{% else %}0{% endif %}
+{% else %}0{% endif %}
+
+# GPG keyring path (required if gpg_sign is enabled)
+{% if gpg_keyring %}
+{{ gpg_keyring }}
+{% endif %}
+
+# GPG key ID or email (required if gpg_sign is enabled)
+{% if gpg_sign_key %}
+{{ gpg_sign_key }}
+{% endif %}

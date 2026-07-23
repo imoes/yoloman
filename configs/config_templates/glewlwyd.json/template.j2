@@ -1,0 +1,88 @@
+{# Base server configuration #}
+{
+  {# Hostname the server binds to #}
+  "host": "{{ server.host }}",
+  {# Port the server listens on #}
+  "port": {{ server.port }},
+  {# Base URL path for the server (e.g., / for root, /glewlwyd for subpath) #}
+  "url_base": "{{ server.url_base }}",
+  {# Log level: debug, info, warn, error #}
+  "log_level": "{{ server.log_level }}",
+  {# Database connection configuration #}
+  "database": {
+    {# Database type: sqlite, postgresql, mysql #}
+    "type": "{{ database.type }}",
+    {# For SQLite only: path to database file #}
+    {% if database.type == 'sqlite' %}
+    "path": "{{ database.path }}",
+    {% endif %}
+    {# For PostgreSQL/MySQL: connection parameters #}
+    {% if database.type != 'sqlite' %}
+    "host": "{{ database.host }}",
+    "port": {{ database.port }},
+    "name": "{{ database.name }}",
+    "user": "{{ database.user }}",
+    "password": "{{ database.password }}"
+    {% endif %}
+  },
+  {# JWT configuration for authentication tokens #}
+  "jwt": {
+    {# JWT secret key (must be kept secret) #}
+    "secret": "{{ jwt.secret }}",
+    {# Token expiration time in seconds #}
+    "expiration": {{ jwt.expiration }},
+    {# Algorithm used for signing tokens (e.g., HS256, RS256) #}
+    "algorithm": "{{ jwt.algorithm }}",
+    {# Optional: public key for asymmetric algorithms (RS256, ES256, etc.) #}
+    {% if jwt.algorithm in ['RS256', 'RS384', 'RS512', 'ES256', 'ES384', 'ES512', 'PS256', 'PS384', 'PS512'] %}
+    "public_key": "{{ jwt.public_key | default('') }}"
+    {% endif %}
+  },
+  {# Authentication client configuration (e.g., OAuth2 clients) #}
+  "clients": [
+    {% for client in clients %}
+    {
+      {# Unique client ID (e.g., 'client_1') #}
+      "client_id": "{{ client.client_id }}",
+      {# Client name displayed in UIs #}
+      "client_name": "{{ client.client_name }}",
+      {# Client secret (must be kept secret) #}
+      "client_secret": "{{ client.client_secret }}",
+      {# List of allowed redirect URIs for this client #}
+      "redirect_uri": [{{ client.redirect_uri | map('quote') | join(', ') }}],
+      {# Allowed OAuth2 grant types #}
+      "grant_type": [{{ client.grant_type | map('quote') | join(', ') }}],
+      {# Client scope restrictions (e.g., ['openid', 'profile']) #}
+      "scope": [{{ client.scope | map('quote') | join(', ') }}],
+      {# Enable client (true/false) #}
+      "active": {{ client.active | lower }}
+    }{% if not loop.last %},{% endif %}
+    {% endfor %}
+  ],
+  {# User backend configuration (e.g., LDAP, database) #}
+  "user_backend": {
+    {# Backend type: 'database', 'ldap' #}
+    "type": "{{ user_backend.type }}",
+    {% if user_backend.type == 'ldap' %}
+    {# LDAP server settings #}
+    "host": "{{ user_backend.host }}",
+    "port": {{ user_backend.port }},
+    "use_ssl": {{ user_backend.use_ssl | lower }},
+    "bind_dn": "{{ user_backend.bind_dn }}",
+    "bind_password": "{{ user_backend.bind_password }}",
+    {# Base DN for user searches #}
+    "base_dn": "{{ user_backend.base_dn }}",
+    {# User search filter (e.g., '(objectClass=person)') #}
+    "user_search_filter": "{{ user_backend.user_search_filter }}",
+    {# LDAP attribute mappings #}
+    "attribute_mapping": {
+      "username": "{{ user_backend.attribute_mapping.username }}",
+      "email": "{{ user_backend.attribute_mapping.email }}",
+      "name": "{{ user_backend.attribute_mapping.name }}"
+    }
+    {% elif user_backend.type == 'database' %}
+    {# For database backend, use the main DB config #}
+    "use_main_database": true
+    {% endif %}
+  }
+}

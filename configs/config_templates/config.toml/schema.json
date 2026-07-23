@@ -1,0 +1,207 @@
+{
+  "sandbox_image": {
+    "type": "string",
+    "default": "k8s.gcr.io/pause:3.9",
+    "description": "The pause container image used for sandbox containers in CRI."
+  },
+  "max_container_log_line_size": {
+    "type": "number",
+    "default": 16384,
+    "description": "Maximum size (in bytes) of a single log line from a container. Longer lines are truncated."
+  },
+  "systemd_cgroup": {
+    "type": "bool",
+    "default": false,
+    "description": "If true, use systemd cgroup driver instead of cgroupfs for containers."
+  },
+  "enable_streaming": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable streaming server for exec/attach operations."
+  },
+  "streaming_server_address": {
+    "type": "string",
+    "default": "0.0.0.0",
+    "description": "Bind address for the streaming server (exec/attach)."
+  },
+  "streaming_server_port": {
+    "type": "string",
+    "default": "10010",
+    "description": "Port for the streaming server."
+  },
+  "enable_tls_streaming": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable TLS encryption for the streaming server. Requires cert/key/ca paths below if true."
+  },
+  "stream_server_tls_cert": {
+    "type": "string",
+    "default": "",
+    "description": "Path to the TLS certificate for streaming server (used only if TLS is enabled)."
+  },
+  "stream_server_tls_key": {
+    "type": "string",
+    "default": "",
+    "description": "Path to the TLS private key for streaming server (used only if TLS is enabled)."
+  },
+  "stream_server_tls_ca": {
+    "type": "string",
+    "default": "",
+    "description": "Path to the TLS CA certificate for streaming server (used only if TLS is enabled)."
+  },
+  "snapshotter": {
+    "type": "string",
+    "default": "overlayfs",
+    "description": "Name of the snapshotter plugin (e.g., overlayfs, native)."
+  },
+  "default_runtime_name": {
+    "type": "string",
+    "default": "runc",
+    "description": "Name of the default runtime to use (must match one in runtimes)."
+  },
+  "runtimes": {
+    "type": "list",
+    "default": [
+      {
+        "name": "runc",
+        "runtime_type": "io.containerd.runc.v2",
+        "options": {
+          "SystemdCgroup": "true"
+        }
+      }
+    ],
+    "description": "List of container runtimes to register. Each object defines a named runtime with its type and options.",
+    "items": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Runtime name (used as key; must be unique)."
+        },
+        "runtime_type": {
+          "type": "string",
+          "description": "Type of the runtime (e.g., io.containerd.runc.v2)."
+        },
+        "engine": {
+          "type": "string",
+          "description": "Optional: container runtime engine name (e.g., crun)."
+        },
+        "privileged_without_host_devices": {
+          "type": "bool",
+          "description": "If true, restrict host devices in privileged containers."
+        },
+        "runtime_engine": {
+          "type": "string",
+          "description": "Path to the runtime binary (e.g., /usr/bin/runc)."
+        },
+        "runtime_root": {
+          "type": "string",
+          "description": "Optional: root directory for runtime state."
+        },
+        "options": {
+          "type": "object",
+          "description": "Runtime-specific options (key-value pairs passed to the runtime).",
+          "additionalProperties": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "name",
+        "runtime_type"
+      ]
+    }
+  },
+  "registry_mirrors": {
+    "type": "list",
+    "default": [],
+    "description": "List of registry mirror configurations to override default Docker Hub pull paths.",
+    "items": {
+      "type": "object",
+      "properties": {
+        "namespace": {
+          "type": "string",
+          "description": "Registry namespace (e.g., docker.io, gcr.io, k8s.gcr.io)."
+        },
+        "endpoints": {
+          "type": "list",
+          "items": {
+            "type": "string"
+          },
+          "description": "List of mirror endpoints (e.g., [\"https://registry-1.docker.io\"])."
+        }
+      },
+      "required": [
+        "namespace",
+        "endpoints"
+      ]
+    }
+  },
+  "registry_config_path": {
+    "type": "string",
+    "default": "/etc/containerd/certs",
+    "description": "Path to registry TLS certificates and auth configs (overrides built-in defaults if non-empty)."
+  },
+  "registry_configs": {
+    "type": "list",
+    "default": [],
+    "description": "List of registry authentication configs (e.g., for private registries).",
+    "items": {
+      "type": "object",
+      "properties": {
+        "hostname": {
+          "type": "string",
+          "description": "Registry hostname (e.g., myregistry.example.com)."
+        },
+        "auth_username": {
+          "type": "string",
+          "description": "Username for registry auth."
+        },
+        "auth_password": {
+          "type": "string",
+          "description": "Password for registry auth (plaintext in config\u2014secure only if file permissions are protected)."
+        }
+      },
+      "required": [
+        "hostname",
+        "auth_username",
+        "auth_password"
+      ]
+    }
+  },
+  "enable_image_decryption": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable support for decrypting encrypted images (e.g., with gRPC key provider). Requires x509 cert/key paths below if true."
+  },
+  "tls_cert_file": {
+    "type": "string",
+    "default": "",
+    "description": "Path to TLS cert file for image decryption streaming (if enabled)."
+  },
+  "tls_key_file": {
+    "type": "string",
+    "default": "",
+    "description": "Path to TLS key file for image decryption streaming (if enabled)."
+  },
+  "discard_unpacked_layers": {
+    "type": "bool",
+    "default": true,
+    "description": "If true, discard unpacked layers after successful container creation to save disk space."
+  },
+  "debug_level": {
+    "type": "string",
+    "default": "info",
+    "description": "Global logging level: 'debug', 'info', 'warn', 'error', 'fatal', or 'panic'."
+  },
+  "metrics_address": {
+    "type": "string",
+    "default": "",
+    "description": "Address (host:port) for metrics endpoint (empty string disables metrics server)."
+  },
+  "plugins_opt_path": {
+    "type": "string",
+    "default": "/opt/containerd",
+    "description": "Path for plugin-specific state and data (e.g., certificates)."
+  }
+}

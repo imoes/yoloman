@@ -1,0 +1,107 @@
+{
+  "nut_cgi": {
+    "type": "object",
+    "default": {
+      "host": "",
+      "port": "3493",
+      "cgi_bin": "/usr/bin/nut_cgi",
+      "user": "nut",
+      "group": "nut",
+      "log_level": "3",
+      "ssl_enabled": false,
+      "allowed_networks": [],
+      "ups_list": []
+    },
+    "description": "Core settings for the NUT CGI web interface (nut_cgi).",
+    "items": {
+      "host": {
+        "type": "string",
+        "default": "",
+        "description": "Hostname or IP of the UPS daemon (upsd). Leave blank to use local Unix socket."
+      },
+      "port": {
+        "type": "string",
+        "default": "3493",
+        "description": "Port on which upsd listens (default 3493)."
+      },
+      "cgi_bin": {
+        "type": "string",
+        "default": "/usr/bin/nut_cgi",
+        "description": "Full path to the nut_cgi binary."
+      },
+      "user": {
+        "type": "string",
+        "default": "nut",
+        "description": "System user account under which the CGI runs (for security)."
+      },
+      "group": {
+        "type": "string",
+        "default": "nut",
+        "description": "System group for the CGI process."
+      },
+      "log_level": {
+        "type": "number",
+        "default": 3,
+        "description": "Log verbosity: 0 (silent) to 7 (debug). Higher values increase log detail."
+      },
+      "ssl_enabled": {
+        "type": "boolean",
+        "default": false,
+        "description": "Whether SSL termination is handled by a front-end proxy (e.g., nginx). nut_cgi itself does not serve HTTPS."
+      },
+      "allowed_networks": {
+        "type": "list",
+        "default": [],
+        "description": "List of IP addresses or CIDR ranges allowed to access the web interface. Empty list means open access (not recommended).",
+        "items": {
+          "type": "object",
+          "items": {
+            "address": {
+              "type": "string",
+              "description": "IPv4 or IPv6 address (e.g., '192.168.1.0' or '::1')"
+            },
+            "netmask": {
+              "type": "string",
+              "default": "",
+              "description": "Optional CIDR netmask (e.g., '24', '128'). If omitted, exact match."
+            }
+          }
+        }
+      },
+      "ups_list": {
+        "type": "list",
+        "default": [],
+        "description": "UPS devices to expose via the web interface. At least one is required for meaningful operation.",
+        "items": {
+          "type": "object",
+          "items": {
+            "name": {
+              "type": "string",
+              "description": "UPS identifier (must match a configured UPS in upsmon/upsd)."
+            },
+            "description": {
+              "type": "string",
+              "default": "",
+              "description": "Human-readable name displayed in the web UI."
+            },
+            "monitor": {
+              "type": "boolean",
+              "default": false,
+              "description": "Whether this UPS is actively monitored via upsmon (enables shutdown logic)."
+            },
+            "password": {
+              "type": "string",
+              "default": "",
+              "description": "Optional password for read-only or admin access (if authentication is enabled)."
+            },
+            "acl_group": {
+              "type": "string",
+              "default": "",
+              "description": "ACL group name for access control (requires upsmon ACL support)."
+            }
+          }
+        }
+      }
+    }
+  }
+}

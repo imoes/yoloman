@@ -1,0 +1,43 @@
+{
+  "enabled": true,
+  "log_level": "warning",
+  "corosync_config": "/etc/corosync/corosync.conf",
+  "notifications": [
+    {
+      "type": "quorum_loss",
+      "description": "Alert when cluster loses quorum",
+      "enabled": true,
+      "backend": "email",
+      "to": [
+        "admin@example.com",
+        "ops@example.com"
+      ],
+      "from": "corosync-notifyd@cluster.example.com",
+      "smtp_host": "mail.example.com",
+      "smtp_port": 587,
+      "smtp_use_tls": true
+    },
+    {
+      "type": "node_join",
+      "description": "Log new node joining",
+      "enabled": true,
+      "backend": "syslog",
+      "facility": "local0",
+      "priority": "info"
+    },
+    {
+      "type": "resource_failed",
+      "description": "Trigger alert script on resource failure",
+      "enabled": true,
+      "backend": "exec",
+      "command": "/usr/local/bin/alert-resource.sh ${EVENT_TYPE} ${NODE} ${RESOURCE}",
+      "environment": {
+        "ALERT_WEBHOOK": "https://hooks.example.com/corosync"
+      }
+    }
+  ],
+  "rate_limit": {
+    "max_events": 5,
+    "window_seconds": 30
+  }
+}

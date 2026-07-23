@@ -1,0 +1,42 @@
+{
+  "rules": [
+    {
+      "description": "Expose local HTTP service (port 8080) on all interfaces",
+      "options": [
+        "-d",
+        "-d",
+        "fork"
+      ],
+      "from": "TCP-LISTEN:8080,reuseaddr",
+      "to": "TCP:127.0.0.1:80"
+    },
+    {
+      "description": "Forward SSH traffic to internal jump host via SOCKS proxy",
+      "options": [
+        "-d4"
+      ],
+      "from": "TCP-LISTEN:2222,reuseaddr",
+      "to": "TCP:internal-jump:22",
+      "post_options": [
+        "socks4a:proxy.internal:1080,socksuser=operator"
+      ]
+    },
+    {
+      "description": "Relay UDP traffic for discovery protocol",
+      "options": [
+        "-u"
+      ],
+      "from": "UDP-LISTEN:5353,bind=224.0.0.251,reuseaddr",
+      "to": "UDP:224.0.0.251:5353,bind=224.0.0.251"
+    },
+    {
+      "description": "Log console access via pseudo-TTY to file",
+      "options": [
+        "-d",
+        "-d"
+      ],
+      "from": "TCP-LISTEN:4444,reuseaddr",
+      "to": "PTY,raw,echo=0,link=/tmp/console_link,raw,echo=0"
+    }
+  ]
+}

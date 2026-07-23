@@ -1,0 +1,168 @@
+{
+  "default_account": {
+    "type": "string",
+    "default": "default",
+    "description": "Name of the default account to use if no --account flag is provided."
+  },
+  "log_file": {
+    "type": "string",
+    "default": "/var/log/msmtp.log",
+    "description": "Path to the log file. Set to 'off' to disable logging (not recommended for production)."
+  },
+  "syslog_facility": {
+    "type": "string",
+    "default": "",
+    "description": "Syslog facility to use for logging (e.g., 'mail', 'daemon'). Leave blank to use file logging only."
+  },
+  "tls_enabled": {
+    "type": "boolean",
+    "default": true,
+    "description": "Enable TLS globally. If enabled, TLS is used for all accounts unless overridden per-account."
+  },
+  "tls_starttls": {
+    "type": "boolean",
+    "default": true,
+    "description": "Use STARTTLS (for port 587 or 25) or implicit TLS (for port 465). Set false only for insecure test environments."
+  },
+  "tls_trust_file": {
+    "type": "string",
+    "default": "",
+    "description": "Path to a CA certificate bundle file (PEM format) to verify the server certificate."
+  },
+  "tls_cert_file": {
+    "type": "string",
+    "default": "",
+    "description": "Path to client certificate (PEM) for mutual TLS (optional)."
+  },
+  "tls_key_file": {
+    "type": "string",
+    "default": "",
+    "description": "Path to client private key (PEM) for mutual TLS (optional, must match cert)."
+  },
+  "tls_nocertcheck": {
+    "type": "boolean",
+    "default": false,
+    "description": "Skip server certificate verification (dangerous \u2014 only for internal testing)."
+  },
+  "tls_min_dhparam": {
+    "type": "string",
+    "default": "",
+    "description": "Minimum DH key size (e.g., '2048') \u2014 use to enforce stronger key exchange (optional)."
+  },
+  "tls_priorities": {
+    "type": "string",
+    "default": "",
+    "description": "GnuTLS priority string (e.g., 'NORMAL:%SERVER_PREF_CIPHER') for fine-grained TLS control (optional)."
+  },
+  "ca_bundle_file": {
+    "type": "string",
+    "default": "",
+    "description": "Legacy alias for tls_trust_file. Prefer tls_trust_file instead."
+  },
+  "accounts": {
+    "type": "list",
+    "default": [],
+    "description": "List of SMTP accounts (profiles). At least one account is required for real-world usage.",
+    "items": {
+      "type": "object",
+      "fields": {
+        "name": {
+          "type": "string",
+          "default": "",
+          "description": "Unique account identifier (e.g., 'gmail', 'smtp2')."
+        },
+        "host": {
+          "type": "string",
+          "default": "",
+          "description": "SMTP server hostname or IP address (e.g., 'smtp.gmail.com')."
+        },
+        "port": {
+          "type": "number",
+          "default": 587,
+          "description": "SMTP server port (typically 25, 465 (implicit TLS), or 587 (STARTTLS))."
+        },
+        "from_addr": {
+          "type": "string",
+          "default": "",
+          "description": "Return address (envelope sender) used in emails sent via this account."
+        },
+        "auth_method": {
+          "type": "string",
+          "default": "",
+          "enum": [
+            "",
+            "login",
+            "plain",
+            "cram-md5"
+          ],
+          "description": "Authentication method. Leave blank for unauthenticated relay (not recommended for public servers)."
+        },
+        "user": {
+          "type": "string",
+          "default": "",
+          "description": "SMTP username for authentication (if auth_method is set)."
+        },
+        "password": {
+          "type": "string",
+          "default": "",
+          "description": "SMTP password for authentication (store securely \u2014 consider using a credentials helper)."
+        },
+        "tls": {
+          "type": "boolean",
+          "default": null,
+          "description": "Override global TLS setting for this account (true/false). If omitted, uses global setting."
+        },
+        "tls_starttls": {
+          "type": "boolean",
+          "default": true,
+          "description": "STARTTLS for this account (ignored if tls=false)."
+        },
+        "tls_trust_file": {
+          "type": "string",
+          "default": "",
+          "description": "Per-account CA cert file (overrides global tls_trust_file)."
+        },
+        "tls_cert_file": {
+          "type": "string",
+          "default": "",
+          "description": "Per-account client cert (overrides global)."
+        },
+        "tls_key_file": {
+          "type": "string",
+          "default": "",
+          "description": "Per-account client key (overrides global)."
+        },
+        "tls_nocertcheck": {
+          "type": "boolean",
+          "default": false,
+          "description": "Disable cert verification for this account only (dangerous \u2014 avoid in production)."
+        }
+      }
+    }
+  },
+  "catch_all_host": {
+    "type": "string",
+    "default": "",
+    "description": "Legacy: SMTP server hostname for a single catch-all fallback account (deprecated in favor of 'accounts')."
+  },
+  "catch_all_from": {
+    "type": "string",
+    "default": "",
+    "description": "Legacy: Sender address for catch-all fallback (used with catch_all_host)."
+  },
+  "catch_all_port": {
+    "type": "number",
+    "default": 587,
+    "description": "Port for legacy catch-all account."
+  },
+  "catch_all_tls": {
+    "type": "boolean",
+    "default": true,
+    "description": "Use TLS for legacy catch-all account."
+  },
+  "catch_all_tls_starttls": {
+    "type": "boolean",
+    "default": true,
+    "description": "Use STARTTLS for legacy catch-all account (if catch_all_tls=true)."
+  }
+}

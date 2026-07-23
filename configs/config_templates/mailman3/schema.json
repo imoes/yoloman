@@ -1,0 +1,291 @@
+{
+  "var_dir": {
+    "type": "string",
+    "default": "/var/lib/mailman3",
+    "description": "Base directory for Mailman\u2019s persistent data (archives, lists, etc.)"
+  },
+  "log_dir": {
+    "type": "string",
+    "default": "/var/log/mailman3",
+    "description": "Directory for log files"
+  },
+  "queue_dir": {
+    "type": "string",
+    "default": "/var/spool/mailman3",
+    "description": "Directory for message queues"
+  },
+  "lock_dir": {
+    "type": "string",
+    "default": "/run/lock/mailman3",
+    "description": "Directory for lock files"
+  },
+  "pickle_dir": {
+    "type": "string",
+    "default": "/var/lib/mailman3/pickle",
+    "description": "Directory for inter-process communication (pickle files)"
+  },
+  "pid_file": {
+    "type": "string",
+    "default": "/run/mailman3/master.pid",
+    "description": "Path to the master process PID file"
+  },
+  "config_file": {
+    "type": "string",
+    "default": "/etc/mailman3/mailman.cfg",
+    "description": "Path to this configuration file"
+  },
+  "default_language": {
+    "type": "string",
+    "default": "en",
+    "description": "Default language code for new users and list messages (e.g., 'en', 'fr')"
+  },
+  "outgoing_charset": {
+    "type": "string",
+    "default": "utf-8",
+    "description": "Default character set for outgoing email messages"
+  },
+  "email_host": {
+    "type": "string",
+    "default": "lists.example.com",
+    "description": "Default domain suffix for list addresses (e.g., 'lists.example.com' \u2192 lists@lists.example.com)"
+  },
+  "web_host": {
+    "type": "string",
+    "default": "lists.example.com",
+    "description": "Public hostname used for the web UI and list pages"
+  },
+  "list_max_members": {
+    "type": "number",
+    "default": 10000,
+    "description": "Maximum number of members allowed per mailing list"
+  },
+  "max_message_size": {
+    "type": "number",
+    "default": 10485760,
+    "description": "Maximum size (in bytes) for messages accepted from posters (default: 10 MB)"
+  },
+  "subscription_policy": {
+    "type": "string",
+    "default": "confirm",
+    "description": "Policy for new subscriptions: 'confirm' (email confirmation), 'notify' (admin notified), 'moderate' (admin approval required), 'direct' (auto-approve), or 'digest'"
+  },
+  "post_hold_policy": {
+    "type": "string",
+    "default": "moderate",
+    "description": "Policy for posts from non-members: 'moderate' (hold for approval), 'reject' (discard), 'discard' (discard silently), or 'accept' (allow)"
+  },
+  "auto_subscribe": {
+    "type": "bool",
+    "default": false,
+    "description": "Whether to auto-subscribe a poster\u2019s email address if they post but are not yet a list member"
+  },
+  "require_subject": {
+    "type": "bool",
+    "default": true,
+    "description": "Whether to reject posts lacking a Subject: header"
+  },
+  "footer_msg": {
+    "type": "string",
+    "default": "",
+    "description": "Footer text appended to every outgoing list message (leave empty to disable)"
+  },
+  "api_rate_limit": {
+    "type": "number",
+    "default": 100,
+    "description": "Maximum number of REST API requests per minute per IP (for rate limiting)"
+  },
+  "password_reset_timeout": {
+    "type": "number",
+    "default": 86400,
+    "description": "Time window (in seconds) during which a password reset token is valid"
+  },
+  "smtp_host": {
+    "type": "string",
+    "default": "localhost",
+    "description": "SMTP server hostname for outgoing mail"
+  },
+  "smtp_port": {
+    "type": "number",
+    "default": 587,
+    "description": "SMTP server port (587 for submission, 465 for SMTPS, 25 for unencrypted)"
+  },
+  "smtp_user": {
+    "type": "string",
+    "default": "",
+    "description": "SMTP username (leave empty if no authentication needed)"
+  },
+  "smtp_pass": {
+    "type": "string",
+    "default": "",
+    "description": "SMTP password (store securely in production \u2014 e.g., via secrets manager)"
+  },
+  "smtp_use_tls": {
+    "type": "bool",
+    "default": true,
+    "description": "Whether to use STARTTLS for SMTP (required on port 587)"
+  },
+  "smtp_use_ssl": {
+    "type": "bool",
+    "default": false,
+    "description": "Whether to use implicit SSL/TLS for SMTP (port 465)"
+  },
+  "smtp_local_domain": {
+    "type": "string",
+    "default": "localhost",
+    "description": "Domain name advertised to the SMTP server (for HELO/EHLO)"
+  },
+  "mail_in_backends": {
+    "type": "list",
+    "default": [],
+    "description": "List of mail-in backends (e.g., IMAP/POP3 for fetching mail from external accounts)",
+    "items": {
+      "name": {
+        "type": "string",
+        "default": "",
+        "description": "Unique name for this backend (e.g., 'imap_inbox')"
+      },
+      "host": {
+        "type": "string",
+        "default": "imap.example.com",
+        "description": "Hostname of the IMAP/POP server"
+      },
+      "port": {
+        "type": "number",
+        "default": 993,
+        "description": "Port number (IMAP: 993/143, POP3: 995/110)"
+      },
+      "user": {
+        "type": "string",
+        "default": "%{user}@%{domain}",
+        "description": "Username template (supported placeholders: {user}, {domain})"
+      },
+      "password": {
+        "type": "string",
+        "default": "",
+        "description": "Password for IMAP/POP (store securely \u2014 consider using environment variables or secret manager)"
+      },
+      "use_tls": {
+        "type": "bool",
+        "default": true,
+        "description": "Whether to use STARTTLS"
+      },
+      "use_ssl": {
+        "type": "bool",
+        "default": false,
+        "description": "Whether to use implicit SSL/TLS"
+      }
+    }
+  },
+  "mta_backends": {
+    "type": "list",
+    "default": [
+      {
+        "name": "postfix",
+        "path": "/usr/sbin/postfix",
+        "args": [
+          "-c",
+          "/etc/postfix"
+        ],
+        "use": "Send mail via Postfix MTA"
+      }
+    ],
+    "description": "List of MTA backends to interface with system mail servers",
+    "items": {
+      "name": {
+        "type": "string",
+        "default": "",
+        "description": "Unique name for this MTA backend"
+      },
+      "path": {
+        "type": "string",
+        "default": "/usr/sbin/postfix",
+        "description": "Path to the MTA binary (e.g., /usr/sbin/sendmail, /usr/sbin/postfix)"
+      },
+      "args": {
+        "type": "list",
+        "default": [],
+        "description": "List of arguments passed to the MTA command"
+      }
+    }
+  },
+  "db_class": {
+    "type": "string",
+    "default": "mailman.database.sqlite.SQLiteDatabase",
+    "description": "Database backend class \u2014 use 'mailman.database.postgres.PostgresDatabase' for production"
+  },
+  "db_url": {
+    "type": "string",
+    "default": "/var/lib/mailman3/mailman.db",
+    "description": "Database URL \u2014 SQLite path (e.g., '/var/lib/mailman3/mailman.db') or PostgreSQL URI (e.g., 'postgresql://mailman:pass@localhost/mailman')"
+  },
+  "rest_endpoint": {
+    "type": "string",
+    "default": "127.0.0.1:8001",
+    "description": "Local address and port where the REST API is exposed (e.g., '127.0.0.1:8001')"
+  },
+  "rest_api_key": {
+    "type": "string",
+    "default": "",
+    "description": "API key used by Mailman Core to authenticate to the REST API (e.g., generated via 'mailman mta -g')"
+  },
+  "mta_incoming": {
+    "type": "string",
+    "default": "postfix",
+    "description": "Name of the MTA backend used to receive incoming mail"
+  },
+  "mta_outgoing": {
+    "type": "string",
+    "default": "postfix",
+    "description": "Name of the MTA backend used to send outgoing mail"
+  },
+  "log_level": {
+    "type": "string",
+    "default": "INFO",
+    "description": "Default logging level: debug, info, warning, error, or critical"
+  },
+  "syslog_facility": {
+    "type": "string",
+    "default": "daemon",
+    "description": "Syslog facility to use if logging to syslog (e.g., daemon, local0)"
+  },
+  "hyperkitty_enable": {
+    "type": "bool",
+    "default": true,
+    "description": "Whether to enable the Hyperkitty archiver (web archive)"
+  },
+  "hyperkitty_endpoint": {
+    "type": "string",
+    "default": "http://127.0.0.1:8000",
+    "description": "Base URL of the Hyperkitty web service"
+  },
+  "hyperkitty_api_key": {
+    "type": "string",
+    "default": "",
+    "description": "API key for authenticating with Hyperkitty (must match Hyperkitty\u2019s MAILMAN_ARCHIVER_API_KEY)"
+  },
+  "mbox_archiver_enable": {
+    "type": "bool",
+    "default": true,
+    "description": "Whether to enable the local mbox archiver (Maildir-style)"
+  },
+  "mbox_archiver_path": {
+    "type": "string",
+    "default": "/var/lib/mailman3/archives/private",
+    "description": "Base directory for local mbox archives"
+  },
+  "mbox_archiver_compress": {
+    "type": "bool",
+    "default": true,
+    "description": "Whether to compress archived mbox files"
+  },
+  "secret_key": {
+    "type": "string",
+    "default": "",
+    "description": "Secret key used for cryptographic signing of cookies and tokens (generate with 'openssl rand -base64 42')"
+  },
+  "secure_cookies": {
+    "type": "bool",
+    "default": false,
+    "description": "Whether to set cookies as Secure (HTTPS-only) \u2014 enable in production behind HTTPS"
+  }
+}

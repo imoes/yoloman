@@ -1,0 +1,59 @@
+{
+  "connect_timeout": 15,
+  "password_authentication": true,
+  "gssapi_authentication": true,
+  "kex_algorithms": [
+    "curve25519-sha256",
+    "ecdh-sha2-nistp256",
+    "diffie-hellman-group-exchange-sha256"
+  ],
+  "ciphers": [
+    "chacha20-poly1305@openssh.com",
+    "aes256-gcm@openssh.com"
+  ],
+  "macs": [
+    "umac-128-etm@openssh.com",
+    "hmac-sha2-512-etm@openssh.com"
+  ],
+  "compression": "auto",
+  "forward_x11": false,
+  "forward_agent": false,
+  "identity_files": [
+    "~/.ssh/id_ed25519",
+    "~/.ssh/id_rsa"
+  ],
+  "default_user": "admin",
+  "dynamic_forward_port": 0,
+  "strict_host_key_checking": "ask",
+  "update_host_keys": "no",
+  "server_alive_interval": 60,
+  "server_alive_count_max": 3,
+  "log_level": "INFO",
+  "host_entries": [
+    {
+      "host_pattern": "dev-*",
+      "user": "developer",
+      "hostname": "dev.example.com",
+      "port": 2222,
+      "forward_agent": true,
+      "forward_x11": true,
+      "identity_file": "~/.ssh/dev_key"
+    },
+    {
+      "host_pattern": "prod-*",
+      "user": "ops",
+      "hostname": "prod.example.com",
+      "port": 22,
+      "forward_agent": false,
+      "proxy_jump": "bastion.example.com",
+      "strict_host_key_checking": "yes",
+      "log_level": "DEBUG"
+    },
+    {
+      "host_pattern": "internal-*",
+      "user": "svc",
+      "hostname": "internal.example.org",
+      "dynamic_forward_port": 1080
+    }
+  ]
+}

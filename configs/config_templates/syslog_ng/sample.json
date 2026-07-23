@@ -1,0 +1,101 @@
+{
+  "log_fifo_size": 8192,
+  "use_dns": false,
+  "dns_cache_hosts": "/etc/hosts",
+  "use_fqdn": true,
+  "create_dirs": true,
+  "perm_dir": "0755",
+  "template_escape": true,
+  "keep_timestamps": true,
+  "sources": [
+    {
+      "name": "s_internal",
+      "type": "internal"
+    },
+    {
+      "name": "s_tcp",
+      "type": "tcp",
+      "bind_address": "0.0.0.0",
+      "port": 601,
+      "max_connections": 200,
+      "tls": {
+        "enabled": true,
+        "verify": "optional",
+        "ca_file": "/etc/syslog-ng/tls/ca.pem",
+        "cert_file": "/etc/syslog-ng/tls/server-cert.pem",
+        "key_file": "/etc/syslog-ng/tls/server-key.pem"
+      }
+    },
+    {
+      "name": "s_udp",
+      "type": "udp",
+      "bind_address": "0.0.0.0",
+      "port": 514,
+      "recv_buffer": 262144
+    }
+  ],
+  "destinations": [
+    {
+      "name": "d_local",
+      "type": "file",
+      "path": "/var/log/messages",
+      "perm": "0640"
+    },
+    {
+      "name": "d_remote",
+      "type": "syslog",
+      "host": "log-aggregator.internal",
+      "port": 6514,
+      "tls": {
+        "enabled": true,
+        "verify": "required",
+        "ca_file": "/etc/syslog-ng/tls/ca.pem"
+      }
+    }
+  ],
+  "filters": [
+    {
+      "name": "f_debug",
+      "expression": "level(debug)"
+    },
+    {
+      "name": "f_auth",
+      "expression": "program(sshd) or facility(auth)"
+    }
+  ],
+  "logpaths": [
+    {
+      "sources": [
+        "s_internal",
+        "s_tcp",
+        "s_udp"
+      ],
+      "destinations": [
+        "d_local"
+      ]
+    },
+    {
+      "sources": [
+        "s_internal",
+        "s_tcp"
+      ],
+      "filters": [
+        "f_auth"
+      ],
+      "destinations": [
+        "/var/log/secure"
+      ]
+    },
+    {
+      "sources": [
+        "s_tcp"
+      ],
+      "destinations": [
+        "d_remote"
+      ]
+    }
+  ],
+  "stats": true,
+  "stats_freq": 300,
+  "include_dir": "/etc/syslog-ng/conf.d"
+}

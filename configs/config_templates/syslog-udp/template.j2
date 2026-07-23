@@ -1,0 +1,13 @@
+# Load UDP input module
+module(load="imudp")
+# Enable UDP input
+input(type="imudp" port="{{ udp_port }}" address="{{ udp_address }}")
+{% if tcp_enabled %}
+# Load TCP input module (optional)
+module(load="imtcp")
+input(type="imtcp" port="{{ tcp_port }}" address="{{ tcp_address }}")
+{% endif %}
+# Default rule: log to system log files
+{% for log_rule in log_rules %}
+{{ log_rule.selector }}	{{ log_rule.action }}
+{% endfor %}

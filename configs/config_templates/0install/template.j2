@@ -1,0 +1,61 @@
+{# 0install configuration file #}
+
+# Feed sources (URLs to .xml feeds) that provide packages
+{% for feed in feeds %}
+# Feed: {{ feed.url }} ({{ feed.name | default('unnamed') }})
+feed: {{ feed.url }}
+{% endfor %}
+
+# Default implementation selection preferences
+# (override per-feed or per-package via their .xml if needed)
+{% if default_selection %}
+# Default selection criteria
+{% for criterion in default_selection %}
+# {{ criterion.type }}: {{ criterion.value }}
+selection: {{ criterion.type }} {{ criterion.value }}
+{% endfor %}
+{% endif %}
+
+# Local cache directory (optional, defaults to ~/.cache/0install.net)
+{% if cache_dir %}
+# Cache directory path
+cache: {{ cache_dir }}
+{% endif %}
+
+# Trust configuration (list of fingerprints to trust by default)
+{% if trust %}
+# Trusted keys (GPG fingerprints or hashes)
+{% for key in trust %}
+# Trust key: {{ key.fingerprint }} ({{ key.name | default('unnamed') }})
+trust: {{ key.fingerprint }}
+{% endfor %}
+{% endif %}
+
+# Mirror configuration for feeds (optional)
+{% if mirrors %}
+# Feed mirrors
+{% for feed_mirror in mirrors %}
+# Mirror for: {{ feed_mirror.feed_url }}
+{% for url in feed_mirror.urls %}
+mirror: {{ feed_mirror.feed_url }} {{ url }}
+{% endfor %}
+{% endfor %}
+{% endif %}
+
+# Network policy (e.g., 'offline', 'cached', 'online')
+{% if network_policy %}
+# Network policy: {{ network_policy }}
+network: {{ network_policy }}
+{% endif %}
+
+# Architecture preference (optional, e.g., 'amd64', 'i386')
+{% if arch %}
+# Default architecture
+arch: {{ arch }}
+{% endif %}
+
+# Execution isolation level (e.g., 'strict', 'sandbox', 'none')
+{% if isolation_level %}
+# Execution isolation
+isolation: {{ isolation_level }}
+{% endif %}

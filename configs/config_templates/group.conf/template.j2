@@ -1,0 +1,12 @@
+# PAM group.conf: specifies group membership rules for PAM modules
+# Each line defines a rule mapping users to groups under certain conditions
+# Rules are evaluated in order; first match wins
+# Syntax: {rule_type}:{condition} {group_name}
+# Supported rule types: group, time, user, service, tty, rhost, ruser
+# Example: group:wheel *:root
+
+# Default group assignments (applied when no other rule matches)
+{% for rule in rules %}# {{ rule.description | default('') }}
+{% if rule.comment %}# {{ rule.comment }}
+{% endif %}{{ rule.type }}:{{ rule.condition }} {{ rule.group }}
+{% endfor %}

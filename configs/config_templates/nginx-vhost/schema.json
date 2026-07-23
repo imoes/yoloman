@@ -1,0 +1,96 @@
+{
+  "listen_port": {
+    "type": "number",
+    "default": 80,
+    "description": "Port the server listens on (e.g., 80 or 443)."
+  },
+  "listen_ipv6": {
+    "type": "bool",
+    "default": true,
+    "description": "Whether to also listen on IPv6."
+  },
+  "server_name": {
+    "type": "string",
+    "default": "example.com",
+    "description": "Primary domain name for this server block."
+  },
+  "root": {
+    "type": "string",
+    "default": "/var/www/html",
+    "description": "Document root directory for the site."
+  },
+  "tls_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable HTTPS with TLS."
+  },
+  "ssl_certificate": {
+    "type": "string",
+    "default": "/etc/ssl/certs/example.crt",
+    "description": "Path to SSL certificate file (only used if tls_enabled=true)."
+  },
+  "ssl_certificate_key": {
+    "type": "string",
+    "default": "/etc/ssl/private/example.key",
+    "description": "Path to SSL private key file (only used if tls_enabled=true)."
+  },
+  "redirect_to_https": {
+    "type": "bool",
+    "default": false,
+    "description": "If true, add an HTTP->HTTPS redirect server block."
+  },
+  "upstreams": {
+    "type": "list",
+    "default": [],
+    "description": "List of upstream definitions for proxy/load balancing.",
+    "items": {
+      "name": {
+        "type": "string",
+        "default": "",
+        "description": "Name of the upstream block (e.g., 'app1')."
+      },
+      "servers": {
+        "type": "list",
+        "default": [],
+        "description": "List of upstream server addresses (e.g., ['127.0.0.1:8080']).",
+        "items": {
+          "type": "string",
+          "default": "",
+          "description": "Upstream server address (hostname:port or IP:port)."
+        }
+      }
+    }
+  },
+  "locations": {
+    "type": "list",
+    "default": [],
+    "description": "List of location blocks.",
+    "items": {
+      "path": {
+        "type": "string",
+        "default": "/",
+        "description": "Location path (e.g., '/', '/api', '~\\.php$')."
+      },
+      "proxy_pass": {
+        "type": "string",
+        "default": "",
+        "description": "Target upstream or backend for proxy (e.g., 'http://app1')."
+      },
+      "try_files": {
+        "type": "string",
+        "default": "",
+        "description": "try_files directive (e.g., '$uri $uri/ =404')."
+      },
+      "extra": {
+        "type": "string",
+        "default": "",
+        "description": "Additional raw directives (e.g., 'proxy_set_header Host $host;')."
+      }
+    }
+  },
+  "extra_server_parameters": {
+    "type": "string",
+    "default": "",
+    "description": "Additional raw directives for the server block (e.g., 'client_max_body_size 100m;')."
+  }
+}

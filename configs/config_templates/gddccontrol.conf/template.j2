@@ -1,0 +1,52 @@
+# gddccontrol main configuration file
+[General]
+# Enable or disable debug logging
+Debug = {{ debug }}
+
+# Path to log file
+LogPath = {{ log_path }}
+
+# Maximum size (in MB) of log files before rotation
+MaxLogSize = {{ max_log_size }}
+
+# Number of rotated log files to keep
+MaxLogFiles = {{ max_log_files }}
+
+# List of monitors to control (DDC/CI bus identifiers)
+Monitors = {{ monitors | join(', ') }}
+
+# Default brightness level (0-100)
+DefaultBrightness = {{ default_brightness }}
+
+# Default contrast level (0-100)
+DefaultContrast = {{ default_contrast }}
+
+# Minimum time (in seconds) between brightness changes
+MinInterval = {{ min_interval }}
+
+# Enable auto-save of brightness settings on exit
+AutoSave = {{ auto_save }}
+
+{% for monitor in monitor_configs %}
+# Configuration for {{ monitor.id }}
+[Monitor:{{ monitor.id }}]
+Name = {{ monitor.name }}
+Bus = {{ monitor.bus }}
+Address = {{ monitor.address }}
+# Brightness curve: linear, sRGB, gamma, custom
+Curve = {{ monitor.curve }}
+# Custom gamma value (if curve = gamma)
+Gamma = {{ monitor.gamma | default(2.2) }}
+# Minimum brightness for this monitor
+MinBrightness = {{ monitor.min_brightness | default(5) }}
+# Maximum brightness for this monitor
+MaxBrightness = {{ monitor.max_brightness | default(100) }}
+{% endfor %}
+
+# Trigger configuration — runs scripts on brightness change
+{% for trigger in triggers %}
+# {{ trigger.description }}
+[Trigger:{{ trigger.id }}]
+Event = {{ trigger.event }}
+Command = {{ trigger.command }}
+{% endfor %}

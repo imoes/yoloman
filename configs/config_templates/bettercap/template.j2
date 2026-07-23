@@ -1,0 +1,48 @@
+# Bettercap configuration file
+# Load modules automatically at startup
+{% for module in startup_modules %}# Module: {{ module.name }}
+{% if module.enabled %}set {{ module.name }}.enabled true{% else %}# set {{ module.name }}.enabled false{% endif %}
+{% endfor %}
+
+# Network interface to use for sniffing/proxying
+set net.interface {{ net_interface }}
+
+# Gateway IP address (auto-detected if not set)
+{% if gateway_ip %}set net.gateway {{ gateway_ip }}{% endif %}
+
+# HTTP proxy port
+set http.proxy.port {{ http_proxy_port }}
+
+# HTTPS proxy port
+set https.proxy.port {{ https_proxy_port }}
+
+# Enable/disable transparent proxy mode
+{% if transparent_proxy %}set http.proxy.transparent true{% else %}set http.proxy.transparent false{% endif %}
+{% if transparent_proxy %}set https.proxy.transparent true{% else %}set https.proxy.transparent false{% endif %}
+
+# Enable/disable SSL stripping
+{% if ssl_strip %}set http.proxy.sslstrip true{% else %}set http.proxy.sslstrip false{% endif %}
+
+# DNS spoofing targets (comma-separated domains)
+{% if dns_spoof.domains %}set dns.spoof.domains {{ dns_spoof.domains | join(',') }}{% endif %}
+
+# DNS spoofing addresses (same index as domains — one IP per domain)
+{% if dns_spoof.domains %}set dns.spoof.addresses {{ dns_spoof.addresses | join(',') }}{% endif %}
+
+# Enable/disable ARP spoofing (required for traditional MITM)
+{% if arp_spoof %}set arp.spoof true{% else %}set arp.spoof false{% endif %}
+
+# Enable/disable ICMP redirects (optional, for stealth)
+{% if icmp_redirects %}set net.sniff.icmp redirects true{% else %}set net.sniff.icmp redirects false{% endif %}
+
+# Credentials harvesting targets (services)
+set credentials.capture.targets {{ credentials_capture_targets | join(',') }}
+
+# Enable session hijacking
+{% if session_hijacking %}set http.hijack true{% else %}set http.hijack false{% endif %}
+
+# Log file path
+set log.file {{ log_file }}
+
+# Log verbosity level (0-5)
+set log.level {{ log_level }}

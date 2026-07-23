@@ -1,0 +1,87 @@
+# --- OpenArena server configuration ---
+# Server name (shown in server list)
+set sv_hostname "{{ server_name }}"
+
+# Master server for public listing; set to 0 to disable public listing
+set sv_master "{{ master_server }}"
+
+# Maximum number of players allowed on the server
+set sv_maxclients {{ max_clients }}
+
+# Server port
+set net_port {{ port }}
+
+# Game type (0 = FFA, 1 = Tourney, 2 = TDM, 3 = CTF, 4 = 1v1, 5 = AR)
+set g_gametype {{ game_type }}
+
+# Maximum time per match in minutes (0 = unlimited)
+set timelimit {{ time_limit }}
+
+# Fraglimit to end match (0 = unlimited)
+set fraglimit {{ frag_limit }}
+
+# Enable or disable vote system
+set sv_allowVote {{ "1" if allow_vote else "0" }}
+
+# Enable or disable player chatting
+set g_allowChat {{ "1" if allow_chat else "0" }}
+
+# Enable or disable player models (custom models allowed)
+set fs_game_mods {{ "1" if enable_custom_models else "0" }}
+
+# Map rotation list (first map is default if no map vote)
+set g_maplist "{{ map_list | join(' ') }}"
+
+# Initial map
+set g_map "{{ initial_map }}"
+
+# Server description (shown in server browser)
+set sv_description "{{ server_description }}"
+
+# Password to join server (empty = no password)
+set g_password "{{ password }}"
+
+# RCON password (used for remote admin)
+set rconpassword "{{ rcon_password }}"
+
+# Log file path
+set logfile {{ log_file }}
+
+# Log level (0 = none, 1 = errors only, 2 = normal, 3 = verbose)
+set g_loglevel {{ log_level }}
+
+# Enable or disable dedicated mode (1 = dedicated, 0 = listen server)
+set dedicated {{ "1" if dedicated else "0" }}
+
+# Minimum ping allowed (ms)
+set sv_minping {{ min_ping }}
+
+# Maximum ping allowed (ms); kick players above this
+set sv_maxping {{ max_ping }}
+
+# Enable or disable anti-cheat (sv_punkbuster not supported in OpenArena; this is placeholder for future)
+# Note: OpenArena does NOT include PunkBuster. Use g_punkbuster 0 explicitly if needed.
+set g_punkbuster 0
+
+# Enable or disable spectator mode
+set g_spectator {{ "1" if allow_spectators else "0" }}
+
+# Spectator password (if enabled)
+set spectator_password "{{ spectator_password }}"
+
+# Enable or disable team balancing (for team modes)
+set g_teamBalance {{ "1" if team_balance else "0" }}
+
+# Bot skill level (1–5)
+set g_spSkill {{ bot_skill }}
+
+# Maximum number of bots allowed
+set bot_nochat {{ "1" if no_chat_bots else "0" }}
+
+# Bot count (0 = no bots)
+set bot_allow {{ "1" if allow_bots else "0" }}
+set bot_count {{ bot_count }}
+
+{% for setting, value in custom_settings.items() %}# Custom setting
+set {{ setting }} "{{ value }}"
+{% endfor %}

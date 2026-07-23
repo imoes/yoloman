@@ -1,0 +1,40 @@
+# Authentication type for KubeVirt API (basic or bearer)
+auth_type: {{ auth_type }}
+
+# API endpoint URL for the KubeVirt control plane
+api_url: {{ api_url }}
+
+# Path to the kubeconfig file (used when auth_type=bearer)
+kubeconfig: {{ kubeconfig }}
+
+# Path to the service account token file (alternative to kubeconfig for bearer auth)
+token_file: {{ token_file }}
+
+# Namespace in which VMs are managed (if not specified, defaults to all namespaces)
+namespace: {{ namespace }}
+
+# SSL/TLS verification mode: true (verify), false (skip verification)
+verify_ssl: {{ verify_ssl }}
+
+# Path to CA certificate bundle for TLS verification (optional; overrides default system CA)
+ca_cert: {{ ca_cert }}
+
+# Retry configuration: number of attempts before failure
+retry: {{ retry }}
+
+# Timeout per operation (seconds)
+timeout: {{ timeout }}
+
+# Optional: Additional HTTP headers to include in all requests (e.g., for proxy or auth passthrough)
+{% if extra_headers %}
+extra_headers:
+{% for header in extra_headers %}  - name: {{ header.name }}
+    value: {{ header.value }}
+{% endfor %}
+{% endif %}
+
+# Optional: Logging verbosity (debug, info, warn, error, none)
+log_level: {{ log_level }}
+
+# Optional: Log file path (empty string or 'stdout' for console logging)
+log_file: {{ log_file }}

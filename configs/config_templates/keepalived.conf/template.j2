@@ -1,0 +1,103 @@
+# Global definitions
+vrrp_instance {{ vrrp_instance_name }} {
+{% if state == 'MASTER' %}
+    STATE MASTER
+{% else %}
+    STATE BACKUP
+{% endif %}
+    INTERFACE {{ interface }}
+    VRID {{ vrid }}
+    PRIORITY {{ priority }}
+    ADVERT_INT {{ advert_int }}
+{% if authentication %}
+    authentication {
+        auth_type {{ authentication.type }}
+{% if authentication.pass %}
+        auth_pass "{{ authentication.pass }}"
+{% endif %}
+    }
+{% endif %}
+{% if virtual_ipaddress %}
+    virtual_ipaddress {
+{% for vip in virtual_ipaddress %}
+        {{ vip }}
+{% endfor %}
+    }
+{% endif %}
+{% if virtual_ipaddress_dev %}
+    virtual_ipaddress_excluded {
+{% for vip_dev in virtual_ipaddress_dev %}
+        {{ vip_dev }}
+{% endfor %}
+    }
+{% endif %}
+{% if preempt_delay %}
+    PREEMPT_DELAY {{ preempt_delay }}
+{% endif %}
+{% if notify_script %}
+    notify_script {{ notify_script }}
+{% endif %}
+{% if garp_master_delay %}
+    garp_master_delay {{ garp_master_delay }}
+{% endif %}
+{% if garp_master_refresh %}
+    garp_master_refresh_interval {{ garp_master_refresh }}
+{% endif %}
+}
+{% if virtual_server %}
+# Virtual server definitions
+{% for vs in virtual_server %}
+virtual_server {{ vs.ip }} {{ vs.port }} {
+    delay_loop {{ vs.delay_loop }}
+    lb_algo {{ vs.lb_algo }}
+    lb_kind {{ vs.lb_kind }}
+{% if vs.protocol %}
+    protocol {{ vs.protocol }}
+{% endif %}
+{% if vs.persistence %}
+    persistence_timeout {{ vs.persistence }}
+{% endif %}
+{% if vs.sorry_server %}
+    sorry_server {{ vs.sorry_server.ip }} {{ vs.sorry_server.port }}
+{% endif %}
+{% if vs.real_server %}
+{% for rs in vs.real_server %}
+    real_server {{ rs.ip }} {{ rs.port }} {
+{% if rs.weight is defined %}
+        weight {{ rs.weight }}
+{% endif %}
+{% if rs.notify_up %}
+        notify_up "{{ rs.notify_up }}"
+{% endif %}
+{% if rs.notify_down %}
+        notify_down "{{ rs.notify_down }}"
+{% endif %}
+{% if rs.HTTP_GET %}
+        HTTP_GET {
+{% for url in rs.HTTP_GET.urls %}
+            url {
+                path {{ url.path }}
+{% if url.status_code is defined %}
+                status_code {{ url.status_code }}
+{% endif %}
+            }
+{% endfor %}
+            connect_timeout {{ rs.HTTP_GET.connect_timeout }}
+            retry {{ rs.HTTP_GET.retry }}
+            delay_before_retry {{ rs.HTTP_GET.delay_before_retry }}
+        }
+{% endif %}
+{% if rs.TCP_CHECK %}
+        TCP_CHECK {
+            connect_timeout {{ rs.TCP_CHECK.connect_timeout }}
+{% if rs.TCP_CHECK.port is defined %}
+            connect_port {{ rs.TCP_CHECK.port }}
+{% endif %}
+        }
+{% endif %}
+    }
+{% endfor %}
+{% endif %}
+}
+{% endfor %}
+{% endif %}

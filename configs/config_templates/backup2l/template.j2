@@ -1,0 +1,54 @@
+# backup2l configuration file — https://backup2l.github.io/
+
+# Prefix used for backup archive filenames (e.g., 'myhost-backup-YYYYMMDD.tar.gz')
+ARCHIVE_PREFIX = "{{ archive_prefix }}"
+
+# Full path to the directory where backups will be stored
+BACKUP_DIR = "{{ backup_dir }}"
+
+# Number of full backups to keep (older ones will be deleted automatically)
+MAX_FULL_BACKUPS = {{ max_full_backups }}
+
+# Number of incremental backups to keep after the last full backup
+MAX_INCR_BACKUPS = {{ max_incr_backups }}
+
+# Size threshold (in MB) above which an incremental backup is promoted to a full backup
+FULL_BACKUP_THRESHOLD_MB = {{ full_backup_threshold_mb }}
+
+# Enable or disable compression of backup archives (gzip)
+COMPRESS = {% if compress %}yes{% else %}no{% endif %}
+
+# Enable or disable verification of backup archives after creation (requires tar)
+VERIFY = {% if verify %}yes{% else %}no{% endif %}
+
+# List of source directories to include in backups
+{% for src in include_dirs %}INCLUDE {{ src }}
+{% endfor %}
+
+# List of paths/patterns to exclude from backups (supports fnmatch-style wildcards)
+{% for pattern in exclude_patterns %}EXCLUDE {{ pattern }}
+{% endfor %}
+
+# List of additional options to pass to tar (e.g., --one-file-system, --numeric-owner)
+TAR_OPTS = "{{ tar_opts | join(' ') }}"
+
+# Optional: full path to a script to run before backup (e.g., to sync databases)
+PRE_BACKUP_SCRIPT = "{{ pre_backup_script }}"
+
+# Optional: full path to a script to run after backup (e.g., to upload to remote storage)
+POST_BACKUP_SCRIPT = "{{ post_backup_script }}"
+
+# Email address to send backup notifications (empty = no email)
+NOTIFY_EMAIL = "{{ notify_email }}"
+
+# Email subject prefix for notifications (useful for filtering)
+NOTIFY_SUBJECT_PREFIX = "{{ notify_subject_prefix }}"
+
+# Minimum severity level for email notifications: 'error', 'warn', 'always'
+NOTIFY_LEVEL = "{{ notify_level }}"
+
+# Log file path (empty = log to stderr only)
+LOG_FILE = "{{ log_file }}"
+
+# Verbosity level: 0 (quiet), 1 (normal), 2 (verbose), 3 (debug)
+VERBOSITY = {{ verbosity }}

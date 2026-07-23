@@ -1,0 +1,143 @@
+# Listen on specified host and port for XMPP client connections
+listen:
+{% for listener in listeners %}
+  -
+{% if listener.comment is defined %}    # {{ listener.comment }}
+{% endif %}    port: {{ listener.port }}
+    module: {{ listener.module }}
+    ip: {{ listener.ip }}
+{% if listener.starttls is defined %}    starttls: {{ listener.starttls }}
+{% endif %}{% if listener.tls_cert is defined %}    tls_cert: {{ listener.tls_cert }}
+{% endif %}{% if listener.max_stanza_size is defined %}    max_stanza_size: {{ listener.max_stanza_size }}
+{% endif %}{% if listener.shaper is defined %}    shaper: {{ listener.shaper }}
+{% endif %}{% if listener.access is defined %}    access: {{ listener.access }}
+{% endif %}{% if listener.protocol_options is defined %}    protocol_options:
+{% for opt in listener.protocol_options %}      - {{ opt }}
+{% endfor %}{% endif %}{% if listener.vhost is defined %}    vhost: {{ listener.vhost }}
+{% endif %}
+{% endfor %}
+
+# Log directory and level
+logpath: {{ log_path }}
+loglevel: {{ log_level }}
+
+# Authentication backend
+auth_method: {{ auth_method }}
+{% if auth_method == 'sql' %}
+# Database configuration for SQL auth
+sql_type: {{ sql.type }}
+sql_server: {{ sql.server }}
+sql_database: {{ sql.database }}
+sql_username: {{ sql.username }}
+sql_password: {{ sql.password }}
+{% if sql.port is defined %}sql_port: {{ sql.port }}
+{% endif %}
+{% if sql.pool_size is defined %}sql_pool_size: {{ sql.pool_size }}
+{% endif %}
+{% if sql.timeout is defined %}sql_timeout: {{ sql.timeout }}
+{% endif %}
+{% endif %}
+
+# Hostname(s)
+hosts:
+{% for host in hosts %}  - {{ host }}
+{% endfor %}
+
+# Module configuration
+modules:
+{% for module_name, module_config in modules.items() %}
+  {{ module_name }}:
+{% if module_config.comment is defined %}    # {{ module_config.comment }}
+{% endif %}{% if module_config.max_user_sessions is defined %}    max_user_sessions: {{ module_config.max_user_sessions }}
+{% endif %}{% if module_config.language is defined %}    language: {{ module_config.language }}
+{% endif %}{% if module_config.max_stanza_size is defined %}    max_stanza_size: {{ module_config.max_stanza_size }}
+{% endif %}{% if module_config.shaper is defined %}    shaper: {{ module_config.shaper }}
+{% endif %}{% if module_config.access is defined %}    access: {{ module_config.access }}
+{% endif %}{% if module_config.acl is defined %}    acl:
+{% for acl_rule in module_config.acl %}      - {{ acl_rule }}
+{% endfor %}
+{% endif %}{% if module_config.muc_room_lock_timeout is defined %}    muc_room_lock_timeout: {{ module_config.muc_room_lock_timeout }}
+{% endif %}{% if module_config.muc_max_occupants is defined %}    muc_max_occupants: {{ module_config.muc_max_occupants }}
+{% endif %}{% if module_config.muc_room_default_public is defined %}    muc_room_default_public: {{ module_config.muc_room_default_public }}
+{% endif %}{% if module_config.muc_room_default_persistent is defined %}    muc_room_default_persistent: {{ module_config.muc_room_default_persistent }}
+{% endif %}{% if module_config.muc_room_default_anonymous is defined %}    muc_room_default_anonymous: {{ module_config.muc_room_default_anonymous }}
+{% endif %}
+{% endfor %}
+
+# ejabberd-mod-cron: scheduled tasks (CRON jobs)
+# Cron tasks — each runs at specified time interval or schedule
+{% if cron_tasks is defined %}cron:
+{% for job in cron_tasks %}  -
+{% if job.comment is defined %}    # {{ job.comment }}
+{% endif %}    schedule: "{{ job.schedule }}"
+    command: "{{ job.command }}"
+{% if job.user is defined %}    user: {{ job.user }}
+{% endif %}
+{% endfor %}
+{% endif %}
+
+# Global shaper settings
+shaper:
+{% for name, limits in shapers.items() %}
+  {{ name }}:
+    max_rate: {{ limits.max_rate }}
+{% if limits.burst is defined %}    burst: {{ limits.burst }}
+{% endif %}
+{% endfor %}
+
+# Access control lists
+acl:
+{% for name, rules in acls.items() %}
+  {{ name }}:
+{% for rule in rules %}    - {{ rule }}
+{% endfor %}
+{% endfor %}
+
+# Access rules referencing ACLs
+access:
+{% for name, rule in accesses.items() %}
+  {{ name }}:
+{% for item in rule %}    - {{ item }}
+{% endfor %}
+{% endfor %}
+
+# API configuration
+api_permissions:
+  "admin":
+    access:
+      - allow:
+{% for admin in admins %}        - user: "{{ admin.user }}"
+          ip: "{{ admin.ip }}"
+{% endfor %}
+
+# Node configuration
+tcp_ports: {{ tcp_ports }}
+inet6: {{ inet6 }}
+{% if listen_ipv4 is defined %}listen_ipv4:
+{% for addr in listen_ipv4 %}  - {{ addr }}
+{% endfor %}
+{% endif %}
+{% if listen_ipv6 is defined %}listen_ipv6:
+{% for addr in listen_ipv6 %}  - {{ addr }}
+{% endfor %}
+{% endif %}
+
+# S2S configuration
+s2s_use_starttls: {{ s2s_use_starttls }}
+{% if s2s_ports is defined %}s2s_ports:
+{% for port in s2s_ports %}  - {{ port }}
+{% endfor %}
+{% endif %}
+{% if s2s_certfile is defined %}s2s_certfile: {{ s2s_certfile }}
+{% endif %}
+{% if s2s_timeout is defined %}s2s_timeout: {{ s2s_timeout }}
+{% endif %}
+
+# Backup and maintenance paths
+dump_path: {{ dump_path }}
+backup_path: {{ backup_path }}
+
+# TLS/SSL defaults
+default_tls_options:
+{% for opt in default_tls_options %}  - {{ opt }}
+{% endfor %}

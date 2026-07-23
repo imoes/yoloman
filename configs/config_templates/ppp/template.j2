@@ -1,0 +1,71 @@
+# PPP daemon main configuration
+# This file contains global options for the pppd daemon
+# Enable debug logging (0-5, higher = more verbose)
+debug {{ debug_level }}
+# Log to syslog instead of /var/log/messages
+logto /var/log/ppp.log
+# Use system's PAM for authentication
+usepam
+# Allow peer to use its own IP (if not specified in secrets)
+# Require peer to authenticate before allowing IP traffic
+require-chap
+# Disable Microsoft CHAP variants (MS-CHAPv1/v2) for security
+nomp-chap
+nomp-chap-v2
+# Allow legacy (insecure) plaintext PAP if necessary
+allow-pap
+# Require authentication from peer
+# (if commented out, pppd will not require peer to authenticate)
+#auth
+# Set maximum idle time in seconds before disconnecting (0 = no limit)
+idle {{ idle_timeout }}
+# Set maximum connect time in seconds (0 = no limit)
+maxconnect {{ max_connect_time }}
+# Lock the serial device to prevent conflicts
+lock
+# Disable hardware flow control
+nocrtscts
+# Set speed for the serial device
+# (set to 0 to auto-negotiate, but most modems require explicit speed)
+speed {{ serial_speed }}
+# DNS configuration: push DNS servers to peer
+{% for dns_server in dns_servers %}ms-dns {{ dns_server }}
+{% endfor %}
+# WINS server (NetBIOS name resolution) for Windows peers
+{% for wins_server in wins_servers %}ms-wins {{ wins_server }}
+{% endfor %}
+# IP address assignment
+# Static local/remote IP pair
+{% if static_ips %}
+{{ local_ip }}:{{ remote_ip }}
+{% else %}
+# Allow dynamic IP assignment from pool (requires ipaddr file or similar)
+# ip-up script can assign via dhclient, etc.
+noipdefault
+# Require peer to supply its own IP (if not specified above)
+# (only effective if static_ips is false and no remote IP given)
+#remotename
+{% endif %}
+# Disable protocol compression (LCP compression)
+nopcomp
+# Disable address-and-control compression (ACF)
+noaccomp
+# Enable VJ TCP header compression (for older links)
+vj
+# Set maximum MRU (Maximum Receive Unit)
+# Default is usually 1500; reduce for PPPoE (e.g., 1492)
+mru {{ mru_size }}
+# Set maximum MTU (Maximum Transmission Unit)
+mtu {{ mtu_size }}
+# LCP echo interval and failure threshold (keepalive)
+lcp-echo-interval {{ lcp_echo_interval }}
+lcp-echo-failure {{ lcp_echo_failure }}
+# Persist: keep trying to reconnect after link down
+persist
+# Hide username/password in logs (no effect if noauth used)
+hide-password
+# Require chap-secrets or EAP credentials file
+chap-secrets /etc/ppp/chap-secrets
+# Use this interface name (e.g., ppp0, ppp1)
+# (usually set dynamically; override only if needed)
+#interface

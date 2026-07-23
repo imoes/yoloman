@@ -1,0 +1,50 @@
+# dbskkd.conf — Main configuration file for the dbskkd-cdb database service
+# Listening address and port for client connections
+listen: {{ listen_address }}:{{ listen_port }}
+
+# Database directory where index and data files are stored
+db_path: {{ db_path }}
+
+# Maximum number of simultaneous client connections
+max_connections: {{ max_connections }}
+
+# Number of worker threads for query processing
+worker_threads: {{ worker_threads }}
+
+# Enable or disable compression of stored data
+enable_compression: {{ enable_compression | lower }}
+
+# Cache size in megabytes for query result caching
+cache_size_mb: {{ cache_size_mb }}
+
+# Log level: one of debug, info, warn, error
+log_level: {{ log_level }}
+
+# Log file path (use 'stdout' for console output)
+log_file: {{ log_file }}
+
+# Authentication method: one of none, password, cert
+auth_method: {{ auth_method }}
+
+# Password file path (used when auth_method = password)
+{% if auth_method == 'password' %}
+password_file: {{ password_file }}
+{% endif %}
+
+# TLS certificate and key paths (used when auth_method = cert)
+{% if auth_method == 'cert' %}
+tls_cert: {{ tls_cert }}
+tls_key: {{ tls_key }}
+{% endif %}
+
+# Access control: list of allowed IP ranges and optional labels
+{% for rule in access_rules %}
+# Access rule: {{ rule.description | default('no description') }}
+allow_ip: {{ rule.network }}{{ ('/' ~ rule.prefix_length) if rule.prefix_length is defined else '' }}
+{% endfor %}
+
+# Timeout for client idle connections (seconds)
+idle_timeout_sec: {{ idle_timeout_sec }}
+
+# Query timeout for long-running operations (seconds)
+query_timeout_sec: {{ query_timeout_sec }}

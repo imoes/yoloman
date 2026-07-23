@@ -1,0 +1,53 @@
+# OpenSMTPD main configuration file
+# Global options
+# SMTP listen addresses and ports
+{% for listener in listeners %}# Listener: {{ listener.name }}
+listen on {{ listener.interface | default('127.0.0.1') }} port {{ listener.port }}{% if listener.tls %} tls{% endif %}{% if listener.hostname %} hostname {{ listener.hostname }}{% endif %}
+{% endfor %}
+
+# Domain handling
+{% if domains %}# Domains handled by this MTA
+{% for domain in domains %}# Domain: {{ domain.name }}
+externally visible for {{ domain.name }}
+{% endfor %}
+{% endif %}
+
+# Table definitions (aliases, maps, etc.)
+{% if tables %}# Table definitions
+{% for table in tables %}# Table: {{ table.name }} ({{ table.type }})
+{{ table.name }} {{ table.type }} "{{ table.source }}"
+{% endfor %}
+{% endif %}
+
+# Routing rules
+# Mail routing: accept -> route -> deliver
+{% if routes %}# Mail routing rules
+{% for route in routes %}# Route: {{ route.name }}
+{% if route.condition %}{{ route.condition }}
+{% endif %}action "{{ route.action }}" {% if route.match %}match {% endif %}{% if route.from %}from {% %}{{ route.from | join(', ') }}{% endif %}{% if route.to %}to {% %}{{ route.to | join(', ') }}{% endif %}for {{ route.for_type }} {{ route.destination }}
+{% endfor %}
+{% else %}# Default routing: accept local mail and forward to MX
+accept from any for domain "{{ default_domain }}" deliver to mailbox
+{% if relay_hosts %}# Relay hosts
+accept from any for any relay via "{{ relay_hosts[0] }}"
+{% endif %}
+{% endif %}
+
+# TLS configuration (if enabled)
+{% if tls.enabled %}# TLS settings
+# Certificate and key paths
+tls certificate "{{ tls.certificate }}"
+tls key "{{ tls.key }}"
+# TLS ciphers (optional)
+{% if tls.ciphers %}tls ciphers "{{ tls.ciphers }}"
+{% endif %}
+{% endif %}
+
+# Rate limiting
+{% if rate_limit.enabled %}# Rate limiting
+limit smtp-in {{ rate_limit.connections }} connections per {{ rate_limit.period }}
+{% endif %}
+
+# Logging
+# Log level: { verbose | info | error | fatal }
+log level {{ log_level }}

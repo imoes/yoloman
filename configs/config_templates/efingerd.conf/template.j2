@@ -1,0 +1,59 @@
+# Listen address and port
+listen = {{ listen.address }}:{{ listen.port }}
+
+# User and group to run as
+user = {{ user }}
+group = {{ group }}
+
+# Root directory for chroot (empty string disables chroot)
+root = {{ root }}
+
+# Maximum number of concurrent connections
+max_connections = {{ max_connections }}
+
+# Enable/disable verbose logging
+verbose = {{ verbose }}
+
+# Log file path (empty string logs to stderr)
+logfile = {{ logfile }}
+
+# Fingerprint database path
+db_path = {{ db_path }}
+
+# Timeout for client connections (seconds)
+timeout = {{ timeout }}
+
+# Allow anonymous queries
+allow_anonymous = {{ allow_anonymous }}
+
+# List of allowed IPs (empty = allow all); deny if not listed
+{% for ip in allowed_ips %}# Allowed IP: {{ ip }}
+{% endfor %}
+{% for ip in allowed_ips %}allow_ip = {{ ip }}
+{% endfor %}
+
+# List of denied IPs (empty = deny none)
+{% for ip in denied_ips %}# Denied IP: {{ ip }}
+{% endfor %}
+{% for ip in denied_ips %}deny_ip = {{ ip }}
+{% endfor %}
+
+# Custom finger response templates (key = username pattern, value = template string)
+{% for pattern, template in response_templates.items() %}# Template for pattern: {{ pattern }}
+response_template[{{ pattern | regex_replace('[\\[\\]\\^\\$\\.\\|\\(\\)\\{\\}\\+\\?]', '\\\\&') }}] = {{ template | tojson | replace('"', "'") }}
+{% endfor %}
+
+# Default response (if no pattern matches)
+default_response = {{ default_response | tojson | replace('"', "'") }}
+
+# Enable/disable SSL/TLS
+ssl_enabled = {{ ssl_enabled }}
+
+{% if ssl_enabled %}
+# SSL certificate and key paths
+ssl_cert = {{ ssl_cert }}
+ssl_key = {{ ssl_key }}
+{% endif %}
+
+# Enable/disable IPv6 support
+ipv6_enabled = {{ ipv6_enabled }}

@@ -1,0 +1,115 @@
+{
+  "listen_addresses": {
+    "type": "list",
+    "default": [
+      {
+        "host": "0.0.0.0",
+        "port": 67
+      },
+      {
+        "host": "::",
+        "port": 67
+      }
+    ],
+    "description": "List of network addresses and ports the server listens on for DHCP requests.",
+    "items": {
+      "type": "object",
+      "fields": {
+        "host": {
+          "type": "string",
+          "default": "0.0.0.0",
+          "description": "IP address to bind to (e.g., 0.0.0.0 for all IPv4, [::] for all IPv6, or a specific IP)."
+        },
+        "port": {
+          "type": "number",
+          "default": 67,
+          "description": "UDP port number (typically 67 for DHCP server)."
+        }
+      }
+    }
+  },
+  "plugins": {
+    "type": "list",
+    "default": [
+      {
+        "name": "serverid",
+        "args": [
+          "-file",
+          "/etc/coredhcp/server-id"
+        ]
+      },
+      {
+        "name": "file",
+        "args": [
+          "-file",
+          "/etc/coredhcp/resolv.conf"
+        ]
+      }
+    ],
+    "description": "Ordered list of plugins to enable, with optional space-separated arguments.",
+    "items": {
+      "type": "object",
+      "fields": {
+        "name": {
+          "type": "string",
+          "default": "",
+          "description": "Name of the plugin (e.g., serverid, file, range, hosts)."
+        },
+        "args": {
+          "type": "list",
+          "default": [],
+          "items": {
+            "type": "string",
+            "default": ""
+          },
+          "description": "List of arguments passed to the plugin (if any)."
+        }
+      }
+    }
+  },
+  "static_hosts": {
+    "type": "list",
+    "default": [],
+    "description": "Static host entries for fixed MAC \u2192 IP assignments (optional).",
+    "items": {
+      "type": "object",
+      "fields": {
+        "hostname": {
+          "type": "string",
+          "default": "",
+          "description": "Optional hostname to assign to the device."
+        },
+        "mac": {
+          "type": "string",
+          "default": "",
+          "description": "MAC address (format: aa:bb:cc:dd:ee:ff)."
+        },
+        "ipv4": {
+          "type": "string",
+          "default": "",
+          "description": "IPv4 address to assign (optional)."
+        },
+        "ipv6": {
+          "type": "string",
+          "default": "",
+          "description": "IPv6 address to assign (optional)."
+        }
+      }
+    }
+  },
+  "log_level": {
+    "type": "string",
+    "default": "info",
+    "description": "Verbosity level for server logs."
+  },
+  "lease_file": {
+    "type": "string",
+    "default": "/var/lib/coredhcp/leases.dat",
+    "description": "Path to the file where active DHCP leases are persisted (enables lease continuity across restarts). Leave empty to disable persistence."
+  },
+  "shutdown_timeout": {
+    "type": "number",
+    "default": 5,
+    "description": "Seconds to wait during shutdown for in-progress requests to complete before force-exiting."
+  }
+}

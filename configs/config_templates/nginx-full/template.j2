@@ -1,0 +1,126 @@
+# Worker processes: number of worker processes (typically CPU cores)
+worker_processes {{ worker_processes }};
+
+# Error log configuration
+{% if error_log %}error_log {{ error_log }};
+{% endif %}# PID file path
+pid {{ pid_file }};
+
+# Events block: tuning connection handling
+events {
+  # Maximum simultaneous connections per worker
+  worker_connections {{ worker_connections }};
+
+  # Use epoll on Linux for scalable I/O
+  use epoll;
+}
+
+# HTTP block: core HTTP server behavior
+http {
+  # Include MIME types
+  include /etc/nginx/mime.types;
+
+  # Default MIME type for unknown files
+  default_type application/octet-stream;
+
+  # Sendfile: efficient file transfer for static content
+  sendfile {{ sendfile | lower }};
+
+  # TCP nodelay for lower latency on active connections
+  tcp_nodelay {{ tcp_nodelay | lower }};
+
+  # TCP nopush (or tcp_nopush) — better for static content delivery
+  tcp_nopush {{ tcp_nopush | lower }};
+
+  # Keepalive timeout (seconds)
+  keepalive_timeout {{ keepalive_timeout }};
+
+  # Client body buffer size (max request body size before temp file)
+  client_body_buffer_size {{ client_body_buffer_size }};
+
+  # Client header buffer size
+  client_header_buffer_size {{ client_header_buffer_size }};
+
+  # Large client header buffer size for long URIs or headers
+  large_client_header_buffers {{ large_client_header_buffers }};
+
+  # Log format definition (optional: if not using default combined)
+{% if log_format_custom %}  log_format custom '{{ log_format_custom | replace("'", "\\'") }}';
+{% endif %}  # Gzip compression settings
+  gzip {{ gzip_enabled | lower }};
+  gzip_vary {{ gzip_vary | lower }};
+  gzip_proxied {{ gzip_proxied }};
+  gzip_comp_level {{ gzip_comp_level }};
+  gzip_min_length {{ gzip_min_length }};
+  gzip_types {{ gzip_types | join(' ') }};
+
+  # FastCGI buffering (for PHP-FPM / backend apps)
+  fastcgi_buffering {{ fastcgi_buffering | lower }};
+  fastcgi_buffers {{ fastcgi_buffers }};
+  fastcgi_buffer_size {{ fastcgi_buffer_size }};
+
+  # Upstream definitions (load balancing backends)
+{% for upstream in upstreams %}  upstream {{ upstream.name }} {
+{% if upstream.hash %}    hash {{ upstream.hash }};
+{% elif upstream.ip_hash %}    ip_hash;
+{% endif %}{% for server in upstream.servers %}    server {{ server.address }}:{{ server.port }}{% if server.weight %} weight={{ server.weight }}{% endif %}{% if server.backup %} backup{% endif %}{% if server.max_fails %} max_fails={{ server.max_fails }}{% endif %}{% if server.fail_timeout %} fail_timeout={{ server.fail_timeout }}{% endif %};
+{% endfor %}    keepalive {{ upstream.keepalive | default(0) }};
+  }
+{% endfor %}  # Server blocks
+{% for server in servers %}  server {
+    # Listen addresses and ports
+{% for listen in server.listen %}    listen {{ listen.address | default('*') }}:{{ listen.port }}{% if listen.ssl %} ssl{% endif %}{% if listen.http2 %} http2{% endif %}{% if listen.deflate %} deflate{% endif %}{% if listen.spdy %} spdy{% endif %};
+{% endfor %}    # Server name(s)
+    server_name {{ server.name | join(', ') | default('localhost') }};
+
+{% if server.root %}    # Document root for static content
+    root {{ server.root }};
+{% endif %}    # Access & error logs (per-server override possible)
+{% if server.access_log %}    access_log {{ server.access_log }};
+{% else %}    access_log /var/log/nginx/access.log;
+{% endif %}{% if server.error_log %}    error_log {{ server.error_log }};
+{% else %}    error_log /var/log/nginx/error.log;
+{% endif %}
+
+    # TLS configuration (optional)
+{% if server.ssl_enabled %}    ssl_certificate {{ server.ssl_certificate }};
+    ssl_certificate_key {{ server.ssl_certificate_key }};
+{% if server.ssl_protocols %}    ssl_protocols {{ server.ssl_protocols | join(' ') }};
+{% endif %}{% if server.ssl_ciphers %}    ssl_ciphers {{ server.ssl_ciphers | join(':') }};
+{% endif %}{% if server.ssl_prefer_server_ciphers is not none %}    ssl_prefer_server_ciphers {{ server.ssl_prefer_server_ciphers | lower }};
+{% endif %}{% endif %}
+
+    # Location blocks
+{% for location in server.locations %}    location {{ location.path }} {
+{% if location.root %}      root {{ location.root }};
+{% endif %}{% if location.alias %}      alias {{ location.alias }};
+{% endif %}{% if location.index %}      index {{ location.index | join(' ') }};
+{% endif %}{% if location.try_files %}      try_files {{ location.try_files | join(' ') }};
+{% endif %}
+
+{% if location.proxy_pass %}      # Proxy to upstream
+      proxy_pass http://{{ location.proxy_pass }};
+      proxy_set_header Host $host;
+      proxy_set_header X-Real-IP $remote_addr;
+      proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+      proxy_set_header X-Forwarded-Proto $scheme;
+{% if location.proxy_timeout %}      proxy_connect_timeout {{ location.proxy_timeout }};
+      proxy_send_timeout {{ location.proxy_timeout }};
+      proxy_read_timeout {{ location.proxy_timeout }};
+{% endif %}
+{% endif %}{% if location.fastcgi_pass %}      # Pass to FastCGI backend
+      fastcgi_pass unix:{{ location.fastcgi_pass }};
+      fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
+      include fastcgi_params;
+{% endif %}{% if location.auth_basic %}      # Basic authentication
+      auth_basic "{{ location.auth_basic }}";
+      auth_basic_user_file {{ location.auth_basic_user_file }};
+{% endif %}{% if location.return %}      # Redirect or static response
+      return {{ location.return.code }} {{ location.return.body | default('') | replace('"', '\"') }};
+{% endif %}{% if location.add_header %}{% for header in location.add_header %}      add_header {{ header.name }} "{{ header.value }}";
+{% endfor %}{% endif %}
+    }
+{% endfor %}
+  }
+{% endfor %}
+}

@@ -1,0 +1,155 @@
+{# MME global configuration #}
+global:
+  {# MME FQDN, used in S1AP and GTP-C interfaces #}
+  name: "{{ mme.name }}"
+  {# MME realm for Diameter authentication #}
+  realm: "{{ mme.realm }}"
+  {# MME code (PLMN MNC) for subscriber identification #}
+  mme_code: {{ mme.mme_code }}
+  {# MME group ID (PLMN MCC+MNC) for tracking area identity #}
+  mme_gid: {{ mme.mme_gid }}
+
+s1ap:
+  {# Local IP address for S1-MME interface #}
+  server:
+    address: "{{ s1ap.server.address }}"
+    {# S1-MME port (default 36412) #}
+    port: {{ s1ap.server.port }}
+
+  {# Peer (eNodeB) configuration #}
+  peers:
+    {%- for peer in s1ap.peers %}
+    - name: "{{ peer.name }}"
+      address: "{{ peer.address }}"
+      {# Optional: peer-specific MME-GUI (MME Group ID + MME Code) override #}
+      {%- if peer.mme_gui is defined %}
+      mme_gui: {{ peer.mme_gui }}
+      {%- endif %}
+    {%- endfor %}
+
+gtpc:
+  {# Local IP for S11 interface to SGW #}
+  server:
+    address: "{{ gtpc.server.address }}"
+    port: {{ gtpc.server.port }}
+
+sgwc:
+  {# SGW-C peer for S11 #}
+  server:
+    address: "{{ sgwc.server.address }}"
+    port: {{ sgwc.server.port }}
+
+hss:
+  {# Diameter peer (HSS) for S6a #}
+  server:
+    address: "{{ hss.server.address }}"
+    port: {{ hss.server.port }}
+    hostname: "{{ hss.server.hostname }}"
+    {# Optional realm override for HSS Diameter connection #}
+    realm: "{{ hss.server.realm }}"
+    {# Optional TLS configuration #}
+    {%- if hss.tls.enabled %}
+    tls:
+      enabled: true
+      ca: "{{ hss.tls.ca }}"
+      cert: "{{ hss.tls.cert }}"
+      key: "{{ hss.tls.key }}"
+    {%- endif %}
+
+sgwc:
+  {# Optional SGW-C configuration for S11 #}
+  {%- if sgwc.server.address is defined %}
+  server:
+    address: "{{ sgwc.server.address }}"
+    port: {{ sgwc.server.port }}
+  {%- endif %}
+
+sgws:
+  {# List of SGW-C/S-GW instances for load balancing and failover #}
+  {%- for sgw in sgws %}
+  - name: "{{ sgw.name }}"
+    address: "{{ sgw.address }}"
+    port: {{ sgw.port }}
+  {%- endfor %}
+
+pgwc:
+  {# PGW-C (PGW) configuration for S5/S8 #}
+  server:
+    address: "{{ pgwc.server.address }}"
+    port: {{ pgwc.server.port }}
+
+spgws:
+  {# List of SPGW-C/S-GW instances for S5/S8 (optional) #}
+  {%- for spgw in spgws %}
+  - name: "{{ spgw.name }}"
+    address: "{{ spgw.address }}"
+    port: {{ spgw.port }}
+  {%- endfor %}
+
+subscribers:
+  {# Static subscriber configuration (for demo/testing or fallback) #}
+  {%- for sub in subscribers %}
+  - imsi: "{{ sub.imsi }}"
+    msisdn: "{{ sub.msisdn }}"
+    {# APN configuration per subscriber #}
+    apns:
+      {%- for apn in sub.apns %}
+      - name: "{{ apn.name }}"
+        {# APN type: ipv4, ipv6, ipv4v6, non-ip #}
+        type: "{{ apn.type }}"
+        {# Optional QoS profile #}
+        qci: {{ apn.qci }}
+        {# Optional ARP (preemption & vulnerability) #}
+        {%- if apn.arp is defined %}
+        arp:
+          priority_level: {{ apn.arp.priority_level }}
+          preemption_capability: {{ apn.arp.preemption_capability }}
+          preemption_vulnerability: {{ apn.arp.preemption_vulnerability }}
+        {%- endif %}
+        {# Optional PDN GW address (for static allocation) #}
+        {%- if apn.pgw_address is defined %}
+        pgw_address: "{{ apn.pgw_address }}"
+        {%- endif %}
+        {# Optional IP pool name (if using dynamic pool) #}
+        {%- if apn.pool is defined %}
+        pool: "{{ apn.pool }}"
+        {%- endif %}
+        {# Optional DNS servers #}
+        {%- if apn.dns is defined %}
+        dns:
+          primary: "{{ apn.dns.primary }}"
+          secondary: "{{ apn.dns.secondary }}"
+        {%- endif %}
+      {%- endfor %}
+    {# Optional AMBR limits (UL/DL) #}
+    ambr:
+      uplink: {{ sub.ambr.uplink }}
+      downlink: {{ sub.ambr.downlink }}
+  {%- endfor %}
+
+pools:
+  {# IP address pools for dynamic subscriber allocation #}
+  {%- for pool in pools %}
+  - name: "{{ pool.name }}"
+    subnet: "{{ pool.subnet }}"
+    gateway: "{{ pool.gateway }}"
+  {%- endfor %}
+
+logging:
+  {# Global log level: debug, info, notice, warning, error, critical #}
+  level: "{{ logging.level }}"
+  {# Log output path (stdout if not set) #}
+  file: "{{ logging.file }}"
+  {# Optional: JSON format output for log aggregation #}
+  {%- if logging.json %}
+  json: true
+  {%- endif %}
+
+stats:
+  {# Enable statistics collection (e.g., for monitoring) #}
+  enabled: {{ stats.enabled }}
+  interval: {{ stats.interval }}
+  {# Stats output file (optional) #}
+  {%- if stats.file %}
+  file: "{{ stats.file }}"
+  {%- endif %}

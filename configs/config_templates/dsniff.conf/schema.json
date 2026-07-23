@@ -1,0 +1,72 @@
+{
+  "verbose": {
+    "type": "boolean",
+    "default": false,
+    "description": "Enable verbose logging \u2014 includes detailed packet headers and decoded content in logs."
+  },
+  "logdir": {
+    "type": "string",
+    "default": "/var/log/dsniff",
+    "description": "Directory where dsniff stores captured traffic logs."
+  },
+  "logfile_maxsize": {
+    "type": "number",
+    "default": 10485760,
+    "description": "Maximum size (in bytes) per log file before rotation. 10 MB by default."
+  },
+  "logfile_rotate": {
+    "type": "number",
+    "default": 5,
+    "description": "Number of rotated log files to retain. Old files are overwritten after this count."
+  },
+  "services": {
+    "type": "list",
+    "default": [],
+    "description": "List of protocols/services to sniff. If empty or omitted, the default set is used (ssh, ftp, http, etc.).",
+    "items": {
+      "type": "string",
+      "enum": [
+        "ssh",
+        "ftp",
+        "http",
+        "smtp",
+        "pop",
+        "imap",
+        "telnet",
+        "nntp",
+        "snmp",
+        "ldap",
+        "dns",
+        "x11",
+        "rlogin",
+        "rsh",
+        "IRC"
+      ],
+      "description": "A supported protocol/service name."
+    }
+  },
+  "interfaces": {
+    "type": "list",
+    "default": [],
+    "description": "List of network interfaces to monitor. At least one enabled interface is required.",
+    "items": {
+      "type": "object",
+      "fields": {
+        "name": {
+          "type": "string",
+          "description": "Name of the network interface (e.g., eth0, wlan0)."
+        },
+        "enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Whether to actively sniff on this interface."
+        }
+      }
+    }
+  },
+  "custom_ports": {
+    "type": "object",
+    "default": {},
+    "description": "Override default port numbers for services (e.g., map 'http' to 8080). Keys are service names, values are port numbers."
+  }
+}

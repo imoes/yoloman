@@ -1,0 +1,172 @@
+{
+  "nginx_user": {
+    "type": "string",
+    "default": "www-data",
+    "description": "User under which worker processes run."
+  },
+  "nginx_group": {
+    "type": "string",
+    "default": "www-data",
+    "description": "Group under which worker processes run."
+  },
+  "nginx_error_log": {
+    "type": "string",
+    "default": "/var/log/nginx/error.log",
+    "description": "Path to error log file."
+  },
+  "nginx_pid": {
+    "type": "string",
+    "default": "/run/nginx.pid",
+    "description": "Path to PID file."
+  },
+  "nginx_worker_connections": {
+    "type": "number",
+    "default": 768,
+    "description": "Maximum number of simultaneous connections per worker process."
+  },
+  "nginx_event_method": {
+    "type": "string",
+    "default": "epoll",
+    "description": "Event notification method (e.g., epoll, kqueue, select)."
+  },
+  "nginx_access_log": {
+    "type": "string",
+    "default": "/var/log/nginx/access.log",
+    "description": "Path to access log file."
+  },
+  "nginx_sendfile": {
+    "type": "boolean",
+    "default": true,
+    "description": "Use sendfile() for static file transfers."
+  },
+  "nginx_tcp_nopush": {
+    "type": "boolean",
+    "default": true,
+    "description": "Enable TCP_CORK (send headers + first chunk in one packet)."
+  },
+  "nginx_tcp_nodelay": {
+    "type": "boolean",
+    "default": true,
+    "description": "Disable Nagle's algorithm (send small packets immediately)."
+  },
+  "nginx_keepalive_timeout": {
+    "type": "number",
+    "default": 65,
+    "description": "Time (seconds) to keep keep-alive connections open."
+  },
+  "nginx_keepalive_requests": {
+    "type": "number",
+    "default": 1000,
+    "description": "Maximum number of requests per keep-alive connection."
+  },
+  "nginx_gzip": {
+    "type": "boolean",
+    "default": true,
+    "description": "Enable gzip compression."
+  },
+  "nginx_gzip_vary": {
+    "type": "boolean",
+    "default": true,
+    "description": "Add 'Vary: Accept-Encoding' header for proxied requests."
+  },
+  "nginx_gzip_proxied": {
+    "type": "string",
+    "default": "any",
+    "description": "Conditions under which to compress proxied responses (e.g., any, expired, no-cache)."
+  },
+  "nginx_gzip_types": {
+    "type": "list",
+    "default": [
+      "text/plain",
+      "text/css",
+      "application/json",
+      "application/javascript",
+      "text/xml",
+      "application/xml",
+      "application/xml+rss",
+      "text/javascript"
+    ],
+    "description": "MIME types to compress (only these will be gzip\u2019d).",
+    "items": {
+      "type": "string"
+    }
+  },
+  "nginx_gzip_min_length": {
+    "type": "number",
+    "default": 256,
+    "description": "Minimum response size (bytes) to compress (smaller responses skipped)."
+  },
+  "nginx_client_max_body_size": {
+    "type": "string",
+    "default": "1m",
+    "description": "Maximum allowed size of client request body (e.g., 1m, 100m)."
+  },
+  "nginx_hide_version": {
+    "type": "boolean",
+    "default": true,
+    "description": "Hide Nginx version in error pages and response headers for security."
+  },
+  "nginx_enable_stream": {
+    "type": "boolean",
+    "default": false,
+    "description": "Enable stream module for TCP/UDP load balancing (e.g., for databases, DNS, etc.)."
+  },
+  "nginx_stream_error_log": {
+    "type": "string",
+    "default": "/var/log/nginx/stream_error.log",
+    "description": "Path to stream module error log (only used if enable_stream is true)."
+  },
+  "nginx_stream_listen_port": {
+    "type": "number",
+    "default": 8000,
+    "description": "Port on which stream server listens (only used if enable_stream is true)."
+  },
+  "nginx_stream_upstream_name": {
+    "type": "string",
+    "default": "backend_tcp",
+    "description": "Name of upstream to proxy to in stream block (only used if enable_stream is true)."
+  },
+  "nginx_upstreams": {
+    "type": "list",
+    "default": [],
+    "description": "List of upstream groups for HTTP load balancing (defined in conf.d or sites-enabled, but included here for completeness).",
+    "items": {
+      "type": "object",
+      "fields": {
+        "name": {
+          "type": "string",
+          "description": "Upstream group name."
+        },
+        "servers": {
+          "type": "list",
+          "description": "List of backend servers.",
+          "items": {
+            "type": "object",
+            "fields": {
+              "address": {
+                "type": "string",
+                "description": "Server IP or hostname."
+              },
+              "port": {
+                "type": "number",
+                "description": "Server port."
+              },
+              "weight": {
+                "type": "number",
+                "description": "Relative weight (higher = more requests)."
+              },
+              "max_fails": {
+                "type": "number",
+                "description": "Fail attempts before marking server as unavailable."
+              },
+              "fail_timeout": {
+                "type": "string",
+                "description": "Time to wait before reattempting failed server (e.g., 30s)."
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,63 @@
+{
+  "interface": {
+    "type": "string",
+    "default": "eth0",
+    "description": "Network interface to listen on for ARP requests."
+  },
+  "target_ip": {
+    "type": "string",
+    "default": "192.168.1.1",
+    "description": "IPv4 address the daemon will claim via ARP."
+  },
+  "target_mac": {
+    "type": "string",
+    "default": "de:ad:be:ef:ca:fe",
+    "description": "MAC address the daemon will associate with the target IP."
+  },
+  "debug": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable verbose logging to syslog (set to true for detailed diagnostics)."
+  },
+  "max_pending": {
+    "type": "number",
+    "default": 100,
+    "description": "Maximum number of concurrent pending ARP requests (0 = unlimited)."
+  },
+  "log_prefix": {
+    "type": "string",
+    "default": "farpd",
+    "description": "Prefix used in syslog messages to distinguish farpd logs."
+  },
+  "allowed_sources": {
+    "type": "list",
+    "default": [
+      "192.168.1.0/24"
+    ],
+    "items": {
+      "type": "string",
+      "description": "Allowed source IP range (CIDR notation) for incoming ARP requests."
+    },
+    "description": "List of allowed source networks (CIDR). Requests outside these ranges are ignored."
+  },
+  "gratuitous_arp": {
+    "type": "bool",
+    "default": true,
+    "description": "Send gratuitous ARP on startup to announce the virtual IP."
+  },
+  "gratuitous_delay": {
+    "type": "number",
+    "default": 100,
+    "description": "Delay (milliseconds) before sending gratuitous ARP after interface up."
+  },
+  "arp_timeout": {
+    "type": "number",
+    "default": 300,
+    "description": "Time (seconds) after which cached ARP entries are considered stale and purged."
+  },
+  "post_reply_hook": {
+    "type": "string",
+    "default": "",
+    "description": "Optional shell command to execute after each ARP reply is sent. Receives interface, source IP, and target IP as arguments."
+  }
+}

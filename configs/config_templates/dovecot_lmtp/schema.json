@@ -1,0 +1,162 @@
+{
+  "protocols": {
+    "type": "list",
+    "default": [
+      "lmtp"
+    ],
+    "description": "Protocols to enable. For LMTP server, this should include 'lmtp' (others like 'imap', 'pop3' not needed unless combined service)."
+  },
+  "lmtp_rcpt_check": {
+    "type": "string",
+    "default": "yes",
+    "description": "Whether to perform recipient address verification before accepting the mail. Set to 'no' for relaxed delivery."
+  },
+  "lmtp_auth_required": {
+    "type": "bool",
+    "default": false,
+    "description": "Require authentication before accepting LMTP delivery. Enable if LMTP receives mail from untrusted sources (e.g., internet)."
+  },
+  "lmtp_connection_limit": {
+    "type": "number",
+    "default": 100,
+    "description": "Maximum number of concurrent LMTP connections per source IP address."
+  },
+  "lmtp_recipient_limit": {
+    "type": "number",
+    "default": 100,
+    "description": "Maximum number of recipients allowed per LMTP transaction. Prevents abuse."
+  },
+  "lmtp_connect_timeout": {
+    "type": "number",
+    "default": 30,
+    "description": "Timeout (seconds) for connecting to the LMTP server."
+  },
+  "lmtp_linenSize_limit": {
+    "type": "number",
+    "default": 2048,
+    "description": "Maximum line size (in bytes) accepted by the LMTP server."
+  },
+  "mail_location": {
+    "type": "string",
+    "default": "maildir:~/Maildir",
+    "description": "Mail storage format and location (e.g., 'maildir:~/Maildir' or 'mbox:~/mbox')."
+  },
+  "lmtp_unix_mode": {
+    "type": "string",
+    "default": "0666",
+    "description": "Unix socket file permissions for the LMTP listener (e.g., '0666' for world-writable, '0660' for group-only)."
+  },
+  "lmtp_unix_user": {
+    "type": "string",
+    "default": "postfix",
+    "description": "Unix user owning the LMTP socket. Typically 'postfix' if integrated with Postfix."
+  },
+  "lmtp_unix_group": {
+    "type": "string",
+    "default": "postfix",
+    "description": "Unix group owning the LMTP socket."
+  },
+  "lmtp_tcp_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable LMTP over TCP (in addition to Unix socket). Usually not needed if using Postfix integration via Unix socket."
+  },
+  "lmtp_tcp_address": {
+    "type": "string",
+    "default": "127.0.0.1",
+    "description": "IP address to bind the TCP LMTP listener. Use '0.0.0.0' to listen on all interfaces (not recommended without TLS/auth)."
+  },
+  "lmtp_tcp_port": {
+    "type": "number",
+    "default": 24,
+    "description": "Port for LMTP TCP listener. Standard LMTP port is 24."
+  },
+  "log_path": {
+    "type": "string",
+    "default": "/var/log/dovecot/dovecot.log",
+    "description": "Path to the main error log file."
+  },
+  "info_log_path": {
+    "type": "string",
+    "default": "/var/log/dovecot/dovecot-info.log",
+    "description": "Path to the info-level log file (less verbose errors)."
+  },
+  "mail_plugins": {
+    "type": "list",
+    "default": [],
+    "description": "List of mail plugins to load for LMTP. Common: ['sieve'] for filtering, ['zlib'] for compression."
+  },
+  "auth_mechanisms": {
+    "type": "list",
+    "default": [
+      "plain",
+      "login"
+    ],
+    "description": "Supported authentication mechanisms (used when lmtp_auth_required = true)."
+  },
+  "passdb_driver": {
+    "type": "string",
+    "default": "pam",
+    "description": "Passdb backend (e.g., 'pam', 'shadow', 'sql', 'ldap'). Only used when lmtp_auth_required = true."
+  },
+  "passdb_args": {
+    "type": "string",
+    "default": "",
+    "description": "Arguments to pass to the passdb driver (e.g., 'scheme=sha512crypt' or 'driver=sql' with config file)."
+  },
+  "userdb_driver": {
+    "type": "string",
+    "default": "static",
+    "description": "Userdb backend (e.g., 'static', 'sql', 'ldap', 'passwd'). Static is often enough with mail_location using ~ expansion."
+  },
+  "userdb_args": {
+    "type": "string",
+    "default": "uid=vmail gid=vmail home=/var/mail/vhosts/%d/%n",
+    "description": "Arguments for userdb (e.g., static args or SQL query). Used when userdb_driver = static."
+  },
+  "mail_fsize_limit": {
+    "type": "number",
+    "default": 0,
+    "description": "Maximum message size (in bytes) accepted by LMTP (0 = unlimited). Set to e.g., 26214400 for 25MB."
+  },
+  "mail_max_userip_connections": {
+    "type": "number",
+    "default": 10,
+    "description": "Maximum concurrent LMTP connections per user/IP. Helps prevent DoS."
+  },
+  "ssl": {
+    "type": "string",
+    "default": "no",
+    "description": "SSL/TLS behavior for LMTP connections. 'required' forbids non-TLS."
+  },
+  "ssl_cert_path": {
+    "type": "string",
+    "default": "/etc/ssl/certs/dovecot.pem",
+    "description": "Path to the SSL certificate file (if SSL enabled)."
+  },
+  "ssl_key_path": {
+    "type": "string",
+    "default": "/etc/ssl/private/dovecot.key",
+    "description": "Path to the SSL private key file (if SSL enabled)."
+  },
+  "postmaster_address": {
+    "type": "string",
+    "default": "postmaster@localhost",
+    "description": "Postmaster email address used in error responses and logging."
+  },
+  "hostname": {
+    "type": "string",
+    "default": "{{ ansible_hostname | default('localhost') }}",
+    "description": "Canonical hostname of the mail server (used in SMTP/LMTP banners)."
+  },
+  "lda_mailbox_autocreate": {
+    "type": "bool",
+    "default": true,
+    "description": "Automatically create user mailboxes on first LMTP delivery."
+  },
+  "lda_mailbox_autosubscribe": {
+    "type": "bool",
+    "default": true,
+    "description": "Automatically subscribe users to new mailboxes."
+  }
+}

@@ -1,0 +1,203 @@
+[Log]
+# Path to the Hatari log file
+sLogFileName = {{ log_file }}
+# Verbosity level: 0=fatal, 1=error, 2=warning, 3=info, 4=trace, 5=debug
+nLogLevel = {{ log_level }}
+# Prompt the user for confirmation before quitting
+bConfirmQuit = {{ 'TRUE' if confirm_quit else 'FALSE' }}
+
+[Screen]
+# Start Hatari in full-screen mode
+bFullScreen = {{ 'TRUE' if fullscreen else 'FALSE' }}
+# Keep the host desktop resolution when switching video modes
+bKeepResolution = TRUE
+# Monitor type: 0=VGA, 1=TV/RF, 2=Mono greyscale, 3=TT High
+nMonitorType = {{ monitor_type }}
+# Frames to skip per rendered frame (0=none; higher trades smoothness for speed)
+nFrameSkips = {{ frame_skips }}
+# Throttle emulation speed to match the real Atari
+bSlowDownToRealSpeed = TRUE
+# Enable extended VDI resolutions (ST-High mono mode only)
+bUseExtVdiResolutions = {{ 'TRUE' if vdi_enabled else 'FALSE' }}
+# VDI resolution width in pixels
+nVdiWidth = {{ vdi_width }}
+# VDI resolution height in pixels
+nVdiHeight = {{ vdi_height }}
+# VDI colour depth: 2, 4, or 16
+nVdiColors = {{ vdi_colors }}
+# Lock mouse pointer inside the emulator window
+bCaptureMouse = FALSE
+# Use SDL hardware-accelerated renderer
+bUseSdlRenderer = TRUE
+# Maximum window width in pixels
+nMaxWidth = {{ max_width }}
+# Maximum window height in pixels
+nMaxHeight = {{ max_height }}
+# SDL texture scaling filter: 0=nearest-neighbour, 1=linear, 2=best
+nRenderScaleQuality = {{ render_scale_quality }}
+# Synchronise rendering to the display vertical blank
+bUseVsync = {{ 'TRUE' if use_vsync else 'FALSE' }}
+# Show the status bar (drive and LED indicators) beneath the emulator screen
+bShowStatusBar = {{ 'TRUE' if show_status_bar else 'FALSE' }}
+# Show disk-activity LED overlay
+bShowDriveLed = TRUE
+# Crop display output to remove overscan borders
+bCrop = FALSE
+
+[Joystick]
+{% for joy in joysticks %}
+# Port {{ loop.index0 }} mode: 0=disabled, 1=real joystick, 2=keyboard cursor keys
+nJoystickMode{{ loop.index0 }} = {{ joy.mode }}
+# Enable auto-fire on port {{ loop.index0 }}
+bEnableAutoFire{{ loop.index0 }} = {{ 'TRUE' if joy.autofire else 'FALSE' }}
+# Host SDL joystick index mapped to port {{ loop.index0 }}
+nJoyId{{ loop.index0 }} = {{ joy.joy_id }}
+{% endfor %}
+
+[Keyboard]
+# Suppress host key-repeat events inside the emulator
+bDisableKeyRepeat = {{ 'TRUE' if disable_key_repeat else 'FALSE' }}
+# Key mapping mode: 0=symbolic (layout-independent), 1=scancode (physical position)
+nKeymapType = {{ keymap_type }}
+# Path to a custom keyboard mapping file; empty = built-in default
+szMappingFileName = {{ keymap_file }}
+
+[Sound]
+# Enable YM2149 sound chip emulation and audio output
+bEnableSound = {{ 'TRUE' if sound_enabled else 'FALSE' }}
+# Lock emulation speed to the audio output rate (prevents underruns; may slow emulation)
+bEnableSoundSync = {{ 'TRUE' if sound_sync else 'FALSE' }}
+# Audio output sample rate in Hz (e.g. 22050, 44100, 48000)
+nPlaybackFreq = {{ sound_freq }}
+# SDL audio buffer size in bytes; 0 = let SDL choose automatically
+nSdlAudioBufferSize = {{ sound_buffer_size }}
+# File path for captured YM audio output
+szYMCaptureFileName = {{ ym_capture_file }}
+# Apply DC-removal high-pass filter to audio output
+bHighPassFilter = {{ 'TRUE' if sound_highpass_filter else 'FALSE' }}
+# Redirect audio output to a file instead of the sound card
+bOutputToFile = FALSE
+
+[Memory]
+# Base ST/STE RAM in MB: valid values are 1, 2, 4, 8, or 14
+nMemorySize = {{ memory_size_mb }}
+# TT/Falcon fast RAM in MB; 0 = disabled (multiples of 256, max 1024)
+nTTRamSize = {{ tt_ram_size_mb }}
+# Save a memory snapshot automatically when Hatari exits
+bAutoSave = {{ 'TRUE' if memory_auto_save else 'FALSE' }}
+# File path for manually triggered memory snapshots
+szMemoryCaptureFileName = {{ memory_snapshot_file }}
+# File path for the automatic on-exit memory snapshot
+szAutoSaveFileName = {{ memory_autosave_file }}
+
+[Floppy]
+# Auto-insert disk A into drive B when drive B is empty (helps single-sided disk games)
+bAutoInsertDiskB = {{ 'TRUE' if floppy_auto_insert_b else 'FALSE' }}
+# Skip floppy timing emulation for instant disk access (breaks copy-protected disks)
+FastFloppy = {{ 'TRUE' if fast_floppy else 'FALSE' }}
+# Write-protection: 0=off, 1=always on, 2=auto (follow host file permissions)
+nWriteProtection = {{ floppy_write_protection }}
+# Disk image inserted in drive A at startup; empty = no disk
+szDiskAFileName = {{ floppy_a_image }}
+# Disk image inserted in drive B at startup; empty = no disk
+szDiskBFileName = {{ floppy_b_image }}
+# Default directory shown in the floppy image file browser
+szDiskImageDirectory = {{ floppy_image_dir }}
+
+[HardDisk]
+# Map a host directory as the Atari GEMDOS hard drive (C:)
+bUseHardDiskDirectory = {{ 'TRUE' if use_hdd_directory else 'FALSE' }}
+# Host path to expose as the Atari C: drive
+szHardDiskDirectory = {{ hdd_directory }}
+# GEMDOS directory write-protection: 0=off, 1=on, 2=auto
+nHardDiskWriteProtection = {{ hdd_write_protection }}
+# Attach a raw ACSI hard disk image file
+bUseHardDiskImage = {{ 'TRUE' if use_acsi_image else 'FALSE' }}
+# Path to the primary ACSI disk image file
+szHardDiskImage = {{ acsi_image_file }}
+# Attach an IDE master hard disk image (Falcon/TT)
+bUseIdeMasterHardDiskImage = {{ 'TRUE' if use_ide_master else 'FALSE' }}
+# Path to the IDE master disk image file
+szIdeMasterHardDiskImage = {{ ide_master_image }}
+# Attach an IDE slave hard disk image (Falcon/TT)
+bUseIdeSlaveHardDiskImage = {{ 'TRUE' if use_ide_slave else 'FALSE' }}
+# Path to the IDE slave disk image file
+szIdeSlaveHardDiskImage = {{ ide_slave_image }}
+
+[Acsi]
+{% for disk in acsi_disks %}
+# Enable ACSI device slot {{ loop.index0 }}
+bUseDevice{{ loop.index0 }} = {{ 'TRUE' if disk.enabled else 'FALSE' }}
+# Disk image path for ACSI slot {{ loop.index0 }}
+sDeviceFile{{ loop.index0 }} = {{ disk.image_file }}
+{% endfor %}
+
+[Rom]
+# Path to the TOS ROM image (required; match TOS version to the configured machine type)
+szTosImageFileName = {{ tos_image_path }}
+# Path to a cartridge ROM image; empty = none
+szCartridgeImageFileName = {{ cartridge_image_path }}
+
+[Printer]
+# Enable Atari parallel printer port emulation
+bEnablePrinting = {{ 'TRUE' if printer_enabled else 'FALSE' }}
+# Redirect printer output to a file rather than a real printer device
+bPrintToFile = {{ 'TRUE' if printer_to_file else 'FALSE' }}
+# File path for captured printer output
+szPrintToFileName = {{ printer_output_file }}
+
+[RS232]
+# Enable RS-232 serial port emulation
+bEnableRS232 = {{ 'TRUE' if rs232_enabled else 'FALSE' }}
+# Output device or file path for RS-232 data
+szOutFileName = {{ rs232_out_file }}
+# Input device or file path for RS-232 data
+szInFileName = {{ rs232_in_file }}
+
+[Midi]
+# Enable MIDI port emulation
+bEnableMidi = {{ 'TRUE' if midi_enabled else 'FALSE' }}
+# ALSA MIDI device or file path for MIDI input
+sMidiInFileName = {{ midi_in_device }}
+# ALSA MIDI device or file path for MIDI output
+sMidiOutFileName = {{ midi_out_device }}
+
+[System]
+# Atari machine model: 0=ST, 1=STE, 2=TT, 3=Falcon030
+nMachineType = {{ machine_type }}
+# CPU model: 0=68000, 1=68010, 2=68020, 3=68030, 4=68040, 5=68060
+nCpuLevel = {{ cpu_level }}
+# CPU clock frequency in MHz (ST/STE=8, TT=32, Falcon=16)
+nCpuFreq = {{ cpu_freq_mhz }}
+# Cycle-accurate CPU timing for maximum software compatibility (slower)
+bCompatibleCpu = {{ 'TRUE' if compatible_cpu else 'FALSE' }}
+# FPU model: 0=none, 1=68881, 2=68882, 3=68040 built-in, 4=software
+n_FPUType = {{ fpu_type }}
+# Cycle-accurate FPU emulation
+bCompatibleFpu = {{ 'TRUE' if compatible_fpu else 'FALSE' }}
+# Enable Blitter chip (available on STE, TT, and Falcon)
+bBlitter = {{ 'TRUE' if blitter_enabled else 'FALSE' }}
+# DSP56001 emulation: 0=none, 1=emulated (Falcon only)
+nDSPType = {{ dsp_type }}
+# Patch Timer-D for faster emulation (may break timing-sensitive demos)
+bPatchTimerD = {{ 'TRUE' if patch_timer_d else 'FALSE' }}
+# Skip the TOS POST memory test for a faster startup
+bFastBoot = {{ 'TRUE' if fast_boot else 'FALSE' }}
+# Run emulation as fast as the host allows, ignoring real-time throttle
+bFastForward = {{ 'TRUE' if fast_forward else 'FALSE' }}
+# Restrict address bus to 24 bits (required for ST/STE; disable for TT/Falcon with >8 MB RAM)
+bAddressSpace24 = {{ 'TRUE' if address_space_24 else 'FALSE' }}
+
+[Paths]
+# Base directory for all Hatari user data
+sHatariHome = {{ hatari_home_dir }}
+# Directory containing installed Hatari system data files
+sDataDir = {{ hatari_data_dir }}
+# User-specific data directory (usually same as sHatariHome)
+sUserDataDir = {{ hatari_home_dir }}
+# Directory for saved disk image files
+sSavesDiskDir = {{ saves_dir }}
+# Directory for audio and video capture output files
+sCaptureDir = {{ captures_dir }}
+# Directory for screenshot files
+sScreenShotDir = {{ screenshots_dir }}

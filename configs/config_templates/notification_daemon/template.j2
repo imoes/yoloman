@@ -1,0 +1,34 @@
+# Automatically generated Desktop Entry for Notification Daemon
+# This file is installed to /etc/xdg/autostart/ to ensure the daemon starts per-user-session
+[Desktop Entry]
+Type=Application
+Name=Notification Daemon
+# Executable command with optional runtime arguments
+Exec={{ exec_cmd }}
+# Run only in graphical sessions
+OnlyShowIn=GNOME;XFCE;KDE;LXQt;Unity;
+# Do not show in the application menu
+NoDisplay=true
+# Autostart condition: run after session initialization
+AutostartCondition=gnome-session
+# Hidden flag (typically false, but kept configurable for debugging)
+Hidden={{ hidden | string | lower }}
+{% ifX11 %}
+# X11-specific startup (legacy fallback)
+X-GNOME-Autostart-Phase=WindowManager
+{% endif %}
+# Optional startup delay (milliseconds)
+{% if startup_delay %}
+X-GNOME-Autostart-Delay={{ startup_delay }}
+{% endif %}
+# Environment variables (list of KEY=value pairs)
+{% for env_var in env_vars %}
+Env={{ env_var }}
+{% endfor %}
+# Icon used by the daemon (optional)
+{% if icon %}
+Icon={{ icon }}
+{% endif %}
+# Comments for documentation
+Comment=Passive desktop notification daemon
+X-GNOME-Autostart-enabled=true

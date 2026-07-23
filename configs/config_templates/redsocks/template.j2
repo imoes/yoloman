@@ -1,0 +1,59 @@
+base_ip = {{ redsocks_base_ip|default('0.0.0.0') }}
+base_port = {{ redsocks_base_port|default(12345) }}
+
+// Log level: debug, info, notice, warn, error, crit, alert, emerg
+log_level = {{ redsocks_log_level|default('warn') }}
+
+// File to which redsocks logs (use 'stderr' for standard error)
+log_file = {{ redsocks_log_file|default('/var/log/redsocks/redsocks.log') }}
+
+// User and group to drop privileges to (set to empty string to retain root)
+user = {{ redsocks_user|default('nobody') }}
+group = {{ redsocks_group|default('nogroup') }}
+
+// Timeout for TCP connections (in seconds)
+redsocks_connect_timeout = {{ redsocks_connect_timeout|default(30) }}
+
+// Maximum number of simultaneous connections
+max_connections = {{ redsocks_max_connections|default(1024) }}
+
+// Enable daemon mode (run in background)
+daemon = {{ 'yes' if redsocks_daemon|default(true) else 'no' }}
+
+// Redirector type: tcp, udp, or both (currently only tcp supported in main redsocks)
+type = {{ redsocks_type|default('tcp') }}
+
+{% for server in redsocks_servers %}
+// Redsocks instance: {{ server.name }}
+redsocks {
+    // Local IP:port to bind to for incoming redirects
+    local_ip = {{ server.local_ip|default('127.0.0.1') }};
+    local_port = {{ server.local_port }};
+
+    // SOCKS5 server to connect to
+    ip = {{ server.socks_ip }};
+    port = {{ server.socks_port }};
+
+    // Type of SOCKS server: socks5 (only supported type)
+    type = {{ server.socks_type|default('socks5') }};
+
+    // Credentials (optional)
+    {% if server.username %}login = {{ server.username }};
+    password = {{ server.password }};
+    {% endif %}
+
+    // Optional: set to `true` if the upstream server is SOCKS4a and supports UDP ASSOCIATE
+    {% if server.udp_relay %}udp_relay = on;
+    {% else %}udp_relay = off;
+    {% endif %}
+
+    // Optional: route via specific interface (e.g., 'eth0')
+    {% if server.interface %}interface = {{ server.interface }};
+    {% endif %}
+
+    // Optional: idle timeout (seconds)
+    {% if server.idle_timeout %}idle_timeout = {{ server.idle_timeout }};
+    {% endif %}
+}
+
+{% endfor %}

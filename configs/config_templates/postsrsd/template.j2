@@ -1,0 +1,33 @@
+# SRS domain for rewriting outgoing sender addresses
+# Must match the domain you use for SRS (e.g., example.com)
+SRS_DOMAIN={{ srs_domain }}
+
+# SRS secret key — used to sign/verify SRS addresses
+# Must be at least 16 characters, random and kept secret
+SRS_SECRET={{ srs_secret | quote }}
+
+# Prefix for rewritten outgoing addresses (e.g., "SRS0=")
+SRS_FORWARD_PREFIX={{ srs_forward_prefix }}
+
+# Prefix for rewritten incoming addresses (e.g., "SRS0=" — same as forward by default)
+SRS_REVERSE_PREFIX={{ srs_reverse_prefix }}
+
+# TCP port for the postsrsd lookup socket (Postfix connects via smtpd_recipient_restrictions)
+LISTEN_PORT={{ listen_port }}
+
+# Listen address for the socket (127.0.0.1 is typical; use 0.0.0.0 only if remote Postfix)
+LISTEN_ADDR={{ listen_addr }}
+
+# Maximum number of connections (only relevant for high-traffic sites)
+MAX_CONNECTIONS={{ max_connections }}
+
+# Optional: additional domains to exclude from rewriting (space-separated list)
+# Useful if some domains handle their own SRS or shouldn't be rewritten
+EXCLUDE_DOMAINS={{ exclude_domains | join(' ') | quote }}
+
+# Optional: debug mode (0=off, 1=on)
+DEBUG={{ debug | int }}
+
+# Optional: chroot directory (leave empty string to disable chroot)
+# Not typically needed; only for hardened deployments
+CHROOT_DIR={{ chroot_dir | quote }}

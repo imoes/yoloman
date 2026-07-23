@@ -1,0 +1,198 @@
+{
+  "protocols": {
+    "type": "list",
+    "default": [
+      "imap",
+      "pop3",
+      "submission"
+    ],
+    "description": "List of enabled protocols. Common: imap, pop3, lmtp, submission."
+  },
+  "listen": {
+    "type": "list",
+    "default": [
+      "*",
+      "::"
+    ],
+    "description": "IP addresses or hostnames to listen on. Use ['*'] for IPv4 only, ['::'] for IPv6 only."
+  },
+  "disable_plaintext_auth": {
+    "type": "bool",
+    "default": true,
+    "description": "Set to true to reject authentication unless TLS is active. Critical for security."
+  },
+  "mail_location": {
+    "type": "string",
+    "default": "maildir:~/Maildir",
+    "description": "Mailbox storage format and path. Use 'mbox:~/mbox' for mbox format or 'maildir:~/Maildir' for Maildir."
+  },
+  "auth_mechanisms": {
+    "type": "list",
+    "default": [
+      "plain",
+      "login"
+    ],
+    "description": "SASL authentication mechanisms to support. Prefer SCRAM-SHA-256 or external certs in production."
+  },
+  "passdb": {
+    "type": "object",
+    "default": {
+      "driver": "passwd-file",
+      "args": "scheme=SHA512-CRYPT username_format=%u /etc/dovecot/passwd"
+    },
+    "description": "Password database configuration. Driver typically 'passwd-file', 'sql', or 'pam'.",
+    "items": {
+      "driver": {
+        "type": "string",
+        "default": "passwd-file",
+        "description": "Auth backend driver (e.g., passwd-file, sql, pam)."
+      },
+      "args": {
+        "type": "string",
+        "default": "scheme=SHA512-CRYPT username_format=%u /etc/dovecot/passwd",
+        "description": "Driver-specific arguments (e.g., file path, SQL query template)."
+      }
+    }
+  },
+  "userdb": {
+    "type": "object",
+    "default": {
+      "driver": "passwd-file",
+      "args": "username_format=%u /etc/dovecot/passwd"
+    },
+    "description": "User database configuration. Often mirrors passdb for simple setups.",
+    "items": {
+      "driver": {
+        "type": "string",
+        "default": "passwd-file",
+        "description": "User data backend driver (e.g., passwd-file, sql, static)."
+      },
+      "args": {
+        "type": "string",
+        "default": "username_format=%u /etc/dovecot/passwd",
+        "description": "Driver-specific arguments (e.g., static user info, SQL query)."
+      }
+    }
+  },
+  "ssl": {
+    "type": "object",
+    "default": {
+      "mode": "required",
+      "cert_path": "/etc/ssl/certs/dovecot.pem",
+      "key_path": "/etc/ssl/private/dovecot.pem",
+      "min_protocol": "TLSv1.2"
+    },
+    "description": "SSL/TLS settings. Set mode to 'required' to enforce encryption.",
+    "items": {
+      "mode": {
+        "type": "string",
+        "default": "required",
+        "description": "SSL behavior: 'yes' (enable), 'no' (disable), 'required' (enforce)."
+      },
+      "cert_path": {
+        "type": "string",
+        "default": "/etc/ssl/certs/dovecot.pem",
+        "description": "Path to SSL certificate file."
+      },
+      "key_path": {
+        "type": "string",
+        "default": "/etc/ssl/private/dovecot.pem",
+        "description": "Path to SSL private key file."
+      },
+      "min_protocol": {
+        "type": "string",
+        "default": "TLSv1.2",
+        "description": "Minimum supported TLS version. 'TLSv1.2' recommended for security."
+      }
+    }
+  },
+  "mail_max_userip_connections": {
+    "type": "number",
+    "default": 20,
+    "description": "Max concurrent connections per user/IP. Helps prevent DoS."
+  },
+  "log_path": {
+    "type": "string",
+    "default": "/var/log/dovecot.log",
+    "description": "Path to the Dovecot log file."
+  },
+  "services": {
+    "type": "list",
+    "default": [
+      {
+        "name": "imap-login",
+        "chroot": "login",
+        "executable": "imap-login",
+        "user": "dovecot",
+        "group": "",
+        "extra_config": "service_count = 1\nprocess_min_avail = 0\n"
+      },
+      {
+        "name": "submission-login",
+        "chroot": "login",
+        "executable": "submission-login",
+        "user": "dovecot",
+        "group": "",
+        "extra_config": "inet_listener submission {\n  port = 587\n}\n"
+      }
+    ],
+    "description": "Service definitions for Dovecot login processes (e.g., imap-login, submission-login, pop3-login). Each defines how login daemons run.",
+    "items": {
+      "name": {
+        "type": "string",
+        "default": "imap-login",
+        "description": "Service name (must match Dovecot convention)."
+      },
+      "chroot": {
+        "type": "string",
+        "default": "login",
+        "description": "Chroot directory (often 'login' for security)."
+      },
+      "executable": {
+        "type": "string",
+        "default": "imap-login",
+        "description": "Path to executable (relative to dovecot binary dir or absolute)."
+      },
+      "user": {
+        "type": "string",
+        "default": "dovecot",
+        "description": "User to run service as (usually 'dovecot')."
+      },
+      "group": {
+        "type": "string",
+        "default": "",
+        "description": "Group to run service as (optional)."
+      },
+      "extra_config": {
+        "type": "string",
+        "default": "",
+        "description": "Additional per-service config lines (e.g., inet_listener blocks, process limits)."
+      }
+    }
+  },
+  "imap_max_line_length": {
+    "type": "number",
+    "default": 65536,
+    "description": "Max IMAP line length in bytes. Increase for large IMAP folders or long ACL lists."
+  },
+  "submission_port": {
+    "type": "number",
+    "default": 587,
+    "description": "Port for SMTP Submission (RFC 6409). Required for email clients sending mail via SMTP."
+  },
+  "submission_hostname": {
+    "type": "string",
+    "default": "{{ hostname | default('mail.example.com') }}",
+    "description": "Public hostname advertised for the submission service (e.g., 'mail.example.com')."
+  },
+  "auth_verbose": {
+    "type": "bool",
+    "default": false,
+    "description": "Log additional details on auth attempts (useful for troubleshooting, may leak info in logs)."
+  },
+  "auth_debug": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable verbose auth debugging. Not for production use."
+  }
+}

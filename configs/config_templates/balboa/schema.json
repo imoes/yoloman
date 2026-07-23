@@ -1,0 +1,349 @@
+{
+  "server_host": {
+    "type": "string",
+    "default": "0.0.0.0",
+    "description": "Network interface address for the main server to bind to (e.g., '127.0.0.1', '0.0.0.0')."
+  },
+  "server_port": {
+    "type": "number",
+    "default": 8080,
+    "description": "TCP port for the main Balboa server (GraphQL + frontend)."
+  },
+  "storage": {
+    "type": "object",
+    "default": {
+      "type": "sqlite",
+      "path": "/var/lib/balboa/pdns.db"
+    },
+    "items": {
+      "type": {
+        "type": "string",
+        "enum": [
+          "sqlite",
+          "postgres"
+        ],
+        "description": "Storage backend type. SQLite for single-node, Postgres for distributed or high-scale."
+      },
+      "path": {
+        "type": "string",
+        "default": "/var/lib/balboa/pdns.db",
+        "description": "Path to the SQLite database file (used when `type: sqlite`).",
+        "condition": "storage.type == 'sqlite'"
+      },
+      "connection_string": {
+        "type": "string",
+        "description": "PostgreSQL connection URI (e.g., 'postgres://user:pass@host:5432/dbname').",
+        "condition": "storage.type == 'postgres'"
+      },
+      "pool_size": {
+        "type": "number",
+        "default": 5,
+        "description": "PostgreSQL connection pool size (used when `type: postgres`)."
+      },
+      "max_open_conns": {
+        "type": "number",
+        "default": 20,
+        "description": "Maximum open connections to the database."
+      },
+      "max_idle_conns": {
+        "type": "number",
+        "default": 5,
+        "description": "Maximum idle connections retained in the pool."
+      }
+    }
+  },
+  "auth": {
+    "type": "object",
+    "default": {
+      "enabled": false,
+      "type": "basic"
+    },
+    "items": {
+      "enabled": {
+        "type": "bool",
+        "default": false,
+        "description": "Enable authentication for GraphQL API endpoints."
+      },
+      "type": {
+        "type": "string",
+        "enum": [
+          "basic",
+          "jwt"
+        ],
+        "default": "basic",
+        "description": "Authentication method: 'basic' (username/password) or 'jwt' (token-based)."
+      },
+      "users": {
+        "type": "list",
+        "default": [],
+        "description": "List of user credentials (required for 'basic' auth).",
+        "items": {
+          "type": "object",
+          "items": {
+            "username": {
+              "type": "string",
+              "description": "Username for basic authentication."
+            },
+            "password_hash": {
+              "type": "string",
+              "description": "Pre-hashed password (e.g., bcrypt, SHA256). Do not store plaintext."
+            },
+            "role": {
+              "type": "string",
+              "enum": [
+                "admin",
+                "reader"
+              ],
+              "default": "reader",
+              "description": "Access role: 'admin' (full access), 'reader' (read-only)."
+            }
+          }
+        }
+      },
+      "jwt_secret": {
+        "type": "string",
+        "description": "Secret key used to sign JWT tokens (required for 'jwt' auth).",
+        "condition": "auth.enabled and auth.type == 'jwt'"
+      },
+      "jwt_expiry_seconds": {
+        "type": "number",
+        "default": 86400,
+        "description": "JWT token validity duration in seconds (default: 24h).",
+        "condition": "auth.enabled and auth.type == 'jwt'"
+      }
+    }
+  },
+  "frontend": {
+    "type": "object",
+    "default": {
+      "enabled": true,
+      "static_dir": "/usr/share/balboa/frontend"
+    },
+    "items": {
+      "enabled": {
+        "type": "bool",
+        "default": true,
+        "description": "Enable serving the web-based query frontend."
+      },
+      "static_dir": {
+        "type": "string",
+        "default": "/usr/share/balboa/frontend",
+        "description": "Path to directory containing frontend static assets (HTML, JS, CSS)."
+      },
+      "cors_origins": {
+        "type": "list",
+        "default": [],
+        "description": "List of allowed CORS origins (e.g., 'https://example.com'). Empty list = no CORS restrictions."
+      }
+    }
+  },
+  "logging": {
+    "type": "object",
+    "default": {
+      "level": "info",
+      "format": "json",
+      "output": "stdout"
+    },
+    "items": {
+      "level": {
+        "type": "string",
+        "enum": [
+          "debug",
+          "info",
+          "warn",
+          "error"
+        ],
+        "default": "info",
+        "description": "Minimum log level to emit."
+      },
+      "format": {
+        "type": "string",
+        "enum": [
+          "text",
+          "json"
+        ],
+        "default": "json",
+        "description": "Log format: human-readable 'text' or structured 'json'."
+      },
+      "output": {
+        "type": "string",
+        "enum": [
+          "stdout",
+          "stderr",
+          "file"
+        ],
+        "default": "stdout",
+        "description": "Log destination: standard streams or file path."
+      }
+    }
+  },
+  "rate_limit": {
+    "type": "object",
+    "default": {
+      "enabled": true,
+      "requests_per_second": 10,
+      "burst_size": 20
+    },
+    "items": {
+      "enabled": {
+        "type": "bool",
+        "default": true,
+        "description": "Enable rate limiting on GraphQL and API endpoints."
+      },
+      "requests_per_second": {
+        "type": "number",
+        "default": 10,
+        "description": "Average rate limit (requests per second) per client/IP."
+      },
+      "burst_size": {
+        "type": "number",
+        "default": 20,
+        "description": "Maximum burst of requests allowed in a short window."
+      }
+    }
+  },
+  "graphql": {
+    "type": "object",
+    "default": {
+      "path": "/query",
+      "playground_enabled": false,
+      "introspection_enabled": false
+    },
+    "items": {
+      "path": {
+        "type": "string",
+        "default": "/query",
+        "description": "HTTP path for the GraphQL endpoint."
+      },
+      "playground_enabled": {
+        "type": "bool",
+        "default": false,
+        "description": "Enable the GraphQL Playground debug UI (not for production)."
+      },
+      "introspection_enabled": {
+        "type": "bool",
+        "default": false,
+        "description": "Enable GraphQL schema introspection queries."
+      }
+    }
+  },
+  "ingestion": {
+    "type": "object",
+    "default": {
+      "enabled": true,
+      "listen_host": "127.0.0.1",
+      "listen_port": 53,
+      "max_record_size": 512,
+      "min_ttl": 60,
+      "max_cname_chain_depth": 5,
+      "allowed_source_subnets": [
+        "127.0.0.0/8",
+        "10.0.0.0/8",
+        "192.168.0.0/16"
+      ],
+      "upstream_resolvers": [
+        "8.8.8.8:53",
+        "1.1.1.1:53"
+      ]
+    },
+    "items": {
+      "enabled": {
+        "type": "bool",
+        "default": true,
+        "description": "Enable Passive DNS ingestion listener (usually UDP port 53)."
+      },
+      "listen_host": {
+        "type": "string",
+        "default": "127.0.0.1",
+        "description": "Local IP to bind the DNS ingestion listener (restrict to loopback for security)."
+      },
+      "listen_port": {
+        "type": "number",
+        "default": 53,
+        "description": "UDP port for DNS queries (typically 53; requires elevated privileges if <1024)."
+      },
+      "max_record_size": {
+        "type": "number",
+        "default": 512,
+        "description": "Maximum DNS packet size (in bytes) accepted during ingestion (RFC 1035-compliant)."
+      },
+      "min_ttl": {
+        "type": "number",
+        "default": 60,
+        "description": "Minimum TTL (in seconds) enforced for ingested records (discards ultra-low TTL)."
+      },
+      "max_cname_chain_depth": {
+        "type": "number",
+        "default": 5,
+        "description": "Maximum CNAME/DNAME chain depth to follow during record resolution."
+      },
+      "allowed_source_subnets": {
+        "type": "list",
+        "default": [
+          "127.0.0.0/8"
+        ],
+        "description": "List of allowed source subnets (CIDR) permitted to submit DNS queries for ingestion."
+      },
+      "upstream_resolvers": {
+        "type": "list",
+        "default": [
+          "8.8.8.8:53"
+        ],
+        "description": "Upstream DNS resolvers (host:port) used for recursive resolution of ingested queries."
+      }
+    }
+  },
+  "backup": {
+    "type": "object",
+    "default": {
+      "enabled": false,
+      "dir": "/var/backups/balboa",
+      "format": "sql",
+      "compression": "gzip",
+      "schedule_cron": "0 2 * * *",
+      "retention_days": 30
+    },
+    "items": {
+      "enabled": {
+        "type": "bool",
+        "default": false,
+        "description": "Enable scheduled database backups."
+      },
+      "dir": {
+        "type": "string",
+        "default": "/var/backups/balboa",
+        "description": "Directory where backup files are stored."
+      },
+      "format": {
+        "type": "string",
+        "enum": [
+          "sql",
+          "json",
+          "ndjson"
+        ],
+        "default": "sql",
+        "description": "Backup format: SQL dump, or JSON/NDJSON (for ingestion replay)."
+      },
+      "compression": {
+        "type": "string",
+        "enum": [
+          "none",
+          "gzip",
+          "zstd"
+        ],
+        "default": "gzip",
+        "description": "Compression algorithm for backup files."
+      },
+      "schedule_cron": {
+        "type": "string",
+        "default": "0 2 * * *",
+        "description": "Cron expression for backup scheduling (e.g., '0 2 * * *' = daily at 02:00)."
+      },
+      "retention_days": {
+        "type": "number",
+        "default": 30,
+        "description": "Number of days to retain backup files before auto-deletion."
+      }
+    }
+  }
+}

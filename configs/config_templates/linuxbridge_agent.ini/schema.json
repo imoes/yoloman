@@ -1,0 +1,122 @@
+{
+  "physical_mappings": {
+    "type": "list",
+    "default": [],
+    "description": "List of physical network interface \u2192 physical network mappings. Each entry maps a host\u2019s physical NIC to a Neutron physical network name (e.g., 'eth0 physnet1').",
+    "items": {
+      "type": "object",
+      "properties": {
+        "physical_interface": {
+          "type": "string",
+          "default": "",
+          "description": "Name of the physical network interface on the host (e.g., 'eth0', 'ens3f0')"
+        },
+        "physical_network": {
+          "type": "string",
+          "default": "",
+          "description": "Name of the corresponding Neutron physical network (e.g., 'physnet1', 'provider')"
+        }
+      }
+    }
+  },
+  "virtual_interface_type": {
+    "type": "string",
+    "default": "veth",
+    "description": "Type of virtual interface to use for guest VMs. Supported: 'veth', 'macvtap', 'bridge' (legacy)."
+  },
+  "vxlan_udp_port": {
+    "type": "number",
+    "default": 4789,
+    "description": "UDP port to use for VXLAN overlay traffic. Standard is 4789 (RFC 7348)."
+  },
+  "enable_vxlan": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable VXLAN as the overlay network type (requires underlying L2 reachability or unicast/multicast support)."
+  },
+  "multicast_group": {
+    "type": "string",
+    "default": "",
+    "description": "Multicast group address (e.g., '239.1.1.1') for VXLAN broadcast replication in multicast mode. Required only if enable_vxlan and using multicast."
+  },
+  "local_ip": {
+    "type": "string",
+    "default": "",
+    "description": "Local IP address of the node\u2019s overlay network interface. Required for unicast VXLAN (when no multicast is available)."
+  },
+  "log_level": {
+    "type": "string",
+    "default": "INFO",
+    "description": "Logging verbosity level. Options: DEBUG, INFO, WARNING, ERROR, CRITICAL."
+  },
+  "log_dir": {
+    "type": "string",
+    "default": "/var/log/neutron",
+    "description": "Directory where log files will be stored."
+  },
+  "enable_security_group": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable security groups (iptables or nftables firewall rules for VMs). Required for tenant isolation."
+  },
+  "firewall_driver": {
+    "type": "string",
+    "default": "neutron.agent.linux.iptables_firewall.IptablesFirewallDriver",
+    "description": "Firewall driver implementation. Common values: iptables (default), nftables, or noop (disabled)."
+  },
+  "enable_hairpin": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable hairpinning: allow VMs to reach themselves via floating IPs through the router."
+  },
+  "dhcp_broadcast": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable suppression of broadcast DHCP traffic between ports on the same network (improves security)."
+  },
+  "port_security": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable port security extension \u2014 prevents MAC/IP spoofing by enforcing allowed address pairs."
+  },
+  "polling_interval": {
+    "type": "number",
+    "default": 2,
+    "description": "Number of seconds between device polling loops (e.g., to detect port changes). Lower = more responsive but higher CPU."
+  },
+  "min_retry_interval": {
+    "type": "number",
+    "default": 2,
+    "description": "Minimum seconds to wait between failed device creation/retry attempts."
+  },
+  "max_retry_interval": {
+    "type": "number",
+    "default": 10,
+    "description": "Maximum seconds to wait between retry attempts (exponential backoff cap)."
+  },
+  "enable_dhcp_notification": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable DHCP agent notifications for HA DHCP (used when multiple DHCP agents are coordinated)."
+  },
+  "enable_metadata_proxy": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable the metadata proxy service (required for instance metadata access via Neutron metadata service)."
+  },
+  "metadata_proxy_shared_secret": {
+    "type": "string",
+    "default": "",
+    "description": "Shared secret (string) used to authenticate metadata proxy requests to the Neutron metadata service. Should match neutron.conf."
+  },
+  "bridge_mapping": {
+    "type": "string",
+    "default": "",
+    "description": "Legacy alias for physical_interface_mappings \u2014 prefer physical_mappings. Format: 'physnet1:br-eth0'."
+  },
+  "linux_bridge_path": {
+    "type": "string",
+    "default": "/sbin/brctl",
+    "description": "Path to the Linux bridge utilities (for legacy compatibility)."
+  }
+}

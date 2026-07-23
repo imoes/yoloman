@@ -1,0 +1,46 @@
+# condure server configuration
+# Reference: https://github.com/achille-roussel/condure
+
+# Global listen addresses (bind points) for HTTP and WebSocket endpoints
+listen:
+{% for listener in listeners %}  - address: {{ listener.address }}
+    port: {{ listener.port }}
+{% if listener.tls %}    tls:
+      cert_file: {{ listener.tls.cert_file }}
+      key_file: {{ listener.tls.key_file }}
+{% endif %}{% endfor %}
+
+# Forwarded headers configuration
+forwarded:
+  trusted_proxies:
+{% for proxy in trusted_proxies %}    - {{ proxy }}
+{% endfor %}
+
+# HTTP/2 settings (optional override)
+http2:
+  enabled: {{ http2.enabled }}
+{% if http2.max_concurrent_streams is defined %}  max_concurrent_streams: {{ http2.max_concurrent_streams }}
+{% endif %}
+{% if http2.initial_connection_window_size is defined %}  initial_connection_window_size: {{ http2.initial_connection_window_size }}
+{% endif %}
+{% if http2.initial_stream_window_size is defined %}  initial_stream_window_size: {{ http2.initial_stream_window_size }}
+{% endif %}
+
+# WebSocket settings
+websocket:
+  ping_interval: {{ websocket.ping_interval }}
+  idle_timeout: {{ websocket.idle_timeout }}
+  max_frame_size: {{ websocket.max_frame_size }}
+
+# Access log configuration
+log:
+  level: {{ log.level }}
+  format: {{ log.format }}
+{% if log.output is defined %}  output: {{ log.output }}
+{% endif %}
+
+# Rate limiting (per-IP and per-connection)
+rate_limit:
+  requests_per_second: {{ rate_limit.requests_per_second }}
+  burst_size: {{ rate_limit.burst_size }}
+  connections_per_ip: {{ rate_limit.connections_per_ip }}

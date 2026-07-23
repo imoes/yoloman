@@ -1,0 +1,90 @@
+{
+  "farm_dir": {
+    "type": "string",
+    "default": "/var/lib/dokuwiki/farm",
+    "description": "Absolute path to the directory that contains every animal's data subdirectory"
+  },
+  "farm_base_domain": {
+    "type": "string",
+    "default": "wiki.example.com",
+    "description": "Root domain of the farm; animals appear as subdomains or path segments below this"
+  },
+  "url_detection_mode": {
+    "type": "string",
+    "default": "domain",
+    "description": "Animal-detection strategy: 'domain' reads the subdomain, 'path' reads the first URL path segment"
+  },
+  "default_animal": {
+    "type": "string",
+    "default": "",
+    "description": "Animal name to serve when no URL pattern matches; leave empty to serve the base DokuWiki installation"
+  },
+  "animals": {
+    "type": "list",
+    "default": [],
+    "description": "Ordered list of animal wiki instances hosted by this farm",
+    "items": {
+      "key": {
+        "type": "string",
+        "description": "URL key \u2014 the subdomain label or path segment that routes requests to this animal"
+      },
+      "dir": {
+        "type": "string",
+        "description": "Subdirectory name inside farm_dir where this animal's pages and config live"
+      },
+      "base_url": {
+        "type": "string",
+        "description": "Canonical base URL of this animal (scheme + host, no trailing slash)"
+      },
+      "description": {
+        "type": "string",
+        "description": "Human-readable label written as a comment above each animal entry in the config"
+      }
+    }
+  },
+  "memory_limit": {
+    "type": "string",
+    "default": "256M",
+    "description": "PHP memory_limit per request; increase for large wikis with heavy plugins or full-text indexing"
+  },
+  "upload_max_filesize": {
+    "type": "string",
+    "default": "32M",
+    "description": "Maximum size of a single file upload in the DokuWiki media manager (e.g. 32M, 128M)"
+  },
+  "post_max_size": {
+    "type": "string",
+    "default": "32M",
+    "description": "Maximum total HTTP POST body size; must be at least as large as upload_max_filesize"
+  },
+  "max_execution_time": {
+    "type": "number",
+    "default": 120,
+    "description": "Per-request PHP execution time limit in seconds; 0 disables the limit (not recommended in production)"
+  },
+  "session_cookie_lifetime": {
+    "type": "number",
+    "default": 0,
+    "description": "Browser-side session cookie lifetime in seconds; 0 means the cookie is deleted when the browser closes"
+  },
+  "session_gc_maxlifetime": {
+    "type": "number",
+    "default": 1440,
+    "description": "Server-side idle-session expiry in seconds; sessions inactive longer than this are garbage-collected"
+  },
+  "session_cookie_secure": {
+    "type": "bool",
+    "default": true,
+    "description": "Restrict session cookies to HTTPS-only; disable only if the farm is not behind TLS"
+  },
+  "error_reporting_mask": {
+    "type": "string",
+    "default": "E_ALL & ~E_NOTICE",
+    "description": "PHP error_reporting expression; E_ALL & ~E_NOTICE is recommended \u2014 suppresses harmless notices without hiding real errors"
+  },
+  "display_errors": {
+    "type": "bool",
+    "default": false,
+    "description": "Whether PHP errors are rendered in the browser response; must be false in production"
+  }
+}

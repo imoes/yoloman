@@ -1,0 +1,32 @@
+{
+  "cron_jobs": [
+    {
+      "name": "midnight_backup",
+      "schedule": "0 0 * * *",
+      "command": "/opt/ejabberd/bin/backup.sh",
+      "args": [
+        "/var/backup/ejabberd"
+      ],
+      "enabled": true,
+      "description": "Daily midnight backup of ejabberd data"
+    },
+    {
+      "name": "hourly_cleanup_logs",
+      "schedule": "@hourly",
+      "command": "ejabberdctl",
+      "args": [
+        "purge_old_logs",
+        "30d"
+      ],
+      "enabled": true,
+      "description": "Clear logs older than 30 days every hour"
+    },
+    {
+      "name": "metrics_push",
+      "schedule": "*/5 * * * *",
+      "command": "/usr/local/bin/report_metrics.sh",
+      "enabled": false,
+      "description": "Push metrics to monitoring endpoint (disabled by default)"
+    }
+  ]
+}

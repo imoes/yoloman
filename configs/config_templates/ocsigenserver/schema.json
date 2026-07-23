@@ -1,0 +1,208 @@
+{
+  "pidfile": {
+    "type": "string",
+    "default": "/run/ocsigenserver/ocsigenserver.pid",
+    "description": "Path to the PID file for the server process."
+  },
+  "log_file": {
+    "type": "string",
+    "default": "/var/log/ocsigenserver/ocsigenserver.log",
+    "description": "Path to the main log file."
+  },
+  "log_level": {
+    "type": "string",
+    "default": "info",
+    "description": "Logging verbosity level (e.g., debug, info, warning, error)."
+  },
+  "http_host": {
+    "type": "string",
+    "default": "*",
+    "description": "IP address or hostname the HTTP server binds to (e.g., '0.0.0.0' or '*')."
+  },
+  "http_port": {
+    "type": "number",
+    "default": 8080,
+    "description": "TCP port for HTTP traffic."
+  },
+  "http_ssl_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable HTTPS support (requires valid certificate and key)."
+  },
+  "https_host": {
+    "type": "string",
+    "default": "*",
+    "description": "IP address or hostname the HTTPS server binds to."
+  },
+  "https_port": {
+    "type": "number",
+    "default": 8443,
+    "description": "TCP port for HTTPS traffic."
+  },
+  "ssl_cert": {
+    "type": "string",
+    "default": "/etc/ocsigenserver/server.crt",
+    "description": "Path to the SSL/TLS certificate file (PEM format)."
+  },
+  "ssl_key": {
+    "type": "string",
+    "default": "/etc/ocsigenserver/server.key",
+    "description": "Path to the SSL/TLS private key file (PEM format)."
+  },
+  "timeout": {
+    "type": "number",
+    "default": 60,
+    "description": "Request timeout in seconds."
+  },
+  "max_connections": {
+    "type": "number",
+    "default": 256,
+    "description": "Maximum number of simultaneous connections."
+  },
+  "start_servers": {
+    "type": "number",
+    "default": 4,
+    "description": "Number of worker processes to start on startup."
+  },
+  "min_spare_servers": {
+    "type": "number",
+    "default": 2,
+    "description": "Minimum number of idle worker processes to maintain."
+  },
+  "max_spare_servers": {
+    "type": "number",
+    "default": 8,
+    "description": "Maximum number of idle worker processes allowed."
+  },
+  "max_requests": {
+    "type": "number",
+    "default": 0,
+    "description": "Maximum requests per worker before restart (0 = unlimited)."
+  },
+  "module_paths": {
+    "type": "list",
+    "default": [
+      "/usr/lib/ocsigenserver/modules"
+    ],
+    "description": "List of directories to search for dynamically loadable modules.",
+    "items": {
+      "type": "string"
+    }
+  },
+  "enabled_extensions": {
+    "type": "list",
+    "default": [
+      {
+        "module": "mod_cgi",
+        "config": {}
+      },
+      {
+        "module": "mod_staticfile",
+        "config": {}
+      },
+      {
+        "module": "mod_ocsigen",
+        "config": {}
+      }
+    ],
+    "description": "List of extensions to enable, each with a module name and optional configuration parameters.",
+    "items": {
+      "type": "object",
+      "properties": {
+        "module": {
+          "type": "string",
+          "description": "Extension module name (e.g., 'mod_cgi')"
+        },
+        "config": {
+          "type": "object",
+          "description": "Key-value configuration for the module",
+          "additionalProperties": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  },
+  "sites": {
+    "type": "list",
+    "default": [
+      {
+        "host": "localhost",
+        "port": 8080,
+        "document_root": "/var/www/ocsigen",
+        "cgi_enabled": false,
+        "cgi_aliases": [],
+        "static_dir": "/var/www/ocsigen/static",
+        "static_url": "/static",
+        "ocsigen_extensions": []
+      }
+    ],
+    "description": "List of virtual sites (host/port combos) with their own document roots and settings.",
+    "items": {
+      "type": "object",
+      "properties": {
+        "host": {
+          "type": "string",
+          "description": "Host name (e.g., 'localhost' or '*')"
+        },
+        "port": {
+          "type": "number",
+          "description": "Port for this site (must match top-level http/https port if enabled)"
+        },
+        "document_root": {
+          "type": "string",
+          "description": "Base directory for this site\u2019s content"
+        },
+        "cgi_enabled": {
+          "type": "bool",
+          "description": "Enable CGI script handling for this site"
+        },
+        "cgi_aliases": {
+          "type": "list",
+          "description": "List of CGI script URL prefixes to filesystem paths",
+          "items": {
+            "type": "object",
+            "properties": {
+              "prefix": {
+                "type": "string",
+                "description": "URL prefix for CGI scripts (e.g., '/cgi-bin')"
+              },
+              "path": {
+                "type": "string",
+                "description": "Filesystem path to CGI scripts directory"
+              }
+            }
+          }
+        },
+        "static_dir": {
+          "type": "string",
+          "description": "Directory containing static assets (CSS, JS, images)"
+        },
+        "static_url": {
+          "type": "string",
+          "description": "URL prefix under which static assets are served (e.g., '/static')"
+        },
+        "ocsigen_extensions": {
+          "type": "list",
+          "description": "Ocsigen-specific extensions enabled per site (e.g., Eliom, TyXML)",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string",
+                "description": "Extension name (e.g., 'eliom', 'tyxml')"
+              },
+              "config": {
+                "type": "object",
+                "description": "Configuration key-value pairs for the extension",
+                "additionalProperties": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

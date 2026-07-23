@@ -1,0 +1,315 @@
+{
+  "general": {
+    "type": "object",
+    "default": {},
+    "description": "Core MPD configuration including paths, user, network, and logging.",
+    "items": {
+      "db_path": {
+        "type": "string",
+        "default": "/var/lib/mpd/tag_cache",
+        "description": "Path to the MPD database/cache file."
+      },
+      "log_file": {
+        "type": "string",
+        "default": "/var/log/mpd/log",
+        "description": "Path to MPD log file."
+      },
+      "pid_file": {
+        "type": "string",
+        "default": "/var/run/mpd/pid",
+        "description": "Path to MPD PID file."
+      },
+      "state_file": {
+        "type": "string",
+        "default": "/var/lib/mpd/state",
+        "description": "Path to the file storing player state (queue, volume, etc.)."
+      },
+      "sticker_file": {
+        "type": "string",
+        "default": "/var/lib/mpd/sticker.sql",
+        "description": "Path to the sticker database (used by client metadata like play counts)."
+      },
+      "log_level": {
+        "type": "string",
+        "default": "default",
+        "description": "Logging verbosity: 'default', 'verbose', 'debug', 'quiet'."
+      },
+      "log_filter": {
+        "type": "string",
+        "default": "",
+        "description": "Optional regex filter to limit logged messages (e.g., 'error|warn')."
+      },
+      "user": {
+        "type": "string",
+        "default": "mpd",
+        "description": "User account under which MPD runs (must have read access to music)."
+      },
+      "group": {
+        "type": "string",
+        "default": "audio",
+        "description": "Group with access to audio devices (e.g., 'audio')."
+      },
+      "bind_to_address": {
+        "type": "string",
+        "default": "127.0.0.1",
+        "description": "Network address MPD binds to (e.g., '0.0.0.0' for all interfaces, or '127.0.0.1' for localhost only)."
+      },
+      "port": {
+        "type": "number",
+        "default": 6600,
+        "description": "TCP port for MPD client connections."
+      },
+      "timeout": {
+        "type": "number",
+        "default": 5,
+        "description": "Connection timeout in seconds for clients."
+      },
+      "max_connections": {
+        "type": "number",
+        "default": 10,
+        "description": "Maximum number of concurrent client connections."
+      },
+      "password": {
+        "type": "string",
+        "default": "",
+        "description": "Optional password for client authentication. Leave empty to disable."
+      },
+      "volume_normalization": {
+        "type": "boolean",
+        "default": false,
+        "description": "Enable automatic volume normalization per track."
+      },
+      "audio_buffer_size": {
+        "type": "number",
+        "default": 2048,
+        "description": "Size of MPD's audio buffer (KB). Increase for high-latency outputs."
+      },
+      "buffer_before_play": {
+        "type": "number",
+        "default": 0,
+        "description": "Seconds of audio to buffer before playback starts (0 = instant play)."
+      },
+      "music_directory": {
+        "type": "string",
+        "default": "/var/lib/mpd/music",
+        "description": "Root directory containing your music files (must be readable by MPD user)."
+      },
+      "playlist_directory": {
+        "type": "string",
+        "default": "/var/lib/mpd/playlists",
+        "description": "Directory storing playlist files (e.g., .m3u)."
+      },
+      "db_directory": {
+        "type": "string",
+        "default": "/var/lib/mpd",
+        "description": "Base directory for MPD data files (including db_file, state_file, sticker_file)."
+      },
+      "sticker_directory": {
+        "type": "string",
+        "default": "/var/lib/mpd",
+        "description": "Alias for sticker_file parent directory (deprecated, prefer sticker_file)."
+      },
+      "file_encoding": {
+        "type": "string",
+        "default": "utf-8",
+        "description": "Encoding assumed for file paths (usually 'utf-8')."
+      },
+      "file_system_refresh_time": {
+        "type": "number",
+        "default": 30,
+        "description": "Seconds between checks for filesystem changes in music/playlist directories."
+      },
+      "id3v1_encoding": {
+        "type": "string",
+        "default": "utf-8",
+        "description": "Encoding for ID3v1 tags (fallback to this if tags are not UTF-8)."
+      },
+      "follow_fifo_order": {
+        "type": "boolean",
+        "default": false,
+        "description": "Whether to follow FIFO order in the playback queue (experimental)."
+      },
+      "playlist_provider": {
+        "type": "string",
+        "default": "file",
+        "description": "Playlist provider plugin (e.g., 'file' or 'simple')."
+      },
+      "database_plugin": {
+        "type": "string",
+        "default": "file",
+        "description": "Database backend plugin (usually 'file')."
+      }
+    }
+  },
+  "audio_output": {
+    "type": "object",
+    "default": {
+      "enabled": true,
+      "type": "alsa",
+      "name": "My ALSA Device"
+    },
+    "description": "Primary audio output (e.g., ALSA, PulseAudio, PipeWire, JACK).",
+    "items": {
+      "enabled": {
+        "type": "boolean",
+        "default": true,
+        "description": "Enable this audio output."
+      },
+      "type": {
+        "type": "string",
+        "default": "alsa",
+        "description": "Output driver: 'alsa', 'pulse', 'pipewire', 'jack', 'httpd', etc."
+      },
+      "name": {
+        "type": "string",
+        "default": "My ALSA Device",
+        "description": "Descriptive name for the output (shown in clients)."
+      },
+      "device": {
+        "type": "string",
+        "default": "hw:0",
+        "description": "Device identifier (e.g., 'hw:0', 'default', 'pulse', 'jack_client')."
+      },
+      "format": {
+        "type": "string",
+        "default": "44100:16:2",
+        "description": "Audio format as 'samplerate:bit_depth:channels' (e.g., '44100:16:2' for CD quality). Use 'auto' to let MPD choose."
+      },
+      "dmix_channels": {
+        "type": "string",
+        "default": "",
+        "description": "Number of dmix channels for shared playback (e.g., '2')."
+      },
+      "samplerate": {
+        "type": "string",
+        "default": "",
+        "description": "Fixed samplerate (overrides format)."
+      },
+      "bit_depth": {
+        "type": "string",
+        "default": "",
+        "description": "Fixed bit depth (overrides format)."
+      },
+      "auto_resample": {
+        "type": "boolean",
+        "default": true,
+        "description": "Allow MPD to resample audio (set to false for bit-perfect playback)."
+      },
+      "auto_format": {
+        "type": "boolean",
+        "default": true,
+        "description": "Automatically match format to source audio."
+      },
+      "channels": {
+        "type": "string",
+        "default": "",
+        "description": "Channel count override (e.g., '2' for stereo)."
+      }
+    }
+  },
+  "replay_gain": {
+    "type": "object",
+    "default": {},
+    "description": "Replay Gain configuration for consistent volume across albums/tracks.",
+    "items": {
+      "mode": {
+        "type": "string",
+        "default": " album",
+        "description": "Replay Gain mode: 'off', 'track', 'album', 'track+album', 'album+track'."
+      },
+      "preamp": {
+        "type": "number",
+        "default": 0,
+        "description": "Replay Gain preamp gain in dB (e.g., +6.0 for louder output)."
+      },
+      "default_gain": {
+        "type": "number",
+        "default": 0,
+        "description": "Default gain in dB if no RG tags present."
+      },
+      "limit": {
+        "type": "number",
+        "default": 0,
+        "description": "Maximum peak reduction in dB to avoid clipping (0 = disable)."
+      }
+    }
+  },
+  "album_art": {
+    "type": "object",
+    "default": {},
+    "description": "Album art handling (e.g., embedding or max resolution).",
+    "items": {
+      "max_width": {
+        "type": "number",
+        "default": 0,
+        "description": "Max width (px) for extracted/embedded album art. 0 = no limit."
+      },
+      "max_height": {
+        "type": "number",
+        "default": 0,
+        "description": "Max height (px) for extracted/embedded album art. 0 = no limit."
+      },
+      "embed_art": {
+        "type": "boolean",
+        "default": true,
+        "description": "Embed album art into the audio stream (for clients without cover support)."
+      }
+    }
+  },
+  "decoders": {
+    "type": "list",
+    "default": [],
+    "description": "Audio decoder plugins (e.g., for FLAC, Vorbis, MP3, DSD).",
+    "items": {
+      "plugin": {
+        "type": "string",
+        "default": "",
+        "description": "Decoder plugin name (e.g., 'ffmpeg', 'sndfile', 'vorbis', 'flac', 'dsd', 'mad')."
+      },
+      "enabled": {
+        "type": "boolean",
+        "default": true,
+        "description": "Enable this decoder (disable if not needed)."
+      },
+      "priority": {
+        "type": "number",
+        "default": 100,
+        "description": "Priority of this decoder (higher = tried first)."
+      }
+    }
+  },
+  "inputs": {
+    "type": "list",
+    "default": [],
+    "description": "Input plugins for network streams (e.g., HTTP, SFTP).",
+    "items": {
+      "plugin": {
+        "type": "string",
+        "default": "",
+        "description": "Input plugin (e.g., 'curl', 'sftp')."
+      },
+      "enabled": {
+        "type": "boolean",
+        "default": true,
+        "description": "Enable this input (required for streaming)."
+      }
+    }
+  },
+  "filters": {
+    "type": "list",
+    "default": [],
+    "description": "Audio filter plugins (e.g., replay_gain, equalizer).",
+    "items": {
+      "plugin": {
+        "type": "string",
+        "default": "",
+        "description": "Filter plugin (e.g., 'replay_gain', 'volumedev')."
+      },
+      "enabled": {
+        "type": "boolean",
+        "default": true,
+        "description": "Enable this filter."
+      }
+    }
+  }
+}

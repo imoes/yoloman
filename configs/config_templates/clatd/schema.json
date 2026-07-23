@@ -1,0 +1,104 @@
+{
+  "mode": {
+    "type": "string",
+    "default": "clat",
+    "description": "Operation mode: 'clat' for 464XLAT Client-side Translation (CLAT), 'er' for SIIT-DC Edge Relay, or 'both' for combined operation."
+  },
+  "pidfile": {
+    "type": "string",
+    "default": "/run/clatd/clatd.pid",
+    "description": "Path to the PID file used by clatd to store its process ID."
+  },
+  "loglevel": {
+    "type": "number",
+    "default": 2,
+    "description": "Verbosity level: 0=error, 1=warn, 2=info (default), 3=debug, 4=trace."
+  },
+  "clat_ipv4": {
+    "type": "string",
+    "default": "192.0.0.1",
+    "description": "IPv4 address to assign to the internal CLAT interface (must be in 192.0.0.0/24 per RFC 6877)."
+  },
+  "br_ipv6": {
+    "type": "string",
+    "default": "2001:db8::1",
+    "description": "IPv6 address of the 464XLAT Border Relay (BR) \u2014 required when in CLAT or 'both' mode."
+  },
+  "er_ipv4_prefix": {
+    "type": "string",
+    "default": "192.0.0.0/24",
+    "description": "IPv4 prefix used by the ER for SIIT-DC address mapping (e.g., 192.0.0.0/24 for well-known prefix)."
+  },
+  "er_ipv6_ext": {
+    "type": "string",
+    "default": "2001:db8::2",
+    "description": "IPv6 address on the ER\u2019s external-facing interface (connected to public IPv6 internet)."
+  },
+  "er_ipv4_int": {
+    "type": "string",
+    "default": "192.0.0.2",
+    "description": "IPv4 address on the ER\u2019s internal-facing interface (for downstream IPv4 clients)."
+  },
+  "mtu": {
+    "type": "number",
+    "default": 0,
+    "description": "MTU for the CLAT/Tun interface; 0 means auto-detect (recommended)."
+  },
+  "dns_suffix": {
+    "type": "string",
+    "default": "v4v6.example.com",
+    "description": "DNS suffix used to construct IPv4-embedded IPv6 DNS queries (e.g., 'v4v6.example.com' \u2192 192.0.2.1 \u2192 192000000201.v4v6.example.com)."
+  },
+  "dns_servers": {
+    "type": "list",
+    "default": [],
+    "description": "List of custom DNS server addresses (IPv4 or IPv6) to override system defaults.",
+    "items": {
+      "type": "string",
+      "description": "IPv4 or IPv6 address of a DNS server."
+    }
+  },
+  "search_domains": {
+    "type": "list",
+    "default": [],
+    "description": "Additional DNS search domains to append to DNS queries.",
+    "items": {
+      "type": "string",
+      "description": "A DNS search domain (e.g., 'example.com')."
+    }
+  },
+  "rate_limit_pps": {
+    "type": "number",
+    "default": 0,
+    "description": "Maximum packet rate per second (0 = no rate limiting). Use to prevent DoS or overload."
+  },
+  "strict_mode": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable strict RFC-compliant packet validation and dropping of malformed packets."
+  },
+  "tun_name": {
+    "type": "string",
+    "default": "",
+    "description": "Custom name for the TUN interface (e.g., 'clat0'); if empty, defaults to 'tun0'."
+  },
+  "run_as_user": {
+    "type": "string",
+    "default": "clatd",
+    "description": "System user to drop privileges to after startup (for security)."
+  },
+  "run_as_group": {
+    "type": "string",
+    "default": "clatd",
+    "description": "System group to drop privileges to after startup."
+  },
+  "extra_syscalls": {
+    "type": "list",
+    "default": [],
+    "description": "Extra seccomp syscalls to allow (for systems using seccomp sandboxing).",
+    "items": {
+      "type": "string",
+      "description": "Syscall name (e.g., 'socket', 'bind', 'setsockopt')."
+    }
+  }
+}

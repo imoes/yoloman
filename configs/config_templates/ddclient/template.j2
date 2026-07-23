@@ -1,0 +1,32 @@
+# Check IP address and update DNS records for specified hosts
+# (This file is processed by ddclient; comments start with #)
+
+# Global options
+use=web,      \
+     if=eth0, \
+     web=myip.dnsomatic.com
+protocol=dyndns2
+server=dynamicdns.park-your-domain.com
+
+{% for host in hosts %}
+# Update DNS record for {{ host.domain }}
+login={{ host.login }}, \
+password='{{ host.password }}', \
+{{ host.domain }}
+{% endfor %}
+
+# Optional: log to file instead of syslog
+{% if log_file %}
+log=syslog
+log=file:{{ log_file }}
+{% else %}
+log=syslog
+{% endif %}
+
+# Retry settings
+retry=300
+daemon=300
+
+# IPv4 vs IPv6 control
+ipv4=yes
+ipv6=no

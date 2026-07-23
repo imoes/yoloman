@@ -1,0 +1,21 @@
+{{
+# Open vSwitch DPDK configuration database (created with ovs-vsctl)
+# This file is typically generated from ovs-vsctl commands and stored in /etc/openvswitch/conf.db
+# DO NOT EDIT MANUALLY — use ovs-vsctl for runtime modifications, or generate from this template.
+{% for cmd in commands %}{{
+# {{ cmd.description }}
+}}{% if cmd.type == 'set' %}
+ovs-vsctl {{ cmd.target | default('') }} {{ cmd.key | default('') }}={{ cmd.value | default('') }}
+{% elif cmd.type == 'add' %}
+ovs-vsctl {{ cmd.target }} {{ cmd.collection | default('') }} add {{ cmd.row }} {{ cmd.key | default('') }}={{ cmd.value | default('') }}
+{% elif cmd.type == 'create' %}
+ovs-vsctl create {{ cmd.row }} {{ cmd.key | default('') }}={{ cmd.value | default('') }}
+{% elif cmd.type == 'set-external-id' %}
+ovs-vsctl set open_vswitch . external_ids:{{ cmd.key }}={{ cmd.value }}
+{% elif cmd.type == 'set-bridge-external-id' %}
+ovs-vsctl set bridge {{ cmd.bridge }} external_ids:{{ cmd.key }}={{ cmd.value }}
+{% elif cmd.type == 'set-bridge-ports' %}
+ovs-vsctl set bridge {{ cmd.bridge }} ports={{ cmd.ports | join(',') }}
+{% elif cmd.type == 'set-ports' %}
+ovs-vsctl set port {{ cmd.port }} {{ cmd.key | default('') }}={{ cmd.value | default('') }}
+{% endif %}{% endfor %}

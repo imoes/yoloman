@@ -1,0 +1,112 @@
+# ServerRoot: the top of your directory tree
+ServerRoot "{{ server_root }}"
+
+# PidFile: location of the process ID file
+PidFile {{ pid_file }}
+
+# Timeout: number of seconds before receives and sends time out
+Timeout {{ timeout }}
+
+# KeepAlive: whether to allow persistent connections
+KeepAlive {{ keepalive }}
+
+# MaxKeepAliveRequests: maximum number of requests per persistent connection
+MaxKeepAliveRequests {{ max_keepalive_requests }}
+
+# KeepAliveTimeout: number of seconds to wait for the next request
+KeepAliveTimeout {{ keepalive_timeout }}
+
+# User and Group: the user/group Apache runs as
+User {{ user }}
+Group {{ group }}
+
+# ServerAdmin: email address for server-related problems
+ServerAdmin {{ server_admin }}
+
+# ServerName: server identification
+{% if server_name %}
+ServerName {{ server_name }}
+{% endif %}
+
+# Define default MIME types
+TypesConfig /etc/mime.types
+
+# DirectoryIndex: default files to serve when a directory is requested
+DirectoryIndex {{ directory_index | join(', ') }}
+
+# ErrorLog: location of the error log file
+ErrorLog {{ error_log }}
+
+# LogLevel: level of verbosity in error log
+LogLevel {{ log_level }}
+
+# Include module configuration
+{% for module_conf in included_module_configs %}
+Include {{ module_conf.path }}
+{% endfor %}
+
+# Load modules (only if not auto-loaded via IncludeOptional)
+{% for module in modules_to_load %}
+LoadModule {{ module.name }} {{ module.path }}
+{% endfor %}
+
+# Listen: IP address and port to bind
+{% for listen_addr in listen_addresses %}
+Listen {{ listen_addr }}
+{% endfor %}
+
+# Define Virtual Hosts
+{% for vhost in virtual_hosts %}
+<VirtualHost {{ vhost.address }}:{{ vhost.port }}>
+  ServerName {{ vhost.server_name }}
+  {% if vhost.server_alias %}
+  ServerAlias {{ vhost.server_alias | join(', ') }}
+  {% endif %}
+  DocumentRoot {{ vhost.document_root }}
+  
+  {% if vhost.error_log %}
+  ErrorLog {{ vhost.error_log }}
+  {% endif %}
+  {% if vhost.custom_log %}
+  CustomLog {{ vhost.custom_log }} {{ vhost.log_format }}
+  {% endif %}
+
+  {% if vhost.allow_override is defined %}
+  <Directory {{ vhost.document_root }}>
+    Options {{ vhost.options | join(' ') }}
+    AllowOverride {{ vhost.allow_override }}
+    Require all granted
+  </Directory>
+  {% endif %}
+
+  {% if vhost.proxy_backend %}
+  # Reverse proxy configuration
+  ProxyPass / {{ vhost.proxy_backend }}/
+  ProxyPassReverse / {{ vhost.proxy_backend }}/
+  {% endif %}
+
+  {% if vhost.balance_member_list %}
+  # Load balancing configuration
+  <Proxy "balancer://{{ vhost.balance_name }}">
+    {% for member in vhost.balance_member_list %}
+    BalancerMember {{ member.url }} route={{ member.route }}
+    {% endfor %}
+    ProxySet stickysession=ROUTEID
+  </Proxy>
+  ProxyPass / balancer://{{ vhost.balance_name }}/ stickysession=ROUTEID
+  ProxyPassReverse / balancer://{{ vhost.balance_name }}/
+  {% endif %}
+</VirtualHost>
+{% endfor %}
+
+# Define load balancer cluster (standalone, not tied to vhost)
+{% for balancer in load_balancers %}
+<Proxy "balancer://{{ balancer.name }}">
+  {% for member in balancer.members %}
+  BalancerMember {{ member.url }} route={{ member.route }}
+  {% endfor %}
+  {% if balancer.sticky_session %}
+  ProxySet stickysession={{ balancer.sticky_session }}
+  {% endif %}
+</Proxy>
+{% endfor %}

@@ -1,0 +1,44 @@
+# Enable date/time synchronization
+makestep 1.0 3
+
+# Allow NTP client access from local network
+allow {{ local_network }}
+
+# Specify the initial list of NTP servers (resolved via DNS at startup)
+{% for server in servers %}# NTP server: {{ server.hostname }} ({{ 'pool' if server.is_pool else 'server' }} mode, {{ 'keyless' if not server.use_key else 'key-' + server.key_id|string }})
+{% if server.use_key %}server {{ server.hostname }} iburst key {{ server.key_id }}{% else %}server {{ server.hostname }} iburst{% endif %}
+{% endfor %}
+
+# Enable hardware clock (RTC) polling and correction
+rtcsync
+
+# Log NTP statistics to rotate daily
+logdir /var/log/chrony
+maxlogsize 1
+
+# Specify the driftfile location (must be writable)
+driftfile /var/lib/chrony/chrony.drift
+
+# Enable key management (if using authenticated NTP)
+{% if enable_keyman %}# NTP key definitions
+{% for key in keys %}key {{ key.id }} md5 "{{ key.secret }}"
+{% endfor %}
+# Trusted key ID for client/server authentication
+trustedkey {{ trusted_key_id | join(', ') }}
+# Key ID used for client requests (if required)
+commandkey {{ command_key_id }}
+{% else %}# Key management disabled
+commandkey 0
+{% endif %}
+
+# Allow chronyd to respond to NTP requests from localhost only (unless overridden)
+ntpport 0
+
+# Optional: Specify a source for initial time (e.g., after reboot)
+initstepslew 30 {{ servers | map(attribute='hostname') | list | join(' ') }}
+
+# Enable leap second handling
+leapsectz right/UTC
+
+# Optional: Enable monitoring and logging for external tools (e.g., chronyc)
+makestep 1.0 3

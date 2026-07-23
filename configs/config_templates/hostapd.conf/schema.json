@@ -1,0 +1,97 @@
+{
+  "interface": {
+    "type": "string",
+    "default": "wlan0",
+    "description": "Wireless interface to use for the access point (e.g., wlan0, wlp3s0)."
+  },
+  "driver": {
+    "type": "string",
+    "default": "nl80211",
+    "description": "Driver interface to use (nl80211 is standard for modern Linux kernel)."
+  },
+  "ssid": {
+    "type": "string",
+    "default": "MyAP",
+    "description": "Service Set Identifier (network name) broadcast by the AP."
+  },
+  "country_code": {
+    "type": "string",
+    "default": "US",
+    "description": "Two-letter ISO/IEC 3166-1 alpha-2 country code for regulatory compliance."
+  },
+  "hw_mode": {
+    "type": "string",
+    "default": "g",
+    "description": "Hardware mode: 'b', 'g', 'a', 'n', or 'ac'. Choose 'g' for 2.4 GHz, 'a' or 'ac' for 5 GHz."
+  },
+  "channel": {
+    "type": "number",
+    "default": 6,
+    "description": "Channel number (1\u201313 for 2.4 GHz, 36\u2013165 for 5 GHz). Ensure channel is valid for selected hw_mode and country."
+  },
+  "beacon_rate": {
+    "type": "string",
+    "default": "1000",
+    "description": "Beacon frame transmission rate in kbps (e.g., '1000' = 1 Mbps). Optional."
+  },
+  "vht_oper_chwidth": {
+    "type": "number",
+    "default": 1,
+    "description": "VHT channel width (0=20, 1=40, 2=80, 3=160, 4=80+80 MHz). Used only with hw_mode=ac."
+  },
+  "vht_oper_centr_freq_seg0_idx": {
+    "type": "number",
+    "default": 42,
+    "description": "Center frequency segment 0 index (e.g., 42 for channel 36 with 80 MHz width). Required with hw_mode=ac and vht_oper_chwidth \u2265 2."
+  },
+  "wpa_passphrase": {
+    "type": "string",
+    "default": "",
+    "description": "WPA pre-shared key as ASCII passphrase (8\u201363 characters). Prefer over wpa_psk. Leave blank to use wpa_psk."
+  },
+  "wpa_psk": {
+    "type": "string",
+    "default": "",
+    "description": "WPA pre-shared key as 64-character hex string. Required only if wpa_passphrase is not set."
+  },
+  "macaddr_acl_mode": {
+    "type": "number",
+    "default": 0,
+    "description": "MAC ACL mode: 0=accept all (default), 1=accept only listed, 2=reject listed."
+  },
+  "macaddr_acl": {
+    "type": "list",
+    "default": [],
+    "description": "List of MAC addresses to allow/deny (depending on macaddr_acl_mode). Format: 'aa:bb:cc:dd:ee:ff'.",
+    "items": {
+      "type": "string",
+      "pattern": "^[0-9a-fA-F]{2}(:[0-9a-fA-F]{2}){5}$",
+      "description": "A MAC address in standard colon-separated format."
+    }
+  },
+  "hide_ssid": {
+    "type": "bool",
+    "default": false,
+    "description": "If true, broadcast SSID is hidden (0 beacons, or null SSID). Not recommended for usability/security tradeoffs."
+  },
+  "bridge": {
+    "type": "string",
+    "default": "",
+    "description": "Bridge interface to add the AP to (e.g., 'br0'). Leave empty to run standalone."
+  },
+  "enable_dot11d": {
+    "type": "bool",
+    "default": false,
+    "description": "If true, broadcast 802.11d country information element. Required in some countries."
+  },
+  "enable_dot11h": {
+    "type": "bool",
+    "default": false,
+    "description": "If true, enable 802.11h (DFS/TPC) \u2014 required for some 5 GHz channels."
+  },
+  "enable_wds": {
+    "type": "bool",
+    "default": false,
+    "description": "If true, enable WDS (Wireless Distribution System) for repeater or mesh behavior."
+  }
+}

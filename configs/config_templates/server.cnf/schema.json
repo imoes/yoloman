@@ -1,0 +1,224 @@
+{
+  "base_dir": {
+    "type": "string",
+    "default": "/usr",
+    "description": "Base directory for the MariaDB installation (binary location)."
+  },
+  "data_dir": {
+    "type": "string",
+    "default": "/var/lib/mysql",
+    "description": "Directory where database files are stored."
+  },
+  "character_set_server": {
+    "type": "string",
+    "default": "utf8mb4",
+    "description": "Default character set for the server."
+  },
+  "collation_server": {
+    "type": "string",
+    "default": "utf8mb4_general_ci",
+    "description": "Default collation (case-sensitivity, sorting) for the server."
+  },
+  "port": {
+    "type": "number",
+    "default": 3306,
+    "description": "TCP port on which the server listens for connections."
+  },
+  "socket": {
+    "type": "string",
+    "default": "/run/mysqld/mysqld.sock",
+    "description": "Unix socket file for local connections."
+  },
+  "bind_address": {
+    "type": "string",
+    "default": "",
+    "description": "IP address to bind to. Leave empty (commented in template) to listen on all interfaces."
+  },
+  "max_connections": {
+    "type": "number",
+    "default": 200,
+    "description": "Maximum number of simultaneous client connections allowed."
+  },
+  "thread_cache_size": {
+    "type": "number",
+    "default": 16,
+    "description": "Number of threads to cache for reuse (reduces thread creation overhead)."
+  },
+  "innodb_buffer_pool_size": {
+    "type": "string",
+    "default": "256M",
+    "description": "Size of memory buffer InnoDB uses to cache data and indexes."
+  },
+  "innodb_log_file_size": {
+    "type": "string",
+    "default": "64M",
+    "description": "Size of each InnoDB log file in the log group."
+  },
+  "innodb_log_buffer_size": {
+    "type": "string",
+    "default": "16M",
+    "description": "Size of buffer used to write to the InnoDB log files."
+  },
+  "innodb_flush_log_at_trx_commit": {
+    "type": "number",
+    "default": 1,
+    "description": "Controls durability/sync trade-offs: 1=most durable (default), 0=fastest, 2=balance."
+  },
+  "innodb_file_per_table": {
+    "type": "bool",
+    "default": true,
+    "description": "Store each InnoDB table in its own .ibd file (recommended)."
+  },
+  "innodb_flush_method": {
+    "type": "string",
+    "default": "fsync",
+    "description": "Method used to flush data and logs (e.g., fsync, O_DIRECT, O_DSYNC)."
+  },
+  "query_cache_type": {
+    "type": "string",
+    "default": "0",
+    "description": "Query cache mode: 0=OFF, 1=ON, 2=DEMAND. (Deprecated in MariaDB \u226510.1.7; use only if needed)."
+  },
+  "query_cache_size": {
+    "type": "string",
+    "default": "64M",
+    "description": "Total size of query cache (ignored if query_cache_type=0)."
+  },
+  "log_error": {
+    "type": "string",
+    "default": "/var/log/mysql/error.log",
+    "description": "Path to error log file."
+  },
+  "general_log": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable or disable general query logging."
+  },
+  "general_log_file": {
+    "type": "string",
+    "default": "/var/log/mysql/mysql.log",
+    "description": "Path to general query log file."
+  },
+  "slow_query_log": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable logging of slow queries (queries exceeding long_query_time)."
+  },
+  "slow_query_log_file": {
+    "type": "string",
+    "default": "/var/log/mysql/slow-query.log",
+    "description": "Path to slow query log file."
+  },
+  "long_query_time": {
+    "type": "number",
+    "default": 2,
+    "description": "Threshold (in seconds) above which queries are logged as slow."
+  },
+  "log_bin": {
+    "type": "string",
+    "default": "/var/log/mysql/mysql-bin",
+    "description": "Base name/path for binary log files. Enables binary logging for replication and PITR."
+  },
+  "expire_logs_days": {
+    "type": "number",
+    "default": 7,
+    "description": "Number of days after which binary logs are automatically purged."
+  },
+  "max_binlog_size": {
+    "type": "string",
+    "default": "100M",
+    "description": "Maximum size of a single binary log file."
+  },
+  "server_id": {
+    "type": "number",
+    "default": 1,
+    "description": "Unique server ID (required for replication)."
+  },
+  "binlog_format": {
+    "type": "string",
+    "default": "ROW",
+    "description": "Binary logging format: STATEMENT, ROW, or MIXED. ROW recommended for correctness."
+  },
+  "replication_replicas": {
+    "type": "list",
+    "default": [],
+    "description": "List of replica (slave) server definitions. Each entry configures server_id, host, and port for reporting.",
+    "items": {
+      "name": {
+        "type": "string",
+        "default": "",
+        "description": "Descriptive name of the replica (used in comment)."
+      },
+      "server_id": {
+        "type": "number",
+        "default": 2,
+        "description": "Unique server ID for this replica."
+      },
+      "host": {
+        "type": "string",
+        "default": "",
+        "description": "Hostname or IP reported to masters for replica identification."
+      },
+      "port": {
+        "type": "number",
+        "default": 3306,
+        "description": "Port on which this replica listens (reported to masters)."
+      }
+    }
+  },
+  "ssl_key": {
+    "type": "string",
+    "default": "/etc/mysql/ssl/server-key.pem",
+    "description": "Path to SSL private key file."
+  },
+  "ssl_cert": {
+    "type": "string",
+    "default": "/etc/mysql/ssl/server-cert.pem",
+    "description": "Path to SSL public certificate file."
+  },
+  "ssl_ca": {
+    "type": "string",
+    "default": "/etc/mysql/ssl/ca.pem",
+    "description": "Path to SSL CA certificate file (for verifying client/server certs)."
+  },
+  "ssl_cipher": {
+    "type": "string",
+    "default": "TLSv1.2",
+    "description": "Allowed SSL/TLS cipher suite (minimum requirement; adjust for your security policy)."
+  },
+  "sort_buffer_size": {
+    "type": "string",
+    "default": "2M",
+    "description": "Size of buffer allocated for sorting operations (per connection)."
+  },
+  "join_buffer_size": {
+    "type": "string",
+    "default": "256K",
+    "description": "Size of buffer used for join operations without indexes (per connection)."
+  },
+  "read_buffer_size": {
+    "type": "string",
+    "default": "128K",
+    "description": "Size of buffer used for sequential table scans (per connection)."
+  },
+  "read_rnd_buffer_size": {
+    "type": "string",
+    "default": "256K",
+    "description": "Size of buffer allocated for reading rows after sorting (per connection)."
+  },
+  "table_open_cache": {
+    "type": "number",
+    "default": 2000,
+    "description": "Number of open table instances (files) to cache."
+  },
+  "table_definition_cache": {
+    "type": "number",
+    "default": 2000,
+    "description": "Number of table definitions to cache."
+  },
+  "tmpdir": {
+    "type": "string",
+    "default": "/tmp",
+    "description": "Directory for temporary files (e.g., sort, temp tables)."
+  }
+}

@@ -1,0 +1,60 @@
+# Listen address and port for the Debusine Server HTTP API
+bind: {{ server.bind }}
+
+# Path to the working directory for job artifacts and state
+workdir: {{ server.workdir }}
+
+# Maximum number of concurrent build workers
+max_workers: {{ server.max_workers }}
+
+# Enable/disable TLS for the HTTP API
+tls_enabled: {{ server.tls.enabled }}
+
+# TLS certificate file path (used only if tls_enabled is true)
+tls_cert_file: {{ server.tls.cert_file }}
+
+# TLS private key file path (used only if tls_enabled is true)
+tls_key_file: {{ server.tls.key_file }}
+
+# Database connection string
+# Format: sqlite:///path/to/db.sqlite3 or postgresql://user:pass@host/db
+# SQLite is default; PostgreSQL recommended for production
+postgresql_dsn: {{ database.dsn }}
+
+# Log level: debug, info, warn, error
+log_level: {{ logging.level }}
+
+# Path to the log file (use '-' for stdout)
+log_file: {{ logging.file }}
+
+# Maximum age (in days) for completed jobs before automatic cleanup
+job_retention_days: {{ cleanup.job_retention_days }}
+
+# Whether to archive logs and artifacts before deletion
+archive_before_delete: {{ cleanup.archive_before_delete }}
+
+# List of supported build toolchains (each with name, version, and optional environment variables)
+{% for toolchain in toolchains %}
+# Toolchain: {{ toolchain.name }} (version: {{ toolchain.version }})
+- name: {{ toolchain.name }}
+  version: {{ toolchain.version }}
+  {% if toolchain.env %}
+  env:
+    {% for key, val in toolchain.env.items() %}
+    {{ key }}: {{ val | tojson }}
+    {% endfor %}
+  {% endif %}
+{% endfor %}
+
+# Worker-specific limits
+{% for worker in workers %}
+# Worker profile: {{ worker.name }}
+- name: {{ worker.name }}
+  max_jobs: {{ worker.max_jobs }}
+  {% if worker.cpu_limit is defined %}
+  cpu_limit: {{ worker.cpu_limit }}
+  {% endif %}
+  {% if worker.memory_limit is defined %}
+  memory_limit: {{ worker.memory_limit }}
+  {% endif %}
+{% endfor %}

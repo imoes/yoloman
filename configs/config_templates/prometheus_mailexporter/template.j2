@@ -1,0 +1,43 @@
+# /etc/default/prometheus-mailexporter
+# Environment variables passed to the prometheus-mailexporter service
+
+# Address (host:port) to expose the metrics endpoint
+export MAILEXPORTER_WEB_LISTEN_ADDRESS="{{ web_listen_address }}"
+
+# IMAP server connection string (scheme://user:password@host:port)
+{% for server in mail_servers %}
+# IMAP server: {{ server.label }}
+export MAILEXPORTER_IMAP_SERVER_{{ loop.index }}="{{ server.connection_string }}"
+{% endfor %}
+
+# Interval between mail checks (e.g., "30s", "1m")
+export MAILEXPORTER_CHECK_INTERVAL="{{ check_interval }}"
+
+# Timeout per IMAP check (e.g., "10s")
+export MAILEXPORTER_TIMEOUT="{{ timeout }}"
+
+# Maximum number of messages to fetch per mailbox (0 = unlimited)
+export MAILEXPORTER_MAX_MESSAGES="{{ max_messages }}"
+
+# Enable TLS/SSL verification? (true/false)
+export MAILEXPORTER_SKIP_TLS_VERIFY="{{ skip_tls_verify | string | lower }}"
+
+# Enable STARTTLS when connecting? (true/false)
+export MAILEXPORTER_STARTTLS="{{ starttls | string | lower }}"
+
+# Log level: debug, info, warn, error
+export MAILEXPORTER_LOG_LEVEL="{{ log_level }}"
+
+# Additional IMAP flags to track (comma-separated, e.g., "UNSEEN,FLAGGED")
+export MAILEXPORTER_IMAP_FLAGS="{{ imap_flags | join(", ") }}"
+
+# Optional: Basic auth username/password for metrics endpoint
+{% if web_basic_auth_user %}
+export MAILEXPORTER_WEB_BASIC_AUTH_USER="{{ web_basic_auth_user }}"
+{% endif %}
+{% if web_basic_auth_password %}
+export MAILEXPORTER_WEB_BASIC_AUTH_PASSWORD="{{ web_basic_auth_password }}"
+{% endif %}
+
+# Optional: Metric name prefix (e.g., "mailexporter")
+export MAILEXPORTER_METRIC_PREFIX="{{ metric_prefix }}"

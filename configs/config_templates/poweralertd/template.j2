@@ -1,0 +1,62 @@
+# Power Alert Daemon main configuration file
+# Controls battery monitoring and alerting behavior
+# Set the log level: debug, info, warning, error
+log_level: {{ log_level }}
+
+# Path to the PID file
+pid_file: {{ pid_file }}
+
+# Enable/disable automatic detection of new battery devices
+auto_detect: {{ auto_detect | lower }}
+
+# Path to the notification script (called on battery status change)
+notification_script: {{ notification_script }}
+
+# Maximum time (in seconds) between battery polls
+tick_interval: {{ tick_interval }}
+
+# Minimum battery level (percentage) that triggers a warning
+warning_threshold: {{ warning_threshold }}
+
+# Minimum battery level (percentage) that triggers a critical alert
+critical_threshold: {{ critical_threshold }}
+
+# Battery device patterns to monitor (supports glob-style wildcards)
+{% for pattern in battery_device_patterns %}
+battery_pattern: {{ pattern }}
+{% endfor %}
+
+# Excluded device names (exact match)
+{% for excluded in excluded_devices %}
+exclude_device: {{ excluded }}
+{% endfor %}
+
+# Notification options (applied when script is invoked)
+# - First argument: battery device name
+# - Second argument: status (normal|warning|critical|unknown)
+# - Third argument: remaining capacity percentage
+notification_timeout: {{ notification_timeout }}
+
+# SMTP server configuration (if email alerts enabled)
+{% if smtp_enabled %}
+smtp_server: {{ smtp_server }}
+smtp_port: {{ smtp_port }}
+smtp_user: {{ smtp_user }}
+smtp_password: {{ smtp_password }}
+smtp_from: {{ smtp_from }}
+smtp_to: {{ smtp_to | join(', ') }}
+smtp_use_tls: {{ smtp_use_tls | lower }}
+{% endif %}
+
+# Webhook configuration (if webhooks enabled)
+{% if webhooks_enabled %}
+{% for webhook in webhooks %}
+webhook_url: {{ webhook.url }}
+webhook_method: {{ webhook.method }}
+webhook_timeout: {{ webhook.timeout }}
+webhook_headers:
+{% for header, value in webhook.headers.items() %}
+  {{ header }}: {{ value }}
+{% endfor %}
+{% endfor %}
+{% endif %}

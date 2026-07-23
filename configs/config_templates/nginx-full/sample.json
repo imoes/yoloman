@@ -1,0 +1,156 @@
+{
+  "worker_processes": "auto",
+  "error_log": "/var/log/nginx/error.log warn",
+  "pid_file": "/run/nginx.pid",
+  "worker_connections": 1024,
+  "sendfile": true,
+  "tcp_nodelay": true,
+  "tcp_nopush": true,
+  "keepalive_timeout": 65,
+  "client_body_buffer_size": "16k",
+  "client_header_buffer_size": "1k",
+  "large_client_header_buffers": "4 8k",
+  "log_format_custom": "",
+  "gzip_enabled": true,
+  "gzip_vary": true,
+  "gzip_proxied": "any",
+  "gzip_comp_level": 2,
+  "gzip_min_length": 256,
+  "gzip_types": [
+    "text/plain",
+    "text/css",
+    "application/json",
+    "application/javascript",
+    "text/xml"
+  ],
+  "fastcgi_buffering": true,
+  "fastcgi_buffers": "8 16k",
+  "fastcgi_buffer_size": "32k",
+  "upstreams": [
+    {
+      "name": "web_backend",
+      "ip_hash": false,
+      "keepalive": 32,
+      "servers": [
+        {
+          "address": "10.0.0.10",
+          "port": 8080,
+          "weight": 3
+        },
+        {
+          "address": "10.0.0.11",
+          "port": 8080,
+          "weight": 2
+        },
+        {
+          "address": "10.0.0.12",
+          "port": 8080,
+          "weight": 1
+        }
+      ]
+    },
+    {
+      "name": "api_backend",
+      "hash": "$request_uri",
+      "servers": [
+        {
+          "address": "10.0.1.10",
+          "port": 3000
+        },
+        {
+          "address": "10.0.1.11",
+          "port": 3000,
+          "backup": true
+        }
+      ]
+    }
+  ],
+  "servers": [
+    {
+      "listen": [
+        {
+          "address": "*",
+          "port": 80,
+          "ssl": false
+        },
+        {
+          "address": "*",
+          "port": 443,
+          "ssl": true,
+          "http2": true
+        }
+      ],
+      "name": [
+        "www.example.com",
+        "example.com"
+      ],
+      "root": "/var/www/html",
+      "ssl_enabled": true,
+      "ssl_certificate": "/etc/ssl/certs/example.crt",
+      "ssl_certificate_key": "/etc/ssl/private/example.key",
+      "ssl_protocols": [
+        "TLSv1.2",
+        "TLSv1.3"
+      ],
+      "ssl_ciphers": [],
+      "ssl_prefer_server_ciphers": true,
+      "access_log": "/var/log/nginx/www.example.com.access.log",
+      "error_log": "/var/log/nginx/www.example.com.error.log",
+      "locations": [
+        {
+          "path": "/",
+          "try_files": [
+            "$uri",
+            "$uri/",
+            "=404"
+          ]
+        },
+        {
+          "path": "/api/",
+          "proxy_pass": "api_backend",
+          "proxy_timeout": "60s",
+          "add_header": [
+            {
+              "name": "X-API-Version",
+              "value": "2.1"
+            },
+            {
+              "name": "X-Frame-Options",
+              "value": "DENY"
+            }
+          ]
+        },
+        {
+          "path": "/static/",
+          "alias": "/var/www/static",
+          "add_header": [
+            {
+              "name": "Cache-Control",
+              "value": "public, max-age=31536000"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "listen": [
+        {
+          "address": "*",
+          "port": 8080
+        }
+      ],
+      "name": [
+        "internal.internal.example.com"
+      ],
+      "locations": [
+        {
+          "path": "/",
+          "return": {
+            "code": 403,
+            "body": "Access to internal server only allowed from trusted networks."
+          }
+        }
+      ]
+    }
+  ]
+}

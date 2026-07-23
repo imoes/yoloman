@@ -1,0 +1,299 @@
+{
+  "device_id": {
+    "type": "string",
+    "default": "",
+    "description": "Syncthing device ID (13 uppercase hex characters). Auto-generated on first run; set to empty to auto-generate."
+  },
+  "device_name": {
+    "type": "string",
+    "default": "My Device",
+    "description": "Human-readable name for this Syncthing instance (e.g., 'Laptop-1', 'Server-NYC')"
+  },
+  "compression": {
+    "type": "string",
+    "default": "metadata",
+    "description": "Compression level for sync traffic: 'off', 'metadata', or 'always'"
+  },
+  "listen_addresses": {
+    "type": "list",
+    "default": [
+      "dynamic",
+      "tcp://:22000"
+    ],
+    "description": "List of addresses to listen on for incoming connections (e.g., ['tcp://:22000', 'tcp://[::]:22000', 'dynamic']).",
+    "items": {
+      "type": "string"
+    }
+  },
+  "announce_global_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable global announcement servers (used to find public devices via the STUN/relays)."
+  },
+  "announce_local_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable local network announcement (mDNS/LAN) to discover other Syncthing devices on the same network."
+  },
+  "upnp_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable automatic UPnP/NAT-PMP port mapping for outbound connections."
+  },
+  "addresses_for_self": {
+    "type": "list",
+    "default": [],
+    "description": "Optional explicit addresses to announce for this device (e.g., ['tcp://mypublichost:22000']). Leave empty to auto-detect.",
+    "items": {
+      "type": "string"
+    }
+  },
+  "folders": {
+    "type": "list",
+    "default": [],
+    "description": "List of folders to synchronize. Each defines a path, devices, and optional settings.",
+    "items": {
+      "type": "object",
+      "fields": {
+        "id": {
+          "type": "string",
+          "default": "",
+          "description": "Unique ID for the folder (auto-generated if empty, e.g., 'default-1')."
+        },
+        "label": {
+          "type": "string",
+          "default": "Default Folder",
+          "description": "Folder label shown in UI (e.g., 'Photos', 'Projects')."
+        },
+        "path": {
+          "type": "string",
+          "default": "/var/lib/syncthing/folders/default",
+          "description": "Absolute filesystem path to the folder."
+        },
+        "type": {
+          "type": "string",
+          "default": "sendrecv",
+          "description": "Sync type: 'sendonly', 'recvonly', or 'sendrecv'."
+        },
+        "device_id": {
+          "type": "string",
+          "default": "",
+          "description": "Device ID of the peer to sync with. Use empty string for self (optional for multi-device folders)."
+        },
+        "rescan_interval_s": {
+          "type": "number",
+          "default": 60,
+          "description": "Rescan interval in seconds for local changes."
+        },
+        "fs_watcher_enabled": {
+          "type": "bool",
+          "default": true,
+          "description": "Enable filesystem change watchers for instant sync detection (may be unreliable on some filesystems)."
+        },
+        "fs_watcher_delay_s": {
+          "type": "number",
+          "default": 10,
+          "description": "Delay after last change before syncing (in seconds) to coalesce rapid changes."
+        },
+        "ignore_perms": {
+          "type": "bool",
+          "default": false,
+          "description": "Ignore permission changes when detecting changes (helpful for cross-OS sync)."
+        },
+        "ignored_paths": {
+          "type": "list",
+          "default": [],
+          "description": "List of paths (relative to folder) to ignore (e.g., ['.git', 'node_modules/**']).",
+          "items": {
+            "type": "string"
+          }
+        },
+        "versioning": {
+          "type": "object",
+          "default": {
+            "type": "",
+            "cleanup_interval_s": 3600,
+            "max_age_s": 0,
+            "versions_path": "",
+            "keep_versions": 0
+          },
+          "description": "File versioning settings (e.g., for simple versions, trashcan).",
+          "fields": {
+            "type": {
+              "type": "string",
+              "default": "",
+              "description": "Versioning backend: 'simple', 'trashcan', 'staggered', 'external'."
+            },
+            "cleanup_interval_s": {
+              "type": "number",
+              "default": 3600,
+              "description": "Interval to clean up old versions (seconds)."
+            },
+            "max_age_s": {
+              "type": "number",
+              "default": 0,
+              "description": "Maximum age of versions before deletion (0 = unlimited)."
+            },
+            "versions_path": {
+              "type": "string",
+              "default": "",
+              "description": "Custom path to store versions (relative or absolute)."
+            },
+            "keep_versions": {
+              "type": "number",
+              "default": 0,
+              "description": "Number of versions to keep per file (for 'trashcan' and 'staggered')."
+            }
+          }
+        }
+      }
+    }
+  },
+  "gui_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable the web-based admin GUI."
+  },
+  "gui_address": {
+    "type": "string",
+    "default": "127.0.0.1:8384",
+    "description": "Address and port to bind the GUI to (e.g., '0.0.0.0:8384', '192.168.1.10:8384')."
+  },
+  "gui_tls_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable HTTPS for the GUI (requires manual TLS cert/key config in real deployments; here just sets mode)."
+  },
+  "gui_user": {
+    "type": "string",
+    "default": "",
+    "description": "Username for GUI authentication. Leave blank for no auth (NOT recommended for production)."
+  },
+  "gui_password": {
+    "type": "string",
+    "default": "",
+    "description": "Password (BCrypt-hashed) for GUI authentication. Generate via 'syncthing --generate' or CLI."
+  },
+  "gui_api_key": {
+    "type": "string",
+    "default": "",
+    "description": "API key for external API access (e.g., for monitoring tools). Leave empty to disable."
+  },
+  "metrics_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable metrics collection for external reporting (e.g., Prometheus)."
+  },
+  "metrics_db_path": {
+    "type": "string",
+    "default": "/var/lib/syncthing/metrics.db",
+    "description": "Path to SQLite database for metrics storage (only used if metrics enabled)."
+  },
+  "mdns_enabled": {
+    "type": "list",
+    "default": [
+      {
+        "enabled": true
+      }
+    ],
+    "description": "mDNS discovery configuration. One or more entries (currently one standard block supported).",
+    "items": {
+      "type": "object",
+      "fields": {
+        "enabled": {
+          "type": "bool",
+          "default": true,
+          "description": "Enable mDNS discovery on local network."
+        }
+      }
+    }
+  },
+  "local": {
+    "type": "list",
+    "default": [
+      {
+        "discover_by": "all"
+      }
+    ],
+    "description": "Local network discovery behavior. 'all' or 'lan'.",
+    "items": {
+      "type": "object",
+      "fields": {
+        "discover_by": {
+          "type": "string",
+          "default": "all",
+          "description": "Discovery method: 'all', 'lan', or 'global'."
+        }
+      }
+    }
+  },
+  "relays": {
+    "type": "list",
+    "default": [
+      {
+        "url": "https://relays.syncthing.net/endpoint"
+      }
+    ],
+    "description": "List of public Syncthing relay servers to use for NAT traversal.",
+    "items": {
+      "type": "object",
+      "fields": {
+        "url": {
+          "type": "string",
+          "default": "https://relays.syncthing.net/endpoint",
+          "description": "URL of the relay endpoint (e.g., 'https://relays.syncthing.net/endpoint')."
+        }
+      }
+    }
+  },
+  "global_upload_rate_kib": {
+    "type": "number",
+    "default": 0,
+    "description": "Global upload rate limit in KiB/s (0 = unlimited)."
+  },
+  "global_download_rate_kib": {
+    "type": "number",
+    "default": 0,
+    "description": "Global download rate limit in KiB/s (0 = unlimited)."
+  },
+  "max_recv_kbps": {
+    "type": "number",
+    "default": 0,
+    "description": "Per-device receive rate limit in KiB/s (0 = unlimited)."
+  },
+  "max_send_kbps": {
+    "type": "number",
+    "default": 0,
+    "description": "Per-device send rate limit in KiB/s (0 = unlimited)."
+  },
+  "auto_accept_folders": {
+    "type": "bool",
+    "default": false,
+    "description": "Automatically accept new folders from newly introduced devices (security risk)."
+  },
+  "min_home_disk_free": {
+    "type": "string",
+    "default": "1%",
+    "description": "Minimum free disk space required on the Syncthing data directory (e.g., '1%', '100MB')."
+  },
+  "min_home_disk_free_unit": {
+    "type": "string",
+    "default": "percent",
+    "description": "Unit of 'min_home_disk_free': 'percent' or 'bytes' (used in template for validation context only)."
+  },
+  "min_home_disk_free_value": {
+    "type": "number",
+    "default": 1,
+    "description": "Numeric value for disk-free check."
+  },
+  "reconnect_interval_s": {
+    "type": "number",
+    "default": 60,
+    "description": "Interval to retry connection to disconnected devices (seconds)."
+  },
+  "allow_initial_peers_connection": {
+    "type": "bool",
+    "default": true,
+    "description": "Allow connections to peers listed in config before full discovery completes."
+  }
+}

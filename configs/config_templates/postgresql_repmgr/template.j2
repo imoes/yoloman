@@ -1,0 +1,80 @@
+# PostgreSQL server connection settings
+conninfo 'host={{ primary_host }} port={{ primary_port }} user={{ repmgr_user }} password={{ repmgr_password | e }} dbname={{ repmgr_database }}'
+
+# Local node identification
+node_id={{ node_id }}
+node_name='{{ node_name }}'
+
+# Data directory path
+data_directory='{{ data_directory }}'
+
+# Replication user and connection (repmgr uses same user for primary & standby)
+replication_user='{{ replication_user }}'
+replication_password='{{ replication_password | e }}'
+
+# Monitoring configuration
+monitoring_history=yes
+monitor_interval_secs={{ monitoring_interval_secs }}
+
+# Failover settings
+failover='{{ failover }}'
+promote_command='{{ promote_command }}'
+follow_command='{{ follow_command }}'
+
+# Logging
+log_level='{{ log_level }}'
+log_facility='{{ log_facility }}'
+log_file='{{ log_file }}'
+
+# Registration and service management
+service_start_command='{{ service_start_command }}'
+service_stop_command='{{ service_stop_command }}'
+service_restart_command='{{ service_stop_command }} && {{ service_start_command }}'
+service_status_command='{{ service_status_command }}'
+
+# Standby auto-registration on startup
+auto_registration={{ auto_registration }}
+
+# Standby follow primary automatically
+auto_follow={{ auto_follow }}
+
+# Failover target preference (optional)
+{% if failover_targets %}
+# Explicit failover priority list (lowest value = highest priority)
+failover_targets = {
+{% for target in failover_targets %}
+  {{ target.node_id }} = '{{ target.host }}:{{ target.port }}'
+{% endfor %}
+}
+{% endif %}
+
+# Optional upstream node for standby (useful in cascading replication)
+{% if upstream_node %}
+upstream_node={{ upstream_node }}
+{% endif %}
+
+# Optional pg_basebackup options
+pg_basebackup_options='{{ pg_basebackup_options }}'
+
+# Optional SSH options (for remote operations)
+ssh_options='-q -o StrictHostKeyChecking=no -o BatchMode=yes -o ConnectTimeout=10'
+
+# Event notification (optional)
+{% if events %}
+# Event notification handlers (comma-separated script paths)
+events = {
+{% for event in events %}
+  '{{ event.name }}' = '{{ event.script }}'
+{% endfor %}
+}
+{% endif %}
+
+# Optional custom parameters passed to PostgreSQL
+{% if postgresql_parameters %}
+# PostgreSQL custom parameters (applied via repmgr on promote/follow)
+postgresql_parameters = {
+{% for param, value in postgresql_parameters.items() %}
+  '{{ param }}' = '{{ value | e }}'
+{% endfor %
+}
+{% endif %}

@@ -1,0 +1,68 @@
+[general]
+# Enable or disable debug mode
+# Set the verbosity level (0-7)
+# Path to log directory
+# Maximum size of log file in bytes before rotation
+# Number of log files to keep
+# Enable or disable automatic log rotation
+# Enable or disable immediate flush to disk
+# Maximum number of log entries per second (0 = unlimited)
+# Hostname to use in log messages (auto-detected if empty)
+enabled = {{ general.enabled | default('true') }}
+level = {{ general.level | default(4) }}
+path = "{{ general.path | default('/var/log/dlt') }}"
+max_size = {{ general.max_size | default(10485760) }}
+max_files = {{ general.max_files | default(5) }}
+rotate = {{ general.rotate | default('true') }}
+flush = {{ general.flush | default('false') }}
+rate_limit = {{ general.rate_limit | default(0) }}
+hostname = "{{ general.hostname | default('') }}"
+
+[ipc]
+# Path to IPC socket directory
+# Enable or disable shared memory support
+# Maximum shared memory segment size in bytes
+socket_path = "{{ ipc.socket_path | default('/var/run/dlt') }}"
+shm_enabled = {{ ipc.shm_enabled | default('true') }}
+shm_max_size = {{ ipc.shm_max_size | default(2097152) }}
+
+[storage]
+# Enable or disable persistent storage
+# Path to storage directory
+# Enable or disable compression of stored logs
+# Maximum storage size in bytes (0 = unlimited)
+# Minimum free disk space in bytes to maintain
+enabled = {{ storage.enabled | default('true') }}
+path = "{{ storage.path | default('/var/lib/dlt') }}"
+compress = {{ storage.compress | default('true') }}
+max_size = {{ storage.max_size | default(104857600) }}
+min_free_space = {{ storage.min_free_space | default(52428800) }}
+
+[mgmt]
+# Enable or disable network management interface
+# Port for HTTP management interface
+# Enable or disable TLS for management interface
+# Path to TLS certificate file
+# Path to TLS private key file
+enabled = {{ mgmt.enabled | default('false') }}
+port = {{ mgmt.port | default(31322) }}
+tls_enabled = {{ mgmt.tls_enabled | default('false') }}
+cert_file = "{{ mgmt.cert_file | default('/etc/dlt/cert.pem') }}"
+key_file = "{{ mgmt.key_file | default('/etc/dlt/key.pem') }}"
+
+[filters]
+# List of application filters (each entry has 'ecu', 'apid', 'ctid')
+{% for filter in filters %}# Filter for ECU={{ filter.ecu }}, APID={{ filter.apid }}, CTID={{ filter.ctid }}
+{{ loop.index }}.ecu = "{{ filter.ecu }}"
+{{ loop.index }}.apid = "{{ filter.apid }}"
+{{ loop.index }}.ctid = "{{ filter.ctid }}"
+{% endfor %}
+
+[receivers]
+# List of network receivers to connect to
+{% for receiver in receivers %}# Receiver at host={{ receiver.host }}, port={{ receiver.port }}, type={{ receiver.type }}
+[receiver.{{ loop.index }}]
+host = "{{ receiver.host }}"
+port = {{ receiver.port }}
+type = "{{ receiver.type }}"
+{% endfor %}

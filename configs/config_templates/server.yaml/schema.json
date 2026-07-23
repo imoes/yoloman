@@ -1,0 +1,240 @@
+{
+  "server": {
+    "type": "object",
+    "default": {
+      "host": "0.0.0.0",
+      "port": 8000
+    },
+    "description": "HTTP server network binding",
+    "properties": {
+      "host": {
+        "type": "string",
+        "default": "0.0.0.0",
+        "description": "IP address or hostname to bind to (e.g., '0.0.0.0' for all interfaces, '127.0.0.1' for localhost only)"
+      },
+      "port": {
+        "type": "number",
+        "default": 8000,
+        "description": "TCP port to listen on"
+      }
+    }
+  },
+  "state_dir": {
+    "type": "string",
+    "default": "/var/lib/debusine",
+    "description": "Directory to store persistent state (jobs, workers, etc.)"
+  },
+  "tmp_dir": {
+    "type": "string",
+    "default": "/var/tmp/debusine",
+    "description": "Directory for temporary files (e.g., uploaded artifacts)"
+  },
+  "database": {
+    "type": "object",
+    "default": {
+      "backend": "sqlite",
+      "path": "/var/lib/debusine/db.sqlite3"
+    },
+    "description": "Database configuration",
+    "properties": {
+      "backend": {
+        "type": "string",
+        "default": "sqlite",
+        "enum": [
+          "sqlite",
+          "postgres"
+        ],
+        "description": "Database backend: 'sqlite' for local file storage or 'postgres' for PostgreSQL"
+      },
+      "path": {
+        "type": "string",
+        "default": "/var/lib/debusine/db.sqlite3",
+        "description": "Path to SQLite database file (only used if backend='sqlite')"
+      },
+      "uri": {
+        "type": "string",
+        "description": "PostgreSQL connection URI (e.g., 'postgresql://user:pass@host:5432/dbname'). Required when backend='postgres'."
+      }
+    }
+  },
+  "workers": {
+    "type": "object",
+    "default": {
+      "count": 4,
+      "queues": []
+    },
+    "description": "Worker process configuration",
+    "properties": {
+      "count": {
+        "type": "number",
+        "default": 4,
+        "description": "Default number of worker processes per queue"
+      },
+      "queues": {
+        "type": "list",
+        "default": [],
+        "items": {
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string",
+              "description": "Queue name (e.g., 'default', 'high-priority')"
+            },
+            "count": {
+              "type": "number",
+              "description": "Worker count for this queue (if omitted, uses global workers.count)"
+            }
+          }
+        },
+        "description": "Optional per-queue worker overrides. Leave empty to use global worker count for all queues."
+      }
+    }
+  },
+  "auth": {
+    "type": "object",
+    "default": {
+      "enabled": true,
+      "token_expiry": 86400
+    },
+    "description": "Authentication configuration",
+    "properties": {
+      "enabled": {
+        "type": "boolean",
+        "default": true,
+        "description": "Enable JWT authentication (strongly recommended for production)"
+      },
+      "secret_key": {
+        "type": "string",
+        "description": "Secret key used to sign JWTs (must be a strong, random string; e.g., 32+ characters)"
+      },
+      "token_expiry": {
+        "type": "number",
+        "default": 86400,
+        "description": "JWT expiration time in seconds (default: 24 hours)"
+      }
+    }
+  },
+  "cors": {
+    "type": "object",
+    "default": {
+      "enabled": false,
+      "allowed_origins": []
+    },
+    "description": "CORS (Cross-Origin Resource Sharing) configuration",
+    "properties": {
+      "enabled": {
+        "type": "boolean",
+        "default": false,
+        "description": "Enable CORS headers"
+      },
+      "allowed_origins": {
+        "type": "list",
+        "default": [],
+        "items": {
+          "type": "string",
+          "description": "Permitted origin URLs (e.g., 'https://example.com')"
+        },
+        "description": "List of allowed CORS origins. Use empty list to disable or omit entries if CORS is disabled."
+      }
+    }
+  },
+  "notifications": {
+    "type": "object",
+    "default": {
+      "enabled": false
+    },
+    "description": "Email notification settings (optional)",
+    "properties": {
+      "enabled": {
+        "type": "boolean",
+        "default": false,
+        "description": "Enable email notifications for job completion/failure events"
+      },
+      "smtp": {
+        "type": "object",
+        "properties": {
+          "host": {
+            "type": "string",
+            "description": "SMTP server hostname or IP"
+          },
+          "port": {
+            "type": "number",
+            "default": 587,
+            "description": "SMTP server port (typically 587 for TLS, 465 for SSL)"
+          },
+          "use_tls": {
+            "type": "boolean",
+            "default": true,
+            "description": "Use STARTTLS for SMTP connection"
+          },
+          "from_address": {
+            "type": "string",
+            "description": "Email address used as sender in notifications"
+          },
+          "user": {
+            "type": "string",
+            "description": "SMTP authentication username (optional)"
+          }
+        }
+      }
+    }
+  },
+  "limits": {
+    "type": "object",
+    "default": {
+      "max_upload_size": 1073741824,
+      "max_concurrent_jobs": 25,
+      "max_workers_total": 32
+    },
+    "description": "Resource usage limits",
+    "properties": {
+      "max_upload_size": {
+        "type": "number",
+        "default": 1073741824,
+        "description": "Maximum uploaded file size in bytes (default: 1 GiB)"
+      },
+      "max_concurrent_jobs": {
+        "type": "number",
+        "default": 25,
+        "description": "Maximum number of jobs allowed to run simultaneously"
+      },
+      "max_workers_total": {
+        "type": "number",
+        "default": 32,
+        "description": "Maximum total worker processes across all queues"
+      }
+    }
+  },
+  "logging": {
+    "type": "object",
+    "default": {
+      "level": "info",
+      "path": "/var/log/debusine/server.log"
+    },
+    "description": "Logging configuration",
+    "properties": {
+      "level": {
+        "type": "string",
+        "default": "info",
+        "enum": [
+          "debug",
+          "info",
+          "warning",
+          "error",
+          "critical"
+        ],
+        "description": "Minimum log level to record"
+      },
+      "path": {
+        "type": "string",
+        "default": "/var/log/debusine/server.log",
+        "description": "Path to server log file"
+      }
+    }
+  },
+  "debug": {
+    "type": "boolean",
+    "default": false,
+    "description": "Enable verbose debug logging (not recommended in production)"
+  }
+}

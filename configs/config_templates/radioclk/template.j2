@@ -1,0 +1,67 @@
+# radioclk configuration file — controls MSF/WWVB/DCF77 radio clock input to NTP
+# Enable/disable the MSF (UK) receiver
+{% if msf.enabled %}
+msf_device {{ msf.device }}
+msf_enabled yes
+{% else %}
+msf_enabled no
+{% endif %}
+
+# Enable/disable the WWVB (USA) receiver
+{% if wwvb.enabled %}
+wwvb_device {{ wwvb.device }}
+wwvb_enabled yes
+{% else %}
+wwvb_enabled no
+{% endif %}
+
+# Enable/disable the DCF77 (Germany) receiver
+{% if dcf77.enabled %}
+dcf77_device {{ dcf77.device }}
+dcf77_enabled yes
+{% else %}
+dcf77_enabled no
+{% endif %}
+
+# Signal quality thresholds (0–100 scale; lower values accept weaker signals)
+min_snr {{ min_snr }}
+min_signal_strength {{ min_signal_strength }}
+
+# Time tolerance: maximum offset (in milliseconds) accepted before rejecting the signal
+max_offset_ms {{ max_offset_ms }}
+
+# Logging verbosity: 0 = quiet, 5 = debug
+log_level {{ log_level }}
+
+# Optional: device-specific tuning parameters (applies to all enabled receivers)
+{% for device_param in device_params %}
+# {{ device_param.description }}
+device_{{ device_param.param }} {{ device_param.value }}
+{% endfor %}
+
+# Optional: fallback NTP servers when all radio sources are down
+{% if fallback_ntp | length > 0 %}
+{% for server in fallback_ntp %}fallback_server {{ server }}
+{% endfor %}
+{% endif %}
+
+# Optional: custom serial port settings (baud, parity, stop bits)
+serial_baud {{ serial.baud }}
+serial_parity {{ serial.parity }}
+serial_stopbits {{ serial.stopbits }}
+
+# Optional: enable pulse-per-second (PPS) discipline
+{% if pps.enabled %}
+pps_device {{ pps.device }}
+pps_enabled yes
+{% else %}
+pps_enabled no
+{% endif %}
+
+# Output file for raw decoded timecodes (for diagnostics)
+{% if debug.dump_file %}
+dump_file {{ debug.dump_file }}
+{% endif %}
+
+# Process priority (nice value: -20 to 19)
+nice {{ nice }}

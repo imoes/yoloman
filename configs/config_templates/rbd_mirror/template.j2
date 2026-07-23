@@ -1,0 +1,90 @@
+# Ceph configuration file for rbd-mirror daemon
+# This section defines the global Ceph settings
+[global]
+# Ceph cluster name (e.g., 'ceph', 'mycluster')
+cluster = {{ cluster_name }}
+
+# Path to the Ceph keyring file used by rbd-mirror
+keyring = {{ keyring_path }}
+
+# Logging configuration
+# Log to syslog if enabled
+log_to_syslog = {{ log_to_syslog | lower }}
+# Log file path (empty string to disable file logging)
+{% if log_file_path %}log_file = {{ log_file_path }}{% else %}# log_file not configured{% endif %}
+# Log level: debug, info, warn, error
+log_level = {{ log_level }}
+
+# Enable or disable daemon-specific logging overrides
+log_to_stderr = {{ log_to_stderr | lower }}
+# Log to file for daemon only
+log_file_rbd_mirror = {{ daemon_log_file_path | default('/var/log/ceph/rbd-mirror-$name.log') }}
+
+# Network and authentication
+# Use mon_host if explicit monitor list is provided; otherwise rely on DNS SRV or default resolution
+{% if mon_hosts %}mon_host = {{ mon_hosts | join(', ') }}{% endif %}
+
+# Number of worker threads for processing mirror operations
+worker_threads = {{ worker_threads }}
+
+# Maximum number of concurrent image syncs per daemon instance
+max_concurrent_image_syncs = {{ max_concurrent_image_syncs }}
+
+# Number of concurrent operations to peer clusters (e.g., snapshots, journal events)
+concurrent_mirroring_ops = {{ concurrent_mirroring_ops }}
+
+# Peer daemon communication timeouts (seconds)
+client_mount_timeout = {{ client_mount_timeout }}
+rados_osd_op_timeout = {{ rados_osd_op_timeout }}
+rados_mon_op_timeout = {{ rados_mon_op_timeout }}
+
+# Enable/disable compression for journal writes (experimental)
+# rbd_mirror_journal_compression_enabled = {{ journal_compression_enabled | lower }}
+# rbd_mirror_journal_compression_algorithm = {{ journal_compression_algorithm | default('lz4') }}
+
+# Enable/disable fast-diff (for faster sync status queries)
+rbd_mirror_fast_diff_enabled = {{ fast_diff_enabled | lower }}
+
+# Daemon-specific section for each rbd-mirror instance (if multi-instance deployment)
+{% for instance in instances %}[rbd-mirror-{{ instance.name }}]
+# Instance name (must be unique across cluster)
+# Hostname for this instance (optional; defaults to system hostname)
+{% if instance.hostname %}host = {{ instance.hostname }}{% endif %}
+
+# Priority of this instance (lower = higher priority for leader election)
+priority = {{ instance.priority }}
+
+# Enable this instance? (set to 'false' to disable without removing config)
+enabled = {{ instance.enabled | lower }}
+
+# Optional: specify pools to mirror (if omitted, mirrors all pools marked for mirroring)
+{% if instance.pools %}# Mirrored pools (list of pool names)
+{% for pool in instance.pools %}# mirror_pool = {{ pool }}{% endfor %}
+# Alternatively, use pool pattern (e.g., 'rbd*')
+# mirror_pool_pattern = {{ instance.pool_pattern | default('*') }}{% else %}# No specific pool restriction — mirrors all pools with mirroring enabled
+mirror_pool_pattern = {{ instance.pool_pattern | default('*') }}{% endif %}
+
+# Optional: disable auto-recovery of failed mirrors
+# rbd_mirroring_replay_failure_recovery = {{ instance.recovery_enabled | lower }}
+
+# Optional: set max replay delay (seconds) before pausing
+# rbd_mirroring_replay_max_delay = {{ instance.replay_max_delay }}
+
+# Optional: configure pool-level mirroring behavior overrides
+# (e.g., disable snapshot mirroring, change sync interval)
+{% if instance.pool_config_overrides %}{% for pool_name, config in instance.pool_config_overrides.items() %}# Overrides for pool: {{ pool_name }}
+{% for key, val in config.items() %}rbd_mirror_pool_config_{{ pool_name }}_{{ key }} = {{ val }}{% endfor %}{% endfor %}{% endif %}
+
+# Optional: enable TLS for peer-to-peer communication (e.g., with remote cluster)
+{% if instance.tls.enabled %}rbd_mirror_peer_tls_verify = {{ instance.tls.verify_mode | default('peer') }}
+rbd_mirror_peer_tls_cert_file = {{ instance.tls.cert_file }}
+rbd_mirror_peer_tls_key_file = {{ instance.tls.key_file }}
+rbd_mirror_peer_tls_ca_dir = {{ instance.tls.ca_dir }}{% endif %}
+{% endfor %}
+
+# Uncomment and adjust for advanced tuning:
+# rbd_mirror_image_auto_resync_on_failure = {{ auto_resync_on_failure | lower }}
+# rbd_mirror_image_delete_on_remote_snapshots_deleted = {{ delete_on_remote_snapshots_deleted | lower }}
+# rbd_mirror_image_sync_interval = {{ image_sync_interval }}
+# rbd_mirror_journal_max_objects = {{ journal_max_objects }}
+# rbd_mirror_journal_max_entries = {{ journal_max_entries }}

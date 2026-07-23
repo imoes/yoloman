@@ -1,0 +1,79 @@
+# MME global settings
+mme:
+  # S1AP interface configuration
+  s1ap:
+    ip: "{{ mme.s1ap.ip }}"
+    port: {{ mme.s1ap.port }}
+
+  # GTP-C interface (S4/S11) configuration
+  gtpc:
+    ip: "{{ mme.gtpc.ip }}"
+    port: {{ mme.gtpc.port }}
+
+  # GTP-U interface (S5/S8) configuration
+  gtpu:
+    ip: "{{ mme.gtpu.ip }}"
+    port: {{ mme.gtpu.port }}
+
+  # Identity and PLMN configuration
+  plmn:
+    mcc: "{{ mme.plmn.mcc }}"
+    mnc: "{{ mme.plmn.mnc }}"
+    taci: {{ mme.plmn.taci }}
+
+  # Security and authentication configuration
+  security:
+    kdf: {{ mme.security.kdf | default(false) }}
+    integrity_order: [{{ mme.security.integrity_order | join(', ') }}]
+    cipher_order: [{{ mme.security.cipher_order | join(', ') }}]
+
+  # SGW/PGW pool for load balancing
+  sgw_pools:
+{% for pool in mme.sgw_pools %}    - name: "{{ pool.name }}"
+      sgws:
+{% for sgw in pool.sgws %}        - ip: "{{ sgw.ip }}"
+          gtpc_port: {{ sgw.gtpc_port }}
+          gtpu_port: {{ sgw.gtpu_port }}
+{% endfor %}      max_ues: {{ pool.max_ues }}
+{% endfor %}
+
+  # S6a interface to HSS
+  s6a:
+    peer_hostname: "{{ mme.s6a.peer_hostname }}"
+    realm: "{{ mme.s6a.realm }}"
+    local_hostname: "{{ mme.s6a.local_hostname }}"
+    local_realm: "{{ mme.s6a.local_realm }}"
+    # Optional: TLS settings
+{% if mme.s6a.tls.enabled %}    tls:
+      enabled: true
+      ca: "{{ mme.s6a.tls.ca }}"
+      cert: "{{ mme.s6a.tls.cert }}"
+      key: "{{ mme.s6a.tls.key }}"
+{% else %}    tls:
+      enabled: false
+{% endif %}
+
+  # Logging configuration
+  logging:
+    level: "{{ mme.logging.level }}"
+    file: "{{ mme.logging.file }}"
+
+  # Timeouts and limits
+  timers:
+    t3402: {{ mme.timers.t3402 }}
+    t3412: {{ mme.timers.t3412 }}
+    t3422: {{ mme.timers.t3422 }}
+    imsi_detach_indication: {{ mme.timers.imsi_detach_indication }}
+    ue_unreachability: {{ mme.timers.ue_unreachability }}
+  max_ues: {{ mme.max_ues }}
+  max_bearers: {{ mme.max_bearers }}
+  max_apns_per_ue: {{ mme.max_apns_per_ue }}
+
+  # TDF (Traffic Detection Function) / OCS integration (optional)
+{% if mme.tdf.enabled %}  tdf:
+    enabled: true
+    ip: "{{ mme.tdf.ip }}"
+    port: {{ mme.tdf.port }}
+{% else %}  tdf:
+    enabled: false
+{% endif %}

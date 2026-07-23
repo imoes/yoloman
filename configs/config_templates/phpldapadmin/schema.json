@@ -1,0 +1,207 @@
+{
+  "ldap_server_host": {
+    "type": "string",
+    "default": "ldap.example.com",
+    "description": "LDAP server hostname or IP address (e.g., ldap.example.com or 192.168.1.10)"
+  },
+  "ldap_server_port": {
+    "type": "number",
+    "default": 389,
+    "description": "LDAP server port (commonly 389 for LDAP, 636 for LDAPS)"
+  },
+  "ldap_use_tls": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable STARTTLS for the connection (non-SSL, upgrade to TLS after connecting)"
+  },
+  "ldap_base_dn": {
+    "type": "string",
+    "default": "dc=example,dc=com",
+    "description": "Base Distinguished Name (DN) for directory searches"
+  },
+  "bind_auth_type": {
+    "type": "string",
+    "default": "config",
+    "description": "Authentication method for binding: 'config' (static credentials) or 'bind' (prompt user)"
+  },
+  "bind_dn": {
+    "type": "string",
+    "default": "cn=admin,dc=example,dc=com",
+    "description": "DN to bind as when using 'config' auth type. Leave empty for anonymous bind."
+  },
+  "bind_password": {
+    "type": "string",
+    "default": "",
+    "description": "Password for the bind DN. Required only when using 'config' auth type and bind_dn is set."
+  },
+  "friendly_attrs": {
+    "type": "list",
+    "default": [
+      "uid",
+      "cn",
+      "mail",
+      "displayName",
+      "title"
+    ],
+    "description": "List of LDAP attributes to display prominently in listings (e.g., table views)",
+    "items": {
+      "type": "string"
+    }
+  },
+  "required_attrs": {
+    "type": "list",
+    "default": [
+      "objectClass"
+    ],
+    "description": "Attributes required to be present when adding/modifying entries",
+    "items": {
+      "type": "string"
+    }
+  },
+  "search_list_filter": {
+    "type": "string",
+    "default": "(|(objectClass=person)(objectClass=group))",
+    "description": "LDAP filter used for listing entries in the directory tree"
+  },
+  "search_read_filter": {
+    "type": "string",
+    "default": "(objectClass=*)",
+    "description": "LDAP filter applied when reading a single entry"
+  },
+  "search_write_filter": {
+    "type": "string",
+    "default": "(objectClass=*)",
+    "description": "LDAP filter applied when writing/modifying entries"
+  },
+  "ldap_verify_peer": {
+    "type": "bool",
+    "default": true,
+    "description": "Verify SSL certificate peer (required for secure LDAPS)"
+  },
+  "ldap_verify_peer_name": {
+    "type": "bool",
+    "default": true,
+    "description": "Verify SSL certificate peer name (CN/SAN)"
+  },
+  "ldap_allow_self_signed": {
+    "type": "bool",
+    "default": false,
+    "description": "Allow self-signed certificates (only for development/test)"
+  },
+  "schema_attr_order": {
+    "type": "list",
+    "default": [
+      "objectClass",
+      "cn",
+      "uid",
+      "mail"
+    ],
+    "description": "Order of attributes in the UI form (top to bottom)",
+    "items": {
+      "type": "string"
+    }
+  },
+  "schema_attr_display": {
+    "type": "list",
+    "default": [
+      "objectClass: Object Classes",
+      "cn: Common Name",
+      "uid: User ID",
+      "mail: Email"
+    ],
+    "description": "Mapping of LDAP attributes to human-readable labels in the UI",
+    "items": {
+      "type": "string"
+    }
+  },
+  "default_server_id": {
+    "type": "number",
+    "default": 1,
+    "description": "Default server ID to load on first access (when multiple servers configured)"
+  },
+  "default_tree_dn": {
+    "type": "string",
+    "default": "dc=example,dc=com",
+    "description": "Default DN to show in the directory tree"
+  },
+  "default_session_dn": {
+    "type": "string",
+    "default": "dc=example,dc=com",
+    "description": "Default DN for session scope"
+  },
+  "default_language": {
+    "type": "string",
+    "default": "en_US",
+    "description": "Default language/locale for the web UI (e.g., en_US, fr_FR)"
+  },
+  "ui_theme": {
+    "type": "string",
+    "default": "phpldapadmin",
+    "description": "Theme name for the web UI (e.g., 'phpldapadmin', 'phpldapadmin-dark')"
+  },
+  "debug_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable detailed debugging output (only for troubleshooting)"
+  },
+  "additional_servers": {
+    "type": "list",
+    "default": [],
+    "description": "List of additional LDAP servers (beyond the primary)",
+    "items": {
+      "type": "object",
+      "fields": {
+        "name": {
+          "type": "string",
+          "default": "",
+          "description": "Unique identifier for this server (alphanumeric, underscores only)"
+        },
+        "host": {
+          "type": "string",
+          "default": "",
+          "description": "Hostname or IP of the LDAP server"
+        },
+        "port": {
+          "type": "number",
+          "default": 389,
+          "description": "LDAP port for this server"
+        },
+        "tls": {
+          "type": "bool",
+          "default": false,
+          "description": "Use STARTTLS for this server"
+        },
+        "bind_auth_type": {
+          "type": "string",
+          "default": "config",
+          "description": "Auth method: 'config' or 'bind'"
+        },
+        "bind_dn": {
+          "type": "string",
+          "default": "",
+          "description": "Bind DN for this server (if using 'config' auth)"
+        },
+        "bind_password": {
+          "type": "string",
+          "default": "",
+          "description": "Password for bind DN (if using 'config' auth)"
+        },
+        "base_dn": {
+          "type": "string",
+          "default": "",
+          "description": "Base DN for this server's tree"
+        }
+      }
+    }
+  },
+  "allow_anonymous_bind": {
+    "type": "bool",
+    "default": true,
+    "description": "Allow users to bind anonymously (if no credentials provided)"
+  },
+  "session_timeout": {
+    "type": "number",
+    "default": 3600,
+    "description": "Session timeout in seconds before re-authentication is required"
+  }
+}

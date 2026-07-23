@@ -1,0 +1,159 @@
+# Main configuration file for BOSIXNET IPv6 Network Server (bosixnet-webui)
+# Controls server behavior, UI endpoints, authentication, logging, and backend integration.
+
+[server]
+# Host address to bind the web UI to
+host = {{ server.host }}
+
+# TCP port for the web UI
+port = {{ server.port }}
+
+# Enable HTTPS (requires valid certificate files)
+use_tls = {{ server.use_tls | lower }}
+
+# Path to TLS certificate
+ssl_cert = {{ server.ssl_cert }}
+
+# Path to TLS private key
+ssl_key = {{ server.ssl_key }}
+
+[ui]
+# Enable public registration (self-signup)
+allow_public_registration = {{ ui.allow_public_registration | lower }}
+
+# Enable two-factor authentication (2FA) by default for new users
+require_2fa = {{ ui.require_2fa | lower }}
+
+# Default language locale
+locale = {{ ui.locale }}
+
+# Site title shown in browser tab and UI headers
+site_title = {{ ui.site_title }}
+
+[auth]
+# Authentication backend: local (default), ldap, or saml
+backend = {{ auth.backend }}
+
+# Maximum failed login attempts before lockout
+max_login_attempts = {{ auth.max_login_attempts }}
+
+# Lockout duration in seconds
+lockout_duration = {{ auth.lockout_duration }}
+
+# Token expiration time in seconds (for password reset, API keys, etc.)
+token_ttl = {{ auth.token_ttl }}
+
+{% if auth.ldap is defined %}
+[auth_ldap]
+# LDAP server URL (e.g., ldaps://ldap.example.com:636)
+uri = {{ auth.ldap.uri }}
+
+# Base DN for user search
+base_dn = {{ auth.ldap.base_dn }}
+
+# Bind DN for service account (optional, leave empty for anonymous bind)
+bind_dn = {{ auth.ldap.bind_dn | default('') }}
+
+# Password for bind DN (leave empty if anonymous bind)
+bind_password = {{ auth.ldap.bind_password | default('') }}
+
+# Attribute used for username lookup (e.g., 'uid', 'sAMAccountName')
+user_attr = {{ auth.ldap.user_attr }}
+
+# Group DN to filter authorized users (optional)
+group_dn = {{ auth.ldap.group_dn | default('') }}
+{% endif %}
+
+{% if auth.saml is defined %}
+[auth_saml]
+# SAML Identity Provider (IdP) metadata URL
+metadata_url = {{ auth.saml.metadata_url }}
+
+# Entity ID (Service Provider identifier)
+sp_entity_id = {{ auth.saml.sp_entity_id }}
+
+#ACS (Assertion Consumer Service) URL — usually auto-detected
+acs_url = {{ auth.saml.acs_url }}
+
+# NameID format (e.g., 'urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress')
+nameid_format = {{ auth.saml.nameid_format }}
+
+# Enable sign requests (SP-initiated AuthnRequest)
+sign_requests = {{ auth.saml.sign_requests | lower }}
+
+# Enable request signing certificate
+sign_cert = {{ auth.saml.sign_cert }}
+{% endif %}
+
+[logging]
+# Log level: DEBUG, INFO, WARNING, ERROR, CRITICAL
+level = {{ logging.level }}
+
+# Log format: text or json
+format = {{ logging.format }}
+
+# Path to log file
+file = {{ logging.file }}
+
+# Max log file size in MB before rotation
+max_size_mb = {{ logging.max_size_mb }}
+
+# Number of rotated log files to retain
+max_files = {{ logging.max_files }}
+
+[backend]
+# Path to the IPv6 network control socket or REST endpoint
+control_socket = {{ backend.control_socket }}
+
+# Timeout for backend operations in seconds
+operation_timeout = {{ backend.operation_timeout }}
+
+{% for service in backend.services %}
+# Service {{ loop.index }}: {{ service.name }}
+[backend_service:{{ service.name }}]
+enabled = {{ service.enabled | lower }}
+url = {{ service.url }}
+auth_token = {{ service.auth_token }}
+{% endfor %}
+
+[security]
+# Force HSTS header in responses (seconds)
+hsts_max_age = {{ security.hsts_max_age }}
+
+# Enable Content Security Policy (CSP) header
+csp_enabled = {{ security.csp_enabled | lower }}
+
+# CSP report-only mode (no enforcement)
+csp_report_only = {{ security.csp_report_only | lower }}
+
+# Allowed CSP report URI
+report_uri = {{ security.report_uri }}
+
+# Clickjacking protection
+xframe_options = {{ security.xframe_options }}
+
+[session]
+# Session cookie name
+name = {{ session.name }}
+
+# Session timeout in seconds
+lifetime = {{ session.lifetime }}
+
+# Secure cookie flag (HTTPS only)
+secure = {{ session.secure | lower }}
+
+# HTTP-only flag (prevent JavaScript access)
+httponly = {{ session.httponly | lower }}
+
+# SameSite policy: Lax, Strict, or None
+samesite = {{ session.samesite }}
+
+[rate_limit]
+# Enable per-IP rate limiting
+enabled = {{ rate_limit.enabled | lower }}
+
+# Requests allowed per window
+requests_per_window = {{ rate_limit.requests_per_window }}
+
+# Window duration in seconds
+window_seconds = {{ rate_limit.window_seconds }}

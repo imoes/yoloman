@@ -1,0 +1,142 @@
+{
+  "tick_time": {
+    "type": "number",
+    "default": 2000,
+    "description": "Time in milliseconds for each tick \u2014 used as the base unit for timeouts and heartbeats."
+  },
+  "init_limit": {
+    "type": "number",
+    "default": 10,
+    "description": "Number of ticks that followers are allowed to connect and sync to a leader during initial startup."
+  },
+  "sync_limit": {
+    "type": "number",
+    "default": 5,
+    "description": "Number of ticks that followers are allowed to respond to heartbeats from the leader before being considered out-of-sync."
+  },
+  "data_log_dir": {
+    "type": "string",
+    "default": "/var/lib/zookeeper/log",
+    "description": "Path to the directory storing transaction logs. Using a dedicated disk improves performance."
+  },
+  "data_dir": {
+    "type": "string",
+    "default": "/var/lib/zookeeper",
+    "description": "Path to the directory storing snapshot data files. Should be on persistent, reliable storage."
+  },
+  "client_port": {
+    "type": "number",
+    "default": 2181,
+    "description": "Port on which ZooKeeper accepts client connections (e.g., from applications)."
+  },
+  "client_bind_address": {
+    "type": "string",
+    "default": "0.0.0.0",
+    "description": "IP address or hostname to bind the client port to. Use 'localhost' for local-only access or a specific interface in production."
+  },
+  "max_client_cnxns": {
+    "type": "number",
+    "default": 60,
+    "description": "Maximum number of concurrent client connections per IP address. Increase for high-client-count deployments."
+  },
+  "four_letter_words_whitelist": {
+    "type": "string",
+    "default": "*",
+    "description": "Comma-separated list of allowed four-letter commands (e.g., 'stat,ruok,conf'). Use '' or 'none' to disable for security."
+  },
+  "group_digest_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable DigestAuthenticationProvider (prevents anonymous access). Enable only with proper SASL/Simple auth setup."
+  },
+  "secure_client_port": {
+    "type": "number",
+    "default": 0,
+    "description": "Port for TLS-encrypted client connections (e.g., 2281). Requires certificate configuration; set >0 to enable."
+  },
+  "servers": {
+    "type": "list",
+    "default": [],
+    "description": "List of voting ensemble members. Each element must have an `id`, `hostname`, `peer_port`, `leader_port`, and optionally `role`.",
+    "items": {
+      "type": "object",
+      "fields": {
+        "id": {
+          "type": "number",
+          "default": 1,
+          "description": "Unique server ID (1\u2013255) for ensemble membership."
+        },
+        "hostname": {
+          "type": "string",
+          "default": "localhost",
+          "description": "DNS name or IP address of the ZooKeeper server."
+        },
+        "peer_port": {
+          "type": "number",
+          "default": 2888,
+          "description": "Port for follower-to-leader communication (quorum protocol)."
+        },
+        "leader_port": {
+          "type": "number",
+          "default": 3888,
+          "description": "Port used for leader election communication."
+        },
+        "role": {
+          "type": "string",
+          "default": "",
+          "description": "Optional role \u2014 typically blank for voters; use 'participant' or omit."
+        }
+      }
+    }
+  },
+  "observers": {
+    "type": "list",
+    "default": [],
+    "description": "List of observer servers (non-voting members). Same structure as `servers`, but `role` must be 'observer'.",
+    "items": {
+      "type": "object",
+      "fields": {
+        "id": {
+          "type": "number",
+          "default": 1,
+          "description": "Unique observer ID (must be unique across ensemble)."
+        },
+        "hostname": {
+          "type": "string",
+          "default": "localhost",
+          "description": "DNS name or IP address of the observer server."
+        },
+        "peer_port": {
+          "type": "number",
+          "default": 2888,
+          "description": "Port for communication with leader (same as voting servers)."
+        },
+        "leader_port": {
+          "type": "number",
+          "default": 3888,
+          "description": "Port for election (observers do not participate, but port required for config)."
+        }
+      }
+    }
+  },
+  "auto_purge_snap_retain_count": {
+    "type": "number",
+    "default": 3,
+    "description": "Number of recent snapshots to retain when auto-purging is enabled."
+  },
+  "auto_purge_purge_interval": {
+    "type": "number",
+    "default": 1,
+    "description": "Interval (in hours) between automatic purge runs. Set to 0 to disable."
+  },
+  "standalone_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Allow single-node (standalone) mode even when ensemble config is present. Set false to enforce ensemble mode."
+  },
+  "read_only_mode_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Allow servers to operate in read-only mode if disconnected from the quorum. Generally safe to leave enabled."
+  }
+}

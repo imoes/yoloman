@@ -1,0 +1,100 @@
+[DEFAULT]
+# Enable debugging for DHCP agent
+{% if debug | default(false) %}debug = True{% else %}debug = False{% endif %}
+
+# Logging verbosity
+{% if verbose | default(false) %}verbose = True{% else %}verbose = False{% endif %}
+
+# Path to the rootwrap configuration
+{% if rootwrap_config %}rootwrap_config = {{ rootwrap_config }}{% else %}rootwrap_config = /etc/neutron/rootwrap.conf{% endif %}
+
+# RPC backend to use
+{% if rpc_backend | default('rabbit') %}rpc_backend = {{ rpc_backend }}{% endif %}
+
+# RabbitMQ connection string (if rpc_backend=rabbit)
+{% if rabbit_host %}rabbit_host = {{ rabbit_host }}{% endif %}
+{% if rabbit_port %}rabbit_port = {{ rabbit_port }}{% endif %}
+{% if rabbit_user %}rabbit_userid = {{ rabbit_user }}{% endif %}
+{% if rabbit_password %}rabbit_password = {{ rabbit_password }}{% endif %}
+{% if rabbit_virtual_host %}rabbit_virtual_host = {{ rabbit_virtual_host }}{% endif %}
+
+# GlusterFS or other backend (optional, rarely used)
+{% if state_path %}state_path = {{ state_path }}{% endif %}
+
+# Number of DHCP agents per network
+{% if dhcp_agents_per_network | default(1) %}dhcp_agents_per_network = {{ dhcp_agents_per_network }}{% endif %}
+
+# Number of DHCP processes per network (deprecated in newer releases)
+{% if dhcp_driver | default('neutron.agent.linux.dhcp.Dnsmasq') %}dhcp_driver = {{ dhcp_driver }}{% endif %}
+
+# Enable or disable internal metadata proxy
+{% if enable_isolated_metadata | default(false) %}enable_isolated_metadata = True{% else %}enable_isolated_metadata = False{% endif %}
+
+# Enable or disable metadata NAT (needed if isolated metadata enabled)
+{% if enable_metadata_network | default(false) %}enable_metadata_network = True{% else %}enable_metadata_network = False{% endif %}
+
+# Metadata proxy shared secret (for auth)
+{% if metadata_proxy_shared_secret %}metadata_proxy_shared_secret = {{ metadata_proxy_shared_secret }}{% endif %}
+
+# Interface driver for DHCP agents
+{% if interface_driver | default('neutron.agent.linux.interface.OVSInterfaceDriver') %}interface_driver = {{ interface_driver }}{% endif %}
+
+# Device name used for metadata namespace
+{% if metadata_driver | default('neutron.agent.linux.metadata.driver.MetadataDriver') %}metadata_driver = {{ metadata_driver }}{% endif %}
+
+# DHCP lease time (in seconds)
+{% if dhcp_lease_time | default(86400) %}dhcp_lease_time = {{ dhcp_lease_time }}{% endif %}
+
+# DNS servers for instances (list)
+{% if dns_servers %}dns_servers = {{ dns_servers | join(', ') }}{% endif %}
+
+# Network namespace prefix
+{% if network_namespace %}network_namespace = {{ network_namespace }}{% endif %}
+
+# PID file path
+{% if pid_file %}pid_file = {{ pid_file }}{% endif %}
+
+# OVS integration bridge (if using OVS interface driver)
+{% if ovs_integration_bridge %}ovs_integration_bridge = {{ ovs_integration_bridge }}{% endif %}
+
+# Linux bridge physical device mapping (if using LinuxBridge driver)
+{% if linux_bridge_physical_device_mappings %}
+# Format: <physical_network>:<device_name>
+{% for mapping in linux_bridge_physical_device_mappings %}linux_bridge_physical_device_mappings = {{ mapping.physical_network }}:{{ mapping.device_name }}
+{% endfor %}{% endif %}
+
+# VxLAN group for overlay networks
+{% if vxlan_group %}vxlan_group = {{ vxlan_group }}{% endif %}
+
+# MTU for DHCP packets
+{% if dhcp_mtu | default(1500) %}dhcp_mtu = {{ dhcp_mtu }}{% endif %}
+
+# Use metadata forwarding instead of proxy (advanced)
+{% if use_namespaces | default(true) %}use_namespaces = True{% else %}use_namespaces = False{% endif %}
+
+# Number of DHCP processes (deprecated, use dhcp_agents_per_network instead)
+{% if dhcp_agents | default(2) %}dhcp_agents = {{ dhcp_agents }}{% endif %}
+
+# Send DHCP option 121 (classless static route)
+{% if enable_dhcp_opt121 | default(false) %}enable_dhcp_opt121 = True{% else %}enable_dhcp_opt121 = False{% endif %}
+
+# Hostname for this agent
+{% if host %}host = {{ host }}{% endif %}
+
+# API endpoint for Neutron service
+{% if auth_url %}auth_url = {{ auth_url }}{% endif %}
+{% if auth_type %}auth_type = {{ auth_type }}{% endif %}
+{% if project_domain_name %}project_domain_name = {{ project_domain_name }}{% endif %}
+{% if user_domain_name %}user_domain_name = {{ user_domain_name }}{% endif %}
+{% if project_name %}project_name = {{ project_name }}{% endif %}
+{% if username %}username = {{ username }}{% endif %}
+{% if password %}password = {{ password }}{% endif %}
+{% if insecure | default(false) %}insecure = True{% else %}insecure = False{% endif %}
+{% if cafile %}cafile = {{ cafile }}{% endif %}
+
+[agent]
+# Polling interval for resource updates (seconds)
+{% if polling_interval | default(2) %}polling_interval = {{ polling_interval }}{% endif %}
+
+# QoS driver (if enabled)
+{% if qos_driver %}qos_driver = {{ qos_driver }}{% endif %}

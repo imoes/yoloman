@@ -1,0 +1,84 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Globus GridFTP Server Configuration File -->
+<!-- Defines server-wide parameters such as ports, authentication, data channels, logging, and worker threads -->
+<Configuration>
+  <!-- Globus home directory (used for runtime files, certificates, etc.) -->
+  <GlobusHome>{{ globus_home }}</GlobusHome>
+
+  <!-- Service name as known to the system (e.g., for systemd integration) -->
+  <ServiceName>{{ service_name }}</ServiceName>
+
+  <!-- Network interface binding; leave empty to bind to all interfaces -->
+  <Interface>{{ bind_interface | default('') }}</Interface>
+
+  <!-- Main listening port for control connections -->
+  <Port>{{ control_port }}</Port>
+
+  <!-- Minimum and maximum ports for data connections (passive mode) -->
+  <DataPortMin>{{ data_port_min }}</DataPortMin>
+  <DataPortMax>{{ data_port_max }}</DataPortMax>
+
+  <!-- Enable TLS (SSL) for secure transfers -->
+  <TLS>{{ tls_enabled | lower }}</TLS>
+
+  <!-- Path to TLS certificate chain (required if TLS is enabled) -->
+  <CertificateFile>{{ tls_cert_path }}</CertificateFile>
+
+  <!-- Path to TLS private key (required if TLS is enabled) -->
+  <KeyFile>{{ tls_key_path }}</KeyFile>
+
+  <!-- TLS protocol version(s); e.g., '1.2' or '1.2:1.3' -->
+  <TLSProtocol>{{ tls_protocol }}</TLSProtocol>
+
+  <!-- Enable client certificate verification (mTLS) -->
+  <VerifyClient>{{ client_cert_verify | lower }}</VerifyClient>
+
+  <!-- Path to CA certificate bundle for client verification -->
+  <CACertificateFile>{{ ca_cert_path | default('') }}</CACertificateFile>
+
+  <!-- Maximum number of simultaneous connections allowed -->
+  <MaxConnections>{{ max_connections }}</MaxConnections>
+
+  <!-- Maximum number of worker threads for I/O processing -->
+  <MaxThreads>{{ max_threads }}</MaxThreads>
+
+  <!-- Enable RFC 3540 extended features (e.g., `MLSD`, `MFMT`) -->
+  <RFC3540>{{ rfc3540_enabled | lower }}</RFC3540>
+
+  <!-- Logging verbosity: 0 (none) to 10 (debug) -->
+  <LogLevel>{{ log_level }}</LogLevel>
+
+  <!-- Logging destination; leave empty for default (e.g., syslog) -->
+  <LogPath>{{ log_path | default('') }}</LogPath>
+
+  <!-- Enable TCP_NODELAY (disable Nagle) for lower latency -->
+  <TCPNoDelay>{{ tcp_nodelay | lower }}</TCPNoDelay>
+
+  <!-- List of allowed authentication methods -->
+  <AuthMethods>
+{% for method in auth_methods %}    <AuthMethod>{{ method }}</AuthMethod>
+{% endfor %}  </AuthMethods>
+
+  <!-- List of allowed GSI authorization rules (if using grid auth) -->
+  <Authorization>
+{% for rule in authz_rules %}    <Rule>{{ rule }}</Rule>
+{% endfor %}  </Authorization>
+
+  <!-- Optional: list of allowed user home directories (e.g., for chroot) -->
+  <ChrootDirs>
+{% for dir in chroot_dirs %}    <Directory>{{ dir }}</Directory>
+{% endfor %}  </ChrootDirs>
+
+  <!-- Optional: list of allowed user groups for access control -->
+  <AllowedGroups>
+{% for group in allowed_groups %}    <Group>{{ group }}</Group>
+{% endfor %}  </AllowedGroups>
+
+  <!-- Optional: timeout values in seconds -->
+  <Timeouts>
+    <!-- Idle connection timeout before server closes it -->
+    <IdleTimeout>{{ timeout_idle }}</IdleTimeout>
+    <!-- Data connection inactivity timeout -->
+    <DataTimeout>{{ timeout_data }}</DataTimeout>
+  </Timeouts>
+</Configuration>

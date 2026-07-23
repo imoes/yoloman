@@ -1,0 +1,66 @@
+[DEFAULT]
+# Logging configuration
+log_file = {{ log_file }}
+log_dir = {{ log_dir }}
+use_syslog = {{ use_syslog }}
+
+# Debug and verbose settings
+verbose = {{ verbose }}
+debug = {{ debug }}
+
+# Authentication and authorization
+auth_strategy = {{ auth_strategy }}
+
+[api]
+# API service settings
+host = {{ api.host }}
+port = {{ api.port }}
+workers = {{ api.workers }}
+
+# CORS configuration (optional)
+{% if api.enable_cors %}
+enable_cors = true
+cors_allowed_origins = {{ api.cors_allowed_origins | join(', ') }}
+{% endif %}
+
+[database]
+# Database connection
+connection = {{ database.connection }}
+
+[oslo_messaging_notifications]
+# Notification driver
+driver = {{ notifications.driver }}
+
+{% if notifications.topics %}
+# Notification topics
+{% for topic in notifications.topics %}
+topic = {{ topic }}
+{% endfor %}
+{% endif %}
+
+[resource_provider]
+# Resource provider configuration
+allocation_ratio = {{ resource_provider.allocation_ratio }}
+
+{% if resource_provider.inventories %}
+# Default resource class inventories
+{% for inv in resource_provider.inventories %}
+[DEFAULT]/{{ inv.resource_class }} = {{ inv.amount }}
+{% endfor %}
+{% endif %}
+
+[accelerators]
+# Accelerator backend configuration
+{% if accelerators.backends %}
+# Enabled accelerator backends
+{% for backend in accelerators.backends %}
+enabled_backends = {{ backend.name }}
+
+# Backend-specific section
+[{{ backend.name }}]
+driver = {{ backend.driver }}
+{% for key, value in backend.options.items() %}
+{{ key }} = {{ value }}
+{% endfor %}
+{% endfor %}
+{% endif %}

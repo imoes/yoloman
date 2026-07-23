@@ -1,0 +1,53 @@
+# LFT (Layer Four Tool) configuration file
+# Enables or disables verbose logging
+verbose {{ verbose }}
+
+# Network interface to sniff/listen on
+interface {{ interface }}
+
+# TCP port(s) to monitor (comma-separated list)
+tcp_ports {{ tcp_ports | join(',') }}
+
+# UDP port(s) to monitor (comma-separated list)
+udp_ports {{ udp_ports | join(',') }}
+
+# Maximum number of simultaneous connections to track
+max_connections {{ max_connections }}
+
+# Path to the PID file
+pidfile {{ pidfile }}
+
+# Path to the log file
+logfile {{ logfile }}
+
+# Enable or disable promiscuous mode
+promiscuous {{ promiscuous }}
+
+# Host(s) to whitelist (one per line, or empty for none)
+{% if whitelist | length > 0 %}
+{% for host in whitelist %}
+whitelist {{ host }}
+{% endfor %}
+{% endif %}
+
+# Host(s) to blacklist (one per line, or empty for none)
+{% if blacklist | length > 0 %}
+{% for host in blacklist %}
+blacklist {{ host }}
+{% endfor %}
+{% endif %}
+
+# Timeout (in seconds) for idle connections
+connection_timeout {{ connection_timeout }}
+
+# Interval (in seconds) between stats dumps to log
+stats_interval {{ stats_interval }}
+
+# Enable or disable payload capture
+payload_capture {{ payload_capture }}
+
+# Maximum size (in bytes) of captured payload per connection
+max_payload_size {{ max_payload_size }}
+
+# Enable or disable DNS reverse lookups on source/dest IPs
+dns_lookup {{ dns_lookup }}

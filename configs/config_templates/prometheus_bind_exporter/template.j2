@@ -1,0 +1,33 @@
+# Environment variables for prometheus-bind-exporter
+# Sets the BIND DNS server stats endpoint URL
+BIND_EXPORTER_URL="{{ bind_url }}"
+
+# Sets the BIND stats channel username (if ACL-based auth required)
+{% if bind_username is defined %}BIND_EXPORTER_USERNAME="{{ bind_username }}"{% endif %}
+
+# Sets the BIND stats channel password (if ACL-based auth required)
+{% if bind_password is defined %}BIND_EXPORTER_PASSWORD="{{ bind_password }}"{% endif %}
+
+# Sets the BIND stats channel port (default: 8053 for stats, or 9547 for XML)
+BIND_EXPORTER_PORT="{{ bind_port }}"
+
+# Sets the path to the BIND statistics channel (e.g., /xml/v3/statistics)
+BIND_EXPORTER_PATH="{{ bind_path }}"
+
+# Sets whether to use TLS/HTTPS for stats channel (true|false)
+BIND_EXPORTER_USE_TLS="{{ bind_use_tls | lower }}"
+
+# Sets the timeout (in seconds) for requests to BIND
+BIND_EXPORTER_TIMEOUT="{{ bind_timeout }}"
+
+# Sets the log level (debug|info|warn|error)
+BIND_EXPORTER_LOG_LEVEL="{{ log_level }}"
+
+# Comma-separated list of additional labels to attach to all metrics (e.g., env=prod,team=infra)
+{% if extra_labels %}BIND_EXPORTER_LABELS="{{ extra_labels | map('join=') | join(',') }}"{% endif %}
+
+# If set, bind_exporter will scrape metrics only for these views (comma-separated)
+{% if views %}BIND_EXPORTER_VIEWS="{{ views | join(',') }}"{% endif %}
+
+# If set, bind_exporter will disable collection of certain metric categories (comma-separated: queries, zones, etc.)
+{% if disable_metrics %}BIND_EXPORTER_DISABLE_METRICS="{{ disable_metrics | join(',') }}"{% endif %}

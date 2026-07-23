@@ -1,0 +1,147 @@
+# ServerRoot: The top of the directory tree under which the server's
+# configuration, error, and log files are kept.
+ServerRoot "{{ server_root }}"
+
+# Include module configuration
+{% for module_conf in include_modules %}
+# Load module: {{ module_conf.name }}
+LoadModule {{ module_conf.name }} {{ module_conf.path }}
+{% endfor %}
+
+# Include optional configuration files
+{% for inc_dir in include_optional_dirs %}
+# Include files from: {{ inc_dir }}
+IncludeOptional {{ inc_dir }}/*.conf
+{% endfor %}
+
+# Listen: TCP port and optionally IP address for incoming connections
+Listen {{ listen_address }}:{{ port }}
+
+# User and Group: The user/group the server processes run as
+User {{ user }}
+Group {{ group }}
+
+# ServerAdmin: Email address server uses in error messages
+ServerAdmin {{ server_admin }}
+
+# ServerName: Explicit server identification (hostname:port)
+{% if server_name %}ServerName {{ server_name }}{% endif %}
+
+# HostnameLookups: Reverse DNS lookups for client IPs (off for performance)
+HostnameLookups {{ hostname_lookups | lower }}
+
+# ErrorLog: Path to main error log
+ErrorLog {{ error_log }}
+
+# LogLevel: Verbosity of error logging
+LogLevel {{ log_level }}
+
+# ErrorDocument: Custom error pages
+{% for code, path in error_documents.items() %}
+ErrorDocument {{ code }} {{ path }}
+{% endfor %}
+
+# TypesConfig: MIME types configuration file
+TypesConfig {{ mime_types_config }}
+
+# DirectoryIndex: Default file(s) served for directory requests
+DirectoryIndex {{ directory_index | join(', ') }}
+
+# DocumentRoot: Main content directory
+DocumentRoot "{{ document_root }}"
+
+# <Directory>: Access control for the document root
+<Directory "{{ document_root }}">
+  # Options: What features are enabled (Indexes, FollowSymLinks, etc.)
+  Options {{ directory_options | join(' ') }}
+
+  # AllowOverride: Which .htaccess directives are honored
+  AllowOverride {{ allow_override }}
+
+  # Require: Default access rule
+  Require {{ require_method }}
+</Directory>
+
+# <FilesMatch>: Apply rules to files by extension
+<FilesMatch "\.php$">
+  # Handler for PHP files (if PHP module is loaded)
+  SetHandler {{ php_handler }}
+</FilesMatch>
+
+# Directory for server runtime files (PID, mutexes, etc.)
+RuntimeDir {{ runtime_dir }}
+
+# PidFile: File where server writes its process ID
+PidFile {{ pid_file }}
+
+# Timeout: Seconds before connection is aborted
+Timeout {{ timeout }}
+
+# KeepAlive: Whether persistent connections are allowed
+KeepAlive {{ keep_alive | lower }}
+
+# MaxKeepAliveRequests: Max requests per persistent connection
+MaxKeepAliveRequests {{ max_keepalive_requests }}
+
+# KeepAliveTimeout: Seconds to wait for next request on persistent connection
+KeepAliveTimeout {{ keepalive_timeout }}
+
+# AccessFileName: Name of distributed config files (e.g., .htaccess)
+AccessFileName "{{ access_file_name }}"
+
+# Files to ignore (not served by Apache)
+<FilesMatch "^\.ht">
+  Require all denied
+</FilesMatch>
+
+# Logging configuration
+LogFormat "{{ log_format }}" {{ log_format_name }}
+
+# CustomLog: Path and format for access log
+{% for log in access_logs %}
+# Access log: {{ log.path }}
+CustomLog "{{ log.path }}" {{ log.format | default('combined') }}
+{% endfor %}
+
+# Cache configuration (mod_cache_disk)
+{% if enable_cache %}
+# CacheRoot: Base directory for disk cache
+CacheRoot "{{ cache_root }}"
+
+# CacheDirLevels: Depth of directory hierarchy
+CacheDirLevels {{ cache_dir_levels }}
+
+# CacheDirLength: Characters per directory name
+CacheDirLength {{ cache_dir_length }}
+
+# CacheDefaultExpire: Default cache lifetime in seconds
+CacheDefaultExpire {{ cache_default_expire }}
+
+# CacheMaxExpire: Maximum cache lifetime in seconds
+CacheMaxExpire {{ cache_max_expire }}
+
+# CacheLastModifiedFactor: Factor to estimate freshness from last-modified
+CacheLastModifiedFactor {{ cache_last_modified_factor }}
+
+# CacheEnable: Enable caching for specific URL paths
+{% for cache_entry in cache_enable %}
+CacheEnable {{ cache_entry.type }} "{{ cache_entry.url }}"
+{% endfor %}
+{% endif %}
+
+# MIME types for common file types
+{% for ext, mime_type in mime_types_extra.items() %}
+# MIME type for {{ ext }}
+AddType {{ mime_type }} {{ ext }}
+{% endfor %}
+
+# Server signature in server-generated pages
+ServerSignature {{ server_signature | lower }}
+
+# TraceEnable: HTTP TRACE method (off by default for security)
+TraceEnable {{ trace_enable | lower }}
+
+# Include virtual host configurations
+{% for vhost_file in include_vhost_files %}
+IncludeOptional {{ vhost_file }}
+{% endfor %}

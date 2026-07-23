@@ -1,0 +1,178 @@
+{# Top-level Kea DHCPv6 server configuration file #}
+{
+  "Dhcp6": {
+    "control-socket": {
+      "socket-type": "unix",
+      "socket-name": "{{ control_socket_name }}"
+    },
+    "lease-database": {
+      "type": "{{ lease_database_type }}",
+      "name": "{{ lease_database_name }}",
+      "user": "{{ lease_database_user }}",
+      "password": "{{ lease_database_password }}",
+      "host": "{{ lease_database_host }}",
+      "port": {{ lease_database_port }},
+      "lfc-interval": {{ lease_database_lfc_interval }},
+      "max-reclaim-leases": {{ lease_database_max_reclaim_leases }},
+      "max-reclaim-time": {{ lease_database_max_reclaim_time }},
+      "unwarned-reclaim-cycles": {{ lease_database_unwarned_reclaim_cycles }}
+    },
+    "hooks-libraries": [
+{% for lib in hooks_libraries %}
+      {
+        "library": "{{ lib.library }}",
+{% if lib.parameters is defined %}
+        "parameters": {{ lib.parameters | tojson }}
+{% else %}
+        "parameters": {}
+{% endif %}
+      }{{ ',' if not loop.last else '' }}
+{% endfor %}
+    ],
+    "loggers": [
+{% for logger in loggers %}
+      {
+        "name": "{{ logger.name }}",
+        "output_options": [
+          {
+            "output": "{{ logger.output_options[0].output }}"
+{% if logger.output_options[0].maxsize is defined %}
+            ,"maxsize": {{ logger.output_options[0].maxsize }}
+{% endif %}
+{% if logger.output_options[0].maxver is defined %}
+            ,"maxver": {{ logger.output_options[0].maxver }}
+{% endif %}
+          }
+        ],
+        "severity": "{{ logger.severity }}"
+{% if logger.debuglevel is defined %}
+        ,"debuglevel": {{ logger.debuglevel }}
+{% endif %}
+      }{{ ',' if not loop.last else '' }}
+{% endfor %}
+    ],
+    "subnets": [
+{% for subnet in subnets %}
+      {
+        "id": {{ subnet.id }},
+        "subnet": "{{ subnet.subnet }}",
+        "interface": "{{ subnet.interface }}",
+        "pools": [
+{% for pool in subnet.pools %}
+          {
+            "pool": "{{ pool.pool }}"
+          }{{ ',' if not loop.last else '' }}
+{% endfor %}
+        ],
+        "option-data": [
+{% for opt in subnet.option_data %}
+          {
+            "name": "{{ opt.name }}",
+            "data": "{{ opt.data }}"
+          }{{ ',' if not loop.last else '' }}
+{% endfor %}
+        ]
+{% if subnet.reservations is defined and subnet.reservations %}
+        ,
+        "reservations": [
+{% for res in subnet.reservations %}
+          {
+            "duid": "{{ res.duid }}",
+            "hostname": "{{ res.hostname }}",
+            "ip-address": "{{ res.ip_address }}",
+            "option-data": [
+{% for ropt in res.option_data %}
+              {
+                "name": "{{ ropt.name }}",
+                "data": "{{ ropt.data }}"
+              }{{ ',' if not loop.last else '' }}
+{% endfor %}
+            ]
+          }{{ ',' if not loop.last else '' }}
+{% endfor %}
+        ]
+{% endif %}
+      }{{ ',' if not loop.last else '' }}
+{% endfor %}
+    ],
+    "shared-networks": [
+{% for sn in shared_networks %}
+      {
+        "name": "{{ sn.name }}",
+        "interface": "{{ sn.interface }}",
+        "subnet6": [
+{% for subnet in sn.subnet6 %}
+          {
+            "id": {{ subnet.id }},
+            "subnet": "{{ subnet.subnet }}",
+            "pools": [
+{% for pool in subnet.pools %}
+              {
+                "pool": "{{ pool.pool }}"
+              }{{ ',' if not loop.last else '' }}
+{% endfor %}
+            ],
+            "option-data": [
+{% for opt in subnet.option_data %}
+              {
+                "name": "{{ opt.name }}",
+                "data": "{{ opt.data }}"
+              }{{ ',' if not loop.last else '' }}
+{% endfor %}
+            ]
+{% if subnet.reservations is defined and subnet.reservations %}
+            ,
+            "reservations": [
+{% for res in subnet.reservations %}
+              {
+                "duid": "{{ res.duid }}",
+                "hostname": "{{ res.hostname }}",
+                "ip-address": "{{ res.ip_address }}",
+                "option-data": [
+{% for ropt in res.option_data %}
+                  {
+                    "name": "{{ ropt.name }}",
+                    "data": "{{ ropt.data }}"
+                  }{{ ',' if not loop.last else '' }}
+{% endfor %}
+                ]
+              }{{ ',' if not loop.last else '' }}
+{% endfor %}
+            ]
+{% endif %}
+          }{{ ',' if not loop.last else '' }}
+{% endfor %}
+        ],
+        "option-data": [
+{% for opt in sn.option_data %}
+          {
+            "name": "{{ opt.name }}",
+            "data": "{{ opt.data }}"
+          }{{ ',' if not loop.last else '' }}
+{% endfor %}
+        ]
+      }{{ ',' if not loop.last else '' }}
+{% endfor %}
+    ],
+    "interfaces-config": {
+      "interfaces": ["{{ interfaces }}"],
+      "re-detect": {{ interfaces_config_re_detect }}
+    },
+    "server-id": {
+      "type": "{{ server_id_type }}",
+      "identifier": "{{ server_id_identifier }}"
+    },
+    "preferred-lifetime": {{ preferred_lifetime }},
+    "valid-lifetime": {{ valid_lifetime }},
+    "renew-timer": {{ renew_timer }},
+    "rebind-timer": {{ rebind_timer }},
+{% if ip_realloc is defined %}
+    "ip-realloc": {
+      "search-all-dfas": {{ ip_realloc.search_all_dfas }}
+    },
+{% endif %}
+    "dhcpv4-interop": {
+      "info-only": {{ dhcpv4_interop_info_only }}
+    }
+  }
+}

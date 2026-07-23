@@ -1,0 +1,58 @@
+#!/bin/sh
+# growroot — auto-resize root partition on first boot
+# Managed by cloud-initramfs-growroot
+
+PREREQ=""
+prereqs() { echo "$PREREQ"; }
+case "$1" in prereqs) prereqs; exit 0 ;; esac
+
+. /scripts/functions
+
+# Honour operator disable flag — create /etc/growroot-disabled to suppress all resizing
+[ -f /etc/growroot-disabled ] && exit 0
+
+{% if once_only %}
+# Skip on subsequent boots once the one-time sentinel has been written
+[ -f {{ sentinel_file }} ] && exit 0
+{% endif %}
+
+# Seconds to pause after growpart so the kernel can re-read the updated partition table
+WAIT={{ partition_settle_wait_sec }}
+
+# Full path to growpart binary (provided by cloud-guest-utils or cloud-utils)
+GROWPART="{{ growpart_binary }}"
+
+# Resolve the actual block device backing the root filesystem
+ROOT_DEV=$(findfs "$ROOT" 2>/dev/null) || exit 0
+
+# Derive the parent disk and partition number (e.g. /dev/sda1 -> /dev/sda, 1)
+DISK=$(echo "$ROOT_DEV" | sed 's/[0-9]*$//')
+PARTNUM=$(echo "$ROOT_DEV" | grep -o '[0-9]*$')
+
+if [ -z "$DISK" ] || [ -z "$PARTNUM" ]; then
+    log_warning_msg "growroot: cannot determine disk/partition from $ROOT_DEV — skipping"
+    exit 0
+fi
+
+{% for skip in skip_partitions %}
+# Operator-excluded partition — never resize this slot
+[ "$PARTNUM" = "{{ skip }}" ] && { log_warning_msg "growroot: partition {{ skip }} is excluded — skipping"; exit 0; }
+{% endfor %}
+
+log_begin_msg "growroot: resizing $DISK partition $PARTNUM"
+
+# Extend the partition to the end of available disk space, then let the kernel settle
+"$GROWPART" "$DISK" "$PARTNUM" && sleep "$WAIT"
+
+{% if once_only %}
+# Write the one-time sentinel so subsequent reboots do not attempt a second grow
+touch {{ sentinel_file }} 2>/dev/null || true
+{% endif %}
+
+{% if reboot_after_grow %}
+# Immediately reboot via sysrq so the kernel re-mounts the enlarged filesystem read-write
+# Required on images where the running kernel cannot live-reread the partition table
+echo b > /proc/sysrq-trigger
+{% endif %}
+
+log_end_msg 0

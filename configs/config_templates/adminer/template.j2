@@ -1,0 +1,61 @@
+<?php
+// Default Adminer configuration — loaded on every request
+// See https://www.adminer.org/en/configuration/ for reference
+
+// Authentication plugin: how Adminer authenticates users
+// Set to 'password' to allow username+password login, or 'none' for no auth (not recommended in production)
+$AUTH_PLUGIN = '{{ auth_plugin }}';
+
+// Server configuration: list of database servers to present in the login form
+// Each entry defines a server with name, address, and optional credentials or defaults
+$SERVERS = [
+{% for server in servers %}
+    [
+        'server' => '{{ server.name }}',
+        'driver' => '{{ server.driver }}',
+        'hostname' => '{{ server.hostname }}',
+        'username' => '{{ server.username|default('') }}',
+        'password' => '{{ server.password|default('') }}',
+        'dbname' => '{{ server.dbname|default('') }}',
+        'port' => {{ server.port|default('3306') if server.driver == 'mysql' else (server.port|default('5432') if server.driver == 'postgresql' else server.port) }},
+        'persistent' => {{ 'true' if server.persistent else 'false' }},
+    ],{% if not loop.last %}
+{% endif %}{% endfor %}
+];
+
+// Security: require HTTPS (set to true in production)
+{{ '# ' if not https_only }}$HTTPS_ONLY = {{ 'true' if https_only else 'false' }};
+
+// Interface: default language and theme
+// Language: 'en', 'cs', 'sk', 'pl', 'hu', 'fr', 'it', 'pt', 'ru', 'tr', 'bg', 'ua', 'es', 'ro', 'nl', 'de', 'cn', 'tw', etc.
+$LANG = '{{ language }}';
+
+// Theme: 'default', 'blueberry', 'fresh', 'minimal', 'pepa', 'winter' — or path to custom theme CSS
+$THEME = '{{ theme }}';
+
+// Plugins: enable optional functionality
+// Example: 'sqllog' logs queries, 'login-ssl' enables SSL client cert auth, etc.
+{% if plugins|length > 0 %}$PLUGINS = [
+{% for plugin in plugins %}    '{{ plugin }}',{% if not loop.last %}
+{% endif %}{% endfor %}
+];
+{% else %}$PLUGINS = [];
+{% endif %}
+
+// Login defaults: if username is omitted, use this user (empty = require login)
+$DEFAULT_DB = '{{ default_dbname }}';
+$DEFAULT_SERVER = '{{ default_server_name }}';
+$DEFAULT_DRIVER = '{{ default_driver }}';
+$DEFAULT_USERNAME = '{{ default_username }}';
+$DEFAULT_PASSWORD = '{{ default_password }}';
+
+// Limits & timeouts (in seconds)
+$TIME_LIMIT = {{ time_limit }};        // Max script execution time
+$PERSISTENT = {{ 'true' if persistent_connections else 'false' }};  // Use persistent DB connections?
+
+// Import/Export settings
+$IMPORT_MAX_SIZE = {{ import_max_size_mb }} * 1024 * 1024;  // Max file size for imports (in bytes)
+
+// SQL editor: default indentation and auto-complete
+$EDITOR_INDENT = {{ editor_indent }};  // Number of spaces for indentation
+$EDITOR_TABS = {{ editor_tabs }};      // Use tabs instead of spaces?

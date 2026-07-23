@@ -1,0 +1,50 @@
+# Listen address and port for incoming SMTP connections
+bind_address: {{ bind_address }}
+bind_port: {{ bind_port }}
+
+# SpamAssassin daemon connection (local or remote)
+spamc_host: {{ spamc_host }}
+spamc_port: {{ spamc_port }}
+
+# Timeout settings (in seconds)
+connect_timeout: {{ connect_timeout }}
+read_timeout: {{ read_timeout }}
+
+# Logging configuration
+log_level: {{ log_level }}
+log_file: {{ log_file }}
+
+# User/group to drop privileges to after binding ports
+user: {{ user }}
+group: {{ group }}
+
+# Optional: PID file location
+pid_file: {{ pid_file }}
+
+# Optional: maximum number of simultaneous connections
+max_children: {{ max_children }}
+
+# Optional: local domains to skip scanning (e.g., internal hosts)
+{% for domain in skip_scanning_domains %}
+skip_scanning_domain: {{ domain }}
+{% endfor %}
+
+# Optional: custom SpamAssassin rules or options
+{% for rule in custom_rules %}
+# {{ rule.comment }}
+{% if rule.type == 'option' %}
+option {{ rule.name }} {{ rule.value }}
+{% elif rule.type == 'score' %}
+score {{ rule.rule_name }} {{ rule.value }}
+{% endif %}
+{% endfor %}
+
+# Optional: whitelisted senders (bypass spam checks)
+{% for sender in whitelist_senders %}
+whitelist_from: {{ sender }}
+{% endfor %}
+
+# Optional: blacklisted senders (always mark as spam)
+{% for sender in blacklist_senders %}
+blacklist_from: {{ sender }}
+{% endfor %}

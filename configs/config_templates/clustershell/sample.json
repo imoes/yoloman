@@ -1,0 +1,25 @@
+{
+  "default_source": "local",
+  "confdir_paths": [
+    "/etc/clustershell/groups.conf.d",
+    "$CFGDIR/groups.conf.d"
+  ],
+  "group_sources": [
+    {
+      "name": "local",
+      "map_cmd": "sed -n 's/^$GROUP:\\(.*\\)/\\1/p' /etc/clustershell/groups.d/local.cfg",
+      "list_cmd": "sed -n 's/^\\([^:]*\\):.*/\\1/p' /etc/clustershell/groups.d/local.cfg",
+      "all_cmd": "",
+      "reverse_cmd": "",
+      "cache_time": 0
+    },
+    {
+      "name": "slurm",
+      "map_cmd": "sinfo -h -o '%N' -p $GROUP",
+      "list_cmd": "sinfo -h -o '%P' | tr -d '*'",
+      "all_cmd": "sinfo -h -o '%N'",
+      "reverse_cmd": "sinfo -h -N -n $NODE -o '%P' | tr -d '*'",
+      "cache_time": 300
+    }
+  ]
+}

@@ -1,0 +1,30 @@
+# REST module configuration — enables HTTP REST endpoints for external API access
+mod_rest:
+  # Base path for REST API endpoints (e.g., /api)
+  base_url: "{{ rest_base_url }}"
+  # List of REST endpoints with their HTTP methods, paths, and handlers
+  endpoints:
+{% for ep in rest_endpoints %}    -
+      # Endpoint description: HTTP method and path match
+      path: "{{ ep.path }}"
+      # Allowed HTTP methods: e.g., GET, POST, PUT, DELETE
+      methods: {{ ep.methods | map('upper') | list | join(', ') }}
+      # Path to the Erlang handler module implementing this endpoint
+      handler: "{{ ep.handler }}"
+      # Optional: list of access control rules for this endpoint
+{% if ep.acl %}      acl:
+{% for rule in ep.acl %}        - {user: "{{ rule.user }}", access: "{{ rule.access }}"}
+{% endfor %}{% else %}      acl: []
+{% endif %}{% endfor %}
+  # Enable request logging for debugging (true/false)
+  log_requests: {{ rest_log_requests }}
+  # Maximum allowed request body size in bytes (0 = unlimited)
+  max_request_size: {{ rest_max_request_size }}
+  # Timeout (in seconds) for request processing before returning 503
+  request_timeout: {{ rest_request_timeout }}
+  # Enable CORS support (true/false)
+  enable_cors: {{ rest_enable_cors }}
+  # CORS allowed origins (comma-separated list of hostnames or '*')
+  cors_origins: {{ rest_cors_origins | join(', ') }}
+  # CORS allowed headers
+  cors_headers: {{ rest_cors_headers | join(', ') }}

@@ -1,0 +1,141 @@
+{
+  "dhcp_range": {
+    "type": "string",
+    "default": "",
+    "description": "DHCP range (e.g., '192.168.0.100,192.168.0.120') for thin clients. Leave empty to use dnsmasq defaults."
+  },
+  "dhcp_boot": {
+    "type": "string",
+    "default": "",
+    "description": "Custom PXE boot filename (e.g., 'ltsp/amd64/pxelinux.0'). Usually auto-detected."
+  },
+  "nbd_root": {
+    "type": "string",
+    "default": "",
+    "description": "Absolute path to the NBD-exported root filesystem image. Overrides the default image path."
+  },
+  "nbd_enabled": {
+    "type": "boolean",
+    "default": false,
+    "description": "Enable NBD (Network Block Device) instead of NFS for root filesystem delivery."
+  },
+  "nbd_https": {
+    "type": "boolean",
+    "default": false,
+    "description": "Use HTTPS for NBD traffic (requires TLS certificates and compatible NBD server)."
+  },
+  "base_image": {
+    "type": "string",
+    "default": "",
+    "description": "Path to the base root filesystem (e.g., '/opt/ltsp/amd64'). Defaults to architecture-specific path."
+  },
+  "kernel_options": {
+    "type": "string",
+    "default": "",
+    "description": "Additional kernel command-line parameters applied to all thin clients (e.g., 'quiet splash vga=791')."
+  },
+  "persistent_home": {
+    "type": "boolean",
+    "default": false,
+    "description": "Enable persistent home directories for users by mounting NFS shares."
+  },
+  "persistent_home_nfs": {
+    "type": "string",
+    "default": "",
+    "description": "NFS export path (e.g., '/export/ltsp/homes') for persistent home directories."
+  },
+  "ldm_language": {
+    "type": "string",
+    "default": "",
+    "description": "Default language/locale for LDM (LTSP Display Manager) login screen (e.g., 'en_US.UTF-8')."
+  },
+  "ldm_layout": {
+    "type": "string",
+    "default": "",
+    "description": "Keyboard layout for LDM (e.g., 'us', 'de')."
+  },
+  "ldm_sound": {
+    "type": "boolean",
+    "default": false,
+    "description": "Enable audio redirection via PulseAudio for thin clients."
+  },
+  "dns_servers": {
+    "type": "list",
+    "items": {
+      "type": "string"
+    },
+    "default": [],
+    "description": "List of DNS servers to provide to thin clients (e.g., ['8.8.8.8', '1.1.1.1'])."
+  },
+  "ntp_servers": {
+    "type": "list",
+    "items": {
+      "type": "string"
+    },
+    "default": [],
+    "description": "List of NTP servers for time synchronization on thin clients."
+  },
+  "extra_packages": {
+    "type": "list",
+    "items": {
+      "type": "string"
+    },
+    "default": [],
+    "description": "Extra Debian packages to install during LTSP image build (e.g., ['vim', 'htop', 'firefox'])."
+  },
+  "client_sshd": {
+    "type": "boolean",
+    "default": false,
+    "description": "Enable the SSH daemon in the client image, allowing remote SSH access to thin clients."
+  },
+  "ldm_greeter": {
+    "type": "string",
+    "default": "",
+    "description": "GNOME Display Manager greeter or alternative (e.g., 'gdm3', 'lightdm')."
+  },
+  "clients": {
+    "type": "list",
+    "items": {
+      "type": "object",
+      "fields": {
+        "hostname": {
+          "type": "string",
+          "required": true,
+          "description": "Client hostname (used for comment only)."
+        },
+        "mac": {
+          "type": "string",
+          "required": true,
+          "description": "MAC address of the client (e.g., '52:54:00:12:34:56')."
+        },
+        "ip": {
+          "type": "string",
+          "required": false,
+          "description": "Static IP address for this client (e.g., '192.168.0.110')."
+        },
+        "root": {
+          "type": "string",
+          "required": false,
+          "description": "Override root path (NFS export) for this client only."
+        },
+        "nbd_root": {
+          "type": "string",
+          "required": false,
+          "description": "Override NBD root path for this client only."
+        },
+        "kernel_options": {
+          "type": "string",
+          "required": false,
+          "description": "Per-client kernel options (overrides global LTSP_KERNEL_OPTIONS)."
+        },
+        "display_manager": {
+          "type": "string",
+          "required": false,
+          "description": "Per-client display manager (e.g., 'gdm3', 'lightdm')."
+        }
+      }
+    },
+    "default": [],
+    "description": "List of client-specific configuration overrides (by MAC address)."
+  }
+}

@@ -1,0 +1,73 @@
+{
+  "bind_address": {
+    "type": "string",
+    "default": "127.0.0.1",
+    "description": "IP address the daemon binds to. Use 0.0.0.0 to accept connections from any interface."
+  },
+  "bind_port": {
+    "type": "number",
+    "default": 5555,
+    "description": "TCP port for client connections."
+  },
+  "pkcs11_module_path": {
+    "type": "string",
+    "default": "/usr/lib/softhsm/libsofthsm2.so",
+    "description": "Absolute path to the PKCS#11 module (e.g., SoftHSM or vendor HSM library)."
+  },
+  "timeout_seconds": {
+    "type": "number",
+    "default": 30,
+    "description": "Maximum time (in seconds) to wait for PKCS#11 operations before timing out."
+  },
+  "max_sessions": {
+    "type": "number",
+    "default": 100,
+    "description": "Maximum number of concurrent PKCS#11 sessions allowed."
+  },
+  "use_syslog": {
+    "type": "bool",
+    "default": true,
+    "description": "Whether to send logs to the system syslog daemon."
+  },
+  "log_level": {
+    "type": "string",
+    "default": "info",
+    "description": "Verbosity level for logging."
+  },
+  "extra_init_args": {
+    "type": "object",
+    "default": {},
+    "description": "Key\u2013value pairs for optional PKCS#11 module initialization (e.g., PIN, slot, model-specific flags)."
+  },
+  "allowed_clients": {
+    "type": "list",
+    "default": [],
+    "description": "List of client IP addresses or CIDRs allowed to connect. Leave empty to allow all clients.",
+    "items": {
+      "type": "string",
+      "description": "IPv4 or IPv6 address or CIDR block (e.g., '192.168.1.0/24')."
+    }
+  },
+  "tls_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable TLS encryption for client connections."
+  },
+  "tls_cert_file": {
+    "type": "string",
+    "default": "/etc/pkcs11-daemon/tls.crt",
+    "description": "Path to TLS certificate file (PEM format). Required if TLS is enabled.",
+    "condition": "tls_enabled"
+  },
+  "tls_key_file": {
+    "type": "string",
+    "default": "/etc/pkcs11-daemon/tls.key",
+    "description": "Path to TLS private key file (PEM format). Required if TLS is enabled.",
+    "condition": "tls_enabled"
+  },
+  "pid_file": {
+    "type": "string",
+    "default": "/run/pkcs11-daemon/pkcs11-daemon.pid",
+    "description": "Path where the daemon writes its process ID file."
+  }
+}

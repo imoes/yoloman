@@ -1,0 +1,31 @@
+# NDPPD configuration file — proxies IPv6 Neighbor Discovery Protocol messages
+# Listen on specified interfaces for NDP requests
+{% for interface in interfaces %}
+proxy {
+  # Interface to proxy NDP on
+  {{ interface.name }} {
+    # Router Advertisement and Neighbor Advertisement proxying
+    router {{ interface.router | default('no') }};
+    # Proxy responses for addresses in the specified range(s)
+    {% for rule in interface.rules %}
+    # Rule {{ loop.index }}: proxy NDP for {{ rule.address_range }}
+    rule {{ rule.address_range }} {
+      # Use static or dynamic neighbor entries
+      static {{ rule.static | default('no') }};
+      # Timeout for cached neighbor entries (seconds)
+      timeout {{ rule.timeout | default(300) }};
+    }
+    {% endfor %}
+    # Enable verbose logging for this interface
+    verbose {{ interface.verbose | default('no') }};
+  }
+}
+{% endfor %}
+# General daemon options
+# Log level: 0=quiet, 1=normal, 2=verbose, 3=debug
+log_level {{ global.log_level | default(1) }};
+# Run as user/group (optional — leave commented to use defaults)
+# user ndppd;
+# group ndppd;
+# PID file path
+pid_file {{ global.pid_file | default('/var/run/ndppd.pid') }};

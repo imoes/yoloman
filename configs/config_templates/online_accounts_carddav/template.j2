@@ -1,0 +1,53 @@
+# Main plugin configuration for Lomiri Online Accounts CardDAV (Generic)
+# This file is sourced by the CardDAV plugin to configure a generic CardDAV server
+[Service]
+# Protocol to use (typically https)
+Protocol={{ protocol }}
+
+# Server hostname (FQDN) to connect to
+Server={{ server_host }}
+
+# Port for the CardDAV server (usually 443 for HTTPS, 80 for HTTP)
+Port={{ port }}
+
+# Base path on the server (e.g., /dav/ or /carddav/); may be empty
+Path={{ path }}
+
+# Username used for authentication (often email or user ID)
+Username={{ username }}
+
+# Password (stored securely; may be replaced by token or keyring reference in practice)
+# NOTE: In production, avoid hardcoding secrets—use secure storage (e.g., secret-service)
+Password={{ password }}
+
+# Display name shown for this account in the UI
+DisplayName={{ display_name }}
+
+# Optional: Principal URL (if known); if left blank, autodiscovered via /.well-known/carddav
+# PrincipalURL={{ principal_url }}
+PrincipalURL={{ principal_url | default('') }}
+
+# Optional: Use WebDAV sync (if supported and needed); defaults to false
+# EnableSync={{ enable_sync }}
+EnableSync={{ enable_sync | default(false) }}
+
+# Optional: SSL/TLS verification (set to false only for testing with self-signed certs)
+# VerifySSL={{ verify_ssl }}
+VerifySSL={{ verify_ssl }}
+
+# Optional: CardDAV address book collection path (if known; overrides autodiscovery)
+# AddressBookPath={{ address_book_path }}
+AddressBookPath={{ address_book_path | default('') }}
+
+# Optional: Custom headers (key=value per line, e.g., "X-Request-Source=lomiri")
+# Headers=Header1: Value1\nHeader2: Value2
+{% if headers %}
+{% for header in headers %}Headers={{ header }}
+{% endfor %}
+{% endif %}
+
+# Optional: Force HTTP/1.1 instead of HTTP/2 (useful for legacy servers)
+ForceHTTP1={{ force_http1 }}
+
+# Optional: Max retries on connection failure
+MaxRetries={{ max_retries }}

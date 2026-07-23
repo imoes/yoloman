@@ -1,0 +1,279 @@
+{
+  "listen_address": {
+    "type": "string",
+    "default": "0.0.0.0",
+    "description": "IP address CUPS listens on for incoming connections (use 127.0.0.1 for localhost only)."
+  },
+  "listen_port": {
+    "type": "number",
+    "default": 631,
+    "description": "Port number for HTTP connections (standard IPP port)."
+  },
+  "server_name": {
+    "type": "string",
+    "default": "localhost",
+    "description": "Hostname advertised for this CUPS server (for DNS-SD and web UI)."
+  },
+  "server_admin": {
+    "type": "string",
+    "default": "root@localhost",
+    "description": "Email address of the CUPS server administrator."
+  },
+  "log_level": {
+    "type": "string",
+    "default": "info",
+    "description": "Verbosity level for logging."
+  },
+  "access_log_path": {
+    "type": "string",
+    "default": "/var/log/cups/access_log",
+    "description": "Path to the file where access logs are stored."
+  },
+  "error_log_path": {
+    "type": "string",
+    "default": "/var/log/cups/error_log",
+    "description": "Path to the file where error logs are stored."
+  },
+  "page_log_path": {
+    "type": "string",
+    "default": "/var/log/cups/page_log",
+    "description": "Path to the file where page logs are stored."
+  },
+  "browsing_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable/discover printers via DNS-SD and web interface."
+  },
+  "shared_printers": {
+    "type": "bool",
+    "default": true,
+    "description": "Allow shared printers to be accessed by remote clients."
+  },
+  "max_clients_per_host": {
+    "type": "number",
+    "default": 10,
+    "description": "Maximum concurrent connections allowed per client IP."
+  },
+  "max_clients": {
+    "type": "number",
+    "default": 100,
+    "description": "Total maximum number of concurrent client connections."
+  },
+  "max_hold_time": {
+    "type": "number",
+    "default": 0,
+    "description": "Maximum time (in seconds) jobs can be held before automatic deletion (0 = unlimited)."
+  },
+  "max_job_time": {
+    "type": "number",
+    "default": 0,
+    "description": "Maximum time (in seconds) a job can remain active (0 = unlimited)."
+  },
+  "default_auth_type": {
+    "type": "string",
+    "default": "Basic",
+    "description": "Default authentication method for administrative and web operations."
+  },
+  "web_interface_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable/disable the built-in web interface."
+  },
+  "listen_local_only": {
+    "type": "bool",
+    "default": false,
+    "description": "If true, restricts listening to the Unix socket only (enhances security)."
+  },
+  "https_port": {
+    "type": "number",
+    "default": 443,
+    "description": "Port for HTTPS/IPP-over-TLS (set to 0 to disable TLS)."
+  },
+  "server_certificate": {
+    "type": "string",
+    "default": "/etc/ssl/certs/cups.pem",
+    "description": "Path to the SSL/TLS server certificate file."
+  },
+  "server_key": {
+    "type": "string",
+    "default": "/etc/ssl/private/cups.pem",
+    "description": "Path to the SSL/TLS server private key file."
+  },
+  "trusted_certificates": {
+    "type": "list",
+    "default": [],
+    "description": "Comma-separated list of paths to trusted CA certificate files for TLS.",
+    "items": {
+      "type": "string",
+      "description": "Path to a trusted CA certificate file."
+    }
+  },
+  "auth_realms": {
+    "type": "list",
+    "default": [],
+    "description": "Access control rules for different CUPS locations (e.g., /admin, /admin/conf).",
+    "items": {
+      "type": "object",
+      "description": "Access control realm configuration.",
+      "fields": {
+        "name": {
+          "type": "string",
+          "description": "Human-readable name for the realm."
+        },
+        "location": {
+          "type": "string",
+          "description": "CUPS location path (e.g., /admin, /admin/conf)."
+        },
+        "order": {
+          "type": "list",
+          "items": {
+            "type": "string",
+            "enum": [
+              "allow,deny",
+              "deny,allow"
+            ]
+          },
+          "description": "Order in which Allow/Deny rules are applied."
+        },
+        "allow_list": {
+          "type": "list",
+          "default": [],
+          "items": {
+            "type": "string",
+            "description": "Allowed client patterns (IP, subnet, or hostname)."
+          },
+          "description": "List of allowed client addresses or patterns."
+        },
+        "deny_list": {
+          "type": "list",
+          "default": [],
+          "items": {
+            "type": "string",
+            "description": "Denied client patterns."
+          },
+          "description": "List of denied client addresses or patterns."
+        },
+        "auth_type": {
+          "type": "string",
+          "enum": [
+            "None",
+            "Basic",
+            "Digest",
+            "Negotiate"
+          ],
+          "default": "Basic",
+          "description": "Authentication method for this location."
+        },
+        "require_user": {
+          "type": "list",
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "description": "List of allowed usernames (for auth-enabled locations)."
+        }
+      }
+    }
+  },
+  "policies": {
+    "type": "list",
+    "default": [],
+    "description": "Printer job policies (e.g., for default, admin, or custom queues).",
+    "items": {
+      "type": "object",
+      "description": "Policy definition.",
+      "fields": {
+        "name": {
+          "type": "string",
+          "description": "Policy name (e.g., default, admin)."
+        },
+        "jobs": {
+          "type": "list",
+          "default": [],
+          "items": {
+            "type": "object",
+            "fields": {
+              "type": {
+                "type": "string",
+                "enum": [
+                  "Max",
+                  "Min",
+                  "Idle",
+                  "Hold"
+                ],
+                "description": "Job limit type."
+              },
+              "value": {
+                "type": "number",
+                "description": "Limit value (seconds)."
+              }
+            }
+          },
+          "description": "Job time limits."
+        },
+        "operations": {
+          "type": "list",
+          "default": [],
+          "items": {
+            "type": "string",
+            "enum": [
+              "Cancel-Jobs",
+              "Close-Job",
+              "Create-Job",
+              "Enable-Printer",
+              "Get-Jobs",
+              "Hold-New-Jobs",
+              "Pause-Printer",
+              "Print-Job",
+              "Resume-Printer",
+              "Set-Printer-Attributes"
+            ]
+          },
+          "description": "List of allowed operations (lowercase variants accepted by CUPS)."
+        }
+      }
+    }
+  },
+  "default_printer_options": {
+    "type": "list",
+    "default": [],
+    "description": "Global default options applied to newly added printers.",
+    "items": {
+      "type": "object",
+      "fields": {
+        "name": {
+          "type": "string",
+          "description": "Option name (e.g., PageSize, OutputBin)."
+        },
+        "value": {
+          "type": "string",
+          "description": "Option value (e.g., A4, Bottom)."
+        }
+      },
+      "description": "Default printer option."
+    }
+  },
+  "log_filters": {
+    "type": "list",
+    "default": [],
+    "description": "Filter rules for log processing (e.g., MIME handling).",
+    "items": {
+      "type": "object",
+      "fields": {
+        "name": {
+          "type": "string",
+          "description": "Filter name (e.g., text, image)."
+        },
+        "type": {
+          "type": "string",
+          "description": "Filter type (e.g., application/pdf, image/pwg-raster)."
+        },
+        "command": {
+          "type": "string",
+          "description": "Command to run for filtering (path to filter binary)."
+        }
+      },
+      "description": "Log/filter rule for processing specific MIME types."
+    }
+  }
+}

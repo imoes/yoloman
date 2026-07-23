@@ -1,0 +1,76 @@
+[general]
+; Base configuration directory for fnott
+config_dir = {{ config_dir }}
+
+; Path to the font used for notifications
+font = {{ font }}
+
+; Path to the notification icon theme (optional)
+{% if icon_theme %}icon_theme = {{ icon_theme }}{% endif %}
+
+; Enable or disable the daemon startup on boot
+{% if autostart %}autostart = true{% else %}autostart = false{% endif %}
+
+; Maximum number of notifications to show on screen
+max_notifications = {{ max_notifications }}
+
+; Timeout (in seconds) before a notification expires
+notification_timeout = {{ notification_timeout }}
+
+; Animation duration (in milliseconds) for show/hide
+animation_duration = {{ animation_duration }}
+
+; Screen margin (in pixels) between notifications and screen edge
+margin = {{ margin }}
+
+; Scale factor for notification size (e.g., 0.8 = 80%)
+scale = {{ scale }}
+
+; Log level: 0=error, 1=warn, 2=info, 3=debug
+log_level = {{ log_level }}
+
+; Path to the log file (optional; empty = stderr only)
+{% if log_file %}log_file = {{ log_file }}{% endif %}
+
+[colors]
+; Background color (hex, #RRGGBBAA format)
+background = {{ colors.background }}
+
+; Text color (hex)
+text = {{ colors.text }}
+
+; Urgent notification border color
+border_urgent = {{ colors.border_urgent }}
+
+; Low priority border color
+border_low = {{ colors.border_low }}
+
+; Normal notification border color
+border_normal = {{ colors.border_normal }}
+
+[display]
+; Comma-separated list of output names to display notifications on (empty = all)
+{% if outputs | length > 0 %}outputs = {{ outputs | join(', ') }}{% endif %}
+
+; Vertical position: top, center, bottom
+position = {{ position }}
+
+; Horizontal position (if position != center): left, center, right
+{% if position == 'center' %}hposition = center{% else %}hposition = {{ hposition }}{% endif %}
+
+; Enable or disable notification grouping by app
+{% if group_by_app %}group_by_app = true{% else %}group_by_app = false{% endif %}
+
+[notifications]
+; Default urgency level: low, normal, critical
+{% if default_urgency %}default_urgency = {{ default_urgency }}{% endif %}
+
+; List of app IDs to suppress notifications from (empty = none)
+{% if suppressed_app_ids | length > 0 %}suppressed_app_ids = {{ suppressed_app_ids | join(', ') }}{% endif %}
+
+[actions]
+; Enable or disable notification actions (e.g., buttons)
+{% if actions_enabled %}enabled = true{% else %}enabled = false{% endif %}
+
+; Timeout (in seconds) before action buttons expire
+{% if action_timeout > 0 %}timeout = {{ action_timeout }}{% endif %}

@@ -1,0 +1,31 @@
+# /etc/clustershell/groups.conf
+# Group source configuration for ClusterShell.
+# Each section (except [Main]) defines one named group source backed by shell commands.
+
+[Main]
+# Default group source used when no @source: prefix is specified in group expressions
+default: {{ default_source }}
+{% if confdir_paths %}
+# Space-separated list of directories scanned for additional *.conf group source files
+confdir: {{ confdir_paths | join(' ') }}
+{% endif %}
+{% for source in group_sources %}
+
+[{{ source.name }}]
+# Shell command returning the node list for group $GROUP (nodeset or newline-separated)
+map: {{ source.map_cmd }}
+# Shell command listing all group names provided by this source (one name per line)
+list: {{ source.list_cmd }}
+{% if source.all_cmd %}
+# Shell command returning every node known to this source (used by @all expansion)
+all: {{ source.all_cmd }}
+{% endif %}
+{% if source.reverse_cmd %}
+# Shell command returning group names for node $NODE (enables reverse group lookup)
+reverse: {{ source.reverse_cmd }}
+{% endif %}
+{% if source.cache_time %}
+# Seconds to cache shell command results; 0 disables caching
+cache_time: {{ source.cache_time }}
+{% endif %}
+{% endfor %}

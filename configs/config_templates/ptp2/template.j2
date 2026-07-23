@@ -1,0 +1,65 @@
+# Enable or disable the ptp2 daemon
+{% if enabled %}START_PTP2=yes{% else %}START_PTP2=no{% endif %}
+
+# Interface(s) to use for PTP (space-separated list)
+PTP2_interfaces="{{ interfaces | join(' ') }}"
+
+# Network transport mode: 'udp', 'ethernet', 'l2', 'ipv4', 'ipv6'
+PTP2_transport="{{ transport }}"
+
+# Clock identity (optional; auto-generated if omitted)
+{% if clock_identity %}PTP2_clock_identity="{{ clock_identity }}"{% endif %}
+
+# Domain number (0–127); default is 0
+PTP2_domain_number={{ domain_number }}
+
+# Primary slave role (if true, act as primary clock on this domain)
+{% if primary %}PTP2_primary=yes{% else %}PTP2_primary=no{% endif %}
+
+# Logging configuration
+PTP2_log_level={{ log_level }}
+PTP2_log_file="{{ log_file }}"
+
+# Interval betweenAnnounce messages (default: 0; i.e., 1 per second)
+PTP2_announce_interval={{ announce_interval }}
+
+# Interval betweenSync messages (default: 0; i.e., 1 per second)
+PTP2_sync_interval={{ sync_interval }}
+
+# Delay request timeout (in units of delay_req_interval; default: 4)
+PTP2_delay_req_timeout={{ delay_req_timeout }}
+
+# Delay request interval (default: 0; i.e., 1 per second)
+PTP2_delay_req_interval={{ delay_req_interval }}
+
+# Faulty path detection (seconds before declaring path faulty)
+{% if faulty_path_timeout %}PTP2_faulty_path_timeout={{ faulty_path_timeout }}{% endif %}
+
+# Watchdog timeout (seconds; 0 disables watchdog)
+{% if watchdog_timeout %}PTP2_watchdog_timeout={{ watchdog_timeout }}{% endif %}
+
+# Allow multiple clocks on same network (use with caution)
+{% if allow_multiple_domains %}PTP2_allow_multiple_domains=yes{% else %}PTP2_allow_multiple_domains=no{% endif %}
+
+# Allow fallback to non-PHC devices (e.g., generic NICs)
+{% if fallback_to_generic_phc %}PTP2_fallback_to_generic_phc=yes{% else %}PTP2_fallback_to_generic_phc=no{% endif %}
+
+# Set initial offset (nanoseconds) for clock adjustment
+{% if initial_offset_ns is not none %}PTP2_initial_offset_ns={{ initial_offset_ns }}{% endif %}
+
+# Additional command-line options (e.g., -s for software timestamping)
+{% if extra_options %}PTP2_extra_options="{{ extra_options | join(' ') }}"{% endif %}
+
+# Per-interface override settings (optional)
+{% for iface in interface_overrides %}# Override for {{ iface.name }}
+PTP2_{{ iface.name }}_transport="{{ iface.transport }}"
+PTP2_{{ iface.name }}_priority1={{ iface.priority1 }}
+PTP2_{{ iface.name }}_priority2={{ iface.priority2 }}
+PTP2_{{ iface.name }}_clock_class={{ iface.clock_class }}
+PTP2_{{ iface.name }}_clock_accuracy={{ iface.clock_accuracy }}
+PTP2_{{ iface.name }}_offset_scaled_log_variance={{ iface.offset_scaled_log_variance }}
+PTP2_{{ iface.name }}_master_offset={{ iface.master_offset }}
+PTP2_{{ iface.name }}_log_sync_interval={{ iface.log_sync_interval }}
+PTP2_{{ iface.name }}_log_announce_interval={{ iface.log_announce_interval }}
+PTP2_{{ iface.name }}_log_delay_req_interval={{ iface.log_delay_req_interval }}
+{% endfor %}

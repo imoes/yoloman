@@ -1,0 +1,67 @@
+# LTSP server configuration file
+# Controls DHCP, TFTP, NFS, and PXE boot behavior for thin clients
+[DEFAULT]
+# Path to the LTSP image root (chroot environment)
+LTSP_IMAGE_ROOT = {{ ltsp_image_root }}
+# Architecture for the client images (e.g., i386, amd64)
+ARCH = {{ arch }}
+
+[dhcp]
+# Enable the built-in LTSP DHCP server (if false, rely on external DHCP)
+DHCP_ENABLED = {{ dhcp_enabled }}
+# IP range for client assignment
+DHCP_RANGE_START = {{ dhcp_range_start }}
+DHCP_RANGE_END = {{ dhcp_range_end }}
+# Gateway IP advertised to clients
+DHCP_GATEWAY = {{ dhcp_gateway }}
+# DNS servers to advertise
+DHCP_DNS = {{ dhcp_dns | join(', ') }}
+# Broadcast address
+DHCP_BROADCAST = {{ dhcp_broadcast }}
+# TFTP server hostname/IP (usually the LTSP server itself)
+DHCP_NEXT_SERVER = {{ dhcp_next_server }}
+# Default boot filename for PXE
+DHCP_FILENAME = {{ dhcp_filename }}
+{% if dhcp_extra_options %}
+# Additional static DHCP options (key = value pairs)
+{% for key, value in dhcp_extra_options.items() %}DHCP_OPTION_{{ loop.index }} = {{ key }}={{ value }}
+{% endfor %}{% endif %}
+
+[nfs]
+# Enable NFS export of the LTSP image (required for diskless clients)
+NFS_EXPORT_ENABLED = {{ nfs_export_enabled }}
+# Path to export on the server
+NFS_EXPORT_PATH = {{ nfs_export_path }}
+# Export options (e.g., ro,no_root_squash,async)
+NFS_EXPORT_OPTIONS = {{ nfs_export_options }}
+
+[tftp]
+# TFTP root directory (must contain pxelinux.0, etc.)
+TFTP_ROOT = {{ tftp_root }}
+# Enable TFTP service
+TFTP_ENABLED = {{ tftp_enabled }}
+
+[logging]
+# Log level: 0-7 (0 = emergency, 7 = debug)
+LOG_LEVEL = {{ log_level }}
+# Log file path (empty = syslog only)
+LOG_FILE = {{ log_file | default('') }}
+
+[security]
+# Allow unauthenticated NFS mounts (for simplicity; disable in production if possible)
+NFS_NO_ROOT_SQUASH = {{ nfs_no_root_squash }}
+# Enable HTTPS for the LTSP web management interface
+HTTPS_ENABLED = {{ https_enabled }}
+# Port for HTTPS management interface
+HTTPS_PORT = {{ https_port }}
+# SSH access to thin clients enabled?
+CLIENT_SSH_ENABLED = {{ client_ssh_enabled }}
+
+[clients]
+# Default environment variables to pass to clients
+{% for var, value in client_env.items() %}CLIENT_ENV_{{ var | upper }} = {{ value }}
+{% endfor %}
+# Per-client configuration overrides (each entry is a block of key=value lines)
+{% for client in client_overrides %}[client:{{ client.hostname }}]
+{% for key, value in client.items() if key != 'hostname' %}{{ key | upper }} = {{ value }}
+{% endfor %}{% endfor %}

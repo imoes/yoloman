@@ -1,0 +1,52 @@
+# Enable or disable LLDP transmission
+enable_lldp: {{ lldp_enabled }}
+
+# Enable or disable CDP transmission
+enable_cdp: {{ cdp_enabled }}
+
+# Interval (in seconds) between LLDP/CDP TLV updates
+update_interval: {{ update_interval }}
+
+# TTL (in seconds) for received TLVs before expiration
+ttl: {{ ttl }}
+
+# Maximum number of packets to queue per interface
+max_queue_len: {{ max_queue_len }}
+
+# LLDP port description template (supports %h for hostname, %i for interface name)
+port_desc_template: "{{ port_desc_template }}"
+
+# Hostname override (if empty, use system hostname)
+hostname: "{{ hostname }}"
+
+# Interface-specific configuration
+{% for iface in interfaces %}
+interface {{ iface.name }}:
+  # Enable LLDP on this interface
+  enable_lldp: {{ iface.lldp_enabled | default(lldp_enabled) }}
+  # Enable CDP on this interface
+  enable_cdp: {{ iface.cdp_enabled | default(cdp_enabled) }}
+  # LLDP chassis ID (MAC address, string, or 'auto')
+  chassis_id: {{ iface.chassis_id | default('auto') | tojson }}
+  # LLDP port ID (string or 'auto')
+  port_id: {{ iface.port_id | default('auto') | tojson }}
+  # LLDP system name (string or 'auto')
+  sys_name: {{ iface.sys_name | default('auto') | tojson }}
+  # LLDP system description (string or 'auto')
+  sys_desc: {{ iface.sys_desc | default('auto') | tojson }}
+  # TTL override for this interface (if 0, use global ttl)
+  ttl: {{ iface.ttl | default(0) }}
+  # Enable TLV advertisement for management address
+  adv_mgmt_addr: {{ iface.adv_mgmt_addr | default(true) }}
+  # Optional: extra TLVs as key=value pairs (one per line, indented under this interface)
+  {% if iface.extra_tlvs %}
+  extra_tlvs:
+  {% for k, v in iface.extra_tlvs.items() %}
+    {{ k }}: {{ v }}
+  {% endfor %}
+  {% endif %}
+{% endfor %}
+
+# Logging configuration
+log_level: {{ log_level }}
+log_facility: {{ log_facility }}

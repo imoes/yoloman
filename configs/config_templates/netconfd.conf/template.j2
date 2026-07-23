@@ -1,0 +1,100 @@
+{# netconfd configuration file - main configuration #}
+[netconfd]
+
+{# Enable or disable the netconfd service #}
+enabled = {{ enabled }}
+
+{# Log level: debug, info, notice, warning, error, critical #}
+log_level = {{ log_level }}
+
+{# Path to the log file (use 'stdout' for console logging) #}
+log_file = {{ log_file }}
+
+{# Path to the PID file #}
+pid_file = {{ pid_file }}
+
+{# Maximum number of concurrent sessions per user #}
+max_sessions_per_user = {{ max_sessions_per_user }}
+
+{# Maximum total number of sessions #}
+max_sessions_total = {{ max_sessions_total }}
+
+{# Session timeout in seconds (0 = no timeout) #}
+session_timeout = {{ session_timeout }}
+
+{# Enable or disable NETCONF over SSH (netconf-ssh) #}
+ssh_enabled = {{ ssh_enabled }}
+
+{# SSH listening host and port #}
+ssh_host = {{ ssh_host }}
+ssh_port = {{ ssh_port }}
+
+{# Path to the SSH host key file #}
+ssh_host_key = {{ ssh_host_key }}
+
+{# Path to the SSH authorized_keys file (optional, for user auth) #}
+ssh_authorized_keys = {{ ssh_authorized_keys }}
+
+{# Enable or disable NETCONF over TLS (netconf-tls) #}
+tls_enabled = {{ tls_enabled }}
+
+{# TLS listening host and port #}
+tls_host = {{ tls_host }}
+tls_port = {{ tls_port }}
+
+{# Path to the TLS certificate chain file #}
+tls_cert = {{ tls_cert }}
+
+{# Path to the TLS private key file #}
+tls_key = {{ tls_key }}
+
+{# Optional CA certificate for client verification (if mutual TLS) #}
+tls_ca_cert = {{ tls_ca_cert }}
+
+{# Enable or disable RESTCONF over HTTPS (netconf-restconf) #}
+restconf_enabled = {{ restconf_enabled }}
+
+{# RESTCONF listening host and port #}
+restconf_host = {{ restconf_host }}
+restconf_port = {{ restconf_port }}
+
+{# Path to the TLS certificate chain for RESTCONF (overrides global TLS cert if set) #}
+restconf_tls_cert = {{ restconf_tls_cert }}
+
+{# Path to the TLS private key for RESTCONF (overrides global TLS key if set) #}
+restconf_tls_key = {{ restconf_tls_key }}
+
+{# Enable or disable YANG data models validation on startup #}
+validate_yang_on_startup = {{ validate_yang_on_startup }}
+
+{# Path to the directory containing YANG modules (colon-separated paths supported) #}
+yang_module_paths = {{ yang_module_paths | join(':') }}
+
+{# Path to the startup configuration file (NETCONF :startup datastore) #}
+startup_config = {{ startup_config }}
+
+{# Path to the candidate configuration file (NETCONF :candidate datastore) #}
+candidate_config = {{ candidate_config }}
+
+{# Path to the running configuration file (NETCONF :running datastore, if writable) #}
+running_config = {{ running_config }}
+
+{# Enable or disable NETCONF notification subscriptions #}
+notifications_enabled = {{ notifications_enabled }}
+
+{# Path to the stream definitions directory (for YANG push streams) #}
+notification_streams_dir = {{ notification_streams_dir }}
+
+{# List of additional NETCONF protocol extensions to load #}
+{% for ext in extensions %}
+extension_{{ loop.index }}_path = {{ ext.path }}
+extension_{{ loop.index }}_args = {{ ext.args }}
+{% endfor %}
+
+{# List of users allowed to connect via NETCONF (authentication config) #}
+{% for user in users %}
+[auth:user:{{ user.name }}]
+password = {{ user.password | default('') }}
+public_key = {{ user.public_key | default('') }}
+role = {{ user.role }}
+{% endfor %}

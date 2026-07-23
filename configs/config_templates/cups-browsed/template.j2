@@ -1,0 +1,80 @@
+# Enable/disable automatic discovery of printers via DNS-SD/Bonjour
+{{ 'BrowseRemoteProtocols' | comment('dnsd', 'dns-sd') }}
+BrowseRemoteProtocols {{ protocols.dnsd | ternary('On', 'Off') }}
+
+# Enable/disable automatic discovery via CUPS (legacy cupsd broadcasts)
+{{ 'BrowseLocalProtocols' | comment('cups', 'cups') }}
+BrowseLocalProtocols {{ protocols.cups | ternary('On', 'Off') }}
+
+# Maximum time (in seconds) to wait for printer status updates before considering it offline
+MaxWaitTime {{ max_wait_time | int }}
+
+# Maximum number of print jobs to queue per printer (0 = unlimited)
+MaxJobsPerPrinter {{ max_jobs_per_printer | int }}
+
+# Timeout (in seconds) for network operations (IPP, etc.)
+RemotePrinterExpire {{ remote_printer_expire | int }}
+
+# Local network interface(s) to bind to (empty = all interfaces)
+{{ 'Listen' | comment('listen_address', 'address:port to listen on') }}
+{% if listen_address is not none %}
+Listen {{ listen_address }}
+{% else %}
+Listen *:631
+{% endif %}
+
+# Enable/disable creation of local queues for remote printers
+{{ 'CreateIPPPrinterQueues' | comment('create_queues', 'create local CUPS queues for discovered printers') }}
+CreateIPPPrinterQueues {{ create_queues | ternary('On', 'Off') }}
+
+# Default printer model (PPD file) to use when none is available
+{{ 'DefaultPrinterModel' | comment('default_ppd', 'PPD file name or URI') }}
+DefaultPrinterModel {{ default_ppd | default('drv:///sample.drv/generic.ppd') }}
+
+# Enable/disable automatic printer driver installation (via CUPS backend or drivers.conf)
+{{ 'AutoInstallFonts' | comment('auto_install_fonts', 'install font packages for printers requiring them') }}
+AutoInstallFonts {{ auto_install_fonts | ternary('On', 'Off') }}
+
+# Enable/disable creation of printer classes from discovered printer groups (e.g., via IPP 'printer-name-compat' group)
+{{ 'CreateRemoteRawPrinterQueues' | comment('raw_queues', 'create raw queues for remote printers without driver info') }}
+CreateRemoteRawPrinterQueues {{ raw_queues | ternary('On', 'Off') }}
+
+# Enable/disable automatic removal of printer queues when the remote printer disappears
+{{ 'RemovePrinters' | comment('remove_on_disconnect', 'remove local printer queues when remote printer becomes unreachable') }}
+RemovePrinters {{ remove_on_disconnect | ternary('On', 'Off') }}
+
+# List of printer URIs to exclude from discovery (one per line)
+{{ 'Filter' | comment('exclude_uris', 'exclude printers matching these URIs') }}
+{% for uri in exclude_uris %}Filter {{ uri }}
+{% endfor %}
+
+# List of printer URIs to always include (whitelist); if empty, all discovered printers are added
+{{ 'AlwaysInclude' | comment('always_include_uris', 'force discovery of these printers regardless of filters') }}
+{% for uri in always_include_uris %}AlwaysInclude {{ uri }}
+{% endfor %}
+
+# Enable/disable TLS encryption for remote IPP connections
+{{ 'UseTLS' | comment('use_tls', 'encrypt connections to remote printers via TLS') }}
+UseTLS {{ use_tls | ternary('On', 'Off') }}
+
+# Path to CA certificate bundle for TLS verification
+{{ 'TLSCACertFile' | comment('tls_ca_file', 'CA cert file for validating remote printer TLS certificates') }}
+TLSCACertFile {{ tls_ca_file | default('/etc/ssl/certs/ca-certificates.crt') }}
+
+# Path to client certificate (if mutual TLS is required)
+{{ 'TLSCertFile' | comment('tls_client_cert', 'client certificate file for mutual TLS') }}
+{% if tls_client_cert is not none %}TLSCertFile {{ tls_client_cert }}
+{% endif %}
+
+# Path to client private key (if mutual TLS is required)
+{{ 'TLSKeyFile' | comment('tls_client_key', 'client private key file for mutual TLS') }}
+{% if tls_client_key is not none %}TLSKeyFile {{ tls_client_key }}
+{% endif %}
+
+# Enable/disable logging of debug messages to syslog
+{{ 'DebugLogging' | comment('debug_logging', 'log verbose debug messages') }}
+DebugLogging {{ debug_logging | ternary('On', 'Off') }}
+
+# Log level (0=error,1=warn,2=info,3=debug)
+{{ 'LogLevel' | comment('log_level', 'verbosity level for syslog output') }}
+LogLevel {{ log_level | int }}

@@ -1,0 +1,46 @@
+{
+  "global_options": {
+    "default_allow": "no",
+    "default_deny": "yes"
+  },
+  "users": [
+    {
+      "name": "www-data",
+      "rules": [
+        {
+          "description": "Allow Apache to spoof as 'apache' for internal services",
+          "source_ip": "10.0.0.0/8",
+          "destination_port": 80,
+          "action": "allow",
+          "allow_spoof": true,
+          "response_user": "apache"
+        },
+        {
+          "description": "Block external HTTP requests",
+          "destination_port": 80,
+          "action": "deny"
+        }
+      ]
+    },
+    {
+      "name": "postgres",
+      "rules": [
+        {
+          "description": "Return fake username for PostgreSQL connections from app servers",
+          "source_ip": "192.168.1.0/24",
+          "destination_port": 5432,
+          "action": "fake",
+          "response_user": "dbuser"
+        }
+      ]
+    }
+  ],
+  "global_rules": [
+    {
+      "description": "Reject ident queries to localhost ports used by local services",
+      "source_ip": "127.0.0.1",
+      "destination_port": 3306,
+      "action": "reject"
+    }
+  ]
+}

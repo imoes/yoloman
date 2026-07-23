@@ -1,0 +1,190 @@
+# Basic server identification
+[mysqld]
+# System identifier for the server
+server-id = {{ server_id }}
+
+# Path to the base directory of the MariaDB installation
+basedir = {{ basedir }}
+
+# Path to the data directory
+datadir = {{ datadir }}
+
+# Path to the socket file for local connections
+socket = {{ socket }}
+
+# Port for TCP/IP connections
+port = {{ port }}
+
+# Maximum simultaneous connections
+max_connections = {{ max_connections }}
+
+# Maximum size of a packet or any row
+max_allowed_packet = {{ max_allowed_packet }}
+
+# Default storage engine for new tables
+default_storage_engine = {{ default_storage_engine }}
+
+# Number of seconds the server waits for activity on a connection before closing it
+wait_timeout = {{ wait_timeout }}
+
+# Number of seconds the server waits for a block read before aborting it
+interactive_timeout = {{ interactive_timeout }}
+
+# Number of seconds to wait for a lock
+lock_wait_timeout = {{ lock_wait_timeout }}
+
+# Character set used by default for new databases and tables
+character_set_server = {{ character_set_server }}
+
+# Collation used by default for new databases and tables
+collation_server = {{ collation_server }}
+
+# Enable binary logging for replication and point-in-time recovery
+{% if enable_binlog %}
+log_bin = {{ binlog_path }}
+binlog_format = {{ binlog_format }}
+{% endif %}
+
+# Enable general query log (not recommended in production)
+{% if enable_general_log %}
+general_log = 1
+general_log_file = {{ general_log_file }}
+{% endif %}
+
+# Enable slow query log
+{% if enable_slow_log %}
+slow_query_log = 1
+slow_query_log_file = {{ slow_query_log_file }}
+long_query_time = {{ long_query_time }}
+{% endif %}
+
+# InnoDB buffer pool size — caches data and indexes in memory
+innodb_buffer_pool_size = {{ innodb_buffer_pool_size }}
+
+# InnoDB log file size — affects crash recovery time and write performance
+innodb_log_file_size = {{ innodb_log_file_size }}
+
+# InnoDB flush method — how data is written to disk
+innodb_flush_method = {{ innodb_flush_method }}
+
+# InnoDB number of IO threads for background operations
+innodb_read_io_threads = {{ innodb_read_io_threads }}
+innodb_write_io_threads = {{ innodb_write_io_threads }}
+
+# Number of InnoDB buffer pool instances (for large buffer pools)
+innodb_buffer_pool_instances = {{ innodb_buffer_pool_instances }}
+
+# InnoDB flush log at transaction commit
+innodb_flush_log_at_trx_commit = {{ innodb_flush_log_at_trx_commit }}
+
+# Thread cache size — how many threads to cache for reuse
+thread_cache_size = {{ thread_cache_size }}
+
+# Table open cache — how many open tables to cache
+table_open_cache = {{ table_open_cache }}
+
+# Open file limit
+open_files_limit = {{ open_files_limit }}
+
+# Temporary table size limits
+tmp_table_size = {{ tmp_table_size }}
+max_heap_table_size = {{ max_heap_table_size }}
+
+# Query cache — deprecated in recent versions; only enable if needed
+{% if enable_query_cache %}
+query_cache_type = 1
+query_cache_size = {{ query_cache_size }}
+query_cache_limit = {{ query_cache_limit }}
+{% else %}
+query_cache_type = 0
+query_cache_size = 0
+{% endif %}
+
+# Log errors to file
+log_error = {{ log_error_file }}
+
+# Skip name resolve (don’t do reverse DNS lookups)
+skip_name_resolve = {{ skip_name_resolve }}
+
+# Bind address — use 0.0.0.0 for all interfaces or a specific IP
+bind_address = {{ bind_address }}
+
+# TLS/SSL support
+{% if enable_ssl %}
+ssl = 1
+ssl_ca = {{ ssl_ca_path }}
+ssl_cert = {{ ssl_cert_path }}
+ssl_key = {{ ssl_key_path }}
+{% endif %}
+
+# Default authentication plugin
+default_authentication_plugin = {{ default_authentication_plugin }}
+
+# MariaDB-specific options for performance and compatibility
+# Use Aria engine for temporary tables
+aria_group_commit = {{ aria_group_commit }}
+aria_log_file_size = {{ aria_log_file_size }}
+
+# Use RocksDB engine if installed (optional)
+{% if enable_rocksdb %}
+plugin_load_add = ha_rocksdb.so
+rocksdb = ON
+{% endif %}
+
+# Replication settings (master)
+{% if is_master %}
+# Binlog server ID already set above
+# Replicate only specific databases
+{% for db in replicate_do_db %}
+db_replicate = {{ db }}
+{% endfor %}
+# Replicate all databases except listed
+{% for db in replicate_ignore_db %}
+db_replicate_ignore = {{ db }}
+{% endfor %}
+{% endif %}
+
+# Replication settings (slave)
+{% if is_slave %}
+# Relay log settings
+relay_log = {{ relay_log_path }}
+relay_log_index = {{ relay_log_index_path }}
+
+# Skip replication of specific events
+{% for db in replicate_ignore_db %}
+replicate_ignore_db = {{ db }}
+{% endfor %}
+{% for db in replicate_do_db %}
+replicate_do_db = {{ db }}
+{% endfor %}
+
+# GTID-based replication
+{% if gtid_mode %}
+gtid_slave_pos = {{ gtid_slave_pos }}
+gtid_strict_mode = 1
+{% endif %}
+
+# Master connection configuration
+master_host = {{ master_host }}
+master_port = {{ master_port }}
+master_user = {{ master_user }}
+master_password = {{ master_password }}
+{% endif %}
+
+# Local_infile setting (security-sensitive)
+local_infile = {{ local_infile }}
+
+# Syslog logging (optional)
+{% if use_syslog %}
+syslog = 1
+{% endif %}
+
+# Optional plugins
+{% for plugin in extra_plugins %}
+plugin_load_add = {{ plugin }}
+{% endfor %}
+
+# Optional server variables
+{% for key, value in extra_vars.items() %}
+{{ key }} = {{ value }}
+{% endfor %}

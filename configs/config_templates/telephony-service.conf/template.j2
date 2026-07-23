@@ -1,0 +1,87 @@
+# Telephony service configuration for Lomiri
+# Base configuration file; override settings via /etc/lomiri/telephony-service.conf
+# Service name and version metadata (auto-generated at install time)
+service:
+  name: lomiri-telephony-service
+  version: "{{ service_version }}"
+
+# Logging configuration
+logging:
+  level: "{{ logging.level }}"
+  # Path to log file (empty = stdout only)
+  file: "{{ logging.file }}"
+  format: "{{ logging.format }}"
+
+# Network listening configuration
+network:
+  # Bind address for SIP/RTP traffic
+  bind_address: "{{ network.bind_address }}"
+  # SIP signaling port
+  sip_port: {{ network.sip_port }}
+  # RTP media port range (min, max)
+  rtp_port_min: {{ network.rtp_port_min }}
+  rtp_port_max: {{ network.rtp_port_max }}
+
+# SIP domain and registration
+sip:
+  # Default outbound proxy (e.g., "sip:proxy.example.com:5060")
+  outbound_proxy: "{{ sip.outbound_proxy }}"
+  # SIP user identity (e.g., "1000@sip.example.com")
+  user_identity: "{{ sip.user_identity }}"
+  # Authentication credentials
+  auth:
+    username: "{{ sip.auth.username }}"
+    password: "{{ sip.auth.password }}"
+  # Enable TLS for SIP (SIPS)
+  tls_enabled: {{ sip.tls_enabled }}
+  # Path to CA certificate bundle for TLS
+  ca_cert_path: "{{ sip.ca_cert_path }}"
+  # Path to client certificate for TLS (optional)
+  client_cert_path: "{{ sip.client_cert_path }}"
+  # Path to client private key for TLS (optional)
+  client_key_path: "{{ sip.client_key_path }}"
+
+# Call handling
+ Calling:
+  # Max simultaneous calls
+  max_calls: {{ calling.max_calls }}
+  # Enable call waiting
+  call_waiting_enabled: {{ calling.call_waiting_enabled }}
+  # Default codec order (first = highest preference)
+  codecs:
+    - {{ calling.codecs | join(', ') }}
+  # Audio buffer size (ms)
+  audio_buffer_ms: {{ calling.audio_buffer_ms }}
+
+# DTMF handling
+  dtmf_mode: "{{ calling.dtmf_mode }}"
+
+# PSTN gateway configuration (optional)
+{% if pstn_gateways is defined and pstn_gateways | length > 0 %}
+pstn_gateways:
+{% for gw in pstn_gateways %}  - name: "{{ gw.name }}"
+    host: "{{ gw.host }}"
+    port: {{ gw.port }}
+    trunk_id: "{{ gw.trunk_id }}"
+    enabled: {{ gw.enabled }}
+{% endfor %}
+{% endif %}
+
+# Hardware device settings
+{% if devices is defined and devices | length > 0 %}
+# List of supported telephony devices
+{% for dev in devices %}
+device:
+  # Device identifier (e.g., ALSA card name or VoIP profile)
+  id: "{{ dev.id }}"
+  # Device type: 'alsa', 'voip', 'bt'
+  type: "{{ dev.type }}"
+  # Device-specific settings
+  config:
+{% for k, v in dev.config.items() %}    {{ k }}: "{{ v }}"
+{% endfor %}
+{% endfor %}
+{% endif %}
+
+# Optional systemd socket activation (auto-enabled if socket is present)
+socket_activation: {{ socket_activation }}

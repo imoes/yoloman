@@ -1,0 +1,145 @@
+{# JupyterHub configuration file - automatically generated #}
+{# See https://jupyterhub.readthedocs.io/en/stable/reference/config.html for options #}
+
+{# Authentication backend and user management #}
+{%- if auth.type == 'native' or auth.type == 'ldap' or auth.type == 'github' or auth.type == 'oauth2' %}
+c.Authenticator.authenticator_class = '{{ auth.type | replace("oauth2", "oauth2.oauth2.Auth") | replace("github", "github.GitHubOAuthenticator") | replace("native", "nativeauthenticator.NativeAuthenticator") | replace("ldap", "ldapauthenticator.LDAPAuthenticator") }}'
+{%- else %}
+c.Authenticator.authenticator_class = '{{ auth.type }}'
+{% endif %}
+
+{# Allow first admin to be created via admin user list #}
+c.Authenticator.admin_users = {%- if auth.admin_users %} { {{ auth.admin_users | map('quote') | join(', ') }} }{%- else %} set(){% endif %}
+
+c.Authenticator.allowed_users = {%- if auth.allowed_users %} { {{ auth.allowed_users | map('quote') | join(', ') }} }{%- else %} set(){% endif %}
+
+{%- if auth.admin_groups %}
+c.Authenticator.admin_groups = { {{ auth.admin_groups | map('quote') | join(', ') }} }
+{% endif %}
+
+{%- if auth.allowed_groups %}
+c.Authenticator.allowed_groups = { {{ auth.allowed_groups | map('quote') | join(', ') }} }
+{% endif %}
+
+{# OAuth2-specific settings (if applicable) #}
+{%- if auth.type in ['oauth2', 'github'] %}
+c.GitHubOAuthenticator.oauth_callback_url = '{{ auth.oauth_callback_url }}'
+c.GitHubOAuthenticator.client_id = '{{ auth.client_id }}'
+c.GitHubOAuthenticator.client_secret = '{{ auth.client_secret }}'
+{%- elif auth.type == 'oauth2' and 'oauth2' in auth %}
+c.OAuthenticator.oauth_callback_url = '{{ auth.oauth_callback_url }}'
+c.OAuthenticator.client_id = '{{ auth.client_id }}'
+c.OAuthenticator.client_secret = '{{ auth.client_secret }}'
+{% endif %}
+
+{# Spawner configuration — how user servers are started #}
+c.JupyterHub.spawner_class = '{{ spawner.class }}'
+
+{# Docker spawner options #}
+{%- if spawner.class == 'dockerspawner.DockerSpawner' %}
+c.DockerSpawner.image = '{{ spawner.image }}'
+c.DockerSpawner.hub_ip_connect = '{{ spawner.hub_ip_connect }}'
+c.DockerSpawner.container_ip = '{{ spawner.hub_ip_connect }}'  # hub and spawner usually share network
+{%- if spawner.volumes %}
+c.DockerSpawner.volume_mount_points = { {{ spawner.volumes | map('split(":") | first | quote') | join(', ') }} }
+c.DockerSpawner.volumes = { {{ spawner.volumes | map('quote') | join(', ') }} }
+{% endif %}
+{% endif %}
+
+{# Kubernetes spawner options #}
+{%- if spawner.class == 'kubespawner.KubeSpawner' %}
+c.KubeSpawner.namespace = '{{ spawner.namespace }}'
+c.KubeSpawner.image = '{{ spawner.image }}'
+{%- if spawner.node_selector %}
+c.KubeSpawner.node_selector = { {{ spawner.node_selector | to_json }} }
+{% endif %}
+{%- if spawner.resources %}
+c.KubeSpawner.cpu_limit = {{ spawner.resources.cpu_limit }}
+c.KubeSpawner.mem_limit = '{{ spawner.resources.mem_limit }}'
+c.KubeSpawner.cpu_guarantee = {{ spawner.resources.cpu_guarantee }}
+c.KubeSpawner.mem_guarantee = '{{ spawner.resources.mem_guarantee }}'
+{% endif %}
+{% endif %}
+
+{# Server resource limits (generic fallback if not spawner-specific) #}
+{%- if not spawner.class.startswith('docker') and not spawner.class.startswith('kubernetes') and spawner.resources %}
+c.Spawner.cpu_limit = {{ spawner.resources.cpu_limit }}
+c.Spawner.mem_limit = '{{ spawner.resources.mem_limit }}'
+c.Spawner.cpu_guarantee = {{ spawner.resources.cpu_guarantee }}
+c.Spawner.mem_guarantee = '{{ spawner.resources.mem_guarantee }}'
+{% endif %}
+
+{# Server environment variables #}
+{%- if spawner.env %}
+c.Spawner.env_keep = {{ spawner.env_keep | map('quote') | join(', ') }}
+c.Spawner.environment = { {{ spawner.env | to_json }} }
+{% endif %}
+
+{# Server working directory and default URL #}
+c.Spawner.notebook_dir = '{{ spawner.notebook_dir }}'
+c.Spawner.default_url = '{{ spawner.default_url }}'
+
+{# JupyterHub service configuration #}
+c.JupyterHub.ip = '{{ service.ip }}'
+c.JupyterHub.port = {{ service.port }}
+c.JupyterHub.base_url = '{{ service.base_url }}'
+
+{# TLS configuration #}
+{%- if service.tls.enabled %}
+c.JupyterHub.certfile = '{{ service.tls.certfile }}'
+c.JupyterHub.keyfile = '{{ service.tls.keyfile }}'
+{%- elif service.tls.self_signed %}
+c.JupyterHub.ssl_key = '{{ service.tls.keyfile }}'
+c.JupyterHub.ssl_cert = '{{ service.tls.certfile }}'
+{% endif %}
+
+{# Proxy configuration #}
+c.JupyterHub.proxy_api_ip = '{{ service.ip }}'
+c.JupyterHub.proxy_api_port = {{ service.proxy_port }}
+
+{# Cookie secret and database #}
+c.JupyterHub.cookie_secret_file = '{{ service.cookie_secret_file }}'
+c.JupyterHub.db_url = '{{ service.db_url }}'
+
+{# Log level #}
+c.JupyterHub.log_level = '{{ service.log_level | upper }}'
+
+{# Rate limiting #}
+c.JupyterHub.concurrent_spawn_limit = {{ limits.concurrent_spawn_limit }}
+c.JupyterHub.spawn_timeout = {{ limits.spawn_timeout }}
+c.JupyterHub.stop_timeout = {{ limits.stop_timeout }}
+
+{# Token authentication for API clients (e.g., CI/CD, bots) #}
+{%- if service.api_tokens %}
+c.JupyterHub.api_tokens = { {{ service.api_tokens | map('quote') | join(', ') }} }
+{% endif %}
+
+{# Service definitions #}
+{%- if services %}
+c.JupyterHub.services = [
+{%- for s in services %}
+    {
+        'name': '{{ s.name }}',
+        'url': 'http://{{ s.host }}:{{ s.port }}',
+        'api_token': '{{ s.api_token }}',
+        'admin': {{ s.admin | lower }},
+        'oauth_no_confirm': {{ s.oauth_no_confirm | lower }},
+        'oauth_scopes': [{{ s.oauth_scopes | map('quote') | join(', ') }}]
+    },
+{% endfor -%}
+]
+{% endif %}
+
+{# Cull idle users/servers #}
+{%- if cull.enabled %}
+c.JupyterHub.services.append({
+    'name': 'cull-idle',
+    'admin': True,
+    'command': [
+        'python', '-m', 'jupyterhub_idle_culler',
+        '--timeout={{ cull.timeout }}',
+        '--cull-every={{ cull.every }}',
+        '--max-age={{ cull.max_age }}'
+    ]
+})
+{% endif %}

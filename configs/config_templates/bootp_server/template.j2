@@ -1,0 +1,12 @@
+# BOOTP/DHCP server configuration: bootptab format
+# Each line defines a host entry (or default) in colon-separated key=value format
+# Lines starting with '#' are comments; blank lines are ignored
+
+# Default settings applied when a host doesn't match a specific entry
+host:default:htype=ethernet:bootp_file=/tftpboot/default:root_path=/nfsroot/default:swap_path=/nfsroot/swap:core_dump_path=/nfsroot/core:bootp_lease=3600:dhcp_lease=86400
+
+# Static host entries — one per line with unique hostname/IP
+{% for host in hosts %}# Host: {{ host.hostname }} ({{ host.ip }})
+host:{{ host.hostname }}:htype=ethernet:ip={{ host.ip }}:bootp_file={{ host.bootp_file | default('/tftpboot/' + host.hostname) }}:root_path={{ host.root_path | default('/nfsroot/' + host.hostname) }}:swap_path={{ host.swap_path | default('/nfsroot/' + host.hostname + '/swap') }}:core_dump_path={{ host.core_dump_path | default('/nfsroot/' + host.hostname + '/core') }}:bootp_lease={{ host.bootp_lease | default(3600) }}:dhcp_lease={{ host.dhcp_lease | default(86400) }}{% if host.options | length %}:
+{% for opt_key, opt_val in host.options.items() %}{{ opt_key }}={{ opt_val }}{% if not loop.last %}:{% endif %}{% endfor %}{% endif %}
+{% endfor %}

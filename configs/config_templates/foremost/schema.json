@@ -1,0 +1,146 @@
+{
+  "verbose": {
+    "type": "bool",
+    "default": false,
+    "description": "If true, log extra debugging information during recovery."
+  },
+  "output_dir": {
+    "type": "string",
+    "default": "/output",
+    "description": "Absolute path to the directory where recovered files will be written."
+  },
+  "log_file": {
+    "type": "string",
+    "default": "/var/log/foremost.log",
+    "description": "Path to the log file where recovery activity (e.g., found files, errors) will be recorded."
+  },
+  "max_file_size": {
+    "type": "number",
+    "default": 0,
+    "description": "Maximum size (in bytes) of recovered files. Set to 0 for unlimited size."
+  },
+  "device_path": {
+    "type": "string",
+    "default": "/dev/sda1",
+    "description": "Block device or forensic image path (e.g., /dev/sdb, evidence.img) to scan for recoverable files."
+  },
+  "file_types": {
+    "type": "list",
+    "default": [
+      {
+        "ext": "jpg",
+        "offset": 0,
+        "magic": "ffd8ff",
+        "desc": "JPEG image"
+      },
+      {
+        "ext": "png",
+        "offset": 0,
+        "magic": "89504e47",
+        "desc": "PNG image"
+      },
+      {
+        "ext": "gif",
+        "offset": 0,
+        "magic": "47494638",
+        "desc": "GIF image"
+      },
+      {
+        "ext": "bmp",
+        "offset": 0,
+        "magic": "424d",
+        "desc": "Windows bitmap"
+      },
+      {
+        "ext": "avi",
+        "offset": 0,
+        "magic": "4156494c",
+        "desc": "AVI video"
+      },
+      {
+        "ext": "mpg",
+        "offset": 0,
+        "magic": "000001b3",
+        "desc": "MPEG video"
+      },
+      {
+        "ext": "zip",
+        "offset": 0,
+        "magic": "504b0304",
+        "desc": "ZIP archive"
+      },
+      {
+        "ext": "pdf",
+        "offset": 0,
+        "magic": "25504446",
+        "desc": "PDF document"
+      },
+      {
+        "ext": "doc",
+        "offset": 0,
+        "magic": "d0cf11e0",
+        "desc": "MS Word 97-2003"
+      }
+    ],
+    "description": "List of file signatures to detect and recover. Each entry defines the file extension, header offset, hex magic bytes, and optional description.",
+    "items": {
+      "type": "object",
+      "properties": {
+        "ext": {
+          "type": "string",
+          "description": "File extension (e.g., 'jpg', 'doc')"
+        },
+        "offset": {
+          "type": "number",
+          "description": "Byte offset where the magic signature must appear (usually 0)"
+        },
+        "magic": {
+          "type": "string",
+          "description": "Hex string of the file header signature (e.g., 'ffd8ff' for JPEG)"
+        },
+        "desc": {
+          "type": "string",
+          "default": "",
+          "description": "Human-readable description (optional, underscores replaces spaces)"
+        }
+      }
+    }
+  },
+  "block_size": {
+    "type": "number",
+    "default": 512,
+    "description": "Block size (in bytes) to read per I/O pass. Smaller values reduce memory use and are safer on damaged media."
+  },
+  "subdirs": {
+    "type": "bool",
+    "default": true,
+    "description": "If true, organize recovered files into subdirectories named by extension (e.g., /output/jpg/). If false, all files go directly into the output directory."
+  },
+  "overwrite": {
+    "type": "bool",
+    "default": false,
+    "description": "If true, overwrite existing files in the output directory (\u26a0\ufe0f use with caution \u2014 can destroy forensic integrity)."
+  },
+  "max_files": {
+    "type": "number",
+    "default": 0,
+    "description": "Maximum number of files to recover. Set to 0 to recover all possible files."
+  },
+  "start_offsets": {
+    "type": "list",
+    "default": [
+      "0"
+    ],
+    "description": "List of hex offsets (as strings) to begin scanning for signatures (e.g., ['0', '4096']). Often left at ['0'] for full-device scanning."
+  },
+  "tz_offset": {
+    "type": "number",
+    "default": 0,
+    "description": "Timezone offset (in hours) to apply to timestamps in logs (e.g., -5 for EST)."
+  },
+  "case_sensitive": {
+    "type": "string",
+    "default": "off",
+    "description": "Legacy setting \u2014 if set to 'on', treats extensions as case-sensitive. Usually ignored in modern foremost versions."
+  }
+}

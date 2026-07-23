@@ -1,0 +1,45 @@
+# IPMI fence agent configuration for fence_ipmilan
+# Hostname or IP of the IPMI interface
+ipmi_addr={{ ipmi_addr }}
+
+# IPMI username for authentication
+ipmi_user={{ ipmi_user }}
+
+# IPMI password for authentication (preferably use ipmi_passfile)
+# ipmi_pass={{ ipmi_pass | default('') | replace('\n', '') | replace('\r', '') }}
+
+# File containing the IPMI password (recommended for security)
+ipmi_passfile={{ ipmi_passfile }}
+
+# IPMI privilege level (e.g., 'USER', 'OPERATOR', 'ADMINISTRATOR')
+ipmi_priv={{ ipmi_privilege_level }}
+
+# IPMI interface type: 'lan', 'lanplus', or 'serial' (most common: 'lanplus')
+ipmi_interface={{ ipmi_interface_type }}
+
+# IPMI timeout in seconds per operation
+ipmi_timeout={{ ipmi_timeout }}
+
+# Number of retries for failed operations
+ipmi_retries={{ ipmi_retries }}
+
+# Optional: IPMI cipher suite (numeric ID, e.g., 3 for AES-CBC-128)
+{% if ipmi_cipher_suite is defined and ipmi_cipher_suite | length > 0 %}
+ipmi_cipher={{ ipmi_cipher_suite }}
+{% endif %}
+
+# Optional: IPMI K_g key (hex string for RMCP+ authentication)
+{% if ipmi_kg_key is defined and ipmi_kg_key | length > 0 %}
+ipmi_kg={{ ipmi_kg_key }}
+{% endif %}
+
+# Optional: Override default BMC LAN channel (commonly 1)
+{% if ipmi_lan_channel is defined and ipmi_lan_channel | length > 0 %}
+ipmi_lan_channel={{ ipmi_lan_channel }}
+{% endif %}
+
+# Optional: TLS/SSL settings (for lanplus)
+# Set to 1 to disable certificate verification (not recommended in production)
+{% if ipmi_tls_disable_cert_check is defined %}
+ipmi_tls_disable_cert_check={{ '1' if ipmi_tls_disable_cert_check else '0' }}
+{% endif %}

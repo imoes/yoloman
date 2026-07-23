@@ -1,0 +1,67 @@
+{# Listen address and port for client connections #}
+<port>{{ c2s.port }}</port>
+
+{# Bind to all interfaces or specific IP #}
+<bind>{{ c2s.bind }}</bind>
+
+{# Enable TLS for encrypted connections #}
+{% if c2s.tls.enabled %}
+<tls>
+  <cert-file>{{ c2s.tls.cert_file }}</cert-file>
+  <key-file>{{ c2s.tls.key_file }}</key-file>
+{% if c2s.tls.ciphers is not none %}  <cipher-list>{{ c2s.tls.ciphers }}</cipher-list>{% endif %}
+  <verify-peer>{{ 'true' if c2s.tls.verify_peer else 'false' }}</verify-peer>
+{% if c2s.tls.ca_file %}  <ca-file>{{ c2s.tls.ca_file }}</ca-file>{% endif %}
+</tls>
+{% else %}
+<!-- TLS disabled -->
+{% endif %}
+
+{# Authentication backend #}
+<authreg>
+  <id>{{ authreg.id }}</id>
+  <driver>{{ authreg.driver }}</driver>
+{% for param in authreg.params %}  <param name="{{ param.name }}">{{ param.value }}</param>{% endfor %}
+</authreg>
+
+{# Storage backend (roster, vcard, etc.) #}
+<storage>
+  <id>{{ storage.id }}</id>
+  <driver>{{ storage.driver }}</driver>
+{% for param in storage.params %}  <param name="{{ param.name }}">{{ param.value }}</param>{% endfor %}
+</storage>
+
+{# Session & message routing settings #}
+<sm>
+  <id>{{ sm.id }}</id>
+  <log>{{ sm.log }}</log>
+  <max-packets>{{ sm.max_packets }}</max-packets>
+  <route-localname>{{ 'true' if sm.route_localname else 'false' }}</route-localname>
+</sm>
+
+{# User registration UI & limits #}
+<register>
+  <enabled>{{ 'true' if register.enabled else 'false' }}</enabled>
+  <set-user-password>{{ 'true' if register.set_user_password else 'false' }}</set-user-password>
+  <max-users-per-ip>{{ register.max_users_per_ip }}</max-users-per-ip>
+</register>
+
+{# Resource limiting #}
+<limits>
+  <max-streams>{{ limits.max_streams }}</max-streams>
+  <idle-timeout>{{ limits.idle_timeout }}</idle-timeout>
+  <read-rate>{{ limits.read_rate }}</read-rate>
+  <write-rate>{{ limits.write_rate }}</write-rate>
+</limits>
+
+{# Debug settings (optional) #}
+{% if debug %}<debug>
+  <level>{{ debug.level }}</level>
+  <file>{{ debug.file }}</file>
+</debug>{% endif %}
+
+{# Hostname & realm configuration #}
+<host>{{ host }}</host>
+
+{# DNS SRV fallback (optional, rarely used) #}
+{% if dns_srv %}<dns-srv/> {% endif %}

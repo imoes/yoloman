@@ -1,0 +1,111 @@
+[DEFAULT]
+# Hostname or IP address the worker binds to
+bind_host = {{ bind_host }}
+
+# Port the worker listens on
+bind_port = {{ bind_port }}
+
+# Number of worker processes for handling requests
+workers = {{ workers }}
+
+# Log file path (use - for stdout)
+log_file = {{ log_file }}
+
+# Logging level: DEBUG, INFO, WARNING, ERROR, CRITICAL
+log_level = {{ log_level }}
+
+[keystone_authtoken]
+# Keystone authentication interface
+auth_type = {{ keystone_authtoken.auth_type }}
+
+# Identity provider URL
+www_authenticate_uri = {{ keystone_authtoken.www_authenticate_uri }}
+
+# Project domain name
+project_domain_name = {{ keystone_authtoken.project_domain_name }}
+
+# Project name for service user
+project_name = {{ keystone_authtoken.project_name }}
+
+# User domain name
+user_domain_name = {{ keystone_authtoken.user_domain_name }}
+
+# Service user username
+username = {{ keystone_authtoken.username }}
+
+# Service user password
+password = {{ keystone_authtoken.password }}
+
+# API endpoint for keystone (optional, overrides www_authenticate_uri for admin)
+auth_url = {{ keystone_authtoken.auth_url }}
+
+{% if keystone_authtoken.insecure is defined %}
+# Skip SSL certificate verification (insecure)
+insecure = {{ keystone_authtoken.insecure | lower }}
+{% endif %}
+
+[database]
+# Database connection string (SQLAlchemy URL)
+connection = {{ database.connection }}
+
+# Max pool size for DB connections
+max_pool_size = {{ database.max_pool_size }}
+
+# Connection idle timeout in seconds
+idle_timeout = {{ database.idle_timeout }}
+
+[secretstore]
+# Enable secretstore extension
+enable_secretstore = {{ secretstore.enable_secretstore | lower }}
+
+# List of enabled secret store plugins (order matters for priority)
+{% if secretstore.enabled_plugins %}
+enabled_plugins = {{ secretstore.enabled_plugins | join(', ') }}
+{% endif %}
+
+{% for plugin in secretstore.plugins %}
+# Plugin: {{ plugin.name }} configuration
+[secretstore:{{ plugin.name }}]
+enabled = {{ plugin.enabled | lower }}
+{% for key, value in plugin.config.items() %}{{ key }} = {{ value }}
+{% endfor %}
+{% endfor %}
+
+[otppkcs11]
+# PKCS#11 library path for HSM (if used)
+library_path = {{ otppkcs11.library_path }}
+
+# PIN for HSM access
+pin = {{ otppkcs11.pin }}
+
+# Slot ID for HSM
+slot_id = {{ otppkcs11.slot_id }}
+
+# Label for crypto object
+label = {{ otppkcs11.label }}
+
+[admin]
+# Admin user name (for CLI/admin operations)
+user_name = {{ admin.user_name }}
+
+# Project name for admin user
+project_name = {{ admin.project_name }}
+
+[notification]
+# Notification driver for event publishing
+notification_driver = {{ notification.notification_driver }}
+
+{% for topic in notification.topics %}
+# Kafka/RabbitMQ topic for {{ topic.name }} events
+{{ topic.name }}_topic = {{ topic.topic_name }}
+{% endfor %}
+
+[cache]
+# Enable caching (e.g., for keystonemiddleware)
+enabled = {{ cache.enabled | lower }}
+
+# Cache backend URL (e.g., memcached)
+backend_url = {{ cache.backend_url }}
+
+# Cache expiration time in seconds
+expiration_time = {{ cache.expiration_time }}

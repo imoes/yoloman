@@ -1,0 +1,203 @@
+{
+  "sqlite_path": {
+    "type": "string",
+    "default": "",
+    "description": "Path to SQLite database file (leave empty to use MySQL instead). Set to non-empty to switch Akonadi to SQLite mode."
+  },
+  "mysql_host": {
+    "type": "string",
+    "default": "127.0.0.1",
+    "description": "Hostname or IP address of the MySQL server (ignored if SQLite is used)."
+  },
+  "mysql_port": {
+    "type": "number",
+    "default": 3306,
+    "description": "TCP port of the MySQL server (ignored if SQLite is used)."
+  },
+  "mysql_database": {
+    "type": "string",
+    "default": "akonadi",
+    "description": "Name of the MySQL database to use for Akonadi."
+  },
+  "mysql_user": {
+    "type": "string",
+    "default": "root",
+    "description": "MySQL user for Akonadi. Must have CREATE, SELECT, INSERT, UPDATE, DELETE, INDEX permissions."
+  },
+  "mysql_password": {
+    "type": "string",
+    "default": "",
+    "description": "Password for the MySQL user. Leave blank for no password (not recommended for production)."
+  },
+  "mysql_exec_path": {
+    "type": "string",
+    "default": "/usr/bin",
+    "description": "Directory containing MySQL client binaries (mysql, mysqldump, etc.). Used for auto-setup and repair."
+  },
+  "debug_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable verbose debug output to aid troubleshooting."
+  },
+  "sql_logging": {
+    "type": "bool",
+    "default": false,
+    "description": "Log all SQL queries to a file for debugging."
+  },
+  "data_home": {
+    "type": "string",
+    "default": "~/.local/share",
+    "description": "Base directory for Akonadi data (e.g., resource config). Supports ~ expansion."
+  },
+  "config_home": {
+    "type": "string",
+    "default": "~/.config",
+    "description": "Base directory for Akonadi configuration files."
+  },
+  "cache_home": {
+    "type": "string",
+    "default": "~/.cache",
+    "description": "Base directory for Akonadi cache files (e.g., index, search DB)."
+  },
+  "runtime_dir": {
+    "type": "string",
+    "default": "~/.local/share/akonadi",
+    "description": "Directory for runtime files: PID, sockets, locks."
+  },
+  "connection_timeout": {
+    "type": "number",
+    "default": 30,
+    "description": "Maximum time (seconds) to wait for a database connection before failing."
+  },
+  "max_reconnection_attempts": {
+    "type": "number",
+    "default": 3,
+    "description": "Maximum number of reconnection attempts if database connection is lost."
+  },
+  "enable_migration": {
+    "type": "bool",
+    "default": true,
+    "description": "Allow Akonadi to automatically migrate the database schema on startup if needed."
+  },
+  "indexing_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable semantic indexing of PIM items (e.g., for fast search)."
+  },
+  "batch_size": {
+    "type": "number",
+    "default": 1000,
+    "description": "Maximum number of items to index per batch."
+  },
+  "max_memory_indexing": {
+    "type": "number",
+    "default": 256,
+    "description": "Maximum memory (MB) the indexer may use. Reduce on low-memory systems."
+  },
+  "polling_interval": {
+    "type": "number",
+    "default": 500,
+    "description": "Interval (ms) between polling for pending indexing tasks."
+  },
+  "search_backend": {
+    "type": "string",
+    "default": "Baloo",
+    "description": "Search backend to use. Options: Baloo (recommended), Internal."
+  },
+  "resource_agents": {
+    "type": "list",
+    "default": [
+      {
+        "name": "akonadi_imap_resource",
+        "type": "imap",
+        "enabled": true,
+        "executable_path": ""
+      },
+      {
+        "name": "akonadi_maildir_resource",
+        "type": "maildir",
+        "enabled": true,
+        "executable_path": ""
+      },
+      {
+        "name": "akonadi_mbox_resource",
+        "type": "mbox",
+        "enabled": false,
+        "executable_path": ""
+      }
+    ],
+    "description": "List of resource agents to configure (e.g., IMAP, Maildir). Each agent controls a mail or contact store.",
+    "items": {
+      "name": {
+        "type": "string",
+        "default": "",
+        "description": "Human-readable name of the agent (e.g., 'Personal Mailbox'). Used in UI."
+      },
+      "type": {
+        "type": "string",
+        "default": "",
+        "description": "Agent type (e.g., 'imap', 'maildir', 'mbox', 'kabc', 'kcal'). Must match a registered resource plugin."
+      },
+      "enabled": {
+        "type": "bool",
+        "default": true,
+        "description": "Whether the agent is active and will be started on Akonadi startup."
+      },
+      "executable_path": {
+        "type": "string",
+        "default": "",
+        "description": "Override path to agent executable (leave blank to use default location)."
+      }
+    }
+  },
+  "fs_monitoring_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable filesystem monitoring (via inotify or polling) to detect external changes to PIM folders."
+  },
+  "fs_polling_interval": {
+    "type": "number",
+    "default": 5000,
+    "description": "Fallback polling interval (ms) when inotify monitoring is unavailable (e.g., over NFS)."
+  },
+  "mysql_tuning": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable embedded MySQL tuning parameters (use only when embedding mysqld in Akonadi)."
+  },
+  "mysql_server_binary": {
+    "type": "string",
+    "default": "/usr/sbin/mysqld",
+    "description": "Path to embedded MySQL server binary (used only if mysql_tuning is enabled)."
+  },
+  "mysql_innodb_buffer_pool_size": {
+    "type": "number",
+    "default": 512,
+    "description": "InnoDB buffer pool size (MB). Larger = better performance, but more RAM."
+  },
+  "mysql_innodb_flush_log_at_trx_commit": {
+    "type": "number",
+    "default": 2,
+    "description": "InnoDB fsync behavior: 1=most safe, 2=fast (crash-safe on most OS), 0=fastest (less safe)."
+  },
+  "mysql_innodb_purge_threads": {
+    "type": "number",
+    "default": 4,
+    "description": "Number of background threads for InnoDB row purging."
+  },
+  "mysql_innodb_read_io_threads": {
+    "type": "number",
+    "default": 8,
+    "description": "Number of I/O threads for read operations."
+  },
+  "mysql_innodb_write_io_threads": {
+    "type": "number",
+    "default": 4,
+    "description": "Number of I/O threads for write operations."
+  },
+  "mysql_innodb_thread_concurrency": {
+    "type": "number",
+    "default": 0,
+    "description": "Max concurrent InnoDB threads (0 = unlimited, recommended for modern kernels)."
+  }
+}

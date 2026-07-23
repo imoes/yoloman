@@ -1,0 +1,33 @@
+# /etc/security/faillock.conf — PAM faillock configuration
+# Enable or disable deny on failed logins
+{% if enable_deny %}deny{{ ' = ' + deny }}{% endif %}
+# Unlock time in seconds after which locked accounts are unlocked automatically (0 = manual unlock)
+unlock_time{{ ' = ' + unlock_time }}
+# Lockout duration in seconds (deprecated alias of unlock_time)
+{% if lockout_time is defined %}lockout_time{{ ' = ' + lockout_time }}{% endif %}
+# Number of failed attempts before lockout
+fail_interval{{ ' = ' + fail_interval }}
+# Path to directory for faillock state files
+{% if dir is defined %}dir{{ ' = ' + dir }}{% endif %}
+# Path to per-user lockout state files (deprecated alias of dir)
+{% if even_deny is defined %}even_deny{{ ' = ' + even_deny }}{% endif %}
+# Enable or disable audit logging via systemd-journald
+audit{{ ' = ' + audit }}
+# Enable or disable silent mode (no messages to console)
+silent{{ ' = ' + silent }}
+# Enable or disable deny root account lockout
+{% if deny_root is defined %}deny_root{{ ' = ' + deny_root }}{% endif %}
+# Enable or disable lockout on failed pre-authentication (e.g., SSH pubkey failure)
+{% if preauth is defined %}preauth{{ ' = ' + preauth }}{% endif %}
+# List of users exempt from faillock enforcement
+{% for user in deny_users %}deny_user{{ ' = ' + user }}
+{% endfor %}
+# List of groups whose members are exempt from faillock enforcement
+{% for group in deny_groups %}deny_group{{ ' = ' + group }}
+{% endfor %}
+# List of users exempt from lockout (they still contribute to lockout count but are not locked)
+{% for user in allow_users %}allow_user{{ ' = ' + user }}
+{% endfor %}
+# List of groups whose members are exempt from lockout
+{% for group in allow_groups %}allow_group{{ ' = ' + group }}
+{% endfor %}

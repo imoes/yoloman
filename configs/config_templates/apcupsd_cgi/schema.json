@@ -1,0 +1,129 @@
+{
+  "ups_type": {
+    "type": "string",
+    "default": "usb",
+    "description": "UPS connection type. Common values: 'usb', 'snmp', 'net', 'custom'. Choose based on your UPS hardware and connection."
+  },
+  "device": {
+    "type": "string",
+    "default": "/dev/usb/hiddev0",
+    "description": "Device path or network endpoint. Examples: /dev/ttyS0 (serial), /dev/usb/hiddev0 (USB), hostname:port (SNMP)."
+  },
+  "nis_ip": {
+    "type": "string",
+    "default": "127.0.0.1",
+    "description": "IP address the NIS server will bind to. Use '127.0.0.1' for local only, '0.0.0.0' for all interfaces."
+  },
+  "nis_port": {
+    "type": "number",
+    "default": 3551,
+    "description": "Port for the Network Information Server (NIS) \u2014 used by monitoring clients like apcaccess."
+  },
+  "timeout": {
+    "type": "number",
+    "default": 60,
+    "description": "Maximum time in seconds to wait for a response from the UPS before timing out."
+  },
+  "on_battery_delay": {
+    "type": "number",
+    "default": 30,
+    "description": "Delay (in minutes) after power failure before initiating automatic shutdown."
+  },
+  "battery_level": {
+    "type": "number",
+    "default": 10,
+    "description": "Minimum battery charge (%) that triggers shutdown. Lower values extend runtime but risk data loss."
+  },
+  "minutes": {
+    "type": "number",
+    "default": 3,
+    "description": "Minimum remaining runtime (in minutes) before forced shutdown \u2014 overrides battery level if reached first."
+  },
+  "kill_on_hibernate": {
+    "type": "bool",
+    "default": false,
+    "description": "If true, the UPS will power off completely after shutdown (only supported on certain models)."
+  },
+  "hibernate": {
+    "type": "bool",
+    "default": false,
+    "description": "If true, allows the UPS to enter low-power hibernation mode when idle."
+  },
+  "web_access": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable the built-in web server for viewing UPS status via a browser."
+  },
+  "web_hosts": {
+    "type": "list",
+    "default": [
+      "127.0.0.1",
+      "::1"
+    ],
+    "description": "List of IP addresses, hostnames, or CIDR subnets allowed to access the web interface.",
+    "items": {
+      "type": "string",
+      "description": "Allowed host or network (e.g., '192.168.1.0/24', 'localhost', '2001:db8::/32')"
+    }
+  },
+  "web_port": {
+    "type": "number",
+    "default": 8080,
+    "description": "TCP port for the web interface (CGI server)."
+  },
+  "cgi_path": {
+    "type": "string",
+    "default": "/usr/lib/apcupsdcgi",
+    "description": "Filesystem path to the CGI scripts (typically installed with apcupsd-cgi package)."
+  },
+  "net_server": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable the network server (required if using apcupsd over the network, e.g., with NIS)."
+  },
+  "email_addresses": {
+    "type": "list",
+    "default": [],
+    "description": "List of email addresses to notify during power events (if email_log is enabled).",
+    "items": {
+      "type": "string",
+      "description": "Email address to receive UPS alerts"
+    }
+  },
+  "email_log": {
+    "type": "bool",
+    "default": false,
+    "description": "If true, send email notifications on power events (e.g., onbatteries, offbatteries)."
+  },
+  "syslog": {
+    "type": "string",
+    "default": "daemon",
+    "description": "Syslog facility for logging. Common values: 'daemon', 'local0'\u2013'local7'."
+  },
+  "poll_time": {
+    "type": "number",
+    "default": 20,
+    "description": "Seconds between status polls to the UPS. Lower values give more responsive status but increase load."
+  },
+  "snmp_sn": {
+    "type": "string",
+    "default": "",
+    "description": "SNMP system name (if ups_type is 'snmp'). Usually matches the UPS model or hostname.",
+    "depends_on": {
+      "ups_type": "snmp"
+    }
+  },
+  "snmp_community": {
+    "type": "string",
+    "default": "public",
+    "description": "SNMP community string for read-only access.",
+    "depends_on": {
+      "ups_type": "snmp"
+    }
+  },
+  "lockfile": {
+    "type": "string",
+    "default": "/var/lock/lockfile",
+    "description": "Path to lockfile to prevent multiple apcupsd instances from running."
+  }
+}

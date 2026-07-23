@@ -1,0 +1,51 @@
+[cwdaemon]
+# Listen port for CW daemon (TCP)
+port = {{ cwdaemon_port }}
+
+# Device node for PTT control (e.g., /dev/parport0, /dev/usb/rtl2832u-0, /dev/ttyUSB0)
+device = {{ ptt_device }}
+
+# PTT type: '串行' (serial), '并行' (parallel), 'USB', or 'none'
+ptt_type = {{ ptt_type }}
+
+# Enable Morse speed control via network protocol
+enable_speed_control = {{ enable_speed_control | lower }}
+
+# Minimum and maximum CW speed (WPM)
+min_speed = {{ min_speed }}
+max_speed = {{ max_speed }}
+
+# Default CW speed (WPM)
+default_speed = {{ default_speed }}
+
+# Enable QSK (full break-in) if supported by hardware
+enable_qsk = {{ enable_qsk | lower }}
+
+# Delay after tone release (ms) — only applicable if QSK disabled
+tone_release_delay = {{ tone_release_delay }}
+
+# Morse key input device (e.g., /dev/input/eventX for keyboard/USB key)
+key_input_device = {{ key_input_device }}
+
+# Enable local console (TTY) output
+enable_console = {{ enable_console | lower }}
+
+# Console log level: 0=error, 1=warn, 2=info, 3=debug
+log_level = {{ log_level }}
+
+# Path to CW keyer firmware file (for USB devices requiring firmware upload)
+firmware_path = {{ firmware_path }}
+
+# List of allowed IP addresses (CIDR notation) — if empty, allow all
+{% for allowed_ip in allowed_ips %}allowed_ip = {{ allowed_ip }}
+{% endfor %}
+
+# List of blocked IP addresses (CIDR notation) — overrides allowed list
+{% for blocked_ip in blocked_ips %}blocked_ip = {{ blocked_ip }}
+{% endfor %}
+
+# Prefix for outgoing messages (e.g., 'CWDEMO>')
+outgoing_prefix = {{ outgoing_prefix }}
+
+# Enable logging to syslog
+enable_syslog = {{ enable_syslog | lower }}

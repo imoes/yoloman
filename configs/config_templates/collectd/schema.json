@@ -1,0 +1,159 @@
+{
+  "hostname": {
+    "type": "string",
+    "default": "localhost",
+    "description": "Hostname for this node. Used in metric paths and remote connections."
+  },
+  "fqdn_lookup": {
+    "type": "bool",
+    "default": false,
+    "description": "Whether to perform FQDN resolution for the hostname. Set false if DNS is unreliable."
+  },
+  "basedir": {
+    "type": "string",
+    "default": "/var/lib/collectd",
+    "description": "Base directory for plugin data (e.g., RRD files, cache files)."
+  },
+  "pidfile": {
+    "type": "string",
+    "default": "/run/collectd.pid",
+    "description": "Path to PID file for the collectd daemon."
+  },
+  "interval": {
+    "type": "number",
+    "default": 10,
+    "description": "Global data collection interval in seconds (minimum recommended: 10)."
+  },
+  "timeout": {
+    "type": "number",
+    "default": 2,
+    "description": "Default timeout (seconds) for plugin read/write operations."
+  },
+  "plugins": {
+    "type": "list",
+    "default": [],
+    "description": "List of plugins to load and their configurations.",
+    "items": {
+      "name": {
+        "type": "string",
+        "default": "",
+        "description": "Plugin name (e.g., 'cpu', 'memory', 'apache', 'redis')."
+      },
+      "config": {
+        "type": "object",
+        "default": {},
+        "description": "Plugin-specific configuration keys and values. Nested dicts become <Subsection> blocks."
+      }
+    }
+  },
+  "collectd_users": {
+    "type": "list",
+    "default": [],
+    "description": "Authentication users for secure network communication (used with securitylevel 'sign' or 'encrypt').",
+    "items": {
+      "name": {
+        "type": "string",
+        "default": "",
+        "description": "Username."
+      },
+      "secret": {
+        "type": "string",
+        "default": "",
+        "description": "Secret (plaintext). Prefer 'secret_hash' for production."
+      },
+      "secret_hash": {
+        "type": "string",
+        "default": "",
+        "description": "SHA256 hash of the secret (hex-encoded). Safer alternative to 'secret'."
+      }
+    }
+  },
+  "destinations": {
+    "type": "list",
+    "default": [],
+    "description": "Remote servers to send metrics to (via network plugin client mode).",
+    "items": {
+      "host": {
+        "type": "string",
+        "default": "",
+        "description": "Hostname or IP address of remote collector."
+      },
+      "port": {
+        "type": "number",
+        "default": 25826,
+        "description": "Port to send metrics to (default for collectd is 25826)."
+      },
+      "protocol": {
+        "type": "string",
+        "default": "tcp",
+        "description": "Network protocol: 'tcp' or 'udp'."
+      },
+      "keepalive": {
+        "type": "bool",
+        "default": false,
+        "description": "Enable TCP keepalive for connections."
+      },
+      "ttl": {
+        "type": "number",
+        "default": 64,
+        "description": "Time-to-live (IP header) for outbound packets."
+      },
+      "timeout": {
+        "type": "number",
+        "default": null,
+        "description": "Connection timeout in seconds (null = use global timeout)."
+      }
+    }
+  },
+  "network_listeners": {
+    "type": "list",
+    "default": [],
+    "description": "Interfaces/ports to listen on when collectd acts as network server (network plugin).",
+    "items": {
+      "address": {
+        "type": "string",
+        "default": "0.0.0.0",
+        "description": "Bind address for incoming connections."
+      },
+      "port": {
+        "type": "number",
+        "default": 25826,
+        "description": "Port to listen on."
+      },
+      "protocol": {
+        "type": "string",
+        "default": "tcp",
+        "description": "Protocol: 'tcp' or 'udp'."
+      },
+      "securitylevel": {
+        "type": "string",
+        "default": "none",
+        "description": "Security level: 'none', 'sign', or 'encrypt'."
+      },
+      "encryption_file": {
+        "type": "string",
+        "default": "",
+        "description": "Path to encryption key file (required if securitylevel != 'none')."
+      },
+      "auth_file": {
+        "type": "string",
+        "default": "",
+        "description": "Path to authentication file (users.conf; required if securitylevel != 'none')."
+      }
+    }
+  },
+  "includes": {
+    "type": "list",
+    "default": [],
+    "description": "List of additional config snippet files to include (e.g., /etc/collectd/conf.d/*.conf).",
+    "items": {
+      "type": "string",
+      "description": "Absolute path to an include file."
+    }
+  },
+  "plugin_logfile_file": {
+    "type": "string",
+    "default": "/var/log/collectd.log",
+    "description": "Path to collectd log file (logfile plugin)."
+  }
+}

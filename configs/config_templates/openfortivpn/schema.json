@@ -1,0 +1,134 @@
+{
+  "gateway": {
+    "type": "string",
+    "default": "",
+    "description": "Hostname or IP address of the Fortinet SSL VPN gateway (required)."
+  },
+  "username": {
+    "type": "string",
+    "default": "",
+    "description": "VPN account username (required)."
+  },
+  "password": {
+    "type": "string",
+    "default": "",
+    "description": "Password for the account. Leave empty to prompt at runtime (recommended for security)."
+  },
+  "realm": {
+    "type": "string",
+    "default": "",
+    "description": "Realm (tenant/domain) name for multi-tenant gateways (optional)."
+  },
+  "ca_file": {
+    "type": "string",
+    "default": "/etc/ssl/certs/ca-certificates.crt",
+    "description": "Path to CA certificate bundle for server validation. Use system bundle by default."
+  },
+  "client_cert": {
+    "type": "string",
+    "default": "",
+    "description": "Path to client certificate file (if using certificate authentication)."
+  },
+  "client_key": {
+    "type": "string",
+    "default": "",
+    "description": "Path to client private key file (if using certificate authentication)."
+  },
+  "no_verify_ssl": {
+    "type": "bool",
+    "default": false,
+    "description": "Disable SSL certificate verification (\u26a0 insecure \u2014 only for testing)."
+  },
+  "local_ip": {
+    "type": "string",
+    "default": "",
+    "description": "Static local IP address for the PPP interface (optional; if omitted, uses DHCP)."
+  },
+  "local_netmask": {
+    "type": "string",
+    "default": "",
+    "description": "Netmask for the static local IP (e.g., 255.255.255.0)."
+  },
+  "set_routes": {
+    "type": "bool",
+    "default": true,
+    "description": "Automatically set routes to direct traffic through the tunnel (default). Set to false to disable."
+  },
+  "add_routes": {
+    "type": "list",
+    "default": [],
+    "items": {
+      "type": "string",
+      "description": "Additional subnet(s) to route through the VPN (CIDR format, e.g., 10.0.0.0/24)."
+    },
+    "description": "List of subnets to include in the tunnel (split tunneling)."
+  },
+  "exclude_routes": {
+    "type": "list",
+    "default": [],
+    "items": {
+      "type": "string",
+      "description": "Subnet(s) to exclude from the tunnel (e.g., local network 192.168.1.0/24)."
+    },
+    "description": "List of subnets to exclude from the tunnel (split tunneling)."
+  },
+  "dns_servers": {
+    "type": "list",
+    "default": [],
+    "items": {
+      "type": "string",
+      "description": "DNS server IP(s) to configure in the tunnel (e.g., 8.8.8.8)."
+    },
+    "description": "DNS servers to push to the client. Overrides gateway-provided DNS if set."
+  },
+  "proxy_host": {
+    "type": "string",
+    "default": "",
+    "description": "Proxy server hostname or IP (if required to reach the VPN gateway)."
+  },
+  "proxy_port": {
+    "type": "number",
+    "default": 8080,
+    "description": "Proxy port (default: 8080 for HTTP)."
+  },
+  "proxy_username": {
+    "type": "string",
+    "default": "",
+    "description": "Proxy username (if authentication required)."
+  },
+  "proxy_password": {
+    "type": "string",
+    "default": "",
+    "description": "Proxy password (if authentication required)."
+  },
+  "ppp_mtu": {
+    "type": "number",
+    "default": 1400,
+    "description": "PPP Maximum Transmission Unit size. Reduce if connection drops with fragmentation errors."
+  },
+  "trusted_cert": {
+    "type": "string",
+    "default": "",
+    "description": "SHA256 fingerprint of expected server certificate (for pinning; overrides CA validation)."
+  },
+  "interface": {
+    "type": "string",
+    "default": "ppp0",
+    "description": "Interface name to use for the VPN (e.g., ppp0, vpn0)."
+  },
+  "post_up": {
+    "type": "string",
+    "default": "",
+    "description": "Shell script or command to run after the VPN tunnel is established (e.g., firewall rules)."
+  },
+  "pre_down": {
+    "type": "string",
+    "default": "",
+    "description": "Shell script or command to run before the tunnel is torn down."
+  },
+  "idle_timeout": {
+    "type": "number",
+    "default": 0,
+    "description": "Seconds of inactivity before auto-disconnect (0 = disabled)."
+  }
+}

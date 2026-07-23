@@ -1,0 +1,87 @@
+{
+  "atalk_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable AppleTalk support globally. Set to true to start atalkd with active configuration."
+  },
+  "atalk_device": {
+    "type": "string",
+    "default": "eth0",
+    "description": "Network interface (e.g., eth0, enp3s0) to bind AppleTalk protocol to."
+  },
+  "atalk_addr_start": {
+    "type": "string",
+    "default": "6.254",
+    "description": "First AppleTalk network number (in A.B format) for this segment."
+  },
+  "atalk_addr_end": {
+    "type": "string",
+    "default": "6.254",
+    "description": "Last AppleTalk network number (in A.B format) for this segment \u2014 use same as start for single-network zones."
+  },
+  "default_zone": {
+    "type": "string",
+    "default": "MainZone",
+    "description": "Default AppleTalk zone name assigned to untagged traffic on this network."
+  },
+  "nbp_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable Name Binding Protocol (NBP) \u2014 required for name lookup (e.g., printer services)."
+  },
+  "rtmp_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable RTMP routing between AppleTalk networks. Only needed if routing beyond a single segment."
+  },
+  "zones": {
+    "type": "list",
+    "default": [],
+    "description": "Explicitly define zones (AppleTalk address groups). Each zone has a name and optional list of network ranges.",
+    "items": {
+      "name": {
+        "type": "string",
+        "description": "Zone name (e.g., 'Engineering', 'Marketing')."
+      },
+      "ranges": {
+        "type": "list",
+        "default": [],
+        "description": "List of AppleTalk network ranges belonging to this zone.",
+        "items": {
+          "start": {
+            "type": "string",
+            "description": "Starting network number (e.g., '1.10')."
+          },
+          "end": {
+            "type": "string",
+            "description": "Ending network number (e.g., '1.20')."
+          }
+        }
+      }
+    }
+  },
+  "router_interfaces": {
+    "type": "list",
+    "default": [],
+    "description": "Interfaces that act as AppleTalk routers between zones. Required only for multi-zone routing.",
+    "items": {
+      "type": "string",
+      "description": "Interface name (e.g., 'enp5s0')."
+    }
+  },
+  "max_connections": {
+    "type": "number",
+    "default": 100,
+    "description": "Maximum number of simultaneous AppleTalk connections (e.g., from Mac clients)."
+  },
+  "ddp_checksum": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable strict DDP (Datagram Delivery Protocol) checksum verification. Disable only for legacy hardware that omits checksums."
+  },
+  "log_level": {
+    "type": "number",
+    "default": 1,
+    "description": "Verbose logging level (0 = silent, 7 = debug). Recommended: 1\u20133 for production."
+  }
+}

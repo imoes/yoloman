@@ -1,0 +1,53 @@
+{
+  "source_selection": {
+    "type": "string",
+    "default": "pool pool.ntp.org iburst",
+    "description": "Primary time source(s). Typically a pool or specific servers. 'gps' is added automatically via refclocks; this is for fallback NTP sources."
+  },
+  "allow_networks": {
+    "type": "list",
+    "default": [
+      "192.168.0.0/16",
+      "10.0.0.0/8",
+      "172.16.0.0/12"
+    ],
+    "description": "List of network ranges allowed to query this NTP server. Each entry is an IPv4 or IPv6 CIDR or address.",
+    "items": {
+      "type": "string"
+    }
+  },
+  "pps_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable PPS (pulse-per-second) signal input for sub-microsecond accuracy. Requires hardware PPS support and /dev/pps0."
+  },
+  "fallback_servers": {
+    "type": "list",
+    "default": [],
+    "description": "List of NTP servers to use as fallback when GPS is unavailable. Each entry must specify 'hostname'. Optionally 'prefer' to prioritize the server.",
+    "items": {
+      "type": "object",
+      "properties": {
+        "hostname": {
+          "type": "string",
+          "description": "FQDN or IP address of the NTP server."
+        },
+        "prefer": {
+          "type": "bool",
+          "default": false,
+          "description": "If true, prefer this server over others when available."
+        }
+      }
+    }
+  },
+  "restrict_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable restrictive NTP access rules to prevent unauthorized queries, modifications, and attacks."
+  },
+  "serve_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable this host to serve time to clients. Sets local stratum to 10 for fallback GPS/PPS operation."
+  }
+}

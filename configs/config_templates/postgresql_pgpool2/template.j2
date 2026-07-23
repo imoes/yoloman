@@ -1,0 +1,60 @@
+# Listen address and port for client connections
+listen_addresses = '{{ listen_addresses }}'
+port = {{ port }}
+
+# Unix socket directory
+unix_socket_directories = '{{ unix_socket_directories }}'
+
+# Number of child processes (pool processes) to spawn
+num_init_children = {{ num_init_children }}
+
+# Maximum number of concurrent connections per child process
+max_pool = {{ max_pool }}
+
+# Backend PostgreSQL servers
+{% for backend in backends %}backend_hostname{{ loop.index0 }} = '{{ backend.hostname }}'
+backend_port{{ loop.index0 }} = {{ backend.port }}
+backend_weight{{ loop.index0 }} = {{ backend.weight }}
+backend_data_directory{{ loop.index0 }} = '{{ backend.data_directory }}'
+backend_status{{ loop.index0 }} = {{ backend.status }}{% endfor %}
+
+# Number of backend servers (must match number of backend_ entries above)
+num_backends = {{ num_backends }}
+
+# Load balancing mode (on/off)
+load_balance_mode = {{ load_balance_mode | string | lower }}
+
+# Health check parameters
+health_check_period = {{ health_check_period }}
+health_check_timeout = {{ health_check_timeout }}
+
+# Failover / failback
+failover_on_backend_error = {{ failover_on_backend_error | string | lower }}
+
+# Logging
+log_connections = {{ log_connections | string | lower }}
+log_hostname = {{ log_hostname | string | lower }}
+log_statement = {{ log_statement | string | lower }}
+log_per_node_statement = {{ log_per_node_statement | string | lower }}
+
+# Authentication
+authentication_timeout = {{ authentication_timeout }}
+ssl = {{ ssl | string | lower }}
+
+# Replication delay tracking
+delay_threshold = {{ delay_threshold }}
+
+# Master/standby detection
+ignore_missing_postmaster_parameter = {{ ignore_missing_postmaster_parameter | string | lower }}
+
+# Connection pool memory and cache
+memory_cache_enabled = {{ memory_cache_enabled | string | lower }}
+
+# SR (Streaming Replication) mode support
+use_watchdog = {{ use_watchdog | string | lower }}
+
+# Watchdog configuration (if enabled)
+{% if use_watchdog %}wd_hostname = '{{ watchdog_hostname }}'
+wd_port = {{ watchdog_port }}
+wd_interval = {{ watchdog_interval }}
+{% endif %}

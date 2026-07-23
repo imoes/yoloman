@@ -1,0 +1,72 @@
+{
+  "logging.log_dir": "/var/log/ceilometer",
+  "logging.log_file": "ceilometer-agent-ipmi.log",
+  "logging.format": "%(asctime)s %(levelname)s %(name)s: %(message)s",
+  "debug": false,
+  "verbose": true,
+  "messaging.transport_url": "rabbit://ceilometer:secrete@controller:5672/",
+  "keystone_auth.password": "secrete",
+  "keystone_auth.username": "ceilometer",
+  "keystone_auth.project_name": "service",
+  "keystone_auth.user_domain_name": "Default",
+  "keystone_auth.project_domain_name": "Default",
+  "keystone_auth.auth_url": "http://controller:5000/v3",
+  "keystone_auth.cacert": "",
+  "keystone_auth.insecure": false,
+  "keystone_auth.ssl_verify": true,
+  "ipmi.driver": "pyghmi.ipmi",
+  "ipmi.polling_interval": 600,
+  "ipmi.max_concurrent_polls": 10,
+  "ipmi.bmcs": [
+    {
+      "name": "compute-01",
+      "address": "192.168.10.101",
+      "username": "admin",
+      "password": "secretipmi",
+      "interface": "lanplus"
+    },
+    {
+      "name": "compute-02",
+      "address": "192.168.10.102",
+      "username": "admin",
+      "password": "secretipmi"
+    }
+  ],
+  "ipmi.metrics": [
+    {
+      "name": "power"
+    },
+    {
+      "name": "temperature"
+    },
+    {
+      "name": "fan"
+    },
+    {
+      "name": "voltage"
+    }
+  ],
+  "ipmi.hostnames": [
+    {
+      "name": "Compute Node 1",
+      "ipmi_address": "192.168.10.101",
+      "compute_hostname": "compute-01"
+    },
+    {
+      "name": "Compute Node 2",
+      "ipmi_address": "192.168.10.102",
+      "compute_hostname": "compute-02"
+    }
+  ],
+  "ipmi.retry_attempts": 3,
+  "ipmi.retry_delay": 5,
+  "ipmi.timeout": 10,
+  "notification.driver": "message",
+  "notification.topics": [
+    "ceilometer",
+    "notifications"
+  ],
+  "pipeline.config_file": "/etc/ceilometer/pipeline.yaml",
+  "events.definitions_file": "/etc/ceilometer/event_definitions.yaml",
+  "metric_source": "ipmi"
+}

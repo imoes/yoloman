@@ -1,0 +1,95 @@
+[DEFAULT]
+# Logging configuration
+log_file = {{ log_file }}
+log_dir = {{ log_dir }}
+
+# Verbosity and debug
+# Increase verbosity level for debugging (true/false)
+debug = {{ debug }}
+verbose = {{ verbose }}
+
+# Hostname and bind address
+# Hostname to identify this worker instance
+host = {{ host }}
+
+# RPC backend settings
+# Transport URL for message queue (e.g., rabbit, redis, or kombu)
+transport_url = {{ transport_url }}
+
+# Authentication settings
+# Auth URL for keystone authentication
+auth_url = {{ auth_url }}
+# Project domain name (Keystone v3+)
+project_domain_name = {{ project_domain_name }}
+# Project name for service user
+project_name = {{ project_name }}
+# User domain name
+user_domain_name = {{ user_domain_name }}
+# Service username
+username = {{ username }}
+# Password for service user
+password = {{ password }}
+
+# Worker-specific settings
+# Number of worker processes
+workers = {{ workers }}
+# Number of threads per worker
+threads = {{ threads }}
+
+# Periodic task interval (in seconds)
+# How often to run background maintenance tasks
+periodic_interval = {{ periodic_interval }}
+
+# Pool target configuration
+# Max concurrent outgoing DNS updates
+max_concurrent_updates = {{ max_concurrent_updates }}
+
+# Retry settings
+# Max attempts to retry failed DNS updates
+max_retries = {{ max_retries }}
+
+# Zone export settings
+# Enable/disable zone exports to backup storage
+enabled_export = {{ enabled_export }}
+# Directory to store exported zone files
+export_dir = {{ export_dir }}
+
+# DNS backend settings
+# Default pool ID to assign to zones created by this worker
+# (usually set in centralized config, but can be overridden)
+default_pool_id = {{ default_pool_id }}
+
+[storage]
+# Backend for persistent storage (e.g., database)
+# SQLAlchemy connection string for database
+connection = {{ storage_connection }}
+
+# Optional database pool settings
+pool_size = {{ storage_pool_size }}
+pool_timeout = {{ storage_pool_timeout }}
+
+# Optional: Backend-specific configuration for external storage
+# (e.g., designate backend integration)
+[backend:bind9]
+# Example: BIND9 backend section (only if used)
+# Enabled only if bind9 is configured as backend
+enabled = {{ bind9_enabled }}
+
+# List of BIND9 servers to manage
+{% for server in bind9_servers %}# BIND9 server: {{ server.name }}
+[backend:bind9:{{ server.name }}]
+api_endpoint = {{ server.api_endpoint }}
+api_key = {{ server.api_key }}
+{% if server.md5_auth_key %}md5_auth_key = {{ server.md5_auth_key }}
+{% endif %}{% if server.tsig_key_name %}tsig_key_name = {{ server.tsig_key_name }}
+{% endif %}{% endfor %}
+
+[rpc_notifier]
+# Optional: Custom notifier backend for event dispatch
+# Enables sending DNS change notifications to external systems
+enabled = {{ notifier_enabled }}
+# List of notification endpoints
+{% for endpoint in notifier_endpoints %}[rpc_notifier:endpoint_{{ loop.index }}]
+backend = {{ endpoint.backend }}
+{% for key, value in endpoint.options.items() %}{{ key }} = {{ value }}
+{% endfor %}{% endfor %}

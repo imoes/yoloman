@@ -1,0 +1,133 @@
+{# Main MySecureShell configuration file #}
+[General]
+{# Enable or disable debug mode #}
+Debug = {{ debug_mode | lower }}
+{# Log level: 0=error, 1=warn, 2=info, 3=debug #}
+LogLevel = {{ log_level }}
+{# Path to log file (empty string to log to syslog) #}
+LogPath = {{ log_path }}
+{# Maximum number of concurrent connections #}
+MaxConnPerIP = {{ max_conn_per_ip }}
+{# Maximum number of connections per user #}
+MaxConnPerUser = {{ max_conn_per_user }}
+{# SSH port to listen on #}
+Port = {{ ssh_port }}
+{# Bind address for SSH service #}
+ListenAddr = {{ listen_addr }}
+{# Path to chroot directory for sftp users #}
+ChrootPath = {{ chroot_path }}
+{# Enable or disable SFTP support #}
+SFTPEnabled = {{ sftp_enabled | lower }}
+{# Enable or disable SCP support #}
+SCPOutEnabled = {{ scp_enabled | lower }}
+{# Enable or disable password authentication #}
+PasswordAuth = {{ password_auth | lower }}
+{# Enable or disable public key authentication #}
+PubKeyAuth = {{ pub_key_auth | lower }}
+{# Maximum time (in seconds) to wait for client authentication #}
+LoginTimeout = {{ login_timeout }}
+{# Maximum number of failed authentication attempts before disconnecting #}
+MaxAuthTries = {{ max_auth_tries }}
+{# Enable or disable banner display on connect #}
+Banner = {{ banner_enabled | lower }}
+{# Path to banner file #}
+BannerPath = {{ banner_path }}
+
+[Users]
+{# List of users with their configurations #}
+{% for user in users %}
+{% if loop.first %}
+{% else %}
+
+{% endif %}
+{% for key, value in user.items() | sort %}
+{% if key != 'name' %}
+{{ user.name }}.{{ key }} = {{ value }}
+{% endif %}
+{% endfor %}
+{% if user.name is defined %}
+{{ user.name }}.name = {{ user.name }}
+{% endif %}
+{% endfor %}
+
+[Groups]
+{# List of groups with their configurations #}
+{% for group in groups %}
+{% if loop.first %}
+{% else %}
+
+{% endif %}
+{% for key, value in group.items() | sort %}
+{{ group.name }}.{{ key }} = {{ value }}
+{% endfor %}
+{% endfor %}
+
+[AllowedIPs]
+{# List of IP ranges allowed to connect (CIDR or single IP) #}
+{% for ip in allowed_ips %}
+{% if loop.first %}
+{% else %}
+{% endif %}
+{% if loop.last %}
+{{ ip }}
+{% else %}
+{{ ip }}
+{% endif %}
+{% endfor %}
+
+[DeniedIPs]
+{# List of IP ranges denied from connecting (CIDR or single IP) #}
+{% for ip in denied_ips %}
+{% if loop.first %}
+{% else %}
+{% endif %}
+{% if loop.last %}
+{{ ip }}
+{% else %}
+{{ ip }}
+{% endif %}
+{% endfor %}
+
+[Directories]
+{# Directory permissions for chroot environments #}
+{% for dir in directory_permissions %}
+{% if loop.first %}
+{% else %}
+
+{% endif %}
+{{ dir.path }}.path = {{ dir.path }}
+{% if dir.mode is defined %}
+{{ dir.path }}.mode = {{ dir.mode }}
+{% endif %}
+{% if dir.owner is defined %}
+{{ dir.path }}.owner = {{ dir.owner }}
+{% endif %}
+{% if dir.group is defined %}
+{{ dir.path }}.group = {{ dir.group }}
+{% endif %}
+{% if dir.read_only is defined %}
+{{ dir.path }}.read_only = {{ dir.read_only | lower }}
+{% endif %}
+{% if dir.max_files is defined %}
+{{ dir.path }}.max_files = {{ dir.max_files }}
+{% endif %}
+{% if dir.max_size is defined %}
+{{ dir.path }}.max_size = {{ dir.max_size }}
+{% endif %}
+{% endfor %}
+
+[Subsystems]
+{# SFTP subsystem configuration #}
+{% if sftp_subsystem %}
+{% if sftp_subsystem.name is defined %}
+{% set name = sftp_subsystem.name %}
+{% else %}
+{% set name = 'sftp' %}
+{% endif %}
+{{ name }}.command = {{ sftp_subsystem.command }}
+{% if sftp_subsystem.args is defined %}
+{% if sftp_subsystem.args | length > 0 %}
+{{ name }}.args = {{ sftp_subsystem.args | join(' ') }}
+{% endif %}
+{% endif %}
+{% endif %}

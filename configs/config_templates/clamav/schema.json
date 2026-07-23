@@ -1,0 +1,212 @@
+{
+  "listen_host": {
+    "type": "string",
+    "default": "",
+    "description": "IP address to bind the TCP socket; leave empty to use Unix socket only (recommended for local services)"
+  },
+  "listen_port": {
+    "type": "number",
+    "default": 3310,
+    "description": "TCP port for clamd communication (only used if listen_host is set)"
+  },
+  "socket_path": {
+    "type": "string",
+    "default": "/var/run/clamav/clamd.ctl",
+    "description": "Path to the Unix socket file used by local tools (clamscan, etc.)"
+  },
+  "scan_user": {
+    "type": "string",
+    "default": "clamav",
+    "description": "System user under which the daemon runs \u2014 must have read access to scanned paths"
+  },
+  "max_threads": {
+    "type": "number",
+    "default": 10,
+    "description": "Maximum number of concurrent scan threads; higher values increase throughput but also CPU/memory usage"
+  },
+  "scan_timeout": {
+    "type": "number",
+    "default": 120,
+    "description": "Maximum seconds to scan a single file; increase for very large files"
+  },
+  "read_timeout": {
+    "type": "number",
+    "default": 30,
+    "description": "Seconds to wait for data from network connections (e.g., HTTP or FTP scanning)"
+  },
+  "max_recursion": {
+    "type": "number",
+    "default": 16,
+    "description": "Maximum archive nesting depth to scan (0 = unlimited)"
+  },
+  "max_files": {
+    "type": "number",
+    "default": 10000,
+    "description": "Maximum number of files inside archives to scan"
+  },
+  "enable_compression_scan": {
+    "type": "bool",
+    "default": true,
+    "description": "Whether to decompress and scan inside archives like .gz and .bz2"
+  },
+  "max_scan_size_mb": {
+    "type": "number",
+    "default": 100,
+    "description": "Maximum size (MB) per file to scan; larger files are skipped (0 = unlimited)"
+  },
+  "max_archive_size_mb": {
+    "type": "number",
+    "default": 250,
+    "description": "Maximum total size (MB) of an archive to scan; larger archives are skipped (0 = unlimited)"
+  },
+  "enable_heuristic_scan": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable heuristic analysis to detect unknown threats (may increase false positives)"
+  },
+  "enable_pua_scan": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable detection of Potentially Unwanted Applications (PUAs) \u2014 may cause false positives in development environments"
+  },
+  "log_file": {
+    "type": "string",
+    "default": "/var/log/clamav/clamd.log",
+    "description": "Path to the daemon log file (scan events, errors, startup info)"
+  },
+  "log_verbose": {
+    "type": "number",
+    "default": 0,
+    "description": "Log verbosity: 0 = errors only, 5 = debug (avoid 5 in production due to noise)"
+  },
+  "log_rotate": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable automatic log rotation when max size is reached"
+  },
+  "log_rotate_max_size_mb": {
+    "type": "number",
+    "default": 10,
+    "description": "Maximum log file size (MB) before rotation"
+  },
+  "pid_file": {
+    "type": "string",
+    "default": "/var/run/clamav/clamd.pid",
+    "description": "Path to store the daemon\u2019s PID file"
+  },
+  "database_directory": {
+    "type": "string",
+    "default": "/var/lib/clamav",
+    "description": "Directory where virus signatures (.cld/.cvd) are stored \u2014 must be writable by freshclam"
+  },
+  "enable_local_update": {
+    "type": "bool",
+    "default": false,
+    "description": "If enabled, logs update activity to database_directory (freshclam must run separately)"
+  },
+  "pua_categories": {
+    "type": "list",
+    "default": [],
+    "description": "List of PUA categories to detect (e.g., 'Adware', 'Tool', 'Spyware'); only effective if enable_pua_scan=true",
+    "items": {
+      "type": "string",
+      "default": "",
+      "description": "A single PUA category name"
+    }
+  },
+  "exclude_paths": {
+    "type": "list",
+    "default": [
+      "/proc",
+      "/sys",
+      "/dev",
+      "/run"
+    ],
+    "description": "List of file or directory paths to skip during scanning (to avoid system directories)",
+    "items": {
+      "type": "string",
+      "default": "",
+      "description": "A path to exclude (absolute)"
+    }
+  },
+  "include_paths": {
+    "type": "list",
+    "default": [],
+    "description": "Optional list of paths to scan exclusively (if empty, scan entire filesystem under root)",
+    "items": {
+      "type": "string",
+      "default": "",
+      "description": "An absolute path to scan (e.g., '/home' or '/var/www')"
+    }
+  },
+  "enable_mail_scan": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable scanning of email files (RFC822 parsing, multipart support)"
+  },
+  "enable_embedded_urls": {
+    "type": "bool",
+    "default": false,
+    "description": "Detect embedded URLs in documents (useful for phishing detection)"
+  },
+  "enable_archive_scan": {
+    "type": "bool",
+    "default": true,
+    "description": "Scan inside archives (ZIP, RAR, 7z, tar, etc.)"
+  },
+  "enable_broken_scan": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable scanning of broken/invalid archives (may catch malformed threats but may cause errors)"
+  },
+  "enable_bytecode": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable bytecode signatures (used by advanced ClamAV signatures)"
+  },
+  "trust_bytecode": {
+    "type": "string",
+    "default": "none",
+    "description": "Trust level for bytecode: 'all' (unsafe), 'signed' (recommended), 'none'"
+  },
+  "extra_signatures_path": {
+    "type": "string",
+    "default": "",
+    "description": "Optional directory with custom .crb/.ign files (e.g., internal rules)"
+  },
+  "enable_pe_scan": {
+    "type": "bool",
+    "default": true,
+    "description": "Scan Windows PE executables (essential for detecting malware on mixed platforms)"
+  },
+  "enable_elf_scan": {
+    "type": "bool",
+    "default": true,
+    "description": "Scan ELF binaries (Linux/Unix executables)"
+  },
+  "enable_pdf_scan": {
+    "type": "bool",
+    "default": true,
+    "description": "Scan PDF documents for malicious JavaScript and embedded files"
+  },
+  "enable_html_scan": {
+    "type": "bool",
+    "default": true,
+    "description": "Scan HTML for suspicious scripts and embedded objects"
+  },
+  "enable_office_scan": {
+    "type": "bool",
+    "default": true,
+    "description": "Scan Microsoft Office documents for macro viruses"
+  },
+  "enable_swf_scan": {
+    "type": "bool",
+    "default": true,
+    "description": "Scan Flash (SWF) files for exploits"
+  },
+  "enable_hwp_scan": {
+    "type": "bool",
+    "default": false,
+    "description": "Scan Korean HWP documents (required only in Korean environments)"
+  }
+}

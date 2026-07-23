@@ -1,0 +1,110 @@
+{
+  "user": "www-data",
+  "worker_processes": 4,
+  "pid_file": "/run/nginx.pid",
+  "error_log_path": "/var/log/nginx/error.log",
+  "error_log_level": "warn",
+  "worker_connections": 2048,
+  "event_use": "epoll",
+  "multi_accept": true,
+  "mime_types_file": "/etc/nginx/mime.types",
+  "default_type": "application/octet-stream",
+  "access_log_path": "/var/log/nginx/access.log",
+  "access_log_format": "main",
+  "sendfile": true,
+  "tcp_nopush": true,
+  "tcp_nodelay": false,
+  "keepalive_timeout": 65,
+  "types_hash_max_size": 2048,
+  "gzip_enabled": true,
+  "gzip_vary": true,
+  "gzip_proxied": "any",
+  "gzip_types": [
+    "text/plain",
+    "text/css",
+    "application/json",
+    "application/javascript",
+    "text/xml"
+  ],
+  "gzip_comp_level": 6,
+  "http_include_path": "/etc/nginx/conf.d/*.conf",
+  "servers": [
+    {
+      "name": "main",
+      "listen": "80",
+      "server_name": [
+        "example.com",
+        "www.example.com"
+      ],
+      "root": "/var/www/example.com/public",
+      "index_files": [
+        "index.html",
+        "index.php"
+      ],
+      "ssl": false,
+      "ssl_certificate": "",
+      "ssl_certificate_key": "",
+      "ssl_protocols": [],
+      "ssl_ciphers": "",
+      "ssl_prefer_server_ciphers": true,
+      "locations": [
+        {
+          "path": "/",
+          "type": "static",
+          "try_files": "$uri $uri/ /index.php?$args"
+        },
+        {
+          "path": "/api",
+          "type": "proxy",
+          "target": "http://backend:8080",
+          "host": "$host"
+        },
+        {
+          "path": "/health",
+          "type": "static",
+          "try_files": "/health.html =200"
+        },
+        {
+          "path": "^/old/(.*)$",
+          "type": "redirect",
+          "target": "https://new.example.com/$1",
+          "status": 301
+        }
+      ],
+      "error_pages": [
+        {
+          "code": 404,
+          "path": "/404.html"
+        },
+        {
+          "code": 500,
+          "path": "/50x.html"
+        }
+      ],
+      "extra_config": ""
+    }
+  ],
+  "upstreams": [
+    {
+      "name": "backend",
+      "servers": [
+        {
+          "address": "10.0.0.10:8080",
+          "weight": 5
+        },
+        {
+          "address": "10.0.0.11:8080",
+          "weight": 3
+        },
+        {
+          "address": "10.0.0.12:8080",
+          "backup": true
+        }
+      ],
+      "hash": {
+        "key": "$remote_addr",
+        "consistent": true
+      }
+    }
+  ]
+}

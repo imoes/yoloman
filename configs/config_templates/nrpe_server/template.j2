@@ -1,0 +1,75 @@
+# NRPE Server Configuration
+# This file configures the NRPE daemon for listening and executing checks.
+
+# Server settings
+server_address={{ nrpe_server_address }}
+server_port={{ nrpe_server_port }}
+
+# SSL/TLS configuration (disabled if ssl_enabled == false)
+{% if nrpe_ssl_enabled %}
+ssl_cipher_list={{ nrpe_ssl_cipher_list }}
+{% else %}
+ssl_port={{ nrpe_ssl_port }}
+{% endif %}
+
+# Timeout settings (in seconds)
+connection_timeout={{ nrpe_connection_timeout }}
+request_timeout={{ nrpe_request_timeout }}
+
+# Logging
+{% if nrpe_debug %}
+debug=true
+{% else %}
+debug=false
+{% endif %}
+log_file={{ nrpe_log_file }}
+
+# PID file
+pid_file={{ nrpe_pid_file }}
+
+# Allowed hosts (comma-separated or as list)
+allowed_hosts={{ nrpe_allowed_hosts | join(',') }}
+
+# Command definitions
+{% for cmd in nrpe_commands %}
+command[{{ cmd.name }}]={{ cmd.executable }} {{ cmd.arguments | join(' ') | default('', true) }}
+{% endfor %}
+
+# Optional: include additional config from external files
+{% if nrpe_include_dir is defined and nrpe_include_dir %
+include_dir={{ nrpe_include_dir }}
+{% endif %}
+
+# Command argument escaping (recommended for security)
+{% if nrpe_escape_command_arguments %}
+escape_command_arguments=true
+{% else %}
+escape_command_arguments=false
+{% endif %}
+
+# Log level (0-5; higher = more verbose)
+log_level={{ nrpe_log_level }}
+
+# Interface binding (optional; leave blank for all interfaces)
+{% if nrpe_bind_address %}
+bind_address={{ nrpe_bind_address }}
+{% endif %}
+
+# Use IPv4 only?
+{% if nrpe_ipv4_only %}
+address_families=inet
+{% else %}
+address_families=inet,inet6
+{% endif %}
+
+# SSL certificate and key paths (only used if SSL is enabled)
+{% if nrpe_ssl_enabled %}
+ssl_cert_file={{ nrpe_ssl_cert_file }}
+ssl_key_file={{ nrpe_ssl_key_file }}
+{% if nrpe_ssl_ca_cert_file %}
+ssl_ca_cert_file={{ nrpe_ssl_ca_cert_file }}
+{% endif %}
+{% endif %}
+
+# Allow client SSL verification? (0=none, 1=optional, 2=required)
+ssl_verify_peer={{ nrpe_ssl_verify_peer }}

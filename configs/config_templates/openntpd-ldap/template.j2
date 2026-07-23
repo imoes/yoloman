@@ -1,0 +1,54 @@
+# NTP daemon configuration for OpenNTPD (LDAP-enabled, custom)
+# This configuration enables LDAP-based time source discovery
+# Start OpenNTPD in server mode
+server_mode yes
+
+# Listen on localhost only for security (override if needed)
+listen_addr 127.0.0.1
+# {{ 'listen_addr ' + listen_addr | join('\nlisten_addr ') if listen_addr | length > 0 else '' }}
+
+# Allow peers within specified network(s) to sync (empty = deny all)
+{% if allowed_networks | length > 0 %}
+# Restrict which networks may sync with this server
+{% for net in allowed_networks %}allow {{ net['network'] }}{% if net['mask'] %}{{ ' ' + net['mask'] }}{% endif %}{% endfor %}
+{% else %}
+# Restrict which networks may sync with this server
+# (none allowed — server only for local use)
+{% endif %}
+
+# LDAP configuration for dynamic source discovery
+ldap_uri {{ ldap_uri }}
+ldap_base_dn {{ ldap_base_dn }}
+ldap_bind_dn {{ ldap_bind_dn }}
+ldap_bind_pw {{ ldap_bind_pw }}
+ldap_search_filter {{ ldap_search_filter }}
+ldap_tls_ca_dir {{ ldap_tls_ca_dir }}
+ldap_tls_reqcert {{ ldap_tls_reqcert }}
+
+# Time source polling intervals (seconds)
+min_poll_interval {{ min_poll_interval }}
+max_poll_interval {{ max_poll_interval }}
+
+# Step threshold (seconds): larger jumps cause stepping, not slewing
+step_threshold {{ step_threshold }}
+
+# Fallback time sources (static servers if LDAP fails or empty)
+{% if fallback_servers | length > 0 %}
+# Fallback static servers (used if LDAP returns no sources)
+{% for srv in fallback_servers %}server {{ srv }}{% endfor %}
+{% else %}
+# Fallback static servers (used if LDAP returns no sources)
+server 0.pool.ntp.org
+server 1.pool.ntp.org
+server 2.pool.ntp.org
+server 3.pool.ntp.org
+{% endif %}
+
+# Log level: 0=quiet, 1=normal, 2=debug
+log_level {{ log_level }}
+
+# Drift file location (for clock stability)
+driftfile /var/db/ntpd.drift
+
+# Leap seconds file (optional, system-default if not specified)
+{% if leapfile %}leapfile {{ leapfile }}{% endif %}

@@ -1,0 +1,74 @@
+# Global logging configuration
+logger:
+  level: {{ logger.level }}
+
+# Database connection settings
+db:
+  uri: {{ db.uri }}
+
+# PCRF-specific configuration
+pcrf:
+  # List of served PLMNs (Public Land Mobile Networks)
+  plmns:
+{% for plmn in pcrf.plmns %}
+    - plmn_id:
+        mcc: {{ plmn.plmn_id.mcc }}
+        mnc: {{ plmn.plmn_id.mnc }}
+      apn:
+        - {{ plmn.apn | join(', ') }}
+{% endfor %}
+
+  # Charging and policy rules configuration
+  policy:
+    # Default charging rules
+{% for rule in pcrf.policy.charging_rules %}
+    - rule_name: {{ rule.rule_name }}
+      qci: {{ rule.qci }}
+      max_bitrate_ul: {{ rule.max_bitrate_ul }}
+      max_bitrate_dl: {{ rule.max_bitrate_dl }}
+      gbr_ul: {{ rule.gbr_ul }}
+      gbr_dl: {{ rule.gbr_dl }}
+      arp:
+        priority_level: {{ rule.arp.priority_level }}
+        preemption_capability: {{ rule.arp.preemption_capability }}
+        preemption_vulnerability: {{ rule.arp.preemption_vulnerability }}
+      monitoring_time: {{ rule.monitoring_time | default('null') }}
+{% endfor %}
+
+    # Default QoS profiles
+{% for qos in pcrf.policy.qos_profiles %}
+    - profile_id: {{ qos.profile_id }}
+      qci: {{ qos.qci }}
+      priority_level: {{ qos.priority_level }}
+      max_bitrate_ul: {{ qos.max_bitrate_ul }}
+      max_bitrate_dl: {{ qos.max_bitrate_dl }}
+      gbr_ul: {{ qos.gbr_ul }}
+      gbr_dl: {{ qos.gbr_dl }}
+{% endfor %}
+
+  # S-GW / P-GW peerings and SDSA (Service Data Flow Detection) parameters
+  sgw:
+    addr: {{ pcrf.sgw.addr }}
+    port: {{ pcrf.sgw.port }}
+  pgw:
+    addr: {{ pcrf.pgw.addr }}
+    port: {{ pcrf.pgw.port }}
+  # Diameter peer configuration
+  diameter:
+    hostname: {{ pcrf.diameter.hostname }}
+    realm: {{ pcrf.diameter.realm }}
+{% for peer in pcrf.diameter.peers %}
+    - peer:
+        hostname: {{ peer.hostname }}
+        realm: {{ peer.realm }}
+{% endfor %}
+
+# System-level options
+system:
+  # Listening interface and port for Diameter interface (CxD, Cx/Dx, Sh)
+  listen:
+    addr: {{ system.listen.addr }}
+    port: {{ system.listen.port }}
+
+  # Number of worker goroutines for event processing
+  workers: {{ system.workers }}

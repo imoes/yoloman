@@ -1,0 +1,64 @@
+# Listen on this host (IP or hostname); use 0.0.0.0 to listen on all interfaces
+bind = {{ bind }}
+
+# Listen on this TCP port
+port = {{ port }}
+
+# Directory where uploaded files will be stored
+upload_dir = {{ upload_dir }}
+
+# Maximum file size allowed for uploads (in bytes)
+max_file_size = {{ max_file_size }}
+
+# Enable/disable authentication
+auth_enabled = {{ auth_enabled | lower }}
+
+{% if auth_enabled %}# Authentication method: 'basic' (HTTP Basic Auth)
+auth_method = 'basic'
+
+# Path to the htpasswd file (used with basic auth)
+auth_file = {{ auth_file }}
+
+# Realm string shown in the auth prompt
+auth_realm = {{ auth_realm }}
+{% endif %}
+
+# Allow overwrite of existing files?
+allow_overwrite = {{ allow_overwrite | lower }}
+
+# Maximum number of simultaneous uploads
+max_concurrent_uploads = {{ max_concurrent_uploads }}
+
+# Optional: custom HTML message displayed on upload page
+{% if custom_message %}custom_message = '''
+{{ custom_message }}
+'''
+{% endif %}
+
+# Enable HTTPS? (requires ssl_cert and ssl_key)
+ssl_enabled = {{ ssl_enabled | lower }}
+
+{% if ssl_enabled %}# Path to SSL certificate file (PEM format)
+ssl_cert = {{ ssl_cert }}
+
+# Path to SSL private key file (PEM format)
+ssl_key = {{ ssl_key }}
+{% endif %}
+
+# Optional: list of allowed MIME types (empty = all allowed)
+{% if allowed_mime_types %}allowed_mime_types = [
+{% for mime in allowed_mime_types %}    "{{ mime }}",
+{% endfor %}]
+{% endif %}
+
+# Optional: list of allowed file extensions (empty = all allowed)
+{% if allowed_extensions %}allowed_extensions = [
+{% for ext in allowed_extensions %}    "{{ ext }}",
+{% endfor %}]
+{% endif %}
+
+# Log level: 'debug', 'info', 'warning', 'error', 'critical'
+log_level = '{{ log_level }}'
+
+# Path to log file (use '-' for stdout)
+log_file = {{ log_file }}

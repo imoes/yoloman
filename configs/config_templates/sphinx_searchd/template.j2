@@ -1,0 +1,53 @@
+# sphinx.conf — main configuration for Sphinx search daemon
+
+# Global settings
+source main_source {
+    type            = mysql
+    host            = {{ db_host }}
+    port            = {{ db_port }}
+    user            = {{ db_user }}
+    pass            = {{ db_pass | e('str') }}
+    db              = {{ db_name }}
+    query           = SELECT id, title, content, published_at FROM documents WHERE id > {{ start_id }} AND id <= {{ end_id }}
+    sql_attr_uint   = id
+    sql_attr_timestamp = published_at
+}
+
+index main_index {
+    source          = main_source
+    path            = {{ data_path }}/main_index
+    morphology      = {{ morphology }}
+    min_word_len    = {{ min_word_len }}
+    min_prefix_len  = {{ min_prefix_len }}
+    min_infix_len   = {{ min_infix_len }}
+    charset_type    = {{ charset_type }}
+    charset_table   = {{ charset_table | join(',') | default('') }}
+}
+
+# Indexer settings
+indexer {
+    mem_limit       = {{ indexer_mem_limit }}
+}
+
+# Search daemon settings
+searchd {
+    listen          = {{ searchd_listen_host }}:{{ searchd_listen_port }}
+    log             = {{ log_path }}/searchd.log
+    query_log       = {{ log_path }}/query.log
+    read_timeout    = {{ searchd_read_timeout }}
+    max_children    = {{ searchd_max_children }}
+    pid_file        = {{ pid_path }}/searchd.pid
+    binlog_path     = {{ binlog_path }}
+    binlog_flush    = {{ binlog_flush }}
+    binlog_max_ram  = {{ binlog_max_ram }}
+    worker_threads  = {{ searchd_worker_threads }}
+
+{% for item in searchd_plugins %}
+    plugin_dir      = {{ item.plugin_dir }}
+{% endfor %}
+
+{% for item in searchd_listen_options %}
+    # Listen on {{ item.name }} interface with protocol {{ item.protocol }}
+    listen          = {{ item.listen_spec | default('') }}:{{ item.port }}:{{ item.protocol }}
+{% endfor %}
+}

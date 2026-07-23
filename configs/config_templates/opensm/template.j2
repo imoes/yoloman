@@ -1,0 +1,144 @@
+# InfiniBand Subnet Manager (opensm) configuration
+# OpenSM daemon configuration file
+# This file is read at startup by the opensm daemon
+
+# Enable verbose logging
+LogVerbose = {{ log_verbose | lower }}
+
+# Log level: 0=quiet, 1=minimal, 2=normal, 3=verbose, 4=debug
+LogLevel = {{ log_level }}
+
+# Log file path (use - for stdout)
+LogFile = {{ log_file }}
+
+# Enable or disable automatic restart of opensm on failure
+AutoRestart = {{ auto_restart | lower }}
+
+# Maximum number of retries on failure before giving up
+MaxRetries = {{ max_retries }}
+
+# Retry delay in seconds between restart attempts
+RetryDelay = {{ retry_delay }}
+
+# Primary port GUID for the SM (0 = auto-detect from first IB port)
+PrimaryPortGuid = {{ primary_port_guid }}
+
+# SM priority (1-15, lower = higher priority)
+# Only one SM with priority <= DefaultPriority should be active per subnet
+Priority = {{ priority }}
+
+# Default priority for backup SMs
+DefaultPriority = {{ default_priority }}
+
+# SM mode: master (primary), backup, or standalone
+# Standalone: runs without peer, suitable for test or single-node fabrics
+SMMode = {{ sm_mode }}
+
+# Enable or disable split-mode operation (for dual-ported fabrics with separate subnets)
+SplitMode = {{ split_mode | lower }}
+
+# Number of threads for handling MADs (1–64, higher improves throughput but increases CPU use)
+NumThreads = {{ num_threads }}
+
+# Maximum number of outstanding MAD requests
+MaxMads = {{ max_mads }}
+
+# Timeout (in milliseconds) for MAD responses
+MadTimeout = {{ mad_timeout }}
+
+# Enable or disable support for QoS (Quality of Service) tables
+QoS = {{ qos | lower }}
+
+# Enable or disable support for SL2VL (SL to VL mapping)
+SL2VL = {{ sl2vl | lower }}
+
+# Enable or disable support for GID table (required for IPv6 over IB)
+GidTable = {{ gid_table | lower }}
+
+# Enable or disable support for PKey table
+PKeyTable = {{ pkey_table | lower }}
+
+# Enable or disable support for Cmgd (Cluster Management Daemon integration)
+Cmgd = {{ cmgd | lower }}
+
+# List of ports to exclude (GUIDs or port numbers)
+{% for port in excluded_ports %}ExcludedPort = {{ port }}
+{% endfor %}
+
+# List of ports to include (if IncludePortsOnly is enabled)
+{% for port in included_ports %}IncludedPort = {{ port }}
+{% endfor %}
+
+# If true, only ports listed in IncludedPort will be managed
+IncludePortsOnly = {{ include_ports_only | lower }}
+
+# Path to the SM database file (for persistent state across restarts)
+DatabaseFile = {{ database_file }}
+
+# Enable or disable database persistence
+DatabasePersist = {{ database_persist | lower }}
+
+# Interval (in seconds) for periodic SM state synchronization to database
+DatabaseSyncInterval = {{ database_sync_interval }}
+
+# Enable or disable support for LID allocation optimization (for large fabrics)
+OptimizeLidAllocation = {{ optimize_lid_allocation | lower }}
+
+# Enable or disable support for Port Guid allocation optimization
+OptimizeGuidAllocation = {{ optimize_guid_allocation | lower }}
+
+# Enable or disable support for Subnet Address Management (SAM) extensions
+SAMExtensions = {{ sam_extensions | lower }}
+
+# Enable or disable support for Isert (RDMA over Converged Ethernet extensions)
+Isert = {{ isert | lower }}
+
+# Enable or disable support for IPoIB (IP over InfiniBand) configuration
+IPoIB = {{ ipoib | lower }}
+
+# Default MTU for IPoIB interfaces (1024, 2048, 4096, or 65536 bytes)
+IPoIBMtu = {{ ipoib_mtu }}
+
+# Enable or disable support for IPv6 on IPoIB
+IPoIBIPv6 = {{ ipoib_ipv6 | lower }}
+
+# Default MTU for IPv6 IPoIB
+IPoIBIPv6Mtu = {{ ipoib_ipv6_mtu }}
+
+# Enable or disable support for GID index selection in IPoIB
+IPoIBGidIndex = {{ ipoib_gid_index | lower }}
+
+# List of IPoIB interface names to configure
+{% for iface in ipoib_interfaces %}IPoIBInterface = {{ iface }}
+{% endfor %}
+
+# Enable or disable support for Multicast forwarding
+MulticastForward = {{ multicast_forward | lower }}
+
+# Multicast forwarding policy: 'all', 'limited', or 'none'
+MulticastForwardPolicy = "{{ multicast_forward_policy }}"
+
+# Maximum number of multicast groups to support
+MaxMcastGroups = {{ max_mcast_groups }}
+
+# Enable or disable support for trap forwarding (to external management)
+TrapForward = {{ trap_forward | lower }}
+
+# List of trap forward destinations: [IP|hostname]:port
+{% for dest in trap_destinations %}TrapDest = {{ dest }}
+{% endfor %}
+
+# Enable or disable support for event notification (for integration with monitoring systems)
+EventNotification = {{ event_notification | lower }}
+
+# Path to event notification handler script (if EventNotification is enabled)
+EventHandler = {{ event_handler }}
+
+# Enable or disable support for SNMP monitoring (requires opensm-snmp plugin)
+SNMP = {{ snmp | lower }}
+
+# SNMP community string
+SNMPCommunity = "{{ snmp_community }}"
+
+# SNMP listen port (default 10161)
+SNMPPort = {{ snmp_port }}

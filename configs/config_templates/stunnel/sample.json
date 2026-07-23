@@ -1,0 +1,48 @@
+{
+  "global": {
+    "setuid": "nobody",
+    "setgid": "nogroup",
+    "pid": "/run/stunnel/stunnel.pid",
+    "foreground": false,
+    "debug": 3,
+    "cert": "/etc/stunnel/certs/stunnel.pem",
+    "key": "",
+    "options": [
+      "ALL",
+      "NO_SSLv2",
+      "NO_SSLv3",
+      "NO_COMPRESSION"
+    ],
+    "cache": "builtin",
+    "cacheSize": 2048,
+    "timeoutConnect": 30,
+    "timeoutIdle": 300,
+    "timeoutBusy": 600
+  },
+  "services": [
+    {
+      "name": "http",
+      "description": "Proxy HTTP (8080) \u2192 HTTPS (443)",
+      "accept": "0.0.0.0:8080",
+      "connect": "127.0.0.1:443",
+      "verify": 0
+    },
+    {
+      "name": "smtp-relay",
+      "description": "Secure SMTP relay (for outbound mail)",
+      "accept": "0.0.0.0:465",
+      "connect": "smtp.example.com:465",
+      "client": true,
+      "sni": "smtp.example.com",
+      "verify": 1,
+      "cafile": "/etc/ssl/certs/ca-certificates.crt"
+    },
+    {
+      "name": "telnet",
+      "description": "Disabled legacy service (example of disabled config)",
+      "accept": "0.0.0.0:23",
+      "connect": "internal-telnet:23",
+      "enabled": false
+    }
+  ]
+}

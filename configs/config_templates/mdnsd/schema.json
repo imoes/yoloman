@@ -1,0 +1,90 @@
+{
+  "enable_responder": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable or disable mDNS responder (announcing services and host records)."
+  },
+  "enable_querier": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable or disable mDNS querier (querying for services and hosts)."
+  },
+  "interfaces": {
+    "type": "list",
+    "default": [],
+    "description": "List of network interfaces to enable mDNS on (e.g., ['eth0', 'wlan0']). If empty, use all up interfaces.",
+    "items": {
+      "type": "string"
+    }
+  },
+  "hostname": {
+    "type": "string",
+    "default": "",
+    "description": "Custom hostname to announce via mDNS (e.g., 'mydevice.local'). Leave empty to use system hostname."
+  },
+  "ttl": {
+    "type": "number",
+    "default": 120,
+    "description": "Time-to-live (TTL) in seconds for mDNS records (RFC 6762 recommends 120s)."
+  },
+  "multicast_ttl": {
+    "type": "number",
+    "default": 255,
+    "description": "Multicast TTL for outbound packets. 1 restricts to loopback; 255 is standard for full network propagation."
+  },
+  "max_queries": {
+    "type": "number",
+    "default": 50,
+    "description": "Maximum number of concurrent mDNS queries to handle (prevents resource exhaustion)."
+  },
+  "hide_local_services": {
+    "type": "bool",
+    "default": false,
+    "description": "If true, do not announce locally registered services via mDNS (e.g., when using Avahi or systemd-resolved instead)."
+  },
+  "allow_services": {
+    "type": "list",
+    "default": [],
+    "description": "Whitelist of mDNS service types to announce (e.g., ['_http._tcp', '_ssh._tcp']). If empty, all services are allowed unless denied.",
+    "items": {
+      "type": "string"
+    }
+  },
+  "deny_services": {
+    "type": "list",
+    "default": [],
+    "description": "Blacklist of mDNS service types to suppress. Takes precedence over allow list.",
+    "items": {
+      "type": "string"
+    }
+  },
+  "txt_records": {
+    "type": "list",
+    "default": [],
+    "description": "List of custom DNS-SD TXT records with arbitrary key-value pairs per service.",
+    "items": {
+      "name": {
+        "type": "string",
+        "description": "Service instance name (e.g., 'MyWebServer')"
+      },
+      "type": {
+        "type": "string",
+        "description": "Service type (e.g., '_http._tcp')"
+      },
+      "data": {
+        "type": "object",
+        "description": "Key-value pairs for TXT record (e.g., {'path': '/index.html', 'version': '1.2'})"
+      }
+    }
+  },
+  "log_level": {
+    "type": "string",
+    "default": "info",
+    "description": "Verbosity of logging: debug, info, warn, or error."
+  },
+  "pidfile": {
+    "type": "string",
+    "default": "/var/run/mdnsd.pid",
+    "description": "Path to PID file for service management (e.g., /var/run/mdnsd.pid)."
+  }
+}

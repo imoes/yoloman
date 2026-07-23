@@ -1,0 +1,65 @@
+{
+  "log_level": {
+    "type": "string",
+    "default": "info",
+    "description": "Verbosity of ipp-usb logging. Use 'debug' for detailed diagnostics, 'info' for normal operation."
+  },
+  "ipp_usb_socket": {
+    "type": "string",
+    "default": "/run/ipp-usb/ipp-usb.sock",
+    "description": "Unix domain socket path used for IPC with clients (e.g., CUPS)."
+  },
+  "lock_file": {
+    "type": "string",
+    "default": "/run/ipp-usb/ipp-usb.lock",
+    "description": "Lock file path to ensure only one instance manages USB devices."
+  },
+  "max_open_handles": {
+    "type": "number",
+    "default": 10,
+    "description": "Maximum number of USB device handles to keep open concurrently. Increase if you use many simultaneous devices."
+  },
+  "auto_start": {
+    "type": "boolean",
+    "default": true,
+    "description": "If enabled, the ipp-usb service is started automatically on system boot via systemd."
+  },
+  "blacklisted_devices": {
+    "type": "list",
+    "default": [],
+    "description": "List of USB vendor:product IDs (e.g., '045e:07c6') to explicitly ignore, even if not blacklisted by ipp-usb internally.",
+    "items": {
+      "type": "string",
+      "description": "USB vendor:product ID in the format '045e:07c6' (hex, no '0x')."
+    }
+  },
+  "whitelisted_devices": {
+    "type": "list",
+    "default": [],
+    "description": "If non-empty, only devices in this list will be handled (allowlist). Empty list = handle all except blacklisted devices.",
+    "items": {
+      "type": "string",
+      "description": "USB vendor:product ID in the format '045e:07c6' (hex, no '0x')."
+    }
+  },
+  "retry_delay_ms": {
+    "type": "number",
+    "default": 500,
+    "description": "Delay in milliseconds between retry attempts when attaching a USB device."
+  },
+  "max_retries": {
+    "type": "number",
+    "default": 5,
+    "description": "Maximum number of retries when attempting to attach a USB device before giving up."
+  },
+  "libusb_debug": {
+    "type": "number",
+    "default": 0,
+    "description": "Debug level for libusb (0\u20134). 0 = no logging, 4 = full verbose logging. Use only for troubleshooting."
+  },
+  "log_target": {
+    "type": "string",
+    "default": "syslog",
+    "description": "Where to send logs: 'syslog' (recommended), 'stderr' (for foreground debugging), or 'none' (disable logging)."
+  }
+}

@@ -1,0 +1,44 @@
+# Intel CMT-CAT configuration file — manages cache allocation (CAT) and monitoring (CMT) policies
+# Global settings
+[global]
+# Enable or disable cache allocation (CAT)
+cat_enabled = {{ cat_enabled | default(true) | lower }}
+# Enable or disable cache monitoring (CMT)
+cmt_enabled = {{ cmt_enabled | default(true) | lower }}
+# Monitoring interval in milliseconds
+cmt_interval_ms = {{ cmt_interval_ms | default(1000) }}
+# Path to the resource control filesystem (resctrl)
+resctrl_path = {{ resctrl_path | default('/sys/fs/resctrl') }}
+# Path to write PID-to-COS mapping
+pid_map_path = {{ pid_map_path | default('/run/libcmt-cat/pid_to_cos.map') }}
+
+# Define COS (Class of Service) groups for cache allocation
+# Each COS defines a cache partitioning and/or memory bandwidth policy
+[cos_groups]
+{% for cos in cos_groups %}
+# COS {{ cos.id }}: {{ cos.name | default('unnamed') }}
+[cos_{{ cos.id }}]
+name = {{ cos.name | default('unnamed') | tojson }}
+# Cache allocation mask — bitmask representing cache ways to allocate (e.g., 0xFFFF for all ways)
+cache_mask = {{ cos.cache_mask | tojson }}
+{% if cos.memory_bandwidth is defined %}
+# Memory bandwidth allocation (percent of total memory bandwidth, 0–100)
+memory_bandwidth = {{ cos.memory_bandwidth }}
+{% endif %}
+# Optional: L3 cache way partition (integer number of ways, overrides cache_mask if set)
+{% if cos.l3_cache_ways is defined %}
+l3_cache_ways = {{ cos.l3_cache_ways }}
+{% endif %}
+# Optional: List of allowed CPUs for this COS (comma-separated or range, e.g., 0-3,8-11)
+{% if cos.cpus is defined %}
+cpus = {{ cos.cpus | tojson }}
+{% endif %}
+{% endfor %}
+
+# Optional: Process-to-COS mappings
+# Format: PID=COS_ID or regex pattern=COS_ID
+[pid_mappings]
+{% for mapping in pid_mappings %}
+# Map PID/regex {{ mapping.pattern }} to COS {{ mapping.cos_id }}
+{{ mapping.pattern | tojson }} = {{ mapping.cos_id }}
+{% endfor %}

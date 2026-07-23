@@ -1,0 +1,153 @@
+{
+  "autostart": {
+    "type": "bool",
+    "default": true,
+    "description": "Whether to automatically start the dlm_controld service on boot."
+  },
+  "debug_level": {
+    "type": "number",
+    "default": 0,
+    "description": "Verbosity of debug logging. Higher numbers produce more log detail (0\u20137)."
+  },
+  "kernel_module": {
+    "type": "string",
+    "default": "/lib/modules/$(uname -r)/kernel/fs/dlm/dlm.ko",
+    "description": "Path to the DLM kernel module. Leave default unless using a custom-built module."
+  },
+  "lockspace_dir": {
+    "type": "string",
+    "default": "/var/lib/dlm",
+    "description": "Directory where user-space lockspaces store state files."
+  },
+  "start_timeout": {
+    "type": "number",
+    "default": 30,
+    "description": "Seconds to wait for the kernel DLM module to load before failing."
+  },
+  "threads": {
+    "type": "number",
+    "default": 8,
+    "description": "Number of worker threads to handle lock operations. Increase for high-lock-throughput workloads."
+  },
+  "voting": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable or disable voting protocol for cluster membership. Disable only for non-clustered deployments."
+  },
+  "quorum_threshold": {
+    "type": "number",
+    "default": 0,
+    "description": "Minimum number of votes required for quorum. 0 uses cluster manager default."
+  },
+  "log_file": {
+    "type": "string",
+    "default": "",
+    "description": "Path to the DLM log file. Leave empty to log to syslog instead."
+  },
+  "log_subsys": {
+    "type": "string",
+    "default": "syslog",
+    "description": "Logging destination: 'syslog' for system logs or 'file' for dedicated log file."
+  },
+  "log_priority": {
+    "type": "string",
+    "default": "info",
+    "description": "Minimum log priority level (e.g., 'debug', 'info', 'warning', 'error')."
+  },
+  "cluster_nodes": {
+    "type": "list",
+    "default": [],
+    "description": "List of cluster nodes (for static configuration when cluster manager is not available).",
+    "items": {
+      "name": {
+        "type": "string",
+        "required": true,
+        "description": "Node name (must be resolvable via DNS or /etc/hosts)."
+      },
+      "addr": {
+        "type": "string",
+        "required": true,
+        "description": "IP address used for DLM inter-node communication."
+      }
+    }
+  },
+  "lockspace_config": {
+    "type": "list",
+    "default": [],
+    "description": "Optional per-lockspace tuning. Each entry configures a named lockspace.",
+    "items": {
+      "name": {
+        "type": "string",
+        "required": true,
+        "description": "Lockspace name (e.g., 'gfs2', 'ocfs2')."
+      },
+      "recovery_slot_timeout": {
+        "type": "number",
+        "default": 5,
+        "description": "Seconds to wait for a slot to be freed during recovery."
+      },
+      "recovery_retries": {
+        "type": "number",
+        "default": 10,
+        "description": "Max retries for lockspace recovery."
+      },
+      "recovery_timeout": {
+        "type": "number",
+        "default": 60,
+        "description": "Seconds before declaring recovery failed."
+      },
+      "client_timeout": {
+        "type": "number",
+        "default": 30,
+        "description": "Seconds before marking a client connection dead."
+      }
+    }
+  },
+  "fencing": {
+    "type": "object",
+    "default": {
+      "enabled": false
+    },
+    "description": "Fencing configuration for cluster safety. Required in shared-disk clusters.",
+    "items": {
+      "enabled": {
+        "type": "bool",
+        "default": false
+      },
+      "method": {
+        "type": "string",
+        "default": "none",
+        "description": "Fencing method: 'none' (dangerous!), 'fence_xvm', 'fence_scsi', etc."
+      },
+      "fence_timeout": {
+        "type": "number",
+        "default": 120,
+        "description": "Seconds to wait for fencing operation to complete before taking over as lock manager."
+      }
+    }
+  },
+  "network": {
+    "type": "object",
+    "default": {
+      "max_retries": 3
+    },
+    "description": "Network communication tuning for DLM inter-node protocol.",
+    "items": {
+      "max_retries": {
+        "type": "number",
+        "default": 3,
+        "description": "Max retries for retransmitting network messages."
+      },
+      "retry_delay": {
+        "type": "number",
+        "default": 2,
+        "description": "Seconds between retry attempts."
+      },
+      "connect_timeout": {
+        "type": "number",
+        "default": 30,
+        "description": "Seconds to wait for a TCP connection to another node."
+      }
+    }
+  }
+}

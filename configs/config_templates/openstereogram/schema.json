@@ -1,0 +1,169 @@
+{
+  "verbose": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable verbose logging for debugging and diagnostics."
+  },
+  "work_dir": {
+    "type": "string",
+    "default": "/tmp/openstereogram",
+    "description": "Base directory for temporary files (e.g., processed depth maps)."
+  },
+  "output_dir": {
+    "type": "string",
+    "default": "/var/lib/openstereogram/output",
+    "description": "Directory where generated stereograms are saved by default."
+  },
+  "output_format": {
+    "type": "string",
+    "default": "png",
+    "description": "Default image format for output (e.g., png, jpeg)."
+  },
+  "rendering": {
+    "type": "object",
+    "default": {
+      "worker_threads": 4,
+      "min_depth_res": 64,
+      "max_depth_res": 1024,
+      "auto_depth_scale": true,
+      "depth_scale": 0.8,
+      "eye_separation": 10,
+      "focal_distance": 500
+    },
+    "items": {
+      "worker_threads": {
+        "type": "number",
+        "default": 4,
+        "description": "Number of parallel worker threads for rendering."
+      },
+      "min_depth_res": {
+        "type": "number",
+        "default": 64,
+        "description": "Minimum depth map resolution (in pixels). Smaller = faster, but lower fidelity."
+      },
+      "max_depth_res": {
+        "type": "number",
+        "default": 1024,
+        "description": "Maximum depth map resolution (in pixels). Larger = more detail, but slower."
+      },
+      "auto_depth_scale": {
+        "type": "bool",
+        "default": true,
+        "description": "Automatically adjust depth scale to prevent clipping."
+      },
+      "depth_scale": {
+        "type": "number",
+        "default": 0.8,
+        "description": "Depth scaling factor (0.0\u20131.0). Controls perceived 3D depth range."
+      },
+      "eye_separation": {
+        "type": "number",
+        "default": 10,
+        "description": "Horizontal pixel shift between left/right views (affects depth perception strength)."
+      },
+      "focal_distance": {
+        "type": "number",
+        "default": 500,
+        "description": "Focal distance (in pixels) \u2014 determines where the depth plane appears neutral."
+      }
+    }
+  },
+  "gui": {
+    "type": "object",
+    "default": {
+      "host": "127.0.0.1",
+      "port": 8080,
+      "auto_open_browser": false,
+      "api_secret": "",
+      "allowed_origins": [
+        "http://localhost",
+        "http://127.0.0.1:8080"
+      ]
+    },
+    "items": {
+      "host": {
+        "type": "string",
+        "default": "127.0.0.1",
+        "description": "Hostname or IP to bind the GUI/web server to."
+      },
+      "port": {
+        "type": "number",
+        "default": 8080,
+        "description": "Port for the GUI/web server."
+      },
+      "auto_open_browser": {
+        "type": "bool",
+        "default": false,
+        "description": "Automatically open the default web browser on startup."
+      },
+      "api_secret": {
+        "type": "string",
+        "default": "",
+        "description": "Secret for API authentication (empty = no auth)."
+      },
+      "allowed_origins": {
+        "type": "list",
+        "default": [
+          "http://localhost",
+          "http://127.0.0.1:8080"
+        ],
+        "description": "List of allowed CORS origins (for web-based clients)."
+      }
+    }
+  },
+  "filters": {
+    "type": "list",
+    "default": [
+      {
+        "name": "blur_pre",
+        "enabled": false,
+        "params": {
+          "radius": 2
+        }
+      },
+      {
+        "name": "normalize_depth",
+        "enabled": true,
+        "params": {
+          "clamp_min": 0.1,
+          "clamp_max": 0.9
+        }
+      }
+    ],
+    "description": "Ordered list of optional pre-rendering filters for depth maps.",
+    "items": {
+      "name": {
+        "type": "string",
+        "description": "Filter name (e.g., blur_pre, normalize_depth)."
+      },
+      "enabled": {
+        "type": "bool",
+        "description": "Enable or disable this filter."
+      },
+      "params": {
+        "type": "object",
+        "description": "Filter-specific parameters as key-value pairs.",
+        "additional_properties": true
+      }
+    }
+  },
+  "security": {
+    "type": "object",
+    "default": {
+      "local_only": true,
+      "max_input_pixels_mpx": 10
+    },
+    "items": {
+      "local_only": {
+        "type": "bool",
+        "default": true,
+        "description": "Only allow local files as input (no remote URLs). Prevents SSRF."
+      },
+      "max_input_pixels_mpx": {
+        "type": "number",
+        "default": 10,
+        "description": "Maximum input image size in megapixels. Larger images are rejected."
+      }
+    }
+  }
+}

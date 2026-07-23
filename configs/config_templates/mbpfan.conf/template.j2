@@ -1,0 +1,44 @@
+{# mbpfan configuration file #}
+{# Set minimum fan speed (0-6200 RPM) for each sensor #}
+min_fan_speed = {{ min_fan_speed }}
+
+{# Set maximum fan speed (0-6200 RPM) for each sensor #}
+max_fan_speed = {{ max_fan_speed }}
+
+{# Enable or disable automatic fan control #}
+automatic = {{ automatic }}
+
+{# Temperature threshold (°C) at which fans ramp up #}
+temp_threshold = {{ temp_threshold }}
+
+{# Fan control interval in seconds #}
+interval = {{ interval }}
+
+{# Sensor-specific settings #}
+{% for sensor in sensors %}
+{% if sensor.enabled %}
+# Sensor: {{ sensor.name }}
+sensor_{{ loop.index }}_name = {{ sensor.name }}
+sensor_{{ loop.index }}_min_temp = {{ sensor.min_temp }}
+sensor_{{ loop.index }}_max_temp = {{ sensor.max_temp }}
+sensor_{{ loop.index }}_fan_offset = {{ sensor.fan_offset }}
+sensor_{{ loop.index }}_hysteresis = {{ sensor.hysteresis }}
+{% endif %}
+{% endfor %}
+
+{# Log level: 0=none, 1=error, 2=warn, 3=info, 4=debug #}
+log_level = {{ log_level }}
+
+{# Enable or disable writing to system log (syslog) #}
+syslog = {{ syslog }}
+
+{# Custom fan control curve points (RPM vs Temp) #}
+{% for point in fan_curve %}
+fan_curve_{{ loop.index }} = {{ point.temp }}, {{ point.rpm }}
+{% endfor %}
+
+{# Maximum CPU temperature before emergency fan ramp (°C) #}
+emergency_max_cpu_temp = {{ emergency_max_cpu_temp }}
+
+{# Maximum GPU temperature before emergency fan ramp (°C) #}
+emergency_max_gpu_temp = {{ emergency_max_gpu_temp }}

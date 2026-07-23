@@ -1,0 +1,178 @@
+{
+  "tmpdir": {
+    "type": "string",
+    "default": "/var/lib/rkhunter/tmp",
+    "description": "Directory for temporary files created during scanning"
+  },
+  "dbdir": {
+    "type": "string",
+    "default": "/var/lib/rkhunter/db",
+    "description": "Directory containing rkhunter signature and whitelist databases"
+  },
+  "scriptdir": {
+    "type": "string",
+    "default": "/usr/share/rkhunter/scripts",
+    "description": "Directory containing rkhunter helper scripts"
+  },
+  "installdir": {
+    "type": "string",
+    "default": "/usr",
+    "description": "Base installation prefix of rkhunter (parent of bin/, share/, etc.)"
+  },
+  "logfile": {
+    "type": "string",
+    "default": "/var/log/rkhunter.log",
+    "description": "Full path to the rkhunter log file"
+  },
+  "append_log": {
+    "type": "number",
+    "default": 0,
+    "description": "Append to the log file instead of overwriting on each run (1=append, 0=overwrite)"
+  },
+  "copy_log_on_error": {
+    "type": "number",
+    "default": 0,
+    "description": "Copy the log to TMPDIR when errors are detected (1=yes, 0=no)"
+  },
+  "lock_timeout": {
+    "type": "number",
+    "default": 300,
+    "description": "Seconds to wait for a lock file to clear before aborting"
+  },
+  "show_lock_msgs": {
+    "type": "number",
+    "default": 1,
+    "description": "Print a message when a stale lock file is found at startup (1=yes, 0=no)"
+  },
+  "update_mirrors": {
+    "type": "number",
+    "default": 1,
+    "description": "Automatically download an updated mirrors list on each run (1=yes, 0=no)"
+  },
+  "mirrors_mode": {
+    "type": "number",
+    "default": 0,
+    "description": "Which mirrors to contact for database updates: 0=any, 1=local only, 2=remote only"
+  },
+  "web_cmd": {
+    "type": "string",
+    "default": "",
+    "description": "External download command for database updates; leave empty to let rkhunter auto-detect wget or curl"
+  },
+  "mail_on_warning": {
+    "type": "string",
+    "default": "",
+    "description": "Email address to receive warning reports; leave empty to disable email notifications"
+  },
+  "mail_cmd": {
+    "type": "string",
+    "default": "mail -s \"[rkhunter] Warnings found for ${HOST_NAME}\"",
+    "description": "Shell command used to deliver the warning email; rkhunter pipes the report body to its stdin"
+  },
+  "pkgmgr": {
+    "type": "string",
+    "default": "DPKG",
+    "description": "Package manager for installed-file property verification (DPKG, RPM, NONE, etc.)"
+  },
+  "pkgmgr_no_warnings": {
+    "type": "number",
+    "default": 0,
+    "description": "Suppress package manager warnings about files absent from the package database (1=suppress, 0=show)"
+  },
+  "scan_mode_dev": {
+    "type": "string",
+    "default": "THOROUGH",
+    "description": "Scan mode for /dev: THOROUGH inspects every file, LAZY skips non-device files"
+  },
+  "scanrootkitmode": {
+    "type": "string",
+    "default": "THOROUGH",
+    "description": "Rootkit scan depth: THOROUGH for more complete detection, LAZY for faster runs"
+  },
+  "unhide_tests": {
+    "type": "string",
+    "default": "sys",
+    "description": "Tests passed to the unhide tool: sys (syscall table), proc (/proc namespace), or 'sys proc' for both"
+  },
+  "disable_tests": {
+    "type": "list",
+    "default": [],
+    "description": "Built-in rkhunter test names to skip on this host; reduces distro-specific false positives (e.g. suspscan, hidden_ports, packet_cap_apps)"
+  },
+  "os_version_file": {
+    "type": "string",
+    "default": "/etc/debian_version",
+    "description": "File providing the OS distribution version string used for version-specific checks (use /etc/redhat-release on RHEL)"
+  },
+  "password_file": {
+    "type": "string",
+    "default": "/etc/shadow",
+    "description": "Path to the shadow/password file inspected for suspicious account entries"
+  },
+  "group_file": {
+    "type": "string",
+    "default": "/etc/group",
+    "description": "Path to the group file inspected for suspicious group entries"
+  },
+  "syslog_config_file": {
+    "type": "string",
+    "default": "/etc/rsyslog.conf",
+    "description": "Path to the syslog daemon configuration file"
+  },
+  "startup_paths": {
+    "type": "list",
+    "default": [
+      "/etc/init.d",
+      "/etc/rc.local"
+    ],
+    "description": "Directories searched for system startup scripts"
+  },
+  "port_whitelist": {
+    "type": "list",
+    "default": [],
+    "description": "Ports to exclude from open-port checks; each entry must be in format TCP:<port> or UDP:<port> (e.g. TCP:22)"
+  },
+  "allow_hidden_dirs": {
+    "type": "list",
+    "default": [
+      "/dev/.udev",
+      "/dev/.static"
+    ],
+    "description": "Hidden directories (dot-prefixed names) to allow without raising an alert; common distro paths go here"
+  },
+  "allow_hidden_files": {
+    "type": "list",
+    "default": [],
+    "description": "Hidden files (dot-prefixed names) to allow without raising an alert"
+  },
+  "allow_dev_files": {
+    "type": "list",
+    "default": [],
+    "description": "Files under /dev to allow without raising an alert"
+  },
+  "script_whitelist": {
+    "type": "list",
+    "default": [],
+    "description": "Script paths exempt from world-writable and other script-based alerts"
+  },
+  "rtkt_file_whitelist": {
+    "type": "list",
+    "default": [],
+    "description": "File paths to suppress from rootkit file-presence checks (use to silence known false positives)"
+  },
+  "rtkt_dir_whitelist": {
+    "type": "list",
+    "default": [],
+    "description": "Directory paths to suppress from rootkit directory-presence checks"
+  },
+  "shared_lib_whitelist": {
+    "type": "list",
+    "default": [],
+    "description": "Shared libraries allowed to appear in /etc/ld.so.preload without alerting (e.g. /lib/libsnoopy.so)"
+  },
+  "app_whitelist": {
+    "type": "list",
+    "default": [],
+    "description": "Applications whitelisted at a specific installed version; each entry in format name:version (e.g. openssl:1.1.1)"
+  }
+}

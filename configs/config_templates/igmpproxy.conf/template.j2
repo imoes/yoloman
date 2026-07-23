@@ -1,0 +1,38 @@
+# Enable/Disable igmpproxy globally
+enabled: {{ enabled }}
+
+# Logging verbosity: 0 (silent) to 5 (debug)
+loglevel: {{ loglevel }}
+
+# Log file path (empty string for stderr/stdout)
+logfile: "{{ logfile }}"
+
+# Maximum number of upstream interfaces
+upstream: {{ upstream }}
+
+# List of downstream (member) networks
+{% for net in downstream %}
+# Downstream interface: {{ net.interface }} on network {{ net.subnet }}
+{{ net.interface }} {{ net.subnet }}
+  # Allow upstream forwarding only for these groups (optional)
+  {% if net.allowed_groups %}
+  # Allowed multicast groups
+  {% for group in net.allowed_groups %}
+  {{ group }}
+  {% endfor %}
+  {% endif %}
+  # Exclude these groups from forwarding (optional)
+  {% if net.excluded_groups %}
+  # Excluded multicast groups
+  {% for group in net.excluded_groups %}
+  {{ group }}
+  {% endfor %}
+  {% endif %}
+{% endfor %}
+
+# Global settings
+# Maximum time (seconds) between upstream queries
+query_interval: {{ query_interval }}
+
+# Timeout (seconds) for member report wait
+threshold: {{ threshold }}

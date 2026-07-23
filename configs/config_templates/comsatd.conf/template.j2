@@ -1,0 +1,45 @@
+[# comsatd configuration - Listen for incoming mail notifications and trigger mail handlers on new mail
+[comsat]
+# TCP port to listen on
+port = {{ listen_port }}
+
+# Host address to bind to (e.g., '127.0.0.1' or '::1')
+host = {{ bind_host }}
+
+# Enable or disable the service
+enabled = {{ enabled | lower }}
+
+# Maximum number of concurrent connections
+max_connections = {{ max_connections }}
+
+# Path to the mail spool directory
+mail_spool_dir = {{ mail_spool_dir }}
+
+# Command template to execute when new mail arrives (supports %s for recipient address)
+# %s is replaced with the recipient (user) name
+exec_cmd = {{ exec_cmd }}
+
+# List of allowed sender domains (empty means allow all)
+{% if allowed_senders %}
+[allowed_senders]
+{% for domain in allowed_senders %}
+{{ domain }}
+{% endfor %}
+{% endif %}
+
+# Per-user overrides (optional)
+{% if user_overrides %}
+[user_overrides]
+{% for override in user_overrides %}
+[{{ override.user }}]
+exec_cmd = {{ override.exec_cmd }}
+{% endfor %}
+{% endif %}
+
+# Logging configuration
+[logging]
+# Log level: 0=error, 1=warn, 2=info, 3=debug
+level = {{ log_level }}
+
+# Path to log file
+file = {{ log_file }}

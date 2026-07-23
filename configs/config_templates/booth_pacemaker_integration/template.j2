@@ -1,0 +1,45 @@
+# Booth configuration for integration with Pacemaker
+[booth]
+  # Name of the booth site configuration file
+  config = {{ booth_config }}
+  # Port to listen on for booth messages
+  port = {{ booth_port }}
+  # Authentication type: 'file' or 'none'
+  auth = {{ booth_auth | default('file') }}
+  # Path to the auth file (used if auth=file)
+  authfile = {{ booth_authfile | default('/etc/booth/authfile') }}
+  # Timeout (ms) for receiving responses from remote sites
+  timeout = {{ booth_timeout | default(5000) }}
+  # Retry count before declaring a site unreachable
+  retry = {{ booth_retry | default(3) }}
+
+{% for site in sites %}
+# Booth site: {{ site.name }}
+[site]
+  # Hostname or IP of this site
+  addr = {{ site.addr }}
+  # Priority (0-255); higher = preferred in split-brain resolution
+  priority = {{ site.priority }}
+{% endfor %}
+
+{% if arbitrators %}
+# Arbitrator sites (passive participants in quorum decisions)
+{% for arb in arbitrators %}
+[arbitrator]
+  # Hostname or IP of arbitrator
+  addr = {{ arb.addr }}
+{% endfor %}
+{% endif %}
+
+# Resource agent parameters for Pacemaker integration
+[resource]
+  # Resource agent name (as registered in Pacemaker)
+  name = {{ resource_name }}
+  # Timeout (s) for resource start/stop operations
+  timeout = {{ resource_timeout | default(30) }}
+  # Start delay (s) after Pacemaker starts the resource
+  start_delay = {{ resource_start_delay | default(5) }}
+  # Check interval (s) for resource health
+  monitor_interval = {{ resource_monitor_interval | default(60) }}
+  # Action to take when quorum is lost
+  quorum_loss_action = {{ quorum_loss_action | default('stop') }}

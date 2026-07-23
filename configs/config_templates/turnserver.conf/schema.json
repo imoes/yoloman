@@ -1,0 +1,155 @@
+{
+  "listening_ip": {
+    "type": "string",
+    "default": "0.0.0.0",
+    "description": "Primary IP address for listening (use 0.0.0.0 for all IPv4, or :: for all IPv6)."
+  },
+  "alt_listening_ips": {
+    "type": "list",
+    "default": [],
+    "description": "Additional IP addresses to listen on (e.g., multiple NIC IPs).",
+    "items": {
+      "type": "string",
+      "description": "IP address to bind to."
+    }
+  },
+  "listening_port": {
+    "type": "number",
+    "default": 3478,
+    "description": "UDP/TCP listening port (standard STUN/TURN port)."
+  },
+  "tls_listening_port": {
+    "type": "number",
+    "default": 5349,
+    "description": "TLS (DTLS) listening port (standard secure TURN port)."
+  },
+  "realm": {
+    "type": "string",
+    "default": "turnserver",
+    "description": "Authentication realm (used to scope credentials)."
+  },
+  "use_auth_secret": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable time-limited HTTP auth secret (recommended over static credentials)."
+  },
+  "auth_secret": {
+    "type": "string",
+    "default": "",
+    "description": "Shared secret for short-term credential generation (e.g., generated per session)."
+  },
+  "users": {
+    "type": "list",
+    "default": [],
+    "description": "Static username:password credentials (only used if use_auth_secret is false).",
+    "items": {
+      "type": "object",
+      "fields": {
+        "username": {
+          "type": "string",
+          "description": "Username for authentication."
+        },
+        "password": {
+          "type": "string",
+          "description": "Password for the user (plaintext; consider securing via file permissions)."
+        }
+      }
+    }
+  },
+  "relay_address": {
+    "type": "string",
+    "default": "",
+    "description": "IP address used for relay (if not using multiple relay addresses)."
+  },
+  "relay_addresses": {
+    "type": "list",
+    "default": [],
+    "description": "IP addresses to use for relay (e.g., multiple public IPs for load balancing).",
+    "items": {
+      "type": "string",
+      "description": "Relay IP address."
+    }
+  },
+  "external_ip": {
+    "type": "string",
+    "default": "",
+    "description": "Single public IP to advertise in STUN/TURN responses (e.g., when NAT is involved)."
+  },
+  "alt_external_ips": {
+    "type": "list",
+    "default": [],
+    "description": "Multiple public IPs to advertise (e.g., for failover or load balancing).",
+    "items": {
+      "type": "string",
+      "description": "Public IP to advertise."
+    }
+  },
+  "allow_loopback_peers": {
+    "type": "bool",
+    "default": false,
+    "description": "Allow peers from loopback addresses (e.g., 127.0.0.1) \u2014 useful for testing."
+  },
+  "deny_private_ranges": {
+    "type": "bool",
+    "default": true,
+    "description": "Block relay of private IP ranges (e.g., RFC1918) \u2014 recommended for security."
+  },
+  "cipher_list": {
+    "type": "list",
+    "default": [],
+    "description": "Custom TLS cipher list (colon-separated); leave empty to use system defaults.",
+    "items": {
+      "type": "string",
+      "description": "Cipher suite name (e.g., 'ECDHE-ECDSA-AES256-GCM-SHA384')."
+    }
+  },
+  "verbose": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable verbose logging (detailed connection/state info)."
+  },
+  "log_file": {
+    "type": "string",
+    "default": "",
+    "description": "Optional file path to write logs (instead of stdout/stderr)."
+  },
+  "max_bps": {
+    "type": "number",
+    "default": 1000000,
+    "description": "Maximum bandwidth (bytes/second) per session."
+  },
+  "total_quota": {
+    "type": "number",
+    "default": 0,
+    "description": "Total number of peer connections allowed per user (0 = unlimited)."
+  },
+  "per_user_quota": {
+    "type": "number",
+    "default": 0,
+    "description": "Per-user peer connection quota (0 = unlimited)."
+  },
+  "cert": {
+    "type": "string",
+    "default": "",
+    "description": "Path to TLS certificate (PEM format)."
+  },
+  "pkey": {
+    "type": "string",
+    "default": "",
+    "description": "Path to TLS private key (PEM format; if not embedded in cert)."
+  },
+  "ca_cert": {
+    "type": "string",
+    "default": "",
+    "description": "Path to CA certificate for client verification (optional)."
+  },
+  "extra_options": {
+    "type": "list",
+    "default": [],
+    "description": "List of additional configuration flags (one per string), e.g., ['no-udp', 'no-tcp'].",
+    "items": {
+      "type": "string",
+      "description": "A valid command-line flag (without leading '--') or key=value pair."
+    }
+  }
+}

@@ -1,0 +1,150 @@
+{
+  "pid_file": {
+    "type": "string",
+    "default": "/var/run/sendmail.pid",
+    "description": "Path to the PID file for the sendmail daemon."
+  },
+  "run_as_user": {
+    "type": "string",
+    "default": "root",
+    "description": "User account under which the sendmail daemon runs."
+  },
+  "run_as_group": {
+    "type": "string",
+    "default": "daemon",
+    "description": "Group under which the sendmail daemon runs."
+  },
+  "queue_directory": {
+    "type": "string",
+    "default": "/var/spool/mqueue",
+    "description": "Directory where mail queue files are stored."
+  },
+  "temp_directory": {
+    "type": "string",
+    "default": "/var/spool/mqueue/df",
+    "description": "Directory used for temporary queue files (e.g., message bodies)."
+  },
+  "listeners": {
+    "type": "list",
+    "default": [
+      {
+        "address": "0.0.0.0",
+        "port": 25
+      }
+    ],
+    "description": "List of addresses and ports on which the SMTP daemon listens.",
+    "items": {
+      "type": "object",
+      "fields": {
+        "address": {
+          "type": "string",
+          "default": "0.0.0.0",
+          "description": "IP address (IPv4 or IPv6) or hostname to bind to. Use 0.0.0.0 for all interfaces."
+        },
+        "port": {
+          "type": "number",
+          "default": 25,
+          "description": "SMTP port (typically 25 for submission, 465 for SMTPS, 587 for submission)."
+        }
+      }
+    }
+  },
+  "my_hostname": {
+    "type": "string",
+    "default": "localhost",
+    "description": "Fully qualified domain name (FQDN) of this host \u2014 used in SMTP banner and envelope."
+  },
+  "domain_masquerade": {
+    "type": "string",
+    "default": "",
+    "description": "If set, rewrite outbound addresses to appear as if from this domain (e.g., 'example.com')."
+  },
+  "max_daemon_children": {
+    "type": "number",
+    "default": 10,
+    "description": "Maximum number of child processes (delivery agents) spawned concurrently."
+  },
+  "queue_interval": {
+    "type": "number",
+    "default": 900,
+    "description": "Seconds between automatic queue runs (0 = disable automatic queue runs; rely on cron or manual `sendmail -q`)"
+  },
+  "max_message_size": {
+    "type": "number",
+    "default": 10485760,
+    "description": "Maximum accepted message size in bytes (0 = no limit). Recommended: 10 MB (10485760 bytes)."
+  },
+  "blacklist_files": {
+    "type": "list",
+    "default": [],
+    "description": "List of paths to file-based blacklist (e.g., `sendmail.blacklist`) used to reject known spam sources.",
+    "items": {
+      "type": "string"
+    }
+  },
+  "restricted_relay": {
+    "type": "bool",
+    "default": false,
+    "description": "If true, only allow relay from hosts listed in `relay_file`."
+  },
+  "relay_file": {
+    "type": "string",
+    "default": "/etc/mail/relay",
+    "description": "Path to file listing hosts permitted to relay mail (only used if restricted_relay=true)."
+  },
+  "log_level": {
+    "type": "number",
+    "default": 9,
+    "description": "Logging verbosity: 0 (minimal) to 14 (debug). Higher values increase log detail."
+  },
+  "log_smtp_transactions": {
+    "type": "bool",
+    "default": true,
+    "description": "If true, log full SMTP session (commands and responses) to the mail log."
+  },
+  "trusted_user": {
+    "type": "string",
+    "default": "root",
+    "description": "User allowed to submit mail directly (e.g., via `sendmail`) without queuing (dangerous for non-root)."
+  },
+  "alias_file": {
+    "type": "string",
+    "default": "/etc/aliases",
+    "description": "Path to the aliases database (must be compiled with `newaliases`)."
+  },
+  "map_directory": {
+    "type": "string",
+    "default": "/etc/mail",
+    "description": "Directory containing hash/DB maps for mailertable, virtuser, genericstable, etc."
+  },
+  "tls_cert": {
+    "type": "string",
+    "default": "",
+    "description": "Path to the TLS certificate file (PEM format). If empty, TLS is disabled."
+  },
+  "tls_key": {
+    "type": "string",
+    "default": "",
+    "description": "Path to the TLS private key file (PEM format)."
+  },
+  "tls_ca": {
+    "type": "string",
+    "default": "",
+    "description": "Path to CA certificate bundle (for validating client/server certs)."
+  },
+  "tls_options": {
+    "type": "string",
+    "default": "",
+    "description": "TLS options (e.g., `+SSLv23 +TLSv1`), or empty for defaults. Avoid weak protocols like `+SSLv2`."
+  },
+  "starttls_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "If true, enable SMTPS (port 465) alongside regular SMTP (port 25)."
+  },
+  "delivery_mode_retry_interval": {
+    "type": "number",
+    "default": 300,
+    "description": "Seconds between delivery attempts for unreachable hosts (min retry backoff)."
+  }
+}

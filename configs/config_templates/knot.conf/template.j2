@@ -1,0 +1,82 @@
+{# KNOT DNS server configuration file #}
+# Main configuration for KNOT DNS server
+# https://knot-dns.cz/documentation/
+
+{{# Global options and server behavior #}}
+config:
+{{# Path to zone files directory #}}
+  zonefile-dir: {{ zonefile_dir }}
+{{# Path to log file (optional) #}}
+{{#   If empty, logging goes to stderr or syslog depending on system #}}
+{{#   Leave empty to use system defaults #}}
+{{#   Example: /var/log/knot.log #}}
+{% if log_file %}  log-file: {{ log_file }}
+{% endif %}{{# Path to PID file #}}
+  pid-file: {{ pid_file }}
+{{# Server identity (hostname for logging/monitoring) #}}
+  identity: {{ identity }}
+{{# Number of worker threads (0 = auto, default is 1) #}}
+  workers: {{ workers }}
+{{# Number of concurrent queries per worker (0 = auto) #}}
+  max-concurrent-queries: {{ max_concurrent_queries }}
+{{# Maximum number of open files (0 = system limit) #}}
+  max-open-files: {{ max_open_files }}
+{{# Log level: critical, error, warning, notice, info, debug #}}
+  log-level: {{ log_level }}
+
+{{# Listening sockets (interfaces and ports) #}}
+{{#   List of server entries to define bind addresses and ports #}}
+server:
+{% for server_entry in servers %}  - id: {{ server_entry.id }}
+    listen: {{ server_entry.listen }}
+{% if server_entry.port %}    port: {{ server_entry.port }}
+{% endif %}{% if server_entry.protocol %}    protocol: {{ server_entry.protocol }}
+{% endif %}{% if server_entry.interface %}    interface: {{ server_entry.interface }}
+{% endif %}{% endfor %}
+
+{{# Access control lists (ACLs) for query/transfer control #}}
+{{#   List of ACL definitions #}}
+acl:
+{% for acl_entry in acls %}  - id: {{ acl_entry.id }}
+    address: {{ acl_entry.address }}
+{% if acl_entry.action %}    action: {{ acl_entry.action }}
+{% else %}    action: allow
+{% endif %}{% if acl_entry.log %}    log: {{ acl_entry.log }}
+{% endif %}
+{% endfor %}
+
+{{# Zone definitions #}}
+{{#   List of zones with their files and options #}}
+zone:
+{% for zone in zones %}  - domain: {{ zone.domain }}
+    file: {{ zone.file }}
+{% if zone.notify %}    notify: {{ zone.notify }}
+{% endif %}{% if zone.axfr %}    axfr: {{ zone.axfr }}
+{% endif %}{% if zone.masters %}    masters: {{ zone.masters }}
+{% endif %}{% if zone.journal %}    journal: {{ zone.journal }}
+{% endif %}{% if zone.dnssec %}    dnssec: {{ zone.dnssec }}
+{% endif %}{% if zone.dnssec-signing %}    dnssec-signing: {{ zone.dnssec_signing }}
+{% endif %}{% endfor %}
+
+{{# DNSSEC key management (optional) #}}
+{{#   List of key policies #}}
+{% if key_policies %}key-policy:
+{% for policy in key_policies %}  - id: {{ policy.id }}
+    algorithm: {{ policy.algorithm }}
+    size: {{ policy.size }}
+    ttl: {{ policy.ttl }}
+    lifetime: {{ policy.lifetime }}
+    replay-protection: {{ policy.replay_protection }}
+{% endfor %}
+{% endif %}
+
+{{# Remote DNS servers (for forwarding, recursion, etc.) #}}
+{{#   List of remote entries #}}
+{% if remotes %}remote:
+{% for remote in remotes %}  - id: {{ remote.id }}
+    address: {{ remote.address }}
+{% if remote.port %}    port: {{ remote.port }}
+{% endif %}{% if remote.protocol %}    protocol: {{ remote.protocol }}
+{% endif %}
+{% endfor %}
+{% endif %}

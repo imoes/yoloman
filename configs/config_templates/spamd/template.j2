@@ -1,0 +1,39 @@
+# /etc/spamd/spamd.conf — SpamAssassin daemon configuration
+# Network listening settings
+{% if bind_address is defined %}--listen={{ bind_address }}{% else %}--listen=127.0.0.1{% endif %}
+--port={{ port }}
+
+# User and group context for daemon
+--user={{ user }}
+--group={{ group }}
+
+# Process management
+--max-children={{ max_children }}
+--nodo-not-daemonize{% if daemonize %}{{ '' }}{% else %}{{ ' — disabled (use systemd instead)' }}{% endif %}
+
+# Timeout and resource limits
+--timeout-remote={{ timeout_remote }}
+--timeout-local={{ timeout_local }}
+--max-children-idle={{ max_children_idle }}
+
+# Logging configuration
+--syslog={{ syslog_facility }}
+--log-packets{% if log_packets %}{{ '' }}{% else %}{{ ' — disabled' }}{% endif %}
+
+# Whitelist/blacklist file paths (optional overrides)
+{% if local_rules_dir is defined %}--local-rules-dir={{ local_rules_dir }}{% endif %}
+{% if rules_dir is defined %}--rules-dir={{ rules_dir }}{% endif %}
+
+# Bayes storage backend configuration (if enabled)
+{% if bayes_backend is defined %}
+--bayes-path={{ bayes_path }}
+--bayes-backend={{ bayes_backend }}
+{% endif %}
+
+# Score thresholds and tuning (optional overrides)
+{% if auto_whitelist_path is defined %}--auto-whitelist-path={{ auto_whitelist_path }}{% endif %}
+{% if whitelist_file is defined %}--whitelist-file={{ whitelist_file }}{% endif %}
+{% if blacklist_file is defined %}--blacklist-file={{ blacklist_file }}{% endif %}
+
+# Additional command-line options (e.g., custom extensions)
+{% for opt in extra_args %}{{ opt }}{% endfor %}

@@ -1,0 +1,48 @@
+[hed]
+# Main configuration file for the ARC HED service
+
+# Base directory for HED runtime data and logs
+vardir = {{ paths.vardir }}
+
+# Log directory for HED logs (separate from vardir if needed)
+logdir = {{ paths.logdir }}
+
+# PID file location
+pidfile = {{ paths.pidfile }}
+
+# Number of worker threads for handling incoming requests
+worker_threads = {{ limits.worker_threads }}
+
+# Maximum number of concurrent client connections
+max_connections = {{ limits.max_connections }}
+
+# Maximum queue size for pending requests
+max_queue_size = {{ limits.max_queue_size }}
+
+# Timeout (in seconds) for client connections
+connection_timeout = {{ limits.connection_timeout }}
+
+# Enable or disable verbose debug logging
+verbose = {{ options.verbose }}
+
+# Enable or disable health endpoint metrics collection
+metrics_enabled = {{ options.metrics_enabled }}
+
+# Comma-separated list of allowed hostnames/IPs for health checks
+allowed_hosts = {{ options.allowed_hosts | join(', ') }}
+
+# List of endpoints to monitor (each with name, host, port, path, interval, timeout)
+{% for endpoint in endpoints %}
+[{{ endpoint.name }}]
+# Monitor endpoint: {{ endpoint.name }}
+host = {{ endpoint.host }}
+port = {{ endpoint.port }}
+path = {{ endpoint.path }}
+interval = {{ endpoint.interval }}
+timeout = {{ endpoint.timeout }}
+{% if endpoint.method %}method = {{ endpoint.method }}
+{% endif %}{% if endpoint.expected_status %}expected_status = {{ endpoint.expected_status }}
+{% endif %}{% if endpoint.username %}username = {{ endpoint.username }}
+{% endif %}{% if endpoint.password %}password = {{ endpoint.password }}
+{% endif %}{% if endpoint.insecure %}insecure = {{ endpoint.insecure }}
+{% endif %}{% endfor %}

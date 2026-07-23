@@ -1,0 +1,43 @@
+# Listen on the default system bus address
+Listen={{ listen_address }}
+
+# Enable debug logging if requested
+{% if debug %}# Enable debug mode
+Debug=true
+{% else %}# Enable verbose logging
+Verbose=true
+{% endif %}
+
+# Maximum number of pending connections per client
+MaxPendingConnections={{ max_pending_connections }}
+
+# Maximum number of active clients
+MaxActiveClients={{ max_active_clients }}
+
+# Maximum number of services a client may own
+MaxOwnedServices={{ max_owned_services }}
+
+# Maximum number of match rules per client
+MaxMatchRulesPerClient={{ max_match_rules_per_client }}
+
+# Maximum number of file descriptors a client may hold
+MaxFileDescriptorsPerClient={{ max_file_descriptors_per_client }}
+
+# Timeout (ms) before an unresponsive client is disconnected
+ClientTimeout={{ client_timeout }}
+
+# Enable support for legacy D-Bus activation (systemd socket activation)
+{% if enable_activation %}# Enable activation support
+EnableActivation=true
+{% else %}# Disable activation support
+EnableActivation=false
+{% endif %}
+
+# Optional: Define service directories for activation (if activation enabled)
+{% for dir in service_directories %}# Service directory: {{ dir.path }}
+ServiceDirectory={{ dir.path }}
+{% endfor %}
+
+# Optional: Define additional security policy groups (not recommended in most deployments)
+# Note: D-Bus broker does NOT support per-user/policy blocks like dbus-daemon.
+# All policies are implicit and minimal; customization is strongly discouraged.

@@ -1,0 +1,99 @@
+{
+  "worker_id": {
+    "type": "string",
+    "default": "worker-{{ ansible_hostname | default('localhost') }}-{{ '%08x' | format(range(0, 16777216)|random) }}",
+    "description": "A unique string identifier for this worker (e.g., 'laptop-01' or 'ci-node-7')"
+  },
+  "worker.listen.host": {
+    "type": "string",
+    "default": "0.0.0.0",
+    "description": "Network interface to bind the worker HTTP server to"
+  },
+  "worker.listen.port": {
+    "type": "number",
+    "default": 8080,
+    "description": "Port number for the worker HTTP server"
+  },
+  "worker.workdir": {
+    "type": "string",
+    "default": "/var/lib/debusine/worker",
+    "description": "Absolute path to the directory where build outputs and logs are stored"
+  },
+  "worker.max_concurrent_tasks": {
+    "type": "number",
+    "default": 2,
+    "description": "Maximum number of build tasks this worker can execute simultaneously"
+  },
+  "worker.task_timeout": {
+    "type": "number",
+    "default": 3600,
+    "description": "Time in seconds after which a build task is considered failed (0 = no timeout)"
+  },
+  "worker.server.url": {
+    "type": "string",
+    "default": "http://localhost:8000",
+    "description": "Base URL of the Debusine server this worker registers with"
+  },
+  "worker.server.verify_tls": {
+    "type": "bool",
+    "default": true,
+    "description": "If true, verify TLS certificates when connecting to the Debusine server"
+  },
+  "worker.logging.level": {
+    "type": "string",
+    "default": "info",
+    "description": "Logging verbosity level: debug, info, warning, error, or critical"
+  },
+  "worker.logging.file": {
+    "type": "string",
+    "default": "/var/log/debusine/worker.log",
+    "description": "Absolute path to log file (use '-' to log to stdout)"
+  },
+  "worker.resource_limits.memory_mb": {
+    "type": "number",
+    "default": 2048,
+    "description": "Maximum memory in MB allowed per build task"
+  },
+  "worker.resource_limits.cpus": {
+    "type": "number",
+    "default": 1,
+    "description": "Maximum CPU cores (or fractional cores) allowed per build task"
+  },
+  "worker.docker": {
+    "type": "object",
+    "default": null,
+    "description": "Optional Docker daemon configuration (set if using containerized builds)",
+    "items": {
+      "host": {
+        "type": "string",
+        "default": "unix:///var/run/docker.sock",
+        "description": "Docker daemon connection URL (unix socket or TCP)"
+      }
+    }
+  },
+  "worker.environment": {
+    "type": "object",
+    "default": {},
+    "description": "Optional key-value pairs of environment variables passed to each build task",
+    "items": {
+      "key": {
+        "type": "string",
+        "description": "Variable name"
+      },
+      "value": {
+        "type": "string",
+        "description": "Variable value"
+      }
+    }
+  },
+  "worker.tls_ca_path": {
+    "type": "string",
+    "default": null,
+    "description": "Optional absolute path to a CA bundle file for verifying the Debusine server's TLS certificate"
+  },
+  "worker.auth_token_file": {
+    "type": "string",
+    "default": null,
+    "description": "Optional absolute path to a file containing an OAuth2 bearer token for authenticating to the Debusine server"
+  }
+}

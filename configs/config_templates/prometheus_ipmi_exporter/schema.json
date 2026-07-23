@@ -1,0 +1,101 @@
+{
+  "bind_address": {
+    "type": "string",
+    "default": "0.0.0.0:9484",
+    "description": "Network address (host:port) on which the exporter listens for Prometheus scrapes."
+  },
+  "ipmi_config_file": {
+    "type": "string",
+    "default": "",
+    "description": "Path to an external YAML/JSON file containing per-host IPMI credentials and options. Leave empty to use inline credentials."
+  },
+  "ipmi_over_lan": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable IPMI over LAN (required for remote IPMI connections). Disable only for direct serial/IPMI-USB."
+  },
+  "ipmi_user": {
+    "type": "string",
+    "default": "",
+    "description": "Default IPMI username used for devices without per-host credentials."
+  },
+  "ipmi_password": {
+    "type": "string",
+    "default": "",
+    "description": "Default IPMI password used for devices without per-host credentials."
+  },
+  "ipmi_timeout": {
+    "type": "number",
+    "default": 10,
+    "description": "Timeout in seconds for each IPMI command before failing."
+  },
+  "ipmi_retries": {
+    "type": "number",
+    "default": 2,
+    "description": "Number of times to retry a failed IPMI command before marking it as failed."
+  },
+  "ipmi_tls_insecure": {
+    "type": "bool",
+    "default": true,
+    "description": "Skip TLS certificate verification for HTTPS IPMI connections. Enable only if using self-signed certs."
+  },
+  "ipmi_devices": {
+    "type": "list",
+    "default": [],
+    "description": "List of IPMI devices with host-specific credentials and options. Overrides global credentials if provided.",
+    "items": {
+      "hostname": {
+        "type": "string",
+        "description": "Hostname or IP address of the IPMI device."
+      },
+      "username": {
+        "type": "string",
+        "description": "Username to use for this specific device."
+      },
+      "password": {
+        "type": "string",
+        "description": "Password to use for this specific device."
+      },
+      "interface": {
+        "type": "string",
+        "default": "lan",
+        "description": "IPMI interface type (e.g., 'lan', 'lanplus')."
+      },
+      "privilege": {
+        "type": "string",
+        "default": "admin",
+        "description": "Privilege level for the IPMI session (e.g., 'user', 'operator', 'admin')."
+      }
+    }
+  },
+  "blacklisted_sensors": {
+    "type": "list",
+    "default": [],
+    "description": "List of sensor names or GUIDs to exclude from metric collection. Useful to silence noisy or non-critical sensors."
+  },
+  "collect_sensor_readings": {
+    "type": "bool",
+    "default": true,
+    "description": "Collect sensor readings (temperature, fan speed, voltage, etc.)."
+  },
+  "collect_sel": {
+    "type": "bool",
+    "default": true,
+    "description": "Collect System Event Log (SEL) entries as metrics."
+  },
+  "collect_sdr": {
+    "type": "bool",
+    "default": true,
+    "description": "Collect Sensor Data Records (metadata about sensors)."
+  },
+  "collect_fru": {
+    "type": "bool",
+    "default": true,
+    "description": "Collect Field Replaceable Unit (FRU) inventory information."
+  },
+  "max_concurrent_requests": {
+    "type": "number",
+    "default": 20,
+    "description": "Maximum number of concurrent IPMI connection attempts. Reduce on low-memory systems."
+  }
+}

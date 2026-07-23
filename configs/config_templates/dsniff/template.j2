@@ -1,0 +1,27 @@
+# dsniff configuration file — controls global behavior of dsniff tools
+# Enable/disables logging to syslog (true = syslog, false = stderr)
+log_syslog {{ log_syslog }}
+
+# Log file path (used only if log_syslog = false)
+log_file {{ log_file }}
+
+# Path to write ARP cache poisoning logs (if arplog is enabled)
+arplog_file {{ arplog_file }}
+
+# Enable ARP cache poisoning (set to 'on' or 'off')
+arp_poison {{ arp_poison }}
+
+# Enable signature-based detection of FTP, SMTP, etc. sessions (set to 'on' or 'off')
+signatures {{ signatures }}
+
+# Comma-separated list of protocols to sniff (e.g., 'ssh,ftp,http,imap')
+sniff_protocols {{ sniff_protocols | join(', ') }}
+
+# Hosts to ignore during sniffing (one per line; comments start with #)
+# Format: hostname or IP address
+{% for host in ignore_hosts %}# {{ host }}
+{% endfor %}
+
+# Interfaces to listen on (one per line; empty line = sniff all interfaces)
+{% for iface in interfaces %}{{ iface }}
+{% endfor %}

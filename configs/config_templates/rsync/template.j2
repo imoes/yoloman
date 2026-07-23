@@ -1,0 +1,72 @@
+# Global settings
+[global]
+# Maximum number of simultaneous connections
+max connections = {{ max_connections }}
+# Log file path for rsync daemon
+log file = {{ log_file }}
+# Syslog facility for logging (e.g., daemon, local0)
+syslog facility = {{ syslog_facility }}
+# Whether to run as a standalone daemon
+# (only set to false if running under xinetd or similar)
+# For most deployments, leave as true
+# This value is ignored — rsyncd only runs standalone
+# See https://download.samba.org/pub/rsync/rsyncd.conf.html
+# (Note: rsyncd.conf does not have an 'inetd' or 'standalone' directive)
+# Instead, control via service manager (systemd, etc.)
+
+{% for module_name, module in modules.items() %}
+# Module: {{ module_name }}
+[{{ module_name }}]
+# Human-readable description shown to clients
+comment = {{ module.comment | quote }}
+# Path on the server to be exported
+path = {{ module.path }}
+# Whether this module is readable
+read only = {{ module.read_only | bool_to_string }}
+# Whether this module is writable
+write only = {{ module.write_only | bool_to_string }}
+# Whether to allow listing (e.g., clients can list files)
+list = {{ module.list | bool_to_string }}
+# Maximum number of simultaneous connections for this module (overrides global)
+max connections = {{ module.max_connections | default(max_connections) }}
+# Username(s) allowed to connect (empty = allow any authenticated user; 'root' = disallowed unless strict mode off)
+# Use comma-separated list for multiple users
+# Leave empty or omit to disable user restriction (not recommended for production)
+{% if module.users %}users = {{ module.users | join(', ') }}
+{% endif %}# Group(s) allowed to access (optional, usually omitted)
+{% if module.groups %}gid = {{ module.groups | join(', ') }}
+{% endif %}# File permissions handling: preserve, force, or ignore
+# 'preserve' is typical for backups
+# 'force' sets mode to `file permissions` below
+# 'ignore' disables permission handling
+file permissions = {{ module.file_permissions | default('preserve') }}
+# Owner/Group ownership handling
+# 'preserve' retains original ownership (requires root on server)
+# 'root:root' sets all files to this owner/group
+{% if module.owner %}uid = {{ module.owner }}
+{% endif %}
+# Lock file for this module (prevents concurrent writes to same path)
+{% if module.lock_file %}lock file = {{ module.lock_file }}
+{% endif %}# Maximum file size (in bytes) to allow transfer; 0 = unlimited
+max size = {{ module.max_size | default(0) }}
+# Exclude patterns (relative to module path); one per line
+{% for pattern in module.exclude %}exclude = {{ pattern | quote }}
+{% endfor %}# Include patterns (overrides excludes); one per line
+{% for pattern in module.include %}include = {{ pattern | quote }}
+{% endfor %}# Auth realm for MD5 auth (used with secrets file)
+{% if module.auth_realm %}auth realm = {{ module.auth_realm | quote }}
+{% endif %}# Secrets file path for password authentication
+# Format: `username:password` (MD5-hashed recommended: `user:$6$...`)
+{% if module.secrets_file %}secrets file = {{ module.secrets_file }}
+{% endif %}# Whether to show dot-files (hidden files) in listings
+# True by default; set false to hide them
+hide dot files = {{ module.hide_dot_files | default(true) | bool_to_string }}
+# Whether to use chroot jail (security hardening)
+# 'true' recommended for untrusted clients
+use chroot = {{ module.use_chroot | default(true) | bool_to_string }}
+# Timeout (in seconds) for client idle connection
+# 0 = no timeout
+timeout = {{ module.timeout | default(300) }}
+# Transfer rate limit (in KB/s); 0 = unlimited
+transfer rate = {{ module.transfer_rate | default(0) }}
+{% endfor %}

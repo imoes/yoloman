@@ -1,0 +1,142 @@
+{
+  "housekeeping_interval": {
+    "type": "number",
+    "default": 60,
+    "description": "Interval (seconds) between housekeeping cycles. Increase for lower CPU usage, decrease for more responsive cleanup."
+  },
+  "max_lbaas_per_housekeeping": {
+    "type": "number",
+    "default": 100,
+    "description": "Maximum number of Load Balancers processed per cycle. Limit to avoid overwhelming the system."
+  },
+  "amphora_agent_timeout": {
+    "type": "number",
+    "default": 60,
+    "description": "Timeout (seconds) for amphora agent API calls during housekeeping. Increase if slow agents time out."
+  },
+  "amphora_expiry_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Whether to enable automatic expiry (deletion) of old, orphaned amphorae."
+  },
+  "amphora_expiry_age": {
+    "type": "number",
+    "default": 604800,
+    "description": "Minimum age (seconds) of an amphora before it's eligible for expiry. Default: 7 days (604800 seconds)."
+  },
+  "amphora_expiry_batch_size": {
+    "type": "number",
+    "default": 10,
+    "description": "Maximum number of amphorae expired in each batch. Smaller batches reduce load spikes."
+  },
+  "amphora_agent_ca": {
+    "type": "string",
+    "default": "/etc/octavia/amphora-agent-ca.pem",
+    "description": "Path to the CA certificate used to verify amphora agent TLS certificates."
+  },
+  "amphora_agent_cert": {
+    "type": "string",
+    "default": "/etc/octavia/amphora-agent.pem",
+    "description": "Path to the amphora agent client certificate (for mutual TLS auth)."
+  },
+  "amphora_agent_key": {
+    "type": "string",
+    "default": "/etc/octavia/amphora-agent-key.pem",
+    "description": "Path to the amphora agent private key."
+  },
+  "amphora_network": {
+    "type": "string",
+    "default": "",
+    "description": "Neutron network ID used for amphora failover communication. Leave empty to use default."
+  },
+  "amphora_subnet": {
+    "type": "string",
+    "default": "",
+    "description": "Neutron subnet ID used for amphora failover communication. Leave empty to use default."
+  },
+  "exclude_lba_ids": {
+    "type": "list",
+    "default": [],
+    "description": "List of Load Balancer IDs to skip during housekeeping (e.g., critical or test LBs)."
+  },
+  "amphora_agent_heartbeat_dir": {
+    "type": "string",
+    "default": "/var/lib/octavia/heartbeat",
+    "description": "Directory where amphora heartbeat files are stored for health monitoring."
+  },
+  "enable_health_sync": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable syncing amphora health status to the Octavia database (required for health manager integration)."
+  },
+  "health_sync_timeout": {
+    "type": "number",
+    "default": 10,
+    "description": "Timeout (seconds) for RPC calls syncing amphora health data."
+  },
+  "database_connection": {
+    "type": "string",
+    "default": "mysql+pymysql://octavia:password@dbhost/octavia",
+    "description": "Database connection string for the Octavia database (typically set via [database] section, but included for flexibility)."
+  },
+  "amphora_agents": {
+    "type": "list",
+    "default": [],
+    "description": "Optional per-agent configuration overrides (advanced deployments with non-default agent configs).",
+    "items": {
+      "type": "object",
+      "fields": {
+        "name": {
+          "type": "string",
+          "default": "default",
+          "description": "Unique name/identifier for this amphora agent group."
+        },
+        "host": {
+          "type": "string",
+          "default": "127.0.0.1",
+          "description": "IP address or hostname of the amphora agent."
+        },
+        "port": {
+          "type": "number",
+          "default": 9443,
+          "description": "Port the amphora agent is listening on (default 9443 for TLS)."
+        },
+        "use_tls": {
+          "type": "bool",
+          "default": true,
+          "description": "Whether to use TLS for communication with this agent group."
+        }
+      }
+    }
+  },
+  "lock_path": {
+    "type": "string",
+    "default": "/var/lib/octavia/lock",
+    "description": "Directory for filesystem locks to coordinate housekeeping across multiple workers."
+  },
+  "workers": {
+    "type": "number",
+    "default": 2,
+    "description": "Number of worker processes to spawn for housekeeping tasks. Increase on high-LB-count deployments."
+  },
+  "thread_pool_size": {
+    "type": "number",
+    "default": 10,
+    "description": "Size of the thread pool per worker for asynchronous I/O."
+  },
+  "use_eventlet": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable eventlet-based green threads (recommended for I/O-bound services like this)."
+  },
+  "amphora_driver": {
+    "type": "string",
+    "default": "amphora_haproxy_rest_driver",
+    "description": "Name of the amphora management driver (usually left as default)."
+  },
+  "loadbalancer_topology": {
+    "type": "string",
+    "default": "SINGLE",
+    "description": "Topology mode for load balancer distribution. Common values: SINGLE, ACTIVE_STANDBY."
+  }
+}

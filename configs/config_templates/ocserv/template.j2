@@ -1,0 +1,132 @@
+# Authentication configuration
+authtype = {{ auth.type }}
+{% if auth.type == 'certificate' %}
+# Certificate-based auth
+ca-cert = {{ auth.ca_cert }}
+{% endif %}
+{% if auth.type == 'password' %}
+# Password-based auth (e.g., system users, radius, or local DB)
+password-db = {{ auth.password_db }}
+{% endif %}
+{% if auth.type == 'radius' %}
+# RADIUS auth
+radius-config = {{ auth.radius_config }}
+{% endif %}
+{% if auth.type == 'certificate+password' %}
+# Two-factor: cert + password
+password-db = {{ auth.password_db }}
+{% endif %}
+
+# User session and network settings
+# Maximum concurrent sessions per user
+max-sessions = {{ limits.max_sessions }}
+
+# TLS session timeout (seconds)
+timeout = {{ limits.timeout }}
+
+# Idle timeout (seconds)
+idle-timeout = {{ limits.idle_timeout }}
+
+# Maximum total sessions
+max-total-sessions = {{ limits.max_total_sessions }}
+
+# IPv4 network assigned to clients (CIDR notation)
+ipv4-network = {{ network.ipv4_network }}
+
+# Netmask for assigned IPv4 addresses (deprecated, prefer prefix length)
+# Use ipv4-netmask only if required by legacy clients
+{% if network.ipv4_netmask %}
+ipv4-netmask = {{ network.ipv4_netmask }}
+{% endif %}
+
+# DNS server(s) pushed to clients (comma-separated)
+dns = {{ network.dns | join(', ') }}
+
+# Split DNS domains (comma-separated)
+split-dns = {{ network.split_dns | join(', ') }}
+
+# Routes pushed to clients (format: network/prefix or gateway,network/prefix)
+{% for route in network.routes %}
+route = {{ route }}
+{% endfor %}
+
+# NAT (masquerade) for outbound traffic
+# Comment out to disable NAT (e.g., for routed mode)
+nat = {{ network.nat_enabled | lower }}
+nat-table = {{ network.nat_table | default('mangle') }}
+
+# Tunnel MTU
+mtu = {{ network.mtu }}
+
+# Keep-alive interval (seconds)
+keep-alive = {{ network.keep_alive }}
+
+# DPI (Deep Packet Inspection) protection
+# Enables obfuscation of VPN traffic (RFC 8265-style)
+# Must be enabled if connecting from restrictive networks (e.g., China)
+dpi = {{ dpi.enabled | lower }}
+
+# TLS and security settings
+# Certificate chain for server (PEM format)
+server-cert = {{ tls.server_cert }}
+server-key = {{ tls.server_key }}
+
+# Certificate verification (client cert required)
+{% if tls.client_cert_required %}
+cert-user-oid = {{ tls.cert_user_oid }}
+{% endif %}
+
+# CRL/OCSP revocation (optional)
+{% if tls.crl_file %}
+crl = {{ tls.crl_file }}
+{% endif %}
+
+# Minimum DH group size (e.g., 2048, 3072)
+dh-size = {{ tls.dh_size }}
+
+# SSL ciphers (colon-separated list; empty uses defaults)
+# Strong modern suite recommended: ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:...
+# Note: Order matters — prefer forward secrecy & AEAD
+ciphers = {{ tls.ciphers | join(':') }}
+
+# Protocol & port
+# Listen on IPv4 only (true) or dual-stack (false)
+ipv4-only = {{ network.ipv4_only | lower }}
+
+# Listening port (default 443 for compatibility with HTTPS proxying)
+port = {{ listen.port }}
+
+# UDP port for DTLS (optional; 0 = disabled)
+dtls-port = {{ listen.dtls_port }}
+
+# Protocol (tcp, udp, or both)
+protocol = {{ listen.protocol }}
+
+# Listen address (e.g., 0.0.0.0 or specific IP)
+listen-host = {{ listen.host }}
+
+# Keep the default config line: per-user config directory
+# (Commented out by default; uncomment if per-user config is needed)
+# per-user-config-dir = /etc/ocserv/config
+
+# Logging
+# syslog: 0=none, 1=errors, 2=info, 3=debug
+syslog-class = {{ logging.syslog_class }}
+
+# Log to file (optional)
+{% if logging.log_file %}
+log-file = {{ logging.log_file }}
+{% endif %}
+
+# Session persistence (optional)
+# Enable if using stateful load balancers or HA
+session-timeout = {{ limits.session_timeout }}
+
+# Authentication realm (displayed to clients)
+realm = {{ auth.realm }}
+
+# Keep-alive for TLS handshakes (seconds)
+tls-hello-timeout = {{ tls.hello_timeout }}
+
+# Session ID length (default 32; reduce if clients have issues)
+session-id-length = {{ limits.session_id_length }}

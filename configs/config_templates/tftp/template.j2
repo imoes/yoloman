@@ -1,0 +1,45 @@
+# /etc/tftpd-hpa/tftpd.conf — TFTP server configuration for tftpd-hpa (not for Erlang-based TFTP; see note below)
+# NOTE: This config file is used by the `tftpd-hpa` package (standard Linux TFTP server),
+# not by Erlang/OTP applications. The `erlang-tftp` package does NOT use this file;
+# Erlang TFTP servers are typically configured inline in OTP releases or via env vars.
+# If you're deploying an Erlang TFTP server, ignore this template and configure via
+# application environment (e.g., `sys.config`) or command-line args.
+
+# Base directory for TFTP file transfers
+# This is the root directory served to clients
+path: {{ tftp_root }}
+
+# Address and port the server listens on
+# Set to 0.0.0.0 to listen on all interfaces, or a specific IP
+address: {{ listen_address }}
+
+# UDP port for TFTP (standard is 69)
+port: {{ listen_port }}
+
+# Enable verbose logging (syslog level 'debug')
+# Set to 'yes' for detailed logs, 'no' for minimal logging
+verbose: {{ verbose|lower }}
+
+# Allow new file creation (write access)
+# Set to 'yes' to permit uploads, 'no' to make server read-only
+create_new_files: {{ allow_write|lower }}
+
+# Allow file overwrites
+# Only effective if `create_new_files` is also 'yes'
+allow_overwrite: {{ allow_overwrite|lower }}
+
+# Maximum number of concurrent connections (0 = no limit)
+max_connections: {{ max_connections }}
+
+# Timeout for idle connections (seconds)
+# Connection closed after this period of inactivity
+timeout: {{ timeout }}
+
+# Optional: chroot directory for security isolation
+# Must be an absolute path; if empty, no chroot is applied
+chroot_dir: {{ chroot_dir|default('') }}
+
+# Optional: extra options passed directly to the tftpd-hpa daemon
+# Each item becomes a separate command-line argument
+# Example: ['--secure', '--umask=022']
+extra_daemon_args: {{ extra_daemon_args | join(' ') }}

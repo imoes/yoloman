@@ -1,0 +1,63 @@
+{
+  "debug": false,
+  "worker_count": 4,
+  "evaluation_interval": 60,
+  "batch_size": 25,
+  "notification_retry_delay": 15,
+  "api_bind_host": "0.0.0.0",
+  "api_port": 8042,
+  "api_enable_ssl": false,
+  "api_ssl_cert": "/etc/ssl/certs/aodh.pem",
+  "api_ssl_key": "/etc/ssl/private/aodh.key",
+  "keystone_auth_url": "http://keystone.openstack.svc.cluster.local:5000/v3",
+  "keystone_auth_type": "password",
+  "keystone_project_name": "service",
+  "keystone_user_domain_name": "Default",
+  "keystone_project_domain_name": "Default",
+  "keystone_username": "aodh",
+  "keystone_password": "aodh_secret_password",
+  "keystone_disable_ssl_certificate_validation": false,
+  "keystone_cafile": "",
+  "memcached_servers": [
+    "memcached.openstack.svc.cluster.local:11211"
+  ],
+  "event_handlers": [
+    {
+      "event_type": "compute.instance.create.end",
+      "action": "http",
+      "description": "Trigger alarm evaluation when instance creation completes",
+      "action_options": {
+        "url": "http://aodh-api.openstack.svc.cluster.local:8042/v2/alarms/evaluate",
+        "method": "POST",
+        "headers": {
+          "Content-Type": "application/json"
+        }
+      }
+    },
+    {
+      "event_type": "compute.instance.delete.end",
+      "action": "log",
+      "description": "Log instance deletions for auditing"
+    }
+  ],
+  "database_connection": "postgresql://aodh:db_pass@database.openstack.svc.cluster.local:5432/aodh",
+  "database_max_retries": 3,
+  "database_retry_interval": 5,
+  "publisher_uri": "rabbit://openstack:rabbit_pass@messagebus.openstack.svc.cluster.local:5672//",
+  "evaluator_batch_size": 50,
+  "notification_method": "log",
+  "alarm_notification_methods": [
+    {
+      "type": "http",
+      "name": "pagerduty",
+      "payload": {
+        "url": "https://events.pagerduty.com/v2/enqueue",
+        "method": "POST",
+        "headers": {
+          "Authorization": "Token token=${PAGERDUTY_TOKEN}",
+          "Content-Type": "application/json"
+        }
+      }
+    }
+  ]
+}

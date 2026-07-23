@@ -1,0 +1,302 @@
+# Configuration file for aMule daemon (amule_daemon)
+# Generated from template; instance-specific values are injected via Jinja2.
+
+# General settings
+[General]
+# Enables detailed logging (e.g., for debugging)
+{{ "Debug" if debug_enabled else "NoDebug" }}
+
+# Name shown for this instance in the network (visible to peers)
+NickName={{ nick_name }}
+
+# Enable remote control via amulecmd or WebUI
+{{ "WebServerEnabled" if webui_enabled else "WebServerDisabled" }}
+
+# Enable KAD network (decentralized peer discovery)
+{{ "KadEnabled" if kad_enabled else "KadDisabled" }}
+
+# Enable eD2k network (centralized server-based)
+{{ "ED2kEnabled" if ed2k_enabled else "ED2kDisabled" }}
+
+# Directory where completed downloads are stored
+Directory={{ downloads_dir }}
+
+# Directory for temporary (incomplete) downloads
+TempDirectory={{ temp_dir }}
+
+# Directory for temporary swap files (shared hash tables, etc.)
+SwapDirectory={{ swap_dir }}
+
+# Directory for configuration backups
+ConfigDirectory={{ config_dir }}
+
+# Log directory (optional, leave blank to disable file logging)
+{% if log_dir %}
+LogDirectory={{ log_dir }}
+{% else %}
+LogDirectory=
+{% endif %}
+
+# Number of connections per file (0 = automatic)
+FilesConnections={{ files_connections }}
+
+# Maximum simultaneous connections (0 = unlimited, but capped by system)
+MaxConnections={{ max_connections }}
+
+# Upload bandwidth limit in KB/s (0 = unlimited)
+UploadLimit={{ upload_limit_kb }}
+
+# Download bandwidth limit in KB/s (0 = unlimited)
+DownloadLimit={{ download_limit_kb }}
+
+# Enable automatic server list update
+{{ "AutoUpdateServers" if auto_update_servers else "NoAutoUpdateServers" }}
+
+# Enable automatic server list update from URL
+{{ "AutoUpdateServerList" if auto_update_server_list else "NoAutoUpdateServerList" }}
+
+# Server list update URL (only used if above is enabled)
+ServerURL={{ server_list_url }}
+
+# Enable automatic source exchange (ED2k-only)
+{{ "AutoUpdateSourceList" if auto_update_source_list else "NoAutoUpdateSourceList" }}
+
+# Source list update URL (only used if above is enabled)
+SourceURL={{ source_list_url }}
+
+# Enable automatic IP detection via UPnP/NAT-PMP
+{{ "UPnPEnabled" if upnp_enabled else "UPnPDisabled" }}
+
+# Listen port for eD2k clients (TCP)
+InboundPort={{ inbound_port_tcp }}
+
+# Listen port for KAD (UDP)
+KadPort={{ inbound_port_udp }}
+
+# Enable remote access (amulecmd/webui) from any host
+{{ "AllowExternalConnections" if allow_external else "NoAllowExternalConnections" }}
+
+# Password for remote access (amulecmd/webui) — must be set for security
+Password={{ admin_password }}
+
+# WebUI password (if different; otherwise same as above)
+{% if webui_password and webui_password != admin_password %}
+WebPassword={{ webui_password }}
+{% else %}
+WebPassword={{ admin_password }}
+{% endif %}
+
+# Enable WebUI
+{{ "WebServerEnabled" if webui_enabled else "WebServerDisabled" }}
+
+# WebUI listen port
+WebServerPort={{ webui_port }}
+
+# WebUI listen interface (e.g., 127.0.0.1 for localhost only, or * for all)
+WebServerInterface={{ webui_interface }}
+
+# Enable SSL for WebUI
+{{ "WebServerSSLPort" if webui_ssl_enabled else "NoWebServerSSLPort" }}
+
+# SSL certificate file path (only used if SSL enabled)
+{% if webui_ssl_enabled %}
+SSLCertFile={{ webui_ssl_cert_path }}
+{% endif %}
+
+# Enable remote access via amulecmd
+{{ "RemoteControlEnabled" if remote_control_enabled else "RemoteControlDisabled" }}
+
+# amulecmd listen interface (e.g., 127.0.0.1)
+RemoteInterface={{ remote_interface }}
+
+# Listen interface for eD2k clients (e.g., 0.0.0.0 for all, or 127.0.0.1 for local only)
+Interface={{ ed2k_interface }}
+
+# Listen interface for KAD (UDP)
+KadInterface={{ kad_interface }}
+
+# Enable incoming connections logging
+{{ "LogIncomingConnections" if log_incoming else "NoLogIncomingConnections" }}
+
+# Enable verbose logging
+{{ "LogVerbose" if verbose_logging else "NoLogVerbose" }}
+
+# Buffer size for reading files (in KB)
+FileBufferSize={{ file_buffer_size_kb }}
+
+# Enable disk cache (speeds up I/O)
+{{ "DiskCacheEnabled" if disk_cache_enabled else "NoDiskCacheEnabled" }}
+
+# Disk cache size (in MB)
+DiskCacheSize={{ disk_cache_size_mb }}
+
+# Enable sharing of partial files (aMule-specific)
+{{ "ShareFilesFromTempDir" if share_temp else "NoShareFilesFromTempDir" }}
+
+# Enable auto-connection to last known servers
+{{ "ConnectToServers" if connect_to_servers else "NoConnectToServers" }}
+
+# Enable auto-reconnect on disconnect
+{{ "AutoReconnect" if auto_reconnect else "NoAutoReconnect" }}
+
+# Enable auto-shutdown after idle (in minutes); 0 = disabled
+{% if idle_shutdown_minutes > 0 %}
+IdleTimeout={{ idle_shutdown_minutes }}
+{% else %}
+IdleTimeout=0
+{% endif %}
+
+# Enable auto-shutdown after downloads complete
+{{ "AutoShutdownOnIdle" if shutdown_on_idle else "NoAutoShutdownOnIdle" }}
+
+# Enable auto-shutdown on exit (e.g., after Ctrl+C or signal)
+{{ "ShutdownOnExit" if shutdown_on_exit else "NoShutdownOnExit" }}
+
+# Maximum upload slots per file (0 = auto)
+UploadSlots={{ upload_slots }}
+
+# Minimum share ratio to stop seeding (0 = disabled)
+MinShareRatio={{ min_share_ratio }}
+
+# Maximum share ratio to stop seeding (0 = unlimited)
+MaxShareRatio={{ max_share_ratio }}
+
+# Enable auto-updating of aMule server list
+{{ "AutoUpdateServers" if auto_update_servers else "NoAutoUpdateServers" }}
+
+# Enable auto-updating of sources (ED2k)
+{{ "AutoUpdateSourceList" if auto_update_source_list else "NoAutoUpdateSourceList" }}
+
+# Enable IPv6 support
+{{ "IPv6Enabled" if ipv6_enabled else "IPv6Disabled" }}
+
+# Prefer IPv4 over IPv6 (only relevant if IPv6 enabled)
+{{ "IPv4Only" if ipv4_preferred else "IPv6Only" }}
+
+# Enable DHT (Kad) search (required for Kad network)
+{{ "KadDHTSearch" if kad_dht_search else "NoKadDHTSearch" }}
+
+# Enable Kad nodes cache (speeds up Kad startup)
+{{ "KadNodesCache" if kad_nodes_cache else "NoKadNodesCache" }}
+
+# Kad nodes cache file (optional override)
+{% if kad_nodes_cache_file %}
+KadNodesCacheFile={{ kad_nodes_cache_file }}
+{% endif %}
+
+# Enable resource-intensive operations throttling
+{{ "ThrottleEnabled" if throttle_enabled else "NoThrottleEnabled" }}
+
+# Upload throttle during download (KB/s, 0 = no throttle)
+UploadThrottle={{ upload_throttle_kb }}
+
+# Download throttle (KB/s, 0 = no throttle)
+DownloadThrottle={{ download_throttle_kb }}
+
+# Enable scheduled throttling
+{{ "ScheduleEnabled" if schedule_enabled else "NoScheduleEnabled" }}
+
+# Schedule: start hour (0–23)
+{% if schedule_enabled %}
+ScheduleFrom={{ schedule_start_hour }}
+{% else %}
+ScheduleFrom=0
+{% endif %}
+
+# Schedule: end hour (0–23)
+{% if schedule_enabled %}
+ScheduleTo={{ schedule_end_hour }}
+{% else %}
+ScheduleTo=0
+{% endif %}
+
+# Throttle profile: upload limit during schedule (KB/s)
+{% if schedule_enabled %}
+ScheduleUpload={{ schedule_upload_limit_kb }}
+{% else %}
+ScheduleUpload=0
+{% endif %}
+
+# Throttle profile: download limit during schedule (KB/s)
+{% if schedule_enabled %}
+ScheduleDownload={{ schedule_download_limit_kb }}
+{% else %}
+ScheduleDownload=0
+{% endif %}
+
+# End of [General] section
+
+# Per-user settings (if running multiple daemons via users or profiles)
+# (Note: amule-daemon runs as a single instance per config file. Multi-user use requires separate configs.)
+# [General] is sufficient for most deployments.
+
+# Optional: advanced server preferences
+[Server]
+# Minimum server version required (e.g., 0.26 = eMule 0.26a)
+MinServerVersion={{ min_server_version }}
+
+# Maximum server version accepted (9999 = none)
+MaxServerVersion={{ max_server_version }}
+
+# Minimum upload speed to consider server (KB/s)
+MinServerUpload={{ min_server_upload_kb }}
+
+# Minimum download speed to consider server (KB/s)
+MinServerDownload={{ min_server_download_kb }}
+
+# Minimum number of users required on server
+MinUsers={{ min_users_on_server }}
+
+# Minimum number of files required on server
+MinFiles={{ min_files_on_server }}
+
+# List of trusted servers (by IP:Port)
+TrustedServers={{ trusted_servers | join(', ') if trusted_servers else '' }}
+
+# List of blocked servers (by IP:Port)
+BlockedServers={{ blocked_servers | join(', ') if blocked_servers else '' }}
+
+# List of servers to always connect to (by IP:Port)
+AlwaysConnect={{ always_connect | join(', ') if always_connect else '' }}
+
+# End of [Server] section
+
+# [Security] — controls access and encryption
+[Security]
+# Require password for remote access (enforced by Password= above)
+{{ "UsePassword" if use_password else "NoUsePassword" }}
+
+# Enable IP filtering
+{{ "IPFilterEnabled" if ip_filter_enabled else "NoIPFilterEnabled" }}
+
+# IP filter file path
+IPFilterFile={{ ip_filter_file }}
+
+# Enable automatic IP filtering (block known bad IPs)
+{{ "AutoIPFilter" if auto_ip_filter else "NoAutoIPFilter" }}
+
+# Enable encryption for eD2k connections (preferred to plain)
+{{ "CryptoRequired" if crypto_required else "NoCryptoRequired" }}
+
+# Enable encryption for Kad (UDP) — not all clients support this
+{{ "KadCryptoRequired" if kad_crypto_required else "NoKadCryptoRequired" }}
+
+# End of [Security] section
+
+# [View] — UI-related display settings (ignored by daemon, kept for compatibility)
+[View]
+ShowStats=0
+ShowDebug=0
+ShowServers=0
+ShowSources=0
+ShowDownloads=0
+ShowShared=0
+ShowTransfers=0
+ShowSearch=0
+ShowLog=0
+
+[Stats]
+# Enable statistics collection (internal only, used for health checks)
+{{ "StatsEnabled" if stats_enabled else "NoStatsEnabled" }}
+
+# End of [Stats] section

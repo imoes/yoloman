@@ -1,0 +1,186 @@
+{
+  "base_dir": {
+    "type": "string",
+    "default": "/var/lib/callisto",
+    "description": "Base directory for runtime files (logs, cache, etc.)"
+  },
+  "log_level": {
+    "type": "string",
+    "default": "INFO",
+    "description": "Verbosity level for logs (DEBUG, INFO, WARNING, ERROR, CRITICAL)"
+  },
+  "worker_threads": {
+    "type": "number",
+    "default": 4,
+    "description": "Number of worker threads for data processing and uploads"
+  },
+  "max_concurrent_requests": {
+    "type": "number",
+    "default": 8,
+    "description": "Maximum number of simultaneous HTTP requests to external services"
+  },
+  "enable_telemetry": {
+    "type": "bool",
+    "default": true,
+    "description": "Send anonymized metadata (station ID, time, frequency range) to central e-Callisto server"
+  },
+  "central_host": {
+    "type": "string",
+    "default": "e-callisto.imcce.fr",
+    "description": "Hostname or IP of the central e-Callisto server"
+  },
+  "central_port": {
+    "type": "number",
+    "default": 8080,
+    "description": "Port of the central e-Callisto server"
+  },
+  "calibration_cache_dir": {
+    "type": "string",
+    "default": "{{ base_dir }}/calibration",
+    "description": "Directory to store cached calibration data from the central server"
+  },
+  "enable_calibration_cache": {
+    "type": "bool",
+    "default": true,
+    "description": "Use local cache for calibration data to reduce network requests"
+  },
+  "max_calibration_cache_size": {
+    "type": "number",
+    "default": 500,
+    "description": "Maximum size (MB) of the calibration cache before old entries are purged"
+  },
+  "hw_config_path": {
+    "type": "string",
+    "default": "/etc/callisto/hw.ini",
+    "description": "Path to hardware configuration file (station ID, receiver type, gain, etc.)"
+  },
+  "data_store_dir": {
+    "type": "string",
+    "default": "{{ base_dir }}/data",
+    "description": "Directory for storing raw observation data (FITS files)"
+  },
+  "retention_days": {
+    "type": "number",
+    "default": 30,
+    "description": "Number of days to retain raw observation data before automatic deletion"
+  },
+  "compress_archived_data": {
+    "type": "bool",
+    "default": true,
+    "description": "Compress archived FITS files with gzip to save disk space"
+  },
+  "api_bind_interface": {
+    "type": "string",
+    "default": "",
+    "description": "Network interface to bind the local API (empty = bind to all interfaces)"
+  },
+  "api_port": {
+    "type": "number",
+    "default": 8000,
+    "description": "Port for the local HTTP API (used by monitoring tools and dashboards)"
+  },
+  "api_require_auth": {
+    "type": "bool",
+    "default": false,
+    "description": "Require basic auth (username/password) for API access"
+  },
+  "trusted_internal_ips": {
+    "type": "list",
+    "default": [
+      "127.0.0.1",
+      "::1"
+    ],
+    "description": "List of internal IPs that bypass API authentication (comma-separated)",
+    "items": {
+      "type": "string",
+      "description": "IP address (IPv4 or IPv6)"
+    }
+  },
+  "cross_reference_stations": {
+    "type": "list",
+    "default": [],
+    "description": "List of other e-Callisto stations to cross-reference for multi-station studies",
+    "items": {
+      "type": "object",
+      "fields": {
+        "id": {
+          "type": "string",
+          "description": "Station code (e.g., 'BIR', 'Ond\u0159ejov')"
+        },
+        "name": {
+          "type": "string",
+          "description": "Human-readable station name"
+        },
+        "url": {
+          "type": "string",
+          "description": "Base URL of the station's data endpoint"
+        }
+      }
+    }
+  },
+  "tls_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable TLS for secure communication with central server and API"
+  },
+  "tls_cert_path": {
+    "type": "string",
+    "default": "/etc/callisto/tls/station.crt",
+    "description": "Path to station's TLS certificate"
+  },
+  "tls_key_path": {
+    "type": "string",
+    "default": "/etc/callisto/tls/station.key",
+    "description": "Path to station's TLS private key"
+  },
+  "tls_ca_cert_path": {
+    "type": "string",
+    "default": "/etc/callisto/tls/ca.crt",
+    "description": "Path to CA certificate for verifying central server"
+  },
+  "health_endpoint": {
+    "type": "string",
+    "default": "/health",
+    "description": "HTTP path for health-check endpoints (e.g., Kubernetes liveness probe)"
+  },
+  "hw_timeout": {
+    "type": "number",
+    "default": 30,
+    "description": "Maximum time (seconds) to wait for hardware response before timeout"
+  },
+  "hw_retry_limit": {
+    "type": "number",
+    "default": 3,
+    "description": "Number of retries for failed hardware communication"
+  },
+  "hw_retry_delay": {
+    "type": "number",
+    "default": 5,
+    "description": "Seconds to wait between hardware retries"
+  },
+  "sampling_rate": {
+    "type": "number",
+    "default": 0,
+    "description": "Desired sampling rate (samples/sec); 0 = use hardware default"
+  },
+  "buffer_size": {
+    "type": "number",
+    "default": 256,
+    "description": "Size (MiB) of per-observation memory buffer"
+  },
+  "enable_spectrum_averaging": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable real-time averaging of spectra to reduce noise"
+  },
+  "spectrum_averaging_count": {
+    "type": "number",
+    "default": 10,
+    "description": "Number of spectra to average per output record"
+  },
+  "min_upload_interval": {
+    "type": "number",
+    "default": 60,
+    "description": "Minimum time (seconds) between uploads to central server"
+  }
+}

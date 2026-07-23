@@ -1,0 +1,75 @@
+# Configuration for DLM control daemon (dlm_controld)
+# Enables automatic startup of dlm_controld at boot
+autostart = {{ autostart | lower }}
+
+# Debug logging level: 0 (none) to 7 (verbose)
+debug_level = {{ debug_level }}
+
+# Path to the DLM kernel module interface (typically unchanged)
+kernel_module = "{{ kernel_module }}"
+
+# Path to the lockspace directory (used for user-space lockspaces)
+lockspace_dir = "{{ lockspace_dir }}"
+
+# Timeout (in seconds) to wait for kernel module to load
+start_timeout = {{ start_timeout }}
+
+# Number of worker threads to handle lock requests
+threads = {{ threads }}
+
+# Enable or disable voting protocol for cluster membership
+voting = {{ voting | lower }}
+
+# Minimum number of votes required for cluster to be quorate (0 = default)
+quorum_threshold = {{ quorum_threshold }}
+
+# Log file path (leave empty to log to syslog)
+log_file = "{{ log_file }}"
+
+# Logging subsystem: 'syslog' or 'file'
+log_subsys = "{{ log_subsys }}"
+
+# Log priority level (syslog equivalent)
+log_priority = "{{ log_priority }}"
+
+# List of additional cluster nodes (for non-clustered/distributed setups or fallback)
+# Format: name = address
+{% for node in cluster_nodes %}
+node {
+	name = "{{ node.name }}"
+	addr = "{{ node.addr }}"
+}
+{% endfor %}
+
+# Optional: Per-lockspace tuning (advanced)
+{% if lockspace_config %}
+# Lockspace-specific parameters (applies to lockspace 'name')
+{% for ls in lockspace_config %}
+lockspace {
+	name = "{{ ls.name }}"
+	recovery_slot_timeout = {{ ls.recovery_slot_timeout }}
+	recovery_retries = {{ ls.recovery_retries }}
+	recovery_timeout = {{ ls.recovery_timeout }}
+	client_timeout = {{ ls.client_timeout }}
+}
+{% endfor %}
+{% endif %}
+
+# Optional: fence method and agent configuration (for cluster fencing)
+{% if fencing.enabled %}
+# Fencing configuration (required in cluster environments)
+fencing = "{{ fencing.method }}"
+
+# Fallback timeout (in seconds) before taking over as lock manager
+fence_timeout = {{ fencing.fence_timeout }}
+{% endif %}
+
+# Optional: Network tuning for communication with other nodes
+{% if network %}
+# Network timeout and retry settings
+network {
+	max_retries = {{ network.max_retries }}
+	retry_delay = {{ network.retry_delay }}
+	connect_timeout = {{ network.connect_timeout }}
+}
+{% endif %}

@@ -1,0 +1,81 @@
+<?xml version="1.0"?>
+<!-- Main configuration for jabberd2 c2s (client-to-server) component -->
+<conf name="c2s" mode="config">
+  <!-- Network settings for listening client connections -->
+  <port>{{ listen_port }}</port>
+  <host>{{ listen_host }}</host>
+  
+  <!-- TLS/SSL settings for secure client connections -->
+  <tls>
+    <enabled>{{ tls_enabled }}</enabled>
+    <cert-file>{{ tls_cert_file }}</cert-file>
+    <key-file>{{ tls_key_file }}</key-file>
+    {% if tls_ca_file %}<ca-file>{{ tls_ca_file }}</ca-file>{% endif %}
+    <verify-mode>{{ tls_verify_mode }}</verify-mode>
+  </tls>
+
+  <!-- Connection limits and timeouts -->
+  <max-connections>{{ max_connections }}</max-connections>
+  <idle-timeout>{{ idle_timeout }}</idle-timeout>
+  <auth-timeout>{{ auth_timeout }}</auth-timeout>
+
+  <!-- Authentication backends -->
+  <auth>
+    <backend>{{ auth_backend }}</backend>
+    {% if auth_backend == 'mysql' %}
+    <!-- MySQL authentication backend settings -->
+    <mysql>
+      <host>{{ mysql_host }}</host>
+      <port>{{ mysql_port }}</port>
+      <user>{{ mysql_user }}</user>
+      <pass>{{ mysql_pass }}</pass>
+      <db>{{ mysql_db }}</db>
+      <table>{{ mysql_table }}</table>
+      <user-field>{{ mysql_user_field }}</user-field>
+      <pass-field>{{ mysql_pass_field }}</pass-field>
+    </mysql>
+    {% elif auth_backend == 'ldap' %}
+    <!-- LDAP authentication backend settings -->
+    <ldap>
+      <uri>{{ ldap_uri }}</uri>
+      <binddn>{{ ldap_binddn }}</binddn>
+      {% if ldap_bindpass %}<bindpass>{{ ldap_bindpass }}</bindpass>{% endif %}
+      <basedn>{{ ldap_basedn }}</basedn>
+      <scope>{{ ldap_scope }}</scope>
+      <filter>{{ ldap_filter }}</filter>
+    </ldap>
+    {% else %}
+    <!-- Default (local) auth backend uses jabberd’s internal user store -->
+    <local/>
+    {% endif %}
+  </auth>
+
+  <!-- Resource limits for per-user sessions -->
+  <quota>
+    <sessions-per-user>{{ quota_sessions_per_user }}</sessions-per-user>
+    <messages-per-minute>{{ quota_messages_per_minute }}</messages-per-minute>
+  </quota>
+
+  <!-- Logging configuration -->
+  <log>
+    <file>{{ log_file }}</file>
+    <level>{{ log_level }}</level>
+  </log>
+
+  <!-- Optional: Rate-limiting rules (list of rate-limit entries) -->
+  {% for rule in rate_limit_rules %}
+  <ratelimit>
+    <type>{{ rule.type }}</type>
+    <max>{{ rule.max }}</max>
+    <interval>{{ rule.interval }}</interval>
+  </ratelimit>
+  {% endfor %}
+
+  <!-- Optional: Access control rules (list of ACL entries) -->
+  {% for acl in acls %}
+  <acl>
+    <action>{{ acl.action }}</action>
+    <match>{{ acl.match }}</match>
+  </acl>
+  {% endfor %}
+</conf>

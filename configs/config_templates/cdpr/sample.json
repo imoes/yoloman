@@ -1,0 +1,43 @@
+{
+  "global_enabled": true,
+  "log_file": "/var/log/cdpr/cdpr.log",
+  "pid_file": "/run/cdpr/cdpr.pid",
+  "update_interval": 60,
+  "max_neighbors": 256,
+  "listen_interfaces": [
+    "eth0",
+    "GigabitEthernet1/0/1"
+  ],
+  "plugins": [
+    {
+      "name": "local_file",
+      "enabled": true,
+      "type": "file",
+      "path": "/var/lib/cdpr/cdp_data.json",
+      "format": "json",
+      "rotation_max_size": 10485760,
+      "rotation_max_files": 5
+    },
+    {
+      "name": "prometheus_push",
+      "enabled": true,
+      "type": "http",
+      "endpoint": "http://prometheus-pushgateway:9091/metrics/job/cdpr",
+      "method": "POST",
+      "headers": {
+        "X-Auth-Token": "secret-token",
+        "Content-Type": "text/plain"
+      },
+      "timeout": 5
+    },
+    {
+      "name": "influx_telemetry",
+      "enabled": true,
+      "type": "influxdb",
+      "url": "http://influxdb.local:8086",
+      "database": "cdp_telemetry",
+      "retention_policy": "30d",
+      "username": "cdpr_user"
+    }
+  ]
+}

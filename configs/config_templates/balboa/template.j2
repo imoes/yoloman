@@ -1,0 +1,110 @@
+# balboa configuration file
+# This file is managed by configuration management tools.
+# Do not edit manually.
+
+# Server listens on the specified host and port for incoming connections
+server:
+  host: {{ server_host }}
+  port: {{ server_port }}
+
+# Storage backend for Passive DNS data
+storage:
+  type: {{ storage.type }}
+  {% if storage.type == 'sqlite' %}
+  path: {{ storage.path }}
+  {% elif storage.type == 'postgres' %}
+  connection_string: {{ storage.connection_string }}
+  pool_size: {{ storage.pool_size }}
+  max_open_conns: {{ storage.max_open_conns }}
+  max_idle_conns: {{ storage.max_idle_conns }}
+  {% endif %}
+
+# Authentication for the GraphQL API
+auth:
+  enabled: {{ auth.enabled }}
+  {% if auth.enabled %}
+  type: {{ auth.type }}
+  {% if auth.type == 'basic' %}
+  users:
+    {% for user in auth.users %}
+    - username: {{ user.username }}
+      password_hash: {{ user.password_hash }}
+      {% if user.role %}
+      role: {{ user.role }}
+      {% endif %}
+    {% endfor %}
+  {% elif auth.type == 'jwt' %}
+  jwt_secret: {{ auth.jwt_secret }}
+  jwt_expiry_seconds: {{ auth.jwt_expiry_seconds }}
+  {% endif %}
+  {% endif %}
+
+# Frontend web interface settings
+frontend:
+  enabled: {{ frontend.enabled }}
+  {% if frontend.enabled %}
+  static_dir: {{ frontend.static_dir }}
+  {% if frontend.cors_origins %}
+  cors_origins:
+    {% for origin in frontend.cors_origins %}
+    - {{ origin }}
+    {% endfor %
+  {% else %}
+  cors_origins: []
+  {% endif %}
+  {% endif %}
+
+# Logging configuration
+logging:
+  level: {{ logging.level }}
+  format: {{ logging.format }}
+  output: {{ logging.output }}
+
+# Rate limiting for API endpoints
+rate_limit:
+  enabled: {{ rate_limit.enabled }}
+  {% if rate_limit.enabled %}
+  requests_per_second: {{ rate_limit.requests_per_second }}
+  burst_size: {{ rate_limit.burst_size }}
+  {% endif %}
+
+# GraphQL endpoint path
+graphql:
+  path: {{ graphql.path }}
+  playground_enabled: {{ graphql.playground_enabled }}
+  introspection_enabled: {{ graphql.introspection_enabled }}
+
+# Passive DNS ingestion settings
+ingestion:
+  enabled: {{ ingestion.enabled }}
+  {% if ingestion.enabled %}
+  listen_host: {{ ingestion.listen_host }}
+  listen_port: {{ ingestion.listen_port }}
+  # Maximum DNS record size (in bytes) accepted
+  max_record_size: {{ ingestion.max_record_size }}
+  # Enforce minimum TTL for stored records (in seconds)
+  min_ttl: {{ ingestion.min_ttl }}
+  # Maximum depth of CNAME/DNAME chain to resolve during ingestion
+  max_cname_chain_depth: {{ ingestion.max_cname_chain_depth }}
+  # List of allowed source subnets for DNS ingestion (CIDR notation)
+  allowed_source_subnets:
+    {% for subnet in ingestion.allowed_source_subnets %}
+    - {{ subnet }}
+    {% endfor %}
+  # Optional upstream DNS resolver(s) for recursive resolution during ingestion
+  upstream_resolvers:
+    {% for resolver in ingestion.upstream_resolvers %}
+    - {{ resolver }}
+    {% endfor %}
+  {% endif %}
+
+# Backup / dump settings
+backup:
+  enabled: {{ backup.enabled }}
+  {% if backup.enabled %}
+  dir: {{ backup.dir }}
+  format: {{ backup.format }}
+  compression: {{ backup.compression }}
+  schedule_cron: {{ backup.schedule_cron }}
+  retention_days: {{ backup.retention_days }}
+  {% endif %}

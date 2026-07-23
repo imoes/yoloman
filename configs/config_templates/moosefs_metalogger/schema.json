@@ -1,0 +1,112 @@
+{
+  "bind_host": {
+    "type": "string",
+    "default": "0.0.0.0",
+    "description": "IP address the Metalogger listens on for incoming master connections."
+  },
+  "bind_port": {
+    "type": "number",
+    "default": 9419,
+    "description": "TCP port for incoming master connections (standard MooseFS Metalogger port)."
+  },
+  "data_path": {
+    "type": "string",
+    "default": "/var/lib/mfs",
+    "description": "Directory where changelog files and metadata dumps are stored."
+  },
+  "working_dir": {
+    "type": "string",
+    "default": "/var/lib/mfs",
+    "description": "Working directory for metadata state (often same as data_path)."
+  },
+  "spool_dir": {
+    "type": "string",
+    "default": "/var/lib/mfs/spool",
+    "description": "Directory for temporary metadata dump files (optional; created automatically if needed)."
+  },
+  "dump_interval": {
+    "type": "number",
+    "default": 3600,
+    "description": "Interval (in seconds) between full metadata dumps to the spool directory."
+  },
+  "max_entries": {
+    "type": "number",
+    "default": 500,
+    "description": "Maximum number of changelog entries retained; older ones are rotated."
+  },
+  "max_age": {
+    "type": "number",
+    "default": 86400,
+    "description": "Maximum age (in seconds) for changelog files before rotation."
+  },
+  "debug_mode": {
+    "type": "bool",
+    "default": false,
+    "description": "If true, log output is printed to stdout instead of log files."
+  },
+  "master_servers": {
+    "type": "list",
+    "default": [],
+    "items": {
+      "type": "object",
+      "fields": {
+        "host": {
+          "type": "string",
+          "default": "",
+          "description": "Hostname or IP of a master server."
+        },
+        "port": {
+          "type": "number",
+          "default": 9419,
+          "description": "Port used by the master server (standard is 9419)."
+        },
+        "priority": {
+          "type": "number",
+          "default": 1,
+          "description": "Connection priority (lower = higher priority); used for failover."
+        }
+      }
+    },
+    "description": "List of MooseFS master servers to connect to for metadata replication (at least one required)."
+  },
+  "master_timeout": {
+    "type": "number",
+    "default": 60,
+    "description": "Timeout (in seconds) for master connection attempts and operations."
+  },
+  "master_use_ssl": {
+    "type": "bool",
+    "default": false,
+    "description": "If true, use SSL/TLS for secure communication with master servers."
+  },
+  "master_ssl_cert": {
+    "type": "string",
+    "default": "",
+    "description": "Path to client SSL certificate file (required only if master requires client cert)."
+  },
+  "master_ssl_key": {
+    "type": "string",
+    "default": "",
+    "description": "Path to client SSL private key file."
+  },
+  "master_ssl_ca": {
+    "type": "string",
+    "default": "",
+    "description": "Path to CA certificate for verifying master server identity (if SSL enabled)."
+  },
+  "pid_file": {
+    "type": "string",
+    "default": "/var/run/mfs/mfsmetalogger.pid",
+    "description": "Path to the PID file for the Metalogger daemon."
+  },
+  "log_level": {
+    "type": "number",
+    "default": 4,
+    "description": "Verbosity level (0=silent to 5=debug); 4 (info) is recommended for production."
+  },
+  "log_file": {
+    "type": "string",
+    "default": "/var/log/mfs/mfsmetalogger.log",
+    "description": "Path to log file. Leave empty ('') to disable file logging."
+  }
+}

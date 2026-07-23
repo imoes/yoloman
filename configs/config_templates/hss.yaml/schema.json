@@ -1,0 +1,157 @@
+{
+  "log_level": {
+    "type": "string",
+    "default": "info",
+    "description": "Logging verbosity level: debug, info, warning, error, or critical."
+  },
+  "log_file": {
+    "type": "string",
+    "default": "/var/log/nextepc/hss.log",
+    "description": "Path to the HSS log file."
+  },
+  "mongodb_host": {
+    "type": "string",
+    "default": "127.0.0.1",
+    "description": "Host address of the MongoDB server."
+  },
+  "mongodb_port": {
+    "type": "number",
+    "default": 27017,
+    "description": "Port number for MongoDB connection."
+  },
+  "mongodb_name": {
+    "type": "string",
+    "default": "nextepc",
+    "description": "Name of the MongoDB database used by HSS."
+  },
+  "mongodb_username": {
+    "type": "string",
+    "default": "",
+    "description": "Optional MongoDB username for authentication (leave empty if not using auth)."
+  },
+  "mongodb_password": {
+    "type": "string",
+    "default": "",
+    "description": "Optional MongoDB password for authentication (leave empty if not using auth)."
+  },
+  "hss_realm": {
+    "type": "string",
+    "default": "open5gs.org",
+    "description": "HSS realm (e.g., home network domain)."
+  },
+  "hss_fqdn": {
+    "type": "string",
+    "default": "hss.open5gs.org",
+    "description": "Fully Qualified Domain Name (FQDN) of the HSS node."
+  },
+  "hss_cc": {
+    "type": "string",
+    "default": "001",
+    "description": "Country Code (MCC part of IMSI, first 3 digits)."
+  },
+  "hss_mnc": {
+    "type": "string",
+    "default": "01",
+    "description": "Mobile Network Code (MNC part of IMSI, 2\u20133 digits)."
+  },
+  "s6a_listen_addr": {
+    "type": "string",
+    "default": "0.0.0.0",
+    "description": "Local IP address the S6a interface listens on."
+  },
+  "s6a_listen_port": {
+    "type": "number",
+    "default": 3868,
+    "description": "Port for S6a Diameter connections (default 3868)."
+  },
+  "s6a_tls_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable TLS encryption for S6a connections (recommended in production)."
+  },
+  "s6a_tls_cert": {
+    "type": "string",
+    "default": "/etc/nextepc/certs/hss.crt",
+    "description": "Path to TLS certificate file (used if TLS enabled)."
+  },
+  "s6a_tls_key": {
+    "type": "string",
+    "default": "/etc/nextepc/certs/hss.key",
+    "description": "Path to TLS private key file (used if TLS enabled)."
+  },
+  "s6a_tls_ca": {
+    "type": "string",
+    "default": "/etc/nextepc/certs/ca.crt",
+    "description": "Path to TLS CA certificate file for peer verification (used if TLS enabled)."
+  },
+  "s6a_peers": {
+    "type": "list",
+    "default": [],
+    "description": "List of Diameter peers (e.g., MMEs) to connect to.",
+    "items": {
+      "type": "object",
+      "fields": {
+        "name": {
+          "type": "string",
+          "default": "mme1",
+          "description": "Logical name for the peer."
+        },
+        "hostname": {
+          "type": "string",
+          "default": "mme.open5gs.org",
+          "description": "Hostname or IP address of the peer."
+        },
+        "dest_host": {
+          "type": "string",
+          "default": "mme.open5gs.org",
+          "description": "Diameter Destination-Host identifier."
+        },
+        "dest_realm": {
+          "type": "string",
+          "default": "open5gs.org",
+          "description": "Diameter Destination-Realm identifier."
+        }
+      }
+    }
+  },
+  "max_subscriptions_per_imsi": {
+    "type": "number",
+    "default": 10,
+    "description": "Maximum number of subscriptions (e.g., APNs) allowed per subscriber (IMSI)."
+  },
+  "default_apn": {
+    "type": "string",
+    "default": "internet",
+    "description": "Default APN name assigned to new subscribers."
+  },
+  "default_qci": {
+    "type": "number",
+    "default": 9,
+    "description": "Default QoS Class Identifier (QCI) for bearer setup (e.g., 9 = best-effort)."
+  },
+  "default_ambr_uplink_mbps": {
+    "type": "number",
+    "default": 100,
+    "description": "Default aggregated maximum bit rate (AMBR) for uplink in Mbps."
+  },
+  "default_ambr_downlink_mbps": {
+    "type": "number",
+    "default": 200,
+    "description": "Default aggregated maximum bit rate (AMBR) for downlink in Mbps."
+  },
+  "enable_sdr": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable Subscription Data Retrieval (SDR) from HSS on demand (e.g., via ULR)."
+  },
+  "sdr_interval_sec": {
+    "type": "number",
+    "default": 300,
+    "description": "Time interval (in seconds) between periodic SDR updates (if enabled)."
+  },
+  "send_ulr_on_registration": {
+    "type": "bool",
+    "default": true,
+    "description": "Send Update Location Request (ULR) to MME immediately on subscriber registration."
+  }
+}

@@ -1,0 +1,112 @@
+{
+  "log_level": {
+    "type": "number",
+    "default": 2,
+    "description": "Logging verbosity level (0=none, 1=error, 2=warning, 3=info, 4=debug)"
+  },
+  "max_streams": {
+    "type": "number",
+    "default": 64,
+    "description": "Maximum number of audio streams allowed per client"
+  },
+  "mem_lock": {
+    "type": "bool",
+    "default": false,
+    "description": "Whether to lock memory pages (prevents swapping, improves latency)"
+  },
+  "sample_rate": {
+    "type": "number",
+    "default": 48000,
+    "description": "Default sample rate in Hz (44100 or 48000 common)"
+  },
+  "audio_channels": {
+    "type": "number",
+    "default": 2,
+    "description": "Default number of audio channels (1=mono, 2=stereo)"
+  },
+  "default_sink": {
+    "type": "string",
+    "default": "0",
+    "description": "Default audio output sink ID (e.g., '0' for first device)"
+  },
+  "latency": {
+    "type": "string",
+    "default": "1024/48000",
+    "description": "Target latency as frames/rate (e.g., '1024/48000' \u2248 21.3 ms)"
+  },
+  "enable_spare_nodes": {
+    "type": "bool",
+    "default": true,
+    "description": "Whether to pre-allocate spare sink/source nodes for hot-plug resilience"
+  },
+  "spare_sinks": {
+    "type": "number",
+    "default": 2,
+    "description": "Number of spare audio sinks to keep ready (only if spare nodes enabled)"
+  },
+  "spare_sources": {
+    "type": "number",
+    "default": 1,
+    "description": "Number of spare audio sources (e.g., for mic hot-plug)"
+  },
+  "volume_boost_db": {
+    "type": "number",
+    "default": 30.0,
+    "description": "Maximum allowed volume boost in decibels (e.g., 15.0 = +15 dB)"
+  },
+  "modules": {
+    "type": "list",
+    "default": [],
+    "description": "List of PulseAudio modules to load with custom arguments",
+    "items": {
+      "type": "object",
+      "fields": {
+        "name": {
+          "type": "string",
+          "description": "Module name (e.g., 'module-native-protocol-tcp')"
+        },
+        "args": {
+          "type": "object",
+          "description": "Module arguments as key=value pairs"
+        },
+        "enabled": {
+          "type": "bool",
+          "default": true,
+          "description": "Enable or disable this module"
+        },
+        "description": {
+          "type": "string",
+          "description": "Human-readable description for documentation"
+        }
+      }
+    }
+  },
+  "optional_plugins": {
+    "type": "list",
+    "default": [],
+    "description": "Optional SPA plugins to enable or disable",
+    "items": {
+      "type": "object",
+      "fields": {
+        "name": {
+          "type": "string",
+          "description": "SPA plugin name (e.g., 'support-nvidia-audio')"
+        },
+        "enabled": {
+          "type": "bool",
+          "default": true,
+          "description": "Enable the plugin"
+        },
+        "description": {
+          "type": "string",
+          "description": "Brief description of the plugin's purpose"
+        }
+      }
+    }
+  },
+  "enable_system_mode": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable system-wide PipeWire PulseAudio daemon (typically disabled for desktop; used for servers)"
+  }
+}

@@ -1,0 +1,69 @@
+# OpenGnB configuration file — defines network, peers, and node behavior
+# Node identity — unique identifier and private key for cryptographic signing
+[node]
+id = {{ node.id }}
+private_key = {{ node.private_key }}
+
+# Network name — identifies the overlay mesh; all peers must share this to interconnect
+[network]
+name = {{ network.name }}
+# IPv4 subnet for the virtual LAN — must be unique and non-overlapping in deployments
+subnet = {{ network.subnet }}
+# Optional: IPv6 subnet (empty string to disable)
+ipv6_subnet = {{ network.ipv6_subnet | default('') }}
+
+# Discovery — how the node finds other peers in the mesh
+# 'static' = hard-coded peer list; 'mdns' = local multicast discovery; 'bootstrap' = via bootstrap server
+[discovery]
+method = {{ discovery.method }}
+{% if discovery.method == 'static' %}
+# Static peer list — one peer per line: id@host:port
+{% for peer in discovery.peers %}peer = {{ peer.id }}@{{ peer.host }}:{{ peer.port }}
+{% endfor %}{% endif %}
+{% if discovery.method == 'bootstrap' %}
+# Bootstrap server URL(s) — used to fetch known peers; may be comma-separated
+bootstrap_servers = {{ discovery.bootstrap_servers | join(', ') }}
+{% endif %}
+{% if discovery.method == 'mdns' %}
+# mDNS service name suffix (e.g., '_opengnb._tcp.local')
+mdns_service = {{ discovery.mdns_service }}
+{% endif %}
+
+# Transport — how the node accepts and initiates connections
+[transport]
+# Listeners: addresses and ports to bind to (host:port), one per line
+{% for listener in transport.listeners %}listen = {{ listener.host }}:{{ listener.port }}
+{% endfor %}
+# Optional: external IP hint (if NAT or behind firewall; empty = auto-detect)
+ext_ip = {{ transport.ext_ip | default('') }}
+# Optional: STUN server for NAT traversal (empty = none)
+stun_server = {{ transport.stun_server | default('') }}
+
+# Security — encryption, MTU, and timeouts
+[security]
+# AES-GCM key derivation salt (hex string); must match across mesh for key consistency
+salt = {{ security.salt | default('') }}
+# Optional: cipher suite (e.g., 'aes-256-gcm'); leave empty for default
+cipher = {{ security.cipher | default('') }}
+# Path MTU discovery — enables or disables automatic MTU tuning
+mtu_discovery = {{ security.mtu_discovery | default(true) | string | lower }}
+# Max handshake timeout in seconds
+handshake_timeout = {{ security.handshake_timeout | default(10) }}
+
+# Logging and diagnostics
+[logging]
+# Verbosity level: 'debug', 'info', 'warn', 'error'
+level = {{ logging.level }}
+# Path to log file (empty = stderr only)
+file = {{ logging.file | default('') }}
+# Max log rotation size in MB (0 = no rotation)
+max_size_mb = {{ logging.max_size_mb | default(10) }}
+# Max number of rotated log files to keep
+max_files = {{ logging.max_files | default(5) }}
+
+# Experimental features — enable only if required and understood
+[experimental]
+# Enable mesh routing (Dijkstra shortest-path, not just direct peers)
+mesh_routing = {{ experimental.mesh_routing | default(false) | string | lower }}
+# Enable gossip-based topology propagation (increases bandwidth, reduces latency)
+gossip_topology = {{ experimental.gossip_topology | default(false) | string | lower }}

@@ -1,0 +1,64 @@
+# Core server settings
+server.document-root = "{{ server.document_root }}"
+server.port = {{ server.port }}
+server.bind = "{{ server.bind_address }}"
+
+# Module loading
+{{ server.modules | map('lambda m: "server.modules += (\"" + m + "\")"') | join('\n') }}
+
+# MIME types
+mimetype.assign = ({{ mimetype.assign | to_json(indent=2, default=None) | replace('""', '"') | replace('\n', '\n') | replace('    ', '') | replace('    ', '') }})
+
+# Directory index handling
+index-file.names = ({{ server.index_files | map('lambda f: "\"" + f + "\""') | join(', ') }})
+
+# Error handling
+server.errorlog = "{{ server.error_log }}"
+server.pid-file = "{{ server.pid_file }}"
+
+# Basic authentication (optional)
+{% if auth.enabled %}
+auth.backend = "{{ auth.backend_type }}"
+{% if auth.backend_type == 'plain' %}
+auth.backend.plain.userfile = "{{ auth.backend_plain_userfile }}"
+{% elif auth.backend_type == 'htpasswd' %}
+auth.backend.htpasswd.userfile = "{{ auth.backend_htpasswd_userfile }}"
+{% endif %}
+{% endif %}
+
+# Virtual hosts (optional)
+{% if vhosts | length > 0 %}
+$HTTP["host"] =~ "^(.*)$" {
+  var.host = ""  # Initialize
+  # Match host to document root
+  % for vhost in vhosts:
+  {% if vhost.host_pattern %}
+  {% if loop.first %}  $HTTP["host"] =~ "{{ vhost.host_pattern }}" { {% else %}  $HTTP["host"] =~ "{{ vhost.host_pattern }}" { {% endif %}
+    server.document-root = "{{ vhost.document_root }}"
+  }
+  {% endif %}
+  {% endfor %}
+}
+{% endif %}
+
+# Compression (optional)
+{% if compression.enabled %}
+compress.cache-dir = "{{ compression.cache_dir }}"
+compress.filetype = ({{ compression.filetypes | map('lambda t: "\"" + t + "\""') | join(', ') }})
+{% endif %}
+
+# FastCGI backends (optional)
+{% if fastcgi.backends | length > 0 %}
+fastcgi.server = ({{ fastcgi.backends | map('lambda b: "\"" + b.url_prefix + "\"" => ((" + b.socket + ", " + "\"bin-path\" => \"" + b.bin_path + "\", \"socket\" => \"" + b.socket + "\")") | join(', ') }})
+{% endif %}
+
+# SSL (optional)
+{% if ssl.enabled %}
+ssl.engine = "enable"
+ssl.pemfile = "{{ ssl.pem_file }}"
+{% if ssl.ca_file %}ssl.ca-file = "{{ ssl.ca_file }}"{% endif %}
+ssl.cipher-list = "{{ ssl.cipher_list }}"
+{% endif %}
+
+# Access logging
+accesslog.filename = "{{ server.access_log }}"

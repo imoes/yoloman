@@ -1,0 +1,52 @@
+# Enable debug logging
+# log_level: debug|info|warn|error
+# Default: info
+log_level: {{ log_level }}
+
+# Path to the Unix domain socket for IPP-over-USB communication
+# ipp_usb_socket: /run/ipp-usb/ipp-usb.sock
+ipp_usb_socket: {{ ipp_usb_socket }}
+
+# Path to the lock file for exclusive access
+# lock_file: /run/ipp-usb/ipp-usb.lock
+lock_file: {{ lock_file }}
+
+# Maximum number of USB device handles to keep open concurrently
+# max_open_handles: 10
+max_open_handles: {{ max_open_handles }}
+
+# Whether to auto-start the service on boot (systemd only)
+# auto_start: true|false
+auto_start: {{ auto_start }}
+
+# List of USB vendor:product IDs to blacklist (prevent binding to specific devices)
+# Example: blacklisted_devices:
+#   - "045e:07c6"
+#   - "046d:c52b"
+blacklisted_devices:
+{% for device in blacklisted_devices %}  - "{{ device }}"
+{% endfor %}
+
+# List of USB vendor:product IDs to whitelist (only bind to these devices if non-empty)
+# If empty, all devices (except blacklisted) are accepted
+# whitelisted_devices:
+#   - "03f0:0042"
+whitelisted_devices:
+{% for device in whitelisted_devices %}  - "{{ device }}"
+{% endfor %}
+
+# Retry configuration for device attachment
+# retry_delay_ms: 500
+retry_delay_ms: {{ retry_delay_ms }}
+
+# Maximum number of retries when attaching a device
+# max_retries: 5
+max_retries: {{ max_retries }}
+
+# Enable verbose USB library logging (libusb)
+# libusb_debug: 0 (none) ... 4 (full)
+libusb_debug: {{ libusb_debug }}
+
+# Path to the system log target (systemd-journald if absent or 'syslog')
+# log_target: syslog|stderr|none
+log_target: {{ log_target }}

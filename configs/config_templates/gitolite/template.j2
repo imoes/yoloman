@@ -1,0 +1,33 @@
+# Gitolite configuration file — defines repositories, access rules, and admins
+# This file is managed by Puppet; manual edits will be overwritten
+# Admin users — those with full read/write/ssh access to all repos
+{% for admin in admins %}# Admin: {{ admin }}
+{% endfor %}RW+\t\t= {{ admins | join(' ') }}
+
+# Repository definitions with access control
+{% for repo in repositories %}# Repository: {{ repo.name }}
+# Description: {{ repo.description | default('No description') }}
+repo {{ repo.name }}
+{% if repo.description %}    DESC    = {{ repo.description }}
+{% endif %}{% if repo.admins %}    RW+     = {{ repo.admins | join(' ') }}
+{% endif %}{% if repo.writers %}    RW      = {{ repo.writers | join(' ') }}
+{% endif %}{% if repo.readers %}    R       = {{ repo.readers | join(' ') }}
+{% endif %}
+{% endfor %}
+
+# Optional: mirror push configuration
+{% for mirror in mirrors %}# Mirror: {{ mirror.name }} -> {{ mirror.target }}
+repo {{ mirror.name }}
+    option mirror.source
+    option mirror.target    = {{ mirror.target }}
+{% endfor %}
+
+# Optional: Git hooks or config overrides (per-repo)
+{% for hook in hooks %}# Hook: {{ hook.name }}
+repo {{ hook.name }}
+{% for key, value in hook.config.items() %}    {{ key }} = {{ value }}
+{% endfor %}{% endfor %}
+
+# Default rules — catch-all (must be last!)
+repo gitolite-admin
+    RW+     = {{ admins | join(' ') }}

@@ -1,0 +1,53 @@
+# fence_virsh configuration - main fence device definition
+fence = "virsh"
+
+# Hostname or IP address of the target VM's hypervisor (required)
+hostip = "{{ hostip }}"
+
+# Username for authenticating to the hypervisor (required)
+login = "{{ login }}"
+
+# Password (or path to credential file) — prefer credentials file for security
+password = "{{ password | default(omit) }}"{% if password_file %}
+
+# Alternative: path to a file containing the password (recommended for production)
+password_file = "{{ password_file }}"{% endif %}
+
+# SSH private key path for key-based authentication (optional, overrides password)
+identity_file = "{{ identity_file | default(omit) }}"{% if port %}
+
+# SSH port on the hypervisor (default: 22)
+port = "{{ port }}"{% endif %}
+
+# Name of the VM to fence (must exist on hypervisor) — required for multi-VM setups
+plug = "{{ plug }}"{% if action_delay > 0 %}
+
+# Seconds to wait before retrying an action (default: 0)
+action_delay = "{{ action_delay }}"{% endif %}
+
+# Number of times to retry a fence action (default: 3)
+retry = "{{ retry }}"{% if retry_timeout > 0 %}
+
+# Max total seconds to wait for a fence operation (overrides retry count in practice)
+retry_timeout = "{{ retry_timeout }}"{% endif %}
+
+# Enable/disable TLS/SSL for libvirt connection (default: 0 = disabled)
+tls = "{{ tls }}"{% if tls_cert_dir %}
+
+# Directory containing TLS certificates (implies tls=1)
+tls_cert_dir = "{{ tls_cert_dir }}"{% endif %}
+
+# Hostname to verify in TLS certificate (optional; defaults to hostip)
+tls_hostname = "{{ tls_hostname | default(omit) }}"{% if ca_file %}
+
+# Path to CA certificate bundle for TLS verification
+tls_ca_file = "{{ ca_file }}"{% endif %}
+
+# Enable/disable use of the libvirt URI (default: 0 = use SSH; 1 = direct URI)
+use_uri = "{{ use_uri }}"{% if uri %}
+
+# Libvirt connection URI (used only if use_uri=1)
+uri = "{{ uri }}"{% endif %}
+
+# Optional: comma-separated list of additional options (not recommended; use explicit params instead)
+# options = "{{ options | default(omit) }}"

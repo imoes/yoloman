@@ -1,0 +1,92 @@
+# Base directory for reclass data storage (nodes and applications)
+storage: {{ storage.path }}
+
+# Name of the reclass environment (used for namespace isolation)
+name: {{ name }}
+
+# URI of the reclass metadata service (for external data sources)
+{% if metadata.uri %}metadata:
+  uri: {{ metadata.uri }}
+{% endif %}
+
+# Source configuration for node and application data
+{% if sources %}source_directories:
+{% for src in sources %}  - {{ src.path }}
+{% endfor %}{% endif %}
+
+# Interpolation settings
+{% if interpolation %}interpolation:
+  enabled: {{ interpolation.enabled | lower }}
+{% endif %}
+
+# Cache settings for improved performance
+{% if cache %}cache:
+  enabled: {{ cache.enabled | lower }}
+  path: {{ cache.path }}
+  ttl: {{ cache.ttl }}
+{% endif %}
+
+# Output formatting (YAML or JSON)
+output: {{ output.format }}
+
+# List of allowed output types (for compatibility with CM systems)
+allowed_output_types:
+{% for t in output.allowed_types %}  - {{ t }}
+{% endfor %}
+
+# Logging configuration
+{% if logging.level %}logging:
+  level: {{ logging.level }}
+  file: {{ logging.file }}
+{% endif %}
+
+# Inventory class inheritance depth limit (prevents infinite recursion)
+max_inheritance_depth: {{ max_inheritance_depth }}
+
+# Node name transformation (e.g., lowercase, strip domain)
+{% if node_name_transform %}node_name_transform:
+  type: {{ node_name_transform.type }}
+{% endif %}
+
+# Optional external data source configuration
+{% if external_data %}external_data:
+{% for key, val in external_data.items() | sort %}  {{ key }}: {{ val | to_json }}
+{% endfor %}{% endif %}
+
+# Default node class (used when node has no explicit classes)
+{% if default_node_class %}default_node_class: {{ default_node_class }}
+{% endif %}
+
+# Merge strategy for lists and dicts
+{% if merge_strategy %}merge_strategy:
+  dicts: {{ merge_strategy.dicts }}
+  lists: {{ merge_strategy.lists }}
+{% endif %}
+
+# Diagnostic output (for troubleshooting)
+{% if diagnostics %}diagnostics:
+  show_missing_nodes: {{ diagnostics.show_missing_nodes | lower }}
+{% endif %}
+
+# Path prefix (for multi-tenant deployments)
+{% if path_prefix %}path_prefix: {{ path_prefix }}
+{% endif %}
+
+# YAML syntax options
+{% if yaml %}yaml:
+  width: {{ yaml.width }}
+{% endif %}
+
+# Timezone used in timestamps
+{% if timezone %}timezone: {{ timezone }}
+{% endif %}
+
+# URI encoding policy for external references
+{% if uri_encoding %}uri_encoding: {{ uri_encoding }}
+{% endif %}
+
+# Node and class naming validation
+{% if naming %}naming:
+  node_name_pattern: {{ naming.node_name_pattern }}
+  class_name_pattern: {{ naming.class_name_pattern }}
+{% endif %}

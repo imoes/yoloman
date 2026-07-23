@@ -1,0 +1,138 @@
+{
+  "enable_verbose": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable verbose output during policy compilation (helps diagnose loading issues)."
+  },
+  "max_recursion": {
+    "type": "number",
+    "default": 256,
+    "description": "Maximum recursion depth for nested includes/profile includes (avoid stack overflow)."
+  },
+  "include_dirs": {
+    "type": "list",
+    "default": [
+      "/etc/apparmor.d"
+    ],
+    "description": "List of directories to scan for additional AppArmor configuration files (e.g., profile.d/).",
+    "items": {
+      "type": "string",
+      "description": "A directory path containing AppArmor config fragments or profiles."
+    }
+  },
+  "include_dirs_verbose": {
+    "type": "bool",
+    "default": false,
+    "description": "If true, prepend verbose comments to include directives."
+  },
+  "include_syntax": {
+    "type": "string",
+    "default": "include",
+    "description": "Directive used for including external files (typically 'include' or 'runtime_include')."
+  },
+  "helper_dir": {
+    "type": "string",
+    "default": "/usr/lib/apparmor",
+    "description": "Path to AppArmor helper binaries and scripts used during policy compilation."
+  },
+  "enable_inotify": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable inotify-based monitoring of /etc/apparmor.d for hot-reloading profile changes."
+  },
+  "enforce_mode": {
+    "type": "number",
+    "default": 1,
+    "description": "Global enforcement mode: 0 = disable enforcement (no policy applied), 1 = enforce (block violations), 2 = complain (log but allow)."
+  },
+  "enable_cache": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable on-disk cache of compiled profiles for faster reloads (recommended for production)."
+  },
+  "cache_dir": {
+    "type": "string",
+    "default": "/run/apparmor/cache",
+    "description": "Path to the directory where compiled profiles are cached."
+  },
+  "cache_dir_mode": {
+    "type": "string",
+    "default": "0755",
+    "description": "Permission mode (octal) for the cache directory."
+  },
+  "cache_file_mode": {
+    "type": "string",
+    "default": "0644",
+    "description": "Permission mode (octal) for cached profile files."
+  },
+  "cache_user": {
+    "type": "string",
+    "default": "root",
+    "description": "User owner of cached files (usually 'root')."
+  },
+  "cache_group": {
+    "type": "string",
+    "default": "root",
+    "description": "Group owner of cached files (usually 'root')."
+  },
+  "enable_networking": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable support for network namespace and socket rules (required for network-aware profiles)."
+  },
+  "enable_mount": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable support for mount-related rules (e.g., bind mounts, pivot_root)."
+  },
+  "enable_signal": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable support for signal rules (ptrace, kill, etc.) \u2014 needed for debugging or inter-process control."
+  },
+  "enable_hooks": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable hook scripts that run before/after policy load/unload (e.g., preload modules)."
+  },
+  "debug": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable debug-mode logging (very verbose; use only for troubleshooting)."
+  },
+  "default_complain": {
+    "type": "bool",
+    "default": false,
+    "description": "If true, apply 'complain' mode by default to newly loaded profiles."
+  },
+  "use_abstractions": {
+    "type": "bool",
+    "default": true,
+    "description": "Whether to automatically include standard abstraction files (e.g., 'common', 'x11')."
+  },
+  "abstractions": {
+    "type": "list",
+    "default": [
+      "common",
+      "x11",
+      "fonts",
+      "nss"
+    ],
+    "description": "List of abstraction names to include by default (each maps to abstractions/<name> in helper_dir).",
+    "items": {
+      "type": "string",
+      "description": "Name of a standard abstraction file (e.g., 'common', 'nss')."
+    }
+  },
+  "site_profiles": {
+    "type": "list",
+    "default": [
+      "/etc/apparmor.d/local"
+    ],
+    "description": "List of paths to site-specific profile files or directories to include.",
+    "items": {
+      "type": "string",
+      "description": "Absolute path to a profile file (e.g., '/etc/apparmor.d/usr.bin.firefox')."
+    }
+  }
+}

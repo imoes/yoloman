@@ -1,0 +1,150 @@
+{
+  "snapshot_root": {
+    "type": "string",
+    "default": "/var/cache/rsnapshot",
+    "description": "Top-level directory where snapshots are stored. Must be on a filesystem with sufficient space and support for hard links."
+  },
+  "verbose": {
+    "type": "number",
+    "default": 2,
+    "description": "Verbosity level: 1=quiet, 2=normal, 3=verbose, 4=debug. Affects output to stdout/stderr."
+  },
+  "loglevel": {
+    "type": "number",
+    "default": 3,
+    "description": "Log level when file logging is enabled: 1=error, 2=warning, 3=info."
+  },
+  "enable_file_logging": {
+    "type": "bool",
+    "default": false,
+    "description": "If true, write logs to the specified log_file_path (in addition to syslog)."
+  },
+  "log_file_path": {
+    "type": "string",
+    "default": "/var/log/rsnapshot",
+    "description": "Path to the log file when file logging is enabled. Will be appended to (not rotated by rsnapshot)."
+  },
+  "ssh_port": {
+    "type": "number",
+    "default": 22,
+    "description": "SSH port to use for remote backups (passed to rsync via -e 'ssh -p ...')."
+  },
+  "rsync_short_args": {
+    "type": "list",
+    "default": [
+      "-a",
+      "-H",
+      "--delete"
+    ],
+    "description": "List of short rsync options (e.g., ['-a', '-H']). Applied to every rsync call."
+  },
+  "rsync_long_args": {
+    "type": "list",
+    "default": [
+      "--numeric-ids",
+      "--relative"
+    ],
+    "description": "List of long rsync options (e.g., ['--numeric-ids', '--relative']). Applied to every rsync call."
+  },
+  "retention_levels": {
+    "type": "list",
+    "default": [
+      {
+        "name": "hourly",
+        "count": 24
+      },
+      {
+        "name": "daily",
+        "count": 7
+      },
+      {
+        "name": "weekly",
+        "count": 4
+      },
+      {
+        "name": "monthly",
+        "count": 12
+      }
+    ],
+    "description": "Snapshot retention schedule. Each entry defines a snapshot level name (e.g., 'hourly') and how many snapshots to retain.",
+    "items": {
+      "name": {
+        "type": "string",
+        "default": "hourly",
+        "description": "Name of the snapshot level (used as command argument: e.g., `rsnapshot hourly`)"
+      },
+      "count": {
+        "type": "number",
+        "default": 24,
+        "description": "Number of snapshots to keep at this level."
+      }
+    }
+  },
+  "backups": {
+    "type": "list",
+    "default": [
+      {
+        "comment": "Local root backup",
+        "source_dir": "/",
+        "dest_dir": "/localhost"
+      }
+    ],
+    "description": "List of backup source\u2192destination mappings. Each maps a local or remote source directory to a relative destination path under snapshot_root.",
+    "items": {
+      "comment": {
+        "type": "string",
+        "default": "",
+        "description": "Optional human-readable comment describing this backup entry."
+      },
+      "source_dir": {
+        "type": "string",
+        "default": "/",
+        "description": "Source directory to back up. May be remote (e.g., 'user@host:/path/') or local. Trailing slash matters (see rsync docs)."
+      },
+      "dest_dir": {
+        "type": "string",
+        "default": "/localhost",
+        "description": "Destination path (relative to snapshot_root). Must be unique per entry. No leading slash."
+      }
+    }
+  },
+  "exclude_patterns": {
+    "type": "list",
+    "default": [
+      "proc/",
+      "sys/",
+      "dev/"
+    ],
+    "description": "List of rsync --exclude patterns. Applied to exclude specific files/dirs from all backups."
+  },
+  "pre_backup": {
+    "type": "string",
+    "default": "",
+    "description": "Command to run before each rsnapshot run (e.g., mounting a backup drive)."
+  },
+  "post_backup": {
+    "type": "string",
+    "default": "",
+    "description": "Command to run after each rsnapshot run (e.g., unmounting a backup drive)."
+  },
+  "lockfile": {
+    "type": "string",
+    "default": "/var/run/rsnapshot.pid",
+    "description": "Path to lockfile used to prevent concurrent rsnapshot processes."
+  },
+  "one_file_system": {
+    "type": "bool",
+    "default": false,
+    "description": "If true, rsync will not cross filesystem boundaries (adds --one-file-system)."
+  },
+  "preserve_hardlinks": {
+    "type": "bool",
+    "default": true,
+    "description": "Preserve hard links between snapshot levels (rsync --hard-links). Required for efficient deduplication."
+  },
+  "preserve_symlinks": {
+    "type": "bool",
+    "default": true,
+    "description": "Preserve symlinks (rsync --symlink). Set to false to convert symlinks to real files."
+  }
+}

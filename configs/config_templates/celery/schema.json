@@ -1,0 +1,157 @@
+{
+  "broker_url": {
+    "type": "string",
+    "default": "redis://localhost:6379/0",
+    "description": "URL of the message broker (e.g., Redis or RabbitMQ). Must be reachable by workers and producers."
+  },
+  "result_backend": {
+    "type": "string",
+    "default": "redis://localhost:6379/1",
+    "description": "Backend where task results are stored. Often a separate Redis DB or database."
+  },
+  "task_serializer": {
+    "type": "string",
+    "default": "json",
+    "description": "Serialization method for outgoing task messages (e.g., 'json', 'pickle'). JSON is safer and interoperable."
+  },
+  "result_serializer": {
+    "type": "string",
+    "default": "json",
+    "description": "Serialization method for task results (e.g., 'json', 'pickle')."
+  },
+  "accept_content": {
+    "type": "list",
+    "default": [
+      "json"
+    ],
+    "description": "List of allowed content types for incoming task messages. Prevents unsafe deserialization.",
+    "items": {
+      "type": "string"
+    }
+  },
+  "task_time_limit": {
+    "type": "number",
+    "default": 300,
+    "description": "Hard time limit for a task (seconds). Exceeding this kills the worker executing it."
+  },
+  "task_soft_time_limit": {
+    "type": "number",
+    "default": 240,
+    "description": "Soft time limit (seconds). Triggers a warning exception but allows graceful cleanup."
+  },
+  "worker_max_tasks_per_child": {
+    "type": "number",
+    "default": 10000,
+    "description": "Maximum tasks a worker process handles before being replaced (helps prevent memory leaks)."
+  },
+  "worker_concurrency": {
+    "type": "number",
+    "default": 0,
+    "description": "Number of concurrent worker processes. 0 = auto-detect CPU count. Adjust for I/O-bound vs CPU-bound tasks."
+  },
+  "worker_prefetch_multiplier": {
+    "type": "number",
+    "default": 1,
+    "description": "Tasks prefetched per worker. Lower values improve fairness; 0 = unlimited."
+  },
+  "task_default_queue": {
+    "type": "string",
+    "default": "celery",
+    "description": "Default queue name for tasks without explicit routing."
+  },
+  "task_routes": {
+    "type": "list",
+    "default": [],
+    "description": "List of task routing rules. Each rule maps tasks to specific queues/exchanges.",
+    "items": {
+      "type": "object",
+      "fields": {
+        "exchange": {
+          "type": "string",
+          "default": "",
+          "description": "Exchange to route the task to (e.g., 'direct', 'topic')"
+        },
+        "queue": {
+          "type": "string",
+          "default": "",
+          "description": "Queue name to route the task to (e.g., 'high_priority')"
+        },
+        "routing_key": {
+          "type": "string",
+          "default": "",
+          "description": "Routing key used in message routing"
+        }
+      }
+    }
+  },
+  "task_result_expires": {
+    "type": "number",
+    "default": 86400,
+    "description": "Time (seconds) after which task results are deleted from the backend."
+  },
+  "task_rate_limit": {
+    "type": "string",
+    "default": "",
+    "description": "Global rate limit for all tasks (e.g., '100/m' for 100 per minute). Leave empty to disable."
+  },
+  "timezone": {
+    "type": "string",
+    "default": "UTC",
+    "description": "Timezone for scheduled tasks and logs (e.g., 'UTC', 'Europe/London')."
+  },
+  "worker_send_events": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable event streaming (e.g., for Flower or real-time monitoring)."
+  },
+  "worker_log_level": {
+    "type": "string",
+    "default": "INFO",
+    "description": "Minimum log level for worker logs (DEBUG, INFO, WARNING, ERROR, CRITICAL)."
+  },
+  "beat_schedule": {
+    "type": "object",
+    "default": {},
+    "description": "Dictionary of periodic (beat) tasks. Keys are task names, values define schedule and arguments.",
+    "items": {
+      "type": "object",
+      "fields": {
+        "task": {
+          "type": "string",
+          "default": "",
+          "description": "Fully qualified task name (e.g., 'myapp.tasks.send_report')"
+        },
+        "schedule": {
+          "type": "number|string|object",
+          "default": 0,
+          "description": "Crontab-like interval: number (seconds), cron dict, or timedelta string (e.g., '10.0', '* * * * *', 'timedelta(seconds=30)')"
+        },
+        "args": {
+          "type": "list",
+          "default": [],
+          "description": "Positional arguments passed to the task"
+        },
+        "kwargs": {
+          "type": "object",
+          "default": {},
+          "description": "Keyword arguments passed to the task"
+        }
+      }
+    }
+  },
+  "task_eager_propagates": {
+    "type": "bool",
+    "default": false,
+    "description": "If true, task exceptions are raised immediately (e.g., for sync tasks)."
+  },
+  "task_acks_late": {
+    "type": "bool",
+    "default": true,
+    "description": "If true, tasks are acknowledged only after successful completion (prevents message loss)."
+  },
+  "task_reject_on_worker_lost": {
+    "type": "bool",
+    "default": true,
+    "description": "If true, tasks are requeued when a worker dies before acknowledgment."
+  }
+}

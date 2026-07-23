@@ -1,0 +1,139 @@
+{
+  "global_asn": 65000,
+  "global_router_id": "10.0.0.1",
+  "global_port": 179,
+  "graceful_restart_enabled": true,
+  "graceful_restart_time": 120,
+  "graceful_restart_stale_time": 300,
+  "afi_safis_ipv4_unicast_enabled": true,
+  "afi_safis_ipv6_unicast_enabled": true,
+  "route_reflection_enabled": false,
+  "route_reflection_client_to_client": true,
+  "neighbors": [
+    {
+      "name": "core-1",
+      "address": "192.168.10.2",
+      "asn": 65001,
+      "description": "Core router 1 (iBGP peer)",
+      "hold_time": 90,
+      "keepalive_interval": 30,
+      "connect_retry": 120,
+      "minimum_advertisement_interval": 5,
+      "idle_hold_time": 15,
+      "import_policy": [
+        "peer-in"
+      ],
+      "export_policy": [
+        "peer-out"
+      ],
+      "graceful_restart": {
+        "enabled": true
+      },
+      "password": "supersecret123",
+      "transport_local_address": "10.0.0.1",
+      "afi_safis_ipv4_unicast_enabled": true,
+      "afi_safis_ipv6_unicast_enabled": true,
+      "afi_safis_evpn_enabled": true
+    },
+    {
+      "name": "edge-1",
+      "address": "2001:db8::1",
+      "asn": 65002,
+      "description": "Edge router 1 (eBGP peer)",
+      "hold_time": 60,
+      "keepalive_interval": 20,
+      "connect_retry": 120,
+      "minimum_advertisement_interval": 10,
+      "idle_hold_time": 15,
+      "import_policy": [
+        "from-edge"
+      ],
+      "export_policy": [
+        "to-edge"
+      ],
+      "route_reflection_enabled": false,
+      "route_reflection_client_to_client": false,
+      "afi_safis_ipv6_unicast_enabled": true,
+      "afi_safis_ipv4_unicast_enabled": true,
+      "transport_passive_mode": true
+    }
+  ],
+  "policies": [
+    {
+      "name": "peer-in",
+      "description": "Inbound policy for core peers",
+      "statements": [
+        {
+          "name": "accept-internal-only",
+          "match_prefix_set": "internal-prefixes",
+          "match_as_path_set": "internal-asns",
+          "set_local_pref": 150,
+          "set_communities": [
+            "65000:100"
+          ],
+          "action": "ROUTE_ACCEPT"
+        },
+        {
+          "name": "drop-external",
+          "match_prefix_set": "",
+          "match_as_path_set": "external-asns",
+          "action": "ROUTE_DROP"
+        }
+      ]
+    },
+    {
+      "name": "peer-out",
+      "description": "Outbound policy for core peers",
+      "statements": [
+        {
+          "name": "set-med",
+          "set_med": "+100",
+          "set_as_path": [
+            "65000"
+          ],
+          "action": "ROUTE_ACCEPT"
+        }
+      ]
+    }
+  ],
+  "prefix_sets": [
+    {
+      "name": "internal-prefixes",
+      "prefixes": [
+        {
+          "ip_prefix": "10.0.0.0/8",
+          "mask_length_range": "8..24"
+        },
+        {
+          "ip_prefix": "172.16.0.0/12",
+          "mask_length_range": "12..24"
+        }
+      ]
+    }
+  ],
+  "as_path_sets": [
+    {
+      "name": "internal-asns",
+      "members": [
+        "65000",
+        "65001"
+      ]
+    },
+    {
+      "name": "external-asns",
+      "members": [
+        "^65002$"
+      ]
+    }
+  ],
+  "community_sets": [
+    {
+      "name": "internal-communities",
+      "members": [
+        "65000:100",
+        "65000:200"
+      ]
+    }
+  ],
+  "ext_community_sets": []
+}

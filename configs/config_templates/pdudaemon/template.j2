@@ -1,0 +1,58 @@
+{# Base configuration for pdudaemon — controls PDU devices over various protocols #}
+[general]
+# Path to PID file
+pidfile = {{ pidfile }}
+
+# Log level: DEBUG, INFO, WARNING, ERROR, CRITICAL
+loglevel = {{ loglevel }}
+
+# Number of worker threads (0 = auto based on CPU count)
+workers = {{ workers }}
+
+# Timeout for PDU operations (seconds)
+timeout = {{ timeout }}
+
+# Retry attempts for failed operations
+retries = {{ retries }}
+
+# Enable/disable logging to syslog
+syslog = {{ syslog | lower }}
+
+{# Define each PDU device with its protocol-specific settings #}
+{% for pdu in pdus %}
+# PDU: {{ pdu.name }} — {{ pdu.description or 'No description' }}
+[pdu:{{ pdu.name }}]
+driver = {{ pdu.driver }}
+host = {{ pdu.host }}
+port = {{ pdu.port }}
+{% if pdu.username %}
+username = {{ pdu.username }}
+{% endif %}
+{% if pdu.password %}
+password = {{ pdu.password }}
+{% endif %}
+{% if pdu.model %}
+model = {{ pdu.model }}
+{% endif %}
+{% if pdu.snmp_version %}
+snmp_version = {{ pdu.snmp_version }}
+{% endif %}
+{% if pdu.snmp_community %}
+snmp_community = {{ pdu.snmp_community }}
+{% endif %}
+{% if pdu.outlet_count %}
+outlet_count = {{ pdu.outlet_count }}
+{% endif %}
+{% if pdu.timeout is defined %}
+timeout = {{ pdu.timeout }}
+{% endif %}
+{% endfor %}
+
+{# Optional global outlet mapping (if defined) #}
+{% if outlet_mapping %}
+[output_mapping]
+# Maps PDU name and outlet index to a human-readable label
+{% for mapping in outlet_mapping %}
+{{ mapping.pdu_name }}.{{ mapping.outlet }} = {{ mapping.label }}
+{% endfor %}
+{% endif %}

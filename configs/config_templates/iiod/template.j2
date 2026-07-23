@@ -1,0 +1,39 @@
+# Listen address and port for the IIO daemon
+bind_address = {{ bind_address }}
+bind_port = {{ bind_port }}
+
+# Maximum number of concurrent client connections
+max_connections = {{ max_connections }}
+
+# Enable/Disable SSL/TLS for secure connections
+use_ssl = {{ use_ssl }}
+
+# Path to SSL certificate (only used if use_ssl is enabled)
+ssl_cert = "{{ ssl_cert }}"
+
+# Path to SSL private key (only used if use_ssl is enabled)
+ssl_key = "{{ ssl_key }}"
+
+# List of IIO devices to expose (if empty, all devices are exposed)
+{% if devices %}# Explicitly expose only the following IIO devices
+{% for dev in devices %}device = "{{ dev.name }}"{% if dev.description %} # {{ dev.description }}{% endif %}
+{% endfor %}{% else %}# Expose all available IIO devices (default)
+device = "*"
+{% endif %}
+
+# Transport layer(s) to enable
+{% for transport in transports %}transport = "{{ transport.name }}"{% if transport.options %} # options: {{ transport.options }}{% endif %}
+{% endfor %}
+
+# Authentication mode: none | passwd | cert
+auth_mode = "{{ auth_mode }}"
+
+# Path to password file (only used if auth_mode = passwd)
+{% if auth_mode == 'passwd' %}passwd_file = "{{ passwd_file }}"
+{% endif %}
+
+# Logging level: debug | info | warn | error
+log_level = "{{ log_level }}"
+
+# Path to log file (empty = stderr)
+log_file = "{{ log_file }}"

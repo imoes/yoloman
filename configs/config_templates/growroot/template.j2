@@ -1,0 +1,32 @@
+#!/bin/sh
+# Attempt to resize the root filesystem to fill the partition
+# if the partition has been expanded (e.g., by cloud-init)
+set -e
+
+# Only proceed if root device is a block device (skip if loop/nbd/etc. without resize support)
+if [ ! -b "$ROOTDEV" ]; then
+  exit 0
+fi
+
+# Detect current filesystem type and resize accordingly
+# For ext* filesystems
+if [ -x "$(command -v resize2fs)" ]; then
+  resize2fs "$ROOTDEV"
+  exit 0
+fi
+
+# For xfs filesystems
+if [ -x "$(command -v xfs_growfs)" ]; then
+  mount -o remount /dev
+  xfs_growfs /  # assume root is mounted on /
+  exit 0
+fi
+
+# Fallback: try generic resize (may not work for all FS types)
+if [ -x "$(command -v resize2fs)" ] || [ -x "$(command -v xfs_growfs)" ]; then
+  echo "No suitable resize tool found. Cannot resize root filesystem." >&2
+  exit 1
+fi
+
+# If none of the above succeeded
+exit 1

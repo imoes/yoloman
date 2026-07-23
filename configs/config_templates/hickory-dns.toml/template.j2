@@ -1,0 +1,86 @@
+# Hickory DNS configuration
+# Listen addresses for the DNS server (TCP/UDP)
+listen_on = [
+{% for addr in listen_addresses %}  {{ addr | tojson }}{% if not loop.last %},{% endif %}
+{% endfor %}]
+
+# DNS over HTTPS (DoH) endpoints
+# Enable DoH support (requires TLS certificates)
+{% if doh_enabled %}doh_enabled = true
+doh_address = "{{ doh_address }}"
+{% if doh_certs %}doh_certs = "{{ doh_certs }}"
+doh_key = "{{ doh_key }}"
+{% else %}doh_certs = ""
+doh_key = ""
+{% endif %}
+{% else %}doh_enabled = false
+doh_address = ""
+doh_certs = ""
+doh_key = ""
+{% endif %}
+
+# DNS over TLS (DoT) endpoints
+# Enable DoT support (requires TLS certificates)
+{% if dot_enabled %}dot_enabled = true
+dot_address = "{{ dot_address }}"
+{% if dot_certs %}dot_certs = "{{ dot_certs }}"
+dot_key = "{{ dot_key }}"
+{% else %}dot_certs = ""
+dot_key = ""
+{% endif %}
+{% else %}dot_enabled = false
+dot_address = ""
+dot_certs = ""
+dot_key = ""
+{% endif %}
+
+# Upstream resolvers for recursive lookups
+# Use system resolvers or custom upstreams
+{% if upstream_mode == 'system' %}upstream_mode = "system"
+{% else %}upstream_mode = "custom"
+upstreams = [
+{% for upstream in upstreams %}  {{ upstream | tojson }}{% if not loop.last %},{% endif %}
+{% endfor %}]
+{% endif %}
+
+# Resolver settings
+[resolver]
+# TTL and cache behavior
+cache_size = {{ cache_size }}
+min_ttl = {{ min_ttl }}
+max_ttl = {{ max_ttl }}
+
+# Query behavior
+{%- if recursive_query_mode == 'off' %}
+recursive_query_mode = "off"
+{%- elif recursive_query_mode == 'local_only' %}
+recursive_query_mode = "local_only"
+{%- else %}
+recursive_query_mode = "full"
+{%- endif %}
+
+# Log level
+log_level = "{{ log_level }}"
+
+# Hosted zones (authoritative only)
+{% if hosted_zones %}[hosted_zones]
+{% for zone in hosted_zones %}[hosted_zones.{{ zone.zone_name | replace('.', '_') }}]
+zone_file = "{{ zone.zone_file }}"
+{% if zone.zone_type %}zone_type = "{{ zone.zone_type }}"
+{% endif %}{% if zone.masters %}masters = [
+{% for master in zone.masters %}  {{ master | tojson }}{% if not loop.last %},{% endif %}
+{% endfor %}]
+{% endif %}
+{% if zone.allow_notify %}allow_notify = [
+{% for ip in zone.allow_notify %}  {{ ip | tojson }}{% if not loop.last %},{% endif %}
+{% endfor %}]
+{% endif %}
+{% endfor %}
+{% endif %}
+
+# Rate limiting
+[rate_limit]
+enabled = {{ rate_limit_enabled }}
+{% if rate_limit_enabled %}max_qps = {{ rate_limit_max_qps }}
+window = {{ rate_limit_window }}
+{% endif %}

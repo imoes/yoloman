@@ -1,0 +1,72 @@
+{
+  "hostname": {
+    "type": "string",
+    "default": "ilo2.example.com",
+    "description": "IP address or hostname of the iLO2 management interface."
+  },
+  "login": {
+    "type": "string",
+    "default": "Administrator",
+    "description": "iLO2 username with sufficient privileges (typically 'Administrator')."
+  },
+  "password": {
+    "type": "string",
+    "default": "",
+    "description": "iLO2 password for the login user. In production, consider omitting and using environment variables or external credential stores."
+  },
+  "port": {
+    "type": "number",
+    "default": 443,
+    "description": "TCP port for the iLO2 HTTPS service. Typically 443."
+  },
+  "ssl": {
+    "type": "number",
+    "default": 1,
+    "description": "SSL/TLS mode: 0=disabled (not recommended), 1=enabled (default), 2=verify certificate."
+  },
+  "login_timeout": {
+    "type": "number",
+    "default": 10,
+    "description": "Maximum seconds to wait for iLO2 login connection to complete."
+  },
+  "command_timeout": {
+    "type": "number",
+    "default": 30,
+    "description": "Maximum seconds to wait for a fencing command (e.g., off/on/reboot) to complete."
+  },
+  "power_wait": {
+    "type": "number",
+    "default": 5,
+    "description": "Seconds to wait between power state changes before retrying. Helps avoid race conditions."
+  },
+  "devices": {
+    "type": "list",
+    "default": [],
+    "description": "Additional iLO2 devices for multi-node clusters. Each entry defines a separate fenced target.",
+    "items": {
+      "type": "object",
+      "fields": {
+        "name": {
+          "type": "string",
+          "default": "unnamed",
+          "description": "Logical name for the device (used in logs and cluster tools)."
+        },
+        "hostname": {
+          "type": "string",
+          "default": "",
+          "description": "IP address or hostname of the iLO2 interface."
+        },
+        "login": {
+          "type": "string",
+          "default": "Administrator",
+          "description": "iLO2 username for this device."
+        },
+        "password": {
+          "type": "string",
+          "default": "",
+          "description": "iLO2 password for this device. Secure in production."
+        }
+      }
+    }
+  }
+}

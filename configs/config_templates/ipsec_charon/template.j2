@@ -1,0 +1,45 @@
+# /etc/ipsec.conf - strongSwan IPsec configuration file
+# This file is processed by the charon-systemd service.
+
+config setup
+    # Logging configuration
+    {% if log_level != null %}    charondebug="{{ log_level }}"{% endif %}
+    # Enable or disable unique IPs for concurrent connections
+    {% if unique_ips is defined %}    uniqueids = {{ unique_ids | lower }}{% endif %}
+    # Disable Dead Peer Detection (DPD) if requested
+    {% if dpd_enabled is not defined or not ddp_enabled %}    dpdaction = none{% endif %}
+
+{% for conn in connections %}# Connection: {{ conn.name }}
+conn {{ conn.name }}
+    # Endpoint type
+    {% if conn.type == 'tunnel' %}    type = tunnel{% elif conn.type == 'transport' %}    type = transport{% endif %}
+    # IKE version
+    {% if conn.ike_version is defined %}    ike = {{ conn.ike_version }}{% endif %}
+    # ESP proposal(s)
+    {% if conn.esp is defined %}    esp = {{ conn.esp | join(', ') }}{% endif %}
+    # IKE proposal(s)
+    {% if conn.ike is defined %}    ike = {{ conn.ike | join(', ') }}{% endif %}
+    # Authentication method
+    {% if conn.auth_method == 'psk' %}    authby = psk{% elif conn.auth_method == 'pubkey' %}    authby = pubkey{% endif %}
+    # Left side (local) parameters
+    {% if conn.left.type == 'host' %}    left = {{ conn.left.value }}{% elif conn.left.type == '%any' %}    left = %any{% elif conn.left.type == '%defaultroute' %}    left = %defaultroute{% endif %}
+    {% if conn.left.id is defined %}    leftid = {{ conn.left.id }}{% endif %}
+    {% if conn.left.subnet is defined %}    leftsubnet = {{ conn.left.subnet | join(', ') }}{% endif %}
+    {% if conn.left.cert is defined %}    leftcert = {{ conn.left.cert }}{% endif %}
+    {% if conn.left.private_key is defined %}    leftfirewall = yes{% endif %}
+    # Right side (remote) parameters
+    {% if conn.right.type == 'host' %}    right = {{ conn.right.value }}{% elif conn.right.type == '%any' %}    right = %any{% elif conn.right.type == '%defaultroute' %}    right = %defaultroute{% endif %}
+    {% if conn.right.id is defined %}    rightid = {{ conn.right.id }}{% endif %}
+    {% if conn.right.subnet is defined %}    rightsubnet = {{ conn.right.subnet | join(', ') }}{% endif %}
+    {% if conn.right.certificate is defined %}    rightcert = {{ conn.right.certificate }}{% endif %}
+    # SA lifetimes
+    {% if conn.life_seconds is defined %}    lifetime = {{ conn.life_seconds }}s{% endif %}
+    {% if conn.life_kb is defined %}    lifeness = {{ conn.life_kb }}k{% endif %}
+    # Auto-start behavior
+    {% if conn.auto == 'start' %}    auto = start{% elif conn.auto == 'add' %}    auto = add{% elif conn.auto == 'route' %}    auto = route{% endif %}
+    # PFS (Perfect Forward Secrecy) group
+    {% if conn.pfs_group is defined %}    pfs = {{ conn.pfs_group }}{% endif %}
+    # Optional comments (preserved verbatim)
+    {% for comment in conn.comments %}    # {{ comment }}{% endfor %}
+
+{% endfor %}# End of ipsec.conf

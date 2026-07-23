@@ -1,0 +1,61 @@
+# Allow remote printers from other hosts to be discovered locally
+{{ 'BrowseRemoteProtocols' }} {{ browse_remote_protocols | join(', ') }}
+
+# Local network browsing protocols (e.g., 'cups dnssd' for mDNS/DNS-SD and CUPS browsing)
+{{ 'BrowseLocalProtocols' }} {{ browse_local_protocols | join(', ') }}
+
+# Default time (in seconds) to keep a discovered printer in the queue list after last use
+{{ 'TimeOut' }} {{ timeout }}
+
+# Maximum number of printer queues to keep (0 = unlimited)
+{{ 'MaxQueuedPrinters' }} {{ max_queued_printers }}
+
+# Whether to automatically create local queues for discovered printers
+{{ 'CreateRemoteIPPQueue' }} {{ create_remote_ipp_queue }}
+
+# Whether to create queues for PPD-less (IPP) printers
+{{ 'CreateIPPPrinter' }} {{ create_ipp_printer }}
+
+# Whether to create queues for DNS-SD/Bonjour printers (implies CreateRemoteIPPQueue for CUPS/IPP)
+{{ 'CreateIPPPrinter' if create_ipp_printer else 'CreateRemoteIPPQueue' }} {{ 'Yes' if create_remote_ipp_queue else 'No' }}
+
+# Hostname for this CUPS server (used in queue naming, etc.)
+{{ 'ServerName' }} {{ server_name }}
+
+# Listen address(es) for cups-browsed — use 'localhost' for local-only, or '*' for all interfaces
+{{ 'Listen' }} {{ listen_address }}
+
+# Port for local HTTP admin interface (set to 0 to disable)
+{{ 'Port' }} {{ port }}
+
+# Enable debugging (0=none, 1=minimal, 2=verbose)
+{{ 'DebugLogging' }} {{ debug_logging }}
+
+# Pattern of printer names to ignore (regex, case-insensitive)
+{{ 'Filter' }} {{ filter_pattern | default('') }}
+
+# Whether to use DNS-SD (Bonjour/mDNS) for discovery
+{{ 'BrowseDNSSD' }} {{ browse_dnssd }}
+
+# Whether to allow auto-installation of drivers (if available via driverless IPP)
+{{ 'AutoInstall' }} {{ auto_install }}
+
+# Default printer attributes: resolution (DPI), media size, etc.
+{% for attr in default_attrs %}{{ attr.key }} {{ attr.value }}
+{% endfor %}
+
+# Whitelist/blacklist of specific printers or domains (regex per line)
+{% for rule in printer_rules %}{{ rule.mode }} {{ rule.pattern }}
+{% endfor %}
+
+# Maximum number of concurrent HTTP connections to remote printers
+{{ 'MaxConnections' }} {{ max_connections }}
+
+# Enable IPv6 support
+{{ 'IPv6' }} {{ ipv6 }}
+
+# Time between discovery attempts (in seconds)
+{{ 'DiscoveryTime' }} {{ discovery_time }}
+
+# Path to PPD search directories (colon-separated)
+{{ 'PPDSearch' }} {{ ppd_search | join(':') }}

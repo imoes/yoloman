@@ -1,0 +1,22 @@
+# {{ comment }}
+# Exclusion rules to be loaded BEFORE the OWASP ModSecurity Core Rule Set (CRS)
+# These rules allow fine-grained control to suppress false positives or bypass
+# specific rules for known-safe paths, hosts, or request characteristics.
+# 
+# IMPORTANT: Place this file in ModSecurity's Include directive path BEFORE including CRS.
+#           ModSecurity processes include files in lexical order unless explicitly ordered.
+
+{% for rule in exclusion_rules %}
+# Rule {{ loop.index }}: {{ rule.description | default('User-defined exclusion rule') }}
+{% if rule.condition == 'uri' %}
+SecRule REQUEST_URI "{{ rule.uri_pattern | regex_escape }}" "id:{{ rule.id | default(1000 + loop.index) }},phase:1,pass,ctl:ruleRemoveTargetById={{ rule.target_rule_ids | join(', ') }};{{ rule.target_args | join(';') if rule.target_args else '' }}"
+{% elif rule.condition == 'header' %}
+SecRule REQUEST_HEADERS:"{{ rule.header_name }}" "{{ rule.header_value_pattern }}" "id:{{ rule.id | default(1000 + loop.index) }},phase:1,pass,ctl:ruleRemoveTargetById={{ rule.target_rule_ids | join(', ') }};{{ rule.target_args | join(';') if rule.target_args else '' }}"
+{% elif rule.condition == 'variable' %}
+SecRule {{ rule.variable_name }} "{{ rule.match_pattern }}" "id:{{ rule.id | default(1000 + loop.index) }},phase:1,pass,ctl:ruleRemoveTargetById={{ rule.target_rule_ids | join(', ') }};{{ rule.target_args | join(';') if rule.target_args else '' }}"
+{% elif rule.condition == 'rule_by_id' %}
+SecRule REQUEST_URI "^{{ rule.uri_regex | default('.*') }}" "id:{{ rule.id | default(1000 + loop.index) }},phase:1,pass,ctl:ruleRemoveById={{ rule.remove_ids | join(', ') }}"
+{% elif rule.condition == 'action' %}
+SecRule REQUEST_FILENAME "{{ rule.filename_pattern | default('.*') }}" "id:{{ rule.id | default(1000 + loop.index) }},phase:1,pass,ctl:ruleRemoveByTag={{ rule.remove_tags | join(', ') }}"
+{% endif %}
+{% endfor %}

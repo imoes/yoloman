@@ -1,0 +1,243 @@
+{
+  "log_file": {
+    "type": "string",
+    "default": "/var/log/designate/designate-api.log",
+    "description": "Path to the log file for the API server."
+  },
+  "log_dir": {
+    "type": "string",
+    "default": "/var/log/designate",
+    "description": "Directory where log files are stored."
+  },
+  "verbose": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable verbose logging (INFO level)."
+  },
+  "debug": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable debug-level logging (very verbose, for troubleshooting)."
+  },
+  "bind_host": {
+    "type": "string",
+    "default": "0.0.0.0",
+    "description": "IP address the API server will listen on (e.g., 0.0.0.0 for all interfaces, or specific IP)."
+  },
+  "bind_port": {
+    "type": "number",
+    "default": 9001,
+    "description": "TCP port for the Designate API server."
+  },
+  "workers": {
+    "type": "number",
+    "default": 2,
+    "description": "Number of worker processes to handle incoming requests (adjust based on CPU cores)."
+  },
+  "timeout": {
+    "type": "number",
+    "default": 60,
+    "description": "Maximum time (in seconds) before a request times out."
+  },
+  "max_requests": {
+    "type": "number",
+    "default": 0,
+    "description": "Maximum requests per child worker before restart (0 = unlimited)."
+  },
+  "ssl_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable HTTPS for the API server."
+  },
+  "ssl_ca_file": {
+    "type": "string",
+    "default": "",
+    "description": "Path to CA certificate bundle for validating client certificates (optional)."
+  },
+  "ssl_cert_file": {
+    "type": "string",
+    "default": "/etc/ssl/certs/designate-api.crt",
+    "description": "Path to SSL certificate file (required if SSL enabled)."
+  },
+  "ssl_key_file": {
+    "type": "string",
+    "default": "/etc/ssl/private/designate-api.key",
+    "description": "Path to SSL private key file (required if SSL enabled)."
+  },
+  "keystone_auth_url": {
+    "type": "string",
+    "default": "http://controller:5000/v3",
+    "description": "Keystone authentication endpoint (v3 API required)."
+  },
+  "keystone_project_domain_name": {
+    "type": "string",
+    "default": "Default",
+    "description": "Keystone domain name for the project (tenant)."
+  },
+  "keystone_user_domain_name": {
+    "type": "string",
+    "default": "Default",
+    "description": "Keystone domain name for the user."
+  },
+  "keystone_project_name": {
+    "type": "string",
+    "default": "service",
+    "description": "Keystone project name for the Designate service user."
+  },
+  "keystone_username": {
+    "type": "string",
+    "default": "designate",
+    "description": "Keystone username for the Designate service."
+  },
+  "keystone_password": {
+    "type": "string",
+    "default": "designate_password",
+    "description": "Password for the Designate Keystone user (set securely via config management or secrets manager in production)."
+  },
+  "keystone_interface": {
+    "type": "string",
+    "default": "internal",
+    "description": "Keystone endpoint interface (public/internal/admin)."
+  },
+  "keystone_service_name": {
+    "type": "string",
+    "default": "designate",
+    "description": "Name of the Designate service in Keystone."
+  },
+  "keystone_region_name": {
+    "type": "string",
+    "default": "RegionOne",
+    "description": "Keystone region where the Designate service is deployed."
+  },
+  "enable_rate_limiting": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable request rate limiting via oslo.middleware."
+  },
+  "max_request_body_size": {
+    "type": "number",
+    "default": 1048576,
+    "description": "Maximum allowed size (in bytes) for request body (1 MiB default)."
+  },
+  "rate_limit_rules": {
+    "type": "list",
+    "default": [],
+    "description": "List of rate-limiting rules to customize limits per path or method. Each rule is for documentation; actual rules typically defined in paste.ini or via middleware config.",
+    "items": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Human-readable name or description of the rule."
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "notification_driver": {
+    "type": "string",
+    "default": "messagingv2",
+    "description": "Notification transport driver (e.g., messagingv2 for Oslo Messaging, or null for disabled)."
+  },
+  "messaging_transport_url": {
+    "type": "string",
+    "default": "rabbit://user:pass@controller:5672//",
+    "description": "RabbitMQ (or other transport) connection string for notifications (used when driver=messagingv2)."
+  },
+  "pools": {
+    "type": "list",
+    "default": [
+      {
+        "id": "default",
+        "nameservers": [
+          "10.0.0.1"
+        ],
+        "targets": [
+          {
+            "type": "bind9",
+            "address": "10.0.0.2",
+            "port": 53,
+            "rndc_host": "10.0.0.3",
+            "rndc_port": 953,
+            "rndc_key_file": "/etc/designate/rndc.key"
+          }
+        ],
+        "options": {}
+      }
+    ],
+    "description": "List of DNS zones/pools to serve. Each pool defines a target DNS backend (e.g., BIND9)."
+  },
+  "database_connection": {
+    "type": "string",
+    "default": "mysql+pymysql://designate:designate_pass@controller/designate",
+    "description": "SQLAlchemy database connection string."
+  },
+  "database_connection_recycle_time": {
+    "type": "number",
+    "default": 3600,
+    "description": "Time (seconds) to recycle database connections (avoid stale connections)."
+  },
+  "database_max_overflow": {
+    "type": "number",
+    "default": 10,
+    "description": "Maximum number of additional DB connections beyond pool size."
+  },
+  "database_max_pool_size": {
+    "type": "number",
+    "default": 5,
+    "description": "Base size of the database connection pool."
+  },
+  "rabbit_use_ssl": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable SSL for RabbitMQ connection."
+  },
+  "rabbit_host": {
+    "type": "string",
+    "default": "controller",
+    "description": "RabbitMQ host hostname or IP."
+  },
+  "rabbit_port": {
+    "type": "number",
+    "default": 5672,
+    "description": "RabbitMQ port."
+  },
+  "rabbit_userid": {
+    "type": "string",
+    "default": "openstack",
+    "description": "RabbitMQ username."
+  },
+  "rabbit_password": {
+    "type": "string",
+    "default": "openstack_password",
+    "description": "RabbitMQ password."
+  },
+  "rabbit_virtual_host": {
+    "type": "string",
+    "default": "/",
+    "description": "RabbitMQ virtual host."
+  },
+  "notification_transport_url": {
+    "type": "string",
+    "default": "",
+    "description": "Alternative transport URL for notifications (overrides notification_driver + rabbit settings if non-empty)."
+  },
+  "enable_cors": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable Cross-Origin Resource Sharing (CORS) middleware."
+  },
+  "cors_allowed_origins": {
+    "type": "list",
+    "default": [],
+    "description": "List of allowed origins for CORS (e.g., ['https://horizon.example.com'])."
+  },
+  "cors_expose_headers": {
+    "type": "list",
+    "default": [
+      "X-Auth-Token",
+      "X-Subject-Token"
+    ],
+    "description": "List of response headers to expose to CORS clients."
+  }
+}

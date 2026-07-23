@@ -1,0 +1,114 @@
+# PostgreSQL Performance Monitoring and Auditing Tool (pgcluu) configuration
+# Enable or disable data collection
+gc_collect = {{ collect_enabled }}
+
+# Directory where collected data will be stored
+gc_dir = '{{ data_dir }}'
+
+# Directory where HTML reports will be generated
+gc_report_dir = '{{ report_dir }}'
+
+# Number of days to retain collected data (0 = keep forever)
+gc_retention_days = {{ retention_days }}
+
+# Connection string(s) for target PostgreSQL databases (comma-separated)
+gc_connstr = '{{ connstr }}'
+
+# Interval (in seconds) between collection samples
+gc_interval = {{ collection_interval }}
+
+# Number of hours to aggregate data for summary reports (0 = no summary)
+gc_summary_hours = {{ summary_hours }}
+
+# Enable or disable detailed statistics (pg_stat_activity, pg_stat_replication, etc.)
+gc_detailed = {{ detailed_enabled }}
+
+# Enable or disable collection of locks and blocking info
+gc_locks = {{ locks_enabled }}
+
+# Enable or disable collection of WAL activity
+gc_wal = {{ wal_enabled }}
+
+# Enable or disable collection of replication lag
+gc_replication = {{ replication_enabled }}
+
+# Enable or disable collection of disk I/O stats
+gc_io = {{ io_enabled }}
+
+# Enable or disable collection of query text (requires pg_stat_statements extension)
+gc_query_text = {{ query_text_enabled }}
+
+# List of PostgreSQL servers to monitor (for multi-server setups)
+{% for server in servers %}# Server: {{ server.name }}
+gc_connstr = '{{ server.connstr }}'
+gc_interval = {{ server.interval | default(collection_interval) }}
+gc_summary_hours = {{ server.summary_hours | default(summary_hours) }}
+{% if server.tags %}# Tags: {{ server.tags | join(', ') }}
+{% endif %}
+{% if loop.last %}# End of server list{% endif %}
+{% endfor %}
+
+# Log file path (use '-' for stdout)
+gc_log_file = '{{ log_file }}'
+
+# Minimum log level (DEBUG, INFO, NOTICE, WARNING, ERROR)
+gc_log_level = '{{ log_level }}'
+
+# Enable or disable email notifications
+gc_mail = {{ mail_enabled }}
+
+# Email recipient(s) (comma-separated)
+gc_mail_to = '{{ mail_to }}'
+
+# SMTP server for notifications
+gc_mail_smtp = '{{ mail_smtp }}'
+
+# From address for notifications
+gc_mail_from = '{{ mail_from }}'
+
+# Enable or disable HTTP server for web interface
+gc_http = {{ http_enabled }}
+
+# HTTP listen address
+gc_http_host = '{{ http_host }}'
+
+# HTTP listen port
+gc_http_port = {{ http_port }}
+
+# Enable or disable authentication for web UI
+gc_http_auth = {{ http_auth_enabled }}
+
+# Base URL for web interface (for reverse proxy setups)
+gc_http_base_url = '{{ http_base_url }}'
+
+# Enable or disable gzip compression for HTTP responses
+gc_http_gzip = {{ http_gzip_enabled }}
+
+# SSL/TLS configuration for HTTP server
+gc_http_ssl = {{ http_ssl_enabled }}
+gc_http_ssl_cert = '{{ http_ssl_cert }}'
+gc_http_ssl_key = '{{ http_ssl_key }}'
+
+# Timezone for timestamps in reports (e.g., 'UTC', 'America/New_York')
+gc_timezone = '{{ timezone }}'
+
+# Enable or disable automatic HTML report generation after collection
+gc_auto_report = {{ auto_report_enabled }}
+
+# Maximum number of concurrent collection workers
+gc_workers = {{ workers }}
+
+# Enable or disable collection of table bloat estimation
+gc_bloat = {{ bloat_enabled }}
+
+# Enable or disable collection of index bloat estimation
+gc_index_bloat = {{ index_bloat_enabled }}
+
+# Enable or disable collection of extension usage stats
+gc_extensions = {{ extensions_enabled }}
+
+# Enable or disable collection of user activity statistics
+gc_users = {{ users_enabled }}
+
+# Enable or disable collection of database size and growth stats
+gc_size = {{ size_enabled }}

@@ -1,0 +1,114 @@
+[DEFAULT]
+# The name of the service (used for logging and service discovery)
+service_name = {{ service_name }}
+
+# Enable debug logging (set to true for troubleshooting)
+debug = {{ debug }}
+
+# Logging level: DEBUG, INFO, WARNING, ERROR, CRITICAL
+log_level = {{ log_level }}
+
+# Log file path (empty string disables file logging)
+log_file = {{ log_file }}
+
+# Listen host and port for the API endpoint
+bind_host = {{ bind_host }}
+bind_port = {{ bind_port }}
+
+# Path to the root of the IPA (Inspector's Provisioning Agent) image
+ipa_ramdisk_path = {{ ipa_ramdisk_path }}
+
+# Type of IPA ramdisk: pxelinux or ipxe (selects boot method)
+ipa_ramdisk_type = {{ ipa_ramdisk_type }}
+
+# Enable TLS for API endpoints (requires cert/key below)
+enable_tls = {{ enable_tls }}
+
+# TLS certificate and private key paths (only used if enable_tls is true)
+tls_cert = {{ tls_cert }}
+tls_key = {{ tls_key }}
+
+# Maximum number of concurrent cleaning steps per node
+max_concurrent_cleaning_steps = {{ max_concurrent_cleaning_steps }}
+
+# Maximum number of retries for cleaning/inspection steps
+max_clean_retries = {{ max_clean_retries }}
+max_inspect_retries = {{ max_inspect_retries }}
+
+# Interval (seconds) between retry attempts for cleaning/inspection
+retry_interval = {{ retry_interval }}
+
+# Enable or disable automatic node enrollment on successful inspection
+enroll_nodes = {{ enroll_nodes }}
+
+# Default ironic auth strategy: keystone or noauth
+ironic_auth_strategy = {{ ironic_auth_strategy }}
+
+# Keystone endpoint type (publicURL, internalURL, adminURL)
+ironic_endpoint_type = {{ ironic_endpoint_type }}
+
+# Identity API version (v2.0 or v3)
+ironic_identity_api_version = {{ ironic_identity_api_version }}
+
+# URL of the Ironic API endpoint
+ironic_url = {{ ironic_url }}
+
+# Ironic username (used if keystone auth is enabled and no token provided)
+ironic_username = {{ ironic_username }}
+
+# Ironic password (used if keystone auth is enabled)
+ironic_password = {{ ironic_password }}
+
+# Ironic project name (for keystone v3)
+ironic_project_name = {{ ironic_project_name }}
+
+# Ironic user domain name (for keystone v3)
+ironic_user_domain_name = {{ ironic_user_domain_name }}
+
+# Ironic project domain name (for keystone v3)
+ironic_project_domain_name = {{ ironic_project_domain_name }}
+
+# Enable or disable DHCP filtering (requires dnsmasq)
+dhcp_filter = {{ dhcp_filter }}
+
+# DNSMasq configuration options
+# If enabled, the inspector will manage dnsmasq configuration for PXE boot
+[dnsmasq]
+# Path to dnsmasq configuration directory
+dnsmasq_config_dir = {{ dnsmasq_config_dir }}
+
+# Path to dnsmasq PID file
+dnsmasq_pid_file = {{ dnsmasq_pid_file }}
+
+# DNSMasq interface to bind to (e.g., br-ctlplane)
+dnsmasq_interface = {{ dnsmasq_interface }}
+
+# DNSMasq DHCP range for introspection (start IP,end IP)
+dnsmasq_dhcp_range = {{ dnsmasq_dhcp_range }}
+
+# DNSMasq PXE boot filename
+pxe_bootfile_name = {{ pxe_bootfile_name }}
+
+# List of DNS servers to provide via DHCP (e.g., ['8.8.8.8', '1.1.1.1'])
+dnsmasq_dns_servers = {% for dns in dnsmasq_dns_servers %}{{ dns }}{% if not loop.last %}, {% endif %}{% endfor %}
+
+{% if ironic_concurrency_workers %}
+# Concurrency settings for Ironic API calls
+[concurrency]
+# Maximum number of concurrent workers processing introspection events
+max_workers = {{ max_workers }}
+{% endif %}
+
+{% for rule in ipxe_rules %}
+# {{ rule.description }}
+[ipxe:{{ rule.name }}]
+# {{ rule.description }}
+chain = {{ rule.chain }}
+{% endfor %}
+
+# Logging configuration (optional; overrides DEFAULT log_level per module)
+[logging]
+# Log level for specific modules
+{% for module, level in log_levels_by_module.items() %}# Logging level for {{ module }}
+{{ module }} = {{ level }}
+{% endfor %}

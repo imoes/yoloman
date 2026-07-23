@@ -1,0 +1,302 @@
+{
+  "server": {
+    "type": "object",
+    "default": {
+      "host": "deployserver.debian-edu",
+      "http_port": 8080,
+      "base_dir": "/srv/debian-edu/deploy",
+      "ssl_enabled": false,
+      "https_port": 8443
+    },
+    "description": "General server settings for the DeployServer.",
+    "properties": {
+      "host": {
+        "type": "string",
+        "default": "deployserver.debian-edu",
+        "description": "Hostname or IP address clients will use to connect to the DeployServer."
+      },
+      "http_port": {
+        "type": "number",
+        "default": 8080,
+        "description": "HTTP port for serving files (e.g., kernels, configs)."
+      },
+      "base_dir": {
+        "type": "string",
+        "default": "/srv/debian-edu/deploy",
+        "description": "Base directory containing ISOs, images, and deployment files."
+      },
+      "ssl_enabled": {
+        "type": "boolean",
+        "default": false,
+        "description": "Enable HTTPS (requires valid SSL certificates in /etc/debian-edu-router/ssl/)."
+      },
+      "https_port": {
+        "type": "number",
+        "default": 8443,
+        "description": "HTTPS port, used only if SSL is enabled."
+      }
+    }
+  },
+  "pxe": {
+    "type": "object",
+    "default": {
+      "enabled": true,
+      "root": "/srv/tftp",
+      "timeout": 30,
+      "kernel_args": "vga=791 quiet splash",
+      "profiles": [
+        {
+          "name": "debian-stable",
+          "kernel": "vmlinuz-6.1.0-18-amd64",
+          "initrd": "initrd.img-6.1.0-18-amd64",
+          "cmdline": [
+            "auto",
+            "priority=critical",
+            "interface=auto"
+          ]
+        }
+      ]
+    },
+    "description": "PXE boot settings for network booting diskless workstations.",
+    "properties": {
+      "enabled": {
+        "type": "boolean",
+        "default": true,
+        "description": "Enable support for PXE boot."
+      },
+      "root": {
+        "type": "string",
+        "default": "/srv/tftp",
+        "description": "TFTP server root directory (where boot files are stored)."
+      },
+      "timeout": {
+        "type": "number",
+        "default": 30,
+        "description": "Time (in seconds) to wait before using the default boot entry."
+      },
+      "kernel_args": {
+        "type": "list",
+        "items": {
+          "type": "string"
+        },
+        "default": [
+          "vga=791",
+          "quiet",
+          "splash"
+        ],
+        "description": "Default kernel command-line arguments applied to all boot profiles."
+      },
+      "profiles": {
+        "type": "list",
+        "items": {
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string",
+              "default": "debian-stable",
+              "description": "Unique name of the boot profile (used as profile identifier)."
+            },
+            "kernel": {
+              "type": "string",
+              "default": "vmlinuz-6.1.0-18-amd64",
+              "description": "Filename of the Linux kernel (relative to TFTP root)."
+            },
+            "initrd": {
+              "type": "string",
+              "default": "initrd.img-6.1.0-18-amd64",
+              "description": "Filename of the initial ramdisk (relative to TFTP root)."
+            },
+            "cmdline": {
+              "type": "list",
+              "items": {
+                "type": "string"
+              },
+              "default": [
+                "auto",
+                "priority=critical",
+                "interface=auto"
+              ],
+              "description": "Additional kernel command-line arguments for this profile."
+            }
+          }
+        },
+        "default": [
+          {
+            "name": "debian-stable",
+            "kernel": "vmlinuz-6.1.0-18-amd64",
+            "initrd": "initrd.img-6.1.0-18-amd64",
+            "cmdline": [
+              "auto",
+              "priority=critical",
+              "interface=auto"
+            ]
+          }
+        ],
+        "description": "List of named PXE boot profiles (each defines a bootable kernel/initrd/cmdline combo)."
+      }
+    }
+  },
+  "dhcp": {
+    "type": "object",
+    "default": {
+      "enabled": true,
+      "interface": "eth0",
+      "network": "10.0.0.0/24",
+      "gateway": "10.0.0.1",
+      "dns_servers": [
+        "10.0.0.1",
+        "8.8.8.8"
+      ],
+      "ip_start": "10.0.0.100",
+      "ip_end": "10.0.0.200",
+      "max_lease_time": 86400
+    },
+    "description": "DHCP server settings (embedded in DeployServer) for PXE boot and client provisioning.",
+    "properties": {
+      "enabled": {
+        "type": "boolean",
+        "default": true,
+        "description": "Enable the embedded DHCP server for automated PXE boot."
+      },
+      "interface": {
+        "type": "string",
+        "default": "eth0",
+        "description": "Network interface to listen on for DHCP requests."
+      },
+      "network": {
+        "type": "string",
+        "default": "10.0.0.0/24",
+        "description": "Subnet and netmask (CIDR notation) served by this DHCP server."
+      },
+      "gateway": {
+        "type": "string",
+        "default": "10.0.0.1",
+        "description": "Gateway IP to assign to leased clients."
+      },
+      "dns_servers": {
+        "type": "list",
+        "items": {
+          "type": "string"
+        },
+        "default": [
+          "10.0.0.1",
+          "8.8.8.8"
+        ],
+        "description": "List of DNS servers to advertise via DHCP."
+      },
+      "ip_start": {
+        "type": "string",
+        "default": "10.0.0.100",
+        "description": "First IP in the dynamic range (inclusive)."
+      },
+      "ip_end": {
+        "type": "string",
+        "default": "10.0.0.200",
+        "description": "Last IP in the dynamic range (inclusive)."
+      },
+      "max_lease_time": {
+        "type": "number",
+        "default": 86400,
+        "description": "Maximum lease duration (in seconds) for assigned IPs."
+      }
+    }
+  },
+  "logging": {
+    "type": "object",
+    "default": {
+      "level": "INFO",
+      "logfile": "/var/log/debian-edu/deployserver.log"
+    },
+    "description": "Logging configuration for the DeployServer.",
+    "properties": {
+      "level": {
+        "type": "string",
+        "enum": [
+          "DEBUG",
+          "INFO",
+          "WARNING",
+          "ERROR",
+          "CRITICAL"
+        ],
+        "default": "INFO",
+        "description": "Minimum log level to capture."
+      },
+      "logfile": {
+        "type": "string",
+        "default": "/var/log/debian-edu/deployserver.log",
+        "description": "Absolute path to the log file. Set to empty string (\"\") to disable file logging."
+      }
+    }
+  },
+  "workstation": {
+    "type": "object",
+    "default": {
+      "default_profile": "debian-stable",
+      "profiles": [
+        {
+          "name": "debian-stable",
+          "rootfs": "/srv/debian-edu/deploy/images/debian-stable.img",
+          "packages": [
+            "openssh-server",
+            "debian-edu-config"
+          ],
+          "post_install": "/usr/share/debian-edu/install/02-add-debian-edu-users"
+        }
+      ]
+    },
+    "description": "Workstation provisioning settings.",
+    "properties": {
+      "default_profile": {
+        "type": "string",
+        "default": "debian-stable",
+        "description": "Name of the workstation profile to use by default."
+      },
+      "profiles": {
+        "type": "list",
+        "items": {
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string",
+              "default": "debian-stable",
+              "description": "Unique name of the profile (matches keys in PXE profile definitions)."
+            },
+            "rootfs": {
+              "type": "string",
+              "default": "/srv/debian-edu/deploy/images/debian-stable.img",
+              "description": "Absolute path to the root filesystem image (e.g., SquashFS, ext4 image)."
+            },
+            "packages": {
+              "type": "list",
+              "items": {
+                "type": "string"
+              },
+              "default": [
+                "openssh-server",
+                "debian-edu-config"
+              ],
+              "description": "Comma-separated list of packages to install post-deployment (optional)."
+            },
+            "post_install": {
+              "type": "string",
+              "default": "/usr/share/debian-edu/install/02-add-debian-edu-users",
+              "description": "Absolute path to a post-install script, or inline shell command to run after filesystem deployment."
+            }
+          }
+        },
+        "default": [
+          {
+            "name": "debian-stable",
+            "rootfs": "/srv/debian-edu/deploy/images/debian-stable.img",
+            "packages": [
+              "openssh-server",
+              "debian-edu-config"
+            ],
+            "post_install": "/usr/share/debian-edu/install/02-add-debian-edu-users"
+          }
+        ],
+        "description": "List of workstation deployment profiles, each specifying how to configure a diskless client."
+      }
+    }
+  }
+}

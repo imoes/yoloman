@@ -1,0 +1,87 @@
+[global]
+# Global proxy settings
+listen = {{ listen_addr }}:{{ listen_port }}
+# Backend server group name for this instance
+backend = {{ backend_name }}
+# Maximum number of concurrent connections
+max_connections = {{ max_connections }}
+# Enable or disable transparent mode (for bridge setups)
+transparent = {{ transparent | lower }}
+{% if proxy_protocol %}
+# Enable PROXY protocol support
+proxy_protocol = on
+{% else %}
+# Disable PROXY protocol support
+proxy_protocol = off
+{% endif %}
+{% if timeout_connect is defined %}
+# Timeout for connecting to backend (in seconds)
+timeout_connect = {{ timeout_connect }}
+{% endif %}
+{% if timeout_server is defined %}
+# Timeout for waiting on backend response (in seconds)
+timeout_server = {{ timeout_server }}
+{% endif %}
+{% if log_level is defined %}
+# Logging verbosity: debug, info, notice, warning, error
+log_level = {{ log_level }}
+{% endif %}
+{% if log_file is defined %}
+# Log file path
+log_file = {{ log_file }}
+{% endif %}
+{% if pid_file is defined %}
+# PID file path
+pid_file = {{ pid_file }}
+{% endif %}
+
+{% for server in backend_servers %}
+# Backend server: {{ server.name }}
+[backend:{{ server.name }}]
+address = {{ server.address }}:{{ server.port }}
+weight = {{ server.weight }}
+{% if server.backup is defined %}
+backup = {{ server.backup | lower }}
+{% endif %}
+{% if server.check is defined %}
+check = {{ server.check | lower }}
+{% endif %}
+{% if server.max_connections is defined %}
+max_connections = {{ server.max_connections }}
+{% endif %}
+{% endfor %}
+
+{% if ssl_enabled %}
+[ssl]
+# SSL/TLS configuration
+listen_ssl = {{ ssl_listen_addr }}:{{ ssl_listen_port }}
+cert = {{ ssl_cert_path }}
+key = {{ ssl_key_path }}
+{% if ssl_ciphers is defined %}
+ciphers = {{ ssl_ciphers }}
+{% endif %}
+{% if ssl_protocols is defined %}
+protocols = {{ ssl_protocols | join(' ') }}
+{% endif %}
+{% if ssl_prefer_server_ciphers is defined %}
+prefer_server_ciphers = {{ ssl_prefer_server_ciphers | lower }}
+{% endif %}
+{% endif %}
+
+{% if acl_rules %}
+# ACL definitions
+[acl]
+{% for rule in acl_rules %}
+# ACL rule: {{ rule.name }}
+{{ rule.name }} = {{ rule.pattern }}
+{% endfor %}
+{% endif %}
+
+{% if rate_limits is defined %}
+# Rate limiting rules
+[rate_limit]
+{% for lim in rate_limits %}
+# Rate limit: {{ lim.name }}
+{{ lim.name }} = {{ lim.requests }}/{{ lim.window }}s
+{% endfor %}
+{% endif %}

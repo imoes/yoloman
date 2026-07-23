@@ -1,0 +1,64 @@
+# Core server settings
+# Server bind address and port
+bind: {{ bind_addr }}:{{ port }}
+
+# Number of worker threads
+worker: {{ worker_count }}
+
+# Logging configuration
+# Enable access log
+access_log: {{ enable_access_log }}
+access_log_path: {{ access_log_path }}
+
+# Enable error log
+error_log: {{ enable_error_log }}
+error_log_path: {{ error_log_path }}
+
+# Root directory for static file serving (document root)
+# Document root directory
+root: {{ document_root }}
+
+# Directory listing behavior
+# Enable or disable directory listing
+directory_index: {{ directory_index }}
+
+# MIME type configuration
+# MIME type definitions (optional, usually auto-detected)
+{% if mime_types %}
+mime:
+{% for mime_entry in mime_types %}  {{ mime_entry.ext }}: {{ mime_entry.type }}
+{% endfor %}{% endif %}
+
+# Timeout and buffer settings
+# Connection timeout in seconds
+connection_timeout: {{ connection_timeout }}
+
+# Request body size limit in bytes
+max_body_size: {{ max_body_size }}
+
+# TLS/SSL configuration
+{% if ssl %}
+ssl:
+  cert: {{ ssl.cert_path }}
+  key: {{ ssl.key_path }}
+{% if ssl.ciphers %}  ciphers: {{ ssl.ciphers }}
+{% endif %}{% endif %}
+
+# Basic authentication realms (optional)
+{% if auth_realms %}
+auth:
+{% for realm in auth_realms %}  - realm: {{ realm.name }}
+    users:
+{% for user in realm.users %}      - {{ user.username }}: {{ user.password_hash }}
+{% endfor %}      path: {{ realm.path }}
+{% endfor %}{% endif %}
+
+# Compression settings
+# Enable gzip compression
+gzip: {{ enable_gzip }}
+
+# Compression level (1–9)
+gzip_level: {{ gzip_level }}
+
+# Server identification header (optional)
+server_token: {{ server_token }}

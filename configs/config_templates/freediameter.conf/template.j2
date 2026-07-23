@@ -1,0 +1,57 @@
+{# FreeDiameter main configuration file #}
+{# This file uses YAML-like syntax but is parsed by freediameterd as key = value pairs. #}
+{# Each line is a directive; comments start with # #}
+
+{# Identity of this Diameter node (FQDN or URI) #}
+Identity = {{ identity }};
+
+{# Realm this node belongs to (used for routing) #}
+Realm = {{ realm }};
+
+{# Vendor ID (IANA-assigned) #}
+VendorID = {{ vendor_id }};
+
+{# Product name (free-form string) #}
+ProductName = "{{ product_name }}";
+
+{# Force FQDN format for local host lookup #}
+FQDN_format = {{ fqdn_format }};
+
+{# Use TLS/DTLS (on/off) #}
+Use_TLS = {{ use_tls }};
+Use_DTLS = {{ use_dtls }};
+
+{# TLS/DTLS certificate and key file paths #}
+{# Only needed if Use_TLS or Use_DTLS is enabled #}
+Certificate_File = {{ tls_certificate_file }};
+Private_Key_File = {{ tls_private_key_file }};
+CA_List = {{ ca_list }};
+
+{# Listen on specified IP addresses and ports #}
+{# Format: IP:port; multiple lines allowed #}
+{% for listener in listeners %}Listen{% if listener.proto == 'sctp' %}_SCTP{% elif listener.proto == 'tcp' %}_TCP{% elif listener.proto == 'udp' %}_UDP{% endif %} = {{ listener.address }}:{{ listener.port }};
+{% endfor %}
+
+{# Allowed peers (by FQDN) #}
+{# If empty, any peer is accepted (not recommended in production) #}
+{% for peer in allowed_peers %}Allowed_Peer = {{ peer }};
+{% endfor %}
+
+{# Diameter Application extensions #}
+{# Load-specific extensions (e.g., 3GPP, ETSI) #}
+{% for app in extensions %}{% if app.enabled %}LoadExtension = "{{ app.path }}";
+{% endif %}{% endfor %}
+
+{# Logging configuration #}
+Log_File = {{ log_file }};
+Log_Level = {{ log_level }};
+
+{# Enable/Disable specific Diameter commands (debugging) #}
+{% for cmd in disabled_commands %}Disabled_Command = {{ cmd }};
+{% endfor %}
+
+{# Peer connection timeouts and behavior #}
+Originate_Conn = {{ originate_conn }};
+CnxRetryTime = {{ cnx_retry_time }};
+CnxMaxRetryTime = {{ cnx_max_retry_time }};
+CnxMaxRetrans = {{ cnx_max_retrans }};

@@ -1,0 +1,77 @@
+{# DHCPv4 server configuration #}
+{
+  "Dhcp4": {
+    "renew-timer": {{ dhcps4_renew_timer }},
+    "rebind-timer": {{ dhcps4_rebind_timer }},
+    "max-lease-time": {{ dhcps4_max_lease_time }},
+    "lease-changes-interval": {{ dhcps4_lease_changes_interval }},
+
+    "interfaces-config": {
+      "interfaces": [ {{ dhcps4_interfaces | map(lambda x: '"' + x + '"') | join(', ') }} ]
+    },
+
+    "control-socket": {
+      "socket-type": "unix",
+      "socket-name": "{{ dhcps4_control_socket_name }}"
+    },
+
+    "dhcp-queue-control": {
+      "capacity": {{ dhcps4_queue_capacity }},
+      "enable-queue": {{ dhcps4_enable_queue | lower }}
+    },
+
+    "loggers": [
+      {
+        "name": "kea-dhcp4",
+        "output_options": [
+          {
+            "output": "{{ dhcps4_log_output }}"
+          }
+        ],
+        "severity": "{{ dhcps4_log_severity }}",
+        "debuglevel": {{ dhcps4_log_debuglevel }}
+      }
+    ],
+
+    "shared-networks": [
+      {% for net in dhcps4_shared_networks %}
+      {
+        "name": "{{ net.name }}",
+        "subnet": "{{ net.subnet }}",
+        "pools": [
+          {% for pool in net.pools %}
+          {
+            "pool": "{{ pool.start }} - {{ pool.end }}"
+          }{{ '' if loop.last else ',' }}
+          {% endfor %}
+        ],
+        "option-data": [
+          {% for opt in net.option_data %}
+          {
+            "name": "{{ opt.name }}",
+            "data": "{{ opt.data }}"
+          }{{ '' if loop.last else ',' }}
+          {% endfor %}
+        ],
+        "reservations": [
+          {% for res in net.reservations %}
+          {
+            "hw-address": "{{ res.hw_address }}",
+            "ip-address": "{{ res.ip_address }}",
+            "hostname": "{{ res.hostname }}"
+          }{{ '' if loop.last else ',' }}
+          {% endfor %}
+        ],
+        "client-class": "{{ net.client_class | default('') }}"{{ '' if loop.last else ',' }}
+      }{{ '' if loop.last else ',' }}
+      {% endfor %}
+    ],
+
+    "hosts-database": {
+      "type": "memfile",
+      "lfc-interval": {{ dhcps4_hosts_lfc_interval }}
+    },
+
+    "data-directory": "{{ dhcps4_data_directory }}"
+  }
+}

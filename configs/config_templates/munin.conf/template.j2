@@ -1,0 +1,73 @@
+# [main] — Global settings
+[main]
+
+# Enable or disable the web interface
+enabled = {{ web_enabled }}
+
+# Path to the HTML output directory
+htmldir = {{ htmldir }}
+
+# Path to the RRD database directory
+vardir = {{ vardir }}
+
+# Path to the log directory
+logdir = {{ logdir }}
+
+# Path to the PID file
+rundir = {{ rundir }}
+
+# How often (in seconds) to generate graphs
+graph_interval = {{ graph_interval }}
+
+# Graph resolution: 'daily', 'weekly', 'monthly', 'yearly'
+graph_periods = {{ graph_periods | join(', ') }}
+
+# List of contacts for notifications
+contact.admin.address = {{ contact_addresses | join(', ') }}
+
+# How often (in seconds) to send alerts
+contact.admin.always_send = {{ contact_always_send }}
+
+# Path to the Munin master executable
+munin_master = {{ munin_master }}
+
+# Path to the Munin HTML generator
+munin_html = {{ munin_html }}
+
+# Path to the Munin graph generator
+munin_graph = {{ munin_graph }}
+
+# Path to the Munin logcheck script
+munin_logcheck = {{ munin_logcheck }}
+
+# Path to the Munin update script
+munin_update = {{ munin_update }}
+
+# Path to the Munin cron configuration directory
+cron.d = {{ cron_d }}
+
+# Path to the Munin configuration include directory
+include = {{ include_dir }}
+
+# [localhost] — Default node configuration
+[localhost]
+    # Hostname of the node (usually 'localhost')
+    address = {{ nodes[0].address }}
+    
+    # Port the node listens on (default 4949)
+    port = {{ nodes[0].port }}
+    
+    # Comma-separated list of plugins to enable; use 'null' to auto-detect
+    plugins = {{ nodes[0].plugins | join(', ') }}
+    
+    # Custom attributes for the node
+    use_node_name = {{ nodes[0].use_node_name }}
+
+{% for node in nodes[1:] %}
+# Node: {{ node.name }}
+[{{ node.name }}]
+    address = {{ node.address }}
+    port = {{ node.port }}
+    plugins = {{ node.plugins | join(', ') if node.plugins else 'null' }}
+    use_node_name = {{ node.use_node_name }}
+{% endfor %}

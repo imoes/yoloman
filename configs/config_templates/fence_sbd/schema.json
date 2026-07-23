@@ -1,0 +1,46 @@
+{
+  "sbd_devices": {
+    "type": "list",
+    "default": [],
+    "description": "List of block devices or loopback files used by SBD for message passing and disk locking. Must be shared across all cluster nodes. Use colon-separated format in rendered config (e.g., '/dev/sdb:/dev/sdc').",
+    "items": {
+      "type": "string",
+      "description": "Path to a shared SBD device (e.g., /dev/disk/by-id/scsi-...)"
+    }
+  },
+  "sbd_daemon_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable the SBD daemon to run on this node (required for local fencing). Set to false only if using external SBD (rare)."
+  },
+  "sbd_timeout": {
+    "type": "number",
+    "default": 10,
+    "description": "Time in seconds the node waits for a response from other nodes before initiating STONITH. Must be \u2265 1 and \u2265 2 \u00d7 SBDWatchdogTimeout."
+  },
+  "sbd_watchdog_timeout": {
+    "type": "number",
+    "default": 5,
+    "description": "Time in seconds between watchdog pings. Must be less than half of SBDTimeout to allow time for recovery attempts."
+  },
+  "sbd_num_messages": {
+    "type": "number",
+    "default": 3,
+    "description": "Number of consecutive missed messages allowed before the node is considered dead and fenced."
+  },
+  "sbd_start_delay": {
+    "type": "number",
+    "default": 0,
+    "description": "Seconds to delay SBD daemon start after boot (useful if storage devices take time to appear)."
+  },
+  "sbd_debug": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable verbose debug logging to system logs. Set to true only for troubleshooting."
+  },
+  "sbd_extra_options": {
+    "type": "string",
+    "default": "",
+    "description": "Additional command-line options to pass to fence_sbd (e.g., '-z' for zero-length mode or '-p' for partitioned mode). Leave empty unless required."
+  }
+}

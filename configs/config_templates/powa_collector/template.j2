@@ -1,0 +1,42 @@
+# Enable or disable the collector daemon
+{% if enabled | default(true) %}
+# Listening address for incoming connections from the PoWA web UI
+listen: "{{ listen_address }}:{{ listen_port }}"
+
+# Path to the storage directory for collected snapshots
+storage_dir: "{{ storage_dir }}"
+
+# Number of worker processes for snapshot processing
+worker_count: {{ worker_count }}
+
+# Maximum number of snapshots to retain (0 = no limit)
+max_snapshots: {{ max_snapshots }}
+
+# PostgreSQL connection string template for remote targets
+{% for target in targets %}
+# Target: {{ target.name }}
+target "{{ target.name }}" {
+  conninfo = "{{ target.conninfo }}"
+  snapshot_every = {{ target.snapshot_every }}
+  retention_days = {{ target.retention_days }}
+  {% if target.enabled | default(true) %}enabled = true{% else %}enabled = false{% endif %}
+}
+{% endfor %}
+
+# TLS configuration (optional)
+{% if tls.enabled | default(false) %}
+# Enable TLS for collector communication
+tls {
+  cert_file = "{{ tls.cert_file }}"
+  key_file = "{{ tls.key_file }}"
+  ca_file = "{{ tls.ca_file | default('') }}"
+  min_version = "{{ tls.min_version | default('1.2') }}"
+}
+{% endif %}
+
+# Log level: debug, info, warn, error, fatal
+log_level: "{{ log_level }}"
+{% else %}
+# Collector disabled — remove or comment out this block to enable
+# enabled = false
+{% endif %}

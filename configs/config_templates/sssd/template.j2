@@ -1,0 +1,99 @@
+[sssd]
+# List of active services to enable (comma-separated)
+services = {{ services | join(', ') }}
+
+# Default domain to use when none specified
+config_file_version = 2
+
+# Domain configuration block(s)
+{% for domain in domains %}[domain/{{ domain.name }}]
+# Name of this domain (must match section header)
+domain_name = {{ domain.name | quote }}
+
+# Authentication provider (e.g., 'ldap', 'kerberos', 'ad')
+auth_provider = {{ domain.auth_provider | quote }}
+
+# Identity provider (e.g., 'ldap', 'proxy') — often same as auth_provider
+id_provider = {{ domain.id_provider | quote }}
+
+# Optional access control provider
+{% if domain.access_provider is defined %}access_provider = {{ domain.access_provider | quote }}
+{% endif %}
+
+# Directory service URI(s) (space-separated)
+{% if domain.ldap_uri is defined %}ldap_uri = {{ domain.ldap_uri | join(' ') | quote }}
+{% endif %}
+
+# Base DN for LDAP searches
+{% if domain.ldap_search_base is defined %}ldap_search_base = {{ domain.ldap_search_base | quote }}
+{% endif %}
+
+# LDAP schema (e.g., 'rfc2307', 'rfc2307bis', 'apple')
+{% if domain.ldap_schema is defined %}ldap_schema = {{ domain.ldap_schema | quote }}
+{% endif %}
+
+# TLS settings
+{% if domain.tls_cacert is defined %}ldap_tls_cacert = {{ domain.tls_cacert | quote }}
+{% endif %}
+{% if domain.tls_reqcert is defined %}ldap_tls_reqcert = {{ domain.tls_reqcert | quote }}
+{% endif %}
+
+# Kerberos-specific settings
+{% if domain.krb5_server is defined %}krb5_server = {{ domain.krb5_server | quote }}
+{% endif %}
+{% if domain.krb5_realm is defined %}krb5_realm = {{ domain.krb5_realm | quote }}
+{% endif %}
+
+# Active Directory-specific settings
+{% if domain.ad_domain is defined %}ad_domain = {{ domain.ad_domain | quote }}
+{% endif %}
+{% if domain.ad_server is defined %}ad_server = {{ domain.ad_server | quote }}
+{% endif %}
+
+# Cache credentials for offline login
+{% if domain.cache_credentials is defined %}cache_credentials = {{ domain.cache_credentials | tojson }}
+{% endif %}
+
+# User login name attribute (e.g., 'uid', 'sAMAccountName')
+{% if domain.ldap_user_name is defined %}ldap_user_name = {{ domain.ldap_user_name | quote }}
+{% endif %}
+
+# Override homedir default (optional)
+{% if domain.override_homedir is defined %}override_homedir = {{ domain.override_homedir | quote }}
+{% endif %}
+
+# Minimum UID/GID for valid entries
+{% if domain.min_id is defined %}min_id = {{ domain.min_id }}
+{% endif %}
+{% if domain.max_id is defined %}max_id = {{ domain.max_id }}
+{% endif %}
+
+# Enforce DNS lookup of servers (avoids hardcoded IPs)
+{% if domain.fallback_to_localhost is defined %}fallback_to_localhost = {{ domain.fallback_to_localhost | tojson }}
+{% endif %}
+
+# Optional access control rules
+{% if domain.allow_groups is defined %}allow_groups = {{ domain.allow_groups | join(', ') | quote }}
+{% endif %}
+{% if domain.deny_groups is defined %}deny_groups = {{ domain.deny_groups | join(', ') | quote }}
+{% endif %}
+{% endfor %}
+
+# Service-specific settings (e.g., nss, pam, sudo, autofs)
+{% for service in services_config %}[service/{{ service.name }}]
+# Enable debug level (0–9); higher = more verbose
+{% if service.debug_level is defined %}debug_level = {{ service.debug_level }}
+{% endif %}
+
+# Response timeout (seconds)
+{% if service.timeout is defined %}timeout = {{ service.timeout }}
+{% endif %}
+
+# Reconnection retry count
+{% if service.max_connections is defined %}max_connections = {{ service.max_connections }}
+{% endif %}
+
+# Optional: per-service filter or override
+{% if service.service_specific is defined %}{{ service.service_specific }}
+{% endif %}
+{% endfor %}

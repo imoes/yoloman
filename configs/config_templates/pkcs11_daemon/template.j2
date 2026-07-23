@@ -1,0 +1,45 @@
+# Listen address and port for incoming client connections
+bind_address = "{{ bind_address }}"
+bind_port = {{ bind_port }}
+
+# Path to the PKCS#11 module (HSM/softHSM library)
+pkcs11_module_path = "{{ pkcs11_module_path }}"
+
+# Timeout (in seconds) for PKCS#11 operations
+timeout_seconds = {{ timeout_seconds }}
+
+# Maximum number of concurrent sessions
+max_sessions = {{ max_sessions }}
+
+# Enable or disable logging to syslog
+use_syslog = {{ use_syslog | lower }}
+
+# Log level: debug, info, warn, error
+log_level = "{{ log_level }}"
+
+# Optional: extra PKCS#11 initialization arguments (e.g., PIN, slot ID)
+{% if extra_init_args %}
+{% for key, value in extra_init_args.items() %}
+init_arg_{{ key }} = "{{ value }}"
+{% endfor %}
+{% endif %}
+
+# List of allowed client IP addresses (empty = allow all)
+{% if allowed_clients | length > 0 %}
+{% for client in allowed_clients %}
+allowed_client = "{{ client }}"
+{% endfor %}
+{% else %}
+# allowed_client = ""  # commented out = no restriction
+{% endif %}
+
+# Optional: certificate and key for TLS (if client authentication is enabled)
+{% if tls_enabled %}
+tls_cert_file = "{{ tls_cert_file }}"
+tls_key_file = "{{ tls_key_file }}"
+{% else %}
+# TLS disabled
+{% endif %}
+
+# Optional: PID file location
+pid_file = "{{ pid_file }}"

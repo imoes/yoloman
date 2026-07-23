@@ -1,0 +1,36 @@
+#!/bin/sh
+# Start JACK daemon with specified engine, device, and options
+
+# JACK engine type (typically 'alsa')
+ENGINE={{ engine }}
+
+# Device to use (e.g., 'hw:0' for first sound card)
+DEVICE={{ device }}
+
+# Sample rate in Hz
+RATE={{ rate }}
+
+# Period size (frames per period)
+PERIOD={{ period }}
+
+# Number of periods (buffer depth = PERIOD * PERIODS)
+PERIODS={{ periods }}
+
+# Optional: real-time priority (1–99); 0 = no RT
+RT_PRIORITY={{ rt_priority }}
+
+# Optional: use hardware monitor (true/false)
+{{ '# ' if not use_hw_monitor else '' }}USE_HW_MONITOR={{ 'true' if use_hw_monitor else 'false' }}
+
+# Optional: disable port checking (true/false)
+{{ '# ' if not enable_port_check else '' }}PORT_CHECK={{ 'true' if enable_port_check else 'false' }}
+
+# Optional: extra JACK options (e.g., '-r -d alsa -d hw:0 -r 48000 -p 1024 -n 3')
+EXTRA_OPTS="{{ extra_opts | default('') | e('shell') }}"
+
+# Execute JACK daemon with all options
+exec jackd ${{ ENGINE }} ${{ DEVICE | default('') | e('shell') }} -r {{ rate }} -p {{ period }} -n {{ periods }} \
+    {{ '# ' if not rt_priority else '' }}-P {{ rt_priority }} \
+    {{ '# ' if not use_hw_monitor else '' }}-X hwmon \
+    {{ '# ' if not enable_port_check else '' }}-C \
+    $EXTRA_OPTS

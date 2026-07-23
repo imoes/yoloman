@@ -1,0 +1,28 @@
+# GFS2 cluster configuration file
+# This file defines cluster-wide settings for GFS2 management tools.
+# Adjust values below to match your cluster environment.
+# Ensure the cluster is running (e.g., cman or corosync) before creating GFS2 file systems.
+# Note: Most GFS2 configurations rely on a running cluster; gfs2.conf is optional unless using legacy cman.
+
+global {
+  # Minimum lock timeout in seconds (prevents infinite hangs during node failure)
+  locking_type = {{ global.locking_type }}
+  
+  # Lock dump threshold (optional; dumps lock info to syslog after this many locks)
+  # Only needed for debugging or diagnostics
+  {% if global.lock_dump_threshold is defined %}lock_dump_threshold = {{ global.lock_dump_threshold }}{% endif %}
+
+  # Log file location for gfs2 tools (e.g., gfs2_quota, gfs2_jadd)
+  log_file = "{{ global.log_file }}"
+  
+  # Log level: 0 = none, 1 = error, 2 = warning, 3 = info, 4 = debug
+  log_level = {{ global.log_level }}
+}
+
+# Optional cluster name (used only when not managed by cluster manager like cman/corosync)
+# If cluster manager is active, this is ignored
+{% if global.cluster_name is defined and global.cluster_name %}cluster_name = "{{ global.cluster_name }}"{% endif %}
+
+# Optional GFS2 lock space name (used in place of cluster name for standalone use)
+# Rarely needed in production; prefer cluster-managed mode
+{% if global.lockspace_name is defined and global.lockspace_name %}lockspace_name = "{{ global.lockspace_name }}"{% endif %}

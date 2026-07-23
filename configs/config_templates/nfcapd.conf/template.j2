@@ -1,0 +1,101 @@
+# nfcapd.conf — main configuration file for nfcapd (NetFlow capture daemon)
+# Listen on this UDP port for NetFlow/sFlow/IPFIX flows
+port: {{ port }}
+
+# Bind to this IP address (use 0.0.0.0 for all interfaces)
+host: {{ host }}
+
+# Directory where flow files are stored
+base_dir: {{ base_dir }}
+
+# Subdirectory under base_dir for new flow files (e.g., 'current' or 'live')
+subdir: {{ subdir }}
+
+# Retention policy: keep flow files for this many seconds
+retention: {{ retention }}
+
+# Compress flow files after this many seconds (0 = disable auto-compression)
+compress_after: {{ compress_after }}
+
+# Compress using: gzip (default), bzip2, or none
+compress_program: {{ compress_program }}
+
+# Flush output buffer every this many seconds (0 = use kernel buffering)
+flush_interval: {{ flush_interval }}
+
+# Write to stdin of this program for additional processing (e.g., nfreplay)
+pipe_program: {{ pipe_program }}
+
+# Run as this user (must be valid system user)
+user: {{ user }}
+
+# Run as this group (must be valid system group)
+group: {{ group }}
+
+# Enable extended flow record format (v9/IPFIX extensions)
+extended: {{ extended }}
+
+# Enable IPv6 flow support (required for IPv6 flows)
+ipv6: {{ ipv6 }}
+
+# Log level: debug, info, notice, warning, error, critical, alert, emergency
+loglevel: {{ loglevel }}
+
+# Log to this file (use '-' for stdout/stderr)
+logfile: {{ logfile }}
+
+# Enable PID file creation
+pidfile: {{ pidfile }}
+
+# List of additional NetFlow versions to accept (e.g., [5, 9, 10])
+accept_versions: {% for ver in accept_versions %}{{ ver }}{% if not loop.last %}, {% endif %}{% endfor %}
+
+# Enable BGP daemon integration (requires bgpd.conf)
+bgp: {{ bgp }}
+
+# List of additional export formats (e.g., ['nfcapd', 'nfstat', 'nffile'])
+formats: {% for fmt in formats %}'{{ fmt }}'{% if not loop.last %}, {% endif %}{% endfor %}
+
+# Enable SSL for remote collectors (IPFIX-TLS) — requires certificate/key paths
+ssl: {{ ssl }}
+ssl_cert: {{ ssl_cert }}
+ssl_key: {{ ssl_key }}
+ssl_ca_cert: {{ ssl_ca_cert }}
+
+# Disable default NetFlow v5 flow header padding (for legacy equipment quirks)
+no_padding: {{ no_padding }}
+
+# Timeout for idle flows (seconds) — used for IPFIX session tracking
+idle_timeout: {{ idle_timeout }}
+
+# Timeout for active flows (seconds)
+active_timeout: {{ active_timeout }}
+
+# Buffer size in bytes for incoming UDP packets (min 1472, default 8192)
+read_buffer: {{ read_buffer }}
+
+# Max number of open flow files (prevents FD exhaustion)
+max_open_files: {{ max_open_files }}
+
+# Disable hostname lookup (improves performance and avoids DNS delays)
+no_dns: {{ no_dns }}
+
+# Set CPU affinity to this list of logical CPU cores (e.g., [0, 1])
+cpu_affinity: {% for cpu in cpu_affinity %}{{ cpu }}{% if not loop.last %}, {% endif %}{% endfor %}
+
+# Enable precise timestamp resolution (nanoseconds instead of microseconds)
+nanoseconds: {{ nanoseconds }}
+
+# Enable flow sampling rate inference (for sFlow with rate >1)
+sample_infer: {{ sample_infer }}
+
+# Disable flow record coalescing (keep each packet as a separate record)
+no_coalesce: {{ no_coalesce }}
+
+# List of flow collectors to forward to (e.g., [{'host': '10.0.0.5', 'port': 2055}])
+forward: {% for fwd in forward %}
+# Forward to {{ fwd.host }}:{{ fwd.port }} (protocol: {{ fwd.proto | default('udp') }})
+{% if not loop.first %}# {% endif %}forward_host: {{ fwd.host }}
+{% if not loop.first %}# {% endif %}forward_port: {{ fwd.port }}
+{% if not loop.first %}# {% endif %}forward_proto: {{ fwd.proto | default('udp') }}
+{% endfor %}

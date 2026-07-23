@@ -1,0 +1,107 @@
+{
+  "store_path": {
+    "type": "string",
+    "default": "~/.local/share/incus",
+    "description": "Path to the client state directory (stores images, aliases, logs, etc.)."
+  },
+  "default_remote": {
+    "type": "string",
+    "default": "local",
+    "description": "Default Incus remote to use when none is specified (e.g., `local`, `images`, `incus`)."
+  },
+  "server_url": {
+    "type": "string",
+    "default": "",
+    "description": "Full server URL (e.g., `https://my.incus.server:8443`) \u2014 only needed for unnamed remotes."
+  },
+  "networked": {
+    "type": "boolean",
+    "default": true,
+    "description": "Whether to use network communication. Set to false to force local socket usage."
+  },
+  "debug": {
+    "type": "boolean",
+    "default": false,
+    "description": "Enable verbose debug output for troubleshooting."
+  },
+  "quiet": {
+    "type": "boolean",
+    "default": false,
+    "description": "Suppress non-error output (e.g., for scripting)."
+  },
+  "aliases": {
+    "type": "object",
+    "default": {},
+    "description": "Custom command aliases (key = alias name, value = command to run).",
+    "items": {
+      "type": "string"
+    }
+  },
+  "image_protocol": {
+    "type": "string",
+    "default": "simplestreams",
+    "description": "Protocol used for fetching images (e.g., `simplestreams`, `direct`, `http`, `https`)."
+  },
+  "auto_update_images": {
+    "type": "boolean",
+    "default": true,
+    "description": "Whether to automatically update cached images from remote servers."
+  },
+  "trusted_image_fingerprints": {
+    "type": "list",
+    "default": [],
+    "description": "List of trusted image server fingerprints to skip prompt on first use (e.g., for private image servers).",
+    "items": {
+      "type": "string",
+      "description": "A SHA256 fingerprint of an image server certificate (e.g., `a1b2c3d4...`)."
+    }
+  },
+  "default_disk_devices": {
+    "type": "object",
+    "default": {},
+    "description": "Named disk device templates to reuse when launching containers/VMs.",
+    "items": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string",
+          "description": "Mount path inside the instance (e.g., `/`)."
+        },
+        "source": {
+          "type": "string",
+          "description": "Source path or device (e.g., `default` pool volume name, or `/var/incus/disks/myvol`)."
+        },
+        "pool": {
+          "type": "string",
+          "description": "Storage pool name (if applicable).",
+          "optional": true
+        }
+      }
+    }
+  },
+  "profiles": {
+    "type": "list",
+    "default": [
+      "default"
+    ],
+    "description": "Default profiles to apply to new instances (profiles define device inheritance, security, resources, etc.)."
+  },
+  "profile_configs": {
+    "type": "list",
+    "default": [],
+    "description": "Per-profile configuration overrides (for advanced tuning).",
+    "items": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Name of the profile (must match an existing profile name)."
+        },
+        "config": {
+          "type": "object",
+          "description": "Key-value configuration for this profile (e.g., `raw.idmap`, `limits.cpu`)."
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,34 @@
+# Path to the QEMU Guest Agent PID file
+# (auto-created by systemd if managed; set to override)
+pid-file = {{ pid_file }}
+
+# Path to the QEMU Guest Agent logging file
+# Leave empty to disable file logging (only syslog)
+log-file = {{ log_file }}
+
+# Log level: 0=INFO, 1=DEBUG, 2=TRACE, 3=CRITICAL
+# Increase for more verbose logging (use sparingly in production)
+log-verbosity = {{ log_verbosity }}
+
+# Enable or disable guest file system freeze/thaw support
+# WARNING: May impact filesystem consistency if misused
+fsfreeze-hook = {{ fsfreeze_hook }}
+
+# List of additional hooks to run on freeze/thaw events
+# Each hook is a dict with 'path' and optional 'args' (list of strings)
+{% for hook in fsfreeze_hooks %}
+# Hook: {{ hook.path }}
+fsfreeze-hook = {{ hook.path }}
+{% if hook.args %}# Args: {{ hook.args | join(' ') }}
+fsfreeze-arg = {{ hook.args | join('
+fsfreeze-arg = ') }}
+{% endif %}
+{% endfor %}
+
+# Enable or disable QGA over ACPI device (recommended for KVM)
+# Set to 'yes' to enable; 'no' to disable (use only if using alternate transport like serial)
+acpi-device-path = {{ acpi_device_path }}
+
+# Enable or disable QGA over virtio-serial (for older guests or custom setups)
+# Set to 'yes' to enable; leave commented to auto-detect
+# virtio-device-path = /dev/virtio-ports/org.qemu.guest_agent.0

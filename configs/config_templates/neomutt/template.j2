@@ -1,0 +1,113 @@
+# NeoMutt configuration file — user-editable settings for CLI email client
+
+# Set personal information for outgoing mail
+set realname = "{{ realname }}"
+set from = "{{ from_address }}"
+
+{% if use_envelope_from %}
+# Use same address for envelope sender as 'From:' header
+set envelope_from = yes
+{% else %}
+unset envelope_from
+{% endif %}
+
+# Configure IMAP/SMTP server(s)
+{% for account in accounts %}
+# Account: {{ account.name }}
+{% if account.imap.enabled %}
+account-hook {{ account.name }} 'source {{ account.config_dir | default('~/.config/neomutt/' + account.name) | quote }}'
+account-hook send:{{ account.name }} 'set smtp_url = "{{ account.smtp.url }}"'
+account-hook recv:{{ account.name }} 'set imap_user = "{{ account.imap.user }}", imap_pass = "{{ account.imap.password }}"'
+account-hook recv:{{ account.name }} 'set folder = "{{ account.imap.folder }}"'
+{% endif %}
+
+{% if account.imap.enabled and account.imap.ssl %}
+set ssl_force_tls = yes
+set ssl_starttls = {% if account.imap.starttls %}yes{% else %}no{% endif %}
+set ssl_verify = {% if account.imap.verify_cert %}yes{% else %}no{% endif %}
+{% endif %}
+{% endfor %}
+
+# Default account for sending mail
+set default_account = "{{ default_account }}"
+
+# Mailbox paths (IMAP/Local)
+set spoolfile = "{% if default_imap_spoolfile %}+{% endif %}{{ default_imap_spoolfile | default('INBOX') }}"
+set record = "+{{ record_folder | default('Sent') }}"
+set postponed = "+{{ postponed_folder | default('Drafts') }}"
+set trash = "+{{ trash_folder | default('Trash') }}"
+
+# Cache settings (for performance)
+set header_cache = "{{ header_cache_path | default('~/.cache/neomutt/headers') }}"
+set message_cache = "{{ message_cache_path | default('~/.cache/neomutt/bodies') }}"
+set cache_life = {{ cache_life }}
+
+# UI / interaction preferences
+set sort = threads
+set sort_aux = reverse-last-date-received
+set date_format = "%Y-%m-%d %H:%M"
+set message_format = "%4C %Z %{%-2.2b/%-2.2d} %-17.17L (%?l?%4l&%4c?) %s"
+set index_format = "%4%C %Z %[%b %d %H:%M] %-25.25F (%?l?%4l&%4c?) %s"
+
+# Pager and editor
+set pager_index_lines = 10
+set pager_context = 3
+set pager_stop = yes
+set menu_context = 3
+set edit_headers = yes
+set editor = "{{ editor }}"
+
+# Compose preferences
+set include = yes
+set forward_quote = yes
+set reply_to = yes
+set reverse_name = yes
+set forward_decrypt = yes
+set mime_forward = yes
+
+# Security & PGP/GnuPG integration
+{% if enable_pgp %}
+set pgp_default_key = "{{ pgp_default_key }}"
+set pgp_sign_as = "{{ pgp_sign_as | default(pgp_default_key) }}"
+set pgp_use_gpg_agent = yes
+set crypt_use_gpgme = yes
+set crypt_autosign = yes
+set pgp_timeout = {{ pgp_timeout }}
+set pgp_good_sign = "^GPG\s*OK\s*"
+{% else %}
+unset pgp_default_key
+unset crypt_use_gpgme
+unset crypt_autosign
+{% endif %}
+
+# Sidebar (folder list) configuration (requires +sidebar patch)
+{% if enable_sidebar %}
+set sidebar_visible = yes
+set sidebar_format = "%2n %F %2l %-20.20N %s"
+set sidebar_width = {{ sidebar_width }}
+set sidebar_folder_indent = yes
+set sidebar_indent_string = "  "
+set sidebar_short_path = yes
+set sidebar_sort_method = unsorted
+bind index \Cp sidebar-prev
+bind index \Cn sidebar-next
+bind index \Co sidebar-open
+bind pager \Cp sidebar-prev
+bind pager \Cn sidebar-next
+bind pager \Co sidebar-open
+{% endif %}
+
+# Color & theme
+{% for theme_color in theme.colors %}
+color {{ theme_color.target }} {{ theme_color.fg | default('white') }} {{ theme_color.bg | default('black') }}{% if theme_color.attrs %} {{ theme_color.attrs | join(' ') }}{% endif %}
+{% endfor %}
+
+# Optional: custom macros for shortcuts
+{% for macro in macros %}
+macro {{ macro.where }} {{ macro.key }} "{{ macro.command }}" {{ macro.desc | quote }}
+{% endfor %}
+
+# Logging (optional)
+{% if log_file %}
+set log_file = "{{ log_file }}"
+{% endif %}

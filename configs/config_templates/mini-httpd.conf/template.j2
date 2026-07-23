@@ -1,0 +1,66 @@
+# Listen address and port
+listen {{ listen_addr }}:{{ port }}
+
+# Maximum number of simultaneous connections
+max_connections {{ max_connections }}
+
+# User and group to run as (if not root)
+user {{ user }}
+group {{ group }}
+
+# Document root directory
+document_root {{ document_root }}
+
+# Default index files
+index_files {% for idx in index_files %}{{ idx }}{% if not loop.last %} {% endif %}{% endfor %}
+
+# Enable directory listing (true/false)
+enable_directory_listings {{ enable_directory_listings | lower }}
+
+# MIME types map file
+mime_types_file {{ mime_types_file }}
+
+# Log file paths
+access_log {{ access_log }}
+error_log {{ error_log }}
+
+# TLS/SSL configuration (optional)
+{% if ssl_enabled %}
+ssl_certificate {{ ssl_certificate_path }}
+ssl_private_key {{ ssl_private_key_path }}
+{% endif %}
+
+# Request timeout (in seconds)
+timeout {{ timeout_seconds }}
+
+# Maximum request body size (in bytes)
+max_request_body_size {{ max_request_body_size }}
+
+# Caching: enable/disable
+{% if cache_enabled %}
+cache_enabled true
+cache_dir {{ cache_dir }}
+cache_max_size {{ cache_max_size }}
+{% else %}
+cache_enabled false
+{% endif %}
+
+# Virtual hosts (optional)
+{% for vhost in virtual_hosts %}
+{% if vhost.name %}
+# Virtual host: {{ vhost.name }}
+{% if vhost.hostname %}
+servername {{ vhost.hostname }}
+{% endif %}
+{% if vhost.document_root %}
+document_root {{ vhost.document_root }}
+{% endif %}
+{% if vhost.index_files %}
+index_files {% for idx in vhost.index_files %}{{ idx }}{% if not loop.last %} {% endif %}{% endfor %}
+{% endif %}
+{% if vhost.ssl_enabled %}
+ssl_certificate {{ vhost.ssl_certificate_path }}
+ssl_private_key {{ vhost.ssl_private_key_path }}
+{% endif %}
+{% endif %}
+{% endfor %}

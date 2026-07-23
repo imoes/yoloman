@@ -1,0 +1,318 @@
+{
+  "log_file": {
+    "type": "string",
+    "default": "/var/log/glance/api.log",
+    "description": "Path to the log file for API server logs."
+  },
+  "log_dir": {
+    "type": "string",
+    "default": "/var/log/glance",
+    "description": "Directory for log files."
+  },
+  "debug": {
+    "type": "boolean",
+    "default": false,
+    "description": "Enable verbose debug logging."
+  },
+  "workers": {
+    "type": "number",
+    "default": 1,
+    "description": "Number of worker processes to handle incoming API requests."
+  },
+  "database": {
+    "type": "object",
+    "default": {
+      "connection": "sqlite:////var/lib/glance/glance-api.db"
+    },
+    "items": {
+      "connection": {
+        "type": "string",
+        "default": "sqlite:////var/lib/glance/glance-api.db",
+        "description": "Database connection string (e.g., 'mysql+pymysql://glance:PASS@dbhost/glance')"
+      }
+    }
+  },
+  "keystone": {
+    "type": "object",
+    "default": {
+      "auth_uri": "http://controller:5000",
+      "auth_url": "http://controller:5000",
+      "project_domain_name": "Default",
+      "project_name": "service",
+      "user_domain_name": "Default",
+      "username": "glance",
+      "password": "GLANCE_PASS",
+      "insecure": false
+    },
+    "items": {
+      "auth_uri": {
+        "type": "string",
+        "default": "http://controller:5000",
+        "description": "Public identity endpoint (used for token validation)."
+      },
+      "auth_url": {
+        "type": "string",
+        "default": "http://controller:5000",
+        "description": "Auth URL (used for service-to-service authentication)."
+      },
+      "project_domain_name": {
+        "type": "string",
+        "default": "Default",
+        "description": "Domain name for the service project."
+      },
+      "project_name": {
+        "type": "string",
+        "default": "service",
+        "description": "Project (tenant) name for the service user."
+      },
+      "user_domain_name": {
+        "type": "string",
+        "default": "Default",
+        "description": "Domain name for the service user."
+      },
+      "username": {
+        "type": "string",
+        "default": "glance",
+        "description": "Username of the Glance service user in Keystone."
+      },
+      "password": {
+        "type": "string",
+        "default": "GLANCE_PASS",
+        "description": "Password for the Glance service user.",
+        "sensitive": true
+      },
+      "insecure": {
+        "type": "boolean",
+        "default": false,
+        "description": "Disable SSL certificate verification for Keystone communication."
+      }
+    }
+  },
+  "glance_store": {
+    "type": "object",
+    "default": {
+      "stores": [],
+      "default_store": "file",
+      "filesystem_store_datadir": "/var/lib/glance/images/"
+    },
+    "items": {
+      "stores": {
+        "type": "list",
+        "default": [],
+        "items": {
+          "name": {
+            "type": "string",
+            "default": "file",
+            "description": "Store identifier (e.g., 'file', 'swift', 'http')."
+          },
+          "endpoint": {
+            "type": "string",
+            "default": "",
+            "description": "Optional endpoint URL for the store (e.g., Swift storage URL)."
+          },
+          "username": {
+            "type": "string",
+            "default": "",
+            "description": "Username for store authentication (e.g., Swift)."
+          },
+          "password": {
+            "type": "string",
+            "default": "",
+            "description": "Password for store authentication.",
+            "sensitive": true
+          },
+          "project_name": {
+            "type": "string",
+            "default": "",
+            "description": "Project name for store authentication."
+          },
+          "auth_url": {
+            "type": "string",
+            "default": "",
+            "description": "Keystone auth URL for store authentication."
+          },
+          "container": {
+            "type": "string",
+            "default": "",
+            "description": "Container name for object storage (e.g., Swift)."
+          }
+        }
+      },
+      "default_store": {
+        "type": "string",
+        "default": "file",
+        "description": "Default backend store for image storage."
+      },
+      "filesystem_store_datadir": {
+        "type": "string",
+        "default": "/var/lib/glance/images/",
+        "description": "Directory for local filesystem image storage."
+      }
+    }
+  },
+  "quota": {
+    "type": "object",
+    "default": {
+      "images": 100
+    },
+    "items": {
+      "images": {
+        "type": "number",
+        "default": 100,
+        "description": "Maximum number of images allowed per project."
+      }
+    }
+  },
+  "image_cache": {
+    "type": "object",
+    "default": {
+      "enabled": false,
+      "cache_dir": "/var/lib/glance/image-cache/",
+      "max_cache_size": 10737418240
+    },
+    "items": {
+      "enabled": {
+        "type": "boolean",
+        "default": false,
+        "description": "Enable image caching to reduce backend storage load."
+      },
+      "cache_dir": {
+        "type": "string",
+        "default": "/var/lib/glance/image-cache/",
+        "description": "Directory for cached image data."
+      },
+      "max_cache_size": {
+        "type": "number",
+        "default": 10737418240,
+        "description": "Maximum size (in bytes) of the image cache (10GB default)."
+      }
+    }
+  },
+  "notification": {
+    "type": "object",
+    "default": {
+      "driver": "messagingv2",
+      "topics": [
+        "notifications"
+      ]
+    },
+    "items": {
+      "driver": {
+        "type": "string",
+        "default": "messagingv2",
+        "description": "Notification driver (e.g., 'messagingv2' for Oslo Messaging)."
+      },
+      "topics": {
+        "type": "list",
+        "default": [
+          "notifications"
+        ],
+        "items": {
+          "type": "string"
+        },
+        "description": "List of notification topics to publish to."
+      }
+    }
+  },
+  "ssl": {
+    "type": "object",
+    "default": {
+      "enabled": false,
+      "certfile": "/etc/ssl/certs/glance-api.crt",
+      "keyfile": "/etc/ssl/private/glance-api.key",
+      "ca_certs": "/etc/ssl/certs/ca-certificates.crt"
+    },
+    "items": {
+      "enabled": {
+        "type": "boolean",
+        "default": false,
+        "description": "Enable HTTPS for the API service."
+      },
+      "certfile": {
+        "type": "string",
+        "default": "/etc/ssl/certs/glance-api.crt",
+        "description": "Path to SSL certificate file."
+      },
+      "keyfile": {
+        "type": "string",
+        "default": "/etc/ssl/private/glance-api.key",
+        "description": "Path to SSL private key file.",
+        "sensitive": true
+      },
+      "ca_certs": {
+        "type": "string",
+        "default": "/etc/ssl/certs/ca-certificates.crt",
+        "description": "Path to CA certificate bundle for client verification."
+      }
+    }
+  },
+  "paste_deploy": {
+    "type": "object",
+    "default": {
+      "flavor": "keystone"
+    },
+    "items": {
+      "flavor": {
+        "type": "string",
+        "default": "keystone",
+        "description": "PasteDeploy configuration flavor (e.g., 'keystone' enables Keystone middleware)."
+      }
+    }
+  },
+  "service_credentials": {
+    "type": "object",
+    "default": {
+      "auth_type": "password",
+      "auth_url": "http://controller:5000",
+      "username": "glance",
+      "password": "GLANCE_PASS",
+      "project_name": "service",
+      "user_domain_name": "Default",
+      "project_domain_name": "Default",
+      "insecure": false
+    },
+    "items": {
+      "auth_type": {
+        "type": "string",
+        "default": "password",
+        "description": "Authentication type used by internal services (e.g., glance-scrubber)."
+      },
+      "auth_url": {
+        "type": "string",
+        "default": "http://controller:5000",
+        "description": "Keystone auth URL for service credentials."
+      },
+      "username": {
+        "type": "string",
+        "default": "glance",
+        "description": "Username used by internal services."
+      },
+      "password": {
+        "type": "string",
+        "default": "GLANCE_PASS",
+        "description": "Password used by internal services.",
+        "sensitive": true
+      },
+      "project_name": {
+        "type": "string",
+        "default": "service",
+        "description": "Project name used by internal services."
+      },
+      "user_domain_name": {
+        "type": "string",
+        "default": "Default",
+        "description": "Domain name for service credentials user."
+      },
+      "project_domain_name": {
+        "type": "string",
+        "default": "Default",
+        "description": "Domain name for service credentials project."
+      },
+      "insecure": {
+        "type": "boolean",
+        "default": false,
+        "description": "Disable SSL verification for service credentials."
+      }
+    }
+  }
+}

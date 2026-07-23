@@ -1,0 +1,118 @@
+{
+  "cache.enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable or disable caching of delivery results to improve performance and reduce redundant operations."
+  },
+  "cache.max_size": {
+    "type": "number",
+    "default": 10000,
+    "description": "Maximum number of delivery results to keep in the cache. Older entries are evicted when exceeded."
+  },
+  "cache.ttl": {
+    "type": "number",
+    "default": 3600,
+    "description": "Time-to-live for cached entries in seconds. Entries older than this are considered stale."
+  },
+  "cache.path": {
+    "type": "string",
+    "default": "/var/cache/arc/datadelivery",
+    "description": "Absolute filesystem path where the cache data is stored."
+  },
+  "delivery.enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable or disable the delivery service entirely. Disable for maintenance or testing."
+  },
+  "delivery.max_workers": {
+    "type": "number",
+    "default": 8,
+    "description": "Maximum number of concurrent worker processes that can process delivery requests at once."
+  },
+  "delivery.max_size": {
+    "type": "number",
+    "default": 1073741824,
+    "description": "Maximum allowed size (in bytes) of a single delivery. Larger requests will be rejected."
+  },
+  "delivery.output_path": {
+    "type": "string",
+    "default": "/var/spool/arc/datadelivery",
+    "description": "Absolute path to the directory where delivered files are temporarily stored before being sent."
+  },
+  "delivery.allowed_hosts": {
+    "type": "list",
+    "default": [],
+    "description": "Comma-separated list of allowed client hostnames. Empty or omitted means allow all hosts.",
+    "items": {
+      "type": "string",
+      "description": "Allowed hostname (e.g., 'client.example.com')"
+    }
+  },
+  "delivery.allowed_cidrs": {
+    "type": "list",
+    "default": [],
+    "description": "Comma-separated list of allowed client IP ranges in CIDR notation. Empty or omitted means allow all IPs.",
+    "items": {
+      "type": "string",
+      "description": "Allowed CIDR block (e.g., '10.0.0.0/24')"
+    }
+  },
+  "log.level": {
+    "type": "string",
+    "default": "INFO",
+    "allowed_values": [
+      "DEBUG",
+      "INFO",
+      "WARNING",
+      "ERROR",
+      "CRITICAL"
+    ],
+    "description": "Minimum severity level for messages to be logged."
+  },
+  "log.path": {
+    "type": "string",
+    "default": "/var/log/arc/datadelivery.log",
+    "description": "Absolute path to the main log file."
+  },
+  "log.rotate": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable log rotation to prevent unbounded growth of log files."
+  },
+  "log.max_size": {
+    "type": "number",
+    "default": 104857600,
+    "description": "Maximum size (in bytes) of a log file before it is rotated. Used only if rotation is enabled."
+  },
+  "log.max_files": {
+    "type": "number",
+    "default": 5,
+    "description": "Number of old rotated log files to retain. Used only if rotation is enabled."
+  },
+  "storage.type": {
+    "type": "string",
+    "default": "filesystem",
+    "allowed_values": [
+      "filesystem",
+      "database"
+    ],
+    "description": "Storage backend for persistent delivery state or metadata. Choose 'filesystem' for simple setups or 'database' for scalability."
+  },
+  "storage.base_path": {
+    "type": "string",
+    "default": "/var/lib/arc/datadelivery",
+    "description": "Base directory used by the filesystem storage backend to store state and metadata.",
+    "condition": "storage.type == 'filesystem'"
+  },
+  "storage.connection": {
+    "type": "string",
+    "default": "sqlite:///var/lib/arc/datadelivery/db.sqlite3",
+    "description": "Database connection URI for the database storage backend (e.g., 'postgresql://user:pass@host/db').",
+    "condition": "storage.type == 'database'"
+  },
+  "storage.compress": {
+    "type": "bool",
+    "default": true,
+    "description": "Compress stored files to save disk space. May increase CPU usage during I/O."
+  }
+}

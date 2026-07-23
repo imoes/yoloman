@@ -1,0 +1,50 @@
+# Core settings
+bind_address: {{ bind_address }}
+port: {{ port }}
+log_dir: {{ log_dir }}
+cache_dir: {{ cache_dir }}
+
+# Logging
+log_level: {{ log_level }}
+log_format: {{ log_format }}
+
+# Security & access control
+allow_remote_requests: {% if allow_remote_requests %}1{% else %}0{% endif %}
+allowed_clients: {{ allowed_clients | join(', ') }}
+allowed_hosts: {{ allowed_hosts | join(', ') }}
+
+# Performance
+max_threads: {{ max_threads }}
+min_free_space_mb: {{ min_free_space_mb }}
+
+# Expiration & cleanup
+devuan_support: {% if devuan_support %}1{% else %}0{% endif %}
+ignore_expire: {% if ignore_expire %}1{% else %}0{% endif %}
+max_age_days: {{ max_age_days }}
+
+# Mirroring & fallback
+remap_debian: {{ remap_debian }}
+remap_ubuntu: {{ remap_ubuntu }}
+remap_backports: {{ remap_backports }}
+remap_security: {{ remap_security }}
+
+# Compression
+compression: {% if compression %}1{% else %}0{% endif %}
+compression_type: {{ compression_type }}
+
+# Proxy settings (optional upstream proxy)
+{% if upstream_proxy %}upstream_proxy: {{ upstream_proxy }}
+{% endif %}upstream_proxy_auth: {{ upstream_proxy_auth }}
+
+# Per-arch or per-suite filtering (optional — list-based)
+{% if exclusions %}# Exclusion rules: skip caching for these patterns (glob-style)
+{% for exclusion in exclusions %}exclusion: {{ exclusion.pattern }}{% if exclusion.description %} # {{ exclusion.description }}{% endif %}
+{% endfor %}{% endif %}
+
+# Per-repo overrides (optional — list-based)
+{% if repo_overrides %}# Per-repository override settings
+{% for override in repo_overrides %}# {{ override.name }} (enabled: {{ 'yes' if override.enabled else 'no' }})
+{% if override.base_url %}remap_{{ override.name }}: {{ override.base_url }}
+{% endif %}{% if override.suite_map %}suite_map_{{ override.name }}: {{ override.suite_map }}
+{% endif %}{% if override.arch_map %}arch_map_{{ override.name }}: {{ override.arch_map }}
+{% endif %}{% endfor %}{% endif %}

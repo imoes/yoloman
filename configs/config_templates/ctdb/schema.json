@@ -1,0 +1,146 @@
+{
+  "nodes_file": {
+    "type": "string",
+    "default": "/etc/ctdb/nodes",
+    "description": "Absolute path to the file containing one node IP per line. Each line must be an IPv4 or IPv6 address."
+  },
+  "public_interfaces": {
+    "type": "list",
+    "default": [
+      "eth0"
+    ],
+    "description": "List of network interface names used for public IP addresses (client-facing traffic)."
+  },
+  "private_interface": {
+    "type": "string",
+    "default": "eth1",
+    "description": "Network interface used for internal cluster communication (heartbeats, TDB replication, etc.)."
+  },
+  "locking_method": {
+    "type": "string",
+    "default": "tdb",
+    "description": "Locking backend: 'file' (legacy, less reliable) or 'tdb' (default, embedded database with better concurrency)."
+  },
+  "recovery_manager": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable centralized recovery coordination (prevents split-brain). Must be true in production."
+  },
+  "recovery_timeout": {
+    "type": "number",
+    "default": 60,
+    "description": "Maximum seconds to wait for recovery operations to complete before triggering a node failure."
+  },
+  "node_health_check_interval": {
+    "type": "number",
+    "default": 5,
+    "description": "Seconds between health pings to other nodes. Lower values detect failures faster but increase overhead."
+  },
+  "node_health_check_max_latency": {
+    "type": "number",
+    "default": 30,
+    "description": "Seconds of unresponsiveness before a node is declared unhealthy and failover may trigger."
+  },
+  "recovery_strategy": {
+    "type": "string",
+    "default": "balanced",
+    "description": "Recovery behavior: 'balanced' (distribute load evenly) or 'manual' (manual failover only)."
+  },
+  "log_level": {
+    "type": "string",
+    "default": "WARNING",
+    "description": "Verbosity of CTDB logs. Use 'DEBUG' only for troubleshooting."
+  },
+  "log_file": {
+    "type": "string",
+    "default": "/var/log/ctdb/ctdb.log",
+    "description": "Absolute path for CTDB log file (requires directory to exist with proper permissions)."
+  },
+  "transport": {
+    "type": "string",
+    "default": "tcp",
+    "description": "Network transport for inter-node communication: 'tcp' (default), 'rdma' (low-latency), or 'both' (experimental)."
+  },
+  "socket_reuse_port": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable SO_REUSEPORT for TCP listening sockets \u2014 improves performance on multi-core systems."
+  },
+  "tcp_no_delay": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable TCP_NODELAY to disable Nagle\u2019s algorithm \u2014 reduces latency (recommended)."
+  },
+  "tcp_backlog": {
+    "type": "number",
+    "default": 128,
+    "description": "TCP listen() backlog size \u2014 increase under very high connection rates."
+  },
+  "workers_per_ip": {
+    "type": "number",
+    "default": 0,
+    "description": "Worker threads per public IP. Set to 0 (auto) to match number of CPU cores. Set >0 for manual control."
+  },
+  "public_addresses": {
+    "type": "list",
+    "default": [],
+    "description": "List of public IP address blocks assigned to clients (e.g., for virtual IP failover). Each item defines one IP/prefix/interface.",
+    "items": {
+      "ip": {
+        "type": "string",
+        "description": "IPv4 or IPv6 address (e.g., '192.168.1.10')",
+        "default": ""
+      },
+      "prefixlen": {
+        "type": "number",
+        "description": "Subnet mask length in CIDR notation (e.g., 24 for 255.255.255.0)",
+        "default": 24
+      },
+      "interface": {
+        "type": "string",
+        "description": "Network interface name (e.g., 'eth0')",
+        "default": "eth0"
+      }
+    }
+  },
+  "enable_ha": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable high-availability mode (required for public IP management and failover)."
+  },
+  "service_check_script": {
+    "type": "string",
+    "default": "/usr/lib/ctdb/helpers/ctdb_service_check",
+    "description": "Absolute path to script that checks if local services (e.g., Samba) are healthy. Return 0 if OK."
+  },
+  "failover_delay": {
+    "type": "number",
+    "default": 10,
+    "description": "Seconds to wait after a service health check fails before initiating failover (prevents flapping)."
+  },
+  "database_cache_size": {
+    "type": "number",
+    "default": 1000,
+    "description": "Number of database records to cache in memory per node. Increase for workloads with many small records."
+  },
+  "queue_depth": {
+    "type": "number",
+    "default": 100,
+    "description": "Maximum pending operations per database. Increase under high concurrency to avoid backpressure."
+  },
+  "remote_tdb_timeout": {
+    "type": "number",
+    "default": 30,
+    "description": "Seconds before remote TDB operations (e.g., locks) are considered failed."
+  },
+  "use_sasl": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable SASL authentication for inter-node communication (advanced \u2014 requires SASL setup)."
+  },
+  "sasl_config_path": {
+    "type": "string",
+    "default": "/etc/ctdb/sasl.conf",
+    "description": "Path to SASL configuration file if SASL is enabled. Must be identical across all nodes."
+  }
+}

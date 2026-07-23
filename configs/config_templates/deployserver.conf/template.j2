@@ -1,0 +1,71 @@
+# Debian-Edu DeployServer configuration
+# This file configures the Debian-Edu DeployServer, used to automate diskless workstation deployment via PXE/DHCP/TFTP
+
+[server]
+# Hostname or IP address of the DeployServer
+host = {{ server.host }}
+# Port for the HTTP service (used for file downloads)
+http_port = {{ server.http_port }}
+# Base directory for deployment files (e.g., ISOs, kernels, initrds)
+base_dir = {{ server.base_dir }}
+# Enable or disable SSL/TLS (requires valid certificates in /etc/debian-edu-router/ssl)
+ssl_enabled = {{ server.ssl_enabled }}
+# Port for HTTPS (only used if ssl_enabled is true)
+https_port = {{ server.https_port }}
+
+[pxe]
+# Enable PXE boot support
+enabled = {{ pxe.enabled }}
+# TFTP server root directory
+root = {{ pxe.root }}
+# Default boot timeout (in seconds)
+timeout = {{ pxe.timeout }}
+# Default kernel command-line arguments
+kernel_args = {{ pxe.kernel_args | join(' ') }}
+# List of supported boot profiles (each defines a named boot entry)
+{% for profile in pxe.profiles %}
+profile_{{ profile.name }} = {{ profile.kernel }},{{ profile.initrd }},{{ profile.cmdline | join(' ') }}
+{% endfor %}
+
+[dhcp]
+# Enable embedded DHCP server for PXE boot
+enabled = {{ dhcp.enabled }}
+# Network interface to bind DHCP to (e.g., eth0)
+interface = {{ dhcp.interface }}
+# Subnet and netmask (CIDR notation, e.g., 10.0.0.0/24)
+network = {{ dhcp.network }}
+# Gateway IP for leased clients
+gateway = {{ dhcp.gateway }}
+# DNS server(s) to advertise
+{% for dns in dhcp.dns_servers %}
+dns_{{ loop.index }} = {{ dns }}
+{% endfor %}
+# IP range for dynamic assignment (start and end IPs, inclusive)
+ip_start = {{ dhcp.ip_start }}
+ip_end = {{ dhcp.ip_end }}
+# Maximum lease time (in seconds)
+max_lease_time = {{ dhcp.max_lease_time }}
+
+[logging]
+# Logging level: DEBUG, INFO, WARNING, ERROR, CRITICAL
+level = {{ logging.level }}
+# Path to log file (empty string disables file logging)
+logfile = {{ logging.logfile }}
+
+[workstation]
+# Default workstation profile to apply during deployment
+default_profile = {{ workstation.default_profile }}
+# List of workstation profiles (used for customizing deployments)
+{% for profile in workstation.profiles %}
+[profile:{{ profile.name }}]
+# Name of the profile
+name = {{ profile.name }}
+# Root filesystem image (absolute path)
+rootfs = {{ profile.rootfs }}
+# Optional: additional packages to install
+{% if profile.packages %}
+packages = {{ profile.packages | join(',') }}
+{% endif %}
+# Optional: custom post-install script (absolute path or inline command)
+post_install = {{ profile.post_install }}
+{% endfor %}

@@ -1,0 +1,91 @@
+# fwknopd server configuration
+# /etc/fwknop/server.conf
+
+##
+# Network packet capture
+##
+
+# Network interface on which fwknopd sniffs for incoming SPA packets
+PCAP_INTF               {{ pcap_intf }};
+
+# libpcap BPF filter expression; limits capture to SPA traffic only
+PCAP_FILTER             {{ pcap_filter }};
+
+# Put the capture interface into promiscuous mode (rarely needed for SPA)
+ENABLE_PCAP_PROMISC     {{ 'Y' if enable_pcap_promisc else 'N' }};
+
+# Microseconds to sleep between pcap_loop iterations (100000 = 0.1 s)
+PCAP_LOOP_SLEEP         {{ pcap_loop_sleep }};
+
+# Maximum bytes inspected per captured packet; 1500 covers any SPA payload
+MAX_SNIFF_BYTES         {{ max_sniff_bytes }};
+
+##
+# SPA packet validation
+##
+
+# Reject SPA packets whose embedded timestamp is older than this many seconds
+MAX_SPA_PACKET_AGE      {{ max_spa_packet_age }};
+
+# Enforce the timestamp age check; disable only for offline testing
+ENABLE_SPA_PACKET_AGING {{ 'Y' if enable_spa_packet_aging else 'N' }};
+
+# Persist seen packet digests to disk so replay protection survives restarts
+ENABLE_DIGEST_PERSISTENCE {{ 'Y' if enable_digest_persistence else 'N' }};
+
+# Absolute path to the file storing SPA packet digest history
+DIGEST_FILE             {{ digest_file }};
+
+##
+# Optional transport modes
+##
+
+# Accept SPA payloads embedded in HTTP request bodies (requires matching client option)
+ENABLE_SPA_OVER_HTTP    {{ 'Y' if enable_spa_over_http else 'N' }};
+
+# Run a decoy TCP listener that silently drops connections (port-knock camouflage)
+ENABLE_TCP_SERVER       {{ 'Y' if enable_tcp_server else 'N' }};
+
+# TCP port the decoy listener binds on; active only when ENABLE_TCP_SERVER = Y
+TCPSERV_PORT            {{ tcpserv_port }};
+
+{% if gpg_home_dir %}
+##
+# GPG asymmetric decryption
+##
+
+# GnuPG home directory containing the server private key for asymmetric SPA decryption
+GPG_HOME_DIR            {{ gpg_home_dir }};
+{% endif %}
+
+##
+# iptables firewall backend
+##
+
+# Allow fwknopd to manage FORWARD chain rules (required for VPN gateways / routed setups)
+ENABLE_IPT_FORWARDING   {{ 'Y' if enable_ipt_forwarding else 'N' }};
+
+# Allow DNAT rules that redirect inbound traffic to a local service
+ENABLE_IPT_LOCAL_NAT    {{ 'Y' if enable_ipt_local_nat else 'N' }};
+
+# Also insert OUTPUT chain rules when granting a client access
+ENABLE_IPT_OUTPUT       {{ 'Y' if enable_ipt_output else 'N' }};
+
+# Insert a RELATED,ESTABLISHED conntrack rule in INPUT for clean TCP session teardown
+ENABLE_IPT_CONNTRACK_INPUT {{ 'Y' if enable_ipt_conntrack_input else 'N' }};
+
+##
+# Process and logging
+##
+
+# Absolute path where fwknopd writes its PID file
+PID_FILE                {{ pid_file }};
+
+# Program name tag that appears in syslog / journald entries
+SYSLOG_IDENTITY         {{ syslog_identity }};
+
+# Syslog facility for daemon log messages (LOG_DAEMON, LOG_LOCAL0 ... LOG_LOCAL7)
+SYSLOG_FACILITY         {{ syslog_facility }};
+
+# Logging verbosity: 0 = normal, 1 = verbose SPA detail, 2+ = full debug
+VERBOSE                 {{ verbose }};

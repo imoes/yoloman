@@ -1,0 +1,66 @@
+# /etc/ident2/ident2.conf
+# ident2 — Advanced Ident Daemon (RFC 1413)
+
+# TCP port the daemon listens on; RFC 1413 standard is 113
+port = {{ port }}
+
+# IP address to bind to; 0.0.0.0 = all IPv4 interfaces
+address = {{ bind_address }}
+
+# Drop privileges to this user after binding to the privileged port
+user = {{ user }}
+
+# Drop privileges to this group after binding
+group = {{ group }}
+
+# Write daemon PID here so init/systemd can supervise the process
+pidfile = {{ pid_file }}
+
+# Close idle client connections after this many seconds
+timeout = {{ timeout }}
+
+# Maximum simultaneous ident connections; excess are queued or dropped
+maxconnections = {{ max_connections }}
+
+# OS type string embedded in every ident reply (RFC 1413 §2.7)
+os-type = {{ os_type }}
+
+# Log verbosity: error | warn | info | debug
+loglevel = {{ log_level }}
+
+{% if use_syslog %}
+# Route log output through syslog
+syslog = yes
+{% else %}
+# Write log output to this file when syslog is disabled
+logfile = {{ log_file }}
+{% endif %}
+
+# How to answer ident queries:
+#   real       — return the actual local username
+#   masquerade — return a fixed fake name (see masquerade-name below)
+#   noident    — return RFC NOIDENT for every query
+#   error      — return ERROR:UNKNOWN-ERROR
+mode = {{ response_mode }}
+
+{% if response_mode == 'masquerade' %}
+# Username returned for all queries in masquerade mode
+masquerade-name = {{ masquerade_name }}
+{% endif %}
+
+# Open an IPv6 listener in addition to the IPv4 listener
+ipv6 = {{ 'yes' if enable_ipv6 else 'no' }}
+
+{% if deny_rules %}
+# Deny ident queries from these networks (evaluated before allow rules)
+{% for rule in deny_rules %}
+deny = {{ rule.network }}
+{% endfor %}
+{% endif %}
+
+{% if allow_rules %}
+# Allow ident queries only from these networks; empty = allow all
+{% for rule in allow_rules %}
+allow = {{ rule.network }}
+{% endfor %}
+{% endif %}

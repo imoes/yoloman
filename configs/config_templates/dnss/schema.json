@@ -1,0 +1,173 @@
+{
+  "listen_address": {
+    "type": "string",
+    "default": "127.0.0.1",
+    "description": "Local IP address the DNS-over-HTTPS proxy binds to."
+  },
+  "listen_port": {
+    "type": "number",
+    "default": 53,
+    "description": "Local port to accept standard DNS queries (typically 53 for UDP/TCP)."
+  },
+  "upstream_resolvers": {
+    "type": "list",
+    "default": [],
+    "description": "List of DoH resolvers to forward queries to (supports multiple for fallback).",
+    "items": {
+      "name": {
+        "type": "string",
+        "description": "Human-readable name for the resolver (e.g., 'Cloudflare', 'Google')."
+      },
+      "url": {
+        "type": "string",
+        "description": "DoH endpoint URL (e.g., 'https://dns.google/dns-query')."
+      },
+      "bootstrap": {
+        "type": "string",
+        "default": "",
+        "description": "Optional bootstrap DNS IP (e.g., '8.8.8.8') to resolve the resolver's hostname."
+      },
+      "timeout": {
+        "type": "number",
+        "default": 10,
+        "description": "Request timeout in seconds for this resolver."
+      },
+      "prefer_ipv6": {
+        "type": "bool",
+        "default": false,
+        "description": "Whether to prefer IPv6 for backend connections to this resolver."
+      }
+    }
+  },
+  "logging": {
+    "type": "object",
+    "default": {
+      "enabled": false,
+      "path": "/var/log/dnss/queries.log",
+      "format": "json",
+      "max_age_days": 7,
+      "max_size_mb": 100
+    },
+    "description": "Settings for logging DNS queries.",
+    "fields": {
+      "enabled": {
+        "type": "bool",
+        "description": "Enable or disable query logging."
+      },
+      "path": {
+        "type": "string",
+        "description": "File path for the log file."
+      },
+      "format": {
+        "type": "string",
+        "enum": [
+          "json",
+          "logfmt"
+        ],
+        "description": "Log output format (JSON or logfmt)."
+      },
+      "max_age_days": {
+        "type": "number",
+        "description": "Maximum age (in days) before log rotation purges old entries."
+      },
+      "max_size_mb": {
+        "type": "number",
+        "description": "Maximum log file size (in MB) before rotation."
+      }
+    }
+  },
+  "rate_limit": {
+    "type": "object",
+    "default": {
+      "enabled": true,
+      "requests_per_minute": 60,
+      "burst_size": 10,
+      "whitelist": [
+        "127.0.0.1",
+        "::1"
+      ]
+    },
+    "description": "Rate-limiting rules per client IP to prevent abuse.",
+    "fields": {
+      "enabled": {
+        "type": "bool",
+        "description": "Enable rate limiting."
+      },
+      "requests_per_minute": {
+        "type": "number",
+        "description": "Max number of queries allowed per minute per client IP."
+      },
+      "burst_size": {
+        "type": "number",
+        "description": "Maximum burst (extra queries) before throttling kicks in."
+      },
+      "whitelist": {
+        "type": "list",
+        "description": "List of IPs/subnets exempt from rate limiting."
+      }
+    }
+  },
+  "cache": {
+    "type": "object",
+    "default": {
+      "enabled": true,
+      "size_mb": 64,
+      "min_ttl": 60,
+      "max_ttl": 86400
+    },
+    "description": "In-memory DNS caching configuration.",
+    "fields": {
+      "enabled": {
+        "type": "bool",
+        "description": "Enable caching."
+      },
+      "size_mb": {
+        "type": "number",
+        "description": "Max cache size in megabytes."
+      },
+      "min_ttl": {
+        "type": "number",
+        "description": "Minimum cache TTL in seconds (overrides low TTL values)."
+      },
+      "max_ttl": {
+        "type": "number",
+        "description": "Maximum cache TTL in seconds (caps high TTL values)."
+      }
+    }
+  },
+  "security": {
+    "type": "object",
+    "default": {
+      "block_malicious": true,
+      "block_list_urls": [
+        "https://raw.githubusercontent.com/StevenBlack/hosts/master/hosts"
+      ],
+      "dnssec": true,
+      "edns_client_subnet": false
+    },
+    "description": "Security hardening options.",
+    "fields": {
+      "block_malicious": {
+        "type": "bool",
+        "description": "Block queries to known malicious domains using blocklists."
+      },
+      "block_list_urls": {
+        "type": "list",
+        "description": "List of URLs to fetch malicious domain blocklists from (supports static hosts or plain domain lists)."
+      },
+      "dnssec": {
+        "type": "bool",
+        "description": "Enable DNSSEC validation."
+      },
+      "edns_client_subnet": {
+        "type": "bool",
+        "description": "Forward client subnet info to upstream resolver (use cautiously for privacy)."
+      }
+    }
+  },
+  "tcp_idle_timeout": {
+    "type": "number",
+    "default": 120,
+    "description": "Idle timeout (in seconds) for persistent TCP connections to upstream resolvers."
+  }
+}

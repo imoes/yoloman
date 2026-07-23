@@ -1,0 +1,58 @@
+# ferm (firewall manager) main configuration file
+# Load required modules
+{% for module in modules %}@module {{ module }}
+{% endfor %# Define default policies
+{% if default_input_policy %}INPUT {{ default_input_policy }}
+{% endif %}
+{% if default_output_policy %}OUTPUT {{ default_output_policy }}
+{% endif %}
+{% if default_forward_policy %}FORWARD {{ default_forward_policy }}
+{% endif %# Define chains and rules
+{% for chain in chains %}
+{% if chain.comment %}# {{ chain.comment }}
+{% endif %}
+{% if chain.table %}table {{ chain.table }} {
+{% endif %}
+{% if chain.chain %}chain {{ chain.chain }} {
+{% endif %}
+{% for rule in chain.rules %}  {{ rule }}
+{% endfor %}
+{% if chain.chain %}}
+{% endif %}
+{% if chain.table %}}
+{% endif %}
+{% endfor %# Define domain-specific rules (e.g., SSH, HTTP, ICMP)
+{% for service in services %}
+{% if service.comment %}# {{ service.comment }}
+{% endif %}
+{% if service.name == 'ssh' %}
+# Accept incoming SSH connections (port {{ service.port }})
+INPUT [ {{ service.daddr|default('0.0.0.0/0') }} ] TCP dport {{ service.port }} ACCEPT
+{% elif service.name == 'http' %}
+# Accept incoming HTTP connections (port {{ service.port }})
+INPUT [ {{ service.daddr|default('0.0.0.0/0') }} ] TCP dport {{ service.port }} ACCEPT
+{% elif service.name == 'https' %}
+# Accept incoming HTTPS connections (port {{ service.port }})
+INPUT [ {{ service.daddr|default('0.0.0.0/0') }} ] TCP dport {{ service.port }} ACCEPT
+{% elif service.name == 'icmp' %}
+# Allow ICMP echo requests (ping)
+INPUT ICMP type echo-request ACCEPT
+{% elif service.name == 'custom' %}
+# Custom service: {{ service.name|default('unnamed') }}
+{% for rule in service.rules %}  {{ rule }}
+{% endfor %}{% endif %}
+{% endfor %# Load helper modules & final policies
+{% if load_modules %}# Load additional helper modules
+{% for mod in load_modules %}@load {{ mod }}
+{% endfor %}
+{% endif %}
+{% if drop_invalid %}# Drop invalid packets (stateful inspection)
+INPUT DROP # { invalid }
+{% endif %}
+# Final default policies
+{% if final_policy_input %}INPUT {{ final_policy_input }}
+{% endif %}
+{% if final_policy_output %}OUTPUT {{ final_policy_output }}
+{% endif %}
+{% if final_policy_forward %}FORWARD {{ final_policy_forward }}
+{% endif %}

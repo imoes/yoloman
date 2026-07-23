@@ -1,0 +1,69 @@
+# Listen address and port for the local DNS-over-HTTPS proxy
+listen: "{{ listen_address }}:{{ listen_port }}"
+
+# Upstream DoH resolvers to use (in order of preference)
+{% for resolver in upstream_resolvers %}
+# Resolver: {{ resolver.name }}
+upstream: {
+  url: "{{ resolver.url }}"
+  {% if resolver.bootstrap %}bootstrap: "{{ resolver.bootstrap }}"{% endif %}
+  {% if resolver.timeout %}timeout: {{ resolver.timeout }}{% endif %}
+  {% if resolver.prefer_ipv6 %}prefer_ipv6: true{% else %}prefer_ipv6: false{% endif %}
+}
+{% endfor %}
+
+# DNS query logging settings
+{% if logging.enabled %}# Enable query logging
+log_queries: true
+log_path: "{{ logging.path }}"
+log_format: "{{ logging.format }}"
+log_max_age: {{ logging.max_age_days }}
+log_max_size_mb: {{ logging.max_size_mb }}
+{% else %}# Query logging disabled
+log_queries: false
+{% endif %}
+
+# Rate limiting (requests per source IP per minute)
+{% if rate_limit.enabled %}# Enable rate limiting
+rate_limit: {
+  enabled: true
+  requests_per_minute: {{ rate_limit.requests_per_minute }}
+  burst_size: {{ rate_limit.burst_size }}
+  whitelist: [ {{ rate_limit.whitelist | join(', ') }} ]
+}
+{% else %}# Rate limiting disabled
+rate_limit: {
+  enabled: false
+}
+{% endif %}
+
+# Cache settings
+cache: {
+  enabled: {{ cache.enabled }}
+  size_mb: {{ cache.size_mb }}
+  min_ttl: {{ cache.min_ttl }}
+  max_ttl: {{ cache.max_ttl }}
+}
+
+# Security hardening
+{% if security.block_malicious %}# Block known malicious domains
+block_malicious: true
+block_list_urls: [
+  {{- "\"" + "\", \"".join(security.block_list_urls) + "\"" -}}
+]
+{% else %}# Malicious domain blocking disabled
+block_malicious: false
+{% endif %}
+
+# DNSSEC validation
+{% if security.dnssec %}# Enable DNSSEC validation
+dnssec: true
+{% else %}# DNSSEC validation disabled
+dnssec: false
+{% endif %}
+
+# EDNS Client Subnet (ECS) behavior
+edns_client_subnet: {{ security.edns_client_subnet }}
+
+# Minimum and maximum TCP connection idle timeout (in seconds)
+tcp_idle_timeout: {{ tcp_idle_timeout }}
