@@ -347,7 +347,7 @@ func Default() Config {
 		MaxUploadSize: 512 * 1024 * 1024,
 		Mode:          "standalone",
 		Proxy:         Proxy{SatellitesPath: "/var/lib/agentic-mcp/satellites.db"},
-		Collect:       Collect{Enabled: true, Interval: Duration(30 * time.Second), Docker: true, DockerSocket: "/var/run/docker.sock", Services: true},
+		Collect:       Collect{Enabled: true, Interval: Duration(60 * time.Second), Docker: true, DockerSocket: "/var/run/docker.sock", Services: true},
 	}
 }
 

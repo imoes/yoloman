@@ -421,7 +421,7 @@ func startCollectLoop(cfg config.Config, st store.Store, checkReg *collect.Check
 	}
 	interval := cfg.Collect.Interval.Duration()
 	if interval <= 0 {
-		interval = 30 * time.Second
+		interval = 60 * time.Second
 	}
 	// Block C2b: a stateful CPU-utilization meter — busy% needs a jiffy delta
 	// across ticks, so it lives here (not in the pure Sample()) and is primed
