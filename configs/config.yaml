@@ -34,6 +34,18 @@ tls:
 ebpf:
   enabled: true
 
+# Periodic OS-metric sampler. interval is the sample cadence AND the stored
+# resolution (the agent buffers points at this rate; Bossman ingests all of
+# them). 60s keeps the metrics table an order of magnitude smaller than 30s.
+# psi: per-service pressure-stall metrics are OFF — extremely high-cardinality
+# (~18 series/service) and no Bossman feature consumes them (coroot-parity).
+collect:
+  enabled: true
+  interval: 60s
+  services: true
+  docker: true
+  psi: false
+
 db:
   driver: sqlite
   path: /var/lib/agentic-mcp/agentic-mcp.db
