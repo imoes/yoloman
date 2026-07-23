@@ -78,14 +78,31 @@ async def run_housekeeping(session: AsyncSession, settings: Settings, now: datet
     # matched. This is the CONTROL-PLANE cleanup: Postgres holds the real
     # long-term data (the agent keeps only a short-lived local copy it serves
     # from), so the lifecycle of this data belongs here, next to retention.
+    # Only delete from UNCOMPRESSED chunks. TimescaleDB raises
+    # "tuple decompression limit exceeded" when a DML touches a compressed
+    # row group. Compressed chunks are dropped by the 2-day retention policy
+    # anyway; stale dead-(pid,comm) series only need pruning from the current
+    # uncompressed chunk (today's live data written since the last compression).
     stale_cutoff = now - timedelta(minutes=settings.process_metric_stale_minutes)
     res = await session.execute(
         text(
             """
             DELETE FROM metrics
-            WHERE (agent_id, metric, labels) IN (
-                SELECT agent_id, metric, labels FROM metrics
+            WHERE time >= (
+                SELECT COALESCE(min(range_start), 'epoch'::timestamptz)
+                FROM timescaledb_information.chunks
+                WHERE hypertable_name = 'metrics' AND is_compressed = false
+            )
+              AND metric IN ('process_cpu_percent', 'process_rss_bytes')
+              AND (agent_id, metric, labels) IN (
+                SELECT agent_id, metric, labels
+                FROM metrics
                 WHERE metric IN ('process_cpu_percent', 'process_rss_bytes')
+                  AND time >= (
+                    SELECT COALESCE(min(range_start), 'epoch'::timestamptz)
+                    FROM timescaledb_information.chunks
+                    WHERE hypertable_name = 'metrics' AND is_compressed = false
+                  )
                 GROUP BY agent_id, metric, labels
                 HAVING max(time) < :cutoff
               )

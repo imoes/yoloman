@@ -43,8 +43,7 @@ expressed in them.
 
 ### Starlark for logic — "like Ansible, but it runs sandboxed inside the agent"
 
-The built-in modules are native Go. But the *extended* vocabulary — every Ansible collection module
-we translate, every Checkmk check, every custom check — is written in **[Starlark](https://github.com/bazelbuild/starlark)**,
+The built-in modules are native Go. But the *extended* vocabulary — every custom check and module — is written in **[Starlark](https://github.com/bazelbuild/starlark)**,
 the small Python dialect from Bazel. Why not just run Python, or shell?
 
 - **It's a sandbox by construction.** Starlark has no `import`, no filesystem, no network, no
