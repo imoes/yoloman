@@ -113,6 +113,10 @@ type Collect struct {
 	// no-op on hosts without a system.slice cgroup.
 	Services   bool   `yaml:"services"`
 	CgroupRoot string `yaml:"cgroup_root"`
+	// PSI enables the high-cardinality per-service pressure-stall metrics
+	// (service_*_pressure_*). Off by default — no Bossman feature consumes them
+	// and they dominated the metrics DB (~57% of rows). coroot-parity only.
+	PSI bool `yaml:"psi"`
 }
 
 // CheckSpec is one externally configured check: an argv to run via

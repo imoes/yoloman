@@ -6,7 +6,7 @@ import (
 )
 
 func TestServiceCollector_CgroupV2(t *testing.T) {
-	c := NewServiceCollector("testdata/cgroup2")
+	c := NewServiceCollector("testdata/cgroup2", true)
 	points, err := c.Sample(time.Now())
 	if err != nil {
 		t.Fatalf("Sample: %v", err)
@@ -43,7 +43,7 @@ func TestServiceCollector_CgroupV2(t *testing.T) {
 
 func TestServiceCollector_NoCgroup(t *testing.T) {
 	// A host without the tree returns no points and no error.
-	c := NewServiceCollector("testdata/does-not-exist")
+	c := NewServiceCollector("testdata/does-not-exist", true)
 	points, err := c.Sample(time.Now())
 	if err != nil {
 		t.Fatalf("Sample: %v", err)

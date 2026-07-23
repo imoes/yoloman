@@ -25,15 +25,21 @@ import (
 type ServiceCollector struct {
 	// CgroupRoot is the cgroup mount (default /sys/fs/cgroup).
 	CgroupRoot string
+	// PSI gates per-service pressure-stall metrics (service_*_pressure_*). These
+	// are extremely high-cardinality (kind[some|full] × window[10s|60s|300s] ×
+	// cpu/memory/io per cgroup-service → ~18 series/service) and no Bossman
+	// feature consumes them — they were added for coroot parity. Off by default;
+	// they dominated the metrics table (~57% of rows) for no display value.
+	PSI bool
 }
 
 // NewServiceCollector returns a collector over the given cgroup root (empty →
-// /sys/fs/cgroup).
-func NewServiceCollector(cgroupRoot string) *ServiceCollector {
+// /sys/fs/cgroup). psi enables the high-cardinality PSI metrics (default off).
+func NewServiceCollector(cgroupRoot string, psi bool) *ServiceCollector {
 	if cgroupRoot == "" {
 		cgroupRoot = "/sys/fs/cgroup"
 	}
-	return &ServiceCollector{CgroupRoot: cgroupRoot}
+	return &ServiceCollector{CgroupRoot: cgroupRoot, PSI: psi}
 }
 
 // Sample returns per-service metric points at time now.
@@ -75,16 +81,19 @@ func (s *ServiceCollector) sampleV2(now time.Time) []store.Point {
 				store.Point{Metric: "service_io_write_bytes_total", Timestamp: now, Value: float64(w), Labels: labels},
 			)
 		}
-		// PSI (pressure stall) + CPU throttling — coroot-style saturation signals.
-		// Best-effort (v2-only, needs PSI compiled in); skipped silently otherwise.
-		if some, full, ok := readPSI(filepath.Join(dir, "cpu.pressure")); ok {
-			points = append(points, psiPoints("service_cpu_pressure", labels, now, some, full)...)
-		}
-		if some, full, ok := readPSI(filepath.Join(dir, "memory.pressure")); ok {
-			points = append(points, psiPoints("service_memory_pressure", labels, now, some, full)...)
-		}
-		if some, full, ok := readPSI(filepath.Join(dir, "io.pressure")); ok {
-			points = append(points, psiPoints("service_io_pressure", labels, now, some, full)...)
+		// PSI (pressure stall) — coroot-style saturation signals, gated off by
+		// default: ~18 series/service, no Bossman feature consumes them, and they
+		// dominated the metrics table (~57% of rows). Enable via collect.psi.
+		if s.PSI {
+			if some, full, ok := readPSI(filepath.Join(dir, "cpu.pressure")); ok {
+				points = append(points, psiPoints("service_cpu_pressure", labels, now, some, full)...)
+			}
+			if some, full, ok := readPSI(filepath.Join(dir, "memory.pressure")); ok {
+				points = append(points, psiPoints("service_memory_pressure", labels, now, some, full)...)
+			}
+			if some, full, ok := readPSI(filepath.Join(dir, "io.pressure")); ok {
+				points = append(points, psiPoints("service_io_pressure", labels, now, some, full)...)
+			}
 		}
 		if periods, throttled, usec, ok := readCPUThrottle(filepath.Join(dir, "cpu.stat")); ok {
 			points = append(points,

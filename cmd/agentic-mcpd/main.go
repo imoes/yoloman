@@ -455,7 +455,7 @@ func startCollectLoop(cfg config.Config, st store.Store, checkReg *collect.Check
 	// when disabled). No-op on hosts without a system.slice cgroup.
 	var serviceCollector *collect.ServiceCollector
 	if cfg.Collect.Services {
-		serviceCollector = collect.NewServiceCollector(cfg.Collect.CgroupRoot)
+		serviceCollector = collect.NewServiceCollector(cfg.Collect.CgroupRoot, cfg.Collect.PSI)
 	}
 	runOnce := func() {
 		now := time.Now()

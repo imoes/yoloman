@@ -98,7 +98,7 @@ func TestContainerCgroupPath(t *testing.T) {
 }
 
 func TestServiceCollector_PressureAndThrottle(t *testing.T) {
-	c := NewServiceCollector("testdata/cgroup2")
+	c := NewServiceCollector("testdata/cgroup2", true)
 	points, err := c.Sample(time.Now())
 	if err != nil {
 		t.Fatalf("Sample: %v", err)
