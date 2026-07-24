@@ -1,4 +1,5 @@
-{# Nginx upstream definitions #}
+{# nginx server block (one site). The whole file is rendered from values —
+   never hand-edited. TLS terminates here when tls_enabled. #}
 {% for upstream in upstreams %}
 upstream {{ upstream.name }} {
 {% for server in upstream.servers %}
@@ -6,39 +7,47 @@ upstream {{ upstream.name }} {
 {% endfor %}
 }
 {% endfor %}
-
+{% if tls_enabled and redirect_to_https %}
+# HTTP -> HTTPS redirect (own server block)
 server {
-  # Basic server configuration
+  listen 80;
+{% if listen_ipv6 %}
+  listen [::]:80;
+{% endif %}
+  server_name {{ server_name }};
+  return 301 https://{{ server_name }}$request_uri;
+}
+{% endif %}
+server {
+{% if tls_enabled %}
+  listen 443 ssl;
+{% if listen_ipv6 %}
+  listen [::]:443 ssl;
+{% endif %}
+{% if http2|default(true) %}
+  http2 on;
+{% endif %}
+  ssl_certificate {{ ssl_certificate }};
+  ssl_certificate_key {{ ssl_certificate_key }};
+  ssl_protocols {{ ssl_protocols|default('TLSv1.2 TLSv1.3') }};
+{% if ssl_ciphers|default('') %}
+  ssl_ciphers {{ ssl_ciphers }};
+  ssl_prefer_server_ciphers off;
+{% endif %}
+{% if hsts|default(false) %}
+  add_header Strict-Transport-Security "max-age=63072000; includeSubDomains" always;
+{% endif %}
+{% else %}
   listen {{ listen_port }};
-  {% if listen_ipv6 %}
+{% if listen_ipv6 %}
   listen [::]:{{ listen_port }};
-  {% endif %}
+{% endif %}
+{% endif %}
   server_name {{ server_name }};
 
-  # Document root
   root {{ root }};
   index index.html index.htm;
 
-  # Optional TLS configuration
-  {% if tls_enabled %}
-  listen 443 ssl;
-  {% if listen_ipv6 %}
-  listen [::]:443 ssl;
-  {% endif %}
-  ssl_certificate {{ ssl_certificate }};
-  ssl_certificate_key {{ ssl_certificate_key }};
-  ssl_protocols TLSv1.2 TLSv1.3;
-  ssl_ciphers ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256;
-  ssl_prefer_server_ciphers on;
-  {% endif %}
-
-  # Optional redirect (HTTP to HTTPS)
-  {% if redirect_to_https %}
-  listen 80;
-  return 301 https://{{ server_name }}$request_uri;
-  {% endif %}
-
-  # Location blocks
 {% for loc in locations %}
   location {{ loc.path }} {
 {% if loc.proxy_pass %}
@@ -52,9 +61,7 @@ server {
 {% endif %}
   }
 {% endfor %}
-
-  # Optional extra server-level parameters
-  {% if extra_server_parameters %}
+{% if extra_server_parameters %}
   {{ extra_server_parameters|indent(2) }}
-  {% endif %}
+{% endif %}
 }

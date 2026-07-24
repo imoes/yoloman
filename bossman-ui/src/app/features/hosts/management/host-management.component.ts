@@ -23,6 +23,7 @@ import { SambaComponent } from './packages/samba.component';
 import { PureFtpdComponent } from './packages/pure-ftpd.component';
 import { ProftpdComponent } from './packages/proftpd.component';
 import { CupsComponent } from './packages/cups.component';
+import { NginxSitesComponent } from './packages/nginx-sites.component';
 
 interface SnapIn { id: string; label: string; icon: string; category: string; }
 
@@ -42,6 +43,7 @@ interface SnapIn { id: string; label: string; icon: string; category: string; }
     HostLogsComponent, HostAccountsComponent, HostFreeipaComponent, HostStorageComponent,
     HostVirtComponent, RolesFeaturesComponent, ServiceChecksComponent, PackageConfigComponent, BindZonesComponent, NfsExportsComponent, DhcpdComponent,
     CronComponent, AptReposComponent, SambaComponent, PureFtpdComponent, ProftpdComponent, CupsComponent,
+    NginxSitesComponent,
   ],
   template: `
     <div class="bm-mmc">
@@ -81,6 +83,7 @@ interface SnapIn { id: string; label: string; icon: string; category: string; }
         @if (visited().has('pkg-pureftpd')) { <div [style.display]="show('pkg-pureftpd')"><app-pure-ftpd [agentId]="agentId()" /></div> }
         @if (visited().has('pkg-proftpd')) { <div [style.display]="show('pkg-proftpd')"><app-proftpd [agentId]="agentId()" /></div> }
         @if (visited().has('pkg-cups')) { <div [style.display]="show('pkg-cups')"><app-cups [agentId]="agentId()" /></div> }
+        @if (visited().has('pkg-nginx')) { <div [style.display]="show('pkg-nginx')"><app-nginx-sites [agentId]="agentId()" /></div> }
         @if (visited().has('cron')) { <div [style.display]="show('cron')"><app-cron [agentId]="agentId()" /></div> }
         @if (visited().has('apt-repos')) { <div [style.display]="show('apt-repos')"><app-apt-repos [agentId]="agentId()" /></div> }
         @for (p of pkgConfigs; track p.id) {
@@ -142,6 +145,7 @@ export class HostManagementComponent implements OnInit {
     'pkg-pureftpd': ['pure-ftpd'],
     'pkg-proftpd': ['proftpd-basic', 'proftpd'],
     'pkg-cups': ['cups', 'cups-daemon'],
+    'pkg-nginx': ['nginx', 'nginx-core', 'nginx-full', 'nginx-light', 'nginx-extras'],
   };
   private installedPkgs = signal<Set<string>>(new Set());
 
@@ -208,6 +212,11 @@ export class HostManagementComponent implements OnInit {
     { id: 'pkg-cups', label: 'CUPS printing', icon: 'print', category: 'Package configuration' },
   ];
 
+  // nginx gets a bespoke site (server-block) snapin: site list + schema-driven
+  // values form rendered through the nginx-vhost Class-B template (incl. TLS),
+  // not the generic codec editor (nginx block syntax has no codec).
+  private readonly nginxSnapin: SnapIn = { id: 'pkg-nginx', label: 'nginx sites', icon: 'public', category: 'Package configuration' };
+
   private allSnapins(): SnapIn[] {
     return [
       ...this.snapins,
@@ -216,6 +225,7 @@ export class HostManagementComponent implements OnInit {
       this.dhcpdSnapin,
       this.sambaSnapin,
       ...this.ftpCupsSnapins,
+      this.nginxSnapin,
       ...this.pkgConfigs.map((p) => ({ id: p.id, label: p.label, icon: p.icon, category: 'Package configuration' })),
     ];
   }
@@ -262,6 +272,7 @@ export class HostManagementComponent implements OnInit {
   private pureftpd = viewChild(PureFtpdComponent);
   private proftpd = viewChild(ProftpdComponent);
   private cups = viewChild(CupsComponent);
+  private nginxSites = viewChild(NginxSitesComponent);
 
   /** Load-on-first-open per snap-in (mirrors the old lazy tabs). The panel is
    * created by the @if this tick, so its data load runs on the next tick. */
@@ -284,6 +295,7 @@ export class HostManagementComponent implements OnInit {
         case 'pkg-pureftpd': this.pureftpd()?.loadOnce(); break;
         case 'pkg-proftpd': this.proftpd()?.loadOnce(); break;
         case 'pkg-cups': this.cups()?.loadOnce(); break;
+        case 'pkg-nginx': this.nginxSites()?.loadOnce(); break;
         case 'cron': this.cron()?.loadOnce(); break;
         case 'apt-repos': this.aptRepos()?.loadOnce(); break;
         // 'roles' loads itself on init.
