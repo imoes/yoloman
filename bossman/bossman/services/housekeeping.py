@@ -74,44 +74,66 @@ async def run_housekeeping(session: AsyncSession, settings: Settings, now: datet
     # process_rss_bytes are keyed per (pid, comm): a restart mints a new pid, so
     # the old pid's series stops updating. Delete any such series whose newest
     # sample is stale (the process is gone) rather than waiting out raw
-    # retention — a live process samples every collect interval, so it is never
-    # matched. This is the CONTROL-PLANE cleanup: Postgres holds the real
-    # long-term data (the agent keeps only a short-lived local copy it serves
-    # from), so the lifecycle of this data belongs here, next to retention.
-    # Only delete from UNCOMPRESSED chunks. TimescaleDB raises
-    # "tuple decompression limit exceeded" when a DML touches a compressed
-    # row group. Compressed chunks are dropped by the 2-day retention policy
-    # anyway; stale dead-(pid,comm) series only need pruning from the current
-    # uncompressed chunk (today's live data written since the last compression).
+    # retention. A live process samples every collect interval, so it is never
+    # matched.
+    #
+    # Three hard rules learned the hard way (each cost a crash):
+    #  1. NEVER let the DELETE's scan reach a COMPRESSED chunk. TimescaleDB
+    #     decompresses to run a DML and blows past
+    #     `max_tuples_decompressed_per_dml_transaction` (100k) → crash. A
+    #     `time >= min(uncompressed range_start)` filter is NOT enough: an old
+    #     uncompressed chunk (e.g. after a manual VACUUM) makes that min early,
+    #     so the range spans the compressed chunks in between. Instead we
+    #     iterate each UNCOMPRESSED chunk's own [start,end) range — constraint
+    #     exclusion then guarantees only that one uncompressed chunk is touched.
+    #  2. BATCH at <=100k rows per transaction (LIMIT) — bounded work per commit.
+    #  3. Isolated in try/except so a failure here can never abort the
+    #     notifications/plan_runs retention above.
     stale_cutoff = now - timedelta(minutes=settings.process_metric_stale_minutes)
-    res = await session.execute(
-        text(
-            """
-            DELETE FROM metrics
-            WHERE time >= (
-                SELECT COALESCE(min(range_start), 'epoch'::timestamptz)
+    total_pruned = 0
+    try:
+        chunk_rows = (await session.execute(
+            text(
+                """
+                SELECT range_start, range_end
                 FROM timescaledb_information.chunks
                 WHERE hypertable_name = 'metrics' AND is_compressed = false
+                ORDER BY range_start
+                """
             )
-              AND metric IN ('process_cpu_percent', 'process_rss_bytes')
-              AND (agent_id, metric, labels) IN (
-                SELECT agent_id, metric, labels
-                FROM metrics
-                WHERE metric IN ('process_cpu_percent', 'process_rss_bytes')
-                  AND time >= (
-                    SELECT COALESCE(min(range_start), 'epoch'::timestamptz)
-                    FROM timescaledb_information.chunks
-                    WHERE hypertable_name = 'metrics' AND is_compressed = false
-                  )
-                GROUP BY agent_id, metric, labels
-                HAVING max(time) < :cutoff
-              )
-            """
-        ),
-        {"cutoff": stale_cutoff},
-    )
-    await session.commit()
-    deleted["metrics_process_stale"] = res.rowcount or 0
+        )).all()
+        for cstart, cend in chunk_rows:
+            for _ in range(1000):  # batch cap per chunk
+                res = await session.execute(
+                    text(
+                        """
+                        DELETE FROM metrics
+                        WHERE (time, agent_id, metric) IN (
+                            SELECT time, agent_id, metric FROM metrics
+                            WHERE time >= :cstart AND time < :cend
+                              AND metric IN ('process_cpu_percent', 'process_rss_bytes')
+                              AND (agent_id, metric, labels) IN (
+                                SELECT agent_id, metric, labels FROM metrics
+                                WHERE time >= :cstart AND time < :cend
+                                  AND metric IN ('process_cpu_percent', 'process_rss_bytes')
+                                GROUP BY agent_id, metric, labels
+                                HAVING max(time) < :cutoff
+                              )
+                            LIMIT 100000
+                        )
+                        """
+                    ),
+                    {"cstart": cstart, "cend": cend, "cutoff": stale_cutoff},
+                )
+                await session.commit()
+                n = res.rowcount or 0
+                total_pruned += n
+                if n < 100000:
+                    break
+    except Exception:  # noqa: BLE001 — never let stale-prune abort retention
+        await session.rollback()
+        logger.exception("process-stale prune failed (retention above still applied)")
+    deleted["metrics_process_stale"] = total_pruned
     return deleted
 
 
