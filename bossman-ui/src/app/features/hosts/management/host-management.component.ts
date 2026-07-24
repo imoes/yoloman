@@ -24,6 +24,7 @@ import { PureFtpdComponent } from './packages/pure-ftpd.component';
 import { ProftpdComponent } from './packages/proftpd.component';
 import { CupsComponent } from './packages/cups.component';
 import { NginxSitesComponent } from './packages/nginx-sites.component';
+import { ApacheVhostsComponent } from './packages/apache-vhosts.component';
 
 interface SnapIn { id: string; label: string; icon: string; category: string; }
 
@@ -43,7 +44,7 @@ interface SnapIn { id: string; label: string; icon: string; category: string; }
     HostLogsComponent, HostAccountsComponent, HostFreeipaComponent, HostStorageComponent,
     HostVirtComponent, RolesFeaturesComponent, ServiceChecksComponent, PackageConfigComponent, BindZonesComponent, NfsExportsComponent, DhcpdComponent,
     CronComponent, AptReposComponent, SambaComponent, PureFtpdComponent, ProftpdComponent, CupsComponent,
-    NginxSitesComponent,
+    NginxSitesComponent, ApacheVhostsComponent,
   ],
   template: `
     <div class="bm-mmc">
@@ -84,6 +85,7 @@ interface SnapIn { id: string; label: string; icon: string; category: string; }
         @if (visited().has('pkg-proftpd')) { <div [style.display]="show('pkg-proftpd')"><app-proftpd [agentId]="agentId()" /></div> }
         @if (visited().has('pkg-cups')) { <div [style.display]="show('pkg-cups')"><app-cups [agentId]="agentId()" /></div> }
         @if (visited().has('pkg-nginx')) { <div [style.display]="show('pkg-nginx')"><app-nginx-sites [agentId]="agentId()" /></div> }
+        @if (visited().has('pkg-apache')) { <div [style.display]="show('pkg-apache')"><app-apache-vhosts [agentId]="agentId()" /></div> }
         @if (visited().has('cron')) { <div [style.display]="show('cron')"><app-cron [agentId]="agentId()" /></div> }
         @if (visited().has('apt-repos')) { <div [style.display]="show('apt-repos')"><app-apt-repos [agentId]="agentId()" /></div> }
         @for (p of pkgConfigs; track p.id) {
@@ -146,6 +148,7 @@ export class HostManagementComponent implements OnInit {
     'pkg-proftpd': ['proftpd-basic', 'proftpd'],
     'pkg-cups': ['cups', 'cups-daemon'],
     'pkg-nginx': ['nginx', 'nginx-core', 'nginx-full', 'nginx-light', 'nginx-extras'],
+    'pkg-apache': ['apache2', 'httpd'],
   };
   private installedPkgs = signal<Set<string>>(new Set());
 
@@ -217,6 +220,11 @@ export class HostManagementComponent implements OnInit {
   // not the generic codec editor (nginx block syntax has no codec).
   private readonly nginxSnapin: SnapIn = { id: 'pkg-nginx', label: 'nginx sites', icon: 'public', category: 'Package configuration' };
 
+  // Apache (apache2 on Debian, httpd on RedHat) gets a bespoke vhost snapin,
+  // same pattern as nginx (per-file <VirtualHost> rendered from values via the
+  // apache-vhost template incl. TLS), distro-aware enable (a2ensite vs conf.d).
+  private readonly apacheSnapin: SnapIn = { id: 'pkg-apache', label: 'Apache vhosts', icon: 'public', category: 'Package configuration' };
+
   private allSnapins(): SnapIn[] {
     return [
       ...this.snapins,
@@ -226,6 +234,7 @@ export class HostManagementComponent implements OnInit {
       this.sambaSnapin,
       ...this.ftpCupsSnapins,
       this.nginxSnapin,
+      this.apacheSnapin,
       ...this.pkgConfigs.map((p) => ({ id: p.id, label: p.label, icon: p.icon, category: 'Package configuration' })),
     ];
   }
@@ -273,6 +282,7 @@ export class HostManagementComponent implements OnInit {
   private proftpd = viewChild(ProftpdComponent);
   private cups = viewChild(CupsComponent);
   private nginxSites = viewChild(NginxSitesComponent);
+  private apacheVhosts = viewChild(ApacheVhostsComponent);
 
   /** Load-on-first-open per snap-in (mirrors the old lazy tabs). The panel is
    * created by the @if this tick, so its data load runs on the next tick. */
@@ -296,6 +306,7 @@ export class HostManagementComponent implements OnInit {
         case 'pkg-proftpd': this.proftpd()?.loadOnce(); break;
         case 'pkg-cups': this.cups()?.loadOnce(); break;
         case 'pkg-nginx': this.nginxSites()?.loadOnce(); break;
+        case 'pkg-apache': this.apacheVhosts()?.loadOnce(); break;
         case 'cron': this.cron()?.loadOnce(); break;
         case 'apt-repos': this.aptRepos()?.loadOnce(); break;
         // 'roles' loads itself on init.

@@ -2,68 +2,88 @@
   "server_name": {
     "type": "string",
     "default": "example.com",
-    "description": "Primary domain name for this virtual host."
+    "description": "Primary domain (ServerName)."
   },
-  "server_aliases": {
-    "type": "list",
-    "default": [],
-    "description": "List of additional domain names (aliases) for this virtual host."
+  "server_alias": {
+    "type": "string",
+    "default": "",
+    "description": "Additional names (ServerAlias), space-separated. Leave empty for none."
   },
   "document_root": {
     "type": "string",
-    "default": "/var/www/html/example",
-    "description": "Root filesystem path for website content."
+    "default": "/var/www/html",
+    "description": "DocumentRoot directory served by this vhost."
   },
-  "port": {
+  "directory_index": {
+    "type": "string",
+    "default": "index.html index.php",
+    "description": "DirectoryIndex files, in order."
+  },
+  "allow_override": {
+    "type": "string",
+    "default": "None",
+    "enum": ["None", "All", "AuthConfig", "FileInfo", "Indexes", "Limit", "Options"],
+    "description": "AllowOverride for the document root (.htaccess scope)."
+  },
+  "listen_port": {
     "type": "number",
     "default": 80,
-    "description": "Listen port for this virtual host (e.g., 80 for HTTP, 443 for HTTPS)."
+    "description": "Port for a plain-HTTP vhost (ignored when TLS is enabled, which uses 443)."
   },
-  "ssl_enabled": {
-    "type": "boolean",
-    "default": false,
-    "description": "Enable HTTPS/TLS for this virtual host."
-  },
-  "ssl_cert_file": {
-    "type": "string",
-    "default": "/etc/ssl/certs/example.crt",
-    "description": "Path to SSL/TLS certificate file (required if ssl_enabled is true)."
-  },
-  "ssl_cert_key_file": {
-    "type": "string",
-    "default": "/etc/ssl/private/example.key",
-    "description": "Path to SSL/TLS private key file (required if ssl_enabled is true)."
-  },
-  "ssl_chain_file": {
+  "proxy_pass": {
     "type": "string",
     "default": "",
-    "description": "Optional path to certificate chain file."
+    "description": "Reverse-proxy target (e.g. http://127.0.0.1:8080/). Needs mod_proxy. Empty = serve files."
   },
-  "directories": {
-    "type": "list",
-    "default": [],
-    "description": "List of directory configurations for access control and options.",
-    "items": {
-      "path": {
-        "type": "string",
-        "default": "",
-        "description": "Filesystem path (must be absolute). If omitted, defaults to document_root."
-      },
-      "options": {
-        "type": "string",
-        "default": "-Indexes +FollowSymLinks",
-        "description": "Apache Options directive (e.g., 'Indexes', 'FollowSymLinks', '+Indexes -ExecCGI')."
-      },
-      "allow_override": {
-        "type": "string",
-        "default": "All",
-        "description": "AllowOverride directive value (e.g., 'All', 'None', 'AuthConfig')."
-      },
-      "require": {
-        "type": "string",
-        "default": "all granted",
-        "description": "Require directive value (e.g., 'all granted', 'ip 192.168.1.0/24', 'method GET')."
-      }
-    }
+  "tls_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Terminate HTTPS here (VirtualHost *:443, SSLEngine on). Needs mod_ssl."
+  },
+  "ssl_certificate": {
+    "type": "string",
+    "default": "/etc/ssl/certs/example.crt",
+    "description": "SSLCertificateFile — leaf cert (full chain preferred, 2.4.8+)."
+  },
+  "ssl_certificate_key": {
+    "type": "string",
+    "default": "/etc/ssl/private/example.key",
+    "description": "SSLCertificateKeyFile — private key."
+  },
+  "ssl_protocol": {
+    "type": "string",
+    "default": "-all +TLSv1.2 +TLSv1.3",
+    "enum": ["-all +TLSv1.2 +TLSv1.3", "-all +TLSv1.3", "-all +TLSv1.2"],
+    "description": "SSLProtocol (Mozilla Intermediate = TLSv1.2+1.3; Modern = TLSv1.3)."
+  },
+  "ssl_cipher_suite": {
+    "type": "string",
+    "default": "ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305",
+    "description": "SSLCipherSuite for TLS 1.2 (Mozilla Intermediate). Empty = Apache default."
+  },
+  "hsts": {
+    "type": "bool",
+    "default": false,
+    "description": "Send HSTS header (needs mod_headers). Only enable once HTTPS works."
+  },
+  "redirect_to_https": {
+    "type": "bool",
+    "default": false,
+    "description": "Add a port-80 vhost that permanently redirects to HTTPS."
+  },
+  "error_log": {
+    "type": "string",
+    "default": "${APACHE_LOG_DIR}/error.log",
+    "description": "ErrorLog path (Debian uses ${APACHE_LOG_DIR}; RedHat e.g. /var/log/httpd/error_log)."
+  },
+  "access_log": {
+    "type": "string",
+    "default": "${APACHE_LOG_DIR}/access.log",
+    "description": "CustomLog path (combined format)."
+  },
+  "extra_directives": {
+    "type": "string",
+    "default": "",
+    "description": "Additional raw directives inside the vhost (e.g. 'LimitRequestBody 20971520')."
   }
 }
