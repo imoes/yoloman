@@ -83,8 +83,8 @@ not a runtime fleet-management action.
 
 | Variable | Default | Meaning |
 |---|---|---|
-| `BOSSMAN_CHAT_BASE_URL` | `https://llm.example.internal/qwen79b` | OpenAI-compatible `/v1/chat/completions` endpoint |
-| `BOSSMAN_CHAT_MODEL` | `qwen3next-79b` | Model name passed in the request body |
+| `BOSSMAN_CHAT_BASE_URL` | `https://llm.example.internal/laguna` | OpenAI-compatible `/v1/chat/completions` endpoint |
+| `BOSSMAN_CHAT_MODEL` | `laguna` | Model name passed in the request body |
 | `BOSSMAN_CHAT_TOKEN` | `""` | Bearer token, if the endpoint requires one |
 
 Scoped to module-call steps only in this first increment — `pipeline:`/`upload:`

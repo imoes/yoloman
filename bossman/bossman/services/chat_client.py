@@ -3,7 +3,7 @@ endpoint — the LLM behind services/translator.py's real translation path
 (see docs/plan.md's "real LLM translator"). Mirrors
 services/embedding_client.py's EmbeddingClient shape (error type, client
 factory, transport test-seam, central JSON-decode helper) — a different
-model/path on the same host as the embedding endpoint (qwen3next-79b,
+model/path on the same host as the embedding endpoint (laguna,
 completion-only; confirmed by probing it directly that it does not serve
 embeddings itself, unlike the sibling bge-m3 deployment).
 

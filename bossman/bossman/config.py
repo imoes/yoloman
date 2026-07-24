@@ -217,7 +217,7 @@ class Settings(BaseSettings):
     # OpenAI-compatible chat-completions endpoint used by the real LLM
     # translator (see docs/plan.md's "real LLM translator" and
     # services/translator.py) — a different model/path on the same host as
-    # the embedding endpoint above (qwen3next-79b, completion-only; it does
+    # the embedding endpoint above (laguna, completion-only; it does
     # NOT serve embeddings itself, confirmed by probing it directly).
     # Utility one-shot completions (ChatClient.complete_*, e.g. the run
     # dialog's AI briefing) and the translator go to the fast qwen35b — the
@@ -239,8 +239,8 @@ class Settings(BaseSettings):
     # the DB (chat_preferences), configured from the Settings → AI Assistant
     # card — not in the environment.
     chat_backend: str = "hermes_web"  # claude_cli | codex | hermes_web
-    hermes_web_base_url: str = "https://llm.example.internal/qwen79b"
-    hermes_web_model: str = "qwen3next-79b"
+    hermes_web_base_url: str = "https://llm.example.internal/laguna"
+    hermes_web_model: str = "laguna"
     # SearXNG metasearch (co-located with the LLM host) — backs the package-doc
     # verification batch and the web_search MCP tool.
     searxng_base_url: str = "http://llm.example.internal:8080"
