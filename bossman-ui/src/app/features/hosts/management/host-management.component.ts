@@ -25,6 +25,7 @@ import { ProftpdComponent } from './packages/proftpd.component';
 import { CupsComponent } from './packages/cups.component';
 import { NginxSitesComponent } from './packages/nginx-sites.component';
 import { ApacheVhostsComponent } from './packages/apache-vhosts.component';
+import { HaproxyConfigComponent } from './packages/haproxy-config.component';
 
 interface SnapIn { id: string; label: string; icon: string; category: string; }
 
@@ -44,7 +45,7 @@ interface SnapIn { id: string; label: string; icon: string; category: string; }
     HostLogsComponent, HostAccountsComponent, HostFreeipaComponent, HostStorageComponent,
     HostVirtComponent, RolesFeaturesComponent, ServiceChecksComponent, PackageConfigComponent, BindZonesComponent, NfsExportsComponent, DhcpdComponent,
     CronComponent, AptReposComponent, SambaComponent, PureFtpdComponent, ProftpdComponent, CupsComponent,
-    NginxSitesComponent, ApacheVhostsComponent,
+    NginxSitesComponent, ApacheVhostsComponent, HaproxyConfigComponent,
   ],
   template: `
     <div class="bm-mmc">
@@ -86,6 +87,7 @@ interface SnapIn { id: string; label: string; icon: string; category: string; }
         @if (visited().has('pkg-cups')) { <div [style.display]="show('pkg-cups')"><app-cups [agentId]="agentId()" /></div> }
         @if (visited().has('pkg-nginx')) { <div [style.display]="show('pkg-nginx')"><app-nginx-sites [agentId]="agentId()" /></div> }
         @if (visited().has('pkg-apache')) { <div [style.display]="show('pkg-apache')"><app-apache-vhosts [agentId]="agentId()" /></div> }
+        @if (visited().has('pkg-haproxy')) { <div [style.display]="show('pkg-haproxy')"><app-haproxy-config [agentId]="agentId()" /></div> }
         @if (visited().has('cron')) { <div [style.display]="show('cron')"><app-cron [agentId]="agentId()" /></div> }
         @if (visited().has('apt-repos')) { <div [style.display]="show('apt-repos')"><app-apt-repos [agentId]="agentId()" /></div> }
         @for (p of pkgConfigs; track p.id) {
@@ -149,6 +151,7 @@ export class HostManagementComponent implements OnInit {
     'pkg-cups': ['cups', 'cups-daemon'],
     'pkg-nginx': ['nginx', 'nginx-core', 'nginx-full', 'nginx-light', 'nginx-extras'],
     'pkg-apache': ['apache2', 'httpd'],
+    'pkg-haproxy': ['haproxy'],
   };
   private installedPkgs = signal<Set<string>>(new Set());
 
@@ -225,6 +228,11 @@ export class HostManagementComponent implements OnInit {
   // apache-vhost template incl. TLS), distro-aware enable (a2ensite vs conf.d).
   private readonly apacheSnapin: SnapIn = { id: 'pkg-apache', label: 'Apache vhosts', icon: 'public', category: 'Package configuration' };
 
+  // HAProxy: single-file config (global/defaults/frontend/backend) rendered from
+  // values via the haproxy template incl. TLS bind — a one-object editor, not a
+  // per-file site list.
+  private readonly haproxySnapin: SnapIn = { id: 'pkg-haproxy', label: 'HAProxy', icon: 'hub', category: 'Package configuration' };
+
   private allSnapins(): SnapIn[] {
     return [
       ...this.snapins,
@@ -235,6 +243,7 @@ export class HostManagementComponent implements OnInit {
       ...this.ftpCupsSnapins,
       this.nginxSnapin,
       this.apacheSnapin,
+      this.haproxySnapin,
       ...this.pkgConfigs.map((p) => ({ id: p.id, label: p.label, icon: p.icon, category: 'Package configuration' })),
     ];
   }
@@ -283,6 +292,7 @@ export class HostManagementComponent implements OnInit {
   private cups = viewChild(CupsComponent);
   private nginxSites = viewChild(NginxSitesComponent);
   private apacheVhosts = viewChild(ApacheVhostsComponent);
+  private haproxyConfig = viewChild(HaproxyConfigComponent);
 
   /** Load-on-first-open per snap-in (mirrors the old lazy tabs). The panel is
    * created by the @if this tick, so its data load runs on the next tick. */
@@ -307,6 +317,7 @@ export class HostManagementComponent implements OnInit {
         case 'pkg-cups': this.cups()?.loadOnce(); break;
         case 'pkg-nginx': this.nginxSites()?.loadOnce(); break;
         case 'pkg-apache': this.apacheVhosts()?.loadOnce(); break;
+        case 'pkg-haproxy': this.haproxyConfig()?.loadOnce(); break;
         case 'cron': this.cron()?.loadOnce(); break;
         case 'apt-repos': this.aptRepos()?.loadOnce(); break;
         // 'roles' loads itself on init.
