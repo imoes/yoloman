@@ -1,0 +1,25 @@
+{# Traefik DYNAMIC configuration (file provider) rendered from values. Defines
+   HTTP routers (match rule -> service) and services (a backend server URL).
+   Entrypoints and the file provider itself live in the static traefik.yml; TLS
+   here just flags that the router serves over the websecure entrypoint. #}
+http:
+  routers:
+{% for r in routers %}
+    {{ r.name }}:
+      rule: "{{ r.rule }}"
+      service: "{{ r.service }}"
+{% if r.entrypoint %}
+      entryPoints:
+        - "{{ r.entrypoint }}"
+{% endif %}
+{% if r.tls %}
+      tls: {}
+{% endif %}
+{% endfor %}
+  services:
+{% for s in services %}
+    {{ s.name }}:
+      loadBalancer:
+        servers:
+          - url: "{{ s.server }}"
+{% endfor %}

@@ -26,6 +26,8 @@ import { CupsComponent } from './packages/cups.component';
 import { NginxSitesComponent } from './packages/nginx-sites.component';
 import { ApacheVhostsComponent } from './packages/apache-vhosts.component';
 import { HaproxyConfigComponent } from './packages/haproxy-config.component';
+import { CaddyConfigComponent } from './packages/caddy-config.component';
+import { TraefikConfigComponent } from './packages/traefik-config.component';
 
 interface SnapIn { id: string; label: string; icon: string; category: string; }
 
@@ -46,6 +48,7 @@ interface SnapIn { id: string; label: string; icon: string; category: string; }
     HostVirtComponent, RolesFeaturesComponent, ServiceChecksComponent, PackageConfigComponent, BindZonesComponent, NfsExportsComponent, DhcpdComponent,
     CronComponent, AptReposComponent, SambaComponent, PureFtpdComponent, ProftpdComponent, CupsComponent,
     NginxSitesComponent, ApacheVhostsComponent, HaproxyConfigComponent,
+    CaddyConfigComponent, TraefikConfigComponent,
   ],
   template: `
     <div class="bm-mmc">
@@ -88,6 +91,8 @@ interface SnapIn { id: string; label: string; icon: string; category: string; }
         @if (visited().has('pkg-nginx')) { <div [style.display]="show('pkg-nginx')"><app-nginx-sites [agentId]="agentId()" /></div> }
         @if (visited().has('pkg-apache')) { <div [style.display]="show('pkg-apache')"><app-apache-vhosts [agentId]="agentId()" /></div> }
         @if (visited().has('pkg-haproxy')) { <div [style.display]="show('pkg-haproxy')"><app-haproxy-config [agentId]="agentId()" /></div> }
+        @if (visited().has('pkg-caddy')) { <div [style.display]="show('pkg-caddy')"><app-caddy-config [agentId]="agentId()" /></div> }
+        @if (visited().has('pkg-traefik')) { <div [style.display]="show('pkg-traefik')"><app-traefik-config [agentId]="agentId()" /></div> }
         @if (visited().has('cron')) { <div [style.display]="show('cron')"><app-cron [agentId]="agentId()" /></div> }
         @if (visited().has('apt-repos')) { <div [style.display]="show('apt-repos')"><app-apt-repos [agentId]="agentId()" /></div> }
         @for (p of pkgConfigs; track p.id) {
@@ -152,6 +157,8 @@ export class HostManagementComponent implements OnInit {
     'pkg-nginx': ['nginx', 'nginx-core', 'nginx-full', 'nginx-light', 'nginx-extras'],
     'pkg-apache': ['apache2', 'httpd'],
     'pkg-haproxy': ['haproxy'],
+    'pkg-caddy': ['caddy'],
+    'pkg-traefik': ['traefik'],
   };
   private installedPkgs = signal<Set<string>>(new Set());
 
@@ -232,6 +239,8 @@ export class HostManagementComponent implements OnInit {
   // values via the haproxy template incl. TLS bind — a one-object editor, not a
   // per-file site list.
   private readonly haproxySnapin: SnapIn = { id: 'pkg-haproxy', label: 'HAProxy', icon: 'hub', category: 'Package configuration' };
+  private readonly caddySnapin: SnapIn = { id: 'pkg-caddy', label: 'Caddy', icon: 'language', category: 'Package configuration' };
+  private readonly traefikSnapin: SnapIn = { id: 'pkg-traefik', label: 'Traefik', icon: 'hub', category: 'Package configuration' };
 
   private allSnapins(): SnapIn[] {
     return [
@@ -244,6 +253,8 @@ export class HostManagementComponent implements OnInit {
       this.nginxSnapin,
       this.apacheSnapin,
       this.haproxySnapin,
+      this.caddySnapin,
+      this.traefikSnapin,
       ...this.pkgConfigs.map((p) => ({ id: p.id, label: p.label, icon: p.icon, category: 'Package configuration' })),
     ];
   }
@@ -293,6 +304,8 @@ export class HostManagementComponent implements OnInit {
   private nginxSites = viewChild(NginxSitesComponent);
   private apacheVhosts = viewChild(ApacheVhostsComponent);
   private haproxyConfig = viewChild(HaproxyConfigComponent);
+  private caddyConfig = viewChild(CaddyConfigComponent);
+  private traefikConfig = viewChild(TraefikConfigComponent);
 
   /** Load-on-first-open per snap-in (mirrors the old lazy tabs). The panel is
    * created by the @if this tick, so its data load runs on the next tick. */
@@ -318,6 +331,8 @@ export class HostManagementComponent implements OnInit {
         case 'pkg-nginx': this.nginxSites()?.loadOnce(); break;
         case 'pkg-apache': this.apacheVhosts()?.loadOnce(); break;
         case 'pkg-haproxy': this.haproxyConfig()?.loadOnce(); break;
+        case 'pkg-caddy': this.caddyConfig()?.loadOnce(); break;
+        case 'pkg-traefik': this.traefikConfig()?.loadOnce(); break;
         case 'cron': this.cron()?.loadOnce(); break;
         case 'apt-repos': this.aptRepos()?.loadOnce(); break;
         // 'roles' loads itself on init.
