@@ -300,11 +300,31 @@ def _derive_options_from_star(star: str) -> dict[str, Any]:
     return opts
 
 
+_SNMP_SRC_RE = re.compile(
+    r"SNMPTree|snmp_section|register\.snmp|OIDEnd|OIDBytes|OIDCached|SNMPBackend|\bdetect\s*=\s*(all_of|any_of|contains|equals|exists|startswith)"
+)
+_SNMP_STAR_RE = re.compile(r"snmpwalk|snmp_get|snmp_walk|ctx\.snmp")
+
+
+def detect_check_execution(source_py: str = "", star_code: str = "") -> str:
+    """Deterministic axis of a check's execution kind: 'snmp' when the source
+    is an SNMP section (SNMPTree/detect/…) or the translated Starlark actually
+    walks SNMP; otherwise 'local' (runs a command on the host). The finer
+    'local' vs 'service' (configurable, fileinfo-style) split is NOT decidable
+    here — that is the LLM classifier's job (scripts/classify_check_execution.py),
+    whose side registry overrides this default. SNMP is 100% deterministic and
+    needs no model, so we settle it here for free."""
+    if _SNMP_SRC_RE.search(source_py or "") or _SNMP_STAR_RE.search(star_code or ""):
+        return "snmp"
+    return "local"
+
+
 def build_checkmk_metadata_nt(record: dict[str, Any], star_code: str = "") -> str:
     """Catalog metadata for a translated check module, as NestedText (project
     convention — no YAML). Always read-only (writes: false) and marked kind:
     check so the UI/agent treat its `data.state`/`data.metrics` as a
-    monitoring result."""
+    monitoring result. Also carries `execution` (snmp|local|service) so the UI
+    can group checks by how they run (see detect_check_execution)."""
     doc = record.get("doc") or {}
     options: dict[str, Any] = {}
     for name, spec in sorted((doc.get("options") or {}).items()):
@@ -343,6 +363,10 @@ def build_checkmk_metadata_nt(record: dict[str, Any], star_code: str = "") -> st
         "runtime": "starlark",
         "source": "translated",
         "kind": "check",          # distinguishes a monitor from an action module
+        # how the check runs: snmp (SNMP walk) | local (on-host command) |
+        # service (configurable, fileinfo-style). SNMP settled deterministically;
+        # local↔service is refined by the LLM classifier's side registry.
+        "execution": detect_check_execution(record.get("source_py", ""), star_code),
     }
     examples = record.get("examples")
     if examples:
