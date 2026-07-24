@@ -69,7 +69,7 @@ const SIDECAR_DIR = '/etc/agentic-mcp/websites/nginx';
                 <pre class="bm-raw">{{ raw() }}</pre>
               } @else if (schema()) {
                 <p class="bm-dim">Edit the values — the whole server block (incl. TLS) is rendered from them.</p>
-                <app-param-form [params]="schema()!" [initial]="values()" (valuesChange)="onValues($event)" />
+                <app-param-form [params]="schema()!" [initial]="values()" [agentId]="agentId()" (valuesChange)="onValues($event)" />
                 @if (rendered()) {
                   <p class="bm-dim">Rendered {{ selected()!.name }} (would be written):</p>
                   <pre class="bm-raw">{{ rendered() }}</pre>

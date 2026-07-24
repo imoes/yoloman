@@ -9,6 +9,8 @@ export interface ParamSpec {
   items?: Record<string, ParamSpec>; // element schema for a list-of-objects
   hidden?: boolean;
   required?: boolean;
+  widget?: 'file';                    // render a remote file-picker (needs agentId)
+  pattern?: string;                   // file-picker glob filter, e.g. "*.pem *.crt *.key"
 }
 
 export type ParamSchema = Record<string, ParamSpec>;

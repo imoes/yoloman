@@ -3,6 +3,7 @@ import { NgTemplateOutlet } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatIconModule } from '@angular/material/icon';
 import { ParamSchema, ParamSpec } from './param-form.types';
+import { FilePickerComponent } from '../components/file-picker/file-picker.component';
 
 interface Field { key: string; spec: ParamSpec; }
 
@@ -14,7 +15,7 @@ interface Field { key: string; spec: ParamSpec; }
 @Component({
   selector: 'app-param-form',
   standalone: true,
-  imports: [NgTemplateOutlet, FormsModule, MatIconModule],
+  imports: [NgTemplateOutlet, FormsModule, MatIconModule, FilePickerComponent],
   template: `
     @for (f of essential(); track f.key) {
       <ng-container [ngTemplateOutlet]="field" [ngTemplateOutletContext]="{ $implicit: f }" />
@@ -49,6 +50,13 @@ interface Field { key: string; spec: ParamSpec; }
             }
             @case ('secret') {
               <input class="bm-pf-in" type="password" [value]="values()[f.key] ?? ''" (input)="set(f.key, $any($event.target).value)" />
+            }
+            @case ('file') {
+              @if (agentId()) {
+                <app-file-picker [agentId]="agentId()" [value]="asStr(values()[f.key])" (valueChange)="set(f.key, $event)" [pattern]="f.spec.pattern || ''" />
+              } @else {
+                <input class="bm-pf-in" [value]="values()[f.key] ?? ''" (input)="set(f.key, $any($event.target).value)" />
+              }
             }
             @case ('stringlist') {
               <textarea class="bm-pf-in" rows="2" [value]="joinList(values()[f.key])" (input)="set(f.key, splitList($any($event.target).value))" placeholder="one per line"></textarea>
@@ -124,7 +132,10 @@ interface Field { key: string; spec: ParamSpec; }
 export class ParamFormComponent implements OnInit {
   params = input.required<ParamSchema>();
   initial = input<Record<string, unknown>>({});
+  agentId = input<string>('');   // required only for widget:'file' fields (remote file-picker)
   valuesChange = output<Record<string, unknown>>();
+
+  asStr(v: unknown): string { return v == null ? '' : String(v); }
 
   /** Emit the prefilled defaults immediately so a consumer that never edits a
    * field still receives the full value set (the wizard runs on defaults). When
@@ -157,6 +168,7 @@ export class ParamFormComponent implements OnInit {
   advanced = computed(() => this.fields().filter((f) => !(f.spec.required || f.spec.default === undefined)));
 
   control(spec: ParamSpec, value?: unknown): string {
+    if (spec.widget === 'file') return 'file';
     if (spec.secret) return 'secret';
     if (spec.enum?.length) return 'enum';
     if (spec.type === 'bool') return 'bool';

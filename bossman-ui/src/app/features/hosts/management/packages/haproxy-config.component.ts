@@ -47,7 +47,7 @@ const SIDECAR = '/etc/agentic-mcp/websites/haproxy/haproxy.json';
           <button mat-stroked-button (click)="startManaged()"><mat-icon>dataset</mat-icon> Configure with form (replaces file on save)</button>
         } @else if (schema()) {
           <p class="bm-dim">Edit the values — the whole haproxy.cfg (incl. TLS termination) is rendered from them.</p>
-          <app-param-form [params]="schema()!" [initial]="values()" (valuesChange)="onValues($event)" />
+          <app-param-form [params]="schema()!" [initial]="values()" [agentId]="agentId()" (valuesChange)="onValues($event)" />
           @if (rendered()) {
             <p class="bm-dim">Rendered haproxy.cfg (would be written):</p>
             <pre class="bm-raw">{{ rendered() }}</pre>
