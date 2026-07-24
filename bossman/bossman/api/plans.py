@@ -188,7 +188,7 @@ async def plan_briefing(
     ]
     try:
         text = await client.complete_text(
-            messages, max_tokens=1500,
+            messages,
             extra_body={"chat_template_kwargs": {"enable_thinking": False}},
         )
     except ChatClientError as exc:

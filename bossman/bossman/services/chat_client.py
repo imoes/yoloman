@@ -115,7 +115,7 @@ class ChatClient:
         messages: list[dict[str, str]],
         json_schema: dict,
         schema_name: str,
-        max_tokens: int | None = 4000,
+        max_tokens: int | None = None,
     ) -> dict:
         """Sends a chat-completion request constrained to json_schema and
         returns the decoded response content as a dict. Raises
@@ -167,7 +167,7 @@ class ChatClient:
     async def complete_text(
         self,
         messages: list[dict[str, str]],
-        max_tokens: int = 8000,
+        max_tokens: int | None = None,
         extra_body: dict | None = None,
     ) -> str:
         """Plain chat completion returning the raw assistant text — used
@@ -178,8 +178,15 @@ class ChatClient:
         (e.g. {"chat_template_kwargs": {"enable_thinking": False}} to turn
         a Qwen reasoning model's thinking off so it emits the answer
         directly instead of burning the budget in reasoning_content).
+
+        `max_tokens` defaults to None = NOT sent: the model already has its
+        own upper limit, and capping it is what causes finish_reason=length
+        (a reasoning model burns the cap thinking). Never set a cap; if a
+        generation truncates, disable thinking via extra_body instead.
         Raises ChatClientError on any failure or an empty completion."""
-        body: dict = {"model": self.model, "messages": messages, "max_tokens": max_tokens}
+        body: dict = {"model": self.model, "messages": messages}
+        if max_tokens is not None:
+            body["max_tokens"] = max_tokens
         if extra_body:
             body.update(extra_body)
         response_body = await self._post(body)
@@ -203,7 +210,8 @@ class ChatClient:
             # thinking — surface it explicitly rather than as "empty code".
             raise ChatClientError(
                 f"{self.base_url}: empty completion (finish_reason={choice.get('finish_reason')}) — "
-                "if this is a reasoning model, disable thinking or raise max_tokens"
+                "if this is a reasoning model, disable thinking via extra_body "
+                "(chat_template_kwargs.enable_thinking=False)"
             )
         return content
 
