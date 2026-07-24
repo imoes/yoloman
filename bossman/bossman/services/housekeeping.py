@@ -70,32 +70,60 @@ async def run_housekeeping(session: AsyncSession, settings: Settings, now: datet
         await session.commit()
         deleted[table_name] = result.rowcount or 0
 
-    # Sweep orphaned series. Since the series-normalization, dead-pid churn is
-    # just metric_series rows plus tiny (series_id, time, value) points in
-    # metrics_raw that age out via the 2-day retention. Once a series has no
-    # metrics_raw rows left, its metric_series row is an orphan — delete it.
+    # Prune dead process series FAST (not at 2-day retention). process_*
+    # metrics are per (pid, comm): a dead pid stops updating. Deleting its
+    # series ~10 min after death keeps per-pid churn from ever reaching the
+    # compressed chunks (>1 day old) where tiny 1-2 point segments would hurt
+    # compression — which is exactly why per-pid + fast pruning is correct and
+    # per-comm aggregation is NOT needed (it would only lose per-process detail).
     #
-    # This is a plain-table DELETE on metric_series (NOT the compressed
-    # hypertable), so it can never hit the "tuple decompression limit" that
-    # crashed the old labels-per-row prune. The NOT EXISTS probe is a read
-    # (index scan on metrics_raw(series_id, time)); reads decompress
-    # transparently and are NOT subject to the DML decompression cap.
-    # Isolated in try/except so a failure here can never abort the
-    # notifications/plan_runs retention above.
+    # Crash-safe against the "tuple decompression limit": we delete the
+    # metric_series row (FK ON DELETE CASCADE removes its metrics_raw points),
+    # but ONLY for series whose points are entirely in the UNCOMPRESSED window
+    # (no row older than 1 day = compress_after). A freshly-dead pid is always
+    # there, so the cascade never decompresses. Series that somehow linger past
+    # a day fall to the orphan sweep once retention drops their rows.
+    stale_cutoff = now - timedelta(minutes=settings.process_metric_stale_minutes)
+    uncompressed_floor = now - timedelta(days=1)
     try:
         res = await session.execute(
             text(
                 """
                 DELETE FROM metric_series s
-                WHERE NOT EXISTS (
-                    SELECT 1 FROM metrics_raw r WHERE r.series_id = s.series_id
-                )
+                WHERE s.metric IN ('process_cpu_percent', 'process_rss_bytes')
+                  -- stale: no sample newer than the cutoff (the pid is gone)
+                  AND NOT EXISTS (
+                    SELECT 1 FROM metrics_raw r
+                    WHERE r.series_id = s.series_id AND r.time >= :cutoff)
+                  -- crash-guard: no point in a compressed (>1 day) chunk, so the
+                  -- FK cascade delete touches only uncompressed rows
+                  AND NOT EXISTS (
+                    SELECT 1 FROM metrics_raw r
+                    WHERE r.series_id = s.series_id AND r.time < :floor)
+                """
+            ),
+            {"cutoff": stale_cutoff, "floor": uncompressed_floor},
+        )
+        await session.commit()
+        deleted["process_series_stale"] = res.rowcount or 0
+    except Exception:  # noqa: BLE001 — never let the prune abort retention
+        await session.rollback()
+        logger.exception("process-stale prune failed (retention above still applied)")
+
+    # Sweep any remaining orphan series (no metrics_raw rows at all — e.g. their
+    # points aged out of retention). Plain-table DELETE, no hypertable DML.
+    try:
+        res = await session.execute(
+            text(
+                """
+                DELETE FROM metric_series s
+                WHERE NOT EXISTS (SELECT 1 FROM metrics_raw r WHERE r.series_id = s.series_id)
                 """
             )
         )
         await session.commit()
         deleted["metric_series_orphans"] = res.rowcount or 0
-    except Exception:  # noqa: BLE001 — never let the sweep abort retention
+    except Exception:  # noqa: BLE001
         await session.rollback()
         logger.exception("metric_series orphan sweep failed (retention above still applied)")
     return deleted
