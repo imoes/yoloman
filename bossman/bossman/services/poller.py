@@ -16,18 +16,19 @@ and tests without duplicating logic.
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 import uuid
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 
-from sqlalchemy import select
+from sqlalchemy import select, text
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from bossman.config import Settings
-from bossman.db.models import Agent, AgentObservedState, HostEdge, Metric
+from bossman.db.models import Agent, AgentObservedState, HostEdge, Metric, MetricRaw
 from bossman.services import notification
 from bossman.services.agent_client import AgentClient, AgentClientError, client_for
 from bossman.services.monitoring import evaluate_assigned_checks, evaluate_host, expire_acknowledgements, ingest_agent_checks, is_infra_agent
@@ -86,42 +87,84 @@ def _disambiguate_colliding_timestamps(rows: list[dict]) -> None:
         seen[key] = count + 1
 
 
+async def _series_id(
+    session: AsyncSession, cache: dict[str, int], agent_id: uuid.UUID, metric: str, labels: dict
+) -> int:
+    """Resolve (or create) the metric_series row for one (agent, metric, labels)
+    and return its series_id. `cache` is PER-CALL (per write, i.e. per
+    transaction): the metric_series upsert and the metrics_raw insert that uses
+    the returned id land in the SAME transaction, so they commit or roll back
+    together. A module-global cache would survive a rollback and then point
+    metrics_raw rows at a series_id whose metric_series row was never
+    committed (FK violation / orphaned rows) — hence per-call only."""
+    lj = json.dumps(labels or {}, sort_keys=True, separators=(",", ":"))
+    key = metric + "\x00" + lj
+    sid = cache.get(key)
+    if sid is not None:
+        return sid
+    params = {"a": agent_id, "m": metric, "l": lj}
+    # DO NOTHING (not DO UPDATE): an existing row must NOT be locked/updated —
+    # DO UPDATE takes an exclusive row lock, and concurrent agent polls touching
+    # overlapping series in different orders then deadlock. DO NOTHING returns
+    # no row on conflict, so fall back to a plain SELECT for the existing id.
+    row = await session.execute(
+        text(
+            """
+            INSERT INTO metric_series (agent_id, metric, labels)
+            VALUES (:a, :m, CAST(:l AS jsonb))
+            ON CONFLICT (agent_id, metric, labels) DO NOTHING
+            RETURNING series_id
+            """
+        ),
+        params,
+    )
+    got = row.scalar_one_or_none()
+    if got is None:
+        got = (await session.execute(
+            text(
+                "SELECT series_id FROM metric_series "
+                "WHERE agent_id = :a AND metric = :m AND labels = CAST(:l AS jsonb)"
+            ),
+            params,
+        )).scalar_one()
+    sid = int(got)
+    cache[key] = sid
+    return sid
+
+
 async def _write_metrics(session: AsyncSession, agent_id: uuid.UUID, metrics: dict) -> int:
+    cache: dict[str, int] = {}
     rows = []
     for metric_name, points in metrics.items():
         for point in points:
-            rows.append(
-                {
-                    "time": datetime.fromisoformat(point["timestamp"]),
-                    "agent_id": agent_id,
-                    "metric": metric_name,
-                    "value": point["value"],
-                    "labels": point.get("labels") or {},
-                }
-            )
+            sid = await _series_id(session, cache, agent_id, metric_name, point.get("labels") or {})
+            rows.append({
+                "time": datetime.fromisoformat(point["timestamp"]),
+                "series_id": sid,
+                "value": point["value"],
+            })
     if not rows:
         return 0
-    # ON CONFLICT DO NOTHING: re-polling an overlapping boundary (the last
-    # cursor's exact timestamp can appear in both the previous and the
-    # next pull) must not raise on the hypertable's (time, agent_id,
-    # metric) primary key.
-    _disambiguate_colliding_timestamps(rows)
     await _insert_metric_rows_chunked(session, rows)
     return len(rows)
 
 
-# Postgres/asyncpg caps a statement at 32767 bind parameters. Metric rows have
-# 5 columns, so a single INSERT tops out at ~6553 rows — a normal 60s pull is
-# far below that, but catching up after an agent was unreachable for a long
-# stretch can exceed it. Chunk so the catch-up write can't fail (and thus wedge
-# the cursor forever, re-pulling the same oversized batch each tick).
+# asyncpg caps a statement at 32767 bind parameters. metrics_raw rows have 3
+# columns → ~10922 rows/INSERT; chunk well under that so a long catch-up write
+# can't fail and wedge the cursor forever.
 _METRIC_INSERT_CHUNK = 5000
 
 
 async def _insert_metric_rows_chunked(session: AsyncSession, rows: list[dict]) -> None:
+    # ON CONFLICT (series_id, time) DO NOTHING: re-polling an overlapping cursor
+    # boundary repeats a point. With series_id there is no cross-label collision
+    # (distinct labels = distinct series_id), so the old microsecond-nudge hack
+    # is gone.
     for i in range(0, len(rows), _METRIC_INSERT_CHUNK):
         chunk = rows[i : i + _METRIC_INSERT_CHUNK]
-        stmt = pg_insert(Metric).values(chunk).on_conflict_do_nothing(index_elements=["time", "agent_id", "metric"])
+        stmt = pg_insert(MetricRaw).values(chunk).on_conflict_do_nothing(
+            index_elements=["series_id", "time"]
+        )
         await session.execute(stmt)
 
 
@@ -177,11 +220,11 @@ async def _write_snapshot_metrics(
     can repeat the same (time, agent_id, metric) primary key)."""
     if not metrics:
         return 0
-    rows = [
-        {"time": sample_time, "agent_id": agent_id, "metric": m["metric"], "value": m["value"], "labels": m.get("labels") or {}}
-        for m in metrics
-    ]
-    _disambiguate_colliding_timestamps(rows)
+    cache: dict[str, int] = {}
+    rows = []
+    for m in metrics:
+        sid = await _series_id(session, cache, agent_id, m["metric"], m.get("labels") or {})
+        rows.append({"time": sample_time, "series_id": sid, "value": m["value"]})
     await _insert_metric_rows_chunked(session, rows)
     return len(rows)
 

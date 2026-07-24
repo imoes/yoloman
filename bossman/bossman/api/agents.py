@@ -168,7 +168,8 @@ _AGENT_CHILD_DELETES = (
     "DELETE FROM downtimes WHERE agent_id = :id",
     "DELETE FROM service_state_history WHERE agent_id = :id",
     "DELETE FROM services WHERE agent_id = :id",
-    "DELETE FROM metrics WHERE agent_id = :id",
+    # metrics is now a view; delete the series (metrics_raw cascades via FK)
+    "DELETE FROM metric_series WHERE agent_id = :id",
 )
 
 

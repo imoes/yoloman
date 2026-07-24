@@ -70,70 +70,34 @@ async def run_housekeeping(session: AsyncSession, settings: Settings, now: datet
         await session.commit()
         deleted[table_name] = result.rowcount or 0
 
-    # Freshness cleanup of dead process series. process_cpu_percent /
-    # process_rss_bytes are keyed per (pid, comm): a restart mints a new pid, so
-    # the old pid's series stops updating. Delete any such series whose newest
-    # sample is stale (the process is gone) rather than waiting out raw
-    # retention. A live process samples every collect interval, so it is never
-    # matched.
+    # Sweep orphaned series. Since the series-normalization, dead-pid churn is
+    # just metric_series rows plus tiny (series_id, time, value) points in
+    # metrics_raw that age out via the 2-day retention. Once a series has no
+    # metrics_raw rows left, its metric_series row is an orphan — delete it.
     #
-    # Three hard rules learned the hard way (each cost a crash):
-    #  1. NEVER let the DELETE's scan reach a COMPRESSED chunk. TimescaleDB
-    #     decompresses to run a DML and blows past
-    #     `max_tuples_decompressed_per_dml_transaction` (100k) → crash. A
-    #     `time >= min(uncompressed range_start)` filter is NOT enough: an old
-    #     uncompressed chunk (e.g. after a manual VACUUM) makes that min early,
-    #     so the range spans the compressed chunks in between. Instead we
-    #     iterate each UNCOMPRESSED chunk's own [start,end) range — constraint
-    #     exclusion then guarantees only that one uncompressed chunk is touched.
-    #  2. BATCH at <=100k rows per transaction (LIMIT) — bounded work per commit.
-    #  3. Isolated in try/except so a failure here can never abort the
-    #     notifications/plan_runs retention above.
-    stale_cutoff = now - timedelta(minutes=settings.process_metric_stale_minutes)
-    total_pruned = 0
+    # This is a plain-table DELETE on metric_series (NOT the compressed
+    # hypertable), so it can never hit the "tuple decompression limit" that
+    # crashed the old labels-per-row prune. The NOT EXISTS probe is a read
+    # (index scan on metrics_raw(series_id, time)); reads decompress
+    # transparently and are NOT subject to the DML decompression cap.
+    # Isolated in try/except so a failure here can never abort the
+    # notifications/plan_runs retention above.
     try:
-        chunk_rows = (await session.execute(
+        res = await session.execute(
             text(
                 """
-                SELECT range_start, range_end
-                FROM timescaledb_information.chunks
-                WHERE hypertable_name = 'metrics' AND is_compressed = false
-                ORDER BY range_start
+                DELETE FROM metric_series s
+                WHERE NOT EXISTS (
+                    SELECT 1 FROM metrics_raw r WHERE r.series_id = s.series_id
+                )
                 """
             )
-        )).all()
-        for cstart, cend in chunk_rows:
-            for _ in range(1000):  # batch cap per chunk
-                res = await session.execute(
-                    text(
-                        """
-                        DELETE FROM metrics
-                        WHERE (time, agent_id, metric) IN (
-                            SELECT time, agent_id, metric FROM metrics
-                            WHERE time >= :cstart AND time < :cend
-                              AND metric IN ('process_cpu_percent', 'process_rss_bytes')
-                              AND (agent_id, metric, labels) IN (
-                                SELECT agent_id, metric, labels FROM metrics
-                                WHERE time >= :cstart AND time < :cend
-                                  AND metric IN ('process_cpu_percent', 'process_rss_bytes')
-                                GROUP BY agent_id, metric, labels
-                                HAVING max(time) < :cutoff
-                              )
-                            LIMIT 100000
-                        )
-                        """
-                    ),
-                    {"cstart": cstart, "cend": cend, "cutoff": stale_cutoff},
-                )
-                await session.commit()
-                n = res.rowcount or 0
-                total_pruned += n
-                if n < 100000:
-                    break
-    except Exception:  # noqa: BLE001 — never let stale-prune abort retention
+        )
+        await session.commit()
+        deleted["metric_series_orphans"] = res.rowcount or 0
+    except Exception:  # noqa: BLE001 — never let the sweep abort retention
         await session.rollback()
-        logger.exception("process-stale prune failed (retention above still applied)")
-    deleted["metrics_process_stale"] = total_pruned
+        logger.exception("metric_series orphan sweep failed (retention above still applied)")
     return deleted
 
 

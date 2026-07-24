@@ -368,8 +368,10 @@ class PlanPlacement(Base):
 
 
 class Metric(Base):
-    """A metrics-dump data point pulled from an agent — a TimescaleDB
-    hypertable (see the Alembic migration), the direct RRD replacement."""
+    """READ view over the series-normalized store: `metrics` is a VIEW that
+    re-joins `metric_series` (labels) onto `metrics_raw` (time, series_id,
+    value), so every existing `select(Metric)` read keeps its old
+    (time, agent_id, metric, value, labels) shape. WRITES go to MetricRaw."""
 
     __tablename__ = "metrics"
 
@@ -381,7 +383,30 @@ class Metric(Base):
     value: Mapped[float] = mapped_column(nullable=False)
     labels: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
 
-    __table_args__ = (Index("idx_metrics_agent_metric_time", "agent_id", "metric", "time"),)
+
+class MetricSeries(Base):
+    """The series dimension: one row per distinct (agent_id, metric, labels).
+    labels live here ONCE instead of on every metrics_raw row — this is what
+    lets metrics_raw compress ~15x (segmentby series_id = one series/segment)."""
+
+    __tablename__ = "metric_series"
+
+    series_id: Mapped[int] = mapped_column(primary_key=True)
+    agent_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("agents.id"))
+    metric: Mapped[str] = mapped_column(String, nullable=False)
+    labels: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
+
+
+class MetricRaw(Base):
+    """WRITE target: the TimescaleDB hypertable holding only (time, series_id,
+    value). The RRD replacement, now with labels normalized out to
+    MetricSeries so each compressed segment is a single series."""
+
+    __tablename__ = "metrics_raw"
+
+    series_id: Mapped[int] = mapped_column(primary_key=True)
+    time: Mapped[datetime] = mapped_column(TZ_DATETIME, nullable=False, primary_key=True)
+    value: Mapped[float] = mapped_column(nullable=False)
 
 
 class BossmanUser(Base):
