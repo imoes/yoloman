@@ -73,20 +73,22 @@ def test_redact_masks_fresh_secrets():
 
 
 @pytest.mark.asyncio
-async def test_clone_system_exports_seed_transforms_and_materializes(monkeypatch):
-    system = types.SimpleNamespace(id="s1", name="demo-system", seed_agent_id="seed1")
+async def test_clone_system_member_scoped_from_live_inspect(monkeypatch):
+    # a system with ONE docker member "web"; the seed host also runs "other"
+    system = types.SimpleNamespace(id="s1", name="demo-system", seed_agent_id="seed1",
+                                   members=[types.SimpleNamespace(target="docker", app="web", config={})])
     target = types.SimpleNamespace(id="t1", name="staging")
     seed = types.SimpleNamespace(id="seed1", name="prod")
 
     async def fake_get(model, pk):
         return seed  # session.get(Agent, seed_agent_id)
 
-    async def fake_export(session, agent, cf, s):
-        assert agent is seed
-        return {"resource_count": 2, "resources": [
-            {"type": "config", "path": "/etc/app.conf", "values": {"a": "1"}},
-            {"type": "docker_container", "name": "web", "image": "nginx",
-             "ports": [{"host": "8080", "container": "80"}]},
+    async def fake_inspect(agent, cf, s):
+        assert agent is seed  # inspect the SEED, live
+        return {"containers": [
+            {"name": "web", "image": "nginx:1.27", "ports": [{"host": "8080", "container": "80"}],
+             "env": {"X": "1"}, "volumes": ["/d:/d"], "restart": "unless-stopped"},
+            {"name": "other", "image": "redis"},   # NOT a member → excluded
         ]}
 
     captured = {}
@@ -97,23 +99,38 @@ async def test_clone_system_exports_seed_transforms_and_materializes(monkeypatch
         return {"changed_count": 0, "docker": [{"name": "sbx-demo-system-web", "command": "docker run ..."}]}
 
     session = types.SimpleNamespace(get=fake_get)
-    monkeypatch.setattr(system_clone, "export_server_spec", fake_export)
+    monkeypatch.setattr(system_clone, "inspect_containers", fake_inspect)
     monkeypatch.setattr(system_clone, "materialize_spec", fake_materialize)
 
     out = await system_clone.clone_system(session, system, target, lambda a, s: None, settings=None, dry_run=True)
 
-    assert out["sandbox_prefix"] == "sbx-demo-system"
+    assert out["sandbox_prefix"] == "sbx-demo-system" and out["member_count"] == 1
     assert out["seed"]["name"] == "prod" and out["target"]["name"] == "staging"
-    assert captured["dry_run"] is True
-    # the materialized spec is the sandbox-transformed one
-    dock = [r for r in captured["spec"]["resources"] if r["type"] == "docker_container"][0]
-    assert dock["name"] == "sbx-demo-system-web" and dock["ports"] == []
+    # only the member "web" is cloned; "other" is excluded (member-scoped)
+    names = [r["name"] for r in captured["spec"]["resources"]]
+    assert names == ["sbx-demo-system-web"]
+    dock = captured["spec"]["resources"][0]
+    assert dock["ports"] == [] and dock["image"] == "nginx:1.27" and dock["volumes"] == ["/d:/d"]
 
 
 @pytest.mark.asyncio
 async def test_clone_system_no_seed():
-    system = types.SimpleNamespace(id="s1", name="x", seed_agent_id=None)
+    system = types.SimpleNamespace(id="s1", name="x", seed_agent_id=None, members=[])
     target = types.SimpleNamespace(id="t1", name="staging")
     session = types.SimpleNamespace(get=None)
     out = await system_clone.clone_system(session, system, target, lambda a, s: None, settings=None)
     assert "error" in out
+
+
+@pytest.mark.asyncio
+async def test_clone_system_no_docker_members():
+    system = types.SimpleNamespace(id="s1", name="x", seed_agent_id="seed1",
+                                   members=[types.SimpleNamespace(target="native", app="nginx", config={})])
+    seed = types.SimpleNamespace(id="seed1", name="prod")
+
+    async def fake_get(model, pk):
+        return seed
+    out = await system_clone.clone_system(types.SimpleNamespace(get=fake_get), system,
+                                          types.SimpleNamespace(id="t", name="staging"),
+                                          lambda a, s: None, settings=None)
+    assert "error" in out and "no docker members" in out["error"]

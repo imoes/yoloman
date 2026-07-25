@@ -20,7 +20,8 @@ import secrets as _secrets
 from typing import Any
 
 from bossman.db.models import Agent, System
-from bossman.services.server_reproduce import export_server_spec, materialize_spec
+from bossman.services.docker_app import inspect_containers
+from bossman.services.server_reproduce import materialize_spec
 from bossman.services.vault import Vault
 
 # Field names that hold a secret — a sandbox gets FRESH ones, prod creds are
@@ -111,15 +112,33 @@ def _transform_for_sandbox(spec: dict[str, Any], prefix: str) -> dict[str, Any]:
 
 async def clone_system(session, system: System, target_agent: Agent, client_factory, settings,
                        dry_run: bool = True) -> dict[str, Any]:
-    """Clone `system`'s seed host into a sandbox on `target_agent`. Dry-run by
-    default (preview only)."""
+    """Clone `system`'s docker members into a sandbox on `target_agent`. Dry-run
+    by default (preview only).
+
+    MEMBER-SCOPED (aligned with rehearse/promote): only the System's docker
+    members are cloned, not the whole seed host. Full container specs are read
+    LIVE from the seed at clone time (inspect_containers) — so ports/env/volumes
+    are complete and NO secret VALUES are ever stored on the System in the DB
+    (the member config stays minimal). Fresh sandbox secrets are injected and the
+    result is redacted, exactly as before."""
     seed = await session.get(Agent, system.seed_agent_id) if system.seed_agent_id else None
     if seed is None:
         return {"error": "system has no seed host to clone from", "system": system.name}
+    member_apps = {m.app for m in system.members if m.target == "docker"}
+    if not member_apps:
+        return {"error": "no docker members to clone", "system": system.name}
 
-    spec = await export_server_spec(session, seed, client_factory, settings)
+    # live full specs from the seed, filtered to the System's members
+    insp = await inspect_containers(seed, client_factory, settings)
+    resources = [
+        {"type": "docker_container", "name": c.get("name"), "image": c.get("image"),
+         "ports": c.get("ports") or [], "env": c.get("env") or {},
+         "volumes": c.get("volumes") or [], "restart": c.get("restart") or "unless-stopped"}
+        for c in (insp.get("containers") or []) if c.get("name") in member_apps
+    ]
+
     prefix = _sandbox_prefix(system.name)
-    sandbox_spec = _transform_for_sandbox(spec, prefix)
+    sandbox_spec = _transform_for_sandbox({"resources": resources}, prefix)
     # Block 3: fresh sandbox secrets (prod creds never reused; refs are handles).
     sandbox_spec, secret_refs, fresh_values = _inject_sandbox_secrets(sandbox_spec, settings)
     result = await materialize_spec(session, target_agent, client_factory, settings, sandbox_spec, dry_run=dry_run)
@@ -130,7 +149,7 @@ async def clone_system(session, system: System, target_agent: Agent, client_fact
         "target": {"id": str(target_agent.id), "name": target_agent.name},
         "sandbox_prefix": prefix,
         "dry_run": dry_run,
-        "source_resource_count": spec.get("resource_count"),
+        "member_count": len(resources),
         "secret_refs": secret_refs,
         "secret_count": len(secret_refs),
         "materialize": result,
