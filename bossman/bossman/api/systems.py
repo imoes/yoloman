@@ -18,7 +18,7 @@ from bossman.api.plans import get_client_factory
 from bossman.config import Settings, get_settings
 from bossman.db.models import System, SystemMember
 from bossman.db.session import get_session
-from bossman.services import system_clone, system_discover, system_rehearsal
+from bossman.services import system_clone, system_discover, system_promote, system_rehearsal
 
 router = APIRouter()
 
@@ -42,6 +42,13 @@ class RehearseBody(BaseModel):
     target_agent_id: UUID              # where the sandbox runs
     image_overrides: dict[str, str] = {}   # {member_app: new_image} = the change under test
     teardown: bool = True
+
+
+class PromoteBody(BaseModel):
+    target_agent_id: UUID                  # the PROD host
+    image_overrides: dict[str, str] = {}   # {member_app: new_image} = the change
+    rehearse_first: bool = True            # safety gate: only promote on a green rehearsal
+    dry_run: bool = False
 
 
 def _member_dict(m: SystemMember) -> dict[str, Any]:
@@ -154,6 +161,24 @@ async def rehearse_system_route(
     return await system_rehearsal.rehearse(
         s, target, client_factory, settings,
         image_overrides=body.image_overrides, teardown=body.teardown,
+    )
+
+
+@router.post("/api/v1/systems/{system_id}/promote")
+async def promote_system_route(
+    system_id: UUID, body: PromoteBody,
+    session: AsyncSession = Depends(get_session), settings: Settings = Depends(get_settings),
+    _identity=Depends(get_current_identity), client_factory=Depends(get_client_factory),
+) -> dict[str, Any]:
+    """Promote a rehearsed change to prod as one atomic change-set (rolls the whole
+    set back if any member fails). Gated on a green rehearsal unless disabled."""
+    s = await session.get(System, system_id)
+    if s is None:
+        raise HTTPException(status_code=404, detail="no such system")
+    target = await _agent_with_address(session, body.target_agent_id)
+    return await system_promote.promote(
+        s, target, body.image_overrides, client_factory, settings,
+        rehearse_first=body.rehearse_first, dry_run=body.dry_run,
     )
 
 
