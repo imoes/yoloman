@@ -18,7 +18,7 @@ from bossman.api.plans import get_client_factory
 from bossman.config import Settings, get_settings
 from bossman.db.models import System, SystemMember
 from bossman.db.session import get_session
-from bossman.services import system_discover
+from bossman.services import system_clone, system_discover
 
 router = APIRouter()
 
@@ -31,6 +31,11 @@ class SystemCreate(BaseModel):
     seed_agent_id: UUID | None = None
     members: list[dict[str, Any]] = []      # proposed members (target/app/role + tier fields)
     edges: list[dict[str, Any]] = []
+
+
+class CloneBody(BaseModel):
+    target_agent_id: UUID          # where the sandbox runs
+    dry_run: bool = True
 
 
 def _member_dict(m: SystemMember) -> dict[str, Any]:
@@ -108,6 +113,23 @@ async def get_system(
     if s is None:
         raise HTTPException(status_code=404, detail="no such system")
     return _system_dict(s)
+
+
+@router.post("/api/v1/systems/{system_id}/clone")
+async def clone_system_route(
+    system_id: UUID, body: CloneBody,
+    session: AsyncSession = Depends(get_session), settings: Settings = Depends(get_settings),
+    _identity=Depends(get_current_identity), client_factory=Depends(get_client_factory),
+) -> dict[str, Any]:
+    """Clone the System's seed host into a sandbox on the target (cross-tier:
+    docker names prefixed, host ports dropped). Dry-run by default — preview the
+    config plan + docker run commands before any write. The base of the rehearsal
+    plane."""
+    s = await session.get(System, system_id)
+    if s is None:
+        raise HTTPException(status_code=404, detail="no such system")
+    target = await _agent_with_address(session, body.target_agent_id)
+    return await system_clone.clone_system(session, s, target, client_factory, settings, dry_run=body.dry_run)
 
 
 @router.delete("/api/v1/systems/{system_id}")
