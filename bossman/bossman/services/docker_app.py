@@ -76,6 +76,67 @@ async def list_containers(agent, client_factory, settings) -> dict[str, Any]:
     return {"agent": {"id": str(agent.id), "name": agent.name}, "containers": out, "count": len(out)}
 
 
+def _parse_inspect(obj: dict[str, Any]) -> dict[str, Any]:
+    """One `docker inspect` object → the portable container spec (the SAME shape
+    deploy_container consumes), plus its docker-compose provenance from labels.
+    This is the docker tier's 'observe' side — a running container recovered as a
+    re-appliable desired-state resource (see project-docker-desired-state)."""
+    cfg = obj.get("Config") or {}
+    hostcfg = obj.get("HostConfig") or {}
+    labels = cfg.get("Labels") or {}
+    # env "K=V" list → dict
+    env: dict[str, str] = {}
+    for e in cfg.get("Env") or []:
+        if isinstance(e, str) and "=" in e:
+            k, v = e.split("=", 1)
+            env[k] = v
+    # port bindings {"80/tcp": [{"HostPort": "8098"}]} → [{host, container}]
+    ports: list[dict[str, Any]] = []
+    for cport, binds in (hostcfg.get("PortBindings") or {}).items():
+        container = str(cport).split("/")[0]
+        for b in binds or []:
+            hp = (b or {}).get("HostPort")
+            if hp:
+                ports.append({"host": hp, "container": container})
+    return {
+        "name": (obj.get("Name") or "").lstrip("/"),
+        "image": cfg.get("Image", ""),
+        "ports": ports,
+        "env": env,
+        "volumes": list(hostcfg.get("Binds") or []),
+        "restart": ((hostcfg.get("RestartPolicy") or {}).get("Name")) or "no",
+        # docker-compose provenance (present only for compose-managed containers)
+        "compose_project": labels.get("com.docker.compose.project"),
+        "compose_service": labels.get("com.docker.compose.service"),
+        "compose_file": labels.get("com.docker.compose.project.config_files"),
+    }
+
+
+async def inspect_containers(agent, client_factory, settings) -> dict[str, Any]:
+    """Recover every container on the host as a portable, re-appliable spec via
+    `docker inspect` — the observe side of the docker tier. Compose-managed
+    containers also carry their compose project/service/file (from labels), so
+    the compose definition flows into the desired state."""
+    client = client_factory(agent, settings)
+    # `docker ps -aq | xargs docker inspect`; -r so no ids → no error, [] fallback.
+    script = "docker inspect $(docker ps -aq) 2>/dev/null || echo '[]'"
+    data = await _run(client, ["sh", "-c", script])
+    containers: list[dict[str, Any]] = []
+    try:
+        parsed = json.loads((data.get("stdout") or "").strip() or "[]")
+        if isinstance(parsed, list):
+            containers = [_parse_inspect(o) for o in parsed if isinstance(o, dict)]
+    except ValueError:
+        pass
+    compose_files = sorted({c["compose_file"] for c in containers if c.get("compose_file")})
+    return {
+        "agent": {"id": str(agent.id), "name": agent.name},
+        "containers": containers,
+        "count": len(containers),
+        "compose_files": compose_files,
+    }
+
+
 async def remove_container(agent, client_factory, settings, *, name: str) -> dict[str, Any]:
     """Force-remove a container by name."""
     client = client_factory(agent, settings)

@@ -14,7 +14,7 @@ from bossman.api.management import _agent_with_address
 from bossman.api.plans import get_client_factory
 from bossman.config import Settings, get_settings
 from bossman.db.session import get_session
-from bossman.services.docker_app import deploy_container, list_containers, remove_container
+from bossman.services.docker_app import deploy_container, inspect_containers, list_containers, remove_container
 
 router = APIRouter()
 
@@ -63,6 +63,20 @@ async def docker_list(
     """Containers on the host (docker ps -a)."""
     agent = await _agent_with_address(session, agent_id)
     return await list_containers(agent, client_factory, settings)
+
+
+@router.get("/api/v1/agents/{agent_id}/docker/inspect")
+async def docker_inspect(
+    agent_id: UUID,
+    session: AsyncSession = Depends(get_session),
+    settings: Settings = Depends(get_settings),
+    _identity=Depends(require_manage_agent),
+    client_factory=Depends(get_client_factory),
+) -> dict[str, Any]:
+    """Recover every container as a portable spec (docker inspect) incl. its
+    docker-compose file — the observe side of the docker tier (desired state)."""
+    agent = await _agent_with_address(session, agent_id)
+    return await inspect_containers(agent, client_factory, settings)
 
 
 @router.post("/api/v1/agents/{agent_id}/docker/remove")
