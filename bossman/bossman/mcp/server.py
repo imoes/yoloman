@@ -261,6 +261,20 @@ def build_mcp_server(
             return await build_server_document(session, agent, client_factory, settings, inc)
 
     @mcp.tool()
+    async def explain_server(host: str, question: str = "") -> dict[str, Any]:
+        """Self-documenting infra: the LLM documents a host (no question) or
+        answers a question about it, grounded STRICTLY in its live state
+        document — always-current, never invented. Use for "document this
+        server", "why is X configured this way", "what changed", "what does it
+        depend on". Built on get_server_document."""
+        from bossman.services.chat_client import chat_client_for
+        from bossman.services.server_narrative import explain_server as _explain
+        async with session_factory() as session:
+            agent = await _addressed_agent_or_raise(session, host)
+            return await _explain(session, agent, client_factory, settings,
+                                  chat=chat_client_for(settings), question=(question or None))
+
+    @mcp.tool()
     async def list_plans() -> list[dict[str, Any]]:
         """List every available plan: name, description, params."""
         return catalog_cache.list_json
