@@ -1929,3 +1929,46 @@ class AgentObservedState(Base):
     observed: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)  # the {observed:{...}} document
     drift: Mapped[dict | None] = mapped_column(JSONB)  # optional cached config-drift result
     updated_at: Mapped[datetime] = mapped_column(TZ_DATETIME, server_default=func.now(), nullable=False)
+
+
+class System(Base):
+    """A System: the unit ABOVE a host — a named set of apps + wiring, spanning
+    tiers (native/docker/k8s). What clone-a-prod-system / the rehearsal plane
+    operate on (docs/test-systems.md). Discovered from a seed host, then confirmed
+    + named + persisted here. edges = the wiring between members."""
+
+    __tablename__ = "systems"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid())
+    name: Mapped[str] = mapped_column(String, unique=True, nullable=False)
+    description: Mapped[str | None] = mapped_column(String)
+    seed_agent_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("agents.id", ondelete="SET NULL")
+    )
+    edges: Mapped[list] = mapped_column(JSONB, nullable=False, default=list)  # [{from,to,kind}]
+    created_by: Mapped[str | None] = mapped_column(String)
+    created_at: Mapped[datetime] = mapped_column(TZ_DATETIME, server_default=func.now(), nullable=False)
+
+    members: Mapped[list["SystemMember"]] = relationship(
+        back_populates="system", cascade="all, delete-orphan", lazy="selectin"
+    )
+
+
+class SystemMember(Base):
+    """One member app of a System: which app, on which tier, its role, and a
+    tier-specific config blob (image/chart/compose_file, secret_refs, data_policy).
+    secret VALUES are never stored here — only references (password-depot handles)."""
+
+    __tablename__ = "system_members"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid())
+    system_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("systems.id", ondelete="CASCADE"), nullable=False
+    )
+    target: Mapped[str] = mapped_column(String, nullable=False)   # native | docker | k8s
+    app: Mapped[str] = mapped_column(String, nullable=False)
+    role_in_system: Mapped[str | None] = mapped_column(String)
+    config: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)  # image/chart/compose_file/secret_refs/…
+    created_at: Mapped[datetime] = mapped_column(TZ_DATETIME, server_default=func.now(), nullable=False)
+
+    system: Mapped["System"] = relationship(back_populates="members")
