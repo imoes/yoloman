@@ -8,6 +8,17 @@ import { AccountsResponse, Agent, DirectiveSpec, EbpfDetail, ProcessHistory, Gro
 /** Block J4a — the service-control actions the agent's systemd module accepts. */
 export type ServiceAction = 'restart' | 'stop' | 'start' | 'enable' | 'disable';
 
+// --- Kubernetes / Helm app tier -----------------------------------------
+export interface HelmRelease {
+  name: string; namespace: string; chart: string; app_version: string; status: string; revision: number;
+}
+export interface HelmReleasesResponse { agent: { id: string; name: string }; releases: HelmRelease[]; count: number; error?: string; }
+export interface HelmChart { name: string; version: string; app_version: string; description: string; }
+export interface HelmChartsResponse { charts: HelmChart[]; count: number; }
+export interface HelmValuesResponse { chart: string; values_yaml: string; chart_yaml: string; error: string | null; }
+export interface HelmRenderResponse { rendered: string; ok: boolean; error: string | null; }
+export interface HelmMutationResponse { name: string; namespace?: string; ok: boolean; stdout?: string; error: string | null; }
+
 @Injectable({ providedIn: 'root' })
 export class AgentService {
   private http = inject(HttpClient);
@@ -238,6 +249,34 @@ export class AgentService {
     return this.http.post<{ agent: { id: string; name: string }; question: string | null; answer: string;
       grounding: { context_chars: number; sections: string[]; errors: Record<string, string> } }>(
       `${this.base}/${id}/explain`, { question: question || null });
+  }
+
+  // --- Kubernetes / Helm app tier (click-and-play deploy) ---------------
+  /** Deployed releases on the host's cluster (helm list -A). */
+  helmReleases(id: string) {
+    return this.http.get<HelmReleasesResponse>(`${this.base}/${id}/helm/releases`);
+  }
+  /** Available charts to deploy (helm search repo) — the k8s app catalog. */
+  helmCharts(id: string, query = '') {
+    return this.http.get<HelmChartsResponse>(`${this.base}/${id}/helm/charts`, { params: { query } });
+  }
+  /** A chart's default values.yaml — drives the configure form. */
+  helmValues(id: string, chart: string) {
+    return this.http.get<HelmValuesResponse>(`${this.base}/${id}/helm/values`, { params: { chart } });
+  }
+  /** helm template — render manifests without a cluster (preview). */
+  helmRender(id: string, body: { name: string; chart: string; values_yaml?: string; namespace?: string }) {
+    return this.http.post<HelmRenderResponse>(`${this.base}/${id}/helm/render`, body);
+  }
+  /** helm upgrade --install — deploy/upgrade a release. */
+  helmInstall(id: string, body: { name: string; chart: string; values_yaml?: string; namespace?: string; create_namespace?: boolean; wait?: boolean }) {
+    return this.http.post<HelmMutationResponse>(`${this.base}/${id}/helm/install`, body);
+  }
+  helmRollback(id: string, body: { name: string; revision?: number; namespace?: string }) {
+    return this.http.post<HelmMutationResponse>(`${this.base}/${id}/helm/rollback`, body);
+  }
+  helmUninstall(id: string, body: { name: string; namespace?: string }) {
+    return this.http.post<HelmMutationResponse>(`${this.base}/${id}/helm/uninstall`, body);
   }
 
   updateGroups(id: string, groups: string[]) {

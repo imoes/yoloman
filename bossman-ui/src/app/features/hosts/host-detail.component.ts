@@ -40,6 +40,7 @@ import { HostConsoleComponent } from './host-console.component';
 import { TopologyComponent } from '../topology/topology.component';
 import { HostManagementComponent } from './management/host-management.component';
 import { HostExplainComponent } from './host-explain.component';
+import { KubernetesDeployComponent } from './kubernetes-deploy.component';
 import { StandaloneOverviewComponent } from '../../standalone/standalone-overview.component';
 import { DesiredStateReportComponent, ConfigDesiredResource } from '../../shared/components/desired-state-report/desired-state-report.component';
 import { CompiledHostState } from '../../core/models/orchestration.model';
@@ -126,6 +127,7 @@ function serviceMetricSpec(name: string, metric: string): { members: string[]; m
     TopologyComponent,
     HostManagementComponent,
     HostExplainComponent,
+    KubernetesDeployComponent,
     MetricChartComponent,
     MetricGaugeComponent,
     TimeRangePickerComponent,
@@ -1201,6 +1203,11 @@ function serviceMetricSpec(name: string, metric: string): { members: string[]; m
           <mat-tab label="Explain"><ng-template matTabContent>
             <div class="bm-tab-content">
               <app-host-explain [agentId]="agent.id" />
+            </div>
+          </ng-template></mat-tab>
+          <mat-tab label="Kubernetes"><ng-template matTabContent>
+            <div class="bm-tab-content">
+              <app-kubernetes-deploy [agentId]="agent.id" />
             </div>
           </ng-template></mat-tab>
         </mat-tab-group>
