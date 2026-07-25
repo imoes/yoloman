@@ -8,7 +8,13 @@ import types
 import pytest
 
 from bossman.services import system_clone
-from bossman.services.system_clone import _sandbox_prefix, _transform_for_sandbox
+from bossman.services.system_clone import (
+    _inject_sandbox_secrets,
+    _is_secret_key,
+    _redact,
+    _sandbox_prefix,
+    _transform_for_sandbox,
+)
 
 
 def test_sandbox_prefix_slugifies():
@@ -31,6 +37,39 @@ def test_transform_prefixes_docker_and_drops_ports():
     assert dock["name"] == "sbx-demo-web"        # docker name prefixed
     assert dock["ports"] == []                   # host ports dropped
     assert dock["image"] == "nginx" and dock["env"] == {"X": "1"}  # rest preserved
+
+
+def test_is_secret_key():
+    for k in ("PASSWORD", "db_pass", "API_KEY", "apikey", "SECRET_TOKEN", "private_key", "credential"):
+        assert _is_secret_key(k), k
+    for k in ("host", "port", "image", "replicas", "name"):
+        assert not _is_secret_key(k), k
+
+
+def test_inject_sandbox_secrets_docker_env_only():
+    spec = {"resources": [
+        {"type": "docker_container", "name": "db", "env": {"POSTGRES_PASSWORD": "prod-secret", "PGHOST": "db"}},
+        # config values are NOT scanned — a directive named "passwd" is not a secret
+        {"type": "config", "path": "/etc/nsswitch.conf", "values": {"passwd": "files systemd", "port": "80"}},
+    ]}
+    out, refs, fresh = _inject_sandbox_secrets(spec, settings=None)
+    env = out["resources"][0]["env"]
+    vals = out["resources"][1]["values"]
+    # docker secret replaced with a fresh one; non-secret env untouched
+    assert env["POSTGRES_PASSWORD"] != "prod-secret" and env["PGHOST"] == "db"
+    # config left completely untouched (no false-positive corruption)
+    assert vals == {"passwd": "files systemd", "port": "80"}
+    keys = {r["key"] for r in refs}
+    assert keys == {"POSTGRES_PASSWORD"}
+    assert "prod-secret" not in fresh and env["POSTGRES_PASSWORD"] in fresh
+
+
+def test_redact_masks_fresh_secrets():
+    fresh = {"abc123", "xyz789"}
+    result = {"docker": [{"command": "docker run -e PW=abc123 img"}], "note": "xyz789 here"}
+    red = _redact(result, fresh)
+    assert red["docker"][0]["command"] == "docker run -e PW=*** img"
+    assert red["note"] == "*** here"
 
 
 @pytest.mark.asyncio
