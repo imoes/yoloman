@@ -29,20 +29,40 @@ _SYS_QA = (
 )
 
 
-def _summarize_document(doc: dict[str, Any], budget: int = 18000) -> str:
-    """Bound the document to a model-sized context: keep config + desired + a
-    generations summary + the TOP topology edges (not all — there can be tens of
-    thousands), then hard-cap the serialized size."""
+def _summarize_document(doc: dict[str, Any], budget: int = 22000, config_budget: int = 16000,
+                        per_file_raw: int = 800) -> str:
+    """Bound the document to a model-sized context, PRIORITIZING actual config
+    content (the whole point — the AI must see real config, not just names):
+    each observed file's parsed `values` (codec'd) or truncated `raw` text
+    (codec-less, e.g. Caddyfile/nginx sites — where TLS etc. lives). Topology is
+    reduced to a tiny top-N (there can be tens of thousands of edges). Config is
+    emitted first so truncation eats topology, not config."""
     out: dict[str, Any] = {"agent": doc.get("agent"), "errors": doc.get("errors") or {}}
 
     cfg = (doc.get("config") or {}).get("observed")
     if isinstance(cfg, dict):
-        files = cfg.get("config") if isinstance(cfg.get("config"), dict) else {}
-        out["config"] = {
-            "files": {p: v for p, v in list(files.items())[:60]},   # bounded set of parsed configs
-            "file_count": len(files),
-            "services": (cfg.get("services") or [])[:80],
-        }
+        items = cfg.get("config") if isinstance(cfg.get("config"), list) else []
+        files: list[dict[str, Any]] = []
+        used = 0
+        for it in items:
+            if not isinstance(it, dict):
+                continue
+            entry: dict[str, Any] = {"path": it.get("path"), "format": it.get("format") or None}
+            vals = it.get("values")
+            if isinstance(vals, dict) and vals:
+                entry["values"] = vals
+            else:
+                raw = it.get("raw")
+                if isinstance(raw, str) and raw.strip():
+                    entry["raw"] = raw[:per_file_raw] + ("… [truncated]" if len(raw) > per_file_raw else "")
+            size = len(json.dumps(entry, default=str))
+            if used + size > config_budget:               # keep the path, drop the body once over budget
+                files.append({"path": it.get("path"), "note": "omitted (context budget)"})
+                continue
+            used += size
+            files.append(entry)
+        out["config"] = {"file_count": len(items), "files": files, "services": (cfg.get("services") or [])[:60]}
+
     if "desired" in doc:
         out["desired"] = doc["desired"].get("state") if isinstance(doc.get("desired"), dict) else doc["desired"]
 
@@ -53,7 +73,7 @@ def _summarize_document(doc: dict[str, Any], budget: int = 18000) -> str:
 
     topo = (doc.get("topology") or {}).get("edges")
     if isinstance(topo, list):
-        top = sorted(topo, key=lambda e: e.get("event_count") or 0, reverse=True)[:40]
+        top = sorted(topo, key=lambda e: e.get("event_count") or 0, reverse=True)[:15]
         out["topology"] = {"edge_count": len(topo), "top_edges": top}
 
     text = json.dumps(out, indent=1, default=str)
