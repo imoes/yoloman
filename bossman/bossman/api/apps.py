@@ -21,6 +21,21 @@ from bossman.config import Settings, get_settings
 
 router = APIRouter()
 
+# Curated cross-tier targets: an App is the SAME thing across tiers, but not
+# every native package has a sensible container image / Helm chart. We only
+# declare docker/k8s where a well-known official artifact exists — honest over
+# guessing (the UI shows only the tiers actually present). image/chart are
+# defaults the deploy form pre-fills and the user can override.
+_DOCKER_IMAGES: dict[str, str] = {
+    "adminer": "adminer", "caddy": "caddy", "haproxy": "haproxy", "mariadb": "mariadb",
+    "memcached": "memcached", "nginx": "nginx", "postgresql": "postgres", "redis": "redis",
+    "traefik": "traefik", "apache2": "httpd", "php-fpm": "php:fpm",
+}
+_K8S_CHARTS: dict[str, str] = {
+    "nginx": "bitnami/nginx", "postgresql": "bitnami/postgresql", "redis": "bitnami/redis",
+    "mariadb": "bitnami/mariadb", "memcached": "bitnami/memcached", "haproxy": "haproxytech/kubernetes-ingress",
+}
+
 
 def _catalog_path(settings: Settings) -> Path:
     return Path(settings.config_templates_dir).parent / "package_catalog.json"
@@ -41,6 +56,18 @@ def _app_summary(app_id: str, entry: dict[str, Any]) -> dict[str, Any]:
     """Reshape a package_catalog entry into an App summary. The native target is
     the entry itself (role + template + per-family package/service/config)."""
     template = entry.get("template")
+    targets: dict[str, Any] = {
+        "native": {
+            "role": app_id,
+            "template": template,
+            "validate_cmd": entry.get("validate_cmd"),
+            "families": entry.get("families", {}),
+        },
+    }
+    if app_id in _DOCKER_IMAGES:
+        targets["docker"] = {"image": _DOCKER_IMAGES[app_id]}
+    if app_id in _K8S_CHARTS:
+        targets["k8s"] = {"chart": _K8S_CHARTS[app_id]}
     return {
         "id": app_id,
         "label": entry.get("label", app_id),
@@ -48,16 +75,7 @@ def _app_summary(app_id: str, entry: dict[str, Any]) -> dict[str, Any]:
         "icon": entry.get("icon", "widgets"),
         "description": entry.get("description", ""),
         "configurable": bool(template),
-        "targets": {
-            "native": {
-                "role": app_id,
-                "template": template,
-                "validate_cmd": entry.get("validate_cmd"),
-                "families": entry.get("families", {}),
-            },
-            # docker / k8s tiers are declared by later increments; absent = not
-            # yet supported for this app (the UI shows only what's present).
-        },
+        "targets": targets,
     }
 
 

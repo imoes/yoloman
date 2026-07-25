@@ -8,6 +8,8 @@ export interface AppTarget {
   template?: string | null;
   validate_cmd?: string | null;
   families?: Record<string, unknown>;
+  image?: string;   // docker tier: the default container image
+  chart?: string;   // k8s tier: the default Helm chart
 }
 
 export interface AppSummary {

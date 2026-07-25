@@ -2080,7 +2080,7 @@ export class HostDetailComponent implements OnInit {
 
   // Tabs in template order; a ?tab= query param (e.g. from the Overview
   // problems panel → Services) selects the initial tab.
-  private readonly tabOrder = ['overview', 'services', 'inventory', 'configuration', 'checks', 'console', 'relationships', 'ebpf', 'processes', 'runs', 'management'];
+  private readonly tabOrder = ['overview', 'services', 'inventory', 'configuration', 'checks', 'console', 'relationships', 'ebpf', 'processes', 'runs', 'management', 'explain', 'kubernetes'];
   initialTabIndex = 0;
 
   ngOnInit(): void {

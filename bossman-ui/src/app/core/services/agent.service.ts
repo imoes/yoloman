@@ -24,6 +24,18 @@ export interface HelmValuesResponse {
 export interface HelmRenderResponse { rendered: string; ok: boolean; error: string | null; }
 export interface HelmMutationResponse { name: string; namespace?: string; ok: boolean; stdout?: string; error: string | null; }
 
+// --- Docker app tier -----------------------------------------------------
+export interface DockerContainer { name: string; image: string; status: string; ports?: string; }
+export interface DockerContainersResponse { containers: DockerContainer[]; count: number; error?: string; }
+export interface DockerDeployBody {
+  name: string; image: string; ports?: { host: number | string; container: number | string }[];
+  env?: Record<string, string>; volumes?: string[]; restart?: string; dry_run?: boolean;
+}
+export interface DockerMutationResponse {
+  container: string; image?: string; command?: string; ok?: boolean; rc?: number;
+  stdout?: string; stderr?: string; dry_run?: boolean;
+}
+
 @Injectable({ providedIn: 'root' })
 export class AgentService {
   private http = inject(HttpClient);
@@ -283,6 +295,17 @@ export class AgentService {
   }
   helmUninstall(id: string, body: { name: string; namespace?: string }) {
     return this.http.post<HelmMutationResponse>(`${this.base}/${id}/helm/uninstall`, body);
+  }
+
+  // --- Docker app tier (click-and-play deploy) --------------------------
+  dockerContainers(id: string) {
+    return this.http.get<DockerContainersResponse>(`${this.base}/${id}/docker/containers`);
+  }
+  dockerDeploy(id: string, body: DockerDeployBody) {
+    return this.http.post<DockerMutationResponse>(`${this.base}/${id}/docker/deploy`, body);
+  }
+  dockerRemove(id: string, name: string) {
+    return this.http.post<DockerMutationResponse>(`${this.base}/${id}/docker/remove`, { name });
   }
 
   updateGroups(id: string, groups: string[]) {

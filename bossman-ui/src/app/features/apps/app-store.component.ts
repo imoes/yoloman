@@ -1,6 +1,7 @@
 import { Component, computed, inject, signal } from '@angular/core';
 import { MatIconModule } from '@angular/material/icon';
 import { AppsService, AppSummary } from '../../core/services/apps.service';
+import { AppDeployComponent } from './app-deploy.component';
 
 /**
  * App Store (app-system increment 1) — the unified catalog of deployable Apps,
@@ -13,7 +14,7 @@ import { AppsService, AppSummary } from '../../core/services/apps.service';
 @Component({
   selector: 'app-app-store',
   standalone: true,
-  imports: [MatIconModule],
+  imports: [MatIconModule, AppDeployComponent],
   template: `
     <div class="bm-page">
       <header class="bm-page-head">
@@ -28,6 +29,15 @@ import { AppsService, AppSummary } from '../../core/services/apps.service';
           <input class="bm-as-search" placeholder="Search apps…" [value]="query()"
                  (input)="query.set($any($event.target).value)" />
         </div>
+
+        @if (selected(); as sel) {
+          <div class="bm-as-deploy">
+            <app-app-deploy [app]="sel" />
+            <button class="bm-as-close" (click)="selected.set(null)" title="Close">
+              <mat-icon>close</mat-icon>
+            </button>
+          </div>
+        }
         @for (grp of groups(); track grp.category) {
           <section class="bm-as-group">
             <div class="bm-as-cat">{{ grp.category }} <span class="bm-dim">· {{ grp.apps.length }}</span></div>
@@ -75,6 +85,9 @@ import { AppsService, AppSummary } from '../../core/services/apps.service';
     .bm-as-badges { display: flex; flex-wrap: wrap; gap: 4px; }
     .bm-as-tier { font-size: 10.5px; padding: 1px 7px; border-radius: 999px; background: color-mix(in srgb, var(--mat-sys-on-surface) 10%, transparent); }
     .bm-as-cfg { font-size: 10.5px; padding: 1px 7px; border-radius: 999px; border: 1px solid var(--bm-green, #2e7d32); color: var(--bm-green, #2e7d32); }
+    .bm-as-deploy { position: relative; margin-bottom: 20px; }
+    .bm-as-close { position: absolute; top: 10px; right: 10px; background: none; border: none; color: inherit; cursor: pointer; opacity: 0.6; }
+    .bm-as-close:hover { opacity: 1; }
   `],
 })
 export class AppStoreComponent {
