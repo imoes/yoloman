@@ -66,6 +66,11 @@ type Plan struct {
 	ChangedCount int              `json:"changed_count"`
 }
 
+// maxGenerations caps the retained configuration history: only the newest N
+// generations are kept (oldest pruned on record). Generation Numbers stay
+// monotonic; you can roll back to any of the last maxGenerations snapshots.
+const maxGenerations = 30
+
 // GenerationMeta is the history-list view of one applied generation.
 type GenerationMeta struct {
 	Number    int64     `json:"number"`
@@ -281,6 +286,10 @@ func (s *Store) record(doc Document) int64 {
 		num = s.gens[len(s.gens)-1].Number + 1
 	}
 	s.gens = append(s.gens, generation{Number: num, AppliedAt: time.Now().UTC(), Hash: docHash(doc), Document: doc})
+	// Retention: keep only the newest maxGenerations (drop the oldest).
+	if len(s.gens) > maxGenerations {
+		s.gens = append([]generation(nil), s.gens[len(s.gens)-maxGenerations:]...)
+	}
 	_ = s.persist()
 	return num
 }

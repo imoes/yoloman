@@ -82,3 +82,39 @@ func TestStatePlanApplyRollback(t *testing.T) {
 		t.Fatalf("after rollback to gen1: %q (want a=9)", b)
 	}
 }
+
+// Configuration history is capped at maxGenerations (30): the oldest are pruned
+// while generation Numbers stay monotonic and the newest are always retained.
+func TestGenerationRetentionCap(t *testing.T) {
+	dir := t.TempDir()
+	store := NewStore(filepath.Join(dir, "state.json"))
+
+	var last int64
+	for i := 0; i < 35; i++ {
+		doc := Document{Resources: []Resource{{
+			Type: "config", Path: "/tmp/x", Format: "keyvalue", Separator: "=",
+			Values: map[string]any{"n": i},
+		}}}
+		last = store.record(doc)
+	}
+	if last != 35 {
+		t.Fatalf("last generation number = %d, want 35", last)
+	}
+
+	gens := store.Generations() // newest first
+	if len(gens) != maxGenerations {
+		t.Fatalf("retained %d generations, want %d", len(gens), maxGenerations)
+	}
+	if gens[0].Number != 35 {
+		t.Fatalf("newest generation = %d, want 35", gens[0].Number)
+	}
+	if gens[len(gens)-1].Number != 6 {
+		t.Fatalf("oldest retained generation = %d, want 6 (35-30+1)", gens[len(gens)-1].Number)
+	}
+
+	// The cap survives a reload from disk.
+	store2 := NewStore(store.path)
+	if got := len(store2.Generations()); got != maxGenerations {
+		t.Fatalf("after reload: %d generations, want %d", got, maxGenerations)
+	}
+}
