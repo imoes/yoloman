@@ -30,6 +30,11 @@ export const routes: Routes = [
     loadComponent: () => import('./features/hosts/hosts-list.component').then((m) => m.HostsListComponent),
   },
   {
+    path: 'apps',
+    canActivate: [authGuard],
+    loadComponent: () => import('./features/apps/app-store.component').then((m) => m.AppStoreComponent),
+  },
+  {
     path: 'hosts/:id',
     canActivate: [authGuard],
     loadComponent: () => import('./features/hosts/host-detail.component').then((m) => m.HostDetailComponent),
