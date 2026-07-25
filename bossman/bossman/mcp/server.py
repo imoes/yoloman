@@ -356,6 +356,93 @@ def build_mcp_server(
             agent = await _addressed_agent_or_raise(session, host)
             return await helm_app.uninstall_release(agent, client_factory, settings, name=name, namespace=namespace)
 
+    # --- Systems / rehearsal plane (clone-a-prod-system, AI-autonomous) -------
+
+    async def _system_by_name_or_raise(session: AsyncSession, name: str):
+        from bossman.db.models import System
+        s = (await session.scalars(select(System).where(System.name == name))).first()
+        if s is None:
+            raise ValueError(f"no such system: {name!r} (use system_list)")
+        return s
+
+    @mcp.tool()
+    async def system_propose(host: str, name: str = "") -> dict[str, Any]:
+        """Propose a System (apps + wiring, the unit above a host) from a seed
+        host's live state — docker/k8s/native members. Read-only; persist with
+        system_create."""
+        from bossman.services import system_discover
+        async with session_factory() as session:
+            agent = await _addressed_agent_or_raise(session, host)
+            return await system_discover.propose_system(session, agent, client_factory, settings, name=name or None)
+
+    @mcp.tool()
+    async def system_create(name: str, seed_host: str = "", members: list[dict[str, Any]] | None = None,
+                            edges: list[dict[str, Any]] | None = None, description: str = "") -> dict[str, Any]:
+        """Persist a System (typically a confirmed system_propose result)."""
+        from bossman.db.models import System, SystemMember
+        _CORE = {"target", "app", "role_in_system"}
+        async with session_factory() as session:
+            if (await session.scalars(select(System).where(System.name == name))).first() is not None:
+                raise ValueError(f"a system named {name!r} already exists")
+            seed_id = None
+            if seed_host:
+                seed_id = (await _addressed_agent_or_raise(session, seed_host)).id
+            row = System(name=name, description=description or None, seed_agent_id=seed_id, edges=edges or [])
+            for m in members or []:
+                cfg = {k: v for k, v in m.items() if k not in _CORE and k != "id" and v is not None}
+                row.members.append(SystemMember(target=str(m.get("target") or "native"),
+                                                 app=str(m.get("app") or ""), role_in_system=m.get("role_in_system"),
+                                                 config=cfg))
+            session.add(row)
+            await session.commit()
+            await session.refresh(row)
+            return {"id": str(row.id), "name": row.name, "member_count": len(row.members)}
+
+    @mcp.tool()
+    async def system_list() -> list[dict[str, Any]]:
+        """List persisted Systems (id, name, member_count)."""
+        from bossman.db.models import System
+        async with session_factory() as session:
+            rows = (await session.scalars(select(System).order_by(System.created_at.desc()))).all()
+            return [{"id": str(s.id), "name": s.name, "member_count": len(s.members),
+                     "seed_agent_id": str(s.seed_agent_id) if s.seed_agent_id else None} for s in rows]
+
+    @mcp.tool()
+    async def system_clone(system_name: str, target_host: str, dry_run: bool = True) -> dict[str, Any]:
+        """Clone a System's seed host into a sandbox on target_host (docker names
+        prefixed, host ports dropped). Dry-run by default — preview first."""
+        from bossman.services import system_clone as _clone
+        async with session_factory() as session:
+            s = await _system_by_name_or_raise(session, system_name)
+            target = await _addressed_agent_or_raise(session, target_host)
+            return await _clone.clone_system(session, s, target, client_factory, settings, dry_run=dry_run)
+
+    @mcp.tool()
+    async def system_rehearse(system_name: str, target_host: str,
+                              image_overrides: dict[str, str] | None = None, teardown: bool = True) -> dict[str, Any]:
+        """Rehearse a change in a sandbox: bring the System's docker members up for
+        real (with optional image_overrides = the change), health-gate, tear down.
+        Returns pass/fail — the behavioral test before prod."""
+        from bossman.services import system_rehearsal
+        async with session_factory() as session:
+            s = await _system_by_name_or_raise(session, system_name)
+            target = await _addressed_agent_or_raise(session, target_host)
+            return await system_rehearsal.rehearse(s, target, client_factory, settings,
+                                                   image_overrides=image_overrides or {}, teardown=teardown)
+
+    @mcp.tool()
+    async def system_promote(system_name: str, target_host: str, image_overrides: dict[str, str],
+                             rehearse_first: bool = True, dry_run: bool = False) -> dict[str, Any]:
+        """Promote a change to prod as one atomic change-set, gated on a green
+        rehearsal (rehearse_first). Preserves each container's spec; rolls the whole
+        set back on any failure."""
+        from bossman.services import system_promote
+        async with session_factory() as session:
+            s = await _system_by_name_or_raise(session, system_name)
+            target = await _addressed_agent_or_raise(session, target_host)
+            return await system_promote.promote(s, target, image_overrides, client_factory, settings,
+                                                rehearse_first=rehearse_first, dry_run=dry_run)
+
     @mcp.tool()
     async def list_plans() -> list[dict[str, Any]]:
         """List every available plan: name, description, params."""
