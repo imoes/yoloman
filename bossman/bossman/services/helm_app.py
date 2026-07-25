@@ -1,0 +1,168 @@
+"""Helm / Kubernetes app target (app-system increment 3) — the orchestrated tier
+of the unified App model (native | docker | k8s, docs/app-model.md). Two halves,
+both driven via the host's `helm` CLI through the agent command tool:
+
+- AVAILABLE (the App-Store catalog): `helm search repo` = charts you CAN deploy;
+  `helm show values` = the chart's default values → the configure form (values
+  are rendered FROM the chart, exactly like the native templates' schema.json).
+  These need NO cluster (chart-local ops).
+- DEPLOYED (what's running): `helm list -A` = installed releases (status,
+  revision) for the App-Store "what k8s deployments exist" view + rollback.
+  `helm template` previews; install/upgrade/rollback/uninstall mutate the
+  cluster. These need a kubeconfig/cluster on the host.
+
+Read ops (repos/search/show/list/template) are safe; install/rollback/uninstall
+mutate.
+"""
+from __future__ import annotations
+
+import json
+from typing import Any
+
+
+async def _run(client, argv: list[str]) -> dict[str, Any]:
+    r = await client.call_tool("command", {"argv": argv})
+    return (r or {}).get("data") if isinstance(r, dict) else {}
+
+
+def _json_lines_or_array(stdout: str) -> list[dict[str, Any]]:
+    stdout = (stdout or "").strip()
+    if not stdout:
+        return []
+    try:
+        v = json.loads(stdout)
+        return v if isinstance(v, list) else [v]
+    except ValueError:
+        out = []
+        for line in stdout.splitlines():
+            try:
+                out.append(json.loads(line))
+            except ValueError:
+                pass
+        return out
+
+
+async def list_releases(agent, client_factory, settings) -> dict[str, Any]:
+    """Installed Helm releases on the cluster (helm list -A) — the deployed k8s
+    apps. Needs a cluster; returns an error note if none is reachable."""
+    data = await _run(client_factory(agent, settings), ["helm", "list", "-A", "-o", "json"])
+    rc = data.get("rc")
+    releases = _json_lines_or_array(data.get("stdout", "")) if rc == 0 else []
+    out = {
+        "agent": {"id": str(agent.id), "name": agent.name},
+        "releases": [
+            {"name": r.get("name"), "namespace": r.get("namespace"), "chart": r.get("chart"),
+             "app_version": r.get("app_version"), "status": r.get("status"), "revision": r.get("revision")}
+            for r in releases
+        ],
+        "count": len(releases),
+    }
+    if rc != 0:
+        out["error"] = (data.get("stderr") or "helm list failed (no cluster?)").strip()[:200]
+    return out
+
+
+async def list_repos(agent, client_factory, settings) -> dict[str, Any]:
+    data = await _run(client_factory(agent, settings), ["helm", "repo", "list", "-o", "json"])
+    repos = _json_lines_or_array(data.get("stdout", "")) if data.get("rc") == 0 else []
+    return {"repos": [{"name": r.get("name"), "url": r.get("url")} for r in repos], "count": len(repos)}
+
+
+async def add_repo(agent, client_factory, settings, *, name: str, url: str) -> dict[str, Any]:
+    client = client_factory(agent, settings)
+    add = await _run(client, ["helm", "repo", "add", name, url])
+    await _run(client, ["helm", "repo", "update", name])
+    return {"name": name, "url": url, "ok": add.get("rc") == 0, "stderr": (add.get("stderr") or "").strip()[:200]}
+
+
+async def search_charts(agent, client_factory, settings, *, query: str = "") -> dict[str, Any]:
+    """Available charts to deploy (helm search repo) — the App-Store k8s catalog."""
+    argv = ["helm", "search", "repo", "-o", "json"] + ([query] if query else [])
+    data = await _run(client_factory(agent, settings), argv)
+    charts = _json_lines_or_array(data.get("stdout", "")) if data.get("rc") == 0 else []
+    return {
+        "charts": [
+            {"name": c.get("name"), "version": c.get("version"),
+             "app_version": c.get("app_version"), "description": c.get("description")}
+            for c in charts
+        ],
+        "count": len(charts),
+    }
+
+
+async def chart_values(agent, client_factory, settings, *, chart: str) -> dict[str, Any]:
+    """The chart's default values.yaml — what the configure form is rendered from
+    (the k8s analog of a template's schema.json/sample)."""
+    client = client_factory(agent, settings)
+    vals = await _run(client, ["helm", "show", "values", chart])
+    meta = await _run(client, ["helm", "show", "chart", chart])
+    return {
+        "chart": chart,
+        "values_yaml": (vals.get("stdout") or "") if vals.get("rc") == 0 else "",
+        "chart_yaml": (meta.get("stdout") or "") if meta.get("rc") == 0 else "",
+        "error": None if vals.get("rc") == 0 else (vals.get("stderr") or "").strip()[:200],
+    }
+
+
+async def render_release(agent, client_factory, settings, *, name: str, chart: str,
+                         values_yaml: str = "", namespace: str = "default") -> dict[str, Any]:
+    """helm template — render the manifests WITHOUT a cluster (preview/plan)."""
+    client = client_factory(agent, settings)
+    argv = ["helm", "template", name, chart, "-n", namespace]
+    if values_yaml.strip():
+        # write the values to a temp file the CLI can -f
+        import shlex
+        b64 = None
+        try:
+            import base64
+            b64 = base64.b64encode(values_yaml.encode()).decode()
+        except Exception:  # noqa: BLE001
+            b64 = None
+        if b64:
+            wrapped = (f"f=$(mktemp); echo {shlex.quote(b64)} | base64 -d > $f; "
+                       f"helm template {shlex.quote(name)} {shlex.quote(chart)} -n {shlex.quote(namespace)} -f $f; rm -f $f")
+            data = await _run(client, ["sh", "-c", wrapped])
+            return {"rendered": (data.get("stdout") or "")[:20000], "ok": data.get("rc") == 0,
+                    "error": (data.get("stderr") or "").strip()[:300] if data.get("rc") != 0 else None}
+    data = await _run(client, argv)
+    return {"rendered": (data.get("stdout") or "")[:20000], "ok": data.get("rc") == 0,
+            "error": (data.get("stderr") or "").strip()[:300] if data.get("rc") != 0 else None}
+
+
+async def install_release(agent, client_factory, settings, *, name: str, chart: str,
+                          values_yaml: str = "", namespace: str = "default",
+                          create_namespace: bool = True, wait: bool = False) -> dict[str, Any]:
+    """helm upgrade --install — deploy/upgrade a release on the cluster (mutating,
+    needs a kubeconfig). Idempotent by design (upgrade-or-install)."""
+    import base64
+    import shlex
+    ns = shlex.quote(namespace)
+    base = f"helm upgrade --install {shlex.quote(name)} {shlex.quote(chart)} -n {ns}"
+    if create_namespace:
+        base += " --create-namespace"
+    if wait:
+        base += " --wait"
+    if values_yaml.strip():
+        b64 = base64.b64encode(values_yaml.encode()).decode()
+        script = f"f=$(mktemp); echo {shlex.quote(b64)} | base64 -d > $f; {base} -f $f -o json; rm -f $f"
+    else:
+        script = f"{base} -o json"
+    data = await _run(client_factory(agent, settings), ["sh", "-c", script])
+    return {"name": name, "chart": chart, "namespace": namespace, "ok": data.get("rc") == 0,
+            "stdout": (data.get("stdout") or "")[:2000], "error": (data.get("stderr") or "").strip()[:400] if data.get("rc") != 0 else None}
+
+
+async def rollback_release(agent, client_factory, settings, *, name: str,
+                           revision: int | None = None, namespace: str = "default") -> dict[str, Any]:
+    """helm rollback — revert a release to a previous revision (0/None = last)."""
+    argv = ["helm", "rollback", name] + ([str(revision)] if revision is not None else []) + ["-n", namespace]
+    data = await _run(client_factory(agent, settings), argv)
+    return {"name": name, "namespace": namespace, "revision": revision, "ok": data.get("rc") == 0,
+            "stdout": (data.get("stdout") or "").strip()[:400], "error": (data.get("stderr") or "").strip()[:400] if data.get("rc") != 0 else None}
+
+
+async def uninstall_release(agent, client_factory, settings, *, name: str, namespace: str = "default") -> dict[str, Any]:
+    """helm uninstall — remove a release from the cluster."""
+    data = await _run(client_factory(agent, settings), ["helm", "uninstall", name, "-n", namespace])
+    return {"name": name, "namespace": namespace, "ok": data.get("rc") == 0,
+            "stdout": (data.get("stdout") or "").strip()[:400], "error": (data.get("stderr") or "").strip()[:400] if data.get("rc") != 0 else None}

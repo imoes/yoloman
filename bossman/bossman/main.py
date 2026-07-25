@@ -14,7 +14,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
-from bossman.api import admin, agents, apps as apps_api, auth, chat, checks, document as document_api, docker_apps as docker_apps_api, scheduler as scheduler_api, events as events_api, rollouts as rollouts_api, compliance as compliance_api, certs as certs_api, audit as audit_api, business_services as business_services_api, forecast as forecast_api, config_sync as config_sync_api, chunks, config_codecs, config_directives, config_templates, console, topology as topology_api, dashboard, deploy, deployments, devices, enroll, enroll_info, graphs, health, help, host_groups, management, modules, monitoring, notifications, orchestration, ou, package_catalog, package_wizard, plans, processes, relationships, runbooks, runs, search, security, severity_labels, system_settings, templates, translate, users, value_maps
+from bossman.api import admin, agents, apps as apps_api, auth, chat, checks, document as document_api, docker_apps as docker_apps_api, helm_apps as helm_apps_api, scheduler as scheduler_api, events as events_api, rollouts as rollouts_api, compliance as compliance_api, certs as certs_api, audit as audit_api, business_services as business_services_api, forecast as forecast_api, config_sync as config_sync_api, chunks, config_codecs, config_directives, config_templates, console, topology as topology_api, dashboard, deploy, deployments, devices, enroll, enroll_info, graphs, health, help, host_groups, management, modules, monitoring, notifications, orchestration, ou, package_catalog, package_wizard, plans, processes, relationships, runbooks, runs, search, security, severity_labels, system_settings, templates, translate, users, value_maps
 from bossman.config import get_settings
 from bossman.db.session import make_engine
 from bossman.mcp.auth import McpBearerAuthMiddleware
@@ -292,6 +292,7 @@ def create_app() -> FastAPI:
     app.include_router(apps_api.router, tags=["apps"])
     app.include_router(document_api.router, tags=["document"])
     app.include_router(docker_apps_api.router, tags=["docker"])
+    app.include_router(helm_apps_api.router, tags=["helm"])
     app.include_router(package_catalog.router, tags=["package-catalog"])
     app.include_router(package_wizard.router, tags=["package-wizard"])
     app.include_router(config_directives.router, tags=["config-directives"])

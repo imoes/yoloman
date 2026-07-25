@@ -296,6 +296,66 @@ def build_mcp_server(
             agent = await _addressed_agent_or_raise(session, host)
             return await _export(session, agent, client_factory, settings)
 
+    # ── Helm / Kubernetes: the AI-autonomous k8s deploy surface ─────────────
+    # find chart → inspect values → preview → install → verify → rollback, all
+    # via the host's helm CLI. host = the agent whose host has helm + kubeconfig.
+    @mcp.tool()
+    async def helm_charts(host: str, query: str = "") -> dict[str, Any]:
+        """Available Helm charts to deploy (helm search repo) on a host's configured repos."""
+        from bossman.services import helm_app
+        async with session_factory() as session:
+            agent = await _addressed_agent_or_raise(session, host)
+            return await helm_app.search_charts(agent, client_factory, settings, query=query)
+
+    @mcp.tool()
+    async def helm_chart_values(host: str, chart: str) -> dict[str, Any]:
+        """A chart's default values (helm show values) — inspect before deploying."""
+        from bossman.services import helm_app
+        async with session_factory() as session:
+            agent = await _addressed_agent_or_raise(session, host)
+            return await helm_app.chart_values(agent, client_factory, settings, chart=chart)
+
+    @mcp.tool()
+    async def helm_render(host: str, name: str, chart: str, values_yaml: str = "", namespace: str = "default") -> dict[str, Any]:
+        """Preview the manifests a release would produce (helm template) — no cluster write."""
+        from bossman.services import helm_app
+        async with session_factory() as session:
+            agent = await _addressed_agent_or_raise(session, host)
+            return await helm_app.render_release(agent, client_factory, settings, name=name, chart=chart, values_yaml=values_yaml, namespace=namespace)
+
+    @mcp.tool()
+    async def helm_releases(host: str) -> dict[str, Any]:
+        """Deployed Helm releases on the cluster (helm list -A) — what k8s apps are running."""
+        from bossman.services import helm_app
+        async with session_factory() as session:
+            agent = await _addressed_agent_or_raise(session, host)
+            return await helm_app.list_releases(agent, client_factory, settings)
+
+    @mcp.tool()
+    async def helm_install(host: str, name: str, chart: str, values_yaml: str = "", namespace: str = "default") -> dict[str, Any]:
+        """Deploy or upgrade a release (helm upgrade --install). Mutates the cluster —
+        preview with helm_render first for a complex deploy."""
+        from bossman.services import helm_app
+        async with session_factory() as session:
+            agent = await _addressed_agent_or_raise(session, host)
+            return await helm_app.install_release(agent, client_factory, settings, name=name, chart=chart, values_yaml=values_yaml, namespace=namespace)
+
+    @mcp.tool()
+    async def helm_rollback(host: str, name: str, revision: int = 0, namespace: str = "default") -> dict[str, Any]:
+        """Roll a release back to a previous revision (0 = last)."""
+        from bossman.services import helm_app
+        async with session_factory() as session:
+            agent = await _addressed_agent_or_raise(session, host)
+            return await helm_app.rollback_release(agent, client_factory, settings, name=name, revision=(revision or None), namespace=namespace)
+
+    @mcp.tool()
+    async def helm_uninstall(host: str, name: str, namespace: str = "default") -> dict[str, Any]:
+        """Remove a release from the cluster (helm uninstall)."""
+        from bossman.services import helm_app
+        async with session_factory() as session:
+            agent = await _addressed_agent_or_raise(session, host)
+            return await helm_app.uninstall_release(agent, client_factory, settings, name=name, namespace=namespace)
+
     @mcp.tool()
     async def list_plans() -> list[dict[str, Any]]:
         """List every available plan: name, description, params."""
