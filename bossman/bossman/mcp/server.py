@@ -246,6 +246,21 @@ def build_mcp_server(
         }
 
     @mcp.tool()
+    async def get_server_document(host: str, include: str = "config,desired,generations,topology") -> dict[str, Any]:
+        """The COMPLETE server-document for one host (by name) as one JSON — the
+        AI's full-context read for reasoning about a server: observed config
+        (every file via its codec), desired state, change generations, and the
+        dependency topology. `include` selects sections (config,desired,
+        generations,topology). Use this to answer "why is X configured this way,
+        what is the desired vs observed state, what changed, what does it talk
+        to" grounded in live state instead of guessing."""
+        from bossman.services.server_document import ALL_SECTIONS, build_server_document
+        inc = {p.strip() for p in include.split(",") if p.strip()} or set(ALL_SECTIONS)
+        async with session_factory() as session:
+            agent = await _addressed_agent_or_raise(session, host)
+            return await build_server_document(session, agent, client_factory, settings, inc)
+
+    @mcp.tool()
     async def list_plans() -> list[dict[str, Any]]:
         """List every available plan: name, description, params."""
         return catalog_cache.list_json
