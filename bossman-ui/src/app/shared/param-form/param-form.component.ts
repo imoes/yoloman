@@ -149,11 +149,31 @@ export class ParamFormComponent implements OnInit {
   showAdvanced = signal(false);
   private overrides = signal<Record<string, unknown>>({});
 
+  /** Some generated schemas wrap a default as `{value: X, description?}` instead
+   * of a bare X (two conventions coexist in configs/config_templates). Normalize
+   * to the bare scalar so `default`-based logic (prefill, essential/advanced,
+   * display) works for both. Applied to a field spec and its list `items`. */
+  private unwrapDefault(d: unknown): unknown {
+    if (d && typeof d === 'object' && !Array.isArray(d) && 'value' in (d as Record<string, unknown>)) {
+      return (d as Record<string, unknown>)['value'];
+    }
+    return d;
+  }
+  private norm(spec: ParamSpec): ParamSpec {
+    const out: ParamSpec = { ...spec, default: this.unwrapDefault(spec.default) };
+    if (spec.items) {
+      const items: Record<string, ParamSpec> = {};
+      for (const [k, v] of Object.entries(spec.items)) items[k] = this.norm(v);
+      out.items = items;
+    }
+    return out;
+  }
+
   /** Visible (non-hidden) fields, defaults prefilled from initial ∪ spec.default. */
   private fields = computed<Field[]>(() =>
     Object.entries(this.params())
       .filter(([, s]) => !s.hidden)
-      .map(([key, spec]) => ({ key, spec })));
+      .map(([key, spec]) => ({ key, spec: this.norm(spec) })));
 
   values = computed<Record<string, unknown>>(() => {
     const out: Record<string, unknown> = {};
