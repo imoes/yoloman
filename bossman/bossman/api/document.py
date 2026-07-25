@@ -16,6 +16,7 @@ from bossman.api.management import _agent_with_address
 from bossman.api.plans import get_client_factory
 from bossman.config import Settings, get_settings
 from bossman.db.session import get_session
+from bossman.services.blast_radius import compute_blast_radius
 from bossman.services.chat_client import chat_client_for
 from bossman.services.server_document import ALL_SECTIONS, build_server_document
 from bossman.services.server_narrative import explain_server
@@ -25,6 +26,10 @@ router = APIRouter()
 
 class ExplainBody(BaseModel):
     question: str | None = None
+
+
+class BlastRadiusBody(BaseModel):
+    resources: list[dict[str, Any]] = []
 
 
 @router.get("/api/v1/agents/{agent_id}/document")
@@ -63,3 +68,19 @@ async def explain_agent(
         session, agent, client_factory, settings,
         chat=chat_client_for(settings), question=(body.question if body else None),
     )
+
+
+@router.post("/api/v1/agents/{agent_id}/blast-radius")
+async def agent_blast_radius(
+    agent_id: UUID,
+    body: BlastRadiusBody,
+    session: AsyncSession = Depends(get_session),
+    settings: Settings = Depends(get_settings),
+    _identity=Depends(require_manage_agent),
+    client_factory=Depends(get_client_factory),
+) -> dict[str, Any]:
+    """What-if guardrail: predict the effect of applying `resources` — the change
+    diff (state/plan) + the inbound dependents that could be affected — WITHOUT
+    writing. Call before apply."""
+    agent = await _agent_with_address(session, agent_id)
+    return await compute_blast_radius(session, agent, client_factory, settings, body.resources)

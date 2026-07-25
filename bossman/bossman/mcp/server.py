@@ -275,6 +275,17 @@ def build_mcp_server(
                                   chat=chat_client_for(settings), question=(question or None))
 
     @mcp.tool()
+    async def blast_radius(host: str, resources: list[dict[str, Any]]) -> dict[str, Any]:
+        """What-if guardrail: predict the effect of applying `resources` to a host
+        (by name) BEFORE writing — the change diff (state/plan) + the inbound
+        dependents that could be affected (from topology) + a risk summary. Call
+        this before an autonomous apply to check blast radius."""
+        from bossman.services.blast_radius import compute_blast_radius
+        async with session_factory() as session:
+            agent = await _addressed_agent_or_raise(session, host)
+            return await compute_blast_radius(session, agent, client_factory, settings, resources)
+
+    @mcp.tool()
     async def list_plans() -> list[dict[str, Any]]:
         """List every available plan: name, description, params."""
         return catalog_cache.list_json
