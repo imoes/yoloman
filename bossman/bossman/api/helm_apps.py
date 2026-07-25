@@ -29,6 +29,7 @@ class RenderBody(BaseModel):
     name: str
     chart: str
     values_yaml: str = ""
+    values: dict[str, Any] | None = None  # flat dotted-key form values (→ YAML)
     namespace: str = "default"
 
 
@@ -36,6 +37,7 @@ class InstallBody(BaseModel):
     name: str
     chart: str
     values_yaml: str = ""
+    values: dict[str, Any] | None = None  # flat dotted-key form values (→ YAML)
     namespace: str = "default"
     create_namespace: bool = True
     wait: bool = False
@@ -122,7 +124,8 @@ async def helm_render(
     agent = await _agent_with_address(session, agent_id)
     return await helm_app.render_release(
         agent, client_factory, settings,
-        name=body.name, chart=body.chart, values_yaml=body.values_yaml, namespace=body.namespace,
+        name=body.name, chart=body.chart, values_yaml=body.values_yaml, values=body.values,
+        namespace=body.namespace,
     )
 
 
@@ -136,7 +139,7 @@ async def helm_install(
     agent = await _agent_with_address(session, agent_id)
     return await helm_app.install_release(
         agent, client_factory, settings, name=body.name, chart=body.chart,
-        values_yaml=body.values_yaml, namespace=body.namespace,
+        values_yaml=body.values_yaml, values=body.values, namespace=body.namespace,
         create_namespace=body.create_namespace, wait=body.wait,
     )
 

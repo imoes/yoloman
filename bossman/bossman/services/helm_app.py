@@ -19,6 +19,68 @@ from __future__ import annotations
 import json
 from typing import Any
 
+import yaml
+
+
+# --- values.yaml → flat schema/values (so the UI renders a typed FORM, not a
+# raw values.yaml textarea — the gap every Helm UI leaves open) --------------
+
+def _scalar_type(v: Any) -> str | None:
+    if isinstance(v, bool):
+        return "bool"
+    if isinstance(v, (int, float)):
+        return "number"
+    if isinstance(v, str):
+        return "string"
+    return None
+
+
+def derive_schema(values: Any, prefix: str = "") -> tuple[dict[str, Any], dict[str, Any]]:
+    """Walk a parsed values.yaml into a FLAT dotted-key schema + values, the same
+    shape param-form renders for config templates. Scalars and scalar-lists become
+    editable fields; nested dicts recurse (dotted keys); lists-of-objects and other
+    complex structures are skipped (they stay editable via the YAML view). Every
+    field carries its current value as `default`, so the form prefills the chart's
+    own defaults."""
+    schema: dict[str, Any] = {}
+    flat: dict[str, Any] = {}
+    if not isinstance(values, dict):
+        return schema, flat
+    for key, v in values.items():
+        dotted = f"{prefix}{key}"
+        st = _scalar_type(v)
+        if st is not None:
+            schema[dotted] = {"type": st, "default": v}
+            flat[dotted] = v
+        elif isinstance(v, list):
+            # Only scalar lists get a field; list-of-objects is too complex for a flat form.
+            if all(_scalar_type(e) is not None for e in v):
+                schema[dotted] = {"type": "list", "default": v}
+                flat[dotted] = v
+        elif isinstance(v, dict):
+            sub_s, sub_f = derive_schema(v, prefix=f"{dotted}.")
+            schema.update(sub_s)
+            flat.update(sub_f)
+        # None / other → skip (no sensible form control; YAML view still covers it).
+    return schema, flat
+
+
+def flat_to_yaml(flat: dict[str, Any]) -> str:
+    """Inverse of derive_schema: dotted-key form values → nested dict → YAML, so a
+    form edit round-trips back into a values.yaml helm can consume."""
+    root: dict[str, Any] = {}
+    for dotted, value in flat.items():
+        parts = dotted.split(".")
+        node = root
+        for p in parts[:-1]:
+            nxt = node.get(p)
+            if not isinstance(nxt, dict):
+                nxt = {}
+                node[p] = nxt
+            node = nxt
+        node[parts[-1]] = value
+    return yaml.safe_dump(root, default_flow_style=False, sort_keys=False) if root else ""
+
 
 async def _run(client, argv: list[str]) -> dict[str, Any]:
     r = await client.call_tool("command", {"argv": argv})
@@ -96,17 +158,31 @@ async def chart_values(agent, client_factory, settings, *, chart: str) -> dict[s
     client = client_factory(agent, settings)
     vals = await _run(client, ["helm", "show", "values", chart])
     meta = await _run(client, ["helm", "show", "chart", chart])
+    values_yaml = (vals.get("stdout") or "") if vals.get("rc") == 0 else ""
+    schema: dict[str, Any] = {}
+    flat: dict[str, Any] = {}
+    try:
+        parsed = yaml.safe_load(values_yaml) if values_yaml.strip() else None
+        schema, flat = derive_schema(parsed)
+    except yaml.YAMLError:
+        pass  # unparseable values.yaml → form unavailable, YAML view still works
     return {
         "chart": chart,
-        "values_yaml": (vals.get("stdout") or "") if vals.get("rc") == 0 else "",
+        "values_yaml": values_yaml,
         "chart_yaml": (meta.get("stdout") or "") if meta.get("rc") == 0 else "",
+        "values_schema": schema,   # flat dotted-key schema → param-form (the typed FORM)
+        "flat_values": flat,       # the chart's defaults, prefilled into the form
         "error": None if vals.get("rc") == 0 else (vals.get("stderr") or "").strip()[:200],
     }
 
 
 async def render_release(agent, client_factory, settings, *, name: str, chart: str,
-                         values_yaml: str = "", namespace: str = "default") -> dict[str, Any]:
-    """helm template — render the manifests WITHOUT a cluster (preview/plan)."""
+                         values_yaml: str = "", values: dict[str, Any] | None = None,
+                         namespace: str = "default") -> dict[str, Any]:
+    """helm template — render the manifests WITHOUT a cluster (preview/plan).
+    A flat dotted-key `values` map (from the form) is converted to YAML."""
+    if values and not values_yaml.strip():
+        values_yaml = flat_to_yaml(values)
     client = client_factory(agent, settings)
     argv = ["helm", "template", name, chart, "-n", namespace]
     if values_yaml.strip():
@@ -130,12 +206,16 @@ async def render_release(agent, client_factory, settings, *, name: str, chart: s
 
 
 async def install_release(agent, client_factory, settings, *, name: str, chart: str,
-                          values_yaml: str = "", namespace: str = "default",
+                          values_yaml: str = "", values: dict[str, Any] | None = None,
+                          namespace: str = "default",
                           create_namespace: bool = True, wait: bool = False) -> dict[str, Any]:
     """helm upgrade --install — deploy/upgrade a release on the cluster (mutating,
-    needs a kubeconfig). Idempotent by design (upgrade-or-install)."""
+    needs a kubeconfig). Idempotent by design (upgrade-or-install). A flat
+    dotted-key `values` map (from the form) is converted to YAML."""
     import base64
     import shlex
+    if values and not values_yaml.strip():
+        values_yaml = flat_to_yaml(values)
     ns = shlex.quote(namespace)
     base = f"helm upgrade --install {shlex.quote(name)} {shlex.quote(chart)} -n {ns}"
     if create_namespace:

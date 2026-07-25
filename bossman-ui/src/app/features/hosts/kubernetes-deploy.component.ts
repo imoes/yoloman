@@ -4,6 +4,8 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
 import { AgentService, HelmChart, HelmRelease } from '../../core/services/agent.service';
 import { ChatPlanGraphComponent, PlanGraphData } from '../chat/chat-plan-graph.component';
+import { ParamFormComponent } from '../../shared/param-form/param-form.component';
+import { ParamSchema } from '../../shared/param-form/param-form.types';
 
 /**
  * Kubernetes "click-and-play" deploy (app-system increment 3 UI, plan blocks
@@ -19,7 +21,7 @@ import { ChatPlanGraphComponent, PlanGraphData } from '../chat/chat-plan-graph.c
 @Component({
   selector: 'app-kubernetes-deploy',
   standalone: true,
-  imports: [FormsModule, MatIconModule, MatButtonModule, ChatPlanGraphComponent],
+  imports: [FormsModule, MatIconModule, MatButtonModule, ChatPlanGraphComponent, ParamFormComponent],
   template: `
     <div class="bm-k8s">
       <!-- Deployed releases (helm list) — what's running on the cluster -->
@@ -69,14 +71,26 @@ import { ChatPlanGraphComponent, PlanGraphData } from '../chat/chat-plan-graph.c
         </div>
 
         <div class="bm-k8s-values-head">
-          <span>Values (YAML)</span>
-          <button mat-button (click)="loadDefaults()" [disabled]="!chart() || busyVals()">
-            <mat-icon>download</mat-icon> Load chart defaults
-          </button>
+          <span>Values</span>
+          <div class="bm-k8s-vtoggle">
+            @if (hasSchema()) {
+              <button mat-button [class.on]="mode() === 'form'" (click)="mode.set('form')">Form</button>
+              <button mat-button [class.on]="mode() === 'yaml'" (click)="mode.set('yaml')">YAML</button>
+            }
+            <button mat-button (click)="loadDefaults()" [disabled]="!chart() || busyVals()">
+              <mat-icon>download</mat-icon> Load chart defaults
+            </button>
+          </div>
         </div>
-        <textarea class="bm-k8s-values" [(ngModel)]="valuesYaml" spellcheck="false"
-                  placeholder="# override the chart's values here — leave empty for defaults"
-                  [disabled]="busyMut()"></textarea>
+        @if (mode() === 'form' && hasSchema()) {
+          <div class="bm-k8s-form-wrap">
+            <app-param-form [params]="schema()" [initial]="flatValues()" (valuesChange)="onFormChange($event)" />
+          </div>
+        } @else {
+          <textarea class="bm-k8s-values" [(ngModel)]="valuesYaml" spellcheck="false"
+                    placeholder="# override the chart's values here — leave empty for defaults"
+                    [disabled]="busyMut()"></textarea>
+        }
 
         <div class="bm-k8s-buttons">
           <button mat-stroked-button (click)="preview()" [disabled]="!canDeploy() || busyRender()">
@@ -126,6 +140,9 @@ import { ChatPlanGraphComponent, PlanGraphData } from '../chat/chat-plan-graph.c
     .bm-k8s-form input, .bm-k8s-values { box-sizing: border-box; padding: 8px 10px; border-radius: 8px;
       border: 1px solid var(--mat-sys-outline-variant); background: var(--mat-sys-surface); color: var(--mat-sys-on-surface); font: inherit; }
     .bm-k8s-values-head { display: flex; align-items: center; justify-content: space-between; font-size: 12px; opacity: 0.8; margin-bottom: 4px; }
+    .bm-k8s-vtoggle { display: flex; align-items: center; gap: 2px; }
+    .bm-k8s-vtoggle .on { background: color-mix(in srgb, var(--mat-sys-primary) 16%, transparent); }
+    .bm-k8s-form-wrap { border: 1px solid var(--mat-sys-outline-variant); border-radius: 8px; padding: 12px 14px; }
     .bm-k8s-values { width: 100%; min-height: 180px; font-family: ui-monospace, monospace; font-size: 12.5px; resize: vertical; }
     .bm-k8s-buttons { display: flex; gap: 10px; margin: 12px 0; }
     .bm-k8s-preview { display: flex; gap: 20px; flex-wrap: wrap; margin-top: 12px; }
@@ -150,6 +167,13 @@ export class KubernetesDeployComponent implements OnInit {
   releaseName = signal('');
   namespace = signal('default');
   valuesYaml = signal('');
+
+  // Typed FORM (from the chart's values.yaml, flattened server-side) vs raw YAML.
+  mode = signal<'form' | 'yaml'>('form');
+  schema = signal<ParamSchema>({});
+  flatValues = signal<Record<string, unknown>>({});
+  private formValues = signal<Record<string, unknown>>({});
+  hasSchema = computed(() => Object.keys(this.schema()).length > 0);
 
   busyVals = signal(false);
   busyRender = signal(false);
@@ -189,15 +213,31 @@ export class KubernetesDeployComponent implements OnInit {
   loadDefaults(): void {
     this.busyVals.set(true);
     this.agentService.helmValues(this.agentId(), this.chart()).subscribe({
-      next: (r) => { this.busyVals.set(false); this.valuesYaml.set(r.values_yaml || ''); },
+      next: (r) => {
+        this.busyVals.set(false);
+        this.valuesYaml.set(r.values_yaml || '');
+        this.schema.set((r.values_schema || {}) as ParamSchema);
+        this.flatValues.set(r.flat_values || {});
+        this.formValues.set(r.flat_values || {});
+        this.mode.set(this.hasSchema() ? 'form' : 'yaml');
+      },
       error: () => this.busyVals.set(false),
     });
+  }
+
+  onFormChange(v: Record<string, unknown>): void { this.formValues.set(v); }
+
+  /** The values payload for render/deploy: the flat form map when in form mode
+   * (backend → YAML), else the raw YAML textarea. */
+  private valuesBody(): { values?: Record<string, unknown>; values_yaml?: string } {
+    if (this.mode() === 'form' && this.hasSchema()) return { values: this.formValues() };
+    return { values_yaml: this.valuesYaml() };
   }
 
   preview(): void {
     this.busyRender.set(true); this.renderError.set(''); this.graph.set(null); this.rendered.set('');
     this.agentService.helmRender(this.agentId(), {
-      name: this.releaseName(), chart: this.chart(), values_yaml: this.valuesYaml(), namespace: this.namespace() || 'default',
+      name: this.releaseName(), chart: this.chart(), namespace: this.namespace() || 'default', ...this.valuesBody(),
     }).subscribe({
       next: (r) => {
         this.busyRender.set(false);
@@ -212,8 +252,8 @@ export class KubernetesDeployComponent implements OnInit {
   deploy(): void {
     this.busyMut.set(true); this.mutMsg.set('');
     this.agentService.helmInstall(this.agentId(), {
-      name: this.releaseName(), chart: this.chart(), values_yaml: this.valuesYaml(),
-      namespace: this.namespace() || 'default', create_namespace: true,
+      name: this.releaseName(), chart: this.chart(),
+      namespace: this.namespace() || 'default', create_namespace: true, ...this.valuesBody(),
     }).subscribe({
       next: (r) => {
         this.busyMut.set(false); this.mutOk.set(r.ok);
