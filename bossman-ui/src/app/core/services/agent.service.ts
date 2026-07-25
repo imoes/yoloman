@@ -232,6 +232,14 @@ export class AgentService {
     );
   }
 
+  /** Self-documenting infra: the LLM documents this host (no question) or
+   * answers one, grounded strictly in its live server-document. */
+  explainHost(id: string, question?: string) {
+    return this.http.post<{ agent: { id: string; name: string }; question: string | null; answer: string;
+      grounding: { context_chars: number; sections: string[]; errors: Record<string, string> } }>(
+      `${this.base}/${id}/explain`, { question: question || null });
+  }
+
   updateGroups(id: string, groups: string[]) {
     return this.http.patch<Agent>(`${this.base}/${id}/groups`, { groups });
   }

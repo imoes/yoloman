@@ -39,6 +39,7 @@ import { HostChecksComponent } from './host-checks.component';
 import { HostConsoleComponent } from './host-console.component';
 import { TopologyComponent } from '../topology/topology.component';
 import { HostManagementComponent } from './management/host-management.component';
+import { HostExplainComponent } from './host-explain.component';
 import { StandaloneOverviewComponent } from '../../standalone/standalone-overview.component';
 import { DesiredStateReportComponent, ConfigDesiredResource } from '../../shared/components/desired-state-report/desired-state-report.component';
 import { CompiledHostState } from '../../core/models/orchestration.model';
@@ -124,6 +125,7 @@ function serviceMetricSpec(name: string, metric: string): { members: string[]; m
     HostConsoleComponent,
     TopologyComponent,
     HostManagementComponent,
+    HostExplainComponent,
     MetricChartComponent,
     MetricGaugeComponent,
     TimeRangePickerComponent,
@@ -1194,6 +1196,11 @@ function serviceMetricSpec(name: string, metric: string): { members: string[]; m
           <mat-tab label="Management"><ng-template matTabContent>
             <div class="bm-tab-content">
               <app-host-management [agentId]="agent.id" />
+            </div>
+          </ng-template></mat-tab>
+          <mat-tab label="Explain"><ng-template matTabContent>
+            <div class="bm-tab-content">
+              <app-host-explain [agentId]="agent.id" />
             </div>
           </ng-template></mat-tab>
         </mat-tab-group>
