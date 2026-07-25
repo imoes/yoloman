@@ -39,7 +39,7 @@ class FakeChatClient:
         self._error = error
         self.calls: list[list[dict]] = []
 
-    async def complete_json(self, messages, json_schema, schema_name, max_tokens=4000):
+    async def complete_json(self, messages, json_schema, schema_name, **_):
         self.calls.append(messages)
         if self._error:
             raise self._error

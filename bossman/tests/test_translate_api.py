@@ -31,7 +31,7 @@ class FakeChatClient:
         self._responses = responses or []
         self.calls = 0
 
-    async def complete_json(self, messages, json_schema, schema_name, max_tokens=4000):
+    async def complete_json(self, messages, json_schema, schema_name, **_):
         response = self._responses[self.calls]
         self.calls += 1
         return response

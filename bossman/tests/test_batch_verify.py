@@ -67,11 +67,13 @@ class FakeChatClient:
         self._json = json_obj
         self.calls = 0
 
-    async def complete_text(self, messages, max_tokens=None, extra_body=None) -> str:
+    # NB: never a max_tokens cap — the model bounds output via its context size;
+    # we just accept and ignore whatever kwargs the real interface passes.
+    async def complete_text(self, messages, **_) -> str:
         self.calls += 1
         return self._text
 
-    async def complete_json(self, messages, json_schema, schema_name, max_tokens=None) -> dict:
+    async def complete_json(self, messages, json_schema, schema_name, **_) -> dict:
         self.calls += 1
         return self._json
 
