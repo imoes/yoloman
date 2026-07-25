@@ -20,6 +20,7 @@ from bossman.services.blast_radius import compute_blast_radius
 from bossman.services.chat_client import chat_client_for
 from bossman.services.server_document import ALL_SECTIONS, build_server_document
 from bossman.services.server_narrative import explain_server
+from bossman.services.server_reproduce import export_server_spec, materialize_spec
 
 router = APIRouter()
 
@@ -30,6 +31,11 @@ class ExplainBody(BaseModel):
 
 class BlastRadiusBody(BaseModel):
     resources: list[dict[str, Any]] = []
+
+
+class MaterializeBody(BaseModel):
+    spec: dict[str, Any]
+    dry_run: bool = True
 
 
 @router.get("/api/v1/agents/{agent_id}/document")
@@ -84,3 +90,32 @@ async def agent_blast_radius(
     writing. Call before apply."""
     agent = await _agent_with_address(session, agent_id)
     return await compute_blast_radius(session, agent, client_factory, settings, body.resources)
+
+
+@router.get("/api/v1/agents/{agent_id}/export")
+async def export_agent(
+    agent_id: UUID,
+    session: AsyncSession = Depends(get_session),
+    settings: Settings = Depends(get_settings),
+    _identity=Depends(require_manage_agent),
+    client_factory=Depends(get_client_factory),
+) -> dict[str, Any]:
+    """Reproducibility: capture this running server as a PORTABLE spec (its
+    structured config as re-appliable resources) — for clone / golden / DR."""
+    agent = await _agent_with_address(session, agent_id)
+    return await export_server_spec(session, agent, client_factory, settings)
+
+
+@router.post("/api/v1/agents/{agent_id}/materialize")
+async def materialize_agent(
+    agent_id: UUID,
+    body: MaterializeBody,
+    session: AsyncSession = Depends(get_session),
+    settings: Settings = Depends(get_settings),
+    _identity=Depends(require_manage_agent),
+    client_factory=Depends(get_client_factory),
+) -> dict[str, Any]:
+    """Re-materialize a portable spec onto THIS host (the target). Dry-run by
+    default — preview the plan before writing (clone/DR safety)."""
+    agent = await _agent_with_address(session, agent_id)
+    return await materialize_spec(session, agent, client_factory, settings, body.spec, dry_run=body.dry_run)

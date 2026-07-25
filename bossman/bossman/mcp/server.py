@@ -286,6 +286,17 @@ def build_mcp_server(
             return await compute_blast_radius(session, agent, client_factory, settings, resources)
 
     @mcp.tool()
+    async def export_server_spec(host: str) -> dict[str, Any]:
+        """Reproducibility: capture a running host (by name) as a PORTABLE spec —
+        its structured config as re-appliable resources — for clone /
+        golden-from-running / DR. Read-only. Materializing the spec onto a target
+        is a separate, human-gated (dry-run-first) API step."""
+        from bossman.services.server_reproduce import export_server_spec as _export
+        async with session_factory() as session:
+            agent = await _addressed_agent_or_raise(session, host)
+            return await _export(session, agent, client_factory, settings)
+
+    @mcp.tool()
     async def list_plans() -> list[dict[str, Any]]:
         """List every available plan: name, description, params."""
         return catalog_cache.list_json
