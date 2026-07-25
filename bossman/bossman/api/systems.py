@@ -18,7 +18,7 @@ from bossman.api.plans import get_client_factory
 from bossman.config import Settings, get_settings
 from bossman.db.models import System, SystemMember
 from bossman.db.session import get_session
-from bossman.services import system_clone, system_discover
+from bossman.services import system_clone, system_discover, system_rehearsal
 
 router = APIRouter()
 
@@ -36,6 +36,12 @@ class SystemCreate(BaseModel):
 class CloneBody(BaseModel):
     target_agent_id: UUID          # where the sandbox runs
     dry_run: bool = True
+
+
+class RehearseBody(BaseModel):
+    target_agent_id: UUID              # where the sandbox runs
+    image_overrides: dict[str, str] = {}   # {member_app: new_image} = the change under test
+    teardown: bool = True
 
 
 def _member_dict(m: SystemMember) -> dict[str, Any]:
@@ -130,6 +136,25 @@ async def clone_system_route(
         raise HTTPException(status_code=404, detail="no such system")
     target = await _agent_with_address(session, body.target_agent_id)
     return await system_clone.clone_system(session, s, target, client_factory, settings, dry_run=body.dry_run)
+
+
+@router.post("/api/v1/systems/{system_id}/rehearse")
+async def rehearse_system_route(
+    system_id: UUID, body: RehearseBody,
+    session: AsyncSession = Depends(get_session), settings: Settings = Depends(get_settings),
+    _identity=Depends(get_current_identity), client_factory=Depends(get_client_factory),
+) -> dict[str, Any]:
+    """Rehearse the System in a sandbox on the target: bring its docker members up
+    for real (optionally with image overrides = the change under test), health-gate
+    them, then tear down. Returns pass/fail — the behavioral test before prod."""
+    s = await session.get(System, system_id)
+    if s is None:
+        raise HTTPException(status_code=404, detail="no such system")
+    target = await _agent_with_address(session, body.target_agent_id)
+    return await system_rehearsal.rehearse(
+        s, target, client_factory, settings,
+        image_overrides=body.image_overrides, teardown=body.teardown,
+    )
 
 
 @router.delete("/api/v1/systems/{system_id}")
