@@ -35,6 +35,11 @@ export const routes: Routes = [
     loadComponent: () => import('./features/apps/app-store.component').then((m) => m.AppStoreComponent),
   },
   {
+    path: 'systems',
+    canActivate: [authGuard],
+    loadComponent: () => import('./features/systems/systems.component').then((m) => m.SystemsComponent),
+  },
+  {
     path: 'hosts/:id',
     canActivate: [authGuard],
     loadComponent: () => import('./features/hosts/host-detail.component').then((m) => m.HostDetailComponent),

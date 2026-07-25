@@ -19,7 +19,7 @@ const NAV_ICON: Record<string, string> = {
   '/hosts': 'hosts', '/notifications': 'notifications', '/ou': 'ou-policy', '/modules': 'modules',
   '/checks': 'checks', '/config-templates': 'config-templates', '/config-codecs': 'config-templates',
   '/snmp-devices': 'hosts', '/users': 'users', '/settings': 'settings',
-  '/apps': 'modules',
+  '/apps': 'modules', '/systems': 'topology',
 };
 
 interface NavItem {
@@ -41,6 +41,7 @@ const MAIN_NAV: NavItem[] = [
   { path: '/noc', label: 'NOC view', icon: 'desktop_windows' },
   { path: '/hosts', label: 'Hosts', icon: 'dns' },
   { path: '/apps', label: 'App Store', icon: 'apps' },
+  { path: '/systems', label: 'Systems', icon: 'lan' },
   { path: '/problems', label: 'Problems', icon: 'report_problem' },
   { path: '/business-services', label: 'Business services', icon: 'hub' },
   { path: '/capacity', label: 'Capacity', icon: 'trending_up' },
