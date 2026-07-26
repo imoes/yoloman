@@ -4,6 +4,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
 import { AgentService, HelmChart, HelmRelease } from '../../core/services/agent.service';
 import { ChatPlanGraphComponent, PlanGraphData } from '../chat/chat-plan-graph.component';
+import { ResourceNodeComponent } from '../../shared/resource-node/resource-node.component';
 import { ParamFormComponent } from '../../shared/param-form/param-form.component';
 import { ParamSchema } from '../../shared/param-form/param-form.types';
 
@@ -21,7 +22,7 @@ import { ParamSchema } from '../../shared/param-form/param-form.types';
 @Component({
   selector: 'app-kubernetes-deploy',
   standalone: true,
-  imports: [FormsModule, MatIconModule, MatButtonModule, ChatPlanGraphComponent, ParamFormComponent],
+  imports: [FormsModule, MatIconModule, MatButtonModule, ChatPlanGraphComponent, ParamFormComponent, ResourceNodeComponent],
   template: `
     <div class="bm-k8s">
       <!-- Deployed releases (helm list) — what's running on the cluster -->
@@ -43,10 +44,14 @@ import { ParamSchema } from '../../shared/param-form/param-form.types';
                   <td><span class="bm-badge" [class.ok]="r.status === 'deployed'">{{ r.status }}</span></td>
                   <td>{{ r.revision }}</td>
                   <td class="bm-actions">
+                    <button mat-button (click)="toggleManage(r)">{{ manageRel() === r.name + '/' + r.namespace ? 'Hide' : 'Manage' }}</button>
                     <button mat-button (click)="rollback(r)" [disabled]="busyMut()" title="Roll back to the previous revision">Rollback</button>
                     <button mat-button color="warn" (click)="uninstall(r)" [disabled]="busyMut()">Uninstall</button>
                   </td>
                 </tr>
+                @if (manageRel() === r.name + '/' + r.namespace) {
+                  <tr><td colspan="6"><app-resource-node [agentId]="agentId()" kind="helm" [name]="r.name" [namespace]="r.namespace" /></td></tr>
+                }
               }
             </tbody>
           </table>
@@ -155,6 +160,12 @@ import { ParamSchema } from '../../shared/param-form/param-form.types';
 export class KubernetesDeployComponent implements OnInit {
   private agentService = inject(AgentService);
   agentId = input.required<string>();
+
+  manageRel = signal('');
+  toggleManage(r: { name: string; namespace: string }): void {
+    const key = r.name + '/' + r.namespace;
+    this.manageRel.set(this.manageRel() === key ? '' : key);
+  }
 
   ngOnInit(): void { this.loadOnce(); }
 

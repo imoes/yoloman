@@ -19,11 +19,11 @@ import { ApplyResult, ResourceGeneration, ResourcePlan, ResourcesService } from 
   template: `
     <div class="bm-rn">
       <div class="bm-rn-head">
-        <span class="bm-rn-kind">docker_container</span>
+        <span class="bm-rn-kind">{{ kind() }}</span>
         <span class="bm-rn-name">{{ name() }}</span>
         @if (observed()) {
-          <span class="bm-rn-dot ok" title="running / present"></span>
-          <span class="bm-dim">{{ observed()!.image }}</span>
+          <span class="bm-rn-dot ok" title="present"></span>
+          <span class="bm-dim">{{ summary() }}</span>
         } @else if (!loading()) {
           <span class="bm-rn-dot none" title="not present"></span>
           <span class="bm-dim">not deployed</span>
@@ -58,7 +58,7 @@ import { ApplyResult, ResourceGeneration, ResourcePlan, ResourcesService } from 
           @for (g of generations(); track g.generation) {
             <div class="bm-rn-gen">
               <span class="bm-rn-gn">#{{ g.generation }}</span>
-              <span>{{ g.spec.image }}</span>
+              <span>{{ specSummary(g.spec) }}</span>
               @if (g.note) { <span class="bm-dim">· {{ g.note }}</span> }
               <span class="bm-dim bm-rn-gt">{{ g.applied_at }}</span>
               <button mat-button (click)="doRollback(g.generation)" [disabled]="busy()">Rollback</button>
@@ -94,11 +94,13 @@ export class ResourceNodeComponent implements OnInit {
   private svc = inject(ResourcesService);
   agentId = input.required<string>();
   name = input.required<string>();
+  kind = input<string>('docker');            // docker | helm
+  namespace = input<string>('default');       // helm tier
 
   loading = signal(true);
   busy = signal(false);
   err = signal('');
-  observed = signal<import('../../core/services/resources.service').DockerSpec | null>(null);
+  observed = signal<Record<string, unknown> | null>(null);
   schema = signal<ParamSchema>({});
   private form = signal<Record<string, unknown>>({});
   plan = signal<ResourcePlan | null>(null);
@@ -106,40 +108,54 @@ export class ResourceNodeComponent implements OnInit {
   msg = signal('');
   msgOk = signal(true);
 
+  // identity fields are shown in the header / passed as inputs, not edited
+  private static IDENTITY = ['name', 'namespace', 'status', 'revision'];
+
   hasSchema = computed(() => Object.keys(this.schema()).length > 0);
-  // hide the identity field (name) from the editable form
   formSchema = computed<ParamSchema>(() => {
     const s = { ...this.schema() } as Record<string, unknown>;
-    delete s['name'];
+    for (const k of ResourceNodeComponent.IDENTITY) delete s[k];
     return s as ParamSchema;
   });
   initial = computed<Record<string, unknown>>(() => {
     const o = this.observed();
-    return o ? { image: o.image, ports: o.ports, env: o.env, volumes: o.volumes, restart: o.restart } : {};
+    if (!o) return {};
+    const out: Record<string, unknown> = {};
+    for (const k of Object.keys(this.formSchema())) if (o[k] !== undefined) out[k] = o[k];
+    return out;
   });
+  summary = computed(() => {
+    const o = this.observed() || {};
+    return (o['image'] ?? o['chart'] ?? '(present)') as string;
+  });
+
+  specSummary(spec: Record<string, unknown>): string {
+    return (spec['image'] ?? spec['chart'] ?? JSON.stringify(spec['values'] ?? {})) as string;
+  }
 
   ngOnInit(): void { this.reload(); }
 
   private reload(): void {
     this.loading.set(true); this.err.set('');
-    this.svc.schema(this.agentId(), this.name()).subscribe({
+    const [id, k, n, ns] = [this.agentId(), this.kind(), this.name(), this.namespace()];
+    this.svc.schema(id, k, n, ns).subscribe({
       next: (s) => this.schema.set((s.schema || {}) as ParamSchema),
       error: (e) => this.err.set(e?.error?.detail || 'schema failed'),
     });
-    this.svc.observe(this.agentId(), this.name()).subscribe({
+    this.svc.observe(id, k, n, ns).subscribe({
       next: (o) => { this.loading.set(false); this.observed.set(o.observed); },
       error: (e) => { this.loading.set(false); this.err.set(e?.error?.detail || 'observe failed'); },
     });
     this.loadGenerations();
   }
   private loadGenerations(): void {
-    this.svc.generations(this.agentId(), this.name()).subscribe({
+    this.svc.generations(this.agentId(), this.kind(), this.name(), this.namespace()).subscribe({
       next: (r) => this.generations.set(r.generations || []), error: () => {},
     });
   }
 
   onForm(v: Record<string, unknown>): void { this.form.set(v); }
-  private desired() { return this.form() as Partial<import('../../core/services/resources.service').DockerSpec>; }
+  private desired() { return this.form(); }
 
   changedList(p: ResourcePlan): { key: string; from: unknown; to: unknown }[] {
     return Object.entries(p.changed || {}).map(([key, v]) => ({ key, from: v[0], to: v[1] }));
@@ -147,21 +163,21 @@ export class ResourceNodeComponent implements OnInit {
 
   doPlan(): void {
     this.busy.set(true); this.msg.set(''); this.plan.set(null);
-    this.svc.plan(this.agentId(), this.name(), this.desired()).subscribe({
+    this.svc.plan(this.agentId(), this.kind(), this.name(), this.desired(), this.namespace()).subscribe({
       next: (p) => { this.busy.set(false); this.plan.set(p); },
       error: (e) => { this.busy.set(false); this.err.set(e?.error?.detail || 'plan failed'); },
     });
   }
   doApply(): void {
     this.busy.set(true); this.msg.set('');
-    this.svc.apply(this.agentId(), this.name(), this.desired(), false).subscribe({
+    this.svc.apply(this.agentId(), this.kind(), this.name(), this.desired(), false, undefined, this.namespace()).subscribe({
       next: (r: ApplyResult) => { this.busy.set(false); this.afterMutation(r, 'Applied'); },
       error: (e) => { this.busy.set(false); this.setMsg(false, e?.error?.detail || 'apply failed'); },
     });
   }
   doRollback(gen: number): void {
     this.busy.set(true); this.msg.set('');
-    this.svc.rollback(this.agentId(), this.name(), gen).subscribe({
+    this.svc.rollback(this.agentId(), this.kind(), this.name(), gen, this.namespace()).subscribe({
       next: (r: ApplyResult) => { this.busy.set(false); this.afterMutation(r, `Rolled back to #${gen}`); },
       error: (e) => { this.busy.set(false); this.setMsg(false, e?.error?.detail || 'rollback failed'); },
     });

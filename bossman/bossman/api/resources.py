@@ -122,6 +122,16 @@ async def _helm_resource(agent_id: UUID, name: str, namespace: str, session, set
     return HelmReleaseResource(session, agent, client_factory, settings, name, namespace=namespace or "default")
 
 
+@router.get("/api/v1/agents/{agent_id}/resources/helm/{name}/schema")
+async def helm_schema(
+    agent_id: UUID, name: str, namespace: str = Query("default"),
+    session: AsyncSession = Depends(get_session), settings: Settings = Depends(get_settings),
+    _identity=Depends(require_manage_agent), client_factory=Depends(get_client_factory),
+) -> dict[str, Any]:
+    r = await _helm_resource(agent_id, name, namespace, session, settings, client_factory)
+    return {"resource_key": r.resource_key, "type": r.resource_type, "schema": r.schema()}
+
+
 @router.get("/api/v1/agents/{agent_id}/resources/helm/{name}/observe")
 async def helm_observe(
     agent_id: UUID, name: str, namespace: str = Query("default"),
