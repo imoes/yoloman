@@ -1972,3 +1972,25 @@ class SystemMember(Base):
     created_at: Mapped[datetime] = mapped_column(TZ_DATETIME, server_default=func.now(), nullable=False)
 
     system: Mapped["System"] = relationship(back_populates="members")
+
+
+class ResourceGeneration(Base):
+    """Applied-generation history for a Resource/Deployable (docs/resource-protocol.md).
+    Gives any tier the same versioned observe→plan→apply→rollback the agent state
+    store gives native config — starting with the docker tier (which had no
+    generations). One row per applied desired-spec; rollback re-applies an earlier
+    spec as a NEW generation (forward-converge, like the agent state store)."""
+
+    __tablename__ = "resource_generation"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid())
+    # stable identity of the resource instance, e.g. "docker:<agent_id>:<name>"
+    resource_key: Mapped[str] = mapped_column(String, nullable=False, index=True)
+    resource_type: Mapped[str] = mapped_column(String, nullable=False)   # docker_container | config | …
+    generation: Mapped[int] = mapped_column(nullable=False)              # monotonic per resource_key
+    spec: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)  # the applied desired spec
+    applied_by: Mapped[str | None] = mapped_column(String)
+    note: Mapped[str | None] = mapped_column(String)                     # e.g. "rollback to gen 2"
+    applied_at: Mapped[datetime] = mapped_column(TZ_DATETIME, server_default=func.now(), nullable=False)
+
+    __table_args__ = (UniqueConstraint("resource_key", "generation", name="uq_resource_generation"),)
