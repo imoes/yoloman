@@ -7,7 +7,7 @@ from __future__ import annotations
 from typing import Any
 from uuid import UUID
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -17,6 +17,7 @@ from bossman.api.plans import get_client_factory
 from bossman.config import Settings, get_settings
 from bossman.db.session import get_session
 from bossman.services.resources.docker_container import DockerContainerResource
+from bossman.services.resources.helm_release import HelmReleaseResource
 
 router = APIRouter()
 
@@ -101,4 +102,71 @@ async def docker_rollback(
     _identity=Depends(require_manage_agent), client_factory=Depends(get_client_factory),
 ) -> dict[str, Any]:
     r = await _docker_resource(agent_id, name, session, settings, client_factory)
+    return await r.rollback(body.generation)
+
+
+# --- Helm release tier (same four-verb contract) --------------------------
+
+class HelmSpec(BaseModel):
+    chart: str = ""
+    values: dict[str, Any] = {}
+
+
+class HelmApplyBody(HelmSpec):
+    dry_run: bool = True
+    note: str | None = None
+
+
+async def _helm_resource(agent_id: UUID, name: str, namespace: str, session, settings, client_factory) -> HelmReleaseResource:
+    agent = await _agent_with_address(session, agent_id)
+    return HelmReleaseResource(session, agent, client_factory, settings, name, namespace=namespace or "default")
+
+
+@router.get("/api/v1/agents/{agent_id}/resources/helm/{name}/observe")
+async def helm_observe(
+    agent_id: UUID, name: str, namespace: str = Query("default"),
+    session: AsyncSession = Depends(get_session), settings: Settings = Depends(get_settings),
+    _identity=Depends(require_manage_agent), client_factory=Depends(get_client_factory),
+) -> dict[str, Any]:
+    r = await _helm_resource(agent_id, name, namespace, session, settings, client_factory)
+    return {"resource_key": r.resource_key, "observed": await r.observe()}
+
+
+@router.post("/api/v1/agents/{agent_id}/resources/helm/{name}/plan")
+async def helm_plan(
+    agent_id: UUID, name: str, body: HelmSpec, namespace: str = Query("default"),
+    session: AsyncSession = Depends(get_session), settings: Settings = Depends(get_settings),
+    _identity=Depends(require_manage_agent), client_factory=Depends(get_client_factory),
+) -> dict[str, Any]:
+    r = await _helm_resource(agent_id, name, namespace, session, settings, client_factory)
+    return await r.plan(body.model_dump())
+
+
+@router.post("/api/v1/agents/{agent_id}/resources/helm/{name}/apply")
+async def helm_apply(
+    agent_id: UUID, name: str, body: HelmApplyBody, namespace: str = Query("default"),
+    session: AsyncSession = Depends(get_session), settings: Settings = Depends(get_settings),
+    _identity=Depends(require_manage_agent), client_factory=Depends(get_client_factory),
+) -> dict[str, Any]:
+    r = await _helm_resource(agent_id, name, namespace, session, settings, client_factory)
+    return await r.apply(body.model_dump(exclude={"dry_run", "note"}), dry_run=body.dry_run, note=body.note)
+
+
+@router.get("/api/v1/agents/{agent_id}/resources/helm/{name}/generations")
+async def helm_generations(
+    agent_id: UUID, name: str, namespace: str = Query("default"),
+    session: AsyncSession = Depends(get_session), settings: Settings = Depends(get_settings),
+    _identity=Depends(require_manage_agent), client_factory=Depends(get_client_factory),
+) -> dict[str, Any]:
+    r = await _helm_resource(agent_id, name, namespace, session, settings, client_factory)
+    return {"resource_key": r.resource_key, "generations": await r.generations()}
+
+
+@router.post("/api/v1/agents/{agent_id}/resources/helm/{name}/rollback")
+async def helm_rollback(
+    agent_id: UUID, name: str, body: RollbackBody, namespace: str = Query("default"),
+    session: AsyncSession = Depends(get_session), settings: Settings = Depends(get_settings),
+    _identity=Depends(require_manage_agent), client_factory=Depends(get_client_factory),
+) -> dict[str, Any]:
+    r = await _helm_resource(agent_id, name, namespace, session, settings, client_factory)
     return await r.rollback(body.generation)
