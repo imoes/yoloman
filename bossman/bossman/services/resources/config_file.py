@@ -15,6 +15,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from bossman.services import config_schema
+
 
 class ConfigResource:
     resource_type = "config"
@@ -22,15 +24,32 @@ class ConfigResource:
     def __init__(self, session, agent, client_factory, settings, path: str):
         self._agent = agent
         self._client = client_factory(agent, settings)
+        self._settings = settings
         self.path = path
         self.resource_key = f"config:{agent.id}:{path}"
+        self._index: dict[str, list[str]] = {}   # flat key → exact segments (set by observe)
+        self._schema: dict[str, Any] = {}
+
+    async def schema_async(self) -> dict[str, Any]:
+        """ONE TYPED FIELD PER DIRECTIVE actually present in the file, enriched by
+        the mined catalog (enum/description). Async because it needs the observed
+        values (the ground truth of what the file contains) plus the catalog.
+
+        Empty when the file has no codec (observed carries only raw/sha256) — then
+        honestly no form, rather than a fake object blob."""
+        observed = await self.observe()
+        values = (observed or {}).get("values") or {}
+        if not values:
+            self._schema = {}
+            return {}
+        directives = config_schema.catalog_for_path(self.path, config_schema.load_catalog(self._settings))
+        self._schema = config_schema.derive_schema(values, directives)
+        return self._schema
 
     def schema(self) -> dict[str, Any]:
-        return {
-            "path": {"type": "string", "required": True, "description": "config file path (identity)"},
-            "format": {"type": "string", "description": "codec (keyvalue/ini/json/…)"},
-            "values": {"type": "object", "description": "the file's key→value map (via its codec)"},
-        }
+        """Sync half of the Resource contract — serves what schema_async cached
+        (same pattern as RoleResource, whose doc also lives behind I/O)."""
+        return self._schema
 
     async def _observed_entry(self) -> dict[str, Any] | None:
         data = await self._client.state_observed()
@@ -44,16 +63,26 @@ class ConfigResource:
         it = await self._observed_entry()
         if it is None:
             return None
+        values = it.get("values") or {}
+        # flat_values feeds the form; the index is what makes writing back exact.
+        flat, index = config_schema.flatten(values)
+        self._index = index
         return {"path": self.path, "format": it.get("format"),
-                "separator": it.get("separator"), "values": it.get("values") or {}}
+                "separator": it.get("separator"), "values": values, "flat_values": flat}
 
     def _resource_doc(self, desired: dict[str, Any], observed: dict[str, Any] | None) -> dict[str, Any]:
         """Build the one-config-resource document the agent state API expects,
-        taking format/separator from the observed file when the caller omits them."""
+        taking format/separator from the observed file when the caller omits them.
+
+        `values` may arrive FLAT (dotted keys from the per-directive form) or already
+        nested (API/MCP callers): `inflate` resolves each key through the index of
+        exact original segments — never by splitting on "." (real directive names
+        contain dots)."""
         res: dict[str, Any] = {
             "type": "config", "path": self.path,
             "format": desired.get("format") or (observed or {}).get("format"),
-            "values": desired.get("values") or {},
+            "values": config_schema.inflate(
+                desired.get("values") or {}, self._index, (observed or {}).get("values")),
         }
         sep = desired.get("separator") or (observed or {}).get("separator")
         if sep:
@@ -66,10 +95,17 @@ class ConfigResource:
         result = await self._client.state_plan({"resources": [res]})
         # extract the change for this path from the agent's plan
         change = next((c for c in (result.get("changes") or []) if c.get("path") == self.path), None)
+        # The agent reports one change per RESOURCE, so for a sectioned file its
+        # `changed` map is section-level ({} → {}). Re-diff both sides flat so the
+        # node shows "Journal.Storage: auto → persistent"; keep the raw map too.
+        raw_changed = (change or {}).get("changed", {})
+        flat_diff = config_schema.flat_changed(
+            (change or {}).get("before"), (change or {}).get("after"))
         return {
             "resource_key": self.resource_key,
             "action": (change or {}).get("action", "noop"),
-            "changed": (change or {}).get("changed", {}),
+            "changed": flat_diff or raw_changed,
+            "changed_raw": raw_changed,
             "changed_count": result.get("changed_count", 0),
             "observed": observed,
             "desired": desired,

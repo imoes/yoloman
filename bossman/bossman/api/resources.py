@@ -208,7 +208,10 @@ async def config_observe(
     _identity=Depends(require_manage_agent), client_factory=Depends(get_client_factory),
 ) -> dict[str, Any]:
     r = await _config_resource(agent_id, path, session, settings, client_factory)
-    return {"resource_key": r.resource_key, "observed": await r.observe(), "schema": r.schema()}
+    # schema_async first: it derives the per-directive fields from the observed
+    # values (and caches the flatten index observe() needs anyway).
+    schema = await r.schema_async()
+    return {"resource_key": r.resource_key, "observed": await r.observe(), "schema": schema}
 
 
 @router.post("/api/v1/agents/{agent_id}/resources/config/plan")

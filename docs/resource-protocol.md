@@ -138,3 +138,42 @@ Each step is independently testable and shippable, and each removes a special
 case. The end state: **one small interface, one canvas, one document** — a
 system that configures itself, shows everything at a glance, and asks the user
 only to decide.
+
+## `schema()` must not lie — the config tier's lesson
+
+A tier is only worth folding in if its **self-description is truthful**, because
+the generic node renders exactly what `schema()` claims. `ConfigResource` first
+described a file as three fields (`path`, `format`, `values:object`) — so the node
+rendered the whole file as ONE JSON textarea, strictly worse than the bespoke
+Settings editor's per-directive table with enum dropdowns. Wiring that node into
+the UI would have *added* a fourth way to edit config, not removed a special case.
+
+The fix was the contract, not the UI: `schema()` now returns **one typed field per
+directive present in the file** (`services/config_schema.py`), enriched from the
+mined directive catalog (`configs/config_directives.json`) with `description` and
+allowed values. The same generic node then renders the same rich form — which is
+what makes retiring the bespoke editor possible *without* losing anything.
+
+Two rules fell out of the real data and hold for every future tier:
+
+- **Never invert a flat key by splitting on a separator.** Codecs return nested
+  maps for ini/yaml/toml/json, so form keys are dotted — but real directive names
+  contain dots and spaces (`wifi.scan rand mac address`). `flatten()` therefore
+  records each key's exact original segments in an index and `inflate()` resolves
+  through it. Verified live: replaying a file's observed values unchanged yields
+  `action: noop` for both a sectioned ini and a flat keyvalue file — proof the
+  round-trip is exact through the agent's own codec.
+- **Types come from the observed value, never from the catalog.** The agent renders
+  values with Go's `%v`, so a catalog `type: bool` posted as JSON `true` would
+  write literally `true` into a file whose token is `yes`, and `0177` sent as a
+  number would become `127`. A catalog bool on a string value therefore becomes a
+  STRING field with an enum of the file's own tokens (yes/no, on/off, …).
+
+## Open: what does a Role's `apply()` mean?
+
+The `role` tier is reachable over REST + MCP but has **no UI node on purpose**:
+`POST /agents/{id}/runbook/run` deliberately refuses roles (422 "bind it in OU /
+Policy instead"), while `RoleResource.apply()` executes one directly — and
+`runbooks.kind='role'` has zero rows while the UI's "Roles" page shows a different
+store (`plan_documents`). Decide "execute now" vs "bind to scope" before giving
+this tier a node.

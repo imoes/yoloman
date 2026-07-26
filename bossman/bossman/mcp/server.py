@@ -464,11 +464,15 @@ def build_mcp_server(
 
     @mcp.tool()
     async def resource_observe(host: str, kind: str, name: str, namespace: str = "default") -> dict[str, Any]:
-        """Observe a Resource's current state. kind=docker|helm."""
+        """Observe a Resource's current state. kind=docker|helm|config|role."""
         async with session_factory() as session:
             agent = await _addressed_agent_or_raise(session, host)
             r = _make_resource(session, agent, kind, name, namespace)
-            return {"resource_key": r.resource_key, "observed": await r.observe(), "schema": r.schema()}
+            # config/role derive their schema behind I/O (per-directive fields /
+            # the role's parameters); docker/helm answer synchronously.
+            schema_async = getattr(r, "schema_async", None)
+            schema = await schema_async() if schema_async else r.schema()
+            return {"resource_key": r.resource_key, "observed": await r.observe(), "schema": schema}
 
     @mcp.tool()
     async def resource_plan(host: str, kind: str, name: str, desired: dict[str, Any],

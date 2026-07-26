@@ -125,21 +125,29 @@ export class ResourceNodeComponent implements OnInit {
   hasSchema = computed(() => Object.keys(this.schema()).length > 0);
   formSchema = computed<ParamSchema>(() => {
     const s = { ...this.schema() } as Record<string, unknown>;
-    for (const k of ResourceNodeComponent.IDENTITY) delete s[k];
+    // config's schema is one field PER DIRECTIVE, so a real directive named
+    // "path"/"format" must survive — no identity strip for that tier.
+    if (this.kind() !== 'config') {
+      for (const k of ResourceNodeComponent.IDENTITY) delete s[k];
+    }
     return s as ParamSchema;
   });
   initial = computed<Record<string, unknown>>(() => {
     const o = this.observed();
     if (!o) return {};
+    // config: the form's dotted keys live in flat_values, not on the observed root
+    const src = (this.kind() === 'config' ? (o['flat_values'] as Record<string, unknown>) : o) || {};
     const out: Record<string, unknown> = {};
-    for (const k of Object.keys(this.formSchema())) if (o[k] !== undefined) out[k] = o[k];
+    for (const k of Object.keys(this.formSchema())) if (src[k] !== undefined) out[k] = src[k];
     return out;
   });
   summary = computed(() => {
     const o = this.observed() || {};
     if (o['image']) return o['image'] as string;
     if (o['chart']) return o['chart'] as string;
-    if (o['format']) return `${o['format']} · ${Object.keys((o['values'] as object) || {}).length} keys`;
+    // count DIRECTIVES (flat_values), not top-level sections — an ini file would
+    // otherwise report "3 keys" meaning 3 sections.
+    if (o['format']) return `${o['format']} · ${Object.keys((o['flat_values'] as object) || (o['values'] as object) || {}).length} settings`;
     return '(present)';
   });
 
@@ -179,7 +187,12 @@ export class ResourceNodeComponent implements OnInit {
   }
 
   onForm(v: Record<string, unknown>): void { this.form.set(v); }
-  private desired() { return this.form(); }
+  /** The body plan/apply expect. config takes its per-directive fields inside a
+   * `values` envelope (ConfigSpec) — without this wrap the flat keys would land at
+   * top level, `values` would be empty, and plan/apply would silently no-op. */
+  private desired(): Record<string, unknown> {
+    return this.kind() === 'config' ? { values: this.form() } : this.form();
+  }
 
   changedList(p: ResourcePlan): { key: string; from: unknown; to: unknown }[] {
     return Object.entries(p.changed || {}).map(([key, v]) => ({ key, from: v[0], to: v[1] }));

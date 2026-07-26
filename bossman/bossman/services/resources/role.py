@@ -15,6 +15,22 @@ Honesty about rollback: re-applying an earlier parameter set is a
 FORWARD-CONVERGE (same as the other tiers). It only truly reverts if the role's
 steps are idempotent — a role that appends or runs one-way commands cannot be
 undone by re-running it with older values. The API says so in the result.
+
+⚠ OPEN DESIGN CONFLICT — read before building on this tier:
+
+1. `POST /api/v1/agents/{id}/runbook/run` deliberately REFUSES a role with
+   422 "that is a role, not a runbook — bind it in OU / Policy instead"
+   (api/runbooks.py). `apply()` below sidesteps that guard: it rewrites the role
+   doc to `kind: runbook` and executes it directly against one host. Whether a
+   role's apply() should mean "execute now" or "bind to this host/OU and let the
+   desired state converge" is UNDECIDED.
+2. `runbooks.kind='role'` currently has ZERO rows, while the UI's "Roles" nav
+   shows a DIFFERENT store (`plan_documents`, ~53 entries, text-only). So this
+   tier models a class with no instances, and a role UI node would show an empty
+   picker.
+
+Consequence: the role tier is reachable over REST/MCP but intentionally has NO UI
+node yet, and should not get one until (1) is decided. See docs/resource-protocol.md.
 """
 from __future__ import annotations
 
