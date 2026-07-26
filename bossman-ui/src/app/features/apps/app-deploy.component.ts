@@ -5,6 +5,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
 import { AgentService, DockerContainer } from '../../core/services/agent.service';
 import { AppSummary } from '../../core/services/apps.service';
+import { ResourceNodeComponent } from '../../shared/resource-node/resource-node.component';
 
 /**
  * App-Store deploy panel — the unified App lifecycle made click-and-play (see
@@ -18,7 +19,7 @@ import { AppSummary } from '../../core/services/apps.service';
 @Component({
   selector: 'app-app-deploy',
   standalone: true,
-  imports: [FormsModule, MatIconModule, MatButtonModule],
+  imports: [FormsModule, MatIconModule, MatButtonModule, ResourceNodeComponent],
   template: `
     <div class="bm-dep">
       <div class="bm-dep-head">
@@ -74,8 +75,14 @@ import { AppSummary } from '../../core/services/apps.service';
                 <div class="bm-dep-crow">
                   <span class="bm-dep-cname">{{ c.name }}</span>
                   <span class="bm-dim">{{ c.image }} · {{ c.status }}</span>
+                  <button mat-button (click)="toggleManage(c.name)" [disabled]="busy()">
+                    {{ manageName() === c.name ? 'Hide' : 'Manage' }}
+                  </button>
                   <button mat-button color="warn" (click)="remove(c)" [disabled]="busy()">Remove</button>
                 </div>
+                @if (manageName() === c.name) {
+                  <div class="bm-dep-manage"><app-resource-node [agentId]="agentId()" [name]="c.name" /></div>
+                }
               }
               @if (!containers().length && !cErr() && !busyC()) { <p class="bm-dim">No containers.</p> }
             </div>
@@ -123,6 +130,7 @@ import { AppSummary } from '../../core/services/apps.service';
     .bm-dep-chead { font-size: 12px; opacity: 0.75; display: flex; align-items: center; gap: 6px; margin-bottom: 4px; }
     .bm-dep-crow { display: flex; align-items: center; gap: 12px; font-size: 12.5px; padding: 3px 0; }
     .bm-dep-cname { font-weight: 600; min-width: 140px; }
+    .bm-dep-manage { margin: 6px 0 12px; }
   `],
 })
 export class AppDeployComponent {
@@ -148,6 +156,9 @@ export class AppDeployComponent {
   containers = signal<DockerContainer[]>([]);
   busyC = signal(false);
   cErr = signal('');
+  manageName = signal('');
+
+  toggleManage(name: string): void { this.manageName.set(this.manageName() === name ? '' : name); }
 
   canDocker = computed(() => !!this.agentId() && !!this.dName().trim() && !!this.dImage().trim());
 
