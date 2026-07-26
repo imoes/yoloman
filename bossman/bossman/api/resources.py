@@ -263,14 +263,20 @@ class RoleSpec(BaseModel):
 class RoleApplyBody(RoleSpec):
     dry_run: bool = True
     note: str | None = None
+    # A binding starts `pending_approval` unless approval is waived here or global
+    # YOLO mode is on — the governance gate, not something this tier bypasses.
+    require_approval: bool = True
 
 
 async def _role_resource(agent_id: UUID, name: str, session, settings, client_factory, identity) -> RoleResource:
     agent = await _agent_with_address(session, agent_id)
     r = RoleResource(session, agent, client_factory, settings, name,
                      requested_by=getattr(identity, "name", "resource-api"))
-    if await r._role_doc() is None:   # 404 instead of a 500 deeper in the engine
-        raise HTTPException(status_code=404, detail=f"no such role: {name!r}")
+    if await r._plan_row() is None:   # 404 rather than failing deeper down
+        raise HTTPException(
+            status_code=404,
+            detail=f"no such role: {name!r} — a role is an OrchestrationPlan of type 'role' "
+                   f"(author it as NestedText and compile via POST /api/v1/runbooks/role/compile)")
     return r
 
 
@@ -336,3 +342,16 @@ async def role_rollback(
     reverts if the role's steps are idempotent — the response says so)."""
     r = await _role_resource(agent_id, name, session, settings, client_factory, identity)
     return await r.rollback(body.generation)
+
+
+@router.delete("/api/v1/agents/{agent_id}/resources/role/{name}/binding")
+async def role_unbind(
+    agent_id: UUID, name: str,
+    session: AsyncSession = Depends(get_session), settings: Settings = Depends(get_settings),
+    identity=Depends(require_manage_agent), client_factory=Depends(get_client_factory),
+) -> dict[str, Any]:
+    """Remove this host's direct binding of the role (the counterpart of apply) and
+    recompile the host's desired state. Inherited bindings (OU/group) are untouched
+    — unbind those at their own scope."""
+    r = await _role_resource(agent_id, name, session, settings, client_factory, identity)
+    return await r.unbind()

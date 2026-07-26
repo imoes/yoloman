@@ -1,160 +1,247 @@
-"""RoleResource — a runbook Role behind the Resource/Deployable contract
-(docs/resource-protocol.md). This is the OOP reading of a Role made literal:
+"""RoleResource — a Role behind the Resource/Deployable contract, with BIND
+semantics (docs/resource-protocol.md).
 
-    Role            = the class          (steps = its body)
-    parameters      = the constructor    → schema() → a typed form
-    running it      = instantiating it   → apply()
+This resolves a contradiction the first version had: it executed a role's steps
+directly against a host, which `POST /agents/{id}/runbook/run` deliberately
+refuses ("that is a role, not a runbook — bind it in OU / Policy instead"). The
+platform's own model, stated in services/nt_compile.py, is that a role maps 1:1
+onto an **OrchestrationPlan** (`plan_type="role"`) and takes effect by being
+**bound to a scope**; `compiler._build_desired_state()` then composes every bound
+role into the host's desired state, which converges (push → generations → rollback).
 
-Two histories, deliberately kept apart because they are different facts:
-  * `runbook_runs` (engine-owned) = the EXECUTION audit — what happened, per step.
-  * `ResourceGeneration` (this adapter) = the applied PARAMETER SETS = the
-    rollback points. The engine never recorded the params, so rollback would
-    otherwise be a guess; storing the desired spec here makes it truthful.
+So the OOP reading is exact:
 
-Honesty about rollback: re-applying an earlier parameter set is a
-FORWARD-CONVERGE (same as the other tiers). It only truly reverts if the role's
-steps are idempotent — a role that appends or runs one-way commands cannot be
-undone by re-running it with older values. The API says so in the result.
+    Role (OrchestrationPlan, plan_type="role")  = the CLASS
+    OrchestrationPlanLink (scope + parameters)  = the INSTANCE (constructor args)
+    compile → desired state → converge          = the RUNTIME
 
-⚠ OPEN DESIGN CONFLICT — read before building on this tier:
+Hence the four verbs here are about the BINDING of one role to one host:
+  schema()   → the role's parameters (its constructor)
+  observe()  → is it bound to this host, from which scope, with which parameters
+  plan()     → compiler.preview_plan_link(): blast radius + monitoring before/after,
+               writing nothing (the platform's own "propose" primitive)
+  apply()    → create the link, i.e. DECLARE the intent — then compile the host
+  rollback() → re-bind with an earlier parameter set
 
-1. `POST /api/v1/agents/{id}/runbook/run` deliberately REFUSES a role with
-   422 "that is a role, not a runbook — bind it in OU / Policy instead"
-   (api/runbooks.py). `apply()` below sidesteps that guard: it rewrites the role
-   doc to `kind: runbook` and executes it directly against one host. Whether a
-   role's apply() should mean "execute now" or "bind to this host/OU and let the
-   desired state converge" is UNDECIDED.
-2. `runbooks.kind='role'` currently has ZERO rows, while the UI's "Roles" nav
-   shows a DIFFERENT store (`plan_documents`, ~53 entries, text-only). So this
-   tier models a class with no instances, and a role UI node would show an empty
-   picker.
+Executing steps ad hoc is intentionally NOT offered: it would change the host
+without recording intent, so the next convergence run would drift it back.
 
-Consequence: the role tier is reachable over REST/MCP but intentionally has NO UI
-node yet, and should not get one until (1) is decided. See docs/resource-protocol.md.
+The approval gate is respected, not bypassed: a link starts `active` only under
+global YOLO mode or when the caller opts out of approval — otherwise
+`pending_approval`, which apply() reports honestly instead of pretending success.
 """
 from __future__ import annotations
 
 from typing import Any
+from uuid import uuid4
 
 from sqlalchemy import select
 
-from bossman.db.models import Runbook, RunbookRun
-from bossman.services import nt_runbook
+from bossman.db.models import OrchestrationPlan, OrchestrationPlanLink, OrchestrationPlanVersion
+from bossman.services.compiler import (
+    compile_host_desired_state,
+    is_yolo_mode,
+    preview_plan_link,
+    resolve_orchestration_assignments,
+)
 from bossman.services.resources import base
-from bossman.services.runbook_exec import execute_runbook
 
 
 class RoleResource:
     resource_type = "role"
 
-    def __init__(self, session, agent, client_factory, settings, name: str, requested_by: str = "resource-api"):
+    def __init__(self, session, agent, client_factory, settings, name: str,
+                 requested_by: str = "resource-api"):
         self._session = session
         self._agent = agent
-        self._cf = client_factory
         self._settings = settings
         self._requested_by = requested_by
         self.name = name
+        # the binding of THIS role to THIS host is what has generations
         self.resource_key = f"role:{agent.id}:{name}"
-        self._doc: dict[str, Any] | None = None
+        self._plan: OrchestrationPlan | None = None
+        self._schema: dict[str, Any] = {}
 
-    async def _role_doc(self) -> dict[str, Any] | None:
-        if self._doc is None:
-            row = (await self._session.scalars(
-                select(Runbook).where(Runbook.name == self.name, Runbook.kind == "role")
+    # ---------------------------------------------------------------- lookup --
+
+    async def _plan_row(self) -> OrchestrationPlan | None:
+        """The role as a registered class: an OrchestrationPlan of type "role".
+        (NestedText role docs are the AUTHORING surface; `POST /runbooks/role/
+        compile` turns one into this plan — see services/nt_compile.py.)"""
+        if self._plan is None:
+            self._plan = (await self._session.scalars(
+                select(OrchestrationPlan).where(
+                    OrchestrationPlan.name == self.name,
+                    OrchestrationPlan.plan_type == "role",
+                    OrchestrationPlan.deleted_at.is_(None),
+                )
             )).first()
-            self._doc = row.doc if row is not None else {}
-        return self._doc or None
+        return self._plan
+
+    async def _version_row(self) -> OrchestrationPlanVersion | None:
+        plan = await self._plan_row()
+        if plan is None:
+            return None
+        return (await self._session.scalars(
+            select(OrchestrationPlanVersion).where(
+                OrchestrationPlanVersion.plan_id == plan.id,
+                OrchestrationPlanVersion.version == plan.current_version,
+            )
+        )).first()
+
+    # ----------------------------------------------------------------- verbs --
 
     async def schema_async(self) -> dict[str, Any]:
-        """The role's `parameters` block — its constructor, rendered as a form.
-        Async because the doc lives in the DB; `schema()` serves the cached copy
-        once anything has loaded it (Resource contract compatibility)."""
-        doc = await self._role_doc()
-        return (doc or {}).get("parameters") or {}
+        """The role's constructor: its declared parameter schema, or the shape of
+        its defaults when no explicit schema was authored."""
+        ver = await self._version_row()
+        if ver is None:
+            self._schema = {}
+            return {}
+        schema = dict(ver.parameter_schema or {})
+        if not schema:
+            defaults = ver.default_parameters or {}
+            if _looks_like_param_specs(defaults):
+                # A role compiled from NestedText carries its `parameters:` BLOCK
+                # (i.e. specs, not values) in default_parameters — see
+                # nt_compile.role_to_plan_input. Then that IS the schema.
+                schema = {k: dict(v) for k, v in defaults.items()}
+            else:
+                # plain values → derive a form, typed by what is actually there
+                # (same rule as the config tier: never widen a value's type)
+                for key, val in defaults.items():
+                    schema[key] = {"type": _lexical_type(val), "default": val}
+        else:
+            for key, spec in schema.items():
+                if isinstance(spec, dict) and "default" not in spec:
+                    dflt = (ver.default_parameters or {}).get(key)
+                    if dflt is not None:
+                        spec["default"] = dflt
+        self._schema = schema
+        return schema
 
     def schema(self) -> dict[str, Any]:
-        return (self._doc or {}).get("parameters") or {}
+        """Sync half of the contract — serves what schema_async cached."""
+        return self._schema
 
     async def observe(self) -> dict[str, Any] | None:
-        """A role has no continuously observable value; the truthful observation is
-        its last execution against this host (status/changed/when) + its parameter
-        surface."""
-        doc = await self._role_doc()
-        if doc is None:
+        """Is this role bound to this host — and how? Uses the platform's own
+        inheritance resolution (global → OU ancestry → group → host-direct, most
+        specific wins), so `source` names where the binding comes from."""
+        plan = await self._plan_row()
+        if plan is None:
             return None
-        last = (await self._session.scalars(
-            select(RunbookRun).where(
-                RunbookRun.runbook_name == self.name, RunbookRun.agent_id == self._agent.id
-            ).order_by(RunbookRun.created_at.desc()).limit(1)
-        )).first()
+        assignments = await resolve_orchestration_assignments(self._session, self._agent)
+        mine = next((a for a in assignments if a.plan_id == plan.id), None)
+        direct = (await self._session.scalars(
+            select(OrchestrationPlanLink).where(
+                OrchestrationPlanLink.plan_id == plan.id,
+                OrchestrationPlanLink.agent_id == self._agent.id,
+            )
+        )).all()
         return {
             "name": self.name,
-            "steps": len((doc.get("steps") or [])),
-            "parameters": list((doc.get("parameters") or {}).keys()),
-            "last_run": None if last is None else {
-                "status": last.status, "changed": last.changed, "dry_run": last.dry_run,
-                "at": last.created_at.isoformat() if last.created_at else None,
-                "requested_by": last.requested_by,
-            },
+            "plan_version": plan.current_version,
+            "enabled": plan.enabled,
+            "bound": mine is not None,
+            "source": mine.source if mine else None,        # e.g. "ou:/Germany/Prod"
+            "parameters": mine.parameters if mine else {},   # link params over defaults
+            "host_links": [
+                {"id": str(link.id), "status": link.status, "parameters": link.parameters,
+                 "priority": link.priority}
+                for link in direct
+            ],
         }
 
-    async def _run(self, params: dict[str, Any], dry_run: bool) -> dict[str, Any]:
-        doc = await self._role_doc()
-        if not doc:
-            raise ValueError(f"no such role: {self.name!r}")
-        # A Role's body is executed as a runbook against this one host: roles and
-        # runbooks share the step grammar, only the binding differs.
-        runbook = nt_runbook.parse_document(_doc_to_nt_runbook(doc))
-        _row, result = await execute_runbook(
-            self._session, self._agent, runbook, settings=self._settings,
-            client=self._cf(self._agent, self._settings), request_vars=params,
-            dry_run=dry_run, requested_by=self._requested_by,
-        )
-        return result
-
     async def plan(self, desired: dict[str, Any]) -> dict[str, Any]:
-        """Check-mode run: the steps that WOULD change (the role's dry-run)."""
-        params = desired.get("parameters") if isinstance(desired.get("parameters"), dict) else desired
-        result = await self._run(params or {}, dry_run=True)
-        steps = result.get("steps") or []
-        changing = [s for s in steps if s.get("changed") or s.get("status") == "changed"]
+        """What binding this role to this host WOULD do — blast radius plus a
+        monitoring before/after — computed by the platform's own propose
+        primitive, which never writes."""
+        plan_row = await self._plan_row()
+        if plan_row is None:
+            return {"resource_key": self.resource_key, "action": "noop",
+                    "error": f"no such role: {self.name!r} (roles are OrchestrationPlans of type 'role')"}
+        params = _params_of(desired)
+        preview = await preview_plan_link(
+            self._session, plan_row.tenant_id, plan_row.id, "host",
+            agent_id=self._agent.id, parameters=params,
+        )
+        observed = await self.observe()
+        already = bool(observed and observed.get("bound"))
+        same = already and (observed or {}).get("parameters") == {
+            **((await self._version_row()).default_parameters if await self._version_row() else {}), **params}
         return {
             "resource_key": self.resource_key,
-            "action": "update" if changing else "noop",
-            "changed": {s.get("name", f"step{i}"): [None, s.get("status")] for i, s in enumerate(changing)},
-            "changed_count": len(changing),
-            "desired": {"parameters": params or {}},
-            "steps_total": len(steps),
-            "delegated_to": "runbook.engine",
+            "action": "noop" if same else ("update" if already else "create"),
+            "changed": {"parameters": [(observed or {}).get("parameters"), params]} if not same else {},
+            "changed_count": 0 if same else 1,
+            "preview": preview,          # blast radius + monitoring diff
+            "observed": observed,
+            "desired": {"parameters": params},
+            "delegated_to": "orchestration.binding",
         }
 
     async def apply(self, desired: dict[str, Any], *, dry_run: bool = True,
                     note: str | None = None) -> dict[str, Any]:
-        params = desired.get("parameters") if isinstance(desired.get("parameters"), dict) else desired
-        params = params or {}
+        """DECLARE the intent: bind the role to this host with these parameters,
+        then compile the host's desired state (which the convergence pipeline
+        pushes). Respects the approval gate — a link only starts `active` under
+        global YOLO mode or when approval is explicitly waived."""
+        params = _params_of(desired)
         if dry_run:
-            return {"dry_run": True, "plan": await self.plan({"parameters": params})}
-        result = await self._run(params, dry_run=False)
-        ok = bool(result.get("ok", True)) and not result.get("aborted")
-        out: dict[str, Any] = {
-            "dry_run": False, "ok": ok, "changed": bool(result.get("changed")),
-            "run": {"steps": len(result.get("steps") or []), "aborted": bool(result.get("aborted"))},
-            "delegated_to": "runbook.engine",
-        }
-        if not ok:
-            out["error"] = "role run failed — see the run audit (Runs)"
-            return out
-        # record the applied PARAMETER SET as the rollback point (the engine's run
-        # audit does not keep params, so without this a rollback would be a guess).
-        out["generation"] = await base.record_generation(
+            return {"dry_run": True, "plan": await self.plan(desired)}
+        plan_row = await self._plan_row()
+        if plan_row is None:
+            return {"dry_run": False, "ok": False,
+                    "error": f"no such role: {self.name!r}"}
+
+        require_approval = bool(desired.get("require_approval", True))
+        yolo = await is_yolo_mode(self._session)
+        status = "active" if (yolo or not require_approval) else "pending_approval"
+
+        # one host-direct link per role: update in place instead of stacking
+        existing = (await self._session.scalars(
+            select(OrchestrationPlanLink).where(
+                OrchestrationPlanLink.plan_id == plan_row.id,
+                OrchestrationPlanLink.agent_id == self._agent.id,
+            )
+        )).first()
+        if existing is not None:
+            existing.parameters = params
+            existing.plan_version = plan_row.current_version
+            existing.status = status
+            link = existing
+        else:
+            link = OrchestrationPlanLink(
+                id=uuid4(), tenant_id=plan_row.tenant_id, plan_id=plan_row.id,
+                plan_version=plan_row.current_version, target_type="host",
+                agent_id=self._agent.id, parameters=params, status=status,
+            )
+            self._session.add(link)
+        await self._session.commit()
+
+        compiled_generation = None
+        if status == "active":
+            compiled = await compile_host_desired_state(self._session, self._agent.id)
+            await self._session.commit()
+            compiled_generation = getattr(compiled, "generation", None) if compiled else None
+
+        gen = await base.record_generation(
             self._session, self.resource_key, self.resource_type,
-            {"name": self.name, "parameters": params}, note=note,
+            {"name": self.name, "target_type": "host", "parameters": params}, note=note,
         )
-        return out
+        return {
+            "dry_run": False, "ok": True, "bound": True, "link_id": str(link.id),
+            "status": status,                    # active | pending_approval
+            "awaiting_approval": status != "active",
+            "compiled_generation": compiled_generation,
+            "generation": gen,                   # this binding's own history
+            "delegated_to": "orchestration.binding",
+        }
 
     async def generations(self) -> list[dict[str, Any]]:
-        """Applied parameter sets (rollback points). The per-step execution audit
-        lives in Runs (runbook_runs), not here."""
+        """Applied BINDING parameter sets (rollback points). The per-step run audit
+        is a different thing and lives in Runs."""
         return await base.list_generations(self._session, self.resource_key)
 
     async def rollback(self, generation: int) -> dict[str, Any]:
@@ -163,16 +250,56 @@ class RoleResource:
             return {"ok": False, "error": f"no generation {generation} for role {self.name}"}
         out = await self.apply({"parameters": spec.get("parameters") or {}},
                                dry_run=False, note=f"rollback to gen {generation}")
-        out["caveat"] = ("forward-converge: the role was re-run with the earlier parameters. "
-                         "This only truly reverts if its steps are idempotent.")
+        out["caveat"] = ("re-bound with the earlier parameters; the host converges to that "
+                         "desired state. Steps a role already ran that are not expressed as "
+                         "desired state are not undone by this.")
         return out
 
+    async def unbind(self) -> dict[str, Any]:
+        """Remove the host-direct binding (the counterpart of apply) and recompile."""
+        plan_row = await self._plan_row()
+        if plan_row is None:
+            return {"ok": False, "error": f"no such role: {self.name!r}"}
+        links = (await self._session.scalars(
+            select(OrchestrationPlanLink).where(
+                OrchestrationPlanLink.plan_id == plan_row.id,
+                OrchestrationPlanLink.agent_id == self._agent.id,
+            )
+        )).all()
+        for link in links:
+            await self._session.delete(link)
+        await self._session.commit()
+        await compile_host_desired_state(self._session, self._agent.id)
+        await self._session.commit()
+        return {"ok": True, "unbound": len(links)}
 
-def _doc_to_nt_runbook(doc: dict[str, Any]) -> str:
-    """Render a stored role doc as NestedText the parser accepts as a RUNBOOK
-    (kind: runbook), so the engine executes its steps against one host. Roles and
-    runbooks share the step grammar; only the binding differs."""
-    from bossman.services import nt_convert
-    body = dict(doc)
-    body["kind"] = "runbook"
-    return nt_convert.doc_to_nt(body)
+
+def _params_of(desired: dict[str, Any]) -> dict[str, Any]:
+    """Accept {"parameters": {...}} or a bare parameter dict."""
+    inner = desired.get("parameters")
+    if isinstance(inner, dict):
+        return inner
+    return {k: v for k, v in desired.items() if k not in ("require_approval", "dry_run", "note")}
+
+
+def _looks_like_param_specs(params: dict[str, Any]) -> bool:
+    """True when every entry is a param SPEC ({type: …}) rather than a plain value —
+    the shape nt_compile puts into default_parameters for a compiled role."""
+    if not params:
+        return False
+    return all(isinstance(v, dict) and "type" in v for v in params.values())
+
+
+def _lexical_type(value: Any) -> str:
+    if isinstance(value, bool):
+        return "bool"
+    if isinstance(value, (int, float)):
+        return "number"
+    if isinstance(value, list):
+        return "list"
+    if isinstance(value, dict):
+        return "object"
+    return "string"
+
+
+__all__ = ["RoleResource"]
