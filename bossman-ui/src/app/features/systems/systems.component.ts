@@ -5,8 +5,11 @@ import { MatButtonModule } from '@angular/material/button';
 import { AgentService } from '../../core/services/agent.service';
 import {
   CloneResult, ProposedSystem, PromoteResult, RehearsalResult,
-  SystemsService, SystemSummary,
+  SystemsService, SystemSummary, SystemMember,
 } from '../../core/services/systems.service';
+import { ResourceNodeComponent } from '../../shared/resource-node/resource-node.component';
+import { kindForTarget } from '../../shared/resource-node/resource-node-registry';
+import { ChatPlanGraphComponent, PlanGraphData } from '../chat/chat-plan-graph.component';
 
 /**
  * Systems — the unit above a host (apps + wiring) and the rehearsal plane
@@ -18,7 +21,7 @@ import {
 @Component({
   selector: 'app-systems',
   standalone: true,
-  imports: [FormsModule, MatIconModule, MatButtonModule],
+  imports: [FormsModule, MatIconModule, MatButtonModule, ResourceNodeComponent, ChatPlanGraphComponent],
   template: `
     <div class="bm-page">
       <header class="bm-page-head">
@@ -90,6 +93,26 @@ import {
                 }
               </tbody>
             </table>
+
+            <!-- Resource canvas: the System as a graph of live Resource nodes -->
+            <div class="bm-sys-canvas-head">
+              <button mat-button (click)="showCanvas.set(!showCanvas())">
+                <mat-icon>{{ showCanvas() ? 'expand_less' : 'expand_more' }}</mat-icon>
+                Resource canvas ({{ liveMembers(s).length }})
+              </button>
+            </div>
+            @if (showCanvas()) {
+              @if (graph(s); as g) {
+                @if (g.nodes.length) { <div class="bm-sys-graph"><app-chat-plan-graph [data]="g" /></div> }
+              }
+              <div class="bm-sys-nodes">
+                @for (m of liveMembers(s); track m.app) {
+                  <app-resource-node [agentId]="s.seed_agent_id || ''" [kind]="kindOf(m)"
+                                     [name]="m.app" [namespace]="nsOf(m)" />
+                }
+                @if (!liveMembers(s).length) { <p class="bm-dim">No docker/helm members to manage yet.</p> }
+              </div>
+            }
 
             <div class="bm-row bm-sys-actions">
               <span class="bm-lbl">Target host</span>
@@ -175,6 +198,9 @@ import {
     .bm-result.bad { border-color: var(--mat-sys-error, #c62828); background: rgba(198,40,40,0.07); }
     .bm-check { font-size: 12px; opacity: 0.85; margin-top: 3px; }
     .bm-mono { font-family: ui-monospace, monospace; font-size: 11px; overflow-x: auto; }
+    .bm-sys-canvas-head { margin: 6px 0; }
+    .bm-sys-graph { margin: 6px 0 12px; }
+    .bm-sys-nodes { display: flex; flex-direction: column; gap: 12px; margin-bottom: 14px; }
   `],
 })
 export class SystemsComponent {
@@ -191,6 +217,22 @@ export class SystemsComponent {
 
   targetHost = signal('');
   overrides = signal<Record<string, string>>({});
+  showCanvas = signal(false);
+
+  // Resource canvas: members that map to a live Resource node (docker/helm).
+  liveMembers(s: SystemSummary): SystemMember[] {
+    return (s.members || []).filter((m) => !!kindForTarget(m.target));
+  }
+  kindOf(m: SystemMember): string { return kindForTarget(m.target) || 'docker'; }
+  nsOf(m: SystemMember): string { return (m.config?.['namespace'] as string) || 'default'; }
+  // Overview graph: member nodes (synthetic id = target/app, matching discovery
+  // edge ids) + the System's dependency edges.
+  graph(s: SystemSummary): PlanGraphData {
+    return {
+      nodes: (s.members || []).map((m) => ({ id: `${m.target}/${m.app}`, label: `${m.target}\n${m.app}` })),
+      edges: ((s.edges as { from: string; to: string }[]) || []).map((e) => ({ from: e.from, to: e.to })),
+    };
+  }
 
   busy = signal(false);
   busyMsg = signal('');
@@ -237,7 +279,7 @@ export class SystemsComponent {
     });
   }
   select(s: SystemSummary): void {
-    this.clearResults(); this.overrides.set({});
+    this.clearResults(); this.overrides.set({}); this.showCanvas.set(false);
     this.svc.get(s.id).subscribe({ next: (full) => this.selected.set(full), error: () => this.selected.set(s) });
   }
   remove(s: SystemSummary): void {

@@ -4,6 +4,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { ParamFormComponent } from '../param-form/param-form.component';
 import { ParamSchema } from '../param-form/param-form.types';
 import { ApplyResult, ResourceGeneration, ResourcePlan, ResourcesService } from '../../core/services/resources.service';
+import { descriptorFor } from './resource-node-registry';
 
 /**
  * ResourceNode — a Resource/Deployable drawing itself (docs/resource-protocol.md):
@@ -19,7 +20,8 @@ import { ApplyResult, ResourceGeneration, ResourcePlan, ResourcesService } from 
   template: `
     <div class="bm-rn">
       <div class="bm-rn-head">
-        <span class="bm-rn-kind">{{ kind() }}</span>
+        <mat-icon class="bm-rn-ic">{{ descriptor().icon }}</mat-icon>
+        <span class="bm-rn-kind" [title]="descriptor().label">{{ kind() }}</span>
         <span class="bm-rn-name">{{ name() }}</span>
         @if (observed()) {
           <span class="bm-rn-dot ok" title="present"></span>
@@ -71,6 +73,7 @@ import { ApplyResult, ResourceGeneration, ResourcePlan, ResourcesService } from 
   styles: [`
     .bm-rn { border: 1px solid var(--mat-sys-outline-variant); border-radius: 12px; padding: 14px 16px; max-width: 680px; }
     .bm-rn-head { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+    .bm-rn-ic { font-size: 18px; width: 18px; height: 18px; opacity: 0.8; }
     .bm-rn-kind { font-size: 10.5px; padding: 1px 7px; border-radius: 999px; background: color-mix(in srgb, var(--mat-sys-on-surface) 10%, transparent); font-family: ui-monospace, monospace; }
     .bm-rn-name { font-weight: 600; }
     .bm-rn-dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
@@ -111,6 +114,7 @@ export class ResourceNodeComponent implements OnInit {
   // identity fields are shown in the header / passed as inputs, not edited
   private static IDENTITY = ['name', 'namespace', 'status', 'revision'];
 
+  descriptor = computed(() => descriptorFor(this.kind()));
   hasSchema = computed(() => Object.keys(this.schema()).length > 0);
   formSchema = computed<ParamSchema>(() => {
     const s = { ...this.schema() } as Record<string, unknown>;
