@@ -7,7 +7,7 @@ from __future__ import annotations
 from typing import Any
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -19,6 +19,7 @@ from bossman.db.session import get_session
 from bossman.services.resources.config_file import ConfigResource
 from bossman.services.resources.docker_container import DockerContainerResource
 from bossman.services.resources.helm_release import HelmReleaseResource
+from bossman.services.resources.role import RoleResource
 
 router = APIRouter()
 
@@ -247,4 +248,88 @@ async def config_rollback(
     _identity=Depends(require_manage_agent), client_factory=Depends(get_client_factory),
 ) -> dict[str, Any]:
     r = await _config_resource(agent_id, path, session, settings, client_factory)
+    return await r.rollback(body.generation)
+
+
+# --- Role tier (a runbook Role: parameters = constructor, apply = run) -----
+
+class RoleSpec(BaseModel):
+    parameters: dict[str, Any] = {}
+
+
+class RoleApplyBody(RoleSpec):
+    dry_run: bool = True
+    note: str | None = None
+
+
+async def _role_resource(agent_id: UUID, name: str, session, settings, client_factory, identity) -> RoleResource:
+    agent = await _agent_with_address(session, agent_id)
+    r = RoleResource(session, agent, client_factory, settings, name,
+                     requested_by=getattr(identity, "name", "resource-api"))
+    if await r._role_doc() is None:   # 404 instead of a 500 deeper in the engine
+        raise HTTPException(status_code=404, detail=f"no such role: {name!r}")
+    return r
+
+
+@router.get("/api/v1/agents/{agent_id}/resources/role/{name}/schema")
+async def role_schema(
+    agent_id: UUID, name: str,
+    session: AsyncSession = Depends(get_session), settings: Settings = Depends(get_settings),
+    identity=Depends(require_manage_agent), client_factory=Depends(get_client_factory),
+) -> dict[str, Any]:
+    r = await _role_resource(agent_id, name, session, settings, client_factory, identity)
+    return {"resource_key": r.resource_key, "type": r.resource_type, "schema": await r.schema_async()}
+
+
+@router.get("/api/v1/agents/{agent_id}/resources/role/{name}/observe")
+async def role_observe(
+    agent_id: UUID, name: str,
+    session: AsyncSession = Depends(get_session), settings: Settings = Depends(get_settings),
+    identity=Depends(require_manage_agent), client_factory=Depends(get_client_factory),
+) -> dict[str, Any]:
+    r = await _role_resource(agent_id, name, session, settings, client_factory, identity)
+    return {"resource_key": r.resource_key, "observed": await r.observe(), "schema": await r.schema_async()}
+
+
+@router.post("/api/v1/agents/{agent_id}/resources/role/{name}/plan")
+async def role_plan(
+    agent_id: UUID, name: str, body: RoleSpec,
+    session: AsyncSession = Depends(get_session), settings: Settings = Depends(get_settings),
+    identity=Depends(require_manage_agent), client_factory=Depends(get_client_factory),
+) -> dict[str, Any]:
+    """Check-mode run: the steps that WOULD change (no writes)."""
+    r = await _role_resource(agent_id, name, session, settings, client_factory, identity)
+    return await r.plan(body.model_dump())
+
+
+@router.post("/api/v1/agents/{agent_id}/resources/role/{name}/apply")
+async def role_apply(
+    agent_id: UUID, name: str, body: RoleApplyBody,
+    session: AsyncSession = Depends(get_session), settings: Settings = Depends(get_settings),
+    identity=Depends(require_manage_agent), client_factory=Depends(get_client_factory),
+) -> dict[str, Any]:
+    r = await _role_resource(agent_id, name, session, settings, client_factory, identity)
+    return await r.apply(body.model_dump(exclude={"dry_run", "note"}), dry_run=body.dry_run, note=body.note)
+
+
+@router.get("/api/v1/agents/{agent_id}/resources/role/{name}/generations")
+async def role_generations(
+    agent_id: UUID, name: str,
+    session: AsyncSession = Depends(get_session), settings: Settings = Depends(get_settings),
+    identity=Depends(require_manage_agent), client_factory=Depends(get_client_factory),
+) -> dict[str, Any]:
+    """Applied parameter sets (rollback points). Per-step execution audit is in Runs."""
+    r = await _role_resource(agent_id, name, session, settings, client_factory, identity)
+    return {"resource_key": r.resource_key, "generations": await r.generations()}
+
+
+@router.post("/api/v1/agents/{agent_id}/resources/role/{name}/rollback")
+async def role_rollback(
+    agent_id: UUID, name: str, body: RollbackBody,
+    session: AsyncSession = Depends(get_session), settings: Settings = Depends(get_settings),
+    identity=Depends(require_manage_agent), client_factory=Depends(get_client_factory),
+) -> dict[str, Any]:
+    """Re-run the role with an earlier parameter set (forward-converge; only truly
+    reverts if the role's steps are idempotent — the response says so)."""
+    r = await _role_resource(agent_id, name, session, settings, client_factory, identity)
     return await r.rollback(body.generation)

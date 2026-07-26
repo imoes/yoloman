@@ -457,7 +457,10 @@ def build_mcp_server(
         if kind == "config":
             from bossman.services.resources.config_file import ConfigResource
             return ConfigResource(session, agent, client_factory, settings, name)  # name = file path
-        raise ValueError(f"unknown resource kind: {kind!r} (use docker|helm|config)")
+        if kind == "role":
+            from bossman.services.resources.role import RoleResource
+            return RoleResource(session, agent, client_factory, settings, name, requested_by="mcp")
+        raise ValueError(f"unknown resource kind: {kind!r} (use docker|helm|config|role)")
 
     @mcp.tool()
     async def resource_observe(host: str, kind: str, name: str, namespace: str = "default") -> dict[str, Any]:
