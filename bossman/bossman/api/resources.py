@@ -16,6 +16,7 @@ from bossman.api.management import _agent_with_address
 from bossman.api.plans import get_client_factory
 from bossman.config import Settings, get_settings
 from bossman.db.session import get_session
+from bossman.services.resources.config_file import ConfigResource
 from bossman.services.resources.docker_container import DockerContainerResource
 from bossman.services.resources.helm_release import HelmReleaseResource
 
@@ -179,4 +180,71 @@ async def helm_rollback(
     _identity=Depends(require_manage_agent), client_factory=Depends(get_client_factory),
 ) -> dict[str, Any]:
     r = await _helm_resource(agent_id, name, namespace, session, settings, client_factory)
+    return await r.rollback(body.generation)
+
+
+# --- Config file tier (delegates to the agent state store) ----------------
+
+class ConfigSpec(BaseModel):
+    values: dict[str, Any] = {}
+    format: str | None = None
+    separator: str | None = None
+
+
+class ConfigApplyBody(ConfigSpec):
+    dry_run: bool = True
+
+
+async def _config_resource(agent_id: UUID, path: str, session, settings, client_factory) -> ConfigResource:
+    agent = await _agent_with_address(session, agent_id)
+    return ConfigResource(session, agent, client_factory, settings, path)
+
+
+@router.get("/api/v1/agents/{agent_id}/resources/config/observe")
+async def config_observe(
+    agent_id: UUID, path: str = Query(...),
+    session: AsyncSession = Depends(get_session), settings: Settings = Depends(get_settings),
+    _identity=Depends(require_manage_agent), client_factory=Depends(get_client_factory),
+) -> dict[str, Any]:
+    r = await _config_resource(agent_id, path, session, settings, client_factory)
+    return {"resource_key": r.resource_key, "observed": await r.observe(), "schema": r.schema()}
+
+
+@router.post("/api/v1/agents/{agent_id}/resources/config/plan")
+async def config_plan(
+    agent_id: UUID, body: ConfigSpec, path: str = Query(...),
+    session: AsyncSession = Depends(get_session), settings: Settings = Depends(get_settings),
+    _identity=Depends(require_manage_agent), client_factory=Depends(get_client_factory),
+) -> dict[str, Any]:
+    r = await _config_resource(agent_id, path, session, settings, client_factory)
+    return await r.plan(body.model_dump())
+
+
+@router.post("/api/v1/agents/{agent_id}/resources/config/apply")
+async def config_apply(
+    agent_id: UUID, body: ConfigApplyBody, path: str = Query(...),
+    session: AsyncSession = Depends(get_session), settings: Settings = Depends(get_settings),
+    _identity=Depends(require_manage_agent), client_factory=Depends(get_client_factory),
+) -> dict[str, Any]:
+    r = await _config_resource(agent_id, path, session, settings, client_factory)
+    return await r.apply(body.model_dump(exclude={"dry_run"}), dry_run=body.dry_run)
+
+
+@router.get("/api/v1/agents/{agent_id}/resources/config/generations")
+async def config_generations(
+    agent_id: UUID, path: str = Query(...),
+    session: AsyncSession = Depends(get_session), settings: Settings = Depends(get_settings),
+    _identity=Depends(require_manage_agent), client_factory=Depends(get_client_factory),
+) -> dict[str, Any]:
+    r = await _config_resource(agent_id, path, session, settings, client_factory)
+    return {"resource_key": r.resource_key, "scope": "host", "generations": await r.generations()}
+
+
+@router.post("/api/v1/agents/{agent_id}/resources/config/rollback")
+async def config_rollback(
+    agent_id: UUID, body: RollbackBody, path: str = Query(...),
+    session: AsyncSession = Depends(get_session), settings: Settings = Depends(get_settings),
+    _identity=Depends(require_manage_agent), client_factory=Depends(get_client_factory),
+) -> dict[str, Any]:
+    r = await _config_resource(agent_id, path, session, settings, client_factory)
     return await r.rollback(body.generation)
