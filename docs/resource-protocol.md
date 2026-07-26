@@ -169,11 +169,39 @@ Two rules fell out of the real data and hold for every future tier:
   number would become `127`. A catalog bool on a string value therefore becomes a
   STRING field with an enum of the file's own tokens (yes/no, on/off, …).
 
-## Open: what does a Role's `apply()` mean?
+## Resolved: a Role is BOUND, not executed
 
-The `role` tier is reachable over REST + MCP but has **no UI node on purpose**:
-`POST /agents/{id}/runbook/run` deliberately refuses roles (422 "bind it in OU /
-Policy instead"), while `RoleResource.apply()` executes one directly — and
-`runbooks.kind='role'` has zero rows while the UI's "Roles" page shows a different
-store (`plan_documents`). Decide "execute now" vs "bind to scope" before giving
-this tier a node.
+A role maps 1:1 onto an **OrchestrationPlan** (`plan_type="role"`, see
+services/nt_compile.py) and takes effect by being **bound to a scope**;
+`compiler._build_desired_state()` composes every bound role into the host's
+desired state, which then converges. That is why `POST /agents/{id}/runbook/run`
+refuses a role ("bind it in OU / Policy instead") — executing steps ad hoc would
+change the host *without recording intent*, so the next convergence run would
+drift it back.
+
+So the OOP reading is exact, and the four verbs are about the **binding**:
+
+| | |
+|---|---|
+| Role — `OrchestrationPlan(plan_type="role")` | the **class** |
+| `OrchestrationPlanLink` (scope + parameters) | the **instance** (constructor args) |
+| compile → desired state → converge | the **runtime** |
+
+- `schema()` → the role's parameter schema (its constructor). Note the quirk:
+  a role compiled from NestedText carries its `parameters:` *block* (specs, not
+  values) in `default_parameters`, so that block IS the schema.
+- `observe()` → bound or not, from which scope (global → OU ancestry → group →
+  host, most specific wins), with which merged parameters, plus host-direct links.
+- `plan()` → `compiler.preview_plan_link()`: blast radius + monitoring
+  before/after, writing nothing — the platform's own propose primitive.
+- `apply()` → create/update the link (declare intent), then compile the host.
+  **The approval gate is respected:** a link is `active` only under global YOLO
+  mode or when approval is waived; otherwise `pending_approval`, which apply()
+  reports honestly (and nothing converges yet).
+- `rollback()` → re-bind an earlier parameter set. `unbind()` removes the
+  host-direct binding (inherited OU/group bindings are untouched).
+
+Verified live end-to-end: author NT → compile → register plan → plan (checks_added
+`[ssh]`) → apply (`pending_approval`) → approve (`active`) → desired state carries
+`orchestration.roles ["linux-baseline"]` + `monitoring.checks ["ssh"]` → unbind
+reverts it. Ad-hoc execution is intentionally not offered by this tier.
