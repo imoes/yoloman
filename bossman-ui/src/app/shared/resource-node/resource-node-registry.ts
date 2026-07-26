@@ -14,7 +14,9 @@ export interface ResourceNodeDescriptor {
 export const RESOURCE_NODES: Record<string, ResourceNodeDescriptor> = {
   docker: { kind: 'docker', label: 'Docker container', icon: 'inventory_2' },
   helm: { kind: 'helm', label: 'Helm release', icon: 'hub' },
-  // config, role, template fold in as their Resource impls land.
+  // config delegates its generations to the agent state store (host-scoped).
+  config: { kind: 'config', label: 'Config file', icon: 'description' },
+  // role / template fold in as their Resource impls land.
 };
 
 export function descriptorFor(kind: string): ResourceNodeDescriptor {

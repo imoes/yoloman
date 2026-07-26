@@ -56,7 +56,12 @@ import { descriptorFor } from './resource-node-registry';
 
       @if (generations().length) {
         <div class="bm-rn-gens">
-          <div class="bm-rn-gh">Generations</div>
+          <div class="bm-rn-gh">
+            Generations
+            @if (kind() === 'config') {
+              <span class="bm-warn"> · host-scoped: a rollback reverts the whole host's config, not just this file</span>
+            }
+          </div>
           @for (g of generations(); track g.generation) {
             <div class="bm-rn-gen">
               <span class="bm-rn-gn">#{{ g.generation }}</span>
@@ -88,6 +93,7 @@ import { descriptorFor } from './resource-node-registry';
     .bm-rn-change { font-size: 12.5px; margin-top: 3px; }
     .bm-rn-gens { margin-top: 12px; border-top: 1px solid var(--mat-sys-outline-variant); padding-top: 8px; }
     .bm-rn-gh { font-size: 12px; opacity: 0.7; margin-bottom: 4px; }
+    .bm-warn { color: var(--bm-gold, #b8860b); }
     .bm-rn-gen { display: flex; align-items: center; gap: 10px; font-size: 12.5px; padding: 3px 0; }
     .bm-rn-gn { font-family: ui-monospace, monospace; font-weight: 600; min-width: 34px; }
     .bm-rn-gt { margin-left: auto; }
@@ -112,7 +118,8 @@ export class ResourceNodeComponent implements OnInit {
   msgOk = signal(true);
 
   // identity fields are shown in the header / passed as inputs, not edited
-  private static IDENTITY = ['name', 'namespace', 'status', 'revision'];
+  // identity/read-only fields per tier: shown in the header, not edited
+  private static IDENTITY = ['name', 'namespace', 'status', 'revision', 'path', 'format', 'separator'];
 
   descriptor = computed(() => descriptorFor(this.kind()));
   hasSchema = computed(() => Object.keys(this.schema()).length > 0);
@@ -130,11 +137,17 @@ export class ResourceNodeComponent implements OnInit {
   });
   summary = computed(() => {
     const o = this.observed() || {};
-    return (o['image'] ?? o['chart'] ?? '(present)') as string;
+    if (o['image']) return o['image'] as string;
+    if (o['chart']) return o['chart'] as string;
+    if (o['format']) return `${o['format']} · ${Object.keys((o['values'] as object) || {}).length} keys`;
+    return '(present)';
   });
 
   specSummary(spec: Record<string, unknown>): string {
-    return (spec['image'] ?? spec['chart'] ?? JSON.stringify(spec['values'] ?? {})) as string;
+    if (spec['image']) return spec['image'] as string;
+    if (spec['chart']) return spec['chart'] as string;
+    if (spec['hash']) return `hash ${spec['hash']}`;      // config: agent generation
+    return JSON.stringify(spec['values'] ?? {});
   }
 
   ngOnInit(): void { this.reload(); }
@@ -142,12 +155,19 @@ export class ResourceNodeComponent implements OnInit {
   private reload(): void {
     this.loading.set(true); this.err.set('');
     const [id, k, n, ns] = [this.agentId(), this.kind(), this.name(), this.namespace()];
-    this.svc.schema(id, k, n, ns).subscribe({
-      next: (s) => this.schema.set((s.schema || {}) as ParamSchema),
-      error: (e) => this.err.set(e?.error?.detail || 'schema failed'),
-    });
+    // config has no /schema route — its schema rides along with observe.
+    if (k !== 'config') {
+      this.svc.schema(id, k, n, ns).subscribe({
+        next: (s) => this.schema.set((s.schema || {}) as ParamSchema),
+        error: (e) => this.err.set(e?.error?.detail || 'schema failed'),
+      });
+    }
     this.svc.observe(id, k, n, ns).subscribe({
-      next: (o) => { this.loading.set(false); this.observed.set(o.observed); },
+      next: (o) => {
+        this.loading.set(false);
+        this.observed.set(o.observed);
+        if (o.schema) this.schema.set(o.schema as ParamSchema);
+      },
       error: (e) => { this.loading.set(false); this.err.set(e?.error?.detail || 'observe failed'); },
     });
     this.loadGenerations();

@@ -46,29 +46,36 @@ export class ResourcesService {
   private http = inject(HttpClient);
   private base = `${environment.apiUrl}/agents`;
 
+  /** URL shape per tier: docker/helm are name-in-path; config is path-in-query
+   * (a file path can't live in a path segment). */
   private path(id: string, kind: string, name: string) {
+    if (kind === 'config') return `${this.base}/${id}/resources/config`;
     return `${this.base}/${id}/resources/${kind}/${encodeURIComponent(name)}`;
   }
-  private opts(kind: string, namespace?: string) {
-    return kind === 'helm' && namespace ? { params: { namespace } } : {};
+  private opts(kind: string, namespace?: string, name?: string): { params: Record<string, string> } {
+    if (kind === 'config') return { params: { path: name || '' } };
+    if (kind === 'helm' && namespace) return { params: { namespace } };
+    return { params: {} };
   }
 
+  /** Typed field schema. The config tier has no /schema route — its schema comes
+   * back from observe, so the node falls back to that. */
   schema(id: string, kind: string, name: string, namespace?: string) {
-    return this.http.get<{ resource_key: string; type: string; schema: Record<string, unknown> }>(`${this.path(id, kind, name)}/schema`, this.opts(kind, namespace));
+    return this.http.get<{ resource_key: string; type: string; schema: Record<string, unknown> }>(`${this.path(id, kind, name)}/schema`, this.opts(kind, namespace, name));
   }
   observe(id: string, kind: string, name: string, namespace?: string) {
-    return this.http.get<{ resource_key: string; observed: Record<string, unknown> | null }>(`${this.path(id, kind, name)}/observe`, this.opts(kind, namespace));
+    return this.http.get<{ resource_key: string; observed: Record<string, unknown> | null; schema?: Record<string, unknown> }>(`${this.path(id, kind, name)}/observe`, this.opts(kind, namespace, name));
   }
   plan(id: string, kind: string, name: string, desired: Record<string, unknown>, namespace?: string) {
-    return this.http.post<ResourcePlan>(`${this.path(id, kind, name)}/plan`, desired, this.opts(kind, namespace));
+    return this.http.post<ResourcePlan>(`${this.path(id, kind, name)}/plan`, desired, this.opts(kind, namespace, name));
   }
   apply(id: string, kind: string, name: string, desired: Record<string, unknown>, dry_run: boolean, note?: string, namespace?: string) {
-    return this.http.post<ApplyResult>(`${this.path(id, kind, name)}/apply`, { ...desired, dry_run, note }, this.opts(kind, namespace));
+    return this.http.post<ApplyResult>(`${this.path(id, kind, name)}/apply`, { ...desired, dry_run, note }, this.opts(kind, namespace, name));
   }
   generations(id: string, kind: string, name: string, namespace?: string) {
-    return this.http.get<{ resource_key: string; generations: ResourceGeneration[] }>(`${this.path(id, kind, name)}/generations`, this.opts(kind, namespace));
+    return this.http.get<{ resource_key: string; scope?: string; generations: ResourceGeneration[] }>(`${this.path(id, kind, name)}/generations`, this.opts(kind, namespace, name));
   }
   rollback(id: string, kind: string, name: string, generation: number, namespace?: string) {
-    return this.http.post<ApplyResult>(`${this.path(id, kind, name)}/rollback`, { generation }, this.opts(kind, namespace));
+    return this.http.post<ApplyResult>(`${this.path(id, kind, name)}/rollback`, { generation }, this.opts(kind, namespace, name));
   }
 }
