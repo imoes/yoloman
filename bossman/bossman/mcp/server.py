@@ -443,6 +443,63 @@ def build_mcp_server(
             return await system_promote.promote(s, target, image_overrides, client_factory, settings,
                                                 rehearse_first=rehearse_first, dry_run=dry_run)
 
+    # --- Resource / Deployable verbs (docs/resource-protocol.md) --------------
+    # One uniform lifecycle the AI drives across tiers: observe / plan / apply /
+    # generations / rollback. kind = docker | helm (config/role fold in later).
+
+    def _make_resource(session, agent, kind: str, name: str, namespace: str):
+        if kind == "docker":
+            from bossman.services.resources.docker_container import DockerContainerResource
+            return DockerContainerResource(session, agent, client_factory, settings, name)
+        if kind == "helm":
+            from bossman.services.resources.helm_release import HelmReleaseResource
+            return HelmReleaseResource(session, agent, client_factory, settings, name, namespace=namespace)
+        raise ValueError(f"unknown resource kind: {kind!r} (use docker|helm)")
+
+    @mcp.tool()
+    async def resource_observe(host: str, kind: str, name: str, namespace: str = "default") -> dict[str, Any]:
+        """Observe a Resource's current state. kind=docker|helm."""
+        async with session_factory() as session:
+            agent = await _addressed_agent_or_raise(session, host)
+            r = _make_resource(session, agent, kind, name, namespace)
+            return {"resource_key": r.resource_key, "observed": await r.observe(), "schema": r.schema()}
+
+    @mcp.tool()
+    async def resource_plan(host: str, kind: str, name: str, desired: dict[str, Any],
+                            namespace: str = "default") -> dict[str, Any]:
+        """Diff a desired spec against the observed state (no write). desired for
+        docker = {image,ports,env,volumes,restart}; for helm = {chart,values}."""
+        async with session_factory() as session:
+            agent = await _addressed_agent_or_raise(session, host)
+            return await _make_resource(session, agent, kind, name, namespace).plan(desired)
+
+    @mcp.tool()
+    async def resource_apply(host: str, kind: str, name: str, desired: dict[str, Any],
+                             dry_run: bool = True, note: str | None = None,
+                             namespace: str = "default") -> dict[str, Any]:
+        """Apply a desired spec (records a generation). dry_run=true returns the
+        plan without writing — preview first for anything non-trivial."""
+        async with session_factory() as session:
+            agent = await _addressed_agent_or_raise(session, host)
+            return await _make_resource(session, agent, kind, name, namespace).apply(
+                desired, dry_run=dry_run, note=note)
+
+    @mcp.tool()
+    async def resource_generations(host: str, kind: str, name: str, namespace: str = "default") -> list[dict[str, Any]]:
+        """The Resource's applied-generation history (rollback points)."""
+        async with session_factory() as session:
+            agent = await _addressed_agent_or_raise(session, host)
+            return await _make_resource(session, agent, kind, name, namespace).generations()
+
+    @mcp.tool()
+    async def resource_rollback(host: str, kind: str, name: str, generation: int,
+                                namespace: str = "default") -> dict[str, Any]:
+        """Roll a Resource back to an earlier generation (re-applied as a NEW
+        generation — forward-converge, uniform across tiers)."""
+        async with session_factory() as session:
+            agent = await _addressed_agent_or_raise(session, host)
+            return await _make_resource(session, agent, kind, name, namespace).rollback(generation)
+
     @mcp.tool()
     async def list_plans() -> list[dict[str, Any]]:
         """List every available plan: name, description, params."""
