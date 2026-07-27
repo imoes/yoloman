@@ -179,6 +179,28 @@ async def test_notify_skips_handler_when_unchanged():
     assert not any(s.name == "restart web" for s in res.steps)
 
 
+async def test_tag_selection_only_and_skip_and_always():
+    rb = parse_document(
+        "name: t\nsteps:\n"
+        "  -\n    name: pkg\n    module: apt\n    tags:\n      - install\n    args:\n      name: nginx\n"
+        "  -\n    name: cfg\n    module: template\n    tags:\n      - config\n    args:\n      dest: /etc/x\n"
+        "  -\n    name: ping\n    module: ping\n    tags:\n      - always\n"
+        "  -\n    name: untagged\n    module: command\n    args:\n      cmd: hi\n"
+    )
+    # only_tags=install -> apt + always-tagged ping; not cfg, not untagged
+    c1 = FakeClient()
+    await run_runbook(rb, c1, only_tags={"install"})
+    assert [c[0] for c in c1.calls] == ["apt", "ping"]
+    # skip_tags=config -> everything but cfg
+    c2 = FakeClient()
+    await run_runbook(rb, c2, skip_tags={"config"})
+    assert [c[0] for c in c2.calls] == ["apt", "ping", "command"]
+    # no tag filter -> all run
+    c3 = FakeClient()
+    await run_runbook(rb, c3)
+    assert [c[0] for c in c3.calls] == ["apt", "template", "ping", "command"]
+
+
 async def test_handlers_run_once_in_definition_order():
     rb = parse_document(
         "name: t\nsteps:\n"

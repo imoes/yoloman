@@ -122,6 +122,20 @@ async def _apply_config_template(
         return StepResult(name=step.name, module=step.module, status="failed", item=item, error=str(exc))
 
 
+def _tag_selected(tags: list[str], only: set[str] | None, skip: set[str] | None) -> bool:
+    """Ansible tag selection: `always`-tagged steps always run (unless skipped);
+    a step is skipped if its tags intersect skip_tags (or `all` is skipped); with
+    only_tags set, a step runs only if its tags intersect it (or `all` is asked)."""
+    t = set(tags or [])
+    if "always" in t and not (skip and "always" in skip):
+        return True
+    if skip and (t & skip or "all" in skip):
+        return False
+    if only:
+        return bool(t & only) or "all" in only
+    return True
+
+
 async def run_runbook(
     runbook: Runbook,
     client: Any,
@@ -129,10 +143,13 @@ async def run_runbook(
     *,
     check_mode: bool = False,
     templates: dict[str, str] | None = None,
+    only_tags: set[str] | None = None,
+    skip_tags: set[str] | None = None,
 ) -> RunResult:
     """Run `runbook` against `client` (an AgentClient). `variables` is the
     already-GPO-merged variable scope. Returns a RunResult recording every
-    step; a failed step with ignore_errors=false aborts the rest."""
+    step; a failed step with ignore_errors=false aborts the rest. `only_tags`/
+    `skip_tags` gate which steps run (Ansible `--tags`/`--skip-tags`)."""
     variables = dict(variables or {})
     # Shared namespace for when:/register (like Ansible): starts as the vars.
     context: dict[str, Any] = dict(variables)
@@ -141,6 +158,10 @@ async def run_runbook(
     notified: list[str] = []
 
     for step in runbook.steps:
+        # tags: a step not selected this run is silently omitted (no result row,
+        # like Ansible — it never appears in the play recap).
+        if not _tag_selected(step.tags, only_tags, skip_tags):
+            continue
         # when: — a false condition skips the whole step (never a failure).
         if step.when is not None:
             try:
