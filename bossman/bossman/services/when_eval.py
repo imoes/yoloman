@@ -1,102 +1,51 @@
-"""A tiny, deliberately non-Turing-complete expression evaluator for a
-plan step's `when:` condition (see docs/plan.md's Ansible-ingestion plan)
-— NOT a Jinja2 or eval() implementation. Real Ansible `when:` clauses can
-call arbitrary Jinja2 filters; that is explicitly out of scope here, and
-not just as a scoping cut: a plan file may originate from an LLM
-translation of an untrusted source (an Ansible role, a Salt state), so
-evaluating a small whitelisted grammar rather than eval()ing arbitrary
-text is a deliberate security boundary.
+"""Evaluate a step's `when:` condition as a real Ansible/Jinja2 boolean.
 
-Supported grammar (each line is a complete `when:` value):
-    not <expr>
-    <path> is defined
-    <path> is not defined
-    <path> == <literal>
-    <path> != <literal>
-    <path>                      (bare truthy check)
+This is the pivot to full Ansible semantics: `when:` is now any Jinja2 expression
+(`x is defined`, `a == 'b' and c != 'd'`, `x | default(false)`, `item.enabled`),
+evaluated exactly the way Ansible does — the string is wrapped in `{{ }}` and its
+truthiness taken.
 
-<path> is a dotted identifier chain (`docker.proxy`,
-`_containerd_dir.data.exists`) resolved against a single flat context dict
-that combines resolved plan params and registered step results — both
-share one namespace, mirroring Ansible's own variable model where a
-registered result is just another variable.
+The evaluator runs in a jinja2 SandboxedEnvironment — the security boundary
+against untrusted / LLM-translated input (a plan/runbook may be an LLM translation
+of an untrusted Ansible role or Salt state). The sandbox blocks arbitrary Python,
+attribute escapes and dangerous builtins; it replaces the old hand-written
+whitelist grammar. Undefined variables are LENIENT (Ansible-style for `when:`):
+a bare undefined name is falsy, `undefined == x` is False, `undefined != x` is
+True, and `x is defined` works — so conditions guarding on optional facts don't
+explode.
+
+The context is a single flat dict combining resolved params and registered step
+results — both share one namespace, mirroring Ansible's variable model.
 """
 
 from __future__ import annotations
 
-import re
 from typing import Any
 
-_IS_NOT_DEFINED_RE = re.compile(r"^(?P<path>[\w.]+)\s+is\s+not\s+defined$")
-_IS_DEFINED_RE = re.compile(r"^(?P<path>[\w.]+)\s+is\s+defined$")
-_EQ_RE = re.compile(r"^(?P<path>[\w.]+)\s*==\s*(?P<literal>.+)$")
-_NEQ_RE = re.compile(r"^(?P<path>[\w.]+)\s*!=\s*(?P<literal>.+)$")
-_BARE_PATH_RE = re.compile(r"^[\w.]+$")
+from jinja2 import ChainableUndefined, Undefined
+from jinja2.exceptions import TemplateError
+from jinja2.sandbox import SandboxedEnvironment
 
-_UNRESOLVED = object()  # sentinel distinguishing "path resolves to None" from "path doesn't exist"
+# Lenient, chainable Undefined — not Strict: an undefined var (or a missing
+# intermediate like `docker.proxy` when `docker` is absent) is falsy, not an
+# error (Ansible's common `when:` usage). `is defined` / `| default` still work.
+_ENV = SandboxedEnvironment(autoescape=False, undefined=ChainableUndefined)
 
 
 class WhenError(Exception):
-    """Raised when a when-expression falls outside this evaluator's limited grammar."""
-
-
-def _resolve_path(path: str, context: dict[str, Any]) -> Any:
-    value: Any = context
-    for part in path.split("."):
-        if not isinstance(value, dict) or part not in value:
-            return _UNRESOLVED
-        value = value[part]
-    return value
-
-
-def _parse_literal(text: str) -> Any:
-    text = text.strip()
-    if text == "true":
-        return True
-    if text == "false":
-        return False
-    if len(text) >= 2 and text[0] == text[-1] and text[0] in ("'", '"'):
-        return text[1:-1]
-    try:
-        return int(text)
-    except ValueError:
-        pass
-    try:
-        return float(text)
-    except ValueError:
-        pass
-    raise WhenError(f"cannot parse literal {text!r}")
+    """Raised when a when-expression is not valid Jinja or is blocked by the sandbox."""
 
 
 def eval_when(expr: str, context: dict[str, Any]) -> bool:
-    expr = expr.strip()
-
-    if expr.startswith("not "):
-        return not eval_when(expr[4:], context)
-
-    m = _IS_NOT_DEFINED_RE.match(expr)
-    if m:
-        return _resolve_path(m.group("path"), context) is _UNRESOLVED
-
-    m = _IS_DEFINED_RE.match(expr)
-    if m:
-        return _resolve_path(m.group("path"), context) is not _UNRESOLVED
-
-    m = _EQ_RE.match(expr)
-    if m:
-        value = _resolve_path(m.group("path"), context)
-        return value is not _UNRESOLVED and value == _parse_literal(m.group("literal"))
-
-    m = _NEQ_RE.match(expr)
-    if m:
-        value = _resolve_path(m.group("path"), context)
-        return value is _UNRESOLVED or value != _parse_literal(m.group("literal"))
-
-    if _BARE_PATH_RE.match(expr):
-        value = _resolve_path(expr, context)
-        return bool(value) if value is not _UNRESOLVED else False
-
-    raise WhenError(
-        f"unsupported when-expression {expr!r} — only 'not', 'is defined', 'is not defined', "
-        "'==', '!=', and a bare dotted path are supported"
-    )
+    """Evaluate a `when:` expression to a bool. `expr` is a Jinja expression
+    (no surrounding `{{ }}` — Ansible-style). Sandbox violations and syntax
+    errors raise WhenError."""
+    try:
+        value = _ENV.compile_expression(str(expr), undefined_to_none=False)(**context)
+    except TemplateError as exc:  # syntax error, or SecurityError (subclass) from the sandbox
+        raise WhenError(f"invalid when-expression {expr!r}: {exc}") from exc
+    if isinstance(value, Undefined):
+        # includes sandbox-neutralised unsafe attribute access (e.g. `x.__class__`
+        # yields Undefined, not the real class) → treated as falsy
+        return False
+    return bool(value)

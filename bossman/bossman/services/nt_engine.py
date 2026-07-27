@@ -1,9 +1,10 @@
 """Block G11 (NT format, step 4): run a NestedText runbook against a host.
 
-Orders the steps, evaluates `when:` (via the existing safe when_eval grammar,
-step 3 — reused, not reinvented), expands `loop:`, substitutes variables
-(nt_vars: $v / ${v} / {{ v }} + ${v:-default}), runs each `module` on the
-agent via call_tool, threads `register`ed results into the shared namespace,
+Orders the steps, evaluates `when:` (sandboxed Jinja2, via when_eval), expands
+`loop:`, substitutes variables (nt_vars: real Jinja2 `{{ }}` + the legacy
+$v / ${v} / ${v:-default} shim) against the running context, runs each `module`
+on the agent via call_tool, threads `register`ed results AND `set_fact` facts
+into the shared namespace (so later steps can template on them, like Ansible),
 and honours check-mode (dry-run: modules get dry_run=true and never mutate).
 
 Pure orchestration over the AgentClient.call_tool interface, so it's unit-
@@ -156,10 +157,23 @@ async def run_runbook(
         iteration_results: list[StepResult] = []
 
         for item in items:
-            subst = dict(variables)
+            # Substitute against the running context (vars + registered results +
+            # set_facts), not just the initial vars — so a later step can template
+            # on an earlier step's registered result, like Ansible.
+            subst = dict(context)
             if item is not None:
                 subst["item"] = item
             args = substitute(step.args, subst)
+            # set_fact is a controller-side op (like Ansible): fold the resolved
+            # facts into the shared namespace so later when:/loop:/{{ }} see them.
+            # No agent round-trip needed.
+            if step.module == "set_fact":
+                context.update(args)
+                sr = StepResult(name=step.name, module="set_fact", status="ok",
+                                item=item, changed=False, response={"ansible_facts": dict(args)})
+                iteration_results.append(sr)
+                out.steps.append(sr)
+                continue
             # A config_template step renders a named template to a file via the
             # agent's template_render apply, instead of a generic tool call.
             if step.module == "config_template":

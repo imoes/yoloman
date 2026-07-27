@@ -114,3 +114,39 @@ async def test_ignore_errors_continues():
     res = await run_runbook(rb, client)
     assert not res.aborted
     assert [c[0] for c in client.calls] == ["command", "ping"]
+
+
+async def test_set_fact_folds_into_context():
+    # set_fact is controller-side (no agent call) and its facts are visible to
+    # later steps' args and when:, exactly like Ansible.
+    rb = parse_document(
+        "name: t\nsteps:\n"
+        "  -\n    name: compute\n    module: set_fact\n    args:\n      svc: nginx\n      want: true\n"
+        "  -\n    name: use\n    module: service\n    when: want\n    args:\n      name: ${svc}\n"
+    )
+    client = FakeClient()
+    res = await run_runbook(rb, client)
+    assert [c[0] for c in client.calls] == ["service"]          # set_fact made no agent call
+    assert client.calls[0][1]["name"] == "nginx"                # fact used in args
+    assert res.steps[0].module == "set_fact" and res.steps[0].status == "ok"
+
+
+async def test_registered_result_usable_in_later_args():
+    # a registered result threads into {{ }} templating, not just when:.
+    rb = parse_document(
+        "name: t\nsteps:\n"
+        "  -\n    name: probe\n    module: command\n    register: r\n    args:\n      cmd: hostname\n"
+        "  -\n    name: echo\n    module: command\n    args:\n      cmd: echo {{ r.changed }}\n"
+    )
+    client = FakeClient({"command": {"changed": True}})
+    await run_runbook(rb, client)
+    assert client.calls[1][1]["cmd"] == "echo True"
+
+
+async def test_jinja_filter_in_args():
+    rb = parse_document(
+        "name: t\nsteps:\n  -\n    module: apt\n    args:\n      name: {{ pkg | default('curl') }}\n"
+    )
+    client = FakeClient()
+    await run_runbook(rb, client, {})
+    assert client.calls[0][1]["name"] == "curl"

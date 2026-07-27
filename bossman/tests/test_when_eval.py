@@ -1,6 +1,7 @@
 """Unit tests for bossman.services.when_eval — pure, no DB, no network.
-Covers exactly the grammar plan_engine.py's `when:` support promises, and
-nothing more (this is deliberately not a Jinja2 evaluator)."""
+`when:` is now a real Jinja2 boolean (the pivot to full Ansible semantics),
+evaluated in a SandboxedEnvironment (the security boundary). Undefined vars are
+lenient (Ansible-style)."""
 
 import pytest
 
@@ -39,7 +40,7 @@ def test_registered_result_nested_path():
 def test_bare_path_truthy_check():
     assert eval_when("some_flag", {"some_flag": True}) is True
     assert eval_when("some_flag", {"some_flag": False}) is False
-    assert eval_when("some_flag", {}) is False  # undefined is falsy, not an error
+    assert eval_when("some_flag", {}) is False  # undefined is falsy (lenient), not an error
 
 
 def test_equality():
@@ -52,14 +53,27 @@ def test_equality():
 def test_inequality():
     assert eval_when("ansible_distribution != 'debian'", {"ansible_distribution": "ubuntu"}) is True
     assert eval_when("ansible_distribution != 'debian'", {"ansible_distribution": "debian"}) is False
-    assert eval_when("missing != 'x'", {}) is True  # undefined never equals a literal
+    assert eval_when("missing != 'x'", {}) is True  # lenient: undefined never equals a literal
 
 
-def test_unsupported_expression_raises():
-    with pytest.raises(WhenError, match="unsupported when-expression"):
-        eval_when("docker.proxy | default('none')", {})
+def test_full_jinja_now_supported():
+    # the whole point of the pivot: real Jinja expressions work (this used to raise)
+    assert eval_when("docker.proxy | default('none') == 'none'", {}) is True
+    assert eval_when("a == [1, 2]", {"a": [1, 2]}) is True
+    assert eval_when("count > 3 and enabled", {"count": 5, "enabled": True}) is True
+    assert eval_when("'web' in groups", {"groups": ["web", "db"]}) is True
 
 
-def test_unparseable_literal_raises():
-    with pytest.raises(WhenError, match="cannot parse literal"):
-        eval_when("a == [1, 2]", {"a": "x"})
+def test_sandbox_blocks_unsafe_access():
+    # the SandboxedEnvironment is the security boundary — an attribute escape to
+    # the class hierarchy (the classic sandbox breakout) is neutralised to
+    # Undefined, so it can never reach os/subprocess; it evaluates falsy.
+    assert eval_when("''.__class__.__mro__", {}) is False
+    # an unsafe method *call* (the escape's payload) is rejected outright
+    with pytest.raises(WhenError):
+        eval_when("''.__class__.__mro__[1].__subclasses__()", {})
+
+
+def test_syntax_error_raises():
+    with pytest.raises(WhenError):
+        eval_when("a ==", {"a": 1})
