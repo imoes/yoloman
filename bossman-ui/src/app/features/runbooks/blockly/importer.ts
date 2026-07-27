@@ -1,5 +1,6 @@
 import * as Blockly from 'blockly';
 import { DocStep } from './generator';
+import { parseConditionToBlock } from './condition-parser';
 
 interface ImportableBlock extends Blockly.BlockSvg {
   importArgs_(module: string, args: Record<string, unknown>): void;
@@ -18,7 +19,10 @@ export function stepsToWorkspace(ws: Blockly.WorkspaceSvg, steps: DocStep[]): vo
     b.initSvg();
     b.setFieldValue(st.name ?? '', 'NAME');
     b.importArgs_(st.module ?? '', (st.args as Record<string, unknown>) ?? {});
-    b.setFieldValue(st.when ?? '', 'WHEN');
+    if (st.when) {
+      const cond = parseConditionToBlock(ws, String(st.when)) as Blockly.BlockSvg;
+      b.getInput('WHEN')!.connection!.connect(cond.outputConnection!);
+    }
     b.setFieldValue(loopToStr(st.loop), 'LOOP');
     b.setFieldValue(st.register ?? '', 'REGISTER');
     b.setFieldValue(st.ignore_errors ? 'TRUE' : 'FALSE', 'IGNORE');

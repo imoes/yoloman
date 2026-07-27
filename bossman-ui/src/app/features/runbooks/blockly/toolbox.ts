@@ -47,6 +47,21 @@ export function buildRunbookToolbox(): Blockly.utils.toolbox.ToolboxDefinition {
         colour: '210',
         contents: [{ kind: 'block', type: 'runbook_module' }],
       },
+      {
+        // Blocks for a step's `when:` — drag into a step's WHEN socket, or into
+        // each other (compare/and/or/not/test compose a Jinja boolean).
+        kind: 'category',
+        name: 'Conditions',
+        colour: '210',
+        contents: [
+          { kind: 'block', type: 'cond_compare' },
+          { kind: 'block', type: 'cond_var' },
+          { kind: 'block', type: 'cond_literal' },
+          { kind: 'block', type: 'cond_test' },
+          { kind: 'block', type: 'cond_not' },
+          { kind: 'block', type: 'cond_logic' },
+        ],
+      },
     ],
   };
 }

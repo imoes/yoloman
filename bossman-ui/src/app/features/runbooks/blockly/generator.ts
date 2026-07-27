@@ -1,5 +1,6 @@
 import * as Blockly from 'blockly';
 import { ArgFieldSpec, getArgspec } from './argspec-bridge';
+import { conditionBlockToExpr } from './condition-generator';
 
 /** The canonical runbook step shape (matches the backend /runbooks/lint doc and
  * the editor's DocStep). The Blockly workspace is walked into a list of these,
@@ -46,7 +47,7 @@ function blockToStep(b: Blockly.Block): DocStep {
   }
   if (Object.keys(args).length) step.args = args;
 
-  const when = (b.getFieldValue('WHEN') || '').trim();
+  const when = conditionBlockToExpr(b.getInputTargetBlock('WHEN'));
   if (when) step.when = when;
   const loop = (b.getFieldValue('LOOP') || '').trim();
   if (loop) step.loop = loop;

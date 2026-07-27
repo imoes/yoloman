@@ -1,5 +1,6 @@
 import * as Blockly from 'blockly';
 import { ArgFieldSpec, getArgspec, subscribeArgspec } from './argspec-bridge';
+import { COND_CHECK, registerConditionBlocks } from './conditions';
 
 /**
  * Runbook block definitions (ported from ansible-manager's playbookBuilder/
@@ -35,6 +36,7 @@ let registered = false;
 export function registerRunbookBlocks(): void {
   if (registered) return;   // Blockly.Blocks is a global registry — define once
   registered = true;
+  registerConditionBlocks();   // the cond_* blocks that plug into a step's `when`
 
   Blockly.Blocks['runbook_module'] = {
     init(this: RunbookModuleBlock) {
@@ -57,7 +59,9 @@ export function registerRunbookBlocks(): void {
         }), 'MODULE');
       // arg rows + the "add parameter" row are inserted here, before FLOWHDR.
       this.appendDummyInput('FLOWHDR').appendField('— flow —');
-      this.appendDummyInput('WHENROW').appendField('when').appendField(new Blockly.FieldTextInput(''), 'WHEN');
+      // `when` is a visual condition: a cond_* block plugs into this socket
+      // (build/edit it from the Conditions toolbox category). Empty = no when.
+      this.appendValueInput('WHEN').setCheck(COND_CHECK).appendField('when');
       this.appendDummyInput('LOOPROW').appendField('loop').appendField(new Blockly.FieldTextInput(''), 'LOOP');
       this.appendDummyInput('REGROW').appendField('register').appendField(new Blockly.FieldTextInput(''), 'REGISTER');
       this.appendDummyInput('IGNROW').appendField('ignore errors').appendField(new Blockly.FieldCheckbox('FALSE'), 'IGNORE');
