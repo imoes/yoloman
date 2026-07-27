@@ -552,12 +552,24 @@ export class RunbookEditorComponent implements OnInit, AfterViewInit, OnDestroy 
   private agentToolsLoading = false;
   private agentToolsWaiters: string[] = [];
 
+  /** A host we can actually reach for native-module schemas: the selected one if
+   * it has an address, else the first agent WITH a non-null address. Skips
+   * address-less agents (the canvas/demo + satellites) whose /tools 422s
+   * ("no reachable address") — which left native modules (apt/service/…) stuck
+   * as plain text fields instead of typed dropdowns. */
+  private schemaHostId(): string {
+    const byId = (id: string) => this.hosts().find((h) => h.id === id);
+    const sel = this.hostId() ? byId(this.hostId()) : undefined;
+    if (sel?.address) return sel.id;
+    return this.hosts().find((h) => h.address)?.id ?? '';
+  }
+
   /** Resolve a native module's options from an agent's tool schema. */
   private agentSchemaFields(module: string): void {
     if (this.agentTools) { this.finishAgentSchema(module); return; }
     this.agentToolsWaiters.push(module);
     if (this.agentToolsLoading) return;
-    const hid = this.hostId() || this.hosts()[0]?.id;
+    const hid = this.schemaHostId();
     if (!hid) { this.argspecCache.update((m) => ({ ...m, [module]: [] })); return; }
     this.agentToolsLoading = true;
     this.http.get<{ tools: { name: string; description?: string; input_schema?: { properties?: Record<string, Record<string, unknown>>; required?: string[] } }[] }>(
