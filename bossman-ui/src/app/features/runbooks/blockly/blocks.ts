@@ -49,8 +49,10 @@ export function registerRunbookBlocks(): void {
         .appendField('module')
         .appendField(new Blockly.FieldTextInput('', (v: string) => {
           // Commit-time (blur/enter), not per keystroke. Defer the mutation out
-          // of the field-change event, and skip when unchanged (e.g. during load).
-          if (v !== this.moduleName_) setTimeout(() => this.setModuleName_(v), 0);
+          // of the field-change event; skip when unchanged (e.g. during load) and
+          // for flyout/preview blocks (a toolbox category full of MODULE-preset
+          // blocks would otherwise fire one argspec load each on open).
+          if (v !== this.moduleName_ && !this.isInFlyout) setTimeout(() => this.setModuleName_(v), 0);
           return v;
         }), 'MODULE');
       // arg rows + the "add parameter" row are inserted here, before FLOWHDR.
