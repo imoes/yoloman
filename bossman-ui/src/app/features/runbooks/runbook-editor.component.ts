@@ -615,6 +615,10 @@ export class RunbookEditorComponent implements OnInit, AfterViewInit, OnDestroy 
   /** Switch views. text→visual round-trips through the linter (canonical doc);
    * an invalid document keeps you in text mode with the error marked. */
   setMode(m: 'text' | 'visual'): void {
+    // Any mode switch disposes/recreates the Blockly canvas — drop the stale
+    // workspace ref so a pending import can't hit a disposed ("headless")
+    // workspace. The freshly-mounted canvas re-sets it via onBlocklyReady.
+    this.blocklyWs = undefined;
     if (m === 'visual') {
       this.http.post<LintResult>(`${this.base}/runbooks/lint`, { nt: this.source() }).subscribe({
         next: (r) => {
