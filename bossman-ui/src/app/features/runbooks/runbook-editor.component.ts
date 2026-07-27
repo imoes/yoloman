@@ -8,8 +8,6 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import * as monaco from 'monaco-editor';
-import { SequentialWorkflowDesignerModule } from 'sequential-workflow-designer-angular';
-import { Definition, Step, StepsConfiguration, ToolboxConfiguration } from 'sequential-workflow-designer';
 import { environment } from '../../../environments/environment';
 import { Agent } from '../../core/models/agent.model';
 import { ModuleOptionSpec } from '../../core/models/module.model';
@@ -46,24 +44,6 @@ interface LintResult { ok: boolean; kind?: string; name?: string; steps?: number
 interface RunRow { id: string; runbook: string; status: string; dry_run: boolean; created_at: string; }
 interface RbRow { kind: 'folder' | 'rb'; label: string; depth: number; path?: string; rb?: { id: string; name: string; kind: string; folder: string } }
 interface ArgField { key: string; spec: ModuleOptionSpec; }
-
-// F-10 visual builder helpers. A toolbox step is a plain SWD task; each maps
-// 1:1 to a fleet NestedText runbook step on serialize.
-let vuidCounter = 0;
-function vtask(type: string, name: string, properties: Record<string, unknown>): Step {
-  vuidCounter += 1;
-  return { id: 'vstep-' + vuidCounter, componentType: 'task', type, name, properties } as Step;
-}
-
-function safeJson(s: string | undefined): Record<string, unknown> {
-  if (!s) return {};
-  try {
-    const v = JSON.parse(s);
-    return v && typeof v === 'object' && !Array.isArray(v) ? (v as Record<string, unknown>) : {};
-  } catch {
-    return {};
-  }
-}
 
 /** Serialize a params object as indented NestedText (the fleet runbook format:
  * `key: value`, nested dicts indented, arrays as `- item`). Handles the common
@@ -116,18 +96,18 @@ const MAGIC_VARS = [
 
 /**
  * Block G11 — the Workflow designer. Two synced views of one runbook:
- * Monaco (NestedText, YAML-highlighted, server-side lint markers) and a
- * drag-and-drop canvas (sequential-workflow-designer). The round-trip is real:
- * text→visual parses via /runbooks/lint (which returns the canonical doc),
- * visual→text serialises to NestedText. A step's args are edited through a
- * form generated from the module's argspec (choices→select, description under
- * each field, defaults as placeholders) — raw JSON only as a fallback. A
- * runbook's typed `parameters` render as an input mask before dry-run/apply.
+ * Monaco (NestedText, YAML-highlighted, server-side lint markers) and a Blockly
+ * canvas (see blockly/). The round-trip is real: text→visual parses via
+ * /runbooks/lint (which returns the canonical doc) and builds the blocks;
+ * visual→text walks the blocks back to NestedText. A step block renders one
+ * typed field per module option (from the argspec), and `when:` is built from
+ * condition blocks. A runbook's typed `parameters` render as an input mask
+ * before dry-run/apply.
  */
 @Component({
   selector: 'app-runbook-editor',
   standalone: true,
-  imports: [DatePipe, FormsModule, MatButtonModule, MatIconModule, MatFormFieldModule, MatInputModule, MatSelectModule, SequentialWorkflowDesignerModule, ParamFormComponent, BlocklyWorkspaceComponent],
+  imports: [DatePipe, FormsModule, MatButtonModule, MatIconModule, MatFormFieldModule, MatInputModule, MatSelectModule, ParamFormComponent, BlocklyWorkspaceComponent],
   template: `
     <div class="bm-page">
       <div class="bm-header-row">
@@ -302,40 +282,8 @@ const MAGIC_VARS = [
       .bm-mode-on { background: color-mix(in srgb, var(--mat-sys-primary) 16%, transparent); font-weight: 600; }
       .bm-vbar { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; flex-wrap: wrap; }
       .bm-canvas-row { display: block; margin-bottom: 10px; }
-      .bm-palette { border: 1px solid var(--mat-sys-outline-variant); border-radius: 8px; height: 560px; display: flex; flex-direction: column; }
-      .bm-palette-search { margin: 8px; padding: 7px 10px; border-radius: 6px; border: 1px solid var(--mat-sys-outline-variant); background: var(--mat-sys-surface); color: inherit; font-size: 13px; }
-      .bm-palette-list { flex: 1; overflow-y: auto; padding: 0 4px; }
-      .bm-palette-item { display: flex; flex-direction: column; align-items: flex-start; gap: 1px; width: 100%; text-align: left;
-        background: none; border: none; border-left: 3px solid transparent; color: inherit; cursor: pointer; padding: 5px 8px; border-radius: 0 6px 6px 0; }
-      .bm-palette-item:hover { background: color-mix(in srgb, var(--mat-sys-primary) 10%, transparent); border-left-color: var(--mat-sys-primary); }
-      .bm-palette-item .bm-mono { font-size: 12.5px; }
-      .bm-palette-desc { font-size: 11px; opacity: 0.55; line-height: 1.25; }
-      .bm-palette-hint { padding: 6px 8px; margin: 0; border-top: 1px solid var(--mat-sys-outline-variant); }
       .bm-designer { display: block; height: 560px; border: 1px solid var(--mat-sys-outline-variant); border-radius: 8px; overflow: hidden; min-width: 0; }
       .bm-designer-loading { display: flex; align-items: center; justify-content: center; }
-      /* The Angular wrapper nests <div class="sqd-designer-angular"><div
-         class="sqd-designer"> with no height of their own — without both at
-         100% the workspace collapses to a ~107px strip hidden behind the
-         toolbox and steps look invisible/unclickable. */
-      .bm-designer ::ng-deep .sqd-designer-angular { height: 100%; }
-      .bm-designer ::ng-deep .sqd-designer { height: 100%; }
-      /* Our own palette replaces the built-in toolbox (which overlaid the steps
-         and duplicated the module list). */
-      .bm-designer ::ng-deep .sqd-toolbox { display: none; }
-      .bm-veditor { padding: 10px; display: flex; flex-direction: column; gap: 8px; width: 320px; max-height: 520px; overflow-y: auto; }
-      .bm-veditor h4 { margin: 0 0 2px; }
-      .bm-veditor label { display: flex; flex-direction: column; font-size: 12px; gap: 3px; }
-      .bm-veditor input, .bm-veditor textarea, .bm-veditor select {
-        padding: 4px 6px; font-family: monospace; font-size: 12px;
-        background: var(--mat-sys-surface); color: var(--mat-sys-on-surface);
-        border: 1px solid var(--mat-sys-outline-variant); border-radius: 4px;
-      }
-      .bm-arg-h { font-size: 11px; text-transform: uppercase; letter-spacing: .04em; opacity: 0.55; margin-top: 6px; }
-      .bm-arg-desc { font-size: 11px; opacity: 0.6; font-family: system-ui, sans-serif; line-height: 1.35; }
-      .bm-req { color: var(--bm-red, #c62828); }
-      .bm-arg-raw summary { font-size: 12px; opacity: 0.7; cursor: pointer; }
-      .bm-arg-raw textarea { width: 100%; box-sizing: border-box; margin-top: 4px; }
-      .bm-arg-check { flex-direction: row !important; align-items: center; gap: 6px !important; }
       .bm-params { border: 1px solid var(--mat-sys-outline-variant); border-radius: 8px; padding: 12px 14px; margin-top: 10px; }
       .bm-toolbar { display: flex; align-items: center; gap: 10px; margin: 10px 0; flex-wrap: wrap; }
       .bm-host { width: 220px; }
@@ -411,25 +359,10 @@ export class RunbookEditorComponent implements OnInit, AfterViewInit, OnDestroy 
   blocklyToolbox = buildRunbookToolbox();
   private blocklyWs?: Blockly.WorkspaceSvg;
   private pendingSteps: DocStep[] | null = null;
-  definition: Definition = { sequence: [], properties: {} };
-  toolbox: ToolboxConfiguration = {
-    groups: [{
-      name: 'Flow',
-      steps: [
-        vtask('module', 'module (any)', { module: '', args: {} }),
-        vtask('module', 'shell command', { module: 'shell', args: { cmd: '' } }),
-        vtask('module', 'config template', { module: 'config_template', args: { template: '', dest: '' } }),
-        vtask('set_fact', 'set_fact', { facts: '{}' }),
-        vtask('debug', 'debug', { msg: '' }),
-      ],
-    }],
-  };
-  stepsConfig: StepsConfiguration = { iconUrlProvider: () => null };
 
-  // ---- module catalog: the palette, fqcn lookup, argspec cache ----
+  // ---- module catalog: fqcn lookup + argspec cache (feed the Blockly argspec
+  // bridge; a module block loads its typed fields from these). ----
   private fqcnByName = new Map<string, string>();
-  private descByModule = new Map<string, string>();
-  moduleNames = signal<string[]>([]);
   private argspecCache = signal<Record<string, ArgField[]>>({});
   private argspecPending = new Set<string>();
 
@@ -458,68 +391,17 @@ export class RunbookEditorComponent implements OnInit, AfterViewInit, OnDestroy 
     });
   }
 
-  // Blockly-style palette: search over the whole catalog, click to place.
-  // The Flow entries (shell/config template/set_fact/debug) sit on top.
-  private static readonly FLOW_ITEMS = [
-    { ref: 'shell', name: 'shell command', desc: 'Run a shell command on the host', collection: 'flow', kind: 'module' as const },
-    { ref: 'config_template', name: 'config template', desc: 'Render a config template to a file', collection: 'flow', kind: 'module' as const },
-    { ref: 'set_fact', name: 'set_fact', desc: 'Set variables for later steps', collection: 'flow', kind: 'set_fact' as const },
-    { ref: 'debug', name: 'debug', desc: 'Print a message (with variables)', collection: 'flow', kind: 'debug' as const },
-  ];
-  paletteQuery = signal('');
-  private paletteAll = signal<{ ref: string; name: string; desc: string; collection: string; kind?: 'module' | 'set_fact' | 'debug' }[]>([]);
-  paletteHits = computed(() => {
-    const q = this.paletteQuery().trim().toLowerCase();
-    const all = [...RunbookEditorComponent.FLOW_ITEMS, ...this.paletteAll()];
-    const hits = q
-      ? all.filter((m) => m.name.toLowerCase().includes(q) || m.ref.toLowerCase().includes(q) || m.desc.toLowerCase().includes(q))
-      : all;
-    return hits.slice(0, 60);
-  });
-
-  /** Load the module catalog into the click-to-place palette (searchable across
-   * ALL modules) and the fqcn/description lookups. The SWD toolbox keeps only
-   * the small Flow group — dragging 2000 modules was unusable. */
+  /** Load the module catalog into the fqcn lookup (module name → fqcn) that the
+   * argspec loader (argFields) resolves against. */
   private buildToolbox(): void {
     this.moduleService.catalog().subscribe((cat) => {
-      const palette: { ref: string; name: string; desc: string; collection: string }[] = [];
-      const names: string[] = [];
       for (const m of cat.modules) {
         if (m.fqcn.startsWith('checkmk.')) continue; // checks, not runbook modules
-        const builtin = m.collection === 'ansible.builtin' || m.collection === 'built-in';
-        const moduleRef = builtin ? m.name : m.fqcn;
         this.fqcnByName.set(m.name, m.fqcn);
-        if (m.short_description) this.descByModule.set(moduleRef, m.short_description);
-        names.push(moduleRef);
-        palette.push({ ref: moduleRef, name: m.name, desc: m.short_description ?? '', collection: m.collection });
       }
-      palette.sort((a, b) => a.name.localeCompare(b.name));
-      this.paletteAll.set(palette);
-      this.moduleNames.set(names.sort());
     });
   }
 
-  /** Click-to-place: append the module as a new step and sync the text. The
-   * user then clicks the step on the canvas to fill in its parameters. */
-  addModuleStep(m: { ref: string; name: string; kind?: 'module' | 'set_fact' | 'debug' }): void {
-    let step: Step;
-    if (m.kind === 'set_fact') step = vtask('set_fact', 'set_fact', { facts: '{}' });
-    else if (m.kind === 'debug') step = vtask('debug', 'debug', { msg: '' });
-    else step = vtask('module', m.name, { module: m.ref, args: {} });
-    this.definition = { sequence: [...(this.definition.sequence as Step[]), step], properties: this.definition.properties };
-    this.syncVisual();
-  }
-
-  // ---- per-step argspec form ----
-  argModule(step: Step): string {
-    return String((step.properties as Record<string, unknown>)['module'] ?? '');
-  }
-  moduleDesc(module: string): string {
-    return this.descByModule.get(module) ?? '';
-  }
-  argspecLoaded(module: string): boolean {
-    return module in this.argspecCache();
-  }
   /** The module's declared options (cached; fetched lazily on first render).
    * Catalog (Starlark collection) modules come from the module detail; NATIVE
    * Go modules (apt, service, file, …) aren't in the catalog — their schema is
@@ -537,7 +419,6 @@ export class RunbookEditorComponent implements OnInit, AfterViewInit, OnDestroy 
           if (!fields.length) { this.agentSchemaFields(module); return; }
           // Required options first, then alphabetical — the form reads top-down.
           fields.sort((a, b) => Number(!!b.spec.required) - Number(!!a.spec.required) || a.key.localeCompare(b.key));
-          if (d.metadata.short_description) this.descByModule.set(module, d.metadata.short_description);
           this.argspecCache.update((m) => ({ ...m, [module]: fields }));
         },
         error: () => this.agentSchemaFields(module),
@@ -603,48 +484,7 @@ export class RunbookEditorComponent implements OnInit, AfterViewInit, OnDestroy 
       } as ModuleOptionSpec,
     }));
     fields.sort((a, b) => Number(!!b.spec.required) - Number(!!a.spec.required) || a.key.localeCompare(b.key));
-    if (tool?.description && !this.descByModule.has(module)) {
-      // Native descriptions are long-form — keep the first sentence for the header.
-      this.descByModule.set(module, tool.description.split(/\.\s/)[0].slice(0, 160));
-    }
     this.argspecCache.update((m) => ({ ...m, [module]: fields }));
-  }
-  private stepArgs(step: Step): Record<string, unknown> {
-    const p = step.properties as Record<string, unknown>;
-    const raw = p['args'];
-    if (typeof raw === 'string') { p['args'] = safeJson(raw); return p['args'] as Record<string, unknown>; }
-    if (!raw || typeof raw !== 'object') { p['args'] = {}; }
-    return p['args'] as Record<string, unknown>;
-  }
-  argValue(step: Step, key: string): string {
-    const v = this.stepArgs(step)[key];
-    return v === undefined || v === null ? '' : (typeof v === 'object' ? JSON.stringify(v) : String(v));
-  }
-  setArg(step: Step, key: string, value: string, editor: { context: { notifyPropertiesChanged(): void } }): void {
-    const args = this.stepArgs(step);
-    if (value === '') delete args[key];
-    else args[key] = value;
-    editor.context.notifyPropertiesChanged();
-    this.syncVisual();
-  }
-  argJson(step: Step): string {
-    return JSON.stringify(this.stepArgs(step), null, 1);
-  }
-  setArgJson(step: Step, value: string, editor: { context: { notifyPropertiesChanged(): void } }): void {
-    try {
-      const v = JSON.parse(value);
-      if (v && typeof v === 'object' && !Array.isArray(v)) {
-        (step.properties as Record<string, unknown>)['args'] = v;
-        editor.context.notifyPropertiesChanged();
-        this.syncVisual();
-      }
-    } catch { /* ignore until the JSON is valid */ }
-  }
-  argPlaceholder(spec: ModuleOptionSpec): string {
-    const parts: string[] = [];
-    if (spec.type) parts.push(String(spec.type));
-    if (spec.default !== undefined && spec.default !== null) parts.push(`default: ${spec.default}`);
-    return parts.join(' · ');
   }
   descText(d: unknown): string {
     return Array.isArray(d) ? d.join(' ') : String(d ?? '');
