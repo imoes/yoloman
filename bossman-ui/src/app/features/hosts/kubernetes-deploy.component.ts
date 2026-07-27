@@ -87,6 +87,9 @@ import { ParamSchema } from '../../shared/param-form/param-form.types';
             </button>
           </div>
         </div>
+        @if (!chart()) { <p class="bm-dim">Enter a chart (e.g. <code>bitnami/nginx</code> or a local path) first.</p> }
+        @if (busyVals()) { <p class="bm-dim">Loading chart values…</p> }
+        @if (valsError()) { <p class="bm-err">Load chart defaults failed: {{ valsError() }}</p> }
         @if (mode() === 'form' && hasSchema()) {
           <div class="bm-k8s-form-wrap">
             <app-param-form [params]="schema()" [initial]="flatValues()" (valuesChange)="onFormChange($event)" />
@@ -187,6 +190,7 @@ export class KubernetesDeployComponent implements OnInit {
   hasSchema = computed(() => Object.keys(this.schema()).length > 0);
 
   busyVals = signal(false);
+  valsError = signal('');
   busyRender = signal(false);
   busyMut = signal(false);
   renderError = signal('');
@@ -223,16 +227,28 @@ export class KubernetesDeployComponent implements OnInit {
 
   loadDefaults(): void {
     this.busyVals.set(true);
+    this.valsError.set('');
     this.agentService.helmValues(this.agentId(), this.chart()).subscribe({
       next: (r) => {
         this.busyVals.set(false);
+        // A 200 can still carry an error: `helm show values` failed on the host
+        // (e.g. a repo chart whose registry is unreachable). Surface it instead of
+        // silently leaving the form empty ("clicking does nothing").
+        if (r.error) { this.valsError.set(r.error); return; }
+        if (!(r.values_yaml || '').trim() && !Object.keys(r.values_schema || {}).length) {
+          this.valsError.set('the chart returned no values (check the chart name / repo)');
+          return;
+        }
         this.valuesYaml.set(r.values_yaml || '');
         this.schema.set((r.values_schema || {}) as ParamSchema);
         this.flatValues.set(r.flat_values || {});
         this.formValues.set(r.flat_values || {});
         this.mode.set(this.hasSchema() ? 'form' : 'yaml');
       },
-      error: () => this.busyVals.set(false),
+      error: (e) => {
+        this.busyVals.set(false);
+        this.valsError.set(e?.error?.detail || 'could not load chart values (host reachable? chart name correct?)');
+      },
     });
   }
 
