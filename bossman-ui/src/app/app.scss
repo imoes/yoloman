@@ -1,6 +1,11 @@
 .bm-shell {
   display: flex;
   height: 100vh;
+  // Pin the whole app to the viewport: without this, a nav taller than the
+  // window (Setup expanded) overflows and makes the *document* scroll, so
+  // wheeling anywhere — including over the docked assistant — moved the entire
+  // shell. The only scroll regions are .bm-main and the nav (below).
+  overflow: hidden;
 }
 
 .bm-nav {
@@ -12,6 +17,10 @@
   flex-direction: column;
   border-top: 5px solid transparent;
   border-image: var(--bm-tricolor) 1;
+  // A long nav (Setup expanded) scrolls within itself instead of stretching
+  // the document; min-height:0 lets it actually shrink to the flex row.
+  min-height: 0;
+  overflow-y: auto;
 }
 
 .bm-nav-head {
