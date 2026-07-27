@@ -1,0 +1,49 @@
+- name: install-udev.conf
+  hosts: all
+  become: true
+  vars:
+    _dest: "/etc/udev/udev.conf"
+    db_path: "/run/udev/data"
+    dev_dir: "/dev"
+    logging: true
+    workers: 4
+    _service: ""
+    _packages:
+      - udev
+    rule_engine: "static"
+    default_mode: "0660"
+    default_owner: "root:root"
+    event_timeout: 30
+    firmware_path: "/lib/firmware"
+    logging_priority: "info"
+  tasks:
+    - name: Install Udev Conf
+      ansible.builtin.package:
+        name: "{{ _packages }}"
+        state: present
+
+    - name: Render configuration
+      ansible.builtin.template:
+        src: udev.conf.j2
+        dest: "{{ _dest }}"
+        owner: root
+        group: root
+        mode: '0644'
+      vars:
+        db_path: "{{ db_path }}"
+        dev_dir: "{{ dev_dir }}"
+        logging: "{{ logging }}"
+        workers: "{{ workers }}"
+        rule_engine: "{{ rule_engine }}"
+        default_mode: "{{ default_mode }}"
+        default_owner: "{{ default_owner }}"
+        event_timeout: "{{ event_timeout }}"
+        firmware_path: "{{ firmware_path }}"
+        logging_priority: "{{ logging_priority }}"
+
+    - name: Enable and restart Udev Conf
+      ansible.builtin.service:
+        name: "{{ _service }}"
+        state: restarted
+        enabled: true
+      when: _service | length > 0

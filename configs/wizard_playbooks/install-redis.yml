@@ -1,0 +1,51 @@
+- name: install-redis
+  hosts: all
+  become: true
+  vars:
+    bind: "127.0.0.1 ::1"
+    port: 6379
+    logfile: "/var/log/redis/redis-server.log"
+    pidfile: "/var/run/redis/redis-server.pid"
+    loglevel: "notice"
+    daemonize: "yes"
+    databases: 16
+    maxmemory: "256mb"
+    appendonly: "yes"
+    save_rules:
+      - [900, 1]
+      - [300, 10]
+    supervised: "systemd"
+    requirepass: ""
+    appendfilename: "appendonly.aof"
+    maxmemory_policy: "allkeys-lru"
+  tasks:
+    - name: Install Redis In-Memory Store
+      ansible.builtin.package:
+        name: ["redis-server"]
+        state: present
+
+    - name: Render configuration
+      ansible.builtin.template:
+        src: redis.j2
+        dest: /etc/redis/redis.conf
+      vars:
+        bind: "{{ bind }}"
+        port: "{{ port }}"
+        logfile: "{{ logfile }}"
+        pidfile: "{{ pidfile }}"
+        loglevel: "{{ loglevel }}"
+        daemonize: "{{ daemonize }}"
+        databases: "{{ databases }}"
+        maxmemory: "{{ maxmemory }}"
+        appendonly: "{{ appendonly }}"
+        save_rules: "{{ save_rules }}"
+        supervised: "{{ supervised }}"
+        requirepass: "{{ requirepass }}"
+        appendfilename: "{{ appendfilename }}"
+        maxmemory_policy: "{{ maxmemory_policy }}"
+
+    - name: Enable and restart Redis In-Memory Store
+      ansible.builtin.service:
+        name: "redis-server"
+        state: restarted
+        enabled: true

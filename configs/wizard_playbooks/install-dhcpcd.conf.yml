@@ -1,0 +1,59 @@
+- name: install-dhcpcd.conf
+  hosts: all
+  become: true
+  vars:
+    _dest: "/etc/dhcpcd.conf"
+    _service: ""
+    _packages: ["dhcpcd-base"]
+    domain: ""
+    hostname: ""
+    rootpath: ""
+    nis_domain: ""
+    dns_servers: []
+    nis_servers: []
+    nisplus_map: ""
+    ntp_servers: []
+    retry_count: 5
+    ipv4_enabled: true
+    ipv6_enabled: true
+    hooks_to_skip: []
+    custom_options: {}
+    nisplus_domain: ""
+    nisplus_servers: []
+    request_options: {}
+    static_interfaces: []
+  tasks:
+    - name: Install Dhcpcd Conf
+      ansible.builtin.package:
+        name: "{{ _packages }}"
+        state: present
+
+    - name: Render configuration
+      ansible.builtin.template:
+        src: dhcpcd.conf.j2
+        dest: "{{ _dest }}"
+        vars:
+          domain: "{{ domain }}"
+          hostname: "{{ hostname }}"
+          rootpath: "{{ rootpath }}"
+          nis_domain: "{{ nis_domain }}"
+          dns_servers: "{{ dns_servers }}"
+          nis_servers: "{{ nis_servers }}"
+          nisplus_map: "{{ nisplus_map }}"
+          ntp_servers: "{{ ntp_servers }}"
+          retry_count: "{{ retry_count }}"
+          ipv4_enabled: "{{ ipv4_enabled }}"
+          ipv6_enabled: "{{ ipv6_enabled }}"
+          hooks_to_skip: "{{ hooks_to_skip }}"
+          custom_options: "{{ custom_options }}"
+          nisplus_domain: "{{ nisplus_domain }}"
+          nisplus_servers: "{{ nisplus_servers }}"
+          request_options: "{{ request_options }}"
+          static_interfaces: "{{ static_interfaces }}"
+
+    - name: Enable and restart Dhcpcd Conf
+      ansible.builtin.service:
+        name: "{{ _service }}"
+        state: restarted
+        enabled: true
+      when: _service | length > 0

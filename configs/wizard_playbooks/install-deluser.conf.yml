@@ -1,0 +1,37 @@
+- name: install-deluser.conf
+  hosts: all
+  become: true
+  vars:
+    _dest: "/etc/deluser.conf"
+    backup: false
+    _service: ""
+    _packages:
+      - adduser
+    backup_to: "/var/backups"
+    keep_groups: []
+    remove_home: false
+    remove_mail_spool: false
+    remove_user_from_groups: true
+  tasks:
+    - name: Install Deluser Conf
+      ansible.builtin.package:
+        name: "{{ _packages }}"
+        state: present
+
+    - name: Render configuration
+      ansible.builtin.template:
+        src: deluser.conf.j2
+        dest: "{{ _dest }}"
+        vars:
+          backup: "{{ backup }}"
+          backup_to: "{{ backup_to }}"
+          keep_groups: "{{ keep_groups }}"
+          remove_home: "{{ remove_home }}"
+          remove_mail_spool: "{{ remove_mail_spool }}"
+          remove_user_from_groups: "{{ remove_user_from_groups }}"
+
+    - name: Enable and restart Deluser Conf
+      ansible.builtin.service:
+        name: "{{ _service }}"
+        state: restarted
+        enabled: true

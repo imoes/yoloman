@@ -1,0 +1,50 @@
+- name: install-oddjob.conf
+  hosts: all
+  become: true
+  vars:
+    _dest: "/etc/dbus-1/system.d/oddjob.conf"
+    _service: ""
+    max_jobs: 100
+    log_level: 2
+    helper_dir: "/usr/libexec/oddjob"
+    nice_level: 0
+    job_timeout: 0
+    service_args: []
+    service_exec: "/usr/libexec/oddjobd"
+    enable_syslog: true
+    allowed_groups:
+      - name: wheel
+    service_owners:
+      - name: root
+    max_jobs_per_user: 10
+    _packages:
+      - oddjob
+  tasks:
+    - name: Install Oddjob Conf
+      ansible.builtin.package:
+        name: "{{ _packages }}"
+        state: present
+
+    - name: Render configuration
+      ansible.builtin.template:
+        src: oddjob.conf.j2
+        dest: "{{ _dest }}"
+      vars:
+        max_jobs: "{{ max_jobs }}"
+        log_level: "{{ log_level }}"
+        helper_dir: "{{ helper_dir }}"
+        nice_level: "{{ nice_level }}"
+        job_timeout: "{{ job_timeout }}"
+        service_args: "{{ service_args }}"
+        service_exec: "{{ service_exec }}"
+        enable_syslog: "{{ enable_syslog }}"
+        allowed_groups: "{{ allowed_groups }}"
+        service_owners: "{{ service_owners }}"
+        max_jobs_per_user: "{{ max_jobs_per_user }}"
+
+    - name: Enable and restart Oddjob Conf
+      ansible.builtin.service:
+        name: "{{ _service }}"
+        state: restarted
+        enabled: true
+      when: _service | length > 0

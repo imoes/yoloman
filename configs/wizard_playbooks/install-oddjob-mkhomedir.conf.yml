@@ -1,0 +1,27 @@
+- name: install-oddjob-mkhomedir.conf
+  hosts: all
+  become: true
+  vars:
+    _dest: /etc/dbus-1/system.d/oddjob-mkhomedir.conf
+    _service: ""
+    policies: []
+    _packages:
+      - oddjob-mkhomedir
+  tasks:
+    - name: Install Oddjob Mkhomedir Conf
+      ansible.builtin.package:
+        name: "{{ _packages }}"
+        state: present
+
+    - name: Render configuration
+      ansible.builtin.template:
+        src: oddjob-mkhomedir.conf.j2
+        dest: "{{ _dest }}"
+      vars:
+        policies: "{{ policies }}"
+
+    - name: Enable and restart Oddjob Mkhomedir Conf
+      ansible.builtin.service:
+        name: "{{ _service }}"
+        state: restarted
+        enabled: true

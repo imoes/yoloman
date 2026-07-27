@@ -1,0 +1,89 @@
+- name: install-www.conf
+  hosts: all
+  become: true
+  vars:
+    user: www-data
+    _dest: /etc/php/*/fpm/pool.d/*.conf
+    chdir: ""
+    group: www-data
+    chroot: ""
+    _service: ""
+    _packages: ["php-fpm"]
+    pool_name: www
+    php_values: {}
+    listen_mode: "0660"
+    rlimit_core: "0"
+    listen_group: www-data
+    listen_owner: www-data
+    open_basedir: ""
+    php_env_vars: []
+    pm_log_level: notice
+    rlimit_files: 131072
+    slowlog_path: /var/log/php-fpm/%p.slow.log
+    access_format: "%R - %u %t \"%m %r %V\" %s %l %{mili}d %{kilo}M %C%%"
+    listen_address: "127.0.0.1:9000"
+    process_prefix: ""
+    access_log_path: /var/log/php-fpm/%p.access.log
+    disable_classes: ""
+    pm_max_children: 5
+    process_manager: dynamic
+    php_admin_values: {}
+    pm_start_servers: 5
+    process_priority: ""
+    disable_functions: ""
+    catch_workers_output: "yes"
+    pm_max_spare_servers: 4
+    pm_min_spare_servers: 2
+    request_slowlog_timeout: 0
+    pm_request_terminate_timeout: 30
+  tasks:
+    - name: Install Www Conf
+      ansible.builtin.package:
+        name: "{{ _packages }}"
+        state: present
+
+    - name: Render configuration
+      ansible.builtin.template:
+        src: www.conf.j2
+        dest: "{{ _dest }}"
+        owner: root
+        group: root
+        mode: "0644"
+      vars:
+        user: "{{ user }}"
+        chdir: "{{ chdir }}"
+        group: "{{ group }}"
+        chroot: "{{ chroot }}"
+        pool_name: "{{ pool_name }}"
+        php_values: "{{ php_values }}"
+        listen_mode: "{{ listen_mode }}"
+        rlimit_core: "{{ rlimit_core }}"
+        listen_group: "{{ listen_group }}"
+        listen_owner: "{{ listen_owner }}"
+        open_basedir: "{{ open_basedir }}"
+        php_env_vars: "{{ php_env_vars }}"
+        pm_log_level: "{{ pm_log_level }}"
+        rlimit_files: "{{ rlimit_files }}"
+        slowlog_path: "{{ slowlog_path }}"
+        access_format: "{{ access_format }}"
+        listen_address: "{{ listen_address }}"
+        process_prefix: "{{ process_prefix }}"
+        access_log_path: "{{ access_log_path }}"
+        disable_classes: "{{ disable_classes }}"
+        pm_max_children: "{{ pm_max_children }}"
+        process_manager: "{{ process_manager }}"
+        php_admin_values: "{{ php_admin_values }}"
+        pm_start_servers: "{{ pm_start_servers }}"
+        process_priority: "{{ process_priority }}"
+        disable_functions: "{{ disable_functions }}"
+        catch_workers_output: "{{ catch_workers_output }}"
+        pm_max_spare_servers: "{{ pm_max_spare_servers }}"
+        pm_min_spare_servers: "{{ pm_min_spare_servers }}"
+        request_slowlog_timeout: "{{ request_slowlog_timeout }}"
+        pm_request_terminate_timeout: "{{ pm_request_terminate_timeout }}"
+
+    - name: Enable and restart Www Conf
+      ansible.builtin.service:
+        name: "{{ _service }}"
+        state: restarted
+        enabled: true

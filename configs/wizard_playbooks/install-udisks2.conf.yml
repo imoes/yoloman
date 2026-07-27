@@ -1,0 +1,65 @@
+- name: install-udisks2.conf
+  hosts: all
+  become: true
+  vars:
+    user: "root"
+    log_dir: "/var/log/udisks2"
+    state_dir: "/run/udisks2"
+    automount: true
+    log_level: 1
+    enable_lvm2: true
+    maximum_uid: 65534
+    minimum_uid: 1000
+    enable_mdraid: true
+    mount_options:
+      - "defaults"
+      - "noexec"
+      - "nosuid"
+      - "nodev"
+    polling_enabled: false
+    ignore_encrypted: false
+    ntfs_mount_readonly: false
+    auto_unmount_timeout: 0
+    filesystems_to_mount: []
+    filesystems_to_ignore:
+      - "swap"
+      - "zfs_member"
+    automount_internal_drives: false
+  tasks:
+    - name: Install Udisks2 Conf
+      ansible.builtin.package:
+        name: "{{ _packages }}"
+        state: present
+
+    - name: Render configuration
+      ansible.builtin.template:
+        src: udisks2.conf.j2
+        dest: "{{ _dest }}"
+        owner: root
+        group: root
+        mode: '0644'
+      vars:
+        user: "{{ user }}"
+        log_dir: "{{ log_dir }}"
+        automount: "{{ automount }}"
+        log_level: "{{ log_level }}"
+        state_dir: "{{ state_dir }}"
+        enable_lvm2: "{{ enable_lvm2 }}"
+        maximum_uid: "{{ maximum_uid }}"
+        minimum_uid: "{{ minimum_uid }}"
+        enable_mdraid: "{{ enable_mdraid }}"
+        mount_options: "{{ mount_options }}"
+        polling_enabled: "{{ polling_enabled }}"
+        ignore_encrypted: "{{ ignore_encrypted }}"
+        ntfs_mount_readonly: "{{ ntfs_mount_readonly }}"
+        auto_unmount_timeout: "{{ auto_unmount_timeout }}"
+        filesystems_to_mount: "{{ filesystems_to_mount }}"
+        filesystems_to_ignore: "{{ filesystems_to_ignore }}"
+        automount_internal_drives: "{{ automount_internal_drives }}"
+
+    - name: Enable and restart Udisks2 Conf
+      ansible.builtin.service:
+        name: "{{ _service }}"
+        state: restarted
+        enabled: true
+      when: _service | length > 0

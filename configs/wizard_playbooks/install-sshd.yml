@@ -1,0 +1,100 @@
+- name: install-sshd
+  hosts: all
+  become: true
+  vars:
+    port: 22
+    use_pam: true
+    log_level: INFO
+    accept_env:
+      - LANG
+      - LC_*
+    deny_users: []
+    sftp_users: []
+    allow_users: []
+    banner_path: /etc/issue.net
+    compression: delayed
+    deny_groups: []
+    allow_groups: []
+    max_sessions: 10
+    strict_modes: true
+    gateway_ports: false
+    permit_tunnel: no
+    listen_address: 0.0.0.0
+    max_auth_tries: 6
+    sftp_subsystem: internal-sftp
+    x11_forwarding: false
+    syslog_facility: AUTH
+    login_grace_time: 120
+    permit_root_login: prohibit-password
+    x11_use_localhost: true
+    extra_match_blocks: []
+    x11_display_offset: 10
+    allow_tcp_forwarding: true
+    authorized_keys_file:
+      - .ssh/authorized_keys
+    client_alive_interval: 0
+    gssapi_authentication: false
+    pubkey_authentication: true
+    allow_agent_forwarding: true
+    authentication_methods: []
+    client_alive_count_max: 3
+    password_authentication: false
+    gssapi_cleanup_credentials: true
+  tasks:
+    - name: Install OpenSSH Server
+      ansible.builtin.package:
+        name: openssh-server
+        state: present
+
+    - name: Render configuration
+      ansible.builtin.template:
+        src: sshd.j2
+        dest: /etc/ssh/sshd_config
+        mode: '0600'
+        owner: root
+        group: root
+      vars:
+        port: "{{ port }}"
+        use_pam: "{{ use_pam }}"
+        log_level: "{{ log_level }}"
+        accept_env: "{{ accept_env }}"
+        deny_users: "{{ deny_users }}"
+        sftp_users: "{{ sftp_users }}"
+        allow_users: "{{ allow_users }}"
+        banner_path: "{{ banner_path }}"
+        compression: "{{ compression }}"
+        deny_groups: "{{ deny_groups }}"
+        allow_groups: "{{ allow_groups }}"
+        max_sessions: "{{ max_sessions }}"
+        strict_modes: "{{ strict_modes }}"
+        gateway_ports: "{{ gateway_ports }}"
+        permit_tunnel: "{{ permit_tunnel }}"
+        listen_address: "{{ listen_address }}"
+        max_auth_tries: "{{ max_auth_tries }}"
+        sftp_subsystem: "{{ sftp_subsystem }}"
+        x11_forwarding: "{{ x11_forwarding }}"
+        syslog_facility: "{{ syslog_facility }}"
+        login_grace_time: "{{ login_grace_time }}"
+        permit_root_login: "{{ permit_root_login }}"
+        x11_use_localhost: "{{ x11_use_localhost }}"
+        extra_match_blocks: "{{ extra_match_blocks }}"
+        x11_display_offset: "{{ x11_display_offset }}"
+        allow_tcp_forwarding: "{{ allow_tcp_forwarding }}"
+        authorized_keys_file: "{{ authorized_keys_file }}"
+        client_alive_interval: "{{ client_alive_interval }}"
+        gssapi_authentication: "{{ gssapi_authentication }}"
+        pubkey_authentication: "{{ pubkey_authentication }}"
+        allow_agent_forwarding: "{{ allow_agent_forwarding }}"
+        authentication_methods: "{{ authentication_methods }}"
+        client_alive_count_max: "{{ client_alive_count_max }}"
+        password_authentication: "{{ password_authentication }}"
+        gssapi_cleanup_credentials: "{{ gssapi_cleanup_credentials }}"
+
+    - name: Validate configuration
+      ansible.builtin.command: sshd -t
+
+    - name: Enable and restart OpenSSH Server
+      ansible.builtin.service:
+        name: ssh
+        state: restarted
+        enabled: true

@@ -1,0 +1,41 @@
+- name: install-sepermit.conf
+  hosts: all
+  become: true
+  vars:
+    _dest: "/etc/security/sepermit.conf"
+    _service: ""
+    _packages:
+      - libpam-modules
+    permissive: false
+    audit_prefix: ""
+    bypass_types: []
+    exempt_users: []
+    max_sessions: 1024
+    log_violations: true
+    enforcement_state_file: "/run/sepermit/enforcement.state"
+  tasks:
+    - name: Install Sepermit Conf
+      ansible.builtin.package:
+        name: "{{ _packages }}"
+        state: present
+
+    - name: Render configuration
+      ansible.builtin.template:
+        src: sepermit.conf.j2
+        dest: "{{ _dest }}"
+        mode: '0644'
+      vars:
+        permissive: "{{ permissive }}"
+        audit_prefix: "{{ audit_prefix }}"
+        bypass_types: "{{ bypass_types }}"
+        exempt_users: "{{ exempt_users }}"
+        max_sessions: "{{ max_sessions }}"
+        log_violations: "{{ log_violations }}"
+        enforcement_state_file: "{{ enforcement_state_file }}"
+
+    - name: Enable and restart Sepermit Conf
+      ansible.builtin.service:
+        name: "{{ _service }}"
+        state: restarted
+        enabled: true
+      when: _service | length > 0

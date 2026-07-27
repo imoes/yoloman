@@ -1,0 +1,65 @@
+- name: install-mariadb
+  hosts: all
+  become: true
+  vars:
+    port: 3306
+    tmpdir: /tmp
+    basedir: /usr
+    datadir: /var/lib/mysql
+    server_id: 1
+    bind_address: "127.0.0.1"
+    log_bin_enabled: true
+    long_query_time: 2
+    max_connections: 151
+    collation_server: utf8mb4_general_ci
+    query_cache_size: "0"
+    query_cache_type: "0"
+    thread_cache_size: 10
+    max_allowed_packet: "64M"
+    slow_query_log_file: /var/log/mysql/slow.log
+    character_set_server: utf8mb4
+    innodb_log_file_size: "64M"
+    innodb_file_per_table: true
+    slow_query_log_enabled: false
+    innodb_buffer_pool_size: "256M"
+    innodb_flush_log_at_trx_commit: 1
+    log_bin_trust_function_creators: false
+  tasks:
+    - name: Install MariaDB / MySQL Database
+      ansible.builtin.package:
+        name: "{{ _packages }}"
+        state: present
+
+    - name: Render configuration
+      ansible.builtin.template:
+        src: mariadb.j2
+        dest: "{{ _dest }}"
+      vars:
+        port: "{{ port }}"
+        tmpdir: "{{ tmpdir }}"
+        basedir: "{{ basedir }}"
+        datadir: "{{ datadir }}"
+        server_id: "{{ server_id }}"
+        bind_address: "{{ bind_address }}"
+        log_bin_enabled: "{{ log_bin_enabled }}"
+        long_query_time: "{{ long_query_time }}"
+        max_connections: "{{ max_connections }}"
+        collation_server: "{{ collation_server }}"
+        query_cache_size: "{{ query_cache_size }}"
+        query_cache_type: "{{ query_cache_type }}"
+        thread_cache_size: "{{ thread_cache_size }}"
+        max_allowed_packet: "{{ max_allowed_packet }}"
+        slow_query_log_file: "{{ slow_query_log_file }}"
+        character_set_server: "{{ character_set_server }}"
+        innodb_log_file_size: "{{ innodb_log_file_size }}"
+        innodb_file_per_table: "{{ innodb_file_per_table }}"
+        slow_query_log_enabled: "{{ slow_query_log_enabled }}"
+        innodb_buffer_pool_size: "{{ innodb_buffer_pool_size }}"
+        innodb_flush_log_at_trx_commit: "{{ innodb_flush_log_at_trx_commit }}"
+        log_bin_trust_function_creators: "{{ log_bin_trust_function_creators }}"
+
+    - name: Enable and restart MariaDB / MySQL Database
+      ansible.builtin.service:
+        name: "{{ _service }}"
+        state: restarted
+        enabled: true

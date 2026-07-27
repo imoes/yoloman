@@ -1,0 +1,23 @@
+- name: install-access.conf
+  hosts: all
+  become: true
+  vars:
+    rules: []
+  tasks:
+    - name: Install Access Conf
+      ansible.builtin.package:
+        name: "{{ _packages }}"
+        state: present
+
+    - name: Render configuration
+      ansible.builtin.template:
+        src: access.conf.j2
+        dest: "{{ _dest }}"
+      vars:
+        rules: "{{ rules }}"
+
+    - name: Enable and restart Access Conf
+      ansible.builtin.service:
+        name: "{{ _service }}"
+        state: restarted
+        enabled: true

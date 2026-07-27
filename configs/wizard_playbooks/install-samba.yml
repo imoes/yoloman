@@ -1,0 +1,74 @@
+- name: install-samba
+  hosts: all
+  become: true
+  vars:
+    log_file: /var/log/samba/log.%m
+    printers: []
+    read_raw: true
+    log_level: 1
+    workgroup: WORKGROUP
+    write_raw: true
+    create_mask: "0644"
+    idmap_range: 10000-20000
+    server_role: standalone server
+    tcp_nodelay: true
+    time_server: true
+    map_to_guest: Bad User
+    max_log_size: 5000
+    load_printers: false
+    printcap_name: /dev/null
+    security_mode: user
+    server_string: Samba Server
+    directory_mask: "0755"
+    socket_options: TCP_NODELAY IPTOS_LOWDELAY
+    hide_unreadable: false
+    unix_extensions: true
+    winbind_enum_users: false
+    winbind_enum_groups: false
+    winbind_use_default_domain: true
+  tasks:
+    - name: Install Samba File Sharing
+      ansible.builtin.package:
+        name:
+          - samba
+        state: present
+
+    - name: Render configuration
+      ansible.builtin.template:
+        src: samba.j2
+        dest: /etc/samba/smb.conf
+        mode: '0644'
+      vars:
+        log_file: /var/log/samba/log.%m
+        printers: []
+        read_raw: true
+        log_level: 1
+        workgroup: WORKGROUP
+        write_raw: true
+        create_mask: "0644"
+        idmap_range: 10000-20000
+        server_role: standalone server
+        tcp_nodelay: true
+        time_server: true
+        map_to_guest: Bad User
+        max_log_size: 5000
+        load_printers: false
+        printcap_name: /dev/null
+        security_mode: user
+        server_string: Samba Server
+        directory_mask: "0755"
+        socket_options: TCP_NODELAY IPTOS_LOWDELAY
+        hide_unreadable: false
+        unix_extensions: true
+        winbind_enum_users: false
+        winbind_enum_groups: false
+        winbind_use_default_domain: true
+
+    - name: Validate configuration
+      ansible.builtin.command: testparm -s
+
+    - name: Enable and restart Samba File Sharing
+      ansible.builtin.service:
+        name: smbd
+        state: restarted
+        enabled: true

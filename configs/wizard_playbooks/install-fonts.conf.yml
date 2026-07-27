@@ -1,0 +1,59 @@
+- name: install-fonts.conf
+  hosts: all
+  become: true
+  vars:
+    _dest: "/etc/fonts/conf.d/README"
+    _service: ""
+    _packages:
+      - fontconfig-config
+    font_dirs: []
+    hint_style: "hintslight"
+    enable_hinting: true
+    alias_font_names:
+      - family: "serif"
+        fallback:
+          - "DejaVu Serif"
+          - "Liberation Serif"
+          - "Times New Roman"
+      - family: "sans-serif"
+        fallback:
+          - "DejaVu Sans"
+          - "Liberation Sans"
+          - "Arial"
+      - family: "monospace"
+        fallback:
+          - "DejaVu Sans Mono"
+          - "Liberation Mono"
+          - "Courier New"
+    default_font_dirs:
+      - "/usr/share/fonts"
+      - "/usr/local/share/fonts"
+    subpixel_rendering: "rgb"
+    enable_antialiasing: true
+    prefer_embedded_bitmaps: false
+  tasks:
+    - name: Install Fonts Conf
+      ansible.builtin.apt:
+        name: "{{ _packages }}"
+        state: present
+
+    - name: Render configuration
+      ansible.builtin.template:
+        src: fonts.conf.j2
+        dest: "{{ _dest }}"
+      vars:
+        font_dirs: "{{ font_dirs }}"
+        hint_style: "{{ hint_style }}"
+        enable_hinting: "{{ enable_hinting }}"
+        alias_font_names: "{{ alias_font_names }}"
+        default_font_dirs: "{{ default_font_dirs }}"
+        subpixel_rendering: "{{ subpixel_rendering }}"
+        enable_antialiasing: "{{ enable_antialiasing }}"
+        prefer_embedded_bitmaps: "{{ prefer_embedded_bitmaps }}"
+
+    - name: Enable and restart Fonts Conf
+      ansible.builtin.service:
+        name: "{{ _service }}"
+        state: restarted
+        enabled: true
+      when: _service | length > 0

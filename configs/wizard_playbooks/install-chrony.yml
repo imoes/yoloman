@@ -1,0 +1,53 @@
+- name: install-chrony
+  hosts: all
+  become: true
+  vars:
+    _dest: "/etc/chrony/chrony.conf"
+    logdir: "/var/log/chrony"
+    confdir: "/etc/chrony/conf.d"
+    keyfile: "/etc/chrony/chrony.keys"
+    servers:
+      - address: "ntp.example.internal"
+    _service: "chrony"
+    makestep: "1 3"
+    _packages:
+      - "chrony"
+    driftfile: "/var/lib/chrony/chrony.drift"
+    leapsectz: "right/UTC"
+    sourcedir: "/run/chrony-dhcp"
+    ntsdumpdir: "/var/lib/chrony"
+    daemon_opts: "-F 1"
+    maxupdateskew: 100.0
+    sourcedir_sources_d: "/etc/chrony/sources.d"
+  tasks:
+    - name: Install Chrony NTP
+      ansible.builtin.package:
+        name: "{{ _packages }}"
+        state: present
+
+    - name: Render configuration
+      ansible.builtin.template:
+        src: chrony.j2
+        dest: "{{ _dest }}"
+        owner: root
+        group: root
+        mode: '0644'
+      vars:
+        logdir: "{{ logdir }}"
+        confdir: "{{ confdir }}"
+        keyfile: "{{ keyfile }}"
+        servers: "{{ servers }}"
+        makestep: "{{ makestep }}"
+        driftfile: "{{ driftfile }}"
+        leapsectz: "{{ leapsectz }}"
+        sourcedir: "{{ sourcedir }}"
+        ntsdumpdir: "{{ ntsdumpdir }}"
+        daemon_opts: "{{ daemon_opts }}"
+        maxupdateskew: "{{ maxupdateskew }}"
+        sourcedir_sources_d: "{{ sourcedir_sources_d }}"
+
+    - name: Enable and restart Chrony NTP
+      ansible.builtin.service:
+        name: "{{ _service }}"
+        state: restarted
+        enabled: true

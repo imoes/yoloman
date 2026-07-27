@@ -1,0 +1,98 @@
+- name: install-xrdp.ini
+  hosts: all
+  become: true
+  vars:
+    max_bpp: 32
+    key_file: ""
+    log_file: "/var/log/xrdp.log"
+    clipboard: "both"
+    fips_mode: false
+    font_path: "/usr/share/fonts/TTF"
+    log_level: "info"
+    machine_id: "xrdp"
+    allow_tls13: true
+    certificate: ""
+    listen_port: 3389
+    new_cursors: true
+    bitmap_cache: true
+    denied_users: []
+    allowed_users: []
+    denied_groups: []
+    gdi_rendering: true
+    idle_max_time: 0
+    session_types: []
+    ssl_protocols: "TLSv1.2,TLSv1.3"
+    allowed_groups: []
+    listen_address: "0.0.0.0"
+    reuse_sessions: false
+    security_layer: "negotiate"
+    disconnect_idle: false
+    usb_redirection: false
+    audio_redirection: false
+    drive_redirection: false
+    persistent_bitmap: true
+    bitmap_compression: true
+    serial_redirection: false
+    printer_redirection: false
+    parallel_redirection: false
+    smartcard_redirection: false
+    xserver_startup_delay: 10
+    xserver_custom_parameters: "-depth 24 -geometry 1024x768"
+    _packages:
+      - xrdp
+    _dest: "/etc/xrdp/xrdp.ini"
+    _service: ""
+  tasks:
+    - name: Install Xrdp Ini
+      ansible.builtin.package:
+        name: "{{ _packages }}"
+        state: present
+
+    - name: Render configuration
+      ansible.builtin.template:
+        src: xrdp.ini.j2
+        dest: "{{ _dest }}"
+        vars:
+          max_bpp: "{{ max_bpp }}"
+          key_file: "{{ key_file }}"
+          log_file: "{{ log_file }}"
+          clipboard: "{{ clipboard }}"
+          fips_mode: "{{ fips_mode }}"
+          font_path: "{{ font_path }}"
+          log_level: "{{ log_level }}"
+          machine_id: "{{ machine_id }}"
+          allow_tls13: "{{ allow_tls13 }}"
+          certificate: "{{ certificate }}"
+          listen_port: "{{ listen_port }}"
+          new_cursors: "{{ new_cursors }}"
+          bitmap_cache: "{{ bitmap_cache }}"
+          denied_users: "{{ denied_users }}"
+          allowed_users: "{{ allowed_users }}"
+          denied_groups: "{{ denied_groups }}"
+          gdi_rendering: "{{ gdi_rendering }}"
+          idle_max_time: "{{ idle_max_time }}"
+          session_types: "{{ session_types }}"
+          ssl_protocols: "{{ ssl_protocols }}"
+          allowed_groups: "{{ allowed_groups }}"
+          listen_address: "{{ listen_address }}"
+          reuse_sessions: "{{ reuse_sessions }}"
+          security_layer: "{{ security_layer }}"
+          disconnect_idle: "{{ disconnect_idle }}"
+          usb_redirection: "{{ usb_redirection }}"
+          audio_redirection: "{{ audio_redirection }}"
+          drive_redirection: "{{ drive_redirection }}"
+          persistent_bitmap: "{{ persistent_bitmap }}"
+          bitmap_compression: "{{ bitmap_compression }}"
+          serial_redirection: "{{ serial_redirection }}"
+          printer_redirection: "{{ printer_redirection }}"
+          parallel_redirection: "{{ parallel_redirection }}"
+          smartcard_redirection: "{{ smartcard_redirection }}"
+          xserver_startup_delay: "{{ xserver_startup_delay }}"
+          xserver_custom_parameters: "{{ xserver_custom_parameters }}"
+
+    - name: Enable and restart Xrdp Ini
+      ansible.builtin.service:
+        name: "{{ _service }}"
+        state: restarted
+        enabled: true
+      when: _service | length > 0

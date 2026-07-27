@@ -1,0 +1,65 @@
+- name: install-pwquality.conf
+  hosts: all
+  become: true
+  vars:
+    _dest: /etc/security/pwquality.conf
+    debug: false
+    minlen: 8
+    strict: false
+    _service: ""
+    dictpath: ""
+    minlower: 1
+    minother: 1
+    minupper: 1
+    oldcheck: false
+    remember: 0
+    _packages:
+      - libpwquality-common
+    dictcheck: true
+    maxrepeat: 3
+    mindigits: 1
+    usercheck: true
+    gecoscheck: true
+    similarity: 0
+    revusercheck: false
+    extra_configs: []
+    maxclassrepeat: 4
+    enforce_for_root: false
+  tasks:
+    - name: Install Pwquality Conf
+      ansible.builtin.package:
+        name: "{{ _packages }}"
+        state: present
+
+    - name: Render configuration
+      ansible.builtin.template:
+        src: pwquality.conf.j2
+        dest: "{{ _dest }}"
+        mode: '0644'
+      vars:
+        debug: "{{ debug }}"
+        minlen: "{{ minlen }}"
+        strict: "{{ strict }}"
+        dictpath: "{{ dictpath }}"
+        minlower: "{{ minlower }}"
+        minother: "{{ minother }}"
+        minupper: "{{ minupper }}"
+        oldcheck: "{{ oldcheck }}"
+        remember: "{{ remember }}"
+        dictcheck: "{{ dictcheck }}"
+        maxrepeat: "{{ maxrepeat }}"
+        mindigits: "{{ mindigits }}"
+        usercheck: "{{ usercheck }}"
+        gecoscheck: "{{ gecoscheck }}"
+        similarity: "{{ similarity }}"
+        revusercheck: "{{ revusercheck }}"
+        extra_configs: "{{ extra_configs }}"
+        maxclassrepeat: "{{ maxclassrepeat }}"
+        enforce_for_root: "{{ enforce_for_root }}"
+
+    - name: Enable and restart Pwquality Conf
+      ansible.builtin.service:
+        name: "{{ _service }}"
+        state: restarted
+        enabled: true
+      when: _service | length > 0

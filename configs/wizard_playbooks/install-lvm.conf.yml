@@ -1,0 +1,63 @@
+- name: install-lvm.conf
+  hosts: all
+  become: true
+  vars:
+    _dest: "/etc/lvm/lvm.conf"
+    _service: ""
+    _packages: ["lvm2"]
+    devices.sysfs_scan: true
+    global.use_lvmetad: false
+    global.locking_type: 1
+    global.use_lvmpolld: true
+    devices.global_filter: ["a/.*/"]
+    global.wait_for_locks: true
+    devices.scanning.scan_lvs: true
+    devices.write_cache_state: true
+    global.metadata_read_only: false
+    devices.preferential_pvmove: true
+    global.prioritise_write_locks: true
+    devices.scanning.lvmlockd_sock: "/run/lvm/lvmlockd.socket"
+    global.allocation_cache_max_mb: 128
+    devices.scanning.lvmlockd_timeout: -1
+    devices.scanning.md_component_check: false
+    devices.scanning.lvmetad_update_delay: 15
+    devices.scanning.lvmlockd_auto_unlock: false
+    devices.scanning.md_component_detection: true
+    devices.scanning.md_component_detection_timeout: 60
+  tasks:
+    - name: Install Lvm Conf
+      ansible.builtin.package:
+        name: "{{ _packages }}"
+        state: present
+
+    - name: Render configuration
+      ansible.builtin.template:
+        src: lvm.conf.j2
+        dest: "{{ _dest }}"
+      vars:
+        devices.sysfs_scan: "{{ devices.sysfs_scan }}"
+        global.use_lvmetad: "{{ global.use_lvmetad }}"
+        global.locking_type: "{{ global.locking_type }}"
+        global.use_lvmpolld: "{{ global.use_lvmpolld }}"
+        devices.global_filter: "{{ devices.global_filter }}"
+        global.wait_for_locks: "{{ global.wait_for_locks }}"
+        devices.scanning.scan_lvs: "{{ devices.scanning.scan_lvs }}"
+        devices.write_cache_state: "{{ devices.write_cache_state }}"
+        global.metadata_read_only: "{{ global.metadata_read_only }}"
+        devices.preferential_pvmove: "{{ devices.preferential_pvmove }}"
+        global.prioritise_write_locks: "{{ global.prioritise_write_locks }}"
+        devices.scanning.lvmlockd_sock: "{{ devices.scanning.lvmlockd_sock }}"
+        global.allocation_cache_max_mb: "{{ global.allocation_cache_max_mb }}"
+        devices.scanning.lvmlockd_timeout: "{{ devices.scanning.lvmlockd_timeout }}"
+        devices.scanning.md_component_check: "{{ devices.scanning.md_component_check }}"
+        devices.scanning.lvmetad_update_delay: "{{ devices.scanning.lvmetad_update_delay }}"
+        devices.scanning.lvmlockd_auto_unlock: "{{ devices.scanning.lvmlockd_auto_unlock }}"
+        devices.scanning.md_component_detection: "{{ devices.scanning.md_component_detection }}"
+        devices.scanning.md_component_detection_timeout: "{{ devices.scanning.md_component_detection_timeout }}"
+
+    - name: Enable and restart Lvm Conf
+      ansible.builtin.service:
+        name: "{{ _service }}"
+        state: restarted
+        enabled: true
+      when: _service != ""

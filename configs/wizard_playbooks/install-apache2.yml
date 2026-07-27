@@ -1,0 +1,43 @@
+- name: install-apache2
+  hosts: all
+  become: true
+  vars:
+    user: www-data
+    timeout: 300
+    keepalive: On
+    log_level: warn
+    listen_port: 80
+    server_root: /etc/apache2
+    virtual_hosts: []
+    keepalive_timeout: 5
+    max_keepalive_requests: 100
+  tasks:
+    - name: Install Apache HTTP Server
+      ansible.builtin.package:
+        name: "{{ _packages }}"
+        state: present
+
+    - name: Render configuration
+      ansible.builtin.template:
+        src: apache2.j2
+        dest: "{{ _dest }}"
+      vars:
+        user: "{{ user }}"
+        group: "{{ group }}"
+        timeout: "{{ timeout }}"
+        keepalive: "{{ keepalive }}"
+        log_level: "{{ log_level }}"
+        listen_port: "{{ listen_port }}"
+        server_root: "{{ server_root }}"
+        virtual_hosts: "{{ virtual_hosts }}"
+        keepalive_timeout: "{{ keepalive_timeout }}"
+        max_keepalive_requests: "{{ max_keepalive_requests }}"
+
+    - name: Validate configuration
+      ansible.builtin.command: apachectl configtest
+
+    - name: Enable and restart Apache HTTP Server
+      ansible.builtin.service:
+        name: "{{ _service }}"
+        state: restarted
+        enabled: true

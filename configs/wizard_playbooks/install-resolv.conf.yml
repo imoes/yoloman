@@ -1,0 +1,30 @@
+- name: install-resolv.conf
+  hosts: all
+  become: true
+  vars:
+    _dest: "/etc/cloud/templates/resolv.conf.tmpl"
+    _service: ""
+    _packages:
+      - "cloud-init"
+    nameservers:
+      - "127.0.0.53"
+    search_domains: []
+  tasks:
+    - name: Install Resolv Conf
+      ansible.builtin.package:
+        name: "{{ _packages }}"
+        state: present
+
+    - name: Render configuration
+      ansible.builtin.template:
+        src: resolv.conf.j2
+        dest: "{{ _dest }}"
+      vars:
+        nameservers: "{{ nameservers }}"
+        search_domains: "{{ search_domains }}"
+
+    - name: Enable and restart Resolv Conf
+      ansible.builtin.service:
+        name: "{{ _service }}"
+        state: restarted
+        enabled: true

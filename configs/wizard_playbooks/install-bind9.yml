@@ -1,0 +1,53 @@
+- name: install-bind9
+  hosts: all
+  become: true
+  vars:
+    port: 53
+    pid_file: /run/named/named.pid
+    querylog: false
+    stats_file: /var/cache/bind/named.stats
+    allow_query:
+      - any
+    forward_policy: first
+    max_cache_size: 90%
+    dnssec_validation: auto
+    working_directory: /var/cache/bind
+    listen_on: []
+    forwarders: []
+    listen_on_v6: []
+    doh_endpoint: {}
+  tasks:
+    - name: Install BIND DNS Server
+      ansible.builtin.package:
+        name:
+          - bind9
+        state: present
+
+    - name: Render configuration
+      ansible.builtin.template:
+        src: bind9.j2
+        dest: /etc/bind/named.conf.options
+      vars:
+        port: "{{ port }}"
+        pid_file: "{{ pid_file }}"
+        querylog: "{{ querylog }}"
+        listen_on: "{{ listen_on }}"
+        forwarders: "{{ forwarders }}"
+        stats_file: "{{ stats_file }}"
+        allow_query: "{{ allow_query }}"
+        doh_endpoint: "{{ doh_endpoint }}"
+        listen_on_v6: "{{ listen_on_v6 }}"
+        forward_policy: "{{ forward_policy }}"
+        max_cache_size: "{{ max_cache_size }}"
+        allow_recursion: "{{ allow_recursion }}"
+        dnssec_validation: "{{ dnssec_validation }}"
+        working_directory: "{{ working_directory }}"
+
+    - name: Validate configuration
+      ansible.builtin.command: named-checkconf /etc/bind/named.conf
+
+    - name: Enable and restart BIND DNS Server
+      ansible.builtin.service:
+        name: named
+        state: restarted
+        enabled: true

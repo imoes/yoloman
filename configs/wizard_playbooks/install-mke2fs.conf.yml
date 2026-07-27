@@ -1,0 +1,39 @@
+- name: install-mke2fs.conf
+  hosts: all
+  become: true
+  vars:
+    _dest: /etc/mke2fs.conf
+    options: {}
+    defaults: {}
+    fs_types:
+      - name: ext4
+        features: has_journal,extent,huge_file,flex_bg,uninit_bg,dir_nlink,extra_isize,64bit,dirdata
+        block_size: 0
+        inode_size: 256
+        inode_ratio: 16384
+        journal_size: 1024
+        reserve_ratio: 5
+    _service: ""
+    _packages:
+      - e2fsprogs
+  tasks:
+    - name: Install Mke2Fs Conf
+      ansible.builtin.package:
+        name: "{{ _packages }}"
+        state: present
+
+    - name: Render configuration
+      ansible.builtin.template:
+        src: mke2fs.conf.j2
+        dest: "{{ _dest }}"
+      vars:
+        options: "{{ options }}"
+        defaults: "{{ defaults }}"
+        fs_types: "{{ fs_types }}"
+
+    - name: Enable and restart Mke2Fs Conf
+      ansible.builtin.service:
+        name: "{{ _service }}"
+        state: restarted
+        enabled: true
+      when: _service | length > 0

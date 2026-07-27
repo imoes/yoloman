@@ -1,0 +1,71 @@
+- name: install-vzdump.conf
+  hosts: all
+  become: true
+  vars:
+    _dest: "/etc/vzdump.conf"
+    _service: ""
+    _packages:
+      - proxmox-ve
+    nodes: []
+    mailto: ""
+    mailfrom: "vzdump@localhost"
+    proxy_url: ""
+    verify_ssl: true
+    backup_mode: "suspend"
+    incremental: false
+    skipcleanup: false
+    backup_cores: 2
+    enable_purge: true
+    enable_resume: false
+    backup_storage: "local"
+    backup_timeout: 7200
+    backup_maxfiles: 0
+    backup_priority: 50
+    enable_snapshot: true
+    exclude_storages: []
+    incremental_keep: 3
+    mail_notification: false
+    backup_compression: "lzo"
+    mailnotification_only_on_error: true
+  tasks:
+    - name: Install Vzdump Conf
+      ansible.builtin.package:
+        name: "{{ _packages }}"
+        state: present
+
+    - name: Render configuration
+      ansible.builtin.template:
+        src: vzdump.conf.j2
+        dest: "{{ _dest }}"
+        owner: root
+        group: root
+        mode: '0644'
+      vars:
+        nodes: "{{ nodes }}"
+        mailto: "{{ mailto }}"
+        mailfrom: "{{ mailfrom }}"
+        proxy_url: "{{ proxy_url }}"
+        verify_ssl: "{{ verify_ssl }}"
+        backup_mode: "{{ backup_mode }}"
+        incremental: "{{ incremental }}"
+        skipcleanup: "{{ skipcleanup }}"
+        backup_cores: "{{ backup_cores }}"
+        enable_purge: "{{ enable_purge }}"
+        enable_resume: "{{ enable_resume }}"
+        backup_storage: "{{ backup_storage }}"
+        backup_timeout: "{{ backup_timeout }}"
+        backup_maxfiles: "{{ backup_maxfiles }}"
+        backup_priority: "{{ backup_priority }}"
+        enable_snapshot: "{{ enable_snapshot }}"
+        exclude_storages: "{{ exclude_storages }}"
+        incremental_keep: "{{ incremental_keep }}"
+        mail_notification: "{{ mail_notification }}"
+        backup_compression: "{{ backup_compression }}"
+        mailnotification_only_on_error: "{{ mailnotification_only_on_error }}"
+
+    - name: Enable and restart Vzdump Conf
+      ansible.builtin.service:
+        name: "{{ _service }}"
+        state: restarted
+        enabled: true
+      when: _service | length > 0

@@ -1,0 +1,54 @@
+- name: install-rygel.conf
+  hosts: all
+  become: true
+  vars:
+    _dest: "/etc/rygel.conf"
+    enabled: true
+    plugins: []
+    tracker:
+      enabled: false
+      metadata_extract: true
+    max_port: 7700
+    min_port: 7500
+    _service: ""
+    interface: ""
+    log_level: 2
+    media_dir: "/var/lib/rygel/media"
+    trash_dir: ""
+    device_name: "Rygel Media Server"
+    media_export:
+      uris: []
+      enabled: false
+    transcode_dir: "/var/lib/rygel/transcodes"
+    enable_transcoding: false
+    _packages: ["rygel"]
+  tasks:
+    - name: Install Rygel Conf
+      ansible.builtin.package:
+        name: "{{ _packages }}"
+        state: present
+
+    - name: Render configuration
+      ansible.builtin.template:
+        src: rygel.conf.j2
+        dest: "{{ _dest }}"
+      vars:
+        enabled: "{{ enabled }}"
+        plugins: "{{ plugins }}"
+        tracker: "{{ tracker }}"
+        max_port: "{{ max_port }}"
+        min_port: "{{ min_port }}"
+        interface: "{{ interface }}"
+        log_level: "{{ log_level }}"
+        media_dir: "{{ media_dir }}"
+        trash_dir: "{{ trash_dir }}"
+        device_name: "{{ device_name }}"
+        media_export: "{{ media_export }}"
+        transcode_dir: "{{ transcode_dir }}"
+        enable_transcoding: "{{ enable_transcoding }}"
+
+    - name: Enable and restart Rygel Conf
+      ansible.builtin.service:
+        name: "{{ _service | default('rygel') }}"
+        state: restarted
+        enabled: true

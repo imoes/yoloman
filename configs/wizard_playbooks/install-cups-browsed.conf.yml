@@ -1,0 +1,60 @@
+- name: install-cups-browsed.conf
+  hosts: all
+  become: true
+  vars:
+    timeout: 30
+    log_file: ""
+    printers: []
+    log_level: "warn"
+    local_only: true
+    max_retries: 3
+    convertpcltops: false
+    retry_interval: 60
+    default_options: []
+    cups_local_server: "localhost"
+    create_remote_ppds: true
+    browse_local_protocols:
+      - "dnssd"
+      - "cups"
+    browse_remote_protocols:
+      - "cups"
+      - "ipp"
+    create_ipp_printer_queues: true
+    _service: ""
+    _dest: "/etc/cups/cups-browsed.conf"
+    _packages:
+      - "cups-browsed"
+  tasks:
+    - name: Install Cups Browsed Conf
+      ansible.builtin.package:
+        name: "{{ _packages }}"
+        state: present
+
+    - name: Render configuration
+      ansible.builtin.template:
+        src: cups-browsed.conf.j2
+        dest: "{{ _dest }}"
+        owner: root
+        group: root
+        mode: "0644"
+      vars:
+        timeout: "{{ timeout }}"
+        log_file: "{{ log_file }}"
+        printers: "{{ printers }}"
+        log_level: "{{ log_level }}"
+        local_only: "{{ local_only }}"
+        max_retries: "{{ max_retries }}"
+        convertpcltops: "{{ convertpcltops }}"
+        retry_interval: "{{ retry_interval }}"
+        default_options: "{{ default_options }}"
+        cups_local_server: "{{ cups_local_server }}"
+        create_remote_ppds: "{{ create_remote_ppds }}"
+        browse_local_protocols: "{{ browse_local_protocols }}"
+        browse_remote_protocols: "{{ browse_remote_protocols }}"
+        create_ipp_printer_queues: "{{ create_ipp_printer_queues }}"
+
+    - name: Enable and restart Cups Browsed Conf
+      ansible.builtin.service:
+        name: "{{ _service | default('cups-browsed') }}"
+        state: restarted
+        enabled: true

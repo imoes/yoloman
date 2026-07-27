@@ -1,0 +1,76 @@
+- name: install-fwupd.conf
+  hosts: all
+  become: true
+  vars:
+    _dest: "/etc/fwupd/fwupd.conf"
+    debug: false
+    _service: ""
+    conf_dir: "/etc/fwupd.conf.d"
+    ui_hints: true
+    _packages: ["fwupd"]
+    ca_bundle: "/etc/ssl/certs/ca-certificates.crt"
+    log_level: "info"
+    local_cache: true
+    min_battery: 50
+    auto_install: null
+    firmware_dir: ""
+    verification: true
+    auto_download: null
+    firmware_lock: false
+    metadata_path: ""
+    test_firmware: false
+    remote_enabled: true
+    allowed_remotes: []
+    ignore_versions: []
+    offline_updates: false
+    download_timeout: 300
+    enabled_device_types: []
+    vendor_metadata_path: ""
+    checksum_verification: true
+    disabled_device_types: []
+    max_concurrent_downloads: 3
+  tasks:
+    - name: Install Fwupd Conf
+      ansible.builtin.package:
+        name: "{{ _packages }}"
+        state: present
+
+    - name: Render configuration
+      ansible.builtin.template:
+        src: fwupd.conf.j2
+        dest: "{{ _dest }}"
+        owner: root
+        group: root
+        mode: '0644'
+      vars:
+        debug: "{{ debug }}"
+        conf_dir: "{{ conf_dir }}"
+        ui_hints: "{{ ui_hints }}"
+        ca_bundle: "{{ ca_bundle }}"
+        log_level: "{{ log_level }}"
+        local_cache: "{{ local_cache }}"
+        min_battery: "{{ min_battery }}"
+        auto_install: "{{ auto_install }}"
+        firmware_dir: "{{ firmware_dir }}"
+        verification: "{{ verification }}"
+        auto_download: "{{ auto_download }}"
+        firmware_lock: "{{ firmware_lock }}"
+        metadata_path: "{{ metadata_path }}"
+        test_firmware: "{{ test_firmware }}"
+        remote_enabled: "{{ remote_enabled }}"
+        allowed_remotes: "{{ allowed_remotes }}"
+        ignore_versions: "{{ ignore_versions }}"
+        offline_updates: "{{ offline_updates }}"
+        download_timeout: "{{ download_timeout }}"
+        enabled_device_types: "{{ enabled_device_types }}"
+        vendor_metadata_path: "{{ vendor_metadata_path }}"
+        checksum_verification: "{{ checksum_verification }}"
+        disabled_device_types: "{{ disabled_device_types }}"
+        max_concurrent_downloads: "{{ max_concurrent_downloads }}"
+
+    - name: Enable and restart Fwupd Conf
+      ansible.builtin.service:
+        name: "{{ _service }}"
+        state: restarted
+        enabled: true
+      when: _service | length > 0

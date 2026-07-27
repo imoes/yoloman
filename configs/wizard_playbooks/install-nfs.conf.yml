@@ -1,0 +1,66 @@
+- name: install-nfs.conf
+  hosts: all
+  become: true
+  vars:
+    _dest: /etc/nfs.conf
+    _service: nfs-server
+    _packages:
+      - nfs-kernel-server
+    nfsd_tcp: y
+    nfsd_udp: n
+    nfsd_port: 2049
+    nfsd_rdma: n
+    lockd_port: 0
+    nfsd_vers3: y
+    nfsd_vers4: y
+    statd_port: 0
+    mountd_port: 0
+    nfsd_threads: 8
+    nfsd_vers4_1: y
+    nfsd_vers4_2: y
+    lockd_udp_port: 0
+    nfsd_rdma_port: 20049
+    nfsd_grace_time: 90
+    nfsd_lease_time: 90
+    pipefs_directory: /run/rpc_pipefs
+    gssd_use_gss_proxy: n
+    mountd_manage_gids: n
+    statd_outgoing_port: 0
+  tasks:
+    - name: Install NFS Server
+      ansible.builtin.package:
+        name: "{{ _packages }}"
+        state: present
+
+    - name: Render configuration
+      ansible.builtin.template:
+        src: nfs.conf.j2
+        dest: "{{ _dest }}"
+        mode: "0644"
+      vars:
+        nfsd_tcp: "{{ nfsd_tcp }}"
+        nfsd_udp: "{{ nfsd_udp }}"
+        nfsd_port: "{{ nfsd_port }}"
+        nfsd_rdma: "{{ nfsd_rdma }}"
+        lockd_port: "{{ lockd_port }}"
+        nfsd_vers3: "{{ nfsd_vers3 }}"
+        nfsd_vers4: "{{ nfsd_vers4 }}"
+        statd_port: "{{ statd_port }}"
+        mountd_port: "{{ mountd_port }}"
+        nfsd_threads: "{{ nfsd_threads }}"
+        nfsd_vers4_1: "{{ nfsd_vers4_1 }}"
+        nfsd_vers4_2: "{{ nfsd_vers4_2 }}"
+        lockd_udp_port: "{{ lockd_udp_port }}"
+        nfsd_rdma_port: "{{ nfsd_rdma_port }}"
+        nfsd_grace_time: "{{ nfsd_grace_time }}"
+        nfsd_lease_time: "{{ nfsd_lease_time }}"
+        pipefs_directory: "{{ pipefs_directory }}"
+        gssd_use_gss_proxy: "{{ gssd_use_gss_proxy }}"
+        mountd_manage_gids: "{{ mountd_manage_gids }}"
+        statd_outgoing_port: "{{ statd_outgoing_port }}"
+
+    - name: Enable and restart NFS Server
+      ansible.builtin.service:
+        name: "{{ _service }}"
+        state: restarted
+        enabled: true

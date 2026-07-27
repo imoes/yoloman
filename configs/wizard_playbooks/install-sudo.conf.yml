@@ -1,0 +1,61 @@
+- name: install-sudo.conf
+  hosts: all
+  become: true
+  vars:
+    logfile: /var/log/sudo.log
+    plugins: []
+    timeout: 15
+    tmpfile: /etc/sudoers.tmp
+    env_keep:
+      - TERM
+      - LANG
+      - LC_ALL
+      - LC_MESSAGES
+      - SUDO_USER
+      - LOGNAME
+      - USER
+      - HOME
+    log_input: false
+    log_output: false
+    requiretty: true
+    sudoers_dir: /etc
+    passwd_tries: 3
+    timestampdir: /var/db/sudo
+  tasks:
+    - name: Install Sudo Conf
+      ansible.builtin.package:
+        name:
+          - sudo
+        state: present
+
+    - name: Render configuration
+      ansible.builtin.template:
+        src: sudo.conf.j2
+        dest: /etc/sudo.conf
+        mode: '0644'
+      vars:
+        logfile: /var/log/sudo.log
+        plugins: []
+        timeout: 15
+        tmpfile: /etc/sudoers.tmp
+        env_keep:
+          - TERM
+          - LANG
+          - LC_ALL
+          - LC_MESSAGES
+          - SUDO_USER
+          - LOGNAME
+          - USER
+          - HOME
+        log_input: false
+        log_output: false
+        requiretty: true
+        sudoers_dir: /etc
+        passwd_tries: 3
+        timestampdir: /var/db/sudo
+
+    - name: Enable and restart Sudo Conf
+      ansible.builtin.service:
+        name: ""
+        state: restarted
+        enabled: true

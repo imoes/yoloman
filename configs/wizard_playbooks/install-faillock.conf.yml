@@ -1,0 +1,51 @@
+- name: install-faillock.conf
+  hosts: all
+  become: true
+  vars:
+    dir: /run/faillock
+    deny: 6
+    audit: true
+    silent: false
+    preauth: false
+    deny_root: false
+    deny_users: []
+    allow_users: []
+    deny_groups: []
+    enable_deny: false
+    unlock_time: 600
+    allow_groups: []
+    fail_interval: 900
+  tasks:
+    - name: Install Faillock Conf
+      ansible.builtin.package:
+        name:
+          - libpam-modules
+        state: present
+
+    - name: Render configuration
+      ansible.builtin.template:
+        src: faillock.conf.j2
+        dest: /etc/security/faillock.conf
+        owner: root
+        group: root
+        mode: '0644'
+      vars:
+        dir: /run/faillock
+        deny: 6
+        audit: true
+        silent: false
+        preauth: false
+        deny_root: false
+        deny_users: []
+        allow_users: []
+        deny_groups: []
+        enable_deny: false
+        unlock_time: 600
+        allow_groups: []
+        fail_interval: 900
+
+    - name: Enable and restart Faillock Conf
+      ansible.builtin.service:
+        name: ""
+        state: restarted
+        enabled: true

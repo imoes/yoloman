@@ -1,0 +1,27 @@
+- name: install-adminer
+  hosts: all
+  become: true
+  vars:
+    _dest: "/etc/apache2/conf-available/adminer.conf"
+    _service: "apache2"
+    _packages:
+      - adminer
+    adminer_alias_path: "/etc/adminer"
+  tasks:
+    - name: Install Adminer (DB admin)
+      ansible.builtin.package:
+        name: "{{ _packages }}"
+        state: present
+
+    - name: Render configuration
+      ansible.builtin.template:
+        src: adminer.j2
+        dest: "{{ _dest }}"
+      vars:
+        adminer_alias_path: "{{ adminer_alias_path }}"
+
+    - name: Enable and restart Adminer (DB admin)
+      ansible.builtin.service:
+        name: "{{ _service }}"
+        state: restarted
+        enabled: true

@@ -1,0 +1,32 @@
+- name: install-pam_env.conf
+  hosts: all
+  become: true
+  vars:
+    vars: []
+  tasks:
+    - name: Install Pam Env Conf
+      ansible.builtin.package:
+        name: "{{ _packages }}"
+        state: present
+      vars:
+        _packages: ["libpam-modules"]
+
+    - name: Render configuration
+      ansible.builtin.template:
+        src: pam_env.conf.j2
+        dest: "{{ _dest }}"
+        owner: root
+        group: root
+        mode: '0644'
+      vars:
+        vars: "{{ vars }}"
+      vars:
+        _dest: "/etc/security/pam_env.conf"
+
+    - name: Enable and restart Pam Env Conf
+      ansible.builtin.service:
+        name: "{{ _service }}"
+        state: restarted
+        enabled: true
+      vars:
+        _service: ""

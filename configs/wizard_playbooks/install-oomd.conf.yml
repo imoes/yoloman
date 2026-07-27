@@ -1,0 +1,39 @@
+- name: install-oomd.conf
+  hosts: all
+  become: true
+  vars:
+    _dest: /etc/systemd/oomd.conf
+    _service: ""
+    _packages:
+      - systemd-oomd
+    cpu_quota: ""
+    cpu_shares: ""
+    exec_start: /usr/lib/systemd/systemd-oomd
+    memory_max: ""
+    memory_high: ""
+    environment_file: /etc/systemd/oomd.env
+  tasks:
+    - name: Install Oomd Conf
+      ansible.builtin.package:
+        name: "{{ _packages }}"
+        state: present
+
+    - name: Render configuration
+      ansible.builtin.template:
+        src: oomd.conf.j2
+        dest: "{{ _dest }}"
+        mode: "0644"
+      vars:
+        cpu_quota: "{{ cpu_quota }}"
+        cpu_shares: "{{ cpu_shares }}"
+        exec_start: "{{ exec_start }}"
+        memory_max: "{{ memory_max }}"
+        memory_high: "{{ memory_high }}"
+        environment_file: "{{ environment_file }}"
+
+    - name: Enable and restart Oomd Conf
+      ansible.builtin.service:
+        name: "{{ _service | default('systemd-oomd') }}"
+        state: restarted
+        enabled: true
+      when: _service != "" or ansible_facts['service_mgr'] == 'systemd'

@@ -139,6 +139,7 @@ async def execute_runbook(
         flat_steps, include_vars = await _expand_role_calls(session, doc.steps)
         doc = nt_runbook.Runbook(
             name=doc.name, targets=doc.targets, parameters=getattr(doc, "parameters", {}) or {}, steps=flat_steps,
+            handlers=getattr(doc, "handlers", []) or [],
         )
 
     magic = await gather_magic_vars(client, agent)

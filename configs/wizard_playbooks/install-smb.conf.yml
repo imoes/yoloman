@@ -1,0 +1,85 @@
+- name: install-smb.conf
+  hosts: all
+  become: true
+  vars:
+    _dest: /etc/samba/smb.conf
+    shares:
+      - name: homes
+        path: /home
+        guest_ok: false
+        browsable: true
+        read_only: false
+        force_user: "%U"
+        create_mask: "0640"
+        description: Home directories
+        force_group: "%U"
+        valid_users:
+          - "%S"
+        directory_mask: "0750"
+    _service: ""
+    timezone: UTC
+    _packages:
+      - samba
+    log_level: 1
+    workgroup: WORKGROUP
+    hosts_deny:
+      - all
+    interfaces:
+      - lo
+      - eth0
+    hosts_allow:
+      - 127.0.0.1
+    time_server: false
+    log_file_path: /var/log/samba/log.%m
+    security_mode: user
+    server_string: Samba Server
+    max_open_files: 16384
+    passdb_backend: tdbsam
+    socket_options:
+      - SO_RCVBUF=65536
+      - SO_SNDBUF=65536
+      - TCP_NODELAY
+    max_connections: 100
+    max_log_size_kb: 5000
+    server_max_protocol: SMB3
+    server_min_protocol: SMB2
+    bind_interfaces_only: true
+  tasks:
+    - name: Install Smb Conf
+      ansible.builtin.package:
+        name: "{{ _packages }}"
+        state: present
+
+    - name: Render configuration
+      ansible.builtin.template:
+        src: smb.conf.j2
+        dest: "{{ _dest }}"
+        owner: root
+        group: root
+        mode: "0644"
+      vars:
+        shares: "{{ shares }}"
+        timezone: "{{ timezone }}"
+        log_level: "{{ log_level }}"
+        workgroup: "{{ workgroup }}"
+        hosts_deny: "{{ hosts_deny }}"
+        interfaces: "{{ interfaces }}"
+        hosts_allow: "{{ hosts_allow }}"
+        time_server: "{{ time_server }}"
+        log_file_path: "{{ log_file_path }}"
+        security_mode: "{{ security_mode }}"
+        server_string: "{{ server_string }}"
+        max_open_files: "{{ max_open_files }}"
+        passdb_backend: "{{ passdb_backend }}"
+        socket_options: "{{ socket_options }}"
+        max_connections: "{{ max_connections }}"
+        max_log_size_kb: "{{ max_log_size_kb }}"
+        server_max_protocol: "{{ server_max_protocol }}"
+        server_min_protocol: "{{ server_min_protocol }}"
+        bind_interfaces_only: "{{ bind_interfaces_only }}"
+
+    - name: Enable and restart Smb Conf
+      ansible.builtin.service:
+        name: "{{ _service | default('smbd') }}"
+        state: restarted
+        enabled: true

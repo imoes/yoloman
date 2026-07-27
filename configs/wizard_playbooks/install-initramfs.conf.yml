@@ -1,0 +1,75 @@
+- name: install-initramfs.conf
+  hosts: all
+  become: true
+  vars:
+    root: "UUID=auto"
+    debug: false
+    hooks:
+      - base
+      - setup
+      - resume
+      - local
+    quiet: true
+    device: ""
+    modules: "dep"
+    compress: "gzip"
+    keep_old: true
+    blacklist: []
+    rootdelay: 0
+    addmodules: []
+    extrahooks: []
+    post_build: ""
+    pre_stream: []
+    rootfstype: "ext4"
+    all_kernels: true
+    removehooks: []
+    modules_list: []
+    use_plymouth: false
+    kernel_append: ""
+    compressoptions: []
+    _dest: "/etc/initramfs-tools/initramfs.conf"
+    _packages:
+      - initramfs-tools-core
+    _service: ""
+  tasks:
+    - name: Install Initramfs Conf
+      ansible.builtin.package:
+        name: "{{ _packages }}"
+        state: present
+
+    - name: Render configuration
+      ansible.builtin.template:
+        src: initramfs.conf.j2
+        dest: "{{ _dest }}"
+        owner: root
+        group: root
+        mode: '0644'
+      vars:
+        root: "{{ root }}"
+        debug: "{{ debug }}"
+        hooks: "{{ hooks }}"
+        quiet: "{{ quiet }}"
+        device: "{{ device }}"
+        modules: "{{ modules }}"
+        compress: "{{ compress }}"
+        keep_old: "{{ keep_old }}"
+        blacklist: "{{ blacklist }}"
+        rootdelay: "{{ rootdelay }}"
+        addmodules: "{{ addmodules }}"
+        extrahooks: "{{ extrahooks }}"
+        post_build: "{{ post_build }}"
+        pre_stream: "{{ pre_stream }}"
+        rootfstype: "{{ rootfstype }}"
+        all_kernels: "{{ all_kernels }}"
+        removehooks: "{{ removehooks }}"
+        modules_list: "{{ modules_list }}"
+        use_plymouth: "{{ use_plymouth }}"
+        kernel_append: "{{ kernel_append }}"
+        compressoptions: "{{ compressoptions }}"
+
+    - name: Enable and restart Initramfs Conf
+      ansible.builtin.service:
+        name: "{{ _service }}"
+        state: restarted
+        enabled: true
+      when: _service | length > 0

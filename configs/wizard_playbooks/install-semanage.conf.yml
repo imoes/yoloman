@@ -1,0 +1,39 @@
+- name: install-semanage.conf
+  hosts: all
+  become: true
+  vars:
+    _dest: "/etc/selinux/semanage.conf"
+    use_dbm: true
+    _service: ""
+    _packages:
+      - "libsemanage-common"
+    log_level: "error"
+    local_store: "/etc/selinux/targeted/active"
+    policy_store: "/etc/selinux/targeted/policy"
+    fragment_dirs: []
+    max_cache_size: 0
+    boolean_defaults: []
+  tasks:
+    - name: Install Semanage Conf
+      ansible.builtin.package:
+        name: "{{ _packages }}"
+        state: present
+
+    - name: Render configuration
+      ansible.builtin.template:
+        src: semanage.conf.j2
+        dest: "{{ _dest }}"
+      vars:
+        use_dbm: "{{ use_dbm }}"
+        log_level: "{{ log_level }}"
+        local_store: "{{ local_store }}"
+        policy_store: "{{ policy_store }}"
+        fragment_dirs: "{{ fragment_dirs }}"
+        max_cache_size: "{{ max_cache_size }}"
+        boolean_defaults: "{{ boolean_defaults }}"
+
+    - name: Enable and restart Semanage Conf
+      ansible.builtin.service:
+        name: "{{ _service }}"
+        state: restarted
+        enabled: true

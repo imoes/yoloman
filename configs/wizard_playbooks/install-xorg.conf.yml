@@ -1,0 +1,42 @@
+- name: install-xorg.conf
+  hosts: all
+  become: true
+  vars:
+    dpms_off: 1800
+    server_dpi: 96
+    dpms_standby: 600
+    dpms_suspend: 900
+    display_width: 1920
+    display_height: 1080
+    loaded_modules:
+      - dri
+      - glx
+    display_color_depth: 24
+    use_display_power_management: false
+  tasks:
+    - name: Install Xorg Conf
+      ansible.builtin.package:
+        name:
+          - xorgxrdp
+        state: present
+
+    - name: Render configuration
+      ansible.builtin.template:
+        src: xorg.conf.j2
+        dest: /etc/X11/xrdp/xorg.conf
+      vars:
+        dpms_off: "{{ dpms_off }}"
+        server_dpi: "{{ server_dpi }}"
+        dpms_standby: "{{ dpms_standby }}"
+        dpms_suspend: "{{ dpms_suspend }}"
+        display_width: "{{ display_width }}"
+        display_height: "{{ display_height }}"
+        loaded_modules: "{{ loaded_modules }}"
+        display_color_depth: "{{ display_color_depth }}"
+        use_display_power_management: "{{ use_display_power_management }}"
+
+    - name: Enable and restart Xorg Conf
+      ansible.builtin.service:
+        name: ""
+        state: restarted
+        enabled: true

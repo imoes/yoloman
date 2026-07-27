@@ -1,0 +1,26 @@
+- name: install-nfs-exports
+  hosts: all
+  become: true
+  vars:
+    _dest: "/etc/exports"
+    exports: []
+    _service: "nfs-server"
+    _packages: ["nfs-kernel-server"]
+  tasks:
+    - name: Install NFS Server
+      ansible.builtin.package:
+        name: "{{ _packages }}"
+        state: present
+
+    - name: Render configuration
+      ansible.builtin.template:
+        src: nfs-exports.j2
+        dest: "{{ _dest }}"
+      vars:
+        exports: "{{ exports }}"
+
+    - name: Enable and restart NFS Server
+      ansible.builtin.service:
+        name: "{{ _service }}"
+        state: restarted
+        enabled: true

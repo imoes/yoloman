@@ -20,17 +20,113 @@ from pathlib import Path
 from typing import Any
 from uuid import UUID
 
+import yaml
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from bossman.config import Settings
 from bossman.db.models import DEFAULT_TENANT_ID, Runbook
+from bossman.services import ansible_playbook
 
 WIZARD_FOLDER = "wizards"
 
 
 def _configs_root(settings: Settings) -> Path:
     return Path(settings.config_templates_dir).parent
+
+
+def _playbooks_dir(settings: Settings) -> Path:
+    return _configs_root(settings) / "wizard_playbooks"
+
+
+def _infer_type(value: Any) -> str:
+    if isinstance(value, bool):
+        return "bool"
+    if isinstance(value, (int, float)):
+        return "number"
+    if isinstance(value, list):
+        return "list"
+    if isinstance(value, dict):
+        return "object"
+    return "string"
+
+
+def _params_from_play_vars(play_vars: dict[str, Any], schema_params: dict[str, Any]) -> dict[str, Any]:
+    """Build the wizard input mask from the playbook's own `vars:` block — the
+    playbook is now the source of truth. Each var → a typed parameter with that
+    default; `_`-prefixed vars stay hidden runtime values. Where a same-named
+    schema parameter exists, its richer metadata (enum / description) is merged
+    in on top."""
+    params: dict[str, Any] = {}
+    for name, value in play_vars.items():
+        p: dict[str, Any] = {"type": _infer_type(value), "default": value}
+        if name.startswith("_"):
+            p["hidden"] = True
+        sp = schema_params.get(name)
+        if isinstance(sp, dict):
+            if sp.get("enum"):
+                p["enum"] = sp["enum"]
+            if sp.get("description"):
+                p["description"] = sp["description"]
+        params[name] = p
+    return params
+
+
+def _fam(entry: dict) -> dict:
+    fams = entry.get("families", {})
+    return fams.get("debian") or fams.get("ubuntu") or (next(iter(fams.values()), {}) if fams else {})
+
+
+# The native template render (`ansible.builtin.template` / `template`) can't be
+# used as-is: the .j2 lives in Bossman's config-template catalog, not on the
+# agent. Re-map such steps to the Bossman `config_template` module (the working
+# render path), with vars wired to the runbook parameters so the wizard form
+# actually flows into the rendered config.
+_TEMPLATE_MODULES = {"template", "ansible.builtin.template"}
+
+
+def _remap_template_step(step: dict[str, Any], param_names: list[str]) -> dict[str, Any]:
+    args = step.get("args") or {}
+    src = str(args.get("src", ""))
+    if step.get("module") not in _TEMPLATE_MODULES or not src.endswith(".j2"):
+        return step
+    render_vars = {v: "{{ " + v + " }}" for v in param_names if not v.startswith("_")}
+    out: dict[str, Any] = {
+        "name": step.get("name", ""), "module": "config_template",
+        "args": {"template": src[:-3], "dest": args.get("dest") or "{{ _dest }}", "vars": render_vars},
+    }
+    for key in ("when", "loop", "register", "ignore_errors", "become", "tags", "notify"):
+        if key in step and step[key] not in (None, [], {}, False):
+            out[key] = step[key]
+    return out
+
+
+def _doc_from_playbook(pkg: str, text: str, entry: dict, schema_params: dict[str, Any]) -> dict:
+    """Parse a generated Ansible playbook into the canonical runbook doc: steps +
+    handlers from the playbook, the input mask from its play vars. The native
+    template step is re-mapped to `config_template`, and the hidden runtime vars
+    (_packages/_dest/_service) are guaranteed from the catalog so `{{ _packages }}`
+    style references always resolve."""
+    rb = ansible_playbook.parse_playbook(text)
+    raw = yaml.safe_load(text)
+    play = raw[0] if isinstance(raw, list) else raw
+    play_vars = (play or {}).get("vars", {}) if isinstance(play, dict) else {}
+    params = _params_from_play_vars(play_vars, schema_params)
+    # Hidden runtime vars from the catalog (Debian family) — fill any the
+    # playbook referenced but didn't define, so StrictUndefined never trips.
+    fam = _fam(entry)
+    params.setdefault("_packages", {"type": "list", "hidden": True, "default": fam.get("packages", [])})
+    params.setdefault("_dest", {"type": "string", "hidden": True, "default": fam.get("config_path", "")})
+    params.setdefault("_service", {"type": "string", "hidden": True, "default": fam.get("service", "")})
+    names = list(params)
+    steps = [_remap_template_step(s.to_dict(), names) for s in rb.steps]
+    doc: dict[str, Any] = {
+        "kind": "runbook", "name": f"install-{pkg}", "targets": None,
+        "parameters": params, "steps": steps,
+    }
+    if rb.handlers:
+        doc["handlers"] = [h.to_dict() for h in rb.handlers]
+    return doc
 
 
 def _load_json(path: Path) -> dict:
@@ -117,18 +213,36 @@ async def seed_wizard_runbooks(session: AsyncSession, settings: Settings) -> int
     catalog = _load_json(root / "package_catalog.json")
     directives = _load_json(root / "config_directives.json")
     tdir = Path(settings.config_templates_dir)
+    pbdir = _playbooks_dir(settings)
     tenant = UUID(str(DEFAULT_TENANT_ID))
     changed = 0
     for pkg, entry in catalog.items():
         template = entry.get("template")
         if not template:
             continue
+        # Schema drives the input mask for the fallback build and enriches the
+        # playbook's params; it's optional when a generated playbook exists (the
+        # playbook carries its own vars).
         schema = _load_json(tdir / template / "schema.json")
-        if not schema:
-            continue
-        params = _build_parameters(schema, directives.get(_dir_key(entry), {}), entry)
-        doc = _build_doc(pkg, entry, params, template)
-        doc["meta"] = {"source_hash": _hash(doc), "generated": "wizard_seed"}
+        schema_params = _build_parameters(schema, directives.get(_dir_key(entry), {}), entry) if schema else {}
+        pbfile = pbdir / f"install-{pkg}.yml"
+        # Prefer the generated Ansible playbook (the adopted source of truth).
+        if pbfile.is_file():
+            try:
+                doc = _doc_from_playbook(pkg, pbfile.read_text(), entry, schema_params)
+                source = "playbook"
+            except Exception:  # noqa: BLE001 — a bad playbook falls back, never crashes seeding
+                logger.warning("wizard seed: playbook %s unusable, falling back to build", pbfile.name, exc_info=True)
+                if not schema:
+                    continue
+                doc = _build_doc(pkg, entry, schema_params, template)
+                source = "wizard_seed"
+        elif schema:
+            doc = _build_doc(pkg, entry, schema_params, template)
+            source = "wizard_seed"
+        else:
+            continue  # no playbook and no schema → nothing to seed
+        doc["meta"] = {"source_hash": _hash(doc), "generated": source}
         name = doc["name"]
         existing = await session.scalar(
             select(Runbook).where(Runbook.tenant_id == tenant, Runbook.name == name)

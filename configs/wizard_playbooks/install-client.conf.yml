@@ -1,0 +1,51 @@
+- name: install-client.conf
+  hosts: all
+  become: true
+  vars:
+    user: ""
+    encryption: "IfRequested"
+    server_name: "localhost"
+    ssl_options: []
+    allow_any_root: true
+    digest_options: "None"
+    validate_certs: false
+    gss_service_name: "http"
+    user_agent_tokens: "Minimal"
+    trust_on_first_use: true
+    allow_expired_certs: false
+    _dest: "/etc/pulse/client.conf"
+    _service: ""
+    _packages:
+      - "libpulse0"
+  tasks:
+    - name: Install Client Conf
+      ansible.builtin.package:
+        name: "{{ _packages }}"
+        state: present
+
+    - name: Render configuration
+      ansible.builtin.template:
+        src: client.conf.j2
+        dest: "{{ _dest }}"
+        owner: root
+        group: root
+        mode: "0644"
+      vars:
+        user: "{{ user }}"
+        encryption: "{{ encryption }}"
+        server_name: "{{ server_name }}"
+        ssl_options: "{{ ssl_options }}"
+        allow_any_root: "{{ allow_any_root }}"
+        digest_options: "{{ digest_options }}"
+        validate_certs: "{{ validate_certs }}"
+        gss_service_name: "{{ gss_service_name }}"
+        user_agent_tokens: "{{ user_agent_tokens }}"
+        trust_on_first_use: "{{ trust_on_first_use }}"
+        allow_expired_certs: "{{ allow_expired_certs }}"
+
+    - name: Enable and restart Client Conf
+      ansible.builtin.service:
+        name: "{{ _service }}"
+        state: restarted
+        enabled: true
+      when: _service | length > 0

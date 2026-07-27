@@ -1,0 +1,38 @@
+- name: install-ucf.conf
+  hosts: all
+  become: true
+  vars:
+    DEBUG: 0
+    VERBOSE: 0
+    conf_source_dir: /var/lib/ucf
+    conf_force_conffnew: ""
+    conf_force_conffold: ""
+    conf_old_mdsum_file: ""
+    _dest: /etc/ucf.conf
+    _service: ""
+    _packages:
+      - ucf
+  tasks:
+    - name: Install Ucf Conf
+      ansible.builtin.package:
+        name: "{{ _packages }}"
+        state: present
+
+    - name: Render configuration
+      ansible.builtin.template:
+        src: ucf.conf.j2
+        dest: "{{ _dest }}"
+      vars:
+        DEBUG: "{{ DEBUG }}"
+        VERBOSE: "{{ VERBOSE }}"
+        conf_source_dir: "{{ conf_source_dir }}"
+        conf_force_conffnew: "{{ conf_force_conffnew }}"
+        conf_force_conffold: "{{ conf_force_conffold }}"
+        conf_old_mdsum_file: "{{ conf_old_mdsum_file }}"
+
+    - name: Enable and restart Ucf Conf
+      ansible.builtin.service:
+        name: "{{ _service }}"
+        state: restarted
+        enabled: true
+      when: _service | length > 0

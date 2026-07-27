@@ -1,0 +1,34 @@
+- name: install-iocost.conf
+  hosts: all
+  become: true
+  vars:
+    _dest: /etc/udev/iocost.conf
+    _service: ""
+    _packages:
+      - udev
+    io_cost_weight: 1000
+    io_cost_devices: []
+    io_cost_enabled: true
+    io_cost_algorithm: linear
+  tasks:
+    - name: Install Iocost Conf
+      ansible.builtin.package:
+        name: "{{ _packages }}"
+        state: present
+
+    - name: Render configuration
+      ansible.builtin.template:
+        src: iocost.conf.j2
+        dest: "{{ _dest }}"
+      vars:
+        io_cost_weight: "{{ io_cost_weight }}"
+        io_cost_devices: "{{ io_cost_devices }}"
+        io_cost_enabled: "{{ io_cost_enabled }}"
+        io_cost_algorithm: "{{ io_cost_algorithm }}"
+
+    - name: Enable and restart Iocost Conf
+      ansible.builtin.service:
+        name: "{{ _service }}"
+        state: restarted
+        enabled: true
+      when: _service | length > 0

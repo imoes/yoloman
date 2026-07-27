@@ -1,0 +1,67 @@
+- name: install-haproxy
+  hosts: all
+  become: true
+  vars:
+    hsts: false
+    mode: http
+    user: haproxy
+    _dest: /etc/haproxy/haproxy.cfg
+    group: haproxy
+    maxconn: 2000
+    _service: haproxy
+    _packages:
+      - haproxy
+    http_port: 80
+    log_level: global
+    https_port: 443
+    ssl_ciphers: ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305
+    tls_enabled: false
+    backend_name: web_servers
+    ssl_cert_pem: /etc/haproxy/certs/site.pem
+    timeout_client: 50000ms
+    timeout_server: 50000ms
+    backend_servers: []
+    ssl_min_version: TLSv1.2
+    timeout_connect: 5000ms
+    balance_algorithm: roundrobin
+    redirect_to_https: false
+  tasks:
+    - name: Install HAProxy Load Balancer
+      ansible.builtin.package:
+        name: "{{ _packages }}"
+        state: present
+
+    - name: Render configuration
+      ansible.builtin.template:
+        src: haproxy.j2
+        dest: "{{ _dest }}"
+        mode: '0644'
+      vars:
+        hsts: "{{ hsts }}"
+        mode: "{{ mode }}"
+        user: "{{ user }}"
+        group: "{{ group }}"
+        maxconn: "{{ maxconn }}"
+        http_port: "{{ http_port }}"
+        log_level: "{{ log_level }}"
+        https_port: "{{ https_port }}"
+        ssl_ciphers: "{{ ssl_ciphers }}"
+        tls_enabled: "{{ tls_enabled }}"
+        backend_name: "{{ backend_name }}"
+        ssl_cert_pem: "{{ ssl_cert_pem }}"
+        timeout_client: "{{ timeout_client }}"
+        timeout_server: "{{ timeout_server }}"
+        backend_servers: "{{ backend_servers }}"
+        ssl_min_version: "{{ ssl_min_version }}"
+        timeout_connect: "{{ timeout_connect }}"
+        balance_algorithm: "{{ balance_algorithm }}"
+        redirect_to_https: "{{ redirect_to_https }}"
+
+    - name: Validate configuration
+      ansible.builtin.command: haproxy -c -f /etc/haproxy/haproxy.cfg
+
+    - name: Enable and restart HAProxy Load Balancer
+      ansible.builtin.service:
+        name: "{{ _service }}"
+        state: restarted
+        enabled: true

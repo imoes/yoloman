@@ -1,0 +1,59 @@
+- name: install-memcached
+  hosts: all
+  become: true
+  vars:
+    timeout: 30
+    pid_file: /var/run/memcached/memcached.pid
+    tcp_port: 11211
+    udp_port: 0
+    daemonize: false
+    listen_ip: 127.0.0.1
+    memory_mb: 64
+    verbosity: 0
+    extra_args: []
+    daemon_mode: false
+    enable_sasl: false
+    run_as_user: memcache
+    storage_dirs: []
+    disable_locking: false
+    max_connections: 1024
+    enable_memcached: "yes"
+    max_item_size_mb: 1
+    slab_page_size_mb: 1
+    slab_growth_factor: 1.25
+  tasks:
+    - name: Install Memcached
+      ansible.builtin.package:
+        name: ["memcached"]
+        state: present
+
+    - name: Render configuration
+      ansible.builtin.template:
+        src: memcached.j2
+        dest: /etc/memcached.conf
+      vars:
+        timeout: "{{ timeout }}"
+        pid_file: "{{ pid_file }}"
+        tcp_port: "{{ tcp_port }}"
+        udp_port: "{{ udp_port }}"
+        daemonize: "{{ daemonize }}"
+        listen_ip: "{{ listen_ip }}"
+        memory_mb: "{{ memory_mb }}"
+        verbosity: "{{ verbosity }}"
+        extra_args: "{{ extra_args }}"
+        daemon_mode: "{{ daemon_mode }}"
+        enable_sasl: "{{ enable_sasl }}"
+        run_as_user: "{{ run_as_user }}"
+        storage_dirs: "{{ storage_dirs }}"
+        disable_locking: "{{ disable_locking }}"
+        max_connections: "{{ max_connections }}"
+        enable_memcached: "{{ enable_memcached }}"
+        max_item_size_mb: "{{ max_item_size_mb }}"
+        slab_page_size_mb: "{{ slab_page_size_mb }}"
+        slab_growth_factor: "{{ slab_growth_factor }}"
+
+    - name: Enable and restart Memcached
+      ansible.builtin.service:
+        name: memcached
+        state: restarted
+        enabled: true
