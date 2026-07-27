@@ -131,7 +131,7 @@ async def helm_schema(
     _identity=Depends(require_manage_agent), client_factory=Depends(get_client_factory),
 ) -> dict[str, Any]:
     r = await _helm_resource(agent_id, name, namespace, session, settings, client_factory)
-    return {"resource_key": r.resource_key, "type": r.resource_type, "schema": r.schema()}
+    return {"resource_key": r.resource_key, "type": r.resource_type, "schema": await r.schema_async()}
 
 
 @router.get("/api/v1/agents/{agent_id}/resources/helm/{name}/observe")
@@ -141,7 +141,9 @@ async def helm_observe(
     _identity=Depends(require_manage_agent), client_factory=Depends(get_client_factory),
 ) -> dict[str, Any]:
     r = await _helm_resource(agent_id, name, namespace, session, settings, client_factory)
-    return {"resource_key": r.resource_key, "observed": await r.observe()}
+    # schema first: it derives the per-value fields (and the flatten index observe uses)
+    schema = await r.schema_async()
+    return {"resource_key": r.resource_key, "observed": await r.observe(), "schema": schema}
 
 
 @router.post("/api/v1/agents/{agent_id}/resources/helm/{name}/plan")

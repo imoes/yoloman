@@ -39,7 +39,6 @@ import { HostChecksComponent } from './host-checks.component';
 import { HostConsoleComponent } from './host-console.component';
 import { TopologyComponent } from '../topology/topology.component';
 import { HostManagementComponent } from './management/host-management.component';
-import { HostExplainComponent } from './host-explain.component';
 import { KubernetesDeployComponent } from './kubernetes-deploy.component';
 import { StandaloneOverviewComponent } from '../../standalone/standalone-overview.component';
 import { DesiredStateReportComponent, ConfigDesiredResource } from '../../shared/components/desired-state-report/desired-state-report.component';
@@ -126,7 +125,6 @@ function serviceMetricSpec(name: string, metric: string): { members: string[]; m
     HostConsoleComponent,
     TopologyComponent,
     HostManagementComponent,
-    HostExplainComponent,
     KubernetesDeployComponent,
     MetricChartComponent,
     MetricGaugeComponent,
@@ -1200,11 +1198,6 @@ function serviceMetricSpec(name: string, metric: string): { members: string[]; m
               <app-host-management [agentId]="agent.id" />
             </div>
           </ng-template></mat-tab>
-          <mat-tab label="Explain"><ng-template matTabContent>
-            <div class="bm-tab-content">
-              <app-host-explain [agentId]="agent.id" />
-            </div>
-          </ng-template></mat-tab>
           <mat-tab label="Kubernetes"><ng-template matTabContent>
             <div class="bm-tab-content">
               <app-kubernetes-deploy [agentId]="agent.id" />
@@ -2080,7 +2073,7 @@ export class HostDetailComponent implements OnInit {
 
   // Tabs in template order; a ?tab= query param (e.g. from the Overview
   // problems panel → Services) selects the initial tab.
-  private readonly tabOrder = ['overview', 'services', 'inventory', 'configuration', 'checks', 'console', 'relationships', 'ebpf', 'processes', 'runs', 'management', 'explain', 'kubernetes'];
+  private readonly tabOrder = ['overview', 'services', 'inventory', 'configuration', 'checks', 'console', 'relationships', 'ebpf', 'processes', 'runs', 'management', 'kubernetes'];
   initialTabIndex = 0;
 
   ngOnInit(): void {

@@ -16,7 +16,7 @@ from typing import Any
 
 import yaml
 
-from bossman.services import helm_app
+from bossman.services import config_schema, helm_app
 from bossman.services.resources import base
 
 _FIELDS = ["chart", "values"]
@@ -44,9 +44,43 @@ class HelmReleaseResource:
         self.name = name
         self.namespace = namespace or "default"
         self.resource_key = f"helm:{agent.id}:{self.namespace}:{name}"
+        self._index: dict[str, list[str]] = {}   # flat key → exact segments
+        self._schema: dict[str, Any] = {}
+
+    async def schema_async(self) -> dict[str, Any]:
+        """The release's value surface BROKEN OUT — one typed field per value, not
+        one JSON blob. Derived from `helm get values -a`, i.e. the chart defaults
+        merged with the user's overrides = every value actually in effect, so the
+        form shows what CAN be set and what it currently is.
+
+        Uses the same generic flatten/derive helpers as the config tier, so a value
+        key containing dots (`kubernetes.io/ingress.class`) still round-trips
+        exactly — the index keeps each key's original segments."""
+        allv = await self._all_values()
+        if not allv:
+            self._schema = {}
+            return {}
+        flat, index = config_schema.flatten(allv)
+        self._index = index
+        self._schema = config_schema.derive_schema(allv)
+        return self._schema
 
     def schema(self) -> dict[str, Any]:
-        return _SCHEMA
+        """Sync half of the contract — the static shape until schema_async ran."""
+        return self._schema or _SCHEMA
+
+    async def _all_values(self) -> dict[str, Any]:
+        """ALL values in effect (chart defaults + overrides): `helm get values -a`.
+        This is the full option surface the form should expose."""
+        data = await _cmd(self._cf(self._agent, self._settings),
+                          ["helm", "get", "values", self.name, "-n", self.namespace, "-a", "-o", "yaml"])
+        if data.get("rc") != 0:
+            return {}
+        try:
+            parsed = yaml.safe_load(data.get("stdout") or "") or {}
+            return parsed if isinstance(parsed, dict) else {}
+        except yaml.YAMLError:
+            return {}
 
     async def _live_values(self) -> dict[str, Any]:
         """User-supplied values of the deployed release (helm get values)."""
@@ -65,10 +99,15 @@ class HelmReleaseResource:
         rel = await helm_app.list_releases(self._agent, self._cf, self._settings)
         for r in rel.get("releases") or []:
             if r.get("name") == self.name and r.get("namespace") == self.namespace:
+                allv = await self._all_values()
+                flat, index = config_schema.flatten(allv)
+                self._index = index
                 return {
                     "name": self.name, "namespace": self.namespace,
                     "chart": r.get("chart"), "status": r.get("status"), "revision": r.get("revision"),
-                    "values": await self._live_values(),
+                    "values": await self._live_values(),   # user-supplied overrides
+                    "all_values": allv,                     # defaults + overrides
+                    "flat_values": flat,                    # what the per-value form binds to
                 }
         return None
 
@@ -85,10 +124,21 @@ class HelmReleaseResource:
         plan = await self.plan(desired)
         if dry_run:
             return {"dry_run": True, "plan": plan}
-        values_yaml = yaml.safe_dump(desired.get("values") or {}, default_flow_style=False, sort_keys=False) \
-            if desired.get("values") else ""
+        # the form posts FLAT dotted keys; inflate through the index so a key that
+        # itself contains dots (kubernetes.io/…) is restored exactly
+        vals = config_schema.inflate(desired.get("values") or {}, self._index,
+                                     (plan.get("observed") or {}).get("all_values"))
+        values_yaml = yaml.safe_dump(vals, default_flow_style=False, sort_keys=False) if vals else ""
+        # `helm upgrade` needs the chart REFERENCE, which a deployed release does not
+        # expose (helm list reports "name-version"). Editing values from the node
+        # therefore reuses the chart recorded by the last apply.
+        chart = desired.get("chart") or await self._last_chart()
+        if not chart:
+            return {"dry_run": False, "ok": False, "plan": plan,
+                    "error": "no chart reference: this release was not deployed through the resource API, "
+                             "so pass `chart` explicitly (helm upgrade needs it)"}
         res = await helm_app.install_release(
-            self._agent, self._cf, self._settings, name=self.name, chart=desired.get("chart", ""),
+            self._agent, self._cf, self._settings, name=self.name, chart=chart,
             values_yaml=values_yaml, namespace=self.namespace, create_namespace=True,
         )
         if not res.get("ok"):
@@ -96,9 +146,17 @@ class HelmReleaseResource:
         gen = await base.record_generation(
             self._session, self.resource_key, self.resource_type,
             {"name": self.name, "namespace": self.namespace,
-             "chart": desired.get("chart"), "values": desired.get("values") or {}}, note=note,
+             "chart": chart, "values": desired.get("values") or {}}, note=note,
         )
         return {"dry_run": False, "ok": True, "generation": gen, "plan": plan}
+
+    async def _last_chart(self) -> str:
+        """The chart reference from the most recent recorded apply."""
+        for gen in await base.list_generations(self._session, self.resource_key):
+            chart = (gen.get("spec") or {}).get("chart")
+            if chart:
+                return str(chart)
+        return ""
 
     async def generations(self) -> list[dict[str, Any]]:
         return await base.list_generations(self._session, self.resource_key)

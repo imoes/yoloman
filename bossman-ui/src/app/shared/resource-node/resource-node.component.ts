@@ -127,7 +127,7 @@ export class ResourceNodeComponent implements OnInit {
     const s = { ...this.schema() } as Record<string, unknown>;
     // config's schema is one field PER DIRECTIVE, so a real directive named
     // "path"/"format" must survive — no identity strip for that tier.
-    if (this.kind() !== 'config') {
+    if (this.kind() !== 'config' && this.kind() !== 'helm') {
       for (const k of ResourceNodeComponent.IDENTITY) delete s[k];
     }
     return s as ParamSchema;
@@ -136,7 +136,8 @@ export class ResourceNodeComponent implements OnInit {
     const o = this.observed();
     if (!o) return {};
     // config: the form's dotted keys live in flat_values, not on the observed root
-    const src = (this.kind() === 'config' ? (o['flat_values'] as Record<string, unknown>) : o) || {};
+    const perValue = this.kind() === 'config' || this.kind() === 'helm';
+    const src = (perValue ? (o['flat_values'] as Record<string, unknown>) : o) || {};
     const out: Record<string, unknown> = {};
     for (const k of Object.keys(this.formSchema())) if (src[k] !== undefined) out[k] = src[k];
     return out;
@@ -144,7 +145,10 @@ export class ResourceNodeComponent implements OnInit {
   summary = computed(() => {
     const o = this.observed() || {};
     if (o['image']) return o['image'] as string;
-    if (o['chart']) return o['chart'] as string;
+    if (o['chart']) {
+      const n = Object.keys((o['flat_values'] as object) || {}).length;
+      return n ? `${o['chart']} · ${n} values` : (o['chart'] as string);
+    }
     // count DIRECTIVES (flat_values), not top-level sections — an ini file would
     // otherwise report "3 keys" meaning 3 sections.
     if (o['format']) return `${o['format']} · ${Object.keys((o['flat_values'] as object) || (o['values'] as object) || {}).length} settings`;
@@ -191,7 +195,12 @@ export class ResourceNodeComponent implements OnInit {
    * `values` envelope (ConfigSpec) — without this wrap the flat keys would land at
    * top level, `values` would be empty, and plan/apply would silently no-op. */
   private desired(): Record<string, unknown> {
-    return this.kind() === 'config' ? { values: this.form() } : this.form();
+    // config and helm both expose ONE FIELD PER VALUE, so the flat form has to go
+    // back inside the tier's `values` envelope — posting the flat keys at top level
+    // would leave `values` empty and make plan/apply silently no-op.
+    if (this.kind() === 'config') return { values: this.form() };
+    if (this.kind() === 'helm') return { chart: '', values: this.form() };  // chart: reused from history
+    return this.form();
   }
 
   changedList(p: ResourcePlan): { key: string; from: unknown; to: unknown }[] {
