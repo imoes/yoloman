@@ -9,7 +9,7 @@ import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import * as monaco from 'monaco-editor';
 import { SequentialWorkflowDesignerModule } from 'sequential-workflow-designer-angular';
-import { Definition, Step, StepsConfiguration, ToolboxConfiguration, DefinitionChangedEvent } from 'sequential-workflow-designer';
+import { Definition, Step, StepsConfiguration, ToolboxConfiguration } from 'sequential-workflow-designer';
 import { environment } from '../../../environments/environment';
 import { Agent } from '../../core/models/agent.model';
 import { ModuleOptionSpec } from '../../core/models/module.model';
@@ -18,6 +18,12 @@ import { ModuleService } from '../../core/services/module.service';
 import { DialogService } from '../../shared/dialogs/dialog.service';
 import { ParamFormComponent } from '../../shared/param-form/param-form.component';
 import { ParamSchema } from '../../shared/param-form/param-form.types';
+import * as Blockly from 'blockly';
+import { BlocklyWorkspaceComponent } from './blockly/blockly-workspace.component';
+import { registerRunbookBlocks } from './blockly/blocks';
+import { buildRunbookToolbox } from './blockly/toolbox';
+import { workspaceToSteps } from './blockly/generator';
+import { stepsToWorkspace } from './blockly/importer';
 
 // Monaco locally (no CDN). We lint server-side (/runbooks/lint), so Monaco's
 // own language workers aren't needed — a no-op worker keeps the editor from
@@ -120,7 +126,7 @@ const MAGIC_VARS = [
 @Component({
   selector: 'app-runbook-editor',
   standalone: true,
-  imports: [DatePipe, FormsModule, MatButtonModule, MatIconModule, MatFormFieldModule, MatInputModule, MatSelectModule, SequentialWorkflowDesignerModule, ParamFormComponent],
+  imports: [DatePipe, FormsModule, MatButtonModule, MatIconModule, MatFormFieldModule, MatInputModule, MatSelectModule, SequentialWorkflowDesignerModule, ParamFormComponent, BlocklyWorkspaceComponent],
   template: `
     <div class="bm-page">
       <div class="bm-header-row">
@@ -178,118 +184,19 @@ const MAGIC_VARS = [
                 <mat-label>Targets</mat-label>
                 <input matInput [(ngModel)]="visualTargets" (ngModelChange)="syncVisual()" placeholder="group:web-servers" />
               </mat-form-field>
-              <span class="bm-dim">Search the toolbox for a module and drag it onto the canvas; click a step to configure it with its real options.</span>
+              <span class="bm-dim">Build the runbook from blocks — pick a step from the toolbox, fill its fields; the NestedText stays in sync. Switch to Text any time.</span>
             </div>
             <div class="bm-canvas-row">
-              <!-- Blockly-style module palette: search, click to place — no drag needed -->
-              <aside class="bm-palette">
-                <input class="bm-palette-search" placeholder="Search modules…"
-                       [ngModel]="paletteQuery()" (ngModelChange)="paletteQuery.set($event)" />
-                <div class="bm-palette-list">
-                  @for (m of paletteHits(); track m.ref) {
-                    <button type="button" class="bm-palette-item" (click)="addModuleStep(m)" [title]="m.desc">
-                      <span class="bm-mono">{{ m.name }}</span>
-                      @if (m.desc) { <span class="bm-palette-desc">{{ m.desc }}</span> }
-                    </button>
-                  } @empty {
-                    <p class="bm-dim" style="padding:8px">No module matches.</p>
-                  }
-                </div>
-                <p class="bm-dim bm-palette-hint">Click a module to append it as a step, then click the step on the canvas to fill in its parameters.</p>
-              </aside>
               @if (visualReady()) {
-                <sqd-designer class="bm-designer"
-                  theme="dark"
-                  [definition]="definition"
-                  [toolboxConfiguration]="toolbox"
-                  [stepsConfiguration]="stepsConfig"
-                  [controlBar]="true"
-                  [rootEditor]="rootEditor"
-                  [stepEditor]="stepEditor"
-                  (onDefinitionChanged)="onVisualChanged($event)"
-                ></sqd-designer>
+                <app-blockly-workspace class="bm-designer"
+                  [toolbox]="blocklyToolbox"
+                  (ready)="onBlocklyReady($event)"
+                  (workspaceChange)="onBlocklyChange()"
+                ></app-blockly-workspace>
               } @else {
                 <div class="bm-designer bm-designer-loading"><span class="bm-dim">Preparing canvas…</span></div>
               }
             </div>
-
-            <ng-template #rootEditor>
-              <div class="bm-veditor">
-                <h4>Runbook</h4>
-                <p class="bm-dim">Drag steps from the toolbox onto the canvas, then click a step to configure it.
-                  The NestedText regenerates as you edit — switch to Text any time; both views stay in sync.</p>
-              </div>
-            </ng-template>
-
-            <ng-template #stepEditor let-editor>
-              <div class="bm-veditor">
-                <h4 class="bm-mono">{{ editor.step.properties['module'] || editor.step.type }}</h4>
-                @if (moduleDesc(argModule(editor.step)); as md) { <p class="bm-arg-desc">{{ md }}</p> }
-                <label>Step name
-                  <input [(ngModel)]="editor.step.name" (ngModelChange)="editor.context.notifyNameChanged(); syncVisual()" />
-                </label>
-                @switch (editor.step.type) {
-                  @case ('set_fact') {
-                    <label>Facts (JSON)
-                      <textarea rows="5" [(ngModel)]="editor.step.properties['facts']" (ngModelChange)="editor.context.notifyPropertiesChanged(); syncVisual()" placeholder='{"web_pkg":"nginx"}'></textarea>
-                    </label>
-                  }
-                  @case ('debug') {
-                    <label>Message
-                      <input [(ngModel)]="editor.step.properties['msg']" (ngModelChange)="editor.context.notifyPropertiesChanged(); syncVisual()" placeholder="installing &#36;&#123;web_pkg&#125;" />
-                    </label>
-                  }
-                  @default {
-                    <label>Module
-                      <input list="bm-mod-list" [(ngModel)]="editor.step.properties['module']" (ngModelChange)="editor.context.notifyPropertiesChanged(); syncVisual()" placeholder="apt, service, file…" />
-                    </label>
-                    <datalist id="bm-mod-list">
-                      @for (m of moduleNames(); track m) { <option [value]="m"></option> }
-                    </datalist>
-
-                    <!-- The module's real options, as a form -->
-                    @if (argFields(argModule(editor.step)); as fields) {
-                      @if (fields.length) { <div class="bm-arg-h">Options</div> }
-                      @for (f of fields; track f.key) {
-                        <label>{{ f.key }}@if (f.spec.required) { <span class="bm-req">*</span> }
-                          @if (f.spec.choices?.length) {
-                            <select [ngModel]="argValue(editor.step, f.key)" (ngModelChange)="setArg(editor.step, f.key, $event, editor)">
-                              <option value=""></option>
-                              @for (c of f.spec.choices; track c) { <option [value]="c">{{ c }}</option> }
-                            </select>
-                          } @else {
-                            <input [ngModel]="argValue(editor.step, f.key)" (ngModelChange)="setArg(editor.step, f.key, $event, editor)"
-                                   [placeholder]="argPlaceholder(f.spec)" />
-                          }
-                          @if (f.spec.description) { <span class="bm-arg-desc">{{ descText(f.spec.description) }}</span> }
-                        </label>
-                      }
-                      @if (argModule(editor.step) && !fields.length && argspecLoaded(argModule(editor.step))) {
-                        <p class="bm-dim">No declared options — set args below.</p>
-                      }
-                    }
-                    <details class="bm-arg-raw">
-                      <summary>Raw args (JSON)</summary>
-                      <textarea rows="4" [ngModel]="argJson(editor.step)" (ngModelChange)="setArgJson(editor.step, $event, editor)"></textarea>
-                    </details>
-                  }
-                }
-                <div class="bm-arg-h">Flow</div>
-                <label>when — run only if
-                  <input [(ngModel)]="editor.step.properties['when']" (ngModelChange)="editor.context.notifyPropertiesChanged(); syncVisual()" placeholder="e.g. result.changed" />
-                </label>
-                <label>loop — repeat per item
-                  <input [(ngModel)]="editor.step.properties['loop']" (ngModelChange)="editor.context.notifyPropertiesChanged(); syncVisual()" placeholder='&#36;&#123;list_var&#125; or ["a","b"]' />
-                </label>
-                <label>register — save result as
-                  <input [(ngModel)]="editor.step.properties['register']" (ngModelChange)="editor.context.notifyPropertiesChanged(); syncVisual()" placeholder="variable name" />
-                </label>
-                <label class="bm-arg-check">
-                  <input type="checkbox" [(ngModel)]="editor.step.properties['ignore_errors']" (ngModelChange)="editor.context.notifyPropertiesChanged(); syncVisual()" />
-                  ignore errors (continue on failure)
-                </label>
-              </div>
-            </ng-template>
           }
           <div #editor class="bm-editor" [style.display]="mode() === 'text' ? 'block' : 'none'"></div>
 
@@ -393,7 +300,7 @@ const MAGIC_VARS = [
       .bm-mode button { border-radius: 0; }
       .bm-mode-on { background: color-mix(in srgb, var(--mat-sys-primary) 16%, transparent); font-weight: 600; }
       .bm-vbar { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; flex-wrap: wrap; }
-      .bm-canvas-row { display: grid; grid-template-columns: 280px 1fr; gap: 10px; margin-bottom: 10px; }
+      .bm-canvas-row { display: block; margin-bottom: 10px; }
       .bm-palette { border: 1px solid var(--mat-sys-outline-variant); border-radius: 8px; height: 560px; display: flex; flex-direction: column; }
       .bm-palette-search { margin: 8px; padding: 7px 10px; border-radius: 6px; border: 1px solid var(--mat-sys-outline-variant); background: var(--mat-sys-surface); color: inherit; font-size: 13px; }
       .bm-palette-list { flex: 1; overflow-y: auto; padding: 0 4px; }
@@ -498,6 +405,11 @@ export class RunbookEditorComponent implements OnInit, AfterViewInit, OnDestroy 
   visualReady = signal(false);
   visualName = 'my-runbook';
   visualTargets = '';
+  // Blockly visual designer (replaces sequential-workflow-designer). The canvas
+  // owns block editing; we only walk it to steps → NestedText and back.
+  blocklyToolbox = buildRunbookToolbox();
+  private blocklyWs?: Blockly.WorkspaceSvg;
+  private pendingSteps: DocStep[] | null = null;
   definition: Definition = { sequence: [], properties: {} };
   toolbox: ToolboxConfiguration = {
     groups: [{
@@ -724,80 +636,23 @@ export class RunbookEditorComponent implements OnInit, AfterViewInit, OnDestroy 
     setTimeout(() => this.ed?.layout(), 0);
   }
 
-  /** Build the visual canvas from the canonical parsed doc (text→visual). */
+  /** Build the visual canvas from the canonical parsed doc (text→visual). The
+   * workspace may not exist yet (the child renders one tick later), so stash the
+   * steps and import them on (ready). */
   private visualFromDoc(doc: RunbookDoc): void {
     this.visualName = doc.name || 'my-runbook';
     this.visualTargets = doc.targets || '';
-    const seq: Step[] = [];
-    for (const st of doc.steps ?? []) {
-      const props: Record<string, unknown> = {};
-      if (st.when) props['when'] = st.when;
-      if (st.register) props['register'] = st.register;
-      if (st.loop !== undefined && st.loop !== null) {
-        props['loop'] = typeof st.loop === 'string' ? st.loop : JSON.stringify(st.loop);
-      }
-      if (st.ignore_errors) props['ignore_errors'] = true;
-      if (st.module === 'set_fact') {
-        props['facts'] = JSON.stringify(st.args ?? {});
-        seq.push(vtask('set_fact', st.name || 'set_fact', props));
-      } else if (st.module === 'debug') {
-        props['msg'] = String((st.args ?? {})['msg'] ?? '');
-        seq.push(vtask('debug', st.name || 'debug', props));
-      } else {
-        props['module'] = st.module;
-        props['args'] = st.args ?? {};
-        seq.push(vtask('module', st.name || st.module, props));
-      }
-    }
-    this.definition = { sequence: seq, properties: {} };
+    this.pendingSteps = (doc.steps ?? []) as DocStep[];
+    if (this.blocklyWs) this.importSteps();
   }
 
-  onVisualChanged(e: DefinitionChangedEvent): void {
-    this.definition = e.definition;
-    this.syncVisual();
-  }
-
-  /** Serialize the visual definition into the NestedText runbook and write it
-   * into Monaco, so lint/dry-run/apply/save (all read source()) stay unchanged. */
+  /** Serialize the Blockly workspace into the NestedText runbook and write it
+   * into Monaco, so lint/dry-run/apply/save (all read source()) stay unchanged.
+   * Also called when the Name/Targets fields change. */
   syncVisual(): void {
-    const lines: string[] = [`name: ${this.visualName || 'my-runbook'}`];
-    if (this.visualTargets.trim()) lines.push(`targets: ${this.visualTargets.trim()}`);
-    lines.push('steps:');
-    for (const s of this.definition.sequence as Step[]) {
-      const p = s.properties as Record<string, unknown>;
-      let module = '';
-      let args: Record<string, unknown> = {};
-      switch (s.type) {
-        case 'set_fact': module = 'set_fact'; args = safeJson(String(p['facts'] ?? '')); break;
-        case 'debug': module = 'debug'; args = { msg: p['msg'] || '' }; break;
-        default: {
-          module = String(p['module'] || '');
-          const raw = p['args'];
-          args = typeof raw === 'string' ? safeJson(raw) : ((raw && typeof raw === 'object') ? raw as Record<string, unknown> : {});
-        }
-      }
-      lines.push('  -');
-      if (s.name) lines.push(`    name: ${s.name}`);
-      lines.push(`    module: ${module}`);
-      if (p['when']) lines.push(`    when: ${p['when']}`);
-      const loop = String(p['loop'] ?? '').trim();
-      if (loop) {
-        if (loop.startsWith('[')) {
-          try {
-            const items = JSON.parse(loop) as unknown[];
-            lines.push('    loop:');
-            for (const it of items) lines.push(`      - ${it}`);
-          } catch { lines.push(`    loop: ${loop}`); }
-        } else {
-          lines.push(`    loop: ${loop}`);
-        }
-      }
-      if (p['register']) lines.push(`    register: ${p['register']}`);
-      if (p['ignore_errors']) lines.push('    ignore_errors: true');
-      const argBlock = ntBlock(args, 6);
-      if (argBlock) { lines.push('    args:'); lines.push(argBlock); }
-    }
-    this.ed?.setValue(lines.join('\n') + '\n');
+    if (!this.blocklyWs) return;
+    const steps = workspaceToSteps(this.blocklyWs);
+    this.ed?.setValue(this.stepsToNt(steps));
   }
 
   /** Flatten runbooks into an indented folder tree honoring the expanded set. */
@@ -830,10 +685,61 @@ export class RunbookEditorComponent implements OnInit, AfterViewInit, OnDestroy 
   });
 
   ngOnInit(): void {
+    registerRunbookBlocks();   // define the Blockly runbook blocks once
     this.agentService.list().subscribe((a) => this.hosts.set(a));
     this.reloadList();
     this.loadRuns();
     this.buildToolbox();
+  }
+
+  // ---- Blockly visual designer wiring ----
+  onBlocklyReady(ws: Blockly.WorkspaceSvg): void {
+    this.blocklyWs = ws;
+    if (this.pendingSteps) this.importSteps();
+  }
+  onBlocklyChange(): void {
+    this.syncVisual();
+  }
+  /** Load the current runbook's steps into the workspace without echoing the
+   * import back as edits (events off → no change emit → no text rewrite). */
+  private importSteps(): void {
+    if (!this.blocklyWs) return;
+    Blockly.Events.disable();
+    try {
+      stepsToWorkspace(this.blocklyWs, this.pendingSteps ?? []);
+    } finally {
+      Blockly.Events.enable();
+    }
+  }
+  /** blocks → DocStep[] → NestedText, mirroring the old SWD serialization
+   * exactly so lint/dry-run/apply/save (all read source()) are unaffected. */
+  private stepsToNt(steps: DocStep[]): string {
+    const lines: string[] = [`name: ${this.visualName || 'my-runbook'}`];
+    if (this.visualTargets.trim()) lines.push(`targets: ${this.visualTargets.trim()}`);
+    lines.push('steps:');
+    for (const st of steps) {
+      lines.push('  -');
+      if (st.name) lines.push(`    name: ${st.name}`);
+      lines.push(`    module: ${st.module}`);
+      if (st.when) lines.push(`    when: ${st.when}`);
+      const loop = String(st.loop ?? '').trim();
+      if (loop) {
+        if (loop.startsWith('[')) {
+          try {
+            const items = JSON.parse(loop) as unknown[];
+            lines.push('    loop:');
+            for (const it of items) lines.push(`      - ${it}`);
+          } catch { lines.push(`    loop: ${loop}`); }
+        } else {
+          lines.push(`    loop: ${loop}`);
+        }
+      }
+      if (st.register) lines.push(`    register: ${st.register}`);
+      if (st.ignore_errors) lines.push('    ignore_errors: true');
+      const argBlock = ntBlock(st.args ?? {}, 6);
+      if (argBlock) { lines.push('    args:'); lines.push(argBlock); }
+    }
+    return lines.join('\n') + '\n';
   }
 
   private loadRuns(): void {
