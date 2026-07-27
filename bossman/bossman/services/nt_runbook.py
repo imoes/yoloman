@@ -106,6 +106,9 @@ class Runbook:
     # Typed input-mask schema (Block G11-wizard): {name: spec}, see
     # _parse_parameters. Drives the installation-wizard / run-dialog form.
     parameters: dict[str, Any] = field(default_factory=dict)
+    # Ansible handlers: named steps run once, at the end, iff a step that
+    # `notify`s them reported changed. Optional; empty on legacy docs.
+    handlers: list[Step] = field(default_factory=list)
 
     kind = "runbook"
 
@@ -114,6 +117,8 @@ class Runbook:
                              "steps": [s.to_dict() for s in self.steps]}
         if self.parameters:
             d["parameters"] = self.parameters
+        if self.handlers:
+            d["handlers"] = [h.to_dict() for h in self.handlers]
         return d
 
 
@@ -227,6 +232,15 @@ def _parse_steps(raw: Any) -> list[Step]:
     return [_parse_step(s, i) for i, s in enumerate(raw)]
 
 
+def _parse_handlers(raw: Any) -> list[Step]:
+    """Handlers are optional and shaped exactly like steps."""
+    if raw is None:
+        return []
+    if not isinstance(raw, list):
+        raise NTRunbookError("'handlers' must be a list")
+    return [_parse_step(s, i) for i, s in enumerate(raw)]
+
+
 def _str_list(raw: Any) -> list[str]:
     if raw is None:
         return []
@@ -267,7 +281,8 @@ def parse_data(data: Any, source: str = "<data>") -> Runbook | Role:
         raise NTRunbookError(f"{source}: a runbook needs a top-level 'name' (or 'role:' for a role)")
     return Runbook(name=str(name), targets=data.get("targets"),
                    parameters=_parse_parameters(data.get("parameters")),
-                   steps=_parse_steps(data.get("steps")))
+                   steps=_parse_steps(data.get("steps")),
+                   handlers=_parse_handlers(data.get("handlers")))
 
 
 def parse_file(path: str | Path) -> Runbook | Role:

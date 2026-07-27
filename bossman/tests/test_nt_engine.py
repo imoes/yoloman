@@ -150,3 +150,45 @@ async def test_jinja_filter_in_args():
     client = FakeClient()
     await run_runbook(rb, client, {})
     assert client.calls[0][1]["name"] == "curl"
+
+
+async def test_notify_runs_handler_on_change():
+    rb = parse_document(
+        "name: t\nsteps:\n"
+        "  -\n    name: drop config\n    module: template\n    notify:\n      - restart web\n    args:\n      dest: /etc/x\n"
+        "handlers:\n"
+        "  -\n    name: restart web\n    module: service\n    args:\n      name: nginx\n      state: restarted\n"
+    )
+    client = FakeClient({"template": {"changed": True}})
+    res = await run_runbook(rb, client)
+    # handler ran once, AFTER the task
+    assert [c[0] for c in client.calls] == ["template", "service"]
+    assert res.steps[-1].name == "restart web" and res.steps[-1].module == "service"
+
+
+async def test_notify_skips_handler_when_unchanged():
+    rb = parse_document(
+        "name: t\nsteps:\n"
+        "  -\n    name: drop config\n    module: template\n    notify:\n      - restart web\n    args:\n      dest: /etc/x\n"
+        "handlers:\n"
+        "  -\n    name: restart web\n    module: service\n    args:\n      name: nginx\n"
+    )
+    client = FakeClient({"template": {"changed": False}})   # no change -> handler not fired
+    res = await run_runbook(rb, client)
+    assert [c[0] for c in client.calls] == ["template"]
+    assert not any(s.name == "restart web" for s in res.steps)
+
+
+async def test_handlers_run_once_in_definition_order():
+    rb = parse_document(
+        "name: t\nsteps:\n"
+        "  -\n    name: a\n    module: template\n    notify:\n      - h2\n      - h1\n    args:\n      dest: /a\n"
+        "  -\n    name: b\n    module: template\n    notify:\n      - h1\n    args:\n      dest: /b\n"
+        "handlers:\n"
+        "  -\n    name: h1\n    module: command\n    args:\n      cmd: one\n"
+        "  -\n    name: h2\n    module: command\n    args:\n      cmd: two\n"
+    )
+    client = FakeClient({"template": {"changed": True}})
+    res = await run_runbook(rb, client)
+    handler_cmds = [c[1]["cmd"] for c in client.calls if c[0] == "command"]
+    assert handler_cmds == ["one", "two"]   # definition order, each once (not notify order)

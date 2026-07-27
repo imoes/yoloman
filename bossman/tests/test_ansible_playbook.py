@@ -83,6 +83,20 @@ def test_block_raises():
         ap.parse_playbook("- block:\n    - ping:\n")
 
 
+def test_handlers_section_parses_and_round_trips():
+    src = (
+        "name: web\ntargets: all\ntasks:\n"
+        "  - name: drop config\n    template: {dest: /etc/nginx.conf}\n    notify: [reload nginx]\n"
+        "handlers:\n"
+        "  - name: reload nginx\n    service: {name: nginx, state: reloaded}\n"
+    )
+    doc = _doc(src)
+    assert doc["steps"][0]["notify"] == ["reload nginx"]
+    assert doc["handlers"][0]["name"] == "reload nginx" and doc["handlers"][0]["module"] == "service"
+    # doc -> YAML -> doc keeps the handlers section
+    assert ap.parse_playbook(ap.doc_to_playbook(doc)).to_dict() == doc
+
+
 def test_ambiguous_two_module_keys_raises():
     with pytest.raises(ap.PlaybookError):
         ap.parse_playbook("- copy: {src: a, dest: b}\n  file: {path: c}\n")

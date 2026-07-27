@@ -36,7 +36,8 @@ _TASK_KEYWORDS = {
 _FREE_FORM = {"shell", "command", "raw", "script", "ansible.builtin.shell",
               "ansible.builtin.command", "ansible.builtin.raw", "ansible.builtin.script"}
 # Not supported by the task-list surface yet — fail loudly rather than silently drop.
-_UNSUPPORTED = {"block", "rescue", "always", "handlers"}
+# (handlers ARE supported, as a sibling `handlers:` section — not a task key.)
+_UNSUPPORTED = {"block", "rescue", "always"}
 # Role/task includes → our runbook-call step (module="runbook").
 _ROLE_CALL_KEYS = {"import_tasks", "include_tasks", "import_role", "include_role"}
 
@@ -124,11 +125,13 @@ def parse_playbook(text: str) -> Runbook:
     name = ""
     targets: str | None = None
     tasks: Any
+    handlers_raw: Any = None
 
     if isinstance(data, dict) and "tasks" in data:
         name = data.get("name", "") or ""
         targets = data.get("targets") or data.get("hosts")
         tasks = data.get("tasks")
+        handlers_raw = data.get("handlers")
     elif isinstance(data, list) and data and isinstance(data[0], dict) and "tasks" in data[0]:
         # a plays list — task-list surface supports a single play
         if len(data) > 1:
@@ -137,6 +140,7 @@ def parse_playbook(text: str) -> Runbook:
         name = play.get("name", "") or ""
         targets = play.get("hosts") or play.get("targets")
         tasks = play.get("tasks")
+        handlers_raw = play.get("handlers")
     elif isinstance(data, list):
         tasks = data
     else:
@@ -144,10 +148,13 @@ def parse_playbook(text: str) -> Runbook:
 
     if not isinstance(tasks, list) or not tasks:
         raise PlaybookError("'tasks' must be a non-empty list")
+    if handlers_raw is not None and not isinstance(handlers_raw, list):
+        raise PlaybookError("'handlers' must be a list")
 
     targets = str(targets) if targets is not None else None
     steps = [_task_to_step(t, i) for i, t in enumerate(tasks)]
-    return Runbook(name=name, steps=steps, targets=targets)
+    handlers = [_task_to_step(h, i) for i, h in enumerate(handlers_raw or [])]
+    return Runbook(name=name, steps=steps, targets=targets, handlers=handlers)
 
 
 def _step_to_task(step: dict[str, Any]) -> dict[str, Any]:
@@ -185,4 +192,6 @@ def doc_to_playbook(doc: dict[str, Any]) -> str:
     if doc.get("targets"):
         out["targets"] = doc["targets"]
     out["tasks"] = tasks
+    if doc.get("handlers"):
+        out["handlers"] = [_step_to_task(h) for h in doc["handlers"]]
     return yaml.safe_dump(out, sort_keys=False, default_flow_style=False, allow_unicode=True)

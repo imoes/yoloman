@@ -137,6 +137,8 @@ async def run_runbook(
     # Shared namespace for when:/register (like Ansible): starts as the vars.
     context: dict[str, Any] = dict(variables)
     out = RunResult(check_mode=check_mode)
+    # Handler names notified by a `changed` step, in first-notified order.
+    notified: list[str] = []
 
     for step in runbook.steps:
         # when: — a false condition skips the whole step (never a failure).
@@ -210,5 +212,49 @@ async def run_runbook(
 
         if step.register:
             context[step.register] = _summarize_register(iteration_results, looped)
+        # notify: a step that changed queues its handlers (Ansible fires on change).
+        if step.notify and any(r.status == "changed" for r in iteration_results):
+            for n in step.notify:
+                if n not in notified:
+                    notified.append(n)
+
+    # Handlers: each notified handler runs once, in definition order, after all
+    # tasks (like Ansible). A play that aborted above never reaches here.
+    for h in runbook.handlers:
+        if h.name not in notified:
+            continue
+        out.steps.append(await _run_handler(h, client, context, variables, templates or {}, check_mode))
 
     return out
+
+
+async def _run_handler(
+    h: Step, client: Any, context: dict[str, Any], variables: dict[str, Any],
+    templates: dict[str, str], check_mode: bool,
+) -> StepResult:
+    """Run a single notified handler (no loop; when/args/set_fact/config_template
+    honoured, mirroring a normal step)."""
+    if h.when is not None:
+        try:
+            if not eval_when(h.when, context):
+                return StepResult(name=h.name, module=h.module, status="skipped")
+        except WhenError as exc:
+            return StepResult(name=h.name, module=h.module, status="failed", error=f"when: {exc}")
+    args = substitute(h.args, dict(context))
+    if h.module == "set_fact":
+        context.update(args)
+        return StepResult(name=h.name, module="set_fact", status="ok", response={"ansible_facts": dict(args)})
+    if h.module == "config_template":
+        return await _apply_config_template(h, args, None, client, variables, templates, check_mode)
+    body = {**args, "dry_run": True} if check_mode else dict(args)
+    try:
+        resp = await client.call_tool(h.module, body)
+        if not isinstance(resp, dict):
+            resp = {"result": resp}
+        changed = resp.get("changed")
+        failed = bool(resp.get("failed")) or "error" in resp
+        status = "failed" if failed else ("changed" if changed else "ok")
+        return StepResult(name=h.name, module=h.module, status=status, changed=changed,
+                          response=resp, error=str(resp.get("error", "")) if failed else "")
+    except Exception as exc:  # noqa: BLE001 — recorded, not raised
+        return StepResult(name=h.name, module=h.module, status="failed", error=str(exc))
