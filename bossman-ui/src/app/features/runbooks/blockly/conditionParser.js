@@ -1,35 +1,31 @@
-import * as Blockly from 'blockly';
-import { newBlock } from './util';
+// awx-ng: best-effort parser for Ansible `when:` Jinja expressions into the
+// condition blocks defined in blocks.js (cond_var/cond_literal/cond_compare/
+// cond_test/cond_not/cond_logic). Covers the documented common patterns:
+// comparisons (== != > < >= <=), in/not in, and/or/not, "is [not] <test>",
+// parentheses, and a bare truthy variable. Anything outside this grammar
+// (filters like `| int`, list literals, function calls, string concat `~`,
+// jinja templating braces, …) makes parseConditionExpr() return null so the
+// caller falls back to a lossless cond_raw block holding the text verbatim —
+// same escape-hatch pattern as raw_task for whole unrecognized tasks.
+import { newBlock } from './blocklyUtil';
 
-/**
- * Best-effort parser for a `when:` Jinja expression into the condition blocks
- * (cond_var/cond_literal/cond_compare/cond_test/cond_not/cond_logic). Covers the
- * common patterns: comparisons (== != > < >= <=), in/not in, and/or/not,
- * "is [not] <test>", parentheses, and a bare truthy variable. Anything outside
- * this grammar makes parseConditionExpr return null → the caller falls back to a
- * lossless cond_raw block holding the text verbatim. Ported from the reference
- * conditionParser.js.
- */
+const KEYWORDS = { and: 'AND', or: 'OR', not: 'NOT', in: 'IN', is: 'IS' };
+const TEST_NAMES = new Set([
+  'defined', 'undefined', 'none', 'true', 'false', 'changed', 'failed', 'success', 'skipped',
+]);
 
-type Token =
-  | { t: 'LPAREN' } | { t: 'RPAREN' } | { t: 'AND' } | { t: 'OR' } | { t: 'NOT' } | { t: 'IN' } | { t: 'IS' }
-  | { t: 'OP'; v: string } | { t: 'STRING'; v: string } | { t: 'NUMBER'; v: string }
-  | { t: 'IDENT'; v: string } | { t: 'TESTNAME'; v: string };
-
-interface AstNode {
-  op: 'var' | 'literal' | 'compare' | 'test' | 'not' | 'and' | 'or';
-  v?: string; kind?: string; cmp?: string; test?: string; negate?: boolean;
-  a?: AstNode; b?: AstNode; subject?: AstNode;
+function isIdentStart(c) {
+  return /[A-Za-z_]/.test(c);
+}
+function isIdentPart(c) {
+  return /[A-Za-z0-9_]/.test(c);
 }
 
-const KEYWORDS: Record<string, Token['t']> = { and: 'AND', or: 'OR', not: 'NOT', in: 'IN', is: 'IS' };
-const TEST_NAMES = new Set(['defined', 'undefined', 'none', 'true', 'false', 'changed', 'failed', 'success', 'skipped']);
-
-const isIdentStart = (c: string) => /[A-Za-z_]/.test(c);
-const isIdentPart = (c: string) => /[A-Za-z0-9_]/.test(c);
-
-function tokenize(str: string): Token[] | null {
-  const tokens: Token[] = [];
+// Hand-written tokenizer (not one giant regex) so the "extend an identifier
+// through .dots and ['bracket'] segments" logic stays readable. Returns
+// null on any character it doesn't recognize.
+function tokenize(str) {
+  const tokens = [];
   const n = str.length;
   let i = 0;
   while (i < n) {
@@ -50,7 +46,7 @@ function tokenize(str: string): Token[] | null {
       while (j < n && str[j] !== quote) {
         if (str[j] === '\\' && j + 1 < n) { val += str[j + 1]; j += 2; } else { val += str[j]; j += 1; }
       }
-      if (j >= n) return null;   // unterminated string
+      if (j >= n) return null; // unterminated string literal
       tokens.push({ t: 'STRING', v: val });
       i = j + 1;
       continue;
@@ -66,8 +62,14 @@ function tokenize(str: string): Token[] | null {
       let j = i + 1;
       while (j < n && isIdentPart(str[j])) j += 1;
       const bareWord = str.slice(i, j);
-      if (KEYWORDS[bareWord]) { tokens.push({ t: KEYWORDS[bareWord] } as Token); i = j; continue; }
-      // Extend through .attr / ['key'] / [0] so dotted/bracket paths are one token.
+      if (KEYWORDS[bareWord]) {
+        tokens.push({ t: KEYWORDS[bareWord] });
+        i = j;
+        continue;
+      }
+      // Extend through .attr / ['key'] / [0] path segments so dotted/bracket
+      // variable paths (ansible_facts['distribution'], motd.stdout) become a
+      // single token — but only for words that AREN'T bare keywords/tests.
       let k = j;
       for (;;) {
         if (str[k] === '.' && isIdentStart(str[k + 1] || '')) {
@@ -81,23 +83,30 @@ function tokenize(str: string): Token[] | null {
         } else break;
       }
       const word = str.slice(i, k);
-      tokens.push(k === j && TEST_NAMES.has(word) ? { t: 'TESTNAME', v: word } : { t: 'IDENT', v: word });
+      if (k === j && TEST_NAMES.has(word)) {
+        tokens.push({ t: 'TESTNAME', v: word });
+      } else {
+        tokens.push({ t: 'IDENT', v: word });
+      }
       i = k;
       continue;
     }
-    return null;   // unrecognized character (filters, braces, …)
+    return null; // unrecognized character (filters, braces, operators we don't model, …)
   }
   return tokens;
 }
 
-function parseTokens(tokens: Token[]): AstNode | null {
+// Recursive-descent parser over the token stream, following (roughly) Jinja/
+// Python precedence: or < and < not < is-test < comparison < primary.
+function parseTokens(tokens) {
   let pos = 0;
   const peek = () => tokens[pos];
-  const advance = () => { pos += 1; return tokens[pos - 1]; };
+  const advance = () => tokens[pos += 1] && tokens[pos - 1];
 
-  function parseOr(): AstNode | null {
-    let node = parseAnd();
-    if (node === null) return null;
+  function parseOr() {
+    const left = parseAnd();
+    if (left === null) return null;
+    let node = left;
     while (peek() && peek().t === 'OR') {
       advance();
       const right = parseAnd();
@@ -106,9 +115,10 @@ function parseTokens(tokens: Token[]): AstNode | null {
     }
     return node;
   }
-  function parseAnd(): AstNode | null {
-    let node = parseNot();
-    if (node === null) return null;
+  function parseAnd() {
+    const left = parseNot();
+    if (left === null) return null;
+    let node = left;
     while (peek() && peek().t === 'AND') {
       advance();
       const right = parseNot();
@@ -117,7 +127,7 @@ function parseTokens(tokens: Token[]): AstNode | null {
     }
     return node;
   }
-  function parseNot(): AstNode | null {
+  function parseNot() {
     if (peek() && peek().t === 'NOT') {
       advance();
       const inner = parseNot();
@@ -126,7 +136,7 @@ function parseTokens(tokens: Token[]): AstNode | null {
     }
     return parseTest();
   }
-  function parseTest(): AstNode | null {
+  function parseTest() {
     const subject = parseCompare();
     if (subject === null) return null;
     if (peek() && peek().t === 'IS') {
@@ -140,7 +150,7 @@ function parseTokens(tokens: Token[]): AstNode | null {
     }
     return subject;
   }
-  function parseCompare(): AstNode | null {
+  function parseCompare() {
     const left = parsePrimary();
     if (left === null) return null;
     const nxt = peek();
@@ -164,7 +174,7 @@ function parseTokens(tokens: Token[]): AstNode | null {
     }
     return left;
   }
-  function parsePrimary(): AstNode | null {
+  function parsePrimary() {
     const tok = peek();
     if (!tok) return null;
     if (tok.t === 'LPAREN') {
@@ -175,9 +185,14 @@ function parseTokens(tokens: Token[]): AstNode | null {
       advance();
       return inner;
     }
+    // Tag the literal's original kind so an explicitly-quoted numeral (e.g.
+    // "6", common for string-typed facts like distribution_major_version)
+    // round-trips as a string, not a bare number — see astToBlock().
     if (tok.t === 'STRING') { advance(); return { op: 'literal', kind: 'string', v: tok.v }; }
     if (tok.t === 'NUMBER') { advance(); return { op: 'literal', kind: 'number', v: tok.v }; }
     if (tok.t === 'IDENT') { advance(); return { op: 'var', v: tok.v }; }
+    // A bare test name outside "is …" (e.g. "when: true") is just a variable-
+    // shaped truthy value from the generator's point of view.
     if (tok.t === 'TESTNAME') { advance(); return { op: 'var', v: tok.v }; }
     return null;
   }
@@ -187,8 +202,9 @@ function parseTokens(tokens: Token[]): AstNode | null {
   return result;
 }
 
-/** string → AST or null if unparseable (exported for focused unit tests). */
-export function parseConditionExpr(str: string): AstNode | null {
+// Public: string → AST (plain JS object) or null if unparseable. Exported
+// mainly for focused unit tests independent of Blockly block construction.
+export function parseConditionExpr(str) {
   const text = (str || '').trim();
   if (!text) return null;
   const tokens = tokenize(text);
@@ -196,52 +212,56 @@ export function parseConditionExpr(str: string): AstNode | null {
   return parseTokens(tokens);
 }
 
-function astToBlock(workspace: Blockly.Workspace, node: AstNode): Blockly.Block {
+function astToBlock(workspace, node) {
   switch (node.op) {
     case 'var': {
       const b = newBlock(workspace, 'cond_var');
-      b.setFieldValue(node.v ?? '', 'NAME');
+      b.setFieldValue(node.v, 'NAME');
       return b;
     }
     case 'literal': {
       const b = newBlock(workspace, 'cond_literal');
-      b.setFieldValue(node.kind === 'string' ? `"${node.v}"` : (node.v ?? ''), 'VALUE');
+      // A string-kind literal is stored WITH its quotes so the field itself
+      // shows what will be emitted (and a plain 6-that-was-really-a-string
+      // doesn't silently become an unquoted number on regeneration).
+      b.setFieldValue(node.kind === 'string' ? `"${node.v}"` : node.v, 'VALUE');
       return b;
     }
     case 'compare': {
       const b = newBlock(workspace, 'cond_compare');
-      b.setFieldValue(node.cmp ?? '==', 'OP');
-      b.getInput('LEFT')!.connection!.connect(astToBlock(workspace, node.a!).outputConnection!);
-      b.getInput('RIGHT')!.connection!.connect(astToBlock(workspace, node.b!).outputConnection!);
+      b.setFieldValue(node.cmp, 'OP');
+      b.getInput('LEFT').connection.connect(astToBlock(workspace, node.a).outputConnection);
+      b.getInput('RIGHT').connection.connect(astToBlock(workspace, node.b).outputConnection);
       return b;
     }
     case 'test': {
       const b = newBlock(workspace, 'cond_test');
-      b.setFieldValue(node.test ?? 'defined', 'TEST');
+      b.setFieldValue(node.test, 'TEST');
       b.setFieldValue(node.negate ? 'TRUE' : 'FALSE', 'NEGATE');
-      b.getInput('SUBJECT')!.connection!.connect(astToBlock(workspace, node.subject!).outputConnection!);
+      b.getInput('SUBJECT').connection.connect(astToBlock(workspace, node.subject).outputConnection);
       return b;
     }
     case 'not': {
       const b = newBlock(workspace, 'cond_not');
-      b.getInput('A')!.connection!.connect(astToBlock(workspace, node.a!).outputConnection!);
+      b.getInput('A').connection.connect(astToBlock(workspace, node.a).outputConnection);
       return b;
     }
     case 'and':
     case 'or': {
       const b = newBlock(workspace, 'cond_logic');
       b.setFieldValue(node.op, 'OP');
-      b.getInput('A')!.connection!.connect(astToBlock(workspace, node.a!).outputConnection!);
-      b.getInput('B')!.connection!.connect(astToBlock(workspace, node.b!).outputConnection!);
+      b.getInput('A').connection.connect(astToBlock(workspace, node.a).outputConnection);
+      b.getInput('B').connection.connect(astToBlock(workspace, node.b).outputConnection);
       return b;
     }
     default:
-      throw new Error(`conditionParser: unknown AST node op "${(node as AstNode).op}"`);
+      throw new Error(`conditionParser: unknown AST node op "${node.op}"`);
   }
 }
 
-/** string → Blockly block, NEVER null — cond_raw fallback keeps it lossless. */
-export function parseConditionToBlock(workspace: Blockly.Workspace, exprText: string): Blockly.Block {
+// Public: string → Blockly block, NEVER null — falls back to a cond_raw
+// block holding the text verbatim when it can't be decomposed (lossless).
+export function parseConditionToBlock(workspace, exprText) {
   const ast = parseConditionExpr(exprText);
   if (ast) return astToBlock(workspace, ast);
   const raw = newBlock(workspace, 'cond_raw');

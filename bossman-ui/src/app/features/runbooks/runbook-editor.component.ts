@@ -18,11 +18,12 @@ import { ParamFormComponent } from '../../shared/param-form/param-form.component
 import { ParamSchema } from '../../shared/param-form/param-form.types';
 import * as Blockly from 'blockly';
 import { BlocklyWorkspaceComponent } from './blockly/blockly-workspace.component';
-import { registerRunbookBlocks } from './blockly/blocks';
-import { buildRunbookToolbox } from './blockly/toolbox';
-import { workspaceToSteps } from './blockly/generator';
-import { stepsToWorkspace } from './blockly/importer';
-import { ArgFieldSpec, configureArgspec, notifyArgspec } from './blockly/argspec-bridge';
+import yaml from 'js-yaml';
+// Blockly runbook designer — ported 1:1 from ../ansible-manager (plain JS).
+import { registerBlocks } from './blockly/blocks';
+import { buildToolbox } from './blockly/toolbox';
+import { serializeWorkspace } from './blockly/ansibleGenerator';
+import { importTasksYaml } from './blockly/playbookImporter';
 
 // Monaco locally (no CDN). We lint server-side (/runbooks/lint), so Monaco's
 // own language workers aren't needed — a no-op worker keeps the editor from
@@ -67,20 +68,16 @@ function ntBlock(obj: Record<string, unknown>, indent: number): string {
 
 const STARTER = `name: web baseline
 targets: group:web-servers
-steps:
-  -
-    name: install nginx
-    module: apt
-    args:
+tasks:
+  - name: install nginx
+    apt:
       name: nginx
       state: present
-  -
-    name: reload if changed
-    module: service
-    when: dropped_config.changed
-    args:
+  - name: reload if changed
+    service:
       name: nginx
       state: reloaded
+    when: dropped_config.changed
 `;
 
 // Native fact names use the yoloman_ prefix (the agent also emits ansible_
@@ -354,163 +351,22 @@ export class RunbookEditorComponent implements OnInit, AfterViewInit, OnDestroy 
   visualReady = signal(false);
   visualName = 'my-runbook';
   visualTargets = '';
-  // Blockly visual designer (replaces sequential-workflow-designer). The canvas
-  // owns block editing; we only walk it to steps → NestedText and back.
-  blocklyToolbox = buildRunbookToolbox();
+  // Blockly visual designer — ported 1:1 from ../ansible-manager. The canvas owns
+  // block editing (per-module blocks from the committed catalog); visual↔text uses
+  // the reference serializeWorkspace/importTasksYaml over Ansible-task YAML.
+  blocklyToolbox: Blockly.utils.toolbox.ToolboxDefinition = buildToolbox([]) as Blockly.utils.toolbox.ToolboxDefinition;
   private blocklyWs?: Blockly.WorkspaceSvg;
-  private pendingSteps: DocStep[] | null = null;
+  private pendingText = '';   // Ansible-task YAML to import once the canvas mounts
 
-  // ---- module catalog: fqcn lookup + argspec cache (feed the Blockly argspec
-  // bridge; a module block loads its typed fields from these). ----
-  private fqcnByName = new Map<string, string>();
-  private argspecCache = signal<Record<string, ArgField[]>>({});
-  private argspecPending = new Set<string>();
-
-  /** Synchronous argspec read for the Blockly blocks (argspec-bridge). Maps the
-   * editor's cached ArgField[] to the bridge's ArgFieldSpec[]. */
-  private argspecProvider = (module: string): ArgFieldSpec[] | undefined => {
-    const cached = this.argspecCache()[module];
-    if (!cached) return undefined;
-    return cached.map((f) => ({
-      key: f.key,
-      type: f.spec.type,
-      required: f.spec.required,
-      choices: (f.spec.choices as unknown[]) ?? undefined,
-      default: f.spec.default,
-      description: this.descText(f.spec.description),
-    }));
-  };
-
-  constructor() {
-    // When an argspec finishes loading (cache updates), tell the Blockly bridge so
-    // any block waiting on that module upgrades its fields to typed dropdowns/
-    // checkboxes. notifyArgspec is idempotent, so re-notifying cached keys is free.
-    effect(() => {
-      const cache = this.argspecCache();
-      for (const key of Object.keys(cache)) notifyArgspec(key);
-    });
-  }
-
-  /** Load the module catalog into the fqcn lookup (module name → fqcn) that the
-   * argspec loader (argFields) resolves against. */
-  private buildToolbox(): void {
-    this.moduleService.catalog().subscribe((cat) => {
-      for (const m of cat.modules) {
-        if (m.fqcn.startsWith('checkmk.')) continue; // checks, not runbook modules
-        this.fqcnByName.set(m.name, m.fqcn);
-      }
-    });
-  }
-
-  /** The module's declared options (cached; fetched lazily on first render).
-   * Catalog (Starlark collection) modules come from the module detail; NATIVE
-   * Go modules (apt, service, file, …) aren't in the catalog — their schema is
-   * fetched from a host's GET /agents/{id}/tools (input_schema). */
-  argFields(module: string): ArgField[] {
-    if (!module) return [];
-    const cached = this.argspecCache()[module];
-    if (cached) return cached;
-    if (!this.argspecPending.has(module)) {
-      this.argspecPending.add(module);
-      const fqcn = module.includes('.') ? module : (this.fqcnByName.get(module) ?? module);
-      this.moduleService.detail(fqcn).subscribe({
-        next: (d) => {
-          const fields = Object.entries(d.metadata.options ?? {}).map(([key, spec]) => ({ key, spec }));
-          if (!fields.length) { this.agentSchemaFields(module); return; }
-          // Required options first, then alphabetical — the form reads top-down.
-          fields.sort((a, b) => Number(!!b.spec.required) - Number(!!a.spec.required) || a.key.localeCompare(b.key));
-          this.argspecCache.update((m) => ({ ...m, [module]: fields }));
-        },
-        error: () => this.agentSchemaFields(module),
-      });
-    }
-    return [];
-  }
-
-  // name -> {description, input_schema} from a live agent's tool list; loaded
-  // once per editor session (native modules are the same on every agent).
-  private agentTools: Record<string, { description?: string; input_schema?: { properties?: Record<string, Record<string, unknown>>; required?: string[] } }> | null = null;
-  private agentToolsLoading = false;
-  private agentToolsWaiters: string[] = [];
-
-  /** A host we can actually reach for native-module schemas: the selected one if
-   * it has an address, else the first agent WITH a non-null address. Skips
-   * address-less agents (the canvas/demo + satellites) whose /tools 422s
-   * ("no reachable address") — which left native modules (apt/service/…) stuck
-   * as plain text fields instead of typed dropdowns. */
-  private schemaHostId(): string {
-    const byId = (id: string) => this.hosts().find((h) => h.id === id);
-    const sel = this.hostId() ? byId(this.hostId()) : undefined;
-    if (sel?.address) return sel.id;
-    return this.hosts().find((h) => h.address)?.id ?? '';
-  }
-
-  /** Resolve a native module's options from an agent's tool schema. */
-  private agentSchemaFields(module: string): void {
-    if (this.agentTools) { this.finishAgentSchema(module); return; }
-    this.agentToolsWaiters.push(module);
-    if (this.agentToolsLoading) return;
-    const hid = this.schemaHostId();
-    if (!hid) { this.argspecCache.update((m) => ({ ...m, [module]: [] })); return; }
-    this.agentToolsLoading = true;
-    this.http.get<{ tools: { name: string; description?: string; input_schema?: { properties?: Record<string, Record<string, unknown>>; required?: string[] } }[] }>(
-      `${this.base}/agents/${hid}/tools`,
-    ).subscribe({
-      next: (r) => {
-        this.agentTools = Object.fromEntries((r.tools || []).map((t) => [t.name, t]));
-        for (const w of this.agentToolsWaiters) this.finishAgentSchema(w);
-        this.agentToolsWaiters = [];
-      },
-      error: () => {
-        this.agentTools = {};
-        for (const w of this.agentToolsWaiters) this.argspecCache.update((m) => ({ ...m, [w]: [] }));
-        this.agentToolsWaiters = [];
-      },
-    });
-  }
-
-  private finishAgentSchema(module: string): void {
-    const tool = this.agentTools?.[module];
-    const schema = tool?.input_schema;
-    const required = new Set(schema?.required ?? []);
-    const fields: ArgField[] = Object.entries(schema?.properties ?? {}).map(([key, s]) => ({
-      key,
-      spec: {
-        type: (s['type'] as string) ?? 'str',
-        description: this.descText(s['description']),
-        choices: (s['enum'] as unknown[]) ?? undefined,
-        default: s['default'],
-        required: required.has(key),
-      } as ModuleOptionSpec,
-    }));
-    fields.sort((a, b) => Number(!!b.spec.required) - Number(!!a.spec.required) || a.key.localeCompare(b.key));
-    this.argspecCache.update((m) => ({ ...m, [module]: fields }));
-  }
-  descText(d: unknown): string {
-    return Array.isArray(d) ? d.join(' ') : String(d ?? '');
-  }
-
-  /** Switch views. text→visual round-trips through the linter (canonical doc);
-   * an invalid document keeps you in text mode with the error marked. */
+  /** Switch views. text→visual imports the current Ansible-task YAML into blocks
+   * (client-side, via the ported importer); visual→text serialises back. */
   setMode(m: 'text' | 'visual'): void {
-    // Any mode switch disposes/recreates the Blockly canvas — drop the stale
-    // workspace ref so a pending import can't hit a disposed ("headless")
-    // workspace. The freshly-mounted canvas re-sets it via onBlocklyReady.
-    this.blocklyWs = undefined;
+    this.blocklyWs = undefined;   // canvas is recreated; wait for onBlocklyReady
     if (m === 'visual') {
-      this.http.post<LintResult>(`${this.base}/runbooks/lint`, { nt: this.source() }).subscribe({
-        next: (r) => {
-          this.lint.set(r);
-          this.setMarkers(r);
-          if (!r.ok) return; // stay in text mode; the error is marked
-          if (r.doc?.kind === 'role') { this.lint.set({ ok: false, error: 'roles are edited as text (visual mode covers runbooks)' }); return; }
-          if (r.doc) this.visualFromDoc(r.doc);
-          this.mode.set('visual');
-          this.visualReady.set(false);
-          setTimeout(() => this.visualReady.set(true), 60);
-        },
-        error: () => { this.lint.set({ ok: false, error: 'lint failed' }); },
-      });
+      this.pendingText = this.source();
+      this.mode.set('visual');
+      this.visualReady.set(false);
+      setTimeout(() => this.visualReady.set(true), 60);
       return;
     }
     this.mode.set(m);
@@ -518,23 +374,18 @@ export class RunbookEditorComponent implements OnInit, AfterViewInit, OnDestroy 
     setTimeout(() => this.ed?.layout(), 0);
   }
 
-  /** Build the visual canvas from the canonical parsed doc (text→visual). The
-   * workspace may not exist yet (the child renders one tick later), so stash the
-   * steps and import them on (ready). */
-  private visualFromDoc(doc: RunbookDoc): void {
-    this.visualName = doc.name || 'my-runbook';
-    this.visualTargets = doc.targets || '';
-    this.pendingSteps = (doc.steps ?? []) as DocStep[];
-    if (this.blocklyWs) this.importSteps();
-  }
-
-  /** Serialize the Blockly workspace into the NestedText runbook and write it
-   * into Monaco, so lint/dry-run/apply/save (all read source()) stay unchanged.
-   * Also called when the Name/Targets fields change. */
+  /** Serialize the Blockly workspace back into the Ansible-task YAML envelope
+   * ({name, targets, tasks:[...]}) and write it into Monaco — the single source
+   * lint/dry-run/apply/save read. */
   syncVisual(): void {
     if (!this.blocklyWs) return;
-    const steps = workspaceToSteps(this.blocklyWs);
-    this.ed?.setValue(this.stepsToNt(steps));
+    let tasks: unknown = [];
+    try { tasks = yaml.load(serializeWorkspace(this.blocklyWs, 'tasks')) ?? []; } catch { tasks = []; }
+    const doc: Record<string, unknown> = {};
+    if (this.visualName) doc['name'] = this.visualName;
+    if (this.visualTargets.trim()) doc['targets'] = this.visualTargets.trim();
+    doc['tasks'] = tasks;
+    this.ed?.setValue(yaml.dump(doc, { lineWidth: -1, noRefs: true }));
   }
 
   /** Flatten runbooks into an indented folder tree honoring the expanded set. */
@@ -567,65 +418,42 @@ export class RunbookEditorComponent implements OnInit, AfterViewInit, OnDestroy 
   });
 
   ngOnInit(): void {
-    registerRunbookBlocks();   // define the Blockly runbook blocks once
-    // Blocks read argspec synchronously; the loader triggers the same lazy fetch
-    // the SWD step-editor used (argFields), and the constructor's effect notifies
-    // the bridge when it lands.
-    configureArgspec(this.argspecProvider, (module) => { this.argFields(module); });
+    registerBlocks();   // define the ported Blockly blocks (modules/conditions/data/…) once
     this.agentService.list().subscribe((a) => this.hosts.set(a));
     this.reloadList();
     this.loadRuns();
-    this.buildToolbox();
   }
 
   // ---- Blockly visual designer wiring ----
   onBlocklyReady(ws: Blockly.WorkspaceSvg): void {
     this.blocklyWs = ws;
-    if (this.pendingSteps) this.importSteps();
+    this.importFromText();
   }
   onBlocklyChange(): void {
     this.syncVisual();
   }
-  /** Load the current runbook's steps into the workspace without echoing the
-   * import back as edits (events off → no change emit → no text rewrite). */
-  private importSteps(): void {
+  /** Import the current Ansible-task YAML into the workspace (text→visual). Events
+   * off so the import doesn't echo back as an edit. Splits the {name,targets,tasks}
+   * envelope — importTasksYaml wants the bare task list. */
+  private importFromText(): void {
     if (!this.blocklyWs) return;
+    let parsed: unknown = null;
+    try { parsed = yaml.load(this.pendingText || ''); } catch { parsed = null; }
+    let tasks: unknown = parsed;
+    if (parsed && !Array.isArray(parsed) && typeof parsed === 'object') {
+      const env = parsed as Record<string, unknown>;
+      this.visualName = (env['name'] as string) ?? this.visualName;
+      this.visualTargets = (env['targets'] as string) ?? (env['hosts'] as string) ?? '';
+      tasks = env['tasks'] ?? [];
+    }
+    const tasksYaml = yaml.dump(Array.isArray(tasks) ? tasks : []);
     Blockly.Events.disable();
     try {
-      stepsToWorkspace(this.blocklyWs, this.pendingSteps ?? []);
+      this.blocklyWs.clear();
+      importTasksYaml(tasksYaml, this.blocklyWs);
     } finally {
       Blockly.Events.enable();
     }
-  }
-  /** blocks → DocStep[] → NestedText, mirroring the old SWD serialization
-   * exactly so lint/dry-run/apply/save (all read source()) are unaffected. */
-  private stepsToNt(steps: DocStep[]): string {
-    const lines: string[] = [`name: ${this.visualName || 'my-runbook'}`];
-    if (this.visualTargets.trim()) lines.push(`targets: ${this.visualTargets.trim()}`);
-    lines.push('steps:');
-    for (const st of steps) {
-      lines.push('  -');
-      if (st.name) lines.push(`    name: ${st.name}`);
-      lines.push(`    module: ${st.module}`);
-      if (st.when) lines.push(`    when: ${st.when}`);
-      const loop = String(st.loop ?? '').trim();
-      if (loop) {
-        if (loop.startsWith('[')) {
-          try {
-            const items = JSON.parse(loop) as unknown[];
-            lines.push('    loop:');
-            for (const it of items) lines.push(`      - ${it}`);
-          } catch { lines.push(`    loop: ${loop}`); }
-        } else {
-          lines.push(`    loop: ${loop}`);
-        }
-      }
-      if (st.register) lines.push(`    register: ${st.register}`);
-      if (st.ignore_errors) lines.push('    ignore_errors: true');
-      const argBlock = ntBlock(st.args ?? {}, 6);
-      if (argBlock) { lines.push('    args:'); lines.push(argBlock); }
-    }
-    return lines.join('\n') + '\n';
   }
 
   private loadRuns(): void {
@@ -658,12 +486,10 @@ export class RunbookEditorComponent implements OnInit, AfterViewInit, OnDestroy 
     this.currentId.set(id);
     this.saveMsg.set('');
     if (!id) { this.ed?.setValue(STARTER); this.moveFolder = ''; return; }
-    this.http.get<{ nt: string; folder: string }>(`${this.base}/runbooks/${id}`).subscribe((r) => {
-      this.ed?.setValue(r.nt || '');
+    this.http.get<{ playbook: string; nt: string; folder: string }>(`${this.base}/runbooks/${id}`).subscribe((r) => {
+      this.ed?.setValue(r.playbook || r.nt || '');
       this.moveFolder = r.folder || '';
-      // Lint right away: shows validity, fills the parameter mask, and keeps
-      // the visual canvas in sync when it's the active view.
-      this.doLint(this.mode() === 'visual');
+      this.doLint();   // validity + markers (+ parameter mask if any)
     });
   }
 
@@ -673,16 +499,15 @@ export class RunbookEditorComponent implements OnInit, AfterViewInit, OnDestroy 
     this.moveFolder = '';
     this.ed?.setValue(STARTER);
     this.lint.set(null);
-    if (this.mode() === 'visual') this.doLint(true);
   }
 
   save(): void {
-    const nt = this.source();
+    const playbook = this.source();
     const id = this.currentId();
     const folder = this.moveFolder.trim().replace(/^\/+|\/+$/g, '');
     const req = id
-      ? this.http.put<{ id: string; name: string; folder: string }>(`${this.base}/runbooks/${id}`, { nt, folder })
-      : this.http.post<{ id: string; name: string; folder: string }>(`${this.base}/runbooks`, { nt, folder });
+      ? this.http.put<{ id: string; name: string; folder: string }>(`${this.base}/runbooks/${id}`, { playbook, folder })
+      : this.http.post<{ id: string; name: string; folder: string }>(`${this.base}/runbooks`, { playbook, folder });
     req.subscribe({
       next: (r) => { this.currentId.set(r.id); this.saveMsg.set('saved: ' + r.name); this.reloadList(); },
       error: (e) => this.saveMsg.set('save failed: ' + (e?.error?.detail ?? 'error')),
@@ -725,13 +550,9 @@ export class RunbookEditorComponent implements OnInit, AfterViewInit, OnDestroy 
     monaco.editor.setModelMarkers(model, 'runbook-lint', markers);
   }
 
-  doLint(rebuildVisual = false): void {
-    this.http.post<LintResult>(`${this.base}/runbooks/lint`, { nt: this.source() }).subscribe({
-      next: (r) => {
-        this.lint.set(r);
-        this.setMarkers(r);
-        if (rebuildVisual && r.ok && r.doc && r.doc.kind !== 'role') this.visualFromDoc(r.doc);
-      },
+  doLint(): void {
+    this.http.post<LintResult>(`${this.base}/runbooks/lint`, { playbook: this.source() }).subscribe({
+      next: (r) => { this.lint.set(r); this.setMarkers(r); },
       error: (e) => { const l = { ok: false, error: e?.error?.detail ?? 'lint failed' }; this.lint.set(l); this.setMarkers(l); },
     });
   }
@@ -740,7 +561,7 @@ export class RunbookEditorComponent implements OnInit, AfterViewInit, OnDestroy 
     this.running.set(true);
     this.result.set(null);
     this.http.post<RunResult>(`${this.base}/agents/${this.hostId()}/runbook/run`,
-      { nt: this.source(), variables: this.runVars, dry_run: dryRun }).subscribe({
+      { playbook: this.source(), variables: this.runVars, dry_run: dryRun }).subscribe({
       next: (r) => { this.result.set(r); this.running.set(false); this.loadRuns(); },
       error: (e) => {
         this.result.set({ ok: false, steps: [{ name: 'error', module: '', status: 'failed', changed: null, error: e?.error?.detail ?? 'run failed' }] });
