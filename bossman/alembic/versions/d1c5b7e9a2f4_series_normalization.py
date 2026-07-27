@@ -10,15 +10,21 @@ labels so every existing read path keeps its old shape.
 
 This env applied the change directly via SQL against a freshly-truncated DB;
 this migration reproduces it for other environments. Down-revision is the
-metric-tiers head; the pre-existing second head (business_services) is
-unaffected.
+metric-tiers head.
 
-Revision ID: d1e2f3a4b5c6
+NOTE: this migration was originally committed with revision id "d1e2f3a4b5c6",
+which collided with the earlier agent_observed_state migration (same id) and
+broke `alembic upgrade head` outright (duplicate revision). It has been given a
+fresh unique id here and re-chained into a single linear history; `systems` now
+descends from this revision instead of sharing the metric-tiers parent as a
+sibling head. See the b4d1e7c2a9f0 helm-proxy migration's notes.
+
+Revision ID: d1c5b7e9a2f4
 Revises: a7b3c9d1e2f4
 """
 from alembic import op
 
-revision = "d1e2f3a4b5c6"
+revision = "d1c5b7e9a2f4"
 down_revision = "a7b3c9d1e2f4"
 branch_labels = None
 depends_on = None

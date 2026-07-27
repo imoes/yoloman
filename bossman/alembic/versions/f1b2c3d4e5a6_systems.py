@@ -1,7 +1,7 @@
 """systems + system_members — the System object (apps + wiring above a host)
 
 Revision ID: f1b2c3d4e5a6
-Revises: a7b3c9d1e2f4
+Revises: d1c5b7e9a2f4
 """
 
 from __future__ import annotations
@@ -11,7 +11,9 @@ from alembic import op
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 
 revision = "f1b2c3d4e5a6"
-down_revision = "a7b3c9d1e2f4"
+# Was a7b3c9d1e2f4 (a sibling head alongside series_normalization); re-chained
+# below the (renamed) series_normalization revision to linearize the history.
+down_revision = "d1c5b7e9a2f4"
 branch_labels = None
 depends_on = None
 
