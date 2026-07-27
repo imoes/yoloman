@@ -545,7 +545,53 @@ function serviceMetricSpec(name: string, metric: string): { members: string[]; m
                   <!-- Miller column 3: the selected pane -->
                   <div class="bm-gpo-main">
                     @if (selectedPane() === '::thresholds') {
-                      <h3 class="bm-gpo-h">Monitoring thresholds</h3>
+                      <h3 class="bm-gpo-h">
+                        Monitoring thresholds
+                        <button mat-button (click)="startAddThr()" [disabled]="thrBusy()">
+                          <mat-icon>add</mat-icon> Add threshold
+                        </button>
+                      </h3>
+                      <!-- The table lists the thresholds the host INHERITS (compiled
+                           desired state). A metric nobody has a rule for isn't in it
+                           yet, so adding one needs its own affordance. -->
+                      @if (addThr()) {
+                        <mat-card class="bm-setting-dlg">
+                          <strong>New threshold</strong>
+                          <div class="bm-thr-inputs">
+                            <label>Metric
+                              <input class="bm-kvin" list="bm-metric-options" [value]="newMetric()"
+                                     (input)="onNewMetric($any($event.target).value)" placeholder="e.g. uptime_seconds" />
+                              <datalist id="bm-metric-options">
+                                @for (m of metricOptions(); track m) { <option [value]="m"></option> }
+                              </datalist>
+                            </label>
+                            <label>Service <input class="bm-kvin" [value]="newService()" (input)="newService.set($any($event.target).value)" placeholder="display name" /></label>
+                          </div>
+                          <div class="bm-thr-inputs">
+                            <label>Comparison
+                              <select class="bm-kvin" [value]="newComparison()" (change)="newComparison.set($any($event.target).value)">
+                                @for (c of comparisons; track c.v) { <option [value]="c.v">{{ c.label }}</option> }
+                              </select>
+                            </label>
+                            <label>Warn <input class="bm-kvin" [value]="newWarn()" (input)="newWarn.set($any($event.target).value)" /></label>
+                            <label>Crit <input class="bm-kvin" [value]="newCrit()" (input)="newCrit.set($any($event.target).value)" /></label>
+                          </div>
+                          <label class="bm-scope">Scope:
+                            <select [value]="applyScope()" (change)="applyScope.set($any($event.target).value)">
+                              <option value="host">this host</option>
+                              @if (agent.ou_id) { <option value="ou">OU (every host under it)</option> }
+                              @for (g of hostGroups(); track g.id) { <option [value]="'group:' + g.id">group {{ g.name }}</option> }
+                            </select>
+                          </label>
+                          <p class="bm-dim">A threshold set here always wins over a policy — it appears in the
+                            desired state with source <code>host:…</code> once the change is compiled.</p>
+                          @if (thrError(); as te) { <p class="bm-cfg-err">{{ te }}</p> }
+                          <div class="bm-rollback-actions">
+                            <button mat-button (click)="addThr.set(false)" [disabled]="thrBusy()">Cancel</button>
+                            <button mat-flat-button color="primary" (click)="createThr()" [disabled]="thrBusy() || !newMetric().trim()">Add</button>
+                          </div>
+                        </mat-card>
+                      }
                       <table class="bm-gpo-settings">
                         <thead><tr><th>Service</th><th>Metric</th><th>Warn</th><th>Crit</th><th>Source</th></tr></thead>
                         <tbody>
@@ -2659,6 +2705,91 @@ export class HostDetailComponent implements OnInit {
     this.thrMode.set('configured');
     this.thrError.set(null);
   }
+  // --- add a NEW threshold -------------------------------------------------
+  // The table above lists what the host INHERITS (from the compiled desired
+  // state), so a metric that has no rule anywhere never appears and could not be
+  // configured. This adds one; the metric list is seeded from the host's own
+  // metrics so it stays a choice rather than free-text guessing.
+  addThr = signal(false);
+  newMetric = signal('');
+  newService = signal('');
+  newComparison = signal('ge');
+  newWarn = signal('');
+  newCrit = signal('');
+  metricOptions = signal<string[]>([]);
+  readonly comparisons = [
+    { v: 'ge', label: '≥ (at or above)' }, { v: 'gt', label: '> (above)' },
+    { v: 'le', label: '≤ (at or below)' }, { v: 'lt', label: '< (below)' },
+    { v: 'eq', label: '= (equals)' }, { v: 'ne', label: '≠ (differs)' },
+  ];
+
+  startAddThr(): void {
+    this.addThr.set(true);
+    this.thrKey.set(null);
+    this.thrError.set(null);
+    this.newMetric.set(''); this.newService.set(''); this.newWarn.set(''); this.newCrit.set('');
+    const agent = this.agent();
+    if (agent && !this.metricOptions().length) {
+      // the host's own metric names, minus the ones that already have a threshold
+      this.agentService.metricNames(agent.id).subscribe({
+        next: (r) => {
+          const taken = new Set(this.thresholds().map((t) => t.metric));
+          this.metricOptions.set([...new Set(r.metrics ?? [])].filter((m) => !taken.has(m)).sort());
+        },
+        error: () => this.metricOptions.set([]),
+      });
+    }
+  }
+
+  /** Pre-fill a readable service name from the metric (user can override). */
+  onNewMetric(v: string): void {
+    this.newMetric.set(v);
+    if (!this.newService().trim()) {
+      this.newService.set(v.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()));
+    }
+  }
+
+  createThr(): void {
+    const agent = this.agent();
+    const metric = this.newMetric().trim();
+    if (!agent || !metric) return;
+    this.thrBusy.set(true);
+    this.thrError.set(null);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const body: any = {
+      service_name: this.newService().trim() || metric,
+      metric,
+      comparison: this.newComparison(),
+      warn_threshold: this.newWarn() === '' ? null : Number(this.newWarn()),
+      crit_threshold: this.newCrit() === '' ? null : Number(this.newCrit()),
+      ...this.thrScopeFields(agent),
+      enabled: true,
+    };
+    if (body.warn_threshold === null && body.crit_threshold === null) {
+      this.thrError.set('set at least a warn or a crit value');
+      this.thrBusy.set(false);
+      return;
+    }
+    this.monitoringService.createCheckRule(body).subscribe({
+      next: () => { this.thrBusy.set(false); this.addThr.set(false); this.loadDesiredMonitoring(); },
+      error: (e: { error?: { detail?: string } }) => {
+        this.thrError.set(e?.error?.detail ?? 'failed'); this.thrBusy.set(false);
+      },
+    });
+  }
+
+  /** The CheckRule scope fields for the currently selected apply-scope. */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  private thrScopeFields(agent: { name: string; ou_id?: string | null }): any {
+    const scope = this.applyScope();
+    if (scope === 'ou') return { scope_type: 'ou', scope_ou_id: agent.ou_id, scope_value: null };
+    if (scope.startsWith('group:')) {
+      return { scope_type: 'group', scope_ou_id: null,
+               scope_value: this.hostGroups().find((g) => 'group:' + g.id === scope)?.name ?? '' };
+    }
+    return { scope_type: 'host', scope_value: agent.name, scope_ou_id: null };
+  }
+
   applyThr(): void {
     const agent = this.agent();
     const metric = this.thrKey();
