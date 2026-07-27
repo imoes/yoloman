@@ -21,7 +21,6 @@ os.environ.setdefault("BOSSMAN_HOUSEKEEPING_ENABLED", "false")
 os.environ.setdefault("BOSSMAN_RECONCILE_ENABLED", "false")
 os.environ.setdefault("BOSSMAN_CONFIG_SYNC_ENABLED", "false")
 os.environ.setdefault("BOSSMAN_COMPLIANCE_ENABLED", "false")
-os.environ.setdefault("BOSSMAN_CERT_INVENTORY_ENABLED", "false")
 os.environ.setdefault("BOSSMAN_AUDIT_ENABLED", "false")
 os.environ.setdefault("BOSSMAN_BUSINESS_SERVICE_ENABLED", "false")
 # A non-empty JWT secret so tests that mint an operator/admin token (Block M

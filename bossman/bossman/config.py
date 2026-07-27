@@ -145,11 +145,6 @@ class Settings(BaseSettings):
     # tests. See services/compliance.py.
     compliance_enabled: bool = True
     compliance_interval_seconds: int = 3600
-    # Certificate/expiry inventory (gap #10): Bossman probes TLS endpoints for
-    # their leaf-cert expiry. Off in tests (would open outbound TLS). Default
-    # 12h re-probe. See services/cert_inventory.py.
-    cert_inventory_enabled: bool = True
-    cert_inventory_interval_seconds: int = 43200
     # Audit trail (gap #13): record authenticated mutating API calls + logins.
     # Off in tests (keeps the test DB's mutations out of the trail).
     audit_enabled: bool = True

@@ -5,7 +5,6 @@ from bossman.services.audit import _target_from_path, categorize
 
 def test_categorize():
     assert categorize("/api/v1/compliance-rules") == "policy"
-    assert categorize("/api/v1/cert-targets/abc") == "policy"
     assert categorize("/api/v1/config-policies") == "config"
     assert categorize("/api/v1/rollouts/x/start") == "execution"
     assert categorize("/api/v1/users") == "access"

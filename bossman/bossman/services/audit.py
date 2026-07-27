@@ -32,7 +32,6 @@ _CATEGORIES: list[tuple[str, str]] = [
     ("/api/v1/api-tokens", "access"),
     ("/api/v1/notification", "policy"),
     ("/api/v1/compliance", "policy"),
-    ("/api/v1/cert-targets", "policy"),
     ("/api/v1/scheduled-jobs", "policy"),
     ("/api/v1/check-rules", "policy"),
     ("/api/v1/check-assignments", "policy"),
