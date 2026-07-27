@@ -209,8 +209,9 @@ def _hash(doc: dict) -> str:
 
 
 async def seed_wizard_runbooks(session: AsyncSession, settings: Settings) -> int:
-    """Upsert install-<pkg> runbooks for every catalog package with a template.
-    Returns the number created or updated."""
+    """Upsert install-<pkg> runbooks for every catalog package with a template,
+    and prune seed-managed wizards whose package left the catalog. Returns the
+    number created / updated / pruned."""
     root = _configs_root(settings)
     catalog = _load_json(root / "package_catalog.json")
     directives = _load_json(root / "config_directives.json")
@@ -218,6 +219,9 @@ async def seed_wizard_runbooks(session: AsyncSession, settings: Settings) -> int
     pbdir = _playbooks_dir(settings)
     tenant = UUID(str(DEFAULT_TENANT_ID))
     changed = 0
+    # Every wizard we still expect to exist (catalog packages with a template) —
+    # anything else in the folder is an orphan from a since-removed package.
+    live_names = {f"install-{p}" for p, e in catalog.items() if e.get("template")}
     for pkg, entry in catalog.items():
         template = entry.get("template")
         if not template:
@@ -257,6 +261,21 @@ async def seed_wizard_runbooks(session: AsyncSession, settings: Settings) -> int
             existing.doc = doc
             existing.folder = WIZARD_FOLDER
             changed += 1
+    # Prune orphaned seed wizards (package removed from the catalog). Guarded on a
+    # non-empty catalog so a transient/failed catalog load never wipes the folder;
+    # only touches rows we created (created_by="wizard-seed"), never user runbooks.
+    if live_names:
+        orphans = (await session.scalars(
+            select(Runbook).where(
+                Runbook.tenant_id == tenant, Runbook.folder == WIZARD_FOLDER,
+                Runbook.created_by == "wizard-seed", Runbook.name.notin_(live_names),
+            )
+        )).all()
+        for r in orphans:
+            await session.delete(r)
+            changed += 1
+        if orphans:
+            logger.info("wizard seed: pruned %d orphaned wizard(s)", len(orphans))
     if changed:
         await session.commit()
     return changed
