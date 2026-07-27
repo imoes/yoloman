@@ -33,6 +33,13 @@ _TASK_KEYWORDS = {
     "name", "when", "loop", "with_items", "register", "ignore_errors",
     "become", "tags", "notify", "vars", "args",
     "block", "rescue", "always",
+    # Recognised standard Ansible task keywords. Not all are honoured by our
+    # engine yet, but they must NOT be mistaken for the module key (otherwise a
+    # perfectly valid task reads as "ambiguous, two module keys"). Unhandled
+    # ones are carried through the doc opaquely / ignored at run time.
+    "changed_when", "failed_when", "delegate_to", "delegate_facts", "run_once",
+    "no_log", "check_mode", "environment", "retries", "until", "delay",
+    "throttle", "listen", "become_user", "become_method", "any_errors_fatal",
 }
 # Free-form modules whose scalar value is the command (`shell: echo hi`).
 _FREE_FORM = {"shell", "command", "raw", "script", "ansible.builtin.shell",
