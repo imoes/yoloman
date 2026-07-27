@@ -32,6 +32,29 @@ def test_proxied_wraps_only_when_set():
     helm_app.set_helm_proxy("", "")  # leave the module cache clean for other tests
 
 
+def test_cluster_only_commands_are_never_proxied():
+    """helm list/status/… talk only to the cluster (minikube 192.168.x); proxying
+    them sends the kube-apiserver through the corp proxy → 403. Only registry-
+    facing subcommands (show/pull/install/…) get the proxy."""
+    helm_app.set_helm_proxy("http://proxy.example:80", "")
+    for sub in ("list", "status", "get", "uninstall", "rollback", "history", "version"):
+        assert helm_app._proxied(None, ["helm", sub, "-A"]) == ["helm", sub, "-A"]
+    # and registry-facing ones DO get wrapped
+    assert helm_app._proxied(None, ["helm", "show", "values", "oci://x"])[:2] == ["sh", "-c"]
+    helm_app.set_helm_proxy("", "")
+
+
+def test_set_helm_proxy_always_unions_the_mandatory_exclusions():
+    """An admin can add to no_proxy but never drop the cluster/local exclusions —
+    so a truncated value can't route the cluster through the proxy."""
+    helm_app.set_helm_proxy("http://proxy.example:80", ".example.internal")
+    _, noproxy = helm_app._HELM_PROXY
+    for mandatory in ("192.168.0.0/16", "10.0.0.0/8", "127.0.0.1", ".svc", ".cluster.local"):
+        assert mandatory in noproxy
+    assert ".example.internal" in noproxy
+    helm_app.set_helm_proxy("", "")
+
+
 def test_proxied_prepends_export_to_multi_statement_script():
     """render/install pass an `sh -c 'f=$(mktemp); helm upgrade ... -f $f'` script;
     the proxy must apply to the helm statement, not just the first — so `export`."""

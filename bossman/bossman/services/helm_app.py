@@ -17,6 +17,7 @@ mutate.
 from __future__ import annotations
 
 import json
+import re
 import shlex
 from typing import Any
 
@@ -90,28 +91,62 @@ def flat_to_yaml(flat: dict[str, Any]) -> str:
 # MCP) picks it up without threading a session through all 8 helm_app functions.
 # Seeded once at startup (main.lifespan) and refreshed on every PUT
 # (api/system_settings.set_helm_proxy) so it flips instantly in-process.
-_DEFAULT_NO_PROXY = ".example.internal,localhost,127.0.0.1,10.0.0.0/8,192.168.0.0/16,.svc,.cluster.local"
-_HELM_PROXY: tuple[str, str] = ("", _DEFAULT_NO_PROXY)  # (http_proxy, no_proxy)
+# These exclusions are ALWAYS unioned into no_proxy (an admin can add to it in
+# the UI but can never remove them): the local host, the in-cluster DNS suffixes,
+# and the private IPv4 ranges — which cover every kube-apiserver a helm command
+# talks to (minikube defaults to 192.168.49.2). Without this a truncated no_proxy
+# sends cluster traffic to the corp proxy, which rejects it (403) — the exact
+# regression that broke the Kubernetes tab's reachability check.
+_MANDATORY_NO_PROXY = ("localhost", "127.0.0.1", "::1", ".svc", ".cluster.local",
+                       "10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16")
+_HELM_PROXY: tuple[str, str] = ("", ",".join(_MANDATORY_NO_PROXY))  # (http_proxy, no_proxy)
+
+# helm subcommands that reach a chart registry/repo (and so may need the corp
+# proxy to get out to e.g. oci://registry-1.docker.io). Everything NOT in this
+# set talks only to the cluster (list/status/get/uninstall/rollback/history/
+# version/test) and must never be proxied. install/upgrade/template need the
+# registry (chart pull) AND the cluster; the cluster stays direct via the
+# mandatory no_proxy baseline above.
+_REGISTRY_SUBCOMMANDS = {"show", "pull", "push", "repo", "search",
+                         "install", "upgrade", "template", "dependency", "registry"}
 
 
 def set_helm_proxy(http_proxy: str | None, no_proxy: str | None) -> None:
     """Update the cached helm proxy (called at startup and on every Admin-Settings
-    write). Empty http_proxy disables proxying; empty no_proxy falls back to the
-    sensible default that keeps cluster/local/corp traffic direct."""
+    write). Empty http_proxy disables proxying. Whatever no_proxy the admin typed
+    is unioned with the mandatory local/cluster exclusions so the cluster can never
+    be proxied by a misconfigured value."""
     global _HELM_PROXY
-    _HELM_PROXY = ((http_proxy or "").strip(), (no_proxy or "").strip() or _DEFAULT_NO_PROXY)
+    tokens = [t.strip() for t in (no_proxy or "").split(",") if t.strip()]
+    for m in _MANDATORY_NO_PROXY:
+        if m not in tokens:
+            tokens.append(m)
+    _HELM_PROXY = ((http_proxy or "").strip(), ",".join(tokens))
+
+
+def _helm_subcommand(argv: list[str]) -> str | None:
+    """The helm subcommand this argv runs — directly (`["helm", sub, …]`) or inside
+    a `sh -c` render/install script (`… helm upgrade …`)."""
+    if argv[:1] == ["helm"] and len(argv) > 1:
+        return argv[1]
+    if argv[:2] == ["sh", "-c"]:
+        m = re.search(r"\bhelm\s+([a-z][a-z-]*)", argv[2])
+        return m.group(1) if m else None
+    return None
 
 
 def _proxied(settings, argv: list[str]) -> list[str]:
     """Wrap a helm command so it uses the agent-side HTTP proxy when one is
-    configured in Admin Settings. helm runs ON THE AGENT HOST; if a chart lives in
-    an internet OCI registry (bitnami → oci://registry-1.docker.io) a host with no
-    direct egress times out. `export` is used so the vars apply to every statement
-    of the multi-command render/install scripts; NO_PROXY keeps cluster/local
-    traffic (kubectl, minikube) direct. No proxy set → argv unchanged. `settings`
-    is accepted for call-site symmetry but the value comes from the cache above."""
+    configured in Admin Settings — but ONLY for registry-facing subcommands. helm
+    runs ON THE AGENT HOST; if a chart lives in an internet OCI registry (bitnami →
+    oci://registry-1.docker.io) a host with no direct egress times out. Cluster-only
+    commands (helm list/status/…) are never proxied so the reachability check keeps
+    working regardless of the proxy. `export` is used so the vars apply to every
+    statement of the multi-command render/install scripts; NO_PROXY keeps cluster/
+    local traffic (kubectl, minikube) direct. `settings` is accepted for call-site
+    symmetry but the value comes from the cache above."""
     proxy, noproxy = _HELM_PROXY
-    if not proxy:
+    if not proxy or _helm_subcommand(argv) not in _REGISTRY_SUBCOMMANDS:
         return argv
     envp = (f"export HTTPS_PROXY={shlex.quote(proxy)} HTTP_PROXY={shlex.quote(proxy)} "
             f"NO_PROXY={shlex.quote(noproxy)} https_proxy={shlex.quote(proxy)} "
