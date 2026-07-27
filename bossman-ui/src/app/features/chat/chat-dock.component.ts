@@ -1,4 +1,4 @@
-import { Component, NgZone, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
+import { Component, ElementRef, NgZone, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
@@ -223,6 +223,7 @@ export class ChatDockComponent implements OnInit, OnDestroy {
   private chat = inject(ChatService);
   private sanitizer = inject(DomSanitizer);
   private zone = inject(NgZone);
+  private el = inject(ElementRef<HTMLElement>);
 
   open = signal(false);
   maximized = signal(false);
@@ -277,7 +278,19 @@ export class ChatDockComponent implements OnInit, OnDestroy {
     this.chat.getPrefs().subscribe({ next: (p) => this.backend.set(p.default_backend), error: () => {} });
     this.refreshAuth();
     this.loadSessions();
+    // Collapsed, the dock is a one-line bar with no scrollable body — a wheel
+    // over it would otherwise scroll the main content behind it (they're flex
+    // siblings). Swallow the wheel while collapsed so the page stays put; when
+    // open, the chat body scrolls normally. Registered non-passive (outside
+    // Angular) so preventDefault actually takes effect.
+    this.zone.runOutsideAngular(() =>
+      this.el.nativeElement.addEventListener('wheel', this.onWheel, { passive: false }),
+    );
   }
+
+  private onWheel = (e: WheelEvent): void => {
+    if (!this.open()) e.preventDefault();
+  };
 
   /** Restore the user's persisted conversations as tabs so they're findable
    * across reloads. The newest becomes the active tab (its history is fetched);
@@ -337,6 +350,7 @@ export class ChatDockComponent implements OnInit, OnDestroy {
   ngOnDestroy(): void {
     this.abort?.abort();
     this.stopCodexPoll();
+    this.el.nativeElement.removeEventListener('wheel', this.onWheel);
   }
 
   private refreshAuth(): void {
