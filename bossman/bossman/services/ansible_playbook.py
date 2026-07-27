@@ -37,6 +37,8 @@ _FREE_FORM = {"shell", "command", "raw", "script", "ansible.builtin.shell",
               "ansible.builtin.command", "ansible.builtin.raw", "ansible.builtin.script"}
 # Not supported by the task-list surface yet — fail loudly rather than silently drop.
 _UNSUPPORTED = {"block", "rescue", "always", "handlers"}
+# Role/task includes → our runbook-call step (module="runbook").
+_ROLE_CALL_KEYS = {"import_tasks", "include_tasks", "import_role", "include_role"}
 
 
 def _norm_module(key: str) -> str:
@@ -59,6 +61,16 @@ def _task_to_step(task: Any, idx: int) -> Step:
         raise PlaybookError(f"task {idx + 1}: ambiguous — more than one non-keyword key: {', '.join(sorted(module_keys))}")
     mkey = module_keys[0]
     module = _norm_module(mkey)
+
+    # import_tasks/include_tasks/import_role/include_role → our runbook-call step
+    # (module="runbook", args.name = the referenced runbook/role).
+    if mkey in _ROLE_CALL_KEYS:
+        ref = task[mkey]
+        ref = ref if isinstance(ref, str) else (ref or {}).get("name", "") if isinstance(ref, dict) else ""
+        return Step(module="runbook", args={"name": ref, "vars": task.get("vars") or {}},
+                    name=task.get("name", ""),
+                    when=(str(task["when"]) if task.get("when") is not None else None),
+                    register=task.get("register"), ignore_errors=_as_bool(task.get("ignore_errors")))
 
     raw_val = task[mkey]
     if isinstance(raw_val, dict):
@@ -139,16 +151,24 @@ def parse_playbook(text: str) -> Runbook:
 
 
 def _step_to_task(step: dict[str, Any]) -> dict[str, Any]:
-    """One canonical doc step → an Ansible task dict (module-as-key)."""
+    """One canonical doc step → an Ansible task dict (module-as-key). Handles the
+    loose NestedText sugar some stored docs carry (a step with `run:` or
+    `runbook:` instead of `module:` — e.g. wizard-seeded runbooks)."""
     task: dict[str, Any] = {}
     if step.get("name"):
         task["name"] = step["name"]
     module = step.get("module", "")
-    # a role/runbook call has no agent module — surface it as import_tasks-ish note
-    if module == "runbook":
-        task["import_tasks"] = step.get("args", {}).get("name", "")
+    if module == "runbook" or (not module and "runbook" in step):
+        # a role/runbook call has no agent module — an import_tasks-style reference
+        ref = step["runbook"] if "runbook" in step else step.get("args", {}).get("name", "")
+        task["import_tasks"] = ref
+    elif not module and "run" in step:
+        # `run: <cmd>` shorthand → the shell module. Emit the DICT form
+        # (shell: {cmd: …}) not a scalar: the block importer maps args by key,
+        # and a bare scalar free-form would fall back to a raw_task block.
+        task["shell"] = {"cmd": step["run"]}
     else:
-        task[module] = step.get("args", {}) or {}
+        task[module or "shell"] = step.get("args", {}) or {}
     for key in ("when", "loop", "register", "ignore_errors", "become", "tags", "notify", "vars"):
         if key in step and step[key] not in (None, [], {}, False):
             task[key] = step[key]

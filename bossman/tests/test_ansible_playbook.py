@@ -88,6 +88,19 @@ def test_ambiguous_two_module_keys_raises():
         ap.parse_playbook("- copy: {src: a, dest: b}\n  file: {path: c}\n")
 
 
+def test_doc_to_playbook_handles_run_and_runbook_sugar():
+    # stored (wizard-seeded) docs carry the loose NT sugar: a step with `run:` or
+    # `runbook:` instead of `module:`. doc_to_playbook must not emit an empty key.
+    doc = {"kind": "runbook", "name": "w", "targets": None, "steps": [
+        {"name": "validate", "run": "apachectl configtest"},
+        {"name": "call", "runbook": "install-base"},
+    ]}
+    out = ap.doc_to_playbook(doc)
+    back = ap.parse_playbook(out).to_dict()
+    assert back["steps"][0]["module"] == "shell" and back["steps"][0]["args"] == {"cmd": "apachectl configtest"}
+    assert "''" not in out and ": {}" not in out.replace("import_tasks", "")  # no empty module key
+
+
 def test_round_trip_doc_yaml_doc():
     src = (
         "name: rt\ntargets: all\ntasks:\n"
