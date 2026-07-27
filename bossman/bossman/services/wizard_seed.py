@@ -85,15 +85,18 @@ def _fam(entry: dict) -> dict:
 _TEMPLATE_MODULES = {"template", "ansible.builtin.template"}
 
 
-def _remap_template_step(step: dict[str, Any], param_names: list[str]) -> dict[str, Any]:
+def _remap_template_step(step: dict[str, Any]) -> dict[str, Any]:
     args = step.get("args") or {}
     src = str(args.get("src", ""))
     if step.get("module") not in _TEMPLATE_MODULES or not src.endswith(".j2"):
         return step
-    render_vars = {v: "{{ " + v + " }}" for v in param_names if not v.startswith("_")}
+    # No per-param `vars` overlay: the engine already merges ALL runbook variables
+    # (form values + parameter defaults) into the render values, so every param —
+    # including dotted ones like `devices.sysfs_scan` that can't be expressed as a
+    # Jinja reference — flows to the template as-is.
     out: dict[str, Any] = {
         "name": step.get("name", ""), "module": "config_template",
-        "args": {"template": src[:-3], "dest": args.get("dest") or "{{ _dest }}", "vars": render_vars},
+        "args": {"template": src[:-3], "dest": args.get("dest") or "{{ _dest }}"},
     }
     for key in ("when", "loop", "register", "ignore_errors", "become", "tags", "notify"):
         if key in step and step[key] not in (None, [], {}, False):
@@ -118,8 +121,7 @@ def _doc_from_playbook(pkg: str, text: str, entry: dict, schema_params: dict[str
     params.setdefault("_packages", {"type": "list", "hidden": True, "default": fam.get("packages", [])})
     params.setdefault("_dest", {"type": "string", "hidden": True, "default": fam.get("config_path", "")})
     params.setdefault("_service", {"type": "string", "hidden": True, "default": fam.get("service", "")})
-    names = list(params)
-    steps = [_remap_template_step(s.to_dict(), names) for s in rb.steps]
+    steps = [_remap_template_step(s.to_dict()) for s in rb.steps]
     doc: dict[str, Any] = {
         "kind": "runbook", "name": f"install-{pkg}", "targets": None,
         "parameters": params, "steps": steps,
