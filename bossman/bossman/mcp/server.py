@@ -1011,8 +1011,8 @@ def build_mcp_server(
         and is gated by the global YOLO-MAN switch — with it off, apply raises
         and you must have a human confirm via the UI/REST API (the
         AI-proposes-human-confirms posture). Returns the per-step result."""
-        from bossman.db.models import Agent, Runbook, RunbookRun
-        from bossman.services import nt_convert, nt_engine, nt_runbook
+        from bossman.db.models import Agent, Runbook
+        from bossman.services import nt_runbook, runbook_exec
 
         async with session_factory() as session:
             rb = await session.scalar(select(Runbook).where(Runbook.name == runbook))
@@ -1032,28 +1032,22 @@ def build_mcp_server(
                     "via the UI / REST API."
                 )
 
-            doc = nt_runbook.parse_document(nt_convert.doc_to_nt(rb.doc))
+            # parse_data reconstructs the canonical doc verbatim (handlers,
+            # block/rescue/always, params) — no lossy NestedText round-trip.
+            doc = nt_runbook.parse_data(rb.doc)
             if not isinstance(doc, nt_runbook.Runbook):
                 raise ValueError(f"{runbook!r} is a role, not a runbook — bind it in OU/Policy")
 
-            magic: dict[str, Any] = {"inventory_hostname": agent.name}
+            # Delegate to the ONE canonical run path the REST API uses, so the MCP
+            # facade gets the same behaviour: magic facts + scope vars + typed
+            # parameter defaults, config-template bodies, role-call expansion, and
+            # the persisted RunbookRun — no drift, no missing pieces.
             client = client_factory(agent, settings)
-            try:
-                facts = await client.call_tool("setup", {})
-                if isinstance(facts, dict) and isinstance(facts.get("data"), dict):
-                    magic.update(facts["data"])
-            except Exception:  # noqa: BLE001
-                pass
-            # Precedence: magic facts < host vars < caller-supplied parameters.
-            merged = {**magic, **(load_host_vars(settings.plans_dir, agent.name) or {}), **(variables or {})}
-            result = await nt_engine.run_runbook(doc, client, merged, check_mode=check_mode)
-            rr = result.to_dict()
-            session.add(RunbookRun(
-                tenant_id=DEFAULT_TENANT_ID, runbook_name=doc.name, agent_id=agent.id,
-                dry_run=check_mode, status=("ok" if result.ok else ("aborted" if result.aborted else "failed")),
-                changed=result.changed, result=rr, requested_by=(current_identity.get() or "mcp-facade"),
-            ))
-            await session.commit()
+            _run_row, rr = await runbook_exec.execute_runbook(
+                session, agent, doc, settings=settings, client=client,
+                request_vars=variables or {}, dry_run=check_mode,
+                requested_by=(current_identity.get() or "mcp-facade"), commit=True,
+            )
         return {"runbook": doc.name, "host": host, "dry_run": check_mode, **rr}
 
     @mcp.tool()
@@ -1091,10 +1085,11 @@ def build_mcp_server(
 
     @mcp.tool()
     async def get_runbook(runbook: str) -> dict[str, Any]:
-        """Read one runbook in full: its NestedText source (author/inspect it),
-        typed `parameters` input mask, and steps. Pair with run_runbook."""
+        """Read one runbook in full: its Ansible-task `playbook` YAML (the
+        authoring/interchange surface), typed `parameters` input mask, and steps.
+        Pair with run_runbook."""
         from bossman.db.models import Runbook
-        from bossman.services import nt_convert
+        from bossman.services import ansible_playbook, nt_convert
 
         async with session_factory() as session:
             rb = await session.scalar(
@@ -1102,12 +1097,19 @@ def build_mcp_server(
             )
             if rb is None:
                 raise ValueError(f"no such runbook {runbook!r}")
-            return {
+            out = {
                 "name": rb.name, "kind": rb.kind, "folder": rb.folder or "",
                 "parameters": (rb.doc or {}).get("parameters", {}),
                 "steps": (rb.doc or {}).get("steps", []),
                 "nt": nt_convert.doc_to_nt(rb.doc),
             }
+            # The Ansible-task YAML surface (only meaningful for runbooks, not roles).
+            if rb.kind == "runbook":
+                try:
+                    out["playbook"] = ansible_playbook.doc_to_playbook(rb.doc)
+                except Exception:  # noqa: BLE001 — never fail a read over the extra surface
+                    pass
+            return out
 
     # ── Config roles & templates (installation-wizard lifecycle) ─────────
     # The catalog + templates that drive Roles & Features / the install wizard.
