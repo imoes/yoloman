@@ -7,10 +7,11 @@ become/tags/notify/vars/…). This parses that into the SAME canonical doc the
 NestedText parser produces (services/nt_runbook), so execution is unchanged.
 
 Structure = a **task list** (one implicit play): either a bare YAML list of
-tasks, or a mapping `{name?, targets?/hosts?, tasks: [...]}`. Multi-play
-playbooks, block/rescue/always and handlers are intentionally out of scope here
-(the engine gains block/handlers/notify in a later phase); a task carrying
-`block`/`rescue`/`always` raises a clear error for now.
+tasks, or a mapping `{name?, targets?/hosts?, tasks: [...], handlers?: [...]}`.
+Supported: module-as-key tasks, when/loop/register/become/tags/notify/vars,
+`block`/`rescue`/`always` grouped error handling, `set_fact`, role/task includes,
+and a `handlers:` section. Out of scope: multi-play playbooks, dynamic includes,
+strategy/lookup plugins.
 """
 
 from __future__ import annotations
@@ -31,13 +32,13 @@ class PlaybookError(Exception):
 _TASK_KEYWORDS = {
     "name", "when", "loop", "with_items", "register", "ignore_errors",
     "become", "tags", "notify", "vars", "args",
+    "block", "rescue", "always",
 }
 # Free-form modules whose scalar value is the command (`shell: echo hi`).
 _FREE_FORM = {"shell", "command", "raw", "script", "ansible.builtin.shell",
               "ansible.builtin.command", "ansible.builtin.raw", "ansible.builtin.script"}
-# Not supported by the task-list surface yet — fail loudly rather than silently drop.
-# (handlers ARE supported, as a sibling `handlers:` section — not a task key.)
-_UNSUPPORTED = {"block", "rescue", "always"}
+# Reserved task keys handled specially below (block error-handling, handlers).
+# `rescue`/`always` only ever appear as siblings of `block`.
 # Role/task includes → our runbook-call step (module="runbook").
 _ROLE_CALL_KEYS = {"import_tasks", "include_tasks", "import_role", "include_role"}
 
@@ -51,9 +52,21 @@ def _norm_module(key: str) -> str:
 def _task_to_step(task: Any, idx: int) -> Step:
     if not isinstance(task, dict):
         raise PlaybookError(f"task {idx + 1}: must be a mapping, got {type(task).__name__}")
-    bad = _UNSUPPORTED & set(task)
-    if bad:
-        raise PlaybookError(f"task {idx + 1}: '{', '.join(sorted(bad))}' not supported yet (coming with the engine's block/handler phase)")
+
+    # block/rescue/always: grouped error handling. `block` is a list of tasks;
+    # `rescue`/`always` are optional sibling task lists.
+    if "block" in task:
+        if not isinstance(task["block"], list):
+            raise PlaybookError(f"task {idx + 1}: 'block' must be a list of tasks")
+        return Step(
+            module="block", name=task.get("name", ""),
+            when=(str(task["when"]) if task.get("when") is not None else None),
+            ignore_errors=_as_bool(task.get("ignore_errors")),
+            become=_as_bool(task.get("become")), tags=_str_list(task.get("tags")),
+            block=[_task_to_step(t, i) for i, t in enumerate(task["block"])],
+            rescue=[_task_to_step(t, i) for i, t in enumerate(task.get("rescue") or [])],
+            always=[_task_to_step(t, i) for i, t in enumerate(task.get("always") or [])],
+        )
 
     module_keys = [k for k in task if k not in _TASK_KEYWORDS]
     if not module_keys:
@@ -165,6 +178,17 @@ def _step_to_task(step: dict[str, Any]) -> dict[str, Any]:
     if step.get("name"):
         task["name"] = step["name"]
     module = step.get("module", "")
+    # A block canonical step carries block/rescue/always child-step lists.
+    if module == "block" or (not module and "block" in step):
+        task["block"] = [_step_to_task(c) for c in step.get("block", [])]
+        if step.get("rescue"):
+            task["rescue"] = [_step_to_task(c) for c in step["rescue"]]
+        if step.get("always"):
+            task["always"] = [_step_to_task(c) for c in step["always"]]
+        for key in ("when", "become", "tags", "ignore_errors"):
+            if key in step and step[key] not in (None, [], {}, False):
+                task[key] = step[key]
+        return task
     if module == "runbook" or (not module and "runbook" in step):
         # a role/runbook call has no agent module — an import_tasks-style reference
         ref = step["runbook"] if "runbook" in step else step.get("args", {}).get("name", "")

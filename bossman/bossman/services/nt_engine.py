@@ -158,57 +158,101 @@ async def run_runbook(
     notified: list[str] = []
 
     for step in runbook.steps:
-        # tags: a step not selected this run is silently omitted (no result row,
-        # like Ansible — it never appears in the play recap).
-        if not _tag_selected(step.tags, only_tags, skip_tags):
+        if await _run_task(step, client, context, variables, templates or {}, check_mode,
+                           only_tags, skip_tags, notified, out):
+            out.aborted = True
+            return out
+
+    # Handlers: each notified handler runs once, in definition order, after all
+    # tasks (like Ansible). A play that aborted above never reaches here.
+    for h in runbook.handlers:
+        if h.name not in notified:
             continue
-        # when: — a false condition skips the whole step (never a failure).
-        if step.when is not None:
-            try:
-                if not eval_when(step.when, context):
-                    out.steps.append(StepResult(name=step.name, module=step.module, status="skipped"))
-                    continue
-            except WhenError as exc:
-                out.steps.append(StepResult(name=step.name, module=step.module, status="failed", error=f"when: {exc}"))
-                if not step.ignore_errors:
-                    out.aborted = True
-                    return out
-                continue
+        out.steps.append(await _run_handler(h, client, context, variables, templates or {}, check_mode))
 
-        items = _resolve_loop(step, context)
-        looped = step.loop is not None
-        iteration_results: list[StepResult] = []
+    return out
 
-        for item in items:
-            # Substitute against the running context (vars + registered results +
-            # set_facts), not just the initial vars — so a later step can template
-            # on an earlier step's registered result, like Ansible.
-            subst = dict(context)
-            if item is not None:
-                subst["item"] = item
-            args = substitute(step.args, subst)
-            # set_fact is a controller-side op (like Ansible): fold the resolved
-            # facts into the shared namespace so later when:/loop:/{{ }} see them.
-            # No agent round-trip needed.
-            if step.module == "set_fact":
-                context.update(args)
-                sr = StepResult(name=step.name, module="set_fact", status="ok",
-                                item=item, changed=False, response={"ansible_facts": dict(args)})
-                iteration_results.append(sr)
-                out.steps.append(sr)
-                continue
-            # A config_template step renders a named template to a file via the
-            # agent's template_render apply, instead of a generic tool call.
-            if step.module == "config_template":
-                sr = await _apply_config_template(step, args, item, client, variables, templates or {}, check_mode)
-                iteration_results.append(sr)
-                out.steps.append(sr)
-                if sr.status == "failed" and not step.ignore_errors:
-                    out.aborted = True
-                    if step.register:
-                        context[step.register] = _summarize_register(iteration_results, looped)
-                    return out
-                continue
+
+async def _run_task(
+    step: Step, client: Any, context: dict[str, Any], variables: dict[str, Any],
+    templates: dict[str, str], check_mode: bool, only_tags: set[str] | None,
+    skip_tags: set[str] | None, notified: list[str], out: "RunResult",
+) -> bool:
+    """Run one task — a normal step or a block (block/rescue/always). Appends
+    result rows to `out`; returns True iff the run should abort."""
+    # tags: a task not selected this run is silently omitted (no result row).
+    if not _tag_selected(step.tags, only_tags, skip_tags):
+        return False
+    # when: — a false condition skips the whole task (never a failure).
+    if step.when is not None:
+        try:
+            if not eval_when(step.when, context):
+                out.steps.append(StepResult(name=step.name, module=step.module, status="skipped"))
+                return False
+        except WhenError as exc:
+            out.steps.append(StepResult(name=step.name, module=step.module, status="failed", error=f"when: {exc}"))
+            return not step.ignore_errors
+    if step.module == "block":
+        return await _run_block(step, client, context, variables, templates, check_mode,
+                                only_tags, skip_tags, notified, out)
+    return await _run_step(step, client, context, variables, templates, check_mode, notified, out)
+
+
+async def _run_block(
+    block: Step, client: Any, context: dict[str, Any], variables: dict[str, Any],
+    templates: dict[str, str], check_mode: bool, only_tags: set[str] | None,
+    skip_tags: set[str] | None, notified: list[str], out: "RunResult",
+) -> bool:
+    """block/rescue/always (Ansible): run the block; on a hard failure run the
+    rescue tasks (which can recover); always tasks run regardless."""
+    async def _run_all(tasks: list[Step]) -> bool:
+        for child in tasks:
+            if await _run_task(child, client, context, variables, templates, check_mode,
+                               only_tags, skip_tags, notified, out):
+                return True
+        return False
+
+    aborted = await _run_all(block.block)
+    if aborted and block.rescue:
+        aborted = await _run_all(block.rescue)   # rescue may recover (or fail again)
+    if block.always and await _run_all(block.always):
+        aborted = True                           # a failing always task aborts the run
+    return aborted and not block.ignore_errors
+
+
+async def _run_step(
+    step: Step, client: Any, context: dict[str, Any], variables: dict[str, Any],
+    templates: dict[str, str], check_mode: bool, notified: list[str], out: "RunResult",
+) -> bool:
+    """Run one non-block step (loop / set_fact / config_template / call_tool +
+    register + notify). Appends result rows to `out`; returns True iff aborting."""
+    items = _resolve_loop(step, context)
+    looped = step.loop is not None
+    iteration_results: list[StepResult] = []
+    aborted = False
+
+    for item in items:
+        # Substitute against the running context (vars + registered results +
+        # set_facts), not just the initial vars — so a later step can template
+        # on an earlier step's registered result, like Ansible.
+        subst = dict(context)
+        if item is not None:
+            subst["item"] = item
+        args = substitute(step.args, subst)
+        # set_fact is a controller-side op (like Ansible): fold the resolved facts
+        # into the shared namespace so later when:/loop:/{{ }} see them.
+        if step.module == "set_fact":
+            context.update(args)
+            sr = StepResult(name=step.name, module="set_fact", status="ok",
+                            item=item, changed=False, response={"ansible_facts": dict(args)})
+            iteration_results.append(sr)
+            out.steps.append(sr)
+            continue
+        # A config_template step renders a named template to a file via the
+        # agent's template_render apply, instead of a generic tool call.
+        if step.module == "config_template":
+            sr = await _apply_config_template(step, args, item, client, variables, templates, check_mode)
+        else:
             body = {**args, "dry_run": True} if check_mode else dict(args)
             try:
                 resp = await client.call_tool(step.module, body)
@@ -223,30 +267,20 @@ async def run_runbook(
             except Exception as exc:  # noqa: BLE001 — a module failure is recorded, not raised
                 sr = StepResult(name=step.name, module=step.module, status="failed",
                                 item=item, error=str(exc))
-            iteration_results.append(sr)
-            out.steps.append(sr)
-            if sr.status == "failed" and not step.ignore_errors:
-                out.aborted = True
-                if step.register:
-                    context[step.register] = _summarize_register(iteration_results, looped)
-                return out
+        iteration_results.append(sr)
+        out.steps.append(sr)
+        if sr.status == "failed" and not step.ignore_errors:
+            aborted = True
+            break
 
-        if step.register:
-            context[step.register] = _summarize_register(iteration_results, looped)
-        # notify: a step that changed queues its handlers (Ansible fires on change).
-        if step.notify and any(r.status == "changed" for r in iteration_results):
-            for n in step.notify:
-                if n not in notified:
-                    notified.append(n)
-
-    # Handlers: each notified handler runs once, in definition order, after all
-    # tasks (like Ansible). A play that aborted above never reaches here.
-    for h in runbook.handlers:
-        if h.name not in notified:
-            continue
-        out.steps.append(await _run_handler(h, client, context, variables, templates or {}, check_mode))
-
-    return out
+    if step.register:
+        context[step.register] = _summarize_register(iteration_results, looped)
+    # notify: a step that changed queues its handlers (Ansible fires on change).
+    if not aborted and step.notify and any(r.status == "changed" for r in iteration_results):
+        for n in step.notify:
+            if n not in notified:
+                notified.append(n)
+    return aborted
 
 
 async def _run_handler(

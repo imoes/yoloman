@@ -201,6 +201,45 @@ async def test_tag_selection_only_and_skip_and_always():
     assert [c[0] for c in c3.calls] == ["apt", "template", "ping", "command"]
 
 
+_BLOCK_RB = (
+    "name: t\nsteps:\n"
+    "  -\n    name: b\n"
+    "    block:\n"
+    "      -\n        name: risky\n        module: command\n        args:\n          cmd: x\n"
+    "      -\n        name: after\n        module: ping\n"
+    "    rescue:\n"
+    "      -\n        name: recover\n        module: shell\n        args:\n          cmd: fix\n"
+    "    always:\n"
+    "      -\n        name: cleanup\n        module: file\n        args:\n          path: /tmp/x\n"
+)
+
+
+async def test_block_success_runs_block_and_always_not_rescue():
+    rb = parse_document(_BLOCK_RB)
+    client = FakeClient()   # everything ok
+    res = await run_runbook(rb, client)
+    assert [c[0] for c in client.calls] == ["command", "ping", "file"]   # no rescue
+    assert not res.aborted
+
+
+async def test_block_failure_runs_rescue_and_recovers():
+    rb = parse_document(_BLOCK_RB)
+    client = FakeClient({"command": {"failed": True, "error": "boom"}})   # risky fails
+    res = await run_runbook(rb, client)
+    # risky fails -> 'after' skipped, rescue runs, always runs; rescue recovered
+    assert [c[0] for c in client.calls] == ["command", "shell", "file"]
+    assert not res.aborted
+
+
+async def test_block_rescue_also_fails_aborts_after_always():
+    rb = parse_document(_BLOCK_RB)
+    client = FakeClient({"command": {"failed": True, "error": "boom"},
+                         "shell": {"failed": True, "error": "still broken"}})
+    res = await run_runbook(rb, client)
+    assert [c[0] for c in client.calls] == ["command", "shell", "file"]   # always still ran
+    assert res.aborted
+
+
 async def test_handlers_run_once_in_definition_order():
     rb = parse_document(
         "name: t\nsteps:\n"

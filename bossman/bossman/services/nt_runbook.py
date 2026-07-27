@@ -66,6 +66,11 @@ class Step:
     tags: list[str] = field(default_factory=list)
     notify: list[str] = field(default_factory=list)
     vars: dict[str, Any] = field(default_factory=dict)
+    # block/rescue/always: when module == "block", these hold the child tasks
+    # (grouped error handling, Ansible-style). Empty for a normal step.
+    block: list["Step"] = field(default_factory=list)
+    rescue: list["Step"] = field(default_factory=list)
+    always: list["Step"] = field(default_factory=list)
 
     def _extras(self, d: dict[str, Any]) -> dict[str, Any]:
         if self.when is not None:
@@ -85,6 +90,14 @@ class Step:
         return d
 
     def to_dict(self) -> dict[str, Any]:
+        # A block round-trips as block/rescue/always child lists (no module/args).
+        if self.module == "block":
+            d: dict[str, Any] = {"name": self.name, "block": [s.to_dict() for s in self.block]}
+            if self.rescue:
+                d["rescue"] = [s.to_dict() for s in self.rescue]
+            if self.always:
+                d["always"] = [s.to_dict() for s in self.always]
+            return self._extras(d)
         # A role call round-trips as the readable `runbook:`/`vars:` form, not
         # module: runbook + args, so the plaintext stays self-explanatory.
         if self.module == "runbook":
@@ -141,7 +154,7 @@ class Role:
 
 
 _STEP_KEYS = {"name", "module", "args", "run", "runbook", "vars", "when", "loop", "register", "ignore_errors",
-              "become", "tags", "notify"}
+              "become", "tags", "notify", "block", "rescue", "always"}
 
 _PARAM_TYPES = {"string", "number", "bool", "list", "object"}
 
@@ -183,6 +196,19 @@ def _parse_step(raw: Any, idx: int) -> Step:
         raise NTRunbookError(f"step {idx + 1}: unknown key(s): {', '.join(sorted(unknown))}")
 
     name = raw.get("name", "")
+    if "block" in raw:
+        # A block groups child tasks with optional rescue/always error handling.
+        if any(k in raw for k in ("module", "args", "run", "runbook", "loop", "register")):
+            raise NTRunbookError(f"step {idx + 1} ({name!r}): a 'block' can't also set module/args/run/loop/register")
+        block_steps = _parse_steps(raw["block"])
+        return Step(
+            module="block", name=name, when=raw.get("when"),
+            ignore_errors=_as_bool(raw.get("ignore_errors")),
+            become=_as_bool(raw.get("become")), tags=_str_list(raw.get("tags")),
+            block=block_steps,
+            rescue=_parse_handlers(raw.get("rescue")),
+            always=_parse_handlers(raw.get("always")),
+        )
     if "runbook" in raw:
         # `runbook: install-nginx` (+ optional `vars:`) — call another stored
         # runbook/role AS A TASK, Ansible import_role-style. Expanded (inlined)

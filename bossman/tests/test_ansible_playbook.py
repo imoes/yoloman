@@ -78,9 +78,23 @@ def test_loop_and_with_items_and_tags():
     assert step["loop"] == ["nginx", "curl"] and step["tags"] == ["pkg", "web"]
 
 
-def test_block_raises():
-    with pytest.raises(ap.PlaybookError):
-        ap.parse_playbook("- block:\n    - ping:\n")
+def test_block_rescue_always_parses_and_round_trips():
+    src = (
+        "- name: guarded\n"
+        "  block:\n"
+        "    - name: try\n      command: {cmd: /usr/bin/thing}\n"
+        "  rescue:\n"
+        "    - name: fix\n      shell: {cmd: cleanup}\n"
+        "  always:\n"
+        "    - name: note\n      command: {cmd: echo done}\n"
+    )
+    doc = _doc(src)
+    b = doc["steps"][0]
+    assert "block" in b and "module" not in b   # block identified by the block key
+    assert [c["name"] for c in b["block"]] == ["try"]
+    assert b["rescue"][0]["module"] == "shell" and b["always"][0]["name"] == "note"
+    # doc -> YAML -> doc is stable
+    assert ap.parse_playbook(ap.doc_to_playbook(doc)).to_dict() == doc
 
 
 def test_handlers_section_parses_and_round_trips():
