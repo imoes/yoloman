@@ -1,4 +1,4 @@
-import { AfterViewInit, Component, ElementRef, OnDestroy, OnInit, ViewChild, computed, inject, signal } from '@angular/core';
+import { AfterViewInit, Component, ElementRef, OnDestroy, OnInit, ViewChild, computed, effect, inject, signal } from '@angular/core';
 import { DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
@@ -24,6 +24,7 @@ import { registerRunbookBlocks } from './blockly/blocks';
 import { buildRunbookToolbox } from './blockly/toolbox';
 import { workspaceToSteps } from './blockly/generator';
 import { stepsToWorkspace } from './blockly/importer';
+import { ArgFieldSpec, configureArgspec, notifyArgspec } from './blockly/argspec-bridge';
 
 // Monaco locally (no CDN). We lint server-side (/runbooks/lint), so Monaco's
 // own language workers aren't needed — a no-op worker keeps the editor from
@@ -432,6 +433,31 @@ export class RunbookEditorComponent implements OnInit, AfterViewInit, OnDestroy 
   private argspecCache = signal<Record<string, ArgField[]>>({});
   private argspecPending = new Set<string>();
 
+  /** Synchronous argspec read for the Blockly blocks (argspec-bridge). Maps the
+   * editor's cached ArgField[] to the bridge's ArgFieldSpec[]. */
+  private argspecProvider = (module: string): ArgFieldSpec[] | undefined => {
+    const cached = this.argspecCache()[module];
+    if (!cached) return undefined;
+    return cached.map((f) => ({
+      key: f.key,
+      type: f.spec.type,
+      required: f.spec.required,
+      choices: (f.spec.choices as unknown[]) ?? undefined,
+      default: f.spec.default,
+      description: this.descText(f.spec.description),
+    }));
+  };
+
+  constructor() {
+    // When an argspec finishes loading (cache updates), tell the Blockly bridge so
+    // any block waiting on that module upgrades its fields to typed dropdowns/
+    // checkboxes. notifyArgspec is idempotent, so re-notifying cached keys is free.
+    effect(() => {
+      const cache = this.argspecCache();
+      for (const key of Object.keys(cache)) notifyArgspec(key);
+    });
+  }
+
   // Blockly-style palette: search over the whole catalog, click to place.
   // The Flow entries (shell/config template/set_fact/debug) sit on top.
   private static readonly FLOW_ITEMS = [
@@ -690,6 +716,10 @@ export class RunbookEditorComponent implements OnInit, AfterViewInit, OnDestroy 
 
   ngOnInit(): void {
     registerRunbookBlocks();   // define the Blockly runbook blocks once
+    // Blocks read argspec synchronously; the loader triggers the same lazy fetch
+    // the SWD step-editor used (argFields), and the constructor's effect notifies
+    // the bridge when it lands.
+    configureArgspec(this.argspecProvider, (module) => { this.argFields(module); });
     this.agentService.list().subscribe((a) => this.hosts.set(a));
     this.reloadList();
     this.loadRuns();

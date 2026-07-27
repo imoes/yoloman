@@ -1,20 +1,23 @@
 import * as Blockly from 'blockly';
 import { DocStep } from './generator';
 
+interface ImportableBlock extends Blockly.BlockSvg {
+  importArgs_(module: string, args: Record<string, unknown>): void;
+}
+
 /** Build the Blockly workspace from a runbook's steps (the inverse of
- * workspaceToSteps) — the text→visual direction. Creates one `runbook_module`
- * block per step and chains them via previous/next connections, mirroring the
- * reference importer's `newBlock` + connect approach. */
+ * workspaceToSteps) — the text→visual direction. One `runbook_module` block per
+ * step, chained via previous/next; the module's typed arg fields are built by
+ * the block's own importArgs_ (which also subscribes for a late-arriving
+ * argspec so fields upgrade to dropdowns/checkboxes once it loads). */
 export function stepsToWorkspace(ws: Blockly.WorkspaceSvg, steps: DocStep[]): void {
   ws.clear();
   let prev: Blockly.BlockSvg | null = null;
   for (const st of steps) {
-    const b = ws.newBlock('runbook_module') as Blockly.BlockSvg;
+    const b = ws.newBlock('runbook_module') as ImportableBlock;
     b.initSvg();
     b.setFieldValue(st.name ?? '', 'NAME');
-    b.setFieldValue(st.module ?? '', 'MODULE');
-    const args = st.args && Object.keys(st.args).length ? JSON.stringify(st.args) : '{}';
-    b.setFieldValue(args, 'ARGS');
+    b.importArgs_(st.module ?? '', (st.args as Record<string, unknown>) ?? {});
     b.setFieldValue(st.when ?? '', 'WHEN');
     b.setFieldValue(loopToStr(st.loop), 'LOOP');
     b.setFieldValue(st.register ?? '', 'REGISTER');
