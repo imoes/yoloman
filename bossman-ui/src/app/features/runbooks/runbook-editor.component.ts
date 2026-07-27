@@ -485,11 +485,12 @@ export class RunbookEditorComponent implements OnInit, AfterViewInit, OnDestroy 
   load(id: string): void {
     this.currentId.set(id);
     this.saveMsg.set('');
-    if (!id) { this.ed?.setValue(STARTER); this.moveFolder = ''; return; }
+    if (!id) { this.ed?.setValue(STARTER); this.moveFolder = ''; this.refreshVisual(); return; }
     this.http.get<{ playbook: string; nt: string; folder: string }>(`${this.base}/runbooks/${id}`).subscribe((r) => {
       this.ed?.setValue(r.playbook || r.nt || '');
       this.moveFolder = r.folder || '';
       this.doLint();   // validity + markers (+ parameter mask if any)
+      this.refreshVisual();   // if the canvas is showing, rebuild it from the loaded YAML
     });
   }
 
@@ -499,6 +500,16 @@ export class RunbookEditorComponent implements OnInit, AfterViewInit, OnDestroy 
     this.moveFolder = '';
     this.ed?.setValue(STARTER);
     this.lint.set(null);
+    this.refreshVisual();
+  }
+
+  /** Rebuild the Blockly canvas from the current editor text — used after
+   * loading a different runbook while the Visual view is active (otherwise the
+   * canvas keeps showing the previously-loaded runbook). No-op in text mode. */
+  private refreshVisual(): void {
+    if (this.mode() !== 'visual' || !this.blocklyWs) return;
+    this.pendingText = this.source();
+    this.importFromText();
   }
 
   save(): void {

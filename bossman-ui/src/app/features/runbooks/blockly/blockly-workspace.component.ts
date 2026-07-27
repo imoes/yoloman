@@ -24,6 +24,19 @@ import * as Blockly from 'blockly';
     /* Blockly injects an absolutely-positioned widget/dropdown div into <body>;
        keep it above our Material overlays. */
     ::ng-deep .blocklyWidgetDiv, ::ng-deep .blocklyDropDownDiv, ::ng-deep .blocklyTooltipDiv { z-index: 2100; }
+    /* The reference toolbox uses Blockly's light Classic theme (grey #ddd bg,
+       near-white labels) — unreadable in our dark UI. Recolour the toolbox +
+       flyout for dark, keeping the category-colour accent bars. */
+    ::ng-deep .blocklyToolboxDiv { background: var(--mat-sys-surface-container, #26282b) !important; color: var(--mat-sys-on-surface, #e6e6e6); }
+    ::ng-deep .blocklyTreeLabel { color: var(--mat-sys-on-surface, #e6e6e6) !important; }
+    ::ng-deep .blocklyTreeRow { color: var(--mat-sys-on-surface, #e6e6e6); }
+    ::ng-deep .blocklyToolboxCategory { color: var(--mat-sys-on-surface, #e6e6e6); }
+    ::ng-deep .blocklyFlyoutBackground { fill: var(--mat-sys-surface, #1a1c1e) !important; fill-opacity: 0.96; }
+    /* toolbox-search input */
+    ::ng-deep .blocklyToolboxDiv input, ::ng-deep .blocklyToolboxCategory input {
+      background: var(--mat-sys-surface, #1a1c1e); color: var(--mat-sys-on-surface, #e6e6e6);
+      border: 1px solid var(--mat-sys-outline-variant, #444); border-radius: 4px;
+    }
   `],
 })
 export class BlocklyWorkspaceComponent implements AfterViewInit, OnDestroy {
