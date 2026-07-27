@@ -25,7 +25,7 @@ from bossman.api.plans import get_client_factory
 from bossman.config import Settings, get_settings
 from bossman.db.models import Agent, Runbook, RunbookRun, ScopeVars
 from bossman.db.session import get_session
-from bossman.services import nt_compile, nt_convert, nt_runbook
+from bossman.services import ansible_playbook, nt_compile, nt_convert, nt_runbook
 from bossman.services.auth import Identity, user_can_manage_agent
 from bossman.services.runbook_exec import execute_runbook
 from bossman.services.vault import Vault
@@ -40,16 +40,22 @@ DEFAULT_TENANT_ID = UUID("00000000-0000-0000-0000-000000000001")
 
 class SaveRunbookBody(BaseModel):
     nt: str | None = None
-    yaml: str | None = None  # import an existing YAML playbook
+    yaml: str | None = None  # import a doc-shaped YAML (legacy)
+    playbook: str | None = None  # author as Ansible-task YAML (the Blockly surface)
     folder: str | None = None  # library folder path ("linux/base"); "" = root
 
 
 def _to_doc(body: SaveRunbookBody) -> dict[str, Any]:
+    if body.playbook is not None:
+        try:
+            return ansible_playbook.parse_playbook(body.playbook).to_dict()
+        except ansible_playbook.PlaybookError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
     if body.nt is not None:
         return nt_convert.nt_to_doc(body.nt)
     if body.yaml is not None:
         return nt_convert.yaml_to_doc(body.yaml)
-    raise HTTPException(status_code=422, detail="provide `nt` or `yaml`")
+    raise HTTPException(status_code=422, detail="provide `nt`, `playbook` or `yaml`")
 
 
 @router.get("/api/v1/runbook-runs")
@@ -91,7 +97,8 @@ async def get_runbook(runbook_id: UUID, session: AsyncSession = Depends(get_sess
     if r is None:
         raise HTTPException(status_code=404, detail="no such runbook")
     return {"id": str(r.id), "name": r.name, "kind": r.kind, "folder": r.folder or "",
-            "parameters": (r.doc or {}).get("parameters", {}), "doc": r.doc, "nt": nt_convert.doc_to_nt(r.doc)}
+            "parameters": (r.doc or {}).get("parameters", {}), "doc": r.doc,
+            "nt": nt_convert.doc_to_nt(r.doc), "playbook": ansible_playbook.doc_to_playbook(r.doc or {})}
 
 
 @router.post("/api/v1/runbooks")
@@ -139,25 +146,34 @@ async def delete_runbook(runbook_id: UUID, session: AsyncSession = Depends(get_s
 
 
 class NTBody(BaseModel):
-    nt: str
+    nt: str | None = None
+    playbook: str | None = None  # Ansible-task YAML (the Blockly surface)
 
 
 @router.post("/api/v1/runbooks/lint")
 async def lint_runbook(body: NTBody, _identity=Depends(get_current_identity)) -> dict[str, Any]:
-    """Parse + shape-validate a NestedText runbook or role. Returns
-    {ok, kind, name} or {ok: false, error}."""
+    """Parse + shape-validate a runbook — Ansible-task YAML (`playbook`) or the
+    legacy NestedText (`nt`). Returns {ok, kind, name, doc, playbook} (the
+    canonical `doc` rebuilds the visual canvas; `playbook` is the doc rendered
+    back to Ansible YAML for the text view) or {ok: false, error}."""
     try:
-        doc = nt_runbook.parse_document(body.nt)
-    except nt_runbook.NTRunbookError as exc:
+        if body.playbook is not None:
+            doc = ansible_playbook.parse_playbook(body.playbook)
+        elif body.nt is not None:
+            doc = nt_runbook.parse_document(body.nt)
+        else:
+            return {"ok": False, "error": "provide `playbook` or `nt`"}
+    except (nt_runbook.NTRunbookError, ansible_playbook.PlaybookError) as exc:
         return {"ok": False, "error": str(exc), "line": getattr(exc, "line", None)}
-    # `doc` (the canonical dict) lets the editor rebuild its visual canvas from
-    # the text — the round-trip that makes text→visual editing possible.
+    d = doc.to_dict()
     return {"ok": True, "kind": doc.kind, "name": doc.name, "steps": len(doc.steps),
-            "parameters": getattr(doc, "parameters", {}), "doc": doc.to_dict()}
+            "parameters": getattr(doc, "parameters", {}), "doc": d,
+            "playbook": ansible_playbook.doc_to_playbook(d)}
 
 
 class RunBody(BaseModel):
-    nt: str
+    nt: str | None = None
+    playbook: str | None = None
     variables: dict[str, Any] = {}
     dry_run: bool = True
 
@@ -181,8 +197,13 @@ async def run_runbook(
     if not agent.address:
         raise HTTPException(status_code=422, detail="agent has no address to reach")
     try:
-        doc = nt_runbook.parse_document(body.nt)
-    except nt_runbook.NTRunbookError as exc:
+        if body.playbook is not None:
+            doc = ansible_playbook.parse_playbook(body.playbook)
+        elif body.nt is not None:
+            doc = nt_runbook.parse_document(body.nt)
+        else:
+            raise HTTPException(status_code=422, detail="provide `playbook` or `nt`")
+    except (nt_runbook.NTRunbookError, ansible_playbook.PlaybookError) as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     if not isinstance(doc, nt_runbook.Runbook):
         raise HTTPException(status_code=422, detail="that is a role, not a runbook — bind it in OU / Policy instead")

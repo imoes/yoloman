@@ -57,6 +57,32 @@ class Step:
     loop: list[Any] | str | None = None
     register: str | None = None
     ignore_errors: bool = False
+    # Ansible task keywords (surface parity). Carried through the canonical doc;
+    # `become` is a label (the agent already runs as root), `tags` gates run-time
+    # selection, `notify` names handlers (honoured once the engine gains them),
+    # `vars` are task-scoped. All optional; omitted from to_dict when unset so
+    # existing docs are byte-identical.
+    become: bool = False
+    tags: list[str] = field(default_factory=list)
+    notify: list[str] = field(default_factory=list)
+    vars: dict[str, Any] = field(default_factory=dict)
+
+    def _extras(self, d: dict[str, Any]) -> dict[str, Any]:
+        if self.when is not None:
+            d["when"] = self.when
+        if self.register is not None:
+            d["register"] = self.register
+        if self.ignore_errors:
+            d["ignore_errors"] = True
+        if self.become:
+            d["become"] = True
+        if self.tags:
+            d["tags"] = self.tags
+        if self.notify:
+            d["notify"] = self.notify
+        if self.vars:
+            d["vars"] = self.vars
+        return d
 
     def to_dict(self) -> dict[str, Any]:
         # A role call round-trips as the readable `runbook:`/`vars:` form, not
@@ -65,23 +91,11 @@ class Step:
             d: dict[str, Any] = {"name": self.name, "runbook": self.args.get("name", "")}
             if self.args.get("vars"):
                 d["vars"] = self.args["vars"]
-            if self.when is not None:
-                d["when"] = self.when
-            if self.register is not None:
-                d["register"] = self.register
-            if self.ignore_errors:
-                d["ignore_errors"] = True
-            return d
+            return self._extras(d)
         d = {"name": self.name, "module": self.module, "args": self.args}
-        if self.when is not None:
-            d["when"] = self.when
         if self.loop is not None:
             d["loop"] = self.loop
-        if self.register is not None:
-            d["register"] = self.register
-        if self.ignore_errors:
-            d["ignore_errors"] = True
-        return d
+        return self._extras(d)
 
 
 @dataclass
@@ -121,7 +135,8 @@ class Role:
                 "notifications": {"routes": self.notification_routes}}
 
 
-_STEP_KEYS = {"name", "module", "args", "run", "runbook", "vars", "when", "loop", "register", "ignore_errors"}
+_STEP_KEYS = {"name", "module", "args", "run", "runbook", "vars", "when", "loop", "register", "ignore_errors",
+              "become", "tags", "notify"}
 
 _PARAM_TYPES = {"string", "number", "bool", "list", "object"}
 
@@ -199,6 +214,10 @@ def _parse_step(raw: Any, idx: int) -> Step:
         module=module, args=args, name=name,
         when=raw.get("when"), loop=loop, register=raw.get("register"),
         ignore_errors=_as_bool(raw.get("ignore_errors")),
+        become=_as_bool(raw.get("become")),
+        tags=_str_list(raw.get("tags")),
+        notify=_str_list(raw.get("notify")),
+        vars=raw.get("vars") or {} if module != "runbook" else {},
     )
 
 
