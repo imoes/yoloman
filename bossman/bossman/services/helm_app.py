@@ -17,6 +17,7 @@ mutate.
 from __future__ import annotations
 
 import json
+import shlex
 from typing import Any
 
 import yaml
@@ -82,8 +83,46 @@ def flat_to_yaml(flat: dict[str, Any]) -> str:
     return yaml.safe_dump(root, default_flow_style=False, sort_keys=False) if root else ""
 
 
-async def _run(client, argv: list[str]) -> dict[str, Any]:
-    r = await client.call_tool("command", {"argv": argv})
+# Bossman-wide helm HTTP proxy, editable in Admin Settings (DB-backed
+# SystemSettings, NOT an env var — the user's explicit call: "die Proxy
+# Einstellungen müssen in den Admin Settings gesetzt werden"). Cached here as a
+# module global so _proxied() stays sync and every helm path (REST, resource,
+# MCP) picks it up without threading a session through all 8 helm_app functions.
+# Seeded once at startup (main.lifespan) and refreshed on every PUT
+# (api/system_settings.set_helm_proxy) so it flips instantly in-process.
+_DEFAULT_NO_PROXY = ".example.internal,localhost,127.0.0.1,10.0.0.0/8,192.168.0.0/16,.svc,.cluster.local"
+_HELM_PROXY: tuple[str, str] = ("", _DEFAULT_NO_PROXY)  # (http_proxy, no_proxy)
+
+
+def set_helm_proxy(http_proxy: str | None, no_proxy: str | None) -> None:
+    """Update the cached helm proxy (called at startup and on every Admin-Settings
+    write). Empty http_proxy disables proxying; empty no_proxy falls back to the
+    sensible default that keeps cluster/local/corp traffic direct."""
+    global _HELM_PROXY
+    _HELM_PROXY = ((http_proxy or "").strip(), (no_proxy or "").strip() or _DEFAULT_NO_PROXY)
+
+
+def _proxied(settings, argv: list[str]) -> list[str]:
+    """Wrap a helm command so it uses the agent-side HTTP proxy when one is
+    configured in Admin Settings. helm runs ON THE AGENT HOST; if a chart lives in
+    an internet OCI registry (bitnami → oci://registry-1.docker.io) a host with no
+    direct egress times out. `export` is used so the vars apply to every statement
+    of the multi-command render/install scripts; NO_PROXY keeps cluster/local
+    traffic (kubectl, minikube) direct. No proxy set → argv unchanged. `settings`
+    is accepted for call-site symmetry but the value comes from the cache above."""
+    proxy, noproxy = _HELM_PROXY
+    if not proxy:
+        return argv
+    envp = (f"export HTTPS_PROXY={shlex.quote(proxy)} HTTP_PROXY={shlex.quote(proxy)} "
+            f"NO_PROXY={shlex.quote(noproxy)} https_proxy={shlex.quote(proxy)} "
+            f"http_proxy={shlex.quote(proxy)} no_proxy={shlex.quote(noproxy)}; ")
+    if argv[:2] == ["sh", "-c"]:
+        return ["sh", "-c", envp + argv[2]]
+    return ["sh", "-c", envp + " ".join(shlex.quote(a) for a in argv)]
+
+
+async def _run(client, argv: list[str], settings=None) -> dict[str, Any]:
+    r = await client.call_tool("command", {"argv": _proxied(settings, argv)})
     return (r or {}).get("data") if isinstance(r, dict) else {}
 
 
@@ -107,7 +146,7 @@ def _json_lines_or_array(stdout: str) -> list[dict[str, Any]]:
 async def list_releases(agent, client_factory, settings) -> dict[str, Any]:
     """Installed Helm releases on the cluster (helm list -A) — the deployed k8s
     apps. Needs a cluster; returns an error note if none is reachable."""
-    data = await _run(client_factory(agent, settings), ["helm", "list", "-A", "-o", "json"])
+    data = await _run(client_factory(agent, settings), ["helm", "list", "-A", "-o", "json"], settings)
     rc = data.get("rc")
     releases = _json_lines_or_array(data.get("stdout", "")) if rc == 0 else []
     out = {
@@ -125,22 +164,22 @@ async def list_releases(agent, client_factory, settings) -> dict[str, Any]:
 
 
 async def list_repos(agent, client_factory, settings) -> dict[str, Any]:
-    data = await _run(client_factory(agent, settings), ["helm", "repo", "list", "-o", "json"])
+    data = await _run(client_factory(agent, settings), ["helm", "repo", "list", "-o", "json"], settings)
     repos = _json_lines_or_array(data.get("stdout", "")) if data.get("rc") == 0 else []
     return {"repos": [{"name": r.get("name"), "url": r.get("url")} for r in repos], "count": len(repos)}
 
 
 async def add_repo(agent, client_factory, settings, *, name: str, url: str) -> dict[str, Any]:
     client = client_factory(agent, settings)
-    add = await _run(client, ["helm", "repo", "add", name, url])
-    await _run(client, ["helm", "repo", "update", name])
+    add = await _run(client, ["helm", "repo", "add", name, url], settings)
+    await _run(client, ["helm", "repo", "update", name], settings)
     return {"name": name, "url": url, "ok": add.get("rc") == 0, "stderr": (add.get("stderr") or "").strip()[:200]}
 
 
 async def search_charts(agent, client_factory, settings, *, query: str = "") -> dict[str, Any]:
     """Available charts to deploy (helm search repo) — the App-Store k8s catalog."""
     argv = ["helm", "search", "repo", "-o", "json"] + ([query] if query else [])
-    data = await _run(client_factory(agent, settings), argv)
+    data = await _run(client_factory(agent, settings), argv, settings)
     charts = _json_lines_or_array(data.get("stdout", "")) if data.get("rc") == 0 else []
     return {
         "charts": [
@@ -156,8 +195,8 @@ async def chart_values(agent, client_factory, settings, *, chart: str) -> dict[s
     """The chart's default values.yaml — what the configure form is rendered from
     (the k8s analog of a template's schema.json/sample)."""
     client = client_factory(agent, settings)
-    vals = await _run(client, ["helm", "show", "values", chart])
-    meta = await _run(client, ["helm", "show", "chart", chart])
+    vals = await _run(client, ["helm", "show", "values", chart], settings)
+    meta = await _run(client, ["helm", "show", "chart", chart], settings)
     values_yaml = (vals.get("stdout") or "") if vals.get("rc") == 0 else ""
     schema: dict[str, Any] = {}
     flat: dict[str, Any] = {}
@@ -197,10 +236,10 @@ async def render_release(agent, client_factory, settings, *, name: str, chart: s
         if b64:
             wrapped = (f"f=$(mktemp); echo {shlex.quote(b64)} | base64 -d > $f; "
                        f"helm template {shlex.quote(name)} {shlex.quote(chart)} -n {shlex.quote(namespace)} -f $f; rm -f $f")
-            data = await _run(client, ["sh", "-c", wrapped])
+            data = await _run(client, ["sh", "-c", wrapped], settings)
             return {"rendered": (data.get("stdout") or "")[:20000], "ok": data.get("rc") == 0,
                     "error": (data.get("stderr") or "").strip()[:300] if data.get("rc") != 0 else None}
-    data = await _run(client, argv)
+    data = await _run(client, argv, settings)
     return {"rendered": (data.get("stdout") or "")[:20000], "ok": data.get("rc") == 0,
             "error": (data.get("stderr") or "").strip()[:300] if data.get("rc") != 0 else None}
 
@@ -227,7 +266,7 @@ async def install_release(agent, client_factory, settings, *, name: str, chart: 
         script = f"f=$(mktemp); echo {shlex.quote(b64)} | base64 -d > $f; {base} -f $f -o json; rm -f $f"
     else:
         script = f"{base} -o json"
-    data = await _run(client_factory(agent, settings), ["sh", "-c", script])
+    data = await _run(client_factory(agent, settings), ["sh", "-c", script], settings)
     return {"name": name, "chart": chart, "namespace": namespace, "ok": data.get("rc") == 0,
             "stdout": (data.get("stdout") or "")[:2000], "error": (data.get("stderr") or "").strip()[:400] if data.get("rc") != 0 else None}
 
@@ -236,13 +275,13 @@ async def rollback_release(agent, client_factory, settings, *, name: str,
                            revision: int | None = None, namespace: str = "default") -> dict[str, Any]:
     """helm rollback — revert a release to a previous revision (0/None = last)."""
     argv = ["helm", "rollback", name] + ([str(revision)] if revision is not None else []) + ["-n", namespace]
-    data = await _run(client_factory(agent, settings), argv)
+    data = await _run(client_factory(agent, settings), argv, settings)
     return {"name": name, "namespace": namespace, "revision": revision, "ok": data.get("rc") == 0,
             "stdout": (data.get("stdout") or "").strip()[:400], "error": (data.get("stderr") or "").strip()[:400] if data.get("rc") != 0 else None}
 
 
 async def uninstall_release(agent, client_factory, settings, *, name: str, namespace: str = "default") -> dict[str, Any]:
     """helm uninstall — remove a release from the cluster."""
-    data = await _run(client_factory(agent, settings), ["helm", "uninstall", name, "-n", namespace])
+    data = await _run(client_factory(agent, settings), ["helm", "uninstall", name, "-n", namespace], settings)
     return {"name": name, "namespace": namespace, "ok": data.get("rc") == 0,
             "stdout": (data.get("stdout") or "").strip()[:400], "error": (data.get("stderr") or "").strip()[:400] if data.get("rc") != 0 else None}

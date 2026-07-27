@@ -1056,6 +1056,17 @@ class SystemSettings(Base):
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True)
     yolo_mode: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    # HTTP(S) proxy the AGENT should use for `helm` chart pulls (helm runs on the
+    # agent host; an internet OCI registry like oci://registry-1.docker.io/
+    # bitnamicharts is unreachable from a host with no direct egress). Empty = no
+    # proxy. no_proxy keeps cluster/local/corp traffic direct. DB-backed (not env)
+    # so it is editable in Admin Settings and flips instantly — see
+    # api/system_settings.py and services/helm_app.set_helm_proxy.
+    helm_http_proxy: Mapped[str] = mapped_column(String, nullable=False, server_default="", default="")
+    helm_no_proxy: Mapped[str] = mapped_column(
+        String, nullable=False, default="",
+        server_default=".example.internal,localhost,127.0.0.1,10.0.0.0/8,192.168.0.0/16,.svc,.cluster.local",
+    )
     updated_by: Mapped[str | None] = mapped_column(String)
     updated_at: Mapped[datetime] = mapped_column(TZ_DATETIME, server_default=func.now(), nullable=False)
 

@@ -176,6 +176,10 @@ class Settings(BaseSettings):
     cve_ubuntu_url: str = "https://ubuntu.com/security/notices.json"
     cve_redhat_url: str = "https://access.redhat.com/hydra/rest/securitydata/cve.json"
 
+    # NOTE: the helm chart-pull proxy is NOT an env-var setting — it is DB-backed
+    # and edited in Admin Settings (SystemSettings.helm_http_proxy / helm_no_proxy,
+    # cached in services/helm_app). See api/system_settings.py.
+
     # JWT signing secret for the human-operator dashboard login.
     jwt_secret: str = ""
     jwt_algorithm: str = "HS256"

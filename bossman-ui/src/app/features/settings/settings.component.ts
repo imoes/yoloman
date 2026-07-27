@@ -11,6 +11,7 @@ import { AuthService } from '../../core/auth/auth.service';
 import { PlanService } from '../../core/services/plan.service';
 import { EnrollService } from '../../core/services/enroll.service';
 import { ChatService } from '../../core/services/chat.service';
+import { SystemSettingsService } from '../../core/services/system-settings.service';
 import { ChatBackendName, ChatPrefs, ClaudeStartResponse, CodexStartResponse } from '../../core/models/chat.model';
 import { EnrollInfo } from '../../core/models/enroll.model';
 
@@ -237,6 +238,43 @@ import { EnrollInfo } from '../../core/models/enroll.model';
         </mat-card-content>
       </mat-card>
 
+      <mat-card class="bm-helm-card">
+        <mat-card-header>
+          <mat-card-title>Kubernetes / Helm chart proxy</mat-card-title>
+        </mat-card-header>
+        <mat-card-content>
+          <p>
+            HTTP(S) proxy the agent host uses for <code>helm</code> chart pulls. Helm runs on the
+            agent host; when a chart lives in an internet OCI registry (e.g. bitnami on
+            <code>oci://registry-1.docker.io/bitnamicharts</code>) a host behind a corp firewall with
+            no direct egress times out — this is the fix for “Load chart defaults” failing with a
+            <code>dial tcp … i/o timeout</code>. Leave empty for hosts with direct internet access.
+          </p>
+          <div class="bm-llm-row">
+            <mat-form-field appearance="outline" class="bm-llm-wide">
+              <mat-label>HTTP proxy</mat-label>
+              <input matInput [(ngModel)]="helmHttpProxy" placeholder="http://proxy.example.internal:80" />
+            </mat-form-field>
+          </div>
+          <div class="bm-llm-row">
+            <mat-form-field appearance="outline" class="bm-llm-wide">
+              <mat-label>No-proxy (comma-separated)</mat-label>
+              <input matInput [(ngModel)]="helmNoProxy" placeholder=".example.internal,localhost,10.0.0.0/8,.svc" />
+            </mat-form-field>
+          </div>
+          <p class="bm-dim">
+            <code>no_proxy</code> keeps cluster/local/corp traffic direct (kubectl, minikube). Empty
+            falls back to a sensible default.
+          </p>
+          <div class="bm-llm-actions">
+            <button mat-raised-button color="primary" (click)="saveHelmProxy()" [disabled]="helmBusy()">Save</button>
+            @if (helmMsg()) {
+              <span [class.bm-success]="helmOk()" [class.bm-error]="!helmOk()">{{ helmMsg() }}</span>
+            }
+          </div>
+        </mat-card-content>
+      </mat-card>
+
       <!-- Check rules and Host groups live in the OU / Policy view (scoped to
            OUs there); they were removed from Settings to avoid a second,
            unscoped home for the same objects. -->
@@ -287,6 +325,10 @@ import { EnrollInfo } from '../../core/models/enroll.model';
       }
       .bm-error {
         color: var(--bm-red);
+      }
+      .bm-dim {
+        opacity: 0.65;
+        font-size: 12.5px;
       }
       .bm-empty {
         opacity: 0.75;
@@ -388,6 +430,7 @@ export class SettingsComponent implements OnInit, OnDestroy {
   private planService = inject(PlanService);
   private enrollService = inject(EnrollService);
   private chat = inject(ChatService);
+  private systemSettings = inject(SystemSettingsService);
 
   reloadMessage = signal<string | null>(null);
   enrollInfo = signal<EnrollInfo | null>(null);
@@ -402,6 +445,13 @@ export class SettingsComponent implements OnInit, OnDestroy {
   authed = signal<Record<string, boolean>>({});
   llmBusy = signal(false);
   llmMsg = signal<string | null>(null);
+
+  // Kubernetes / Helm chart-pull proxy (DB-backed SystemSettings).
+  helmHttpProxy = '';
+  helmNoProxy = '';
+  helmBusy = signal(false);
+  helmMsg = signal<string | null>(null);
+  helmOk = signal(true);
   // OAuth login (ported from the chat dock, which now only shows already-authed
   // backends — so connecting a new CLI assistant has to live here).
   codexLogin = signal<CodexStartResponse | null>(null);
@@ -421,7 +471,33 @@ export class SettingsComponent implements OnInit, OnDestroy {
     this.enrollService.info().subscribe((info) => this.enrollInfo.set(info));
     this.chat.backends().subscribe((res) => this.backends.set(res.backends));
     this.chat.getPrefs().subscribe((p) => this.prefs.set(p));
+    this.systemSettings.get().subscribe((s) => {
+      this.helmHttpProxy = s.helm_http_proxy ?? '';
+      this.helmNoProxy = s.helm_no_proxy ?? '';
+    });
     this.refreshAuth();
+  }
+
+  saveHelmProxy(): void {
+    this.helmBusy.set(true);
+    this.helmMsg.set(null);
+    this.systemSettings
+      .setHelmProxy({ http_proxy: this.helmHttpProxy.trim(), no_proxy: this.helmNoProxy.trim() })
+      .subscribe({
+        next: (s) => {
+          this.helmHttpProxy = s.helm_http_proxy ?? '';
+          this.helmNoProxy = s.helm_no_proxy ?? '';
+          this.helmBusy.set(false);
+          this.helmOk.set(true);
+          this.helmMsg.set('Saved — new helm chart pulls use this immediately.');
+          setTimeout(() => this.helmMsg.set(null), 3000);
+        },
+        error: (e) => {
+          this.helmBusy.set(false);
+          this.helmOk.set(false);
+          this.helmMsg.set(e?.error?.detail ?? 'save failed');
+        },
+      });
   }
 
   ngOnDestroy(): void {

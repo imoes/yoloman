@@ -95,6 +95,23 @@ async def lifespan(app: FastAPI):
     async with app.state.session_factory() as session:
         await mark_poller_agent(session, settings.poller_agent_name)
 
+    # Seed the helm chart-pull proxy cache from the DB-backed SystemSettings so
+    # `helm show/pull` uses it from the first request (it is edited in Admin
+    # Settings, not via env — see api/system_settings.py). Best-effort: a missing
+    # row / pre-migration DB just leaves the default no-proxy posture.
+    try:
+        from uuid import UUID as _UUID
+
+        from bossman.db.models import SYSTEM_SETTINGS_ID, SystemSettings
+        from bossman.services import helm_app
+
+        async with app.state.session_factory() as session:
+            row = await session.get(SystemSettings, _UUID(SYSTEM_SETTINGS_ID))
+            if row is not None:
+                helm_app.set_helm_proxy(row.helm_http_proxy, row.helm_no_proxy)
+    except Exception:  # noqa: BLE001 — never let proxy seeding break startup
+        logger.warning("helm proxy cache seeding failed at startup", exc_info=True)
+
     # docs/zielbestimmung.md #5: import the file-based plans_dir plans into
     # the canonical store at startup — the store is the source of truth;
     # plans_dir is now just an import source. Best-effort: a bad plan is
