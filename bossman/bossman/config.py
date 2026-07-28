@@ -282,6 +282,11 @@ class Settings(BaseSettings):
     # 1 minute: a dead pid must never survive into a compressed chunk (>1 day),
     # and the prune is cheap now that it no longer goes through an FK cascade.
     process_metric_stale_minutes: int = 1
+    # How often the per-PID prune runs. This — not the threshold above — is what
+    # actually bounds per-PID cardinality: with the sweep on the hourly
+    # housekeeping tick, 1110 of 1448 process series were dead corpses waiting for
+    # collection. Two minutes keeps the standing set close to the live processes.
+    process_prune_interval_seconds: int = 120
 
     # Block L4: the desired-state reconciler (drains controller_outbox,
     # recompiles affected hosts, enqueues agent_config_delivery). Mirrors

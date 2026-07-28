@@ -26,7 +26,7 @@ from bossman.services.cve_feed import CveFeed, CveFeedStats, cve_feed_loop
 from bossman.services.chat_client import chat_client_for
 from bossman.services.chat_oauth import ChatOAuthService
 from bossman.services.embedding_client import embedding_client_for
-from bossman.services.housekeeping import HousekeepingStats, housekeeping_loop
+from bossman.services.housekeeping import HousekeepingStats, housekeeping_loop, process_prune_loop
 from bossman.services.monitoring import mark_poller_agent, seed_default_check_rules
 from bossman.services.wizard_seed import seed_wizard_runbooks, wizard_reseed_loop
 from bossman.services.poller import PollerStats, poller_loop
@@ -171,6 +171,9 @@ async def lifespan(app: FastAPI):
 
     stop_event = asyncio.Event()
     poller_task = asyncio.create_task(poller_loop(app.state.session_factory, settings, stop_event, app.state.poller_stats))
+    process_prune_task = asyncio.create_task(
+        process_prune_loop(app.state.session_factory, settings, stop_event)
+    )
     housekeeping_task = asyncio.create_task(
         housekeeping_loop(app.state.session_factory, settings, stop_event, app.state.housekeeping_stats)
     )
@@ -209,6 +212,7 @@ async def lifespan(app: FastAPI):
         stop_event.set()
         poller_task.cancel()
         housekeeping_task.cancel()
+        process_prune_task.cancel()
         reconciler_task.cancel()
         converge_task.cancel()
         with contextlib.suppress(asyncio.CancelledError):
@@ -231,6 +235,7 @@ async def lifespan(app: FastAPI):
             await poller_task
         with contextlib.suppress(asyncio.CancelledError):
             await housekeeping_task
+            await process_prune_task
         with contextlib.suppress(asyncio.CancelledError):
             await reconciler_task
         with contextlib.suppress(asyncio.CancelledError):

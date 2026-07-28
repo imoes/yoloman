@@ -59,27 +59,19 @@ class HousekeepingStats:
     last_error: str | None = None
 
 
-async def run_housekeeping(session: AsyncSession, settings: Settings, now: datetime) -> dict[str, int]:
-    """Deletes rows older than each table's configured retention. Returns
-    a dict of table name -> rows deleted, for logging/diagnostics. One
-    DELETE per table, each committed independently so a failure on one
-    table doesn't roll back cleanup already done on the others.
+async def prune_process_series(
+    session: AsyncSession, settings: Settings, now: datetime,
+) -> dict[str, int]:
+    """Delete series of processes that have died — the FAST path.
 
-    Scoped to `notifications`/`plan_runs` only — metrics/connection_events/
-    service_state_history are TimescaleDB hypertables with their own
-    native retention policies (see module docstring)."""
-    plans = [
-        ("notifications", Notification, Notification.created_at, settings.notifications_retention_days),
-        ("plan_runs", PlanRun, PlanRun.started_at, settings.plan_runs_retention_days),
-    ]
-    deleted: dict[str, int] = {}
-    for table_name, model, time_col, retention_days in plans:
-        cutoff = now - timedelta(days=retention_days)
-        result = await session.execute(delete(model).where(time_col < cutoff))
-        await session.commit()
-        deleted[table_name] = result.rowcount or 0
-
-    # Prune dead process series FAST (not at 2-day retention). process_*
+    Split out of run_housekeeping and given its own loop on purpose: the stale
+    THRESHOLD (process_metric_stale_minutes, 1 min) is useless if the SWEEP only
+    runs hourly. Measured on the live fleet after the threshold was lowered to a
+    minute: 1448 process series of which only 338 were alive — 1110 corpses were
+    sitting around waiting for the next hourly pass. Frequency, not the threshold,
+    is what keeps per-PID cardinality down.
+    """
+    # process_*
     # metrics are per (pid, comm): a dead pid stops updating, so deleting its
     # series shortly after death keeps per-pid churn from reaching the compressed
     # chunks where tiny segments would hurt compression.
@@ -165,7 +157,32 @@ async def run_housekeeping(session: AsyncSession, settings: Settings, now: datet
                 "process-stale prune FAILED after %d batch(es), %d series pruned — %s",
                 batches, pruned, prune_error, exc_info=True)
             break
-    deleted["process_series_stale"] = pruned
+    return {"process_series_stale": pruned}
+
+
+async def run_housekeeping(session: AsyncSession, settings: Settings, now: datetime) -> dict[str, int]:
+    """Deletes rows older than each table's configured retention. Returns
+    a dict of table name -> rows deleted, for logging/diagnostics. One
+    DELETE per table, each committed independently so a failure on one
+    table doesn't roll back cleanup already done on the others.
+
+    Scoped to `notifications`/`plan_runs` only — metrics/connection_events/
+    service_state_history are TimescaleDB hypertables with their own
+    native retention policies (see module docstring)."""
+    plans = [
+        ("notifications", Notification, Notification.created_at, settings.notifications_retention_days),
+        ("plan_runs", PlanRun, PlanRun.started_at, settings.plan_runs_retention_days),
+    ]
+    deleted: dict[str, int] = {}
+    for table_name, model, time_col, retention_days in plans:
+        cutoff = now - timedelta(days=retention_days)
+        result = await session.execute(delete(model).where(time_col < cutoff))
+        await session.commit()
+        deleted[table_name] = result.rowcount or 0
+
+    # The fast per-PID prune (also driven by its own loop — see
+    # process_prune_loop, because hourly is far too slow for PID churn).
+    deleted.update(await prune_process_series(session, settings, now))
 
     # Sweep remaining orphan series (no points at all — e.g. their chunks were
     # dropped by retention). Batched for the same reason as above.
@@ -241,3 +258,31 @@ async def housekeeping_loop(
             await asyncio.wait_for(stop_event.wait(), timeout=settings.housekeeping_interval_seconds)
         except TimeoutError:
             pass
+
+
+async def process_prune_loop(
+    session_factory: async_sessionmaker[AsyncSession],
+    settings: Settings,
+    stop_event: asyncio.Event,
+) -> None:
+    """Runs prune_process_series on its own short interval.
+
+    Separate from housekeeping_loop because the two have completely different
+    natural frequencies: retention only needs an hourly pass, while per-PID series
+    churn continuously and must be collected within minutes to keep cardinality —
+    and therefore the aggregates and the DB size — bounded.
+    """
+    while not stop_event.is_set():
+        if settings.housekeeping_enabled:
+            try:
+                async with session_factory() as session:
+                    res = await prune_process_series(session, settings, datetime.now(timezone.utc))
+                if res.get("process_series_stale"):
+                    logger.info("process prune: %d dead series removed", res["process_series_stale"])
+            except Exception:  # noqa: BLE001 — a failed pass must not kill the loop
+                logger.exception("process prune pass failed")
+        try:
+            await asyncio.wait_for(stop_event.wait(), timeout=settings.process_prune_interval_seconds)
+            return
+        except asyncio.TimeoutError:
+            continue
