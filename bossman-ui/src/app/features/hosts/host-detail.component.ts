@@ -919,9 +919,15 @@ function serviceMetricSpec(name: string, metric: string): { members: string[]; m
               <p class="bm-dim">Kernel-level (eBPF) signals. The heatmaps show the latency <em>distribution</em>
                 (buckets × time, color = event count); the tables below show <em>which</em> connections and
                 disk I/O those events are — click a row to filter both tables by that process.</p>
+              <div class="bm-ebpf-range">
+                <span class="bm-dim">Zeitraum</span>
+                <app-time-range-picker selectedRange="6h" (rangeChange)="ebpfSince.set($event)" />
+              </div>
               <div class="bm-ebpf-grid">
-                <app-latency-heatmap [agentId]="agent.id" metric="conn_latency_bucket" title="Outbound connect latency" />
-                <app-latency-heatmap [agentId]="agent.id" metric="disk_io_latency_bucket" title="Disk I/O latency" />
+                <app-latency-heatmap [agentId]="agent.id" metric="conn_latency_bucket"
+                                     title="Outbound connect latency" [since]="ebpfSince()" />
+                <app-latency-heatmap [agentId]="agent.id" metric="disk_io_latency_bucket"
+                                     title="Disk I/O latency" [since]="ebpfSince()" />
               </div>
               @if (ebpfFilter()) {
                 <div class="bm-ebpf-filterbar">
@@ -1319,6 +1325,7 @@ function serviceMetricSpec(name: string, metric: string): { members: string[]; m
       :host ::ng-deep .bm-host-tabs > .mat-mdc-tab-header .mdc-tab { padding: 0 12px !important; min-width: 0 !important; }
       .bm-cfg-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
       .bm-cfg-card { padding: 12px 14px; margin-bottom: 10px; }
+      .bm-ebpf-range { display: flex; align-items: center; gap: 10px; margin: 0 0 10px; }
       .bm-cfg-row { display: flex; align-items: center; gap: 10px; }
       .bm-cfg-path { font-weight: 600; word-break: break-all; }
       .bm-cfg-viewtoggle { display: flex; align-items: center; gap: 6px; margin: 8px 0 12px; flex-wrap: wrap; }
@@ -3594,6 +3601,13 @@ export class HostDetailComponent implements OnInit {
     if (s < 86400) return `${Math.floor(s / 3600)}h ago`;
     return `${Math.floor(s / 86400)}d ago`;
   }
+
+  /** Range the eBPF latency heatmaps load — the picker above them writes it, so both
+   * follow one selection instead of each hard-coding its own window. */
+  // 6h to match the picker's initial selection — the picker only offers 1h/6h/24h/7d,
+  // so the old hard-coded 2h had no corresponding button. Like every other range in
+  // this page, the window is fixed at selection time rather than sliding.
+  ebpfSince = signal(new Date(Date.now() - 6 * 3600 * 1000).toISOString());
 
   onRangeChange(since: string): void {
     this.since = since;

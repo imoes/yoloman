@@ -1,4 +1,4 @@
-import { Component, computed, inject, input, signal } from '@angular/core';
+import { Component, computed, effect, inject, input, signal } from '@angular/core';
 import { NgxEchartsDirective } from 'ngx-echarts';
 import { AgentService } from '../../core/services/agent.service';
 
@@ -37,6 +37,12 @@ export class LatencyHeatmapComponent {
   agentId = input.required<string>();
   metric = input.required<string>();
   title = input('Latency');
+  /**
+   * ISO timestamp to load from — the same shape app-time-range-picker emits, so the
+   * heatmap follows the page's range instead of a window of its own. Defaults to two
+   * hours, which is what it used to hard-code.
+   */
+  since = input<string>(new Date(Date.now() - 2 * 3600 * 1000).toISOString());
 
   private cells = signal<Cell[]>([]);
   // All-zero (or no cells) counts as no data — the ladder is emitted every
@@ -44,17 +50,20 @@ export class LatencyHeatmapComponent {
   empty = computed(() => !this.cells().some((c) => c.count > 0));
 
   constructor() {
-    // Reload whenever the bound agent/metric changes.
-    let last = '';
-    setInterval(() => {
-      const key = this.agentId() + '|' + this.metric();
-      if (key !== last && this.agentId()) { last = key; this.load(); }
-    }, 500);
+    // Reload whenever agent, metric or the selected range changes. This replaces a
+    // setInterval(500ms) that polled the inputs for changes: it ran forever, per
+    // instance, and was never torn down — an effect tracks the signals directly and
+    // dies with the component.
+    effect(() => {
+      const id = this.agentId();
+      const metric = this.metric();
+      const since = this.since();
+      if (id && metric) this.load(id, metric, since);
+    });
   }
 
-  private load(): void {
-    const since = new Date(Date.now() - 2 * 3600 * 1000).toISOString();
-    this.agentService.metricSeries(this.agentId(), this.metric(), since).subscribe({
+  private load(agentId: string, metric: string, since: string): void {
+    this.agentService.metricSeries(agentId, metric, since).subscribe({
       next: (r) => {
         // Keep every bucket, including zero-count ones: the agent emits the
         // whole ladder each interval, and we want the full y-axis of buckets
