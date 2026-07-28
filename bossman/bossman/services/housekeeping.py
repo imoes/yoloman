@@ -39,6 +39,15 @@ from bossman.db.models import Notification, PlanRun
 logger = logging.getLogger(__name__)
 
 
+# Series pruned per statement. Small on purpose: a large IN-list against a
+# hypertable makes TimescaleDB decompress broadly, which is what blew the
+# `max_tuples_decompressed_per_dml_transaction` limit (100k) before.
+_PRUNE_BATCH = 500
+# Cap per run so one housekeeping tick cannot hold the DB busy indefinitely on a
+# huge backlog; the remainder is picked up on the next tick.
+_PRUNE_MAX_BATCHES = 200
+
+
 @dataclass
 class HousekeepingStats:
     """Last-run outcome, surfaced by GET /api/v1/admin/diagnostics (Block
@@ -71,61 +80,132 @@ async def run_housekeeping(session: AsyncSession, settings: Settings, now: datet
         deleted[table_name] = result.rowcount or 0
 
     # Prune dead process series FAST (not at 2-day retention). process_*
-    # metrics are per (pid, comm): a dead pid stops updating. Deleting its
-    # series ~10 min after death keeps per-pid churn from ever reaching the
-    # compressed chunks (>1 day old) where tiny 1-2 point segments would hurt
-    # compression — which is exactly why per-pid + fast pruning is correct and
-    # per-comm aggregation is NOT needed (it would only lose per-process detail).
+    # metrics are per (pid, comm): a dead pid stops updating, so deleting its
+    # series shortly after death keeps per-pid churn from reaching the compressed
+    # chunks where tiny segments would hurt compression.
     #
-    # Crash-safe against the "tuple decompression limit": we delete the
-    # metric_series row (FK ON DELETE CASCADE removes its metrics_raw points),
-    # but ONLY for series whose points are entirely in the UNCOMPRESSED window
-    # (no row older than 1 day = compress_after). A freshly-dead pid is always
-    # there, so the cascade never decompresses. Series that somehow linger past
-    # a day fall to the orphan sweep once retention drops their rows.
+    # WHY THIS IS TWO PHASES AND BATCHED (the bug this replaces):
+    # the previous version deleted the metric_series row straight away and let the
+    # FK ON DELETE CASCADE remove the points. But a cascade carries NO time
+    # predicate, so its DML against metrics_raw reaches every chunk including the
+    # compressed ones, TimescaleDB decompresses to satisfy it, and the statement
+    # aborted every single run with "tuple decompression limit exceeded ... tuples
+    # decompressed: 7745320". The guard below (no point older than compress_after)
+    # picked the right SERIES but could not limit the CASCADE's reach. Result:
+    # nothing was ever pruned — 79 946 of 80 774 process series were stale, 81% of
+    # all cardinality, and the retries also inline-decompressed a chunk to 1150 MB.
+    #
+    # So: delete the points FIRST with an explicit `time >= floor`, which lets
+    # chunk exclusion skip the compressed chunks entirely; then delete the series,
+    # which by now owns no points, so the cascade finds nothing to do. Batched, so
+    # no single statement can approach the decompression limit even if a series
+    # turns out to have older points after all.
     stale_cutoff = now - timedelta(minutes=settings.process_metric_stale_minutes)
     uncompressed_floor = now - timedelta(days=1)
+    # Belt and braces for the planner behaviour behind the bug above (upstream
+    # timescale/timescaledb#9916): after five parameterized executions PostgreSQL
+    # switches the cached plan to GENERIC, and on a compressed hypertable that plan
+    # decompresses everything instead of seeking the segmentby column — which is why
+    # the failure decompressed an identical 4,134,419 tuples whether the batch held
+    # 10 ids or 250. Forcing custom plans keeps each execution planned against its
+    # actual parameters. Session-scoped, so it cannot affect other queries.
     try:
-        res = await session.execute(
-            text(
-                """
-                DELETE FROM metric_series s
-                WHERE s.metric IN ('process_cpu_percent', 'process_rss_bytes')
-                  -- stale: no sample newer than the cutoff (the pid is gone)
-                  AND NOT EXISTS (
-                    SELECT 1 FROM metrics_raw r
-                    WHERE r.series_id = s.series_id AND r.time >= :cutoff)
-                  -- crash-guard: no point in a compressed (>1 day) chunk, so the
-                  -- FK cascade delete touches only uncompressed rows
-                  AND NOT EXISTS (
-                    SELECT 1 FROM metrics_raw r
-                    WHERE r.series_id = s.series_id AND r.time < :floor)
-                """
-            ),
-            {"cutoff": stale_cutoff, "floor": uncompressed_floor},
-        )
-        await session.commit()
-        deleted["process_series_stale"] = res.rowcount or 0
-    except Exception:  # noqa: BLE001 — never let the prune abort retention
-        await session.rollback()
-        logger.exception("process-stale prune failed (retention above still applied)")
-
-    # Sweep any remaining orphan series (no metrics_raw rows at all — e.g. their
-    # points aged out of retention). Plain-table DELETE, no hypertable DML.
-    try:
-        res = await session.execute(
-            text(
-                """
-                DELETE FROM metric_series s
-                WHERE NOT EXISTS (SELECT 1 FROM metrics_raw r WHERE r.series_id = s.series_id)
-                """
+        await session.execute(text("SET LOCAL plan_cache_mode = force_custom_plan"))
+    except Exception:  # noqa: BLE001 — older PG without the GUC: the fix above stands alone
+        logger.debug("plan_cache_mode not settable; relying on the non-cascading delete path")
+    pruned = 0
+    batches = 0
+    prune_error: str | None = None
+    while True:
+        try:
+            ids = (await session.execute(
+                text(
+                    """
+                    SELECT s.series_id FROM metric_series s
+                    WHERE s.metric IN ('process_cpu_percent', 'process_rss_bytes')
+                      AND NOT EXISTS (
+                        SELECT 1 FROM metrics_raw r
+                        WHERE r.series_id = s.series_id AND r.time >= :cutoff)
+                      AND NOT EXISTS (
+                        SELECT 1 FROM metrics_raw r
+                        WHERE r.series_id = s.series_id AND r.time < :floor)
+                    LIMIT :batch
+                    """
+                ),
+                {"cutoff": stale_cutoff, "floor": uncompressed_floor,
+                 "batch": _PRUNE_BATCH},
+            )).scalars().all()
+            if not ids:
+                break
+            # phase 1: the points, time-bounded → compressed chunks are excluded
+            await session.execute(
+                text("DELETE FROM metrics_raw WHERE series_id = ANY(:ids) AND time >= :floor"),
+                {"ids": list(ids), "floor": uncompressed_floor},
             )
-        )
-        await session.commit()
-        deleted["metric_series_orphans"] = res.rowcount or 0
-    except Exception:  # noqa: BLE001
+            # phase 2: the (now point-less) series rows
+            res = await session.execute(
+                text("DELETE FROM metric_series WHERE series_id = ANY(:ids)"),
+                {"ids": list(ids)},
+            )
+            await session.commit()
+            pruned += res.rowcount or 0
+            batches += 1
+            if batches >= _PRUNE_MAX_BATCHES:
+                logger.warning(
+                    "process-stale prune hit the per-run batch cap (%d batches, %d series pruned); "
+                    "more remain and will go on the next run", batches, pruned)
+                break
+        except Exception as exc:  # noqa: BLE001 — never let the prune abort retention
+            await session.rollback()
+            prune_error = f"{type(exc).__name__}: {exc}"
+            # Log the CAUSE, not just "failed": this exact failure went unnoticed for
+            # days because the old message said nothing and buried the reason in a
+            # traceback nobody greps for.
+            logger.error(
+                "process-stale prune FAILED after %d batch(es), %d series pruned — %s",
+                batches, pruned, prune_error, exc_info=True)
+            break
+    deleted["process_series_stale"] = pruned
+
+    # Sweep remaining orphan series (no points at all — e.g. their chunks were
+    # dropped by retention). Batched for the same reason as above.
+    orphans = 0
+    try:
+        while True:
+            res = await session.execute(
+                text(
+                    """
+                    DELETE FROM metric_series WHERE series_id IN (
+                      SELECT s.series_id FROM metric_series s
+                      WHERE NOT EXISTS (
+                        SELECT 1 FROM metrics_raw r WHERE r.series_id = s.series_id)
+                      LIMIT :batch)
+                    """
+                ),
+                {"batch": _PRUNE_BATCH},
+            )
+            await session.commit()
+            n = res.rowcount or 0
+            orphans += n
+            if n < _PRUNE_BATCH:
+                break
+    except Exception as exc:  # noqa: BLE001
         await session.rollback()
-        logger.exception("metric_series orphan sweep failed (retention above still applied)")
+        logger.error("metric_series orphan sweep FAILED after %d series — %s: %s",
+                     orphans, type(exc).__name__, exc, exc_info=True)
+    deleted["metric_series_orphans"] = orphans
+
+    # Report the outcome even when it is zero — a silent "nothing to do" is
+    # indistinguishable from a silent failure, which is how the bug above hid.
+    remaining = (await session.execute(
+        text("SELECT count(*) FROM metric_series")
+    )).scalar_one()
+    logger.info(
+        "housekeeping: process_series_stale=%d (in %d batch(es)) orphans=%d "
+        "metric_series_remaining=%d%s",
+        pruned, batches, orphans, remaining,
+        f" PRUNE_ERROR={prune_error}" if prune_error else "")
+
     return deleted
 
 

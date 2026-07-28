@@ -279,7 +279,9 @@ class Settings(BaseSettings):
     # Process (pid,comm) metric series with no fresh sample within this window
     # are treated as dead and deleted by housekeeping (a live process samples
     # every collect interval, ~60s). Runs on housekeeping_interval_seconds.
-    process_metric_stale_minutes: int = 15
+    # 1 minute: a dead pid must never survive into a compressed chunk (>1 day),
+    # and the prune is cheap now that it no longer goes through an FK cascade.
+    process_metric_stale_minutes: int = 1
 
     # Block L4: the desired-state reconciler (drains controller_outbox,
     # recompiles affected hosts, enqueues agent_config_delivery). Mirrors

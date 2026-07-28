@@ -168,8 +168,15 @@ _AGENT_CHILD_DELETES = (
     "DELETE FROM downtimes WHERE agent_id = :id",
     "DELETE FROM service_state_history WHERE agent_id = :id",
     "DELETE FROM services WHERE agent_id = :id",
-    # metrics is now a view; delete the series (metrics_raw cascades via FK)
-    "DELETE FROM metric_series WHERE agent_id = :id",
+    # metrics is now a view. The points must go FIRST and time-bounded: the FK no
+    # longer cascades (migration e7a1c93b5d21) because a cascade against a compressed
+    # hypertable decompresses wholesale and aborts. `time >= now() - 1 day` lets chunk
+    # exclusion skip the compressed chunks; whatever still owns compressed points is
+    # left for the housekeeping orphan sweep once retention drops those chunks.
+    "DELETE FROM metrics_raw WHERE time >= now() - interval '1 day' AND series_id IN "
+    "(SELECT series_id FROM metric_series WHERE agent_id = :id)",
+    "DELETE FROM metric_series WHERE agent_id = :id "
+    "AND NOT EXISTS (SELECT 1 FROM metrics_raw r WHERE r.series_id = metric_series.series_id)",
 )
 
 
