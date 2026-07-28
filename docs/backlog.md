@@ -174,3 +174,32 @@ core loop. Follow-up: OU/group-scoped config-policy authoring as an MCP tool
   mined = 99 directives, PermitRootLogin -> [yes, prohibit-password,
   forced-commands-only, no]. The supervisor will fill the rest of the ~90
   codec'd files after it finishes the codec/template passes.
+
+## Package catalog: templates never become roles (found 2026-07-28 via "und was ist mit LDAP?")
+
+- **The bottleneck is name matching, not template generation.** `scripts/build_package_catalog.py`
+  is codec-driven: a config file in the codec registry that *has* a template becomes a catalog
+  entry. But codec keys are **full paths** (`/etc/default/slapd`) while template directories are
+  **package-ish names** (`slapd`, `389-ds`). Measured: **1982 template dirs, 1553 codec keys,
+  intersection 54** → `package_catalog.json` has **38** entries (24 `kind: role` + 14
+  `kind: config`). So ~1900 generated templates are invisible to the catalog and never become a
+  role/wizard. This — not the qualify batch's progress — is why "we only have 38 roles" while
+  `package_universe_real.json` lists debian 8555 / ubuntu 9112. Fixing the mapping (derive a
+  basename/package key on both sides) is the single biggest unlock; caveat: auto-derived entries
+  carry no label/service/families, so they'd be weaker roles than the curated CORE table's.
+- **No LDAP *server* role exists.** Only `ldap.conf` is in the catalog, correctly as
+  `kind: config` — it is `/etc/ldap/ldap.conf`, the OpenLDAP **client** config. Templates for the
+  server side do exist on disk but were never promoted: `slapd` (6 fields — only
+  `/etc/default/slapd`, i.e. startup options), `389-ds` (6 — systemd instance),
+  `389_directory_server` (34 — LDIF, whose own generated header says *"Do NOT edit directly; use
+  the dsconfig CLI or LDAP operations instead"*).
+- **Why LDAP is the hardest case, and what it teaches:** both OpenLDAP (`slapd.d` / `cn=config`)
+  and 389-ds (`dse.ldif`) keep their configuration in an **LDIF database the daemon owns**, not in
+  a text file. A config template + codec is the wrong mechanism there; such servers are configured
+  through `ldapmodify` / `dsconf`, i.e. **runbook steps**. Generalising: the template/codec pipeline
+  only fits packages whose config IS a flat file — packages with a daemon-owned config store need a
+  role with steps instead. Worth a `kind` beyond `role|config` to mark them.
+- Adding LDAP by hand would mean a curated CORE entry (label, a new `identity` category — the
+  catalog has none today, though the Management tab does have an Identity group with the FreeIPA
+  snap-in — families debian `slapd`+`ldap-utils`, service `slapd`) plus a matching palette
+  component in the blueprint editor.
