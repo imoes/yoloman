@@ -351,6 +351,10 @@ export class RunbookEditorComponent implements OnInit, AfterViewInit, OnDestroy 
   visualReady = signal(false);
   visualName = 'my-runbook';
   visualTargets = '';
+  // Handlers aren't authored in this task-list canvas (they'd need the play-block
+  // mode), but must survive the visual round-trip — captured on import, re-emitted
+  // on serialize so a runbook's `handlers:` are never silently dropped.
+  private pendingHandlers: unknown = undefined;
   // Blockly visual designer — ported 1:1 from ../ansible-manager. The canvas owns
   // block editing (per-module blocks from the committed catalog); visual↔text uses
   // the reference serializeWorkspace/importTasksYaml over Ansible-task YAML.
@@ -385,6 +389,7 @@ export class RunbookEditorComponent implements OnInit, AfterViewInit, OnDestroy 
     if (this.visualName) doc['name'] = this.visualName;
     if (this.visualTargets.trim()) doc['targets'] = this.visualTargets.trim();
     doc['tasks'] = tasks;
+    if (Array.isArray(this.pendingHandlers) && this.pendingHandlers.length) doc['handlers'] = this.pendingHandlers;
     this.ed?.setValue(yaml.dump(doc, { lineWidth: -1, noRefs: true }));
   }
 
@@ -445,6 +450,9 @@ export class RunbookEditorComponent implements OnInit, AfterViewInit, OnDestroy 
       this.visualName = (env['name'] as string) ?? this.visualName;
       this.visualTargets = (env['targets'] as string) ?? (env['hosts'] as string) ?? '';
       tasks = env['tasks'] ?? [];
+      this.pendingHandlers = env['handlers'];   // preserve across the round-trip
+    } else {
+      this.pendingHandlers = undefined;
     }
     const tasksYaml = yaml.dump(Array.isArray(tasks) ? tasks : []);
     Blockly.Events.disable();
