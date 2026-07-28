@@ -66,6 +66,12 @@ export function buildToolbox(roleNames = []) {
       rolesCategory(roleNames),
       {
         kind: 'category',
+        name: 'Control flow',
+        colour: '20',
+        contents: [{ kind: 'block', type: 'block_task' }],
+      },
+      {
+        kind: 'category',
         name: 'Conditions',
         colour: '210',
         contents: CONDITION_BLOCK_TYPES.map((type) => ({ kind: 'block', type })),

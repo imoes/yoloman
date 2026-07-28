@@ -175,23 +175,9 @@ function blockToModuleArgs(moduleBlock) {
 // A module block IS a task (see blocks.js) — this walks its own name/module-
 // args/envelope fields into one ordered task object. raw_task holds an
 // entire unrecognized task verbatim.
-function blockToTaskObject(taskBlock) {
-  if (taskBlock.type === 'raw_task') {
-    const raw = fieldValue(taskBlock, 'RAW_YAML') || '';
-    return yaml.load(raw) || {};
-  }
-
-  const shortName = taskBlock.moduleShortName_
-    || (taskBlock.ansibleModuleFqcn ? taskBlock.ansibleModuleFqcn.split('.').pop() : taskBlock.type.replace(/^module_/, ''));
-  const name = fieldValue(taskBlock, 'NAME');
-
-  const ordered = {};
-  if (name) ordered.name = name;
-  ordered[shortName] = blockToModuleArgs(taskBlock);
-
-  // Task settings (when/tags/register/…) are a chain of standalone blocks
-  // plugged into the module block's SETTINGS statement input (see blocks.js
-  // defineTaskSettingBlocks()) — walk it like any other Blockly stack.
+// Walks the SETTINGS statement input's chain of task-setting blocks (when/tags/
+// register/…) into `ordered` — shared by module blocks and block_task.
+function applyTaskSettings(taskBlock, ordered) {
   let settingBlock = taskBlock.getInputTargetBlock('SETTINGS');
   while (settingBlock) {
     const envelope = ENVELOPE_BY_KEY[settingBlock.settingKey_];
@@ -218,6 +204,37 @@ function blockToTaskObject(taskBlock) {
     }
     settingBlock = settingBlock.getNextBlock();
   }
+}
+
+function blockToTaskObject(taskBlock) {
+  if (taskBlock.type === 'raw_task') {
+    const raw = fieldValue(taskBlock, 'RAW_YAML') || '';
+    return yaml.load(raw) || {};
+  }
+
+  // block / rescue / always — grouped error handling. Each section is a chain
+  // of task blocks; rescue/always are omitted when empty.
+  if (taskBlock.type === 'block_task') {
+    const ordered = {};
+    const name = fieldValue(taskBlock, 'NAME');
+    if (name) ordered.name = name;
+    ordered.block = taskChainToObjects(taskBlock.getInputTargetBlock('BLOCK'));
+    const rescue = taskChainToObjects(taskBlock.getInputTargetBlock('RESCUE'));
+    if (rescue.length) ordered.rescue = rescue;
+    const always = taskChainToObjects(taskBlock.getInputTargetBlock('ALWAYS'));
+    if (always.length) ordered.always = always;
+    applyTaskSettings(taskBlock, ordered);
+    return ordered;
+  }
+
+  const shortName = taskBlock.moduleShortName_
+    || (taskBlock.ansibleModuleFqcn ? taskBlock.ansibleModuleFqcn.split('.').pop() : taskBlock.type.replace(/^module_/, ''));
+  const name = fieldValue(taskBlock, 'NAME');
+
+  const ordered = {};
+  if (name) ordered.name = name;
+  ordered[shortName] = blockToModuleArgs(taskBlock);
+  applyTaskSettings(taskBlock, ordered);
 
   return ordered;
 }
@@ -385,7 +402,7 @@ export function workspaceToPlays(workspace) {
 export function workspaceToTasks(workspace) {
   const tasks = [];
   workspace.getTopBlocks(true).forEach((top) => {
-    const isTaskLike = top.type === 'raw_task' || top.type.startsWith('module_');
+    const isTaskLike = top.type === 'raw_task' || top.type === 'block_task' || top.type.startsWith('module_');
     if (isTaskLike) tasks.push(...taskChainToObjects(top));
   });
   return tasks;

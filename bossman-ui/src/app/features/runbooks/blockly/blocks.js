@@ -456,6 +456,76 @@ function defineStaticBlocks() {
     },
   };
 
+  // block / rescue / always — Ansible's grouped error handling, as a first-
+  // class task block (not the raw_task fallback). `block` runs its child tasks;
+  // on a hard failure `rescue` runs (and can recover); `always` runs regardless.
+  // Each section is a Task statement input (module_*/raw_task/nested block_task
+  // chain), and it carries the same task-setting stack (when/tags/become/…) as a
+  // module block. The settings methods mirror the module block's (blocks.js
+  // defineModuleBlocks) so the SETTINGS stack + "add task setting…" work here too.
+  Blockly.Blocks.block_task = {
+    init() {
+      this.appendDummyInput('HEAD')
+        .appendField('block')
+        .appendField('task name:')
+        .appendField(new Blockly.FieldTextInput(''), 'NAME');
+      this.appendStatementInput('BLOCK').setCheck('Task').appendField('block');
+      this.appendStatementInput('RESCUE').setCheck('Task').appendField('rescue');
+      this.appendStatementInput('ALWAYS').setCheck('Task').appendField('always');
+      this.appendStatementInput('SETTINGS').setCheck(TASK_SETTING_CHECK).appendField('settings');
+      this.appendDummyInput('ADD_TASKOPT').appendField(
+        new Blockly.FieldDropdown(() => this.addTaskOptOptions_()),
+        'ADD_TASKOPT'
+      );
+      this.getField('ADD_TASKOPT').setValidator((sel) => this.onAddTaskOpt_(sel));
+      this.setPreviousStatement(true, 'Task');
+      this.setNextStatement(true, 'Task');
+      this.setColour(20);
+      this.setTooltip(
+        'Grouped error handling: run the tasks in "block"; on a hard failure run ' +
+        '"rescue" (which can recover the run); "always" runs regardless.'
+      );
+    },
+    getSetting_(key) {
+      let b = this.getInput('SETTINGS').connection.targetBlock();
+      while (b) {
+        if (b.settingKey_ === key) return b;
+        b = b.getNextBlock();
+      }
+      return null;
+    },
+    addTaskOptOptions_() {
+      const opts = [['＋ add task setting…', ADD_PARAM_PLACEHOLDER]];
+      ENVELOPE_FIELDS
+        .filter((e) => !this.getSetting_(e.key))
+        .forEach((e) => opts.push([e.label, e.key]));
+      return opts;
+    },
+    onAddTaskOpt_(sel) {
+      if (sel && sel !== ADD_PARAM_PLACEHOLDER) {
+        const key = sel;
+        setTimeout(() => this.addEnvelopeField(key), 0);
+      }
+      return ADD_PARAM_PLACEHOLDER;
+    },
+    addEnvelopeField(key) {
+      const existing = this.getSetting_(key);
+      if (existing) return existing;
+      if (!ENVELOPE_BY_KEY[key]) return null;
+      const child = this.workspace.newBlock(settingBlockType(key));
+      if (typeof child.initSvg === 'function') { child.initSvg(); child.render(); }
+      const settingsInput = this.getInput('SETTINGS');
+      let last = settingsInput.connection.targetBlock();
+      if (!last) {
+        settingsInput.connection.connect(child.previousConnection);
+      } else {
+        while (last.getNextBlock()) last = last.getNextBlock();
+        last.nextConnection.connect(child.previousConnection);
+      }
+      return child;
+    },
+  };
+
   // Whole-FILE escape hatch for a role's tasks/handlers/defaults/vars
   // section: created by the importer (never dragged from the toolbox — like
   // cond_raw, it's programmatic-only) when a file's content fails to parse

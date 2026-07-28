@@ -21,7 +21,7 @@ const KNOWN_PLAY_KEYS = new Set(['name', 'hosts', 'become', 'tasks', 'roles', 'h
 // playbooks) — treated as an alias so those tasks don't need the modern
 // keyword to be recognized.
 const KNOWN_TASK_ENVELOPE_KEYS = new Set([
-  'name', 'with_items', ...ENVELOPE_FIELDS.map((e) => e.yamlKey),
+  'name', 'with_items', 'block', 'rescue', 'always', ...ENVELOPE_FIELDS.map((e) => e.yamlKey),
 ]);
 const MODULE_NAME_SET = new Set(MODULE_NAMES);
 
@@ -134,23 +134,11 @@ function importModuleBlock(workspace, moduleKey, args) {
   return moduleBlock;
 }
 
-function importTask(workspace, taskObj) {
-  const moduleKeys = Object.keys(taskObj).filter((k) => !KNOWN_TASK_ENVELOPE_KEYS.has(k));
-
-  // Zero or more-than-one remaining key: can't unambiguously identify the
-  // module (e.g. block:/rescue:/always:, or an empty task) — preserve the
-  // whole task verbatim rather than guessing wrong.
-  const moduleBlock = moduleKeys.length === 1
-    ? importModuleBlock(workspace, moduleKeys[0], taskObj[moduleKeys[0]])
-    : null;
-
-  if (!moduleBlock) {
-    const rawTask = newBlock(workspace, 'raw_task');
-    setField(rawTask, 'RAW_YAML', yaml.dump(taskObj).trim());
-    return rawTask;
-  }
-
-  if (taskObj.name) setField(moduleBlock, 'NAME', taskObj.name);
+// Applies a task's name + task-level settings (when/tags/register/…) onto a
+// task block (module_* or block_task — both expose addEnvelopeField). Shared so
+// blocks and plain tasks handle the envelope identically.
+function applyTaskEnvelope(workspace, taskBlock, taskObj) {
+  if (taskObj.name) setField(taskBlock, 'NAME', taskObj.name);
   ENVELOPE_FIELDS.forEach((envelope) => {
     // `with_items` is the legacy alias for `loop:` (see KNOWN_TASK_ENVELOPE_KEYS) —
     // both populate the same LOOP setting; regeneration always emits `loop:`.
@@ -159,10 +147,11 @@ function importTask(workspace, taskObj) {
       : envelope.yamlKey;
     if (!(sourceKey in taskObj)) return;
     let value = taskObj[sourceKey];
-    // Each task setting is its own standalone block chained onto the
-    // module's SETTINGS statement input (see blocks.js) — addEnvelopeField
-    // creates (or returns the existing) one.
-    const settingBlock = moduleBlock.addEnvelopeField(envelope.key);
+    // Each task setting is its own standalone block chained onto the block's
+    // SETTINGS statement input (see blocks.js) — addEnvelopeField creates (or
+    // returns the existing) one.
+    const settingBlock = taskBlock.addEnvelopeField(envelope.key);
+    if (!settingBlock) return;
     if (envelope.kind === 'value') {
       // when: may be a single Jinja expression string, or a list of strings
       // that Ansible implicitly ANDs together — normalize to one string
@@ -179,6 +168,41 @@ function importTask(workspace, taskObj) {
     }
     setField(settingBlock, 'VALUE', value);
   });
+}
+
+// block: / rescue: / always: → a block_task with its three task chains.
+function importBlockTask(workspace, taskObj) {
+  const blockBlock = newBlock(workspace, 'block_task');
+  chainTasksInto(workspace, blockBlock, 'BLOCK', taskObj.block);
+  chainTasksInto(workspace, blockBlock, 'RESCUE', taskObj.rescue);
+  chainTasksInto(workspace, blockBlock, 'ALWAYS', taskObj.always);
+  applyTaskEnvelope(workspace, blockBlock, taskObj);
+  return blockBlock;
+}
+
+function importTask(workspace, taskObj) {
+  // A block/rescue/always task is now a first-class block_task (no longer the
+  // raw_task fallback).
+  if (taskObj && Array.isArray(taskObj.block)) {
+    return importBlockTask(workspace, taskObj);
+  }
+
+  const moduleKeys = Object.keys(taskObj).filter((k) => !KNOWN_TASK_ENVELOPE_KEYS.has(k));
+
+  // Zero or more-than-one remaining key: can't unambiguously identify the
+  // module (or an empty task) — preserve the whole task verbatim rather than
+  // guessing wrong.
+  const moduleBlock = moduleKeys.length === 1
+    ? importModuleBlock(workspace, moduleKeys[0], taskObj[moduleKeys[0]])
+    : null;
+
+  if (!moduleBlock) {
+    const rawTask = newBlock(workspace, 'raw_task');
+    setField(rawTask, 'RAW_YAML', yaml.dump(taskObj).trim());
+    return rawTask;
+  }
+
+  applyTaskEnvelope(workspace, moduleBlock, taskObj);
   return moduleBlock;
 }
 
