@@ -40,6 +40,11 @@ export const routes: Routes = [
     loadComponent: () => import('./features/systems/systems.component').then((m) => m.SystemsComponent),
   },
   {
+    path: 'blueprint',
+    canActivate: [authGuard],
+    loadComponent: () => import('./features/blueprint/blueprint.component').then((m) => m.BlueprintComponent),
+  },
+  {
     path: 'hosts/:id',
     canActivate: [authGuard],
     loadComponent: () => import('./features/hosts/host-detail.component').then((m) => m.HostDetailComponent),

@@ -42,6 +42,7 @@ const MAIN_NAV: NavItem[] = [
   { path: '/hosts', label: 'Hosts', icon: 'dns' },
   { path: '/apps', label: 'App Store', icon: 'apps' },
   { path: '/systems', label: 'Systems', icon: 'lan' },
+  { path: '/blueprint', label: 'Blueprint', icon: 'schema' },
   { path: '/problems', label: 'Problems', icon: 'report_problem' },
   { path: '/business-services', label: 'Business services', icon: 'hub' },
   { path: '/capacity', label: 'Capacity', icon: 'trending_up' },
