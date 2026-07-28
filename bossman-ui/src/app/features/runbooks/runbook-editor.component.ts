@@ -93,10 +93,10 @@ const MAGIC_VARS = [
 
 /**
  * Block G11 — the Workflow designer. Two synced views of one runbook:
- * Monaco (NestedText, YAML-highlighted, server-side lint markers) and a Blockly
+ * Monaco (Ansible-task playbook YAML, server-side lint markers) and a Blockly
  * canvas (see blockly/). The round-trip is real: text→visual parses via
  * /runbooks/lint (which returns the canonical doc) and builds the blocks;
- * visual→text walks the blocks back to NestedText. A step block renders one
+ * visual→text walks the blocks back to Ansible-task YAML. A step block renders one
  * typed field per module option (from the argspec), and `when:` is built from
  * condition blocks. A runbook's typed `parameters` render as an input mask
  * before dry-run/apply.
@@ -109,7 +109,7 @@ const MAGIC_VARS = [
     <div class="bm-page">
       <div class="bm-header-row">
         <h1>Workflow designer</h1>
-        <span class="bm-subtitle">Author a runbook — drag modules on the canvas or edit NestedText — lint it, dry-run against a host, then apply.</span>
+        <span class="bm-subtitle">Author a runbook — drag modules on the canvas or edit the Ansible playbook — lint it, dry-run against a host, then apply.</span>
       </div>
 
       <div class="bm-split">
@@ -162,7 +162,7 @@ const MAGIC_VARS = [
                 <mat-label>Targets</mat-label>
                 <input matInput [(ngModel)]="visualTargets" (ngModelChange)="syncVisual()" placeholder="group:web-servers" />
               </mat-form-field>
-              <span class="bm-dim">Build the runbook from blocks — pick a step from the toolbox, fill its fields; the NestedText stays in sync. Switch to Text any time.</span>
+              <span class="bm-dim">Build the runbook from blocks — pick a step from the toolbox, fill its fields; the playbook YAML stays in sync. Switch to Text any time.</span>
             </div>
             <div class="bm-canvas-row">
               @if (visualReady()) {
@@ -235,11 +235,11 @@ const MAGIC_VARS = [
              designer falls into its cramped mobile layout). -->
         <div class="bm-right" [style.display]="mode() === 'visual' ? 'none' : 'block'">
           <div class="bm-panel-title">Magic variables</div>
-          <p class="bm-dim">Agent facts, available as <code>&#36;&#123;var&#125;</code> in args/when — no declaration:</p>
+          <p class="bm-dim">Agent facts, available as <code ngNonBindable>{{ var }}</code> in args/when — no declaration:</p>
           <ul class="bm-vars">
             @for (v of magicVars; track v) { <li class="bm-mono">{{ ref(v) }}</li> }
           </ul>
-          <p class="bm-dim">Also any host/group/OU var, role parameters, and <code>&#36;&#123;item&#125;</code> in a loop.</p>
+          <p class="bm-dim">Also any host/group/OU var, role parameters, and <code ngNonBindable>{{ item }}</code> in a loop.</p>
 
           <div class="bm-panel-title" style="margin-top:16px;">Recent runs @if (hostId()) { <span class="bm-dim">· this host</span> }</div>
           @if (runs().length === 0) { <p class="bm-dim">No runs recorded yet.</p> }
@@ -590,6 +590,6 @@ export class RunbookEditorComponent implements OnInit, AfterViewInit, OnDestroy 
   /** Render a magic-variable reference like ${yoloman_hostname} without
    * colliding with Angular's {{ }} interpolation. */
   ref(v: string): string {
-    return '$' + '{' + v + '}';
+    return '{{ ' + v + ' }}';
   }
 }
