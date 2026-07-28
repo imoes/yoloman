@@ -41,6 +41,7 @@ import { TopologyComponent } from '../topology/topology.component';
 import { HostManagementComponent } from './management/host-management.component';
 import { KubernetesDeployComponent } from './kubernetes-deploy.component';
 import { StandaloneOverviewComponent } from '../../standalone/standalone-overview.component';
+import { ResourceNodeComponent } from '../../shared/resource-node/resource-node.component';
 import { DesiredStateReportComponent, ConfigDesiredResource } from '../../shared/components/desired-state-report/desired-state-report.component';
 import { CompiledHostState } from '../../core/models/orchestration.model';
 import { agentHealthStatus, runStatusBadge, serviceStateBadge } from '../../shared/status.util';
@@ -121,6 +122,7 @@ function serviceMetricSpec(name: string, metric: string): { members: string[]; m
     HostStatusBadgeComponent,
     HostInventoryComponent,
     StandaloneOverviewComponent,
+    ResourceNodeComponent,
     HostChecksComponent,
     HostConsoleComponent,
     TopologyComponent,
@@ -652,6 +654,14 @@ function serviceMetricSpec(name: string, metric: string): { members: string[]; m
                           <button mat-button (click)="startTemplateEdit(r, tpl)"><mat-icon>dataset</mat-icon> Edit via template</button>
                         }
                       </div>
+                      <div class="bm-cfg-viewtoggle">
+                        <button type="button" class="bm-vt" [class.bm-vt-sel]="configView() === 'editor'" (click)="configView.set('editor')">Settings editor</button>
+                        <button type="button" class="bm-vt" [class.bm-vt-sel]="configView() === 'resource'" (click)="configView.set('resource')">Resource view</button>
+                        <span class="bm-dim bm-vt-note">Resource view = the generic config node (host-direct state + generations). The Settings editor keeps scope/policy, source, Removed and restart-after-apply.</span>
+                      </div>
+                      @if (configView() === 'resource') {
+                        <app-resource-node kind="config" [name]="r.path" [agentId]="agent.id" />
+                      } @else {
                       @if (tplEditPath() === r.path) {
                         <p class="bm-dim">Managed via template <strong>{{ tplName() }}</strong> — edit the values, the whole file is rendered from them.</p>
                         @for (f of tplFields(); track f.key; let i = $index) {
@@ -766,6 +776,7 @@ function serviceMetricSpec(name: string, metric: string): { members: string[]; m
                         }
                       } @else if (r.sha256) {
                         <p class="bm-dim">opaque — sha256 {{ r.sha256.slice(0, 12) }}… ({{ r.size }} bytes)</p>
+                      }
                       }
                     }
                   </div>
@@ -1310,6 +1321,10 @@ function serviceMetricSpec(name: string, metric: string): { members: string[]; m
       .bm-cfg-card { padding: 12px 14px; margin-bottom: 10px; }
       .bm-cfg-row { display: flex; align-items: center; gap: 10px; }
       .bm-cfg-path { font-weight: 600; word-break: break-all; }
+      .bm-cfg-viewtoggle { display: flex; align-items: center; gap: 6px; margin: 8px 0 12px; flex-wrap: wrap; }
+      .bm-vt { font-size: 12px; padding: 3px 12px; border-radius: 999px; border: 1px solid var(--mat-sys-outline-variant); background: transparent; color: inherit; cursor: pointer; }
+      .bm-vt-sel { background: color-mix(in srgb, var(--mat-sys-primary) 16%, transparent); border-color: var(--mat-sys-primary); }
+      .bm-vt-note { flex: 1 1 220px; }
       .bm-cfg-values { margin: 8px 0 0; padding: 8px 10px; background: color-mix(in srgb, var(--mat-sys-on-surface) 5%, transparent); border-radius: 6px; font-size: 12px; max-height: 320px; overflow: auto; white-space: pre-wrap; word-break: break-word; }
       .bm-cfg-err { color: var(--bm-crit, #c62828); margin: 8px 0 0; font-size: 13px; }
       .bm-cfg-editbtn { margin-top: 6px; }
@@ -2421,7 +2436,13 @@ export class HostDetailComponent implements OnInit {
     this.cancelEdit();
     this.cancelTemplateEdit();
     this.thrKey.set(null);
+    this.configView.set('editor');   // each file opens in the scope-aware editor
   }
+
+  // Per config file: the scope-aware Settings editor (default) or the generic
+  // config ResourceNode ("Resource view", host-direct state + generations). The
+  // node COMPLEMENTS the editor — it doesn't replace scope/policy/removed/restart.
+  configView = signal<'editor' | 'resource'>('editor');
 
   // gpedit Miller columns: category (col 1) → its items (col 2) → pane (col 3).
   // Monitoring + Policies are pseudo-categories; the rest are config-file
