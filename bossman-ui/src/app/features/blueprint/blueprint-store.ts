@@ -165,6 +165,64 @@ export class BlueprintStore {
     this.patch((list) => list.map((s) => (s.name === from ? this.unwire(s, to) : s)));
   }
 
+  /** Every variable an edge contributed — what the edge inspector edits. */
+  bindingsOf(from: string, to: string): { key: string; value: string }[] {
+    const s = this.bp().services.find((x) => x.name === from);
+    if (!s) return [];
+    return Object.entries(s.bindings)
+      .filter(([, src]) => src === to)
+      .map(([key]) => ({ key, value: s.environment[key] ?? '' }))
+      .sort((a, b) => a.key.localeCompare(b.key));
+  }
+
+  /** Rename a wired variable — the consumer may expect PGHOST rather than DB_HOST.
+   * Keeps the value and the provenance, so the edge still owns the key. */
+  renameBinding(service: string, oldKey: string, rawNew: string): void {
+    const next = rawNew.trim().replace(/[^A-Za-z0-9_]/g, '_');
+    if (!next || next === oldKey) return;
+    this.patch((list) => list.map((s) => {
+      if (s.name !== service || !(oldKey in s.bindings)) return s;
+      if (next in s.environment) { this.error.set(`${next} ist in ${service} schon gesetzt.`); return s; }
+      const env = { ...s.environment }; const bind = { ...s.bindings };
+      env[next] = env[oldKey]; bind[next] = bind[oldKey];
+      delete env[oldKey]; delete bind[oldKey];
+      return { ...s, environment: env, bindings: bind };
+    }));
+  }
+
+  /** Override a wired value by hand (e.g. a read-replica address instead of the
+   * service name). Provenance is kept so the inspector can still say where it came
+   * from — and `disconnect` still knows the key belongs to this edge. */
+  setBindingValue(service: string, key: string, value: string): void {
+    this.patch((list) => list.map((s) =>
+      s.name === service && key in s.bindings
+        ? { ...s, environment: { ...s.environment, [key]: value } }
+        : s));
+  }
+
+  /** Drop one wired variable without removing the edge. */
+  removeBinding(service: string, key: string): void {
+    this.patch((list) => list.map((s) => {
+      if (s.name !== service || !(key in s.bindings)) return s;
+      const env = { ...s.environment }; const bind = { ...s.bindings };
+      delete env[key]; delete bind[key];
+      return { ...s, environment: env, bindings: bind };
+    }));
+  }
+
+  /** Add another variable to an existing edge — defaults to the peer's name, which
+   * is how Compose addresses it. */
+  addBinding(service: string, target: string, rawKey: string): void {
+    const key = rawKey.trim().replace(/[^A-Za-z0-9_]/g, '_').toUpperCase();
+    if (!key) return;
+    this.patch((list) => list.map((s) => {
+      if (s.name !== service) return s;
+      if (key in s.environment) { this.error.set(`${key} ist in ${service} schon gesetzt.`); return s; }
+      return { ...s, environment: { ...s.environment, [key]: target },
+               bindings: { ...s.bindings, [key]: target } };
+    }));
+  }
+
   // ---- persistence / IO --------------------------------------------------
 
   private persist(): void {

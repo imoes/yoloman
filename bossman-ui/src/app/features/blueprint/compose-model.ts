@@ -38,7 +38,7 @@ export interface BlueprintService {
   /**
    * x-yolo-address — the PLANNED address (IP or FQDN) this service is reachable at.
    * Addressing a native service is a planning decision, not a runtime accident: the
-   * IP is allocated up front (IPAM, e.g. NetBox) and, where the tenant runs a managed
+   * IP is allocated up front in the IPAM of record and, where the tenant runs a managed
    * BIND (the `pkg-bind` snap-in / the install-bind9 role), the DNS name is created
    * from it. Empty = still to be planned.
    */
@@ -74,24 +74,32 @@ export interface PaletteEntry {
   prefix: string;
   /** default container port, used when auto-wiring a consumer's <NAME>_PORT */
   defaultPort?: number;
+  /**
+   * Which package-catalog categories this component can be. Placing a "Datenbank"
+   * must only offer database roles — the catalog already carries a `category` per
+   * package (database/web/network/storage/security/system/time/virtualization/
+   * services), so we filter against that instead of inventing a second taxonomy.
+   * Empty = no restriction (a generic Server can take any role).
+   */
+  categories?: string[];
 }
 
 export const PALETTE: PaletteEntry[] = [
   { icon: 'server', label: 'Server', kind: 'native', prefix: 'srv' },
   { icon: 'container', label: 'Container', kind: 'docker', prefix: 'app' },
-  { icon: 'database', label: 'Datenbank', kind: 'native', prefix: 'db', defaultPort: 5432 },
-  { icon: 'proxy', label: 'Webserver / Proxy', kind: 'native', prefix: 'web', defaultPort: 80 },
-  { icon: 'loadbalancer', label: 'Load Balancer', kind: 'native', prefix: 'lb', defaultPort: 80 },
-  { icon: 'cache', label: 'Cache', kind: 'docker', prefix: 'cache', defaultPort: 6379 },
-  { icon: 'queue', label: 'Message Queue', kind: 'docker', prefix: 'mq', defaultPort: 5672 },
-  { icon: 'storage', label: 'Storage', kind: 'native', prefix: 'store' },
-  { icon: 'firewall', label: 'Firewall', kind: 'native', prefix: 'fw' },
-  { icon: 'k8s', label: 'Kubernetes', kind: 'docker', prefix: 'k8s' },
-  { icon: 'network', label: 'Netz', kind: 'native', prefix: 'net' },
+  { icon: 'database', label: 'Datenbank', kind: 'native', prefix: 'db', defaultPort: 5432, categories: ['database'] },
+  { icon: 'proxy', label: 'Webserver / Proxy', kind: 'native', prefix: 'web', defaultPort: 80, categories: ['web'] },
+  { icon: 'loadbalancer', label: 'Load Balancer', kind: 'native', prefix: 'lb', defaultPort: 80, categories: ['web', 'network'] },
+  { icon: 'cache', label: 'Cache', kind: 'docker', prefix: 'cache', defaultPort: 6379, categories: ['database'] },
+  { icon: 'queue', label: 'Message Queue', kind: 'docker', prefix: 'mq', defaultPort: 5672, categories: ['services', 'database'] },
+  { icon: 'storage', label: 'Storage', kind: 'native', prefix: 'store', categories: ['storage'] },
+  { icon: 'firewall', label: 'Firewall', kind: 'native', prefix: 'fw', categories: ['security', 'network'] },
+  { icon: 'k8s', label: 'Kubernetes', kind: 'docker', prefix: 'k8s', categories: ['virtualization'] },
+  { icon: 'network', label: 'Netz', kind: 'native', prefix: 'net', categories: ['network'] },
   { icon: 'external', label: 'Externer Dienst', kind: 'native', prefix: 'ext' },
-  { icon: 'agent', label: 'Agent', kind: 'native', prefix: 'agent' },
-  { icon: 'hypervisor', label: 'Hypervisor', kind: 'native', prefix: 'hv' },
-  { icon: 'template', label: 'VM-Template', kind: 'native', prefix: 'tmpl' },
+  { icon: 'agent', label: 'Agent', kind: 'native', prefix: 'agent', categories: ['system'] },
+  { icon: 'hypervisor', label: 'Hypervisor', kind: 'native', prefix: 'hv', categories: ['virtualization'] },
+  { icon: 'template', label: 'VM-Template', kind: 'native', prefix: 'tmpl', categories: ['virtualization'] },
 ];
 
 export const ICON_KEYS = PALETTE.map((p) => p.icon);

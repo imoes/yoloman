@@ -8,8 +8,9 @@ import { ParamSchema } from '../../shared/param-form/param-form.types';
 import { ParamFormComponent } from '../../shared/param-form/param-form.component';
 import { BlueprintCanvasComponent } from './blueprint-canvas.component';
 import { BlueprintStore } from './blueprint-store';
-import { PALETTE, PaletteEntry } from './compose-model';
+import { PALETTE, PaletteEntry, paletteFor } from './compose-model';
 import { ResolvedVar, resolveService, startOrder } from './compose-resolver';
+import { CatalogPackage, PackageCatalogService } from '../../core/services/package-catalog.service';
 
 interface RunbookRow { id: string; name: string; folder: string }
 
@@ -44,7 +45,9 @@ interface RunbookRow { id: string; name: string; folder: string }
         <aside class="bm-pal">
           <div class="bm-pal-h">Komponenten</div>
           @for (p of palette; track p.icon) {
-            <button type="button" class="bm-pal-i" (click)="place(p)" [title]="p.kind">
+            <button type="button" class="bm-pal-i" (click)="place(p)"
+                    draggable="true" (dragstart)="onDragStart($event, p)"
+                    [title]="p.kind + ' — ziehen oder klicken'">
               <img [src]="'assets/blueprint/' + p.icon + '.svg'" [alt]="p.label" />
               <span>{{ p.label }}</span>
               <small>{{ p.kind }}</small>
@@ -54,7 +57,14 @@ interface RunbookRow { id: string; name: string; folder: string }
           <label class="bm-fld"><span>Stack-Name</span>
             <input [ngModel]="store.blueprint().name" (ngModelChange)="store.setName($event)" />
           </label>
-          <button mat-stroked-button class="bm-w" (click)="download()"><mat-icon>download</mat-icon> Export</button>
+          <button mat-stroked-button class="bm-w" (click)="download('json')"
+                  title="Vollständiges Blueprint — enthält Rolle, Platzierung und Layout; kann wieder importiert werden">
+            <mat-icon>download</mat-icon> Blueprint (JSON)
+          </button>
+          <button mat-stroked-button class="bm-w" (click)="download('yaml')"
+                  title="Reines Compose für docker compose — ohne Editor-Metadaten (Layout/Rolle gehen dabei verloren)">
+            <mat-icon>description</mat-icon> compose.yaml
+          </button>
           <button mat-stroked-button class="bm-w" (click)="fileInput.click()"><mat-icon>upload</mat-icon> Import</button>
           <input #fileInput type="file" accept=".yml,.yaml,.json" hidden (change)="onFile($event)" />
           <button mat-stroked-button class="bm-w" (click)="store.reset()"><mat-icon>delete_sweep</mat-icon> Leeren</button>
@@ -65,6 +75,8 @@ interface RunbookRow { id: string; name: string; folder: string }
           <app-blueprint-canvas
             [blueprint]="store.blueprint()" [selected]="store.selected()"
             (select)="store.selected.set($event)"
+            (selectEdge)="onSelectEdge($event)"
+            (dropped)="onDropped($event)"
             (connectPair)="store.connect($event.from, $event.to)"
             (moved)="store.move($event.name, $event.x, $event.y)"
             (removeNode)="store.remove($event)" />
@@ -110,10 +122,13 @@ interface RunbookRow { id: string; name: string; folder: string }
                  values_schema, a different artifact per target) — the role's
                  template schema is where the typed variables come from, whether
                  the service ends up as a package or a container. -->
-            <label class="bm-fld"><span>Rolle / Template — liefert die Variablen</span>
+            <label class="bm-fld">
+              <span>Rolle / Template — liefert die Variablen
+                @if (categoryHint(s.icon); as c) { <em class="bm-cat">nur {{ c }}</em> }
+              </span>
               <select [ngModel]="s.role ?? ''" (ngModelChange)="pickRole(s.name, $event)">
                 <option value="">— keine —</option>
-                @for (r of roles(); track r.id) { <option [value]="r.name">{{ r.name }}</option> }
+                @for (r of rolesFor(s.icon); track r.id) { <option [value]="r.name">{{ r.label }}</option> }
               </select>
             </label>
 
@@ -136,7 +151,7 @@ interface RunbookRow { id: string; name: string; folder: string }
               </label>
               @if (!s.address && !s.host) {
                 <p class="bm-warn">Adresse noch offen — Compose-DNS greift für native Dienste nicht. Die IP wird
-                  vorab im IPAM (NetBox) vergeben; den DNS-Namen legt das verwaltete BIND an.</p>
+                  vorab im IPAM vergeben; den DNS-Namen legt das verwaltete BIND an.</p>
               }
             }
 
@@ -182,8 +197,43 @@ interface RunbookRow { id: string; name: string; folder: string }
                 }
               </table>
             }
+          } @else if (selectedEdge(); as e) {
+            <!-- An edge is not decoration: it owns the variables it wired, so this is
+                 where you define them (rename the key a consumer expects, override a
+                 value, add another one). -->
+            <div class="bm-insp-h">
+              <mat-icon>arrow_downward</mat-icon>
+              <strong>{{ e.from }} → {{ e.to }}</strong>
+            </div>
+            <p class="bm-dim"><code>{{ e.from }}</code> hängt von <code>{{ e.to }}</code> ab
+              (<code>depends_on</code>). Diese Variablen schreibt die Kante:</p>
+
+            @for (b of store.bindingsOf(e.from, e.to); track b.key) {
+              <div class="bm-bind">
+                <input class="bm-bind-k" [ngModel]="b.key"
+                       (ngModelChange)="store.renameBinding(e.from, b.key, $event)"
+                       title="Variablenname, den der Konsument erwartet" />
+                <input class="bm-bind-v" [ngModel]="b.value"
+                       (ngModelChange)="store.setBindingValue(e.from, b.key, $event)"
+                       title="Wert — ein Servicename wird zur Adresse aufgelöst" />
+                <button mat-button (click)="store.removeBinding(e.from, b.key)" title="Variable entfernen">×</button>
+              </div>
+            } @empty {
+              <p class="bm-dim">Diese Kante schreibt noch keine Variable.</p>
+            }
+
+            <div class="bm-bind">
+              <input class="bm-bind-k" [ngModel]="newVarKey()" (ngModelChange)="newVarKey.set($event)"
+                     placeholder="NEUE_VARIABLE" />
+              <button mat-stroked-button (click)="addVar(e)" [disabled]="!newVarKey().trim()">Hinzufügen</button>
+            </div>
+
+            <button mat-stroked-button class="bm-w" (click)="store.disconnect(e.from, e.to); selectedEdge.set(null)">
+              <mat-icon>link_off</mat-icon> Verbindung trennen
+            </button>
           } @else {
-            <p class="bm-dim">Kein Dienst ausgewählt. Links eine Komponente anklicken, um sie zu platzieren.</p>
+            <p class="bm-dim">Nichts ausgewählt. Zieh links eine Komponente auf die Fläche — oder klick eine
+              Kante an, um ihre Variablen zu definieren.</p>
           }
         </aside>
       </div>
@@ -226,6 +276,13 @@ interface RunbookRow { id: string; name: string; folder: string }
       border-radius: 6px; border: 1px solid var(--mat-sys-outline-variant); background: var(--mat-sys-surface); color: inherit; }
     .bm-w { width: 100%; margin-top: 6px; }
     .bm-dep { display: flex; align-items: center; justify-content: space-between; font-size: 12px; }
+    .bm-bind { display: flex; align-items: center; gap: 5px; margin-bottom: 5px; }
+    .bm-bind input { box-sizing: border-box; padding: 5px 8px; font-size: 12px; font-family: ui-monospace, monospace;
+      border-radius: 6px; border: 1px solid var(--mat-sys-outline-variant); background: var(--mat-sys-surface); color: inherit; }
+    .bm-bind-k { flex: 0 0 44%; }
+    .bm-bind-v { flex: 1 1 auto; min-width: 0; }
+    .bm-cat { font-style: normal; margin-left: 6px; padding: 0 6px; border-radius: 999px; font-size: 10px;
+      background: color-mix(in srgb, var(--mat-sys-on-surface) 12%, transparent); }
     .bm-res { width: 100%; border-collapse: collapse; font-size: 11.5px; }
     .bm-res td { padding: 3px 4px; border-top: 1px solid var(--mat-sys-outline-variant); vertical-align: top; }
     .bm-res tr.un td { color: var(--bm-gold, #b8860b); }
@@ -240,11 +297,16 @@ interface RunbookRow { id: string; name: string; folder: string }
 export class BlueprintComponent implements OnInit {
   store = inject(BlueprintStore);
   private http = inject(HttpClient);
+  private catalogSvc = inject(PackageCatalogService);
 
   palette = PALETTE;
   view = signal<'yaml' | 'json'>('yaml');
   docOpen = signal(true);
   roles = signal<RunbookRow[]>([]);
+  selectedEdge = signal<{ from: string; to: string } | null>(null);
+  newVarKey = signal('');
+  /** the package catalog — supplies each role's `kind` and `category` */
+  private catalog = signal<Record<string, CatalogPackage>>({});
   loadingSchema = signal(false);
   /** role name → its typed parameters (lazy: the list endpoint doesn't return them) */
   private schemas = signal<Record<string, ParamSchema>>({});
@@ -274,6 +336,58 @@ export class BlueprintComponent implements OnInit {
         .sort((a, b) => a.name.localeCompare(b.name))),
       error: () => this.store.error.set('Rollen konnten nicht geladen werden.'),
     });
+    // The catalog tells us which of those wizards are actually installable SERVER
+    // ROLES (kind==='role') and what category they are — the 14 kind==='config'
+    // entries are base-system config files that belong in the Configuration tab,
+    // not on a blueprint canvas.
+    this.catalogSvc.catalog().subscribe({
+      next: (r) => this.catalog.set(r.packages || {}),
+      error: () => { /* filtering degrades to "show all roles" */ },
+    });
+  }
+
+  /** Roles offered for a component: catalog kind==='role', and — when the palette
+   * entry declares categories — only those categories. Placing a Datenbank must not
+   * offer a firewall role. */
+  rolesFor(icon: string): { id: string; name: string; label: string }[] {
+    const entry = paletteFor(icon);
+    const cats = entry?.categories;
+    const cat = this.catalog();
+    const known = Object.keys(cat).length > 0;
+    return this.roles()
+      .map((r) => ({ row: r, pkg: cat[r.name.replace(/^install-/, '')] }))
+      .filter(({ pkg }) => !known || (pkg && pkg.kind !== 'config'))
+      .filter(({ pkg }) => !cats?.length || !pkg || cats.includes(pkg.category))
+      .map(({ row, pkg }) => ({ id: row.id, name: row.name, label: pkg?.label ? `${pkg.label} (${row.name})` : row.name }))
+      .sort((a, b) => a.label.localeCompare(b.label));
+  }
+
+  categoryHint(icon: string): string | null {
+    const cats = paletteFor(icon)?.categories;
+    return cats?.length ? cats.join(' / ') : null;
+  }
+
+  /** Selecting an edge clears the node selection: the inspector shows one thing at
+   * a time, and the node branch would otherwise keep winning in the template. */
+  onSelectEdge(e: { from: string; to: string } | null): void {
+    this.selectedEdge.set(e);
+    if (e) this.store.selected.set(null);
+  }
+
+  onDragStart(ev: DragEvent, p: PaletteEntry): void {
+    ev.dataTransfer?.setData('text/x-blueprint-icon', p.icon);
+    if (ev.dataTransfer) ev.dataTransfer.effectAllowed = 'copy';
+  }
+
+  /** Dropped on the canvas at model coordinates — place it exactly there. */
+  onDropped(e: { icon: string; x: number; y: number }): void {
+    const entry = paletteFor(e.icon);
+    if (entry) { this.store.add(entry, e.x, e.y); this.selectedEdge.set(null); }
+  }
+
+  addVar(e: { from: string; to: string }): void {
+    this.store.addBinding(e.from, e.to, this.newVarKey());
+    this.newVarKey.set('');
   }
 
   /** Place a component at a free-ish spot (simple spiral so nodes don't stack). */
@@ -323,11 +437,21 @@ export class BlueprintComponent implements OnInit {
     return svc ? resolveService(this.store.blueprint(), svc) : [];
   }
 
-  download(): void {
-    const blob = new Blob([this.store.composeYaml()], { type: 'text/yaml' });
+  /**
+   * Two exports on purpose, because they are not interchangeable:
+   *  - 'json' is the FULL blueprint (Compose + x-yolo-* meta) and is what round-trips;
+   *  - 'yaml' is clean Compose for `docker compose`, and therefore DROPS role,
+   *    placement and layout. Offering only the YAML would quietly lose that work on
+   *    the next import.
+   */
+  download(kind: 'json' | 'yaml'): void {
+    const name = this.store.blueprint().name || 'blueprint';
+    const [text, type, file] = kind === 'json'
+      ? [this.store.composeJson(), 'application/json', `${name}.blueprint.json`]
+      : [this.store.composeYaml(), 'text/yaml', `${name}.compose.yaml`];
     const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = `${this.store.blueprint().name || 'blueprint'}.compose.yaml`;
+    a.href = URL.createObjectURL(new Blob([text], { type }));
+    a.download = file;
     a.click();
     URL.revokeObjectURL(a.href);
   }

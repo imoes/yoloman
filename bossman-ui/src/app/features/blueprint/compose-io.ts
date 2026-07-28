@@ -37,8 +37,18 @@ interface ComposeDoc {
   [k: string]: unknown;
 }
 
-/** Blueprint → Compose document object (ready for JSON.stringify or yaml.dump). */
-export function toComposeDoc(bp: Blueprint): ComposeDoc {
+/**
+ * Blueprint → document object.
+ *
+ * `meta: true` (the default) emits our FULL document: plain Compose plus the
+ * `x-yolo-*` extensions that carry what Compose cannot say (tier, role, placement,
+ * canvas layout, wiring provenance). That is the round-trippable source of truth.
+ *
+ * `meta: false` emits CLEAN Compose — nothing but what Compose itself defines. That
+ * is what you hand to `docker compose`, and what a human wants to read; the editor's
+ * bookkeeping has no business in it.
+ */
+export function toComposeDoc(bp: Blueprint, meta = true): ComposeDoc {
   const services: Record<string, ComposeService> = {};
   for (const s of bp.services) {
     const svc: ComposeService = {};
@@ -47,25 +57,29 @@ export function toComposeDoc(bp: Blueprint): ComposeDoc {
     if (Object.keys(s.environment).length) svc.environment = { ...s.environment };
     if (s.ports.length) svc.ports = [...s.ports];
     if (s.dependsOn.length) svc.depends_on = [...s.dependsOn];
-    svc['x-yolo-kind'] = s.kind;
-    svc['x-yolo-icon'] = s.icon;
-    if (s.role) svc['x-yolo-role'] = s.role;
-    if (s.host) svc['x-yolo-host'] = s.host;
-    if (s.address) svc['x-yolo-address'] = s.address;
-    if (s.template) svc['x-yolo-template'] = s.template;
-    if (Object.keys(s.bindings).length) svc['x-yolo-bindings'] = { ...s.bindings };
-    svc['x-yolo-layout'] = { x: Math.round(s.x), y: Math.round(s.y) };
+    if (meta) {
+      svc['x-yolo-kind'] = s.kind;
+      svc['x-yolo-icon'] = s.icon;
+      if (s.role) svc['x-yolo-role'] = s.role;
+      if (s.host) svc['x-yolo-host'] = s.host;
+      if (s.address) svc['x-yolo-address'] = s.address;
+      if (s.template) svc['x-yolo-template'] = s.template;
+      if (Object.keys(s.bindings).length) svc['x-yolo-bindings'] = { ...s.bindings };
+      svc['x-yolo-layout'] = { x: Math.round(s.x), y: Math.round(s.y) };
+    }
     services[s.name] = svc;
   }
   return { name: bp.name, services };
 }
 
+/** Clean `compose.yaml` — no editor metadata (see toComposeDoc). */
 export function toComposeYaml(bp: Blueprint): string {
-  return yaml.dump(toComposeDoc(bp), { lineWidth: -1, noRefs: true, sortKeys: false });
+  return yaml.dump(toComposeDoc(bp, false), { lineWidth: -1, noRefs: true, sortKeys: false });
 }
 
+/** The full blueprint document (Compose + x-yolo-* meta) — this is what round-trips. */
 export function toComposeJson(bp: Blueprint): string {
-  return JSON.stringify(toComposeDoc(bp), null, 2);
+  return JSON.stringify(toComposeDoc(bp, true), null, 2);
 }
 
 /** `environment` may be a mapping OR a `KEY=value` list — normalize to a mapping. */

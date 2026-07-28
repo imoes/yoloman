@@ -35,8 +35,8 @@ export interface ResolvedVar {
  *  1. **docker** → the compose service name. Docker's embedded DNS resolves it
  *     inside the shared network; nothing for us to do.
  *  2. **native, address planned** (`x-yolo-address`) → that IP/FQDN. Addressing a
- *     native service is a PLANNING decision: the IP is allocated up front in IPAM
- *     (NetBox) and, where the tenant runs a managed BIND — the product already has
+ *     native service is a PLANNING decision: the IP is allocated up front in the
+ *     IPAM of record and, where the tenant runs a managed BIND — the product already has
  *     the BIND-zones snap-in and the install-bind9 role — the DNS name for the
  *     service is created from it, so the compose service name becomes a real name.
  *  3. **native, host known but no address** → the host name is the best we have.
@@ -48,13 +48,13 @@ export function addressOf(s: BlueprintService): { address: string; state: Resolu
     return { address: s.name, state: 'resolved', note: 'Compose-DNS im gemeinsamen Netz' };
   }
   if (s.address) {
-    return { address: s.address, state: 'resolved', note: 'geplante Adresse (IPAM/NetBox; DNS-Name via verwaltetes BIND)' };
+    return { address: s.address, state: 'resolved', note: 'geplante Adresse (aus dem IPAM; DNS-Name via verwaltetes BIND)' };
   }
   if (s.host) return { address: s.host, state: 'resolved', note: 'platzierter Host (x-yolo-host)' };
   return {
     address: '',
     state: 'unresolved',
-    note: 'native Dienst ohne geplante Adresse — Compose-DNS greift hier nicht: IP in IPAM (NetBox) vergeben, DNS-Name über das verwaltete BIND anlegen',
+    note: 'native Dienst ohne geplante Adresse — Compose-DNS greift hier nicht: IP im IPAM vergeben, DNS-Name über das verwaltete BIND anlegen',
   };
 }
 

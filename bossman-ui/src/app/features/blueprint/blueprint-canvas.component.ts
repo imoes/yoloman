@@ -38,10 +38,14 @@ const EDGE_COLOUR = BM_UNKNOWN;
         <button type="button" class="bm-bpc-btn" (click)="fit()">Einpassen</button>
         <span class="bm-bpc-hint">
           @if (connectMode()) { Klick auf Quelle, dann auf Ziel · Esc bricht ab }
-          @else { Klick = auswählen · ziehen = verschieben · Doppelklick = löschen }
+          @else { Komponente von links hierher ziehen · Klick = auswählen · Doppelklick = löschen · Kante anklicken = Variablen }
         </span>
       </div>
-      <div class="bm-bpc" #host></div>
+      <div class="bm-bpc" #host
+           [class.dropping]="dropHover()"
+           (dragover)="onDragOver($event)"
+           (dragleave)="dropHover.set(false)"
+           (drop)="onDrop($event)"></div>
     </div>
   `,
   styles: [`
@@ -53,7 +57,10 @@ const EDGE_COLOUR = BM_UNKNOWN;
       border-color: var(--bm-green, #1e9600); }
     .bm-bpc-hint { font-size: 11.5px; opacity: .55; }
     .bm-bpc { flex: 1 1 auto; min-height: 520px; border: 1px solid var(--mat-sys-outline-variant);
-      border-radius: 10px; background: color-mix(in srgb, var(--mat-sys-on-surface) 3%, transparent); }
+      border-radius: 10px; background: color-mix(in srgb, var(--mat-sys-on-surface) 3%, transparent);
+      transition: border-color .12s, background .12s; }
+    .bm-bpc.dropping { border-color: var(--bm-green, #1e9600); border-style: dashed;
+      background: color-mix(in srgb, var(--bm-green, #1e9600) 8%, transparent); }
   `],
 })
 export class BlueprintCanvasComponent implements AfterViewInit, OnDestroy {
@@ -63,12 +70,16 @@ export class BlueprintCanvasComponent implements AfterViewInit, OnDestroy {
   selected = input<string | null>(null);
 
   select = output<string | null>();
+  selectEdge = output<{ from: string; to: string } | null>();
+  /** a palette component was dropped at these MODEL coordinates */
+  dropped = output<{ icon: string; x: number; y: number }>();
   connectPair = output<{ from: string; to: string }>();
   moved = output<{ name: string; x: number; y: number }>();
   removeNode = output<string>();
 
   connectMode = signal(false);
   pending = signal<string | null>(null);
+  dropHover = signal(false);
 
   private cy: cytoscape.Core | null = null;
   private ready = signal(false);
@@ -149,7 +160,13 @@ export class BlueprintCanvasComponent implements AfterViewInit, OnDestroy {
     });
 
     this.cy.on('tap', 'node', (ev) => this.onNodeTap(ev.target.id() as string));
-    this.cy.on('tap', (ev) => { if (ev.target === this.cy) { this.select.emit(null); this.cancelConnect(); } });
+    this.cy.on('tap', 'edge', (ev) => {
+      const e = ev.target;
+      this.selectEdge.emit({ from: e.source().id() as string, to: e.target().id() as string });
+    });
+    this.cy.on('tap', (ev) => {
+      if (ev.target === this.cy) { this.select.emit(null); this.selectEdge.emit(null); this.cancelConnect(); }
+    });
     this.cy.on('dbltap', 'node', (ev) => this.removeNode.emit(ev.target.id() as string));
     this.cy.on('dragfree', 'node', (ev) => {
       const p = ev.target.position();
@@ -205,7 +222,7 @@ export class BlueprintCanvasComponent implements AfterViewInit, OnDestroy {
   }
 
   private onNodeTap(id: string): void {
-    if (!this.connectMode()) { this.select.emit(id); return; }
+    if (!this.connectMode()) { this.selectEdge.emit(null); this.select.emit(id); return; }
     const from = this.pending();
     if (!from) {
       this.pending.set(id);
@@ -216,6 +233,29 @@ export class BlueprintCanvasComponent implements AfterViewInit, OnDestroy {
     this.pending.set(null);
     this.connectMode.set(false);
     if (from !== id) this.connectPair.emit({ from, to: id });
+  }
+
+  onDragOver(ev: DragEvent): void {
+    // Without preventDefault the browser refuses the drop entirely.
+    ev.preventDefault();
+    if (ev.dataTransfer) ev.dataTransfer.dropEffect = 'copy';
+    this.dropHover.set(true);
+  }
+
+  /** Turn the drop point into MODEL coordinates: Cytoscape draws with its own pan
+   * and zoom, so a raw client position would land in the wrong place as soon as the
+   * canvas is panned or zoomed. */
+  onDrop(ev: DragEvent): void {
+    ev.preventDefault();
+    this.dropHover.set(false);
+    const icon = ev.dataTransfer?.getData('text/x-blueprint-icon');
+    if (!icon || !this.cy) return;
+    const box = this.hostRef().nativeElement.getBoundingClientRect();
+    const pan = this.cy.pan();
+    const zoom = this.cy.zoom();
+    const x = (ev.clientX - box.left - pan.x) / zoom;
+    const y = (ev.clientY - box.top - pan.y) / zoom;
+    this.dropped.emit({ icon, x, y });
   }
 
   toggleConnect(): void {
