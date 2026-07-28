@@ -1,4 +1,4 @@
-import { Component, OnInit, computed, inject, signal } from '@angular/core';
+import { Component, OnInit, computed, effect, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
 import { MatIconModule } from '@angular/material/icon';
@@ -75,12 +75,21 @@ interface RunbookRow { id: string; name: string; folder: string }
             <p class="bm-dim">Startreihenfolge (depends_on, topologisch): <code>{{ order().order.join(' → ') }}</code></p>
           }
 
+          <!-- The document is the payoff, so it stays visible by default — but it
+               can be folded away to give the canvas the whole column. -->
           <div class="bm-doc">
             <div class="bm-doc-tabs">
-              <button type="button" [class.on]="view() === 'yaml'" (click)="view.set('yaml')">compose.yaml</button>
-              <button type="button" [class.on]="view() === 'json'" (click)="view.set('json')">JSON</button>
+              <button type="button" class="bm-doc-fold" (click)="docOpen.set(!docOpen())"
+                      [title]="docOpen() ? 'Dokument einklappen' : 'Dokument ausklappen'">
+                <mat-icon>{{ docOpen() ? 'expand_more' : 'chevron_right' }}</mat-icon>
+              </button>
+              <button type="button" [class.on]="view() === 'yaml'" (click)="view.set('yaml'); docOpen.set(true)">compose.yaml</button>
+              <button type="button" [class.on]="view() === 'json'" (click)="view.set('json'); docOpen.set(true)">JSON</button>
+              <span class="bm-doc-meta">{{ store.services().length }} services</span>
             </div>
-            <pre>{{ view() === 'yaml' ? store.composeYaml() : store.composeJson() }}</pre>
+            @if (docOpen()) {
+              <pre>{{ view() === 'yaml' ? store.composeYaml() : store.composeJson() }}</pre>
+            }
           </div>
         </section>
 
@@ -97,17 +106,30 @@ interface RunbookRow { id: string; name: string; folder: string }
               <input [ngModel]="s.name" (ngModelChange)="store.rename(s.name, $event)" />
             </label>
 
+            <!-- ONE schema source for both tiers (docs/app-model.md: one
+                 values_schema, a different artifact per target) — the role's
+                 template schema is where the typed variables come from, whether
+                 the service ends up as a package or a container. -->
+            <label class="bm-fld"><span>Rolle / Template — liefert die Variablen</span>
+              <select [ngModel]="s.role ?? ''" (ngModelChange)="pickRole(s.name, $event)">
+                <option value="">— keine —</option>
+                @for (r of roles(); track r.id) { <option [value]="r.name">{{ r.name }}</option> }
+              </select>
+            </label>
+
+            @if (s.kind === 'docker') {
+              <label class="bm-fld"><span>Image (Artefakt für den Docker-Tier)</span>
+                <input [ngModel]="s.image ?? ''" (ngModelChange)="store.update(s.name, { image: $event })"
+                       placeholder="z.B. redis:7" />
+              </label>
+            }
+
+            <label class="bm-fld"><span>Host (x-yolo-host) — wo der Dienst läuft</span>
+              <input [ngModel]="s.host ?? ''" (ngModelChange)="store.update(s.name, { host: $event })"
+                     placeholder="z.B. docker-test" />
+            </label>
+
             @if (s.kind === 'native') {
-              <label class="bm-fld"><span>Rolle</span>
-                <select [ngModel]="s.role ?? ''" (ngModelChange)="pickRole(s.name, $event)">
-                  <option value="">— keine —</option>
-                  @for (r of roles(); track r.id) { <option [value]="r.name">{{ r.name }}</option> }
-                </select>
-              </label>
-              <label class="bm-fld"><span>Host (x-yolo-host)</span>
-                <input [ngModel]="s.host ?? ''" (ngModelChange)="store.update(s.name, { host: $event })"
-                       placeholder="z.B. docker-test" />
-              </label>
               <label class="bm-fld"><span>Geplante Adresse (IP/FQDN)</span>
                 <input [ngModel]="s.address ?? ''" (ngModelChange)="store.update(s.name, { address: $event })"
                        placeholder="z.B. 192.0.2.60" />
@@ -116,11 +138,6 @@ interface RunbookRow { id: string; name: string; folder: string }
                 <p class="bm-warn">Adresse noch offen — Compose-DNS greift für native Dienste nicht. Die IP wird
                   vorab im IPAM (NetBox) vergeben; den DNS-Namen legt das verwaltete BIND an.</p>
               }
-            } @else {
-              <label class="bm-fld"><span>Image</span>
-                <input [ngModel]="s.image ?? ''" (ngModelChange)="store.update(s.name, { image: $event })"
-                       placeholder="z.B. redis:7" />
-              </label>
             }
 
             <label class="bm-fld"><span>Ports (Komma-getrennt, host:container)</span>
@@ -142,10 +159,12 @@ interface RunbookRow { id: string; name: string; folder: string }
             </div>
             @if (schemaFor(s.role); as sch) {
               <app-param-form [params]="sch" [initial]="s.environment" (valuesChange)="store.setValues(s.name, $event)" />
-            } @else if (s.kind === 'native' && !s.role) {
-              <p class="bm-dim">Wähle eine Rolle — ihr Schema liefert die typisierten Variablen.</p>
             } @else if (!s.role) {
-              <p class="bm-dim">Für Container-Dienste kommen die Variablen aus den Kanten und dem Image.</p>
+              <p class="bm-dim">Wähle eine Rolle / ein Template — ihr <code>schema.json</code> liefert die
+                typisierten Variablen (Enums werden zu Dropdowns). Die Wiring-Variablen kommen zusätzlich
+                aus den Kanten.</p>
+            } @else {
+              <p class="bm-dim">Diese Rolle hat kein Parameter-Schema — Variablen kommen nur aus den Kanten.</p>
             }
 
             @if (resolved(s.name).length) {
@@ -188,12 +207,16 @@ interface RunbookRow { id: string; name: string; folder: string }
     .bm-pal-i span { font-size: 12.5px; flex: 1 1 auto; }
     .bm-pal-i small { font-size: 10px; opacity: .45; font-family: ui-monospace, monospace; }
     .bm-mid { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+    .bm-mid app-blueprint-canvas { display: block; min-height: 540px; }
     .bm-doc { border: 1px solid var(--mat-sys-outline-variant); border-radius: 10px; overflow: hidden; }
-    .bm-doc-tabs { display: flex; gap: 2px; padding: 6px 8px 0; }
+    .bm-doc-tabs { display: flex; align-items: center; gap: 2px; padding: 6px 8px 0; }
+    .bm-doc-fold { display: flex; align-items: center; padding: 2px !important; opacity: .7; }
+    .bm-doc-fold mat-icon { font-size: 18px; width: 18px; height: 18px; }
+    .bm-doc-meta { margin-left: auto; font-size: 10.5px; opacity: .45; font-family: ui-monospace, monospace; padding-right: 4px; }
     .bm-doc-tabs button { font-size: 11.5px; padding: 4px 12px; border: 0; border-radius: 7px 7px 0 0;
       background: transparent; color: inherit; opacity: .6; cursor: pointer; font-family: ui-monospace, monospace; }
     .bm-doc-tabs button.on { opacity: 1; background: color-mix(in srgb, var(--mat-sys-on-surface) 7%, transparent); }
-    .bm-doc pre { margin: 0; padding: 12px 14px; max-height: 300px; overflow: auto; font-size: 11.5px; line-height: 1.5;
+    .bm-doc pre { margin: 0; padding: 12px 14px; max-height: 260px; overflow: auto; font-size: 11.5px; line-height: 1.5;
       background: color-mix(in srgb, var(--mat-sys-on-surface) 4%, transparent); }
     .bm-insp-h { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
     .bm-insp-h img { width: 26px; height: 26px; opacity: .85; }
@@ -220,10 +243,25 @@ export class BlueprintComponent implements OnInit {
 
   palette = PALETTE;
   view = signal<'yaml' | 'json'>('yaml');
+  docOpen = signal(true);
   roles = signal<RunbookRow[]>([]);
   loadingSchema = signal(false);
   /** role name → its typed parameters (lazy: the list endpoint doesn't return them) */
   private schemas = signal<Record<string, ParamSchema>>({});
+  /** roles already requested — a plain Set (not a signal) so the effect that calls
+   * loadSchema() can write `schemas` without re-triggering itself. */
+  private requested = new Set<string>();
+
+  constructor() {
+    // A role lives in the DOCUMENT (x-yolo-role) but the schema cache is in memory,
+    // so after a reload or a compose import the variables form would be missing
+    // until the user re-picked the role. Fetch on demand for whatever is selected.
+    effect(() => {
+      const svc = this.store.selectedService();
+      const haveRoles = this.roles().length;      // re-run once the role list arrives
+      if (svc?.role && haveRoles) this.loadSchema(svc.role);
+    });
+  }
 
   order = computed(() => startOrder(this.store.blueprint()));
 
@@ -252,16 +290,21 @@ export class BlueprintComponent implements OnInit {
   /** Fetch a role's parameters once (GET /runbooks lists names only, the detail
    * endpoint carries `parameters`) — mirrors core/services/wizard.service.ts. */
   private loadSchema(role: string): void {
-    if (this.schemas()[role]) return;
+    if (this.requested.has(role)) return;
     const row = this.roles().find((r) => r.name === role);
     if (!row) return;
+    this.requested.add(role);
     this.loadingSchema.set(true);
     this.http.get<{ parameters: ParamSchema }>(`${environment.apiUrl}/runbooks/${row.id}`).subscribe({
       next: (full) => {
         this.loadingSchema.set(false);
         this.schemas.update((m) => ({ ...m, [role]: full.parameters || {} }));
       },
-      error: () => { this.loadingSchema.set(false); this.store.error.set(`Schema für ${role} nicht ladbar.`); },
+      error: () => {
+        this.loadingSchema.set(false);
+        this.requested.delete(role);   // allow a retry
+        this.store.error.set(`Schema für ${role} nicht ladbar.`);
+      },
     });
   }
 

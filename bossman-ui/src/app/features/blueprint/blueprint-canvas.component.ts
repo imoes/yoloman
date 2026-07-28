@@ -45,14 +45,14 @@ const EDGE_COLOUR = BM_UNKNOWN;
     </div>
   `,
   styles: [`
-    .bm-bpc-wrap { display: flex; flex-direction: column; height: 100%; min-height: 420px; }
+    .bm-bpc-wrap { display: flex; flex-direction: column; height: 100%; min-height: 560px; }
     .bm-bpc-bar { display: flex; align-items: center; gap: 8px; padding: 0 0 8px; flex-wrap: wrap; }
     .bm-bpc-btn { font-size: 12px; padding: 4px 12px; border-radius: 999px; cursor: pointer;
       border: 1px solid var(--mat-sys-outline-variant); background: transparent; color: inherit; }
     .bm-bpc-btn.on { background: color-mix(in srgb, var(--bm-green, #1e9600) 22%, transparent);
       border-color: var(--bm-green, #1e9600); }
     .bm-bpc-hint { font-size: 11.5px; opacity: .55; }
-    .bm-bpc { flex: 1 1 auto; min-height: 380px; border: 1px solid var(--mat-sys-outline-variant);
+    .bm-bpc { flex: 1 1 auto; min-height: 520px; border: 1px solid var(--mat-sys-outline-variant);
       border-radius: 10px; background: color-mix(in srgb, var(--mat-sys-on-surface) 3%, transparent); }
   `],
 })
