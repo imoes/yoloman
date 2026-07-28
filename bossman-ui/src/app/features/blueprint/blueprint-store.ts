@@ -11,9 +11,10 @@
  */
 import { Injectable, computed, signal } from '@angular/core';
 import {
-  Blueprint, BlueprintService, PaletteEntry, envPrefix, sanitizeServiceName,
+  Blueprint, BlueprintService, PaletteEntry, sanitizeServiceName,
 } from './compose-model';
-import { fromComposeText, servicePort, toComposeJson, toComposeYaml } from './compose-io';
+import { fromComposeText, toComposeJson, toComposeYaml } from './compose-io';
+import { removeService, renameService, unwireOne, wireEdge } from './compose-wiring';
 
 const STORAGE_KEY = 'bm_blueprint_draft';
 
@@ -60,7 +61,7 @@ export class BlueprintStore {
     const name = this.freshName(entry.prefix);
     const svc: BlueprintService = {
       name, kind: entry.kind, icon: entry.icon,
-      environment: {}, ports: [], dependsOn: [], bindings: {}, x, y,
+      environment: {}, values: {}, ports: [], dependsOn: [], bindings: {}, x, y,
     };
     this.patch((list) => [...list, svc]);
     this.selected.set(name);
@@ -68,10 +69,7 @@ export class BlueprintStore {
   }
 
   remove(name: string): void {
-    this.patch((list) => list
-      .filter((s) => s.name !== name)
-      // drop dangling edges AND the variables they had wired
-      .map((s) => s.dependsOn.includes(name) ? this.unwire(s, name) : s));
+    this.patch((list) => removeService(list, name));
     if (this.selected() === name) this.selected.set(null);
   }
 
@@ -88,39 +86,43 @@ export class BlueprintStore {
    * changes the wiring of everyone pointing at it. */
   rename(oldName: string, rawNew: string): void {
     const next = sanitizeServiceName(rawNew);
-    if (!next || next === oldName) return;
-    if (this.bp().services.some((s) => s.name === next)) {
-      this.error.set(`Der Name "${next}" ist schon belegt.`);
-      return;
-    }
+    const res = renameService(this.bp().services, oldName, next);
+    if (res.error) { this.error.set(res.error); return; }
     this.error.set('');
-    this.patch((list) => list.map((s) => {
-      const svc: BlueprintService = s.name === oldName ? { ...s, name: next } : { ...s };
-      svc.dependsOn = svc.dependsOn.map((d) => (d === oldName ? next : d));
-      const env: Record<string, string> = {};
-      for (const [k, v] of Object.entries(svc.environment)) env[k] = v === oldName ? next : v;
-      svc.environment = env;
-      const bind: Record<string, string> = {};
-      for (const [k, v] of Object.entries(svc.bindings)) bind[k] = v === oldName ? next : v;
-      svc.bindings = bind;
-      return svc;
-    }));
+    this.patch(() => res.services);
     if (this.selected() === oldName) this.selected.set(next);
   }
 
-  /** Set the values a param-form produced. Auto-wired keys (bindings) are kept —
-   * a form edit must not silently drop the values an edge contributed. */
+  /**
+   * Set the values a param-form produced — ALWAYS the config template's values,
+   * never `environment`.
+   *
+   * The tier does not decide this, which was the bug the stress test exposed: a
+   * role's schema comes from configs/config_templates/<name>/schema.json and always
+   * describes a config FILE, so its fields are DIRECTIVES (`server.port`,
+   * `devices.sysfs_scan`, `feeds.items.url`) whatever tier renders it. 2209 of 29972
+   * catalogue fields are not valid POSIX env names, so routing them into
+   * `environment:` produced compose files no runtime could apply — for containers
+   * just as much as for native services.
+   *
+   * `environment` therefore holds only what really is an environment variable: the
+   * wiring variables an edge contributes, and whatever the author types for an image.
+   */
   setValues(name: string, values: Record<string, unknown>): void {
     this.patch((list) => list.map((s) => {
       if (s.name !== name) return s;
-      const env: Record<string, string> = {};
+      const clean: Record<string, string> = {};
       for (const [k, v] of Object.entries(values)) {
         if (v === undefined || v === null || v === '') continue;
-        env[k] = typeof v === 'object' ? JSON.stringify(v) : String(v);
+        clean[k] = typeof v === 'object' ? JSON.stringify(v) : String(v);
       }
-      for (const k of Object.keys(s.bindings)) if (s.environment[k]) env[k] = s.environment[k];
-      return { ...s, environment: env };
+      return { ...s, values: clean };
     }));
+  }
+
+  /** The param-form always edits the template values. */
+  formValuesOf(s: BlueprintService): Record<string, string> {
+    return s.values ?? {};
   }
 
   // ---- edges = variable wiring -------------------------------------------
@@ -132,33 +134,15 @@ export class BlueprintStore {
    * (and `DB_PORT` when a port is known).
    */
   connect(from: string, to: string): void {
-    if (from === to) { this.error.set('Ein Dienst kann nicht von sich selbst abhängen.'); return; }
-    const svcs = this.bp().services;
-    const src = svcs.find((s) => s.name === from);
-    const dst = svcs.find((s) => s.name === to);
-    if (!src || !dst) return;
-    if (src.dependsOn.includes(to)) { this.error.set(`${from} hängt schon von ${to} ab.`); return; }
+    const res = wireEdge(this.bp().services, from, to);
+    if (res.error) { this.error.set(res.error); return; }
     this.error.set('');
-
-    const p = envPrefix(to);
-    const port = servicePort(dst);
-    this.patch((list) => list.map((s) => {
-      if (s.name !== from) return s;
-      const env = { ...s.environment, [`${p}_HOST`]: to };
-      const bindings = { ...s.bindings, [`${p}_HOST`]: to };
-      if (port) { env[`${p}_PORT`] = String(port); bindings[`${p}_PORT`] = to; }
-      return { ...s, dependsOn: [...s.dependsOn, to], environment: env, bindings };
-    }));
+    this.patch(() => res.services);
   }
 
   /** Remove exactly the keys this edge contributed (never a hand-typed value). */
   private unwire(s: BlueprintService, to: string): BlueprintService {
-    const env = { ...s.environment };
-    const bindings = { ...s.bindings };
-    for (const [k, src] of Object.entries(s.bindings)) {
-      if (src === to) { delete env[k]; delete bindings[k]; }
-    }
-    return { ...s, dependsOn: s.dependsOn.filter((d) => d !== to), environment: env, bindings };
+    return unwireOne(s, to);
   }
 
   disconnect(from: string, to: string): void {
@@ -237,7 +221,7 @@ export class BlueprintStore {
       if (parsed && Array.isArray(parsed.services)) {
         // tolerate drafts written before a field existed
         parsed.services = parsed.services.map((s) => ({
-          ...s, environment: s.environment ?? {}, ports: s.ports ?? [],
+          ...s, environment: s.environment ?? {}, values: s.values ?? {}, ports: s.ports ?? [],
           dependsOn: s.dependsOn ?? [], bindings: s.bindings ?? {},
         }));
         this.bp.set(parsed);

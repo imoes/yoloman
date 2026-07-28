@@ -28,6 +28,7 @@ interface ComposeService {
   'x-yolo-icon'?: string;
   'x-yolo-layout'?: { x: number; y: number };
   'x-yolo-bindings'?: Record<string, string>;
+  'x-yolo-values'?: Record<string, string>;
   [k: string]: unknown;
 }
 
@@ -65,6 +66,7 @@ export function toComposeDoc(bp: Blueprint, meta = true): ComposeDoc {
       if (s.address) svc['x-yolo-address'] = s.address;
       if (s.template) svc['x-yolo-template'] = s.template;
       if (Object.keys(s.bindings).length) svc['x-yolo-bindings'] = { ...s.bindings };
+      if (Object.keys(s.values).length) svc['x-yolo-values'] = { ...s.values };
       svc['x-yolo-layout'] = { x: Math.round(s.x), y: Math.round(s.y) };
     }
     services[s.name] = svc;
@@ -155,6 +157,7 @@ export function fromComposeText(text: string): Blueprint {
       ports: (svc.ports ?? []).map(String),
       dependsOn: normalizeDependsOn(svc.depends_on).filter((d) => names.includes(d)),
       bindings: svc['x-yolo-bindings'] ?? {},
+      values: svc['x-yolo-values'] ?? {},
       x, y,
     };
   });

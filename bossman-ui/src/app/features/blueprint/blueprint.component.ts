@@ -8,7 +8,7 @@ import { ParamSchema } from '../../shared/param-form/param-form.types';
 import { ParamFormComponent } from '../../shared/param-form/param-form.component';
 import { BlueprintCanvasComponent } from './blueprint-canvas.component';
 import { BlueprintStore } from './blueprint-store';
-import { PALETTE, PaletteEntry, paletteFor } from './compose-model';
+import { PALETTE, PaletteEntry, isValidEnvName, paletteFor } from './compose-model';
 import { ResolvedVar, resolveService, startOrder } from './compose-resolver';
 import { CatalogPackage, PackageCatalogService } from '../../core/services/package-catalog.service';
 
@@ -173,7 +173,14 @@ interface RunbookRow { id: string; name: string; folder: string }
               @if (loadingSchema()) { <span class="bm-dim">· lade Schema…</span> }
             </div>
             @if (schemaFor(s.role); as sch) {
-              <app-param-form [params]="sch" [initial]="s.environment" (valuesChange)="store.setValues(s.name, $event)" />
+              <app-param-form [params]="sch" [initial]="store.formValuesOf(s)" (valuesChange)="store.setValues(s.name, $event)" />
+              <p class="bm-dim">Diese Werte rendert das Config-Template (<code>x-yolo-values</code>) — es sind
+                Direktiven, keine Umgebungsvariablen. In <code>environment:</code> stehen nur die Wiring-Variablen
+                der Kanten.</p>
+              @if (badEnvKeys(s); as bad) {
+                <p class="bm-warn">Kein gültiger Env-Name: <code>{{ bad }}</code> — als Umgebungsvariable nicht
+                  anwendbar.</p>
+              }
             } @else if (!s.role) {
               <p class="bm-dim">Wähle eine Rolle / ein Template — ihr <code>schema.json</code> liefert die
                 typisierten Variablen (Enums werden zu Dropdowns). Die Wiring-Variablen kommen zusätzlich
@@ -430,6 +437,13 @@ export class BlueprintComponent implements OnInit {
 
   setPorts(name: string, raw: string): void {
     this.store.update(name, { ports: raw.split(',').map((p) => p.trim()).filter(Boolean) });
+  }
+
+  /** Env keys a runtime could not actually apply (POSIX name rule) — shown instead of
+   * silently emitting a compose file that fails. */
+  badEnvKeys(s: { environment: Record<string, string> }): string | null {
+    const bad = Object.keys(s.environment).filter((k) => !isValidEnvName(k));
+    return bad.length ? bad.slice(0, 6).join(', ') + (bad.length > 6 ? ` … +${bad.length - 6}` : '') : null;
   }
 
   resolved(name: string): ResolvedVar[] {

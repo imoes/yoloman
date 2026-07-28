@@ -45,8 +45,20 @@ export interface BlueprintService {
   address?: string;
   /** x-yolo-template — config template that renders this service's config */
   template?: string;
-  /** compose `environment` — the variables (values, or ${refs}) */
+  /**
+   * compose `environment` — real environment variables. Keys MUST be POSIX env
+   * names; this is where wiring variables (DB_HOST…) and a container's own env live.
+   */
   environment: Record<string, string>;
+  /**
+   * x-yolo-values — the CONFIG TEMPLATE's values for a native service, keyed by
+   * DIRECTIVE. Deliberately not `environment`: a mined config schema is keyed by
+   * directive name, and 2209 of 29972 catalogue fields are things like
+   * `devices.sysfs_scan` or `feeds.items.url`, which are perfectly good directives
+   * and invalid environment variables. Conflating the two produced a compose file no
+   * runtime could apply (found by scripts/stress-blueprint.ts).
+   */
+  values: Record<string, string>;
   /** compose `ports` — "host:container" strings, kept verbatim */
   ports: string[];
   /** compose `depends_on` — the edges */
@@ -115,7 +127,22 @@ export function sanitizeServiceName(raw: string): string {
 }
 
 /** The env-variable prefix a consumer uses to address `service` — plain Compose
- * practice: service `db` is reachable as host `db`, so its vars are DB_*. */
+ * practice: service `db` is reachable as host `db`, so its vars are DB_*.
+ *
+ * A compose service name may legally start with a digit (DNS labels may, RFC 1123)
+ * but an environment variable may NOT — POSIX requires `[A-Za-z_][A-Za-z0-9_]*`. The
+ * catalogue really contains such packages (0install, 2ping, 389-ds, …), which would
+ * otherwise yield an unusable `0INSTALL_HOST`, so a leading digit gets an underscore
+ * in front. Found by scripts/stress-blueprint.ts over all templates. */
 export function envPrefix(serviceName: string): string {
-  return serviceName.toUpperCase().replace(/[^A-Z0-9]+/g, '_');
+  const upper = serviceName.toUpperCase().replace(/[^A-Z0-9]+/g, '_');
+  return /^[0-9]/.test(upper) ? `_${upper}` : upper;
+}
+
+/** Is `key` usable as a real environment variable (POSIX name)? A template's schema
+ * field is NOT automatically one — mined config schemas contain dotted directive
+ * names such as `devices.sysfs_scan` (lvm.conf) — so anything rendered into
+ * `environment:` has to be checked rather than assumed. */
+export function isValidEnvName(key: string): boolean {
+  return /^[A-Za-z_][A-Za-z0-9_]*$/.test(key);
 }
