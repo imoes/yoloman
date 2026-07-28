@@ -520,17 +520,27 @@ func startCollectLoop(cfg config.Config, st store.Store, checkReg *collect.Check
 				store.Point{Metric: "tcp_connect_failed_total", Timestamp: now, Value: float64(failed)},
 				store.Point{Metric: "tcp_retransmit_total", Timestamp: now, Value: float64(retrans)},
 			)
-			// Passive L7 RED metrics (Tier-2). Cardinality-safe: labels carry
-			// only protocol/status/destination — never the request path/SQL/DNS
-			// name. Per-tick deltas, like the counters above.
-			for _, s := range collector.SnapshotL7Requests() {
-				points = append(points, store.Point{Metric: "l7_requests_total", Timestamp: now, Value: float64(s.Count),
-					Labels: map[string]string{"protocol": s.Protocol, "status": s.Status, "destination": s.Destination}})
-			}
-			for _, s := range collector.SnapshotL7Latency() {
-				for le, n := range s.Buckets {
-					points = append(points, store.Point{Metric: "l7_latency_ms_bucket", Timestamp: now, Value: float64(n),
-						Labels: map[string]string{"protocol": s.Protocol, "destination": s.Destination, "le": le}})
+			// Passive L7 RED metrics (Tier-2), gated OFF by default via
+			// collect.l7_metrics — see the flag's comment in internal/config.
+			// The earlier "cardinality-safe" note here was wrong: `destination`
+			// is a remote ip:port, so the series count grows with the number of
+			// peers rather than being bounded by protocol/status. Nothing in
+			// Bossman reads either metric today, so they were pure cost.
+			// The snapshots are drained either way: they are delta buffers, and
+			// leaving them unread would let them grow and would also make the
+			// `l7_requests` MCP tool report stale windows.
+			l7Requests := collector.SnapshotL7Requests()
+			l7Latency := collector.SnapshotL7Latency()
+			if cfg.Collect.L7Metrics {
+				for _, s := range l7Requests {
+					points = append(points, store.Point{Metric: "l7_requests_total", Timestamp: now, Value: float64(s.Count),
+						Labels: map[string]string{"protocol": s.Protocol, "status": s.Status, "destination": s.Destination}})
+				}
+				for _, s := range l7Latency {
+					for le, n := range s.Buckets {
+						points = append(points, store.Point{Metric: "l7_latency_ms_bucket", Timestamp: now, Value: float64(n),
+							Labels: map[string]string{"protocol": s.Protocol, "destination": s.Destination, "le": le}})
+					}
 				}
 			}
 		}

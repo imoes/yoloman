@@ -117,6 +117,19 @@ type Collect struct {
 	// (service_*_pressure_*). Off by default — no Bossman feature consumes them
 	// and they dominated the metrics DB (~57% of rows). coroot-parity only.
 	PSI bool `yaml:"psi"`
+	// L7Metrics enables the passive application-layer metrics
+	// (l7_latency_ms_bucket, l7_requests_total). Off by default for the same
+	// reason as PSI: nothing in Bossman reads them (not the UI, not a check, not
+	// the backend), and their cardinality is UNBOUNDED — both are labeled by
+	// `destination` (remote ip:port), so every new peer the host talks to mints a
+	// fresh set of series, six per protocol for the histogram alone. Measured on a
+	// Proxmox host: 86 series and rising purely from ambient traffic.
+	//
+	// The data itself is genuinely useful (per-destination L7 latency without any
+	// instrumentation) — turn this on deliberately once something consumes it. The
+	// `l7_requests` MCP tool still exposes the live exchanges regardless; this flag
+	// only governs whether they are STORED as time series.
+	L7Metrics bool `yaml:"l7_metrics"`
 }
 
 // CheckSpec is one externally configured check: an argv to run via
