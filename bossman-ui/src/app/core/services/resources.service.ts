@@ -35,6 +35,17 @@ export interface ApplyResult {
   generation?: number;
   error?: string;
   plan?: ResourcePlan;
+  // role tier: a binding starts active only under YOLO / waived approval,
+  // otherwise pending_approval (the governance gate).
+  status?: 'active' | 'pending_approval' | string;
+  bound?: boolean;
+  awaiting_approval?: boolean;
+}
+
+export interface UnbindResult {
+  ok: boolean;
+  unbound?: number;
+  error?: string;
 }
 
 /** Resource / Deployable client (docs/resource-protocol.md) — the four verbs
@@ -77,5 +88,10 @@ export class ResourcesService {
   }
   rollback(id: string, kind: string, name: string, generation: number, namespace?: string) {
     return this.http.post<ApplyResult>(`${this.path(id, kind, name)}/rollback`, { generation }, this.opts(kind, namespace, name));
+  }
+  /** role tier only: remove this host's direct binding of the role (counterpart of
+   * apply/Bind). DELETE …/role/{name}/binding. */
+  unbind(id: string, name: string) {
+    return this.http.delete<UnbindResult>(`${this.base}/${id}/resources/role/${encodeURIComponent(name)}/binding`);
   }
 }

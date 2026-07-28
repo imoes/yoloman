@@ -16,7 +16,10 @@ export const RESOURCE_NODES: Record<string, ResourceNodeDescriptor> = {
   helm: { kind: 'helm', label: 'Helm release', icon: 'hub' },
   // config delegates its generations to the agent state store (host-scoped).
   config: { kind: 'config', label: 'Config file', icon: 'description' },
-  // role / template fold in as their Resource impls land.
+  // role = an OrchestrationPlan bound to this host; verbs are the BINDING
+  // (bind/unbind), generations are the applied parameter sets.
+  role: { kind: 'role', label: 'Role binding', icon: 'assignment_ind' },
+  // template folds in as its Resource impl lands.
 };
 
 export function descriptorFor(kind: string): ResourceNodeDescriptor {

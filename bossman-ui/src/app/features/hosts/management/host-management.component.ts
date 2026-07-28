@@ -12,6 +12,7 @@ import { HostFreeipaComponent } from './host-freeipa.component';
 import { HostVirtComponent } from './host-virt.component';
 import { HostUpdatesComponent } from './host-updates.component';
 import { RolesFeaturesComponent } from './roles/roles-features.component';
+import { RoleBindingsComponent } from './roles/role-bindings.component';
 import { ServiceChecksComponent } from './service-checks/service-checks.component';
 import { PackageConfigComponent, PackageConfigDef } from './packages/package-config.component';
 import { BindZonesComponent } from './packages/bind-zones.component';
@@ -45,7 +46,7 @@ interface SnapIn { id: string; label: string; icon: string; category: string; }
     MatIconModule, MatButtonModule,
     HostNetworkComponent, HostFirewallComponent, HostServicesComponent, HostUpdatesComponent,
     HostLogsComponent, HostAccountsComponent, HostFreeipaComponent, HostStorageComponent,
-    HostVirtComponent, RolesFeaturesComponent, ServiceChecksComponent, PackageConfigComponent, BindZonesComponent, NfsExportsComponent, DhcpdComponent,
+    HostVirtComponent, RolesFeaturesComponent, RoleBindingsComponent, ServiceChecksComponent, PackageConfigComponent, BindZonesComponent, NfsExportsComponent, DhcpdComponent,
     CronComponent, AptReposComponent, SambaComponent, PureFtpdComponent, ProftpdComponent, CupsComponent,
     NginxSitesComponent, ApacheVhostsComponent, HaproxyConfigComponent,
     CaddyConfigComponent, TraefikConfigComponent,
@@ -71,6 +72,7 @@ interface SnapIn { id: string; label: string; icon: string; category: string; }
           <button type="button" class="bm-mmc-refresh" (click)="refreshSelected()" title="Refresh"><mat-icon>refresh</mat-icon> Refresh</button>
         </div>
         @if (visited().has('roles')) { <div [style.display]="show('roles')"><app-roles-features [agentId]="agentId()" /></div> }
+        @if (visited().has('role-bindings')) { <div [style.display]="show('role-bindings')"><app-role-bindings [agentId]="agentId()" /></div> }
         @if (visited().has('servicechecks')) { <div [style.display]="show('servicechecks')"><app-service-checks [agentId]="agentId()" /></div> }
         @if (visited().has('services')) { <div [style.display]="show('services')"><app-host-services [agentId]="agentId()" /></div> }
         @if (visited().has('updates')) { <div [style.display]="show('updates')"><app-host-updates [agentId]="agentId()" /></div> }
@@ -179,6 +181,7 @@ export class HostManagementComponent implements OnInit {
 
   private readonly snapins: SnapIn[] = [
     { id: 'roles', label: 'Roles & Features', icon: 'widgets', category: 'Server' },
+    { id: 'role-bindings', label: 'Role bindings', icon: 'assignment_ind', category: 'Server' },
     { id: 'servicechecks', label: 'Service checks', icon: 'network_check', category: 'Monitoring' },
     { id: 'services', label: 'Services', icon: 'settings_applications', category: 'Server' },
     { id: 'cron', label: 'Scheduled jobs', icon: 'schedule', category: 'Server' },

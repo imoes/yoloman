@@ -23,23 +23,37 @@ import { descriptorFor } from './resource-node-registry';
         <mat-icon class="bm-rn-ic">{{ descriptor().icon }}</mat-icon>
         <span class="bm-rn-kind" [title]="descriptor().label">{{ kind() }}</span>
         <span class="bm-rn-name">{{ name() }}</span>
-        @if (observed()) {
+        @if (present()) {
           <span class="bm-rn-dot ok" title="present"></span>
           <span class="bm-dim">{{ summary() }}</span>
+        } @else if (kind() === 'role' && roleLinks().length && !loading()) {
+          <span class="bm-rn-dot pending" title="pending approval"></span>
+          <span class="bm-dim">pending approval · {{ roleLinks()[0].status }}</span>
         } @else if (!loading()) {
           <span class="bm-rn-dot none" title="not present"></span>
-          <span class="bm-dim">not deployed</span>
+          <span class="bm-dim">{{ absentText() }}</span>
         }
       </div>
 
       @if (loading()) { <p class="bm-dim">Reading…</p> }
       @if (err()) { <p class="bm-err">{{ err() }}</p> }
 
-      @if (hasSchema()) {
-        <app-param-form [params]="formSchema()" [initial]="initial()" (valuesChange)="onForm($event)" />
+      @if (hasSchema() || kind() === 'role') {
+        @if (hasSchema()) {
+          <app-param-form [params]="formSchema()" [initial]="initial()" (valuesChange)="onForm($event)" />
+        } @else if (kind() === 'role') {
+          <p class="bm-dim">This role has no parameters — bind it as-is.</p>
+        }
         <div class="bm-rn-actions">
           <button mat-stroked-button (click)="doPlan()" [disabled]="busy()"><mat-icon>difference</mat-icon> Plan</button>
-          <button mat-raised-button color="primary" (click)="doApply()" [disabled]="busy()"><mat-icon>check</mat-icon> Apply</button>
+          @if (kind() === 'role') {
+            <button mat-raised-button color="primary" (click)="doApply()" [disabled]="busy()"><mat-icon>link</mat-icon> Bind</button>
+            @if (present() || roleLinks().length) {
+              <button mat-stroked-button (click)="doUnbind()" [disabled]="busy()"><mat-icon>link_off</mat-icon> Unbind</button>
+            }
+          } @else {
+            <button mat-raised-button color="primary" (click)="doApply()" [disabled]="busy()"><mat-icon>check</mat-icon> Apply</button>
+          }
         </div>
       }
 
@@ -60,6 +74,9 @@ import { descriptorFor } from './resource-node-registry';
             Generations
             @if (kind() === 'config') {
               <span class="bm-warn"> · host-scoped: a rollback reverts the whole host's config, not just this file</span>
+            }
+            @if (kind() === 'role') {
+              <span class="bm-dim"> · applied parameter sets — rollback re-binds an earlier set (forward-converge)</span>
             }
           </div>
           @for (g of generations(); track g.generation) {
@@ -83,6 +100,7 @@ import { descriptorFor } from './resource-node-registry';
     .bm-rn-name { font-weight: 600; }
     .bm-rn-dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
     .bm-rn-dot.ok { background: #1e9600; }
+    .bm-rn-dot.pending { background: var(--bm-gold, #b8860b); }
     .bm-rn-dot.none { background: var(--mat-sys-outline, #888); }
     .bm-dim { opacity: 0.6; font-size: 12.5px; }
     .bm-err { color: var(--mat-sys-error, #c62828); }
@@ -103,7 +121,7 @@ export class ResourceNodeComponent implements OnInit {
   private svc = inject(ResourcesService);
   agentId = input.required<string>();
   name = input.required<string>();
-  kind = input<string>('docker');            // docker | helm
+  kind = input<string>('docker');            // docker | helm | config | role
   namespace = input<string>('default');       // helm tier
 
   loading = signal(true);
@@ -123,11 +141,22 @@ export class ResourceNodeComponent implements OnInit {
 
   descriptor = computed(() => descriptorFor(this.kind()));
   hasSchema = computed(() => Object.keys(this.schema()).length > 0);
+  // "present" means deployed/bound. For role it's the binding, not mere existence
+  // of the plan (observe() returns an object even when NOT bound to this host).
+  present = computed(() => {
+    const o = this.observed();
+    if (!o) return false;
+    return this.kind() === 'role' ? !!o['bound'] : true;
+  });
+  absentText = computed(() => (this.kind() === 'role' ? 'not bound to this host' : 'not deployed'));
+  // role: this host's direct binding links (may be active or pending_approval).
+  roleLinks = computed<{ status?: string }[]>(() => (this.observed()?.['host_links'] as { status?: string }[]) || []);
   formSchema = computed<ParamSchema>(() => {
     const s = { ...this.schema() } as Record<string, unknown>;
-    // config's schema is one field PER DIRECTIVE, so a real directive named
-    // "path"/"format" must survive — no identity strip for that tier.
-    if (this.kind() !== 'config' && this.kind() !== 'helm') {
+    // config's schema is one field PER DIRECTIVE and role's is the role's own
+    // parameters, so a real field named "path"/"status"/… must survive — no
+    // identity strip for those tiers.
+    if (this.kind() !== 'config' && this.kind() !== 'helm' && this.kind() !== 'role') {
       for (const k of ResourceNodeComponent.IDENTITY) delete s[k];
     }
     return s as ParamSchema;
@@ -135,15 +164,24 @@ export class ResourceNodeComponent implements OnInit {
   initial = computed<Record<string, unknown>>(() => {
     const o = this.observed();
     if (!o) return {};
-    // config: the form's dotted keys live in flat_values, not on the observed root
-    const perValue = this.kind() === 'config' || this.kind() === 'helm';
-    const src = (perValue ? (o['flat_values'] as Record<string, unknown>) : o) || {};
+    // Where the current values live per tier: role → observed.parameters,
+    // config/helm → observed.flat_values, docker → observed root.
+    let src: Record<string, unknown>;
+    if (this.kind() === 'role') src = (o['parameters'] as Record<string, unknown>) || {};
+    else if (this.kind() === 'config' || this.kind() === 'helm') src = (o['flat_values'] as Record<string, unknown>) || {};
+    else src = o;
     const out: Record<string, unknown> = {};
     for (const k of Object.keys(this.formSchema())) if (src[k] !== undefined) out[k] = src[k];
     return out;
   });
   summary = computed(() => {
     const o = this.observed() || {};
+    if (this.kind() === 'role') {
+      const links = (o['host_links'] as { status?: string }[]) || [];
+      const st = links.length ? links[0].status : (o['bound'] ? 'active' : '');
+      const src = o['source'] ? ` · ${o['source']}` : '';
+      return o['bound'] ? `bound${src}${st ? ' · ' + st : ''}` : 'not bound';
+    }
     if (o['image']) return o['image'] as string;
     if (o['chart']) {
       const n = Object.keys((o['flat_values'] as object) || {}).length;
@@ -159,6 +197,11 @@ export class ResourceNodeComponent implements OnInit {
     if (spec['image']) return spec['image'] as string;
     if (spec['chart']) return spec['chart'] as string;
     if (spec['hash']) return `hash ${spec['hash']}`;      // config: agent generation
+    if (spec['parameters']) {                              // role: applied parameter set
+      const p = spec['parameters'] as Record<string, unknown>;
+      const keys = Object.keys(p);
+      return keys.length ? keys.map((k) => `${k}=${p[k]}`).join(', ') : '(defaults)';
+    }
     return JSON.stringify(spec['values'] ?? {});
   }
 
@@ -200,6 +243,9 @@ export class ResourceNodeComponent implements OnInit {
     // would leave `values` empty and make plan/apply silently no-op.
     if (this.kind() === 'config') return { values: this.form() };
     if (this.kind() === 'helm') return { chart: '', values: this.form() };  // chart: reused from history
+    // role: the form values ARE the binding's parameters; require_approval keeps
+    // the governance gate (binding lands pending_approval unless YOLO/waived).
+    if (this.kind() === 'role') return { parameters: this.form(), require_approval: true };
     return this.form();
   }
 
@@ -217,8 +263,20 @@ export class ResourceNodeComponent implements OnInit {
   doApply(): void {
     this.busy.set(true); this.msg.set('');
     this.svc.apply(this.agentId(), this.kind(), this.name(), this.desired(), false, undefined, this.namespace()).subscribe({
-      next: (r: ApplyResult) => { this.busy.set(false); this.afterMutation(r, 'Applied'); },
+      next: (r: ApplyResult) => { this.busy.set(false); this.afterMutation(r, this.kind() === 'role' ? 'Bound' : 'Applied'); },
       error: (e) => { this.busy.set(false); this.setMsg(false, e?.error?.detail || 'apply failed'); },
+    });
+  }
+  /** role tier: remove this host's binding (counterpart of Bind). */
+  doUnbind(): void {
+    this.busy.set(true); this.msg.set('');
+    this.svc.unbind(this.agentId(), this.name()).subscribe({
+      next: (r) => {
+        this.busy.set(false);
+        if (r.ok) { this.setMsg(true, `Unbound (${r.unbound ?? 0} link${r.unbound === 1 ? '' : 's'}).`); this.plan.set(null); this.reload(); }
+        else this.setMsg(false, r.error || 'unbind failed');
+      },
+      error: (e) => { this.busy.set(false); this.setMsg(false, e?.error?.detail || 'unbind failed'); },
     });
   }
   doRollback(gen: number): void {
@@ -229,8 +287,17 @@ export class ResourceNodeComponent implements OnInit {
     });
   }
   private afterMutation(r: ApplyResult, ok: string): void {
-    if (r.ok) { this.setMsg(true, `${ok} → generation ${r.generation}.`); this.plan.set(null); this.reload(); }
-    else { this.setMsg(false, `Failed: ${r.error || 'unknown'}`); }
+    if (r.ok) {
+      let m = `${ok} → generation ${r.generation}.`;
+      // role: surface the governance gate honestly — a binding is only live when
+      // active; otherwise it awaits approval and won't converge yet.
+      if (this.kind() === 'role' && r.status) {
+        m = r.status === 'active'
+          ? `Bound (active) → generation ${r.generation}.`
+          : `Bound — pending approval (generation ${r.generation}). It won't converge until approved.`;
+      }
+      this.setMsg(true, m); this.plan.set(null); this.reload();
+    } else { this.setMsg(false, `Failed: ${r.error || 'unknown'}`); }
   }
   private setMsg(ok: boolean, m: string): void { this.msgOk.set(ok); this.msg.set(m); }
 }
