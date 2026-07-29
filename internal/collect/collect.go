@@ -13,10 +13,10 @@ package collect
 import (
 	"fmt"
 	"io"
-	"strings"
 	"os"
 	"path/filepath"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/mutkluge/agentic-mcp/internal/checks"
