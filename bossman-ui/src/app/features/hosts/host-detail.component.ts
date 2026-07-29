@@ -45,6 +45,7 @@ import { ResourceNodeComponent } from '../../shared/resource-node/resource-node.
 import { DesiredStateReportComponent, ConfigDesiredResource } from '../../shared/components/desired-state-report/desired-state-report.component';
 import { CompiledHostState } from '../../core/models/orchestration.model';
 import { agentHealthStatus, runStatusBadge, serviceStateBadge } from '../../shared/status.util';
+import { ServiceGraphsDialogComponent, ServiceGraphsDialogData } from './service-graphs-dialog.component';
 
 type MetricGroupName = 'CPU' | 'Memory' | 'Disk' | 'Network' | 'System' | 'Internal';
 
@@ -245,6 +246,10 @@ function serviceMetricSpec(name: string, metric: string): { members: string[]; m
                           <button mat-icon-button (click)="pollService(svc, $event)" [disabled]="polling()"
                             title="Poll now — re-collect this host's metrics and checks">
                             <mat-icon [class.bm-spin]="pollingService() === svc.name">{{ pollingService() === svc.name ? 'sync' : 'refresh' }}</mat-icon>
+                          </button>
+                          <button mat-button (click)="openGraphs(svc, $event)"
+                            title="Every metric behind this check, not just the one it grades">
+                            Open graphs
                           </button>
                           @if (!svc.acknowledged) {
                             <button mat-button (click)="acknowledge(svc, $event)">Acknowledge</button>
@@ -2282,6 +2287,32 @@ export class HostDetailComponent implements OnInit {
     if (svc.name === 'CPU load' || svc.metric === 'cpu_pct') return false;
     const spec = serviceMetricSpec(svc.name, svc.metric);
     return !!spec && spec.members[0].endsWith('_pct');
+  }
+
+  /** Open every graph behind a service, in a popup. The inline expansion plots
+   * only the metric the check grades; investigating usually needs the rest
+   * (a disk's bytes, memory's six series, IOPS per device/VM). stopPropagation
+   * so the row doesn't also toggle its inline expansion underneath the dialog. */
+  openGraphs(svc: ServiceState, event: Event): void {
+    event.stopPropagation();
+    const agent = this.agent();
+    if (!agent) return;
+    this.dialog.open(ServiceGraphsDialogComponent, {
+      data: {
+        agentId: agent.id,
+        hostName: agent.name,
+        serviceName: svc.name,
+        serviceMetric: svc.metric,
+        available: this.seriesSnapshot(),
+        hours: this.availabilityHours(),
+      } satisfies ServiceGraphsDialogData,
+      autoFocus: false,
+      // Width belongs here, not in the component's styles: a min-width on
+      // mat-dialog-content does not widen the dialog container around it, so the
+      // charts were drawn into an overflow and clipped mid-legend.
+      width: '92vw',
+      maxWidth: '1200px',
+    });
   }
 
   /** F-17: "warn ≥ 80 %, crit ≥ 90 %" — the rule the service is graded against. */
