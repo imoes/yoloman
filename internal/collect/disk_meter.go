@@ -85,11 +85,21 @@ func (m *DiskIOMeter) Sample(procRoot string, now time.Time) (DiskIOPS, bool) {
 		}
 		dOps := float64(c.ops - prev.ops)
 		out.PerDevice[dev] = dOps / dt
-		out.Total += dOps / dt
+		// The per-device breakdown keeps every layer — on a hypervisor the DRBD
+		// and zvol devices ARE the per-VM view. The server total must not: a
+		// write through drbd1000 also lands on its backing disk and is counted
+		// there too, which inflated this figure (and the threshold graded
+		// against it) by the whole stacked share.
+		stacked := isStackedDevice(dev)
+		if !stacked {
+			out.Total += dOps / dt
+		}
 		if c.timeMs >= prev.timeMs {
 			dTime := float64(c.timeMs - prev.timeMs)
-			totalOps += dOps
-			totalTimeMs += dTime
+			if !stacked {
+				totalOps += dOps
+				totalTimeMs += dTime
+			}
 			if dOps > 0 {
 				out.PerDeviceAwait[dev] = dTime / dOps // mean ms per I/O
 			}

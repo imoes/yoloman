@@ -64,10 +64,41 @@ func isPhysicalDisk(device string) bool {
 	return true
 }
 
+// isStackedDevice reports whether a device is a virtual layer sitting ON TOP of
+// another block device: DRBD replicas, ZFS zvols, MD arrays.
+//
+// Their I/O is real and worth graphing per device — on a hypervisor that IS the
+// per-VM view — but it must not be added to the server total, because every op
+// also passes through the backing device and is counted there again. Measured on
+// vpp0221: total 32.8 IOPS = drbd 5.2 + physical 27.7, i.e. the DRBD share
+// counted twice.
+func isStackedDevice(device string) bool {
+	for _, prefix := range []string{"drbd", "zd", "md"} {
+		rest, ok := trimDevicePrefix(device, prefix)
+		if ok && allDigits(rest) {
+			return true
+		}
+	}
+	return false
+}
+
+func trimDevicePrefix(device, prefix string) (string, bool) {
+	if !strings.HasPrefix(device, prefix) {
+		return "", false
+	}
+	return device[len(prefix):], true
+}
+
 // wholeDisks returns the set of whole block devices among `devices`, excluding
-// partitions — a device is a partition when another listed device is a strict
-// prefix of it (sda1 of sda, nvme0n1p1 of nvme0n1). Summing per-partition and
-// whole-disk I/O would otherwise double-count a server's total.
+// partitions. Summing per-partition and whole-disk I/O would double-count a
+// server's total.
+//
+// A device is a partition of another when its name is that name plus a numeric
+// suffix (sda + "1") or plus "p" + digits (nvme0n1 + "p1"). The plain-prefix
+// test this replaces was wrong for numerically-named device families: LINSTOR
+// hands out DRBD minors freely, so a host with both drbd100 and drbd1000 would
+// have seen drbd1000 as "a partition of drbd100" and dropped it — silently
+// losing a VM's disk. Requiring the base to end in a non-digit rules that out.
 func wholeDisks(devices []string) map[string]bool {
 	phys := make([]string, 0, len(devices))
 	for _, d := range devices {
@@ -79,7 +110,7 @@ func wholeDisks(devices []string) map[string]bool {
 	for _, d := range phys {
 		isPart := false
 		for _, other := range phys {
-			if other != d && strings.HasPrefix(d, other) {
+			if other != d && isPartitionOf(d, other) {
 				isPart = true
 				break
 			}
@@ -89,6 +120,20 @@ func wholeDisks(devices []string) map[string]bool {
 		}
 	}
 	return out
+}
+
+// isPartitionOf reports whether device is a partition of base.
+func isPartitionOf(device, base string) bool {
+	suffix, ok := trimDevicePrefix(device, base)
+	if !ok || suffix == "" {
+		return false
+	}
+	if lastByte := base[len(base)-1]; lastByte >= '0' && lastByte <= '9' {
+		// nvme0n1p1 / mmcblk0p1: a digit-ending disk separates its partitions
+		// with "p", so a bare numeric suffix means a different device entirely.
+		return strings.HasPrefix(suffix, "p") && allDigits(suffix[1:])
+	}
+	return allDigits(suffix)
 }
 
 // Sample reads /proc under procRoot once, at timestamp now, and returns the
