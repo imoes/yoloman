@@ -9,6 +9,7 @@ package starmodules
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -91,6 +92,21 @@ func (c *RealCaps) Run(argv []string, mutates bool, _ []int) (starmod.RunResult,
 		if ok := asExitError(err, &exit); ok {
 			rr.RC = exit.ExitCode()
 			return rr, nil // non-zero exit is data, not a Go error
+		}
+		// A READ-ONLY run of a tool that isn't installed is absence of data, not
+		// a failure — rc 127 with empty output, exactly what a shell reports.
+		// Starlark has no exceptions, so the previous hard error killed the whole
+		// module: lnx_if called `ethtool` (not present on the host) and the entire
+		// NIC discovery died, leaving a Linux host with no interface check at all
+		// while platform-wrong checks still passed. Checkmk's agent has the same
+		// rule in shell form — `if inpath ethtool; then ...` — so a missing tool
+		// simply means the section is not emitted.
+		//
+		// A MUTATING run keeps failing loudly: not being able to DO something is a
+		// real error, and swallowing it would let a runbook report success after
+		// silently doing nothing.
+		if !mutates && errors.Is(err, exec.ErrNotFound) {
+			return starmod.RunResult{RC: 127, Stderr: fmt.Sprintf("%s: command not found", argv[0])}, nil
 		}
 		return starmod.RunResult{}, fmt.Errorf("run %q: %w", argv[0], err)
 	}

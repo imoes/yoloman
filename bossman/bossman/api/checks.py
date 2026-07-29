@@ -19,7 +19,7 @@ from bossman.api.plans import get_client_factory
 from bossman.config import Settings, get_settings
 from bossman.db.models import Agent, CheckAssignment
 from bossman.db.session import get_session
-from bossman.services import checks_library
+from bossman.services import check_platform, checks_library
 from bossman.services.auth import Identity, user_can_manage_agent
 from bossman.services.check_assignments import resolve_host_checks
 from bossman.services.module_library import ModuleLibraryError
@@ -243,7 +243,7 @@ def _is_unrunnable_source(star: str) -> bool:
 
 
 def _load_candidate_checks(
-    settings: Settings, names: list[str] | None, datasource: str = "agent"
+    settings: Settings, names: list[str] | None, datasource: str = "agent", platform: str = "linux"
 ) -> list[dict[str, Any]]:
     """Load the checks to run discovery for, each as {name, star, sidecar,
     sidecar_format, options, short_description}.
@@ -277,6 +277,15 @@ def _load_candidate_checks(
         # lsi_array, safenet/skype `cmk`, echo-simulated lgp_info, …). Honoured
         # even for an explicit re-scan — these genuinely can't run here.
         if _is_unrunnable_source(star):
+            continue
+        # Checkmk's actual discovery gate, ported: a check whose sections only
+        # ever come from ANOTHER platform's agent, a Windows plugin or a special
+        # agent can never be satisfied here — drop it before the host ever runs
+        # it. This is what kept offering aix_hacmp_services, citrix_sessions and
+        # vms_cpu on a Debian VM: those checks fabricate their section, so no
+        # behavioural probe could tell they don't apply. Honoured on an explicit
+        # re-scan too — the platform doesn't change because someone re-scans.
+        if check_platform.verdict(name, platform, settings.checkmk_sections_path) == "impossible":
             continue
         # The sidecar is NestedText (.nt); the agent registers the tool under
         # its fqcn, so parse it out and pass it through (call_tool needs it).
@@ -318,7 +327,9 @@ async def discover_checks(
     # A host's data source scopes discovery (agent hosts don't run SNMP checks
     # and vice-versa). Default 'agent'; SNMP devices pass datasource:'snmp'.
     datasource = (body or {}).get("datasource") or "agent"
-    checks = _load_candidate_checks(settings, names, datasource)
+    # The host's platform decides which Checkmk sections could exist at all.
+    platform = check_platform.platform_of(agent.facts or {})
+    checks = _load_candidate_checks(settings, names, datasource, platform)
     client = client_factory(agent, settings)
     try:
         proposals = await run_check_discovery(client, checks)

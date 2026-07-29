@@ -21,6 +21,12 @@ type Result struct {
 	// Data carries the module-specific payload: gathered facts, a list of
 	// matched files, file content, and so on.
 	Data any `json:"data,omitempty"`
+	// DataSource reports whether the module's read calls actually returned
+	// anything: {"attempts": n, "produced": m}. Discovery uses it as Checkmk uses
+	// "was the section fetched" — a check whose every command came back empty
+	// (the tool is not installed on this host) has no data to report on, whatever
+	// state it claims. Omitted by modules that fetch nothing.
+	DataSource map[string]int `json:"data_source,omitempty"`
 }
 
 // Module is implemented by every ansible.builtin-style module.

@@ -325,9 +325,27 @@ func checkResult(label string, v starlark.Value) []Diagnostic {
 	return diags
 }
 
-// Recorder collects the ctx.* calls a stub run makes.
+// Recorder collects the ctx.* calls a stub run makes, and — on the REAL path —
+// counts whether those calls actually produced data.
+//
+// That count is the agent-side half of Checkmk's discovery gate. Checkmk decides
+// a plugin applies by whether its SECTION was fetched; a section produced by an
+// optional agent plugin simply is not there when the plugin is not installed.
+// Our checks fetch their own data, so the equivalent question is "did any of this
+// check's commands actually yield output" — a `pvecm status` on a host without
+// Proxmox returns rc 127 and nothing, and a check that then reports OK is
+// reporting about data it never had. The counters let the caller tell the two
+// apart without trusting what the check says about itself.
 type Recorder struct {
-	Calls []string
+	Calls    []string
+	Attempts int // ctx.run / ctx.file_read calls made
+	Produced int // of those, how many returned usable data (rc 0 and non-empty)
+}
+
+// Evidence is the Recorder's counts, as reported back to the caller.
+type Evidence struct {
+	Attempts int `json:"attempts"`
+	Produced int `json:"produced"`
 }
 
 func (r *Recorder) record(format string, args ...any) {
@@ -335,6 +353,17 @@ func (r *Recorder) record(format string, args ...any) {
 		return
 	}
 	r.Calls = append(r.Calls, fmt.Sprintf(format, args...))
+}
+
+// observe notes one data-fetching call and whether it produced anything.
+func (r *Recorder) observe(produced bool) {
+	if r == nil {
+		return
+	}
+	r.Attempts++
+	if produced {
+		r.Produced++
+	}
 }
 
 // RunResult is what a ctx.run implementation returns to the runtime; it maps
@@ -392,6 +421,13 @@ func buildCtx(caps Capabilities, rec *Recorder) *starlarkstruct.Struct {
 			if err != nil {
 				return nil, err
 			}
+			if !mutates {
+				// Success is rc 0, NOT non-empty output. `who` on a host with nobody
+				// logged in prints nothing and exits 0 — that is a real answer, and
+				// requiring output dropped the perfectly good `logins` check. The
+				// signal we want is the tool being absent (rc 127) or failing.
+				rec.observe(rr.RC == 0)
+			}
 			return starlarkstruct.FromStringDict(starlark.String("run_result"), starlark.StringDict{
 				"rc":      starlark.MakeInt(rr.RC),
 				"stdout":  starlark.String(rr.Stdout),
@@ -407,8 +443,10 @@ func buildCtx(caps Capabilities, rec *Recorder) *starlarkstruct.Struct {
 			rec.record("file_read(%q)", path)
 			s, err := caps.FileRead(path)
 			if err != nil {
+				rec.observe(false)
 				return nil, err
 			}
+			rec.observe(true) // the file was there; empty content is still an answer
 			return starlark.String(s), nil
 		}),
 		"file_write": starlark.NewBuiltin("file_write", func(t *starlark.Thread, b *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
@@ -537,6 +575,9 @@ type Result struct {
 	Changed bool
 	Msg     string
 	Data    any
+	// Whether the module's data-fetching calls actually returned anything —
+	// discovery's "was the section there at all" signal (see Recorder).
+	Evidence Evidence
 }
 
 // Execute runs a module's main(ctx, params) for real against caps (Block G3).
@@ -566,7 +607,8 @@ func Execute(filename string, src []byte, params map[string]any, caps Capabiliti
 	if !ok {
 		return Result{}, fmt.Errorf("main not exported")
 	}
-	res, err := starlark.Call(thread, mainFn, starlark.Tuple{buildCtx(caps, nil), p}, nil)
+	rec := &Recorder{}
+	res, err := starlark.Call(thread, mainFn, starlark.Tuple{buildCtx(caps, rec), p}, nil)
 	if err != nil {
 		return Result{}, execError("main() failed", err)
 	}
@@ -589,6 +631,7 @@ func Execute(filename string, src []byte, params map[string]any, caps Capabiliti
 		}
 		out.Data = data
 	}
+	out.Evidence = Evidence{Attempts: rec.Attempts, Produced: rec.Produced}
 	return out, nil
 }
 

@@ -66,6 +66,23 @@ class CheckProposal:
         }
 
 
+def _fetched_data(result: Any) -> bool:
+    """Did the module's read calls actually return anything?
+
+    Reads the agent's `data_source: {attempts, produced}` (internal/starmod's
+    Recorder). A check that made no read calls at all reports nothing here — that
+    is treated as unknown and kept, since inventing a second reason to drop a
+    check is worse than the occasional false positive.
+    """
+    if not isinstance(result, dict):
+        return True
+    ds = result.get("data_source")
+    if not isinstance(ds, dict):
+        return True  # older agent, or a check that fetches nothing → no verdict
+    attempts = int(ds.get("attempts") or 0)
+    return attempts == 0 or int(ds.get("produced") or 0) > 0
+
+
 async def _data_present(client, fqcn: str, item: "DiscoveredItem") -> bool:
     """Checkmk-style "is the section present" gate: run the check for REAL against
     one discovered item and report whether the host actually has the data. A
@@ -84,7 +101,9 @@ async def _data_present(client, fqcn: str, item: "DiscoveredItem") -> bool:
         return False
     pdata = (probe or {}).get("data") if isinstance(probe, dict) else None
     state = str((pdata or {}).get("state", "")).upper() if isinstance(pdata, dict) else ""
-    return state in ("OK", "WARN", "CRIT")
+    # Same two-part test as the item-less path: a gradeable state AND evidence that
+    # the check's reads actually returned something.
+    return state in ("OK", "WARN", "CRIT") and _fetched_data(probe)
 
 
 def _needs_params(options: dict[str, Any]) -> list[str]:
@@ -223,6 +242,19 @@ async def _discover_one(client, c: dict[str, Any]) -> CheckProposal | None:
             state = ""
         if state not in ("OK", "WARN", "CRIT"):
             return None  # not applicable on this host
+        # …and the state alone is not enough, because a translated check will
+        # happily report OK about data it never got. The agent now reports whether
+        # the module's read calls actually produced anything (`data_source`), which
+        # is our stand-in for Checkmk's "was the section fetched": a `pvecm status`
+        # on a host without Proxmox returns rc 127 and nothing at all. If every
+        # attempt came back empty, the check has no data source here.
+        #
+        # This path used to be filtered by accident: a missing binary made ctx.run
+        # raise and killed the module. Once that became rc 127 (the shell's own
+        # convention, and what let lnx_if work at all), pvecm/mongodb/plesk/hyperv
+        # started passing — so the accident has to be replaced by a real test.
+        if not _fetched_data(probe):
+            return None
         prop.items.append(DiscoveredItem(item=""))
 
     return prop

@@ -76,7 +76,11 @@ func (m *StarModule) Run(_ context.Context, params map[string]any, dryRun bool) 
 	if err != nil {
 		return modules.Result{}, fmt.Errorf("%s: %w", m.fqcn, err)
 	}
-	return modules.Result{Changed: res.Changed, Msg: res.Msg, Data: res.Data}, nil
+	out := modules.Result{Changed: res.Changed, Msg: res.Msg, Data: res.Data}
+	if res.Evidence.Attempts > 0 {
+		out.DataSource = map[string]int{"attempts": res.Evidence.Attempts, "produced": res.Evidence.Produced}
+	}
+	return out, nil
 }
 
 // jsonType maps an Ansible argspec type to a JSON Schema type.
