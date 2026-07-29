@@ -505,7 +505,7 @@ func startCollectLoop(cfg config.Config, st store.Store, checkReg *collect.Check
 		// symlinks, so drbd1000 also reports vm=221103. Done after every
 		// device-labelled series is in `points`, so one pass covers both Sample's
 		// counters and the IOPS meter. A no-op on a host without guests.
-		points = collect.LabelDeviceOwners(points, collect.ScanDeviceOwners("/dev"))
+		points = collect.LabelDeviceOwners(points, collect.ResolveDeviceOwners("/dev", "/etc/pve"))
 		// eBPF latency histograms (Coroot-style heatmap source): per-interval
 		// bucket counts of outbound connect latency + disk I/O latency.
 		if collector != nil {

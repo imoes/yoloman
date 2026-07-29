@@ -57,6 +57,110 @@ func TestScanDeviceOwnersNoTrees(t *testing.T) {
 	}
 }
 
+// fakePVE writes guest configs in Proxmox's own layout and wording, copied from
+// vpp0221's live configs — including the LINSTOR naming where the host-side DRBD
+// resource is only a PREFIX of the Proxmox volume name.
+func fakePVE(t *testing.T) string {
+	t.Helper()
+	root := t.TempDir()
+	write := func(rel, body string) {
+		full := filepath.Join(root, rel)
+		if err := os.MkdirAll(filepath.Dir(full), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(full, []byte(body), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	write("qemu-server/221103.conf", `boot: order=scsi0
+ide2: none,media=cdrom
+name: host.example.internal
+scsi0: linstor:pm-95db8b13_221103,iothread=1,size=200G
+scsihw: virtio-scsi-single
+`)
+	write("qemu-server/221101.conf", `name: host.example.internal
+scsi0: linstor:pm-573e2517_221101,discard=on,iothread=1,size=32G
+scsi1: linstor:pm-bb2a3396_221101,discard=on,iothread=1,size=60G
+unused0: local-zfs:vm-221101-disk-9
+[snapshot-before-upgrade]
+scsi0: linstor:pm-573e2517_221101,discard=on,iothread=1,size=32G
+`)
+	write("lxc/131.conf", `hostname: ct131
+rootfs: local-zfs:subvol-131-disk-0,size=8G
+mp0: local-zfs:subvol-131-disk-1,mp=/data,size=50G
+`)
+	write("qemu-server/notes.txt", "ignored") // not a <vmid>.conf
+	// A guest running on ANOTHER node. Its DRBD replica still lives on this host
+	// and still costs local I/O, so its config must be read too.
+	write("nodes/vpp0223/qemu-server/223104.conf", `name: host4.example.internal
+scsi0: linstor:pm-121314d1_223104,iothread=1,size=100G
+`)
+	return root
+}
+
+func TestProxmoxGuestVolumes(t *testing.T) {
+	got := ProxmoxGuestVolumes(fakePVE(t))
+	want := map[string]string{
+		"pm-95db8b13_221103": "221103",
+		"pm-573e2517_221101": "221101",
+		"pm-bb2a3396_221101": "221101",
+		"vm-221101-disk-9":   "221101",
+		"subvol-131-disk-0":  "131",
+		"subvol-131-disk-1":  "131",
+		"pm-121314d1_223104": "223104", // from nodes/vpp0223 — a guest on another node
+	}
+	for vol, id := range want {
+		if got[vol] != id {
+			t.Errorf("%s: got %q, want %q", vol, got[vol], id)
+		}
+	}
+	if len(got) != len(want) {
+		t.Errorf("extra entries: got %+v", got)
+	}
+	// An empty CDROM must not be mistaken for a volume.
+	if _, ok := got["none"]; ok {
+		t.Error("`ide2: none,media=cdrom` was read as a volume")
+	}
+}
+
+func TestProxmoxGuestVolumesNotAProxmoxHost(t *testing.T) {
+	if got := ProxmoxGuestVolumes(filepath.Join(t.TempDir(), "etc", "pve")); len(got) != 0 {
+		t.Fatalf("expected empty, got %+v", got)
+	}
+}
+
+// The case the live cluster taught us: the DRBD resource is pm-95db8b13, the
+// Proxmox volume is pm-95db8b13_221103, and only joining the two yields the id.
+func TestResolveDeviceOwnersJoinsProxmoxNaming(t *testing.T) {
+	devRoot := t.TempDir()
+	link := func(rel, target string) {
+		full := filepath.Join(devRoot, rel)
+		if err := os.MkdirAll(filepath.Dir(full), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.Symlink(target, full); err != nil {
+			t.Fatal(err)
+		}
+	}
+	link("drbd/by-res/pm-95db8b13/0", "../../drbd1003")
+	link("drbd/by-res/pm-unknown/0", "../../drbd1009") // no guest claims it
+	link("zvol/rpool/data/subvol-131-disk-0", "../../../zd64")
+
+	owners := ResolveDeviceOwners(devRoot, fakePVE(t))
+
+	if got := owners["drbd1003"]; got.VM != "221103" || got.Volume != "pm-95db8b13" {
+		t.Errorf("drbd1003: got %+v, want vm 221103 / volume pm-95db8b13", got)
+	}
+	// Unclaimed volumes keep their name and stay id-less rather than guessing.
+	if got := owners["drbd1009"]; got.VM != "" || got.Volume != "pm-unknown" {
+		t.Errorf("drbd1009: got %+v, want no vm", got)
+	}
+	// The device tree already carried this one — the join must not disturb it.
+	if got := owners["zd64"]; got.VM != "131" {
+		t.Errorf("zd64: got %+v, want vm 131", got)
+	}
+}
+
 func TestVMIDFromVolume(t *testing.T) {
 	cases := map[string]string{
 		"pm-95db8b13_221103":  "221103",

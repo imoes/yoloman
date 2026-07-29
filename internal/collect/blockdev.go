@@ -21,6 +21,135 @@ type DeviceOwner struct {
 	Volume string // the DRBD resource / zvol dataset the device backs
 }
 
+// ResolveDeviceOwners is the full resolution: the udev symlink trees give
+// device → volume, and Proxmox's guest configs give volume → guest id.
+//
+// The second step is needed because the two sides name the same volume
+// differently, which only showed up against the live cluster: Proxmox's config
+// says `scsi0: linstor:pm-95db8b13_221103`, but the DRBD resource on the host is
+// just `pm-95db8b13` — LINSTOR never sees the `_221103`. So the id cannot be read
+// off the device tree alone for DRBD storage, and the guest configs are the local,
+// authoritative place that holds both halves.
+func ResolveDeviceOwners(devRoot, pveRoot string) map[string]DeviceOwner {
+	owners := ScanDeviceOwners(devRoot)
+	if len(owners) == 0 {
+		return owners
+	}
+	guests := ProxmoxGuestVolumes(pveRoot)
+	if len(guests) == 0 {
+		return owners
+	}
+	for dev, o := range owners {
+		if o.VM != "" || o.Volume == "" {
+			continue
+		}
+		if id := guestOfVolume(guests, filepath.Base(o.Volume)); id != "" {
+			o.VM = id
+			owners[dev] = o
+		}
+	}
+	return owners
+}
+
+// guestOfVolume matches a host-side volume name against the Proxmox volume
+// names, exactly or as the prefix Proxmox extends with "_<vmid>".
+func guestOfVolume(guests map[string]string, volume string) string {
+	if id, ok := guests[volume]; ok {
+		return id
+	}
+	for name, id := range guests {
+		if strings.HasPrefix(name, volume+"_") {
+			return id
+		}
+	}
+	return ""
+}
+
+// ProxmoxGuestVolumes maps every volume named in a guest's config to that guest's
+// id, reading <vmid>.conf files from the whole cluster config, not just this node.
+//
+// Cluster-wide on purpose: DRBD replicates, so a node carries devices for guests
+// that RUN elsewhere, and their replica writes are real local disk load. Reading
+// only pveRoot/qemu-server (this node's guests) left 5 of 9 DRBD devices on
+// vpp0221 without an id — exactly the ones whose load an operator would otherwise
+// be unable to attribute at all.
+//
+// Empty (and cheap) on any host that isn't a Proxmox node.
+func ProxmoxGuestVolumes(pveRoot string) map[string]string {
+	out := map[string]string{}
+	// pveRoot/<kind> is this node (a symlink into nodes/<self>), pveRoot/nodes/*/<kind>
+	// is every node. Overlapping entries are identical, so the duplication is free.
+	dirs := []string{pveRoot}
+	if nodes, err := os.ReadDir(filepath.Join(pveRoot, "nodes")); err == nil {
+		for _, n := range nodes {
+			dirs = append(dirs, filepath.Join(pveRoot, "nodes", n.Name()))
+		}
+	}
+	for _, dir := range dirs {
+		for _, kind := range []string{"qemu-server", "lxc"} {
+			readGuestDir(filepath.Join(dir, kind), out)
+		}
+	}
+	return out
+}
+
+func readGuestDir(dir string, out map[string]string) {
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return
+	}
+	for _, e := range entries {
+		id := strings.TrimSuffix(e.Name(), ".conf")
+		if e.IsDir() || !strings.HasSuffix(e.Name(), ".conf") || !allDigits(id) {
+			continue
+		}
+		body, err := os.ReadFile(filepath.Join(dir, e.Name()))
+		if err != nil {
+			continue
+		}
+		for _, vol := range guestConfigVolumes(string(body)) {
+			out[vol] = id
+		}
+	}
+}
+
+// diskKeyPrefixes are the config keys that carry a disk. `rootfs` is LXC's;
+// the rest are QEMU bus names, plus the two state volumes.
+var diskKeyPrefixes = []string{"scsi", "virtio", "ide", "sata", "rootfs", "mp", "efidisk", "tpmstate", "unused"}
+
+// guestConfigVolumes pulls the volume names out of a Proxmox guest config.
+// A disk line reads `scsi0: <storage>:<volume>,opt=val,...`; a CDROM reads
+// `ide2: none,media=cdrom` and yields nothing.
+//
+// Snapshots appear in the same file under [name] sections and repeat the same
+// volumes, which is harmless — the map is volume → id either way. A section
+// header is not skipped for that reason alone.
+func guestConfigVolumes(body string) []string {
+	var out []string
+	for _, line := range strings.Split(body, "\n") {
+		key, value, ok := strings.Cut(strings.TrimSpace(line), ":")
+		if !ok || !hasAnyPrefix(key, diskKeyPrefixes) {
+			continue
+		}
+		spec, _, _ := strings.Cut(strings.TrimSpace(value), ",")
+		_, volume, ok := strings.Cut(spec, ":")
+		if !ok || volume == "" {
+			continue // `none` (empty CDROM) or a bare option, not a volume
+		}
+		out = append(out, filepath.Base(volume))
+	}
+	return out
+}
+
+func hasAnyPrefix(s string, prefixes []string) bool {
+	for _, p := range prefixes {
+		if strings.HasPrefix(s, p) {
+			return true
+		}
+	}
+	return false
+}
+
 // ScanDeviceOwners maps kernel device names (as they appear in /proc/diskstats)
 // to the guest that owns them, by reading two symlink trees under devRoot:
 //
