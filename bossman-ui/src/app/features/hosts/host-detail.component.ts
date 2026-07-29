@@ -247,9 +247,12 @@ function serviceMetricSpec(name: string, metric: string): { members: string[]; m
                             title="Poll now — re-collect this host's metrics and checks">
                             <mat-icon [class.bm-spin]="pollingService() === svc.name">{{ pollingService() === svc.name ? 'sync' : 'refresh' }}</mat-icon>
                           </button>
-                          <button mat-button (click)="openGraphs(svc, $event)"
-                            title="Every metric behind this check, not just the one it grades">
-                            Open graphs
+                          <!-- Icon, not a label: it sits beside the poll icon in a row
+                               already crowded with three text buttons. multiline_chart
+                               (several lines) says "all the graphs", which is the point. -->
+                          <button mat-icon-button (click)="openGraphs(svc, $event)"
+                            title="Open graphs — every metric behind this check, not just the one it grades">
+                            <mat-icon>multiline_chart</mat-icon>
                           </button>
                           @if (!svc.acknowledged) {
                             <button mat-button (click)="acknowledge(svc, $event)">Acknowledge</button>
