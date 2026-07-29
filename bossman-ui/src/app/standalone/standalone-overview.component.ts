@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
 import { NgxEchartsDirective } from 'ngx-echarts';
 import { HostStatusBadgeComponent } from '../shared/components/host-status-badge/host-status-badge.component';
+import { formatBytes } from '../shared/format.util';
 
 /**
  * Standalone host Overview, in the YOLO-MAN design language (dark Material
@@ -13,7 +14,10 @@ import { HostStatusBadgeComponent } from '../shared/components/host-status-badge
  * grid, and any WARN/CRIT check as an alert.
  */
 interface Pt { time: string; value: number; }
-interface Vital { metric: string; label: string; value: number; unit: string; level: 'crit' | 'warn' | 'ok'; series: Pt[]; }
+/** `caption` is the absolute figure under the gauge: a percentage alone can't
+ * say whether the free 46 % is 400 GB or 400 MB, and on a 32-core host the CPU
+ * average hides a single pinned core. */
+interface Vital { metric: string; label: string; value: number; unit: string; level: 'crit' | 'warn' | 'ok'; series: Pt[]; caption?: string; }
 interface Svc { name: string; state: number; state_label: 'OK' | 'WARN' | 'CRIT' | 'UNKNOWN'; }
 type Filter = 'all' | 'crit' | 'warn';
 
@@ -43,6 +47,7 @@ type Filter = 'all' | 'crit' | 'warn';
               <div class="gauge-cell">
                 <div class="gauge-label">{{ vital.label }}</div>
                 <div echarts [options]="gaugeOptions(vital)" class="gauge-chart"></div>
+                @if (vital.caption) { <div class="gauge-caption">{{ vital.caption }}</div> }
                 @if (vital.series.length > 1) { <div echarts [options]="sparklineOptions(vital)" class="sparkline-chart"></div> }
               </div>
             }
@@ -50,6 +55,7 @@ type Filter = 'all' | 'crit' | 'warn';
               <div class="gauge-cell">
                 <div class="gauge-label">{{ vital.label }}</div>
                 <div echarts [options]="gaugeOptions(vital)" class="gauge-chart"></div>
+                @if (vital.caption) { <div class="gauge-caption">{{ vital.caption }}</div> }
               </div>
             }
           </div>
@@ -139,6 +145,9 @@ type Filter = 'all' | 'crit' | 'warn';
       border: 1px solid var(--bm-hairline, rgba(255,255,255,.12)); border-radius: var(--bm-radius, 8px); padding: 10px 6px 6px; }
     .gauge-label { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; opacity: .7; margin-bottom: 2px; }
     .gauge-chart { width: 100%; height: 120px; } .sparkline-chart { width: 100%; height: 40px; margin-top: -6px; }
+    /* Absolute figures under the gauge. Wraps rather than truncates — a cut-off
+       "840 MiB fr…" would be worse than two lines. */
+    .gauge-caption { white-space: pre-line; font-size: 10.5px; line-height: 1.35; opacity: .7; text-align: center; font-variant-numeric: tabular-nums; padding: 0 2px 2px; }
 
     .services-grid { display: grid; grid-template-columns: repeat(2, 1fr); }
     .svc-row { display: flex; align-items: center; gap: 12px; padding: 9px 16px; border-top: 1px solid var(--bm-hairline, rgba(255,255,255,.08)); min-width: 0; }
@@ -206,23 +215,65 @@ export class StandaloneOverviewComponent implements OnInit {
   baseVitals = computed<Vital[]>(() => {
     const m = this.metrics();
     const out: Vital[] = [];
-    const mk = (metric: string, label: string, unit: string, level: (v: number) => 'crit' | 'warn' | 'ok') => {
+    const mk = (metric: string, label: string, unit: string, level: (v: number) => 'crit' | 'warn' | 'ok', caption?: string) => {
       const s = m[metric]; const v = this.latest(s); if (v == null) return;
-      out.push({ metric, label, unit, value: Math.round(v * 10) / 10, level: level(v), series: (s || []).slice(-60).map((p) => ({ time: p.timestamp, value: p.value })) });
+      out.push({ metric, label, unit, value: Math.round(v * 10) / 10, level: level(v), caption, series: (s || []).slice(-60).map((p) => ({ time: p.timestamp, value: p.value })) });
     };
-    mk('cpu_pct', 'CPU', '%', (v) => this.pct(v));
-    mk('mem_used_pct', 'Memory', '%', (v) => this.pct(v));
-    mk('cpu_load1', 'Load', '', (v) => (v >= this.cpuCount ? 'crit' : v >= this.cpuCount * 0.7 ? 'warn' : 'ok'));
+    mk('cpu_pct', 'CPU', '%', (v) => this.pct(v), this.hottestCore());
+    mk('mem_used_pct', 'Memory', '%', (v) => this.pct(v), this.memCaption());
+    mk('cpu_load1', 'Load', '', (v) => (v >= this.cpuCount ? 'crit' : v >= this.cpuCount * 0.7 ? 'warn' : 'ok'), `${this.cpuCount} cores`);
     return out;
   });
 
+  /** The single busiest core — the average on the CPU gauge hides one pinned
+   * core entirely, which on a 32-core hypervisor is exactly the interesting case. */
+  private hottestCore(): string | undefined {
+    const cores = this.metrics()['cpu_core_pct'] || [];
+    if (!cores.length) return undefined;
+    // Standalone's /metrics returns a time series per metric, so the same core
+    // appears repeatedly; keep the LAST value per core, otherwise "busiest"
+    // would mean "busiest at some point in the window".
+    const now = new Map<string, number>();
+    for (const p of cores) now.set(p.labels?.['core'] ?? '?', p.value);
+    let hot: [string, number] | null = null;
+    for (const e of now) if (!hot || e[1] > hot[1]) hot = e;
+    return hot ? `busiest core ${hot[0]}: ${Math.round(hot[1])} %` : undefined;
+  }
+
+  private memCaption(): string | undefined {
+    const m = this.metrics();
+    const used = this.latest(m['mem_used_bytes']);
+    const total = this.latest(m['mem_total_bytes']);
+    if (used == null || total == null) return undefined;
+    const avail = this.latest(m['mem_available_bytes']);
+    return `${formatBytes(used)} of ${formatBytes(total)}\n${formatBytes(avail ?? Math.max(0, total - used))} ${avail != null ? 'available' : 'free'}`;
+  }
+
   fsVitals = computed<Vital[]>(() => {
-    const s = this.metrics()['disk_used_pct'] || [];
+    const m = this.metrics();
+    const s = m['disk_used_pct'] || [];
+    const mountOf = (p: { labels?: Record<string, string> }) =>
+      p.labels?.['mount'] || p.labels?.['mountpoint'] || p.labels?.['path'] || '/';
+    // Absolute bytes come from sibling series carrying the SAME mount label.
+    // Last match wins: standalone's series carry many points per mount, and the
+    // current size is the newest one.
+    const bytes = (metric: string, mnt: string): number | null => {
+      const pts = m[metric] || [];
+      for (let i = pts.length - 1; i >= 0; i--) if (mountOf(pts[i]) === mnt) return pts[i].value;
+      return null;
+    };
     const byMount = new Map<string, number>();
-    for (const p of s) { const mnt = p.labels?.['mount'] || p.labels?.['mountpoint'] || p.labels?.['path'] || '/'; byMount.set(mnt, p.value); }
-    return [...byMount.entries()].sort((a, b) => a[0].localeCompare(b[0])).map(([mnt, v]) => ({
-      metric: 'fs:' + mnt, label: mnt, unit: '%', value: Math.round(v * 10) / 10, level: this.pct(v), series: [],
-    }));
+    for (const p of s) { byMount.set(mountOf(p), p.value); }
+    return [...byMount.entries()].sort((a, b) => a[0].localeCompare(b[0])).map(([mnt, v]) => {
+      const used = bytes('disk_used_bytes', mnt);
+      const total = bytes('disk_total_bytes', mnt);
+      return {
+        metric: 'fs:' + mnt, label: mnt, unit: '%', value: Math.round(v * 10) / 10, level: this.pct(v), series: [],
+        caption: used != null && total != null
+          ? `${formatBytes(used)} of ${formatBytes(total)}\n${formatBytes(Math.max(0, total - used))} free`
+          : undefined,
+      };
+    });
   });
 
   services = computed<Svc[]>(() => {

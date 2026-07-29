@@ -66,6 +66,14 @@ export class AgentService {
     return this.http.get<LatestMetricsResponse>(`${this.base}/${id}/metrics/latest`);
   }
 
+  /** Latest sample per unique (metric, LABELS) series — one row per filesystem,
+   * per core, per device. `metricsLatest` above is DISTINCT ON (metric) and so
+   * collapses those to a single arbitrary row, which is fine for a metric list
+   * but useless for "how many GB free on /var": that needs the mount's own row. */
+  metricsSnapshot(id: string) {
+    return this.http.get<LatestMetricsResponse>(`${this.base}/${id}/metrics/snapshot`);
+  }
+
   metricSeries(id: string, metric: string, since?: string) {
     let url = `${this.base}/${id}/metrics?metric=${encodeURIComponent(metric)}`;
     if (since) url += `&since=${encodeURIComponent(since)}`;

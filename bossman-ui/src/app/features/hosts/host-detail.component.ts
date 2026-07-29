@@ -2,7 +2,7 @@ import { Component, OnInit, computed, inject, signal, viewChild } from '@angular
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { ConfigCategory, groupByCategory } from '../../shared/config-categories';
-import { formatMetricValue, thresholdContext } from '../../shared/format.util';
+import { formatBytes, formatMetricValue, thresholdContext } from '../../shared/format.util';
 import { DatePipe, DecimalPipe } from '@angular/common';
 import { forkJoin } from 'rxjs';
 import { MatTabsModule, MatTabChangeEvent } from '@angular/material/tabs';
@@ -225,6 +225,9 @@ function serviceMetricSpec(name: string, metric: string): { members: string[]; m
                         <td class="bm-svc-name">{{ svc.name }}</td>
                         <td class="bm-col-summary">
                           <div>{{ svc.output || '—' }}</div>
+                          @if (serviceDetail(svc); as d) {
+                            <div class="bm-svc-abs" title="absolute figures behind the percentage">{{ d }}</div>
+                          }
                           @if (thresholdOf(svc); as t) {
                             <div class="bm-svc-thresh" title="the rule this service is graded against">{{ t }}</div>
                           }
@@ -1689,6 +1692,14 @@ function serviceMetricSpec(name: string, metric: string): { members: string[]; m
         font-variant-numeric: tabular-nums;
         margin-top: 2px;
       }
+      /* Absolute figures: measured data, so a step brighter than the threshold
+         rule beneath it — but still subordinate to the check's own summary. */
+      .bm-svc-abs {
+        font-size: 12px;
+        opacity: 0.75;
+        font-variant-numeric: tabular-nums;
+        margin-top: 2px;
+      }
       .bm-svc-toolbar {
         display: flex;
         align-items: center;
@@ -1904,6 +1915,11 @@ export class HostDetailComponent implements OnInit {
   metricPoints = signal<MetricPoint[]>([]);
   chartSeries = signal<ChartSeries[]>([]);
   latestMetrics = signal<LatestMetric[]>([]);
+  /** Latest sample per (metric, LABELS) series — the per-mount / per-core rows
+   * that `latestMetrics` (DISTINCT ON metric) cannot express. Feeds the absolute
+   * figures under a percentage summary: a "% used" tells nobody whether the
+   * remaining 46 % is 400 GB or 400 MB. */
+  seriesSnapshot = signal<LatestMetric[]>([]);
   metricFilter = signal<'all' | 'crit' | 'warn'>('all');
   expandedMetric = signal<string | null>(null);
   showInternal = signal(false);
@@ -2173,13 +2189,20 @@ export class HostDetailComponent implements OnInit {
       if (this.tabOrder[this.initialTabIndex] === 'configuration') this.loadObserved();
     });
 
-    this.agentService.metricsLatest(id).subscribe((res) => this.latestMetrics.set(res.metrics));
+    this.loadLatest(id);
 
     this.relationshipService.list(id).subscribe((edges) => this.edges.set(edges));
     this.runService.list({ agent_id: id }).subscribe((runs) => this.runs.set(runs));
     this.runService.runbookRuns(100, id).subscribe((res) => this.runbookRuns.set(res.runs ?? []));
     this.reloadServices(id);
     this.monitoringService.fleetHosts().subscribe((hosts) => this.overview.set(hosts.find((h) => h.id === id) ?? null));
+  }
+
+  /** Both latest-data shapes in one go: the per-METRIC list for the raw table,
+   * and the per-SERIES snapshot for the per-mount/per-core figures. */
+  private loadLatest(agentId: string): void {
+    this.agentService.metricsLatest(agentId).subscribe((res) => this.latestMetrics.set(res.metrics));
+    this.agentService.metricsSnapshot(agentId).subscribe((res) => this.seriesSnapshot.set(res.metrics));
   }
 
   private reloadServices(agentId: string): void {
@@ -2211,7 +2234,7 @@ export class HostDetailComponent implements OnInit {
         this.polling.set(false);
         this.pollingService.set(null);
         this.reloadServices(agent.id);
-        this.agentService.metricsLatest(agent.id).subscribe((res) => this.latestMetrics.set(res.metrics));
+        this.loadLatest(agent.id);
       },
       error: () => { this.polling.set(false); this.pollingService.set(null); },
     });
@@ -2229,7 +2252,7 @@ export class HostDetailComponent implements OnInit {
         this.polling.set(false);
         this.pollMsg.set(r.errors?.length ? `polled with errors: ${r.errors.join('; ')}` : `polled · ${r.metrics_written} metrics`);
         this.reloadServices(agent.id);
-        this.agentService.metricsLatest(agent.id).subscribe((res) => this.latestMetrics.set(res.metrics));
+        this.loadLatest(agent.id);
       },
       error: () => { this.polling.set(false); this.pollMsg.set('poll failed'); },
     });
@@ -2264,6 +2287,60 @@ export class HostDetailComponent implements OnInit {
   /** F-17: "warn ≥ 80 %, crit ≥ 90 %" — the rule the service is graded against. */
   thresholdOf(svc: ServiceState): string {
     return thresholdContext(svc);
+  }
+
+  /** The absolute figures behind a percentage/load summary — "46 % free" says
+   * nothing about whether that is 400 GB or 400 MB, and a load average says
+   * nothing about which core is pinned. Read off the per-SERIES snapshot, so a
+   * disk row reports ITS mount rather than an arbitrary one.
+   *   Disk /var → "10.4 GiB of 20.4 GiB used · 9.5 GiB free"
+   *   Memory    → "2.4 GiB of 3.9 GiB used · 1.4 GiB available"
+   *   CPU load  → "12 % busy · core 1: 17 %, core 0: 8 %"  (2 cores)
+   *             → "12 % busy · busiest core 7: 46 % · 32 cores"  (many cores)
+   * Empty string when the host hasn't reported the underlying series (older
+   * agent, or a check without telemetry) — the caller then renders nothing. */
+  serviceDetail(svc: ServiceState): string {
+    const snap = this.seriesSnapshot();
+    const val = (metric: string, label?: string, value?: string): number | null => {
+      const hit = snap.find((m) => m.metric === metric && (label === undefined || m.labels[label] === value));
+      return hit ? hit.value : null;
+    };
+    const usage = (used: number, total: number, freeWord: string, free: number) =>
+      `${formatBytes(used)} of ${formatBytes(total)} used · ${formatBytes(Math.max(0, free))} ${freeWord}`;
+
+    if (svc.name.startsWith('Disk /')) {
+      const mount = svc.name.slice('Disk '.length);
+      const used = val('disk_used_bytes', 'mount', mount);
+      const total = val('disk_total_bytes', 'mount', mount);
+      if (used === null || total === null) return '';
+      return usage(used, total, 'free', total - used);
+    }
+    if (svc.name === 'Memory' || svc.metric === 'mem_used_pct') {
+      const used = val('mem_used_bytes');
+      const total = val('mem_total_bytes');
+      if (used === null || total === null) return '';
+      // MemAvailable is the kernel's own estimate of what a new workload can
+      // actually get (reclaimable cache included) — a truer "free" than total-used.
+      const avail = val('mem_available_bytes');
+      return usage(used, total, avail !== null ? 'available' : 'free', avail ?? total - used);
+    }
+    if (svc.name === 'CPU load' || svc.metric === 'cpu_pct') {
+      const cores = snap
+        .filter((m) => m.metric === 'cpu_core_pct')
+        .sort((a, b) => Number(a.labels['core']) - Number(b.labels['core']));
+      if (!cores.length) return '';
+      const busy = cores.reduce((sum, c) => sum + c.value, 0) / cores.length;
+      const head = `${busy.toFixed(0)} % busy`;
+      // 32-core hosts exist in this fleet, so only a small set is listed in full;
+      // beyond that the one number that matters is the hottest core (a single
+      // pinned core is invisible in both the average and the load figure).
+      if (cores.length <= 8) {
+        return `${head} · ${cores.map((c) => `core ${c.labels['core']}: ${c.value.toFixed(0)} %`).join(', ')}`;
+      }
+      const hottest = cores.reduce((a, b) => (b.value > a.value ? b : a));
+      return `${head} · busiest core ${hottest.labels['core']}: ${hottest.value.toFixed(0)} % · ${cores.length} cores`;
+    }
+    return '';
   }
 
   /** F-17: real warn threshold for the perf-o-meter, falling back to the
