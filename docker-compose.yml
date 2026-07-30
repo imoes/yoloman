@@ -1,3 +1,12 @@
+# Pin the project name instead of letting Compose derive it from the directory.
+# The running stack is `agentic-mcp` but this repo lives in a directory named
+# `yolo-man`, so a plain `docker compose up -d --build` built a SECOND, parallel
+# stack (yolo-man-db-1, yolo-man-bossman-1, …) and then died with
+# "Bind for 0.0.0.0:55433 failed: port is already allocated" — the real db was
+# already holding the port. Worse than the error: had the ports been free, it
+# would have come up quietly against an empty database.
+name: agentic-mcp
+
 services:
   db:
     image: timescale/timescaledb:latest-pg16

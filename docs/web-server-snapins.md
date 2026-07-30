@@ -78,12 +78,21 @@ as the shipped default; *Modern* = TLS 1.3-only is one dropdown change):
 (nginx, web root `/usr/share/nginx/html`). To see UI changes:
 
 ```bash
-cd bossman-ui
-npx ng build --configuration production          # NOT --configuration development
-                                                 # (dev uses an absolute apiUrl → CORS)
-docker cp dist/bossman-ui/browser/. agentic-mcp-bossman-ui-1:/usr/share/nginx/html/
-docker exec agentic-mcp-bossman-ui-1 chmod -R a+rX /usr/share/nginx/html   # avoid 0600 → 403
+docker compose up -d --build bossman-ui
 ```
+
+That is the whole deploy — never `docker cp` into the container. `bossman-ui/Dockerfile`
+already does every step correctly inside the build: `npx ng build --configuration
+production` (a *development* build hardcodes an absolute apiUrl → CORS) and
+`chmod -R a+rX` on the web root (the image assets are 0600 on the host, and nginx's
+unprivileged worker would 403 them). Two properties a `docker cp` does not have:
+
+- **A failing build cannot deploy.** `ng build` runs in the builder stage, so a broken
+  build fails the image and the old container keeps serving. With a copy, a stale
+  `dist/` gets shipped whenever the build error goes unnoticed.
+- **The image is what runs.** A copy is discarded on the next recreate, so the
+  container silently diverges from the repo until something restarts it — and then a
+  fix that "worked" is gone with no trace of why.
 
 ## Verification (all Playwright-verified against docker-test)
 

@@ -197,17 +197,53 @@ class CveFeed:
 
 
 # Debian urgency → a common severity vocabulary (matches Red Hat's tiers).
+# Debian's tracker urgency -> our severity vocabulary.
+#
+# Two of these mappings were wrong, and the numbers say why (counted over the
+# cached tracker for trixie):
+#
+#   not yet assigned  42968   Debian has not triaged the CVE yet. It used to fall
+#                             through to "", which the UI renders as "unknown" —
+#                             indistinguishable from "we failed to look it up".
+#                             It is a real, reportable state and gets its own value.
+#   unimportant        8361   Debian says this has NO security impact for Debian
+#                             (the vulnerable path is not reachable as shipped).
+#                             It used to be mapped to "low", presenting 8361
+#                             non-issues as minor vulnerabilities.
+#   low                2714
+#   medium              658
+#   high                133
+#
+# So ~80% of Debian CVEs carry no severity at all. That is Debian's reality, not a
+# defect on our side: the tracker JSON has no CVSS and no NVD severity — the only
+# fields per release are fixed_version / next_point_update / nodsa / nodsa_reason /
+# repositories / status / urgency. Showing a real severity for the untriaged 80%
+# would need a second source (NVD), which is a feature, not a fix.
+#
+# Deliberately NOT done: falling back to another release's urgency for the same CVE.
+# Checked — the other releases mostly say "end-of-life" (821) or "unimportant" (87),
+# i.e. release-specific judgements that do not transfer.
 _DEBIAN_URGENCY = {
     "high": "important",
     "medium": "moderate",
     "low": "low",
-    "unimportant": "low",
+    "unimportant": "unimportant",
+    "not yet assigned": "untriaged",
+    "end-of-life": "untriaged",
 }
 
 
 def _debian_severity(urgency: str) -> str:
+    """Map a tracker urgency to our vocabulary; an unknown one is untriaged, not "".
+
+    Defaulting to "untriaged" rather than "" keeps "Debian has not judged this" apart
+    from "there is no data", and makes a future urgency value show up as untriaged
+    instead of silently vanishing.
+    """
     u = (urgency or "").split("**")[0].strip().lower()
-    return _DEBIAN_URGENCY.get(u, "")
+    if not u:
+        return ""
+    return _DEBIAN_URGENCY.get(u, "untriaged")
 
 
 async def cve_feed_loop(feed: CveFeed, settings, stop_event: asyncio.Event, after_refresh=None) -> None:
@@ -230,9 +266,23 @@ async def cve_feed_loop(feed: CveFeed, settings, stop_event: asyncio.Event, afte
             except Exception:  # noqa: BLE001
                 logger.warning("cve collect after refresh failed", exc_info=True)
 
-    # A first refresh + collect soon after startup, unless the cache is warm.
+    # Startup: refresh only when the cache is cold, but ALWAYS correlate.
+    #
+    # These are two different questions and conflating them left host_cves empty
+    # indefinitely: the feed cache is a file that survives everything (79 MB of
+    # debian.json), while the correlations live in the DB and disappear with a rebuild,
+    # a new host, or a fresh install. Skipping the collect because the FEED was warm
+    # meant a restart did nothing and the first correlation waited a full
+    # cve_feed_interval_hours — and every restart pushed that deadline out again, so on
+    # a frequently-restarted server it never ran at all. Verified: host_cves had 0 rows
+    # with a warm Jul-17 feed and a DB rebuilt Jul-28.
     if not (feed.has("debian") or feed.has("ubuntu")):
         await _refresh_and_collect(initial=True)
+    elif after_refresh is not None:
+        try:
+            await after_refresh()
+        except Exception:  # noqa: BLE001 — a failed sweep must not kill the loop
+            logger.warning("cve collect on startup (warm cache) failed", exc_info=True)
     interval = max(1, settings.cve_feed_interval_hours) * 3600
     while not stop_event.is_set():
         try:

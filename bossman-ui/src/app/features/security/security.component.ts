@@ -172,6 +172,11 @@ import { FilterBarComponent, FilterDef, FilterValues } from '../../shared/compon
       .bm-sev-critical, .bm-scard.bm-sev-critical .bm-num { color: #b71c1c; }
       .bm-sev-important, .bm-scard.bm-sev-important .bm-num { color: #e65100; }
       .bm-sev-moderate { color: #f9a825; }
+      /* Debian leaves ~80% of CVEs untriaged and marks another 8k "unimportant"
+         (no security impact as shipped). Both are real answers, not missing data,
+         so they get their own muted styling instead of looking like a low finding. */
+      .bm-sev-untriaged { opacity: 0.75; font-style: italic; }
+      .bm-sev-unimportant { opacity: 0.55; }
       .bm-empty { opacity: 0.6; padding: 16px 12px; }
       .bm-err { color: #c62828; }
       .bm-cb { width: 34px; }
@@ -202,7 +207,10 @@ import { FilterBarComponent, FilterDef, FilterValues } from '../../shared/compon
 export class SecurityComponent {
   private security = inject(SecurityService);
 
-  severities = ['critical', 'important', 'moderate', 'low'];
+  // Ordered worst-first, matching api/security._SEV_RANK. `untriaged` = the distro
+  // has not judged the CVE yet; `unimportant` = the distro says it has no security
+  // impact there. Keeping them apart from 'low' is the point — see cve_feed.
+  severities = ['critical', 'important', 'moderate', 'low', 'untriaged', 'unimportant'];
 
   summary = signal<CveSummary | null>(null);
   cves = signal<FleetCve[]>([]);
@@ -314,8 +322,29 @@ export class SecurityComponent {
   toggleAllHosts(p: PkgGroup, checked: boolean): void {
     this.selectedHosts.set(checked ? new Set(this.hostIds(p)) : new Set());
   }
+  /** Severity order, and it MUST stay in step with api/security._SEV_RANK.
+   *
+   * A package row shows the worst severity among the CVEs it fixes, picked by this
+   * function (see `packages`). When `untriaged` and `unimportant` were added to the
+   * vocabulary, this table was not — both fell through to the `?? 0` default, so
+   * `sevRank('untriaged') > sevRank('')` was `0 > 0`, i.e. false. The group's
+   * severity therefore stayed '' and every one of the 47 package rows rendered
+   * "unknown" while the header card correctly counted 1679 untriaged findings.
+   *
+   * `high`/`medium` are aliases: our own vocabulary never emits them, but a distro
+   * feed can hand them over raw, and they must not sort below `low`.
+   */
   private sevRank(s: string): number {
-    return { critical: 4, important: 3, high: 3, moderate: 2, medium: 2, low: 1 }[(s || '').toLowerCase()] ?? 0;
+    return {
+      critical: 6,
+      important: 5,
+      high: 5,
+      moderate: 4,
+      medium: 4,
+      low: 3,
+      untriaged: 2,
+      unimportant: 1,
+    }[(s || '').toLowerCase()] ?? 0;
   }
   /** Link to the authoritative CVE record (Debian tracker) for the full write-up. */
   cveUrl(cve: string): string {

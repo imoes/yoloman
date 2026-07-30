@@ -29,7 +29,13 @@ from bossman.services.cve_feed import cve_description
 router = APIRouter()
 
 # Severity ranking for "worst wins" aggregation + summary ordering.
-_SEV_RANK = {"critical": 4, "important": 3, "moderate": 2, "low": 1, "": 0}
+# Ordering for the CVE list. `untriaged` outranks `unimportant`: Debian saying "not
+# judged yet" is a bigger unknown than Debian saying "no impact here", and the latter
+# should sink to the bottom rather than sit among real findings.
+_SEV_RANK = {
+    "critical": 6, "important": 5, "moderate": 4, "low": 3,
+    "untriaged": 2, "unimportant": 1, "": 0,
+}
 
 
 @router.get("/api/v1/security/feed-status")

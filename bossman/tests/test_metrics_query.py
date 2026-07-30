@@ -42,12 +42,21 @@ async def _refresh_continuous_aggregate(view: str) -> None:
 
 
 def test_pick_tier_boundaries():
+    """Walks the full cascade raw → 5min → hourly → daily, one step past each edge.
+
+    The 5min tier was inserted between raw and hourly later; this test still asserted the
+    old two-tier ladder ("just past raw retention ⇒ hourly") and so failed against correct
+    code. Each boundary is checked on both sides, because the comparisons are `<=` and an
+    off-by-one there silently serves a coarser resolution than the caller asked for.
+    """
     settings = get_settings()
     now = datetime(2026, 1, 30, tzinfo=timezone.utc)
     assert pick_tier(settings, None, now) == "raw"
     assert pick_tier(settings, now - timedelta(days=1), now) == "raw"
     assert pick_tier(settings, now - timedelta(days=settings.metrics_retention_days), now) == "raw"
-    assert pick_tier(settings, now - timedelta(days=settings.metrics_retention_days + 1), now) == "hourly"
+    assert pick_tier(settings, now - timedelta(days=settings.metrics_retention_days + 1), now) == "5min"
+    assert pick_tier(settings, now - timedelta(days=settings.metrics_5min_retention_days), now) == "5min"
+    assert pick_tier(settings, now - timedelta(days=settings.metrics_5min_retention_days + 1), now) == "hourly"
     assert pick_tier(settings, now - timedelta(days=settings.metrics_hourly_retention_days), now) == "hourly"
     assert pick_tier(settings, now - timedelta(days=settings.metrics_hourly_retention_days + 1), now) == "daily"
 

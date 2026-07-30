@@ -217,11 +217,15 @@ async def run_housekeeping(session: AsyncSession, settings: Settings, now: datet
     remaining = (await session.execute(
         text("SELECT count(*) FROM metric_series")
     )).scalar_one()
+    # `pruned`/`batches`/`prune_error` used to be read here as locals — they moved into
+    # prune_process_series() when it was extracted, so this line raised
+    # NameError: name 'pruned' is not defined and took the WHOLE housekeeping run with
+    # it, on every single tick. Exactly the failure mode the comment above warns about:
+    # the log line meant to prove the prune ran was itself what stopped it. The count
+    # now comes from the returned dict, which is the only thing this scope can see.
     logger.info(
-        "housekeeping: process_series_stale=%d (in %d batch(es)) orphans=%d "
-        "metric_series_remaining=%d%s",
-        pruned, batches, orphans, remaining,
-        f" PRUNE_ERROR={prune_error}" if prune_error else "")
+        "housekeeping: process_series_stale=%d orphans=%d metric_series_remaining=%d",
+        deleted.get("process_series_stale", 0), orphans, remaining)
 
     return deleted
 
