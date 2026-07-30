@@ -1,108 +1,114 @@
+PROM_TO_METRIC = {
+    "container_network_receive_bytes_total": "in",
+    "container_network_receive_packets_dropped_total": "indisc",
+    "container_network_receive_errors_total": "inerr",
+    "container_network_transmit_bytes_total": "out",
+    "container_network_transmit_packets_dropped_total": "outdisc",
+    "container_network_transmit_errors_total": "outerr",
+}
+
+
+def _parse_prom(text):
+    totals = {"in": 0.0, "out": 0.0, "inerr": 0.0, "outerr": 0.0, "indisc": 0.0, "outdisc": 0.0}
+    for line in text.splitlines():
+        if line.startswith("#") or len(line) == 0:
+            continue
+        brace = line.find("{")
+        space = line.find(" ")
+        if brace >= 0:
+            name = line[:brace]
+        elif space >= 0:
+            name = line[:space]
+        else:
+            continue
+        if name not in PROM_TO_METRIC:
+            continue
+        end_brace = line.find("}")
+        if end_brace >= 0:
+            rest = line[end_brace + 1:].strip()
+        elif space >= 0:
+            rest = line[space:].strip()
+        else:
+            continue
+        parts = rest.split()
+        if len(parts) == 0:
+            continue
+        val_str = parts[0]
+        if val_str in ("NaN", "+Inf", "-Inf", "Inf"):
+            continue
+        first = val_str[0] if len(val_str) > 0 else ""
+        if not (first.isdigit() or first == "-" or first == "+"):
+            continue
+        key = PROM_TO_METRIC[name]
+        totals[key] = totals[key] + float(val_str)
+    return totals
+
+
 def main(ctx, params):
+    host = params.get("host", "localhost")
+    port = int(params.get("port", 8080))
+    url = "http://%s:%d/metrics" % (host, port)
+
+    res = ctx.run(["curl", "-sf", "--max-time", "10", url], mutates=False)
+
     if params.get("_discover"):
-        return {
-            "changed": False,
-            "msg": "discovered 1 item",
-            "data": {"discovery": [{"item": "Summary", "params": {}, "metrics": ["in", "indisc", "inerr", "out", "outdisc", "outerr"]}]}
-        }
-
-    # Check mode for item "Summary"
-    # Read cadvisor interface data from /proc/net/dev (source cadvisor uses)
-    proc_content = ctx.file_read("/proc/net/dev")
-    lines = proc_content.splitlines()
-
-    # Skip header lines and find first non-loopback interface
-    data = {}
-    found = False
-    idx = 2
-    while idx < len(lines):
-        if idx >= len(lines):
-            break
-        line = lines[idx]
-        idx = idx + 1
-        parts = line.split(":", 1)
-        if len(parts) != 2:
-            continue
-        iface = parts[0].strip()
-        if iface == "lo":
-            continue
-        stats = parts[1].split()
-        if len(stats) < 16:
-            continue
-        # Check if all required stats are numeric
-        valid = True
-        for i in [0, 2, 3, 8, 10, 11]:
-            if not stats[i].isdigit():
-                valid = False
+        if res.rc != 0:
+            return {"changed": False, "msg": "cAdvisor not reachable",
+                    "data": {"discovery": []}}
+        has_net = False
+        for line in res.stdout.splitlines():
+            if line.startswith("container_network_receive_bytes_total{"):
+                has_net = True
                 break
-        if not valid:
-            continue
-        rx_bytes = int(stats[0])
-        rx_disc = int(stats[3])
-        rx_err = int(stats[2])
-        tx_bytes = int(stats[8])
-        tx_disc = int(stats[11])
-        tx_err = int(stats[10])
-        # cadvisor key names
-        data["if_in_total"] = float(rx_bytes)
-        data["if_in_discards"] = float(rx_disc)
-        data["if_in_errors"] = float(rx_err)
-        data["if_out_total"] = float(tx_bytes)
-        data["if_out_discards"] = float(tx_disc)
-        data["if_out_errors"] = float(tx_err)
-        found = True
-        break
-
-    # If no data found
-    if not found:
+        if not has_net:
+            return {"changed": False, "msg": "no cAdvisor network metrics found",
+                    "data": {"discovery": []}}
         return {
             "changed": False,
-            "msg": "no interface data found",
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
+            "msg": "discovered 1 items",
+            "data": {"discovery": [
+                {
+                    "item": "Summary",
+                    "params": {},
+                    "metrics": ["in", "out", "inerr", "outerr", "indisc", "outdisc"],
+                },
+            ]},
         }
 
-    # Determine state based on errors
-    state = "OK"
-    msg_parts = ["Summary"]
-    metrics = {}
+    if res.rc != 0:
+        return {
+            "changed": False,
+            "msg": "cAdvisor not reachable at %s:%d (rc=%d)" % (host, port, res.rc),
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
+        }
 
-    # Add metrics for all kept fields
-    if "if_in_total" in data:
-        val = data["if_in_total"]
-        metrics["if_in_octets"] = val
-        msg_parts.append("In: %d" % int(val))
-    if "if_in_errors" in data:
-        val = data["if_in_errors"]
-        metrics["if_in_errors"] = val
-        if val > 0:
-            state = "WARN"
-            msg_parts.append("In errors: %d" % int(val))
-    if "if_out_total" in data:
-        val = data["if_out_total"]
-        metrics["if_out_octets"] = val
-        msg_parts.append("Out: %d" % int(val))
-    if "if_out_errors" in data:
-        val = data["if_out_errors"]
-        metrics["if_out_errors"] = val
-        if val > 0:
-            state = "WARN"
-            msg_parts.append("Out errors: %d" % int(val))
-    if "if_in_discards" in data:
-        metrics["if_in_discards"] = data["if_in_discards"]
-    if "if_out_discards" in data:
-        metrics["if_out_discards"] = data["if_out_discards"]
-    if "if_in_errors" in data:
-        metrics["indisc"] = data["if_in_discards"]
-    if "if_out_errors" in data:
-        metrics["outdisc"] = data["if_out_discards"]
+    totals = _parse_prom(res.stdout)
+    in_b = int(totals["in"])
+    out_b = int(totals["out"])
+    in_err = int(totals["inerr"])
+    out_err = int(totals["outerr"])
+    in_disc = int(totals["indisc"])
+    out_disc = int(totals["outdisc"])
 
-    msg = ", ".join(msg_parts)
+    item = params.get("item", "Summary")
+    msg = "[%s] In: %d B, Out: %d B, Err in: %d, Err out: %d" % (
+        item, in_b, out_b, in_err, out_err,
+    )
+    details = "Discards in: %d, Discards out: %d" % (in_disc, out_disc)
+
     return {
         "changed": False,
         "msg": msg,
         "data": {
-            "state": state,
-            "metrics": metrics,
-            "details": ""
-        }
+            "state": "OK",
+            "metrics": {
+                "in": in_b,
+                "out": out_b,
+                "inerr": in_err,
+                "outerr": out_err,
+                "indisc": in_disc,
+                "outdisc": out_disc,
+            },
+            "details": details,
+        },
     }

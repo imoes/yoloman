@@ -1,59 +1,80 @@
+MEGACLI_PATHS = [
+    "/opt/MegaRAID/MegaCli/MegaCli64",
+    "/usr/local/bin/MegaCli64",
+    "/usr/bin/MegaCli64",
+    "/opt/MegaRAID/MegaCli/MegaCli",
+    "/usr/local/bin/MegaCli",
+    "/usr/bin/MegaCli",
+]
+
+STATE_MAP = {
+    "Optimal": "Okay(OKY)",
+    "Degraded": "Degraded(DGD)",
+    "Partially Degraded": "Partially Degraded(PDG)",
+    "Failed": "Failed(FLD)",
+    "Offline": "Offline(OFL)",
+}
+
+def _find_megacli(ctx):
+    for path in MEGACLI_PATHS:
+        if ctx.file_exists(path):
+            return path
+    return None
+
+def _parse_arrays(stdout):
+    arrays = {}
+    current_vd = None
+    for line in stdout.splitlines():
+        stripped = line.strip()
+        if stripped.startswith("Virtual Drive:") and "(" in stripped:
+            parts = stripped.split()
+            if len(parts) >= 3:
+                current_vd = parts[2]
+        elif stripped.startswith("State") and ":" in stripped and current_vd != None:
+            state_raw = stripped.split(":", 1)[1].strip()
+            arrays[current_vd] = STATE_MAP.get(state_raw, state_raw)
+    return arrays
+
 def main(ctx, params):
-    # Discovery mode: enumerate RAID arrays
+    megacli = _find_megacli(ctx)
+
     if params.get("_discover"):
-        res = ctx.run(["dmidecode", "-t", "10"], mutates=False)
-        # dmidecode output is not structured, so try alternative: ls /sys/class/scsi_host/
-        # But checkmk.lsi_array expects data from agent section "lsi", which reads
-        # /proc/driver/lsi/megaraid/*/stata_info or similar.
-        # Since we can't rely on dmidecode for array info, check for common LSI sources:
-        # 1. /proc/driver/lsi/megaraid/*/stata_info
-        # 2. ls /sys/class/scsi_host/host*/device
-        # 3. MegaCLI -LDInfo -Lall -aALL (not available), so use mpt-status or similar
-        # 4. Check for /proc/scsi/megaraid or /sys/class/scsi_host
-        
-        # Most portable: check /proc/driver/lsi/megaraid/*/stata_info
-        res = ctx.run(["bash", "-c", "cat /proc/driver/lsi/megaraid/*/stata_info 2>/dev/null || true"], mutates=False)
-        out = []
-        current_vol = None
-        for line in res.stdout.splitlines():
-            line = line.strip()
-            if line.startswith("VolumeID"):
-                parts = line.split(":")
-                if len(parts) >= 2:
-                    current_vol = parts[1].strip()
-            elif line.startswith("Statusofvolume") and current_vol != None:
-                status = line.split(":", 1)[1].strip()
-                # Expected format: Okay(OKY), Degraded(RBld), etc.
-                out.append({"item": current_vol, "params": {}, "metrics": []})
-                current_vol = None
-        return {"changed": False, "msg": "discovered %d RAID arrays" % len(out),
-                "data": {"discovery": out}}
-    
-    # Check mode: validate one array item
+        if megacli == None:
+            return {"changed": False, "msg": "discovered 0 arrays",
+                    "data": {"discovery": []}}
+        res = ctx.run([megacli, "-LDInfo", "-Lall", "-aAll", "-NoLog"],
+                      mutates=False, ok_codes=list(range(10)))
+        if res.rc != 0 or not res.stdout:
+            return {"changed": False, "msg": "discovered 0 arrays",
+                    "data": {"discovery": []}}
+        arrays = _parse_arrays(res.stdout)
+        discovery = [
+            {"item": vol_id, "params": {}, "metrics": []}
+            for vol_id, _ in arrays.items()
+        ]
+        return {"changed": False, "msg": "discovered %d arrays" % len(discovery),
+                "data": {"discovery": discovery}}
+
     item = params.get("item", "")
-    # Read the same source as discovery
-    res = ctx.run(["bash", "-c", "cat /proc/driver/lsi/megaraid/*/stata_info 2>/dev/null || true"], mutates=False)
-    
-    state = None
-    current_vol = None
-    for line in res.stdout.splitlines():
-        line = line.strip()
-        if line.startswith("VolumeID"):
-            parts = line.split(":")
-            if len(parts) >= 2:
-                current_vol = parts[1].strip()
-        elif line.startswith("Statusofvolume") and current_vol == item:
-            state = line.split(":", 1)[1].strip()
-            break
-    
-    if state == None:
+
+    if megacli == None:
+        return {"changed": False, "msg": "MegaCli binary not found",
+                "data": {"state": "UNKNOWN", "metrics": {},
+                         "details": "MegaCli not installed"}}
+
+    res = ctx.run([megacli, "-LDInfo", "-Lall", "-aAll", "-NoLog"],
+                  mutates=False, ok_codes=list(range(10)))
+    if res.rc != 0 or not res.stdout:
+        return {"changed": False, "msg": "MegaCli returned rc=%d" % res.rc,
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": res.stderr}}
+
+    arrays = _parse_arrays(res.stdout)
+
+    if item not in arrays:
         return {"changed": False, "msg": "RAID volume %s not existing" % item,
                 "data": {"state": "CRIT", "metrics": {}, "details": ""}}
-    
-    # Check if state equals expected "Okay(OKY)"
-    if state == "Okay(OKY)":
-        return {"changed": False, "msg": "Status is '%s'" % state,
-                "data": {"state": "OK", "metrics": {}, "details": ""}}
-    else:
-        return {"changed": False, "msg": "Status is '%s'" % state,
-                "data": {"state": "CRIT", "metrics": {}, "details": ""}}
+
+    state_str = arrays[item]
+    check_state = "OK" if state_str == "Okay(OKY)" else "CRIT"
+    return {"changed": False, "msg": "Status is '%s'" % state_str,
+            "data": {"state": check_state, "metrics": {}, "details": ""}}

@@ -6,62 +6,75 @@
   "postgres_instances": {
    "catalog": "app/postgresql",
    "reads": "ps",
-   "reason": "finds no postgres process and returns OK anyway; must report absence (empty discovery / UNKNOWN)"
+   "reason": "finds no postgres process and returns OK anyway; must report absence (empty discovery / UNKNOWN)",
+   "outcome": "FIXED — no longer proposed"
   },
   "postgres_processes": {
    "catalog": "app/postgresql",
    "reads": "ps",
-   "reason": "same as postgres_instances — no postgres on the host, still graded OK"
+   "reason": "same as postgres_instances — no postgres on the host, still graded OK",
+   "outcome": "FIXED — returns an empty discovery list, which discovery now honours"
   },
   "db2_version": {
    "catalog": "app/db2",
    "reads": "/etc/passwd + su",
-   "reason": "reads the password file to look for a DB2 instance user, finds none, reports a version anyway"
+   "reason": "reads the password file to look for a DB2 instance user, finds none, reports a version anyway",
+   "outcome": "FIXED — no longer proposed"
   },
   "podman_container_memory": {
    "catalog": "app/podman",
    "reads": "cat (cgroup path)",
-   "reason": "podman is not installed; must probe for the podman binary and report absence"
+   "reason": "podman is not installed; must probe for the podman binary and report absence",
+   "outcome": "FIXED — no longer proposed"
   },
   "libelle_business_shadow_process": {
    "catalog": "app/libelle",
    "reads": "cat",
-   "reason": "the Libelle product is not on the host; discovered a service regardless"
+   "reason": "the Libelle product is not on the host; discovered a service regardless",
+   "outcome": "FIXED — no longer proposed"
   },
   "cadvisor_if": {
    "catalog": "containerization/cadvisor",
    "reads": "/proc/net/dev",
-   "reason": "substitutes the host's own NIC counters for cAdvisor's container metrics — a different product entirely; lnx_if already covers local NICs"
+   "reason": "substitutes the host's own NIC counters for cAdvisor's container metrics — a different product entirely; lnx_if already covers local NICs",
+   "outcome": "FIXED — no longer proposed"
   },
   "isc_dhcpd": {
    "catalog": "os/services",
    "reads": "cat (dhcpd.conf)",
-   "reason": "no dhcpd on the host; must return empty discovery when the config/daemon is missing"
+   "reason": "no dhcpd on the host; must return empty discovery when the config/daemon is missing",
+   "outcome": "FIXED — now probes `pgrep -x dhcpd` with ok_codes [0,1,127] and reads the real dhcpd.conf; the discovered pool 192.168.50.100-200 is a genuine config value, so being proposed here is correct"
   },
   "nfsmounts": {
    "catalog": "os/services",
    "reads": "df -P",
-   "reason": "treats EVERY mount as an NFS mount (14 items on a host with no NFS at all); must filter by filesystem type nfs/nfs4"
+   "reason": "treats EVERY mount as an NFS mount (14 items on a host with no NFS at all); must filter by filesystem type nfs/nfs4",
+   "outcome": "FIXED — defines NFS_FSTYPES=[nfs,nfs4]; 14 items -> 0 on a host without NFS"
   },
   "nfsexports": {
    "catalog": "os/services",
    "reads": "/proc/fs/nfsd/exports",
-   "reason": "reports exports on a host that serves none; absence must be an empty discovery"
+   "reason": "reports exports on a host that serves none; absence must be an empty discovery",
+   "outcome": "FIXED — returns an empty discovery list, which discovery now honours"
   },
   "lsi_array": {
    "catalog": "os/storage",
    "reads": "dmidecode + bash",
-   "reason": "no LSI controller present; dmidecode succeeding is not evidence of one"
+   "reason": "no LSI controller present; dmidecode succeeding is not evidence of one",
+   "outcome": "FIXED — no longer proposed"
   },
   "cmk_inv": {
    "catalog": "(no man page in Checkmk 2.5)",
    "reads": "ip",
-   "reason": "Checkmk-site internal, not a host check — should not be in the library at all"
+   "reason": "Checkmk-site internal, not a host check — should not be in the library at all",
+   "outcome": "REMOVED from the library. The re-translation refused it — FAIL(still-unrunnable: wraps cmk/checkmk) — which confirms it is Checkmk-site internal (it has no man page in 2.5 either). There is nothing on a monitored host for it to read, so it cannot be fixed by translating it better."
   },
   "lvm_vgs": {
    "catalog": "os/storage",
    "reads": "lvs",
-   "reason": "DATA IS REAL (the host has these volume groups) but discovery yields one item per LOGICAL VOLUME instead of one per volume group — 10 items for 2 VGs, with duplicates. Dedupe by vg_name."
+   "reason": "DATA IS REAL (the host has these volume groups) but discovery yields one item per LOGICAL VOLUME instead of one per volume group — 10 items for 2 VGs, with duplicates. Dedupe by vg_name.",
+   "outcome": "FIXED — 2 items (datavg, rootvg) instead of 10, one per LV; the data was always real"
   }
- }
+ },
+ "_outcome_note": "Re-translated 2026-07-30 through the sharpened prompt (sonnet CLI; qwen/llamacpp03 was answering 502). Discovery on docker-test went 41 -> 29 proposals."
 }

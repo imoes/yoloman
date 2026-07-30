@@ -205,10 +205,18 @@ async def _discover_one(client, c: dict[str, Any]) -> CheckProposal | None:
     # DROPPED every per-item check — df with no item returns UNKNOWN — so
     # discovery found none of the 10 filesystems. Discovery-first fixes it.)
     discovered = False
+    declared_none = False
     try:
         result = await client.call_tool(fqcn, {"_discover": True})
         data = (result or {}).get("data") if isinstance(result, dict) else None
         discovery = (data or {}).get("discovery") if isinstance(data, dict) else None
+        # An EMPTY list is an answer, not a missing one: the contract tells a check
+        # to return `{"discovery": []}` when the thing it monitors is not on this
+        # host. Conflating that with "this check has no discovery at all" sent
+        # nfsexports and postgres_processes down the single-instance probe path and
+        # proposed them anyway — right after they had been re-translated to say
+        # honestly that they found nothing.
+        declared_none = isinstance(discovery, list) and not discovery
         for entry in discovery or []:
             if not isinstance(entry, dict):
                 continue
@@ -232,6 +240,9 @@ async def _discover_one(client, c: dict[str, Any]) -> CheckProposal | None:
         # required section was actually fetched from the host.
         if not await _data_present(client, fqcn, prop.items[0]):
             return None  # placeholder discovery / data absent → not applicable
+
+    if declared_none:
+        return None  # the check itself says this host has nothing to monitor
 
     if not discovered:
         # No items from discovery. Either a single-instance check (uptime,

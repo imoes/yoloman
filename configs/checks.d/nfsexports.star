@@ -1,60 +1,62 @@
+def _get_exports(stdout):
+    exports = []
+    for line in stdout.splitlines():
+        stripped = line.strip()
+        if stripped.startswith("/"):
+            parts = stripped.split()
+            if len(parts) >= 1:
+                exports.append(parts[0])
+    return exports
+
 def main(ctx, params):
+    res = ctx.run(["showmount", "-e", "localhost"], mutates=False, ok_codes=[0, 1, 127])
+
     if params.get("_discover"):
-        exports = []
-        if ctx.file_exists("/proc/fs/nfsd/exports"):
-            content = ctx.file_read("/proc/fs/nfsd/exports")
-            for line in content.splitlines():
-                parts = line.split()
-                if len(parts) >= 2 and parts[0].startswith("/"):
-                    exports.append({"item": parts[0], "params": {}, "metrics": []})
-        else:
-            res = ctx.run(["cat", "/proc/mounts"], mutates=False)
-            for line in res.stdout.splitlines():
-                fields = line.split()
-                if len(fields) >= 3 and fields[2] == "nfsd":
-                    exports_path = fields[1] + "/exports"
-                    if ctx.file_exists(exports_path):
-                        content = ctx.file_read(exports_path)
-                        for exp_line in content.splitlines():
-                            exp_parts = exp_line.split()
-                            if len(exp_parts) >= 2 and exp_parts[0].startswith("/"):
-                                path = exp_parts[0]
-                                already = False
-                                for e in exports:
-                                    if e["item"] == path:
-                                        already = True
-                                        break
-                                if not already:
-                                    exports.append({"item": path, "params": {}, "metrics": []})
-        return {"changed": False, "msg": "discovered %d NFS exports" % len(exports),
-                "data": {"discovery": exports}}
+        if res.rc != 0:
+            return {"changed": False, "msg": "discovered 0 exports", "data": {"discovery": []}}
+        exports = _get_exports(res.stdout)
+        items = [{"item": e, "params": {}, "metrics": []} for e in exports]
+        return {
+            "changed": False,
+            "msg": "discovered %d exports" % len(items),
+            "data": {"discovery": items},
+        }
 
     item = params.get("item", "")
-    found = False
-    if ctx.file_exists("/proc/fs/nfsd/exports"):
-        content = ctx.file_read("/proc/fs/nfsd/exports")
-        for line in content.splitlines():
-            parts = line.split()
-            if len(parts) >= 1 and parts[0] == item:
-                found = True
-                break
-    else:
-        res = ctx.run(["cat", "/proc/mounts"], mutates=False)
-        for line in res.stdout.splitlines():
-            fields = line.split()
-            if len(fields) >= 3 and fields[2] == "nfsd":
-                exports_path = fields[1] + "/exports"
-                if ctx.file_exists(exports_path):
-                    content = ctx.file_read(exports_path)
-                    for line in content.splitlines():
-                        parts = line.split()
-                        if len(parts) >= 1 and parts[0] == item:
-                            found = True
-                            break
-                if found:
-                    break
-    if not found:
-        return {"changed": False, "msg": "export not found in export list",
-                "data": {"state": "CRIT", "metrics": {}, "details": ""}}
-    return {"changed": False, "msg": "export is active",
-            "data": {"state": "OK", "metrics": {}, "details": ""}}
+
+    if res.rc == 127:
+        return {
+            "changed": False,
+            "msg": "showmount not installed",
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
+        }
+
+    if res.rc != 0:
+        return {
+            "changed": False,
+            "msg": "showmount error: " + res.stderr.strip(),
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": res.stderr.strip()},
+        }
+
+    exports = _get_exports(res.stdout)
+
+    if len(exports) == 0:
+        return {
+            "changed": False,
+            "msg": "exports defined but no exports found in export list. Daemons might not be working",
+            "data": {"state": "CRIT", "metrics": {}, "details": ""},
+        }
+
+    for e in exports:
+        if e == item:
+            return {
+                "changed": False,
+                "msg": "export is active",
+                "data": {"state": "OK", "metrics": {}, "details": ""},
+            }
+
+    return {
+        "changed": False,
+        "msg": "export not found in export list",
+        "data": {"state": "CRIT", "metrics": {}, "details": ""},
+    }

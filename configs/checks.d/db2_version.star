@@ -1,90 +1,72 @@
-def _parse_db2level(stdout):
-    for line in stdout.splitlines():
+def _get_instances(ctx):
+    for cmd in ["db2ilist", "/usr/local/bin/db2ilist"]:
+        res = ctx.run([cmd], mutates=False, ok_codes=[0, 1, 2, 127])
+        if res.rc == 127:
+            continue
+        lines = [l.strip() for l in res.stdout.splitlines() if l.strip()]
+        return lines, True
+    return [], False
+
+def _parse_db2level(output):
+    for line in output.splitlines():
         if "Informational tokens" in line:
             parts = line.split('"')
-            ver = ""
-            build = ""
-            ip = ""
+            tokens = []
             for i in range(1, len(parts), 2):
-                tok = parts[i]
-                if tok.startswith("DB2 v") or tok.startswith("DB2 V"):
-                    ver = "DB2v" + tok[5:]
-                elif tok.startswith("s") and len(tok) >= 5 and len(tok) <= 10:
-                    build = tok
-                elif (tok.startswith("IP") or tok.startswith("IT")) and len(tok) >= 4:
-                    ip = tok
-            if not ver:
-                return None
-            result = ver
-            if build:
-                result = result + "," + build
-            if ip:
-                result = result + "(" + ip + ")"
-            return result
-    return None
-
-
-def _get_instance_homes(ctx):
-    homes = {}
-    if not ctx.file_exists("/etc/passwd"):
-        return homes
-    content = ctx.file_read("/etc/passwd")
-    for line in content.splitlines():
-        parts = line.split(":")
-        if len(parts) >= 6:
-            username = parts[0]
-            homedir = parts[5]
-            if ctx.file_exists(homedir + "/sqllib/db2profile"):
-                homes[username] = homedir
-    return homes
-
+                tokens.append(parts[i])
+            if len(tokens) == 0:
+                return ""
+            ver = tokens[0].replace(" ", "")
+            if len(tokens) >= 3:
+                return ver + "," + tokens[1] + "(" + tokens[2] + ")"
+            return ver
+    return ""
 
 def main(ctx, params):
+    instances, db2_installed = _get_instances(ctx)
+
     if params.get("_discover"):
-        homes = _get_instance_homes(ctx)
-        discovery = [{"item": inst, "params": {}, "metrics": []} for inst in homes]
+        if not db2_installed:
+            return {
+                "changed": False,
+                "msg": "discovered 0 instances",
+                "data": {"discovery": []},
+            }
+        items = [{"item": inst, "params": {}, "metrics": []} for inst in instances]
         return {
             "changed": False,
-            "msg": "discovered %d DB2 instances" % len(discovery),
-            "data": {"discovery": discovery},
+            "msg": "discovered %d instances" % len(items),
+            "data": {"discovery": items},
         }
 
     item = params.get("item", "")
-    homes = _get_instance_homes(ctx)
 
-    if item not in homes:
+    if not db2_installed:
+        return {
+            "changed": False,
+            "msg": "DB2 not installed",
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
+        }
+
+    if item not in instances:
         return {
             "changed": False,
             "msg": "Instance is down",
-            "data": {"state": "CRIT", "metrics": {}, "details": "instance user not found in passwd"},
+            "data": {"state": "CRIT", "metrics": {}, "details": ""},
         }
 
-    home = homes[item]
-    db2level = home + "/sqllib/bin/db2level"
+    level_res = ctx.run(
+        ["su", "-l", item, "-c", "db2level"],
+        mutates=False,
+        ok_codes=[0, 1, 2, 127],
+    )
+    version = _parse_db2level(level_res.stdout)
 
-    if not ctx.file_exists(db2level):
+    if version == "":
         return {
             "changed": False,
             "msg": "No instance information found",
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": "db2level not found at " + db2level},
-        }
-
-    res = ctx.run(["su", "-", item, "-c", db2level], mutates=False, ok_codes=[0, 1, 2])
-
-    if not res.stdout.strip():
-        return {
-            "changed": False,
-            "msg": "Instance is down",
-            "data": {"state": "CRIT", "metrics": {}, "details": res.stderr[:200]},
-        }
-
-    version = _parse_db2level(res.stdout)
-
-    if version == None:
-        return {
-            "changed": False,
-            "msg": "No instance information found",
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": res.stdout[:200]},
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
         }
 
     return {

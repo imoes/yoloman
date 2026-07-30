@@ -57,11 +57,13 @@ async def test_discovery_keeps_only_hosts_with_real_data():
     assert set(by_name) == {"df", "uptime"}          # apache probed UNKNOWN -> not applicable
     assert [i.item for i in by_name["df"].items] == ["/", "/data"]
     assert by_name["df"].items[0].metrics == ["used_percent"]
-    # Discovery-first (Checkmk model): _discover runs first; apache finds no
-    # items, so it falls back to a normal probe, which returns UNKNOWN -> dropped.
+    # Discovery-first (Checkmk model): _discover runs first, and apache's EMPTY
+    # list already settles it — no fallback probe is needed or made. An empty
+    # discovery is the contract's way of saying "not on this host"; see
+    # test_empty_discovery_is_taken_as_not_applicable.
     assert ("checks.apache", {"_discover": True}) in client.calls
-    assert ("checks.apache", {}) in client.calls  # empty-discovery fallback probe
-    # df found items via _discover, so it needs no fallback probe.
+    assert ("checks.apache", {}) not in client.calls
+    # df found items via _discover, so it needs no fallback probe either.
     assert ("checks.df", {}) not in client.calls
 
 
@@ -79,11 +81,22 @@ async def test_placeholder_discovery_dropped_when_data_absent():
     assert ("checks.mongodb_asserts", {}) in client.calls
 
 
-async def test_relevant_check_with_empty_discovery_gets_a_default_item():
-    # data present (OK) but the check enumerates nothing -> one default item.
+async def test_empty_discovery_is_taken_as_not_applicable():
+    """An empty `discovery` list means "nothing here", even when a probe grades OK.
+
+    This REPLACES an earlier expectation that such a check got one default item.
+    The contract (CHECK_CONTRACT_ADDENDUM) is explicit in both directions: return
+    an empty list when the check does not apply, and return exactly ONE entry with
+    item "" for a single-service check. Treating [] as "probably single-service"
+    conflated the two — and it is how nfsexports and postgres_processes kept being
+    proposed on a host with neither, immediately after being re-translated to
+    report absence honestly. A check that means "one whole-host service" says so
+    with item "" (see the `uptime` case above).
+    """
     client = FakeClient({"ntp": []}, states={"ntp": "OK"})
     proposals = await run_check_discovery(client, [_check("ntp")])
-    assert len(proposals) == 1 and proposals[0].items[0].item == ""
+    assert proposals == []
+    assert ("checks.ntp", {}) not in client.calls  # settled by _discover alone
 
 
 async def test_discovery_needs_params_from_required_no_default():

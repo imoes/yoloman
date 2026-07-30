@@ -1,103 +1,79 @@
-def main(ctx, params):
-    if params.get("_discover"):
-        return {
-            "changed": False,
-            "msg": "discovered 1 items",
-            "data": {"discovery": [{"item": "", "params": {}, "metrics": []}]},
-        }
+TRD_CANDIDATES = ["/opt/libelle/bin/trd", "/opt/libelle/trd"]
 
-    res = ctx.run(["cat", "/proc/cpuinfo"], mutates=False)
-    output = res.stdout
-    lines = output.split("\n")
+def _extract_status(s):
+    tokens = s.strip().split()
+    if len(tokens) == 0:
+        return ""
+    if len(tokens) >= 2 and tokens[0].isdigit():
+        return tokens[-1]
+    return tokens[0]
 
+def _parse_trd_output(stdout):
     parsed = {}
+    for line in stdout.splitlines():
+        if ":" not in line:
+            continue
+        parts = line.split(":")
+        k = parts[0]
+        k_s = k.strip()
+        if len(parts) > 3 and (k_s.startswith("trdrecover") or k_s.startswith("trdarchiver")):
+            parsed["process"] = k.rstrip()
+            parsed["process_status"] = _extract_status(parts[3])
+        elif k_s.startswith("Status") and len(parts) > 1:
+            parsed["libelle_status"] = parts[1].strip()
+    return parsed
 
-    for line in lines:
-        if line.startswith("Host   "):
-            idx = line.find("Host   ")
-            if idx != -1:
-                val = line[idx + len("Host   "):].strip()
-                parsed["host"] = val
-        elif line.startswith("Start-Time   "):
-            idx = line.find(":")
-            if idx != -1:
-                val = line[idx + 1:].strip()
-                parsed["start_time"] = val
-        elif line.startswith("Release:"):
-            idx = line.find(":")
-            if idx != -1:
-                val = line[idx + 1:].strip()
-                parsed["release"] = val
-        elif line.startswith("Status   "):
-            idx = line.find(":")
-            if idx != -1:
-                val = line[idx + 1:].strip()
-                parsed["libelle_status"] = val
-        elif line.startswith("trdrecover   ") or line.startswith("trdarchiver   "):
-            parts = line.split()
-            if len(parts) >= 4:
-                proc_name = parts[0].rstrip(":")
-                status = parts[-1]
-                parsed["process"] = proc_name
-                parsed["process_status"] = status
-        elif line.startswith("Archive-Dir total   "):
-            idx = line.find(":")
-            if idx != -1:
-                val = line[idx + 1:].strip().replace(" ", "")
-                parsed["arch_total_mb"] = _to_mb(val)
-        elif line.startswith("Archive-Dir free   "):
-            idx = line.find(":")
-            if idx != -1:
-                val = line[idx + 1:].strip().replace(" ", "")
-                parsed["arch_free_mb"] = _to_mb(val)
+def main(ctx, params):
+    trd_bin = None
+    for p in TRD_CANDIDATES:
+        if ctx.file_exists(p):
+            trd_bin = p
+            break
 
-    if "process" in parsed:
-        proc = parsed["process"]
-        status = parsed["process_status"]
-        state = "OK" if status == "RUN" else "CRIT"
-        msg = "Active Process is: " + proc + ", Status: " + status
+    if trd_bin == None:
+        if params.get("_discover"):
+            return {"changed": False, "msg": "discovered 0 items", "data": {"discovery": []}}
         return {
             "changed": False,
-            "msg": msg,
-            "data": {"state": state, "metrics": {}, "details": ""},
+            "msg": "Libelle TRD binary not found",
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""},
         }
 
-    msg = "No Active Process found!"
+    res = ctx.run([trd_bin, "info"], mutates=False, ok_codes=[0, 1, 2])
+    if not res.stdout:
+        if params.get("_discover"):
+            return {"changed": False, "msg": "discovered 0 items", "data": {"discovery": []}}
+        return {
+            "changed": False,
+            "msg": "trd info returned no output (rc=%d)" % res.rc,
+            "data": {"state": "UNKNOWN", "metrics": {}, "details": res.stderr},
+        }
+
+    parsed = _parse_trd_output(res.stdout)
+
+    if params.get("_discover"):
+        if "process" in parsed:
+            return {
+                "changed": False,
+                "msg": "discovered 1 items",
+                "data": {"discovery": [{"item": "", "params": {}, "metrics": []}]},
+            }
+        return {"changed": False, "msg": "discovered 0 items", "data": {"discovery": []}}
+
+    if "process" not in parsed:
+        return {
+            "changed": False,
+            "msg": "No Active Process found!",
+            "data": {"state": "CRIT", "metrics": {}, "details": ""},
+        }
+
+    proc = parsed["process"]
+    status = parsed.get("process_status", "")
+    state = "OK" if status == "RUN" else "CRIT"
+    msg = "Active Process is: %s, Status: %s" % (proc, status)
+
     return {
         "changed": False,
         "msg": msg,
-        "data": {"state": "CRIT", "metrics": {}, "details": ""},
+        "data": {"state": state, "metrics": {}, "details": ""},
     }
-
-
-def _to_mb(size):
-    if size == "":
-        return 0
-    if size.endswith("MB"):
-        num = size[:-2]
-        if num.replace(".", "", 1).isdigit():
-            return int(float(num))
-        return 0
-    if size.endswith("GB"):
-        num = size[:-2]
-        if num.replace(".", "", 1).isdigit():
-            return int(float(num) * 1024)
-        return 0
-    if size.endswith("TB"):
-        num = size[:-2]
-        if num.replace(".", "", 1).isdigit():
-            return int(float(num) * 1024 * 1024)
-        return 0
-    if size.endswith("PB"):
-        num = size[:-2]
-        if num.replace(".", "", 1).isdigit():
-            return int(float(num) * 1024 * 1024 * 1024)
-        return 0
-    if size.endswith("EB"):
-        num = size[:-2]
-        if num.replace(".", "", 1).isdigit():
-            return int(float(num) * 1024 * 1024 * 1024 * 1024)
-        return 0
-    if size.isdigit() or (size.count(".") == 1 and size.replace(".", "").isdigit()):
-        return int(float(size))
-    return 0
