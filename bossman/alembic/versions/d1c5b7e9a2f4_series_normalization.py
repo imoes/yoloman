@@ -109,6 +109,23 @@ def upgrade() -> None:
     op.execute("SELECT add_compression_policy('metrics_raw', INTERVAL '1 day', if_not_exists => true)")
     op.execute("SELECT add_retention_policy('metrics_raw', INTERVAL '2 days', if_not_exists => true)")
 
+    # Chunk geometry BEFORE the refresh policies, not in a later revision. A
+    # continuous aggregate keeps the interval it had when its first chunk was
+    # created, and the refresh job starts as soon as its policy exists — so on a
+    # fresh database the job fired in the window between this migration and
+    # a3f7c1e58b04 (which sets these intervals) and created ONE 10-day chunk.
+    # Observed on the rebuilt DB: _hyper_13_5_chunk spanning 07-26 to 08-05, 108 MB
+    # of the whole 221 MB database, and impossible to compress — compress_after is
+    # 1 day but a chunk only becomes eligible once its END has passed, which for a
+    # 10-day chunk is later than the 10-day retention that drops it. Exactly the
+    # trap a3f7c1e58b04 documents, re-created on every rebuild by ordering alone.
+    for cagg, interval in (
+        ("cagg_metrics_5min", "1 day"),
+        ("cagg_metrics_hourly", "10 days"),
+        ("cagg_metrics_daily", "10 days"),
+    ):
+        op.execute(f"SELECT set_chunk_time_interval('{cagg}', INTERVAL '{interval}')")
+
     op.execute(
         "SELECT add_continuous_aggregate_policy('cagg_metrics_5min', "
         "start_offset => INTERVAL '3 hours', end_offset => INTERVAL '10 minutes', "
