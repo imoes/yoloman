@@ -220,3 +220,103 @@ async def test_a_rule_cannot_point_at_a_nonexistent_window(db_session):
     assert resp.status_code == 422
     assert "time period" in resp.text
     await _cleanup(db_session, token=token)
+
+
+# ---------------------------------------------------------------------------
+# A3 — optimistic locking: two editors must not silently overwrite each other
+
+
+async def test_a_stale_version_is_rejected(db_session):
+    """The scenario: two operators open the same window, both save.
+
+    Before this, the second save simply won and the first change vanished with no trace.
+    Now the second one gets a 412 naming the current version and telling it to re-read.
+    """
+    token, raw = await _make_api_token(db_session)
+    name = f"lock-{uuid.uuid4().hex[:6]}"
+    with TestClient(create_app()) as client:
+        created = client.post(
+            "/api/v1/time-periods", json={"name": name, "ranges": BUSINESS}, headers=_headers(raw)
+        )
+        pid, stale = created.json()["id"], created.json()["version"]
+        assert stale, "the version must be in the payload — these are collection endpoints"
+
+        # Operator A saves first, with the version they read.
+        first = client.put(
+            f"/api/v1/time-periods/{pid}",
+            json={"name": name, "alias": "A was here", "ranges": BUSINESS},
+            headers={**_headers(raw), "If-Match": stale},
+        )
+        assert first.status_code == 200, first.text
+        assert first.json()["version"] != stale, "saving must move the version"
+
+        # Operator B still holds the ORIGINAL version.
+        second = client.put(
+            f"/api/v1/time-periods/{pid}",
+            json={"name": name, "alias": "B was here", "ranges": BUSINESS},
+            headers={**_headers(raw), "If-Match": stale},
+        )
+        assert second.status_code == 412, second.text
+        assert "modified by someone else" in second.text
+
+        # A's change survived.
+        listed = client.get("/api/v1/time-periods", headers=_headers(raw)).json()
+        assert next(p for p in listed if p["name"] == name)["alias"] == "A was here"
+
+    await _cleanup(db_session, name, token=token)
+
+
+async def test_a_write_without_if_match_still_works(db_session):
+    """Honoured-when-present: requiring the header would break every existing client the
+    moment this shipped. Documented in api/etag.py as a follow-up, not an oversight."""
+    token, raw = await _make_api_token(db_session)
+    name = f"nolock-{uuid.uuid4().hex[:6]}"
+    with TestClient(create_app()) as client:
+        created = client.post(
+            "/api/v1/time-periods", json={"name": name, "ranges": BUSINESS}, headers=_headers(raw)
+        )
+        resp = client.put(
+            f"/api/v1/time-periods/{created.json()['id']}",
+            json={"name": name, "alias": "no header", "ranges": BUSINESS},
+            headers=_headers(raw),
+        )
+    assert resp.status_code == 200
+    await _cleanup(db_session, name, token=token)
+
+
+async def test_a_quoted_or_star_tag_is_accepted(db_session):
+    """A client library sends the ETag back quoted; `*` means "any version"."""
+    token, raw = await _make_api_token(db_session)
+    name = f"quoted-{uuid.uuid4().hex[:6]}"
+    with TestClient(create_app()) as client:
+        created = client.post(
+            "/api/v1/time-periods", json={"name": name, "ranges": BUSINESS}, headers=_headers(raw)
+        )
+        pid, version = created.json()["id"], created.json()["version"]
+        quoted = client.put(
+            f"/api/v1/time-periods/{pid}",
+            json={"name": name, "alias": "quoted", "ranges": BUSINESS},
+            headers={**_headers(raw), "If-Match": f'"{version}"'},
+        )
+        assert quoted.status_code == 200, quoted.text
+        star = client.put(
+            f"/api/v1/time-periods/{pid}",
+            json={"name": name, "alias": "star", "ranges": BUSINESS},
+            headers={**_headers(raw), "If-Match": "*"},
+        )
+        assert star.status_code == 200
+    await _cleanup(db_session, name, token=token)
+
+
+async def test_the_version_ignores_the_moving_clock(db_session):
+    """`active_now` changes on its own; if it were hashed, every save would 412 for no reason."""
+    token, raw = await _make_api_token(db_session)
+    name = f"clock-{uuid.uuid4().hex[:6]}"
+    with TestClient(create_app()) as client:
+        created = client.post(
+            "/api/v1/time-periods", json={"name": name, "ranges": BUSINESS}, headers=_headers(raw)
+        )
+        first = created.json()["version"]
+        again = client.get("/api/v1/time-periods", headers=_headers(raw)).json()
+        assert next(p for p in again if p["name"] == name)["version"] == first
+    await _cleanup(db_session, name, token=token)

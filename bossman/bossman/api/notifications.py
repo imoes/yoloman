@@ -8,12 +8,13 @@ from __future__ import annotations
 from datetime import datetime
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from bossman.api.auth import get_current_identity
+from bossman.api.etag import check_if_match, compute_version
 from bossman.db.models import Notification, NotificationRule, OrchestrationPlan, OUNode, TimePeriod
 from bossman.db.session import get_session
 
@@ -62,6 +63,10 @@ class NotificationRuleIn(BaseModel):
 class NotificationRuleOut(NotificationRuleIn):
     id: UUID
     created_at: datetime
+    # A3: this object's version. Send it back in If-Match on PUT and a concurrent edit
+    # becomes a 412 instead of a silent overwrite. In the payload rather than only in an
+    # ETag header because these are collection endpoints — see api/etag.py.
+    version: str = ""
 
     @classmethod
     def from_model(cls, r: NotificationRule) -> "NotificationRuleOut":
@@ -88,6 +93,10 @@ class NotificationRuleOut(NotificationRuleIn):
             scope_plan_id=r.scope_plan_id,
             time_period_id=r.time_period_id,
         )
+
+    def with_version(self) -> "NotificationRuleOut":
+        self.version = compute_version(self)
+        return self
 
 
 async def _validate(body: NotificationRuleIn, session: AsyncSession) -> None:
@@ -122,7 +131,7 @@ async def list_notification_rules(
     session: AsyncSession = Depends(get_session), _identity=Depends(get_current_identity)
 ) -> list[NotificationRuleOut]:
     rules = (await session.scalars(select(NotificationRule).order_by(NotificationRule.created_at.desc()))).all()
-    return [NotificationRuleOut.from_model(r) for r in rules]
+    return [NotificationRuleOut.from_model(r).with_version() for r in rules]
 
 
 @router.post("/api/v1/notification-rules", response_model=NotificationRuleOut)
@@ -133,21 +142,30 @@ async def create_notification_rule(
     rule = NotificationRule(**body.model_dump())
     session.add(rule)
     await session.commit()
-    return NotificationRuleOut.from_model(rule)
+    return NotificationRuleOut.from_model(rule).with_version()
 
 
 @router.put("/api/v1/notification-rules/{rule_id}", response_model=NotificationRuleOut)
 async def update_notification_rule(
-    rule_id: UUID, body: NotificationRuleIn, session: AsyncSession = Depends(get_session), _identity=Depends(get_current_identity)
+    rule_id: UUID,
+    body: NotificationRuleIn,
+    request: Request,
+    response: Response,
+    session: AsyncSession = Depends(get_session),
+    _identity=Depends(get_current_identity),
 ) -> NotificationRuleOut:
     rule = await session.get(NotificationRule, rule_id)
     if rule is None:
         raise HTTPException(status_code=404, detail=f"no such notification rule {rule_id}")
+    # A3: before writing, make sure the caller's copy is still current.
+    check_if_match(request, NotificationRuleOut.from_model(rule).with_version().version)
     await _validate(body, session)
     for field, value in body.model_dump().items():
         setattr(rule, field, value)
     await session.commit()
-    return NotificationRuleOut.from_model(rule)
+    out = NotificationRuleOut.from_model(rule).with_version()
+    response.headers["ETag"] = f'"{out.version}"'
+    return out
 
 
 class NotificationRulePatch(BaseModel):
@@ -179,7 +197,7 @@ async def patch_notification_rule(
             raise HTTPException(status_code=422, detail=f"no such OU {body.ou_id}")
         rule.ou_id = body.ou_id
     await session.commit()
-    return NotificationRuleOut.from_model(rule)
+    return NotificationRuleOut.from_model(rule).with_version()
 
 
 @router.delete("/api/v1/notification-rules/{rule_id}", status_code=204)

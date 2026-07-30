@@ -22,12 +22,13 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from bossman.api.auth import get_current_identity
+from bossman.api.etag import check_if_match, compute_version
 from bossman.config import get_settings
 from bossman.db.models import NotificationRule, TimePeriod
 from bossman.db.session import get_session
@@ -56,6 +57,10 @@ class TimePeriodOut(TimePeriodIn):
     # that is invisible from the definition alone.
     active_now: bool
     timezone: str = ""
+    # A3: send this back in If-Match on PUT — see api/etag.py. active_now/timezone are
+    # deliberately NOT part of it: they move with the clock, and a version that changes on
+    # its own would reject every save with a conflict nobody caused.
+    version: str = ""
 
     @classmethod
     def from_model(cls, p: TimePeriod, *, active_now: bool, timezone: str = "") -> "TimePeriodOut":
@@ -65,6 +70,10 @@ class TimePeriodOut(TimePeriodIn):
             is_builtin=p.is_builtin, created_at=p.created_at, active_now=active_now,
             timezone=timezone,
         )
+
+    def with_version(self) -> "TimePeriodOut":
+        self.version = compute_version(self)
+        return self
 
 
 async def _all_specs(session: AsyncSession) -> dict[str, dict]:
@@ -126,7 +135,10 @@ async def list_time_periods(
     zone_name = get_settings().time_period_timezone
     now = datetime.now(timezone.utc)
     rows = (await session.scalars(select(TimePeriod).order_by(TimePeriod.name))).all()
-    return [TimePeriodOut.from_model(p, active_now=_active(p.name, specs, now), timezone=zone_name) for p in rows]
+    return [
+        TimePeriodOut.from_model(p, active_now=_active(p.name, specs, now), timezone=zone_name).with_version()
+        for p in rows
+    ]
 
 
 @router.post("/api/v1/time-periods", response_model=TimePeriodOut, status_code=201)
@@ -149,19 +161,22 @@ async def create_time_period(
         period,
         active_now=_active(period.name, specs, datetime.now(timezone.utc)),
         timezone=get_settings().time_period_timezone,
-    )
+    ).with_version()
 
 
 @router.put("/api/v1/time-periods/{period_id}", response_model=TimePeriodOut)
 async def update_time_period(
     period_id: UUID,
     body: TimePeriodIn,
+    request: Request,
+    response: Response,
     session: AsyncSession = Depends(get_session),
     _identity=Depends(get_current_identity),
 ) -> TimePeriodOut:
     period = await session.get(TimePeriod, period_id)
     if period is None:
         raise HTTPException(status_code=404, detail="no such time period")
+    check_if_match(request, TimePeriodOut.from_model(period, active_now=False).with_version().version)
     await _validate(body, session, current=period)
     new_name = body.name.strip()
     if new_name != period.name:
@@ -184,7 +199,7 @@ async def update_time_period(
         period,
         active_now=_active(period.name, specs, datetime.now(timezone.utc)),
         timezone=get_settings().time_period_timezone,
-    )
+    ).with_version()
 
 
 @router.delete("/api/v1/time-periods/{period_id}", status_code=204)

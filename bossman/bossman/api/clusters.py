@@ -23,12 +23,13 @@ import uuid
 from datetime import datetime
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from pydantic import BaseModel
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from bossman.api.auth import get_current_identity
+from bossman.api.etag import check_if_match, compute_version
 from bossman.db.models import Agent, ClusterNode, HostCluster, Service
 from bossman.db.session import get_session
 from bossman.services import clustering
@@ -60,8 +61,11 @@ class ClusterOut(BaseModel):
     nodes: list[ClusterNodeOut]
     created_at: datetime
     # What the cluster currently reports, so the caller sees the effect of its patterns
-    # without a second round trip.
+    # without a second round trip. NOT part of `version` — it follows the fleet, and a
+    # version that moves on its own would reject every save.
     service_states: dict[str, str] = {}
+    # A3: send this back in If-Match on PUT — see api/etag.py.
+    version: str = ""
 
 
 async def _load(session: AsyncSession, agent_id: UUID) -> tuple[Agent, HostCluster]:
@@ -82,7 +86,7 @@ async def _out(session: AsyncSession, agent: Agent, config: HostCluster) -> Clus
     )
     nodes = (await session.scalars(select(Agent).where(Agent.id.in_(node_ids)))).all() if node_ids else []
     services = (await session.scalars(select(Service).where(Service.agent_id == agent.id))).all()
-    return ClusterOut(
+    out = ClusterOut(
         id=agent.id,
         name=agent.name,
         aggregation_mode=config.aggregation_mode,
@@ -98,6 +102,8 @@ async def _out(session: AsyncSession, agent: Agent, config: HostCluster) -> Clus
         created_at=config.created_at,
         service_states={s.name: s.state for s in sorted(services, key=lambda s: s.name)},
     )
+    out.version = compute_version(out)
+    return out
 
 
 async def _validate(body: ClusterIn, session: AsyncSession, *, cluster_id: UUID | None = None) -> None:
@@ -173,10 +179,12 @@ async def create_cluster(
 async def update_cluster(
     cluster_id: UUID,
     body: ClusterIn,
+    request: Request,
     session: AsyncSession = Depends(get_session),
     _identity=Depends(get_current_identity),
 ) -> ClusterOut:
     agent, config = await _load(session, cluster_id)
+    check_if_match(request, (await _out(session, agent, config)).version)
     await _validate(body, session, cluster_id=cluster_id)
     name = body.name.strip()
     if name != agent.name and await session.scalar(select(Agent).where(Agent.name == name)) is not None:

@@ -15,11 +15,12 @@ from __future__ import annotations
 from datetime import datetime, timedelta, timezone
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from bossman.api.etag import check_if_match, compute_version
 from bossman.api.auth import get_current_identity
 from bossman.db.models import DEFAULT_TENANT_ID, CheckRule, CheckRuleOuLink, Downtime, Metric, OUNode, Service
 from bossman.db.session import get_session
@@ -446,6 +447,10 @@ class CheckRuleOut(BaseModel):
     # Every OU this policy applies to: the primary scope_ou_id plus any
     # additional OUs linked via check_rule_ou_links (one policy → many OUs).
     # Populated by list_check_rules; empty on the bare from_model path.
+    # A3: this rule's version. Send it back in If-Match on PUT and a concurrent edit becomes
+    # a 412 instead of a silent overwrite — see api/etag.py. `ou_ids` is excluded from the
+    # hash by being populated only on the list path; it is not part of the row itself.
+    version: str = ""
     ou_ids: list[UUID] = []
     enforced: bool
     link_order: int
@@ -486,6 +491,10 @@ class CheckRuleOut(BaseModel):
             extra_conditions=r.extra_conditions,
             condition_logic=r.condition_logic,
         )
+
+    def with_version(self) -> "CheckRuleOut":
+        self.version = compute_version(self)
+        return self
 
 
 def _validate_scope(scope_type: str, scope_value: str | None, scope_ou_id: UUID | None = None) -> None:
@@ -536,7 +545,7 @@ async def list_check_rules(
         extra.setdefault(link.rule_id, []).append(link.ou_id)
     out = []
     for r in rules:
-        o = CheckRuleOut.from_model(r)
+        o = CheckRuleOut.from_model(r).with_version()
         merged = list(dict.fromkeys(o.ou_ids + extra.get(r.id, [])))  # dedup, preserve order
         o.ou_ids = merged
         out.append(o)
@@ -579,19 +588,22 @@ async def create_check_rule(
     session.add(rule)
     await _enqueue_rule_change(session)
     await session.commit()
-    return CheckRuleOut.from_model(rule)
+    return CheckRuleOut.from_model(rule).with_version()
 
 
 @router.put("/api/v1/check-rules/{rule_id}", response_model=CheckRuleOut)
 async def update_check_rule(
     rule_id: UUID,
     body: CheckRuleIn,
+    request: Request,
     session: AsyncSession = Depends(get_session),
     _identity=Depends(get_current_identity),
 ) -> CheckRuleOut:
     rule = await session.get(CheckRule, rule_id)
     if rule is None:
         raise HTTPException(status_code=404, detail=f"no such check rule {rule_id}")
+    # A3: refuse the write if the caller's copy is stale.
+    check_if_match(request, CheckRuleOut.from_model(rule).with_version().version)
     if rule.template_id is not None:
         # Block K12: this row is generated from a Template's TemplateRule —
         # a direct edit would just get overwritten on the next
@@ -627,7 +639,7 @@ async def update_check_rule(
     rule.condition_logic = body.condition_logic
     await _enqueue_rule_change(session)
     await session.commit()
-    return CheckRuleOut.from_model(rule)
+    return CheckRuleOut.from_model(rule).with_version()
 
 
 class CheckRulePatch(BaseModel):
@@ -672,7 +684,7 @@ async def patch_check_rule(
         rule.scope_type = "ou"
     await _enqueue_rule_change(session)
     await session.commit()
-    return CheckRuleOut.from_model(rule)
+    return CheckRuleOut.from_model(rule).with_version()
 
 
 class OuLinkIn(BaseModel):
@@ -701,7 +713,7 @@ async def add_check_rule_ou_link(
     # Already the primary OU, or already linked → no-op (idempotent).
     if rule.scope_ou_id == body.ou_id:
         await session.commit()
-        return CheckRuleOut.from_model(rule)
+        return CheckRuleOut.from_model(rule).with_version()
     existing = await session.scalar(
         select(CheckRuleOuLink).where(CheckRuleOuLink.rule_id == rule_id, CheckRuleOuLink.ou_id == body.ou_id)
     )
@@ -717,7 +729,7 @@ async def add_check_rule_ou_link(
     await session.commit()
     await session.refresh(rule)
     links = (await session.scalars(select(CheckRuleOuLink).where(CheckRuleOuLink.rule_id == rule_id))).all()
-    out = CheckRuleOut.from_model(rule)
+    out = CheckRuleOut.from_model(rule).with_version()
     out.ou_ids = list(dict.fromkeys(out.ou_ids + [l.ou_id for l in links]))
     return out
 
@@ -758,7 +770,7 @@ async def remove_check_rule_ou_link(
     await session.commit()
     await session.refresh(rule)
     links = (await session.scalars(select(CheckRuleOuLink).where(CheckRuleOuLink.rule_id == rule_id))).all()
-    out = CheckRuleOut.from_model(rule)
+    out = CheckRuleOut.from_model(rule).with_version()
     out.ou_ids = list(dict.fromkeys(out.ou_ids + [l.ou_id for l in links]))
     return out
 
