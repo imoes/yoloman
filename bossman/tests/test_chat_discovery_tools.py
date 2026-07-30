@@ -64,11 +64,24 @@ async def test_discover_runs_with_fake_client(db_session, tmp_path):
     )
 
     class FakeClient:
+        """Answers the two phases differently, the way a real agent does.
+
+        Discovery is no longer a single call: the check is asked what exists
+        (`params["_discover"]`), then RUN for real against one discovered item, and only an
+        item whose run grades OK/WARN/CRIT counts as present (services/discovery._data_present).
+        That gate is what stopped placeholder checks — MongoDB on a host without MongoDB —
+        from being offered everywhere. A fake that returns the discovery list for BOTH calls
+        therefore fails its own probe: the probe reply has no `state`.
+        """
+
         async def push_modules(self, mods):
             return {"results": []}
 
         async def call_tool(self, name, body):
-            return {"data": {"discovery": [{"item": "/", "params": {}, "metrics": ["used_percent"]}]}}
+            if (body or {}).get("_discover"):
+                return {"data": {"discovery": [{"item": "/", "params": {}, "metrics": ["used_percent"]}]}}
+            # The probe run: a real verdict, with the evidence that a read happened.
+            return {"data": {"state": "OK", "summary": "51% used"}, "data_source": {"attempts": 1, "produced": 1}}
 
     class S:
         checks_dir = str(tmp_path)

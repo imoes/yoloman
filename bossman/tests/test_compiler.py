@@ -230,7 +230,11 @@ async def test_generated_monitoring_union(db_session):
     result = await compile_host_desired_state(db_session, agent.id)
     mon = result.state["monitoring"]
     assert set(mon["checks"]) == {"docker_daemon", "postgres_health"}
-    assert mon["thresholds"] == {"disk.pct": {"warning": 80}, "lag.s": {"critical": 300}}
+    # Subset, not equality: globally-scoped default check_rules (Memory / Disk / Disk IOPS
+    # are seeded) also contribute thresholds to every host, and this test is about the UNION
+    # of the two plans' own thresholds, not about being the only source.
+    assert mon["thresholds"]["disk.pct"] == {"warning": 80}
+    assert mon["thresholds"]["lag.s"] == {"critical": 300}
 
 
 def test_derive_generated_monitoring_dedups():
@@ -379,8 +383,30 @@ async def test_thresholds_check_rule_wins_over_plan(db_session):
     assert th["warn"] == 88.0 and th["crit"] == 94.0
 
 
-async def test_thresholds_absent_when_no_rules(db_session):
+async def test_thresholds_come_only_from_real_rules(db_session):
+    """A host with no plan of its own gets exactly the thresholds its rules imply.
+
+    This asserted an EMPTY map, on the premise "no check_rules". That premise stopped being
+    true: globally-scoped default rules are seeded and apply to every host by definition. (It
+    passed for a while only because an older, destructive seeding test had deleted those
+    defaults from the shared database — so the test depended on the system being broken.) What
+    is still worth pinning is that nothing appears out of thin air and the compile does not
+    crash.
+    """
+    from sqlalchemy import select as _select
+
+    from bossman.db.models import CheckRule
+
     agent = await _agent(db_session)
     result = await compile_host_desired_state(db_session, agent.id)
-    # No check_rules and no plan thresholds → empty thresholds map, not a crash.
-    assert result.state["monitoring"]["thresholds"] == {}
+    thresholds = result.state["monitoring"]["thresholds"]
+
+    metrics_with_rules = {
+        r.metric
+        for r in (
+            await db_session.scalars(
+                _select(CheckRule).where(CheckRule.enabled == True, CheckRule.scope_type == "global")  # noqa: E712
+            )
+        ).all()
+    }
+    assert set(thresholds) <= metrics_with_rules, "a threshold with no rule behind it"

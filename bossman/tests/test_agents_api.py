@@ -12,6 +12,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy import delete, select
 
 from bossman.api.plans import get_client_factory
+from tests.metric_helpers import purge_metrics, write_metric
 from bossman.db.models import Agent, Metric, Service, ServiceStateHistory
 from bossman.main import create_app
 from bossman.services.auth import new_api_token
@@ -71,11 +72,11 @@ def _headers(raw_token):
     return {"Authorization": f"Bearer {raw_token}"}
 
 
-async def _cleanup(db_session, agent=None, api_token=None, metrics=None):
-    for m in metrics or []:
-        got = await db_session.get(Metric, {"time": m.time, "agent_id": m.agent_id, "metric": m.metric})
-        if got is not None:
-            await db_session.delete(got)
+async def _cleanup(db_session, agent=None, api_token=None):
+    # Points are removed by AGENT, not by Metric identity: `metrics` is a VIEW and takes
+    # neither INSERT nor DELETE — see tests/metric_helpers.
+    if agent is not None:
+        await purge_metrics(db_session, agent.id)
     await db_session.flush()
     if agent is not None:
         # poll-now / poll_agent can persist Service + ServiceStateHistory rows
@@ -131,10 +132,8 @@ async def test_get_agent_404_for_unknown_id(db_session):
 
 async def test_agent_metrics_catalog_discovery(db_session):
     agent = await _make_agent(db_session)
-    m1 = Metric(time=datetime.now(timezone.utc), agent_id=agent.id, metric="cpu_pct", value=1.0, labels={})
-    m2 = Metric(time=datetime.now(timezone.utc), agent_id=agent.id, metric="mem_pct", value=2.0, labels={})
-    db_session.add_all([m1, m2])
-    await db_session.flush()
+    await write_metric(db_session, agent.id, "cpu_pct", 1.0)
+    await write_metric(db_session, agent.id, "mem_pct", 2.0)
     await db_session.commit()
     api_token, raw = await _make_api_token(db_session)
 
@@ -145,15 +144,13 @@ async def test_agent_metrics_catalog_discovery(db_session):
     assert resp.status_code == 200
     assert sorted(resp.json()["metrics"]) == ["cpu_pct", "mem_pct"]
 
-    await _cleanup(db_session, agent=agent, api_token=api_token, metrics=[m1, m2])
+    await _cleanup(db_session, agent=agent, api_token=api_token)
 
 
 async def test_agent_metrics_with_metric_filter_returns_points(db_session):
     agent = await _make_agent(db_session)
     point_time = datetime.now(timezone.utc)
-    metric = Metric(time=point_time, agent_id=agent.id, metric="cpu_pct", value=42.5, labels={"core": "0"})
-    db_session.add(metric)
-    await db_session.flush()
+    await write_metric(db_session, agent.id, "cpu_pct", 42.5, when=point_time, labels={"core": "0"})
     await db_session.commit()
     api_token, raw = await _make_api_token(db_session)
 
@@ -169,7 +166,7 @@ async def test_agent_metrics_with_metric_filter_returns_points(db_session):
     assert body["points"][0]["labels"] == {"core": "0"}
     assert body["resolution"] == "raw"
 
-    await _cleanup(db_session, agent=agent, api_token=api_token, metrics=[metric])
+    await _cleanup(db_session, agent=agent, api_token=api_token)
 
 
 async def test_agent_metrics_since_beyond_raw_retention_reports_downsampled_resolution(db_session):
@@ -193,17 +190,15 @@ async def test_agent_metrics_since_beyond_raw_retention_reports_downsampled_reso
     assert body["resolution"] == "hourly"
     assert body["points"] == []  # nothing materialized for this fresh agent, but the tier choice is still correct
 
-    await _cleanup(db_session, agent=agent, api_token=api_token, metrics=[])
+    await _cleanup(db_session, agent=agent, api_token=api_token)
 
 
 async def test_agent_metrics_latest_returns_newest_per_metric(db_session):
     agent = await _make_agent(db_session)
     t0 = datetime.now(timezone.utc)
-    older = Metric(time=t0 - timedelta(minutes=5), agent_id=agent.id, metric="cpu_pct", value=10.0, labels={})
-    newer = Metric(time=t0, agent_id=agent.id, metric="cpu_pct", value=42.5, labels={"core": "0"})
-    other = Metric(time=t0 - timedelta(minutes=1), agent_id=agent.id, metric="mem_pct", value=63.0, labels={})
-    db_session.add_all([older, newer, other])
-    await db_session.flush()
+    await write_metric(db_session, agent.id, "cpu_pct", 10.0, when=t0 - timedelta(minutes=5))
+    await write_metric(db_session, agent.id, "cpu_pct", 42.5, when=t0, labels={"core": "0"})
+    await write_metric(db_session, agent.id, "mem_pct", 63.0, when=t0 - timedelta(minutes=1))
     await db_session.commit()
     api_token, raw = await _make_api_token(db_session)
 
@@ -219,7 +214,7 @@ async def test_agent_metrics_latest_returns_newest_per_metric(db_session):
     assert metrics["cpu_pct"]["labels"] == {"core": "0"}
     assert metrics["mem_pct"]["value"] == 63.0
 
-    await _cleanup(db_session, agent=agent, api_token=api_token, metrics=[older, newer, other])
+    await _cleanup(db_session, agent=agent, api_token=api_token)
 
 
 async def test_mass_update_groups_add_replace_remove(db_session):

@@ -362,12 +362,21 @@ WHEN_ERROR_PLAN = """
 name: bad_when_plan
 steps:
   - name: guarded
-    when: docker.proxy | default('x')
+    when: a ===
     copy: {}
 """
 
 
-async def test_run_plan_unsupported_when_expression_is_recorded_as_step_error(db_session, tmp_path):
+async def test_run_plan_invalid_when_expression_is_recorded_as_step_error(db_session, tmp_path):
+    """An unevaluable condition fails the step and never reaches the agent.
+
+    The expression had to change with the contract, not the intent. `when:` used to be a
+    hand-written whitelist grammar; it is now any Jinja2 expression in a SandboxedEnvironment
+    with lenient undefined (services/when_eval.py). Under that contract the old fixture,
+    `docker.proxy | default('x')`, is perfectly VALID — it yields 'x', the step runs, and the
+    plan succeeds, so the test was asserting a rejection that had been deliberately removed.
+    A genuine syntax error is what still must fail.
+    """
     agent = await _make_agent(db_session)
     plan = _plan(tmp_path, WHEN_ERROR_PLAN)
     fake = FakeAgentClient()
@@ -378,9 +387,24 @@ async def test_run_plan_unsupported_when_expression_is_recorded_as_step_error(db
     assert fake.tool_calls == []  # never reached the agent
     steps = await _steps(db_session, plan_run)
     assert len(steps) == 1
-    assert "unsupported when-expression" in steps[0].error
+    assert "invalid when-expression" in steps[0].error
 
     await _cleanup(db_session, agent, plan_run)
+
+
+async def test_run_plan_accepts_a_jinja_filter_in_when(db_session, tmp_path):
+    """The other half of that contract change, so it is pinned rather than assumed.
+
+    `x | default(...)` on a missing fact is the single most common Ansible `when:` idiom. It
+    used to be rejected by the whitelist grammar; it must now evaluate — otherwise the pivot
+    to Jinja semantics is only half done and nobody notices.
+    """
+    from bossman.services.when_eval import eval_when
+
+    assert eval_when("docker.proxy | default('x')", {}) is True
+    assert eval_when("docker.proxy | default('')", {}) is False, "falsy default stays falsy"
+    assert eval_when("docker is defined", {}) is False
+    assert eval_when("docker is defined", {"docker": {}}) is True
 
 
 OS_DISPATCH_PLAN = """

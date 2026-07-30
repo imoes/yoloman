@@ -70,14 +70,27 @@ async def test_run_housekeeping_deletes_only_rows_past_retention(db_session):
     await db_session.commit()
 
 
-async def test_run_housekeeping_covers_only_its_two_tables(db_session):
-    """Regression guard: run_housekeeping must NOT touch metrics/
-    connection_events/service_state_history — those are TimescaleDB-native
-    (see module docstring); re-adding them here would silently resurrect
-    the original K1 bug (a Settings change with no real effect)."""
+async def test_run_housekeeping_covers_exactly_its_own_tables(db_session):
+    """Regression guard: run_housekeeping must NOT touch metrics /
+    connection_events / service_state_history — those are TimescaleDB-native (see the module
+    docstring), and re-adding them here would silently resurrect the original K1 bug (a
+    Settings change with no real effect).
+
+    The set is asserted exactly, not as a subset, so BOTH directions are caught: a
+    hypertable sneaking back in, and one of these sweeps quietly disappearing. It grew from
+    two entries to four as real work was added — per-process series pruning and the orphaned
+    metric_series sweep (the latter cleans up after an agent delete, whose own DELETE is
+    time-bounded so it cannot decompress the whole hypertable). Both are plain PostgreSQL
+    tables, which is exactly why they belong here.
+    """
     settings = get_settings()
     now = datetime.now(timezone.utc)
 
     deleted = await run_housekeeping(db_session, settings, now)
 
-    assert set(deleted.keys()) == {"notifications", "plan_runs"}
+    assert set(deleted.keys()) == {
+        "notifications",
+        "plan_runs",
+        "process_series_stale",
+        "metric_series_orphans",
+    }

@@ -15,6 +15,7 @@ from mcp.server.fastmcp.exceptions import ToolError
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from bossman.config import Settings, get_settings
+from tests.metric_helpers import purge_metrics, write_metric
 from bossman.db.models import Agent, HostEdge, Metric, PlanEmbedding, PlanRun, Service
 from bossman.mcp.auth import current_identity
 from bossman.mcp.server import build_mcp_server
@@ -166,9 +167,9 @@ async def test_call_agent_tool_unknown_host_raises(db_session, session_factory, 
 
 async def test_host_status_includes_metrics_and_last_run(db_session, session_factory, tmp_path):
     agent = await _make_agent(db_session)
-    metric = Metric(time=datetime.now(timezone.utc), agent_id=agent.id, metric="cpu_pct", value=3.5, labels={})
+    await write_metric(db_session, agent.id, "cpu_pct", 3.5, when=datetime.now(timezone.utc))
     run = PlanRun(plan_name="demo", agent_id=agent.id, params={}, dry_run=False, status="succeeded")
-    db_session.add_all([metric, run])
+    db_session.add(run)
     await db_session.flush()
     await db_session.commit()
 
@@ -182,7 +183,7 @@ async def test_host_status_includes_metrics_and_last_run(db_session, session_fac
     assert status["last_plan_run"]["plan_name"] == "demo"
 
     await db_session.delete(run)
-    await db_session.delete(metric)
+    await purge_metrics(db_session, agent.id)
     await db_session.flush()
     await db_session.delete(agent)
     await db_session.commit()

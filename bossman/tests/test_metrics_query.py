@@ -14,6 +14,7 @@ from sqlalchemy import delete, text
 from sqlalchemy.ext.asyncio import create_async_engine
 
 from bossman.config import get_settings
+from tests.metric_helpers import purge_metrics, write_metric
 from bossman.db.models import Agent, Metric
 from bossman.services.metrics_query import pick_tier, query_series
 
@@ -26,17 +27,22 @@ async def _make_agent(db_session) -> Agent:
     return agent
 
 
-async def _refresh_continuous_aggregate(view: str) -> None:
-    """`CALL refresh_continuous_aggregate(...)` cannot run inside a
-    transaction block, but db_session keeps one open for the whole test
-    (rolled back at teardown) — so this uses its own short-lived,
-    autocommit connection instead of db_session."""
+async def _refresh_continuous_aggregate(cagg: str) -> None:
+    """`CALL refresh_continuous_aggregate(...)` cannot run inside a transaction block, but
+    db_session keeps one open for the whole test (rolled back at teardown) — so this uses its
+    own short-lived, autocommit connection instead of db_session.
+
+    Takes the CONTINUOUS AGGREGATE's name, not the tier view's. Since the series
+    normalisation, `metrics_hourly` is a plain view over `cagg_metrics_hourly` (so that
+    existing reads keep their (agent_id, metric, labels) shape), and refreshing the view fails
+    with "relation metrics_hourly is not a continuous aggregate".
+    """
     settings = get_settings()
     engine = create_async_engine(settings.database_url)
     try:
         async with engine.connect() as conn:
             await conn.execution_options(isolation_level="AUTOCOMMIT")
-            await conn.execute(text(f"CALL refresh_continuous_aggregate('{view}', NULL, NULL)"))
+            await conn.execute(text(f"CALL refresh_continuous_aggregate('{cagg}', NULL, NULL)"))
     finally:
         await engine.dispose()
 
@@ -64,7 +70,8 @@ def test_pick_tier_boundaries():
 async def test_query_series_raw_tier(db_session):
     agent = await _make_agent(db_session)
     now = datetime.now(timezone.utc)
-    db_session.add(Metric(time=now - timedelta(hours=1), agent_id=agent.id, metric="cpu_pct", value=42.0, labels={}))
+    # metrics is a VIEW — see tests/metric_helpers.
+    await write_metric(db_session, agent.id, "cpu_pct", 42.0, when=now - timedelta(hours=1))
     await db_session.commit()
 
     settings = get_settings()
@@ -75,7 +82,7 @@ async def test_query_series_raw_tier(db_session):
     assert points[0].value == 42.0
     assert points[0].min_value is None
 
-    await db_session.execute(delete(Metric).where(Metric.agent_id == agent.id))
+    await purge_metrics(db_session, agent.id)
     await db_session.flush()
     await db_session.delete(agent)
     await db_session.commit()
@@ -89,17 +96,13 @@ async def test_query_series_hourly_tier_reads_real_continuous_aggregate(db_sessi
     # Truncated to the hour so both points land in the same time_bucket('1
     # hour', ...) regardless of what minute "now" happens to be.
     old_time = (now - timedelta(days=20)).replace(minute=0, second=0, microsecond=0)
-    db_session.add_all(
-        [
-            Metric(time=old_time, agent_id=agent.id, metric="cpu_pct", value=10.0, labels={}),
-            Metric(time=old_time + timedelta(minutes=10), agent_id=agent.id, metric="cpu_pct", value=30.0, labels={}),
-        ]
-    )
+    await write_metric(db_session, agent.id, "cpu_pct", 10.0, when=old_time)
+    await write_metric(db_session, agent.id, "cpu_pct", 30.0, when=old_time + timedelta(minutes=10))
     await db_session.commit()
 
     # Force synchronous materialization instead of waiting for the real
     # hourly background job.
-    await _refresh_continuous_aggregate("metrics_hourly")
+    await _refresh_continuous_aggregate("cagg_metrics_hourly")
 
     settings = get_settings()
     tier, points = await query_series(db_session, settings, agent.id, "cpu_pct", now - timedelta(days=30), now=now)
@@ -111,7 +114,7 @@ async def test_query_series_hourly_tier_reads_real_continuous_aggregate(db_sessi
     assert bucket.min_value == 10.0
     assert bucket.max_value == 30.0
 
-    await db_session.execute(delete(Metric).where(Metric.agent_id == agent.id))
+    await purge_metrics(db_session, agent.id)
     await db_session.flush()
     await db_session.delete(agent)
     await db_session.commit()
@@ -123,15 +126,24 @@ async def test_query_series_daily_tier_reads_real_continuous_aggregate(db_sessio
     # Truncated to midnight (UTC) so both points land in the same
     # time_bucket('1 day', ...) regardless of what hour "now" happens to be.
     old_time = (now - timedelta(days=120)).replace(hour=0, minute=0, second=0, microsecond=0)
-    db_session.add_all(
-        [
-            Metric(time=old_time, agent_id=agent.id, metric="mem_pct", value=50.0, labels={}),
-            Metric(time=old_time + timedelta(hours=6), agent_id=agent.id, metric="mem_pct", value=70.0, labels={}),
-        ]
-    )
+    await write_metric(db_session, agent.id, "mem_pct", 50.0, when=old_time)
+    await write_metric(db_session, agent.id, "mem_pct", 70.0, when=old_time + timedelta(hours=6))
     await db_session.commit()
 
-    await _refresh_continuous_aggregate("metrics_daily")
+    # The DAILY aggregate is hierarchical: it is defined over the HOURLY aggregate's
+    # materialisation hypertable, not over metrics_raw (verified:
+    # timescaledb_information.continuous_aggregates shows cagg_metrics_daily's
+    # hypertable_name = cagg_metrics_hourly's materialization hypertable). So refreshing only
+    # daily materialises nothing — the source it reads has not been filled yet. Reproduced
+    # outside the test: raw points present, daily refresh alone gives 0 buckets; hourly first,
+    # then daily, gives 1.
+    #
+    # Operationally this also means the daily tier can hold nothing older than the hourly
+    # tier's 90-day retention, because after that the source rows are gone. Fine going forward
+    # (data flows raw -> hourly -> daily while everything is still there), but backfill of an
+    # old period is impossible by construction.
+    await _refresh_continuous_aggregate("cagg_metrics_hourly")
+    await _refresh_continuous_aggregate("cagg_metrics_daily")
 
     settings = get_settings()
     tier, points = await query_series(db_session, settings, agent.id, "mem_pct", now - timedelta(days=200), now=now)
@@ -143,7 +155,7 @@ async def test_query_series_daily_tier_reads_real_continuous_aggregate(db_sessio
     assert bucket.min_value == 50.0
     assert bucket.max_value == 70.0
 
-    await db_session.execute(delete(Metric).where(Metric.agent_id == agent.id))
+    await purge_metrics(db_session, agent.id)
     await db_session.flush()
     await db_session.delete(agent)
     await db_session.commit()

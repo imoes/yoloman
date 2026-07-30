@@ -11,6 +11,7 @@ import uuid
 
 from fastapi.testclient import TestClient
 
+from tests.metric_helpers import purge_metrics, write_metric
 from bossman.db.models import Agent
 from bossman.main import create_app
 from bossman.services.auth import new_api_token
@@ -582,7 +583,7 @@ async def test_metric_catalog_returns_display_names(db_session):
     from datetime import datetime, timezone
     from bossman.db.models import Metric
     agent = await _make_agent(db_session)
-    db_session.add(Metric(time=datetime.now(timezone.utc), agent_id=agent.id, metric="cpu_pct", value=42.0, labels={}))
+    await write_metric(db_session, agent.id, "cpu_pct", 42.0, when=datetime.now(timezone.utc))
     await db_session.commit()
 
     with TestClient(create_app()) as client:
@@ -594,10 +595,9 @@ async def test_metric_catalog_returns_display_names(db_session):
     assert cpu["display_name"] == "CPU usage"
     assert cpu["unit"] == "%"
 
-    # cleanup the seeded metric + agent
-    from sqlalchemy import select as _select
-    for m in (await db_session.scalars(_select(Metric).where(Metric.agent_id == agent.id))).all():
-        await db_session.delete(m)
+    # cleanup the seeded metric + agent. `metrics` is a VIEW and takes no DELETE either —
+    # see tests/metric_helpers.
+    await purge_metrics(db_session, agent.id)
     await db_session.commit()
     await _delete_agent(db_session, agent)
     await db_session.delete(api_token)

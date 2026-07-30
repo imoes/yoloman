@@ -84,7 +84,15 @@ async def test_run_housekeeping_now_returns_deleted_counts(db_session):
 
     assert resp.status_code == 200
     body = resp.json()
-    assert set(body["deleted"].keys()) == {"notifications", "plan_runs"}
+    # Same set as run_housekeeping's own contract test (tests/test_housekeeping.py): it grew
+    # from two entries to four as real sweeps were added (per-process series pruning, and the
+    # orphaned metric_series sweep that cleans up after a time-bounded agent delete).
+    assert set(body["deleted"].keys()) == {
+        "notifications",
+        "plan_runs",
+        "process_series_stale",
+        "metric_series_orphans",
+    }
 
     await db_session.delete(api_token)
     await db_session.commit()

@@ -83,6 +83,15 @@ async def test_execute_tool_list_hosts_and_health(db_session):
 
 
 async def test_execute_unknown_tool(db_session):
+    """An unknown tool name is an error result, not an exception.
+
+    The second assertion used to pin TOOL_NAMES to exactly {list_hosts, fleet_health} — a
+    freeze that fails every time a tool is ADDED, which is the normal direction of travel and
+    not a regression. What matters here is that the registry is non-empty (so "unknown" is
+    genuinely unknown rather than everything being unknown) and that the name under test is
+    not in it.
+    """
     out = await execute_tool(db_session, "nope", {})
     assert "error" in out
-    assert TOOL_NAMES == {"list_hosts", "fleet_health"}
+    assert TOOL_NAMES, "an empty registry would make this test vacuous"
+    assert "nope" not in TOOL_NAMES

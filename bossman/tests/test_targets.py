@@ -64,15 +64,26 @@ async def test_resolve_by_ou_subtree(db_session):
 
 
 async def test_resolve_by_tag_and_dedup(db_session):
-    a = await _agent(db_session, tags={"env": "prod"})
+    """The tag VALUE is unique per run, because the database is shared.
+
+    It used to match on `env: prod`, which real fleet hosts and other tests also carry — so
+    the resolution correctly returned several agents and the test read that as a bug in
+    dedup. What is actually under test is "named twice (by id and by tag) collapses to one",
+    and that needs a tag only this agent can have.
+    """
+    marker = f"prod-{_sfx()}"
+    a = await _agent(db_session, tags={"env": marker})
     await _agent(db_session, tags={"env": "dev"})
     # named twice (id + tag) → must dedup to one
-    res = await resolve_targets(db_session, TENANT, TargetSpec(agent_ids=[a.id], tags={"env": "prod"}))
+    res = await resolve_targets(db_session, TENANT, TargetSpec(agent_ids=[a.id], tags={"env": marker}))
     assert [x.id for x in res.agents] == [a.id]
 
 
 async def test_resolve_tag_presence_only(db_session):
-    a = await _agent(db_session, tags={"role": "db"})
+    """Same shared-database caveat: the tag KEY has to be unique here, since presence-only
+    matching ignores the value entirely."""
+    key = f"role-{_sfx()}"
+    a = await _agent(db_session, tags={key: "db"})
     await _agent(db_session, tags={"other": "x"})
-    res = await resolve_targets(db_session, TENANT, TargetSpec(tags={"role": None}))
+    res = await resolve_targets(db_session, TENANT, TargetSpec(tags={key: None}))
     assert [x.id for x in res.agents] == [a.id]

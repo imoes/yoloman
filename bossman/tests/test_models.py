@@ -84,16 +84,25 @@ async def test_connection_event_hypertable_insert(db_session):
     assert got.new_state == "ESTABLISHED"
 
 
-async def test_metric_hypertable_insert(db_session):
-    """Proves metrics (also a hypertable) accepts inserts through the ORM."""
+async def test_metric_write_and_read_through_the_view(db_session):
+    """A point written to metrics_raw must read back through the `metrics` view.
+
+    It used to insert into Metric directly, which stopped being possible when metrics became a
+    VIEW over (metric_series JOIN metrics_raw) — "cannot insert into view metrics". What is
+    worth proving is unchanged and arguably more: that the write path and the ORM-mapped read
+    path still agree about the same row.
+    """
+    from tests.metric_helpers import purge_metrics, write_metric
+
     agent = Agent(name="metric-agent", token="a", mode="standalone", enrollment_state="pending")
     db_session.add(agent)
     await db_session.flush()
 
-    point = Metric(time=datetime.now(timezone.utc), agent_id=agent.id, metric="cpu_pct", value=42.5, labels={})
-    db_session.add(point)
-    await db_session.flush()
+    await write_metric(db_session, agent.id, "cpu_pct", 42.5, when=datetime.now(timezone.utc))
 
     got = await db_session.scalar(select(Metric).where(Metric.agent_id == agent.id))
     assert got is not None
     assert got.value == 42.5
+    assert got.metric == "cpu_pct"
+
+    await purge_metrics(db_session, agent.id)

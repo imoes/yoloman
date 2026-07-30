@@ -57,7 +57,12 @@ async def test_generate_and_get_endpoint(db_session, monkeypatch):
 
     monkeypatch.setattr(chat_api, "generate_dashboard", fake_generate)
     # avoid building a real backend
-    async def fake_build(settings, oauth, username, backend_name, model):
+    # **kwargs on purpose: the real _build_backend gained hermes_base_url / hermes_model
+    # (api/chat.py), and a fake with a frozen positional signature fails with
+    # "unexpected keyword argument" the moment the real one grows a parameter. Accepting
+    # anything keeps the double about what it stands in for — the backend — not about the
+    # call's exact shape.
+    async def fake_build(settings, oauth, username, backend_name, model, **_kwargs):
         return object()
 
     monkeypatch.setattr(chat_api, "_build_backend", fake_build)

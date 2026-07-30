@@ -70,12 +70,22 @@ async def test_create_list_update_delete_widget(db_session):
 
 
 async def test_create_widget_rejects_unknown_type(db_session):
+    """The type is derived from the real list, not hardcoded.
+
+    This used to post "war_room" as its example of an unknown type — and then war_room became
+    a supported widget, so the test was asserting that a VALID type gets rejected. Asking the
+    source of truth for a name it does not contain cannot rot that way.
+    """
+    from bossman.services.dashboard import WIDGET_TYPES_ALL
+
+    unknown = "definitely_not_a_widget"
+    assert unknown not in WIDGET_TYPES_ALL, "pick a name the backend really does not know"
     api_token, raw = await _make_api_token(db_session)
 
     with TestClient(create_app()) as client:
         resp = client.post(
             "/api/v1/dashboard-widgets",
-            json={"widget_type": "war_room", "title": "x"},
+            json={"widget_type": unknown, "title": "x"},
             headers=_headers(raw),
         )
 
@@ -145,6 +155,13 @@ async def test_widget_data_stat_reports_real_open_problems_count(db_session):
 
 
 async def test_widget_data_top_hosts_reports_real_host(db_session):
+    """The widget must report REAL fleet hosts, not a stub.
+
+    The limit is set explicitly because it defaults to 10 and this database shares a fleet of
+    ~200 agents — a freshly created host cannot be in the first ten, so the test used to depend
+    on the fleet being small. Raising it keeps the actual claim (real data, from fleet_hosts)
+    without depending on how many hosts happen to exist.
+    """
     api_token, raw = await _make_api_token(db_session)
     agent = Agent(name=f"dash-agent-{uuid.uuid4().hex[:8]}", token="tok", mode="standalone", enrollment_state="enrolled", agent_metadata={})
     db_session.add(agent)
@@ -153,7 +170,7 @@ async def test_widget_data_top_hosts_reports_real_host(db_session):
     with TestClient(create_app()) as client:
         create_resp = client.post(
             "/api/v1/dashboard-widgets",
-            json={"widget_type": "top_hosts", "title": "Hosts"},
+            json={"widget_type": "top_hosts", "title": "Hosts", "config": {"limit": 1000}},
             headers=_headers(raw),
         )
         widget_id = create_resp.json()["id"]

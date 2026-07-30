@@ -7,6 +7,7 @@ from datetime import datetime, timedelta, timezone
 
 from fastapi.testclient import TestClient
 
+from tests.metric_helpers import purge_metrics, write_metric
 from bossman.db.models import Agent, Metric
 from bossman.main import create_app
 from bossman.services.auth import new_api_token
@@ -128,9 +129,9 @@ async def test_graph_data_combines_multiple_items(db_session):
     agent = await _make_agent(db_session)
     api_token, raw = await _make_api_token(db_session)
     now = datetime.now(timezone.utc)
-    cpu = Metric(time=now, agent_id=agent.id, metric="cpu_pct", value=42.0, labels={})
-    mem = Metric(time=now, agent_id=agent.id, metric="mem_pct", value=63.0, labels={})
-    db_session.add_all([cpu, mem])
+    # metrics is a VIEW — see tests/metric_helpers.
+    await write_metric(db_session, agent.id, "cpu_pct", 42.0, when=now)
+    await write_metric(db_session, agent.id, "mem_pct", 63.0, when=now)
     await db_session.commit()
 
     with TestClient(create_app()) as client:
@@ -165,8 +166,6 @@ async def test_graph_data_combines_multiple_items(db_session):
         client.delete(f"/api/v1/graphs/{graph_id}", headers=_headers(raw))
 
     await db_session.delete(api_token)
-    await db_session.delete(cpu)
-    await db_session.delete(mem)
-    await db_session.flush()
+    await purge_metrics(db_session, agent.id)
     await db_session.delete(agent)
     await db_session.commit()
