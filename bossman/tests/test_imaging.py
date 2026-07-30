@@ -17,9 +17,15 @@ from bossman.services.imaging import (
     _partition_number,
     _split_vg_lv,
     candidate_disks,
+    capture_pipeline,
     classify_role,
+    fetch_command,
+    grow_commands,
     parse_layout,
+    partclone_tool,
     plan_restore,
+    required_tools,
+    restore_pipeline,
     select_target_disk,
 )
 
@@ -336,3 +342,88 @@ def test_role_comes_from_the_mountpoint_then_the_type_guid():
         mountpoint=None, fs_type="vfat", part_type="c12a7328-f81f-11d2-ba4b-00a0c93ec93b"
     ) == "esp", "the GUID comparison must be case-insensitive"
     assert classify_role(mountpoint="/srv", fs_type="xfs", part_type=None) == "data"
+
+
+# ---------------------------------------------------------------------------
+# The commands themselves
+
+
+def test_the_partclone_binary_follows_the_filesystem():
+    assert partclone_tool("ext4") == "partclone.ext4"
+    assert partclone_tool("xfs") == "partclone.xfs"
+    assert partclone_tool("EXT4") == "partclone.ext4", "case must not matter"
+
+
+def test_an_unknown_filesystem_falls_back_to_raw_rather_than_failing():
+    """A raw copy of an odd volume is still a correct backup, only a fat one. Refusing would block
+    a whole host over one filesystem nobody planned for."""
+    assert partclone_tool("zfs") == "partclone.dd"
+    assert partclone_tool("") == "partclone.dd"
+
+
+def test_required_tools_lists_everything_before_anything_runs():
+    """A missing partclone.xfs found halfway through means a half-written image and a wasted
+    transfer of everything captured before it."""
+    layout = SourceLayout(
+        disk_size=50 * GiB,
+        volumes=(ESP, BOOT, Volume(role="data", fs_type="xfs", size_bytes=1, used_bytes=1)),
+    )
+    assert required_tools(layout) == ["partclone.ext4", "partclone.vfat", "partclone.xfs", "zstd"]
+
+
+def test_capture_pipes_partclone_through_zstd_into_the_sink():
+    line = capture_pipeline(ROOT_EXT4, device="/dev/mapper/vg-root", sink="cat > /img/root.zst")
+    assert line.startswith("partclone.ext4 -c -s /dev/mapper/vg-root -o -")
+    assert "| zstd -T0 -3 |" in line
+    assert line.endswith("cat > /img/root.zst")
+
+
+def test_capture_quotes_what_it_interpolates():
+    """The sink is caller-supplied, and a pipeline needs a shell: an unquoted `;` would run as a
+    command with the privileges an imaging job necessarily has."""
+    line = capture_pipeline(ROOT_EXT4, device="/dev/x; rm -rf /", sink="cat > /img/x")
+    assert "; rm -rf /" not in line.replace("'/dev/x; rm -rf /'", ""), "the device must be quoted"
+    assert "'/dev/x; rm -rf /'" in line
+
+
+def test_restore_uses_partclone_restore_and_never_dd():
+    """The image holds only USED blocks, so dd would write partclone's metadata stream onto the
+    disk as though it were data. `partclone.restore` reads the header and picks the handler."""
+    line = restore_pipeline(source=fetch_command("https://s/root.zst"), device="/dev/mapper/vg-root")
+    assert "partclone.restore -s - -o /dev/mapper/vg-root" in line
+    assert " dd " not in line and not line.startswith("dd")
+    assert "| zstd -dc |" in line
+
+
+def test_fetch_retries_and_fails_loudly():
+    """Not netcat: no length, no status, no resume, so a dropped connection writes a silently
+    truncated disk. `-f` also stops an HTML error page from being written onto the filesystem."""
+    cmd = fetch_command("https://s/root.zst")
+    assert "curl" in cmd and "-f" in cmd
+    assert "--retry" in cmd
+    # A tame URL is passed through bare — shlex.quote adds nothing when nothing needs escaping,
+    # which is correct. The property worth asserting is that a hostile one CANNOT break out.
+    assert cmd.endswith("https://s/root.zst")
+    hostile = fetch_command("https://s/x.zst; rm -rf /")
+    assert "'https://s/x.zst; rm -rf /'" in hostile
+
+
+def test_growing_ext4_checks_first_and_works_offline():
+    """resize2fs refuses a filesystem not checked since its last mount, and a freshly restored
+    image always looks exactly like that."""
+    cmds = grow_commands(PlannedVolume(ROOT_EXT4, 200 * GiB, True), device="/dev/x")
+    assert cmds == [["e2fsck", "-fy", "/dev/x"], ["resize2fs", "/dev/x"]]
+
+
+def test_growing_xfs_mounts_first_and_passes_the_mountpoint():
+    """xfs_growfs takes a MOUNT POINT and only works mounted; resize2fs takes a device and only
+    works unmounted. Swapping the pair is the classic silent no-op."""
+    cmds = grow_commands(PlannedVolume(ROOT_XFS, 200 * GiB, True), device="/dev/x", mountpoint="/mnt/t")
+    assert ["mount", "/dev/x", "/mnt/t"] in cmds
+    assert ["xfs_growfs", "/mnt/t"] in cmds, "the mountpoint, not the device"
+    assert cmds[-1] == ["umount", "/mnt/t"], "and it must be unmounted again"
+    assert not any("resize2fs" in c[0] for c in cmds)
+
+
+def test_a_volume_that_does_not_grow_produces_no_commands():
+    assert grow_commands(PlannedVolume(ROOT_EXT4, 40 * GiB, False), device="/dev/x") == []

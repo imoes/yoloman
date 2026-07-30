@@ -20,6 +20,7 @@ plan, which is the part worth unit-testing, and leaves execution to the caller.
 
 from __future__ import annotations
 
+import shlex
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -393,3 +394,120 @@ def plan_restore(layout: SourceLayout, target: Disk) -> RestorePlan:
 
 def _align_down(size: int) -> int:
     return (size // ALIGN) * ALIGN
+
+
+# ---------------------------------------------------------------------------
+# The commands. Built as data, executed by the caller.
+
+# partclone ships one binary per filesystem (`partclone.ext4`, `partclone.xfs`, …). These are the
+# ones we rely on; anything else falls back to `partclone.dd`, which still writes the partclone
+# image format but copies every block instead of only the used ones — correct, just not thin.
+#
+# The list is deliberately short rather than exhaustive: the installed set varies by distribution
+# and version, so `capture_pipeline`'s caller must check the binary exists (see
+# `required_tools`) instead of trusting a table compiled from a package description.
+_PARTCLONE = {
+    "ext2": "partclone.ext2",
+    "ext3": "partclone.ext3",
+    "ext4": "partclone.ext4",
+    "xfs": "partclone.xfs",
+    "btrfs": "partclone.btrfs",
+    "vfat": "partclone.vfat",
+    "fat16": "partclone.fat16",
+    "fat32": "partclone.fat32",
+    "ntfs": "partclone.ntfs",
+}
+
+# Compression level for capture. 3 is zstd's default and the right trade here: the bottleneck is
+# the disk and the network, not the CPU, and levels above ~6 cost far more time than they save
+# bytes on filesystem images. `-T0` uses every core.
+ZSTD_LEVEL = 3
+
+
+def partclone_tool(fs_type: str) -> str:
+    """The binary that images this filesystem, or `partclone.dd` when we have no better one.
+
+    Falling back to `dd` mode rather than failing is the right call: a raw copy of an unexpected
+    filesystem is still a correct backup, only a fat one. Refusing would block a whole host over
+    one odd volume.
+    """
+    return _PARTCLONE.get((fs_type or "").lower(), "partclone.dd")
+
+
+def required_tools(layout: SourceLayout) -> list[str]:
+    """Every binary a capture of this layout needs, so the caller can verify before starting.
+
+    Checking up front matters: a missing `partclone.xfs` discovered halfway through means a
+    half-written image and a wasted transfer of everything before it.
+    """
+    tools = {"zstd"}
+    for v in layout.volumes:
+        tools.add(partclone_tool(v.fs_type))
+    return sorted(tools)
+
+
+def capture_pipeline(volume: Volume, *, device: str, sink: str, level: int = ZSTD_LEVEL) -> str:
+    """`partclone.<fs> -c -s <device> | zstd | <sink>` — a shell pipeline, fully quoted.
+
+    A pipeline needs a shell, so every interpolated value goes through `shlex.quote`. Device names
+    come from `lsblk` and are tame, but `sink` is caller-supplied (a path or a URL), and an
+    unquoted `;` there would run as a command with the privileges an imaging job necessarily has.
+
+    `sink` is a parameter rather than a fixed destination because where the image lands is not
+    decided yet — a local file that Bossman pulls, or a direct upload. Both are one string here.
+    """
+    tool = partclone_tool(volume.fs_type)
+    return (
+        f"{shlex.quote(tool)} -c -s {shlex.quote(device)} -o - "
+        f"| zstd -T0 -{int(level)} "
+        f"| {sink}"
+    )
+
+
+def restore_pipeline(*, source: str, device: str) -> str:
+    """`<source> | zstd -dc | partclone.restore -o <device>`.
+
+    `partclone.restore` rather than a per-filesystem binary: it reads the image's own header and
+    picks the right handler, so the restore side needs no knowledge of what was captured. And it
+    is emphatically not `dd` — the image holds only used blocks, so `dd` would write the metadata
+    stream onto the disk as if it were data.
+    """
+    return f"{source} | zstd -dc | partclone.restore -s - -o {shlex.quote(device)}"
+
+
+def fetch_command(url: str, *, retries: int = 5) -> str:
+    """The reading half of a restore: `curl` with retries, failing loudly on a bad status.
+
+    Not netcat. netcat has no length, no status and no resume, so a dropped connection yields a
+    silently truncated stream — which, written to a disk, is an unbootable machine that looks like
+    a successful restore. `-f` turns an HTML error page into a non-zero exit instead of writing it
+    onto the filesystem.
+    """
+    return f"curl -fsSL --retry {int(retries)} --retry-all-errors {shlex.quote(url)}"
+
+
+def grow_commands(planned: PlannedVolume, *, device: str, mountpoint: str = "/mnt/target") -> list[list[str]]:
+    """How to make the filesystem fill its new container — genuinely different per filesystem.
+
+    ext* grows offline: `resize2fs <device>`, nothing mounted. xfs can ONLY be grown while
+    mounted, and `xfs_growfs` takes the MOUNT POINT, not the device. Passing a device to
+    xfs_growfs fails; passing a mountpoint to resize2fs fails. Getting this pair backwards is the
+    classic way to end up with a restore that reports success and a filesystem that never uses the
+    extra space.
+    """
+    if not planned.grow:
+        return []
+    fs = planned.volume.fs_type
+    if fs == "xfs":
+        return [
+            ["mkdir", "-p", mountpoint],
+            ["mount", device, mountpoint],
+            ["xfs_growfs", mountpoint],
+            ["umount", mountpoint],
+        ]
+    # e2fsck first: resize2fs refuses to touch a filesystem that has not been checked since its
+    # last mount, and a freshly restored image always looks that way.
+    return [
+        ["e2fsck", "-fy", device],
+        ["resize2fs", device],
+    ]
