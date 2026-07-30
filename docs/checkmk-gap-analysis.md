@@ -20,7 +20,7 @@ TimescaleDB the *technical* one. Checkmk's persistence — autochecks files, RRD
 - [x] Batch 2 — Rule Engine + host tags / host labels / service labels as conditions — 7 gaps (R1–R7); R1–R4 approved and implemented (all six condition fields incl. and/or/not), R5–R7 awaiting decision
 - [x] Batch 3 — Plugin system (sections, parser, SNMP, special agents, piggyback, bakery) — 6 gaps (P1a/P1b/P3/P5a/P6/P8); no code yet, awaiting decisions
 - [x] Batch 4 — HW/SW inventory — 5 gaps (I1–I5); I4a (HW change alerting) REJECTED with reasoning, I2/I3 dropped for hardware, I4b (software changes) open
-- [ ] Batch 5 — Service + host lifecycle, cluster / distributed monitoring
+- [x] Batch 5 — Service + host lifecycle, cluster / distributed monitoring — 10 gaps (L1–L7, C1–C3); much of the lifecycle already ours and in places ahead of Checkmk, but **L1 is a correctness bug: a host unreachable for 26 days is reported OK and re-timestamped every poll**. No code yet, awaiting decisions
 - [ ] Batch 6 — Dashboards, views, reporting, BI aggregation, event console, prediction
 - [ ] Batch 7 — REST API compatibility, users/roles/audit, configuration activation
 
@@ -359,6 +359,101 @@ section layer (P1b).
 Worth noting in our favour: `ComplianceRule` (required/forbidden packages, graded against the
 collected package list) is an inventory-DRIVEN rule that Checkmk has no direct equivalent for —
 the same idea as I4b, already working, just narrower.
+
+---
+
+## Batch 5 — Service + host lifecycle, cluster / distributed monitoring
+
+Read on Checkmk's side: `cmk/gui/livestatus_utils/commands/{downtimes,acknowledgments}.py`,
+`cmk/base/configlib/scheduling.py`, `cmk/utils/timeperiod.py`, `cmk/base/config.py`
+(`ServiceDependsOn`, `ClusteringConfig`), `packages/cmk-check-engine/.../checking/cluster_mode.py`,
+`cmk/gui/watolib/activate_changes.py`, `cmk/piggyback/backend/_storage.py`,
+`packages/livestatus/include/livestatus/Interface.h`. Ours measured against the live DB.
+
+**A caveat that shapes this whole batch.** Much of what Checkmk is famous for here is *not in
+the open checkout*, because it lives in the monitoring core (Nagios or the proprietary CMC):
+the soft/hard state machine, flapping detection, downtime/ack enforcement and host
+reachability all run there. What the Checkmk repo contains is the *configuration* of those
+(`scheduling.py` computes `max_check_attempts`/`retry_interval`/`check_period` per service,
+~130 LOC) plus livestatus columns to read the core's answers back (`is_flapping`,
+`percent_state_change`, `staleness`, `in_check_period`). So for these features there is no
+algorithm to port — and we already implement several of them ourselves, in-process, which is
+a structural advantage worth stating: we have no second daemon to configure.
+
+### Where we already stand (and it is further than expected)
+
+| Feature (Checkmk) | yolo-man status |
+|---|---|
+| Soft/hard states, `max_check_attempts`, attempt counter | ✅ ours, in-process: `state_type`/`attempt`/`max_attempts` (`db/models.py:1496-1498`), transition logic `services/monitoring.py:217`. Checkmk defaults services to `MAX_CHECK_ATTEMPTS=1` (`nagios/_create_config.py:22`), i.e. no debouncing at all unless configured; ours defaults to 3. |
+| Acknowledgements with expiry | ✅ `acknowledged`/`ack_comment`/`ack_by`/`ack_expires_at` (`db/models.py:1500-1506`), lapsed each poll by `expire_acknowledgements()` (`poller.py:556`) so a problem resurfaces with no UI open |
+| Downtimes, host downtime covering services | ✅ `Downtime` (`db/models.py:1830`); `service_name` NULL = the whole host, so host→service propagation is the data model rather than an `include_all_services` flag |
+| Notification suppression by ack / downtime / flapping | ✅ one gate, `collect_and_dispatch` (`services/notification.py:329-340`) |
+| Service dependencies (symptom suppressed while root cause is a problem) | ✅ `depends_on_service_name` (`db/models.py:672,1336`), enforced in `_depends_on_active_problem` (`notification.py:297-311`). **We are ahead here:** Checkmk's own is Nagios-core-only, never got a WATO GUI, and CMC does not implement it at all — stated in its own source (`cmk/base/config.py:1080-1083`) |
+| Escalation after N minutes unacked | ✅ `escalate_after_minutes` + `dispatch_escalations` (`notification.py:357`) |
+| Flapping detection | 🟡 ours exists but is cruder: `update_flapping` counts state changes in a window and compares to a fixed minimum (`monitoring.py:222-235`). Checkmk's core uses `percent_state_change` over a weighted history with separate high/low thresholds |
+| Piggyback (a host delivering data for other hosts) | ✅ in our own form: proxy/satellite relaying (`poller.py:232` `_find_or_create_satellite`) plus piggyback hosts for Docker/Proxmox/vCenter (`monitoring.py:1356`) |
+
+### The finding: a dead host is reported healthy, every minute
+
+This is not a missing feature, it is an active misstatement, and it comes from two places that
+are each individually defensible:
+
+1. `evaluate_host` runs **whether or not the host was reached** — deliberately, with a comment
+   saying a transient pull failure "shouldn't also freeze monitoring state evaluation"
+   (`poller.py:547-553`).
+2. The value it evaluates is fetched with **no time bound at all**: newest sample per label
+   series, however old (`monitoring.py:409-419`). The same file bounds the *overview* path to
+   24 h (`_LATEST_METRIC_LOOKBACK`, `monitoring.py:1293`) — so the display is careful about
+   stale data and the decision that raises alarms is not.
+
+Together: every poll cycle re-evaluates a dead host's last known value and stamps
+`last_checked = now`. Measured on the live DB just now:
+
+    name            metric_age        service     state    last_checked
+    poll-f6411610   26 days 02:51:53  CPU load    OK       3 seconds ago
+    poll-6adfaad6   24 days 02:51:53  Disk /      OK       3 seconds ago
+
+A 26-day-old sample, reported OK, freshly timestamped. Those two happen to be test fixtures,
+but nothing in the mechanism is fixture-specific — a production host that dies behaves
+identically. And there is no host state to catch it either: `last_seen_at` exists
+(`db/models.py`, Agent) but is only ever serialised into API responses, never compared against
+`now` anywhere in the backend, and the Fleet UI derives nothing from it. `nginx`,
+`bm-node-web` and `bm-canvas-web` have not answered in 4–5 days and are still plain
+`enrolled` with nothing marking them as gone.
+
+Checkmk cannot have this bug: a check result carries the time the core produced it, and
+`staleness()` = age / check_interval against `staleness_threshold` (default 1.5,
+`cmk/gui/general_config.py:366`) greys out anything older — and a host it cannot reach becomes
+DOWN in the core, which stops its services from being checked at all.
+
+### Gaps
+
+| # | Gap | Nutzen | Aufwand | Risiko | Priorität | Art |
+|---|---|---|---|---|---|---|
+| **L1** | **No-data is not a state.** Bound the state-evaluation query by age and make an aged-out value UNKNOWN ("no data for 5 min"), instead of re-affirming the last known value forever | Removes the one failure mode that makes the whole product untrustworthy: a monitoring system that says OK about a machine that is gone. Everything else in this batch is comfort by comparison. Cheap: `compute_state` already returns UNKNOWN for `value is None` (`monitoring.py:304`) — the gap is purely that nothing ever passes None | S | **the risk is in the threshold, not the code**: too tight and every slow host flaps to UNKNOWN; derive it from the poll interval (Checkmk's staleness_threshold × check_interval) rather than a constant | **Kritisch** | Technische Schuld |
+| **L2** | **Host state** (UP / DOWN / UNREACHABLE) as a first-class thing, derived from reachability, with its own state history and notification | Today "host is dead" is not representable, so it cannot be alerted on, acknowledged, or put in downtime — and every service problem it causes is reported separately instead of once | M | medium — a second state machine beside the service one; must not double-notify with L1 | **Kritisch** | Architekturverbesserung |
+| **L3** | **Host-down suppression**: while a host is DOWN, its services do not produce their own notifications | A dead host currently means N service alerts for one event. This is the payoff of L2 and the reason Checkmk feels quiet | S | low, once L2 exists | **Hoch** | — needs L2 |
+| **L4** | **Time periods** (`24X7`, working hours, exclusions) as a reusable object, applied to notification rules — and separately to checking | `NotificationRule` has no time dimension at all (`db/models.py:1542-1567`): "page me only during business hours" and "this backup job is expected to be red at night" are both unexpressible. Checkmk's evaluator is small and self-contained (`cmk/utils/timeperiod.py`, `is_timeperiod_active` ~30 LOC incl. recursive `exclude`) — a genuine copy candidate | M | low — additive; the risk is silently suppressing a real alert, so it must be visible in the UI why nothing fired | **Hoch** | — |
+| **L5** | Recurring downtimes (every Monday 02:00, monthly) | Maintenance windows are usually periodic. Note Checkmk gates this to its *commercial* editions (`downtimes.py:254`), so shipping it is a differentiator, not catch-up. Our `Scheduler` already has a cron matcher (`services/cron.py`) to build on | S | low | **Mittel** | Quick Win |
+| **L6** | Parent/child host topology → UNREACHABLE distinct from DOWN | "The switch died, not the 40 hosts behind it." Requires a parents graph; we have `HostEdge`/topology data already, so the input may exist | M | medium — wrong parents cause suppressed real alarms | **Mittel** | — needs L2 |
+| **L7** | Flapping on Checkmk's model (`percent_state_change`, high/low thresholds) instead of a change count | Ours fires on N changes in a window regardless of how bad they were; the weighted version distinguishes "oscillating" from "changed twice" | S | low | **Niedrig** | Refactoring |
+| **C1** | **Cluster hosts**: a host whose services come from several nodes (`nodes` attribute, `clustered_services` deciding which service belongs to the cluster vs the node) | The Proxmox/Ceph/DRBD reality we already monitor IS clustered — "is the cluster healthy" is currently only answerable per node. `ClusteringConfig._effective_host` (`cmk/base/config.py:3256-3287`) is ~120 LOC and directly portable | L | medium-high — touches discovery identity (which host owns a service) and therefore Batch 1's `discovered_services` | **Hoch** | Architekturverbesserung |
+| **C2** | **Cluster aggregation modes** (`worst` / `best` / `failover` / native) — "OK if any node is OK" | The actual semantics of a cluster service. Fully in-tree at Checkmk and self-contained: `checking/cluster_mode.py`, 394 LOC, no core dependency — the single most copyable piece in this batch | M | low, once C1 exists | **Hoch** | — needs C1 |
+| **C3** | Distributed monitoring (remote sites, config sync, activation to remotes) | Scaling past one Bossman and spanning networks. But see the deviation below — our proxy/satellite model already solves the network-reach half, and Checkmk's own answer here is 4200 LOC (`activate_changes.py`) plus a commercial-only livestatus proxy | L | high | **Niedrig** | — |
+
+### Deviations to keep (documented)
+
+| Checkmk | Ours | Reason |
+|---|---|---|
+| State machine, flapping, downtime enforcement and reachability live in a separate core (Nagios/CMC) that is configured via generated files | all in-process in Python against PostgreSQL | This is the persistence rule from the outset. It also means no config-generation/activation step, no core restart, and no `enterprise/` gap: our whole state machine is one file we can test (`monitoring.py`), not a daemon we generate config for. |
+| Distributed monitoring = remote *sites*, each a full installation, synchronised by pushing config and proxying livestatus | one Bossman, with proxy/satellite agents relaying for hosts it cannot reach directly (`poller.py:232`) | Checkmk's model exists largely because each site must run its own core. We have no core to distribute. Our version already covers unreachable network segments — the part it does *not* cover is scale-out and multi-tenant separation, which is C3. |
+| Piggyback = files under `tmp/check_mk/piggyback/<HOST>/<SOURCE>` plus (newer) a message-queue hub | satellite agent rows + piggyback hosts written straight into the DB by the poller | Same idea (one contact point delivering data for many hosts), without a filesystem-as-IPC layer and its age-based cleanup (`_storage.py:414` `cleanup_piggyback_files`). |
+| Service dependencies configurable only in a text ruleset, Nagios-core-only, no GUI | `depends_on_service_name` on the rule, enforced at notification time for any backend | Not a deviation we need to justify — Checkmk's own source calls this a legacy gap (`config.py:1080-1083`). |
+
+### Decisions (pending)
+
+Nothing in Batch 5 is implemented yet. **L1 is the one I would do first and not wait on** — it
+is a correctness bug in the alarm path, small, and independent of every other item here.
 
 ---
 
