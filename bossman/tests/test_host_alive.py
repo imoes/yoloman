@@ -12,13 +12,15 @@ from datetime import datetime, timedelta, timezone
 
 from sqlalchemy import delete, select
 
-from bossman.db.models import Agent, Downtime, MetricRaw, MetricSeries, Service, ServiceStateHistory
+from bossman.db.models import Agent, Downtime, HostParent, MetricRaw, MetricSeries, Service, ServiceStateHistory
 from bossman.services.monitoring import (
     DEFAULT_MAX_ATTEMPTS,
     HOST_ALIVE_SERVICE,
     hard_down_agent_ids,
     is_in_downtime,
     newest_sample_at,
+    parent_ids,
+    unreachable_via,
     update_host_alive,
 )
 
@@ -56,6 +58,8 @@ async def _cleanup(db_session, agent):
     await db_session.execute(delete(ServiceStateHistory).where(ServiceStateHistory.agent_id == agent.id))
     await db_session.execute(delete(Service).where(Service.agent_id == agent.id))
     await db_session.execute(delete(Downtime).where(Downtime.agent_id == agent.id))
+    await db_session.execute(delete(HostParent).where(HostParent.child_agent_id == agent.id))
+    await db_session.execute(delete(HostParent).where(HostParent.parent_agent_id == agent.id))
     await db_session.flush()
     await db_session.delete(agent)
     await db_session.commit()
@@ -332,3 +336,130 @@ def test_version_suffix_only_prefixes_a_real_version():
     assert _version_suffix("poller") == " (poller)"
     assert _version_suffix("") == ""
     assert _version_suffix("  ") == ""
+
+
+# ---------------------------------------------------------------------------
+# L6 — UNREACHABLE is not DOWN: "the switch is dead, not the 40 hosts behind it"
+
+
+async def _down(db_session, agent, now):
+    """Drive a host to hard-down."""
+    for i in range(DEFAULT_MAX_ATTEMPTS):
+        await update_host_alive(
+            db_session, agent, reached=False, now=now + timedelta(seconds=i), stale_after=STALE_AFTER
+        )
+    await db_session.commit()
+
+
+async def test_a_host_behind_a_dead_parent_is_unreachable_not_down(db_session):
+    """The whole point: its own state is unknown, not bad, and it must not page."""
+    switch = await _make_agent(db_session)
+    host = await _make_agent(db_session)
+    db_session.add(HostParent(child_agent_id=host.id, parent_agent_id=switch.id))
+    await db_session.commit()
+    now = datetime.now(timezone.utc)
+
+    await _down(db_session, switch, now)
+    svc = await update_host_alive(db_session, host, reached=False, now=now, stale_after=STALE_AFTER)
+    await db_session.commit()
+
+    assert svc.state == "UNKNOWN", "not CRIT — we cannot tell whether this host is fine"
+    assert "unreachable" in svc.output
+    assert switch.name in svc.output, "name the parent that is actually down"
+    assert getattr(svc, "_unreachable", False) is True, "and do not page for it"
+
+    await _cleanup(db_session, host)
+    await _cleanup(db_session, switch)
+
+
+async def test_one_reachable_parent_makes_it_the_hosts_own_fault(db_session):
+    """Checkmk's rule, and the reason parents are a list."""
+    dead = await _make_agent(db_session)
+    alive = await _make_agent(db_session)
+    host = await _make_agent(db_session)
+    db_session.add(HostParent(child_agent_id=host.id, parent_agent_id=dead.id))
+    db_session.add(HostParent(child_agent_id=host.id, parent_agent_id=alive.id))
+    await db_session.commit()
+    now = datetime.now(timezone.utc)
+
+    await _down(db_session, dead, now)
+    await _sample(db_session, alive, when=now - timedelta(seconds=10))
+    await update_host_alive(db_session, alive, reached=True, now=now, stale_after=STALE_AFTER)
+    await db_session.commit()
+
+    svc = await update_host_alive(db_session, host, reached=False, now=now, stale_after=STALE_AFTER)
+    await db_session.commit()
+
+    assert svc.state == "CRIT", "a path to it exists, so its silence is its own problem"
+    assert "no answer" in svc.output
+
+    await _cleanup(db_session, host)
+    await _cleanup(db_session, dead)
+    await _cleanup(db_session, alive)
+
+
+async def test_a_soft_down_parent_does_not_yet_excuse_the_child(db_session):
+    """One dropped poll on the switch must not reclassify everything behind it."""
+    switch = await _make_agent(db_session)
+    host = await _make_agent(db_session)
+    db_session.add(HostParent(child_agent_id=host.id, parent_agent_id=switch.id))
+    await db_session.commit()
+    now = datetime.now(timezone.utc)
+
+    await update_host_alive(db_session, switch, reached=False, now=now, stale_after=STALE_AFTER)
+    await db_session.commit()
+    assert await unreachable_via(db_session, host) == [], "soft is not confirmed down"
+
+    svc = await update_host_alive(db_session, host, reached=False, now=now, stale_after=STALE_AFTER)
+    await db_session.commit()
+    assert svc.state == "CRIT"
+
+    await _cleanup(db_session, host)
+    await _cleanup(db_session, switch)
+
+
+async def test_a_host_with_no_parent_is_simply_down(db_session):
+    """No topology configured must not change today's behaviour."""
+    host = await _make_agent(db_session)
+    now = datetime.now(timezone.utc)
+    assert await parent_ids(db_session, host) == []
+
+    svc = await update_host_alive(db_session, host, reached=False, now=now, stale_after=STALE_AFTER)
+    await db_session.commit()
+    assert svc.state == "CRIT"
+    await _cleanup(db_session, host)
+
+
+async def test_the_proxy_relation_counts_as_a_parent_without_configuration(db_session):
+    """If Bossman cannot reach a proxy it cannot reach the satellites behind it — true
+    without anyone configuring it, and already the case for minikube/nginx behind
+    docker-test on this fleet."""
+    proxy = await _make_agent(db_session)
+    satellite = await _make_agent(db_session)
+    satellite.parent_agent_id = proxy.id
+    await db_session.commit()
+    now = datetime.now(timezone.utc)
+
+    assert await parent_ids(db_session, satellite) == [proxy.id]
+    await _down(db_session, proxy, now)
+
+    svc = await update_host_alive(db_session, satellite, reached=False, now=now, stale_after=STALE_AFTER)
+    await db_session.commit()
+    assert svc.state == "UNKNOWN" and proxy.name in svc.output
+
+    await _cleanup(db_session, satellite)
+    await _cleanup(db_session, proxy)
+
+
+async def test_an_explicit_parent_is_not_duplicated_by_the_proxy(db_session):
+    """Configuring the proxy explicitly as well must not count it twice — otherwise the
+    all-parents-down test could never be satisfied."""
+    proxy = await _make_agent(db_session)
+    satellite = await _make_agent(db_session)
+    satellite.parent_agent_id = proxy.id
+    db_session.add(HostParent(child_agent_id=satellite.id, parent_agent_id=proxy.id))
+    await db_session.commit()
+
+    assert await parent_ids(db_session, satellite) == [proxy.id]
+    await _cleanup(db_session, satellite)
+    await _cleanup(db_session, proxy)

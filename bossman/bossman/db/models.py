@@ -1513,6 +1513,12 @@ class Service(Base):
     attempt: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
     max_attempts: Mapped[int] = mapped_column(Integer, nullable=False, default=3)
     is_flapping: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    # L7: the last 21 check results, oldest first — the input to Nagios/Checkmk's weighted
+    # `percent_state_change`. A fixed-length array on the row rather than a table: it never
+    # grows, needs no retention, and the flapping test needs exactly this window and nothing
+    # older. `service_state_history` records CHANGES (for the timeline); this records RESULTS,
+    # which is what normalising against the check frequency requires.
+    recent_states: Mapped[list] = mapped_column(JSONB, nullable=False, default=list)
     acknowledged: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     ack_comment: Mapped[str | None] = mapped_column(Text)
     ack_by: Mapped[str | None] = mapped_column(String)
@@ -1546,6 +1552,32 @@ class ServiceStateHistory(Base):
     value: Mapped[float | None] = mapped_column(Float)
 
     __table_args__ = (Index("idx_service_state_history_agent_service_time", "agent_id", "service_name", "time"),)
+
+
+class HostParent(Base):
+    """L6: network-path parents — "the switch is dead, not the 40 hosts behind it".
+
+    Checkmk's `parents` host attribute: a host that cannot be reached while its parent is
+    also unreachable is UNREACHABLE, not DOWN — its own state is unknown rather than bad, and
+    it must not page, because the parent's outage is the one event worth telling anyone about.
+    With several parents, one reachable parent is enough to make the host's own failure its
+    own fault again (Checkmk's semantics, and the reason this is a list).
+
+    Note this table is only for the parents nobody can derive: a switch or router in the path.
+    The proxy relation (`Agent.parent_agent_id`) is ALREADY a reachability parent and is
+    treated as one implicitly — if Bossman cannot reach a proxy, it cannot reach the
+    satellites behind it either, and that is true without anybody configuring it.
+    """
+
+    __tablename__ = "host_parents"
+
+    child_agent_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("agents.id", ondelete="CASCADE"), primary_key=True
+    )
+    parent_agent_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("agents.id", ondelete="CASCADE"), primary_key=True
+    )
+    created_at: Mapped[datetime] = mapped_column(TZ_DATETIME, server_default=func.now(), nullable=False)
 
 
 class HostCluster(Base):

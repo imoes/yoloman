@@ -403,6 +403,10 @@ async def collect_and_dispatch(session: AsyncSession, settings: Settings, servic
             continue
         if svc.agent_id in down and svc.name != HOST_ALIVE_SERVICE:
             continue
+        # L6: a host we cannot even reach (every parent is down) does not page for itself —
+        # the parent's own CRIT is the one event worth telling anyone about.
+        if getattr(svc, "_unreachable", False):
+            continue
         # Suppress noise: flapping, or (for a problem) an ack, or a downtime.
         if svc.is_flapping:
             continue

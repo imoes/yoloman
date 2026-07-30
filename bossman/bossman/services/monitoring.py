@@ -156,12 +156,21 @@ async def load_rule_ou_links(session: AsyncSession) -> dict:
 # Consecutive non-OK checks before a state is promoted to hard (Block H7),
 # when no per-rule max_attempts is set. CheckMK's own default is 3.
 DEFAULT_MAX_ATTEMPTS = 3
-# Flapping (Block H7): if a service changed state at least this many times
-# within the look-back window, it's oscillating — flag it (and, later,
-# suppress its notifications). A windowed transition count, not CheckMK's
-# exact 21-result ratio, but the same intent and easy to reason about.
-_FLAP_WINDOW = timedelta(minutes=30)
-_FLAP_MIN_CHANGES = 5
+# L7: flapping on the reference algorithm instead of a raw change count.
+#
+# The old test — "5 state changes within 30 minutes" — is not normalised against how often
+# the service is actually checked. A service polled every 10 minutes can only produce three
+# results in that window, so it can never flap; one polled every 20 seconds flaps on a
+# handful of blips out of ninety checks. Nagios/Checkmk instead keep the last 21 results and
+# compute a WEIGHTED percentage of transitions among them, with recent transitions counting
+# more (0.8 rising to 1.2), and apply hysteresis: flapping starts above the high threshold and
+# only stops below the low one, so a service does not oscillate in and out of "flapping".
+#
+# Thresholds are the reference's own shipped defaults
+# (omd/packages/nagios/skel/etc/nagios/nagios.d/flapping.cfg: low 5.0, high 20.0).
+_FLAP_HISTORY = 21
+_FLAP_START_PCT = 20.0
+_FLAP_STOP_PCT = 5.0
 # L1 fallback for callers that have no Settings (see stale_after_for, which is what
 # the poller uses). Equals the shipped default of staleness_factor 4 x 60 s poll
 # interval; kept as its own constant so a caller without settings degrades to the
@@ -225,20 +234,44 @@ def next_transition(
     return Transition(new_state, state_type, attempt, raw_changed, hard_changed)
 
 
-async def update_flapping(session: AsyncSession, agent_id: UUID, service_name: str, now: datetime) -> bool:
-    """Recomputes whether a service is flapping from its recent state-change
-    history (Block H7). Returns the flag; caller stores it on the Service."""
-    since = now - _FLAP_WINDOW
-    changes = await session.scalar(
-        select(func.count())
-        .select_from(ServiceStateHistory)
-        .where(
-            ServiceStateHistory.agent_id == agent_id,
-            ServiceStateHistory.service_name == service_name,
-            ServiceStateHistory.time >= since,
-        )
-    )
-    return (changes or 0) >= _FLAP_MIN_CHANGES
+def percent_state_change(states: list[str]) -> float:
+    """Nagios/Checkmk's `percent_state_change` over a result history, oldest first.
+
+    Each of the n-1 adjacent pairs is a possible transition, weighted linearly from 0.8
+    (oldest) to 1.2 (newest) so that recent instability counts more than old instability; the
+    result is the weighted share of pairs that actually changed, in percent.
+
+    Fewer than two results is 0.0 — not "unknown". A service with one result has no history to
+    be unstable in, and returning something else would make a brand-new service flap.
+    """
+    if len(states) < 2:
+        return 0.0
+    pairs = len(states) - 1
+    if pairs == 1:
+        weights = [1.0]
+    else:
+        weights = [0.8 + (0.4 * i / (pairs - 1)) for i in range(pairs)]
+    changed = sum(w for w, (a, b) in zip(weights, zip(states, states[1:])) if a != b)
+    return (changed / sum(weights)) * 100.0
+
+
+def is_flapping_now(states: list[str], currently_flapping: bool) -> bool:
+    """Hysteresis: start above the high threshold, stop only below the low one.
+
+    Without the gap a service sitting near the threshold would be declared flapping and
+    un-flapping on alternating checks — which is itself a form of flapping, in the flag.
+    """
+    pct = percent_state_change(states)
+    if currently_flapping:
+        return pct >= _FLAP_STOP_PCT
+    return pct > _FLAP_START_PCT
+
+
+def append_state_history(history: list | None, state: str) -> list[str]:
+    """The last _FLAP_HISTORY results, oldest first. Fixed length, so this never grows."""
+    out = [str(s) for s in (history or [])]
+    out.append(state)
+    return out[-_FLAP_HISTORY:]
 
 
 def hysteresis_blocks_recovery(comparison: str, value: float, recovery_threshold: float) -> bool:
@@ -324,6 +357,45 @@ def _version_suffix(version: str) -> str:
     return f" v{v}" if v[0].isdigit() else f" ({v})"
 
 
+async def parent_ids(session: AsyncSession, agent: Agent) -> list[UUID]:
+    """L6: this host's reachability parents, explicit ones plus the implicit proxy.
+
+    `Agent.parent_agent_id` is included without anybody configuring it, because it genuinely
+    IS a reachability parent: if Bossman cannot reach a proxy, it cannot reach the satellites
+    behind it. The `host_parents` table carries only what cannot be derived — a switch or
+    router in the path.
+    """
+    from bossman.db.models import HostParent
+
+    explicit = list(
+        (
+            await session.scalars(
+                select(HostParent.parent_agent_id).where(HostParent.child_agent_id == agent.id)
+            )
+        ).all()
+    )
+    if agent.parent_agent_id and agent.parent_agent_id not in explicit:
+        explicit.append(agent.parent_agent_id)
+    return explicit
+
+
+async def unreachable_via(session: AsyncSession, agent: Agent) -> list[str]:
+    """The parents that are confirmed down, but ONLY if every parent is.
+
+    Checkmk's rule: one reachable parent makes the host's own failure its own fault again. So
+    an empty result means "this host is DOWN", and a non-empty one means "we cannot even get
+    there" — a different statement, and not one to page about.
+    """
+    ids = await parent_ids(session, agent)
+    if not ids:
+        return []
+    down = await hard_down_agent_ids(session, ids)
+    if len(down) != len(set(ids)):
+        return []
+    names = (await session.scalars(select(Agent.name).where(Agent.id.in_(list(down))))).all()
+    return sorted(names)
+
+
 async def newest_sample_at(session: AsyncSession, agent_id: UUID) -> datetime | None:
     """When this host last produced ANY metric sample; None if it never has."""
     return await session.scalar(
@@ -369,12 +441,21 @@ async def update_host_alive(
     version = _version_suffix(agent.agent_version)
 
     if reached is False:
-        # Name the actual failure — "no answer" alone sends the operator hunting for a
-        # reason the poller already knows (DNS, refused, TLS, wrong token, timeout).
-        state = "CRIT"
-        output = f"no answer from {agent.address or 'the agent'}"
-        if detail:
-            output = f"{output}: {detail}"
+        # L6: is this host down, or merely out of reach? If every parent is itself confirmed
+        # down, we cannot distinguish a healthy host behind a dead switch from a dead one —
+        # so say so (UNKNOWN, not CRIT) and let the parent's own CRIT be the page. Same rule
+        # as L3: one problem per outage.
+        blocked_by = await unreachable_via(session, agent)
+        if blocked_by:
+            state = "UNKNOWN"
+            output = f"unreachable — {' and '.join(blocked_by)} {'are' if len(blocked_by) > 1 else 'is'} down"
+        else:
+            # Name the actual failure — "no answer" alone sends the operator hunting for a
+            # reason the poller already knows (DNS, refused, TLS, wrong token, timeout).
+            state = "CRIT"
+            output = f"no answer from {agent.address or 'the agent'}"
+            if detail:
+                output = f"{output}: {detail}"
     elif stale:
         state = "CRIT"
         if sampled_at is None:
@@ -391,7 +472,7 @@ async def update_host_alive(
         how = "agent responded" if reached else "relayed"
         output = f"{how}{version}, data {age} old"
 
-    return await _upsert_service_state(
+    svc = await _upsert_service_state(
         session,
         agent.id,
         HOST_ALIVE_SERVICE,
@@ -405,6 +486,13 @@ async def update_host_alive(
         agent_name=agent.name,
         agent_tags=agent.tags,
     )
+    # L6: stamped for the dispatcher, the same way the state machine stamps _notify_event —
+    # an unreachable host must not page at all. Its state is honestly UNKNOWN in the UI, but
+    # the page belongs to whichever parent is actually down. Carried as a transient attribute
+    # rather than re-derived at dispatch time, so the decision is made once, where the parent
+    # lookup already happened.
+    svc._unreachable = state == "UNKNOWN" and output.startswith("unreachable")  # type: ignore[attr-defined]
+    return svc
 
 
 async def hard_down_agent_ids(session: AsyncSession, agent_ids: Iterable[UUID]) -> set[UUID]:
@@ -743,9 +831,12 @@ async def _upsert_service_state(
     # (H9) and flapping both read, so soft flickers stay out of both.
     if t.hard_changed:
         session.add(ServiceStateHistory(time=now, agent_id=agent_id, service_name=name, state=t.state, value=value))
-        await session.flush()  # so update_flapping counts this change too
+        await session.flush()  # the timeline row lands before anything reads it back
 
-    existing.is_flapping = await update_flapping(session, agent_id, name, now)
+    # L7: every result — not only the changes — feeds the flapping test, so the percentage is
+    # normalised against how often this service is actually checked.
+    existing.recent_states = append_state_history(existing.recent_states, existing.state)
+    existing.is_flapping = is_flapping_now(existing.recent_states, existing.is_flapping)
 
     # Stamp a transient notification intent for the poller to dispatch after
     # commit (Block H8): only confirmed hard changes notify. Not persisted.

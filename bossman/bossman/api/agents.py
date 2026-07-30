@@ -666,3 +666,101 @@ async def get_agent_metrics_snapshot(
             LatestMetricOut(metric=r.metric, time=r.time, value=r.value, labels=r.labels).model_dump() for r in rows
         ]
     }
+
+class HostParentsRequest(BaseModel):
+    parent_agent_ids: list[UUID]
+
+
+class HostParentsOut(BaseModel):
+    agent_id: UUID
+    # Explicitly configured parents only.
+    parent_agent_ids: list[UUID]
+    # Everything treated as a parent when judging reachability, including the implicit proxy
+    # relation — which is what the poller actually uses, so it is what an operator needs to
+    # see. Names, because an id tells nobody anything.
+    effective_parents: list[str]
+
+
+@router.get("/api/v1/agents/{agent_id}/parents", response_model=HostParentsOut)
+async def get_host_parents(
+    agent_id: UUID,
+    session: AsyncSession = Depends(get_session),
+    _identity=Depends(get_current_identity),
+) -> HostParentsOut:
+    """L6: this host's reachability parents. A host that cannot be reached while ALL of its
+    parents are down is UNREACHABLE rather than DOWN, and does not page."""
+    from bossman.db.models import HostParent
+    from bossman.services.monitoring import parent_ids
+
+    agent = await _get_agent_or_404(session, agent_id)
+    explicit = list(
+        (
+            await session.scalars(
+                select(HostParent.parent_agent_id).where(HostParent.child_agent_id == agent_id)
+            )
+        ).all()
+    )
+    effective = await parent_ids(session, agent)
+    names = list(
+        (await session.scalars(select(Agent.name).where(Agent.id.in_(effective)))).all()
+    ) if effective else []
+    return HostParentsOut(agent_id=agent_id, parent_agent_ids=explicit, effective_parents=sorted(names))
+
+
+@router.put("/api/v1/agents/{agent_id}/parents", response_model=HostParentsOut)
+async def set_host_parents(
+    agent_id: UUID,
+    body: HostParentsRequest,
+    session: AsyncSession = Depends(get_session),
+    _identity=Depends(require_manage_agent),
+) -> HostParentsOut:
+    """Replaces the explicit parent list. A cycle is refused: a host that is (transitively)
+    its own parent could never be judged, since "are all my parents down" would never
+    terminate — and a self-parent would additionally excuse its own outage forever."""
+    from bossman.db.models import HostParent
+
+    await _get_agent_or_404(session, agent_id)
+    wanted = list(dict.fromkeys(body.parent_agent_ids))
+    for parent_id in wanted:
+        if parent_id == agent_id:
+            raise HTTPException(status_code=422, detail="a host cannot be its own parent")
+        if await session.get(Agent, parent_id) is None:
+            raise HTTPException(status_code=422, detail=f"no such host {parent_id}")
+        if await _would_cycle(session, agent_id, parent_id):
+            raise HTTPException(
+                status_code=422,
+                detail="that would create a parent cycle (the host is already an ancestor of this parent)",
+            )
+    await session.execute(text("DELETE FROM host_parents WHERE child_agent_id = :id"), {"id": str(agent_id)})
+    for parent_id in wanted:
+        session.add(HostParent(child_agent_id=agent_id, parent_agent_id=parent_id))
+    await session.commit()
+    return await get_host_parents(agent_id, session, _identity)
+
+
+async def _would_cycle(session: AsyncSession, child_id: UUID, parent_id: UUID) -> bool:
+    """Walk up from `parent_id`: does `child_id` appear as an ancestor? Bounded by `seen`, so
+    an already-corrupt graph cannot make this loop forever either."""
+    from bossman.db.models import HostParent
+
+    seen: set[UUID] = set()
+    frontier = [parent_id]
+    while frontier:
+        current = frontier.pop()
+        if current == child_id:
+            return True
+        if current in seen:
+            continue
+        seen.add(current)
+        rows = list(
+            (
+                await session.scalars(
+                    select(HostParent.parent_agent_id).where(HostParent.child_agent_id == current)
+                )
+            ).all()
+        )
+        agent = await session.get(Agent, current)
+        if agent is not None and agent.parent_agent_id:
+            rows.append(agent.parent_agent_id)
+        frontier.extend(rows)
+    return False
