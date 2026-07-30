@@ -312,13 +312,24 @@ async def discover_checks(
     identity: Identity = Depends(get_current_identity),
     client_factory=Depends(get_client_factory),
 ) -> dict[str, Any]:
-    """Run auto-discovery on this host: push the candidate checks and invoke
-    each in _discover mode, returning the items/metrics found (Checkmk-style
-    service discovery). Optional body {check_names: [...]} scopes the run
-    (default: the whole library). Read-only; proposes, never assigns —
-    apply the accepted proposals via POST .../discover/apply."""
+    """Run auto-discovery on this host and RECONCILE the result against what was
+    found last time (Checkmk-style service discovery).
+
+    Pushes the candidate checks, invokes each in _discover mode, then compares the
+    findings against the persisted `discovered_services` set — so the response
+    carries the TRANSITIONS (new / unchanged / changed / vanished), not just a flat
+    list. This is Checkmk's QualifiedDiscovery: without the comparison a host that
+    LOST a service looks exactly like one that never had it.
+
+    Still decides nothing on its own: a new service is recorded as `undecided` and
+    a missing one as `vanished`. Accept/ignore them via POST .../discover/apply.
+
+    Optional body: {check_names: [...]} scopes the run, {datasource: 'snmp'} for a
+    device. A targeted re-scan (check_names given) deliberately does NOT reconcile —
+    it only saw a slice of the library, so everything else would look vanished."""
     from bossman.services.agent_client import AgentClientError
     from bossman.services.discovery import run_check_discovery
+    from bossman.services import discovery_lifecycle
 
     if not await user_can_manage_agent(session, identity, agent_id):
         raise HTTPException(status_code=403, detail="not authorized to manage this host")
@@ -335,7 +346,28 @@ async def discover_checks(
         proposals = await run_check_discovery(client, checks)
     except AgentClientError as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
-    return {"agent_id": str(agent_id), "candidates": len(checks), "proposals": [p.to_dict() for p in proposals]}
+
+    out: dict[str, Any] = {
+        "agent_id": str(agent_id),
+        "candidates": len(checks),
+        "proposals": [p.to_dict() for p in proposals],
+    }
+    if names:
+        # Partial run: reconciling would mark the whole rest of the library vanished.
+        out["reconciled"] = False
+        return out
+
+    transitions = await discovery_lifecycle.reconcile(session, agent, proposals)
+    host_labels: dict[str, str] = {}
+    for p in proposals:
+        host_labels.update(p.host_labels or {})
+    label_counts = await discovery_lifecycle.reconcile_host_labels(session, agent, host_labels)
+    await session.commit()
+    out["reconciled"] = True
+    out["transitions"] = transitions.counts()
+    out["vanished"] = [{"check_name": r.check_name, "item": r.item} for r in transitions.vanished]
+    out["host_labels"] = label_counts
+    return out
 
 
 @router.post("/api/v1/agents/{agent_id}/discover/apply")
@@ -345,31 +377,177 @@ async def apply_discovery(
     session: AsyncSession = Depends(get_session),
     identity: Identity = Depends(get_current_identity),
 ) -> dict[str, Any]:
-    """Turn accepted discovery proposals into host-scoped check assignments.
-    body {assign: [{check_name, item?, parameters?}, ...]}. The `item` (if any)
-    is folded into the assignment's parameters as `item` so the check runs for
-    that discovered item."""
+    """Decide what to do with discovered services.
+
+    body {accept|ignore|remove: [{check_name, item?, parameters?}, ...]}
+      accept  -> discovered_services.state='monitored' + a host-scoped CheckAssignment
+      ignore  -> state='ignored'; later runs stop offering it (the decision is REMEMBERED,
+                 which is the whole point — previously, not applying left no trace)
+      remove  -> drop the assignment and reset the row to 'undecided'
+
+    `assign` is still accepted as an alias for `accept`, so the existing UI and the AI
+    chat tool keep working unchanged.
+
+    IDEMPOTENT: accepting twice does not create a second assignment. The old version
+    inserted unconditionally, so a repeated apply silently duplicated every row —
+    Checkmk's set_autochecks rewrites the host's set and de-duplicates by identity
+    (cmk/checkengine/discovery/_autochecks.py)."""
+    from bossman.services import discovery_lifecycle
+
     if not await user_can_manage_agent(session, identity, agent_id):
         raise HTTPException(status_code=403, detail="not authorized to manage this host")
     agent = await session.get(Agent, agent_id)
     if agent is None:
         raise HTTPException(status_code=404, detail="no such agent")
-    created = []
-    for spec in body.get("assign", []):
+
+    counts = {"accepted": 0, "ignored": 0, "removed": 0}
+    specs = [
+        *(("accept", s) for s in (body.get("accept") or []) + (body.get("assign") or [])),
+        *(("ignore", s) for s in (body.get("ignore") or [])),
+        *(("remove", s) for s in (body.get("remove") or [])),
+    ]
+    for verb, spec in specs:
         check_name = spec.get("check_name")
         if not check_name:
             continue
+        item = str(spec.get("item") or "")
+        row = await _discovered_row(session, agent_id, check_name, item)
+
+        if verb == "ignore":
+            if row is not None:
+                row.state = discovery_lifecycle.STATE_IGNORED
+            await _drop_assignment(session, agent_id, check_name, item)
+            counts["ignored"] += 1
+            continue
+
+        if verb == "remove":
+            if row is not None:
+                row.state = discovery_lifecycle.STATE_UNDECIDED
+            await _drop_assignment(session, agent_id, check_name, item)
+            counts["removed"] += 1
+            continue
+
         params = dict(spec.get("parameters") or {})
-        if spec.get("item"):
-            params["item"] = spec["item"]
-        a = CheckAssignment(
-            tenant_id=DEFAULT_TENANT_ID, check_name=check_name, scope_type="host",
-            agent_id=agent_id, parameters=params, source="autodiscovered", created_by=identity.name,
-        )
-        session.add(a)
-        created.append(check_name)
+        if item:
+            params["item"] = item
+        existing = await _find_assignment(session, agent_id, check_name, item)
+        if existing is None:
+            session.add(
+                CheckAssignment(
+                    tenant_id=DEFAULT_TENANT_ID, check_name=check_name, scope_type="host",
+                    agent_id=agent_id, parameters=params, source="autodiscovered",
+                    created_by=identity.name,
+                )
+            )
+        elif params:
+            existing.parameters = {**(existing.parameters or {}), **params}
+        if row is not None:
+            row.state = discovery_lifecycle.STATE_MONITORED
+        counts["accepted"] += 1
+
     await session.commit()
-    return {"agent_id": str(agent_id), "assigned": created}
+    # `assigned` is kept for the existing callers that read it.
+    return {"agent_id": str(agent_id), **counts, "assigned": counts["accepted"]}
+
+
+async def _discovered_row(session: AsyncSession, agent_id: UUID, check_name: str, item: str):
+    """The discovered_services row for one service identity, or None."""
+    from bossman.db.models import DiscoveredService
+
+    return await session.scalar(
+        select(DiscoveredService).where(
+            DiscoveredService.agent_id == agent_id,
+            DiscoveredService.check_name == check_name,
+            DiscoveredService.item == item,
+        )
+    )
+
+
+async def _find_assignment(session: AsyncSession, agent_id: UUID, check_name: str, item: str):
+    """The host-scoped assignment for one (check, item), or None.
+
+    The item lives inside `parameters`, so this matches on the JSONB value — the same
+    identity resolve_host_checks groups by.
+    """
+    rows = (
+        await session.scalars(
+            select(CheckAssignment).where(
+                CheckAssignment.agent_id == agent_id,
+                CheckAssignment.check_name == check_name,
+                CheckAssignment.scope_type == "host",
+            )
+        )
+    ).all()
+    for a in rows:
+        if str((a.parameters or {}).get("item") or "") == item:
+            return a
+    return None
+
+
+async def _drop_assignment(session: AsyncSession, agent_id: UUID, check_name: str, item: str) -> None:
+    if (a := await _find_assignment(session, agent_id, check_name, item)) is not None:
+        await session.delete(a)
+
+
+@router.get("/api/v1/agents/{agent_id}/discovered-services")
+async def list_discovered_services(
+    agent_id: UUID,
+    state: str | None = None,
+    session: AsyncSession = Depends(get_session),
+    _identity=Depends(get_current_identity),
+) -> dict[str, Any]:
+    """What discovery knows about this host, by lifecycle state.
+
+    This is the persisted discovery result (Checkmk's autochecks), NOT the monitoring
+    state — a row here says "this service exists on the host", while services.state says
+    OK/WARN/CRIT. Optional ?state= filters to one of
+    undecided|monitored|vanished|ignored."""
+    from bossman.db.models import DiscoveredService
+
+    stmt = select(DiscoveredService).where(DiscoveredService.agent_id == agent_id)
+    if state:
+        stmt = stmt.where(DiscoveredService.state == state)
+    rows = (await session.scalars(stmt.order_by(DiscoveredService.check_name, DiscoveredService.item))).all()
+    counts: dict[str, int] = {}
+    for r in rows:
+        counts[r.state] = counts.get(r.state, 0) + 1
+    return {
+        "agent_id": str(agent_id),
+        "counts": counts,
+        "services": [
+            {
+                "check_name": r.check_name,
+                "item": r.item,
+                "state": r.state,
+                "parameters": r.parameters or {},
+                "service_labels": r.service_labels or {},
+                "first_seen_at": r.first_seen_at,
+                "last_seen_at": r.last_seen_at,
+                "last_changed_at": r.last_changed_at,
+            }
+            for r in rows
+        ],
+    }
+
+
+@router.get("/api/v1/agents/{agent_id}/host-labels")
+async def list_host_labels(
+    agent_id: UUID,
+    session: AsyncSession = Depends(get_session),
+    _identity=Depends(get_current_identity),
+) -> dict[str, Any]:
+    """This host's Checkmk-style labels, with where each came from.
+
+    Distinct from Agent.tags (our host tags) and from metric-series labels."""
+    from bossman.db.models import HostLabel
+
+    rows = (
+        await session.scalars(select(HostLabel).where(HostLabel.agent_id == agent_id).order_by(HostLabel.key))
+    ).all()
+    return {
+        "agent_id": str(agent_id),
+        "labels": [{"key": r.key, "value": r.value, "source": r.source} for r in rows],
+    }
 
 
 # ── Credential provisioning (Block G9-P3d) ─────────────────────────────────

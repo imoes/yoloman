@@ -41,9 +41,19 @@ class DiscoveredItem:
     item: str
     params: dict[str, Any] = field(default_factory=dict)
     metrics: list[str] = field(default_factory=list)
+    # Checkmk's service labels, discovered WITH the service and stored in the
+    # autocheck. They are half of the change comparator (see
+    # services/discovery_lifecycle.ServiceRecord.comparator), so they have to
+    # travel with the item rather than being fetched separately later.
+    service_labels: dict[str, str] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
-        return {"item": self.item, "params": self.params, "metrics": self.metrics}
+        return {
+            "item": self.item,
+            "params": self.params,
+            "metrics": self.metrics,
+            "service_labels": self.service_labels,
+        }
 
 
 @dataclass
@@ -55,6 +65,10 @@ class CheckProposal:
     # (e.g. a DB user/password) before the check can run for real.
     needs_params: list[str] = field(default_factory=list)
     error: str = ""
+    # Host labels this check's discovery reported. In Checkmk these come from a
+    # SECTION's host_label_function and are host-wide, not per item — so they sit
+    # on the proposal, and the caller merges them across all checks.
+    host_labels: dict[str, str] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -63,7 +77,20 @@ class CheckProposal:
             "items": [i.to_dict() for i in self.items],
             "needs_params": self.needs_params,
             "error": self.error,
+            "host_labels": self.host_labels,
         }
+
+
+def _str_map(raw: Any) -> dict[str, str]:
+    """A check's label dict, coerced to str->str.
+
+    Labels come from a Starlark module, so a value can arrive as a number or bool;
+    Checkmk's own loader coerces the same way (AutocheckEntry._parse_labels). A
+    non-dict is dropped rather than guessed at.
+    """
+    if not isinstance(raw, dict):
+        return {}
+    return {str(k): str(v) for k, v in raw.items()}
 
 
 def _fetched_data(result: Any) -> bool:
@@ -225,9 +252,14 @@ async def _discover_one(client, c: dict[str, Any]) -> CheckProposal | None:
                     item=str(entry.get("item", "")),
                     params=entry.get("params") or {},
                     metrics=[str(m) for m in (entry.get("metrics") or [])],
+                    service_labels=_str_map(entry.get("service_labels")),
                 )
             )
         discovered = bool(prop.items)
+        # Host labels are host-wide, so they sit next to `discovery` rather than
+        # inside an item — Checkmk's equivalent is a section's host_label_function.
+        if isinstance(data, dict):
+            prop.host_labels = _str_map(data.get("host_labels"))
     except Exception:  # noqa: BLE001 — a broken _discover falls through to the probe
         pass
 

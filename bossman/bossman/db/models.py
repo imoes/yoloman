@@ -960,6 +960,99 @@ class CheckAssignment(Base):
     )
 
 
+class DiscoveredService(Base):
+    """What discovery FOUND on a host — Checkmk's autochecks, in Postgres.
+
+    This is the "which objects exist" half of Checkmk's central split; the other
+    half ("how are they monitored") stays in CheckAssignment/CheckRule. Keeping
+    them in one row is what we had before, and it is the one thing Checkmk's
+    architecture never does.
+
+    Ported from AutocheckEntry (cmk/checkengine/plugins/_discovery.py):
+
+        id()         = (check_plugin_name, item)      -> the service's identity
+        comparator() = (parameters, service_labels)   -> whether it CHANGED
+
+    Those two are deliberately separate: a service whose parameters change is the
+    same service with new settings, not a new service. discovery_lifecycle.classify()
+    relies on exactly this split (a port of QualifiedDiscovery).
+
+    DEVIATION from Checkmk, deliberate: Checkmk's `Item` is `str | None`, we use
+    `item` NOT NULL DEFAULT '' (empty string = a single-service check). NULL does
+    not deduplicate in a Postgres UNIQUE, so a single-service check could be
+    inserted twice; our code already uses item="" throughout (services/discovery.py).
+
+    `state` is the discovery lifecycle, NOT the monitoring state (that lives on
+    Service.state):
+        undecided  Checkmk's "new"/unmonitored — found, nobody decided yet
+        monitored  accepted; a CheckAssignment exists for it
+        vanished   was here before, this run did not find it
+        ignored    explicitly rejected; remembered so later runs stop offering it
+    """
+
+    __tablename__ = "discovered_services"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid())
+    tenant_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False)
+    agent_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("agents.id", ondelete="CASCADE"), nullable=False)
+    check_name: Mapped[str] = mapped_column(String, nullable=False)
+    item: Mapped[str] = mapped_column(String, nullable=False, server_default="")
+    # The comparator halves — a change in either means "changed", not "new".
+    parameters: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
+    service_labels: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
+    state: Mapped[str] = mapped_column(String, nullable=False, default="undecided")
+    first_seen_at: Mapped[datetime] = mapped_column(TZ_DATETIME, server_default=func.now(), nullable=False)
+    last_seen_at: Mapped[datetime] = mapped_column(TZ_DATETIME, server_default=func.now(), nullable=False)
+    # When the comparator last differed — distinct from last_seen_at, which moves
+    # on every run. Lets the UI show "changed 2 days ago" without a history table.
+    last_changed_at: Mapped[datetime | None] = mapped_column(TZ_DATETIME)
+
+    __table_args__ = (
+        CheckConstraint(
+            "state IN ('undecided', 'monitored', 'vanished', 'ignored')",
+            name="ck_discovered_services_state",
+        ),
+        # The service identity, enforced by the database: one row per
+        # (host, check, item) — Checkmk's ServiceID.
+        UniqueConstraint("agent_id", "check_name", "item", name="uq_discovered_services_identity"),
+        Index("idx_discovered_services_agent_state", "agent_id", "state"),
+        Index("idx_discovered_services_check", "check_name"),
+    )
+
+
+class HostLabel(Base):
+    """A Checkmk host label: one key:value pair on a host.
+
+    Checkmk discovers host labels from SECTION-level host_label_functions and runs
+    them through the same QualifiedDiscovery as services
+    (cmk/checkengine/discovery/_discover/host_labels.py), so a label can be new or
+    vanish just like a service. It also has explicit (hand-set) and ruleset-derived
+    labels — hence `source`, so a discovery run only ever reconciles what it owns
+    and never overwrites what a human set.
+
+    Distinct from Agent.tags (our host tags) and from MetricSeries.labels (metric
+    dimensions, a Prometheus concept). Only this table means "Checkmk label".
+    """
+
+    __tablename__ = "host_labels"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid())
+    tenant_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False)
+    agent_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("agents.id", ondelete="CASCADE"), nullable=False)
+    key: Mapped[str] = mapped_column(String, nullable=False)
+    value: Mapped[str] = mapped_column(String, nullable=False)
+    source: Mapped[str] = mapped_column(String, nullable=False, default="discovered")
+    first_seen_at: Mapped[datetime] = mapped_column(TZ_DATETIME, server_default=func.now(), nullable=False)
+    last_seen_at: Mapped[datetime] = mapped_column(TZ_DATETIME, server_default=func.now(), nullable=False)
+
+    __table_args__ = (
+        CheckConstraint("source IN ('discovered', 'explicit', 'ruleset')", name="ck_host_labels_source"),
+        UniqueConstraint("agent_id", "key", name="uq_host_labels_identity"),
+        Index("idx_host_labels_agent", "agent_id"),
+        Index("idx_host_labels_kv", "key", "value"),
+    )
+
+
 class Runbook(Base):
     """A NestedText runbook/role stored as its canonical JSON document
     (Block G11). Runbooks live in the DB (unlike modules/checks, which stay on
