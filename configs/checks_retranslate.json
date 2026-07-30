@@ -86,6 +86,12 @@
    "reads": "/proc/net/dev + ip -o link + ethtool",
    "reason": "COSMETIC ONLY, low priority — the summary reads \"ens18: unknown, link up\", where \"unknown\" is the link SPEED (correct: ethtool is absent on that host) but parses as a state. Checkmk renders it as \"[ens18], (up), 1 GBit/s\"; label the speed instead of emitting a bare \"unknown\".",
    "outcome": "WORKS — 4/15/19 per-interface services across the fleet, all OK except three genuinely down enx* NICs (WARN). Do not re-translate for the wording alone without re-verifying the per-item behaviour."
+  },
+  "chrony": {
+   "catalog": "os/services",
+   "reads": "chronyc tracking + /proc uptime arithmetic",
+   "reason": "GRADES THE WRONG QUANTITY. It computes \"time since last sync\" as now - chrony's Ref time and alerts on it, so a perfectly healthy chrony goes CRIT (verified live: offset 0.0031 ms, stratum 3, server ntp.example.internal — and CRIT because Ref time was 2 h 16 min old, which is normal once chrony's poll interval has grown). Checkmk measures something different: tolerance_check() uses a VALUE STORE and store_sync_time() records when the CHECK last saw a suitable peer (cmk/plugins/ntp/agent_based/ntp.py:213-229), which is ~0 on a healthy host. Either track \"last successful check\" across runs, or drop the last-sync alert and grade only stratum + offset against ntp_levels. Checkmk's alert_delay default is (300, 3600).",
+   "outcome": "OPEN — re-translated 2026-07-30 through the sharpened prompt: parsing is now correct (real server/stratum/offset, where the previous version misread stratum as 10) but the last-sync grading is still wrong."
   }
  },
  "_outcome_note": "Re-translated 2026-07-30 through the sharpened prompt (sonnet CLI; qwen/llamacpp03 was answering 502). Discovery on docker-test went 41 -> 29 proposals."

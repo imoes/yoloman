@@ -111,3 +111,28 @@ completes the separation, but it changes the live poll path and needs its own de
 cheapest real win, it makes drift visible), then D5 (ignored, small and removes a daily
 annoyance), then D3+D6 together (periodic rediscovery with the filters that belong to it), then
 D4 (bulk). D9 with Batch 2.
+
+---
+
+## Re-translating the check library after a prompt change
+
+The gap analysis keeps sharpening the translation prompt, and a sharpened prompt is
+worthless if it only reaches checks a heuristic still calls broken. So every translation
+stamps `prompt_version` into its sidecar — a hash of the prompt's instructions
+(`services/checkmk_translation.prompt_fingerprint()`), derived from the text so it cannot
+be forgotten when the prompt changes.
+
+    # what would run — no LLM call, no writes (safe while qwen is busy elsewhere)
+    cd bossman && .venv-host/bin/python scripts/retranslate_checks.py --stale --dry-run
+
+    # the full pass, resumable; or just: systemctl --user start agentic-check-retranslate
+    cd bossman && .venv-host/bin/python scripts/retranslate_checks.py --stale --loop --concurrency 2
+
+The `agentic-check-retranslate` user service runs exactly the `--stale --loop` form. It is
+currently **stopped and disabled** on purpose: qwen79b (llamacpp03) is shared and another
+batch is using it. Start it when qwen is free — the pass is resumable, so it can be
+stopped and restarted at any point without losing work.
+
+Deliberately **without** `--escalate-sonnet` in the bulk form: a qwen outage counts as
+"not accepted" for every check, so escalation would route all ~1400 through the Claude
+CLI because of an unrelated outage. Escalation stays available for targeted runs.
