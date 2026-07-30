@@ -1,0 +1,67 @@
+{
+ "_source": "Hand-verified against live discovery runs on docker-test (Debian 13 VM) and vpp0221 (Proxmox/ZFS), 2026-07-30.",
+ "_why": "These checks pass every automatic gate — they run a GENERIC data source that genuinely exists on the host, then attribute it to something else. No platform rule and no data-source evidence can see through that, so they are listed by hand for re-translation. `reason` records what the check actually reads versus what it claims, which is the input a translation pass needs.",
+ "_used_by": "bossman/scripts/retranslate_checks.py --broken (merged into the auto-selected set)",
+ "checks": {
+  "postgres_instances": {
+   "catalog": "app/postgresql",
+   "reads": "ps",
+   "reason": "finds no postgres process and returns OK anyway; must report absence (empty discovery / UNKNOWN)"
+  },
+  "postgres_processes": {
+   "catalog": "app/postgresql",
+   "reads": "ps",
+   "reason": "same as postgres_instances — no postgres on the host, still graded OK"
+  },
+  "db2_version": {
+   "catalog": "app/db2",
+   "reads": "/etc/passwd + su",
+   "reason": "reads the password file to look for a DB2 instance user, finds none, reports a version anyway"
+  },
+  "podman_container_memory": {
+   "catalog": "app/podman",
+   "reads": "cat (cgroup path)",
+   "reason": "podman is not installed; must probe for the podman binary and report absence"
+  },
+  "libelle_business_shadow_process": {
+   "catalog": "app/libelle",
+   "reads": "cat",
+   "reason": "the Libelle product is not on the host; discovered a service regardless"
+  },
+  "cadvisor_if": {
+   "catalog": "containerization/cadvisor",
+   "reads": "/proc/net/dev",
+   "reason": "substitutes the host's own NIC counters for cAdvisor's container metrics — a different product entirely; lnx_if already covers local NICs"
+  },
+  "isc_dhcpd": {
+   "catalog": "os/services",
+   "reads": "cat (dhcpd.conf)",
+   "reason": "no dhcpd on the host; must return empty discovery when the config/daemon is missing"
+  },
+  "nfsmounts": {
+   "catalog": "os/services",
+   "reads": "df -P",
+   "reason": "treats EVERY mount as an NFS mount (14 items on a host with no NFS at all); must filter by filesystem type nfs/nfs4"
+  },
+  "nfsexports": {
+   "catalog": "os/services",
+   "reads": "/proc/fs/nfsd/exports",
+   "reason": "reports exports on a host that serves none; absence must be an empty discovery"
+  },
+  "lsi_array": {
+   "catalog": "os/storage",
+   "reads": "dmidecode + bash",
+   "reason": "no LSI controller present; dmidecode succeeding is not evidence of one"
+  },
+  "cmk_inv": {
+   "catalog": "(no man page in Checkmk 2.5)",
+   "reads": "ip",
+   "reason": "Checkmk-site internal, not a host check — should not be in the library at all"
+  },
+  "lvm_vgs": {
+   "catalog": "os/storage",
+   "reads": "lvs",
+   "reason": "DATA IS REAL (the host has these volume groups) but discovery yields one item per LOGICAL VOLUME instead of one per volume group — 10 items for 2 VGs, with duplicates. Dedupe by vg_name."
+  }
+ }
+}

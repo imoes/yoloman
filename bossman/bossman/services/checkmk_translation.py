@@ -159,6 +159,46 @@ read the SAME underlying source the Checkmk plugin/agent reads:
   agent plugin's shell if referenced; otherwise reproduce the same data with a
   standard Linux command. Never assume a Checkmk agent is present.
 
+## ABSENCE IS AN ANSWER — never invent the thing you monitor
+
+This is the most common way a translation goes wrong, and it is worse than a
+crash: the check runs, reports OK, and is offered on hosts that have nothing to
+do with it. Real examples from earlier translations of this very library:
+
+- `aix_hacmp_services` ran `ps -ef`, found no HACMP subsystem, and appended
+  ("clstrmgrES", "inoperative") ANYWAY — so it "discovered" AIX cluster services
+  on a Debian VM.
+- `postgres_instances` ran `ps`, found no postgres process, and returned OK.
+- `ibm_svc_systemstats_iops` read /proc/diskstats and reported the host's local
+  disks as IBM SVC storage-array statistics.
+- `cadvisor_if` read /proc/net/dev although cAdvisor is a separate product that
+  was not running.
+- `sylo` ran `date` and reported a verdict from it.
+
+The rules that prevent this:
+
+1. PROBE FOR THE REAL THING FIRST. Before reporting anything, establish that the
+   product/feature/device you monitor is actually here: its binary
+   (`ctx.run(["<tool>", "--version"], mutates=False)`), its socket, its config
+   file (`ctx.file_exists(...)`), its /proc or /sys entry. A MISSING BINARY gives
+   `rc == 127` with empty stdout (the agent reports it exactly like a shell) —
+   test `res.rc` and treat 127 as "not installed".
+2. NOT PRESENT -> DISCOVERY RETURNS AN EMPTY LIST. `{"discovery": []}`. Never a
+   placeholder item, never a synthesised row, never a hardcoded name from the
+   Checkmk source. An empty list is the correct, expected answer on most hosts.
+3. NOT PRESENT IN CHECK MODE -> state "UNKNOWN" with a msg that says what is
+   missing ("no postgres instance found"). Never OK, never a zero metric.
+4. NEVER SUBSTITUTE A DIFFERENT DATA SOURCE. If the plugin monitors a storage
+   array, an appliance, a database, a hypervisor API or another operating system,
+   local /proc or /sys is NOT a stand-in for it. If there is no on-host source
+   for this plugin at all — its data comes from a special agent over the network,
+   or from another OS's agent — then the honest translation reports absence
+   (empty discovery / UNKNOWN). Do not reach for whatever local file has
+   similar-looking numbers.
+5. EVERY STATE YOU REPORT MUST BE BACKED BY DATA YOU ACTUALLY READ. If a command
+   returned rc != 0 or nothing, you did not get the data; say UNKNOWN instead of
+   grading a default.
+
 ## MAKE IT CONFIGURABLE — expose params with Checkmk defaults
 
 The check MUST be configurable. Read `params.get(...)` for every operator knob:
@@ -412,6 +452,15 @@ def build_checkmk_messages(contract: str, record: dict[str, Any]) -> list[dict[s
         "[ ] NO chained comparison a<=b<=c  (write (a<=b) and (b<=c))\n"
         "[ ] NO `is`/`is not`  (use == None / != None)\n"
         "[ ] The module DEFINES `def main(ctx, params):`\n"
+        # The absence rules are repeated here because a check that fabricates its
+        # data source does not crash — it reports OK on hosts it has nothing to do
+        # with, which is harder to notice and worse than a syntax error.
+        "[ ] If the monitored product/device is NOT on the host, discovery returns an EMPTY list\n"
+        "    (no placeholder item, no name hardcoded from the Checkmk source) and check mode\n"
+        "    returns UNKNOWN — never OK, never a zero metric\n"
+        "[ ] I probe for the real thing (its binary/socket/config); `rc == 127` means not installed\n"
+        "[ ] I did NOT substitute a local /proc or /sys file for an appliance, array, database or\n"
+        "    another OS's data\n"
         "OUTPUT ONLY THE CODE."
     )
     user = (
@@ -424,4 +473,17 @@ def build_checkmk_messages(contract: str, record: dict[str, Any]) -> list[dict[s
         "on-host:\n"
         f"```python\n{source}\n```"
     )
+    # A re-translation carries WHY the previous attempt was wrong. Placed last, so
+    # it is the final thing read before generating: a generic "be careful" is
+    # ignored, "you read /proc/net/dev for a cAdvisor check" is not.
+    defect = (record.get("retranslate_reason") or "").strip()
+    if defect:
+        user += (
+            "\n\nTHIS CHECK WAS TRANSLATED BEFORE AND THE RESULT WAS WRONG. The defect, verified on a "
+            "live host:\n"
+            f"    {defect}\n"
+            "Fix exactly that. Re-read the ABSENCE IS AN ANSWER rules above: if the thing this plugin "
+            "monitors is not on the host, discovery returns an empty list and check mode returns "
+            "UNKNOWN — do not report a state from whatever local file happens to be readable."
+        )
     return [{"role": "system", "content": system}, {"role": "user", "content": user}]
