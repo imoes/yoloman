@@ -601,6 +601,109 @@ def lv_device(volume: Volume) -> str:
     raise ImagingError(f"volume {volume.role!r} is not on LVM")
 
 
+def layout_to_dict(layout: SourceLayout) -> dict[str, Any]:
+    """The manifest as stored JSONB. Explicit rather than `asdict`, for two reasons.
+
+    `asdict` would silently start persisting any field added later, so a rename would produce rows
+    the reader cannot interpret — and this document has to be readable by a restore running months
+    after the capture. Writing it out means a schema change is a visible edit here.
+
+    `used_bytes` keeps `None` as null rather than collapsing to 0: the distinction is the whole
+    reason it is nullable (see `Volume`), and JSON has a null, so there is no excuse to lose it.
+    """
+    return {
+        "version": 1,
+        "disk_size": layout.disk_size,
+        "label": layout.label,
+        "lvm_on_raw_disk": layout.lvm_on_raw_disk,
+        "partitions": [
+            {"number": p.number, "size_bytes": p.size_bytes, "kind": p.kind} for p in layout.partitions
+        ],
+        "volumes": [
+            {
+                "role": v.role,
+                "fs_type": v.fs_type,
+                "size_bytes": v.size_bytes,
+                "used_bytes": v.used_bytes,
+                "vg": v.vg,
+                "lv": v.lv,
+                "partition": v.partition,
+                "mountpoint": v.mountpoint,
+            }
+            for v in layout.volumes
+        ],
+    }
+
+
+def layout_from_dict(doc: dict[str, Any]) -> SourceLayout:
+    """Read a stored manifest back, refusing a version this code does not understand.
+
+    Refusing beats best-effort parsing here: a restore driven by a half-understood layout writes
+    partitions to the wrong sizes, and the failure surfaces as a machine that will not boot rather
+    than as an error anyone can act on.
+    """
+    version = int(doc.get("version") or 0)
+    if version != 1:
+        raise ImagingError(f"unsupported image manifest version {version!r} (this build reads 1)")
+    return SourceLayout(
+        disk_size=int(doc["disk_size"]),
+        label=str(doc.get("label") or "gpt"),
+        lvm_on_raw_disk=bool(doc.get("lvm_on_raw_disk")),
+        partitions=tuple(
+            Partition(number=int(p["number"]), size_bytes=int(p["size_bytes"]), kind=str(p["kind"]))
+            for p in doc.get("partitions") or []
+        ),
+        volumes=tuple(
+            Volume(
+                role=str(v["role"]),
+                fs_type=str(v["fs_type"]),
+                size_bytes=int(v["size_bytes"]),
+                used_bytes=None if v.get("used_bytes") is None else int(v["used_bytes"]),
+                vg=v.get("vg"),
+                lv=v.get("lv"),
+                partition=None if v.get("partition") is None else int(v["partition"]),
+                mountpoint=v.get("mountpoint"),
+            )
+            for v in doc.get("volumes") or []
+        ),
+    )
+
+
+def with_measured_usage(layout: SourceLayout, used_by_role: dict[str, int]) -> SourceLayout:
+    """Fill in the used sizes a capture measured, keyed by the image file's stem.
+
+    This is the step that turns an unplannable manifest into a plannable one: partclone reports how
+    many blocks it actually moved, which is the authoritative number and the only one available for
+    a filesystem that was never mounted.
+    """
+    filled = tuple(
+        v if v.used_bytes is not None else _with_used(v, used_by_role.get(_image_stem(v)))
+        for v in layout.volumes
+    )
+    return SourceLayout(
+        disk_size=layout.disk_size,
+        label=layout.label,
+        partitions=layout.partitions,
+        volumes=filled,
+        lvm_on_raw_disk=layout.lvm_on_raw_disk,
+    )
+
+
+def _with_used(volume: Volume, used: int | None) -> Volume:
+    if used is None:
+        return volume
+    return Volume(
+        role=volume.role,
+        fs_type=volume.fs_type,
+        size_bytes=volume.size_bytes,
+        used_bytes=int(used),
+        vg=volume.vg,
+        lv=volume.lv,
+        partition=volume.partition,
+        mountpoint=volume.mountpoint,
+    )
+
+
 @dataclass(frozen=True)
 class Step:
     """One action in a restore run.
@@ -755,14 +858,18 @@ def _part_suffix(disk: str, number: int) -> str:
     return f"p{number}" if disk and disk[-1].isdigit() else str(number)
 
 
-def _image_name(volume: Volume) -> str:
-    """The file name a volume's image has in the store — stable and collision-free.
+def _image_stem(volume: Volume) -> str:
+    """The key a volume's image is stored and reported under — stable and collision-free.
 
-    Keyed by role plus the LV name, because a layout can hold two volumes with the same role
-    (two data LVs) and the role alone would make them overwrite each other in the store.
+    Keyed by role plus the LV name, because a layout can hold two volumes with the same role (two
+    data LVs) and the role alone would make them overwrite each other in the store. Shared with
+    `with_measured_usage`, so the capture's report and the restore's lookup cannot drift apart.
     """
-    stem = f"{volume.role}-{volume.lv}" if volume.lv else volume.role
-    return f"{stem}.pcl.zst"
+    return f"{volume.role}-{volume.lv}" if volume.lv else volume.role
+
+
+def _image_name(volume: Volume) -> str:
+    return f"{_image_stem(volume)}.pcl.zst"
 
 
 def grow_commands(planned: PlannedVolume, *, device: str, mountpoint: str = "/mnt/target") -> list[list[str]]:

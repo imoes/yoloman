@@ -28,6 +28,8 @@ from bossman.services.imaging import (
     TARGET_ROOT,
     Step,
     identity_steps,
+    layout_from_dict,
+    layout_to_dict,
     lv_device,
     lvm_commands,
     parse_layout,
@@ -37,6 +39,7 @@ from bossman.services.imaging import (
     restore_pipeline,
     restore_steps,
     select_target_disk,
+    with_measured_usage,
     sfdisk_script,
 )
 
@@ -681,3 +684,79 @@ def test_lvm_on_a_raw_disk_writes_no_partition_table():
     steps = restore_steps(layout, plan, image_url="https://b/i", hostname="h")
     assert not any("partition table" in s.name for s in steps)
     assert any(s.argv[:1] == ("pvcreate",) for s in steps if s.argv)
+
+
+# ---------------------------------------------------------------------------
+# The manifest as stored: it has to be readable by a restore months later
+
+
+def test_the_manifest_round_trips_exactly():
+    """It is the document the restore reads back; a lossy round-trip means wrong partition sizes,
+    and that surfaces as a machine that will not boot rather than as an error."""
+    layout = parse_layout(sfdisk=SFDISK, lsblk_disk=SDA)
+    assert layout_from_dict(layout_to_dict(layout)) == layout
+
+
+def test_unknown_usage_survives_as_null_not_zero():
+    """JSON has a null, so there is no excuse to collapse the distinction the whole nullable field
+    exists for — zero would let a restore be planned onto a disk far too small."""
+    cold = {
+        "name": "sda", "type": "disk", "size": 50 * GiB, "fstype": None,
+        "children": [{"name": "sda1", "type": "part", "size": 40 * GiB, "fstype": "ext4",
+                      "fsused": None, "mountpoint": None}],
+    }
+    layout = parse_layout(sfdisk=None, lsblk_disk=cold)
+    doc = layout_to_dict(layout)
+    assert doc["volumes"][0]["used_bytes"] is None
+    assert json.loads(json.dumps(doc))["volumes"][0]["used_bytes"] is None
+    assert layout_from_dict(doc).volumes[0].used_bytes is None
+
+
+def test_an_unknown_manifest_version_is_refused():
+    """Best-effort parsing of a layout we half understand writes partitions at the wrong sizes."""
+    doc = layout_to_dict(parse_layout(sfdisk=SFDISK, lsblk_disk=SDA))
+    doc["version"] = 2
+    with pytest.raises(ImagingError) as exc:
+        layout_from_dict(doc)
+    assert "manifest version" in str(exc.value)
+
+
+def test_measured_usage_makes_an_unplannable_manifest_plannable():
+    """partclone reports what it actually moved — the only number available for a filesystem that
+    was never mounted, and the authoritative one either way."""
+    cold = {
+        "name": "sda", "type": "disk", "size": 50 * GiB, "fstype": None,
+        "children": [{"name": "sda1", "type": "part", "size": 40 * GiB, "fstype": "ext4",
+                      "fsused": None, "mountpoint": "/"}],
+    }
+    layout = parse_layout(sfdisk=None, lsblk_disk=cold)
+    with pytest.raises(ImagingError):
+        layout.used_total
+
+    filled = with_measured_usage(layout, {"root": 7 * GiB})
+    assert filled.used_total == 7 * GiB
+    assert plan_restore(filled, Disk("sdb", 100 * GiB)).volumes[-1].grow is True
+
+
+def test_measured_usage_leaves_known_values_alone():
+    """A mounted source already reported the truth; overwriting it with a second measurement would
+    make the two sources disagree for no reason."""
+    layout = parse_layout(sfdisk=SFDISK, lsblk_disk=SDA)
+    before = layout.volumes[-1].used_bytes
+    after = with_measured_usage(layout, {"root-ubuntu-lv": 1}).volumes[-1].used_bytes
+    assert after == before
+
+
+def test_the_usage_key_matches_the_image_file_name():
+    """The capture reports usage under the same stem the image file uses, so the report and the
+    restore's lookup cannot drift apart."""
+    layout = parse_layout(sfdisk=SFDISK, lsblk_disk=SDA)
+    plan = plan_restore(layout, Disk("sdb", 200 * GiB))
+    steps = restore_steps(layout, plan, image_url="https://b/i", hostname="h")
+    urls = [tok for s in steps if s.shell for tok in s.shell.split() if tok.startswith("https://")]
+    assert any(u.endswith("/root-ubuntu-lv.pcl.zst") for u in urls)
+    # and that stem is exactly what with_measured_usage accepts
+    assert with_measured_usage(
+        SourceLayout(disk_size=1, volumes=(Volume("root", "ext4", 1, None, vg="ubuntu-vg", lv="ubuntu-lv"),)),
+        {"root-ubuntu-lv": 42},
+    ).volumes[0].used_bytes == 42

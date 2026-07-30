@@ -1554,6 +1554,90 @@ class ServiceStateHistory(Base):
     __table_args__ = (Index("idx_service_state_history_agent_service_time", "agent_id", "service_name", "time"),)
 
 
+class DiskImage(Base):
+    """A captured golden image: the manifest plus where its per-volume files live.
+
+    One row, not a parent/child pair, because the manifest is always read whole — a restore needs
+    every volume or none of them. `manifest` is `imaging.layout_to_dict`'s document (versioned, so
+    a restore months later either understands it or refuses).
+
+    `files` maps the image stem (`root-ubuntu-lv`) to `{name, bytes, sha256}`. The checksum is what
+    turns "the download finished" into "the download was complete": a truncated stream written to a
+    disk is an unbootable machine that looks like a successful restore.
+    """
+
+    __tablename__ = "disk_images"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid())
+    name: Mapped[str] = mapped_column(String, nullable=False, unique=True)
+    description: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    # The host it was captured from. SET NULL rather than CASCADE: deleting the source must not
+    # delete images built from it — that is the whole point of having a golden image.
+    source_agent_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("agents.id", ondelete="SET NULL")
+    )
+    status: Mapped[str] = mapped_column(String, nullable=False, default="capturing")
+    manifest: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
+    files: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
+    error: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(TZ_DATETIME, server_default=func.now(), nullable=False)
+
+    __table_args__ = (
+        CheckConstraint("status IN ('capturing', 'ready', 'failed')", name="ck_disk_images_status"),
+    )
+
+
+class RestoreJob(Base):
+    """One machine being installed from one image.
+
+    Identified by **MAC**, not by agent: the target has no agent yet — that is the point — and when
+    it PXE-boots the only thing it can tell us about itself is its hardware address. `agent_id` is
+    filled in afterwards, once the installed host enrols, so the job remains linked to the machine
+    it produced.
+
+    `steps` holds the computed run (see imaging.restore_steps) and `step_index` how far the helper
+    got. Storing the plan rather than recomputing it means a retry repeats exactly what was
+    attempted, and the log names the step that failed instead of a line number.
+    """
+
+    __tablename__ = "restore_jobs"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid())
+    image_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("disk_images.id", ondelete="CASCADE"), nullable=False
+    )
+    target_mac: Mapped[str] = mapped_column(String, nullable=False)
+    target_hostname: Mapped[str] = mapped_column(String, nullable=False)
+    target_disk: Mapped[str | None] = mapped_column(String)
+    status: Mapped[str] = mapped_column(String, nullable=False, default="pending")
+    steps: Mapped[list] = mapped_column(JSONB, nullable=False, default=list)
+    step_index: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    log: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    error: Mapped[str | None] = mapped_column(Text)
+    # Set once the machine this job installed has enrolled itself.
+    agent_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("agents.id", ondelete="SET NULL")
+    )
+    created_at: Mapped[datetime] = mapped_column(TZ_DATETIME, server_default=func.now(), nullable=False)
+    started_at: Mapped[datetime | None] = mapped_column(TZ_DATETIME)
+    finished_at: Mapped[datetime | None] = mapped_column(TZ_DATETIME)
+
+    __table_args__ = (
+        CheckConstraint(
+            "status IN ('pending', 'running', 'done', 'failed', 'cancelled')",
+            name="ck_restore_jobs_status",
+        ),
+        # One pending/running job per MAC at a time: two concurrent installs onto the same machine
+        # would race for its disk, and the second would find a half-written one.
+        Index(
+            "uq_restore_jobs_active_mac",
+            "target_mac",
+            unique=True,
+            postgresql_where=text("status IN ('pending', 'running')"),
+        ),
+    )
+
+
 class HostParent(Base):
     """L6: network-path parents — "the switch is dead, not the 40 hosts behind it".
 
