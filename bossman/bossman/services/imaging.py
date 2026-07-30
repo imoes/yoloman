@@ -601,6 +601,170 @@ def lv_device(volume: Volume) -> str:
     raise ImagingError(f"volume {volume.role!r} is not on LVM")
 
 
+@dataclass(frozen=True)
+class Step:
+    """One action in a restore run.
+
+    `shell` marks a step that needs a shell because it is a pipeline; everything else is an argv
+    list, which needs no quoting and cannot be misread. `chroot` marks a step that must run inside
+    the restored system rather than in the helper — the distinction that makes the difference
+    between installing GRUB into the target and installing it into the netboot initramfs.
+    """
+
+    name: str
+    argv: tuple[str, ...] = ()
+    shell: str = ""
+    chroot: bool = False
+
+    def __post_init__(self) -> None:
+        if bool(self.argv) == bool(self.shell):
+            raise ImagingError(f"step {self.name!r} must carry exactly one of argv or shell")
+
+
+# Where the restored system is assembled in the helper.
+TARGET_ROOT = "/mnt/target"
+
+# The pseudo-filesystems a chroot needs before anything inside it works: package tools want
+# /proc, device nodes come from /dev, and grub-install reads /sys to find the disk it is
+# installing onto. Without them the chroot commands fail in ways that look like unrelated bugs.
+#
+# /dev/pts is deliberately absent: `--rbind /dev` carries its submounts along, so a separate entry
+# is redundant — and not harmless, since it would fail on an image whose /dev/pts directory does
+# not exist yet.
+_BIND_MOUNTS = ("/dev", "/proc", "/sys", "/run")
+
+
+def restore_steps(
+    layout: SourceLayout,
+    plan: RestorePlan,
+    *,
+    image_url: str,
+    hostname: str,
+    pv_partition: int | None = None,
+) -> list[Step]:
+    """The whole restore, as an ordered list the helper executes and reports on.
+
+    Order is the substance here, and each rule below exists because getting it wrong produces a
+    machine that does not boot rather than an error:
+
+    1. Partition, then LVM, then restore — a filesystem cannot be written into a volume that does
+       not exist yet.
+    2. Grow immediately after the restore of that volume, while nothing else is mounted on top.
+    3. Mount root FIRST, then /boot, then /boot/efi. Mounting a child before its parent hides the
+       child; unmounting in the same order fails because the parent is busy — so teardown is
+       strictly reversed.
+    4. Bind-mount /dev, /proc, /sys before any chroot step, or `grub-install` cannot see the disk.
+    5. Bootloader before identity reset, purely so a failure lands on the step that can still be
+       diagnosed with a shell open.
+    6. Identity reset LAST before unmount: machine-id, SSH host keys and hostname. Skipping it
+       produces twins that fight over DHCP leases and present the same SSH fingerprint.
+    """
+    disk = f"/dev/{plan.target_disk}"
+    steps: list[Step] = []
+
+    # 1. Partition table (unless LVM sits on the raw disk), then the volume group.
+    if layout.partitions:
+        steps.append(Step(name="wipe partition table", argv=("wipefs", "-a", disk)))
+        steps.append(Step(name="write partition table", shell=f"sfdisk {shlex.quote(disk)} < /tmp/target.sfdisk"))
+        steps.append(Step(name="settle device nodes", argv=("udevadm", "settle")))
+    pv = disk if layout.lvm_on_raw_disk else f"{disk}{_part_suffix(plan.target_disk, pv_partition or len(layout.partitions))}"
+    for argv in lvm_commands(layout, pv_device=pv):
+        steps.append(Step(name=f"lvm: {' '.join(argv[:2])}", argv=tuple(argv)))
+
+    # 2. Restore each volume, growing the one that is meant to grow right after its own restore.
+    for planned in plan.volumes:
+        v = planned.volume
+        device = lv_device(v) if v.vg else f"{disk}{_part_suffix(plan.target_disk, v.partition or 1)}"
+        url = f"{image_url.rstrip('/')}/{_image_name(v)}"
+        steps.append(
+            Step(
+                name=f"restore {v.role}",
+                shell=restore_pipeline(source=fetch_command(url), device=device),
+            )
+        )
+        for argv in grow_commands(planned, device=device, mountpoint=f"{TARGET_ROOT}-grow"):
+            steps.append(Step(name=f"grow {v.role}: {argv[0]}", argv=tuple(argv)))
+
+    # 3. Assemble the target tree, parents before children.
+    for planned in _mount_order(plan):
+        v = planned.volume
+        device = lv_device(v) if v.vg else f"{disk}{_part_suffix(plan.target_disk, v.partition or 1)}"
+        mp = TARGET_ROOT if v.mountpoint == "/" else f"{TARGET_ROOT}{v.mountpoint}"
+        steps.append(Step(name=f"mkdir {mp}", argv=("mkdir", "-p", mp)))
+        steps.append(Step(name=f"mount {v.role}", argv=("mount", device, mp)))
+
+    # 4. The pseudo-filesystems a chroot needs.
+    for src in _BIND_MOUNTS:
+        steps.append(Step(name=f"bind {src}", argv=("mount", "--rbind", src, f"{TARGET_ROOT}{src}")))
+
+    # 5. Bootloader.
+    steps.append(Step(name="install bootloader", argv=("grub-install", disk), chroot=True))
+    steps.append(Step(name="regenerate grub config", argv=("update-grub",), chroot=True))
+
+    # 6. Identity: without this every clone is a twin.
+    steps.extend(identity_steps(hostname))
+
+    # Teardown, strictly reversed.
+    for src in reversed(_BIND_MOUNTS):
+        steps.append(Step(name=f"unbind {src}", argv=("umount", "-lR", f"{TARGET_ROOT}{src}")))
+    for planned in reversed(_mount_order(plan)):
+        v = planned.volume
+        mp = TARGET_ROOT if v.mountpoint == "/" else f"{TARGET_ROOT}{v.mountpoint}"
+        steps.append(Step(name=f"umount {v.role}", argv=("umount", mp)))
+    return steps
+
+
+def identity_steps(hostname: str) -> list[Step]:
+    """Make the restored system a distinct machine rather than a copy of its source.
+
+    Deliberately truncating `/etc/machine-id` rather than deleting it: systemd generates a new id
+    at boot when the file exists and is EMPTY, while a missing file is a different (and on some
+    images fatal) condition. `/var/lib/dbus/machine-id` follows it.
+
+    SSH host keys are removed so the service regenerates them on first start. Leaving them means
+    every machine from this image presents the same fingerprint — a warning your operators would
+    learn to click through, which is worse than the inconvenience.
+    """
+    return [
+        Step(name="reset machine-id", argv=("truncate", "-s", "0", f"{TARGET_ROOT}/etc/machine-id")),
+        Step(name="reset dbus machine-id", shell=f"rm -f {shlex.quote(TARGET_ROOT)}/var/lib/dbus/machine-id"),
+        Step(name="drop ssh host keys", shell=f"rm -f {shlex.quote(TARGET_ROOT)}/etc/ssh/ssh_host_*"),
+        Step(
+            name="set hostname",
+            shell=f"printf '%s\\n' {shlex.quote(hostname)} > {shlex.quote(TARGET_ROOT)}/etc/hostname",
+        ),
+    ]
+
+
+def _mount_order(plan: RestorePlan) -> list[PlannedVolume]:
+    """Mountable volumes, parents before children.
+
+    Sorting by path depth is what puts / before /boot before /boot/efi. Mounting a child first
+    would hide it under the parent that lands on top of it.
+    """
+    mountable = [p for p in plan.volumes if p.volume.mountpoint]
+    return sorted(mountable, key=lambda p: (str(p.volume.mountpoint).count("/"), str(p.volume.mountpoint)))
+
+
+def _part_suffix(disk: str, number: int) -> str:
+    """"3" for sda, "p3" for nvme0n1 — NVMe and mmc name partitions with a `p`.
+
+    Getting this wrong yields `/dev/nvme0n13`, which does not exist, so the step fails loudly
+    rather than writing somewhere wrong. Still worth being right about.
+    """
+    return f"p{number}" if disk and disk[-1].isdigit() else str(number)
+
+
+def _image_name(volume: Volume) -> str:
+    """The file name a volume's image has in the store — stable and collision-free.
+
+    Keyed by role plus the LV name, because a layout can hold two volumes with the same role
+    (two data LVs) and the role alone would make them overwrite each other in the store.
+    """
+    stem = f"{volume.role}-{volume.lv}" if volume.lv else volume.role
+    return f"{stem}.pcl.zst"
+
+
 def grow_commands(planned: PlannedVolume, *, device: str, mountpoint: str = "/mnt/target") -> list[list[str]]:
     """How to make the filesystem fill its new container — genuinely different per filesystem.
 

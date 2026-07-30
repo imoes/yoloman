@@ -25,6 +25,9 @@ from bossman.services.imaging import (
     classify_role,
     fetch_command,
     grow_commands,
+    TARGET_ROOT,
+    Step,
+    identity_steps,
     lv_device,
     lvm_commands,
     parse_layout,
@@ -32,6 +35,7 @@ from bossman.services.imaging import (
     plan_restore,
     required_tools,
     restore_pipeline,
+    restore_steps,
     select_target_disk,
     sfdisk_script,
 )
@@ -545,3 +549,135 @@ def test_real_sfdisk_accepts_the_script_and_fills_a_bigger_disk(tmp_path):
     assert last["size"] * sector > 4 * layout.volumes[-1].size_bytes // 2, "it really did grow"
     tail = table["lastlba"] - (last["start"] + last["size"])
     assert 0 <= tail < 4096, f"GPT tail left {tail} sectors — room for the backup header, no more"
+
+
+# ---------------------------------------------------------------------------
+# The whole run. Order is the substance: a wrong order gives an unbootable machine, not an error.
+
+
+def _run(target_gib: int = 200, hostname: str = "web07") -> list[Step]:
+    layout = parse_layout(sfdisk=SFDISK, lsblk_disk=SDA)
+    plan = plan_restore(layout, Disk("nvme0n1", target_gib * GiB))
+    return restore_steps(layout, plan, image_url="https://b/img/42", hostname=hostname)
+
+
+def _index(steps: list[Step], needle: str) -> int:
+    for i, s in enumerate(steps):
+        if needle in s.name:
+            return i
+    raise AssertionError(f"no step matching {needle!r} in {[s.name for s in steps]}")
+
+
+def test_a_step_carries_exactly_one_of_argv_or_shell():
+    """A step that is both is ambiguous about whether it needs a shell — and a step that is
+    neither does nothing while reporting success."""
+    with pytest.raises(ImagingError):
+        Step(name="both", argv=("ls",), shell="ls")
+    with pytest.raises(ImagingError):
+        Step(name="neither")
+
+
+def test_volumes_exist_before_anything_is_written_into_them():
+    steps = _run()
+    assert _index(steps, "write partition table") < _index(steps, "lvm: pvcreate")
+    assert _index(steps, "lvm: lvcreate") < _index(steps, "restore root")
+
+
+def test_the_grow_happens_right_after_its_own_restore_and_before_mounting():
+    """Growing with the assembly tree mounted on top is how you grow the wrong thing."""
+    steps = _run()
+    assert _index(steps, "restore root") < _index(steps, "grow root")
+    assert _index(steps, "grow root") < _index(steps, "mount root")
+
+
+def test_mounts_go_parents_first_and_unmounts_strictly_reversed():
+    """Mounting /boot before / hides it under the filesystem that lands on top; unmounting in the
+    same order fails because the parent is busy."""
+    steps = _run()
+    assert _index(steps, "mount root") < _index(steps, "mount boot") < _index(steps, "mount esp")
+    assert _index(steps, "umount esp") < _index(steps, "umount boot") < _index(steps, "umount root")
+    assert _index(steps, "mount esp") < _index(steps, "umount esp")
+
+
+def test_the_chroot_has_its_pseudo_filesystems_before_any_chroot_step():
+    """grub-install reads /sys to find the disk; without the binds it fails in a way that reads
+    like an unrelated bug."""
+    steps = _run()
+    first_chroot = min(i for i, s in enumerate(steps) if s.chroot)
+    for src in ("/dev", "/proc", "/sys"):
+        assert _index(steps, f"bind {src}") < first_chroot
+
+
+def test_dev_pts_is_not_bound_separately():
+    """`--rbind /dev` carries its submounts, and a separate entry would fail on an image whose
+    /dev/pts directory does not exist yet."""
+    steps = _run()
+    assert not any("dev/pts" in s.name for s in steps)
+
+
+def test_the_bootloader_is_installed_inside_the_target_not_the_helper():
+    """Without the chroot flag, grub-install would write the helper's initramfs bootloader — the
+    single most consequential mistake in this whole sequence."""
+    steps = _run()
+    grub = [s for s in steps if "bootloader" in s.name]
+    assert len(grub) == 1
+    assert grub[0].chroot is True
+    assert grub[0].argv == ("grub-install", "/dev/nvme0n1")
+
+
+def test_identity_is_reset_before_the_target_is_unmounted():
+    """It has to be written into the mounted target, and skipping it produces twins that fight
+    over DHCP leases and present the same SSH fingerprint."""
+    steps = _run()
+    assert _index(steps, "reset machine-id") < _index(steps, "umount root")
+    assert _index(steps, "drop ssh host keys") < _index(steps, "umount root")
+    assert _index(steps, "install bootloader") < _index(steps, "reset machine-id")
+
+
+def test_machine_id_is_truncated_not_deleted():
+    """systemd generates a new id when the file exists and is EMPTY; a missing file is a different
+    condition, and on some images a fatal one."""
+    step = next(s for s in identity_steps("h") if "machine-id" in s.name and "dbus" not in s.name)
+    assert step.argv == ("truncate", "-s", "0", f"{TARGET_ROOT}/etc/machine-id")
+
+
+def test_the_hostname_is_quoted():
+    step = next(s for s in identity_steps("web07; rm -rf /") if "hostname" in s.name)
+    assert "'web07; rm -rf /'" in step.shell
+
+
+def test_nvme_partitions_get_their_p():
+    """`/dev/nvme0n13` does not exist, so this fails loudly rather than writing somewhere wrong —
+    but being right about it is cheaper than the confusion."""
+    steps = _run()
+    assert any("/dev/nvme0n1p3" in " ".join(s.argv) for s in steps if s.argv)
+    assert not any("nvme0n13" in " ".join(s.argv) + s.shell for s in steps)
+
+
+def test_each_volumes_image_has_a_distinct_name():
+    """Two data LVs would otherwise share a file name and overwrite each other in the store."""
+    two = {
+        "name": "sdb", "type": "disk", "size": 180 * GiB, "fstype": "LVM2_member", "rm": False,
+        "children": [
+            {"name": "vg-a", "type": "lvm", "size": 60 * GiB, "fstype": "ext4",
+             "fsused": 10 * GiB, "mountpoint": "/srv/a"},
+            {"name": "vg-b", "type": "lvm", "size": 100 * GiB, "fstype": "ext4",
+             "fsused": 10 * GiB, "mountpoint": "/srv/b"},
+        ],
+    }
+    layout = parse_layout(sfdisk=None, lsblk_disk=two)
+    plan = plan_restore(layout, Disk("sdc", 400 * GiB))
+    urls = [s.shell for s in restore_steps(layout, plan, image_url="https://b/i", hostname="h") if "restore" in s.name]
+    assert len(urls) == 2
+    # Pick the URL by shape, not by position: the curl flags shift as soon as one is added.
+    found = {tok for u in urls for tok in u.split() if tok.startswith("https://")}
+    assert len(found) == 2, f"two distinct image URLs, got {found}"
+
+
+def test_lvm_on_a_raw_disk_writes_no_partition_table():
+    """sdb's PVs live on the device; wiping and writing a table there would destroy them."""
+    layout = parse_layout(sfdisk=None, lsblk_disk=SDB)
+    plan = plan_restore(layout, Disk("sdc", 400 * GiB))
+    steps = restore_steps(layout, plan, image_url="https://b/i", hostname="h")
+    assert not any("partition table" in s.name for s in steps)
+    assert any(s.argv[:1] == ("pvcreate",) for s in steps if s.argv)

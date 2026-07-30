@@ -318,6 +318,22 @@ async def _write_metric(db_session, agent, metric, value, when=None, labels=None
     await db_session.commit()
 
 
+async def _cpu_service(db_session, agent) -> Service:
+    """This agent's "CPU load" service — the one `_make_rule` creates.
+
+    Never `scalar(select(Service).where(agent_id == …))` without a name: globally-scoped default
+    rules (Memory / Disk / Disk IOPS are seeded) give every host several services, so an unfiltered
+    scalar() returns an arbitrary one. Worse, WHICH one shifts as rows are updated, so the test
+    passes or fails depending on physical row order — which is exactly how this showed up: a
+    different DB-backed test failed in each full run while every one of them passed in isolation.
+    """
+    svc = await db_session.scalar(
+        select(Service).where(Service.agent_id == agent.id, Service.name == "CPU load")
+    )
+    assert svc is not None, "the rule under test produced no service"
+    return svc
+
+
 async def _cleanup(db_session, agent, *rules):
     services = (await db_session.scalars(select(Service).where(Service.agent_id == agent.id))).all()
     for s in services:
@@ -429,7 +445,7 @@ async def test_evaluate_host_clears_acknowledgement_on_state_change(db_session):
     await evaluate_host(db_session, agent)
     await db_session.commit()
 
-    service = await db_session.scalar(select(Service).where(Service.agent_id == agent.id))
+    service = await _cpu_service(db_session, agent)
     service.acknowledged = True
     service.ack_comment = "known issue"
     service.ack_by = "admin"
@@ -439,7 +455,7 @@ async def test_evaluate_host_clears_acknowledgement_on_state_change(db_session):
     await evaluate_host(db_session, agent)
     await db_session.commit()
 
-    service = await db_session.scalar(select(Service).where(Service.agent_id == agent.id))
+    service = await _cpu_service(db_session, agent)
     assert service.state == "OK"
     assert service.acknowledged is False
     assert service.ack_comment is None
@@ -508,7 +524,7 @@ async def test_soft_then_hard_debounce_and_problems_filter(db_session):
         await _write_metric(db_session, agent, "cpu_pct", 99.0)
         await evaluate_host(db_session, agent)
         await db_session.commit()
-        svc = await db_session.scalar(select(Service).where(Service.agent_id == agent.id))
+        svc = await _cpu_service(db_session, agent)
         assert svc.state == "CRIT"
         assert (svc.state_type, svc.attempt) == (expected_type, expected_attempt)
         problems = await query_problems(db_session)
@@ -540,7 +556,7 @@ async def test_hysteresis_holds_state_until_recovery_threshold_cleared(db_sessio
     await _write_metric(db_session, agent, "cpu_pct", 90.0)  # WARN (immediately hard, max_attempts=1)
     await evaluate_host(db_session, agent)
     await db_session.commit()
-    svc = await db_session.scalar(select(Service).where(Service.agent_id == agent.id))
+    svc = await _cpu_service(db_session, agent)
     assert svc.state == "WARN"
 
     await _write_metric(db_session, agent, "cpu_pct", 75.0)  # under warn(80) but still above recovery(70)
@@ -809,7 +825,7 @@ async def test_timed_acknowledgement_expires(db_session):
     await _write_metric(db_session, agent, "cpu_pct", 99.0)
     await evaluate_host(db_session, agent)
     await db_session.commit()
-    service = await db_session.scalar(select(Service).where(Service.agent_id == agent.id))
+    service = await _cpu_service(db_session, agent)
 
     now = datetime.now(timezone.utc)
     # Ack that already expired a minute ago.
