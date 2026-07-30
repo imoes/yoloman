@@ -21,8 +21,8 @@ TimescaleDB the *technical* one. Checkmk's persistence — autochecks files, RRD
 - [x] Batch 3 — Plugin system (sections, parser, SNMP, special agents, piggyback, bakery) — 6 gaps (P1a/P1b/P3/P5a/P6/P8); no code yet, awaiting decisions
 - [x] Batch 4 — HW/SW inventory — 5 gaps (I1–I5); I4a (HW change alerting) REJECTED with reasoning, I2/I3 dropped for hardware, I4b (software changes) open
 - [x] Batch 5 — Service + host lifecycle, cluster / distributed monitoring — 10 gaps (L1–L7, C1–C3); **L1–L4 + C1/C2 implemented and live-verified** (stale agent ⇒ host DOWN, agent version, notification time windows, cluster hosts with worst/best/failover proven on the real MUE-C5 trio). Open: L5–L7, C3 (aged-out reading ⇒ UNKNOWN; host down ⇒ CRIT unless in downtime; one page per outage instead of one per service). L4 approved, C1+C2 next. L5–L7 and C3 open
-- [ ] Batch 6 — Dashboards, views, reporting, BI aggregation, event console, prediction
-- [ ] Batch 7 — REST API compatibility, users/roles/audit, configuration activation
+- [x] Batch 6 — Dashboards, views, reporting, BI aggregation, event console, prediction — 8 gaps (B1–B8); highest value: **B1** BI aggregation functions (worst-of-n / count_ok, ~30 LOC of maths) and **B3/B4** event correlation with canceling events. Awaiting decisions
+- [x] Batch 7 — REST API, users/roles/audit, configuration activation — 6 gaps (A1–A6); **activation is absent BY DESIGN** (nothing to activate — 4230 LOC we never wrote); real gap is **A1** granular permissions, plus **A3** ETag/If-Match. Awaiting decisions
 
 ## Baseline inventory (verified 2026-07-30, file:line-cited)
 
@@ -533,6 +533,120 @@ parents need L2 first, flapping is a refinement, C3 is scale-out we do not need 
 
 Batches 6 and 7 are deliberately **not** analysed yet: the decided work gets built first rather
 than growing the pile of undecided analysis.
+
+---
+
+## Batch 6 — Dashboards, views, BI aggregation, event console, reporting, prediction
+
+Read: `cmk/bi/aggregation_functions.py` (278 LOC — the whole of BI's maths),
+`packages/cmk-ec/` (9298 LOC), `cmk/gui/permissions.py`, plus our side measured against the
+live DB.
+
+### Where we already stand
+
+| Feature (Checkmk) | yolo-man status |
+|---|---|
+| Dashboards with placeable widgets | ✅ `Dashboard` + `DashboardWidget` (`db/models.py:1952,1983`), per-user (`username`), served by `api/dashboard.py` |
+| Search-driven views over hosts/services | 🟡 ours is the Fleet omnibox (`api/search.py`, crit:/site:/tag: facets) — a different, arguably better shape than Checkmk's painter/filter/sorter machinery, but without saved views |
+| Business/BI aggregation | 🟡 `BusinessService` (`db/models.py:1868`) with `logic` = **all \| any** only |
+| Event console | 🟡 receives syslog + SNMP traps into `Event` (`db/models.py:1755`), resolves the host, allows an ack |
+| Prediction | 🟡 `services/forecast.py` — OLS trend + days-to-threshold + a WARN/CRIT verdict (`status_for`) |
+| Reporting | ❌ nothing |
+
+### The two findings
+
+**BI cannot express the statement people actually make.** `logic` is `all` or `any` — worst
+or best. Checkmk's `aggregation_functions.py` is 278 LOC and offers exactly the three things
+missing: `worst(count=n)` takes the *n-th* worst state (`index = max(0, len - count)`),
+`best(count=n)` the n-th best, and `count_ok(levels_ok, levels_warn)` grades by *how many*
+children are OK — as a count **or a percentage**. "The web tier is CRIT only when two of
+five nodes are down" and "at least 60% of the workers must be OK" are both unexpressible
+today, and both are one-liners once the function exists. `restrict_state` additionally caps
+how bad an aggregate may get (worst-of, but never worse than WARN).
+
+**Our event console has no state.** It stores events; Checkmk's *correlates* them. The key
+mechanism is the canceling match: `match` opens an event, `match_ok` / `cancel_application`
+closes it (`packages/cmk-ec/cmk/ec/rule_matcher.py:66,114,117`). That single idea turns a log
+stream into stateful monitoring — "database connection lost" opens, "database connection
+restored" closes, and nothing pages for the pair. Without it every line is an isolated row
+and the operator does the correlating by eye. Checkmk's EC also gates its rules by time
+period (`rule_matcher.py:175`), which we can now reuse directly since L4.
+
+### Gaps
+
+| # | Gap | Nutzen | Aufwand | Risiko | Priorität | Art |
+|---|---|---|---|---|---|---|
+| **B1** | **BI aggregation functions** — `worst(n)`, `best(n)`, `count_ok(count\|percentage)`, `restrict_state` | The statements a business service is actually made of. 278 LOC in the reference, of which the maths is ~30; our `logic` column becomes a small JSONB function spec. Composes with C2's clustering, which already ports the same worst/best idea | S | low — additive, `all`/`any` map onto worst(1)/best(1) so nothing existing changes meaning | **Hoch** | Quick Win |
+| **B2** | **Recursive aggregation tree** (a BI node whose children are other aggregations) | Today `members` is a flat list of services. "Site → tier → host → service" needs nesting, and it is how anyone models a real service | M | medium — needs cycle detection and a bounded depth | **Mittel** | Architekturverbesserung |
+| **B3** | **Event correlation: canceling events** (`match` opens, `match_ok` closes) | Turns the event log into monitoring. Without it the console is a searchable text dump | M | medium — a new stateful object beside `services`; must not double-alert with the service path | **Hoch** | Architekturverbesserung |
+| **B4** | Event rules at all (rule packs: match → classify → act) | Currently every event is stored raw with syslog severity as its only judgement. Rules are the prerequisite for B3 | M | medium | **Hoch** | — |
+| **B5** | Event counting / thresholds ("5 of these in 60 s is one problem") | The other half of correlation: a single failed login is noise, twenty is an attack | S | low, once B4 exists | **Mittel** | — needs B4 |
+| **B6** | Saved views (a named, shareable filter+column set) | Our omnibox answers ad-hoc questions well but cannot be *kept*. Checkmk's painter/sorter machinery is large; the saved-search part is small | S | low | **Mittel** | Quick Win |
+| **B7** | Reporting (scheduled PDF/CSV of availability and SLAs) | The monthly artifact management asks for. We already compute availability (`monitoring.compute_availability`), so this is rendering plus a schedule — and `Scheduler` exists | M | low | **Niedrig** | — |
+| **B8** | Prediction bands / seasonality (a metric compared against its own past behaviour) | Ours forecasts a threshold crossing; it cannot say "this is unusual for a Monday 09:00". Checkmk's predictive levels are the feature people actually cite | L | high — needs enough history per series and a per-series model | **Niedrig** | — |
+
+### Deviations to keep (documented)
+
+| Checkmk | Ours | Reason |
+|---|---|---|
+| Views built from painters/filters/sorters, configured per view | one search language over the fleet (`crit:`, `site:`, `tag:`) | The omnibox answers the same questions with one thing to learn instead of three. What it lacks is persistence (B6), not power. |
+| BI aggregations live in their own configuration tree with their own compiler | `BusinessService` rows with a JSONB member list | Same reason as everywhere: PostgreSQL is the source of truth. B1/B2 extend the row, not the storage model. |
+| Event console is a separate daemon (`mkeventd`) with its own socket protocol and status interface | an asyncio listener writing straight into `events` | No second daemon, no socket protocol, no separate history file — and the events are queryable with SQL next to everything else. |
+
+---
+
+## Batch 7 — REST API, users/roles/audit, configuration activation
+
+Read: `cmk/gui/openapi/README.md` (the ETag contract), `cmk/gui/permissions.py`,
+`cmk/gui/watolib/activate_changes.py` (4230 LOC).
+
+### Where we already stand
+
+| Feature (Checkmk) | yolo-man status |
+|---|---|
+| Versioned REST API with OpenAPI | ✅ FastAPI generates it; every route is `/api/v1/...` and auth-gated |
+| API tokens | ✅ `ApiToken` (`db/models.py:442`) with hashed tokens + scopes |
+| Users | ✅ `bossman_users` with password auth + JWT |
+| Roles | 🟡 exactly two, CHECK-constrained: `role IN ('admin','operator')` (`db/models.py:436,439`) |
+| Per-object access control | 🟡 `AccessGrant` (`db/models.py:457`) — subject × scope, used by `require_manage_agent` |
+| Audit log | ✅ `AuditLog` (`db/models.py:1836`), tenant-scoped, `api/audit.py` |
+| Configuration activation ("pending changes" → activate) | ⏭ **absent by design** — see below |
+
+### The findings
+
+**Two roles is the gap, not the audit log.** Checkmk declares **163** individual permissions
+(142 `permission_registry.register` + 21 `declare_permission(` across `cmk/gui/`) and a role
+is a set of them. We have `admin` or `operator`, hardcoded in a CHECK constraint, plus `AccessGrant` for
+per-host reach. That is enough for two people and not enough for a team where someone may
+acknowledge but not deploy, or read one OU only. Note we do have something Checkmk does not:
+`AccessGrant` is per-object, whereas Checkmk's permissions are per-*action* and object reach
+comes from folders — the two compose rather than compete.
+
+**Activation is deliberately absent, and that is worth writing down as a feature.**
+Checkmk needs `activate_changes.py` — 4230 LOC, the largest single file found in this whole
+analysis — because its configuration is text files that a core must be told to re-read, and
+in a distributed setup pushed to remote sites. Our configuration is rows in PostgreSQL that
+the next poll reads. There is nothing to activate, no pending-changes queue, no snapshot, no
+sync. The cost of that choice is that a change takes effect immediately with no review
+step — which is a governance question (A6 below, and the approval/guardrail thread in [backlog-monitoring-mgmt.md](backlog-monitoring-mgmt.md)), not a missing Checkmk feature.
+
+### Gaps
+
+| # | Gap | Nutzen | Aufwand | Risiko | Priorität | Art |
+|---|---|---|---|---|---|---|
+| **A1** | **Granular permissions** (a named permission per action; roles are sets of them) | The first thing a second team asks for: acknowledge without deploy, read-only auditor, per-OU operator. Today the only answer is "make them admin" | M | medium — every route needs a permission name, and getting it wrong locks people out or opens something | **Hoch** | Architekturverbesserung |
+| **A2** | **Custom roles** (beyond admin/operator, which is a CHECK constraint) | Needs A1 to mean anything | S | low, after A1 | **Hoch** | — needs A1 |
+| **A3** | **Optimistic locking on writes** (`ETag` + `If-Match`, per Checkmk's opt-in endpoint contract) | Two operators editing the same rule silently overwrite each other today. Checkmk's version is small and per-endpoint, and our rows already have the timestamps to build the tag from | S | low — opt-in per endpoint, so nothing existing breaks | **Mittel** | Quick Win |
+| **A4** | Audit coverage + a UI to read it | The table and API exist; what is missing is that every mutating route writes to it, and a page to search it. Half-covered auditing is worse than none, because it looks complete | M | low | **Mittel** | Technische Schuld |
+| **A5** | LDAP / SAML / OIDC login | Nobody wants a second password store. Deferred once already in the monitoring/mgmt backlog | M | medium | **Niedrig** | — |
+| **A6** | Configuration change review ("pending changes" with an approval step) | NOT Checkmk's activation — we need no activation. But an approval gate before a change reaches the fleet is the governance half of the agentic-OS roadmap, and this is where it would attach | L | high — touches every write path | **Niedrig** | Architekturverbesserung |
+
+### Deviations to keep (documented)
+
+| Checkmk | Ours | Reason |
+|---|---|---|
+| Configuration is files; changes must be *activated*, snapshotted and pushed to remote sites (4230 LOC) | configuration is PostgreSQL rows the next poll reads | There is nothing to activate. This is the single largest simplification the persistence decision buys, and it removes a whole class of failure ("activated on site A, not on B"). |
+| Permissions per action, object reach via the folder tree | `AccessGrant` per object + (today) two roles | The two models compose: A1 adds the action axis we lack, `AccessGrant` keeps the object axis. |
 
 ---
 
