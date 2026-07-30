@@ -18,9 +18,39 @@ from typing import Any
 from sqlalchemy import and_, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from bossman.db.models import Agent, CheckAssignment
-from bossman.services import gpo
+from bossman.db.models import Agent, CheckAssignment, HostLabel
+from bossman.services import gpo, rule_conditions
 from bossman.services.compiler import resolve_host_group_ids, resolve_ou_ancestry
+
+
+async def build_match_context(
+    session: AsyncSession, agent: Agent, ancestry=None, *,
+    service_name: str | None = None, service_labels: dict[str, str] | None = None,
+) -> rule_conditions.MatchContext:
+    """Everything a rule condition is evaluated against, for one host.
+
+    Shared by both rule engines (assignments here, thresholds in services/monitoring), so
+    "what does host_tags mean" is answered in exactly one place. `ancestry` is accepted
+    pre-computed because the caller usually already has it; the host-label lookup is a
+    query, so this is built once per host and never per rule.
+
+    `service_name`/`service_labels` are for the service-level engine. Left None, the
+    service conditions are not judged at all — a rule scoped to "Disk /var" must not
+    disappear from the host merely because no service is in hand yet.
+    """
+    if ancestry is None:
+        ancestry = await resolve_ou_ancestry(session, agent.ou_id)
+    labels = (
+        await session.scalars(select(HostLabel).where(HostLabel.agent_id == agent.id))
+    ).all()
+    return rule_conditions.MatchContext(
+        host_name=agent.name or "",
+        ou_paths=[n.path for n in ancestry if getattr(n, "path", None)],
+        host_tags={str(k): str(v) for k, v in (agent.tags or {}).items()},
+        host_labels={r.key: r.value for r in labels},
+        service_name=service_name,
+        service_labels=dict(service_labels or {}),
+    )
 
 
 @dataclass
@@ -65,6 +95,14 @@ async def resolve_host_checks(session: AsyncSession, agent: Agent) -> list[Effec
             )
         )
     ).all()
+
+    # Checkmk's six condition fields, on top of the structural scope. The scope says WHERE
+    # a rule can reach; the condition says whether it actually applies there. Built once
+    # per host — the label lookup is a query, so it must not happen per rule. An assignment
+    # with no condition passes unchanged, which is every rule written before this existed.
+    if any(a.conditions for a in rows):
+        ctx = await build_match_context(session, agent, ancestry)
+        rows = [a for a in rows if rule_conditions.matches(a.conditions, ctx)]
 
     def level(a: CheckAssignment) -> int:
         if a.scope_type == "host":

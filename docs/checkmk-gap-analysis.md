@@ -17,7 +17,7 @@ TimescaleDB the *technical* one. Checkmk's persistence — autochecks files, RRD
 ## Progress
 
 - [x] Batch 1 — Service Discovery (pipeline, lifecycle, identity, discovery rules) — 9 gaps (D1–D9); D1/D7 approved and implemented (phase 1), D2–D6/D8–D9 awaiting decision
-- [x] Batch 2 — Rule Engine + host tags / host labels / service labels as conditions — 7 gaps (R1–R7); no code yet, awaiting decisions
+- [x] Batch 2 — Rule Engine + host tags / host labels / service labels as conditions — 7 gaps (R1–R7); R1–R4 approved and implemented (all six condition fields incl. and/or/not), R5–R7 awaiting decision
 - [ ] Batch 3 — Plugin system (sections, parser, SNMP, special agents, piggyback, bakery)
 - [ ] Batch 4 — HW/SW inventory (tree, history, delta, inventory-based checks)
 - [ ] Batch 5 — Service + host lifecycle, cluster / distributed monitoring
@@ -170,12 +170,37 @@ instead of hand-sorted lists — and it is what the simpler UI is built on.
 | rule order inside a ruleset decides precedence | GPO level (`global < group < OU depth < host`, `enforced`, `link_order`, `block_inheritance`) | Same key-level dict merge; order derived from the host's structural position instead of a hand-sorted list. Deliberate and decided — it is what the simpler UI rests on. |
 | one flat ruleset per parameter set | two engines: `CheckRule` (thresholds) + `CheckAssignment` (plugin + params) | Historical, and it works; unifying them is a refactor with no user-visible gain. Recorded as technical debt, not a gap. |
 
-**Decisions (awaiting user).** Analysis only, no code. Recommended order: **R1** first (the tags
-are already there, so it is the largest expressiveness gain per line of code), then **R2**
-(host labels — it makes D7 pay off), then **R4** (regex/lists, the "these twelve hosts" case),
-then **R5** as a trivial add-on. **R3** only makes sense once re-translated checks actually
-emit service labels. **R7** should be decided together with Batch 1's D5/D9, since those are
-the binary rulesets that need it. **R6** is comfort, last.
+### Decisions (2026-07-30)
+
+**GPO precedence stays** — stated plainly by the user: rule ordering is *exactly* the Checkmk
+complexity this product exists to avoid. All six condition fields are adopted, and conditions
+must support and / or / not.
+
+That combination turned out to be cheap, because the two are orthogonal: a condition decides
+*whether* a rule applies, GPO decides *which* of the applying rules wins. So R1–R4 landed
+together as one mechanism rather than four features:
+
+- `services/rule_conditions.py` — all six fields, in Checkmk's own JSON shapes, with
+  `matches_labels`/`matches_tag_condition`/`_and_or_not` ported from `ruleset_matcher.py:860+`.
+- `conditions` JSONB on **both** rule engines (`check_rules`, `check_assignments`), migration
+  `d5a2c8b41f37`, partial GIN index so the common "no condition" case is not indexed.
+- `build_match_context()` in `services/check_assignments.py` — one context per host, shared by
+  both engines, so "what does host_tags mean" is answered once.
+- Empty condition = matches everything, so every pre-existing rule is unaffected.
+
+Faithfulness details kept deliberately: `not` means AND NOT; a plain host name is escaped and
+anchored (so `web` does not match `web-staging`); an object with no labels matches a group only
+if the group has no `and`; `host_folder` means at-or-below with a path-separator boundary
+(`/prod` does not match `/production`). 21 unit tests encode each of these.
+
+Service-level fields (`service_description`, `service_label_groups`) are skipped when no
+service is in hand — otherwise a rule scoped to "Disk /var" would vanish from the host
+entirely instead of applying to that one service.
+
+**Still open: R5** (rule `disabled`/`comment`/`docu_url` — trivial), **R6** (predefined
+conditions — comfort), **R7** (a genuine binary first-match ruleset, to be decided together
+with Batch 1's D5/D9, which are the binary rulesets that would need it). **R3** is implemented
+but only becomes useful once re-translated checks actually emit service labels.
 
 ---
 

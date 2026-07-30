@@ -25,7 +25,7 @@ from sqlalchemy import func, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from bossman.db.models import Agent, CheckRule, CheckRuleOuLink, Downtime, Metric, Service, ServiceStateHistory, ValueMap
-from bossman.services import gpo, render
+from bossman.services import gpo, render, rule_conditions
 
 logger = logging.getLogger(__name__)
 
@@ -384,6 +384,24 @@ async def evaluate_host(session: AsyncSession, agent: Agent) -> list[Service]:
 
     host_ou_ancestry = await resolve_ou_ancestry(session, agent.ou_id)
     rule_ou_links = await load_rule_ou_links(session)
+
+    # Checkmk's six condition fields, applied BEFORE GPO resolution: the condition decides
+    # whether a rule applies to this host at all, GPO then picks the winner among those
+    # that do. Filtering here keeps resolve_effective_rule a pure function over a rule
+    # list, and costs one context build per host instead of one per rule.
+    #
+    # Only the HOST-level fields are judged here: a threshold rule already NAMES its
+    # service, so `service_description`/`service_label_groups` would be circular. They are
+    # left unevaluated (rule_conditions skips them when service_name is None) rather than
+    # silently failing the rule.
+    if any(r.conditions for r in rules):
+        from bossman.services.check_assignments import build_match_context
+
+        cond_ctx = await build_match_context(session, agent, host_ou_ancestry)
+        rules = [r for r in rules if rule_conditions.matches(r.conditions, cond_ctx)]
+        metrics_needed = sorted({r.metric for r in rules})
+        if not metrics_needed:
+            return []
 
     now = datetime.now(timezone.utc)
     updated: list[Service] = []

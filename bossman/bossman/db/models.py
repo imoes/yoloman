@@ -946,6 +946,12 @@ class CheckAssignment(Base):
     agent_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("agents.id", ondelete="CASCADE"))
     host_group_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("host_groups.id", ondelete="CASCADE"))
     parameters: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
+    # Checkmk's six condition fields (host_name / host_folder / host_tags /
+    # host_label_groups / service_label_groups / service_description), evaluated by
+    # services/rule_conditions.matches(). Empty = applies wherever the scope reaches.
+    # Conditions decide WHETHER this assignment applies; GPO still decides which of the
+    # applying ones wins — Checkmk's rule ORDER is deliberately not adopted.
+    conditions: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
     enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     source: Mapped[str] = mapped_column(String, nullable=False, default="manual")  # manual | autodiscovered | ai
     created_by: Mapped[str | None] = mapped_column(String)
@@ -1353,6 +1359,16 @@ class CheckRule(Base):
     scope_ou_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("ou_nodes.id", ondelete="CASCADE"))
     enforced: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     link_order: Mapped[int] = mapped_column(Integer, nullable=False, default=100)
+    # Checkmk's six condition fields — host_name / host_folder / host_tags /
+    # host_label_groups / service_label_groups / service_description, with and/or/not
+    # inside the tag and label forms. Evaluated by services/rule_conditions.matches().
+    # Empty = no condition, i.e. the rule applies wherever its scope reaches, which is how
+    # every rule written before this column behaved.
+    #
+    # NOT to be confused with `extra_conditions` above: that is a THRESHOLD condition
+    # ("also require metric X > Y on the same host", Block K9). This one decides whether
+    # the rule applies to the host/service at all.
+    conditions: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
 
     __table_args__ = (
         CheckConstraint(
