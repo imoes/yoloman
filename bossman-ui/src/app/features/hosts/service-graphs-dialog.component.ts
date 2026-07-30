@@ -284,6 +284,16 @@ function serviceGraphSpecs(name: string, metric: string, available: LatestMetric
     ]);
   }
 
+  // A per-interface service ("Interface ens18"): the check grades link state,
+  // the throughput lives in the agent's net_*_bytes telemetry labelled by iface.
+  if (name.startsWith('Interface ')) {
+    const filter = { key: 'iface', value: name.slice('Interface '.length) };
+    return keep([
+      { title: `Received bytes · ${filter.value}`, metrics: ['net_rx_bytes'], filter },
+      { title: `Transmitted bytes · ${filter.value}`, metrics: ['net_tx_bytes'], filter },
+    ]);
+  }
+
   if (name === 'CPU load' || metric === 'cpu_pct' || metric.startsWith('cpu_load')) {
     return keep([
       { title: 'Load average', metrics: ['cpu_load1', 'cpu_load5', 'cpu_load15'] },

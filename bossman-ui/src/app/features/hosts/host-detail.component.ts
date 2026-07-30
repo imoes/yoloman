@@ -96,7 +96,7 @@ function familyMembers(metric: string): string[] {
  * name onto the real telemetry metric(s) it grades — otherwise the service
  * detail chart has nothing to plot ("no data"). Disk checks additionally pin
  * a mount, since all mounts share the one `disk_used_pct` series. */
-function serviceMetricSpec(name: string, metric: string): { members: string[]; mount?: string; perLabel?: string; fallback?: string } | null {
+function serviceMetricSpec(name: string, metric: string): { members: string[]; mount?: string; perLabel?: string; fallback?: string; labelKey?: string; labelValue?: string } | null {
   // CPU utilization: one line PER CORE (cpu_core_pct{core=N}), falling back to
   // the aggregate cpu_pct on a single-core host / older agent.
   if (name === 'CPU load' || metric === 'cpu_pct') return { members: ['cpu_core_pct'], perLabel: 'core', fallback: 'cpu_pct' };
@@ -109,6 +109,13 @@ function serviceMetricSpec(name: string, metric: string): { members: string[]; m
   // that carries a metric, which these do.
   // The leading slash matters: "Disk IOPS" is a service, not a mount point.
   if (name.startsWith('Disk /')) return { members: ['disk_used_pct'], mount: name.slice('Disk '.length) };
+  // A per-interface lnx_if service ("Interface ens18"): its throughput lives in
+  // the agent's net_rx_bytes/net_tx_bytes telemetry, labelled by `iface` — the
+  // check itself only grades link state, so without this the service charts
+  // nothing. Same shape as the disk-mount pin, on the `iface` label.
+  if (name.startsWith('Interface ')) {
+    return { members: ['net_rx_bytes', 'net_tx_bytes'], labelKey: 'iface', labelValue: name.slice('Interface '.length) };
+  }
   if (metric) return { members: [metric] };
   if (name === 'CPU load') return { members: ['cpu_load1', 'cpu_load5', 'cpu_load15'] };
   if (name === 'Memory') return { members: ['mem_used_pct'] };
@@ -2435,10 +2442,15 @@ export class HostDetailComponent implements OnInit {
     }
 
     forkJoin(spec.members.map((m) => this.agentService.metricSeries(agent.id, m, since))).subscribe((results) => {
-      const series = results.map((res, i) => ({
-        name: spec.mount ? `${spec.members[i]} ${spec.mount}` : spec.members[i],
-        points: spec.mount ? res.points.filter((p) => p.labels['mount'] === spec.mount) : res.points,
-      }));
+      const series = results.map((res, i) => {
+        // Pin one label value where the spec asks for it: a mount (disk) or an
+        // iface (interface throughput). Both share their metric across many rows.
+        const key = spec.mount ? 'mount' : spec.labelKey;
+        const val = spec.mount ?? spec.labelValue;
+        const points = key ? res.points.filter((p) => p.labels[key] === val) : res.points;
+        const suffix = val ? ` ${val}` : '';
+        return { name: `${spec.members[i]}${suffix}`, points };
+      });
       this.serviceChartSeries.set(series);
     });
   }

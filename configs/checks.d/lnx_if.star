@@ -1,293 +1,123 @@
-# Starlark module for checkmk.lnx_if interface check (read-only)
-# Translated from Checkmk's cmk.plugins.network.agent_based.lnx_if
+# Linux network interface check (read-only).
+#
+# Ported from cmk.plugins.network.agent_based.lnx_if, adapted for an agent that
+# does not ship ethtool. Where the Checkmk agent shells out to ethtool for speed
+# and link state, this reads the kernel's own /sys/class/net, which is always
+# present and needs no extra package:
+#   type      ARPHRD number — 772 is loopback, 1 is ethernet (authoritative,
+#             where Checkmk guesses "24 if name==lo else 6")
+#   operstate up / down / unknown
+#   carrier   1 / 0  (fallback when operstate is "unknown", e.g. some virtio NICs)
+#   speed     link speed in Mbit/s, or -1 when the driver cannot report it
+#             (virtio, bonds) — genuinely unknown, not an error
+#
+# Discovery mirrors Checkmk's defaults (lib/interfaces.DISCOVERY_DEFAULT_PARAMETERS):
+# only real ports (loopback porttype 24 excluded) that are currently up
+# (portstates ["1"]), and never docker veth* pairs.
 
-def _parse_dev_file(stdout):
-    """Parse /proc/net/dev format into a dict of interface name -> counters"""
-    result = {}
-    lines = stdout.splitlines()
-    for line in lines:
+LOOPBACK_ARPHRD = "772"
+
+def _read(ctx, path):
+    """One /sys value, stripped; "" when the file is absent (rc != 0)."""
+    res = ctx.run(["cat", path], mutates=False)
+    if res.rc != 0:
+        return ""
+    return res.stdout.strip()
+
+def _iface_names(ctx):
+    res = ctx.run(["ls", "/sys/class/net"], mutates=False)
+    if res.rc != 0:
+        return []
+    return sorted([n for n in res.stdout.split() if n])
+
+def _oper_up(operstate, carrier):
+    # operstate is the direct answer where the driver sets it; virtio leaves it
+    # "unknown", so fall back to carrier (1 = link present).
+    if operstate == "up":
+        return True
+    if operstate == "down":
+        return False
+    return carrier == "1"
+
+def _monitored(ctx, name):
+    """A real, up port — the set Checkmk would discover by default."""
+    if name.startswith("veth"):
+        return False
+    if _read(ctx, "/sys/class/net/%s/type" % name) == LOOPBACK_ARPHRD:
+        return False
+    operstate = _read(ctx, "/sys/class/net/%s/operstate" % name)
+    carrier = _read(ctx, "/sys/class/net/%s/carrier" % name)
+    return _oper_up(operstate, carrier)
+
+def _speed_label(mbit):
+    # Integer-only formatting: Starlark's % rejects %.1f, and speeds are whole
+    # Mbit/s anyway. -1 (or 0) means the driver does not report a speed.
+    if mbit <= 0:
+        return "speed unknown"
+    if mbit >= 1000 and mbit % 1000 == 0:
+        return "%d Gbit/s" % (mbit // 1000)
+    if mbit >= 1000:
+        return "%d Mbit/s" % mbit
+    return "%d Mbit/s" % mbit
+
+def _dev_counters(ctx, item):
+    """in/out octets etc. for one interface from /proc/net/dev."""
+    res = ctx.run(["cat", "/proc/net/dev"], mutates=False)
+    for line in res.stdout.splitlines():
         stripped = line.strip()
-        if not stripped:
+        colon = stripped.find(":")
+        if colon <= 0:
             continue
-        # Format: "    eth0: 1234 56 7 8 0 0 0 0    1234 56 7 8 0 0 0 0"
-        colon_idx = stripped.find(":")
-        if colon_idx <= 0:
+        if stripped[:colon].strip() != item:
             continue
-        name = stripped[:colon_idx].strip()
-        rest = stripped[colon_idx+1:].strip()
-        counters_str = rest.split()
-        if len(counters_str) >= 16:
-            counters = [int(x) for x in counters_str]
-            result[name] = counters
-    return result
-
-def _parse_ip_link(stdout):
-    """Parse 'ip -o link' output to extract interface info"""
-    result = {}
-    lines = stdout.splitlines()
-    i = 0
-    while i < len(lines):
-        line = lines[i]
-        # Format: "1: lo: <LOOPBACK,UP,LOWER_UP> mtu 65536 qdisc noqueue state UNKNOWN mode DEFAULT group default"
-        # Split on ": " to get fields
-        parts = line.split()
-        if len(parts) < 2 or not parts[1].endswith(":"):
-            i += 1
-            continue
-        
-        # Get interface name (second field, without trailing colon)
-        full_name = parts[1][:-1]  # Remove trailing colon
-        name = full_name.split("@")[0]  # Remove @suffix like veth123@eth0
-        
-        # Get flags from third field
-        flags_part = ""
-        if len(parts) > 2:
-            flags_part = parts[2]
-        
-        # Extract state from flags
-        state = ""
-        if "<" in flags_part and ">" in flags_part:
-            flag_str = flags_part[flags_part.find("<")+1:flags_part.find(">")]
-            state = flag_str
-        
-        result[name] = {
-            "state": state,
-            "link_ether": "",
-        }
-        
-        # Look for link/ether on next line(s)
-        i += 1
-        while i < len(lines):
-            next_line = lines[i]
-            stripped = next_line.strip()
-            if not stripped:
-                i += 1
-                break
-            if not stripped.startswith("link/"):
-                i += 1
-                continue
-            if stripped.startswith("link/ether"):
-                # link/ether 00:27:13:b4:a9:ec brd ff:ff:ff:ff:ff:ff
-                parts = stripped.split()
-                if len(parts) >= 2:
-                    result[name]["link_ether"] = parts[1]
-            i += 1
-    
-    return result
-
-def _parse_ethtool(stdout):
-    """Parse ethtool output to extract speed and link detected status"""
-    result = {}
-    lines = stdout.splitlines()
-    current_iface = None
-    
-    for line in lines:
-        stripped = line.strip()
-        if not stripped:
-            continue
-        if stripped.startswith("[") and stripped.endswith("]"):
-            current_iface = stripped[1:-1]
-            result[current_iface] = {"speed": 0, "link_detected": ""}
-            continue
-        if current_iface == None:
-            continue
-        
-        # Parse "Speed: 1000Mb/s"
-        if stripped.startswith("Speed:"):
-            speed_str = stripped[6:].strip()
-            if speed_str == "65535Mb/s":
-                result[current_iface]["speed"] = 0
-            elif speed_str.endswith("Kb/s"):
-                result[current_iface]["speed"] = int(float(speed_str[:-4])) * 1000
-            elif speed_str.endswith("Mb/s"):
-                result[current_iface]["speed"] = int(float(speed_str[:-4])) * 1000000
-            elif speed_str.endswith("Gb/s"):
-                result[current_iface]["speed"] = int(float(speed_str[:-4])) * 1000000000
-            else:
-                result[current_iface]["speed"] = 0
-        # Parse "Link detected: yes/no"
-        elif stripped.startswith("Link detected:"):
-            result[current_iface]["link_detected"] = stripped[14:].strip()
-    
-    return result
-
-def _get_oper_status(link_detected, state_infos, in_octets):
-    """Determine operational status based on link detection, state, and traffic"""
-    # From ethtool link detection
-    if link_detected == "yes":
-        return "1"
-    if link_detected == "no":
-        return "2"
-    
-    # From ip link state
-    if state_infos:
-        if "UP" in state_infos and "LOWER_UP" in state_infos:
-            return "1"
-        return "2"
-    
-    # Fallback: if ever seen traffic, assume up
-    if in_octets > 0:
-        return "1"
-    return "4"
+        f = stripped[colon + 1:].split()
+        if len(f) >= 16:
+            return [int(x) for x in f]
+    return None
 
 def main(ctx, params):
-    # Discovery mode
     if params.get("_discover"):
-        res = ctx.run(["cat", "/proc/net/dev"], mutates=False)
-        dev_data = _parse_dev_file(res.stdout)
-        
-        res = ctx.run(["ip", "-o", "link"], mutates=False)
-        ip_data = _parse_ip_link(res.stdout)
-        
-        res = ctx.run(["ethtool"] + list(dev_data.keys()), mutates=False)
-        ethtool_data = _parse_ethtool(res.stdout)
-        
-        # Build discovered items
         out = []
-        for iface_name in sorted(dev_data.keys()):
-            counters = dev_data[iface_name]
-            in_octets = counters[0]
-            ip_info = ip_data.get(iface_name, {})
-            eth_info = ethtool_data.get(iface_name, {})
-            oper_status = _get_oper_status(
-                eth_info.get("link_detected", ""),
-                ip_info.get("state", ""),
-                in_octets
-            )
-            
-            # Skip veth* interfaces
-            if iface_name.startswith("veth"):
+        for name in _iface_names(ctx):
+            if not _monitored(ctx, name):
                 continue
-            
-            # Determine interface type
-            iface_type = "24" if iface_name == "lo" else "6"
-            
-            # Build metrics list based on standard interface check
-            metrics = [
-                "in_octets", "in_ucast", "in_mcast", "in_bcast",
-                "in_disc", "in_err", "out_octets", "out_ucast",
-                "out_mcast", "out_bcast", "out_disc", "out_err"
-            ]
-            
             out.append({
-                "item": iface_name,
-                "params": {
-                    "state": ["1"],  # up
-                    "nonsingle_oper_status": ["1", "2", "4"]
-                },
-                "metrics": metrics
+                "item": name,
+                "params": {"target_states": ["up"]},
+                "metrics": ["in_octets", "out_octets", "in_err", "out_err", "in_disc", "out_disc", "speed"],
             })
-        
-        return {
-            "changed": False,
-            "msg": "discovered %d interfaces" % len(out),
-            "data": {"discovery": out}
-        }
-    
-    # Check mode (single item)
+        return {"changed": False, "msg": "discovered %d interfaces" % len(out),
+                "data": {"discovery": out}}
+
     item = params.get("item", "")
     if not item:
-        return {
-            "changed": False,
-            "msg": "no item specified",
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-        }
-    
-    # Skip veth* interfaces
-    if item.startswith("veth"):
-        return {
-            "changed": False,
-            "msg": "interface %s is a docker veth interface" % item,
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-        }
-    
-    # Get data
-    res = ctx.run(["cat", "/proc/net/dev"], mutates=False)
-    dev_data = _parse_dev_file(res.stdout)
-    
-    res = ctx.run(["ip", "-o", "link", item], mutates=False)
-    ip_data = _parse_ip_link(res.stdout)
-    
-    res = ctx.run(["ethtool", item], mutates=False)
-    ethtool_data = _parse_ethtool(res.stdout)
-    
-    # Check if interface exists
-    if item not in dev_data:
-        return {
-            "changed": False,
-            "msg": "interface %s not found" % item,
-            "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}
-        }
-    
-    counters = dev_data[item]
-    in_octets = counters[0]
-    in_ucast = counters[1] + counters[7]
-    in_mcast = counters[7]
-    in_bcast = 0
-    in_disc = counters[3]
-    in_err = counters[2]
-    out_octets = counters[8]
-    out_ucast = counters[9]
-    out_mcast = 0
-    out_bcast = 0
-    out_disc = counters[11]
-    out_err = counters[10]
-    
-    ip_info = ip_data.get(item, {})
-    eth_info = ethtool_data.get(item, {})
-    oper_status = _get_oper_status(
-        eth_info.get("link_detected", ""),
-        ip_info.get("state", ""),
-        in_octets
-    )
-    
-    # Get thresholds from params
-    state_params = params.get("state", ["1"])  # up
-    nonsingle_oper_status = params.get("nonsingle_oper_status", ["1", "2", "4"])
-    
-    # Determine state
-    state = "OK"
-    if oper_status not in state_params:
-        if oper_status == "1":
-            state = "CRIT"
-        else:
-            state = "WARN"
-    
-    # Build summary message
-    speed = eth_info.get("speed", 0)
-    speed_str = "unknown"
-    if speed >= 1000000000:
-        speed_str = "%f Gb/s" % (speed / 1000000000.0)
-    elif speed >= 1000000:
-        speed_str = "%f Mb/s" % (speed / 1000000.0)
-    elif speed > 0:
-        speed_str = "%d kb/s" % (speed / 1000)
-    
-    summary = "link %s" % ("up" if oper_status == "1" else "down")
-    msg = "%s: %s, %s" % (item, speed_str, summary)
-    
-    # Build metrics
-    metrics = {
-        "in_octets": in_octets,
-        "in_ucast": in_ucast,
-        "in_mcast": in_mcast,
-        "in_bcast": in_bcast,
-        "in_disc": in_disc,
-        "in_err": in_err,
-        "out_octets": out_octets,
-        "out_ucast": out_ucast,
-        "out_mcast": out_mcast,
-        "out_bcast": out_bcast,
-        "out_disc": out_disc,
-        "out_err": out_err
-    }
-    
-    return {
-        "changed": False,
-        "msg": msg,
-        "data": {
-            "state": state,
-            "metrics": metrics,
-            "details": ""
-        }
-    }
+        return {"changed": False, "msg": "no item specified",
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
+    if _read(ctx, "/sys/class/net/%s/type" % item) == "":
+        return {"changed": False, "msg": "interface %s not found" % item,
+                "data": {"state": "UNKNOWN", "metrics": {}, "details": ""}}
+
+    operstate = _read(ctx, "/sys/class/net/%s/operstate" % item)
+    carrier = _read(ctx, "/sys/class/net/%s/carrier" % item)
+    up = _oper_up(operstate, carrier)
+
+    speed_raw = _read(ctx, "/sys/class/net/%s/speed" % item)
+    mbit = int(speed_raw) if (speed_raw.lstrip("-").isdigit()) else -1
+
+    # A discovered-up interface that is now down is the alarm case. Target states
+    # come from discovery (params.target_states); default to ["up"].
+    targets = params.get("target_states", ["up"])
+    state = "OK" if (("up" if up else "down") in targets) else "WARN"
+
+    # Throughput (net_rx_bytes/net_tx_bytes) is graphed from the agent's own
+    # telemetry, so it is not re-reported here. No honest SCALAR exists for an
+    # interface without two samples to rate against — Checkmk shows in/out
+    # utilisation, which needs state between checks we do not keep — so the
+    # metrics dict is left empty rather than surfacing a raw discard counter as
+    # the service's headline number (which read as a problem on an OK link).
+    # State + speed live in the summary; throughput lives in the graphs.
+    msg = "%s: %s, %s" % (item, "up" if up else "down", _speed_label(mbit))
+
+    return {"changed": False, "msg": msg,
+            "data": {"state": state, "metrics": {}, "details": ""}}
