@@ -19,7 +19,7 @@ TimescaleDB the *technical* one. Checkmk's persistence — autochecks files, RRD
 - [x] Batch 1 — Service Discovery (pipeline, lifecycle, identity, discovery rules) — 9 gaps (D1–D9); D1/D7 approved and implemented (phase 1), D2–D6/D8–D9 awaiting decision
 - [x] Batch 2 — Rule Engine + host tags / host labels / service labels as conditions — 7 gaps (R1–R7); R1–R4 approved and implemented (all six condition fields incl. and/or/not), R5–R7 awaiting decision
 - [x] Batch 3 — Plugin system (sections, parser, SNMP, special agents, piggyback, bakery) — 6 gaps (P1a/P1b/P3/P5a/P6/P8); no code yet, awaiting decisions
-- [ ] Batch 4 — HW/SW inventory (tree, history, delta, inventory-based checks)
+- [x] Batch 4 — HW/SW inventory (tree, history, delta, inventory-based checks) — 5 gaps (I1–I5); no code yet, awaiting decisions
 - [ ] Batch 5 — Service + host lifecycle, cluster / distributed monitoring
 - [ ] Batch 6 — Dashboards, views, reporting, BI aggregation, event console, prediction
 - [ ] Batch 7 — REST API compatibility, users/roles/audit, configuration activation
@@ -267,6 +267,77 @@ in the Checkmk source and the extractor already runs, and it retires the class o
 is where the measured cost actually is. **P1b** (a real section layer) only makes sense bundled
 with a re-translation, since it changes the check contract. **P5a**/**P6** are genuine features
 with real scope; **P8** I recommend rejecting.
+
+---
+
+## Batch 4 — HW/SW inventory
+
+Read: `cmk/inventory/structured_data.py` (the tree), `cmk/inventory/paths.py` (archive +
+delta cache), `packages/cmk-check-engine/cmk/checkengine/inventory.py`
+(`HWSWInventoryParameters`), `packages/cmk-plugin-apis/.../_plugins.py` (`InventoryPlugin`).
+Our side measured on the live DB.
+
+**Checkmk's model.** Inventory is a TREE, not a document: `ImmutableTree(attributes, table,
+nodes_by_name)` — every node carries *attributes* (key→value, e.g. `hardware/cpu`) and/or a
+*table* (rows, e.g. `software/packages`), and nodes nest. It is produced by
+`InventoryPlugin(name, sections, inventory_function)` plugins that yield `Attributes(path, …)`
+and `TableRow(path, key_columns, …)` — i.e. inventory data comes from the SAME section layer
+as checks (Batch 3), just consumed by a different plugin kind.
+
+Three things follow from it being a tree with a history, and they are the actual gap:
+
+1. **History**: every change is archived as `inventory_archive/<HOST>/<TS>.json`.
+2. **Delta**: `_compare_trees` produces `SDDeltaValue(old, new)` per key, cached as
+   `inventory_delta_cache/<HOST>/<TS>_<TS>.json`, with new/changed/removed counts.
+3. **Changes become a service state.** `HWSWInventoryParameters` (`inventory.py:90`) grades
+   `hw_changes`, `sw_changes`, `sw_missing`, `nw_changes` — so "a DIMM disappeared" or "42
+   packages changed overnight" is a monitored, alertable event, not something you notice by
+   chance.
+
+**Ours**, measured: one flat JSON document per host in `agents.facts`, 11 top-level keys
+(`os cpu bios nics board disks system memory_mb collected_at installed_packages
+installed_packages_at`), up to 988 packages on a host, collected by
+`internal/inventory/inventory.go` (self-described as "the CheckMK-HW/SW-inventory
+equivalent") and `_collect_packages` (`services/poller.py:409`). Zero tables whose name
+contains `inventor` or `facts` — so **no history, no delta, and no alerting on change**. The
+document is overwritten in place on every collection.
+
+| Feature (Checkmk) | yolo-man status | Disposition |
+|---|---|---|
+| Structured inventory content (HW: system/board/BIOS/CPU/RAM/disks/NICs; SW: packages) | ✅ equivalent content already collected (`internal/inventory/inventory.go`, `agents.facts`) | — |
+| **I1** — Tree shape (nested nodes, attributes vs table) | 🟡 flat JSON with 11 keys; the CONTENT nests but nothing knows it is a tree, so nothing can navigate/query it generically | see gaps |
+| **I2** — History (archive per change) | ❌ overwritten in place; the previous state is gone | see gaps |
+| **I3** — Delta (old/new per key, new/changed/removed counts) | ❌ nothing to compare against | needs I2 |
+| **I4** — Changes as a monitored service (`hw_changes`/`sw_changes`/`sw_missing`/`nw_changes`) | ❌ absent | needs I2+I3 |
+| **I5** — `InventoryPlugin` as a plugin kind fed by sections | ❌ inventory is hard-coded in the Go agent, not extensible by a plugin | — |
+| Inventory-driven rules | 🟡 a narrow one EXISTS and is arguably ahead of Checkmk here: `ComplianceRule`/`ComplianceResult` (`db/models.py:1570`) grade required/forbidden packages against `facts["installed_packages"]` | keep; generalise later |
+
+### Gaps
+
+| # | Gap | Nutzen | Aufwand | Risiko | Priorität | Art |
+|---|---|---|---|---|---|---|
+| **I2** | **Inventory history**: keep the previous document(s) per host instead of overwriting | Without it, "when did this host lose 8 GB of RAM" is unanswerable — and it is the precondition for I3/I4. Cheap in our stack: one TimescaleDB hypertable keyed (agent_id, time) with the document as JSONB, retention like any other tier. | S | low — additive table, the existing write becomes an insert-plus-upsert | **Hoch** | Architekturverbesserung |
+| **I3** | **Delta** between two inventory documents (per-key old/new, counts) | Turns history into something readable: "what changed since yesterday". A JSONB recursive diff in Postgres or in Python; Checkmk caches its deltas, we can compute on demand at our data sizes. | M | low | **Hoch** | — |
+| **I4** | **Changes as a service state** — grade hw/sw/nw changes and missing software | This is the part that makes inventory *monitoring* rather than documentation. A new DIMM, a removed NIC, or 42 changed packages overnight becomes a WARN a human sees. | M | medium — needs sensible defaults or it becomes an alarm generator (Checkmk's own defaults are all 0 = OK, i.e. opt-in) | **Hoch** | — |
+| **I1** | **Explicit tree model** (typed paths, attributes vs table) | Enables generic navigation/search/UI over inventory instead of per-key code, and matches Checkmk's REST/UI shape for Batch 7. | M | medium — a schema for content that currently has none | **Mittel** | Architekturverbesserung |
+| **I5** | Inventory plugins fed by sections | Extensible inventory (an app contributing its own inventory node). | L | medium | **Niedrig** | — depends on Batch 3's P1b |
+
+### Deviations to keep (documented)
+
+| Checkmk | Ours | Reason |
+|---|---|---|
+| archive + delta cache as timestamped FILES per host | a TimescaleDB hypertable + on-demand diff | PostgreSQL is the single source of truth; and inventory history is exactly a time series of documents, which is what the storage layer we already run is for. Retention/compression come free instead of being a bespoke file-pruning job. |
+| inventory produced by plugins over sections | produced by the Go agent directly | The agent already gathers it in one pass with no plugin round-trip; making it pluggable is I5, not a defect. |
+
+**Decisions (awaiting user).** Recommended as one coherent block, because each is the
+precondition for the next and only the last one is user-visible: **I2 → I3 → I4**. That block is
+what turns inventory from a document you can look at into something that tells you when your
+hardware changed behind your back. **I1** (explicit tree) pairs naturally with Batch 7's REST
+API work. **I5** waits on Batch 3's section layer (P1b).
+
+Worth noting in our favour: `ComplianceRule` (required/forbidden packages, graded against the
+collected package list) is an inventory-DRIVEN rule that Checkmk has no direct equivalent for —
+it is the same idea as I4, already working, just narrower.
 
 ---
 
