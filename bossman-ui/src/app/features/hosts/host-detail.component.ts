@@ -2280,7 +2280,10 @@ export class HostDetailComponent implements OnInit {
   /** Friendly agent-role label: a managed agent is a Duppy (satellite) or a
    * Selecta (proxy, fronts satellites); 'standalone' = un-enrolled/self-managed. */
   modeLabel(mode: string | null | undefined): string {
-    return { satellite: 'Duppy', proxy: 'Selecta (proxy)', standalone: 'Standalone (unmanaged)' }[mode ?? ''] ?? (mode || '—');
+    // 'cluster' (C1): a host whose services are computed from its nodes rather than
+    // polled — nothing ever contacts it, which is why it has no address.
+    return { satellite: 'Duppy', proxy: 'Selecta (proxy)', standalone: 'Standalone (unmanaged)',
+      cluster: 'Cluster (aggregated from nodes)' }[mode ?? ''] ?? (mode || '—');
   }
 
   toggleService(svc: ServiceState): void {
