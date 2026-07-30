@@ -19,7 +19,7 @@ TimescaleDB the *technical* one. Checkmk's persistence — autochecks files, RRD
 - [x] Batch 1 — Service Discovery (pipeline, lifecycle, identity, discovery rules) — 9 gaps (D1–D9); D1/D7 approved and implemented (phase 1), D2–D6/D8–D9 awaiting decision
 - [x] Batch 2 — Rule Engine + host tags / host labels / service labels as conditions — 7 gaps (R1–R7); R1–R4 approved and implemented (all six condition fields incl. and/or/not), R5–R7 awaiting decision
 - [x] Batch 3 — Plugin system (sections, parser, SNMP, special agents, piggyback, bakery) — 6 gaps (P1a/P1b/P3/P5a/P6/P8); no code yet, awaiting decisions
-- [x] Batch 4 — HW/SW inventory (tree, history, delta, inventory-based checks) — 5 gaps (I1–I5); no code yet, awaiting decisions
+- [x] Batch 4 — HW/SW inventory — 5 gaps (I1–I5); I4a (HW change alerting) REJECTED with reasoning, I2/I3 dropped for hardware, I4b (software changes) open
 - [ ] Batch 5 — Service + host lifecycle, cluster / distributed monitoring
 - [ ] Batch 6 — Dashboards, views, reporting, BI aggregation, event console, prediction
 - [ ] Batch 7 — REST API compatibility, users/roles/audit, configuration activation
@@ -318,7 +318,8 @@ document is overwritten in place on every collection.
 |---|---|---|---|---|---|---|
 | **I2** | **Inventory history**: keep the previous document(s) per host instead of overwriting | Without it, "when did this host lose 8 GB of RAM" is unanswerable — and it is the precondition for I3/I4. Cheap in our stack: one TimescaleDB hypertable keyed (agent_id, time) with the document as JSONB, retention like any other tier. | S | low — additive table, the existing write becomes an insert-plus-upsert | **Hoch** | Architekturverbesserung |
 | **I3** | **Delta** between two inventory documents (per-key old/new, counts) | Turns history into something readable: "what changed since yesterday". A JSONB recursive diff in Postgres or in Python; Checkmk caches its deltas, we can compute on demand at our data sizes. | M | low | **Hoch** | — |
-| **I4** | **Changes as a service state** — grade hw/sw/nw changes and missing software | This is the part that makes inventory *monitoring* rather than documentation. A new DIMM, a removed NIC, or 42 changed packages overnight becomes a WARN a human sees. | M | medium — needs sensible defaults or it becomes an alarm generator (Checkmk's own defaults are all 0 = OK, i.e. opt-in) | **Hoch** | — |
+| **I4a** | HARDWARE changes as a service state (`hw_changes`, `nw_changes`) | — | — | — | ⏭ **REJECTED** | see decision below |
+| **I4b** | SOFTWARE changes as a service state (`sw_changes`, `sw_missing`) | Packages change without anyone deciding to (unattended upgrades), and the list already feeds CVE scanning and ComplianceRule. | M | medium — needs opt-in defaults | **offen** | — |
 | **I1** | **Explicit tree model** (typed paths, attributes vs table) | Enables generic navigation/search/UI over inventory instead of per-key code, and matches Checkmk's REST/UI shape for Batch 7. | M | medium — a schema for content that currently has none | **Mittel** | Architekturverbesserung |
 | **I5** | Inventory plugins fed by sections | Extensible inventory (an app contributing its own inventory node). | L | medium | **Niedrig** | — depends on Batch 3's P1b |
 
@@ -329,15 +330,35 @@ document is overwritten in place on every collection.
 | archive + delta cache as timestamped FILES per host | a TimescaleDB hypertable + on-demand diff | PostgreSQL is the single source of truth; and inventory history is exactly a time series of documents, which is what the storage layer we already run is for. Retention/compression come free instead of being a bespoke file-pruning job. |
 | inventory produced by plugins over sections | produced by the Go agent directly | The agent already gathers it in one pass with no plugin round-trip; making it pluggable is I5, not a defect. |
 
-**Decisions (awaiting user).** Recommended as one coherent block, because each is the
-precondition for the next and only the last one is user-visible: **I2 → I3 → I4**. That block is
-what turns inventory from a document you can look at into something that tells you when your
-hardware changed behind your back. **I1** (explicit tree) pairs naturally with Batch 7's REST
-API work. **I5** waits on Batch 3's section layer (P1b).
+### Decisions (2026-07-30)
+
+**I4a — hardware/network change alerting: REJECTED.** The user's reasoning, and it is sound:
+a host does not spontaneously lose 8 GB of RAM. Hardware changes only when somebody deliberately
+powers the machine down and changes it — and that person does not need to be told. So the alert
+would fire exclusively for events that are already known, i.e. it is noise by construction.
+
+That also removes the motivation I had given for **I2 (history) on the hardware side**: the
+question "when did this host lose 8 GB" was the justification, and it is not a question worth
+answering. I2/I3 are therefore NOT recommended for hardware.
+
+One factual correction to the DB-spam concern, because it is already handled: `_store_facts`
+(`services/poller.py:329`) writes only when the document actually changed, and deliberately
+excludes `collected_at` from the comparison — "a no-op write per poll tick would just churn the
+table". So a change-only history table would, for hardware, write approximately never. The cost
+was never the issue; the value is, and the value is not there.
+
+**Still open, and a genuinely different case: I4b — SOFTWARE changes.** Packages are not like
+DIMMs: they change without anyone deciding to (unattended upgrades), on hosts with up to 988 of
+them, and that list already feeds CVE scanning and `ComplianceRule`. "Which host got which
+package when" is the question that correlates an incident with a change. Whether that is worth
+building is a separate decision from I4a and has not been made.
+
+**I1** (explicit tree) pairs naturally with Batch 7's REST API work. **I5** waits on Batch 3's
+section layer (P1b).
 
 Worth noting in our favour: `ComplianceRule` (required/forbidden packages, graded against the
 collected package list) is an inventory-DRIVEN rule that Checkmk has no direct equivalent for —
-it is the same idea as I4, already working, just narrower.
+the same idea as I4b, already working, just narrower.
 
 ---
 
