@@ -20,7 +20,7 @@ TimescaleDB the *technical* one. Checkmk's persistence — autochecks files, RRD
 - [x] Batch 2 — Rule Engine + host tags / host labels / service labels as conditions — 7 gaps (R1–R7); R1–R4 approved and implemented (all six condition fields incl. and/or/not), R5–R7 awaiting decision
 - [x] Batch 3 — Plugin system (sections, parser, SNMP, special agents, piggyback, bakery) — 6 gaps (P1a/P1b/P3/P5a/P6/P8); no code yet, awaiting decisions
 - [x] Batch 4 — HW/SW inventory — 5 gaps (I1–I5); I4a (HW change alerting) REJECTED with reasoning, I2/I3 dropped for hardware, I4b (software changes) open
-- [x] Batch 5 — Service + host lifecycle, cluster / distributed monitoring — 10 gaps (L1–L7, C1–C3); **L1+L2+L3 implemented and live-verified** (aged-out reading ⇒ UNKNOWN; host down ⇒ CRIT unless in downtime; one page per outage instead of one per service). L4 approved, C1+C2 next. L5–L7 and C3 open
+- [x] Batch 5 — Service + host lifecycle, cluster / distributed monitoring — 10 gaps (L1–L7, C1–C3); **L1+L2+L3 implemented and live-verified** (incl. Checkmk parity: stale agent ⇒ host DOWN, agent version surfaced) (aged-out reading ⇒ UNKNOWN; host down ⇒ CRIT unless in downtime; one page per outage instead of one per service). L4 approved, C1+C2 next. L5–L7 and C3 open
 - [ ] Batch 6 — Dashboards, views, reporting, BI aggregation, event console, prediction
 - [ ] Batch 7 — REST API compatibility, users/roles/audit, configuration activation
 
@@ -488,6 +488,20 @@ SQLAlchemy's identity map folded them into ONE object. `evaluate_host` therefore
 single mount: **4 of 5 filesystems were never threshold-checked**, invisible because the
 agent's own checks write services under the same names. The view now exposes `series_id`
 (migration e7b2f4a19c33) and the mapped key is (series_id, time).
+
+**Agent status = the host check (2026-07-30).** Per the reference: Checkmk equates agent
+contact with the host check, so a **stale agent means the host is DOWN**, not merely
+"stale data". `update_host_alive` therefore has two CRIT paths — no answer, and answered
+but the newest sample is older than the window ("its API did answer" is spelled out, so it
+does not read as a network fault). This also gave **satellites** their first host verdict:
+Bossman never contacts one directly, so `reached=None` judges by freshness alone — until
+now a relay that stopped delivering looked healthy, and the proxy's own poll kept
+refreshing the satellite's `last_seen_at`.
+
+**Agent version** is read from the agent's unauthenticated `/healthz` each poll into
+`agents.agent_version` (migration f3a9c1d47b62), shown in the `Host alive` summary and in
+the host detail. Unauthenticated is a feature here: it answers even when a token has
+drifted, so "reachable but rejecting us" stays distinguishable from "gone".
 
 **L5/L6/L7 and C3 stay open**, in that order of appeal: recurring downtimes are a small win,
 parents need L2 first, flapping is a refinement, C3 is scale-out we do not need yet.
