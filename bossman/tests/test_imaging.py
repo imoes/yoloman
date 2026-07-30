@@ -14,7 +14,11 @@ from bossman.services.imaging import (
     PlannedVolume,
     SourceLayout,
     Volume,
+    _partition_number,
+    _split_vg_lv,
     candidate_disks,
+    classify_role,
+    parse_layout,
     plan_restore,
     select_target_disk,
 )
@@ -182,3 +186,153 @@ def test_an_empty_layout_is_an_error():
 
 def test_used_total_counts_data_not_containers():
     assert _layout().used_total == ESP.used_bytes + BOOT.used_bytes + ROOT_EXT4.used_bytes
+
+
+# ---------------------------------------------------------------------------
+# Parsing the real tool output
+#
+# These fixtures are this host's actual `lsblk -b --json` and a real `sfdisk --json` (produced
+# against a file-backed table, so the format is the tool's own and not remembered). It covers
+# both shapes that must work: LVM on a partition (sda3 -> ubuntu--vg) and LVM straight on the
+# disk with no partition table (sdb -> data--vg).
+
+SDA = {
+    "name": "sda", "type": "disk", "size": 53687099392, "fstype": None, "fsused": None,
+    "mountpoint": None, "rm": False,
+    "children": [
+        {"name": "sda1", "type": "part", "size": 1127219200, "fstype": "vfat",
+         "fsused": 6438912, "mountpoint": "/boot/efi", "rm": False},
+        {"name": "sda2", "type": "part", "size": 2147483648, "fstype": "ext4",
+         "fsused": 232456192, "mountpoint": "/boot", "rm": False},
+        {"name": "sda3", "type": "part", "size": 50410291200, "fstype": "LVM2_member",
+         "fsused": None, "mountpoint": None, "rm": False,
+         "children": [
+             {"name": "ubuntu--vg-ubuntu--lv", "type": "lvm", "size": 50407145472,
+              "fstype": "ext4", "fsused": 30749495296, "mountpoint": "/", "rm": False},
+         ]},
+    ],
+}
+
+SDB = {
+    "name": "sdb", "type": "disk", "size": 182536126464, "fstype": "LVM2_member",
+    "fsused": None, "mountpoint": None, "rm": False,
+    "children": [
+        {"name": "data--vg-home", "type": "lvm", "size": 64424509440, "fstype": "ext4",
+         "fsused": 49883561984, "mountpoint": "/home", "rm": False},
+        {"name": "data--vg-data1", "type": "lvm", "size": 118107406336, "fstype": "ext4",
+         "fsused": 54400147456, "mountpoint": "/data1", "rm": False},
+    ],
+}
+
+SFDISK = {
+    "partitiontable": {
+        "label": "gpt", "device": "/dev/sda", "unit": "sectors",
+        "firstlba": 2048, "lastlba": 104857566, "sectorsize": 512,
+        "partitions": [
+            {"node": "/dev/sda1", "start": 2048, "size": 2201600,
+             "type": "C12A7328-F81F-11D2-BA4B-00A0C93EC93B", "name": "EFI"},
+            {"node": "/dev/sda2", "start": 2203648, "size": 4194304,
+             "type": "0FC63DAF-8483-4772-8E79-3D69D8477DE4"},
+            {"node": "/dev/sda3", "start": 6397952, "size": 98459648,
+             "type": "E6D6D379-F507-44C2-A23C-238F2A3DF928"},
+        ],
+    }
+}
+
+
+def test_the_real_layout_of_this_host_parses():
+    layout = parse_layout(sfdisk=SFDISK, lsblk_disk=SDA)
+    assert layout.label == "gpt"
+    assert layout.disk_size == 53687099392
+    assert [v.role for v in layout.volumes] == ["esp", "boot", "root"]
+    assert [v.fs_type for v in layout.volumes] == ["vfat", "ext4", "ext4"]
+    root = layout.volumes[-1]
+    assert (root.vg, root.lv) == ("ubuntu-vg", "ubuntu-lv"), "dm dash-escaping decoded"
+    assert root.used_bytes == 30749495296
+
+
+def test_the_container_itself_is_not_a_volume():
+    """sda3 is an LVM2_member — a PV, not data. Imaging it would copy the LV twice."""
+    layout = parse_layout(sfdisk=SFDISK, lsblk_disk=SDA)
+    assert all(v.fs_type != "lvm2_member" for v in layout.volumes)
+    assert len(layout.volumes) == 3
+
+
+def test_lvm_straight_on_the_disk_is_detected():
+    """sdb has PVs on the raw device: there is no partition table to recreate."""
+    layout = parse_layout(sfdisk=None, lsblk_disk=SDB)
+    assert layout.lvm_on_raw_disk is True
+    assert [v.lv for v in layout.volumes] == ["data1", "home"], "ordered, and dashes decoded"
+    assert all(v.partition is None for v in layout.volumes)
+
+
+def test_volume_order_puts_the_growable_one_last():
+    """plan_restore grows the LAST volume, so the fixed boot pieces must sort before it."""
+    layout = parse_layout(sfdisk=SFDISK, lsblk_disk=SDA)
+    plan = plan_restore(layout, Disk("nvme0n1", 200 * GiB))
+    assert plan.volumes[-1].volume.role == "root"
+    assert plan.volumes[-1].grow is True
+    assert [v.grow for v in plan.volumes[:-1]] == [False, False]
+
+
+def test_an_unmounted_filesystem_reports_unknown_usage_not_zero():
+    """The trap: `lsblk` fills `fsused` only for MOUNTED filesystems, and a cold capture — the
+    recommended kind, since a live root is inconsistent — sees none of it.
+
+    Zero would let plan_restore approve any target disk however small; the container size would
+    reject the oversized-source case the feature exists for. So it is None, and planning refuses
+    until the capture establishes the real number.
+    """
+    cold = {
+        "name": "sda", "type": "disk", "size": 50 * GiB, "fstype": None, "rm": False,
+        "children": [
+            {"name": "sda1", "type": "part", "size": 40 * GiB, "fstype": "ext4",
+             "fsused": None, "mountpoint": None, "rm": False},
+        ],
+    }
+    layout = parse_layout(sfdisk=None, lsblk_disk=cold)
+    assert layout.volumes[0].used_bytes is None
+    assert len(layout.unknown_usage) == 1
+
+    with pytest.raises(ImagingError) as exc:
+        plan_restore(layout, Disk("sdb", 100 * GiB))
+    assert "used size is unknown" in str(exc.value)
+    assert "capture must record it" in str(exc.value)
+
+
+def test_a_disk_without_a_size_is_refused():
+    with pytest.raises(ImagingError):
+        parse_layout(sfdisk=None, lsblk_disk={"name": "sda", "type": "disk", "size": 0})
+
+
+def test_sector_size_is_read_not_assumed():
+    """A 4Kn disk reports sectorsize 4096; assuming 512 understates every size eightfold."""
+    four_k = {"partitiontable": {"label": "dos", "sectorsize": 4096, "partitions": []}}
+    layout = parse_layout(sfdisk=four_k, lsblk_disk=SDA)
+    assert layout.label == "dos", "the label type is taken from the table, not guessed"
+
+
+def test_dm_names_decode_a_doubled_dash():
+    """device-mapper escapes a literal dash by doubling it. Splitting naively on "-" turns
+    "data--vg-home" into VG "data", and the restore would build a volume group that never
+    existed."""
+    assert _split_vg_lv("data--vg-home") == ("data-vg", "home")
+    assert _split_vg_lv("ubuntu--vg-ubuntu--lv") == ("ubuntu-vg", "ubuntu-lv")
+    assert _split_vg_lv("nodash") is None
+
+
+def test_partition_numbers_from_both_naming_schemes():
+    assert _partition_number("sda3") == 3
+    assert _partition_number("nvme0n1p2") == 2, "nvme partitions carry a p"
+    assert _partition_number("sdb") is None
+
+
+def test_role_comes_from_the_mountpoint_then_the_type_guid():
+    assert classify_role(mountpoint="/", fs_type="ext4", part_type=None) == "root"
+    assert classify_role(mountpoint="/boot", fs_type="ext4", part_type=None) == "boot"
+    assert classify_role(mountpoint="/boot/efi", fs_type="vfat", part_type=None) == "esp"
+    # Unmounted: the GPT type is the only signal left.
+    assert classify_role(
+        mountpoint=None, fs_type="vfat", part_type="c12a7328-f81f-11d2-ba4b-00a0c93ec93b"
+    ) == "esp", "the GUID comparison must be case-insensitive"
+    assert classify_role(mountpoint="/srv", fs_type="xfs", part_type=None) == "data"

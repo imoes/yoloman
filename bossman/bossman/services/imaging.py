@@ -96,12 +96,20 @@ class Volume:
 
     `used_bytes` is what partclone will move; `size_bytes` is the container it came out of. The
     two differ by exactly the free space that never enters the image.
+
+    `used_bytes` is **None until it is known**, and that distinction carries weight. `lsblk`
+    reports `fsused` only for MOUNTED filesystems, so a cold capture — which is the recommended
+    way, since a live root is inconsistent — sees nothing. Treating unknown as 0 would make
+    `plan_restore` approve any target disk, however small; treating it as the full container
+    would reject exactly the oversized-source case this feature exists for. So it stays None and
+    `plan_restore` refuses to plan until the capture has filled it in (partclone counts the used
+    blocks as it works, which is the authoritative number anyway).
     """
 
     role: str  # "esp" | "boot" | "root" | "data" | ...
     fs_type: str
     size_bytes: int
-    used_bytes: int
+    used_bytes: int | None
     # Set when the filesystem lives on an LV rather than straight on a partition.
     vg: str | None = None
     lv: str | None = None
@@ -122,8 +130,19 @@ class SourceLayout:
     lvm_on_raw_disk: bool = False
 
     @property
+    def unknown_usage(self) -> tuple[Volume, ...]:
+        """Volumes whose used size the capture has not established yet."""
+        return tuple(v for v in self.volumes if v.used_bytes is None)
+
+    @property
     def used_total(self) -> int:
-        return sum(v.used_bytes for v in self.volumes)
+        if self.unknown_usage:
+            raise ImagingError(
+                "used size is unknown for: "
+                + ", ".join(v.role for v in self.unknown_usage)
+                + " — the capture must record it before a restore can be planned"
+            )
+        return sum(int(v.used_bytes or 0) for v in self.volumes)
 
 
 @dataclass(frozen=True)
@@ -157,6 +176,150 @@ class RestorePlan:
     @property
     def grows(self) -> list[PlannedVolume]:
         return [v for v in self.volumes if v.grow]
+
+
+# GPT partition type GUIDs worth recognising. The type is more trustworthy than a size guess,
+# and for an unmounted disk it is the only signal available.
+_GPT_ESP = "C12A7328-F81F-11D2-BA4B-00A0C93EC93B"
+_GPT_LVM = "E6D6D379-F507-44C2-A23C-238F2A3DF928"
+_GPT_SWAP = "0657FD6D-A4AB-43C4-84E5-0933C84B4F4F"
+_GPT_BIOS_BOOT = "21686148-6449-6E6F-744E-656564454649"
+
+# Filesystems that are containers or otherwise never imaged as data.
+_NOT_A_FILESYSTEM = {"", "lvm2_member", "swap", "crypto_luks"}
+
+
+def classify_role(*, mountpoint: str | None, fs_type: str, part_type: str | None) -> str:
+    """What this volume is for, from the strongest signal available.
+
+    The mountpoint is decisive when there is one; otherwise the GPT type GUID answers for the two
+    that matter (ESP, BIOS boot). Everything else is data — a deliberately dull default, because
+    guessing "this is probably root" from a size would be wrong on any host with a big /var.
+    """
+    mp = (mountpoint or "").rstrip("/") or ("/" if mountpoint == "/" else "")
+    if mp == "/":
+        return "root"
+    if mp == "/boot":
+        return "boot"
+    if mp in ("/boot/efi", "/efi"):
+        return "esp"
+    upper = (part_type or "").upper()
+    if upper == _GPT_ESP or fs_type.lower() == "vfat" and mp.startswith("/boot"):
+        return "esp"
+    if upper == _GPT_BIOS_BOOT:
+        return "bios_boot"
+    if upper == _GPT_SWAP or fs_type.lower() == "swap":
+        return "swap"
+    return "data"
+
+
+def parse_layout(*, sfdisk: dict[str, Any] | None, lsblk_disk: dict[str, Any]) -> SourceLayout:
+    """Build a manifest from the real output of `sfdisk --json` and `lsblk -b --json`.
+
+    Both are needed and neither is redundant: `lsblk` knows the filesystems, their used size and
+    the LVM tree; `sfdisk` knows the partition geometry and the label type, which is what has to
+    be recreated on the target.
+
+    Two facts about the inputs that are easy to get wrong:
+
+    * `sfdisk` reports `start`/`size` in **sectors**, and `sectorsize` is not always 512 — a 4Kn
+      disk reports 4096, so multiplying by a hardcoded 512 understates every size eightfold.
+    * `lvs`/`lsblk` warnings go to stderr, but LVM also writes some errors to **stdout**; merging
+      the two streams corrupts the JSON. Callers must capture stdout alone.
+    """
+    label = "gpt"
+    sector = 512
+    part_types: dict[str, str] = {}
+    if sfdisk:
+        table = sfdisk.get("partitiontable") or {}
+        label = str(table.get("label") or "gpt")
+        sector = int(table.get("sectorsize") or 512)
+        for p in table.get("partitions") or []:
+            node = str(p.get("node") or "")
+            if node:
+                part_types[node.rsplit("/", 1)[-1]] = str(p.get("type") or "")
+
+    disk_size = int(lsblk_disk.get("size") or 0)
+    if disk_size <= 0:
+        raise ImagingError(f"disk {lsblk_disk.get('name')!r} reports no size")
+
+    volumes: list[Volume] = []
+    # LVM directly on the disk: the disk itself is the PV, so there is no partition table to
+    # recreate. A real layout — this host's sdb is exactly that.
+    lvm_on_raw = str(lsblk_disk.get("fstype") or "").lower() == "lvm2_member"
+
+    def visit(node: dict[str, Any], partition: int | None, vg_lv: tuple[str, str] | None) -> None:
+        fs = str(node.get("fstype") or "").lower()
+        name = str(node.get("name") or "")
+        kind = str(node.get("type") or "")
+
+        if kind == "part":
+            partition = _partition_number(name)
+        if kind == "lvm":
+            vg_lv = _split_vg_lv(name)
+
+        if fs and fs not in _NOT_A_FILESYSTEM:
+            used = node.get("fsused")
+            volumes.append(
+                Volume(
+                    role=classify_role(
+                        mountpoint=node.get("mountpoint"),
+                        fs_type=fs,
+                        part_type=part_types.get(name),
+                    ),
+                    fs_type=fs,
+                    size_bytes=int(node.get("size") or 0),
+                    # None, not 0: see Volume's docstring — an unmounted filesystem reports
+                    # nothing here and the capture has to establish it.
+                    used_bytes=int(used) if used not in (None, "") else None,
+                    vg=vg_lv[0] if vg_lv else None,
+                    lv=vg_lv[1] if vg_lv else None,
+                    partition=partition,
+                    mountpoint=node.get("mountpoint") or None,
+                )
+            )
+        for child in node.get("children") or []:
+            visit(child, partition, vg_lv)
+
+    for child in lsblk_disk.get("children") or []:
+        visit(child, None, None)
+
+    # Order matters downstream: plan_restore grows the LAST volume, so root/data must come last
+    # and the fixed-size boot pieces first. Sorting by the source's own on-disk order is the only
+    # thing that reproduces the original layout.
+    volumes.sort(key=lambda v: (v.partition if v.partition is not None else 1 << 30, v.lv or ""))
+    return SourceLayout(
+        disk_size=disk_size,
+        label=label,
+        volumes=tuple(volumes),
+        lvm_on_raw_disk=lvm_on_raw,
+    )
+
+
+def _partition_number(name: str) -> int | None:
+    """"sda3" → 3, "nvme0n1p2" → 2. None when the name carries no partition index."""
+    digits = ""
+    for ch in reversed(name):
+        if ch.isdigit():
+            digits = ch + digits
+        else:
+            break
+    return int(digits) if digits else None
+
+
+def _split_vg_lv(name: str) -> tuple[str, str] | None:
+    """"ubuntu--vg-ubuntu--lv" → ("ubuntu-vg", "ubuntu-lv").
+
+    device-mapper escapes a literal dash by doubling it, so the VG/LV separator is the single
+    dash. Splitting naively on "-" turns "data--vg-home" into VG "data" — a name that does not
+    exist, and the restore would then create the wrong volume group.
+    """
+    marker = "\x00"
+    protected = name.replace("--", marker)
+    if "-" not in protected:
+        return None
+    vg, _, lv = protected.partition("-")
+    return vg.replace(marker, "-"), lv.replace(marker, "-")
 
 
 def plan_restore(layout: SourceLayout, target: Disk) -> RestorePlan:
