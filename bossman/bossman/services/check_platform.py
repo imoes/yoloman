@@ -71,7 +71,7 @@ def platform_of(facts: dict[str, Any] | None) -> str:
     return "linux"
 
 
-def verdict(check_name: str, platform: str, sections_path: str) -> str:
+def verdict(check_name: str, platform: str, sections_path: str, datasource: str = "agent") -> str:
     """One of:
 
     "possible"   — a section of this check is emitted by that platform's agent,
@@ -90,6 +90,16 @@ def verdict(check_name: str, platform: str, sections_path: str) -> str:
     if not sections:
         return "unknown"
 
+    # An SNMP-only check is about a DEVICE, not a server. Checkmk would never
+    # discover fortisandbox_mem_usage or lgp_info on an agent host, and neither
+    # should we — however the translation re-targeted it. This is deliberately
+    # decided from Checkmk's declarations rather than from what our translated
+    # star happens to read: a check that reads /proc to report on a Fortinet
+    # appliance is exactly the case we are trying to exclude.
+    snmp_only = set(data.get("snmp_sections") or [])
+    if datasource == "agent" and snmp_only and all(s in snmp_only for s in sections):
+        return "impossible"
+
     tags: set[str] = set()
     for section in sections:
         tags.update(producers.get(section) or [])
@@ -103,8 +113,3 @@ def verdict(check_name: str, platform: str, sections_path: str) -> str:
         for t in tags
     )
     return "impossible" if foreign else "unknown"
-
-
-def impossible_checks(names: list[str], platform: str, sections_path: str) -> set[str]:
-    """The subset of `names` this platform can never satisfy."""
-    return {n for n in names if verdict(n, platform, sections_path) == "impossible"}

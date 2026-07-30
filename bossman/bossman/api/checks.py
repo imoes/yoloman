@@ -285,7 +285,7 @@ def _load_candidate_checks(
         # vms_cpu on a Debian VM: those checks fabricate their section, so no
         # behavioural probe could tell they don't apply. Honoured on an explicit
         # re-scan too — the platform doesn't change because someone re-scans.
-        if check_platform.verdict(name, platform, settings.checkmk_sections_path) == "impossible":
+        if check_platform.verdict(name, platform, settings.checkmk_sections_path, datasource) == "impossible":
             continue
         # The sidecar is NestedText (.nt); the agent registers the tool under
         # its fqcn, so parse it out and pass it through (call_tool needs it).

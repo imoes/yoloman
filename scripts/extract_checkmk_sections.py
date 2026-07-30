@@ -50,6 +50,27 @@ AGENT_SCRIPTS = "check_mk_agent.*"
 # matches the plugin-name form `<<<mssql_counters>>>` inside plugins.
 SECTION_RE = re.compile(r"<<<\s*([a-zA-Z0-9_]+)\s*(?::[^>]*)?>>>")
 
+# Special agents rarely write the header themselves. Two indirect forms, both of
+# which the first version of this script missed entirely — which is why
+# ibm_svc_systemstats had NO known producer and its check kept being offered on a
+# Debian VM (where it reads /proc/diskstats and calls it IBM SVC statistics):
+#   SectionWriter("ibm_svc_systemstats")     the helper in special_agents/v0_unstable
+#   "section_header": "ibm_svc_systemstats"  a command table, as agent_ibmsvc uses
+INDIRECT_SECTION_RES = (
+    re.compile(r"SectionWriter\(\s*[\"']([a-zA-Z0-9_]+)[\"']"),
+    re.compile(r"section_header[\"']?\s*:\s*[\"']([a-zA-Z0-9_]+)[\"']"),
+)
+
+
+def _sections_in(text: str, indirect: bool = False) -> set[str]:
+    """Section names a source file emits. `indirect` adds the special-agent forms;
+    a computed name (an f-string) is deliberately not guessed at."""
+    found = set(SECTION_RE.findall(text))
+    if indirect:
+        for pattern in INDIRECT_SECTION_RES:
+            found.update(pattern.findall(text))
+    return found
+
 # Section classes declared in the plugin API. SNMP ones can never come from an
 # agent host, so they are recorded separately rather than as producers.
 AGENT_SECTION_CLASSES = {"AgentSection", "SimpleSNMPSection", "SNMPSection"}
@@ -154,6 +175,29 @@ def extract_legacy_checks(root: Path) -> dict[str, list[str]]:
     return out
 
 
+def extract_catalog(root: Path) -> dict[str, str]:
+    """check -> Checkmk's own catalog path, from its man page (`catalog: app/postgresql`).
+
+    Not a gate: `os/*` and `app/*` are equally real on a Linux host, and whether
+    the app is installed is what discovery is for. It IS the priority list for
+    fixing translations — an `app/*` check that reports OK while reading only
+    `ps` or /etc/passwd is claiming an application it never found. A check with
+    no man page at all (mkevents, cmk_inv) is not a plugin in this version.
+    """
+    out: dict[str, str] = {}
+    for man in root.rglob("checkman/*"):
+        if man.is_dir():
+            continue
+        try:
+            for line in man.read_text(encoding="utf-8", errors="replace").splitlines():
+                if line.startswith("catalog:"):
+                    out[man.name] = line.split(":", 1)[1].strip()
+                    break
+        except OSError:
+            continue
+    return out
+
+
 def extract_producers(root: Path) -> dict[str, set[str]]:
     """section -> the set of things that emit it.
 
@@ -229,7 +273,7 @@ def extract_producers(root: Path) -> dict[str, set[str]]:
             except OSError:
                 continue
             name = path.stem.removeprefix("agent_")
-            for section in SECTION_RE.findall(text):
+            for section in _sections_in(text, indirect=True):
                 record(section, f"special:{name}")
 
     return producers
@@ -250,6 +294,7 @@ def main() -> int:
     legacy = extract_legacy_checks(root)
     for name, sections in legacy.items():
         checks.setdefault(name, sections)
+    catalog = extract_catalog(root)
     producers = extract_producers(root)
     # Re-key producers by PARSED section name, which is what checks ask for.
     # Both keys are kept: a raw name can also be a parsed name elsewhere.
@@ -263,6 +308,7 @@ def main() -> int:
         "(cmk-check-engine discovery/_discover/services.py::_find_host_plugins)",
         "checks": {k: sorted(v) for k, v in sorted(checks.items())},
         "producers": {k: sorted(v) for k, v in sorted(producers.items())},
+        "catalog": dict(sorted(catalog.items())),
         "parsed_section_of": dict(sorted(parsed_of.items())),
         "snmp_sections": sorted(snmp_sections),
         "agent_sections": sorted(agent_sections),
@@ -277,6 +323,7 @@ def main() -> int:
     print(f"  optional plugin {sum(1 for p in producers.values() if any(x.startswith('plugin:') for x in p))}")
     print(f"  special agent {sum(1 for p in producers.values() if any(x.startswith('special:') for x in p))}")
     print(f"snmp sections   {len(snmp_sections)}")
+    print(f"catalogued      {len(catalog)} checks have a man page")
     print(f"-> {out}")
     return 0
 

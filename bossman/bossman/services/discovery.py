@@ -78,9 +78,14 @@ def _fetched_data(result: Any) -> bool:
         return True
     ds = result.get("data_source")
     if not isinstance(ds, dict):
-        return True  # older agent, or a check that fetches nothing → no verdict
-    attempts = int(ds.get("attempts") or 0)
-    return attempts == 0 or int(ds.get("produced") or 0) > 0
+        # No field at all → an older agent that cannot answer. Keep the check;
+        # a missing capability must not narrow discovery.
+        return True
+    # A check that made NO read call did not look at the host. `mkevents` is the
+    # case in the library: zero ctx.run/ctx.file_read calls, yet it reported OK and
+    # was offered on every host. Since the agent now always reports this field,
+    # attempts==0 is a real answer ("observed nothing"), not a missing one.
+    return int(ds.get("produced") or 0) > 0
 
 
 async def _data_present(client, fqcn: str, item: "DiscoveredItem") -> bool:

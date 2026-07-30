@@ -25,7 +25,8 @@ type Result struct {
 	// anything: {"attempts": n, "produced": m}. Discovery uses it as Checkmk uses
 	// "was the section fetched" — a check whose every command came back empty
 	// (the tool is not installed on this host) has no data to report on, whatever
-	// state it claims. Omitted by modules that fetch nothing.
+	// state it claims. Always present for Starlark modules — "read nothing"
+	// (attempts 0) has to be distinguishable from "agent too old to report".
 	DataSource map[string]int `json:"data_source,omitempty"`
 }
 

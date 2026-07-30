@@ -76,10 +76,13 @@ func (m *StarModule) Run(_ context.Context, params map[string]any, dryRun bool) 
 	if err != nil {
 		return modules.Result{}, fmt.Errorf("%s: %w", m.fqcn, err)
 	}
+	// ALWAYS reported, including attempts=0. Omitting it there made "this module
+	// read nothing at all" indistinguishable from "an agent too old to say", and
+	// the caller has to treat the latter as unknown — so mkevents, which makes no
+	// ctx call whatsoever and still reports OK, kept being discovered on every host.
+	// With the field always present, its absence means exactly one thing.
 	out := modules.Result{Changed: res.Changed, Msg: res.Msg, Data: res.Data}
-	if res.Evidence.Attempts > 0 {
-		out.DataSource = map[string]int{"attempts": res.Evidence.Attempts, "produced": res.Evidence.Produced}
-	}
+	out.DataSource = map[string]int{"attempts": res.Evidence.Attempts, "produced": res.Evidence.Produced}
 	return out, nil
 }
 
