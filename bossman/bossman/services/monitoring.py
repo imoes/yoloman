@@ -17,6 +17,7 @@ the REST API, MCP tools, and tests without duplicating logic.
 from __future__ import annotations
 
 import logging
+from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from uuid import UUID
@@ -297,6 +298,72 @@ def format_value(value: float | None, metric: str | None = None) -> str:
     if kind == "timespan":
         return render.timespan(value)
     return render.number(value)
+
+
+# L2: the host's own reachability, carried as a reserved Service rather than as extra
+# columns on `agents`. That is not a shortcut — it is the reason the feature is small:
+# a Service row already brings soft/hard debouncing (so one transient failure does not
+# page), state history, acknowledgement with expiry, downtime coverage, flapping
+# suppression, the Problems view, notification rules and escalation. A parallel
+# host-state machine beside `services` would have had to re-earn every one of those.
+#
+# The name is reserved: no rule may produce it, and L3's suppression keys off it.
+HOST_ALIVE_SERVICE = "Host alive"
+
+
+async def update_host_alive(
+    session: AsyncSession, agent: Agent, *, reached: bool, now: datetime, detail: str = ""
+) -> Service:
+    """Records whether Bossman reached this host at all, as its own service.
+
+    A host that does not answer is **CRIT** — per the product decision, being down is a
+    problem in its own right unless a downtime says it is expected. Downtime needs no
+    special case here: an active host-wide downtime (a `Downtime` row with
+    service_name NULL) already covers this service like any other, so it stops the page
+    and drops out of the Problems view while the state itself stays honestly CRIT.
+
+    Debounced with the usual DEFAULT_MAX_ATTEMPTS, so a single dropped poll goes `soft`
+    and only a genuinely absent host reaches `hard` and pages.
+    """
+    if reached:
+        state, output = "OK", "agent responded"
+    else:
+        # Name the actual failure — "no answer" alone sends the operator hunting for
+        # the reason the poller already knows (DNS, refused, TLS, timeout).
+        state = "CRIT"
+        output = f"no answer from {agent.address or 'the agent'}"
+        if detail:
+            output = f"{output}: {detail}"
+    return await _upsert_service_state(
+        session,
+        agent.id,
+        HOST_ALIVE_SERVICE,
+        state,
+        None,
+        output,
+        now,
+        DEFAULT_MAX_ATTEMPTS,
+        metric="",
+        rule_id=None,
+        agent_name=agent.name,
+        agent_tags=agent.tags,
+    )
+
+
+async def hard_down_agent_ids(session: AsyncSession, agent_ids: Iterable[UUID]) -> set[UUID]:
+    """Which of these hosts are confirmed (hard) down — the input to L3's suppression."""
+    ids = list({a for a in agent_ids})
+    if not ids:
+        return set()
+    rows = await session.scalars(
+        select(Service.agent_id).where(
+            Service.agent_id.in_(ids),
+            Service.name == HOST_ALIVE_SERVICE,
+            Service.state != "OK",
+            Service.state_type == "hard",
+        )
+    )
+    return set(rows.all())
 
 
 def stale_after_for(settings) -> timedelta:

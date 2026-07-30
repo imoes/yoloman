@@ -7,7 +7,7 @@ import uuid
 from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
 
-from sqlalchemy import delete, select
+from sqlalchemy import delete, select, update
 
 from bossman.db.models import Agent, CheckRule, Metric, MetricRaw, MetricSeries, Service, ServiceStateHistory
 from bossman.services.monitoring import (
@@ -351,10 +351,11 @@ async def test_evaluate_host_creates_service_with_ok_state(db_session):
     services = await evaluate_host(db_session, agent)
     await db_session.commit()
 
-    assert len(services) == 1
-    assert services[0].name == "CPU load"
-    assert services[0].state == "OK"
-    assert services[0].value == 50.0
+    # By name: globally-scoped default rules (Memory / Disk / Disk IOPS are seeded)
+    # apply to every host, so this agent legitimately carries more than one service.
+    cpu = _only(services, "CPU load")
+    assert cpu.state == "OK"
+    assert cpu.value == 50.0
 
     await _cleanup(db_session, agent, rule)
 
@@ -371,12 +372,16 @@ async def test_evaluate_host_records_history_on_state_change(db_session):
     await evaluate_host(db_session, agent)
     await db_session.commit()
 
-    service = await db_session.scalar(select(Service).where(Service.agent_id == agent.id))
+    service = await db_session.scalar(
+        select(Service).where(Service.agent_id == agent.id, Service.name == "CPU load")
+    )
     assert service.state == "CRIT"
 
     history = (
         await db_session.scalars(
-            select(ServiceStateHistory).where(ServiceStateHistory.agent_id == agent.id).order_by(ServiceStateHistory.time)
+            select(ServiceStateHistory)
+            .where(ServiceStateHistory.agent_id == agent.id, ServiceStateHistory.service_name == "CPU load")
+            .order_by(ServiceStateHistory.time)
         )
     ).all()
     assert [h.state for h in history] == ["OK", "CRIT"]
@@ -395,7 +400,14 @@ async def test_evaluate_host_does_not_record_history_when_state_unchanged(db_ses
     await evaluate_host(db_session, agent)
     await db_session.commit()
 
-    history = (await db_session.scalars(select(ServiceStateHistory).where(ServiceStateHistory.agent_id == agent.id))).all()
+    history = (
+        await db_session.scalars(
+            select(ServiceStateHistory).where(
+                ServiceStateHistory.agent_id == agent.id,
+                ServiceStateHistory.service_name == "CPU load",
+            )
+        )
+    ).all()
     assert len(history) == 1  # only the initial OK, not a second one
 
     await _cleanup(db_session, agent, rule)
@@ -456,15 +468,24 @@ async def test_evaluate_host_unknown_when_no_metric_ever_polled(db_session):
     await _cleanup(db_session, agent, rule)
 
 
-async def test_evaluate_host_no_rules_produces_no_services(db_session):
+async def test_a_host_with_no_specific_rule_gets_only_the_global_defaults(db_session):
+    """It used to assert `services == []`, which stopped being true once global default
+    rules were seeded: a global rule matches every host by definition. What is still
+    worth asserting is that nothing beyond those defaults appears, and that each one is
+    UNKNOWN rather than OK — this agent has no metrics at all, and "no data" must never
+    read as healthy.
+    """
     agent = await _make_agent(db_session)
 
     services = await evaluate_host(db_session, agent)
 
-    assert services == []
+    globals_ = {r.service_name for r in (await db_session.scalars(
+        select(CheckRule).where(CheckRule.enabled == True, CheckRule.scope_type == "global")  # noqa: E712
+    )).all()}
+    assert {s.name for s in services} <= globals_, "no service may appear without a rule behind it"
+    assert all(s.state == "UNKNOWN" for s in services), "a host with no metrics is not OK"
 
-    await db_session.delete(agent)
-    await db_session.commit()
+    await _cleanup(db_session, agent)  # the global rules DID create services + history here
 
 
 async def test_soft_then_hard_debounce_and_problems_filter(db_session):
@@ -482,12 +503,19 @@ async def test_soft_then_hard_debounce_and_problems_filter(db_session):
         assert svc.state == "CRIT"
         assert (svc.state_type, svc.attempt) == (expected_type, expected_attempt)
         problems = await query_problems(db_session)
-        mine = [p for p in problems if p.service.agent_id == agent.id]
+        mine = [p for p in problems if p.service.agent_id == agent.id and p.service.name == "CPU load"]
         # A soft problem is NOT surfaced; a hard one is.
         assert (len(mine) == 1) == (expected_type == "hard")
 
     # Exactly one history row — the single hard onset, no soft churn.
-    history = (await db_session.scalars(select(ServiceStateHistory).where(ServiceStateHistory.agent_id == agent.id))).all()
+    history = (
+        await db_session.scalars(
+            select(ServiceStateHistory).where(
+                ServiceStateHistory.agent_id == agent.id,
+                ServiceStateHistory.service_name == "CPU load",
+            )
+        )
+    ).all()
     assert [h.state for h in history] == ["CRIT"]
 
     await _cleanup(db_session, agent, rule)
@@ -533,8 +561,7 @@ async def test_evaluate_host_stamps_agent_tags_for_notification_routing(db_sessi
     updated = await evaluate_host(db_session, agent)
     await db_session.commit()
 
-    assert len(updated) == 1
-    assert getattr(updated[0], "_notify_agent_tags", None) == {"env": "prod"}
+    assert getattr(_only(updated, "CPU load"), "_notify_agent_tags", None) == {"env": "prod"}
 
     await _cleanup(db_session, agent, rule)
 
@@ -636,7 +663,11 @@ async def test_multi_label_series_collapse_to_one_service_and_keep_notify(db_ses
     assert mem[0].state == "CRIT"
     assert getattr(mem[0], "_notify_event", None) == "problem", "hard onset notify intent survives"
 
-    services = (await db_session.scalars(select(Service).where(Service.agent_id == agent.id))).all()
+    services = (
+        await db_session.scalars(
+            select(Service).where(Service.agent_id == agent.id, Service.name == "Memory")
+        )
+    ).all()
     assert len(services) == 1
 
     await _cleanup(db_session, agent, rule)
@@ -653,7 +684,9 @@ async def test_flapping_flag_set_on_frequent_changes(db_session):
         await evaluate_host(db_session, agent)
         await db_session.commit()
 
-    svc = await db_session.scalar(select(Service).where(Service.agent_id == agent.id))
+    svc = await db_session.scalar(
+        select(Service).where(Service.agent_id == agent.id, Service.name == "CPU load")
+    )
     assert svc.is_flapping is True
 
     await _cleanup(db_session, agent, rule)
@@ -686,7 +719,8 @@ async def test_disk_rule_fans_out_per_mount_with_override(db_session):
     await db_session.commit()
 
     services = {s.name: s for s in (await db_session.scalars(select(Service).where(Service.agent_id == agent.id))).all()}
-    assert set(services) == {"Disk /", "Disk /var", "Disk /home"}, "one service per mount"
+    mounts = {name for name in services if name.startswith("Disk /")}
+    assert mounts == {"Disk /", "Disk /var", "Disk /home"}, "one service per mount"
     assert services["Disk /"].state == "OK"
     assert services["Disk /home"].state == "OK"
     assert services["Disk /var"].state == "OK", "the /var-pinned override (warn 95) beats the global default (warn 80)"
@@ -721,20 +755,36 @@ async def test_ingest_agent_check_yields_to_owning_rule(db_session):
 async def test_seed_default_check_rules_is_idempotent(db_session):
     from bossman.services.monitoring import seed_default_check_rules
 
-    # Clear any rules first so the count is deterministic in the shared DB.
-    for r in (await db_session.scalars(select(CheckRule))).all():
-        await db_session.delete(r)
+    # Only the DEFAULT rules are removed and only to re-seed them, and they are left in
+    # place afterwards. This test used to delete EVERY CheckRule in the database and then
+    # delete the ones it seeded — against a database the running system shares, so it
+    # silently stripped live monitoring policy on each run. Anything not is_default
+    # belongs to another test (or to the operator) and is none of this test's business.
+    defaults = (await db_session.scalars(select(CheckRule).where(CheckRule.is_default == True))).all()  # noqa: E712
+    ids = [r.id for r in defaults]
+    if ids:
+        await db_session.execute(update(Service).where(Service.rule_id.in_(ids)).values(rule_id=None))
+        await db_session.execute(delete(CheckRule).where(CheckRule.id.in_(ids)))
     await db_session.commit()
 
     first = await seed_default_check_rules(db_session)
     second = await seed_default_check_rules(db_session)
-    assert first == 2 and second == 0, "seeds Memory+Disk once, then no-ops"
-    rules = (await db_session.scalars(select(CheckRule).where(CheckRule.is_default == True))).all()  # noqa: E712
-    assert {r.service_name for r in rules} == {"Memory", "Disk"}
+    assert second == 0, "a second seeding must be a no-op"
+    # Asserted over ALL enabled global rules, not just the is_default ones: seeding
+    # skips a name that already exists in any form, so a same-named non-default rule
+    # left over from another test legitimately suppresses the default. What must hold is
+    # that the fleet ends up covered for Memory and Disk.
+    covered = {
+        r.service_name
+        for r in (
+            await db_session.scalars(
+                select(CheckRule).where(CheckRule.enabled == True, CheckRule.scope_type == "global")  # noqa: E712
+            )
+        ).all()
+    }
+    assert {"Memory", "Disk"} <= covered
 
-    for r in rules:
-        await db_session.delete(r)
-    await db_session.commit()
+    await db_session.commit()  # the defaults stay — they are the system's, not the test's
 
 
 async def test_timed_acknowledgement_expires(db_session):

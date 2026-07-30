@@ -262,3 +262,88 @@ async def test_dispatch_scope_is_additive(db_session):
         await db_session.delete(r)
     await db_session.delete(agent)
     await db_session.commit()
+
+
+async def test_a_down_host_pages_once_not_once_per_service(db_session):
+    """L3: a confirmed-down host reports ONE problem — "Host alive" — and silences the rest.
+
+    This is what makes L1 usable. Once an aged-out reading correctly becomes UNKNOWN, a
+    single dead host would otherwise fire one notification per service it carries; on
+    vpp0221 that is 26 pages for one event. The other services keep their honest state,
+    they just do not page while the cause is already paging.
+    """
+    from bossman.services.monitoring import HOST_ALIVE_SERVICE
+
+    settings = Settings(database_url="x", smtp_host="localhost")
+    rule = _rule(channel="email")
+    db_session.add(rule)
+    agent = Agent(name=f"down-{uuid.uuid4().hex[:8]}", token="t", mode="standalone", enrollment_state="enrolled")
+    db_session.add(agent)
+    await db_session.flush()
+
+    now = datetime.now(timezone.utc)
+
+    def make_svc(name, state="CRIT", output="bad"):
+        s = Service(agent_id=agent.id, name=name, metric="", state=state, value=None, output=output,
+                    last_state_change=now, last_checked=now, state_type="hard", attempt=3, max_attempts=3)
+        db_session.add(s)
+        return s
+
+    host = make_svc(HOST_ALIVE_SERVICE, output="no answer from 10.0.0.9:9000")
+    mem = make_svc("Memory", state="UNKNOWN", output="no data for 6 minutes")
+    disk = make_svc("Disk /", state="UNKNOWN", output="no data for 6 minutes")
+    await db_session.flush()
+
+    for s in (host, mem, disk):
+        s._notify_event = "problem"
+        s._notify_agent_name = agent.name
+
+    sent = []
+    n = await notification.collect_and_dispatch(
+        db_session, settings, [host, mem, disk], email_sender=lambda st, to, su, b: sent.append(su)
+    )
+
+    assert n == 1, "one event for one outage"
+    assert HOST_ALIVE_SERVICE in sent[0], f"the cause must be what pages, got {sent[0]!r}"
+    assert mem.state == "UNKNOWN", "suppressing the page must not rewrite the state"
+
+    for r in (await db_session.scalars(select(Notification))).all():
+        await db_session.delete(r)
+    for s in (host, mem, disk):
+        await db_session.delete(s)
+    await db_session.flush()
+    await db_session.delete(agent)
+    await db_session.delete(rule)
+    await db_session.commit()
+
+
+async def test_a_healthy_host_still_pages_for_its_services(db_session):
+    """The counter-check: L3 must not silence services on a host that is fine."""
+    settings = Settings(database_url="x", smtp_host="localhost")
+    rule = _rule(channel="email")
+    db_session.add(rule)
+    agent = Agent(name=f"up-{uuid.uuid4().hex[:8]}", token="t", mode="standalone", enrollment_state="enrolled")
+    db_session.add(agent)
+    await db_session.flush()
+
+    now = datetime.now(timezone.utc)
+    mem = Service(agent_id=agent.id, name="Memory", metric="", state="CRIT", value=91.0, output="91% >= crit 90%",
+                  last_state_change=now, last_checked=now, state_type="hard", attempt=3, max_attempts=3)
+    db_session.add(mem)
+    await db_session.flush()
+    mem._notify_event = "problem"
+    mem._notify_agent_name = agent.name
+
+    sent = []
+    n = await notification.collect_and_dispatch(
+        db_session, settings, [mem], email_sender=lambda st, to, su, b: sent.append(su)
+    )
+    assert n == 1 and "Memory" in sent[0]
+
+    for r in (await db_session.scalars(select(Notification))).all():
+        await db_session.delete(r)
+    await db_session.delete(mem)
+    await db_session.flush()
+    await db_session.delete(agent)
+    await db_session.delete(rule)
+    await db_session.commit()

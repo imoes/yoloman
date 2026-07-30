@@ -8,9 +8,9 @@ import uuid
 from datetime import datetime, timedelta, timezone
 
 from fastapi.testclient import TestClient
-from sqlalchemy import select
+from sqlalchemy import delete, select
 
-from bossman.db.models import Agent, Downtime, Metric, Service, ServiceStateHistory
+from bossman.db.models import Agent, Downtime, Metric, MetricRaw, MetricSeries, Service, ServiceStateHistory
 from bossman.main import create_app
 from bossman.services.auth import new_api_token
 
@@ -147,9 +147,13 @@ async def test_list_problems_filters_by_tag(db_session):
         any_value_resp = client.get("/api/v1/problems", params={"tag": "env"}, headers=_headers(raw))
         no_match_resp = client.get("/api/v1/problems", params={"tag": "env:qa"}, headers=_headers(raw))
 
-    assert [p["id"] for p in exact_resp.json()] == [str(prod_service.id)]
-    assert {p["id"] for p in any_value_resp.json()} == {str(prod_service.id), str(staging_service.id)}
-    assert no_match_resp.json() == []
+    # Scoped to this test's own two services: the database is shared with the running
+    # system and with the rest of the suite, so any other host that happens to carry an
+    # env tag is none of this assertion's business.
+    mine = {str(prod_service.id), str(staging_service.id)}
+    assert {p["id"] for p in exact_resp.json()} & mine == {str(prod_service.id)}
+    assert {p["id"] for p in any_value_resp.json()} & mine == mine
+    assert {p["id"] for p in no_match_resp.json()} & mine == set()
 
     await db_session.delete(api_token)
     await _cleanup(db_session, prod_agent, prod_service)
@@ -590,23 +594,37 @@ async def test_fleet_summary(db_session):
     await _cleanup(db_session, agent, ok_service, crit_service)
 
 
+async def _write_metric(db_session, agent, metric, value, labels=None, when=None):
+    """`metrics` is a VIEW over (metric_series JOIN metrics_raw) — it takes no INSERT.
+
+    Two mounts may now share one timestamp: distinct labels are distinct series, and the
+    Metric ORM key is (series_id, time), so nothing has to be staggered by a microsecond
+    any more. See models.Metric and migration e7b2f4a19c33.
+    """
+    from bossman.db.models import MetricRaw, MetricSeries
+
+    series = MetricSeries(agent_id=agent.id, metric=metric, labels=labels or {})
+    db_session.add(series)
+    await db_session.flush()
+    db_session.add(
+        MetricRaw(series_id=series.series_id, time=when or datetime.now(timezone.utc), value=value)
+    )
+    await db_session.flush()
+    return series
+
+
 async def test_fleet_hosts_reports_real_metric_values_and_state_rollup(db_session):
     agent = await _make_agent(db_session)
     api_token, raw = await _make_api_token(db_session)
     warn_service = await _make_service(db_session, agent, name="Disk /", state="WARN")
     now = datetime.now(timezone.utc)
-    metrics = [
-        Metric(time=now, agent_id=agent.id, metric="cpu_load1", value=0.42, labels={}),
-        Metric(time=now, agent_id=agent.id, metric="mem_used_pct", value=55.5, labels={}),
-        # Real timestamps would differ by microseconds here too (see
-        # poller._disambiguate_colliding_timestamps) since Metric's
-        # primary key is (time, agent_id, metric), not including labels —
-        # this test seeds rows directly via the ORM, so it must stagger
-        # them itself to avoid a duplicate-key error on insert.
-        Metric(time=now, agent_id=agent.id, metric="disk_used_pct", value=30.0, labels={"mount": "/"}),
-        Metric(time=now + timedelta(microseconds=1), agent_id=agent.id, metric="disk_used_pct", value=91.2, labels={"mount": "/data"}),
+    series = [
+        await _write_metric(db_session, agent, "cpu_load1", 0.42, when=now),
+        await _write_metric(db_session, agent, "mem_used_pct", 55.5, when=now),
+        # Both mounts at the SAME timestamp on purpose — that is what the real agent does.
+        await _write_metric(db_session, agent, "disk_used_pct", 30.0, labels={"mount": "/"}, when=now),
+        await _write_metric(db_session, agent, "disk_used_pct", 91.2, labels={"mount": "/data"}, when=now),
     ]
-    db_session.add_all(metrics)
     await db_session.commit()
 
     with TestClient(create_app()) as client:
@@ -622,8 +640,9 @@ async def test_fleet_hosts_reports_real_metric_values_and_state_rollup(db_sessio
     assert host["parent_agent_id"] is None
 
     await db_session.delete(api_token)
-    for m in metrics:
-        await db_session.delete(m)
+    ids = [s.series_id for s in series]
+    await db_session.execute(delete(MetricRaw).where(MetricRaw.series_id.in_(ids)))
+    await db_session.execute(delete(MetricSeries).where(MetricSeries.series_id.in_(ids)))
     await db_session.flush()
     await _cleanup(db_session, agent, warn_service)
 

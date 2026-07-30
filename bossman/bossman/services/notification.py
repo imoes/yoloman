@@ -317,14 +317,26 @@ async def collect_and_dispatch(session: AsyncSession, settings: Settings, servic
     `_notify_event` the state machine stamped (see monitoring._upsert_
     service_state). Returns the number of events dispatched. Downtime is
     checked via the same is_in_downtime the problems view uses."""
-    from bossman.services.monitoring import is_in_downtime  # local import: avoid a cycle
+    from bossman.services.monitoring import (  # local import: avoid a cycle
+        HOST_ALIVE_SERVICE,
+        hard_down_agent_ids,
+        is_in_downtime,
+    )
     from datetime import datetime, timezone
 
     now = datetime.now(timezone.utc)
+    # L3: a host that is confirmed down reports ONE problem — "Host alive" — not one per
+    # service it happens to carry. Its other services are silenced here rather than
+    # excluded from evaluation, so the stored state stays honest (they go UNKNOWN
+    # "no data for X" via L1) while only the cause pages. This is what makes L1 usable:
+    # without it, one dead host would send an UNKNOWN notification per service.
+    down = await hard_down_agent_ids(session, [s.agent_id for s in services])
     dispatched = 0
     for svc in services:
         event = getattr(svc, "_notify_event", None)
         if not event:
+            continue
+        if svc.agent_id in down and svc.name != HOST_ALIVE_SERVICE:
             continue
         # Suppress noise: flapping, or (for a problem) an ack, or a downtime.
         if svc.is_flapping:

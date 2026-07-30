@@ -27,6 +27,8 @@ os.environ.setdefault("BOSSMAN_BUSINESS_SERVICE_ENABLED", "false")
 # ACL) can sign/verify (HS256 rejects an empty key).
 os.environ.setdefault("BOSSMAN_JWT_SECRET", "test-jwt-secret-block-m-000000000")
 
+from datetime import datetime, timezone  # noqa: E402
+
 import pytest  # noqa: E402
 import pytest_asyncio  # noqa: E402
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine  # noqa: E402
@@ -50,7 +52,47 @@ async def db_session():
         pytest.skip(f"no reachable database at {settings.database_url!r}: {exc}")
 
     session_factory = async_sessionmaker(engine, expire_on_commit=False)
+    started = datetime.now(timezone.utc)
     async with session_factory() as session:
         yield session
         await session.rollback()  # never leave test data behind
+        await _drop_leaked_check_rules(session, started)
     await engine.dispose()
+
+
+async def _drop_leaked_check_rules(session, started):
+    """Remove any non-default CheckRule this test created but did not clean up.
+
+    The tests share the database with the RUNNING system, and their cleanup lives at the
+    end of the test body — so a failed assertion skips it and the rule stays. That is not
+    only untidy: a global rule applies to every host, so a leaked test threshold becomes
+    live monitoring policy. It happened — a test's "Memory CRIT at 20%" leaked and the
+    poller promptly raised CRIT on all four production hosts. A single run had left 45
+    stray rules behind, 30 of them copies of the same CPU rule.
+
+    is_default rules are spared: those are the real seeded defaults, not test data.
+    services.rule_id is nulled first (FK), which costs nothing — the next evaluation
+    re-attaches the winning rule anyway.
+    """
+    from sqlalchemy import delete, null, select, update
+
+    from bossman.db.models import CheckRule, Service
+
+    try:
+        leaked = list(
+            (
+                await session.scalars(
+                    select(CheckRule.id).where(
+                        CheckRule.created_at >= started,
+                        CheckRule.is_default == False,  # noqa: E712
+                    )
+                )
+            ).all()
+        )
+        if not leaked:
+            return
+        await session.execute(update(Service).where(Service.rule_id.in_(leaked)).values(rule_id=null()))
+        await session.execute(delete(CheckRule).where(CheckRule.id.in_(leaked)))
+        await session.commit()
+    except Exception:  # noqa: BLE001 — teardown must never turn a passing test red
+        await session.rollback()

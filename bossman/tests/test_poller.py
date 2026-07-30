@@ -10,13 +10,14 @@ fake network dependency while keeping every DB write real.
 
 import asyncio
 import uuid
+from datetime import datetime, timezone
 
 import pytest
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from bossman.config import Settings, get_settings
-from bossman.db.models import Agent, HostEdge, Metric, Service, ServiceStateHistory
+from bossman.db.models import Agent, HostEdge, Metric, MetricRaw, MetricSeries, Service, ServiceStateHistory
 from bossman.services.agent_client import AgentClientError
 from bossman.services.poller import poll_agent, poll_once
 
@@ -52,6 +53,17 @@ class FakeAgentClient:
         if self._hosts_overview_error:
             raise self._hosts_overview_error
         return self._hosts_overview
+
+    async def state_observed(self):
+        """The observed-state document the poller caches per host.
+
+        The fake grew this because poll_agent started refreshing that cache and the
+        missing method surfaced as AttributeError: 'FakeAgentClient' object has no
+        attribute 'state_observed' — the poll path is wrapped in try/except, so in
+        production the miss would only ever have shown up as a log line. Empty is a
+        valid document (a host with nothing enrolled yet).
+        """
+        return {}
 
 
 @pytest.fixture
@@ -125,7 +137,11 @@ async def test_poll_agent_writes_metrics_and_edges(db_session, session_factory):
     assert agent.last_edges_pulled_at is not None
     assert agent.last_seen_at is not None
 
-    await db_session.delete(metric)
+    # The metric row lives in metrics_raw; `metrics` is a read-only view, so deleting
+    # the ORM object it produced fails with "cannot delete from view metrics".
+    await db_session.execute(delete(MetricRaw).where(MetricRaw.series_id == metric.series_id))
+    await db_session.execute(delete(MetricSeries).where(MetricSeries.series_id == metric.series_id))
+    db_session.expunge(metric)
     await db_session.delete(edge)
     await db_session.flush()  # children must actually delete before the FK-referenced agent
     await _purge_service_state(db_session, agent)
@@ -280,9 +296,14 @@ async def _cleanup_hosts_overview(db_session, *agents):
         history = (await db_session.scalars(select(ServiceStateHistory).where(ServiceStateHistory.agent_id == agent.id))).all()
         for h in history:
             await db_session.delete(h)
-        metrics = (await db_session.scalars(select(Metric).where(Metric.agent_id == agent.id))).all()
-        for m in metrics:
-            await db_session.delete(m)
+        # metrics is a VIEW over (metric_series JOIN metrics_raw) and takes no DELETE
+        # ("cannot delete from view metrics") — remove the raw rows and their series.
+        series_ids = list(
+            (await db_session.scalars(select(MetricSeries.series_id).where(MetricSeries.agent_id == agent.id))).all()
+        )
+        if series_ids:
+            await db_session.execute(delete(MetricRaw).where(MetricRaw.series_id.in_(series_ids)))
+            await db_session.execute(delete(MetricSeries).where(MetricSeries.series_id.in_(series_ids)))
         await db_session.flush()
     for agent in agents:
         await db_session.delete(agent)
@@ -301,7 +322,13 @@ async def test_poll_agent_discovers_satellite_from_hosts_overview(db_session, se
                 "mode": "satellite",
                 "last_sample_at": "2026-07-06T12:00:00Z",
                 "metrics": [{"metric": "cpu_load1", "value": 0.42, "labels": {}}],
-                "checks": [{"name": "Memory", "status": "OK", "message": "18% used"}],
+                # Deliberately NOT "Memory"/"Disk"/"CPU load": a globally-scoped
+                # check_rule of that name legitimately overrides the agent's own check
+                # (that is the documented fan-out behaviour in evaluate_host), and with
+                # no mem_used_pct for this satellite the rule verdict is UNKNOWN. This
+                # test is about a relayed check becoming a Service at all, so it uses a
+                # name no rule owns.
+                "checks": [{"name": "Uptime", "status": "OK", "message": "up 3 days"}],
             },
         ]
     )
@@ -321,7 +348,7 @@ async def test_poll_agent_discovers_satellite_from_hosts_overview(db_session, se
     assert metric is not None
     assert metric.value == 0.42
 
-    service = await db_session.scalar(select(Service).where(Service.agent_id == satellite.id, Service.name == "Memory"))
+    service = await db_session.scalar(select(Service).where(Service.agent_id == satellite.id, Service.name == "Uptime"))
     assert service is not None
     assert service.state == "OK"
     assert service.rule_id is None, "an agent-reported check is not derived from a Bossman check_rule"
@@ -438,14 +465,20 @@ async def test_poll_agent_reuses_existing_satellite_across_polls(db_session, ses
 
 
 async def test_poll_agent_keeps_same_timestamp_multi_label_metrics(db_session, session_factory):
-    """Metric's primary key is (time, agent_id, metric) — it does not
-    include labels. The real Go agent's sampler timestamps every point in
-    one tick identically (see internal/collect.Sample), so two mounts'
-    disk_used_pct values naturally collide on that key. Without
-    poller._disambiguate_colliding_timestamps, ON CONFLICT DO NOTHING
-    would silently keep only one of them."""
+    """Two mounts sampled in the same tick must both survive the write AND the read.
+
+    The Go agent stamps every point of one sampling tick with the identical timestamp
+    (internal/collect.Sample), so two mounts' disk_used_pct values share (time, metric).
+    Storage handles it because metrics_raw is keyed (series_id, time) and distinct labels
+    are distinct series. The READ side is what silently lost them for a while: Metric is
+    mapped onto the metrics view, and while its mapped key excluded labels the ORM's
+    identity map folded both mounts into one object — see models.Metric."""
     agent = await _make_agent(db_session)
-    same_ts = "2026-07-06T12:00:00Z"
+    # `now`, not a fixed date: since L1 a reading older than staleness_factor x
+    # poll_interval is no longer judged, so a hardcoded 2026-07-06 made this test assert
+    # OK against a sample that had become correctly UNKNOWN. What it is actually about is
+    # two label series sharing ONE timestamp, so the timestamp only has to be current.
+    same_ts = datetime.now(timezone.utc).isoformat()
     fake = FakeAgentClient(
         metrics={
             "disk_used_pct": [
@@ -462,8 +495,11 @@ async def test_poll_agent_keeps_same_timestamp_multi_label_metrics(db_session, s
     assert len(rows) == 2, "both mounts' data points must survive, not just one"
     assert {r.labels["mount"] for r in rows} == {"/", "/data"}
 
+    series_ids = [r.series_id for r in rows]
+    await db_session.execute(delete(MetricRaw).where(MetricRaw.series_id.in_(series_ids)))
+    await db_session.execute(delete(MetricSeries).where(MetricSeries.series_id.in_(series_ids)))
     for r in rows:
-        await db_session.delete(r)
+        db_session.expunge(r)
     await db_session.flush()
     await _purge_service_state(db_session, agent)
     await db_session.delete(agent)

@@ -38,6 +38,7 @@ from bossman.services.monitoring import (
     ingest_agent_checks,
     is_infra_agent,
     stale_after_for,
+    update_host_alive,
 )
 
 logger = logging.getLogger(__name__)
@@ -69,29 +70,6 @@ async def _resolve_dst_agent_id(session: AsyncSession, dst_addr: str) -> uuid.UU
     different name/IP than its edges report), which is why HostEdge's
     dst_agent_id column is nullable."""
     return await session.scalar(select(Agent.id).where(Agent.address.like(f"{dst_addr}:%")))
-
-
-def _disambiguate_colliding_timestamps(rows: list[dict]) -> None:
-    """Mutates rows in place. Metric's primary key is (time, agent_id,
-    metric) — it deliberately does NOT include `labels`, since the
-    original design only ever had to handle one series per metric name.
-    Block F1's agent-side sampler changed that: it timestamps every point
-    in one sampling tick with the exact same `now` (see
-    internal/collect.Sample), so two label-partitioned series of the same
-    metric — e.g. disk_used_pct for two different mounts, net_rx_bytes
-    for two different interfaces — collide on that primary key and
-    ON CONFLICT DO NOTHING silently drops all but one of them. Bossman
-    owns this storage constraint (not the agent), so it nudges every
-    same-key row after the first forward by 1 microsecond — invisible for
-    graphing at any real polling interval, but keeps every label-distinct
-    series' data point instead of silently losing it."""
-    seen: dict[tuple, int] = {}
-    for row in rows:
-        key = (row["time"], row["agent_id"], row["metric"])
-        count = seen.get(key, 0)
-        if count:
-            row["time"] = row["time"] + timedelta(microseconds=count)
-        seen[key] = count + 1
 
 
 async def _series_id(
@@ -558,6 +536,19 @@ async def poll_agent(
 
         if reached_agent:
             agent.last_seen_at = now
+
+        # L2: the host's reachability is itself a monitored service — CRIT when it does
+        # not answer, unless a downtime says that is expected. Recorded BEFORE
+        # evaluate_host so that L3 can already see a confirmed-down host when this
+        # cycle's service notifications are dispatched.
+        try:
+            touched.append(
+                await update_host_alive(
+                    session, agent, reached=reached_agent, now=now, detail="; ".join(result.errors)
+                )
+            )
+        except Exception:
+            logger.exception("update_host_alive failed for agent %s", agent.name)
 
         # Runs regardless of whether this cycle's metrics pull succeeded —
         # a transient pull failure shouldn't also freeze monitoring state
