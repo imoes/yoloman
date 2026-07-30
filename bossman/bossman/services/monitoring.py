@@ -657,6 +657,25 @@ def _sidecar_fqcn(sidecar: str, fallback: str) -> str:
     return fallback
 
 
+def _item_service_name(check_name: str, item: str, catalog: dict) -> str:
+    """The service name for one item of a multi-item check.
+
+    Checkmk names such a service from the plugin's `service_name` template —
+    "Interface %s" -> "Interface ens18" — and the translated checks already carry
+    that template verbatim in their sidecar's short_description, so it is used as
+    given rather than inventing a second naming scheme. Without a placeholder the
+    item is appended ("NTP Time ens18" would be wrong, but no such check is
+    multi-item); without an item the name is unchanged, so existing single-service
+    rows are never renamed.
+    """
+    if not item:
+        return check_name
+    template = str((catalog.get(check_name) or {}).get("short_description") or "").strip()
+    if "%s" in template:
+        return template % item
+    return f"{template or check_name} {item}".strip()
+
+
 async def evaluate_assigned_checks(
     session: AsyncSession, agent: Agent, client, checks_dir: str, *, extra_params: dict | None = None,
 ) -> list[Service]:
@@ -739,7 +758,10 @@ async def evaluate_assigned_checks(
         # Active service checks (http/tcp/dns…) carry their display name in
         # params.service_name ("Health Qwen7b"), allowing several instances of
         # one check per host; plain checks keep the check name.
-        svc_name = str((getattr(ec, "parameters", {}) or {}).get("service_name") or "").strip() or ec.check_name
+        params_of = getattr(ec, "parameters", {}) or {}
+        svc_name = str(params_of.get("service_name") or "").strip() or _item_service_name(
+            ec.check_name, str(params_of.get("item") or "").strip(), catalog
+        )
         svc = await _upsert_service_state(
             session, agent.id, svc_name, state, value, output, now, DEFAULT_MAX_ATTEMPTS,
             metric=ec.check_name, rule_id=None, agent_name=agent.name, agent_tags=agent.tags,

@@ -74,17 +74,26 @@ async def resolve_host_checks(session: AsyncSession, agent: Agent) -> list[Effec
         return gpo.LEVEL_OU_BASE + ancestry_depth.get(a.ou_id, 0)
 
     # group by (check_name, instance); sort each group least→most specific for
-    # the merge. The instance is the parameters' service_name — active service
-    # checks (http/tcp/dns, Block S) can be assigned several times to one host
-    # as distinctly-named services ("Health Qwen7b", "Shop frontend"), each its
-    # own merge group instead of being wrongly collapsed per check_name.
-    per_check: dict[tuple[str, str], list[CheckAssignment]] = {}
+    # the merge. The instance is what makes two assignments of the SAME check
+    # distinct services, and Checkmk's answer is the pair (plugin, ITEM) — one
+    # service per filesystem, per interface, per sensor.
+    #
+    # It used to be `service_name` alone, which active service checks (http/tcp/
+    # dns, Block S) set to name several instances on one host ("Health Qwen7b").
+    # But a discovered multi-item check has no service_name: /discover/apply
+    # writes one assignment per item with params.item, and all of them then
+    # collapsed into ONE effective check. lnx_if, assigned for four interfaces,
+    # produced a single service called "lnx_if" reporting "no item specified" —
+    # the item dimension existed at both ends and was lost exactly here.
+    per_check: dict[tuple[str, str, str], list[CheckAssignment]] = {}
     for a in rows:
-        instance = str((a.parameters or {}).get("service_name") or "")
-        per_check.setdefault((a.check_name, instance), []).append(a)
+        params = a.parameters or {}
+        instance = str(params.get("service_name") or "")
+        item = str(params.get("item") or "")
+        per_check.setdefault((a.check_name, instance, item), []).append(a)
 
     out: list[EffectiveCheck] = []
-    for (check_name, _instance), assignments in sorted(per_check.items()):
+    for (check_name, _instance, _item), assignments in sorted(per_check.items()):
         ordered = sorted(assignments, key=level)  # shallow OU → deep OU → group → host
         merged: dict[str, Any] = {}
         for a in ordered:

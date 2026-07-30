@@ -74,6 +74,18 @@
    "reads": "lvs",
    "reason": "DATA IS REAL (the host has these volume groups) but discovery yields one item per LOGICAL VOLUME instead of one per volume group — 10 items for 2 VGs, with duplicates. Dedupe by vg_name.",
    "outcome": "FIXED — 2 items (datavg, rootvg) instead of 10, one per LV; the data was always real"
+  },
+  "interfaces": {
+   "catalog": "os/networking (sections if_names/interfaces — AIX/FreeBSD/OpenVMS + SNMP)",
+   "reads": "/proc/net/dev",
+   "reason": "REDUNDANT with lnx_if, which is the Linux plugin for the same job. Checkmk's `interfaces` plugin consumes SNMP/other-OS sections, so it can never apply to a Linux agent host; the translation had re-targeted it at /proc/net/dev, duplicating lnx_if.",
+   "outcome": "REMOVED from the library. lnx_if is the Linux NIC check and now yields one service per interface."
+  },
+  "lnx_if": {
+   "catalog": "os/networking",
+   "reads": "/proc/net/dev + ip -o link + ethtool",
+   "reason": "COSMETIC ONLY, low priority — the summary reads \"ens18: unknown, link up\", where \"unknown\" is the link SPEED (correct: ethtool is absent on that host) but parses as a state. Checkmk renders it as \"[ens18], (up), 1 GBit/s\"; label the speed instead of emitting a bare \"unknown\".",
+   "outcome": "WORKS — 4/15/19 per-interface services across the fleet, all OK except three genuinely down enx* NICs (WARN). Do not re-translate for the wording alone without re-verifying the per-item behaviour."
   }
  },
  "_outcome_note": "Re-translated 2026-07-30 through the sharpened prompt (sonnet CLI; qwen/llamacpp03 was answering 502). Discovery on docker-test went 41 -> 29 proposals."
