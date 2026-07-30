@@ -80,6 +80,22 @@ If nothing is found the check does not apply to this host -> return an empty
 `discovery` list. A single-service check (no per-item breakdown, e.g. uptime,
 mem) returns exactly one entry with item "".
 
+### Labels (optional, but emit them when the source has them)
+
+A discovery entry may carry `"service_labels": {"key": "value", ...}` — Checkmk's
+service labels, discovered together with the service. Use them for facts ABOUT
+the item that are not thresholds: filesystem type, interface media, database
+edition, container image. They are part of how a changed service is detected, so
+only report values that are stable while the service is unchanged (never a
+measurement, never a timestamp).
+
+Alongside `discovery` you may return host-wide labels:
+
+    "data": {"discovery": [...], "host_labels": {"cmk/os_family": "linux"}}
+
+These correspond to a Checkmk section's `host_label_function`. Only emit a host
+label if the source plugin declares one; do not invent labels.
+
 ## 2. CHECK MODE  —  otherwise (the normal path)
 
 Check ONE item — `params.get("item", "")` names which one (from discovery;
@@ -359,6 +375,57 @@ def detect_check_execution(source_py: str = "", star_code: str = "") -> str:
     return "local"
 
 
+# The answer rules, as a module constant rather than inline in the system prompt —
+# so prompt_fingerprint() can hash them. qwen79b self-reported that try/except and
+# `**` are strong Python priors it emits despite general prohibitions; a final
+# imperative checklist right before output is the format it most reliably obeys
+# (rules-as-checklist, no justification, "output only code"). The absence rules are
+# repeated here on purpose: a check that fabricates its data source does not crash —
+# it reports OK on hosts it has nothing to do with, which is harder to notice and
+# worse than a syntax error.
+_ANSWER_RULES = """\
+Rules for your answer:
+- Output ONLY the Starlark module code — no prose, no JSON. One ```python fenced block.
+- The module is READ-ONLY: never mutates=True, never ctx.file_write, always changed=False.
+- Starlark is NOT Python (see the addendum's forbidden-constructs block): NO try/except/finally/\
+raise, NO nonlocal/global, NO while/class/lambda/f-strings/imports/regex, NO `is`/`is not` \
+(use `== None`). Guard instead of try; use d.get(k) for optional keys; define every constant at \
+module top level.
+- Gather data ONLY through ctx.* builtins; map warn/crit from params.
+
+BEFORE YOU OUTPUT, SELF-CHECK EVERY LINE (a violation CRASHES the check in production):
+[ ] NO try / except / finally / raise  (guard with `if`/defaults instead)
+[ ] NO `**`  (there is no power operator AND no pow(); use x*x, or a top-level def _pow(b,e))
+[ ] NO import / from-import
+[ ] NO f-strings  (use "%s" % x or "{}".format(x))
+[ ] NO chained comparison a<=b<=c  (write (a<=b) and (b<=c))
+[ ] NO `is`/`is not`  (use == None / != None)
+[ ] The module DEFINES `def main(ctx, params):`
+[ ] If the monitored product/device is NOT on the host, discovery returns an EMPTY list
+    (no placeholder item, no name hardcoded from the Checkmk source) and check mode
+    returns UNKNOWN — never OK, never a zero metric
+[ ] I probe for the real thing (its binary/socket/config); `rc == 127` means not installed
+[ ] I did NOT substitute a local /proc or /sys file for an appliance, array, database or
+    another OS's data
+OUTPUT ONLY THE CODE."""
+
+
+def prompt_fingerprint() -> str:
+    """A short hash of the translation prompt's *instructions*.
+
+    Stamped into every translated check's sidecar as `prompt_version`, so the
+    re-translation batch can tell which checks predate the current prompt. Derived
+    from the text itself rather than a hand-maintained version number: a prompt
+    change one forgets to bump is exactly how ~1300 already-passing checks would
+    silently keep an obsolete translation. The addendum plus the answer rules are
+    hashed; the per-check source is not part of it.
+    """
+    import hashlib
+
+    material = CHECK_CONTRACT_ADDENDUM + _ANSWER_RULES
+    return hashlib.sha256(material.encode("utf-8")).hexdigest()[:12]
+
+
 def build_checkmk_metadata_nt(record: dict[str, Any], star_code: str = "") -> str:
     """Catalog metadata for a translated check module, as NestedText (project
     convention — no YAML). Always read-only (writes: false) and marked kind:
@@ -407,6 +474,10 @@ def build_checkmk_metadata_nt(record: dict[str, Any], star_code: str = "") -> st
         # service (configurable, fileinfo-style). SNMP settled deterministically;
         # local↔service is refined by the LLM classifier's side registry.
         "execution": detect_check_execution(record.get("source_py", ""), star_code),
+        # Which prompt produced this translation. The re-translation batch selects
+        # on it (--stale), so a sharpened prompt reaches the already-passing checks
+        # instead of only the ones a heuristic still calls broken.
+        "prompt_version": prompt_fingerprint(),
     }
     examples = record.get("examples")
     if examples:
@@ -432,36 +503,7 @@ def build_checkmk_messages(contract: str, record: dict[str, Any]) -> list[dict[s
         "Follow the base language contract EXACTLY:\n\n"
         f"{contract}\n\n"
         f"{CHECK_CONTRACT_ADDENDUM}\n\n"
-        "Rules for your answer:\n"
-        "- Output ONLY the Starlark module code — no prose, no JSON. One ```python fenced block.\n"
-        "- The module is READ-ONLY: never mutates=True, never ctx.file_write, always changed=False.\n"
-        "- Starlark is NOT Python (see the addendum's forbidden-constructs block): NO try/except/"
-        "finally/raise, NO nonlocal/global, NO while/class/lambda/f-strings/imports/regex, NO `is`/"
-        "`is not` (use `== None`). Guard instead of try; use d.get(k) for optional keys; define every "
-        "constant at module top level.\n"
-        "- Gather data ONLY through ctx.* builtins; map warn/crit from params.\n\n"
-        # qwen79b self-reported that try/except and ** are strong Python priors it
-        # emits despite general prohibitions; a final imperative checklist right
-        # before output is the format it most reliably obeys (rules-as-checklist,
-        # no justification, "output only code").
-        "BEFORE YOU OUTPUT, SELF-CHECK EVERY LINE (a violation CRASHES the check in production):\n"
-        "[ ] NO try / except / finally / raise  (guard with `if`/defaults instead)\n"
-        "[ ] NO `**`  (there is no power operator AND no pow(); use x*x, or a top-level def _pow(b,e))\n"
-        "[ ] NO import / from-import\n"
-        "[ ] NO f-strings  (use \"%s\" % x or \"{}\".format(x))\n"
-        "[ ] NO chained comparison a<=b<=c  (write (a<=b) and (b<=c))\n"
-        "[ ] NO `is`/`is not`  (use == None / != None)\n"
-        "[ ] The module DEFINES `def main(ctx, params):`\n"
-        # The absence rules are repeated here because a check that fabricates its
-        # data source does not crash — it reports OK on hosts it has nothing to do
-        # with, which is harder to notice and worse than a syntax error.
-        "[ ] If the monitored product/device is NOT on the host, discovery returns an EMPTY list\n"
-        "    (no placeholder item, no name hardcoded from the Checkmk source) and check mode\n"
-        "    returns UNKNOWN — never OK, never a zero metric\n"
-        "[ ] I probe for the real thing (its binary/socket/config); `rc == 127` means not installed\n"
-        "[ ] I did NOT substitute a local /proc or /sys file for an appliance, array, database or\n"
-        "    another OS's data\n"
-        "OUTPUT ONLY THE CODE."
+        f"{_ANSWER_RULES}"
     )
     user = (
         "Translate this Checkmk check into a read-only Starlark check module.\n\n"
