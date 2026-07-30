@@ -463,7 +463,10 @@ async def _poll_snmp_device(
     client = client_factory(poller, settings)
     now = datetime.now(timezone.utc)
     try:
-        touched = await evaluate_assigned_checks(session, device, client, settings.checks_dir, extra_params=extra)
+        perf: list[dict] = []
+        touched = await evaluate_assigned_checks(session, device, client, settings.checks_dir, extra_params=extra, perf_sink=perf)
+        if perf:
+            await _write_snapshot_metrics(session, device.id, now, perf)
         device.last_seen_at = now
         await session.commit()
         try:
@@ -560,7 +563,10 @@ async def poll_agent(
         # poll cycle.
         if reached_agent:
             try:
-                touched += await evaluate_assigned_checks(session, agent, client, settings.checks_dir)
+                perf: list[dict] = []
+                touched += await evaluate_assigned_checks(session, agent, client, settings.checks_dir, perf_sink=perf)
+                if perf:
+                    await _write_snapshot_metrics(session, agent.id, now, perf)
             except Exception:
                 logger.exception("evaluate_assigned_checks failed for agent %s", agent.name)
             # Inventory: refresh the installed-package list (throttled, best-effort).

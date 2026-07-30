@@ -589,6 +589,13 @@ async def ingest_agent_checks(session: AsyncSession, agent: Agent, agent_checks:
                 break
             except (TypeError, ValueError):
                 continue
+        # NB: agent-reported checks (CPU load, Disk, Uptime, …) are NOT turned
+        # into perfdata history series. Their data already exists as first-class
+        # telemetry (cpu_load1, disk_used_pct{mount}, uptime_seconds), so storing
+        # their perfdata again would duplicate those series under worse names
+        # ("Disk /_used_pct") and re-inflate the cardinality this project spent
+        # real effort cutting. Perfdata→series is done ONLY in
+        # evaluate_assigned_checks, for assigned checks that have no telemetry.
 
         # Uptime is a duration in seconds — render it split into days/hours
         # (Checkmk-style) rather than the agent's raw "up 290.6 hours".
@@ -678,6 +685,7 @@ def _item_service_name(check_name: str, item: str, catalog: dict) -> str:
 
 async def evaluate_assigned_checks(
     session: AsyncSession, agent: Agent, client, checks_dir: str, *, extra_params: dict | None = None,
+    perf_sink: list[dict] | None = None,
 ) -> list[Service]:
     """Run the host's ASSIGNED Starlark checks and turn each result into a
     Service — the missing execution path (a CheckAssignment resolved but never
@@ -753,6 +761,21 @@ async def evaluate_assigned_checks(
                         if isinstance(v, (int, float)):
                             value = float(v)
                             break
+                    # Perfdata → history series, so an assigned check's metrics
+                    # (chrony's offset/stratum, a DB's connection count) graph like
+                    # the agent's built-in telemetry instead of being seen once and
+                    # dropped. Named "<check>_<key>" so they don't collide with
+                    # telemetry and the host-detail graph dialog finds them as
+                    # siblings of the service's own metric (its metric field IS the
+                    # check name). The item, if any, becomes a label so a multi-item
+                    # check's series stay distinct. Opt-in via perf_sink (the poller
+                    # owns the series write); no sink → unchanged behaviour.
+                    if perf_sink is not None:
+                        item = str((getattr(ec, "parameters", {}) or {}).get("item") or "").strip()
+                        labels = {"item": item} if item else {}
+                        for k, v in metrics.items():
+                            if isinstance(v, (int, float)):
+                                perf_sink.append({"metric": f"{ec.check_name}_{k}", "labels": labels, "value": float(v)})
         except Exception:  # noqa: BLE001 — one bad check must not sink the cycle
             output = "check execution failed"
         # Active service checks (http/tcp/dns…) carry their display name in
