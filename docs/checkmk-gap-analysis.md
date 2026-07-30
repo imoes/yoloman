@@ -17,7 +17,7 @@ TimescaleDB the *technical* one. Checkmk's persistence — autochecks files, RRD
 ## Progress
 
 - [x] Batch 1 — Service Discovery (pipeline, lifecycle, identity, discovery rules) — 9 gaps (D1–D9); D1/D7 approved and implemented (phase 1), D2–D6/D8–D9 awaiting decision
-- [ ] Batch 2 — Rule Engine + host tags / host labels / service labels as conditions
+- [x] Batch 2 — Rule Engine + host tags / host labels / service labels as conditions — 7 gaps (R1–R7); no code yet, awaiting decisions
 - [ ] Batch 3 — Plugin system (sections, parser, SNMP, special agents, piggyback, bakery)
 - [ ] Batch 4 — HW/SW inventory (tree, history, delta, inventory-based checks)
 - [ ] Batch 5 — Service + host lifecycle, cluster / distributed monitoring
@@ -111,6 +111,71 @@ completes the separation, but it changes the live poll path and needs its own de
 cheapest real win, it makes drift visible), then D5 (ignored, small and removes a daily
 annoyance), then D3+D6 together (periodic rediscovery with the filters that belong to it), then
 D4 (bulk). D9 with Batch 2.
+
+---
+
+## Batch 2 — Rule Engine, host tags, host labels, service labels
+
+Read: `cmk/utils/rulesets/ruleset_matcher.py` (conditions, matching modes, tag/label
+matching), `cmk/utils/rulesets/conditions.py`, `cmk/utils/labels.py` (label groups),
+`cmk/utils/tags.py`. Our side re-verified file:line.
+
+**Correction to a common shorthand, including my own earlier framing.** Checkmk is *not*
+simply "first matching rule wins". `RulesetMatcher` has three modes, and which one applies
+depends on the ruleset:
+
+| Mode | Semantics | Used for |
+|---|---|---|
+| `get_*_bool_value` | **first match wins**, then stop (`ruleset_matcher.py:177`) | binary rulesets — ignored services, disabled checks, "is this a cluster" |
+| `get_*_values_merged` | **dict merge, first rule setting a key wins** (`:197`) | check PARAMETERS — the thresholds case |
+| `get_*_values_all` | every matching value, in order (`:211`) | list-collecting rulesets |
+
+That matters for us: for check parameters — exactly what `CheckAssignment.parameters`
+carries — Checkmk merges dicts key by key, and so do we (`check_assignments.py:96-101`).
+The *shape* is already compatible. What differs is only how the ORDER that decides
+precedence is produced: Checkmk uses the rule's position in the ruleset (the GUI arranges
+folders deepest-first), we compute it from the GPO level (`gpo.py:24-28`). Decided
+2026-07-30: keep GPO. It is the same key-level merge, with an order derived from structure
+instead of hand-sorted lists — and it is what the simpler UI is built on.
+
+**A rule condition in Checkmk is exactly six fields** (`RuleConditionsSpec`,
+`ruleset_matcher.py:106`), plus rule options (`disabled`, `comment`, `docu_url`,
+`predefined_condition_id`):
+
+| Condition | Checkmk semantics | yolo-man status |
+|---|---|---|
+| `host_name` | explicit host list OR regex, negatable via `{"$nor": [...]}` (`conditions.py:30`) | 🟡 a rule targets exactly ONE host (`scope_value`/`agent_id`); no list, no regex, no negation |
+| `host_folder` | rule applies from a folder downwards | ✅ equivalent: OU subtree via `scope_ou_id` + `resolve_ou_ancestry` (`compiler.py:75`), plus `block_inheritance` |
+| `host_tags` | per tag group, with operators `$ne` / `$or` / `$nor` (`ruleset_matcher.py:40-52`, `matches_tag_condition`) | ❌ `Agent.tags` exists (`db/models.py:132`) but is never a rule condition — only notifications, fleet search, deploy targeting |
+| `host_label_groups` | label groups combined with `and` / `or` / `not` (`labels.py:206-208`) | ❌ no host-label store at all (Batch 1 D7 created the table; nothing consumes it as a condition yet) |
+| `service_label_groups` | same grouping, on the service's labels | ❌ Batch 1 stores `service_labels` on the discovered service; not usable as a condition |
+| `service_description` | compiled regex, negatable (`_matches_service_description_condition`, `:916`) | ❌ matching is exact on `metric` + `service_name`/`item` |
+
+### Gaps
+
+| # | Gap | Nutzen | Aufwand | Risiko | Priorität | Art |
+|---|---|---|---|---|---|---|
+| **R1** | **Host tags as a rule condition**, with `$ne`/`$or`/`$nor` | The tags already exist and are already maintained; making them selectable is the single cheapest jump in rule expressiveness ("all prod hosts get these thresholds"). | S | low — additive column + matcher branch, existing rules unaffected | **Hoch** | Quick Win |
+| **R2** | **Host labels as a rule condition** (label groups, and/or/not) | The Checkmk-native way to say "everything the discovery recognised as postgres". Table exists since D7; consuming it closes the loop from discovery to rules. | M | low-medium — needs the group grammar, not just equality | **Hoch** | Architekturverbesserung |
+| **R3** | **Service labels as a rule condition** | Per-service selection without naming every item ("all gold-tier filesystems"). | M | medium — depends on labels actually being populated, which needs re-translated checks | **Mittel** | Architekturverbesserung |
+| **R4** | **Regex + host lists + negation** on host name and service description | Today a rule reaches one host or a whole group/OU with nothing in between; regex is how Checkmk covers "these twelve, by pattern". | M | medium — regex in the matcher is a per-poll cost; needs compiling/caching | **Hoch** | — |
+| **R5** | **Rule `disabled` + `comment` + `docu_url`** | `enabled` exists on assignments but not on threshold rules; comment/docu_url are how a rule explains itself months later. | S | none | **Mittel** | Quick Win |
+| **R6** | **Predefined conditions** (`predefined_condition_id`) — a named, reusable condition set | Avoids the same five-way condition being re-typed on twenty rules. | M | low | **Niedrig** | — |
+| **R7** | **Explicit binary rulesets** (`bool_value`, first-match-wins) | Our two engines both merge; a genuine yes/no ruleset ("do not monitor this") has no home. Needed by D5/D9 from Batch 1. | M | medium — a third resolution mode alongside merge | **Mittel** | Architekturverbesserung |
+
+### Deviations to keep (documented)
+
+| Checkmk | Ours | Reason |
+|---|---|---|
+| rule order inside a ruleset decides precedence | GPO level (`global < group < OU depth < host`, `enforced`, `link_order`, `block_inheritance`) | Same key-level dict merge; order derived from the host's structural position instead of a hand-sorted list. Deliberate and decided — it is what the simpler UI rests on. |
+| one flat ruleset per parameter set | two engines: `CheckRule` (thresholds) + `CheckAssignment` (plugin + params) | Historical, and it works; unifying them is a refactor with no user-visible gain. Recorded as technical debt, not a gap. |
+
+**Decisions (awaiting user).** Analysis only, no code. Recommended order: **R1** first (the tags
+are already there, so it is the largest expressiveness gain per line of code), then **R2**
+(host labels — it makes D7 pay off), then **R4** (regex/lists, the "these twelve hosts" case),
+then **R5** as a trivial add-on. **R3** only makes sense once re-translated checks actually
+emit service labels. **R7** should be decided together with Batch 1's D5/D9, since those are
+the binary rulesets that need it. **R6** is comfort, last.
 
 ---
 
