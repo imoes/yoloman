@@ -20,7 +20,7 @@ TimescaleDB the *technical* one. Checkmk's persistence — autochecks files, RRD
 - [x] Batch 2 — Rule Engine + host tags / host labels / service labels as conditions — 7 gaps (R1–R7); R1–R4 approved and implemented (all six condition fields incl. and/or/not), R5–R7 awaiting decision
 - [x] Batch 3 — Plugin system (sections, parser, SNMP, special agents, piggyback, bakery) — 6 gaps (P1a/P1b/P3/P5a/P6/P8); no code yet, awaiting decisions
 - [x] Batch 4 — HW/SW inventory — 5 gaps (I1–I5); I4a (HW change alerting) REJECTED with reasoning, I2/I3 dropped for hardware, I4b (software changes) open
-- [x] Batch 5 — Service + host lifecycle, cluster / distributed monitoring — 10 gaps (L1–L7, C1–C3); much of the lifecycle already ours and in places ahead of Checkmk, but **L1 is a correctness bug: a host unreachable for 26 days is reported OK and re-timestamped every poll**. No code yet, awaiting decisions
+- [x] Batch 5 — Service + host lifecycle, cluster / distributed monitoring — 10 gaps (L1–L7, C1–C3); **L1+L2+L3 implemented and live-verified** (aged-out reading ⇒ UNKNOWN; host down ⇒ CRIT unless in downtime; one page per outage instead of one per service). L4 approved, C1+C2 next. L5–L7 and C3 open
 - [ ] Batch 6 — Dashboards, views, reporting, BI aggregation, event console, prediction
 - [ ] Batch 7 — REST API compatibility, users/roles/audit, configuration activation
 
@@ -430,9 +430,9 @@ DOWN in the core, which stops its services from being checked at all.
 
 | # | Gap | Nutzen | Aufwand | Risiko | Priorität | Art |
 |---|---|---|---|---|---|---|
-| **L1** | **No-data is not a state.** Bound the state-evaluation query by age and make an aged-out value UNKNOWN ("no data for 5 min"), instead of re-affirming the last known value forever | Removes the one failure mode that makes the whole product untrustworthy: a monitoring system that says OK about a machine that is gone. Everything else in this batch is comfort by comparison. Cheap: `compute_state` already returns UNKNOWN for `value is None` (`monitoring.py:304`) — the gap is purely that nothing ever passes None | S | **the risk is in the threshold, not the code**: too tight and every slow host flaps to UNKNOWN; derive it from the poll interval (Checkmk's staleness_threshold × check_interval) rather than a constant | **Kritisch** | Technische Schuld |
-| **L2** | **Host state** (UP / DOWN / UNREACHABLE) as a first-class thing, derived from reachability, with its own state history and notification | Today "host is dead" is not representable, so it cannot be alerted on, acknowledged, or put in downtime — and every service problem it causes is reported separately instead of once | M | medium — a second state machine beside the service one; must not double-notify with L1 | **Kritisch** | Architekturverbesserung |
-| **L3** | **Host-down suppression**: while a host is DOWN, its services do not produce their own notifications | A dead host currently means N service alerts for one event. This is the payoff of L2 and the reason Checkmk feels quiet | S | low, once L2 exists | **Hoch** | — needs L2 |
+| **L1** ✅ | **DONE** — **No-data is not a state.** Bound the state-evaluation query by age and make an aged-out value UNKNOWN ("no data for 5 min"), instead of re-affirming the last known value forever | Removes the one failure mode that makes the whole product untrustworthy: a monitoring system that says OK about a machine that is gone. Everything else in this batch is comfort by comparison. Cheap: `compute_state` already returns UNKNOWN for `value is None` (`monitoring.py:304`) — the gap is purely that nothing ever passes None | S | **the risk is in the threshold, not the code**: too tight and every slow host flaps to UNKNOWN; derive it from the poll interval (Checkmk's staleness_threshold × check_interval) rather than a constant | **Kritisch** | Technische Schuld |
+| **L2** ✅ | **DONE** (UP/DOWN; UNREACHABLE stays with L6) — **Host state** as a first-class thing, derived from reachability, with its own state history and notification | Today "host is dead" is not representable, so it cannot be alerted on, acknowledged, or put in downtime — and every service problem it causes is reported separately instead of once | M | medium — a second state machine beside the service one; must not double-notify with L1 | **Kritisch** | Architekturverbesserung |
+| **L3** ✅ | **DONE** — **Host-down suppression**: while a host is DOWN, its services do not produce their own notifications | A dead host currently means N service alerts for one event. This is the payoff of L2 and the reason Checkmk feels quiet | S | low, once L2 exists | **Hoch** | — needs L2 |
 | **L4** | **Time periods** (`24X7`, working hours, exclusions) as a reusable object, applied to notification rules — and separately to checking | `NotificationRule` has no time dimension at all (`db/models.py:1542-1567`): "page me only during business hours" and "this backup job is expected to be red at night" are both unexpressible. Checkmk's evaluator is small and self-contained (`cmk/utils/timeperiod.py`, `is_timeperiod_active` ~30 LOC incl. recursive `exclude`) — a genuine copy candidate | M | low — additive; the risk is silently suppressing a real alert, so it must be visible in the UI why nothing fired | **Hoch** | — |
 | **L5** | Recurring downtimes (every Monday 02:00, monthly) | Maintenance windows are usually periodic. Note Checkmk gates this to its *commercial* editions (`downtimes.py:254`), so shipping it is a differentiator, not catch-up. Our `Scheduler` already has a cron matcher (`services/cron.py`) to build on | S | low | **Mittel** | Quick Win |
 | **L6** | Parent/child host topology → UNREACHABLE distinct from DOWN | "The switch died, not the 40 hosts behind it." Requires a parents graph; we have `HostEdge`/topology data already, so the input may exist | M | medium — wrong parents cause suppressed real alarms | **Mittel** | — needs L2 |
@@ -472,6 +472,22 @@ which *are* clusters, so "is the cluster healthy" being unanswerable is a real h
 `cluster_mode.py` is 394 self-contained LOC and portable more or less as-is; `ClusteringConfig`
 ~120. C1 touches discovery identity (which host owns a service) and therefore Batch 1's
 `discovered_services` — that is why it goes second, not first.
+
+**Implemented (2026-07-30), live-verified.** L1: readings older than `staleness_factor x
+poll_interval` (4x, measured — see config.staleness_factor) become UNKNOWN "no data for X",
+with "never sampled" kept distinct. L2: reachability is a reserved Service, `Host alive`
+(`monitoring.HOST_ALIVE_SERVICE`), CRIT when the host does not answer — chosen over new
+`agents` columns precisely because a Service row already carries debouncing, history, ack,
+downtime, Problems, notification and escalation, so no second state machine and no
+migration. L3: `collect_and_dispatch` silences a confirmed-down host's other services.
+
+Found while writing L1's tests, and worse than L1: `Metric` was mapped onto the `metrics`
+VIEW with key (time, agent_id, metric), excluding labels — and the agent stamps a whole
+sampling tick with one timestamp, so vpp0221's five disk mounts shared that key and
+SQLAlchemy's identity map folded them into ONE object. `evaluate_host` therefore checked a
+single mount: **4 of 5 filesystems were never threshold-checked**, invisible because the
+agent's own checks write services under the same names. The view now exposes `series_id`
+(migration e7b2f4a19c33) and the mapped key is (series_id, time).
 
 **L5/L6/L7 and C3 stay open**, in that order of appeal: recurring downtimes are a small win,
 parents need L2 first, flapping is a refinement, C3 is scale-out we do not need yet.
