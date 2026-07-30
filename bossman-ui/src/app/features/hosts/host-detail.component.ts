@@ -473,6 +473,8 @@ function serviceMetricSpec(name: string, metric: string): { members: string[]; m
                 <dd>{{ modeLabel(agent.mode) }}</dd>
                 <dt>Enrollment state</dt>
                 <dd>{{ agent.enrollment_state }}</dd>
+                <dt>Agent version</dt>
+                <dd>{{ agent.agent_version || 'unknown' }}</dd>
                 <dt>Last seen</dt>
                 <dd>{{ agent.last_seen_at ? (agent.last_seen_at | date: 'medium') : 'never' }}</dd>
               </dl>

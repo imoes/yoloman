@@ -59,6 +59,7 @@ class AgentOut(BaseModel):
     address: str | None
     mode: str
     enrollment_state: str
+    agent_version: str
     last_seen_at: datetime | None
     metadata: dict
     groups: list[str]
@@ -89,6 +90,7 @@ class AgentOut(BaseModel):
             address=agent.address,
             mode=agent.mode,
             enrollment_state=agent.enrollment_state,
+            agent_version=agent.agent_version,
             last_seen_at=agent.last_seen_at,
             metadata=agent.agent_metadata,
             groups=agent.groups,

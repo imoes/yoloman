@@ -5,6 +5,9 @@ export interface Agent {
   address: string | null;
   mode: string;
   enrollment_state: string;
+  /** The agent's own build version, read from its /healthz each poll. Empty
+   * string means "not asked yet / never answered" — not "no version". */
+  agent_version: string;
   last_seen_at: string | null;
   metadata: Record<string, unknown>;
   /** Block K7: searchable host tags (name or name:value), matched by the

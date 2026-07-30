@@ -123,6 +123,8 @@ export interface FleetHost {
   parent_name: string | null;
   mode: string;
   enrollment_state: string;
+  /** Agent build version; "" until the host has answered a /healthz. */
+  agent_version: string;
   last_seen_at: string | null;
   state_rollup: 'OK' | 'WARN' | 'CRIT' | 'UNKNOWN';
   cpu_load: number | null;

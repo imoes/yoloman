@@ -311,29 +311,86 @@ def format_value(value: float | None, metric: str | None = None) -> str:
 HOST_ALIVE_SERVICE = "Host alive"
 
 
-async def update_host_alive(
-    session: AsyncSession, agent: Agent, *, reached: bool, now: datetime, detail: str = ""
-) -> Service:
-    """Records whether Bossman reached this host at all, as its own service.
+def _version_suffix(version: str) -> str:
+    """" v0.57.36" for a version number, " (poller)" for anything else, "" for nothing.
 
-    A host that does not answer is **CRIT** — per the product decision, being down is a
-    problem in its own right unless a downtime says it is expected. Downtime needs no
-    special case here: an active host-wide downtime (a `Downtime` row with
-    service_name NULL) already covers this service like any other, so it stops the page
-    and drops out of the Problems view while the state itself stays honestly CRIT.
-
-    Debounced with the usual DEFAULT_MAX_ATTEMPTS, so a single dropped poll goes `soft`
-    and only a genuinely absent host reaches `hard` and pages.
+    Not every agent reports a dotted version: the infra poller answers "poller", which the
+    unconditional "v" prefix rendered as "vpoller" — read as a typo rather than as an
+    identifier. Only prefix when the string actually looks like a version.
     """
-    if reached:
-        state, output = "OK", "agent responded"
-    else:
-        # Name the actual failure — "no answer" alone sends the operator hunting for
-        # the reason the poller already knows (DNS, refused, TLS, timeout).
+    v = (version or "").strip()
+    if not v:
+        return ""
+    return f" v{v}" if v[0].isdigit() else f" ({v})"
+
+
+async def newest_sample_at(session: AsyncSession, agent_id: UUID) -> datetime | None:
+    """When this host last produced ANY metric sample; None if it never has."""
+    return await session.scalar(
+        select(func.max(Metric.time)).where(Metric.agent_id == agent_id)
+    )
+
+
+async def update_host_alive(
+    session: AsyncSession,
+    agent: Agent,
+    *,
+    reached: bool | None,
+    now: datetime,
+    stale_after: timedelta,
+    detail: str = "",
+) -> Service:
+    """The host's own up/down verdict, as its own service — our ping equivalent.
+
+    Checkmk treats agent contact as the host check: if the agent is stale, the host is
+    DOWN. So there are two ways to be down here, and both are CRIT:
+
+    1. **No answer.** The poll could not reach the agent at all.
+    2. **Stale.** The agent answers, but its freshest sample is older than
+       `stale_after`. An agent whose sampler has died, or whose clock/collector has
+       wedged, is not a healthy host just because its HTTP port accepts connections —
+       that distinction is exactly what "agent status equals a ping" rules out.
+
+    `reached=None` means "not contacted directly", which is the normal case for a
+    satellite: its data arrives relayed through a proxy, so freshness is the only signal
+    available and rule 2 alone decides. Before this, satellites had no host verdict at
+    all — a relay that quietly stopped delivering looked identical to a healthy host.
+
+    Being down is a problem in its own right unless a downtime says it is expected, and
+    that needs no special case: a host-wide downtime (a `Downtime` row with service_name
+    NULL) already covers this service like any other, so it suppresses the page and drops
+    out of the Problems view while the state stays honestly CRIT.
+
+    Debounced with DEFAULT_MAX_ATTEMPTS, so one dropped poll is `soft` and only a
+    genuinely absent host reaches `hard` and pages.
+    """
+    sampled_at = await newest_sample_at(session, agent.id)
+    stale = is_stale_sample(sampled_at, now, stale_after)
+    version = _version_suffix(agent.agent_version)
+
+    if reached is False:
+        # Name the actual failure — "no answer" alone sends the operator hunting for a
+        # reason the poller already knows (DNS, refused, TLS, wrong token, timeout).
         state = "CRIT"
         output = f"no answer from {agent.address or 'the agent'}"
         if detail:
             output = f"{output}: {detail}"
+    elif stale:
+        state = "CRIT"
+        if sampled_at is None:
+            output = f"agent{version} has never delivered data"
+        else:
+            output = f"agent{version} is stale: no data for {render.timespan((now - sampled_at).total_seconds())}"
+        if reached:
+            # Worth spelling out: the port answered. Otherwise this reads like a network
+            # fault and the operator looks in the wrong place.
+            output = f"{output} (its API did answer)"
+    else:
+        state = "OK"
+        age = render.timespan((now - sampled_at).total_seconds()) if sampled_at else "?"
+        how = "agent responded" if reached else "relayed"
+        output = f"{how}{version}, data {age} old"
+
     return await _upsert_service_state(
         session,
         agent.id,
@@ -1406,6 +1463,7 @@ class FleetHostSummary:
     parent_name: str | None
     mode: str
     enrollment_state: str
+    agent_version: str
     last_seen_at: datetime | None
     state_rollup: str
     cpu_load: float | None
@@ -1530,6 +1588,7 @@ async def fleet_hosts(session: AsyncSession) -> list[FleetHostSummary]:
                 parent_name=names_by_id.get(agent.parent_agent_id) if agent.parent_agent_id else None,
                 mode=agent.mode,
                 enrollment_state=agent.enrollment_state,
+                agent_version=agent.agent_version,
                 last_seen_at=agent.last_seen_at,
                 state_rollup=worst,
                 cpu_load=_cpu(agent.id),

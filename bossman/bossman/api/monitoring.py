@@ -821,6 +821,7 @@ class FleetHostOut(BaseModel):
     parent_name: str | None
     mode: str
     enrollment_state: str
+    agent_version: str
     last_seen_at: datetime | None
     state_rollup: str
     cpu_load: float | None
@@ -848,6 +849,7 @@ async def fleet_hosts_route(
             parent_name=h.parent_name,
             mode=h.mode,
             enrollment_state=h.enrollment_state,
+            agent_version=h.agent_version,
             last_seen_at=h.last_seen_at,
             state_rollup=h.state_rollup,
             cpu_load=h.cpu_load,

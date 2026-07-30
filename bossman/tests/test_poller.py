@@ -35,6 +35,7 @@ class FakeAgentClient:
         self.metrics_calls: list = []
         self.edges_calls: list = []
         self.hosts_overview_calls: int = 0
+        self._version = "0.0.0-test"
 
     async def metrics_dump(self, from_):
         self.metrics_calls.append(from_)
@@ -53,6 +54,11 @@ class FakeAgentClient:
         if self._hosts_overview_error:
             raise self._hosts_overview_error
         return self._hosts_overview
+
+    async def healthz(self):
+        """The poller reads the agent's build version from here each cycle (unauthenticated
+        on the agent side, so it answers even when the token has drifted)."""
+        return {"status": "ok", "version": self._version}
 
     async def state_observed(self):
         """The observed-state document the poller caches per host.

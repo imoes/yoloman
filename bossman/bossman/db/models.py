@@ -98,6 +98,12 @@ class Agent(Base):
     created_at: Mapped[datetime] = mapped_column(TZ_DATETIME, server_default=func.now(), nullable=False)
     agent_metadata: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
 
+    # The agent's own build version, read from its unauthenticated /healthz on each poll.
+    # Empty until first contact (and for satellites, until their proxy reports it), which
+    # is why it is a plain string rather than NOT NULL with a fake default: "we have not
+    # asked yet" must stay distinguishable from a version we actually observed.
+    agent_version: Mapped[str] = mapped_column(String, nullable=False, default="")
+
     # The host's HW/SW inventory document (CPU model, mainboard, serials,
     # BIOS, disks, NICs, OS — see the Go agent's internal/inventory and
     # docs/plan.md Block H2), refreshed from every hosts/overview poll.

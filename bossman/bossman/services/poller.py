@@ -308,7 +308,20 @@ async def _ingest_hosts_overview(
         touched += await ingest_agent_checks(session, satellite, host.get("checks") or [])
         _store_facts(satellite, host, now)
         satellite.last_seen_at = now
+        # The proxy reports its satellites' agent versions if it knows them.
+        relayed_version = str(host.get("version") or host.get("agent_version") or "")
+        if relayed_version and relayed_version != satellite.agent_version:
+            satellite.agent_version = relayed_version
         touched += await evaluate_host(session, satellite, stale_after=stale_after)
+        # reached=None: Bossman never contacts a satellite directly, so freshness of the
+        # relayed data is the only up/down signal there is. Without this a relay that
+        # quietly stopped delivering was indistinguishable from a healthy host — and
+        # `satellite.last_seen_at = now` above would even keep asserting it was fine,
+        # because it records when the PROXY was polled, not when the satellite last
+        # produced anything.
+        touched.append(
+            await update_host_alive(session, satellite, reached=None, now=now, stale_after=stale_after)
+        )
 
     return satellite_count, touched
 
@@ -498,6 +511,19 @@ async def poll_agent(
         # stale by a 60-second assumption.
         stale_after = stale_after_for(settings)
 
+        # The agent's build version, from its unauthenticated /healthz. Cheap, and
+        # deliberately first: because it needs no token it still answers when the token
+        # has drifted, which keeps "reachable but rejecting us" apart from "gone" in the
+        # Host alive output. A failure here is not itself evidence of unreachability —
+        # the real data pulls below decide that.
+        try:
+            health = await client.healthz()
+            observed = str(health.get("version") or "")
+            if observed and observed != agent.agent_version:
+                agent.agent_version = observed
+        except AgentClientError as exc:
+            logger.debug("healthz failed for agent %s: %s", agent.name, exc)
+
         try:
             metrics = await client.metrics_dump(agent.last_metrics_pulled_at)
             result.metrics_written = await _write_metrics(session, agent.id, metrics)
@@ -544,7 +570,12 @@ async def poll_agent(
         try:
             touched.append(
                 await update_host_alive(
-                    session, agent, reached=reached_agent, now=now, detail="; ".join(result.errors)
+                    session,
+                    agent,
+                    reached=reached_agent,
+                    now=now,
+                    stale_after=stale_after,
+                    detail="; ".join(result.errors),
                 )
             )
         except Exception:

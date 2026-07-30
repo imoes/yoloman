@@ -31,6 +31,13 @@ class FakeAgentClient:
     async def hosts_overview(self):
         return []
 
+    async def healthz(self):
+        """The poller reads the agent's build version from here each cycle."""
+        return {"status": "ok", "version": "0.0.0-test"}
+
+    async def state_observed(self):
+        return {}
+
 
 async def _make_agent(db_session, **overrides) -> Agent:
     fields = {

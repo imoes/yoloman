@@ -83,6 +83,18 @@ class AgentClient:
         except ValueError as exc:
             raise AgentClientError(f"{self.address}: decoding response: {exc}") from exc
 
+    async def healthz(self) -> dict[str, Any]:
+        """GET /healthz — `{"status": "ok", "version": "0.57.36"}`.
+
+        The agent's own build version, which Checkmk shows as part of its agent service
+        and which an operator needs before asking anything about behaviour ("is this the
+        host still on the old collector?"). Note this endpoint is deliberately
+        unauthenticated on the agent side (see cmd/agentic-mcpd/http.go), so it answers
+        even for a host whose token has drifted — useful, because "reachable but
+        rejecting our token" is a different fault from "gone".
+        """
+        return await self._get_json("/healthz", {})
+
     async def metrics_dump(self, from_: datetime | None) -> dict[str, list[dict[str, Any]]]:
         """GET /api/v1/metrics — every metric this agent knows about since
         `from_` (RFC3339, UTC), or the agent's own default range (last 1h)

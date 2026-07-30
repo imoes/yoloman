@@ -753,27 +753,32 @@ async def test_ingest_agent_check_yields_to_owning_rule(db_session):
 
 
 async def test_seed_default_check_rules_is_idempotent(db_session):
+    """Seeding twice must never duplicate — asserted WITHOUT deleting anything.
+
+    Two destructive versions of this test have now caused real damage to the running
+    system, which shares this database. The first deleted every CheckRule there was. The
+    second (mine) deleted only the is_default ones intending to re-seed them — but seeding
+    skips a service_name that already exists in any form, so same-named leftovers from
+    other tests suppressed the re-insert and the fleet was left with a test's "Memory CRIT
+    at 20%" as its only Memory rule. Production hosts went CRIT within a minute.
+
+    Idempotency does not need a clean slate to be provable: call it twice and require that
+    the rule count does not move, and that the expected defaults exist afterwards. That
+    holds whether or not they were already seeded, and it cannot damage anything.
+    """
     from bossman.services.monitoring import seed_default_check_rules
 
-    # Only the DEFAULT rules are removed and only to re-seed them, and they are left in
-    # place afterwards. This test used to delete EVERY CheckRule in the database and then
-    # delete the ones it seeded — against a database the running system shares, so it
-    # silently stripped live monitoring policy on each run. Anything not is_default
-    # belongs to another test (or to the operator) and is none of this test's business.
-    defaults = (await db_session.scalars(select(CheckRule).where(CheckRule.is_default == True))).all()  # noqa: E712
-    ids = [r.id for r in defaults]
-    if ids:
-        await db_session.execute(update(Service).where(Service.rule_id.in_(ids)).values(rule_id=None))
-        await db_session.execute(delete(CheckRule).where(CheckRule.id.in_(ids)))
+    before = len((await db_session.scalars(select(CheckRule))).all())
+    await seed_default_check_rules(db_session)
+    after_first = len((await db_session.scalars(select(CheckRule))).all())
+    second = await seed_default_check_rules(db_session)
+    after_second = len((await db_session.scalars(select(CheckRule))).all())
     await db_session.commit()
 
-    first = await seed_default_check_rules(db_session)
-    second = await seed_default_check_rules(db_session)
-    assert second == 0, "a second seeding must be a no-op"
-    # Asserted over ALL enabled global rules, not just the is_default ones: seeding
-    # skips a name that already exists in any form, so a same-named non-default rule
-    # left over from another test legitimately suppresses the default. What must hold is
-    # that the fleet ends up covered for Memory and Disk.
+    assert second == 0, "a second seeding must insert nothing"
+    assert after_second == after_first, "seeding twice must not duplicate"
+    assert after_first >= before
+
     covered = {
         r.service_name
         for r in (
@@ -782,9 +787,7 @@ async def test_seed_default_check_rules_is_idempotent(db_session):
             )
         ).all()
     }
-    assert {"Memory", "Disk"} <= covered
-
-    await db_session.commit()  # the defaults stay — they are the system's, not the test's
+    assert {"Memory", "Disk"} <= covered, "the fleet must end up covered for Memory and Disk"
 
 
 async def test_timed_acknowledgement_expires(db_session):
