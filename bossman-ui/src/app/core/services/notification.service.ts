@@ -1,7 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { environment } from '../../../environments/environment';
-import { NotificationLogEntry, NotificationRule, NotificationRuleInput } from '../models/notification.model';
+import { NotificationLogEntry, NotificationRule, NotificationRuleInput, TimePeriod } from '../models/notification.model';
 
 /** REST client for notification rules + the send log (Block H8). */
 @Injectable({ providedIn: 'root' })
@@ -32,5 +32,10 @@ export class NotificationService {
   log(limit = 100) {
     const params = new HttpParams().set('limit', String(limit));
     return this.http.get<NotificationLogEntry[]>(`${this.base}/notifications`, { params });
+  }
+
+  /** L4: the selectable notification windows. */
+  timePeriods() {
+    return this.http.get<TimePeriod[]>(`${this.base}/time-periods`);
   }
 }

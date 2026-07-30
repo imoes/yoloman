@@ -1,4 +1,4 @@
-import { Component, Inject, inject } from '@angular/core';
+import { Component, Inject, inject, signal } from '@angular/core';
 import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -6,7 +6,8 @@ import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { MatButtonModule } from '@angular/material/button';
-import { NotificationChannel, NotificationRule, NotificationRuleInput } from '../../../core/models/notification.model';
+import { NotificationChannel, NotificationRule, NotificationRuleInput, TimePeriod } from '../../../core/models/notification.model';
+import { NotificationService } from '../../../core/services/notification.service';
 
 export interface NotificationRuleDialogData {
   rule?: NotificationRule;
@@ -54,6 +55,18 @@ export interface NotificationRuleDialogData {
         <mat-label>Escalate after (minutes)</mat-label>
         <input matInput type="number" formControlName="escalate_after_minutes" placeholder="empty = notify immediately" />
         <mat-hint>On-call chain: leave empty for level 0; set 15/60 for later escalation tiers (fires only while still unacknowledged).</mat-hint>
+      </mat-form-field>
+      <mat-form-field appearance="outline" class="bm-full-width">
+        <mat-label>Only notify during</mat-label>
+        <mat-select formControlName="time_period_id">
+          <mat-option [value]="null">Always (no time restriction)</mat-option>
+          @for (p of periods(); track p.id) {
+            <mat-option [value]="p.id">
+              {{ p.alias || p.name }}{{ p.active_now ? '' : ' — closed right now' }}
+            </mat-option>
+          }
+        </mat-select>
+        <mat-hint>{{ periodHint() }}</mat-hint>
       </mat-form-field>
       <mat-form-field appearance="outline" class="bm-full-width">
         <mat-label>Notify from severity</mat-label>
@@ -108,13 +121,34 @@ export class NotificationRuleDialogComponent {
     host_filter: new FormControl<string | null>(null),
     service_filter: new FormControl<string | null>(null),
     escalate_after_minutes: new FormControl<number | null>(null),
+    time_period_id: new FormControl<string | null>(null),
     enabled: new FormControl(true, { nonNullable: true }),
   });
+
+  private notifications = inject(NotificationService);
+  /** The selectable windows. Loaded here rather than passed in so the dialog works from
+   * every call site, and so `active_now` is fresh at the moment of choosing. */
+  periods = signal<TimePeriod[]>([]);
 
   constructor(@Inject(MAT_DIALOG_DATA) public data: NotificationRuleDialogData) {
     if (data.rule) {
       this.form.patchValue(data.rule);
     }
+    this.notifications.timePeriods().subscribe({
+      next: (ps) => this.periods.set(ps),
+      // A failed load must not block editing the rest of the rule: the field simply
+      // offers "Always", which is also the stored default.
+      error: () => this.periods.set([]),
+    });
+  }
+
+  /** Names the clock. A window read in the wrong zone is off by the local offset, and
+   * nothing in the definition itself reveals that. */
+  periodHint(): string {
+    const zone = this.periods()[0]?.timezone;
+    return zone
+      ? `Outside the window the rule is logged as suppressed, never silently dropped. Times are read in ${zone}.`
+      : 'Outside the window the rule is logged as suppressed, never silently dropped.';
   }
 
   targetLabel(): string {
@@ -141,6 +175,7 @@ export class NotificationRuleDialogComponent {
       host_filter: v.host_filter?.trim() ? v.host_filter.trim() : null,
       service_filter: v.service_filter?.trim() ? v.service_filter.trim() : null,
       escalate_after_minutes: v.escalate_after_minutes ? Number(v.escalate_after_minutes) : null,
+      time_period_id: v.time_period_id || null,
     });
   }
 }

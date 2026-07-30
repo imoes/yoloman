@@ -16,6 +16,8 @@ export interface NotificationRule {
   /** On-call escalation: fire only once a hard problem is unacked this many
    * minutes (null = immediate). */
   escalate_after_minutes?: number | null;
+  /** L4: only notify while this time period is active. null = always. */
+  time_period_id?: string | null;
   created_at: string;
   /** Block L3a: OU binding + GPO precedence (optional; null ou_id = global). */
   ou_id?: string | null;
@@ -44,4 +46,23 @@ export interface NotificationLogEntry {
   status: 'sent' | 'failed';
   error: string | null;
   created_at: string;
+}
+
+
+/** L4: a reusable notification window (matches api/time_periods.py's TimePeriodOut). */
+export interface TimePeriod {
+  id: string;
+  name: string;
+  alias: string;
+  ranges: Record<string, string[][]>;
+  exceptions: Record<string, string[][]>;
+  excludes: string[];
+  is_builtin: boolean;
+  created_at: string;
+  /** Evaluated server-side at request time — the dialog shows it so a window that is
+   * closed right now is obvious before it silences anything. */
+  active_now: boolean;
+  /** WHICH clock the window is read in. Shown because a window read in the wrong zone is
+   * off by the local offset and that is invisible from the definition alone. */
+  timezone: string;
 }

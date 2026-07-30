@@ -169,6 +169,14 @@ class Settings(BaseSettings):
     # on the live fleet: healthy hosts sit at 61-108 s, worst sample gap 120 s — so
     # 1.5 (90 s) would flag healthy hosts. See monitoring.stale_after_for().
     staleness_factor: float = 4.0
+    # L4: the clock a notification time period is read in. NOT UTC, and not the
+    # container's local zone either: this container runs UTC (verified: host 18:30 CEST,
+    # container 16:30 UTC), so an 08:00-17:00 "business hours" window silently reported
+    # itself as active at 18:30 local. Checkmk evaluates in the site's local zone
+    # (tzlocal()); we make it an explicit IANA name instead, because "the container's
+    # zone" is an accident of the image while a window is a statement about the people
+    # being paged. Any IANA name works, e.g. UTC for a follow-the-sun rota.
+    time_period_timezone: str = "Europe/Berlin"
 
     # Max agents polled concurrently — bounded via asyncio.Semaphore rather
     # than a task queue (Celery/Redis); comfortably sufficient at this

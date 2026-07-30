@@ -10,8 +10,10 @@ additionally suppresses acknowledged / in-downtime / flapping services —
 
 from __future__ import annotations
 
+import logging
 import smtplib
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
 from email.message import EmailMessage
 
 import httpx
@@ -21,6 +23,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from bossman.config import Settings
 from bossman.db.models import Agent, CheckRule, Notification, NotificationRule, Service
 from bossman.services.scope import HostCtx, Scope, ServiceCtx, scope_covers
+
+logger = logging.getLogger(__name__)
 
 # Severity ordering for the min_state floor.
 _SEVERITY = {"OK": 0, "WARN": 1, "UNKNOWN": 2, "CRIT": 3}
@@ -238,6 +242,54 @@ def _send_rule(settings: Settings, rule: NotificationRule, ev: NotifyEvent, subj
         return "failed", str(exc)[:2000]
 
 
+async def load_time_periods(session: AsyncSession) -> dict[str, dict]:
+    """All time periods, keyed by name, in the shape the evaluator expects."""
+    from bossman.db.models import TimePeriod
+
+    rows = (await session.scalars(select(TimePeriod))).all()
+    return {
+        r.name: {"alias": r.alias, "ranges": r.ranges or {}, "exceptions": r.exceptions or {}, "excludes": r.excludes or []}
+        for r in rows
+    }
+
+
+async def time_period_blocks(
+    session: AsyncSession,
+    rule: NotificationRule,
+    when: datetime,
+    periods: dict[str, dict] | None = None,
+    *,
+    settings: Settings | None = None,
+) -> str:
+    """L4: "" if this rule may fire now, else the name of the window that says otherwise.
+
+    A rule with no time period means always, which is what every rule meant before this
+    existed. A misconfigured window (unknown exclude, bad definition) does NOT silence the
+    rule: a page not sent is worse than a page sent outside business hours, so an
+    unevaluable period is treated as "no restriction" and logged.
+    """
+    from bossman.db.models import TimePeriod
+    from bossman.services import time_periods as tp
+
+    if rule.time_period_id is None:
+        return ""
+    period = await session.get(TimePeriod, rule.time_period_id)
+    if period is None:  # FK is ON DELETE SET NULL, so this is only a race
+        return ""
+    if periods is None:
+        periods = await load_time_periods(session)
+    # The window is read in the configured zone, never in the container's (UTC): an
+    # 08:00-17:00 window otherwise claims to be active at 18:30 local.
+    from bossman.config import get_settings
+
+    zone = tp.resolve_zone((settings or get_settings()).time_period_timezone)
+    try:
+        return "" if tp.is_active(period.name, when, periods, zone=zone) else (period.alias or period.name)
+    except tp.TimePeriodError:
+        logger.warning("time period %r is not evaluable; treating the rule as unrestricted", period.name, exc_info=True)
+        return ""
+
+
 async def dispatch(
     session: AsyncSession,
     settings: Settings,
@@ -267,6 +319,8 @@ async def dispatch(
 
     subject, body = render(ev)
     logs: list[Notification] = []
+    now = datetime.now(timezone.utc)
+    periods = await load_time_periods(session)
     for rule in rules:
         # Escalation rules (escalate_after_minutes set) do NOT fire on the
         # immediate state-change event — dispatch_escalations fires them later,
@@ -276,6 +330,18 @@ async def dispatch(
         if not rule_matches(rule, ev):
             continue
         if not scope_covers(_rule_scope(rule), host_ctx, svc_ctx):
+            continue
+        # L4: outside its window the rule does not fire — but it is LOGGED as suppressed
+        # rather than skipped silently. "why did nobody get paged" has to be answerable
+        # from the notification log, otherwise a time period is just a way to lose alerts.
+        if blocked_by := await time_period_blocks(session, rule, now, periods, settings=settings):
+            note = Notification(
+                rule_id=rule.id, agent_name=ev.agent_name, service_name=ev.service_name,
+                event=ev.event, state=ev.state, channel=rule.channel, target=rule.target,
+                status="suppressed", error=f"outside time period {blocked_by!r}",
+            )
+            session.add(note)
+            logs.append(note)
             continue
         status, error = _send_rule(settings, rule, ev, subject, body, email_sender, webhook_sender, chat_sender)
         note = Notification(
@@ -322,7 +388,6 @@ async def collect_and_dispatch(session: AsyncSession, settings: Settings, servic
         hard_down_agent_ids,
         is_in_downtime,
     )
-    from datetime import datetime, timezone
 
     now = datetime.now(timezone.utc)
     # L3: a host that is confirmed down reports ONE problem — "Host alive" — not one per
@@ -391,6 +456,7 @@ async def dispatch_escalations(
         return 0
 
     now = datetime.now(timezone.utc)
+    periods = await load_time_periods(session)
     # Candidate problems: hard, non-OK, unacked.
     problems = (await session.scalars(
         select(Service).where(
@@ -420,14 +486,29 @@ async def dispatch_escalations(
                 continue
             # Already escalated this episode? (a send for this rule after the
             # problem went hard).
+            # Only a SUCCESSFUL send counts as "already escalated". Two reasons:
+            # a failed send (SMTP down for a minute) otherwise meant the escalation was
+            # never retried for that episode at all — the one notification whose whole
+            # purpose is "nobody has reacted yet" was lost to a transient fault. And with
+            # L4, a suppressed-outside-its-window row would permanently cancel the
+            # escalation even once the window opened.
             prior = await session.scalar(
                 select(Notification.id).where(
                     Notification.rule_id == rule.id, Notification.agent_name == agent.name,
                     Notification.service_name == svc.name, Notification.event == "problem",
+                    Notification.status == "sent",
                     Notification.created_at >= svc.last_state_change,
                 ).limit(1)
             )
             if prior is not None:
+                continue
+            # L4: an escalation respects its rule's window too — logged, not silent.
+            if blocked_by := await time_period_blocks(session, rule, now, periods, settings=settings):
+                session.add(Notification(
+                    rule_id=rule.id, agent_name=agent.name, service_name=svc.name, event="problem",
+                    state=svc.state, channel=rule.channel, target=rule.target,
+                    status="suppressed", error=f"outside time period {blocked_by!r}",
+                ))
                 continue
             status, error = _send_rule(settings, rule, ev, subject, body, email_sender, webhook_sender, chat_sender)
             session.add(Notification(

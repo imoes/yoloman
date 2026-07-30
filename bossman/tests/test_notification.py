@@ -347,3 +347,139 @@ async def test_a_healthy_host_still_pages_for_its_services(db_session):
     await db_session.delete(agent)
     await db_session.delete(rule)
     await db_session.commit()
+
+
+# ---------------------------------------------------------------------------
+# L4 — time periods gate the send, and say so in the log
+
+
+async def _period(db_session, name, ranges, excludes=None, exceptions=None):
+    from bossman.db.models import TimePeriod
+
+    tp = TimePeriod(
+        name=f"{name}-{uuid.uuid4().hex[:6]}", alias=name, ranges=ranges,
+        exceptions=exceptions or {}, excludes=excludes or [],
+    )
+    db_session.add(tp)
+    await db_session.flush()
+    return tp
+
+
+async def test_a_rule_outside_its_window_does_not_send_but_is_logged(db_session):
+    """Suppression must be visible: "why did nobody get paged" has to be answerable.
+
+    A silently skipped rule makes a time period indistinguishable from a lost alert, so
+    the log gets a `suppressed` row naming the window instead of nothing at all.
+    """
+    settings = Settings(database_url="x", smtp_host="localhost")
+    # A window that is closed on every weekday — so "now" is always outside it.
+    closed = await _period(db_session, "closed", {})
+    rule = _rule(channel="email")
+    rule.time_period_id = closed.id
+    db_session.add(rule)
+    agent = Agent(name=f"tp-{uuid.uuid4().hex[:8]}", token="t", mode="standalone", enrollment_state="enrolled")
+    db_session.add(agent)
+    await db_session.flush()
+
+    sent = []
+    logs = await notification.dispatch(
+        db_session, settings, _ev(host=agent.name), email_sender=lambda st, to, su, b: sent.append(su)
+    )
+
+    assert sent == [], "nothing may go out outside the window"
+    assert [l.status for l in logs] == ["suppressed"]
+    assert "outside time period" in (logs[0].error or "")
+    assert "closed" in (logs[0].error or ""), "the window must be named"
+
+    for r in (await db_session.scalars(select(Notification))).all():
+        await db_session.delete(r)
+    await db_session.flush()
+    await db_session.delete(agent)
+    await db_session.delete(rule)
+    await db_session.delete(closed)
+    await db_session.commit()
+
+
+async def test_a_rule_inside_its_window_sends_normally(db_session):
+    settings = Settings(database_url="x", smtp_host="localhost")
+    always = await _period(
+        db_session, "always",
+        {d: [["00:00", "24:00"]] for d in
+         ("monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday")},
+    )
+    rule = _rule(channel="email")
+    rule.time_period_id = always.id
+    db_session.add(rule)
+    agent = Agent(name=f"tp-{uuid.uuid4().hex[:8]}", token="t", mode="standalone", enrollment_state="enrolled")
+    db_session.add(agent)
+    await db_session.flush()
+
+    sent = []
+    logs = await notification.dispatch(
+        db_session, settings, _ev(host=agent.name), email_sender=lambda st, to, su, b: sent.append(su)
+    )
+    assert len(sent) == 1
+    assert [l.status for l in logs] == ["sent"]
+
+    for r in (await db_session.scalars(select(Notification))).all():
+        await db_session.delete(r)
+    await db_session.flush()
+    await db_session.delete(agent)
+    await db_session.delete(rule)
+    await db_session.delete(always)
+    await db_session.commit()
+
+
+async def test_a_rule_without_a_window_is_unrestricted(db_session):
+    """NULL means always — which is what every rule meant before L4 existed."""
+    settings = Settings(database_url="x", smtp_host="localhost")
+    rule = _rule(channel="email")
+    assert rule.time_period_id is None
+    db_session.add(rule)
+    agent = Agent(name=f"tp-{uuid.uuid4().hex[:8]}", token="t", mode="standalone", enrollment_state="enrolled")
+    db_session.add(agent)
+    await db_session.flush()
+
+    sent = []
+    await notification.dispatch(
+        db_session, settings, _ev(host=agent.name), email_sender=lambda st, to, su, b: sent.append(su)
+    )
+    assert len(sent) == 1
+
+    for r in (await db_session.scalars(select(Notification))).all():
+        await db_session.delete(r)
+    await db_session.flush()
+    await db_session.delete(agent)
+    await db_session.delete(rule)
+    await db_session.commit()
+
+
+async def test_an_unevaluable_window_does_not_silence_the_rule(db_session):
+    """A page not sent is worse than a page sent at the wrong hour.
+
+    A period whose `excludes` names something that no longer exists cannot be evaluated.
+    Failing closed would turn a config error into silent alert loss, so it fails OPEN and
+    logs a warning.
+    """
+    settings = Settings(database_url="x", smtp_host="localhost")
+    broken = await _period(db_session, "broken", {"monday": [["00:00", "24:00"]]}, excludes=["ghost-period"])
+    rule = _rule(channel="email")
+    rule.time_period_id = broken.id
+    db_session.add(rule)
+    agent = Agent(name=f"tp-{uuid.uuid4().hex[:8]}", token="t", mode="standalone", enrollment_state="enrolled")
+    db_session.add(agent)
+    await db_session.flush()
+
+    sent = []
+    await notification.dispatch(
+        db_session, settings, _ev(host=agent.name), email_sender=lambda st, to, su, b: sent.append(su)
+    )
+    assert len(sent) == 1, "a broken window must not swallow the alert"
+
+    for r in (await db_session.scalars(select(Notification))).all():
+        await db_session.delete(r)
+    await db_session.flush()
+    await db_session.delete(agent)
+    await db_session.delete(rule)
+    await db_session.delete(broken)
+    await db_session.commit()

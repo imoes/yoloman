@@ -1548,6 +1548,35 @@ class ServiceStateHistory(Base):
     __table_args__ = (Index("idx_service_state_history_agent_service_time", "agent_id", "service_name", "time"),)
 
 
+class TimePeriod(Base):
+    """L4: a reusable "when" — business hours, a maintenance window, 24x7.
+
+    Its own object rather than fields on a rule, because the same window is reused across
+    rules and because a per-rule field cannot express exclusions. Shape follows Checkmk's
+    TimeperiodSpec (weekday ranges + date exceptions + excluded periods); the evaluator is
+    services/time_periods.is_active.
+
+    Excludes reference other periods BY NAME, as in Checkmk, so a definition stays readable
+    on its own ("business_hours excludes company_holidays"). `name` is therefore unique and
+    the API refuses to rename a period another one excludes.
+    """
+
+    __tablename__ = "time_periods"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid())
+    name: Mapped[str] = mapped_column(String, nullable=False, unique=True)
+    alias: Mapped[str] = mapped_column(String, nullable=False, default="")
+    # {"monday": [["08:00","17:00"]], ...} — validated by time_periods.normalise_ranges
+    ranges: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
+    # {"2026-12-24": []} — an empty list means closed all day (a public holiday)
+    exceptions: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
+    # ["company_holidays"] — names of periods that, while active, deactivate this one
+    excludes: Mapped[list] = mapped_column(JSONB, nullable=False, default=list)
+    # Built-ins (24x7) are seeded and must not be deleted; user periods may be.
+    is_builtin: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    created_at: Mapped[datetime] = mapped_column(TZ_DATETIME, server_default=func.now(), nullable=False)
+
+
 class NotificationRule(Base):
     """Who gets told, on which channel, when a service has a confirmed
     (hard) problem or recovery (Block H8). `min_state` is the severity
@@ -1569,6 +1598,11 @@ class NotificationRule(Base):
     # unacknowledged this many minutes. NULL = fire immediately on the event
     # (level 0). A chain is several rules with increasing values (0/15/60).
     escalate_after_minutes: Mapped[int | None] = mapped_column(Integer)
+    # L4: only notify while this period is active. NULL = always, which is what every
+    # pre-existing rule means — so no backfill, and "always" needs no row to point at.
+    time_period_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("time_periods.id", ondelete="SET NULL")
+    )
     created_at: Mapped[datetime] = mapped_column(TZ_DATETIME, server_default=func.now(), nullable=False)
     # Block K7: optional subset match against the problem's host's
     # Agent.tags — every key:value pair here must be present on the host
@@ -1624,7 +1658,7 @@ class Notification(Base):
     state: Mapped[str] = mapped_column(String, nullable=False)
     channel: Mapped[str] = mapped_column(String, nullable=False)
     target: Mapped[str] = mapped_column(String, nullable=False)
-    status: Mapped[str] = mapped_column(String, nullable=False)  # sent | failed
+    status: Mapped[str] = mapped_column(String, nullable=False)  # sent | failed | suppressed
     error: Mapped[str | None] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(TZ_DATETIME, server_default=func.now(), nullable=False)
 

@@ -14,7 +14,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from bossman.api.auth import get_current_identity
-from bossman.db.models import Notification, NotificationRule, OrchestrationPlan, OUNode
+from bossman.db.models import Notification, NotificationRule, OrchestrationPlan, OUNode, TimePeriod
 from bossman.db.session import get_session
 
 router = APIRouter()
@@ -54,6 +54,9 @@ class NotificationRuleIn(BaseModel):
     scope_value: str | None = None
     scope_service_name: str | None = None
     scope_plan_id: UUID | None = None
+    # L4: only notify while this time period is active. None = always, which is what
+    # every rule meant before time periods existed.
+    time_period_id: UUID | None = None
 
 
 class NotificationRuleOut(NotificationRuleIn):
@@ -83,6 +86,7 @@ class NotificationRuleOut(NotificationRuleIn):
             scope_value=r.scope_value,
             scope_service_name=r.scope_service_name,
             scope_plan_id=r.scope_plan_id,
+            time_period_id=r.time_period_id,
         )
 
 
@@ -95,6 +99,8 @@ async def _validate(body: NotificationRuleIn, session: AsyncSession) -> None:
         raise HTTPException(status_code=422, detail="target is required")
     if body.ou_id is not None and await session.get(OUNode, body.ou_id) is None:
         raise HTTPException(status_code=422, detail=f"no such OU {body.ou_id}")
+    if body.time_period_id is not None and await session.get(TimePeriod, body.time_period_id) is None:
+        raise HTTPException(status_code=422, detail=f"no such time period {body.time_period_id}")
     # Block N1: validate the scope + its required companion field.
     if body.scope_type not in _SCOPES:
         raise HTTPException(status_code=422, detail=f"scope_type must be one of {'|'.join(_SCOPES)}")

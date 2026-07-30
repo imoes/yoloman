@@ -194,6 +194,14 @@ async def delete_agent(
     All in one transaction, so a mid-delete failure leaves the host intact."""
     agent = await _get_agent_or_404(session, agent_id)
     params = {"id": str(agent_id)}
+    # TimescaleDB caps how many rows one DML statement may decompress
+    # (max_tuples_decompressed_per_dml_transaction, default 100000). A host with a few
+    # weeks of compressed metrics blows straight through it — measured on this fleet:
+    # "tuple decompression limit exceeded ... tuples decompressed: 3394018", i.e. deleting
+    # a host was simply IMPOSSIBLE once its data had been compressed, which is not an
+    # acceptable state for a basic operation. 0 disables the cap, and SET LOCAL scopes it
+    # to this transaction so nothing else inherits an unbounded delete budget.
+    await session.execute(text("SET LOCAL timescaledb.max_tuples_decompressed_per_dml_transaction = 0"))
     # Orphan any satellites polled through this agent (self-referential FK).
     await session.execute(
         text("UPDATE agents SET parent_agent_id = NULL WHERE parent_agent_id = :id"), params
