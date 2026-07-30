@@ -18,7 +18,7 @@ TimescaleDB the *technical* one. Checkmk's persistence — autochecks files, RRD
 
 - [x] Batch 1 — Service Discovery (pipeline, lifecycle, identity, discovery rules) — 9 gaps (D1–D9); D1/D7 approved and implemented (phase 1), D2–D6/D8–D9 awaiting decision
 - [x] Batch 2 — Rule Engine + host tags / host labels / service labels as conditions — 7 gaps (R1–R7); R1–R4 approved and implemented (all six condition fields incl. and/or/not), R5–R7 awaiting decision
-- [ ] Batch 3 — Plugin system (sections, parser, SNMP, special agents, piggyback, bakery)
+- [x] Batch 3 — Plugin system (sections, parser, SNMP, special agents, piggyback, bakery) — 6 gaps (P1a/P1b/P3/P5a/P6/P8); no code yet, awaiting decisions
 - [ ] Batch 4 — HW/SW inventory (tree, history, delta, inventory-based checks)
 - [ ] Batch 5 — Service + host lifecycle, cluster / distributed monitoring
 - [ ] Batch 6 — Dashboards, views, reporting, BI aggregation, event console, prediction
@@ -201,6 +201,72 @@ entirely instead of applying to that one service.
 conditions — comfort), **R7** (a genuine binary first-match ruleset, to be decided together
 with Batch 1's D5/D9, which are the binary rulesets that would need it). **R3** is implemented
 but only becomes useful once re-translated checks actually emit service labels.
+
+---
+
+## Batch 3 — Plugin system (sections, parser, SNMP, special agents, piggyback, bakery)
+
+Read: `packages/cmk-plugin-apis/cmk/agent_based/v2/_plugins.py` (the plugin API),
+`cmk/checkengine/fetchers/` (piggyback/program fetchers), `cmk/utils/paths.py` (the SNMP walk
+cache), `cmk/plugins/*/special_agent/`, and 40 `supersedes=[...]` declarations across
+`cmk/plugins/`. Our side measured, not recalled — numbers below come from scanning all 1430
+`configs/checks.d/*.star`.
+
+**Checkmk's layering, which we do not have.** A SECTION is fetched once per host per poll,
+parsed once by its `parse_function`, and then handed to every CheckPlugin that declares it
+(`AgentSection(name, parse_function, parsed_section_name, host_label_function, supersedes)`).
+Our checks have no such layer: each check fetches its own data inside `main(ctx, params)`.
+
+Three consequences, in order of how much they actually cost us:
+
+1. **No fetch de-duplication, and it bites on SNMP.** Measured across the library: **313
+   checks call `snmpwalk`, 134 call `snmpget`** (plus 29/22 with other flags). Checkmk walks
+   the OID trees a host needs ONCE per poll and caches them (`var/check_mk/snmp_cache`,
+   `relative_walk_cache_dir`); we spawn one `snmpwalk` process per check per poll. For local
+   sources the duplication turned out to be minor — `/proc/meminfo` is read by 4 checks,
+   `/proc/uptime` by 5 — so this is an SNMP problem, not a general one.
+2. **No cross-check consistency.** Two checks reading the same source in one poll see two
+   different snapshots. Checkmk's parse-once guarantees one view per poll.
+3. **No `supersedes`.** 40 Checkmk sections declare it — `lnx_if` supersedes `if`/`if64`,
+   `uptime` supersedes `snmp_uptime`. That is the automatic version of what was done BY HAND
+   in this session when `interfaces` was deleted because `lnx_if` covers the same job on
+   Linux. Without it, every such overlap needs a human to notice and remove one side.
+
+| Feature (Checkmk) | yolo-man status | Disposition |
+|---|---|---|
+| **P1 — Section layer**: fetch once, parse once, share the parsed result | ❌ each check fetches its own data (`configs/checks.d/*.star`, `main(ctx, params)`) | see gaps below |
+| **P2 — `parse_function`** turning raw lines into a typed structure | 🟡 every check parses inline; no reusable parser | folded into P1 |
+| **P3 — `supersedes`** | ❌ overlaps are resolved by hand (this session: `interfaces` deleted in favour of `lnx_if`) | worth having |
+| **P4 — `host_label_function`** on a section | 🟡 the contract now permits `host_labels` from a check's discovery (Batch 1 D7); no section-level source because there are no sections | acceptable substitute |
+| **P5 — SNMP fetch layer** (bulk walk, per-host walk cache, `detect` specs) | 🟡 no SNMP stack; each check shells out to `snmpwalk`/`snmpget` (`parameterize_snmp_star`, `services/monitoring.py:637`), device polled through a proxy (`services/poller.py:433`) | the real cost centre |
+| **P6 — Special agents** (datasource programs) | ❌ absent; `check_platform` treats a special-agent section as "never an agent host" | needed for API-sourced monitoring |
+| **P7 — Piggyback** (`<<<<host>>>>` sections routed to another host) | 🟡 different mechanism, same intent: `internal/piggyback/` fans hypervisor guests out into satellite hosts (`services/poller.py:232`) | ours is arguably simpler; keep |
+| **P8 — Agent bakery** (per-host baked agent packages) | ❌ enrollment + config delivery exist (`api/enroll.py`, `AgentConfigDelivery`); no baked packages | low value for us |
+
+### Gaps
+
+| # | Gap | Nutzen | Aufwand | Risiko | Priorität | Art |
+|---|---|---|---|---|---|---|
+| **P1a** | **Per-poll fetch cache in the agent**, keyed by the command/argv, so N checks reading the same source pay once and see ONE snapshot | Fixes 1 and 2 above at once, and it is agent-local: no contract change, no check rewriting. Biggest win for SNMP devices, where a poll currently spawns hundreds of processes. | M | medium — a cache with the wrong lifetime turns a monitoring system into a liar; must be strictly per-poll, never across polls | **Hoch** | Architekturverbesserung |
+| **P1b** | **Declared sections + parse-once** (a real section layer: checks declare what they consume, the agent fetches/parses it once) | The faithful Checkmk model, and the precondition for section-level host labels. | L | high — it is a contract change for all 1430 checks and a re-translation | **Mittel** | Architekturverbesserung |
+| **P3** | **`supersedes`** in the sidecar: a check declares which checks it replaces; discovery drops the superseded ones | Removes a whole class of "why are two checks monitoring the same thing" — the `interfaces`/`lnx_if` situation, automatically. Data can be lifted straight from Checkmk (40 declarations) with the existing extractor. | S | low — a discovery-time filter, additive | **Hoch** | Quick Win |
+| **P5a** | **Native SNMP in the Go agent** (bulk walk + per-host walk cache) | Replaces ~500 `snmpwalk` shell-outs with one client; removes the per-check process cost and makes `detect` specs possible. | L | medium-high — a new dependency and a new failure surface in the agent | **Mittel** | Architekturverbesserung |
+| **P6** | **Special agents** as a datasource kind (fetch from an API, produce sections) | The only way to monitor things with no host agent (cloud APIs, storage arrays, hypervisor managers). Today those checks are correctly *excluded* — so the capability is simply missing, not broken. | L | medium | **Mittel** | — |
+| **P8** | Agent bakery | Per-host pre-configured agent packages. | L | low | **Niedrig** | ⏭ recommend reject — our enrollment + config delivery already covers the need without shipping per-host binaries |
+
+### Deviations to keep (documented)
+
+| Checkmk | Ours | Reason |
+|---|---|---|
+| piggyback via `<<<<host>>>>` sections in agent output | hypervisor guests enumerated by the agent (`internal/piggyback/`) and created as satellite hosts | Same intent (monitor things behind a host), simpler mechanism, already working. No reason to adopt the section-routing form. |
+| plugins are Python modules registered at import | Starlark modules with an `.nt` sidecar, pushed over mTLS | Deliberate: sandboxed, no host Python dependency, and pushable without touching the agent package. |
+
+**Decisions (awaiting user).** Recommended: **P3** first (a genuine quick win — the data exists
+in the Checkmk source and the extractor already runs, and it retires the class of bug that had
+`interfaces` and `lnx_if` both monitoring NICs). Then **P1a**, the per-poll fetch cache, which
+is where the measured cost actually is. **P1b** (a real section layer) only makes sense bundled
+with a re-translation, since it changes the check contract. **P5a**/**P6** are genuine features
+with real scope; **P8** I recommend rejecting.
 
 ---
 
