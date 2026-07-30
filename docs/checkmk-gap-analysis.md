@@ -20,9 +20,9 @@ TimescaleDB the *technical* one. Checkmk's persistence — autochecks files, RRD
 - [x] Batch 2 — Rule Engine + host tags / host labels / service labels as conditions — 7 gaps (R1–R7); R1–R4 approved and implemented (all six condition fields incl. and/or/not), R5–R7 awaiting decision
 - [x] Batch 3 — Plugin system (sections, parser, SNMP, special agents, piggyback, bakery) — 6 gaps (P1a/P1b/P3/P5a/P6/P8); no code yet, awaiting decisions
 - [x] Batch 4 — HW/SW inventory — 5 gaps (I1–I5); I4a (HW change alerting) REJECTED with reasoning, I2/I3 dropped for hardware, I4b (software changes) open
-- [x] Batch 5 — Service + host lifecycle, cluster / distributed monitoring — 10 gaps (L1–L7, C1–C3); **L1–L4 + C1/C2 implemented and live-verified** (stale agent ⇒ host DOWN, agent version, notification time windows, cluster hosts with worst/best/failover proven on the real MUE-C5 trio). Open: L5–L7, C3 (aged-out reading ⇒ UNKNOWN; host down ⇒ CRIT unless in downtime; one page per outage instead of one per service). L4 approved, C1+C2 next. L5–L7 and C3 open
+- [x] Batch 5 — Service + host lifecycle, cluster / distributed monitoring — 10 gaps (L1–L7, C1–C3); **L1–L4, L6, L7, C1, C2 implemented and live-verified**. Open: L5 (recurring downtimes), C3 (distributed sites) (aged-out reading ⇒ UNKNOWN; host down ⇒ CRIT unless in downtime; one page per outage instead of one per service). L4 approved, C1+C2 next. L5–L7 and C3 open
 - [x] Batch 6 — Dashboards, views, reporting, BI aggregation, event console, prediction — 8 gaps (B1–B8); highest value: **B1** BI aggregation functions (worst-of-n / count_ok, ~30 LOC of maths) and **B3/B4** event correlation with canceling events. Awaiting decisions
-- [x] Batch 7 — REST API, users/roles/audit, configuration activation — 6 gaps (A1–A6); **activation is absent BY DESIGN** (nothing to activate — 4230 LOC we never wrote); real gap is **A1** granular permissions, plus **A3** ETag/If-Match. Awaiting decisions
+- [x] Batch 7 — REST API, users/roles/audit, configuration activation — 6 gaps (A1–A6); **activation is absent BY DESIGN** (nothing to activate — 4230 LOC we never wrote). **A3 (optimistic locking) implemented and live-verified**; A1 granular permissions open
 
 ## Baseline inventory (verified 2026-07-30, file:line-cited)
 
@@ -435,8 +435,8 @@ DOWN in the core, which stops its services from being checked at all.
 | **L3** ✅ | **DONE** — **Host-down suppression**: while a host is DOWN, its services do not produce their own notifications | A dead host currently means N service alerts for one event. This is the payoff of L2 and the reason Checkmk feels quiet | S | low, once L2 exists | **Hoch** | — needs L2 |
 | **L4** ✅ | **DONE** — **Time periods** (`24X7`, working hours, exclusions) as a reusable object, applied to notification rules — and separately to checking | `NotificationRule` has no time dimension at all (`db/models.py:1542-1567`): "page me only during business hours" and "this backup job is expected to be red at night" are both unexpressible. Checkmk's evaluator is small and self-contained (`cmk/utils/timeperiod.py`, `is_timeperiod_active` ~30 LOC incl. recursive `exclude`) — a genuine copy candidate | M | low — additive; the risk is silently suppressing a real alert, so it must be visible in the UI why nothing fired | **Hoch** | — |
 | **L5** | Recurring downtimes (every Monday 02:00, monthly) | Maintenance windows are usually periodic. Note Checkmk gates this to its *commercial* editions (`downtimes.py:254`), so shipping it is a differentiator, not catch-up. Our `Scheduler` already has a cron matcher (`services/cron.py`) to build on | S | low | **Mittel** | Quick Win |
-| **L6** | Parent/child host topology → UNREACHABLE distinct from DOWN | "The switch died, not the 40 hosts behind it." Requires a parents graph; we have `HostEdge`/topology data already, so the input may exist | M | medium — wrong parents cause suppressed real alarms | **Mittel** | — needs L2 |
-| **L7** | Flapping on Checkmk's model (`percent_state_change`, high/low thresholds) instead of a change count | Ours fires on N changes in a window regardless of how bad they were; the weighted version distinguishes "oscillating" from "changed twice" | S | low | **Niedrig** | Refactoring |
+| **L6** ✅ | **DONE** — Parent/child host topology → UNREACHABLE distinct from DOWN | "The switch died, not the 40 hosts behind it." Requires a parents graph; we have `HostEdge`/topology data already, so the input may exist | M | medium — wrong parents cause suppressed real alarms | **Mittel** | — needs L2 |
+| **L7** ✅ | **DONE** — Flapping on Checkmk's model (`percent_state_change`, high/low thresholds) instead of a change count | Ours fires on N changes in a window regardless of how bad they were; the weighted version distinguishes "oscillating" from "changed twice" | S | low | **Niedrig** | Refactoring |
 | **C1** ✅ | **DONE** — **Cluster hosts**: a host whose services come from several nodes (`nodes` attribute, `clustered_services` deciding which service belongs to the cluster vs the node) | The Proxmox/Ceph/DRBD reality we already monitor IS clustered — "is the cluster healthy" is currently only answerable per node. `ClusteringConfig._effective_host` (`cmk/base/config.py:3256-3287`) is ~120 LOC and directly portable | L | medium-high — touches discovery identity (which host owns a service) and therefore Batch 1's `discovered_services` | **Hoch** | Architekturverbesserung |
 | **C2** ✅ | **DONE** — **Cluster aggregation modes** (`worst` / `best` / `failover` / native) — "OK if any node is OK" | The actual semantics of a cluster service. Fully in-tree at Checkmk and self-contained: `checking/cluster_mode.py`, 394 LOC, no core dependency — the single most copyable piece in this batch | M | low, once C1 exists | **Hoch** | — needs C1 |
 | **C3** | Distributed monitoring (remote sites, config sync, activation to remotes) | Scaling past one Bossman and spanning networks. But see the deviation below — our proxy/satellite model already solves the network-reach half, and Checkmk's own answer here is 4200 LOC (`activate_changes.py`) plus a commercial-only livestatus proxy | L | high | **Niedrig** | — |
@@ -528,7 +528,17 @@ only outcome would be Checkmk's "not implemented" UNKNOWN); ownership is an expl
 `service_patterns` list rather than Checkmk's three rulesets; and a claimed service no node
 reports yields no cluster service rather than an unclearable UNKNOWN.
 
-**L5/L6/L7 and C3 stay open**, in that order of appeal: recurring downtimes are a small win,
+**L6+L7 implemented (2026-07-30).** L6: a host whose parents are ALL confirmed down reads
+UNKNOWN "unreachable — X is down" instead of CRIT and does not page; one reachable parent makes
+it its own fault again. `Agent.parent_agent_id` counts as a parent implicitly — it already is a
+reachability chain (verified: minikube's effective parent is docker-test, unconfigured), so
+`host_parents` (migration b8f4c2e17a93) holds only the underivable ones. A soft-down parent
+does not yet excuse its children. L7: flapping is now Nagios/Checkmk's weighted
+`percent_state_change` over the last 21 results with 20%/5% hysteresis
+(`services.recent_states`, migration d2a8f6b3c471) instead of an unnormalised change count; the
+old counter is deleted, not left callable.
+
+**L5 and C3 stay open**, in that order of appeal: recurring downtimes are a small win,
 parents need L2 first, flapping is a refinement, C3 is scale-out we do not need yet.
 
 Batches 6 and 7 are deliberately **not** analysed yet: the decided work gets built first rather
@@ -636,7 +646,7 @@ step — which is a governance question (A6 below, and the approval/guardrail th
 |---|---|---|---|---|---|---|
 | **A1** | **Granular permissions** (a named permission per action; roles are sets of them) | The first thing a second team asks for: acknowledge without deploy, read-only auditor, per-OU operator. Today the only answer is "make them admin" | M | medium — every route needs a permission name, and getting it wrong locks people out or opens something | **Hoch** | Architekturverbesserung |
 | **A2** | **Custom roles** (beyond admin/operator, which is a CHECK constraint) | Needs A1 to mean anything | S | low, after A1 | **Hoch** | — needs A1 |
-| **A3** | **Optimistic locking on writes** (`ETag` + `If-Match`, per Checkmk's opt-in endpoint contract) | Two operators editing the same rule silently overwrite each other today. Checkmk's version is small and per-endpoint, and our rows already have the timestamps to build the tag from | S | low — opt-in per endpoint, so nothing existing breaks | **Mittel** | Quick Win |
+| **A3** ✅ | **DONE** — **Optimistic locking on writes** (`ETag` + `If-Match`, per Checkmk's opt-in endpoint contract) | Two operators editing the same rule silently overwrite each other today. Checkmk's version is small and per-endpoint, and our rows already have the timestamps to build the tag from | S | low — opt-in per endpoint, so nothing existing breaks | **Mittel** | Quick Win |
 | **A4** | Audit coverage + a UI to read it | The table and API exist; what is missing is that every mutating route writes to it, and a page to search it. Half-covered auditing is worse than none, because it looks complete | M | low | **Mittel** | Technische Schuld |
 | **A5** | LDAP / SAML / OIDC login | Nobody wants a second password store. Deferred once already in the monitoring/mgmt backlog | M | medium | **Niedrig** | — |
 | **A6** | Configuration change review ("pending changes" with an approval step) | NOT Checkmk's activation — we need no activation. But an approval gate before a change reaches the fleet is the governance half of the agentic-OS roadmap, and this is where it would attach | L | high — touches every write path | **Niedrig** | Architekturverbesserung |
