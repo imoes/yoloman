@@ -663,6 +663,24 @@ async def poll_once(
         *(poll_agent(session_factory, aid, settings, semaphore, client_factory) for aid in agent_ids)
     )
 
+    # C1/C2: cluster aggregation runs ONCE per cycle and AFTER every node — an aggregate
+    # built from half-fresh node states would flap on nothing but poll ordering. Its own
+    # session/commit so a clustering bug cannot roll back the cycle's monitoring state, and
+    # its touched services go through the normal notification dispatch (a cluster is a
+    # host; its services are services).
+    try:
+        async with session_factory() as session:
+            from bossman.services.clustering import aggregate_all_clusters
+
+            clustered = await aggregate_all_clusters(session)
+            if clustered:
+                await session.commit()
+                sent = await notification.collect_and_dispatch(session, settings, clustered)
+                if sent:
+                    await session.commit()
+    except Exception:  # noqa: BLE001 — clustering must never crash the poll cycle
+        logger.exception("cluster aggregation failed")
+
     # On-call escalation runs ONCE per cycle (not per agent): fire delayed
     # notification rules for problems that are still unacked past their delay.
     try:

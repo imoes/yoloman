@@ -336,8 +336,17 @@ async def _cleanup(db_session, agent, *rules):
     await db_session.flush()
     for rule in rules:
         got = await db_session.get(CheckRule, rule.id)
-        if got is not None:
-            await db_session.delete(got)
+        if got is None:
+            continue
+        # Detach the rule from EVERY service, not just this agent's. _make_rule creates
+        # globally-scoped rules, and the live poller shares this database — within one poll
+        # cycle it picks such a rule up and attaches it to real hosts' services, after
+        # which deleting it fails with "violates foreign key constraint
+        # services_rule_id_fkey". Which run hits it depends purely on poll timing, which is
+        # why the failure moved between test files. rule_id is re-attached on the next
+        # evaluation, so nulling it costs nothing.
+        await db_session.execute(update(Service).where(Service.rule_id == rule.id).values(rule_id=None))
+        await db_session.delete(got)
     await db_session.flush()
     await db_session.delete(agent)
     await db_session.commit()

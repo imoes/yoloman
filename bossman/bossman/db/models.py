@@ -1548,6 +1548,59 @@ class ServiceStateHistory(Base):
     __table_args__ = (Index("idx_service_state_history_agent_service_time", "agent_id", "service_name", "time"),)
 
 
+class HostCluster(Base):
+    """C1: a cluster host — one whose services come from several nodes.
+
+    The cluster IS an Agent row (mode="cluster", no address), for the same reason
+    `Host alive` is a Service: an Agent already has services, problems, acknowledgement,
+    downtime, notification rules, OU placement and a UI. A parallel "cluster" entity would
+    have had to re-earn all of it, and an operator would have to learn a second object that
+    behaves almost like a host.
+
+    This table holds only what a cluster needs beyond a host:
+
+    aggregation_mode  worst | best | failover — see services/clustering.py
+    primary_node_id   failover's preferred node; secondary nodes reporting raise a WARN
+    service_patterns  which services belong to the CLUSTER rather than to the node
+
+    `service_patterns` is our reduction of Checkmk's three-way `clustered_services` /
+    `clustered_services_of` / `clustered_services_mapping` ruleset chain
+    (cmk/base/config.py ClusteringConfig._effective_host). Checkmk needs rules there
+    because a service's owner is decided per node/service pair by the same ruleset engine
+    as everything else; we take the explicit list, which covers the actual question ("which
+    services are cluster-level") without a second precedence system to reason about.
+    """
+
+    __tablename__ = "host_clusters"
+
+    agent_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("agents.id", ondelete="CASCADE"), primary_key=True
+    )
+    aggregation_mode: Mapped[str] = mapped_column(String, nullable=False, default="worst")
+    primary_node_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("agents.id", ondelete="SET NULL")
+    )
+    # ["Memory", "Disk /"] — exact service names, or a trailing "*" prefix match.
+    service_patterns: Mapped[list] = mapped_column(JSONB, nullable=False, default=list)
+    created_at: Mapped[datetime] = mapped_column(TZ_DATETIME, server_default=func.now(), nullable=False)
+
+
+class ClusterNode(Base):
+    """Cluster membership. Many-to-many on purpose, as in Checkmk: a node may belong to
+    more than one cluster (a Ceph node that is also part of a Proxmox cluster), and a
+    cluster obviously has several nodes."""
+
+    __tablename__ = "cluster_nodes"
+
+    cluster_agent_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("agents.id", ondelete="CASCADE"), primary_key=True
+    )
+    node_agent_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("agents.id", ondelete="CASCADE"), primary_key=True
+    )
+    created_at: Mapped[datetime] = mapped_column(TZ_DATETIME, server_default=func.now(), nullable=False)
+
+
 class TimePeriod(Base):
     """L4: a reusable "when" — business hours, a maintenance window, 24x7.
 
