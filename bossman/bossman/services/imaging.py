@@ -120,11 +120,30 @@ class Volume:
 
 
 @dataclass(frozen=True)
+class Partition:
+    """A partition of the source disk, as it must be recreated on the target.
+
+    Kept separately from `Volume` because the two are not the same thing and conflating them
+    loses information: a partition holding an LVM PV has no filesystem of its own, and the
+    partition table cannot be written from a list of filesystems alone. (Found by trying to
+    write it — the first version of this module only recorded volumes.)
+
+    `kind` is an sfdisk type ALIAS (`uefi`, `linux`, `lvm`, `swap`) rather than a GUID: sfdisk
+    accepts both, and the alias is legible in a script a human may have to read at 3am.
+    """
+
+    number: int
+    size_bytes: int
+    kind: str  # uefi | linux | lvm | swap | bios_boot
+
+
+@dataclass(frozen=True)
 class SourceLayout:
     """The captured shape of a source disk — the manifest that travels with the image."""
 
     disk_size: int
     label: str = "gpt"  # gpt | dos
+    partitions: tuple[Partition, ...] = ()
     volumes: tuple[Volume, ...] = ()
     # True when LVM sits directly on the disk with no partition table, which is a real layout:
     # this very host has it on sdb (`data--vg` PVs straight on the device).
@@ -245,6 +264,7 @@ def parse_layout(*, sfdisk: dict[str, Any] | None, lsblk_disk: dict[str, Any]) -
         raise ImagingError(f"disk {lsblk_disk.get('name')!r} reports no size")
 
     volumes: list[Volume] = []
+    partitions: list[Partition] = []
     # LVM directly on the disk: the disk itself is the PV, so there is no partition table to
     # recreate. A real layout — this host's sdb is exactly that.
     lvm_on_raw = str(lsblk_disk.get("fstype") or "").lower() == "lvm2_member"
@@ -256,6 +276,18 @@ def parse_layout(*, sfdisk: dict[str, Any] | None, lsblk_disk: dict[str, Any]) -
 
         if kind == "part":
             partition = _partition_number(name)
+            if partition is not None:
+                partitions.append(
+                    Partition(
+                        number=partition,
+                        size_bytes=int(node.get("size") or 0),
+                        kind=_sfdisk_kind(
+                            fs_type=fs,
+                            part_type=part_types.get(name),
+                            mountpoint=node.get("mountpoint"),
+                        ),
+                    )
+                )
         if kind == "lvm":
             vg_lv = _split_vg_lv(name)
 
@@ -289,12 +321,30 @@ def parse_layout(*, sfdisk: dict[str, Any] | None, lsblk_disk: dict[str, Any]) -
     # and the fixed-size boot pieces first. Sorting by the source's own on-disk order is the only
     # thing that reproduces the original layout.
     volumes.sort(key=lambda v: (v.partition if v.partition is not None else 1 << 30, v.lv or ""))
+    partitions.sort(key=lambda p: p.number)
     return SourceLayout(
         disk_size=disk_size,
         label=label,
+        partitions=tuple(partitions),
         volumes=tuple(volumes),
         lvm_on_raw_disk=lvm_on_raw,
     )
+
+
+def _sfdisk_kind(*, fs_type: str, part_type: str | None, mountpoint: str | None) -> str:
+    """The sfdisk type alias for a partition we are about to recreate."""
+    if fs_type == "lvm2_member":
+        return "lvm"
+    upper = (part_type or "").upper()
+    if upper == _GPT_ESP:
+        return "uefi"
+    if upper == _GPT_BIOS_BOOT:
+        return "bios_boot"
+    if upper == _GPT_SWAP or fs_type == "swap":
+        return "swap"
+    if (mountpoint or "") in ("/boot/efi", "/efi") or fs_type == "vfat":
+        return "uefi"
+    return "linux"
 
 
 def _partition_number(name: str) -> int | None:
@@ -484,6 +534,71 @@ def fetch_command(url: str, *, retries: int = 5) -> str:
     onto the filesystem.
     """
     return f"curl -fsSL --retry {int(retries)} --retry-all-errors {shlex.quote(url)}"
+
+
+def sfdisk_script(layout: SourceLayout) -> str:
+    """The partition table to write on the target, as an `sfdisk` script.
+
+    Two things are delegated to sfdisk rather than computed here, both verified against the real
+    tool (`sfdisk --json` on a file-backed table):
+
+    * **Sizes carry a unit** (`size=512MiB`), so nothing here converts bytes to sectors. That
+      matters more than it looks: a 4Kn target reports a 4096-byte sector, and sector counts
+      computed against the source's 512 would be eight times wrong.
+    * **The last partition gets an empty `size=`**, which claims the remainder *and leaves the
+      GPT backup header its room* — measured: on a 2 GiB disk it took 510 MiB of the remaining
+      511. `plan_restore`'s own tail arithmetic therefore exists to validate and to report, not
+      to be written; letting both compute it would be two sources of truth that disagree the
+      first time one is edited.
+
+    `start=` is omitted throughout so sfdisk lays partitions out consecutively with its own
+    alignment.
+    """
+    if not layout.partitions:
+        raise ImagingError("layout has no partitions to write (LVM directly on the disk?)")
+    lines = [f"label: {layout.label}", "unit: sectors", ""]
+    last = layout.partitions[-1]
+    for p in layout.partitions:
+        size = "" if p is last else f"{p.size_bytes // (1024 * 1024)}MiB"
+        lines.append(f"size={size}, type={p.kind}")
+    return "\n".join(lines) + "\n"
+
+
+def lvm_commands(layout: SourceLayout, *, pv_device: str) -> list[list[str]]:
+    """Recreate the volume groups and logical volumes on the target.
+
+    The last LV of each group is created with `-l 100%FREE` instead of an explicit size — the same
+    reasoning as the partition table: LVM knows exactly how much room is left after its own
+    metadata, and asking it beats computing it. That is also what makes the target's larger disk
+    end up used rather than merely partitioned.
+
+    Volumes are created in captured order, so "last" means the one that was last on the source —
+    which is the one `plan_restore` marked as growable.
+    """
+    lvs = [v for v in layout.volumes if v.vg and v.lv]
+    if not lvs:
+        return []
+    cmds: list[list[str]] = [["pvcreate", "-ff", "-y", pv_device]]
+    by_vg: dict[str, list[Volume]] = {}
+    for v in lvs:
+        by_vg.setdefault(str(v.vg), []).append(v)
+    for vg, members in by_vg.items():
+        cmds.append(["vgcreate", vg, pv_device])
+        for v in members[:-1]:
+            cmds.append(["lvcreate", "-L", f"{v.size_bytes // (1024 * 1024)}m", "-n", str(v.lv), vg])
+        cmds.append(["lvcreate", "-l", "100%FREE", "-n", str(members[-1].lv), vg])
+    return cmds
+
+
+def lv_device(volume: Volume) -> str:
+    """The path a restored LV will have on the target.
+
+    `/dev/<vg>/<lv>` rather than `/dev/mapper/<vg>-<lv>`: the mapper form needs the dash doubling
+    that caused the parsing trouble in the first place, and the slash form has no escaping at all.
+    """
+    if volume.vg and volume.lv:
+        return f"/dev/{volume.vg}/{volume.lv}"
+    raise ImagingError(f"volume {volume.role!r} is not on LVM")
 
 
 def grow_commands(planned: PlannedVolume, *, device: str, mountpoint: str = "/mnt/target") -> list[list[str]]:

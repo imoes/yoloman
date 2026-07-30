@@ -5,6 +5,10 @@ shapes the plan has to handle: LVM on a partition (sda3 → ubuntu--vg) and LVM 
 disk with no partition table (sdb → data--vg).
 """
 
+import json
+import shutil
+import subprocess
+
 import pytest
 
 from bossman.services.imaging import (
@@ -21,12 +25,15 @@ from bossman.services.imaging import (
     classify_role,
     fetch_command,
     grow_commands,
+    lv_device,
+    lvm_commands,
     parse_layout,
     partclone_tool,
     plan_restore,
     required_tools,
     restore_pipeline,
     select_target_disk,
+    sfdisk_script,
 )
 
 GiB = 1024**3
@@ -427,3 +434,114 @@ def test_growing_xfs_mounts_first_and_passes_the_mountpoint():
 
 def test_a_volume_that_does_not_grow_produces_no_commands():
     assert grow_commands(PlannedVolume(ROOT_EXT4, 40 * GiB, False), device="/dev/x") == []
+
+
+# ---------------------------------------------------------------------------
+# Writing the target: partition table and LVM
+
+
+def test_the_partition_table_carries_units_and_an_open_ended_last_entry():
+    """Sizes with a unit mean nothing here converts bytes to sectors — which matters because a
+    4Kn target reports a 4096-byte sector and counts computed against the source's 512 would be
+    eight times wrong. The empty last `size=` hands the remainder (and the GPT tail arithmetic)
+    to sfdisk."""
+    layout = parse_layout(sfdisk=SFDISK, lsblk_disk=SDA)
+    script = sfdisk_script(layout)
+    assert script.startswith("label: gpt\n")
+    assert "size=1075MiB, type=uefi" in script
+    assert "size=2048MiB, type=linux" in script
+    assert script.rstrip().endswith("size=, type=lvm"), "the last entry claims what is left"
+
+
+def test_the_pv_partition_is_typed_lvm_not_linux():
+    """A PV partition typed `linux` still works but lies about its content, and some tooling
+    (including installers looking for existing volume groups) reads the type."""
+    layout = parse_layout(sfdisk=SFDISK, lsblk_disk=SDA)
+    assert [p.kind for p in layout.partitions] == ["uefi", "boot" if False else "linux", "lvm"]
+
+
+def test_lvm_on_the_raw_disk_has_no_table_to_write():
+    """sdb's PVs sit on the device itself; emitting an empty table there would destroy it."""
+    layout = parse_layout(sfdisk=None, lsblk_disk=SDB)
+    assert layout.partitions == ()
+    with pytest.raises(ImagingError) as exc:
+        sfdisk_script(layout)
+    assert "LVM directly on the disk" in str(exc.value)
+
+
+def test_the_last_logical_volume_takes_the_rest_of_the_group():
+    """`-l 100%FREE` rather than a computed size: LVM knows what its own metadata costs, and this
+    is what makes a bigger target disk actually get used instead of merely partitioned."""
+    layout = parse_layout(sfdisk=SFDISK, lsblk_disk=SDA)
+    cmds = lvm_commands(layout, pv_device="/dev/nvme0n1p3")
+    assert cmds[0][:1] == ["pvcreate"]
+    assert ["vgcreate", "ubuntu-vg", "/dev/nvme0n1p3"] in cmds
+    assert cmds[-1] == ["lvcreate", "-l", "100%FREE", "-n", "ubuntu-lv", "ubuntu-vg"]
+
+
+def test_all_but_the_last_volume_keep_their_size():
+    """Two LVs in one group: only the last absorbs the extra space."""
+    two = {
+        "name": "sdb", "type": "disk", "size": 180 * GiB, "fstype": "LVM2_member", "rm": False,
+        "children": [
+            {"name": "data--vg-home", "type": "lvm", "size": 60 * GiB, "fstype": "ext4",
+             "fsused": 40 * GiB, "mountpoint": "/home"},
+            {"name": "data--vg-srv", "type": "lvm", "size": 110 * GiB, "fstype": "ext4",
+             "fsused": 50 * GiB, "mountpoint": "/srv"},
+        ],
+    }
+    cmds = lvm_commands(parse_layout(sfdisk=None, lsblk_disk=two), pv_device="/dev/sdb")
+    sized = [c for c in cmds if c[0] == "lvcreate" and "-L" in c]
+    free = [c for c in cmds if c[0] == "lvcreate" and "100%FREE" in c]
+    assert len(sized) == 1 and len(free) == 1
+    # lvcreate's argv ends with the VG, so the name is the element after "-n".
+    assert sized[0][sized[0].index("-n") + 1] == "home", "sorted by name, so home gets a size"
+    assert free[0][free[0].index("-n") + 1] == "srv"
+
+
+def test_the_lv_path_avoids_the_escaped_mapper_form():
+    """/dev/<vg>/<lv> needs no dash doubling; /dev/mapper/<vg>-<lv> does, and that escaping is
+    exactly what went wrong when parsing these names."""
+    layout = parse_layout(sfdisk=SFDISK, lsblk_disk=SDA)
+    assert lv_device(layout.volumes[-1]) == "/dev/ubuntu-vg/ubuntu-lv"
+    with pytest.raises(ImagingError):
+        lv_device(ESP)
+
+
+# ---------------------------------------------------------------------------
+# Against the real tool
+
+
+@pytest.mark.skipif(not shutil.which("sfdisk"), reason="sfdisk not installed")
+def test_real_sfdisk_accepts_the_script_and_fills_a_bigger_disk(tmp_path):
+    """The claim of this whole feature, checked against the actual partitioner.
+
+    A 50 GiB source layout written onto a 120 GiB disk must leave the last partition holding
+    everything that is left — and still leave the GPT backup header its room at the very end.
+    Asserted on sfdisk's own output rather than on our arithmetic, because ours is only there to
+    validate and report.
+    """
+    layout = parse_layout(sfdisk=SFDISK, lsblk_disk=SDA)
+    img = tmp_path / "target.img"
+    subprocess.run(["truncate", "-s", "120G", str(img)], check=True)
+    subprocess.run(
+        ["sfdisk", "--quiet", str(img)],
+        input=sfdisk_script(layout), text=True, check=True,
+        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+    )
+    table = json.loads(
+        subprocess.run(["sfdisk", "--json", str(img)], capture_output=True, text=True, check=True).stdout
+    )["partitiontable"]
+    sector = table["sectorsize"]
+    parts = table["partitions"]
+    assert len(parts) == 3
+    assert parts[0]["size"] * sector == 1075 * 1024**2, "the ESP keeps its size"
+    last = parts[-1]
+    # The property, not a magic number: the last partition holds everything the fixed ones left.
+    # (120 GiB minus 1075 + 2048 MiB is ~116.9 GiB — my first attempt asserted >118 and was simply
+    # bad arithmetic on my part, not a defect in the script.)
+    fixed = sum(p["size"] for p in parts[:-1]) * sector
+    assert last["size"] * sector > (120 * GiB) - fixed - (8 * 1024**2)
+    assert last["size"] * sector > 4 * layout.volumes[-1].size_bytes // 2, "it really did grow"
+    tail = table["lastlba"] - (last["start"] + last["size"])
+    assert 0 <= tail < 4096, f"GPT tail left {tail} sectors — room for the backup header, no more"
