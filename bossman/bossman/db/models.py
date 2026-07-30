@@ -375,11 +375,21 @@ class Metric(Base):
 
     __tablename__ = "metrics"
 
+    # The mapped key is (series_id, time) — metrics_raw's own primary key, i.e. the row's
+    # true identity. It used to be (time, agent_id, metric), which excluded the labels
+    # that make a series a series, and the consequence was severe: the agent stamps every
+    # point of one sampling tick with the identical timestamp, so vpp0221's 5 disk mounts
+    # all share (time, agent_id, metric). SQLAlchemy's identity map folded them into ONE
+    # object — `select(Metric)` returned five results that were the same Python object
+    # five times, all reporting mount "/" — so evaluate_host's per-mount dict held a
+    # single entry and 4 of 5 filesystems were never checked against a threshold rule.
+    # It looked monitored because the agent's own checks write the same service names.
+    # `labels` cannot be in the key (a dict is unhashable; the identity map raises), which
+    # is why the view now carries series_id — see migration e7b2f4a19c33.
+    series_id: Mapped[int] = mapped_column(primary_key=True)
     time: Mapped[datetime] = mapped_column(TZ_DATETIME, nullable=False, primary_key=True)
-    agent_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("agents.id"), nullable=False, primary_key=True
-    )
-    metric: Mapped[str] = mapped_column(String, nullable=False, primary_key=True)
+    agent_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("agents.id"), nullable=False)
+    metric: Mapped[str] = mapped_column(String, nullable=False)
     value: Mapped[float] = mapped_column(nullable=False)
     labels: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
 

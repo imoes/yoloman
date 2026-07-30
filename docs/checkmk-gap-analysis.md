@@ -450,10 +450,34 @@ DOWN in the core, which stops its services from being checked at all.
 | Piggyback = files under `tmp/check_mk/piggyback/<HOST>/<SOURCE>` plus (newer) a message-queue hub | satellite agent rows + piggyback hosts written straight into the DB by the poller | Same idea (one contact point delivering data for many hosts), without a filesystem-as-IPC layer and its age-based cleanup (`_storage.py:414` `cleanup_piggyback_files`). |
 | Service dependencies configurable only in a text ruleset, Nagios-core-only, no GUI | `depends_on_service_name` on the rule, enforced at notification time for any backend | Not a deviation we need to justify — Checkmk's own source calls this a legacy gap (`config.py:1080-1083`). |
 
-### Decisions (pending)
+### Decisions (2026-07-30)
 
-Nothing in Batch 5 is implemented yet. **L1 is the one I would do first and not wait on** — it
-is a correctness bug in the alarm path, small, and independent of every other item here.
+**L1 + L2 + L3 approved as one block.** Not just "aged-out value ⇒ UNKNOWN", but together with
+a real host state — because the two halves fix different symptoms of the same event and doing
+only L1 would make it worse: a dead host would turn all N of its services UNKNOWN and page N
+times for one failure. With L2/L3 it reports **one** problem, "host is down", and its services
+fall silent behind it.
+
+The age limit is derived from the poll interval (`staleness_factor × interval`, Checkmk's
+1.5 default), not hardcoded — a host polled every 10 minutes must not be called stale after 15
+minutes of a 60-second assumption.
+
+**L4 approved as its own object**, not a field on the rule: time periods are reused across
+rules (`24X7`, business hours, a maintenance window), and Checkmk's evaluator including
+recursive `exclude` is ~30 LOC (`cmk/utils/timeperiod.py:181-226`). A per-rule field would be
+re-entered for every rule and could not express exclusions.
+
+**C1 + C2 approved as the next block after the lifecycle.** We already monitor Proxmox/Ceph/DRBD,
+which *are* clusters, so "is the cluster healthy" being unanswerable is a real hole.
+`cluster_mode.py` is 394 self-contained LOC and portable more or less as-is; `ClusteringConfig`
+~120. C1 touches discovery identity (which host owns a service) and therefore Batch 1's
+`discovered_services` — that is why it goes second, not first.
+
+**L5/L6/L7 and C3 stay open**, in that order of appeal: recurring downtimes are a small win,
+parents need L2 first, flapping is a refinement, C3 is scale-out we do not need yet.
+
+Batches 6 and 7 are deliberately **not** analysed yet: the decided work gets built first rather
+than growing the pile of undecided analysis.
 
 ---
 

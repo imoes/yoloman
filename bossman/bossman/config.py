@@ -161,6 +161,14 @@ class Settings(BaseSettings):
     business_service_interval_seconds: int = 60
     # Polling interval for the metrics/connection-edges poller.
     poll_interval_seconds: int = 60
+    # L1: a metric older than staleness_factor x poll_interval_seconds is no longer a
+    # statement about now, so the service goes UNKNOWN ("no data for X") instead of
+    # being judged on a dead host's last reading. Checkmk's equivalent
+    # staleness_threshold defaults to 1.5, but its core produces the result at check
+    # time (age ~ 0), whereas ours crosses agent-sample -> poll -> evaluate. Measured
+    # on the live fleet: healthy hosts sit at 61-108 s, worst sample gap 120 s — so
+    # 1.5 (90 s) would flag healthy hosts. See monitoring.stale_after_for().
+    staleness_factor: float = 4.0
 
     # Max agents polled concurrently — bounded via asyncio.Semaphore rather
     # than a task queue (Celery/Redis); comfortably sufficient at this

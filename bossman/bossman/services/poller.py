@@ -31,7 +31,14 @@ from bossman.config import Settings
 from bossman.db.models import Agent, AgentObservedState, HostEdge, Metric, MetricRaw
 from bossman.services import notification
 from bossman.services.agent_client import AgentClient, AgentClientError, client_for
-from bossman.services.monitoring import evaluate_assigned_checks, evaluate_host, expire_acknowledgements, ingest_agent_checks, is_infra_agent
+from bossman.services.monitoring import (
+    evaluate_assigned_checks,
+    evaluate_host,
+    expire_acknowledgements,
+    ingest_agent_checks,
+    is_infra_agent,
+    stale_after_for,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -264,7 +271,9 @@ async def _find_or_create_satellite(session: AsyncSession, name: str, parent_age
     return satellite
 
 
-async def _ingest_hosts_overview(session: AsyncSession, agent: Agent, hosts: list[dict]) -> int:
+async def _ingest_hosts_overview(
+    session: AsyncSession, agent: Agent, hosts: list[dict], stale_after: timedelta | None = None
+) -> int:
     """Ingests one GET /api/v1/hosts/overview response: the polled
     agent's own entry becomes agent-reported Services (its metrics
     already arrive via the existing full-history /api/v1/metrics pull, so
@@ -321,7 +330,7 @@ async def _ingest_hosts_overview(session: AsyncSession, agent: Agent, hosts: lis
         touched += await ingest_agent_checks(session, satellite, host.get("checks") or [])
         _store_facts(satellite, host, now)
         satellite.last_seen_at = now
-        touched += await evaluate_host(session, satellite)
+        touched += await evaluate_host(session, satellite, stale_after=stale_after)
 
     return satellite_count, touched
 
@@ -506,6 +515,10 @@ async def poll_agent(
         client = client_factory(agent, settings)
         now = datetime.now(timezone.utc)
         reached_agent = False
+        # L1: how old a reading may be and still be judged. Derived from the poll
+        # interval, so a deployment that polls every 10 minutes is not declared
+        # stale by a 60-second assumption.
+        stale_after = stale_after_for(settings)
 
         try:
             metrics = await client.metrics_dump(agent.last_metrics_pulled_at)
@@ -526,7 +539,9 @@ async def poll_agent(
         touched: list = []  # services touched this cycle → post-commit notification dispatch
         try:
             hosts = await client.hosts_overview()
-            result.satellites_discovered, ingest_touched = await _ingest_hosts_overview(session, agent, hosts)
+            result.satellites_discovered, ingest_touched = await _ingest_hosts_overview(
+                session, agent, hosts, stale_after=stale_after
+            )
             touched += ingest_touched
             reached_agent = True
             # A Bossman-managed agent is never "standalone" — that's an
@@ -550,7 +565,7 @@ async def poll_agent(
         # its own try/except so one host's evaluation bug can't crash the
         # whole poll cycle (mirrors the metrics/edges try/except above).
         try:
-            touched += await evaluate_host(session, agent)
+            touched += await evaluate_host(session, agent, stale_after=stale_after)
             # Lapse any timed acknowledgements that have expired (Block H5),
             # so a problem resurfaces on the next poll even with no UI open.
             await expire_acknowledgements(session, now)

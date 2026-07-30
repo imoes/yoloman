@@ -161,6 +161,11 @@ DEFAULT_MAX_ATTEMPTS = 3
 # exact 21-result ratio, but the same intent and easy to reason about.
 _FLAP_WINDOW = timedelta(minutes=30)
 _FLAP_MIN_CHANGES = 5
+# L1 fallback for callers that have no Settings (see stale_after_for, which is what
+# the poller uses). Equals the shipped default of staleness_factor 4 x 60 s poll
+# interval; kept as its own constant so a caller without settings degrades to the
+# same behaviour instead of silently to "never stale".
+_DEFAULT_STALE_AFTER = timedelta(minutes=4)
 
 
 class Transition:
@@ -294,6 +299,40 @@ def format_value(value: float | None, metric: str | None = None) -> str:
     return render.number(value)
 
 
+def stale_after_for(settings) -> timedelta:
+    """How old a metric may be and still count as a statement about *now*.
+
+    Checkmk asks the same question as `staleness = age / check_interval` against a
+    `staleness_threshold` of 1.5 (`cmk/gui/general_config.py:366`). We need a bigger
+    factor than 1.5, and the reason is structural rather than sloppy: Checkmk's core
+    produces the check result itself at the moment it checks, so age ≈ 0 at evaluation.
+    Ours travels two hops — the agent samples on its own cadence, then a poll pulls it,
+    then the rule is evaluated — so a perfectly healthy reading is already one sample
+    interval old before we ever see it.
+
+    Measured on the live fleet rather than guessed: for the 7 healthy hosts the newest
+    metric was 61-108 s old at evaluation, and the largest gap between two consecutive
+    cpu_pct samples over two hours was 120 s. So Checkmk's 1.5 x 60 s = 90 s would
+    already mark healthy hosts stale. The default factor of 4 (240 s) clears both the
+    observed worst age and the worst sample gap with room to spare, while still noticing
+    a dead host within four minutes.
+    """
+    return timedelta(seconds=settings.staleness_factor * settings.poll_interval_seconds)
+
+
+def is_stale_sample(sample_time: datetime | None, now: datetime, stale_after: timedelta) -> bool:
+    """True when a sample is too old to be judged (or there is no sample at all)."""
+    return sample_time is None or (now - sample_time) > stale_after
+
+
+def _no_data_output(sample_time: datetime | None, now: datetime) -> str:
+    """Says how long the silence has lasted — "UNKNOWN" alone does not distinguish
+    "never sampled" from "gone since Tuesday", and that difference is the whole point."""
+    if sample_time is None:
+        return "no data (never sampled)"
+    return f"no data for {render.timespan((now - sample_time).total_seconds())}"
+
+
 def compute_state(
     comparison: str, value: float | None, warn: float | None, crit: float | None, *, metric: str | None = None
 ) -> tuple[str, str]:
@@ -363,14 +402,23 @@ async def evaluate_composite_condition(
     return "OK", f"composite ({rule.condition_logic}) OK: {joined}"
 
 
-async def evaluate_host(session: AsyncSession, agent: Agent) -> list[Service]:
+async def evaluate_host(
+    session: AsyncSession, agent: Agent, *, stale_after: timedelta | None = None
+) -> list[Service]:
     """Re-evaluates every check_rules-derived service for one agent
     against its most recently polled metric values, upserting `services`
     and recording a `service_state_history` row on each state change.
     Meant to be called right after the poller writes fresh metrics for
     this agent (same session, not yet committed — evaluate_host reads its
     own just-written rows via that same, still-open transaction). Does
-    not commit; the caller owns the transaction boundary."""
+    not commit; the caller owns the transaction boundary.
+
+    `stale_after` bounds how old a metric may be and still be judged (L1); a
+    reading older than that yields UNKNOWN "no data for X" instead of its last
+    verdict. Callers with Settings pass `stale_after_for(settings)`; the default
+    covers the paths that have none."""
+    if stale_after is None:
+        stale_after = _DEFAULT_STALE_AFTER
     rules = (await session.scalars(select(CheckRule).where(CheckRule.enabled == True))).all()  # noqa: E712
     metrics_needed = sorted({r.metric for r in rules})
     if not metrics_needed:
@@ -432,11 +480,17 @@ async def evaluate_host(session: AsyncSession, agent: Agent) -> list[Service]:
             mount = (row.labels or {}).get("mount")
             if mount not in by_mount or row.time > by_mount[mount].time:
                 by_mount[mount] = row
-        series: list[tuple[str | None, float | None]] = (
-            [(m, r.value) for m, r in by_mount.items()] if by_mount else [(None, None)]
+        # Carry each series' sample TIME alongside its value: a value is only a
+        # verdict about now if it is recent (see is_stale_sample below). The
+        # aged-out case deliberately keeps its label, so "Disk /" stays "Disk /"
+        # and goes UNKNOWN — dropping the row here instead would collapse every
+        # mount into one label-less "Disk" service and leave the real per-mount
+        # services untouched at their last OK forever, which is the bug.
+        series: list[tuple[str | None, float | None, datetime | None]] = (
+            [(m, r.value, r.time) for m, r in by_mount.items()] if by_mount else [(None, None, None)]
         )
 
-        for mount, value in series:
+        for mount, value, sample_time in series:
             rule = resolve_effective_rule(
                 list(rules), agent.name, agent.groups, metric, mount,
                 host_ou_ancestry=host_ou_ancestry, rule_ou_links=rule_ou_links,
@@ -444,7 +498,16 @@ async def evaluate_host(session: AsyncSession, agent: Agent) -> list[Service]:
             if rule is None:
                 continue
 
-            state, output = compute_state(rule.comparison, value, rule.warn_threshold, rule.crit_threshold, metric=metric)
+            # L1: judge only a CURRENT reading. Passing an aged-out value on to
+            # compute_state is what let a host silent for 26 days keep reporting
+            # OK, re-timestamped every poll cycle.
+            if is_stale_sample(sample_time, now, stale_after):
+                state, output = "UNKNOWN", _no_data_output(sample_time, now)
+                value = None
+            else:
+                state, output = compute_state(
+                    rule.comparison, value, rule.warn_threshold, rule.crit_threshold, metric=metric
+                )
             # Block K9: a rule with extra_conditions combines its primary
             # metric with other same-host metrics via AND/OR — only once
             # the primary itself has real data (an UNKNOWN host shouldn't

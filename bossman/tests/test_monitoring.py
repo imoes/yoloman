@@ -7,9 +7,9 @@ import uuid
 from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
 
-from sqlalchemy import select
+from sqlalchemy import delete, select
 
-from bossman.db.models import Agent, CheckRule, Metric, Service, ServiceStateHistory
+from bossman.db.models import Agent, CheckRule, Metric, MetricRaw, MetricSeries, Service, ServiceStateHistory
 from bossman.services.monitoring import (
     acknowledge_service,
     compute_availability,
@@ -20,6 +20,7 @@ from bossman.services.monitoring import (
     query_agent_services,
     query_problems,
     resolve_effective_rule,
+    stale_after_for,
 )
 
 # ---------------------------------------------------------------------------
@@ -293,9 +294,26 @@ async def _make_rule(db_session, **overrides) -> CheckRule:
 
 
 async def _write_metric(db_session, agent, metric, value, when=None, labels=None):
-    db_session.add(
-        Metric(time=when or datetime.now(timezone.utc), agent_id=agent.id, metric=metric, value=value, labels=labels or {})
+    """Writes through metric_series + metrics_raw, because `metrics` is a VIEW.
+
+    It used to insert into Metric directly. Since metrics became a view over
+    (metric_series JOIN metrics_raw), every DB-backed test in this file failed with
+    "cannot insert into view metrics" — including plain
+    test_evaluate_host_creates_service_with_ok_state, i.e. the breakage was total and
+    silent in the suite's noise, not specific to any one test.
+    """
+    series = await db_session.scalar(
+        select(MetricSeries).where(
+            MetricSeries.agent_id == agent.id,
+            MetricSeries.metric == metric,
+            MetricSeries.labels == (labels or {}),
+        )
     )
+    if series is None:
+        series = MetricSeries(agent_id=agent.id, metric=metric, labels=labels or {})
+        db_session.add(series)
+        await db_session.flush()
+    db_session.add(MetricRaw(series_id=series.series_id, time=when or datetime.now(timezone.utc), value=value))
     await db_session.flush()
     await db_session.commit()
 
@@ -308,9 +326,13 @@ async def _cleanup(db_session, agent, *rules):
     history = (await db_session.scalars(select(ServiceStateHistory).where(ServiceStateHistory.agent_id == agent.id))).all()
     for h in history:
         await db_session.delete(h)
-    metrics = (await db_session.scalars(select(Metric).where(Metric.agent_id == agent.id))).all()
-    for m in metrics:
-        await db_session.delete(m)
+    # metrics is a view: delete the raw rows, then the series that own them.
+    series_ids = list(
+        (await db_session.scalars(select(MetricSeries.series_id).where(MetricSeries.agent_id == agent.id))).all()
+    )
+    if series_ids:
+        await db_session.execute(delete(MetricRaw).where(MetricRaw.series_id.in_(series_ids)))
+        await db_session.execute(delete(MetricSeries).where(MetricSeries.series_id.in_(series_ids)))
     await db_session.flush()
     for rule in rules:
         got = await db_session.get(CheckRule, rule.id)
@@ -844,3 +866,123 @@ def test_summary_drops_value_prefix_and_uses_symbol():
     assert not ok.startswith("value")
     _, crit = compute_state("ge", 27.56, 15, 20, metric="mem_used_pct")
     assert crit == "27.56% ≥ crit 20.00%"
+
+
+# ---------------------------------------------------------------------------
+# L1 — an aged-out reading must not be re-confirmed as a verdict about now
+
+
+class _StaleSettings:
+    staleness_factor = 4.0
+    poll_interval_seconds = 60
+
+
+def _only(services, name):
+    """The one service with this name, asserting it is unambiguous."""
+    hits = [s for s in services if s.name == name]
+    assert len(hits) == 1, f"expected exactly one {name!r}, got {[s.name for s in services]}"
+    return hits[0]
+
+
+async def test_evaluate_host_reports_no_data_instead_of_the_last_known_value(db_session):
+    """The regression, end to end: a value older than the window goes UNKNOWN.
+
+    Before this, a host silent for 26 days kept reporting OK — evaluate_host runs even
+    when the host was not reached, and the value was fetched with no age bound at all.
+    """
+    agent = await _make_agent(db_session)
+    rule = await _make_rule(db_session)
+    old = datetime.now(timezone.utc) - timedelta(days=26)
+    await _write_metric(db_session, agent, "cpu_pct", 50.0, when=old)
+
+    services = await evaluate_host(db_session, agent, stale_after=stale_after_for(_StaleSettings()))
+    await db_session.commit()
+
+    # By name, not by index: other globally-scoped rules may exist in the database,
+    # and this test is about one service's verdict, not about how many there are.
+    cpu = _only(services, "CPU load")
+    assert cpu.state == "UNKNOWN", "a 26-day-old sample must not be judged"
+    assert cpu.output.startswith("no data for ")
+    assert cpu.value is None, "the stale number must not be shown as current either"
+
+    await _cleanup(db_session, agent, rule)
+
+
+async def test_evaluate_host_still_judges_a_fresh_value(db_session):
+    """The other half: normal operation must not be turned into UNKNOWN."""
+    agent = await _make_agent(db_session)
+    rule = await _make_rule(db_session)
+    await _write_metric(
+        db_session, agent, "cpu_pct", 99.0, when=datetime.now(timezone.utc) - timedelta(seconds=100)
+    )
+
+    services = await evaluate_host(db_session, agent, stale_after=stale_after_for(_StaleSettings()))
+    await db_session.commit()
+
+    cpu = _only(services, "CPU load")
+    assert cpu.state == "CRIT", "100 s is within the measured healthy range"
+    assert cpu.value == 99.0
+
+    await _cleanup(db_session, agent, rule)
+
+
+async def test_stale_fan_out_keeps_its_mount_identity(db_session):
+    """"Disk /" must go UNKNOWN as "Disk /", not collapse into a nameless "Disk".
+
+    This is the subtle half of the fix. Simply filtering aged-out rows out of the query
+    would leave no labelled series, the code would fall through to its single
+    label-less entry, and a NEW "Disk" service would appear UNKNOWN while the real
+    "Disk /" and "Disk /var" rows kept their last OK forever — the exact bug, now with
+    an extra service to hide it.
+    """
+    agent = await _make_agent(db_session)
+    rule = await _make_rule(db_session, service_name="Disk", metric="disk_used_pct")
+    old = datetime.now(timezone.utc) - timedelta(days=3)
+    await _write_metric(db_session, agent, "disk_used_pct", 41.0, when=old, labels={"mount": "/"})
+    await _write_metric(db_session, agent, "disk_used_pct", 62.0, when=old, labels={"mount": "/var"})
+
+    services = await evaluate_host(db_session, agent, stale_after=stale_after_for(_StaleSettings()))
+    await db_session.commit()
+
+    disks = sorted(s.name for s in services if s.name.startswith("Disk /"))
+    assert disks == ["Disk /", "Disk /var"], f"identity lost: {disks}"
+    assert {s.state for s in services if s.name.startswith("Disk /")} == {"UNKNOWN"}
+
+    await _cleanup(db_session, agent, rule)
+
+
+async def test_same_timestamp_label_series_stay_distinct_objects(db_session):
+    """Two series written at the IDENTICAL timestamp must not fold into one row.
+
+    The agent stamps every point of a sampling tick with the same `now`, so on vpp0221
+    all five disk_used_pct mounts carry 15:05:25.000000. Metric is mapped onto the
+    `metrics` VIEW, and while its mapped key was (time, agent_id, metric) — labels
+    excluded — SQLAlchemy's identity map folded those five into ONE object: the query
+    returned five results that were the same Python object five times, all claiming
+    mount "/". evaluate_host keys its per-mount dict off exactly that, so four of five
+    filesystems went unchecked while looking monitored (the agent's own checks write
+    services under the same names).
+
+    Asserted on object identity, not just on the mount list, because that is the actual
+    failure: the SQL was always right — the same query without the ORM entity returned
+    all five mounts.
+    """
+    agent = await _make_agent(db_session)
+    when = datetime.now(timezone.utc)
+    for mount, value in (("/", 41.0), ("/var", 62.0), ("/rpool", 3.0)):
+        await _write_metric(db_session, agent, "disk_used_pct", value, when=when, labels={"mount": mount})
+
+    rows = (
+        await db_session.scalars(
+            select(Metric)
+            .where(Metric.agent_id == agent.id, Metric.metric == "disk_used_pct")
+            .order_by(Metric.labels, Metric.time.desc())
+            .distinct(Metric.labels)
+        )
+    ).all()
+
+    assert len({id(r) for r in rows}) == 3, "the identity map folded distinct series into one object"
+    assert sorted((r.labels or {}).get("mount") for r in rows) == ["/", "/rpool", "/var"]
+    assert sorted(r.value for r in rows) == [3.0, 41.0, 62.0], "values must follow their own mount"
+
+    await _cleanup(db_session, agent)
