@@ -20,7 +20,7 @@ TimescaleDB the *technical* one. Checkmk's persistence — autochecks files, RRD
 - [x] Batch 2 — Rule Engine + host tags / host labels / service labels as conditions — 7 gaps (R1–R7); R1–R4 approved and implemented (all six condition fields incl. and/or/not), R5–R7 awaiting decision
 - [x] Batch 3 — Plugin system (sections, parser, SNMP, special agents, piggyback, bakery) — 6 gaps (P1a/P1b/P3/P5a/P6/P8); no code yet, awaiting decisions
 - [x] Batch 4 — HW/SW inventory — 5 gaps (I1–I5); I4a (HW change alerting) REJECTED with reasoning, I2/I3 dropped for hardware, I4b (software changes) open
-- [x] Batch 5 — Service + host lifecycle, cluster / distributed monitoring — 10 gaps (L1–L7, C1–C3); **L1+L2+L3+L4 implemented and live-verified** (stale agent ⇒ host DOWN, agent version surfaced, notification time windows). C1+C2 next; L5–L7 and C3 open (aged-out reading ⇒ UNKNOWN; host down ⇒ CRIT unless in downtime; one page per outage instead of one per service). L4 approved, C1+C2 next. L5–L7 and C3 open
+- [x] Batch 5 — Service + host lifecycle, cluster / distributed monitoring — 10 gaps (L1–L7, C1–C3); **L1–L4 + C1/C2 implemented and live-verified** (stale agent ⇒ host DOWN, agent version, notification time windows, cluster hosts with worst/best/failover proven on the real MUE-C5 trio). Open: L5–L7, C3 (aged-out reading ⇒ UNKNOWN; host down ⇒ CRIT unless in downtime; one page per outage instead of one per service). L4 approved, C1+C2 next. L5–L7 and C3 open
 - [ ] Batch 6 — Dashboards, views, reporting, BI aggregation, event console, prediction
 - [ ] Batch 7 — REST API compatibility, users/roles/audit, configuration activation
 
@@ -437,8 +437,8 @@ DOWN in the core, which stops its services from being checked at all.
 | **L5** | Recurring downtimes (every Monday 02:00, monthly) | Maintenance windows are usually periodic. Note Checkmk gates this to its *commercial* editions (`downtimes.py:254`), so shipping it is a differentiator, not catch-up. Our `Scheduler` already has a cron matcher (`services/cron.py`) to build on | S | low | **Mittel** | Quick Win |
 | **L6** | Parent/child host topology → UNREACHABLE distinct from DOWN | "The switch died, not the 40 hosts behind it." Requires a parents graph; we have `HostEdge`/topology data already, so the input may exist | M | medium — wrong parents cause suppressed real alarms | **Mittel** | — needs L2 |
 | **L7** | Flapping on Checkmk's model (`percent_state_change`, high/low thresholds) instead of a change count | Ours fires on N changes in a window regardless of how bad they were; the weighted version distinguishes "oscillating" from "changed twice" | S | low | **Niedrig** | Refactoring |
-| **C1** | **Cluster hosts**: a host whose services come from several nodes (`nodes` attribute, `clustered_services` deciding which service belongs to the cluster vs the node) | The Proxmox/Ceph/DRBD reality we already monitor IS clustered — "is the cluster healthy" is currently only answerable per node. `ClusteringConfig._effective_host` (`cmk/base/config.py:3256-3287`) is ~120 LOC and directly portable | L | medium-high — touches discovery identity (which host owns a service) and therefore Batch 1's `discovered_services` | **Hoch** | Architekturverbesserung |
-| **C2** | **Cluster aggregation modes** (`worst` / `best` / `failover` / native) — "OK if any node is OK" | The actual semantics of a cluster service. Fully in-tree at Checkmk and self-contained: `checking/cluster_mode.py`, 394 LOC, no core dependency — the single most copyable piece in this batch | M | low, once C1 exists | **Hoch** | — needs C1 |
+| **C1** ✅ | **DONE** — **Cluster hosts**: a host whose services come from several nodes (`nodes` attribute, `clustered_services` deciding which service belongs to the cluster vs the node) | The Proxmox/Ceph/DRBD reality we already monitor IS clustered — "is the cluster healthy" is currently only answerable per node. `ClusteringConfig._effective_host` (`cmk/base/config.py:3256-3287`) is ~120 LOC and directly portable | L | medium-high — touches discovery identity (which host owns a service) and therefore Batch 1's `discovered_services` | **Hoch** | Architekturverbesserung |
+| **C2** ✅ | **DONE** — **Cluster aggregation modes** (`worst` / `best` / `failover` / native) — "OK if any node is OK" | The actual semantics of a cluster service. Fully in-tree at Checkmk and self-contained: `checking/cluster_mode.py`, 394 LOC, no core dependency — the single most copyable piece in this batch | M | low, once C1 exists | **Hoch** | — needs C1 |
 | **C3** | Distributed monitoring (remote sites, config sync, activation to remotes) | Scaling past one Bossman and spanning networks. But see the deviation below — our proxy/satellite model already solves the network-reach half, and Checkmk's own answer here is 4200 LOC (`activate_changes.py`) plus a commercial-only livestatus proxy | L | high | **Niedrig** | — |
 
 ### Deviations to keep (documented)
@@ -516,6 +516,17 @@ hour).
 Two pre-existing bugs fixed on the way: a failed escalation send counted as "already
 escalated" and was never retried, and deleting a host was impossible once its metrics were
 compressed (TimescaleDB's tuple-decompression cap; 500 → 204).
+
+**C1+C2 implemented (2026-07-30).** A cluster is an `agents` row with mode="cluster" plus
+`host_clusters` + `cluster_nodes` (migration c1b7e3a95d40 — which also had to teach the
+`ck_agents_mode` CHECK constraint the new mode). Aggregation is a port of `cluster_mode.py`:
+bucket by state, take the selector's bucket, pivot deterministically. Proven live on
+vpp0221/22/23 with one node CRIT: `best` → OK, `worst` → CRIT, from identical node states.
+
+Deviations: "native" mode is NOT ported (no check of ours has a cluster entry point, so its
+only outcome would be Checkmk's "not implemented" UNKNOWN); ownership is an explicit
+`service_patterns` list rather than Checkmk's three rulesets; and a claimed service no node
+reports yields no cluster service rather than an unclearable UNKNOWN.
 
 **L5/L6/L7 and C3 stay open**, in that order of appeal: recurring downtimes are a small win,
 parents need L2 first, flapping is a refinement, C3 is scale-out we do not need yet.
