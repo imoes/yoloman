@@ -1,6 +1,7 @@
 package starmodules
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"strings"
@@ -155,5 +156,86 @@ func TestChrootFileWriteLandsInsideTheTarget(t *testing.T) {
 	}
 	if ok, _ := c.FileExists("/etc/hostname"); !ok {
 		t.Fatal("file_exists must see it too")
+	}
+}
+
+// The reserved parameter, tested through StarModule.Run — the path Bossman actually takes. Using a
+// param instead of a new endpoint means the REST and MCP surfaces need no change at all, so this is
+// where the feature is either wired up or it is not.
+
+func TestTargetRootParamWritesIntoTheTarget(t *testing.T) {
+	root := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(root, "etc"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	m := &StarModule{
+		fqcn: "test.chroot.writer", shortName: "writer", writes: true, agentWrite: true,
+		options: map[string]any{},
+		src: []byte(`
+def main(ctx, params):
+    ctx.file_write("/etc/motd", "installed offline\n", mode="0644")
+    return {"changed": True, "msg": "wrote motd"}
+`),
+	}
+	res, err := m.Run(context.Background(), map[string]any{TargetRootParam: root}, false)
+	if err != nil {
+		t.Fatalf("run failed: %v", err)
+	}
+	if !res.Changed {
+		t.Fatal("the module should report a change")
+	}
+	// The decisive assertion: it landed in the TARGET, not on the machine running the agent.
+	b, err := os.ReadFile(filepath.Join(root, "etc/motd"))
+	if err != nil || string(b) != "installed offline\n" {
+		t.Fatalf("not written into the target: %v %q", err, b)
+	}
+}
+
+func TestTargetRootParamRefusesAReadOnlyModule(t *testing.T) {
+	// The gate has to hold on the real path too, not just in the constructor: a check asked to run
+	// against a chroot would otherwise report the helper's state as the target's.
+	m := &StarModule{
+		fqcn: "test.chroot.reader", shortName: "reader", writes: false, agentWrite: true,
+		options: map[string]any{},
+		src:     []byte("def main(ctx, params):\n    return {\"state\": \"OK\"}\n"),
+	}
+	_, err := m.Run(context.Background(), map[string]any{TargetRootParam: t.TempDir()}, false)
+	if err == nil {
+		t.Fatal("a writes:false module must not run against a chroot")
+	}
+	if !strings.Contains(err.Error(), "read-only") {
+		t.Fatalf("the error should explain why, got %v", err)
+	}
+}
+
+func TestWithoutTheParamNothingIsRedirected(t *testing.T) {
+	// Every existing invocation has to behave exactly as before — the param is absent, so the
+	// module writes where it always did.
+	dir := t.TempDir()
+	target := filepath.Join(dir, "plain.txt")
+	m := &StarModule{
+		fqcn: "test.plain", shortName: "plain", writes: true, agentWrite: true,
+		options: map[string]any{},
+		src: []byte("def main(ctx, params):\n" +
+			"    ctx.file_write(params[\"path\"], \"x\", mode=\"0644\")\n" +
+			"    return {\"changed\": True, \"msg\": \"wrote\"}\n"),
+	}
+	if _, err := m.Run(context.Background(), map[string]any{"path": target}, false); err != nil {
+		t.Fatalf("run failed: %v", err)
+	}
+	if _, err := os.Stat(target); err != nil {
+		t.Fatalf("the plain path should have been used verbatim: %v", err)
+	}
+}
+
+func TestAnEmptyTargetRootIsTreatedAsAbsent(t *testing.T) {
+	// A caller threading an empty string through (a template variable that resolved to nothing)
+	// must get normal behaviour, not a confusing "target root must not be \"\"" failure.
+	c, err := capsFor(false, true, true, map[string]any{TargetRootParam: "   "})
+	if err != nil {
+		t.Fatalf("an empty target root should mean 'not set', got %v", err)
+	}
+	if c.InChroot() {
+		t.Fatal("whitespace must not enable chroot mode")
 	}
 }

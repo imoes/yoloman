@@ -3,6 +3,7 @@ package starmodules
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/mutkluge/agentic-mcp/internal/modules"
 	"github.com/mutkluge/agentic-mcp/internal/starmod"
@@ -71,7 +72,10 @@ func (m *StarModule) Run(_ context.Context, params map[string]any, dryRun bool) 
 	// dry run does it via a params["dry_run"] flag (mirrors the native modules,
 	// e.g. systemd/command). OR it into check_mode here.
 	checkMode := dryRun || coerceBool(params["dry_run"])
-	caps := NewRealCaps(checkMode, m.agentWrite, m.writes)
+	caps, err := capsFor(checkMode, m.agentWrite, m.writes, params)
+	if err != nil {
+		return modules.Result{}, fmt.Errorf("%s: %w", m.fqcn, err)
+	}
 	res, err := starmod.Execute(m.shortName+".star", m.src, params, caps, starmod.Options{})
 	if err != nil {
 		return modules.Result{}, fmt.Errorf("%s: %w", m.fqcn, err)
@@ -84,6 +88,29 @@ func (m *StarModule) Run(_ context.Context, params map[string]any, dryRun bool) 
 	out := modules.Result{Changed: res.Changed, Msg: res.Msg, Data: res.Data}
 	out.DataSource = map[string]int{"attempts": res.Evidence.Attempts, "produced": res.Evidence.Produced}
 	return out, nil
+}
+
+
+// TargetRootParam asks for the module to be applied to a system mounted elsewhere instead of the
+// running one — the offline pass that configures a machine during its network install, before its
+// single reboot.
+//
+// A reserved parameter rather than a new endpoint, because `dry_run` is already exactly this: a
+// reserved key the module never declares, read here at the one place capabilities are built. That
+// keeps the REST and MCP surfaces unchanged — a caller simply passes the key — and it keeps the
+// decision in the funnel every invocation already goes through.
+const TargetRootParam = "_target_root"
+
+// capsFor picks the capability backend for one invocation.
+//
+// The refusal for a read-only module lives in NewChrootCaps and surfaces here as the module's own
+// error, which is where a caller will actually read it.
+func capsFor(checkMode, agentWrite, moduleWrites bool, params map[string]any) (*RealCaps, error) {
+	root, _ := params[TargetRootParam].(string)
+	if strings.TrimSpace(root) == "" {
+		return NewRealCaps(checkMode, agentWrite, moduleWrites), nil
+	}
+	return NewChrootCaps(checkMode, agentWrite, moduleWrites, strings.TrimSpace(root))
 }
 
 // jsonType maps an Ansible argspec type to a JSON Schema type.

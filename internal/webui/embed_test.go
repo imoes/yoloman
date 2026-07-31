@@ -39,12 +39,18 @@ func TestHandler_ServesIndexAtPrefix(t *testing.T) {
 		t.Fatalf("status = %d", resp.StatusCode)
 	}
 	body := readAll(t, resp)
-	if !strings.Contains(body, "YOLO-MANager") {
-		t.Errorf("expected index.html title, got: %.200s", body)
-	}
 	// The embedded frontend is the built Angular standalone-agent app.
 	if !strings.Contains(body, "<app-root") {
 		t.Errorf("expected the Angular app root element in index.html")
+	}
+	// This test is named for the PREFIX, and the base href is the only part of index.html that
+	// actually depends on it — get it wrong and every asset the SPA requests 404s.
+	//
+	// It replaces an assertion on the page <title> ("YOLO-MANager"), which tested nothing about the
+	// prefix and broke the moment the app was renamed to BossmanUi. A title is presentation and will
+	// change again; the base href is the contract.
+	if !strings.Contains(body, `<base href="/ui/">`) {
+		t.Errorf("expected the base href to carry the mount prefix, got: %.200s", body)
 	}
 }
 
