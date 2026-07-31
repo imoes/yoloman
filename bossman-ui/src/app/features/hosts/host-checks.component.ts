@@ -2,6 +2,7 @@ import { Component, computed, effect, inject, input, signal } from '@angular/cor
 import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
+import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatDialog } from '@angular/material/dialog';
@@ -32,7 +33,7 @@ import {
 @Component({
   selector: 'app-host-checks',
   standalone: true,
-  imports: [FormsModule, MatButtonModule, MatIconModule, MatFormFieldModule, MatInputModule, RouterLink, HostStatusBadgeComponent],
+  imports: [FormsModule, MatButtonModule, MatIconModule, MatProgressBarModule, MatFormFieldModule, MatInputModule, RouterLink, HostStatusBadgeComponent],
   template: `
     <div class="bm-checks">
       @if (error()) { <div class="bm-error">{{ error() }}</div> }
@@ -53,6 +54,13 @@ import {
           <mat-icon>data_object</mat-icon> Variables…
         </button>
       </div>
+
+      @if (discovering()) {
+        <div class="bm-disco-progress">
+          <mat-progress-bar mode="determinate" [value]="discoverPercent()"></mat-progress-bar>
+          <span class="bm-dim">Discovering… {{ discoverPercent() }}%</span>
+        </div>
+      }
 
       @if (proposals() !== null) {
         <div class="bm-wizard">
@@ -314,6 +322,8 @@ export class HostChecksComponent {
   // discovery wizard state
   proposals = signal<DiscoveryProposal[] | null>(null);
   discovering = signal(false);
+  // 0–100, driven by the discovery job's progress poll (Checkmk-style ~1400-check run).
+  discoverPercent = signal(0);
   rechecking = signal(false);
   private selected = signal<Set<string>>(new Set());
   private creds = signal<Record<string, Record<string, string>>>({});
@@ -438,15 +448,22 @@ export class HostChecksComponent {
   runDiscover(): void {
     this.error.set(null);
     this.discovering.set(true);
+    this.discoverPercent.set(0);
     this.proposals.set(null);
     this.selected.set(new Set());
     this.creds.set({});
+    // The stream emits a progress snapshot every ~500 ms and completes on the done snapshot, which
+    // carries the result. Update the bar on each; set proposals only when done.
     this.checkService.discover(this.agent().id).subscribe({
-      next: (r) => {
-        this.proposals.set(r.proposals);
-        this.discovering.set(false);
-        // Descriptions stay COLLAPSED by default; each expands (and lazy-loads)
-        // on click via toggleExpand. Provisioning info also stays lazy.
+      next: (p) => {
+        this.discoverPercent.set(p.percent);
+        if (p.error) { this.error.set(p.error); this.discovering.set(false); return; }
+        if (p.done && p.result) {
+          this.proposals.set(p.result.proposals);
+          this.discovering.set(false);
+          // Descriptions stay COLLAPSED by default; each expands (and lazy-loads)
+          // on click via toggleExpand. Provisioning info also stays lazy.
+        }
       },
       error: (e) => { this.fail(e); this.discovering.set(false); },
     });

@@ -1,5 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
+import { Observable, timer } from 'rxjs';
+import { switchMap, takeWhile } from 'rxjs/operators';
 import { environment } from '../../../environments/environment';
 import {
   CheckAssignment,
@@ -8,6 +10,18 @@ import {
   DiscoveryProposal,
   EffectiveCheck,
 } from '../models/check.model';
+
+/** A discovery job's progress, polled while it runs; `result` is present only on the final (done)
+ *  emission. `percent` is server-computed and caps below 100 until done. */
+export interface DiscoveryProgress {
+  job_id: string;
+  total: number;
+  completed: number;
+  percent: number;
+  done: boolean;
+  error?: string;
+  result?: { agent_id: string; candidates: number; proposals: DiscoveryProposal[]; reconciled?: boolean };
+}
 
 /** REST client for the check library + assignments (Block G9). */
 @Injectable({ providedIn: 'root' })
@@ -50,12 +64,28 @@ export class CheckService {
     return this.http.delete<void>(`${this.base}/check-assignments/${id}`);
   }
 
-  /** Block G9-P3c: run auto-discovery on a host (checks' _discover mode). */
-  discover(agentId: string, checkNames?: string[]) {
-    return this.http.post<{ agent_id: string; candidates: number; proposals: DiscoveryProposal[] }>(
-      `${this.base}/agents/${agentId}/discover`,
-      checkNames ? { check_names: checkNames } : {},
-    );
+  /** Run auto-discovery on a host, emitting progress until it completes.
+   *
+   * Discovery is a background job now (~1400 checks, seconds long): the POST returns a job id, and this
+   * polls the progress endpoint every 500 ms, emitting each snapshot so the caller can drive a percent
+   * bar. The final emission has done=true and carries `result` (proposals + transitions). */
+  discover(agentId: string, checkNames?: string[]): Observable<DiscoveryProgress> {
+    return this.http
+      .post<{ job_id: string; total: number; candidates: number }>(
+        `${this.base}/agents/${agentId}/discover`,
+        checkNames ? { check_names: checkNames } : {},
+      )
+      .pipe(
+        switchMap(({ job_id }) =>
+          timer(0, 500).pipe(
+            switchMap(() =>
+              this.http.get<DiscoveryProgress>(`${this.base}/agents/${agentId}/discover/progress/${job_id}`),
+            ),
+            // Emit the done snapshot too (inclusive), then complete.
+            takeWhile((p) => !p.done, true),
+          ),
+        ),
+      );
   }
 
   /** Turn accepted proposals into host-scoped assignments. */
