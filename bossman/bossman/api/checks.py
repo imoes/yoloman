@@ -9,7 +9,9 @@ from typing import Any
 from uuid import UUID
 
 import nestedtext
-from fastapi import APIRouter, Depends, HTTPException
+import asyncio
+
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -303,65 +305,33 @@ def _load_candidate_checks(
     return out
 
 
-@router.post("/api/v1/agents/{agent_id}/discover")
-async def discover_checks(
-    agent_id: UUID,
-    body: dict[str, Any] | None = None,
-    session: AsyncSession = Depends(get_session),
-    settings: Settings = Depends(get_settings),
-    identity: Identity = Depends(get_current_identity),
-    client_factory=Depends(get_client_factory),
+async def _run_discovery_core(
+    session, settings, client_factory, agent, names, datasource, checks, progress=None
 ) -> dict[str, Any]:
-    """Run auto-discovery on this host and RECONCILE the result against what was
-    found last time (Checkmk-style service discovery).
+    """The discovery run itself, returning the same `out` dict the endpoint used to return directly.
 
-    Pushes the candidate checks, invokes each in _discover mode, then compares the
-    findings against the persisted `discovered_services` set — so the response
-    carries the TRANSITIONS (new / unchanged / changed / vanished), not just a flat
-    list. This is Checkmk's QualifiedDiscovery: without the comparison a host that
-    LOST a service looks exactly like one that never had it.
-
-    Still decides nothing on its own: a new service is recorded as `undecided` and
-    a missing one as `vanished`. Accept/ignore them via POST .../discover/apply.
-
-    Optional body: {check_names: [...]} scopes the run, {datasource: 'snmp'} for a
-    device. A targeted re-scan (check_names given) deliberately does NOT reconcile —
-    it only saw a slice of the library, so everything else would look vanished."""
-    from bossman.services.agent_client import AgentClientError
-    from bossman.services.discovery import run_check_discovery
+    Factored out so it can run inside a background task (for the progress bar) with its own session,
+    while `run_check_discovery`'s `progress` callback drives the percent. A container step counts as one
+    unit of work too, so the bar reaches 100 only after it."""
+    from bossman.services.discovery import discover_containers, run_check_discovery
     from bossman.services import discovery_lifecycle
 
-    if not await user_can_manage_agent(session, identity, agent_id):
-        raise HTTPException(status_code=403, detail="not authorized to manage this host")
-    agent = await _agent_with_address(session, agent_id)
-    names = (body or {}).get("check_names")
-    # A host's data source scopes discovery (agent hosts don't run SNMP checks
-    # and vice-versa). Default 'agent'; SNMP devices pass datasource:'snmp'.
-    datasource = (body or {}).get("datasource") or "agent"
-    # The host's platform decides which Checkmk sections could exist at all.
-    platform = check_platform.platform_of(agent.facts or {})
-    checks = _load_candidate_checks(settings, names, datasource, platform)
     client = client_factory(agent, settings)
-    try:
-        proposals = await run_check_discovery(client, checks)
-    except AgentClientError as exc:
-        raise HTTPException(status_code=502, detail=str(exc)) from exc
+    proposals = await run_check_discovery(client, checks, progress=progress)
 
-    # Containers are discovered live from the host, not from the check library — but only on an agent
-    # host (a device polled over SNMP has none) and only on a full run (a targeted check_names re-scan
-    # asked for specific checks, not containers).
+    # Containers: only on a full agent run (a device has none; a targeted check_names re-scan asked for
+    # specific checks, not containers).
     if datasource == "agent" and not names:
-        from bossman.services.discovery import discover_containers
-
         proposals.append(await discover_containers(client))
+        if progress is not None:
+            progress()
 
     out: dict[str, Any] = {
-        "agent_id": str(agent_id),
+        "agent_id": str(agent.id),
         "candidates": len(checks),
         "proposals": [p.to_dict() for p in proposals],
     }
     if names:
-        # Partial run: reconciling would mark the whole rest of the library vanished.
         out["reconciled"] = False
         return out
 
@@ -376,6 +346,101 @@ async def discover_checks(
     out["vanished"] = [{"check_name": r.check_name, "item": r.item} for r in transitions.vanished]
     out["host_labels"] = label_counts
     return out
+
+
+async def _discovery_task(session_factory, settings, client_factory, agent_id, names, datasource, checks, job_id, registry):
+    """Background driver: own session (the request's is long gone), reports progress, records the
+    result or the failure on the job. Never raises — a discovery failure is the job's error, polled by
+    the UI, not an unhandled task exception."""
+    from bossman.services.agent_client import AgentClientError
+
+    try:
+        async with session_factory() as session:
+            agent = await session.get(Agent, agent_id)
+            if agent is None:
+                await registry.fail(job_id, "agent no longer exists")
+                return
+            out = await _run_discovery_core(
+                session, settings, client_factory, agent, names, datasource, checks,
+                progress=lambda: registry.bump(job_id),
+            )
+        await registry.finish(job_id, out)
+    except AgentClientError as exc:
+        await registry.fail(job_id, f"agent unreachable: {exc}")
+    except Exception as exc:  # noqa: BLE001 — surfaced to the UI via the job, not swallowed silently
+        await registry.fail(job_id, str(exc))
+
+
+@router.post("/api/v1/agents/{agent_id}/discover")
+async def discover_checks(
+    agent_id: UUID,
+    request: Request,
+    body: dict[str, Any] | None = None,
+    session: AsyncSession = Depends(get_session),
+    settings: Settings = Depends(get_settings),
+    identity: Identity = Depends(get_current_identity),
+    client_factory=Depends(get_client_factory),
+) -> dict[str, Any]:
+    """Start Checkmk-style auto-discovery as a BACKGROUND JOB and return its id + total.
+
+    Discovery probes ~1400 checks and takes seconds, so it no longer blocks the request: it returns
+    {job_id, total, candidates} immediately, and the UI polls GET .../discover/progress/{job_id} for a
+    percent bar and, on completion, the result (proposals + transitions — Checkmk's QualifiedDiscovery,
+    which reconciles against what was found last time so a LOST service is distinguishable from one that
+    never existed). It still decides nothing: new → undecided, missing → vanished; accept/ignore via
+    .../discover/apply.
+
+    Optional body: {check_names:[...]} scopes the run (no reconcile — it saw only a slice), {datasource:
+    'snmp'} for a device."""
+    if not await user_can_manage_agent(session, identity, agent_id):
+        raise HTTPException(status_code=403, detail="not authorized to manage this host")
+    agent = await _agent_with_address(session, agent_id)
+    names = (body or {}).get("check_names")
+    datasource = (body or {}).get("datasource") or "agent"
+    platform = check_platform.platform_of(agent.facts or {})
+    checks = _load_candidate_checks(settings, names, datasource, platform)
+
+    # total work units for the percent bar: one per candidate check, plus one for the container step on
+    # a full agent run.
+    total = len(checks) + (1 if (datasource == "agent" and not names) else 0)
+    registry = request.app.state.discovery_jobs
+    job = await registry.create(total)
+    # Fire-and-forget: the task owns its own session and reports onto the job. Keep a reference so the
+    # task is not garbage-collected mid-run (asyncio only holds a weak ref).
+    task = asyncio.create_task(
+        _discovery_task(
+            request.app.state.session_factory, settings, client_factory,
+            agent.id, names, datasource, checks, job.id, registry,
+        )
+    )
+    _DISCOVERY_TASKS.add(task)
+    task.add_done_callback(_DISCOVERY_TASKS.discard)
+    return {"job_id": job.id, "total": total, "candidates": len(checks)}
+
+
+# Strong references to in-flight discovery tasks (asyncio keeps only weak refs, so without this a task
+# could be collected before it finishes).
+_DISCOVERY_TASKS: set[asyncio.Task] = set()
+
+
+@router.get("/api/v1/agents/{agent_id}/discover/progress/{job_id}")
+async def discover_progress(
+    agent_id: UUID,
+    job_id: str,
+    request: Request,
+    session: AsyncSession = Depends(get_session),
+    identity: Identity = Depends(get_current_identity),
+) -> dict[str, Any]:
+    """Poll a discovery job's progress: {total, completed, percent, done, result?/error?}.
+
+    The result (host services) is only readable by someone who may manage the host, same as starting the
+    discovery."""
+    if not await user_can_manage_agent(session, identity, agent_id):
+        raise HTTPException(status_code=403, detail="not authorized to manage this host")
+    job = request.app.state.discovery_jobs.get(job_id)
+    if job is None:
+        raise HTTPException(status_code=404, detail="no such discovery job (it may have expired or the process restarted)")
+    return job.snapshot()
 
 
 @router.post("/api/v1/agents/{agent_id}/discover/apply")

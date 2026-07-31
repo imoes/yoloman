@@ -141,6 +141,10 @@ async def lifespan(app: FastAPI):
     app.state.embedding_client = embedding_client_for(settings)
     app.state.chat_client = chat_client_for(settings)
     app.state.chat_oauth = ChatOAuthService()
+    # In-memory progress for running discovery jobs (percent bar); see services/discovery_jobs.py.
+    from bossman.services.discovery_jobs import DiscoveryJobs
+
+    app.state.discovery_jobs = DiscoveryJobs()
 
     # The MCP facade (Block B8) is mounted here rather than in create_app()
     # because it needs a real session_factory to close over, and that only

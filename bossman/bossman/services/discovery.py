@@ -161,14 +161,19 @@ def _delivery(fqcn: str, star: str, sidecar: str, sidecar_format: str) -> dict[s
     }
 
 
-async def run_check_discovery(client, checks: list[dict[str, Any]]) -> list[CheckProposal]:
+async def run_check_discovery(client, checks: list[dict[str, Any]], progress=None) -> list[CheckProposal]:
     """Push `checks` to the agent and run each in discovery mode.
 
     `checks` is a list of {name, star, sidecar, sidecar_format, options,
     short_description} (from the check library). `client` is an AgentClient
     (needs push_modules + call_tool). Returns one CheckProposal per check that
     discovered at least one item; checks that error or find nothing are
-    reported (error / empty) but never raise."""
+    reported (error / empty) but never raise.
+
+    `progress`, if given, is called once per check as it COMPLETES (success or
+    error), so a caller can drive a percent bar — the run is ~1400 checks and
+    takes seconds. It is called from within the gather, so it must be cheap and
+    non-blocking (a counter bump)."""
     if not checks:
         return []
 
@@ -191,7 +196,13 @@ async def run_check_discovery(client, checks: list[dict[str, Any]]) -> list[Chec
 
     async def _one(c: dict[str, Any]) -> CheckProposal | None:
         async with sem:
-            return await _discover_one(client, c)
+            try:
+                return await _discover_one(client, c)
+            finally:
+                # Count the check as done whether it produced a proposal, nothing, or raised —
+                # the bar tracks work completed, not items found.
+                if progress is not None:
+                    progress()
 
     results = await asyncio.gather(*[_one(c) for c in checks], return_exceptions=True)
     proposals: list[CheckProposal] = []
