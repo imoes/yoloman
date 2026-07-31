@@ -164,11 +164,24 @@ these is worthless (it can never get data here) and will be rejected. Instead,
 read the SAME underlying source the Checkmk plugin/agent reads:
 
 - SNMP check (the source uses SNMPTree/OIDEnd/SimpleSNMPSection or literal OIDs
-  like ".1.3.6.1.4.1.…"): translate it as an SNMP check. Walk the OIDs from the
-  source with `ctx.run(["snmpwalk", "-v2c", "-c", params.get("community", "public"),
-  "-On", params.get("host", "localhost"), "<base-OID>"], mutates=False)` (or
-  snmpget for a scalar), then parse `res.stdout` lines ("<OID> = <TYPE>: <value>")
-  exactly as the source maps them. Add `host` and `community` params.
+  like ".1.3.6.1.4.1.…"): translate it as an SNMP check. Add `host` and `community` params.
+  Use net-snmp flags that give you CLEAN output — this is where SNMP translations most often break:
+  * SCALAR value: `ctx.run(["snmpget", "-v2c", "-c", params.get("community", "public"), "-Oqv",
+    params.get("host", "localhost"), "<OID>"], mutates=False)`. `-Oqv` prints the BARE value only —
+    no `STRING:`/`INTEGER:` type tag, no `= `. NEVER use `-Ov` alone: it KEEPS the type tag, so
+    `res.stdout` is `STRING: "Jan 15 …"` and your parse of the value is wrong. If you cannot use `-Oqv`,
+    you MUST strip the leading `"<TYPE>: "` (everything up to and including the first `: `) AND the
+    surrounding quotes before using the value.
+  * TABLE walk: `ctx.run(["snmpwalk", "-v2c", "-c", …, "-Oqn", …, "<column-OID>"], mutates=False)`.
+    `-Oqn` gives one line per row, `"<column-OID>.<index> <value>"` (numeric OID, no type, no `=`). Split
+    each line on the FIRST space: left = OID, right = value. The table INDEX is the OID suffix AFTER the
+    column base (`line_oid[len(column_oid)+1:]`). Correlate every column by that INDEX.
+  * The discovery ITEM is the table INDEX (or, for readability, a name-column VALUE) — but you MUST
+    re-query other columns by the numeric INDEX, `"<other-column-OID>." + index`. NEVER build an OID by
+    appending a column VALUE (e.g. a certificate name) as if it were the index — that OID does not exist
+    and every snmpget returns nothing. Example: a cert table at `<base>` with name col `.3`, expire col
+    `.6` — walk `<base>.3` with `-Oqn`, take the index from each OID line, then read expiry with
+    `snmpget -Oqv "<base>.6." + index`; use the `.3` value only as the display name.
 - Agent-section check (source parses `string_table` from an AgentSection): read
   the REAL host source that the Checkmk agent plugin would run — the actual file
   (/proc, /sys, a config) or CLI (ss, ps, systemctl, lsblk, ...). Look at the
