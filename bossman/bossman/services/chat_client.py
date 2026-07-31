@@ -116,6 +116,7 @@ class ChatClient:
         json_schema: dict,
         schema_name: str,
         max_tokens: int | None = None,
+        extra_body: dict | None = None,
     ) -> dict:
         """Sends a chat-completion request constrained to json_schema and
         returns the decoded response content as a dict. Raises
@@ -123,7 +124,16 @@ class ChatClient:
         returns a partial or best-effort result.
 
         Pass max_tokens=None to omit the cap entirely (server default / no
-        limit) — use for open-ended generation that must not be truncated."""
+        limit) — use for open-ended generation that must not be truncated.
+
+        `extra_body` is merged into the request body, exactly as in
+        complete_text — the reason it now exists here too is that a
+        JSON-schema caller needs
+        {"chat_template_kwargs": {"enable_thinking": False}} just as much:
+        without it, one config-template request on qwen79b decoded 26 180
+        tokens (~15 min at 29 t/s), tripped the 900 s client timeout, and
+        came back as an nginx 504. Only complete_text could turn thinking
+        off, so the JSON callers had no way to."""
         body = {
             "model": self.model,
             "messages": messages,
@@ -131,6 +141,8 @@ class ChatClient:
         }
         if max_tokens is not None:
             body["max_tokens"] = max_tokens
+        if extra_body:
+            body.update(extra_body)
         response_body = await self._post(body)
 
         usage = response_body.get("usage") or {}
