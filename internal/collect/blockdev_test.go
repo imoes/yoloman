@@ -220,3 +220,85 @@ func TestLabelDeviceOwnersEmpty(t *testing.T) {
 		t.Fatalf("labels changed: %+v", out[0].Labels)
 	}
 }
+
+// A LINSTOR volume index is not a guest id. Values are the real ones from vpp0222.
+func TestVMIDFromVolumeRejectsPaddedLinstorVolumeIndex(t *testing.T) {
+	for _, tc := range []struct {
+		name, want string
+	}{
+		{"pm-121314d1_00000", ""},        // LINSTOR resource + volume 0 — NOT guest 00000
+		{"pm-4eec6e95_00001", ""},        // volume 1 of another resource
+		{"pm-95db8b13_221103", "221103"}, // some deployments do put the vmid here; still honoured
+		{"vm-221106-disk-1", "221106"},   // plain Proxmox ZFS volume
+		{"base-100-disk-0", "100"},       // template
+		{"subvol-105-disk-0", "105"},     // LXC
+		{"pm-121314d1", ""},              // bare resource: the guest configs answer this, not us
+		{"rpool", ""},
+	} {
+		if got := vmIDFromVolume(tc.name); got != tc.want {
+			t.Errorf("vmIDFromVolume(%q) = %q, want %q", tc.name, got, tc.want)
+		}
+	}
+}
+
+// The zvol and the DRBD device stacked on top of it must name the same guest. Before this, drbd1000
+// resolved to 221100 via the guest configs while its own backing zvol claimed a guest "00000".
+func TestLinstorZvolInheritsTheGuestOfItsResource(t *testing.T) {
+	// What Proxmox's guest config actually contains: the storage volume, resource + vmid.
+	guests := map[string]string{"pm-121314d1_221100": "221100"}
+
+	if got := guestOfVolume(guests, "pm-121314d1"); got != "221100" {
+		t.Errorf("DRBD resource: got %q, want 221100", got)
+	}
+	if got := guestOfVolume(guests, "pm-121314d1_00000"); got != "221100" {
+		t.Errorf("backing zvol: got %q, want 221100 — it must agree with the DRBD device above it", got)
+	}
+	if got := guestOfVolume(guests, "pm-deadbeef_00000"); got != "" {
+		t.Errorf("unknown resource: got %q, want empty — a guess is worse than no label", got)
+	}
+}
+
+// End to end through the resolver, with the two symlink trees and a guest config laid out on disk the
+// way a Proxmox node has them.
+func TestResolveDeviceOwnersAttributesBothLayersToOneGuest(t *testing.T) {
+	root := t.TempDir()
+	dev, pve := filepath.Join(root, "dev"), filepath.Join(root, "pve")
+
+	// /dev/drbd/by-res/pm-121314d1/0 -> ../../drbd1000
+	byRes := filepath.Join(dev, "drbd", "by-res", "pm-121314d1")
+	mustMkdirAll(t, byRes)
+	mustSymlink(t, "../../drbd1000", filepath.Join(byRes, "0"))
+
+	// /dev/zvol/drbd-zfs-pool/pm-121314d1_00000 -> ../../zd16
+	zvol := filepath.Join(dev, "zvol", "drbd-zfs-pool")
+	mustMkdirAll(t, zvol)
+	mustSymlink(t, "../../zd16", filepath.Join(zvol, "pm-121314d1_00000"))
+
+	qemu := filepath.Join(pve, "qemu-server")
+	mustMkdirAll(t, qemu)
+	if err := os.WriteFile(filepath.Join(qemu, "221100.conf"),
+		[]byte("scsi0: drbdstorage:pm-121314d1_221100,size=32G\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	owners := ResolveDeviceOwners(dev, pve)
+	for _, d := range []string{"drbd1000", "zd16"} {
+		if owners[d].VM != "221100" {
+			t.Errorf("%s: vm = %q, want 221100 (owners: %+v)", d, owners[d].VM, owners)
+		}
+	}
+}
+
+func mustMkdirAll(t *testing.T, p string) {
+	t.Helper()
+	if err := os.MkdirAll(p, 0o755); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func mustSymlink(t *testing.T, target, link string) {
+	t.Helper()
+	if err := os.Symlink(target, link); err != nil {
+		t.Fatal(err)
+	}
+}

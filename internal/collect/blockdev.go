@@ -62,6 +62,21 @@ func guestOfVolume(guests map[string]string, volume string) string {
 			return id
 		}
 	}
+	// A LINSTOR-backed zvol is named `<resource>_<volume-index>`, and the guest configs know only the
+	// resource: the dataset `pm-121314d1_00000` belongs to whichever guest owns `pm-121314d1`, which is
+	// also what drbd1000 resolves to. Strip the index and ask again, so the zvol and the DRBD device
+	// sitting on top of it agree about their guest instead of one of them going unattributed.
+	if i := strings.LastIndex(volume, "_"); i > 0 && allDigits(volume[i+1:]) {
+		base := volume[:i]
+		if id, ok := guests[base]; ok {
+			return id
+		}
+		for name, id := range guests {
+			if strings.HasPrefix(name, base+"_") {
+				return id
+			}
+		}
+	}
 	return ""
 }
 
@@ -233,7 +248,7 @@ func linkTarget(path string) (string, bool) {
 // don't know) then carries only its name, never a guessed id.
 func vmIDFromVolume(name string) string {
 	if i := strings.LastIndex(name, "_"); i >= 0 {
-		if id := name[i+1:]; allDigits(id) {
+		if id := name[i+1:]; allDigits(id) && !isPaddedIndex(id) {
 			return id
 		}
 	}
@@ -247,6 +262,21 @@ func vmIDFromVolume(name string) string {
 		}
 	}
 	return ""
+}
+
+// isPaddedIndex tells a LINSTOR volume index from a Proxmox guest id.
+//
+// LINSTOR names the ZFS dataset backing volume N of a resource `<resource>_<N>`, zero-padded to five
+// digits: `drbd-zfs-pool/pm-121314d1_00000`. A Proxmox VMID is a plain decimal from 100 upwards and
+// therefore never carries a leading zero, so the padding is the whole distinction.
+//
+// Without this, `_00000` was read as the guest id — and because the id was then non-empty,
+// ResolveDeviceOwners skipped the guest-config join that would have found the real one. Measured on
+// vpp0222: five unrelated zvols (pm-121314d1, pm-4eec6e95, pm-573e2517, pm-bb2a3396 …) all reported
+// `vm=00000`, a guest that does not exist, collapsed into one. "Which VM saturates nvme0n1" answered
+// with a fabricated VM is worse than leaving it unanswered.
+func isPaddedIndex(s string) bool {
+	return len(s) > 1 && s[0] == '0'
 }
 
 func allDigits(s string) bool {
