@@ -450,7 +450,7 @@ func startCollectLoop(cfg config.Config, st store.Store, checkReg *collect.Check
 	// disabled). Degrades silently when the socket is absent.
 	var dockerCollector *collect.DockerCollector
 	if cfg.Collect.Docker {
-		dockerCollector = collect.NewDockerCollector(cfg.Collect.DockerSocket, cfg.Collect.CgroupRoot)
+		dockerCollector = collect.NewDockerCollector(cfg.Collect.DockerSocket, cfg.Collect.CgroupRoot, cfg.Collect.MonitoredContainers)
 	}
 	// Block J3b: per-systemd-service resource metrics from the cgroup fs (nil
 	// when disabled). No-op on hosts without a system.slice cgroup.

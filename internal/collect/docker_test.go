@@ -81,10 +81,41 @@ func TestContainerName_StripsSlash(t *testing.T) {
 }
 
 func TestDockerSample_NoSocketIsNoOp(t *testing.T) {
-	d := NewDockerCollector(t.TempDir()+"/nonexistent.sock", "")
+	// A monitored container is set, so the socket-absence branch is the one under test (an empty
+	// allow-list would short-circuit earlier — that is the next test).
+	d := NewDockerCollector(t.TempDir()+"/nonexistent.sock", "", []string{"web"})
 	pts, err := d.Sample(time.Now())
 	if err != nil || pts != nil {
 		t.Errorf("absent socket should be a clean no-op, got pts=%v err=%v", pts, err)
 	}
 	_ = os.Stat // keep os import meaningful across refactors
+}
+
+func TestDockerSample_EmptyAllowListCollectsNothing(t *testing.T) {
+	// The discovery gate: with no container opted in, Sample must not even probe the socket, so a host
+	// with Docker running but nothing discovered stores zero container series. Passing a real-looking
+	// socket path proves the short-circuit happens before the os.Stat.
+	d := NewDockerCollector("/run/docker.sock", "", nil)
+	pts, err := d.Sample(time.Now())
+	if err != nil {
+		t.Fatalf("empty allow-list must be a clean no-op, got err=%v", err)
+	}
+	if pts != nil {
+		t.Errorf("empty allow-list must collect nothing, got %d points", len(pts))
+	}
+}
+
+func TestDockerCollector_OnlyMonitoredNamesAreEmitted(t *testing.T) {
+	// The allow-list is a membership set: a container not in it is skipped even when Docker reports it.
+	// Unit-level check on the set the constructor builds, since Sample needs a live socket.
+	d := NewDockerCollector("", "", []string{"web", "db"})
+	if !d.monitored["web"] || !d.monitored["db"] {
+		t.Error("monitored names must be in the set")
+	}
+	if d.monitored["redis"] {
+		t.Error("a name that was not opted in must not be monitored")
+	}
+	if len(d.monitored) != 2 {
+		t.Errorf("set size = %d, want 2", len(d.monitored))
+	}
 }

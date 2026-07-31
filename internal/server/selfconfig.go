@@ -28,6 +28,11 @@ type collectConfigReq struct {
 	Docker      *bool   `json:"docker"`
 	DRBDDevices *bool   `json:"drbd_devices"`
 	Interval    *string `json:"interval"` // a Go duration string, e.g. "60s"
+	// MonitoredContainers is the FULL discovery-driven allow-list, replaced wholesale (not merged):
+	// Bossman recomputes it from the accepted container services and sends the complete set, so an
+	// empty list is a real instruction — "nothing is monitored any more" — not "leave it alone". Hence
+	// a pointer: nil means the caller did not touch containers at all.
+	MonitoredContainers *[]string `json:"monitored_containers"`
 }
 
 // handleCollectConfig changes this agent's metric-collection settings and restarts to apply them.
@@ -98,6 +103,10 @@ func handleCollectConfig(w http.ResponseWriter, r *http.Request, cfg RESTConfig)
 		}
 		loaded.Collect.Interval = config.Duration(d)
 		changed["interval"] = d.String()
+	}
+	if req.MonitoredContainers != nil {
+		loaded.Collect.MonitoredContainers = *req.MonitoredContainers
+		changed["monitored_containers"] = *req.MonitoredContainers
 	}
 
 	if len(changed) == 0 {

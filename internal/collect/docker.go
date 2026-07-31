@@ -30,20 +30,31 @@ type DockerCollector struct {
 	// init-PID). Empty → /sys/fs/cgroup.
 	cgroupRoot string
 	client     *http.Client
+	// monitored is the discovery-driven allow-list of container names to emit
+	// metrics for. nil/empty means emit NOTHING — a container is collected only
+	// after it is discovered and accepted (Bossman pushes the set into config).
+	// This is what keeps an un-monitored container from costing any DB rows.
+	monitored map[string]bool
 }
 
 // NewDockerCollector builds a collector for the given socket ("" →
-// DefaultDockerSocket) and cgroup root ("" → /sys/fs/cgroup).
-func NewDockerCollector(socket, cgroupRoot string) *DockerCollector {
+// DefaultDockerSocket) and cgroup root ("" → /sys/fs/cgroup). `monitored` is the
+// allow-list of container names to collect; empty means none (see the field).
+func NewDockerCollector(socket, cgroupRoot string, monitored []string) *DockerCollector {
 	if socket == "" {
 		socket = DefaultDockerSocket
 	}
 	if cgroupRoot == "" {
 		cgroupRoot = "/sys/fs/cgroup"
 	}
+	set := make(map[string]bool, len(monitored))
+	for _, n := range monitored {
+		set[n] = true
+	}
 	return &DockerCollector{
 		socket:     socket,
 		cgroupRoot: cgroupRoot,
+		monitored:  set,
 		client: &http.Client{
 			Timeout: 10 * time.Second,
 			Transport: &http.Transport{
@@ -101,6 +112,12 @@ type dockerInspect struct {
 // snapshot, returning metric points labeled by container name plus an
 // aggregate running-count. Returns (nil, nil) when Docker is unavailable.
 func (d *DockerCollector) Sample(now time.Time) ([]store.Point, error) {
+	// No monitored container → nothing to collect, and not even a socket probe.
+	// This is the discovery gate: a host with no container opted in stores zero
+	// container series, exactly as if the collector were off.
+	if len(d.monitored) == 0 {
+		return nil, nil
+	}
 	if _, err := os.Stat(d.socket); err != nil {
 		return nil, nil // Docker not present — skip silently
 	}
@@ -110,9 +127,11 @@ func (d *DockerCollector) Sample(now time.Time) ([]store.Point, error) {
 	}
 
 	var points []store.Point
-	points = append(points, store.Point{Metric: "docker_containers_running", Timestamp: now, Value: float64(len(containers))})
 	for _, c := range containers {
 		name := containerName(c)
+		if !d.monitored[name] {
+			continue // not discovered/accepted — do not store its metrics
+		}
 		labels := map[string]string{"container": name}
 		points = append(points, store.Point{Metric: "docker_container_running", Timestamp: now, Value: 1, Labels: labels})
 		st, err := d.containerStats(c.ID)

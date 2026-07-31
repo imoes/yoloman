@@ -187,3 +187,25 @@ func TestCollectConfig_BadIntervalIsRejectedAndNothingWritten(t *testing.T) {
 		t.Error("a rejected request must not restart the agent")
 	}
 }
+
+func TestCollectConfig_SetsMonitoredContainersWholesale(t *testing.T) {
+	// The container allow-list is replaced, not merged: Bossman sends the full accepted set. An empty
+	// list is a real instruction ("nothing monitored"), so it must be distinguishable from absent.
+	captureRestart(t)
+	path := seedConfigFile(t)
+	srv := httptest.NewServer(NewRESTHandler(RESTConfig{AllowSelfConfig: true, ConfigPath: path}))
+	defer srv.Close()
+
+	postCollect(t, srv, map[string]any{"monitored_containers": []string{"web", "db"}}).Body.Close()
+	got, _ := config.Load(path)
+	if len(got.Collect.MonitoredContainers) != 2 {
+		t.Fatalf("monitored_containers = %v, want [web db]", got.Collect.MonitoredContainers)
+	}
+
+	// Sending an empty list must CLEAR it — "un-monitor everything", not a no-op.
+	postCollect(t, srv, map[string]any{"monitored_containers": []string{}}).Body.Close()
+	got, _ = config.Load(path)
+	if len(got.Collect.MonitoredContainers) != 0 {
+		t.Errorf("empty list must clear the allow-list, got %v", got.Collect.MonitoredContainers)
+	}
+}

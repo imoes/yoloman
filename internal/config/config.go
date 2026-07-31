@@ -115,6 +115,15 @@ type Collect struct {
 	// (Docker not installed), so it's safe to leave on everywhere.
 	Docker       bool   `yaml:"docker"`
 	DockerSocket string `yaml:"docker_socket"`
+	// MonitoredContainers is the allow-list of container names whose per-container
+	// docker_container_* metrics this agent stores. It is DISCOVERY-DRIVEN, not a
+	// blanket switch: a container is collected only after it has been discovered
+	// and accepted (Bossman pushes the resulting set here via collect-config), and
+	// deleting its check drops it from the set. Empty (the default) means the
+	// DockerCollector emits nothing at all — a host collects zero container series
+	// until an operator opts a container in, so an un-monitored container costs no
+	// rows. `docker: true` only permits container monitoring; this decides which.
+	MonitoredContainers []string `yaml:"monitored_containers"`
 	// Services (Block J3b): sample per-systemd-service CPU/memory/IO from the
 	// cgroup filesystem, emitted as service_* metrics labeled by unit.
 	//
