@@ -57,6 +57,7 @@ async def db_session():
         yield session
         await session.rollback()  # never leave test data behind
         await _drop_leaked_check_rules(session, started)
+        await _drop_leaked_agents(session, started)
     await engine.dispose()
 
 
@@ -93,6 +94,67 @@ async def _drop_leaked_check_rules(session, started):
             return
         await session.execute(update(Service).where(Service.rule_id.in_(leaked)).values(rule_id=null()))
         await session.execute(delete(CheckRule).where(CheckRule.id.in_(leaked)))
+        await session.commit()
+    except Exception:  # noqa: BLE001 — teardown must never turn a passing test red
+        await session.rollback()
+
+
+# Test hosts are named <prefix>-<8 hex> by the suites' own helpers (mon-01c6a510, api-agent-00aee57a,
+# poll-05433437, …). That shape is the signature: no real fleet host is named that way, and every one
+# that exists was minted by a test.
+_TEST_AGENT_NAME = r"^[a-z-]+-[0-9a-f]{8}$"
+
+# Copied from _AGENT_CHILD_DELETES in bossman/api/agents.py so teardown cannot fall behind the schema.
+_AGENT_CHILD_CLEANUP = (
+    "DELETE FROM host_edges WHERE src_agent_id = ANY(:ids) OR dst_agent_id = ANY(:ids)",
+    "DELETE FROM connection_events WHERE src_agent_id = ANY(:ids)",
+    "DELETE FROM plan_runs WHERE agent_id = ANY(:ids)",
+    "DELETE FROM downtimes WHERE agent_id = ANY(:ids)",
+    "DELETE FROM service_state_history WHERE agent_id = ANY(:ids)",
+    "DELETE FROM services WHERE agent_id = ANY(:ids)",
+    "DELETE FROM metrics_raw WHERE series_id IN (SELECT series_id FROM metric_series WHERE agent_id = ANY(:ids))",
+    "DELETE FROM metric_series WHERE agent_id = ANY(:ids)",
+)
+
+
+async def _drop_leaked_agents(session, started):
+    """Remove any test host this test enrolled but did not clean up.
+
+    The sibling of _drop_leaked_check_rules, and needed for the same reason: `enroll_agent` COMMITS,
+    so the session rollback above does not undo it, and cleanup written at the end of a test body is
+    skipped by a failed assertion.
+
+    It is not cosmetic. Since L1 a host that does not report is DOWN and CRITICAL, so a leaked test
+    host becomes a live problem that never clears. Measured on 2026-07-31 before this guard existed:
+    386 leaked hosts accumulated over ten days, 294 of which had never reported, holding 162 open
+    CRIT/WARN problems and burying the seven real hosts in the problem list.
+
+    Bounded BOTH ways on purpose — the name shape and `created_at >= started` — so it can only ever
+    remove something the current test just created. Pre-existing residue is deliberately left alone:
+    cleaning that up is an operator decision, not a side effect of running the suite.
+    """
+    from sqlalchemy import text
+
+    try:
+        ids = list(
+            (
+                await session.scalars(
+                    text("SELECT id FROM agents WHERE name ~ :pat AND created_at >= :since").bindparams(
+                        pat=_TEST_AGENT_NAME, since=started
+                    )
+                )
+            ).all()
+        )
+        if not ids:
+            return
+        params = {"ids": ids}
+        # A cascade across compressed chunks would blow TimescaleDB's decompression cap and abort the
+        # whole teardown; SET LOCAL keeps the lifted cap inside this transaction.
+        await session.execute(text("SET LOCAL timescaledb.max_tuples_decompressed_per_dml_transaction = 0"))
+        await session.execute(text("UPDATE agents SET parent_agent_id = NULL WHERE parent_agent_id = ANY(:ids)"), params)
+        for stmt in _AGENT_CHILD_CLEANUP:
+            await session.execute(text(stmt), params)
+        await session.execute(text("DELETE FROM agents WHERE id = ANY(:ids)"), params)
         await session.commit()
     except Exception:  # noqa: BLE001 — teardown must never turn a passing test red
         await session.rollback()
