@@ -37,15 +37,14 @@ ebpf:
 # Periodic OS-metric sampler. interval is the sample cadence AND the stored
 # resolution (the agent buffers points at this rate; Bossman ingests all of
 # them). 60s keeps the metrics table an order of magnitude smaller than 30s.
-# psi + services are OFF: both are per-systemd-unit families no Bossman feature
-# reads (services alone was 38.8% of the metrics DB). Turn either back on when
-# something consumes it. See docs/metrics-storage.md.
+# Unconsumed metric families (per-service CPU/mem/io, PSI) default to OFF in the
+# agent, so they are absent here by design: the DB cannot be spammed by a metric
+# nobody reads just because a disable flag was forgotten. Enable one (services:
+# true / psi: true) only once something consumes it. See docs/metrics-storage.md.
 collect:
   enabled: true
   interval: 60s
-  services: false
   docker: true
-  psi: false
 
 db:
   driver: sqlite

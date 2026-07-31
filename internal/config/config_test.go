@@ -615,16 +615,38 @@ func TestShippedExampleConfigLoads(t *testing.T) {
 	if err != nil {
 		t.Fatalf("the shipped %s does not load: %v", path, err)
 	}
-
-	// Spot-check the settings the metrics audit turned off, so a well-meaning edit that flips them back
-	// has to argue with a test rather than silently restore 38.8% of the row volume.
-	if cfg.Collect.Services {
-		t.Error("collect.services must ship OFF — no consumer, 38.8% of all rows (docs/metrics-storage.md)")
-	}
-	if cfg.Collect.PSI {
-		t.Error("collect.psi must ship OFF — ~18 series/service, no consumer")
-	}
 	if !cfg.Collect.Enabled {
 		t.Error("collect.enabled must ship ON, or a host reports no metrics at all")
+	}
+}
+
+// The safety property the operator asked for: an unconsumed metric family must not be able to spam the
+// DB just because a disable flag was forgotten. So the SAFE state — a Default() config, or a shipped
+// file that says nothing about it — must be OFF. If someone ever flips these defaults to true, a
+// forgotten config line silently restores 38.8% of the row volume, which is exactly what this guards.
+func TestUnconsumedMetricFamiliesDefaultOff(t *testing.T) {
+	d := Default().Collect
+	if d.Services {
+		t.Error("collect.services must DEFAULT to false — unset must mean no service_* spam")
+	}
+	if d.PSI {
+		t.Error("collect.psi must DEFAULT to false")
+	}
+
+	// And the shipped example must not carry a disable line: the default does the work, and a metric
+	// nobody reads has no business being named in the config at all. Checked as actual YAML keys
+	// (indented, non-comment) so the explanatory comment mentioning them is not a false positive.
+	raw, err := os.ReadFile(filepath.Join("..", "..", "configs", "config.yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, line := range strings.Split(string(raw), "\n") {
+		trimmed := strings.TrimSpace(line)
+		if strings.HasPrefix(trimmed, "#") {
+			continue
+		}
+		if strings.HasPrefix(trimmed, "services:") || strings.HasPrefix(trimmed, "psi:") {
+			t.Errorf("shipped config.yaml still sets %q — rely on the safe default instead", trimmed)
+		}
 	}
 }

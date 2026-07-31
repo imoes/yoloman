@@ -116,9 +116,14 @@ type Collect struct {
 	Docker       bool   `yaml:"docker"`
 	DockerSocket string `yaml:"docker_socket"`
 	// Services (Block J3b): sample per-systemd-service CPU/memory/IO from the
-	// cgroup filesystem, emitted as service_* metrics labeled by unit — the
-	// legacy-host counterpart to Docker container metrics. Default true;
-	// no-op on hosts without a system.slice cgroup.
+	// cgroup filesystem, emitted as service_* metrics labeled by unit.
+	//
+	// Default FALSE, and the default is the point. These metrics have no
+	// consumer (not the UI, not a check, not the backend) and were 38.8% of
+	// every row in the metrics DB. A metric nobody reads must not be able to
+	// spam the database because someone forgot to disable it — so the SAFE
+	// state (an unset field) is off. Set true deliberately, only once something
+	// actually consumes them. No-op on hosts without a system.slice cgroup.
 	Services   bool   `yaml:"services"`
 	CgroupRoot string `yaml:"cgroup_root"`
 	// PSI enables the high-cardinality per-service pressure-stall metrics
@@ -383,7 +388,7 @@ func Default() Config {
 		MaxUploadSize:   512 * 1024 * 1024,
 		Mode:            "standalone",
 		Proxy:           Proxy{SatellitesPath: "/var/lib/agentic-mcp/satellites.db"},
-		Collect:         Collect{Enabled: true, Interval: Duration(60 * time.Second), Docker: true, DockerSocket: "/var/run/docker.sock", Services: true, DRBDDevices: true},
+		Collect:         Collect{Enabled: true, Interval: Duration(60 * time.Second), Docker: true, DockerSocket: "/var/run/docker.sock", DRBDDevices: true},
 	}
 }
 
