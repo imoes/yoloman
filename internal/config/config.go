@@ -140,6 +140,20 @@ type Collect struct {
 	// DRBD devices and no zvols at all — switching it off there would remove the only per-guest disk
 	// view that host has. Hence per-host, and hence not off by default.
 	DRBDDevices bool `yaml:"drbd_devices"`
+	// DropMetrics names metrics this host must not store, by exact metric name.
+	//
+	// A list rather than another bool per family, because the recurring finding is not "this one
+	// feature is too chatty" but "a metric nobody reads is still being written every minute": PSI was
+	// 57% of the rows, L7 86 series a host, service_* 38.8%. Each of those cost a new flag and an
+	// agent release. A deny-list costs a config line.
+	//
+	// Applied as a post-pass over the finished points, so it catches every producer — the /proc
+	// sampler, the IOPS meter, the collectors — without each having to consult it.
+	//
+	// Not a substitute for the flags above where a whole collector can be switched off: skipping the
+	// work is better than doing it and discarding the result. Use this for individual metrics inside a
+	// collector you otherwise want.
+	DropMetrics []string `yaml:"drop_metrics"`
 }
 
 // CheckSpec is one externally configured check: an argv to run via

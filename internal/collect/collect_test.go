@@ -286,3 +286,51 @@ func TestDRBDDevicesDefaultsToOnSoNoHostSilentlyLosesItsOnlyGuestView(t *testing
 		t.Error("collect.drbd_devices must default to true")
 	}
 }
+
+func TestExcludeMetricsDropsByExactNameOnly(t *testing.T) {
+	points := []store.Point{
+		{Metric: "disk_reads_total", Labels: map[string]string{"device": "sda"}},
+		{Metric: "disk_writes_total", Labels: map[string]string{"device": "sda"}},
+		{Metric: "disk_read_time_ms_total", Labels: map[string]string{"device": "sda"}},
+		// Kept: the byte counters still feed "Bytes read/written per device".
+		{Metric: "disk_read_bytes_total", Labels: map[string]string{"device": "sda"}},
+		// Kept: the derived rate is what the IOPS view and the Disk IOPS check use.
+		{Metric: "disk_iops_device", Labels: map[string]string{"device": "sda"}},
+		// Kept: a prefix-based filter would have taken this one, and the guest view reads it.
+		{Metric: "container_cpu_pct"},
+		{Metric: "container_net_rx_bytes"},
+		{Metric: "disk_used_pct", Labels: map[string]string{"mount": "/"}},
+	}
+	got := ExcludeMetrics(points, []string{
+		"disk_reads_total", "disk_writes_total", "disk_read_time_ms_total", "container_net_rx_bytes",
+	})
+
+	var names []string
+	for _, p := range got {
+		names = append(names, p.Metric)
+	}
+	want := []string{"disk_read_bytes_total", "disk_iops_device", "container_cpu_pct", "disk_used_pct"}
+	if len(names) != len(want) {
+		t.Fatalf("kept %v, want %v", names, want)
+	}
+	for i, n := range names {
+		if n != want[i] {
+			t.Errorf("kept[%d] = %q, want %q", i, n, want[i])
+		}
+	}
+}
+
+func TestExcludeMetricsWithNoNamesIsAPassThrough(t *testing.T) {
+	points := []store.Point{{Metric: "cpu_pct"}, {Metric: "mem_used_pct"}}
+	for _, names := range [][]string{nil, {}} {
+		if got := ExcludeMetrics(points, names); len(got) != 2 {
+			t.Errorf("names=%v dropped points: %d of 2 left", names, len(got))
+		}
+	}
+}
+
+func TestDropMetricsDefaultsToEmptySoNothingVanishesUnasked(t *testing.T) {
+	if len(config.Default().Collect.DropMetrics) != 0 {
+		t.Error("collect.drop_metrics must default to empty — dropping a metric is always explicit")
+	}
+}
