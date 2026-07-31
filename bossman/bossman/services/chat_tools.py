@@ -46,6 +46,25 @@ TOOL_DEFS: list[dict[str, Any]] = [
     {
         "type": "function",
         "function": {
+            "name": "capability_match",
+            "description": (
+                "For a host, find what its unmet service requirements need and WHICH other hosts in the "
+                "inventory provide them (the deterministic Lego matcher — e.g. 'this Roundcube needs a "
+                "database; host db1 provides mysql'). Returns per requirement: the capability + accepted "
+                "backends, matching provider hosts with a ready field wiring (db_host=…, db_port=…), and — "
+                "when nothing provides it yet — the catalog role a NEW server would need. Use it when the "
+                "user asks what a server needs, what connects to what, or how to wire two systems."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {"host": {"type": "string", "description": "The host (agent) name."}},
+                "required": ["host"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
             "name": "search_help",
             "description": (
                 "Search the yolo-man documentation (README + docs) for how the product works — "
@@ -196,7 +215,40 @@ async def execute_tool(
         enrolled = sum(1 for a in agents if a.enrollment_state == "enrolled")
         online = sum(1 for a in agents if _online(a, now))
         return {"total": total, "enrolled": enrolled, "online": online, "offline": total - online}
+    if name == "capability_match":
+        return await _capability_match(session, args, settings)
     return {"error": f"unknown tool {name!r}"}
+
+
+async def _capability_match(session: AsyncSession, args: dict, settings: Any) -> dict[str, Any]:
+    """The Lego matcher for the chat AI — same deterministic logic as the REST /capabilities/match and the
+    MCP capability_match tool (one logic, three surfaces)."""
+    from bossman.services import capabilities as C
+
+    if settings is None:
+        return {"error": "capability matching is not available in this chat context"}
+    agent = await _resolve_agent(session, args.get("host") or "")
+    if agent is None:
+        return {"error": f"no such host {args.get('host')!r}"}
+    consumer_addr = C._agent_address(agent)
+    out: list[dict[str, Any]] = []
+    for req in await C.open_requirements(session, agent.id):
+        detail = req.detail or {}
+        backends = detail.get("backends") or ([req.backend] if req.backend else [])
+        found = await C.find_providers(session, settings, req.capability, backends,
+                                       tenant_id=agent.tenant_id, exclude_agent=agent.id)
+        entry: dict[str, Any] = {
+            "capability": req.capability, "backends": backends,
+            "providers": [{"host": p["hostname"], "address": p["address"], "backend": p["backend"],
+                           "port": p["port"],
+                           "wiring": C.propose_wiring(detail, p, consumer_address=consumer_addr)}
+                          for p in found],
+        }
+        if not found:
+            entry["candidate_roles"] = C.roles_providing(settings, req.capability,
+                                                          backends[0] if backends else None)
+        out.append(entry)
+    return {"host": agent.name, "requirements": out}
 
 
 async def _resolve_agent(session: AsyncSession, host: str) -> Agent | None:

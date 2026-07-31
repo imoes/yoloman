@@ -145,6 +145,41 @@ def build_mcp_server(
             for a in agents
         ]
 
+    @mcp.tool()
+    async def capability_match(host: str) -> dict[str, Any]:
+        """For a host, list what each of its unmet service requirements needs and WHO in the inventory
+        provides it — the deterministic Lego matcher (same logic as the REST /capabilities/match and the
+        Blueprint editor). Returns, per open requirement: the capability + accepted backends, the matching
+        provider hosts (address/port) with a proposed field wiring, and — when nothing provides it yet —
+        the catalog role a NEW server would need. No LLM: pure inventory set-logic over host_capabilities.
+        """
+        from bossman.services import capabilities as C
+
+        async with session_factory() as session:
+            agent = await session.scalar(select(Agent).where(Agent.name == host))
+            if agent is None:
+                raise ValueError(f"no such host {host!r}")
+            consumer_addr = C._agent_address(agent)
+            reqs = await C.open_requirements(session, agent.id)
+            out: list[dict[str, Any]] = []
+            for req in reqs:
+                detail = req.detail or {}
+                backends = detail.get("backends") or ([req.backend] if req.backend else [])
+                found = await C.find_providers(session, settings, req.capability, backends,
+                                               tenant_id=agent.tenant_id, exclude_agent=agent.id)
+                entry: dict[str, Any] = {
+                    "capability": req.capability, "backends": backends,
+                    "providers": [{"host": p["hostname"], "address": p["address"], "backend": p["backend"],
+                                   "port": p["port"],
+                                   "wiring": C.propose_wiring(detail, p, consumer_address=consumer_addr)}
+                                  for p in found],
+                }
+                if not found:
+                    entry["candidate_roles"] = C.roles_providing(
+                        settings, req.capability, backends[0] if backends else None)
+                out.append(entry)
+        return {"host": host, "requirements": out}
+
     async def _addressed_agent_or_raise(session: AsyncSession, host: str) -> Agent:
         agent = await session.scalar(select(Agent).where(Agent.name == host))
         if agent is None:
