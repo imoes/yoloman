@@ -65,9 +65,26 @@ export interface BlueprintService {
   dependsOn: string[];
   /** which env keys were auto-wired, and from which service (x-yolo-bindings) */
   bindings: Record<string, string>;
+  /**
+   * x-yolo-caps — the ROLE-grain capability contract, loaded from the chosen role's
+   * config_templates/<template>/capabilities.json when a role is picked. When present it REFINES the
+   * archetype-grain plausibility to backend grain: a Postgres provides `database:postgresql`, a Roundcube
+   * requires `database` with backends [mysql, mariadb], so the editor refuses a Postgres→Roundcube wire
+   * that the coarse `database` token would have allowed. Absent (generic node or unenriched role) → the
+   * archetype tokens still apply. See compose-wiring.
+   */
+  caps?: RoleContract;
   /** canvas position (x-yolo-layout) */
   x: number;
   y: number;
+}
+
+/** The role-grain capability contract mirrored from a template's capabilities.json (the backend's
+ *  provides/requires entries — only the fields the editor's plausibility + wiring need). */
+export interface RoleContract {
+  provides: { capability: string; backend?: string; default_port?: number | null }[];
+  requires: { capability: string; backends?: string[]; backend_field?: string | null;
+              fields?: Record<string, string> }[];
 }
 
 export interface Blueprint {

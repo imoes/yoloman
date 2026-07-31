@@ -8,9 +8,10 @@ import { ParamSchema } from '../../shared/param-form/param-form.types';
 import { ParamFormComponent } from '../../shared/param-form/param-form.component';
 import { BlueprintCanvasComponent } from './blueprint-canvas.component';
 import { BlueprintStore } from './blueprint-store';
-import { PALETTE, PaletteEntry, isValidEnvName, paletteFor } from './compose-model';
+import { PALETTE, PaletteEntry, RoleContract, isValidEnvName, paletteFor } from './compose-model';
 import { ResolvedVar, resolveService, startOrder } from './compose-resolver';
 import { CatalogPackage, PackageCatalogService } from '../../core/services/package-catalog.service';
+import { CapabilitiesService, ProvidersResponse } from '../../core/services/capabilities.service';
 
 interface RunbookRow { id: string; name: string; folder: string }
 
@@ -159,12 +160,34 @@ interface RunbookRow { id: string; name: string; folder: string }
               <input [ngModel]="s.ports.join(', ')" (ngModelChange)="setPorts(s.name, $event)" placeholder="8080:80" />
             </label>
 
-            @if (store.openRequirements(s.name); as open) {
+            @if (store.openRequirementCaps(s.name); as open) {
               @if (open.length) {
                 <div class="bm-insp-sec">Offene Anforderungen</div>
-                <p class="bm-warn">Diese Rolle braucht noch:
-                  @for (r of open; track r) { <code class="bm-req">{{ r }}</code> }
-                  — verbinde sie mit einem Dienst, der das bietet.</p>
+                @for (req of open; track req.capability) {
+                  <div class="bm-req-block">
+                    <p class="bm-warn">Braucht <code class="bm-req">{{ req.capability }}</code>@if (req.backends?.length) { <span class="bm-req-be">({{ req.backends!.join(' | ') }})</span> }</p>
+                    @if (suggestionFor(req.capability); as sug) {
+                      @if (sug.providers.length) {
+                        <div class="bm-sug-sec">Im Inventar vorhanden:</div>
+                        @for (p of sug.providers; track p.agent_id) {
+                          <div class="bm-sug"><code>{{ p.hostname || p.address }}</code>
+                            <span class="bm-sug-be">{{ p.backend }}{{ p.port ? ':' + p.port : '' }}</span>
+                          </div>
+                        }
+                      } @else if (sug.roles.length) {
+                        <div class="bm-sug-sec">Kein Host liefert das — neuer Server mit Rolle:</div>
+                        @for (r of sug.roles; track r.role) {
+                          <div class="bm-sug"><code>{{ r.label || r.role }}</code>
+                            <span class="bm-sug-be">{{ r.backend }}</span>
+                          </div>
+                        }
+                      } @else {
+                        <p class="bm-hint">Noch kein Anbieter bekannt (Katalog wird angereichert).</p>
+                      }
+                    }
+                  </div>
+                }
+                <p class="bm-hint">Verbinde die Rolle mit einem Dienst, der das bietet.</p>
               }
             }
 
@@ -314,6 +337,14 @@ export class BlueprintComponent implements OnInit {
   store = inject(BlueprintStore);
   private http = inject(HttpClient);
   private catalogSvc = inject(PackageCatalogService);
+  private capsSvc = inject(CapabilitiesService);
+
+  /** template → its role-grain contract (capabilities.json), fetched once per template. */
+  private contracts = signal<Record<string, RoleContract>>({});
+  private requestedContracts = new Set<string>();
+  /** capability token → the inventory hosts + candidate roles that provide it (the suggestion list). */
+  suggestions = signal<Record<string, ProvidersResponse>>({});
+  private requestedSuggestions = new Set<string>();
 
   palette = PALETTE;
   view = signal<'yaml' | 'json'>('yaml');
@@ -338,6 +369,10 @@ export class BlueprintComponent implements OnInit {
       const svc = this.store.selectedService();
       const haveRoles = this.roles().length;      // re-run once the role list arrives
       if (svc?.role && haveRoles) this.loadSchema(svc.role);
+      // Role-grain contract (for backend-aware plausibility) + provider suggestions for open slots.
+      // Writes land in async HTTP callbacks, so this stays effect-safe; the requested-sets dedupe.
+      if (svc?.template) this.loadContract(svc.template);
+      if (svc) this.loadSuggestions(svc.name);
     });
   }
 
@@ -413,8 +448,56 @@ export class BlueprintComponent implements OnInit {
   }
 
   pickRole(service: string, role: string): void {
-    this.store.update(service, { role: role || undefined, template: role ? role.replace(/^install-/, '') : undefined });
+    const template = role ? role.replace(/^install-/, '') : undefined;
+    this.store.update(service, { role: role || undefined, template, caps: undefined });
     if (role) this.loadSchema(role);
+    if (template) this.loadContract(template);
+  }
+
+  /** Fetch a role's capability contract (config-templates/<template>/capabilities.json) once and stamp it
+   *  onto every node using that template — this is what upgrades plausibility from archetype to role grain
+   *  (postgresql ≠ mysql). A template with no contract yet (enrich batch not there) is simply left coarse. */
+  private loadContract(template: string): void {
+    const cached = this.contracts()[template];
+    if (cached) { this.applyContract(template, cached); return; }
+    if (this.requestedContracts.has(template)) return;
+    this.requestedContracts.add(template);
+    this.capsSvc.templateContract(template).subscribe({
+      next: (t) => {
+        const caps = t.capabilities;
+        if (caps && (caps.provides?.length || caps.requires?.length)) {
+          this.contracts.update((m) => ({ ...m, [template]: caps }));
+          this.applyContract(template, caps);
+        }
+      },
+      error: () => this.requestedContracts.delete(template),   // allow a retry
+    });
+  }
+
+  private applyContract(template: string, caps: RoleContract): void {
+    for (const s of this.store.services()) {
+      if (s.template === template && s.caps !== caps) this.store.update(s.name, { caps });
+    }
+  }
+
+  /** For the selected service's OPEN requirements, ask the backend matcher which inventory hosts (and
+   *  which catalog roles, for a brand-new server) provide each — the suggestion list under the role. */
+  loadSuggestions(name: string): void {
+    for (const req of this.store.openRequirementCaps(name)) {
+      const backend = req.backends?.length ? req.backends[0] : '';
+      const key = `${req.capability}|${backend}`;
+      if (this.requestedSuggestions.has(key)) continue;
+      this.requestedSuggestions.add(key);
+      this.capsSvc.providers(req.capability, backend || undefined).subscribe({
+        next: (resp) => this.suggestions.update((m) => ({ ...m, [req.capability]: resp })),
+        error: () => this.requestedSuggestions.delete(key),
+      });
+    }
+  }
+
+  /** The suggestion for one open-requirement capability (for the template). */
+  suggestionFor(capability: string): ProvidersResponse | undefined {
+    return this.suggestions()[capability];
   }
 
   /** Fetch a role's parameters once (GET /runbooks lists names only, the detail

@@ -23,7 +23,7 @@ def _load_template(d: Path) -> dict | None:
     if not tpl.is_file():
         return None
     out: dict = {"name": d.name, "template": tpl.read_text()}
-    for key, fname in (("schema", "schema.json"), ("sample", "sample.json")):
+    for key, fname in (("schema", "schema.json"), ("sample", "sample.json"), ("capabilities", "capabilities.json")):
         f = d / fname
         if f.is_file():
             try:

@@ -18,31 +18,77 @@ export interface WireResult {
   error: string | null;
 }
 
-/** The capabilities a service offers / needs, derived from its archetype (the palette entry for its
- *  icon). Role-grain refinement (postgresql vs mysql) can layer on later; today it is archetype-grain. */
+/** Wire-compatible backend substitutes — mirrors configs/capability_vocabulary.json `backend_aliases`
+ *  so the editor's LOCAL plausibility matches the backend matcher: a consumer accepting `mysql` also
+ *  accepts `mariadb`. (Inventory suggestions come from the backend, which expands these server-side;
+ *  this small copy is only for node↔node checks that must work offline.) */
+const BACKEND_ALIASES: Record<string, string[]> = {
+  mysql: ['mariadb'], mariadb: ['mysql'], redis: ['valkey', 'keydb'],
+};
+function expandBackends(backends: string[]): Set<string> {
+  const out = new Set<string>();
+  for (const b of backends) { if (!b) continue; out.add(b); for (const a of BACKEND_ALIASES[b] ?? []) out.add(a); }
+  return out;
+}
+
+export interface Provide { capability: string; backend?: string }
+export interface Require { capability: string; backends?: string[] }
+
+/** Structured provides — role-grain from `caps` when a contract is loaded, else archetype tokens
+ *  (capability only, no backend). */
+function providedCaps(s: BlueprintService): Provide[] {
+  if (s.caps?.provides?.length) return s.caps.provides.map((p) => ({ capability: p.capability, backend: p.backend }));
+  return (paletteFor(s.icon)?.provides ?? []).map((c) => ({ capability: c }));
+}
+function requiredCaps(s: BlueprintService): Require[] {
+  if (s.caps?.requires?.length) return s.caps.requires.map((r) => ({ capability: r.capability, backends: r.backends }));
+  return (paletteFor(s.icon)?.requires ?? []).map((c) => ({ capability: c }));
+}
+
+/** True when a provide can satisfy a require: same capability, and — when both name backends — the
+ *  provider's backend is one the consumer accepts (alias-aware). Unknown backend on either side is
+ *  permissive (archetype-grain fallback stays as loose as before). */
+function satisfies(req: Require, prov: Provide): boolean {
+  if (req.capability !== prov.capability) return false;
+  if (!req.backends?.length || !prov.backend) return true;
+  return expandBackends(req.backends).has(prov.backend);
+}
+
+/** Display tokens (backend-qualified where known) — used in the inspector and refusal messages. */
 export function providesOf(s: BlueprintService): string[] {
-  return paletteFor(s.icon)?.provides ?? [];
+  return providedCaps(s).map((p) => (p.backend ? `${p.capability}:${p.backend}` : p.capability));
 }
 export function requiresOf(s: BlueprintService): string[] {
-  return paletteFor(s.icon)?.requires ?? [];
+  return requiredCaps(s).map((r) => (r.backends?.length ? `${r.capability} (${r.backends.join('|')})` : r.capability));
 }
 
-/** Which capability of `to` satisfies a requirement of `from` — the reason an edge is plausible, or
- *  null when none does (so the caller can explain the refusal precisely). */
+/** Which requirement of `from` is satisfied by a capability of `to` — the reason an edge is plausible
+ *  (returned as a display token), or null when none is (so the caller can explain the refusal). Now
+ *  backend-aware: a Postgres does NOT satisfy a consumer that requires database:[mysql,mariadb]. */
 export function capabilityMatch(from: BlueprintService, to: BlueprintService): string | null {
-  const offered = new Set(providesOf(to));
-  return requiresOf(from).find((r) => offered.has(r)) ?? null;
+  const offered = providedCaps(to);
+  for (const req of requiredCaps(from)) {
+    if (offered.some((p) => satisfies(req, p))) {
+      return req.backends?.length ? `${req.capability} (${req.backends.join('|')})` : req.capability;
+    }
+  }
+  return null;
 }
 
-/** A requirement is OPEN when no service this one already depends on provides it. These are the slots
- *  the editor shows unfilled after a role is placed. */
+/** Structured open requirements (capability + accepted backends) — an unmet require is one no current
+ *  dependency satisfies (backend-aware). Drives both the display tokens and the backend provider lookup. */
+export function openRequirementCaps(service: BlueprintService, services: BlueprintService[]): Require[] {
+  const deps = service.dependsOn
+    .map((n) => services.find((s) => s.name === n))
+    .filter((d): d is BlueprintService => !!d);
+  return requiredCaps(service).filter(
+    (req) => !deps.some((dep) => providedCaps(dep).some((p) => satisfies(req, p))));
+}
+
+/** A requirement is OPEN when no service this one already depends on satisfies it (backend-aware). */
 export function openRequirements(service: BlueprintService, services: BlueprintService[]): string[] {
-  const satisfied = new Set<string>();
-  for (const depName of service.dependsOn) {
-    const dep = services.find((s) => s.name === depName);
-    if (dep) for (const p of providesOf(dep)) satisfied.add(p);
-  }
-  return requiresOf(service).filter((r) => !satisfied.has(r));
+  return openRequirementCaps(service, services)
+    .map((r) => (r.backends?.length ? `${r.capability} (${r.backends.join('|')})` : r.capability));
 }
 
 /** `from` depends on `to`; wire the variables the consumer needs to reach it. */

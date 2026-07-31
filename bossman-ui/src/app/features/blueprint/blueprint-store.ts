@@ -14,7 +14,7 @@ import {
   Blueprint, BlueprintService, PaletteEntry, sanitizeServiceName,
 } from './compose-model';
 import { fromComposeText, toComposeJson, toComposeYaml } from './compose-io';
-import { openRequirements, removeService, renameService, unwireOne, wireEdge } from './compose-wiring';
+import { openRequirements, openRequirementCaps, removeService, renameService, unwireOne, wireEdge, Require } from './compose-wiring';
 
 const STORAGE_KEY = 'bm_blueprint_draft';
 
@@ -154,6 +154,13 @@ export class BlueprintStore {
   openRequirements(name: string): string[] {
     const s = this.bp().services.find((x) => x.name === name);
     return s ? openRequirements(s, this.bp().services) : [];
+  }
+
+  /** The structured open requirements (capability + accepted backends) — drives the backend provider
+   *  suggestion lookup, which needs the raw tokens the display strings hide. */
+  openRequirementCaps(name: string): Require[] {
+    const s = this.bp().services.find((x) => x.name === name);
+    return s ? openRequirementCaps(s, this.bp().services) : [];
   }
 
   /** Every variable an edge contributed — what the edge inspector edits. */
