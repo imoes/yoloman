@@ -71,6 +71,11 @@ func (t *TemplateRender) Run(ctx context.Context, params map[string]any, dryRun 
 		values = map[string]any{}
 	}
 
+	// These templates are native Ansible; make gonja understand Ansible's filters (to_json, ternary,
+	// dict2items, …) before parsing, or a template using one fails to render here even though Ansible
+	// renders it fine. Idempotent, so calling it per render is free after the first.
+	RegisterAnsibleFilters()
+
 	tpl, err := gonja.FromString(tmplText)
 	if err != nil {
 		return Result{}, fmt.Errorf("template_render: parse: %w", err)
