@@ -159,6 +159,15 @@ interface RunbookRow { id: string; name: string; folder: string }
               <input [ngModel]="s.ports.join(', ')" (ngModelChange)="setPorts(s.name, $event)" placeholder="8080:80" />
             </label>
 
+            @if (store.openRequirements(s.name); as open) {
+              @if (open.length) {
+                <div class="bm-insp-sec">Offene Anforderungen</div>
+                <p class="bm-warn">Diese Rolle braucht noch:
+                  @for (r of open; track r) { <code class="bm-req">{{ r }}</code> }
+                  — verbinde sie mit einem Dienst, der das bietet.</p>
+              }
+            }
+
             @if (s.dependsOn.length) {
               <div class="bm-insp-sec">Abhängig von</div>
               @for (d of s.dependsOn; track d) {

@@ -19,7 +19,7 @@ import yaml from 'js-yaml';
 import { BlueprintService, envPrefix, isValidEnvName, sanitizeServiceName } from '../src/app/features/blueprint/compose-model';
 import { fromComposeText, toComposeJson, toComposeYaml } from '../src/app/features/blueprint/compose-io';
 import { resolveService, startOrder } from '../src/app/features/blueprint/compose-resolver';
-import { removeService, renameService, unwireEdge, wireEdge } from '../src/app/features/blueprint/compose-wiring';
+import { openRequirements, removeService, renameService, unwireEdge, wireEdge } from '../src/app/features/blueprint/compose-wiring';
 
 const TEMPLATES = '/home/mutkluge/Dev/code/yolo-man/configs/config_templates';
 
@@ -289,6 +289,42 @@ for (let off = 0; off + 30 < tpls.length; off += 137) {
 const cyc = planCycle(tpls);
 const cycOrd = startOrder({ name: 'x', services: cyc.services });
 if (!cycOrd.cycle.length) note('cycle-undetected', 'a→b→c→a was not reported');
+
+// ---- capability plausibility (require/provide) ------------------------------
+// The editor must only allow an edge when the target provides a capability the source requires, and
+// must report a placed role's unfilled requirements. Built with real archetype icons, not generic
+// servers, so the seeded provides/requires actually bite.
+{
+  const cap = (name: string, icon: string): BlueprintService => ({
+    name, kind: 'native', icon, environment: {}, values: {}, ports: [], dependsOn: [], bindings: {},
+    x: 0, y: 0,
+  });
+  const web = cap('web', 'proxy');      // requires ['database'], provides ['web']
+  const db = cap('db', 'database');     // provides ['database']
+  const web2 = cap('web2', 'proxy');    // provides ['web'] — but NOT database
+  const list = [web, db, web2];
+
+  // Placing the web role must surface its open requirement.
+  const open0 = openRequirements(web, list);
+  if (open0.join() !== 'database') note('cap-open-wrong', `web open reqs = [${open0}], want [database]`);
+
+  // Implausible: web needs a database, web2 offers only 'web' → refused.
+  const bad = wireEdge(list, 'web', 'web2');
+  if (!bad.error) note('cap-implausible-allowed', 'web→web2 was allowed but web2 provides no database');
+
+  // Plausible: db provides 'database' → allowed, and then web has no open requirement left.
+  const good = wireEdge(list, 'web', 'db');
+  if (good.error) note('cap-plausible-refused', `web→db refused: ${good.error}`);
+  else {
+    const open1 = openRequirements(good.services.find((s) => s.name === 'web')!, good.services);
+    if (open1.length) note('cap-open-after-wire', `web still open after db: [${open1}]`);
+  }
+
+  // A generic server (no requires) stays unconstrained — it may depend on anything.
+  const srv = cap('srv', 'server');
+  const free = wireEdge([srv, web2], 'srv', 'web2');
+  if (free.error) note('cap-generic-constrained', `generic server refused an edge: ${free.error}`);
+}
 
 // ---------------------------------------------------------------- report
 

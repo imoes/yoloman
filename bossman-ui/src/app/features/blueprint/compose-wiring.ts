@@ -9,13 +9,40 @@
  * following plain Compose practice that a service name IS its address, and records
  * the provenance so unwiring removes exactly those keys and never a hand-typed one.
  */
-import { BlueprintService, envPrefix } from './compose-model';
+import { BlueprintService, envPrefix, paletteFor } from './compose-model';
 import { servicePort } from './compose-io';
 
 export interface WireResult {
   services: BlueprintService[];
   /** null on success, else why the edge was refused */
   error: string | null;
+}
+
+/** The capabilities a service offers / needs, derived from its archetype (the palette entry for its
+ *  icon). Role-grain refinement (postgresql vs mysql) can layer on later; today it is archetype-grain. */
+export function providesOf(s: BlueprintService): string[] {
+  return paletteFor(s.icon)?.provides ?? [];
+}
+export function requiresOf(s: BlueprintService): string[] {
+  return paletteFor(s.icon)?.requires ?? [];
+}
+
+/** Which capability of `to` satisfies a requirement of `from` — the reason an edge is plausible, or
+ *  null when none does (so the caller can explain the refusal precisely). */
+export function capabilityMatch(from: BlueprintService, to: BlueprintService): string | null {
+  const offered = new Set(providesOf(to));
+  return requiresOf(from).find((r) => offered.has(r)) ?? null;
+}
+
+/** A requirement is OPEN when no service this one already depends on provides it. These are the slots
+ *  the editor shows unfilled after a role is placed. */
+export function openRequirements(service: BlueprintService, services: BlueprintService[]): string[] {
+  const satisfied = new Set<string>();
+  for (const depName of service.dependsOn) {
+    const dep = services.find((s) => s.name === depName);
+    if (dep) for (const p of providesOf(dep)) satisfied.add(p);
+  }
+  return requiresOf(service).filter((r) => !satisfied.has(r));
 }
 
 /** `from` depends on `to`; wire the variables the consumer needs to reach it. */
@@ -25,6 +52,18 @@ export function wireEdge(services: BlueprintService[], from: string, to: string)
   const dst = services.find((s) => s.name === to);
   if (!src || !dst) return { services, error: `Unbekannter Dienst (${from} → ${to}).` };
   if (src.dependsOn.includes(to)) return { services, error: `${from} hängt schon von ${to} ab.` };
+
+  // Plausibility: an edge is only allowed when the target provides a capability the source requires.
+  // A source that declares NO requirements is unconstrained (a generic Server/Container can depend on
+  // anything) — the check only bites once a role with real requirements is chosen, which is the point.
+  if (requiresOf(src).length > 0 && capabilityMatch(src, dst) === null) {
+    const need = requiresOf(src).join(', ');
+    const got = providesOf(dst).join(', ') || '—';
+    return {
+      services,
+      error: `${from} braucht [${need}], aber ${to} bietet [${got}]. Verbinde ${from} mit einem passenden Dienst.`,
+    };
+  }
 
   const p = envPrefix(to);
   const port = servicePort(dst);

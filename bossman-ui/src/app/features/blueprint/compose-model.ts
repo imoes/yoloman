@@ -94,24 +94,46 @@ export interface PaletteEntry {
    * Empty = no restriction (a generic Server can take any role).
    */
   categories?: string[];
+  /**
+   * Capabilities this component OFFERS to others — the `provides` half of the
+   * plausibility model. A consumer may only be wired to a target that provides
+   * one of the capabilities the consumer `requires`. Tokens are free strings; we
+   * seed them at the category grain (`database`, `web`, `cache`, `queue`) so the
+   * data is present with no catalog mining, and a later pass can add role-grain
+   * tokens (`postgresql`) for finer matching (see compose-wiring.capabilityMatch).
+   */
+  provides?: string[];
+  /**
+   * Capabilities this component NEEDS — the `requires` half. These become the
+   * open dependency slots shown when the role is placed, and an edge is only
+   * plausible when its target provides one of them. A generic Server requires
+   * nothing until a role is chosen.
+   */
+  requires?: string[];
 }
 
+// provides/requires below are a SEEDED default taxonomy for the archetypes — sensible starting
+// capabilities, not a final vocabulary. The token set is the operator's to own; this is the smallest
+// set that makes the common stacks (web→database, lb→web, app→cache/queue) plausibility-checkable
+// today, and is meant to be reviewed and extended (role-grain tokens like `postgresql` come later).
 export const PALETTE: PaletteEntry[] = [
+  // A generic Server/Container provides and requires nothing until a role is chosen — it can host
+  // anything, so it must not constrain wiring on its own.
   { icon: 'server', label: 'Server', kind: 'native', prefix: 'srv' },
   { icon: 'container', label: 'Container', kind: 'docker', prefix: 'app' },
-  { icon: 'database', label: 'Datenbank', kind: 'native', prefix: 'db', defaultPort: 5432, categories: ['database'] },
-  { icon: 'proxy', label: 'Webserver / Proxy', kind: 'native', prefix: 'web', defaultPort: 80, categories: ['web'] },
-  { icon: 'loadbalancer', label: 'Load Balancer', kind: 'native', prefix: 'lb', defaultPort: 80, categories: ['web', 'network'] },
-  { icon: 'cache', label: 'Cache', kind: 'docker', prefix: 'cache', defaultPort: 6379, categories: ['database'] },
-  { icon: 'queue', label: 'Message Queue', kind: 'docker', prefix: 'mq', defaultPort: 5672, categories: ['services', 'database'] },
-  { icon: 'storage', label: 'Storage', kind: 'native', prefix: 'store', categories: ['storage'] },
+  { icon: 'database', label: 'Datenbank', kind: 'native', prefix: 'db', defaultPort: 5432, categories: ['database'], provides: ['database'] },
+  { icon: 'proxy', label: 'Webserver / Proxy', kind: 'native', prefix: 'web', defaultPort: 80, categories: ['web'], provides: ['web'], requires: ['database'] },
+  { icon: 'loadbalancer', label: 'Load Balancer', kind: 'native', prefix: 'lb', defaultPort: 80, categories: ['web', 'network'], provides: ['web'], requires: ['web'] },
+  { icon: 'cache', label: 'Cache', kind: 'docker', prefix: 'cache', defaultPort: 6379, categories: ['database'], provides: ['cache'] },
+  { icon: 'queue', label: 'Message Queue', kind: 'docker', prefix: 'mq', defaultPort: 5672, categories: ['services', 'database'], provides: ['queue'] },
+  { icon: 'storage', label: 'Storage', kind: 'native', prefix: 'store', categories: ['storage'], provides: ['storage'] },
   { icon: 'firewall', label: 'Firewall', kind: 'native', prefix: 'fw', categories: ['security', 'network'] },
   { icon: 'k8s', label: 'Kubernetes', kind: 'docker', prefix: 'k8s', categories: ['virtualization'] },
-  { icon: 'network', label: 'Netz', kind: 'native', prefix: 'net', categories: ['network'] },
+  { icon: 'network', label: 'Netz', kind: 'native', prefix: 'net', categories: ['network'], provides: ['network'] },
   { icon: 'external', label: 'Externer Dienst', kind: 'native', prefix: 'ext' },
   { icon: 'agent', label: 'Agent', kind: 'native', prefix: 'agent', categories: ['system'] },
-  { icon: 'hypervisor', label: 'Hypervisor', kind: 'native', prefix: 'hv', categories: ['virtualization'] },
-  { icon: 'template', label: 'VM-Template', kind: 'native', prefix: 'tmpl', categories: ['virtualization'] },
+  { icon: 'hypervisor', label: 'Hypervisor', kind: 'native', prefix: 'hv', categories: ['virtualization'], provides: ['virtualization'] },
+  { icon: 'template', label: 'VM-Template', kind: 'native', prefix: 'tmpl', categories: ['virtualization'], requires: ['virtualization'] },
 ];
 
 export const ICON_KEYS = PALETTE.map((p) => p.icon);

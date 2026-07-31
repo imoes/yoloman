@@ -14,7 +14,7 @@ import {
   Blueprint, BlueprintService, PaletteEntry, sanitizeServiceName,
 } from './compose-model';
 import { fromComposeText, toComposeJson, toComposeYaml } from './compose-io';
-import { removeService, renameService, unwireOne, wireEdge } from './compose-wiring';
+import { openRequirements, removeService, renameService, unwireOne, wireEdge } from './compose-wiring';
 
 const STORAGE_KEY = 'bm_blueprint_draft';
 
@@ -147,6 +147,13 @@ export class BlueprintStore {
 
   disconnect(from: string, to: string): void {
     this.patch((list) => list.map((s) => (s.name === from ? this.unwire(s, to) : s)));
+  }
+
+  /** The capabilities `name` still needs — its role's `requires` not yet met by an existing edge.
+   *  Drives the "offene Anforderungen" hint so a placed role shows what it must still be connected to. */
+  openRequirements(name: string): string[] {
+    const s = this.bp().services.find((x) => x.name === name);
+    return s ? openRequirements(s, this.bp().services) : [];
   }
 
   /** Every variable an edge contributed — what the edge inspector edits. */
