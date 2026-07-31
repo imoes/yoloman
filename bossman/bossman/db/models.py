@@ -1075,6 +1075,47 @@ class HostLabel(Base):
     )
 
 
+class HostCapability(Base):
+    """What a host provides or requires, in the Lego capability vocabulary — the DB projection of the
+    per-template capabilities.json contracts, one row per (host, kind, capability, contributing template).
+
+    DERIVED, not observed: computed from Agent.facts["installed_packages"] x package_catalog.json (which
+    roles the host runs) x each role template's capabilities.json (what that role provides/requires). A
+    `source` discriminator ('derived' vs 'explicit') mirrors HostLabel so the periodic reconcile only ever
+    replaces what it owns and never clobbers a hand-set capability.
+
+    Deliberately NOT a HostLabel: labels drive Checkmk check rulesets, and mixing capability tokens into
+    that namespace would pollute monitoring rules. This is the inventory the deterministic matcher
+    (services/capabilities.py) reads to answer "who provides database:postgresql?" — hence the
+    (capability, backend) index for the reverse lookup. `detail` carries the full capabilities.json entry
+    (field mapping, accepted backends, provisionable lists, peer_injection style) the matcher needs to
+    actually propose a wiring; the flat columns are what it filters on.
+    """
+
+    __tablename__ = "host_capabilities"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid())
+    tenant_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False)
+    agent_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("agents.id", ondelete="CASCADE"), nullable=False)
+    kind: Mapped[str] = mapped_column(String, nullable=False)                 # 'provide' | 'require'
+    capability: Mapped[str] = mapped_column(String, nullable=False)
+    backend: Mapped[str | None] = mapped_column(String, nullable=True)        # set for provides; requires hold a list in detail
+    template: Mapped[str] = mapped_column(String, nullable=False)             # the role/template that contributed this
+    source: Mapped[str] = mapped_column(String, nullable=False, default="derived")
+    port: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    config_path: Mapped[str | None] = mapped_column(String, nullable=True)
+    detail: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)  # full capabilities.json entry
+    updated_at: Mapped[datetime] = mapped_column(TZ_DATETIME, server_default=func.now(), nullable=False)
+
+    __table_args__ = (
+        CheckConstraint("kind IN ('provide', 'require')", name="ck_host_capabilities_kind"),
+        CheckConstraint("source IN ('derived', 'explicit')", name="ck_host_capabilities_source"),
+        UniqueConstraint("agent_id", "kind", "capability", "template", name="uq_host_capabilities_identity"),
+        Index("idx_host_capabilities_agent", "agent_id"),
+        Index("idx_host_capabilities_lookup", "capability", "backend"),
+    )
+
+
 class Runbook(Base):
     """A NestedText runbook/role stored as its canonical JSON document
     (Block G11). Runbooks live in the DB (unlike modules/checks, which stay on

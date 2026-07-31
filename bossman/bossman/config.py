@@ -152,6 +152,11 @@ class Settings(BaseSettings):
     # tests. See services/compliance.py.
     compliance_enabled: bool = True
     compliance_interval_seconds: int = 3600
+    # Lego capability inventory: derive what each host provides/requires from its installed roles x the
+    # per-template capabilities.json, into host_capabilities. Pure DB read (facts + catalog), no agent
+    # call; recompute alongside compliance. Off in tests. See services/capabilities.py.
+    capabilities_enabled: bool = True
+    capabilities_interval_seconds: int = 3600
     # Audit trail (gap #13): record authenticated mutating API calls + logins.
     # Off in tests (keeps the test DB's mutations out of the trail).
     audit_enabled: bool = True

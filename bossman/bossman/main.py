@@ -14,7 +14,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
-from bossman.api import admin, agents, apps as apps_api, auth, chat, checks, document as document_api, docker_apps as docker_apps_api, helm_apps as helm_apps_api, resources as resources_api, systems as systems_api, scheduler as scheduler_api, events as events_api, rollouts as rollouts_api, compliance as compliance_api, audit as audit_api, business_services as business_services_api, forecast as forecast_api, config_sync as config_sync_api, chunks, clusters as clusters_api, config_codecs, config_directives, config_templates, console, topology as topology_api, dashboard, deploy, deployments, devices, enroll, enroll_info, graphs, health, help, host_groups, images as images_api, management, modules, monitoring, notifications, orchestration, ou, package_catalog, package_wizard, plans, processes, relationships, runbooks, runs, search, security, severity_labels, system_settings, templates, time_periods as time_periods_api, translate, users, value_maps
+from bossman.api import admin, agents, apps as apps_api, auth, capabilities as capabilities_api, chat, checks, document as document_api, docker_apps as docker_apps_api, helm_apps as helm_apps_api, resources as resources_api, systems as systems_api, scheduler as scheduler_api, events as events_api, rollouts as rollouts_api, compliance as compliance_api, audit as audit_api, business_services as business_services_api, forecast as forecast_api, config_sync as config_sync_api, chunks, clusters as clusters_api, config_codecs, config_directives, config_templates, console, topology as topology_api, dashboard, deploy, deployments, devices, enroll, enroll_info, graphs, health, help, host_groups, images as images_api, management, modules, monitoring, notifications, orchestration, ou, package_catalog, package_wizard, plans, processes, relationships, runbooks, runs, search, security, severity_labels, system_settings, templates, time_periods as time_periods_api, translate, users, value_maps
 from bossman.config import get_settings
 from bossman.db.session import make_engine
 from bossman.mcp.auth import McpBearerAuthMiddleware
@@ -32,6 +32,7 @@ from bossman.services.wizard_seed import seed_wizard_runbooks, wizard_reseed_loo
 from bossman.services.poller import PollerStats, poller_loop
 from bossman.services.scheduler import scheduler_loop
 from bossman.services.event_console import event_console_loop
+from bossman.services.capabilities import capabilities_loop
 from bossman.services.compliance import compliance_loop
 from bossman.services.audit import audit_middleware
 from bossman.services.business_service import business_service_loop
@@ -202,6 +203,8 @@ async def lifespan(app: FastAPI):
     event_console_task = asyncio.create_task(event_console_loop(app.state.session_factory, settings, stop_event))
     # Software compliance (gap #9): required/forbidden packages per scope, alert on drift.
     compliance_task = asyncio.create_task(compliance_loop(app.state.session_factory, settings, stop_event))
+    # Lego capability inventory: derive host_capabilities from installed roles x per-template contracts.
+    capabilities_task = asyncio.create_task(capabilities_loop(app.state.session_factory, settings, stop_event))
     # Business/logical service aggregation (gap #4): roll up state from many services.
     business_service_task = asyncio.create_task(business_service_loop(app.state.session_factory, settings, stop_event))
     try:
@@ -226,6 +229,7 @@ async def lifespan(app: FastAPI):
         scheduler_task.cancel()
         event_console_task.cancel()
         compliance_task.cancel()
+        capabilities_task.cancel()
         business_service_task.cancel()
         with contextlib.suppress(asyncio.CancelledError):
             await business_service_task
@@ -235,6 +239,8 @@ async def lifespan(app: FastAPI):
             await event_console_task
         with contextlib.suppress(asyncio.CancelledError):
             await compliance_task
+        with contextlib.suppress(asyncio.CancelledError):
+            await capabilities_task
         with contextlib.suppress(asyncio.CancelledError):
             await poller_task
         with contextlib.suppress(asyncio.CancelledError):
@@ -319,6 +325,7 @@ def create_app() -> FastAPI:
     app.include_router(resources_api.router, tags=["resources"])
     app.include_router(package_catalog.router, tags=["package-catalog"])
     app.include_router(package_wizard.router, tags=["package-wizard"])
+    app.include_router(capabilities_api.router, tags=["capabilities"])
     app.include_router(config_directives.router, tags=["config-directives"])
     app.include_router(devices.router, tags=["devices"])
     app.include_router(search.router, tags=["search"])
