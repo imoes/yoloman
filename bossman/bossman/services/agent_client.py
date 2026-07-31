@@ -350,6 +350,27 @@ class AgentClient:
         except ValueError as exc:
             raise AgentClientError(f"{self.address}: self-update: decoding response: {exc}") from exc
 
+    async def set_collect_config(self, patch: dict[str, Any]) -> dict[str, Any]:
+        """POST /api/v1/agent/collect-config — change the agent's metric-collection
+        knobs (services/psi/docker/drbd_devices/drop_metrics/interval) and let it
+        restart to apply. Like self_update this is the write-gate carve-out: it
+        works against a read-only agent, because an agent that collects the wrong
+        thing must be fixable without first being made writable. Only the keys
+        present in `patch` are changed; the endpoint can touch nothing outside the
+        collect block."""
+        url = f"https://{self.address}/api/v1/agent/collect-config"
+        try:
+            async with self._client() as client:
+                resp = await client.post(url, json=patch)
+        except (httpx.HTTPError, OSError) as exc:
+            raise AgentClientError(f"{self.address}: collect-config: request failed: {exc}") from exc
+        if resp.status_code != 200:
+            raise AgentClientError(f"{self.address}: collect-config returned {resp.status_code}: {resp.text[:4096]}")
+        try:
+            return resp.json()
+        except ValueError as exc:
+            raise AgentClientError(f"{self.address}: collect-config: decoding response: {exc}") from exc
+
     async def push_modules(self, modules: list[dict[str, Any]]) -> dict[str, Any]:
         """POST /api/v1/modules/apply — PUSH translated Starlark modules to the
         agent (Block G3). Each entry is {fqcn, star, sidecar, sidecar_format,

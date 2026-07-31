@@ -32,6 +32,14 @@ type Config struct {
 	// Bossman-pushed .deb even when Write is false. Default true (see
 	// Default()); set to false to forbid remote upgrades of this agent.
 	AllowSelfUpdate bool      `yaml:"allow_self_update"`
+	// AllowSelfConfig gates POST /api/v1/agent/collect-config, which lets Bossman
+	// change this agent's metric-collection knobs (collect.services, psi, docker,
+	// drbd_devices, drop_metrics, interval) and restart to apply them. Default
+	// true. Like self-update it is deliberately NOT behind the master write gate
+	// — a read-only agent must still be reconfigurable by its owner, and the
+	// endpoint's scope is strictly the collect block, so it can never touch
+	// listen/token/tls/write. Set false to forbid remote reconfiguration.
+	AllowSelfConfig bool `yaml:"allow_self_config"`
 	TLS             TLS       `yaml:"tls"`
 	EBPF            EBPF      `yaml:"ebpf"`
 	DB              DB        `yaml:"db"`
@@ -365,6 +373,7 @@ func Default() Config {
 		Listen:          "127.0.0.1:8010",
 		Write:           false,
 		AllowSelfUpdate: true,
+		AllowSelfConfig: true,
 		EBPF:            EBPF{Enabled: true},
 		DB: DB{
 			Driver: "sqlite",

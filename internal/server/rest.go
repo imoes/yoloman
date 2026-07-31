@@ -53,6 +53,10 @@ type RESTConfig struct {
 	// carve-out that works even when Write is false (see selfupdate.go).
 	// Default true; set allow_self_update:false to forbid remote upgrades.
 	AllowSelfUpdate bool
+	// AllowSelfConfig gates POST /api/v1/agent/collect-config — the metric-
+	// collection reconfiguration carve-out, which like self-update works even
+	// when Write is false (see selfconfig.go). Default true.
+	AllowSelfConfig bool
 	// Piggyback holds the live collector set that reports guests (Docker
 	// containers, Proxmox/vSphere VMs) as their own hosts via GET
 	// /api/v1/hosts/overview — the CheckMK piggyback idea. A *Store (not a
@@ -361,6 +365,14 @@ func NewRESTHandler(cfg RESTConfig) http.Handler {
 
 	mux.HandleFunc("POST /api/v1/agent/self-update", func(w http.ResponseWriter, r *http.Request) {
 		handleSelfUpdate(w, r, cfg)
+	})
+
+	// Change the agent's metric-collection knobs (collect.services/psi/docker/
+	// drbd_devices/drop_metrics/interval) and restart to apply. The config
+	// counterpart to self-update: not write-gated (a read-only agent must stay
+	// reconfigurable), scoped strictly to the collect block. See selfconfig.go.
+	mux.HandleFunc("POST /api/v1/agent/collect-config", func(w http.ResponseWriter, r *http.Request) {
+		handleCollectConfig(w, r, cfg)
 	})
 
 	RegisterEBPFRoutes(mux, cfg.EBPF)

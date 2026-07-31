@@ -417,6 +417,49 @@ async def update_agent_bundled(
     return {"agent_id": str(agent.id), "family": family, "package": kind, "result": result}
 
 
+class CollectConfigRequest(BaseModel):
+    """A partial patch of the agent's metric-collection knobs. Every field optional; only the ones
+    provided are changed. Nothing here can touch the agent's auth, listen address or write gate — that
+    is enforced on the agent, whose endpoint has no field for them."""
+
+    services: bool | None = None
+    psi: bool | None = None
+    docker: bool | None = None
+    drbd_devices: bool | None = None
+    drop_metrics: list[str] | None = None
+    interval: str | None = None  # a Go duration string, e.g. "60s"
+
+
+@router.post("/api/v1/agents/{agent_id}/collect-config")
+async def set_agent_collect_config(
+    agent_id: UUID,
+    body: CollectConfigRequest,
+    session: AsyncSession = Depends(get_session),
+    settings: Settings = Depends(get_settings),
+    client_factory=Depends(get_client_factory),
+    _identity=Depends(require_manage_agent),
+) -> dict:
+    """Change what this host collects and let its agent restart to apply — without SSH.
+
+    The reason this exists: `update-bundled` replaces only the binary, config.yaml is noreplace, so
+    turning off an unread high-cardinality family (service_* was 38.8% of the metrics DB) otherwise
+    meant editing /etc/agentic-mcp/config.yaml on every host by hand. The agent's collect-config
+    endpoint is a deliberate write-gate carve-out (like self-update), scoped strictly to the collect
+    block, so a read-only host is still reconfigurable by its owner over the existing mTLS channel."""
+    agent = await _get_agent_or_404(session, agent_id)
+    if not agent.address:
+        raise HTTPException(status_code=409, detail="agent has no direct address — cannot reach it")
+    patch = body.model_dump(exclude_none=True)
+    if not patch:
+        raise HTTPException(status_code=422, detail="no collect settings provided")
+    client = client_factory(agent, settings)
+    try:
+        result = await client.set_collect_config(patch)
+    except AgentClientError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+    return {"agent_id": str(agent.id), "applied": patch, "result": result}
+
+
 _SERVICE_ACTION_STATE = {"restart": "restarted", "stop": "stopped", "start": "started"}
 # Block J4a — boot-state actions map to the systemd module's `enabled` param
 # (no running-state change), so they can be issued independently of start/stop.

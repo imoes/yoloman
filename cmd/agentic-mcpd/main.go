@@ -194,6 +194,7 @@ func run(args []string) error {
 		ModulesDir:         cfg.ModulesDir,
 		MaxUploadSize:      cfg.MaxUploadSize,
 		AllowSelfUpdate:    cfg.AllowSelfUpdate,
+		AllowSelfConfig:    cfg.AllowSelfConfig,
 		ConsoleEnabled:     cfg.Console.Enabled,
 		ConsoleCommand:     cfg.Console.Command,
 		Piggyback:          piggyback.NewStore(cfg),
