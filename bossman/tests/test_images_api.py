@@ -338,3 +338,165 @@ async def test_a_reported_failure_ends_the_job_and_frees_the_mac(db_session, mon
         assert job.status == "failed" and "curl exited 22" in (job.error or "")
         assert job.finished_at is not None
     await _cleanup(db_session, img, token)
+
+
+# ---------------------------------------------------------------------------
+# Streaming a captured file in, and finishing the image
+
+
+def _img_headers(image_id):
+    from bossman.api.images import image_upload_token
+    from bossman.config import get_settings
+
+    return {"X-Image-Token": image_upload_token(get_settings(), image_id)}
+
+
+async def _capturing_image(db_session) -> DiskImage:
+    img = DiskImage(name=f"cap-{uuid.uuid4().hex[:6]}", status="capturing")
+    db_session.add(img)
+    await db_session.commit()
+    return img
+
+
+async def test_an_upload_is_hashed_by_the_receiver(db_session, monkeypatch, tmp_path):
+    """The checksum is computed on what ARRIVED, not reported by the sender — a truncated upload is
+    exactly what a sender cannot notice, and a truncated image on a disk is an unbootable machine
+    that looks like a successful restore."""
+    import hashlib
+
+    monkeypatch.setenv("BOSSMAN_IMAGE_STORE_DIR", str(tmp_path))
+    img = await _capturing_image(db_session)
+    payload = b"partclone-image-bytes" * 1000
+    with TestClient(create_app()) as client:
+        resp = client.put(
+            f"/api/v1/images/{img.id}/files/root-ubuntu-lv",
+            content=payload,
+            headers=_img_headers(img.id),
+        )
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert body["bytes"] == len(payload)
+    assert body["sha256"] == hashlib.sha256(payload).hexdigest()
+    assert (tmp_path / str(img.id) / "root-ubuntu-lv.pcl.zst").read_bytes() == payload
+
+    await db_session.refresh(img)
+    assert img.files["root-ubuntu-lv"]["sha256"] == body["sha256"]
+    await _cleanup(db_session, img)
+
+
+async def test_an_upload_needs_the_token_for_that_image(db_session, monkeypatch, tmp_path):
+    """The token is scoped to one image, so handing it to a capture grants exactly that capture's
+    permission rather than a general API credential."""
+    monkeypatch.setenv("BOSSMAN_IMAGE_STORE_DIR", str(tmp_path))
+    img = await _capturing_image(db_session)
+    other = await _capturing_image(db_session)
+    with TestClient(create_app()) as client:
+        none = client.put(f"/api/v1/images/{img.id}/files/root", content=b"x")
+        wrong = client.put(
+            f"/api/v1/images/{img.id}/files/root", content=b"x", headers=_img_headers(other.id)
+        )
+    assert none.status_code == 403
+    assert wrong.status_code == 403, "another image's token must not work"
+    await _cleanup(db_session, img)
+    await _cleanup(db_session, other)
+
+
+async def test_a_stem_cannot_escape_the_store(db_session, monkeypatch, tmp_path):
+    """`../../etc/shadow` as a stem would otherwise write wherever the process can."""
+    monkeypatch.setenv("BOSSMAN_IMAGE_STORE_DIR", str(tmp_path))
+    img = await _capturing_image(db_session)
+    with TestClient(create_app()) as client:
+        for bad in ("../escape", "root/../../x", "with space", ""):
+            resp = client.put(
+                f"/api/v1/images/{img.id}/files/{bad}", content=b"x", headers=_img_headers(img.id)
+            )
+            assert resp.status_code in (404, 422), f"{bad!r} was accepted"
+    assert list(tmp_path.rglob("*.pcl.zst")) == []
+    await _cleanup(db_session, img)
+
+
+async def test_an_interrupted_upload_leaves_no_file_under_the_real_name(db_session, monkeypatch, tmp_path):
+    """A restore fetches by name, so a partial file there would be fetched and written to a disk."""
+    monkeypatch.setenv("BOSSMAN_IMAGE_STORE_DIR", str(tmp_path))
+    img = await _capturing_image(db_session)
+    with TestClient(create_app()) as client:
+        resp = client.put(f"/api/v1/images/{img.id}/files/root", content=b"", headers=_img_headers(img.id))
+    assert resp.status_code == 422
+    assert list((tmp_path / str(img.id)).glob("root.pcl.zst")) == []
+    assert list((tmp_path / str(img.id)).glob(".*.part")) == [], "the temp file is cleaned up too"
+    await _cleanup(db_session, img)
+
+
+async def test_a_ready_image_does_not_accept_more_files(db_session, monkeypatch, tmp_path):
+    monkeypatch.setenv("BOSSMAN_IMAGE_STORE_DIR", str(tmp_path))
+    img = await _ready_image(db_session)
+    with TestClient(create_app()) as client:
+        resp = client.put(f"/api/v1/images/{img.id}/files/root", content=b"x", headers=_img_headers(img.id))
+    assert resp.status_code == 409
+    await _cleanup(db_session, img)
+
+
+async def test_finishing_folds_in_the_measured_usage_and_marks_it_ready(db_session, monkeypatch, tmp_path):
+    """The cold-capture case end to end: the manifest arrives with usage unknown, partclone's own
+    measurement fills it, and only then is the image deployable."""
+    monkeypatch.setenv("BOSSMAN_IMAGE_STORE_DIR", str(tmp_path))
+    cold_sda = {
+        "name": "sda", "type": "disk", "size": 50 * GiB, "fstype": None,
+        "children": [{"name": "sda1", "type": "part", "size": 40 * GiB, "fstype": "ext4",
+                      "fsused": None, "mountpoint": "/"}],
+    }
+    manifest = layout_to_dict(parse_layout(sfdisk=None, lsblk_disk=cold_sda))
+    assert manifest["volumes"][0]["used_bytes"] is None
+    img = await _capturing_image(db_session)
+    with TestClient(create_app()) as client:
+        client.put(f"/api/v1/images/{img.id}/files/root", content=b"x" * 100, headers=_img_headers(img.id))
+        resp = client.post(
+            f"/api/v1/images/{img.id}/finish",
+            json={"manifest": manifest, "used_bytes": {"root": 7 * GiB}},
+            headers=_img_headers(img.id),
+        )
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["status"] == "ready"
+    assert resp.json()["volumes"][0]["used_bytes"] == 7 * GiB
+    await _cleanup(db_session, img)
+
+
+async def test_finishing_without_the_usage_fails_the_image_here_not_at_3am(db_session, monkeypatch, tmp_path):
+    """Without it `plan_restore` cannot even decide whether a target is big enough, so the failure
+    would otherwise surface on the machine being installed."""
+    monkeypatch.setenv("BOSSMAN_IMAGE_STORE_DIR", str(tmp_path))
+    cold_sda = {
+        "name": "sda", "type": "disk", "size": 50 * GiB, "fstype": None,
+        "children": [{"name": "sda1", "type": "part", "size": 40 * GiB, "fstype": "ext4",
+                      "fsused": None, "mountpoint": "/"}],
+    }
+    manifest = layout_to_dict(parse_layout(sfdisk=None, lsblk_disk=cold_sda))
+    img = await _capturing_image(db_session)
+    with TestClient(create_app()) as client:
+        client.put(f"/api/v1/images/{img.id}/files/root", content=b"x", headers=_img_headers(img.id))
+        resp = client.post(
+            f"/api/v1/images/{img.id}/finish",
+            json={"manifest": manifest},
+            headers=_img_headers(img.id),
+        )
+    assert resp.status_code == 422
+    assert "still unknown" in resp.text
+    await db_session.refresh(img)
+    assert img.status == "failed" and "unknown" in (img.error or "")
+    await _cleanup(db_session, img)
+
+
+async def test_finishing_refuses_a_volume_whose_file_never_arrived(db_session, monkeypatch, tmp_path):
+    """Three volumes captured, two uploaded: restoring that would leave a machine with no /boot."""
+    monkeypatch.setenv("BOSSMAN_IMAGE_STORE_DIR", str(tmp_path))
+    manifest = layout_to_dict(parse_layout(sfdisk=SFDISK, lsblk_disk=SDA))
+    img = await _capturing_image(db_session)
+    with TestClient(create_app()) as client:
+        client.put(f"/api/v1/images/{img.id}/files/esp", content=b"x", headers=_img_headers(img.id))
+        client.put(f"/api/v1/images/{img.id}/files/root-ubuntu-lv", content=b"x", headers=_img_headers(img.id))
+        resp = client.post(
+            f"/api/v1/images/{img.id}/finish", json={"manifest": manifest}, headers=_img_headers(img.id)
+        )
+    assert resp.status_code == 422
+    assert "no uploaded file for: boot" in resp.text
+    await _cleanup(db_session, img)

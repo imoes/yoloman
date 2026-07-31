@@ -17,7 +17,10 @@ than a line number.
 
 from __future__ import annotations
 
+import hashlib
+import hmac
 from datetime import datetime, timezone
+from pathlib import Path
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Request
@@ -385,6 +388,158 @@ async def netboot_progress(
         job.finished_at = datetime.now(timezone.utc)
     await session.commit()
     return RestoreJobOut.from_model(job)
+
+
+# ---------------------------------------------------------------------------
+# The capture's side: streaming an image file in, and finishing the image
+
+
+def image_upload_token(settings, image_id: UUID) -> str:
+    """A token that authorises writing THIS image's files, and nothing else.
+
+    Derived rather than stored: `HMAC(jwt_secret, "image:<id>")`, so there is no column to migrate,
+    nothing to leak from the database, and no cleanup to forget. It is scoped to one image, so
+    handing it to a capture running on a source host grants exactly the permission that capture
+    needs — not a general API credential. Rotating `jwt_secret` invalidates every outstanding one,
+    which is the correct blast radius.
+    """
+    secret = (settings.jwt_secret or "").encode()
+    if not secret:
+        raise HTTPException(status_code=503, detail="no jwt_secret configured; cannot mint an upload token")
+    return hmac.new(secret, f"image:{image_id}".encode(), hashlib.sha256).hexdigest()[:32]
+
+
+def _require_image_token(settings, image_id: UUID, presented: str | None) -> None:
+    expected = image_upload_token(settings, image_id)
+    # compare_digest, not ==: a timing-comparable check on a token is a bad habit to leave in a
+    # codebase even where the practical risk is small.
+    if not presented or not hmac.compare_digest(presented, expected):
+        raise HTTPException(status_code=403, detail="bad or missing image upload token")
+
+
+@router.put("/api/v1/images/{image_id}/files/{stem}")
+async def upload_image_file(
+    image_id: UUID,
+    stem: str,
+    request: Request,
+    x_image_token: str | None = Header(default=None),
+    session: AsyncSession = Depends(get_session),
+) -> dict:
+    """Stream one volume's compressed image in, hashing it as it lands.
+
+    Streamed, never buffered: these files are gigabytes, and reading one into memory to hash it
+    would take the process down on the first real capture.
+
+    The checksum is computed HERE, on what actually arrived, rather than being reported by the
+    sender. That is the whole point — a truncated upload is exactly what a sender cannot notice,
+    and a truncated image written to a disk is an unbootable machine that looks like a successful
+    restore.
+    """
+    settings = get_settings()
+    _require_image_token(settings, image_id, x_image_token)
+    img = await _image_or_404(session, image_id)
+    if img.status != "capturing":
+        raise HTTPException(status_code=409, detail=f"image is {img.status}; only a capturing image accepts files")
+    safe = _safe_stem(stem)
+
+    target_dir = Path(settings.image_store_dir) / str(image_id)
+    target_dir.mkdir(parents=True, exist_ok=True)
+    name = f"{safe}.pcl.zst"
+    # Write to a temporary name and rename at the end, so an interrupted upload never leaves a
+    # partial file under the name a restore would fetch.
+    tmp = target_dir / f".{name}.part"
+    digest = hashlib.sha256()
+    written = 0
+    try:
+        with tmp.open("wb") as fh:
+            async for chunk in request.stream():
+                if not chunk:
+                    continue
+                digest.update(chunk)
+                written += len(chunk)
+                fh.write(chunk)
+        if written == 0:
+            raise HTTPException(status_code=422, detail="empty upload")
+        tmp.replace(target_dir / name)
+    except HTTPException:
+        tmp.unlink(missing_ok=True)
+        raise
+    except OSError as exc:
+        tmp.unlink(missing_ok=True)
+        raise HTTPException(status_code=507, detail=f"could not store the image file: {exc}") from exc
+
+    files = dict(img.files or {})
+    files[safe] = {"name": name, "bytes": written, "sha256": digest.hexdigest()}
+    img.files = files
+    await session.commit()
+    return {"stem": safe, "name": name, "bytes": written, "sha256": digest.hexdigest()}
+
+
+class FinishIn(BaseModel):
+    # imaging.layout_to_dict's document, as probed on the source host.
+    manifest: dict
+    # Used bytes per image stem, as partclone actually measured them.
+    used_bytes: dict[str, int] = {}
+
+
+@router.post("/api/v1/images/{image_id}/finish", response_model=ImageOut)
+async def finish_image(
+    image_id: UUID,
+    body: FinishIn,
+    x_image_token: str | None = Header(default=None),
+    session: AsyncSession = Depends(get_session),
+) -> ImageOut:
+    """Record the manifest, fold in the measured usage, and mark the image deployable.
+
+    The image only becomes `ready` if it is actually restorable: the manifest must parse, every
+    volume must have a stored file, and the usage must be known — otherwise `plan_restore` cannot
+    even decide whether a target is big enough, and the failure would surface at 3am on the machine
+    being installed instead of here.
+    """
+    settings = get_settings()
+    _require_image_token(settings, image_id, x_image_token)
+    img = await _image_or_404(session, image_id)
+    if img.status == "ready":
+        raise HTTPException(status_code=409, detail="image is already ready")
+
+    try:
+        layout = imaging.layout_from_dict(body.manifest)
+        layout = imaging.with_measured_usage(layout, dict(body.used_bytes or {}))
+        if layout.unknown_usage:
+            raise imaging.ImagingError(
+                "used size still unknown for: " + ", ".join(v.role for v in layout.unknown_usage)
+            )
+        total = layout.used_total  # raises if anything is still unknown
+        missing = [
+            imaging.image_stem(v) for v in layout.volumes if imaging.image_stem(v) not in (img.files or {})
+        ]
+        if missing:
+            raise imaging.ImagingError("no uploaded file for: " + ", ".join(missing))
+    except imaging.ImagingError as exc:
+        img.status = "failed"
+        img.error = str(exc)
+        await session.commit()
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+    img.manifest = imaging.layout_to_dict(layout)
+    img.status = "ready"
+    img.error = None
+    await session.commit()
+    assert total >= 0  # documents that used_total was evaluated for its validation side effect
+    return ImageOut.from_model(img)
+
+
+def _safe_stem(stem: str) -> str:
+    """A stem is a file name component, so it must not be able to become a path.
+
+    `../../etc/shadow` as a stem would otherwise let an upload write anywhere the process can. The
+    allow-list is deliberately narrow: image stems are `role` or `role-lv`, which only ever contain
+    letters, digits, dash and underscore.
+    """
+    cleaned = (stem or "").strip()
+    if not cleaned or not all(c.isalnum() or c in "-_" for c in cleaned):
+        raise HTTPException(status_code=422, detail=f"not a valid image stem: {stem!r}")
+    return cleaned
 
 
 async def _image_or_404(session: AsyncSession, image_id: UUID) -> DiskImage:

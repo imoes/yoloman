@@ -677,7 +677,7 @@ def with_measured_usage(layout: SourceLayout, used_by_role: dict[str, int]) -> S
     a filesystem that was never mounted.
     """
     filled = tuple(
-        v if v.used_bytes is not None else _with_used(v, used_by_role.get(_image_stem(v)))
+        v if v.used_bytes is not None else _with_used(v, used_by_role.get(image_stem(v)))
         for v in layout.volumes
     )
     return SourceLayout(
@@ -858,7 +858,7 @@ def _part_suffix(disk: str, number: int) -> str:
     return f"p{number}" if disk and disk[-1].isdigit() else str(number)
 
 
-def _image_stem(volume: Volume) -> str:
+def image_stem(volume: Volume) -> str:
     """The key a volume's image is stored and reported under — stable and collision-free.
 
     Keyed by role plus the LV name, because a layout can hold two volumes with the same role (two
@@ -869,7 +869,7 @@ def _image_stem(volume: Volume) -> str:
 
 
 def _image_name(volume: Volume) -> str:
-    return f"{_image_stem(volume)}.pcl.zst"
+    return f"{image_stem(volume)}.pcl.zst"
 
 
 def grow_commands(planned: PlannedVolume, *, device: str, mountpoint: str = "/mnt/target") -> list[list[str]]:
