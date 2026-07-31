@@ -32,7 +32,7 @@ from bossman.api.auth import get_current_identity
 from bossman.config import get_settings
 from bossman.db.models import Agent, DiskImage, RestoreJob
 from bossman.db.session import get_session
-from bossman.services import imaging
+from bossman.services import imaging, offline_enroll
 
 router = APIRouter()
 
@@ -318,8 +318,18 @@ async def netboot_checkin(
         layout = imaging.layout_from_dict(img.manifest or {})
         target = imaging.select_target_disk(body.blockdevices, prefer=job.target_disk)
         plan = imaging.plan_restore(layout, target)
+        # The target's own agent, installed into the mounted root as the last configuring act. Minted
+        # here rather than when the job was armed, because a token handed out before the machine even
+        # netbooted would be a live credential sitting in the database for however long the job waited.
+        install = offline_enroll.plan_offline_install(settings, job.target_hostname)
         steps = imaging.restore_steps(
-            layout, plan, image_url=_image_url(settings, img), hostname=job.target_hostname
+            layout,
+            plan,
+            image_url=_image_url(settings, img),
+            hostname=job.target_hostname,
+            configure_steps=offline_enroll.offline_install_steps(
+                install, deb_url=_agent_deb_url(settings)
+            ),
         )
     except imaging.ImagingError as exc:
         # A plan that cannot be made is the job's failure, recorded where an operator will look,
@@ -337,6 +347,16 @@ async def netboot_checkin(
     ]
     job.step_index = 0
     job.started_at = job.started_at or datetime.now(timezone.utc)
+    # Enrol now, not on first boot: the agent row is what lets the booting agent be recognised at all.
+    # The downtime it opens is what keeps this from paging — an enrolled host that has not reported is
+    # DOWN and CRITICAL (L1), and this one will not report until it has finished installing and
+    # rebooted. Checkin is the right moment to start that window, since it is when the work begins.
+    await offline_enroll.record_offline_agent(
+        session,
+        job.target_hostname,
+        token=install.token,
+        listen_port=install.listen_port,
+    )
     await session.commit()
     return CheckinOut(
         job_id=job.id,
@@ -552,3 +572,18 @@ async def _image_or_404(session: AsyncSession, image_id: UUID) -> DiskImage:
 def _image_url(settings, img: DiskImage) -> str:
     base = (settings.image_base_url or settings.public_url or "").rstrip("/")
     return f"{base}/images/{img.id}"
+
+
+def _agent_deb_url(settings) -> str:
+    """Where a netbooted target fetches the agent package.
+
+    Served from the same store as the images, unauthenticated, and deliberately so: a netbooting
+    machine has no credential before it checks in, which is why the images work the same way. Nothing
+    secret rides along here — the package is the same one on every host, and the target's token and
+    keys travel inside the authenticated checkin response instead.
+
+    Contract with the netboot container (Phase 1): the image store root is served at `<base>/`, images
+    under `<base>/images/<id>/`, and the agent package at `<base>/agent.deb`.
+    """
+    base = (settings.image_base_url or settings.public_url or "").rstrip("/")
+    return f"{base}/agent.deb"

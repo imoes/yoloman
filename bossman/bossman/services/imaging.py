@@ -21,6 +21,7 @@ plan, which is the part worth unit-testing, and leaves execution to the caller.
 from __future__ import annotations
 
 import shlex
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -744,6 +745,7 @@ def restore_steps(
     image_url: str,
     hostname: str,
     pv_partition: int | None = None,
+    configure_steps: Sequence[Step] = (),
 ) -> list[Step]:
     """The whole restore, as an ordered list the helper executes and reports on.
 
@@ -759,8 +761,11 @@ def restore_steps(
     4. Bind-mount /dev, /proc, /sys before any chroot step, or `grub-install` cannot see the disk.
     5. Bootloader before identity reset, purely so a failure lands on the step that can still be
        diagnosed with a shell open.
-    6. Identity reset LAST before unmount: machine-id, SSH host keys and hostname. Skipping it
+    6. Identity reset before configuration: machine-id, SSH host keys and hostname. Skipping it
        produces twins that fight over DHCP leases and present the same SSH fingerprint.
+    7. `configure_steps` LAST, while the tree is still mounted and the chroot still usable — this is
+       where the target's own agent is installed and its desired state applied. Doing it here rather
+       than after the first boot is the whole reason the machine reboots exactly once.
     """
     disk = f"/dev/{plan.target_disk}"
     steps: list[Step] = []
@@ -806,6 +811,10 @@ def restore_steps(
 
     # 6. Identity: without this every clone is a twin.
     steps.extend(identity_steps(hostname))
+
+    # 7. Configuration, including the target's own agent — after identity, so nothing it writes is
+    # invalidated by a hostname or machine-id that changes underneath it.
+    steps.extend(configure_steps)
 
     # Teardown, strictly reversed.
     for src in reversed(_BIND_MOUNTS):

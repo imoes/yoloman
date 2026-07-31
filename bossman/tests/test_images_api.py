@@ -6,9 +6,10 @@ matters here is tested through that endpoint.
 """
 
 import uuid
+from datetime import datetime, timezone
 
 from fastapi.testclient import TestClient
-from sqlalchemy import delete, select
+from sqlalchemy import delete, select, text
 
 from bossman.db.models import AccessGrant, Agent, DiskImage, RestoreJob
 from bossman.main import create_app
@@ -190,12 +191,16 @@ async def test_mac_addresses_are_normalised_however_they_are_written(db_session)
 # The netboot check-in
 
 
-async def _armed(db_session, client, raw, mac="aa:bb:cc:dd:ee:10", disk=None):
+async def _armed(db_session, client, raw, mac="aa:bb:cc:dd:ee:10", disk=None, hostname="web07"):
     img = await _ready_image(db_session)
-    body = {"image_id": str(img.id), "target_mac": mac, "target_hostname": "web07"}
+    body = {"image_id": str(img.id), "target_mac": mac, "target_hostname": hostname}
     if disk:
         body["target_disk"] = disk
-    client.post("/api/v1/restore-jobs", json=body, headers=_h(raw))
+    resp = client.post("/api/v1/restore-jobs", json=body, headers=_h(raw))
+    # Checked, not ignored. A leftover job holding this MAC answers 409 here, and swallowing that
+    # turned into a baffling failure three assertions later — the checkin quietly served the OLD job's
+    # image, so the test reported an image-id mismatch instead of "the MAC was already armed".
+    assert resp.status_code == 201, f"arming {mac} failed: {resp.status_code} {resp.text}"
     return img
 
 
@@ -500,3 +505,44 @@ async def test_finishing_refuses_a_volume_whose_file_never_arrived(db_session, m
     assert resp.status_code == 422
     assert "no uploaded file for: boot" in resp.text
     await _cleanup(db_session, img)
+
+
+async def test_checkin_also_enrols_the_target_and_shields_it_from_alerting(db_session, monkeypatch):
+    """Checkin is where the target becomes a fleet member, and where it stops being able to page.
+
+    Both halves matter and neither is obvious. The agent row must exist BEFORE the machine boots, or
+    the booting agent is not recognised at all. But an enrolled host that has not reported is DOWN and
+    CRITICAL (L1) — and this one will not report until it has finished installing and rebooted. So the
+    enrolment opens a whole-host downtime, and without it every single install would page.
+    """
+    monkeypatch.setenv("BOSSMAN_NETBOOT_SECRET", SECRET)
+    monkeypatch.setenv("BOSSMAN_IMAGE_BASE_URL", "https://boss.example")
+    token, raw = await _token(db_session)
+    with TestClient(create_app()) as client:
+        img = await _armed(db_session, client, raw, mac="aa:bb:cc:dd:ee:21", hostname="web21.example")
+        resp = client.post(
+            "/api/v1/netboot/checkin",
+            json={"mac": "aa:bb:cc:dd:ee:21", "blockdevices": TARGET_DEVICES},
+            headers=_secret_headers(),
+        )
+    assert resp.status_code == 200, resp.text
+    names = [s["name"] for s in resp.json()["steps"]]
+    assert "install the agent into the target" in names
+    assert "fetch the agent package" in names
+
+    agent = await db_session.scalar(select(Agent).where(Agent.name == "web21.example"))
+    assert agent is not None, "the target must be a fleet member before it boots"
+
+    from bossman.services.monitoring import is_in_downtime
+
+    now = datetime.now(timezone.utc)
+    assert await is_in_downtime(db_session, agent.id, "Host alive", now), "an install must not page"
+
+    # The token in the plan is the one the enrolled agent will present, not a second unrelated one.
+    install_step = next(s for s in resp.json()["steps"] if s["name"] == "install the agent into the target")
+    assert install_step["chroot"] is True, "the install runs inside the target, not on the helper"
+
+    await db_session.execute(text("DELETE FROM downtimes WHERE agent_id = :i"), {"i": str(agent.id)})
+    await db_session.execute(text("DELETE FROM agents WHERE id = :i"), {"i": str(agent.id)})
+    await db_session.commit()
+    await _cleanup(db_session, img, token)

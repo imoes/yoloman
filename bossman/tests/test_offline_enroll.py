@@ -22,10 +22,12 @@ from bossman.services.deploy import (
     DeployError,
 )
 from bossman.services.offline_enroll import (
+    DEB_NAME,
     POLICY_RC_PATH,
     SERVICE_NAME,
     install_succeeded,
     offline_install_script,
+    offline_install_steps,
     plan_offline_install,
 )
 
@@ -113,9 +115,9 @@ def settings(tmp_path):
 def test_plan_stages_every_file_the_script_consumes(settings):
     """The failure this catches is a script referring to a file the plan never wrote — which fails
     only on real hardware, in the middle of an install."""
-    plan = plan_offline_install(settings, "new-host.example", agent_deb=b"\x21\x3cdeb")
+    plan = plan_offline_install(settings, "new-host.example")
     staged = {f.path for f in plan.files}
-    for name in ("agent.deb", "server.key", "server.crt", "bossman.pub.pem", "config.yaml", "policy-rc.d"):
+    for name in ("server.key", "server.crt", "bossman.pub.pem", "config.yaml", "policy-rc.d"):
         assert f"{plan.staging_dir}/{name}" in staged
     # And nothing staged that the script ignores.
     for path in staged:
@@ -123,7 +125,7 @@ def test_plan_stages_every_file_the_script_consumes(settings):
 
 
 def test_staged_modes_match_what_the_script_installs(settings):
-    plan = plan_offline_install(settings, "new-host.example", agent_deb=b"deb")
+    plan = plan_offline_install(settings, "new-host.example")
     modes = {f.path.rsplit("/", 1)[-1]: f.mode for f in plan.files}
     assert modes["server.key"] == 0o600
     assert modes["config.yaml"] == 0o600
@@ -133,14 +135,14 @@ def test_staged_modes_match_what_the_script_installs(settings):
 def test_policy_rc_d_denies_with_101(settings):
     """101 specifically: invoke-rc.d treats it as "forbidden by policy" and succeeds. Any other
     non-zero exit is an error and fails the dpkg run."""
-    plan = plan_offline_install(settings, "new-host.example", agent_deb=b"deb")
+    plan = plan_offline_install(settings, "new-host.example")
     body = next(f.data for f in plan.files if f.path.endswith("policy-rc.d")).decode()
     assert body.startswith("#!/bin/sh")
     assert "exit 101" in body
 
 
 def test_config_is_the_shared_renderer_with_this_target_s_token(settings):
-    plan = plan_offline_install(settings, "new-host.example", agent_deb=b"deb", port=9999, write=True)
+    plan = plan_offline_install(settings, "new-host.example", port=9999, write=True)
     config = next(f.data for f in plan.files if f.path.endswith("config.yaml")).decode()
     assert f'token: "{plan.token}"' in config
     assert 'listen: "0.0.0.0:9999"' in config
@@ -151,22 +153,15 @@ def test_config_is_the_shared_renderer_with_this_target_s_token(settings):
 def test_each_target_gets_its_own_token_and_staging_dir(settings):
     """Two machines built from the same image must not share a bearer token — that is the difference
     between cloning a disk and cloning an identity."""
-    a = plan_offline_install(settings, "a.example", agent_deb=b"deb")
-    b = plan_offline_install(settings, "b.example", agent_deb=b"deb")
+    a = plan_offline_install(settings, "a.example")
+    b = plan_offline_install(settings, "b.example")
     assert a.token != b.token
     assert a.staging_dir != b.staging_dir
 
 
-def test_empty_package_is_refused_before_any_identity_is_minted(settings):
-    """Better to fail here than to write a token and a trust anchor into a target that will never
-    have an agent to use them."""
-    with pytest.raises(DeployError, match="empty"):
-        plan_offline_install(settings, "new-host.example", agent_deb=b"")
-
-
 def test_blank_host_is_refused(settings):
     with pytest.raises(DeployError, match="must not be empty"):
-        plan_offline_install(settings, "   ", agent_deb=b"deb")
+        plan_offline_install(settings, "   ")
 
 
 @pytest.mark.parametrize(
@@ -270,3 +265,163 @@ async def test_reinstalling_the_same_host_refreshes_it_rather_than_duplicating(e
     first = await enrolled("reused.example", token="a" * 64, listen_port=8080)
     second = await enrolled("reused.example", token="b" * 64, listen_port=8080)
     assert first.id == second.id
+
+
+# --------------------------------------------------------------------------------------------------
+# Turning the plan into helper steps
+# --------------------------------------------------------------------------------------------------
+
+
+@pytest.fixture
+def steps(settings):
+    from bossman.services.offline_enroll import offline_install_steps
+
+    plan = plan_offline_install(settings, "new-host.example")
+    return plan, offline_install_steps(plan, deb_url="https://store.example/agent.deb")
+
+
+def test_only_the_install_itself_runs_inside_the_target(steps):
+    """The split is dictated by which binaries exist where, and getting it wrong fails on real
+    hardware only: `curl` and `base64` are in the helper image because we put them there, and a
+    minimal Debian target may have neither. `dpkg`/`install`/`systemctl` are in the target."""
+    _, plan_steps = steps
+    chrooted = [s.name for s in plan_steps if s.chroot]
+    assert chrooted == ["install the agent into the target"]
+
+
+def test_staging_happens_under_the_mounted_target_not_the_helper_s_own_root(steps):
+    """A helper-side path missing the TARGET_ROOT prefix would write the key into the RAM disk that is
+    about to disappear, and the chroot step would then find nothing."""
+    from bossman.services.imaging import TARGET_ROOT
+
+    plan, plan_steps = steps
+    for step in plan_steps:
+        if step.chroot:
+            continue
+        text = " ".join(step.argv) if step.argv else step.shell
+        if plan.staging_dir in text:
+            assert f"{TARGET_ROOT}{plan.staging_dir}" in text
+
+
+def test_the_chroot_step_uses_target_relative_paths(steps):
+    """Mirror image of the previous test: inside the chroot the target root IS `/`, so a step carrying
+    the TARGET_ROOT prefix would look for /mnt/target/mnt/target/… and fail."""
+    from bossman.services.imaging import TARGET_ROOT
+
+    plan, plan_steps = steps
+    install = next(s for s in plan_steps if s.chroot)
+    assert TARGET_ROOT not in install.shell
+    assert plan.staging_dir in install.shell
+
+
+def test_the_package_is_fetched_before_it_is_installed(steps):
+    plan, plan_steps = steps
+    names = [s.name for s in plan_steps]
+    assert names.index("fetch the agent package") < names.index("install the agent into the target")
+    fetch = next(s for s in plan_steps if s.name == "fetch the agent package")
+    assert "https://store.example/agent.deb" in fetch.argv
+    # -f so an HTML error page is not silently saved as the package; --retry because failing here
+    # leaves a restored but un-enrolled machine.
+    assert "-fsSL" in fetch.argv and "--retry" in fetch.argv
+
+
+def test_the_stage_dir_exists_before_anything_is_written_into_it(steps):
+    _, plan_steps = steps
+    assert plan_steps[0].name == "stage dir for the agent install"
+    assert plan_steps[0].argv[:2] == ("mkdir", "-p")
+
+
+def test_every_staged_file_is_written_and_chmodded(steps):
+    plan, plan_steps = steps
+    shells = "\n".join(s.shell for s in plan_steps if s.shell and not s.chroot)
+    for f in plan.files:
+        name = f.path.rsplit("/", 1)[-1]
+        assert f"/{name}" in shells, f"{name} never written"
+        assert f"chmod {f.mode:04o}" in shells
+
+
+def test_the_bearer_token_never_appears_as_a_shell_argument(steps):
+    """base64 through a pipe is not decoration: a token on a command line is visible to any `ps` on
+    the helper for as long as the step runs."""
+    plan, plan_steps = steps
+    for step in plan_steps:
+        text = " ".join(step.argv) if step.argv else step.shell
+        if step.chroot:
+            continue  # the chroot script references the config by PATH, never by content
+        assert plan.token not in text
+
+
+def test_staged_content_round_trips_through_the_base64_pipeline(steps):
+    """Decode what the step would actually run, so mangled quoting or encoding shows up here rather
+    than as an agent that will not start on a machine in another building.
+
+    Parsed with shlex rather than a regex over quote characters: base64's alphabet is entirely inside
+    shlex.quote's safe set, so it emits the payload UNQUOTED — a pattern expecting quotes matches
+    nothing and the test passes vacuously (it did, the first time).
+    """
+    import base64 as b64
+
+    plan, plan_steps = steps
+    by_name = {}
+    for step in plan_steps:
+        if not step.shell or step.chroot:
+            continue
+        tokens = shlex.split(step.shell)
+        # printf %s <payload> | base64 -d > <path> && chmod <mode> <path>
+        if tokens[:2] != ["printf", "%s"]:
+            continue
+        payload = tokens[2]
+        path = tokens[tokens.index(">") + 1] if ">" in tokens else tokens[-1]
+        by_name[path.rsplit("/", 1)[-1]] = b64.b64decode(payload)
+
+    assert len(by_name) == len(plan.files), f"parsed {sorted(by_name)} from {len(plan.files)} files"
+    for f in plan.files:
+        assert by_name[f.path.rsplit("/", 1)[-1]] == f.data
+
+
+# --------------------------------------------------------------------------------------------------
+# Placement inside the restore plan
+# --------------------------------------------------------------------------------------------------
+
+
+def _plan_with(settings, configure=True):
+    """Reuse the imaging suite's real fixtures rather than hand-rolling a layout — those are the ones
+    already checked against actual `sfdisk`/`lsblk` output."""
+    from bossman.services import imaging
+    from bossman.services.offline_enroll import offline_install_steps
+    from tests.test_imaging import SDA, SFDISK
+
+    layout = imaging.parse_layout(sfdisk=SFDISK, lsblk_disk=SDA)
+    plan = imaging.plan_restore(layout, imaging.Disk("nvme0n1", 200 * 1024**3))
+    steps = ()
+    if configure:
+        install = plan_offline_install(settings, "web07.example")
+        steps = offline_install_steps(install, deb_url="https://s/agent.deb")
+    return imaging.restore_steps(
+        layout, plan, image_url="https://s/i", hostname="web07.example", configure_steps=steps
+    )
+
+
+def test_configure_steps_land_after_identity_and_before_the_unmount(settings):
+    """Position is the requirement, not a detail. Earlier than the bind mounts and `dpkg` has no
+    /proc; later than the unmount and there is no target left to install into. And after the identity
+    reset, so a hostname changing underneath cannot invalidate what was just written."""
+    names = [s.name for s in _plan_with(settings)]
+    agent_install = names.index("install the agent into the target")
+    assert names.index("bind /proc") < agent_install, "dpkg needs /proc"
+    assert names.index("reset machine-id") < agent_install, "identity settles first"
+    assert agent_install < names.index("unbind /proc")
+    assert names.index("unbind /proc") < names.index("umount root")
+
+
+def test_no_configure_steps_leaves_the_plan_exactly_as_before(settings):
+    """The parameter must be additive: a machine restored without an agent install still gets the
+    identical plan it got before any of this existed."""
+    from bossman.services import imaging
+    from tests.test_imaging import SDA, SFDISK
+
+    layout = imaging.parse_layout(sfdisk=SFDISK, lsblk_disk=SDA)
+    plan = imaging.plan_restore(layout, imaging.Disk("nvme0n1", 200 * 1024**3))
+    base = imaging.restore_steps(layout, plan, image_url="https://s/i", hostname="h")
+    assert [s.name for s in base] == [s.name for s in _plan_with(settings, configure=False)][: len(base)]
+    assert len(base) == len(_plan_with(settings, configure=False))

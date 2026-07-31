@@ -27,6 +27,18 @@ os.environ.setdefault("BOSSMAN_BUSINESS_SERVICE_ENABLED", "false")
 # ACL) can sign/verify (HS256 rejects an empty key).
 os.environ.setdefault("BOSSMAN_JWT_SECRET", "test-jwt-secret-block-m-000000000")
 
+# Bossman's client keypair defaults to /etc/bossman/tls/, which the test user cannot write — any code
+# path reaching ensure_client_keypair() dies with a bare PermissionError that says nothing about why.
+# Individual tests used to monkeypatch this one at a time, which only helps the tests that already know
+# they need it: the netboot checkin started minting a target identity and three unrelated tests broke.
+# Pointing the whole suite at a temp dir removes the trap instead of documenting it. setdefault, so a
+# test that wants its own path still wins.
+import tempfile  # noqa: E402
+
+_TEST_KEY_DIR = tempfile.mkdtemp(prefix="bossman-test-keys-")
+os.environ.setdefault("BOSSMAN_CLIENT_KEY_PATH", os.path.join(_TEST_KEY_DIR, "bossman-client.key"))
+os.environ.setdefault("BOSSMAN_CLIENT_CERT_PATH", os.path.join(_TEST_KEY_DIR, "bossman-client.crt"))
+
 from datetime import datetime, timezone  # noqa: E402
 
 import pytest  # noqa: E402
@@ -52,12 +64,44 @@ async def db_session():
         pytest.skip(f"no reachable database at {settings.database_url!r}: {exc}")
 
     session_factory = async_sessionmaker(engine, expire_on_commit=False)
-    started = datetime.now(timezone.utc)
     async with session_factory() as session:
         yield session
         await session.rollback()  # never leave test data behind
+    await engine.dispose()
+    # The residue guards deliberately live in the autouse fixture below, NOT here: a test that writes
+    # through TestClient never asks for this fixture, so cleanup hanging off it cannot see what that
+    # test created. One host leaked exactly that way (mon-85e29b3d) while this fixture already ran the
+    # guards.
+
+
+@pytest_asyncio.fixture(autouse=True)
+async def _drop_test_residue():
+    """Clean up after EVERY test, whether or not it asked for a database session.
+
+    Autouse because the shared database is written by two different kinds of test: those taking
+    `db_session`, and those going through `TestClient(create_app())`, which uses the app's own session
+    and never touches this file's fixtures. Hanging cleanup off `db_session` only covered the first
+    kind — measurably: with the guards attached there, a full run still leaked one host.
+
+    Skips silently when there is no database, so the many tests that need none stay fast and green.
+    """
+    settings = get_settings()
+    engine = create_async_engine(settings.database_url)
+    try:
+        async with engine.connect():
+            pass
+    except Exception:  # noqa: BLE001 — no database is not this fixture's problem
+        await engine.dispose()
+        yield
+        return
+
+    started = datetime.now(timezone.utc)
+    yield
+    session_factory = async_sessionmaker(engine, expire_on_commit=False)
+    async with session_factory() as session:
         await _drop_leaked_check_rules(session, started)
         await _drop_leaked_agents(session, started)
+        await _drop_leaked_netboot_rows(session, started)
     await engine.dispose()
 
 
@@ -155,6 +199,31 @@ async def _drop_leaked_agents(session, started):
         for stmt in _AGENT_CHILD_CLEANUP:
             await session.execute(text(stmt), params)
         await session.execute(text("DELETE FROM agents WHERE id = ANY(:ids)"), params)
+        await session.commit()
+    except Exception:  # noqa: BLE001 — teardown must never turn a passing test red
+        await session.rollback()
+
+
+async def _drop_leaked_netboot_rows(session, started):
+    """Remove disk images and restore jobs this test created but did not clean up.
+
+    Third sibling of the guards above, and it earned its place immediately: three leftover restore jobs
+    were enough to make `test_checkin_plans_the_restore_against_the_disk_the_target_reports` fail, by
+    arming a second job for a MAC that already had one. Chasing that down surfaced a real bug in
+    `netboot_checkin` (it picked the OLDEST armed job, so a stale job beat the one just armed), which is
+    the useful half of the story — but the residue is what made the suite unreliable.
+
+    Jobs before images, since a job references its image.
+    """
+    from sqlalchemy import text
+
+    try:
+        await session.execute(
+            text("DELETE FROM restore_jobs WHERE created_at >= :since"), {"since": started}
+        )
+        await session.execute(
+            text("DELETE FROM disk_images WHERE created_at >= :since"), {"since": started}
+        )
         await session.commit()
     except Exception:  # noqa: BLE001 — teardown must never turn a passing test red
         await session.rollback()
