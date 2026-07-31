@@ -426,7 +426,6 @@ class CollectConfigRequest(BaseModel):
     psi: bool | None = None
     docker: bool | None = None
     drbd_devices: bool | None = None
-    drop_metrics: list[str] | None = None
     interval: str | None = None  # a Go duration string, e.g. "60s"
 
 

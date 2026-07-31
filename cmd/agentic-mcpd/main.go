@@ -513,10 +513,6 @@ func startCollectLoop(cfg config.Config, st store.Store, checkReg *collect.Check
 		if !cfg.Collect.DRBDDevices {
 			points = collect.ExcludeDRBDDevices(points)
 		}
-		// Last of the post-passes, so a name on the deny-list is dropped no matter which producer made
-		// it — and after labelling, so an operator reading the list sees the same names the database
-		// and the UI show.
-		points = collect.ExcludeMetrics(points, cfg.Collect.DropMetrics)
 		// eBPF latency histograms (Coroot-style heatmap source): per-interval
 		// bucket counts of outbound connect latency + disk I/O latency.
 		if collector != nil {

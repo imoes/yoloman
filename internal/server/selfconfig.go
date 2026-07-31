@@ -21,14 +21,13 @@ var scheduleSelfConfigRestart = func() error {
 
 // collectConfigReq is a partial patch of the metric-collection knobs. Every field is a POINTER so an
 // absent field ("leave it alone") is distinguishable from one explicitly set to false or empty: a
-// request carrying only `services` must not also blank out `drop_metrics`.
+// request carrying only `services` must not also flip `docker`.
 type collectConfigReq struct {
-	Services    *bool     `json:"services"`
-	PSI         *bool     `json:"psi"`
-	Docker      *bool     `json:"docker"`
-	DRBDDevices *bool     `json:"drbd_devices"`
-	DropMetrics *[]string `json:"drop_metrics"`
-	Interval    *string   `json:"interval"` // a Go duration string, e.g. "60s"
+	Services    *bool   `json:"services"`
+	PSI         *bool   `json:"psi"`
+	Docker      *bool   `json:"docker"`
+	DRBDDevices *bool   `json:"drbd_devices"`
+	Interval    *string `json:"interval"` // a Go duration string, e.g. "60s"
 }
 
 // handleCollectConfig changes this agent's metric-collection settings and restarts to apply them.
@@ -50,9 +49,8 @@ type collectConfigReq struct {
 //     (default true) and, like every route, sits behind mTLS + the pinned-bearer auth, so only
 //     Bossman's identity reaches it.
 //
-// A restart, not a live reload: the service collector is built once at startup from cfg.Collect.Services
-// and drop_metrics is read when the sample loop is constructed, so writing the file alone changes
-// nothing running. The restart uses the same transient-systemd-unit trick as self-update, so the
+// A restart, not a live reload: the service collector is built once at startup from
+// cfg.Collect.Services, so writing the file alone changes nothing running. The restart uses the same transient-systemd-unit trick as self-update, so the
 // restart cannot kill the child that triggers it.
 func handleCollectConfig(w http.ResponseWriter, r *http.Request, cfg RESTConfig) {
 	if !cfg.AllowSelfConfig {
@@ -91,10 +89,6 @@ func handleCollectConfig(w http.ResponseWriter, r *http.Request, cfg RESTConfig)
 	if req.DRBDDevices != nil {
 		loaded.Collect.DRBDDevices = *req.DRBDDevices
 		changed["drbd_devices"] = *req.DRBDDevices
-	}
-	if req.DropMetrics != nil {
-		loaded.Collect.DropMetrics = *req.DropMetrics
-		changed["drop_metrics"] = *req.DropMetrics
 	}
 	if req.Interval != nil {
 		d, perr := time.ParseDuration(*req.Interval)

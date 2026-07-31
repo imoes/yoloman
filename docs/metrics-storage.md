@@ -94,10 +94,12 @@ in the meter rather than from the stored series.
 
 ## Turning things off
 
-Three collector flags skip the work (better than producing and discarding): `collect.services`,
-`collect.psi`, `collect.l7_metrics`, `collect.drbd_devices`. For individual metrics inside a collector
-you otherwise want, `collect.drop_metrics` takes a list of exact metric names — added because the
-recurring finding is not "one feature is chatty" but "a metric nobody reads is still written every
-minute", and each previous instance cost its own bool plus an agent release.
+Collector flags skip the work (better than producing and discarding): `collect.services`,
+`collect.psi`, `collect.l7_metrics`, `collect.drbd_devices`.
 
-Exact names, never prefixes: `container_` also matches the `container_cpu_pct` the guest view reads.
+An unread metric that has no flag of its own is not suppressed by config — it is **removed at the
+source**. What's gone is gone: rather than carry a growing deny-list of metric names, stop emitting the
+thing in the agent. The `disk_read_time_ms_total`/`disk_write_time_ms_total` counters went that way (an
+earlier `collect.drop_metrics` list was reverted for this reason) — deleted from `collect.go`, since the
+per-device service time an operator sees, `disk_await_ms_device`, is derived from the same `/proc` fields
+in the meter, not from those stored counters.

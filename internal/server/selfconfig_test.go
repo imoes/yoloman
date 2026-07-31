@@ -65,10 +65,7 @@ func TestCollectConfig_WritesTheKnobsAndSchedulesRestart(t *testing.T) {
 	srv := httptest.NewServer(NewRESTHandler(RESTConfig{AllowSelfConfig: true, ConfigPath: path}))
 	defer srv.Close()
 
-	resp := postCollect(t, srv, map[string]any{
-		"services":     false,
-		"drop_metrics": []string{"disk_read_time_ms_total", "disk_write_time_ms_total"},
-	})
+	resp := postCollect(t, srv, map[string]any{"services": false})
 	if resp.StatusCode != 200 {
 		t.Fatalf("status = %d", resp.StatusCode)
 	}
@@ -80,9 +77,6 @@ func TestCollectConfig_WritesTheKnobsAndSchedulesRestart(t *testing.T) {
 	}
 	if got.Collect.Services {
 		t.Error("services was not turned off")
-	}
-	if len(got.Collect.DropMetrics) != 2 {
-		t.Errorf("drop_metrics = %v, want 2 entries", got.Collect.DropMetrics)
 	}
 	if !*fired {
 		t.Error("a change must schedule a restart, or the running agent keeps the old settings")

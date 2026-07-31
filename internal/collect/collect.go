@@ -111,34 +111,6 @@ func ExcludeDRBDDevices(points []store.Point) []store.Point {
 	return out
 }
 
-// ExcludeMetrics drops every point whose metric name is in `names`, for metrics that are produced but
-// read by nothing — no UI graph, no check rule, no backend query.
-//
-// Measured on this fleet before it existed: 51 of 86 metric names had no consumer at all and accounted
-// for 50.8% of all rows. `service_*` alone was 38.8%, mirroring PSI's 57% and L7's unbounded growth.
-// Those two each needed their own flag and their own agent release; this one takes a config line.
-//
-// Exact names, not prefixes, on purpose. A prefix is how you delete something you did not mean to:
-// `container_` also matches the `container_cpu_pct` the guest view actually reads, and `disk_` matches
-// the mount usage every host is graded on.
-func ExcludeMetrics(points []store.Point, names []string) []store.Point {
-	if len(names) == 0 {
-		return points
-	}
-	drop := make(map[string]struct{}, len(names))
-	for _, n := range names {
-		drop[n] = struct{}{}
-	}
-	out := make([]store.Point, 0, len(points))
-	for _, p := range points {
-		if _, skip := drop[p.Metric]; skip {
-			continue
-		}
-		out = append(out, p)
-	}
-	return out
-}
-
 func trimDevicePrefix(device, prefix string) (string, bool) {
 	if !strings.HasPrefix(device, prefix) {
 		return "", false
@@ -261,8 +233,10 @@ func Sample(procRoot string, now time.Time, statfs statfsFunc, overrides map[str
 			add("disk_writes_total", float64(d.WritesCompleted), labels)
 			add("disk_read_bytes_total", float64(d.SectorsRead)*512, labels)
 			add("disk_written_bytes_total", float64(d.SectorsWritten)*512, labels)
-			add("disk_read_time_ms_total", float64(d.MsReading), labels)
-			add("disk_write_time_ms_total", float64(d.MsWriting), labels)
+			// disk_read_time_ms_total / disk_write_time_ms_total are NOT emitted: nothing reads them.
+			// The per-device service time an operator actually sees, disk_await_ms_device, is derived
+			// straight from these same /proc fields in DiskIOMeter (disk_meter.go), not from a stored
+			// series — so storing the raw counters only ever added rows nobody queried.
 		}
 	}
 

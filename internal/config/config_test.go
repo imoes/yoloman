@@ -627,20 +627,4 @@ func TestShippedExampleConfigLoads(t *testing.T) {
 	if !cfg.Collect.Enabled {
 		t.Error("collect.enabled must ship ON, or a host reports no metrics at all")
 	}
-	// The unread disk time counters, and NOT the op counters, which are graphed per device.
-	want := map[string]bool{"disk_read_time_ms_total": true, "disk_write_time_ms_total": true}
-	for _, m := range cfg.Collect.DropMetrics {
-		if !want[m] {
-			t.Errorf("drop_metrics contains %q, which the audit did not clear as unread", m)
-		}
-		delete(want, m)
-	}
-	for m := range want {
-		t.Errorf("drop_metrics is missing %q", m)
-	}
-	for _, m := range cfg.Collect.DropMetrics {
-		if m == "disk_reads_total" || m == "disk_writes_total" {
-			t.Errorf("%q IS consumed (Reads/Writes per device) — dropping it blanks a graph", m)
-		}
-	}
 }

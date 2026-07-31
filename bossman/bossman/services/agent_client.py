@@ -352,7 +352,7 @@ class AgentClient:
 
     async def set_collect_config(self, patch: dict[str, Any]) -> dict[str, Any]:
         """POST /api/v1/agent/collect-config — change the agent's metric-collection
-        knobs (services/psi/docker/drbd_devices/drop_metrics/interval) and let it
+        knobs (services/psi/docker/drbd_devices/interval) and let it
         restart to apply. Like self_update this is the write-gate carve-out: it
         works against a read-only agent, because an agent that collects the wrong
         thing must be fixable without first being made writable. Only the keys
