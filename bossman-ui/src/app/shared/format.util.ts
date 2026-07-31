@@ -19,7 +19,7 @@ export function formatMetricValue(value: number | null | undefined, metric = '',
     return round(value, 2).toString();
   }
   if (m.endsWith('_pct') || m.includes('percent') || m.endsWith('_usage') || m.endsWith('_used_pct')) {
-    return `${round(value, 1)} %`;
+    return `${round(value, 2)} %`;
   }
   if (m.includes('bytes') || m.endsWith('_bytes')) return formatBytes(value);
   return formatNumber(value);
@@ -48,11 +48,10 @@ export function formatBytes(bytes: number): string {
 
 /** A plain number with precision scaled to magnitude (no long float tails). */
 export function formatNumber(value: number): string {
-  const a = Math.abs(value);
-  if (a >= 1000) return Math.round(value).toLocaleString();
-  if (a >= 100) return round(value, 0).toString();
-  if (a >= 10) return round(value, 1).toString();
-  return round(value, 2).toString();
+  // Always two decimals, per the operator: a metric value must never be shown unrounded, and the old
+  // magnitude-dependent precision (0 decimals ≥100, 1 decimal ≥10) meant most values showed fewer than
+  // two. round() drops needless trailing zeros (457.00 → "457"); toLocaleString adds thousands grouping.
+  return round(value, 2).toLocaleString(undefined, { maximumFractionDigits: 2 });
 }
 
 function round(v: number, digits: number): number {

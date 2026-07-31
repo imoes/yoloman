@@ -3,6 +3,15 @@ import { NgxEchartsDirective } from 'ngx-echarts';
 import type { EChartsCoreOption } from 'echarts/core';
 import { MetricPoint } from '../../../core/models/agent.model';
 import { BM_GREEN, BM_GOLD } from '../../bm-colors';
+import { formatMetricValue } from '../../format.util';
+
+/** min/max/avg of one line over the displayed window — Checkmk shows these under every metric. */
+interface SeriesStats {
+  name: string;
+  min: number;
+  max: number;
+  avg: number;
+}
 
 /** One named line for the overlay/combined-graph mode. */
 export interface ChartSeries {
@@ -26,6 +35,15 @@ const SERIES_PALETTE = [BM_GREEN, BM_GOLD, '#4fd6ff', '#a78bfa', '#fb7185', '#f9
   template: `
     @if (hasData()) {
       <echarts [options]="chartOptions()" class="bm-chart"></echarts>
+      <!-- min/max/avg over the shown range, Checkmk-style. One row per line in a combined graph. -->
+      @for (st of stats(); track st.name) {
+        <div class="bm-chart-stats">
+          @if (st.name) { <span class="bm-chart-stats__name">{{ st.name }}</span> }
+          <span><b>min</b> {{ fmt(st.min) }}</span>
+          <span><b>max</b> {{ fmt(st.max) }}</span>
+          <span><b>avg</b> {{ fmt(st.avg) }}</span>
+        </div>
+      }
     } @else {
       <div class="bm-chart-empty">No data for {{ metricName() }}</div>
     }
@@ -45,6 +63,23 @@ const SERIES_PALETTE = [BM_GREEN, BM_GOLD, '#4fd6ff', '#a78bfa', '#fb7185', '#f9
         color: var(--mat-sys-outline);
         font-size: 13px;
       }
+      .bm-chart-stats {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px 16px;
+        font-size: 12px;
+        color: var(--mat-sys-outline);
+        padding: 4px 8px 0;
+      }
+      .bm-chart-stats__name {
+        font-weight: 600;
+        color: var(--mat-sys-on-surface);
+        min-width: 6em;
+      }
+      .bm-chart-stats b {
+        font-weight: 600;
+        color: var(--mat-sys-on-surface);
+      }
     `,
   ],
 })
@@ -63,6 +98,38 @@ export class MetricChartComponent {
 
   private multi = computed(() => this.series().filter((s) => s.points.length));
   hasData = computed(() => this.multi().length > 0 || this.points().length > 0);
+
+  /** min/max/avg over the currently displayed points — recomputed when the range (and thus the
+   *  loaded points) changes, so it always reflects exactly what the chart shows. One entry per line
+   *  in combined-graph mode, a single unnamed entry otherwise. */
+  stats = computed<SeriesStats[]>(() => {
+    const multi = this.multi();
+    if (multi.length) {
+      return multi.map((s) => this.statsOf(s.name, s.points)).filter((x): x is SeriesStats => x !== null);
+    }
+    const s = this.statsOf('', this.points());
+    return s ? [s] : [];
+  });
+
+  private statsOf(name: string, pts: MetricPoint[]): SeriesStats | null {
+    const vals = pts.map((p) => p.value).filter((v) => v !== null && v !== undefined && isFinite(v));
+    if (!vals.length) return null;
+    let min = vals[0];
+    let max = vals[0];
+    let sum = 0;
+    for (const v of vals) {
+      if (v < min) min = v;
+      if (v > max) max = v;
+      sum += v;
+    }
+    return { name, min, max, avg: sum / vals.length };
+  }
+
+  /** Unit-aware, 2-decimal formatting — the same formatter the value columns use, so the summary and
+   *  the live value read identically. */
+  fmt(v: number): string {
+    return formatMetricValue(v, this.metricName());
+  }
 
   chartOptions = computed<EChartsCoreOption>(() => {
     // Same green-area / multi-line styling CentralStation's dashboard timeseries
