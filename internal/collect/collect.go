@@ -82,6 +82,35 @@ func isStackedDevice(device string) bool {
 	return false
 }
 
+// ExcludeDRBDDevices drops the per-device series of DRBD replicas, for hosts where their cardinality
+// is not worth their detail: nine resources on a node of this cluster is 63 series, since each carries
+// seven counters.
+//
+// Off is NOT the default, and the measurement is why. On vpp0222 and vpp0223 every DRBD resource has a
+// ZFS zvol underneath it reporting the same I/O with the same `vm` label, so dropping the DRBD layer
+// there costs nothing. But vpp0221 has nine DRBD devices and ZERO zvols — there the DRBD devices are
+// the only per-guest view of disk I/O that exists, and switching them off would make "which VM
+// saturates nvme0n1" unanswerable on that host. So this is a knob an operator turns per host after
+// checking what else reports, not a default anyone should inherit.
+//
+// A post-pass over finished points, like LabelDeviceOwners, so it covers both Sample's counters and the
+// IOPS meter in one place instead of being reimplemented at each producer.
+//
+// The server totals are untouched: a DRBD write is already excluded from them (see isStackedDevice),
+// because it is counted again on the backing disk.
+func ExcludeDRBDDevices(points []store.Point) []store.Point {
+	// A fresh slice rather than the `points[:0]` idiom: filtering in place overwrites the caller's
+	// slice, and a few hundred points per tick makes the allocation irrelevant next to that footgun.
+	out := make([]store.Point, 0, len(points))
+	for _, p := range points {
+		if rest, ok := trimDevicePrefix(p.Labels["device"], "drbd"); ok && allDigits(rest) {
+			continue
+		}
+		out = append(out, p)
+	}
+	return out
+}
+
 func trimDevicePrefix(device, prefix string) (string, bool) {
 	if !strings.HasPrefix(device, prefix) {
 		return "", false

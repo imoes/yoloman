@@ -43,7 +43,7 @@ type Config struct {
 	// ModulesDir holds translated Starlark collection modules
 	// (<collection>/<name>.star + .nt/.yaml sidecar), loaded and registered
 	// as executable tools at startup (Block G3). Optional dir like tools_dir.
-	ModulesDir   string `yaml:"modules_dir"`
+	ModulesDir string `yaml:"modules_dir"`
 	// ModulesAutoload controls whether the whole modules_dir is bulk-loaded at
 	// startup. true (default) = load every pushed Starlark module (a Fleet
 	// Commander pushes the check/collection library to a satellite, which needs
@@ -53,7 +53,7 @@ type Config struct {
 	// so it doesn't load a fleet-sized library it doesn't need.
 	ModulesAutoload bool   `yaml:"modules_autoload"`
 	CommandsFile    string `yaml:"commands_file"`
-	ACLPath      string `yaml:"acl_path"`
+	ACLPath         string `yaml:"acl_path"`
 
 	// UploadsDir is the fixed staging directory the upload_file MCP tool
 	// and the PUT /api/v1/upload REST endpoint write into — never an
@@ -130,6 +130,16 @@ type Collect struct {
 	// `l7_requests` MCP tool still exposes the live exchanges regardless; this flag
 	// only governs whether they are STORED as time series.
 	L7Metrics bool `yaml:"l7_metrics"`
+	// DRBDDevices governs whether DRBD replicas get their own per-device disk series. Default TRUE,
+	// unlike PSI and L7Metrics above — the difference is that this data IS consumed: on a hypervisor
+	// the DRBD device is a per-guest view of disk I/O, which is the whole point of the `vm` label.
+	//
+	// Worth turning off only where something else reports the same I/O. Measured on this cluster:
+	// vpp0222/vpp0223 have a ZFS zvol under every DRBD resource carrying the same `vm` label, so the
+	// DRBD layer is redundant there (63 series per host, 9 resources x 7 counters). vpp0221 has nine
+	// DRBD devices and no zvols at all — switching it off there would remove the only per-guest disk
+	// view that host has. Hence per-host, and hence not off by default.
+	DRBDDevices bool `yaml:"drbd_devices"`
 }
 
 // CheckSpec is one externally configured check: an argv to run via
@@ -351,20 +361,20 @@ func Default() Config {
 				Interval: Duration(time.Hour),
 			},
 		},
-		PAM:           PAM{Enabled: true, Service: "agentic-mcp", SessionTTL: Duration(12 * time.Hour)},
-		UI:            UI{Enabled: true},
-		Console:       Console{Enabled: true},
-		Piggyback:     Piggyback{Docker: true},
+		PAM:             PAM{Enabled: true, Service: "agentic-mcp", SessionTTL: Duration(12 * time.Hour)},
+		UI:              UI{Enabled: true},
+		Console:         Console{Enabled: true},
+		Piggyback:       Piggyback{Docker: true},
 		ToolsDir:        "/etc/agentic-mcp/tools.d",
 		ModulesDir:      "/var/lib/agentic-mcp/modules.d",
 		ModulesAutoload: true, // absent in YAML → keep bulk-loading (satellites unchanged)
 		CommandsFile:    "/etc/agentic-mcp/commands.yaml",
-		ACLPath:       "/var/lib/agentic-mcp/acl.db",
-		UploadsDir:    "/var/lib/agentic-mcp/uploads",
-		MaxUploadSize: 512 * 1024 * 1024,
-		Mode:          "standalone",
-		Proxy:         Proxy{SatellitesPath: "/var/lib/agentic-mcp/satellites.db"},
-		Collect:       Collect{Enabled: true, Interval: Duration(60 * time.Second), Docker: true, DockerSocket: "/var/run/docker.sock", Services: true},
+		ACLPath:         "/var/lib/agentic-mcp/acl.db",
+		UploadsDir:      "/var/lib/agentic-mcp/uploads",
+		MaxUploadSize:   512 * 1024 * 1024,
+		Mode:            "standalone",
+		Proxy:           Proxy{SatellitesPath: "/var/lib/agentic-mcp/satellites.db"},
+		Collect:         Collect{Enabled: true, Interval: Duration(60 * time.Second), Docker: true, DockerSocket: "/var/run/docker.sock", Services: true, DRBDDevices: true},
 	}
 }
 

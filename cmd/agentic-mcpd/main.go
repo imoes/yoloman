@@ -506,6 +506,12 @@ func startCollectLoop(cfg config.Config, st store.Store, checkReg *collect.Check
 		// device-labelled series is in `points`, so one pass covers both Sample's
 		// counters and the IOPS meter. A no-op on a host without guests.
 		points = collect.LabelDeviceOwners(points, collect.ResolveDeviceOwners("/dev", "/etc/pve"))
+		// Dropped AFTER labelling rather than before: the label pass is what decides whether the DRBD
+		// layer is redundant on this host (a zvol underneath reporting the same vm), and an operator
+		// reading the config wants that decision visible in one place.
+		if !cfg.Collect.DRBDDevices {
+			points = collect.ExcludeDRBDDevices(points)
+		}
 		// eBPF latency histograms (Coroot-style heatmap source): per-interval
 		// bucket counts of outbound connect latency + disk I/O latency.
 		if collector != nil {

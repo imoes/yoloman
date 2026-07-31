@@ -5,6 +5,8 @@ import (
 	"time"
 
 	"github.com/mutkluge/agentic-mcp/internal/checks"
+	"github.com/mutkluge/agentic-mcp/internal/config"
+	"github.com/mutkluge/agentic-mcp/internal/store"
 )
 
 func fakeStatfs(usedPct float64, total, used uint64) statfsFunc {
@@ -229,5 +231,58 @@ func TestCheckStatusMetricName(t *testing.T) {
 	}
 	if got := CheckStatusMetricName("CPU load"); got != "check_cpu_load_state" {
 		t.Errorf("CheckStatusMetricName(%q) = %q, want %q", "CPU load", got, "check_cpu_load_state")
+	}
+}
+
+func TestExcludeDRBDDevicesDropsOnlyTheDRBDLayer(t *testing.T) {
+	points := []store.Point{
+		{Metric: "disk_iops_device", Labels: map[string]string{"device": "drbd1000", "vm": "221100"}},
+		{Metric: "disk_writes_total", Labels: map[string]string{"device": "drbd1008", "vm": "221101"}},
+		{Metric: "disk_iops_device", Labels: map[string]string{"device": "zd16", "vm": "221106"}},
+		{Metric: "disk_iops_device", Labels: map[string]string{"device": "nvme0n1"}},
+		{Metric: "disk_iops", Value: 32.8}, // the server total, label-less
+		{Metric: "cpu_pct", Value: 4.0},
+		// "drbdmanage" is not a device name of the form drbd<N> and must survive.
+		{Metric: "disk_iops_device", Labels: map[string]string{"device": "drbdmanage"}},
+	}
+	got := ExcludeDRBDDevices(points)
+
+	var devices []string
+	for _, p := range got {
+		if d := p.Labels["device"]; d != "" {
+			devices = append(devices, d)
+		}
+	}
+	want := []string{"zd16", "nvme0n1", "drbdmanage"}
+	if len(devices) != len(want) {
+		t.Fatalf("devices = %v, want %v", devices, want)
+	}
+	for i, d := range devices {
+		if d != want[i] {
+			t.Errorf("devices[%d] = %q, want %q", i, d, want[i])
+		}
+	}
+	// The zvol keeps its vm label: on vpp0222/0223 that is what makes dropping DRBD lossless.
+	for _, p := range got {
+		if p.Labels["device"] == "zd16" && p.Labels["vm"] != "221106" {
+			t.Error("the zvol lost its vm label — then switching DRBD off WOULD lose attribution")
+		}
+	}
+	// The server total and unrelated metrics are untouched.
+	var kept int
+	for _, p := range got {
+		if p.Metric == "disk_iops" || p.Metric == "cpu_pct" {
+			kept++
+		}
+	}
+	if kept != 2 {
+		t.Errorf("kept %d label-less/unrelated points, want 2", kept)
+	}
+}
+
+func TestDRBDDevicesDefaultsToOnSoNoHostSilentlyLosesItsOnlyGuestView(t *testing.T) {
+	// vpp0221 has nine DRBD devices and zero zvols; an off-by-default flag would blind it.
+	if !config.Default().Collect.DRBDDevices {
+		t.Error("collect.drbd_devices must default to true")
 	}
 }
