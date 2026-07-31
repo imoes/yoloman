@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"runtime"
 	"strconv"
 	"strings"
@@ -38,11 +39,95 @@ type RealCaps struct {
 	moduleWrites bool
 	timeout      time.Duration
 	procRoot     string // "" → /proc
+	// targetRoot != "" puts every capability inside another root — the offline-configuration
+	// mode used while installing a machine over the network, where the freshly restored system
+	// is mounted in the netboot helper and has no init of its own yet. See NewChrootCaps.
+	targetRoot string
 }
 
 // NewRealCaps builds a backend for one module invocation.
 func NewRealCaps(checkMode, write, moduleWrites bool) *RealCaps {
 	return &RealCaps{checkMode: checkMode, write: write, moduleWrites: moduleWrites, timeout: defaultRunTimeout, procRoot: "/proc"}
+}
+
+// NewChrootCaps builds a backend that configures a system mounted at targetRoot instead of the
+// running one. This is what lets a machine be installed and fully configured in a single pass,
+// needing exactly one reboot at the end rather than "boot, wait for an agent, converge".
+//
+// It REFUSES a read-only module, and that refusal is the whole point rather than a limitation.
+// A reading module in a chroot answers about the wrong machine: /proc/meminfo, /proc/cpuinfo,
+// running services, the kernel version and uptime all come from the HELPER, not from the system
+// being installed. A monitoring check would therefore report plausible, confident, wrong values —
+// and nothing downstream could tell. Configuring modules (writes:true) are honest here, because
+// writing a file into the target root is exactly what it looks like.
+//
+// The existing `writes` sidecar flag already draws precisely this line, so no new metadata is
+// needed to enforce it.
+func NewChrootCaps(checkMode, write, moduleWrites bool, targetRoot string) (*RealCaps, error) {
+	root := filepath.Clean(targetRoot)
+	if root == "" || root == "." || root == "/" {
+		return nil, fmt.Errorf("chroot mode needs a target root that is not %q", targetRoot)
+	}
+	if !moduleWrites {
+		return nil, fmt.Errorf(
+			"chroot mode: this module is read-only (writes:false), and a reading module in a chroot "+
+				"reports the helper's kernel, services and memory rather than the target's — refusing "+
+				"instead of returning confidently wrong values (target root %q)", root)
+	}
+	c := NewRealCaps(checkMode, write, moduleWrites)
+	c.targetRoot = root
+	return c, nil
+}
+
+// InChroot reports whether this backend configures another root.
+func (c *RealCaps) InChroot() bool { return c.targetRoot != "" }
+
+// resolve maps a module-visible path to a real one, refusing anything that would escape the
+// target root.
+//
+// The guard matters even without a hostile module: a plain `..` in a path built from a template
+// variable would otherwise write into the HELPER's filesystem, which is a RAM disk that vanishes
+// at reboot — so the change would appear to succeed and simply not exist on the installed machine.
+func (c *RealCaps) resolve(path string) (string, error) {
+	if c.targetRoot == "" {
+		return path, nil
+	}
+	if !filepath.IsAbs(path) {
+		return "", fmt.Errorf("chroot mode needs absolute paths, got %q", path)
+	}
+	joined := filepath.Join(c.targetRoot, filepath.Clean(path))
+	// Clean() has already collapsed the ".." segments; this checks the result rather than the
+	// input, which is what catches the cases that only become escapes after collapsing.
+	if joined != c.targetRoot && !strings.HasPrefix(joined, c.targetRoot+string(os.PathSeparator)) {
+		return "", fmt.Errorf("path %q escapes the target root %q", path, c.targetRoot)
+	}
+	return joined, nil
+}
+
+// chrootArgv wraps a command so it runs inside the target.
+//
+// systemctl is special-cased to its OFFLINE form (`--root=`), because there is no init inside the
+// chroot: `systemctl enable` works offline and does what a module means, while `systemctl start`
+// cannot work at all. Rewriting `enable`/`disable`/`mask` keeps the common case correct; anything
+// else is left alone and will fail loudly inside the chroot rather than appear to succeed.
+func (c *RealCaps) chrootArgv(argv []string) []string {
+	if c.targetRoot == "" || len(argv) == 0 {
+		return argv
+	}
+	if filepath.Base(argv[0]) == "systemctl" && len(argv) > 1 && isOfflineSystemctlVerb(argv[1]) {
+		out := []string{argv[0], "--root=" + c.targetRoot}
+		return append(out, argv[1:]...)
+	}
+	return append([]string{"chroot", c.targetRoot}, argv...)
+}
+
+// Verbs systemctl can perform against a root that is not running.
+func isOfflineSystemctlVerb(verb string) bool {
+	switch verb {
+	case "enable", "disable", "mask", "unmask", "preset", "set-default":
+		return true
+	}
+	return false
 }
 
 func (c *RealCaps) CheckMode() bool { return c.checkMode }
@@ -77,6 +162,8 @@ func (c *RealCaps) Run(argv []string, mutates bool, _ []int) (starmod.RunResult,
 			return starmod.RunResult{}, err
 		}
 	}
+	// In chroot mode the command runs inside the target root (systemctl becomes its offline form).
+	argv = c.chrootArgv(argv)
 	ctx, cancel := context.WithTimeout(context.Background(), c.timeout)
 	defer cancel()
 	cmd := exec.CommandContext(ctx, argv[0], argv[1:]...)
@@ -116,7 +203,11 @@ func (c *RealCaps) Run(argv []string, mutates bool, _ []int) (starmod.RunResult,
 func (c *RealCaps) workdir() string { return "" }
 
 func (c *RealCaps) FileRead(path string) (string, error) {
-	b, err := os.ReadFile(path)
+	real, err := c.resolve(path)
+	if err != nil {
+		return "", err
+	}
+	b, err := os.ReadFile(real)
 	if err != nil {
 		return "", fmt.Errorf("file_read %q: %w", path, err)
 	}
@@ -130,7 +221,11 @@ func (c *RealCaps) FileWrite(path, content, mode string) (bool, error) {
 	if err := c.mayMutate("file_write"); err != nil {
 		return false, err
 	}
-	current, readErr := os.ReadFile(path)
+	real, err := c.resolve(path)
+	if err != nil {
+		return false, err
+	}
+	current, readErr := os.ReadFile(real)
 	changed := readErr != nil || !bytes.Equal(current, []byte(content))
 	if c.checkMode {
 		return changed, nil // predict, don't write
@@ -141,17 +236,21 @@ func (c *RealCaps) FileWrite(path, content, mode string) (bool, error) {
 			perm = os.FileMode(m)
 		}
 	}
-	if err := os.WriteFile(path, []byte(content), perm); err != nil {
+	if err := os.WriteFile(real, []byte(content), perm); err != nil {
 		return false, fmt.Errorf("file_write %q: %w", path, err)
 	}
 	if mode != "" {
-		_ = os.Chmod(path, perm) // enforce mode even if the file pre-existed
+		_ = os.Chmod(real, perm) // enforce mode even if the file pre-existed
 	}
 	return changed, nil
 }
 
 func (c *RealCaps) FileExists(path string) (bool, error) {
-	_, err := os.Stat(path)
+	real, err := c.resolve(path)
+	if err != nil {
+		return false, err
+	}
+	_, err = os.Stat(real)
 	if err == nil {
 		return true, nil
 	}
@@ -162,7 +261,11 @@ func (c *RealCaps) FileExists(path string) (bool, error) {
 }
 
 func (c *RealCaps) Stat(path string) (map[string]any, error) {
-	fi, err := os.Lstat(path)
+	real, err := c.resolve(path)
+	if err != nil {
+		return nil, err
+	}
+	fi, err := os.Lstat(real)
 	if err != nil {
 		if os.IsNotExist(err) {
 			return nil, nil
@@ -188,6 +291,29 @@ func (c *RealCaps) Stat(path string) (map[string]any, error) {
 func (c *RealCaps) Facts() (map[string]any, error) {
 	facts := map[string]any{
 		"architecture": mapArch(runtime.GOARCH),
+	}
+	if c.InChroot() {
+		// Every fact here has to come from the TARGET, and two of them cannot.
+		//
+		// The distribution is readable: /etc/os-release is a file in the target root. The hostname
+		// likewise, from its /etc/hostname. But `kernel` is the version of the RUNNING kernel, and
+		// the running kernel belongs to the netboot helper — the target's is not booted and may not
+		// even be the newest one installed. So it is reported as empty rather than as the helper's.
+		//
+		// Empty beats plausible: a module that branches on the kernel version would take the wrong
+		// branch silently, whereas an empty string is something a module can notice. `architecture`
+		// stays, since installing a foreign-architecture image is not a thing we do.
+		if b, err := os.ReadFile(filepath.Join(c.targetRoot, "etc/hostname")); err == nil {
+			facts["hostname"] = strings.TrimSpace(string(b))
+		}
+		facts["kernel"] = ""
+		facts["chroot"] = true
+		id, version, codename := parseOSRelease(filepath.Join(c.targetRoot, "etc/os-release"))
+		facts["distribution"] = id
+		facts["distribution_version"] = version
+		facts["distribution_codename"] = codename
+		facts["os_family"] = osFamily(id)
+		return facts, nil
 	}
 	if h, err := os.Hostname(); err == nil {
 		facts["hostname"] = h
