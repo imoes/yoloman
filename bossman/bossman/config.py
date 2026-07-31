@@ -169,6 +169,24 @@ class Settings(BaseSettings):
     # on the live fleet: healthy hosts sit at 61-108 s, worst sample gap 120 s — so
     # 1.5 (90 s) would flag healthy hosts. See monitoring.stale_after_for().
     staleness_factor: float = 4.0
+
+    # Bare-metal deployment (PXE). The netboot helper is unauthenticated hardware: when it boots it
+    # has no token, no certificate and no identity beyond its MAC address, yet it needs to be handed
+    # an install plan. So it presents a shared secret that the PXE configuration puts on its kernel
+    # command line.
+    #
+    # Empty by default, and empty means the check-in endpoint REFUSES — deploying this code must not
+    # open anything by itself. Be clear-eyed about what the secret is worth: the PXE config is served
+    # over TFTP without authentication, so anyone on that network segment can read it. It
+    # distinguishes "a machine that netbooted from us" from "any host that can reach the API", which
+    # is worth having, and it is not a substitute for the segment being a test network. Rotate it
+    # when the segment changes.
+    netboot_secret: str = ""
+    # Where the captured images live, served to targets over HTTP by the netboot container.
+    image_store_dir: str = "/etc/bossman/images"
+    # The base URL a netbooted target uses to fetch images. Empty falls back to public_url, which is
+    # the same address the agent enrolment uses.
+    image_base_url: str = ""
     # L4: the clock a notification time period is read in. NOT UTC, and not the
     # container's local zone either: this container runs UTC (verified: host 18:30 CEST,
     # container 16:30 UTC), so an 08:00-17:00 "business hours" window silently reported
