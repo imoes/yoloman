@@ -605,3 +605,42 @@ func TestTokenEntries_EmptyWhenNoTokens(t *testing.T) {
 		t.Errorf("expected nil entries for no configured tokens, got %+v", entries)
 	}
 }
+
+// The shipped config.yaml is what the .deb installs as config.yaml.example and what an operator copies
+// into place. Nothing loaded it in a test, so a typo or a key the daemon does not know would have gone
+// out in a package and only failed on a host. Load the real file.
+func TestShippedExampleConfigLoads(t *testing.T) {
+	path := filepath.Join("..", "..", "configs", "config.yaml")
+	cfg, err := Load(path)
+	if err != nil {
+		t.Fatalf("the shipped %s does not load: %v", path, err)
+	}
+
+	// Spot-check the settings the metrics audit turned off, so a well-meaning edit that flips them back
+	// has to argue with a test rather than silently restore 38.8% of the row volume.
+	if cfg.Collect.Services {
+		t.Error("collect.services must ship OFF — no consumer, 38.8% of all rows (docs/metrics-storage.md)")
+	}
+	if cfg.Collect.PSI {
+		t.Error("collect.psi must ship OFF — ~18 series/service, no consumer")
+	}
+	if !cfg.Collect.Enabled {
+		t.Error("collect.enabled must ship ON, or a host reports no metrics at all")
+	}
+	// The unread disk time counters, and NOT the op counters, which are graphed per device.
+	want := map[string]bool{"disk_read_time_ms_total": true, "disk_write_time_ms_total": true}
+	for _, m := range cfg.Collect.DropMetrics {
+		if !want[m] {
+			t.Errorf("drop_metrics contains %q, which the audit did not clear as unread", m)
+		}
+		delete(want, m)
+	}
+	for m := range want {
+		t.Errorf("drop_metrics is missing %q", m)
+	}
+	for _, m := range cfg.Collect.DropMetrics {
+		if m == "disk_reads_total" || m == "disk_writes_total" {
+			t.Errorf("%q IS consumed (Reads/Writes per device) — dropping it blanks a graph", m)
+		}
+	}
+}

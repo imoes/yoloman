@@ -39,12 +39,31 @@ ebpf:
 # them). 60s keeps the metrics table an order of magnitude smaller than 30s.
 # psi: per-service pressure-stall metrics are OFF — extremely high-cardinality
 # (~18 series/service) and no Bossman feature consumes them (coroot-parity).
+#
+# services: OFF for the same reason, one scale up. The per-systemd-unit metrics
+# (service_running, service_cpu_seconds_total, service_memory_bytes,
+# service_io_{read,write}_bytes_total) were 38.8% of every row in the metrics DB —
+# 5 metrics x ~180 units — and an audit of all 86 metric names against the UI, the
+# backend and check_rules found no consumer for any of them. Turn it back on when
+# something reads them.
+#
+# drop_metrics: individual metrics inside a collector we otherwise want. The disk
+# *time* counters are the raw input from which the agent derives
+# disk_await_ms_device in its own meter, not from the stored series, so storing
+# them is pure vorratshaltung. NOTE the two that are deliberately NOT here:
+# disk_reads_total and disk_writes_total ARE consumed ("Reads/Writes per device"
+# in service-graphs-dialog).
+#
+# See docs/metrics-storage.md for the audit and the measurements.
 collect:
   enabled: true
   interval: 60s
-  services: true
+  services: false
   docker: true
   psi: false
+  drop_metrics:
+    - disk_read_time_ms_total
+    - disk_write_time_ms_total
 
 db:
   driver: sqlite
