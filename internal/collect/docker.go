@@ -190,6 +190,25 @@ func (d *DockerCollector) Sample(now time.Time) ([]store.Point, error) {
 	return points, nil
 }
 
+// ListNames returns the names of every running container, IGNORING the monitored allow-list — this is
+// the discovery source, so it must show containers that are not yet monitored (the whole point is to
+// offer them). Returns (nil, nil) when Docker is absent, so a non-Docker host discovers no containers
+// rather than erroring.
+func (d *DockerCollector) ListNames() ([]string, error) {
+	if _, err := os.Stat(d.socket); err != nil {
+		return nil, nil
+	}
+	containers, err := d.listContainers()
+	if err != nil {
+		return nil, err
+	}
+	names := make([]string, 0, len(containers))
+	for _, c := range containers {
+		names = append(names, containerName(c))
+	}
+	return names, nil
+}
+
 func (d *DockerCollector) listContainers() ([]dockerContainer, error) {
 	var out []dockerContainer
 	if err := d.getJSON("http://docker/containers/json", &out); err != nil {

@@ -115,6 +115,15 @@ class AgentClient:
         body = await self._get_json("/api/v1/net/connections/dump", params)
         return body.get("edges", [])
 
+    async def list_containers(self) -> list[str]:
+        """GET /api/v1/containers — names of every running container on the host.
+
+        The source discovery reads to OFFER containers for monitoring. It lists all containers, not
+        just monitored ones (the point is to propose the un-monitored). An empty list on a host without
+        Docker, never an error."""
+        body = await self._get_json("/api/v1/containers", {})
+        return body.get("containers", [])
+
     async def hosts_overview(self) -> list[dict[str, Any]]:
         """GET /api/v1/hosts/overview — every host this agent currently
         knows about: itself alone (standalone/satellite mode), or itself

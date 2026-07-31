@@ -66,6 +66,9 @@ type RESTConfig struct {
 	// ConfigPath is this agent's config.yaml — the piggyback add/remove
 	// endpoints persist a new/removed source there before reloading the Store.
 	ConfigPath string
+	// DockerSocket is the Docker Engine API socket used by GET /api/v1/containers
+	// (the container-discovery source). Empty → collect.DefaultDockerSocket.
+	DockerSocket string
 	// ConsoleEnabled activates the interactive web shell at GET /api/v1/console
 	// (a PTY over WebSocket — see internal/console). Default true.
 	ConsoleEnabled bool
@@ -368,11 +371,18 @@ func NewRESTHandler(cfg RESTConfig) http.Handler {
 	})
 
 	// Change the agent's metric-collection knobs (collect.services/psi/docker/
-	// drbd_devices/drop_metrics/interval) and restart to apply. The config
+	// drbd_devices/interval/monitored_containers) and restart to apply. The config
 	// counterpart to self-update: not write-gated (a read-only agent must stay
 	// reconfigurable), scoped strictly to the collect block. See selfconfig.go.
 	mux.HandleFunc("POST /api/v1/agent/collect-config", func(w http.ResponseWriter, r *http.Request) {
 		handleCollectConfig(w, r, cfg)
+	})
+
+	// List running containers by name — the source discovery reads to offer
+	// containers for monitoring (a container is collected only once accepted; see
+	// collect.monitored_containers). Pure read, not write-gated.
+	mux.HandleFunc("GET /api/v1/containers", func(w http.ResponseWriter, r *http.Request) {
+		handleListContainers(w, r, cfg)
 	})
 
 	RegisterEBPFRoutes(mux, cfg.EBPF)

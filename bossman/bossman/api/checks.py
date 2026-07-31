@@ -347,6 +347,14 @@ async def discover_checks(
     except AgentClientError as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
 
+    # Containers are discovered live from the host, not from the check library — but only on an agent
+    # host (a device polled over SNMP has none) and only on a full run (a targeted check_names re-scan
+    # asked for specific checks, not containers).
+    if datasource == "agent" and not names:
+        from bossman.services.discovery import discover_containers
+
+        proposals.append(await discover_containers(client))
+
     out: dict[str, Any] = {
         "agent_id": str(agent_id),
         "candidates": len(checks),
@@ -375,6 +383,8 @@ async def apply_discovery(
     agent_id: UUID,
     body: dict[str, Any],
     session: AsyncSession = Depends(get_session),
+    settings: Settings = Depends(get_settings),
+    client_factory=Depends(get_client_factory),
     identity: Identity = Depends(get_current_identity),
 ) -> dict[str, Any]:
     """Decide what to do with discovered services.
@@ -446,8 +456,49 @@ async def apply_discovery(
         counts["accepted"] += 1
 
     await session.commit()
-    # `assigned` is kept for the existing callers that read it.
-    return {"agent_id": str(agent_id), **counts, "assigned": counts["accepted"]}
+
+    # If any container service was touched, the agent's monitored-container allow-list changed. Recompute
+    # it from the full monitored set (not incrementally — the agent replaces its list wholesale) and push
+    # it, so the agent starts/stops collecting that container. Done after commit so the set reflects the
+    # decisions just persisted.
+    result: dict[str, Any] = {"agent_id": str(agent_id), **counts, "assigned": counts["accepted"]}
+    from bossman.services.discovery import CONTAINER_CHECK_NAME
+
+    if any(spec.get("check_name") == CONTAINER_CHECK_NAME for _, spec in specs):
+        sync = await _sync_monitored_containers(session, settings, client_factory, agent)
+        result["container_sync"] = sync
+    return result
+
+
+async def _sync_monitored_containers(session, settings, client_factory, agent) -> dict[str, Any]:
+    """Push the agent's monitored-container allow-list — every container currently in state=monitored.
+
+    Replaced wholesale on the agent, so this sends the COMPLETE set: whatever is not in it the agent
+    stops collecting. A push failure is reported, not raised — the operator's decision is already saved,
+    and the agent can be re-synced later; failing the whole apply would lose that record."""
+    from bossman.db.models import DiscoveredService
+    from bossman.services.agent_client import AgentClientError
+    from bossman.services.discovery import CONTAINER_CHECK_NAME
+    from bossman.services import discovery_lifecycle
+
+    rows = (
+        await session.scalars(
+            select(DiscoveredService.item).where(
+                DiscoveredService.agent_id == agent.id,
+                DiscoveredService.check_name == CONTAINER_CHECK_NAME,
+                DiscoveredService.state == discovery_lifecycle.STATE_MONITORED,
+            )
+        )
+    ).all()
+    containers = sorted({r for r in rows if r})
+    if not agent.address:
+        return {"pushed": False, "reason": "agent has no direct address", "containers": containers}
+    client = client_factory(agent, settings)
+    try:
+        await client.set_collect_config({"monitored_containers": containers})
+    except AgentClientError as exc:
+        return {"pushed": False, "reason": str(exc), "containers": containers}
+    return {"pushed": True, "containers": containers}
 
 
 async def _discovered_row(session: AsyncSession, agent_id: UUID, check_name: str, item: str):

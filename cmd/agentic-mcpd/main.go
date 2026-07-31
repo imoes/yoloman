@@ -199,6 +199,7 @@ func run(args []string) error {
 		ConsoleCommand:     cfg.Console.Command,
 		Piggyback:          piggyback.NewStore(cfg),
 		ConfigPath:         *configPath,
+		DockerSocket:       cfg.Collect.DockerSocket,
 		Mode:               cfg.Mode,
 		ProxyEnrollSecret:  cfg.Proxy.EnrollSecret,
 		ProxyPublicKeyPEM:  proxyPublicKeyPEM,

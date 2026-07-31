@@ -131,3 +131,46 @@ async def test_push_failure_surfaces_on_all():
 
 async def test_empty_checks_is_noop():
     assert await run_check_discovery(FakeClient({}), []) == []
+
+
+# ── container discovery (monitoring-via-discovery) ───────────────────────────
+
+class ContainerClient:
+    """Minimal client exposing list_containers, the container-discovery source."""
+
+    def __init__(self, names=None, fail=False):
+        self._names = names
+        self._fail = fail
+
+    async def list_containers(self):
+        if self._fail:
+            raise RuntimeError("docker unreachable")
+        return list(self._names or [])
+
+
+@pytest.mark.asyncio
+async def test_discover_containers_offers_one_item_per_container():
+    from bossman.services.discovery import discover_containers, CONTAINER_CHECK_NAME
+
+    prop = await discover_containers(ContainerClient(["web", "db", "redis"]))
+    assert prop.check_name == CONTAINER_CHECK_NAME
+    assert [i.item for i in prop.items] == ["db", "redis", "web"]  # sorted, stable
+    assert prop.error == ""
+
+
+@pytest.mark.asyncio
+async def test_discover_containers_empty_host_offers_nothing():
+    from bossman.services.discovery import discover_containers
+
+    prop = await discover_containers(ContainerClient([]))
+    assert prop.items == []
+    assert prop.error == ""  # no containers is not an error
+
+
+@pytest.mark.asyncio
+async def test_discover_containers_reports_error_without_raising():
+    from bossman.services.discovery import discover_containers
+
+    prop = await discover_containers(ContainerClient(fail=True))
+    assert prop.items == []
+    assert "docker unreachable" in prop.error

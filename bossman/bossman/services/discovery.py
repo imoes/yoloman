@@ -207,6 +207,34 @@ async def run_check_discovery(client, checks: list[dict[str, Any]]) -> list[Chec
     return proposals
 
 
+# The check_name under which a Docker container is discovered as a monitorable service. Shared with
+# the apply path (api/checks.py), which recomputes the agent's monitored-container allow-list from every
+# DiscoveredService carrying this name. One item per container, the item being the container's name.
+CONTAINER_CHECK_NAME = "Docker container"
+
+
+async def discover_containers(client) -> CheckProposal:
+    """Offer every running container as a monitorable service.
+
+    A container is NOT a library check — it is enumerated live from the host (GET /api/v1/containers)
+    and turned into one DiscoveredItem per container. Accepting it puts its name on the agent's
+    monitored-containers allow-list (see api/checks.py apply), which is what makes the agent start
+    storing that container's docker_container_* series; removing the check takes it back off. Errors are
+    reported on the proposal, never raised, exactly like a library check that fails to probe."""
+    prop = CheckProposal(
+        check_name=CONTAINER_CHECK_NAME,
+        items=[],
+        short_description="A running Docker container. Accept it to collect its CPU/memory/network metrics.",
+    )
+    try:
+        names = await client.list_containers()
+    except Exception as exc:  # noqa: BLE001 — one source failing must not sink the whole discovery run
+        prop.error = str(exc)[:200]
+        return prop
+    prop.items = [DiscoveredItem(item=name) for name in sorted(names)]
+    return prop
+
+
 async def _discover_one(client, c: dict[str, Any]) -> CheckProposal | None:
     """Probe ONE check on the host. Returns the proposal when the check applies,
     None when it doesn't (unchanged semantics — this is the body of what used to
