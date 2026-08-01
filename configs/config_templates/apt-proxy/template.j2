@@ -1,0 +1,16 @@
+// /etc/apt/apt.conf.d/00proxy — APT package-manager proxy (Debian/Ubuntu).
+// Managed by Bossman. Routes APT's downloads through the corporate proxy so a host on a segment with
+// no direct internet can still install and update packages (e.g. after a bare-metal install, when
+// roles converge on the target network).
+{% if http_proxy | default('') %}
+// HTTP proxy for APT (host:port URL, e.g. http://proxy.example.com:80).
+Acquire::http::Proxy "{{ http_proxy | default('') }}";
+{% endif %}
+{% if https_proxy | default('') %}
+// HTTPS proxy for APT.
+Acquire::https::Proxy "{{ https_proxy | default('') }}";
+{% endif %}
+{% for host in no_proxy | default([]) %}
+// Bypass the proxy for this host/domain (fetched DIRECT).
+Acquire::http::Proxy::{{ host }} "DIRECT";
+{% endfor %}
