@@ -198,6 +198,10 @@ class Settings(BaseSettings):
     # it once the pxe profile is up. Needs the docker socket + docker CLI in the bossman image (Block 6).
     pxe_container: str = ""
     docker_bin: str = "docker"
+    # Host the pxe container's per-VM websockify (noVNC) bridges listen on — the browser can't reach it
+    # directly, so Bossman relays /vm/{name}/vnc to ws://<pxe_vnc_host>:<ws_port>. Defaults to the ens19
+    # listen IP the lab binds to.
+    pxe_vnc_host: str = "192.0.2.130"
     # L4: the clock a notification time period is read in. NOT UTC, and not the
     # container's local zone either: this container runs UTC (verified: host 18:30 CEST,
     # container 16:30 UTC), so an 08:00-17:00 "business hours" window silently reported

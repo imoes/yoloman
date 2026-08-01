@@ -4,7 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
 import { RouterLink } from '@angular/router';
-import { DiskImage, ImageVolume, ImagesService, ProvisionNetwork, RestoreJob } from '../../core/services/images.service';
+import { DiskImage, ImageVolume, ImagesService, ProvisionNetwork, RestoreJob, Vm } from '../../core/services/images.service';
 
 /** Roles whose size a grow policy can adjust; the rest (esp/boot/swap/bios_boot) stay fixed. */
 const GROWABLE = new Set(['root', 'var', 'home', 'data']);
@@ -105,9 +105,44 @@ const GROWABLE = new Set(['root', 'var', 'home', 'data']);
         }
       </section>
     </div>
+
+    <!-- ── Nested-virt lab (QEMU im pxe-Container) ──────────────────────── -->
+    <section class="dt-lab">
+      <h2>Labor (nested-virt)</h2>
+      <p class="dt-muted">Template von einer ISO bauen oder das aktive Template über ein plattenloses PXE-Ziel end-to-end testen — QEMU läuft im pxe-Container, Konsole per noVNC.</p>
+      <div class="dt-lab-actions">
+        <div class="dt-lab-form">
+          <b>Template von ISO installieren</b>
+          <input [(ngModel)]="inst.name" placeholder="VM-Name (z. B. tmpl-deb12)" />
+          <input [(ngModel)]="inst.iso" placeholder="ISO-Datei (im ISO-Verzeichnis)" />
+          <input [(ngModel)]="inst.disk" placeholder="Disk-Datei (z. B. tmpl-deb12.raw)" />
+          <button mat-flat-button color="primary" [disabled]="!inst.name || !inst.iso || !inst.disk" (click)="startInstall()">Installieren + Konsole</button>
+        </div>
+        <div class="dt-lab-form">
+          <b>PXE-Test des aktiven Templates</b>
+          <p class="dt-muted">Erzeugt eine plattenlose VM auf dem ens19-Segment, die das aktive Template per PXE restauriert.</p>
+          <button mat-flat-button [disabled]="!activeImage()" (click)="startPxeTest()">PXE-Test starten</button>
+        </div>
+      </div>
+      @if (labErr()) { <p class="dt-err">{{ labErr() }}</p> }
+      <h3>Laufende VMs</h3>
+      @if (vms().length === 0) { <p class="dt-muted">Keine laufenden Lab-VMs.</p> }
+      @for (v of vms(); track v.name) {
+        <div class="dt-job">
+          <span class="dt-badge ready">{{ v.kind }}</span>
+          <b>{{ v.name }}</b> <span class="dt-muted">Display :{{ v.display }} · {{ v.disk }}</span>
+          <button mat-button (click)="openConsole(v.name)">Konsole</button>
+          <button mat-button (click)="stopVm(v.name)">Stop</button>
+        </div>
+      }
+    </section>
   `,
   styles: [`
     .dt-wrap { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem; padding: 1rem; }
+    .dt-lab { padding: 0 1rem 1.5rem; } .dt-lab h2 { font-size: 1rem; margin: .5rem 0; }
+    .dt-lab-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin: .5rem 0; }
+    .dt-lab-form { display: flex; flex-direction: column; gap: .35rem; border: 1px solid #3334; border-radius: 8px; padding: .7rem; }
+    .dt-lab-form input { padding: .3rem; }
     .dt-col h2 { font-size: 1rem; margin: 0 0 .5rem; }
     .dt-muted { color: var(--mat-sys-on-surface-variant, #888); font-size: .85rem; }
     .dt-card { border: 1px solid #3334; border-radius: 8px; padding: .6rem; margin-bottom: .5rem; cursor: pointer; }
@@ -132,9 +167,14 @@ export class DiskTemplatesComponent implements OnInit, OnDestroy {
 
   images = signal<DiskImage[]>([]);
   jobs = signal<RestoreJob[]>([]);
+  vms = signal<Vm[]>([]);
   selected = signal<DiskImage | null>(null);
   err = signal('');
+  labErr = signal('');
   pct: Record<string, number> = {};
+
+  inst = { name: '', iso: '', disk: '' };
+  activeImage = computed(() => this.images().find((i) => i.is_active) ?? null);
 
   host = { hostname: '', mac: '' };
   net: ProvisionNetwork = { mode: 'dhcp' };
@@ -148,9 +188,50 @@ export class DiskTemplatesComponent implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     this.reload();
-    this.timer = setInterval(() => this.svc.jobs().subscribe((j) => this.jobs.set(j)), 3000);
+    this.pollVms();
+    this.timer = setInterval(() => {
+      this.svc.jobs().subscribe((j) => this.jobs.set(j));
+      this.pollVms();
+    }, 3000);
   }
   ngOnDestroy(): void { if (this.timer) clearInterval(this.timer); }
+
+  private pollVms(): void {
+    // The lab is optional: a 503 (BOSSMAN_PXE_CONTAINER unset) just means no VMs to show.
+    this.svc.listVms().subscribe({ next: (v) => this.vms.set(v), error: () => this.vms.set([]) });
+  }
+
+  private slug(): string { return Math.random().toString(36).slice(2, 8); }
+  private randMac(): string {
+    // Locally-administered QEMU-style MAC (52:54:00 prefix) with a random tail.
+    const b = () => Math.floor(Math.random() * 256).toString(16).padStart(2, '0');
+    return `52:54:00:${b()}:${b()}:${b()}`;
+  }
+
+  openConsole(name: string): void {
+    window.open(`/vm-console/${encodeURIComponent(name)}`, `vmc-${name}`, 'width=1024,height=768');
+  }
+
+  startInstall(): void {
+    this.labErr.set('');
+    this.svc.install({ name: this.inst.name.trim(), iso: this.inst.iso.trim(), disk: this.inst.disk.trim() }).subscribe({
+      next: () => { const n = this.inst.name.trim(); this.inst = { name: '', iso: '', disk: '' }; this.pollVms(); this.openConsole(n); },
+      error: (e) => this.labErr.set(e?.error?.detail || 'Installation fehlgeschlagen'),
+    });
+  }
+
+  startPxeTest(): void {
+    this.labErr.set('');
+    const name = `pxe-test-${this.slug()}`;
+    this.svc.pxeTest({ name, mac: this.randMac(), disk: `${name}.raw` }).subscribe({
+      next: () => { this.pollVms(); this.openConsole(name); },
+      error: (e) => this.labErr.set(e?.error?.detail || 'PXE-Test fehlgeschlagen'),
+    });
+  }
+
+  stopVm(name: string): void {
+    this.svc.stopVm(name).subscribe({ next: () => this.pollVms(), error: (e) => this.labErr.set(e?.error?.detail || 'Stop fehlgeschlagen') });
+  }
 
   private reload(): void {
     this.svc.list().subscribe((imgs) => {

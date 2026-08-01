@@ -39,6 +39,16 @@ export interface RestoreJob {
   agent_id: string | null;
 }
 
+/** A running lab VM inside the pxe container (from `docker exec … vm-control.sh list`). */
+export interface Vm {
+  name: string;
+  display: number;
+  vnc_port: number;
+  ws_port: number;
+  kind: string;            // install | pxe-test
+  disk: string;
+}
+
 /** The final network a provisioned host boots onto (its destination segment, not the PXE one). */
 export interface ProvisionNetwork {
   mode: 'dhcp' | 'static';
@@ -78,4 +88,16 @@ export class ImagesService {
   arm(body: { image_id: string; target_mac: string; target_hostname: string; target_disk?: string }) {
     return this.http.post<RestoreJob>(`${this.base}/restore-jobs`, body);
   }
+
+  // ── PXE nested-virt lab (api/vm.py) ──────────────────────────────────────
+  listVms() { return this.http.get<Vm[]>(`${this.base}/vm`); }
+  /** Boot an installer ISO with a fresh disk (build a template); watch it over noVNC. */
+  install(body: { name: string; iso: string; disk: string; disk_gib?: number }) {
+    return this.http.post<string>(`${this.base}/vm/install`, body);
+  }
+  /** Diskless-boot a target that PXE-restores the active template end-to-end. */
+  pxeTest(body: { name: string; mac: string; disk: string; disk_gib?: number }) {
+    return this.http.post<string>(`${this.base}/vm/pxe-test`, body);
+  }
+  stopVm(name: string) { return this.http.post<string>(`${this.base}/vm/${name}/stop`, {}); }
 }

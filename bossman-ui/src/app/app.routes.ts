@@ -62,6 +62,12 @@ export const routes: Routes = [
     loadComponent: () => import('./features/hosts/console-page.component').then((m) => m.ConsolePageComponent),
   },
   {
+    // Chrome-less noVNC window for a PXE lab VM (opened from the disk-templates lab panel).
+    path: 'vm-console/:name',
+    canActivate: [authGuard],
+    loadComponent: () => import('./features/disk-templates/vm-console.component').then((m) => m.VmConsoleComponent),
+  },
+  {
     path: 'problems',
     canActivate: [authGuard],
     loadComponent: () => import('./features/problems/problems-list.component').then((m) => m.ProblemsListComponent),

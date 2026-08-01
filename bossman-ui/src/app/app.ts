@@ -89,7 +89,7 @@ export class App {
   // Chromeless routes (e.g. the pop-out console) render bare — no nav/chat —
   // so a console window is just the terminal.
   private url = signal(this.router.url);
-  chromeless = computed(() => this.url().startsWith('/console/'));
+  chromeless = computed(() => this.url().startsWith('/console/') || this.url().startsWith('/vm-console/'));
   // P5: global Ctrl/Cmd+K fleet-search overlay (Checkmk quicksearch parity) —
   // reuses FleetSearchComponent; closes on Esc and on any navigation.
   searchOpen = signal(false);
