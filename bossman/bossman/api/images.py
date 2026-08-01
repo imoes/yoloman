@@ -25,7 +25,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Request
 from pydantic import BaseModel
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from bossman.api.auth import get_current_identity
@@ -47,6 +47,17 @@ class ImageIn(BaseModel):
     source_agent_id: UUID | None = None
 
 
+class ImagePatch(BaseModel):
+    """Operator edits to a template: mark it the active one and/or set its grow policy."""
+
+    is_active: bool | None = None
+    grow_policy: dict[str, int] | None = None
+
+
+# The volume roles a grow policy may size — the ones imaging.classify_role can grow independently.
+_GROWABLE_ROLES = {"root", "var", "home", "data"}
+
+
 class ImageOut(BaseModel):
     id: UUID
     name: str
@@ -55,6 +66,8 @@ class ImageOut(BaseModel):
     status: str
     created_at: datetime
     error: str | None = None
+    is_active: bool = False
+    grow_policy: dict = {}
     # Derived, so the caller does not have to understand the manifest to see the shape of an image.
     disk_size: int = 0
     volumes: list[dict] = []
@@ -72,6 +85,8 @@ class ImageOut(BaseModel):
             status=img.status,
             created_at=img.created_at,
             error=img.error,
+            is_active=bool(img.is_active),
+            grow_policy=dict(img.grow_policy or {}),
             disk_size=int(manifest.get("disk_size") or 0),
             volumes=[
                 {
@@ -102,6 +117,41 @@ async def get_image(
     _identity=Depends(get_current_identity),
 ) -> ImageOut:
     return ImageOut.from_model(await _image_or_404(session, image_id))
+
+
+@router.patch("/api/v1/images/{image_id}", response_model=ImageOut)
+async def patch_image(
+    image_id: UUID,
+    body: ImagePatch,
+    session: AsyncSession = Depends(get_session),
+    _identity=Depends(get_current_identity),
+) -> ImageOut:
+    """Mark a template active (only one at a time) and/or set its grow policy (root/var/home %)."""
+    img = await _image_or_404(session, image_id)
+    if body.grow_policy is not None:
+        policy = {k: int(v) for k, v in body.grow_policy.items()}
+        unknown = set(policy) - _GROWABLE_ROLES
+        if unknown:
+            raise HTTPException(status_code=422, detail=f"unknown grow-policy roles: {sorted(unknown)}")
+        if any(v < 0 for v in policy.values()):
+            raise HTTPException(status_code=422, detail="grow-policy percentages must be non-negative")
+        total = sum(policy.values())
+        if policy and total != 100:
+            raise HTTPException(status_code=422, detail=f"grow-policy percentages must sum to 100 (got {total})")
+        img.grow_policy = policy
+    if body.is_active is not None:
+        if body.is_active:
+            if img.status != "ready":
+                raise HTTPException(status_code=409, detail="only a ready image can be the active template")
+            # Exactly one active template: clear the others first, then set this one (the partial
+            # unique index would otherwise reject two actives within the same transaction).
+            await session.execute(
+                update(DiskImage).where(DiskImage.id != img.id, DiskImage.is_active.is_(True)).values(is_active=False)
+            )
+            await session.flush()
+        img.is_active = body.is_active
+    await session.commit()
+    return ImageOut.from_model(img)
 
 
 @router.post("/api/v1/images", response_model=ImageOut, status_code=201)
@@ -314,10 +364,13 @@ async def netboot_checkin(
         raise HTTPException(status_code=404, detail=f"no job armed for {mac}")
     img = await _image_or_404(session, job.image_id)
 
+    # The grow policy comes from the template (root/var/home percentages) and is snapshotted onto the
+    # job, so a retry reproduces the exact partitioning even if the template is edited later.
+    grow_policy = dict(img.grow_policy or {})
     try:
         layout = imaging.layout_from_dict(img.manifest or {})
         target = imaging.select_target_disk(body.blockdevices, prefer=job.target_disk)
-        plan = imaging.plan_restore(layout, target)
+        plan = imaging.plan_restore(layout, target, grow_policy or None)
         # The target's own agent, installed into the mounted root as the last configuring act. Minted
         # here rather than when the job was armed, because a token handed out before the machine even
         # netbooted would be a live credential sitting in the database for however long the job waited.
@@ -342,6 +395,7 @@ async def netboot_checkin(
 
     job.status = "running"
     job.target_disk = target.name
+    job.grow_policy = grow_policy
     job.steps = [
         {"name": s.name, "argv": list(s.argv), "shell": s.shell, "chroot": s.chroot} for s in steps
     ]

@@ -760,3 +760,72 @@ def test_the_usage_key_matches_the_image_file_name():
         SourceLayout(disk_size=1, volumes=(Volume("root", "ext4", 1, None, vg="ubuntu-vg", lv="ubuntu-lv"),)),
         {"root-ubuntu-lv": 42},
     ).volumes[0].used_bytes == 42
+
+
+# ── Multi-volume proportional grow (root/var/home on LVM) — the PXE template case ──────────────
+
+_VG = "sys-vg"
+
+
+def _lvm_rvh() -> SourceLayout:
+    """ESP + /boot partitions + root/var/home as LVs in one VG (the classic template layout)."""
+    root = Volume(role="root", fs_type="ext4", size_bytes=10 * GiB, used_bytes=4 * GiB, vg=_VG, lv="root", mountpoint="/")
+    var = Volume(role="var", fs_type="ext4", size_bytes=10 * GiB, used_bytes=2 * GiB, vg=_VG, lv="var", mountpoint="/var")
+    home = Volume(role="home", fs_type="ext4", size_bytes=10 * GiB, used_bytes=1 * GiB, vg=_VG, lv="home", mountpoint="/home")
+    return SourceLayout(disk_size=50 * GiB, volumes=(ESP, BOOT, root, var, home))
+
+
+def test_var_and_home_get_their_own_roles():
+    assert classify_role(mountpoint="/var", fs_type="ext4", part_type=None) == "var"
+    assert classify_role(mountpoint="/home", fs_type="ext4", part_type=None) == "home"
+    assert classify_role(mountpoint="/srv", fs_type="ext4", part_type=None) == "data"
+
+
+def test_grow_policy_splits_leftover_by_percent():
+    plan = plan_restore(_lvm_rvh(), Disk("vda", 200 * GiB), grow_policy={"root": 50, "var": 30, "home": 20})
+    by = {p.volume.role: p for p in plan.volumes}
+    # esp + boot stay fixed
+    assert by["esp"].size_bytes == ESP.size_bytes and not by["esp"].grow
+    assert by["boot"].size_bytes == BOOT.size_bytes and not by["boot"].grow
+    # root/var/home all grow, split ~50/30/20 of the growable total
+    assert all(by[r].grow for r in ("root", "var", "home"))
+    total = by["root"].size_bytes + by["var"].size_bytes + by["home"].size_bytes
+    assert abs(by["root"].size_bytes / total - 0.5) < 0.01
+    assert abs(by["var"].size_bytes / total - 0.3) < 0.01
+    assert abs(by["home"].size_bytes / total - 0.2) < 0.01
+    assert by["root"].size_bytes > by["var"].size_bytes > by["home"].size_bytes
+    # essentially the whole disk (minus fixed volumes + a few MiB of GPT/align overhead) is claimed
+    leftover = 200 * GiB - ESP.size_bytes - BOOT.size_bytes
+    assert leftover - 4 * 1024**2 <= total <= leftover
+
+
+def test_grow_policy_without_policy_is_unchanged_single_last():
+    # No policy → only the last volume grows (the pre-existing contract).
+    plan = plan_restore(_lvm_rvh(), Disk("vda", 200 * GiB))
+    grows = [p.volume.role for p in plan.volumes if p.grow]
+    assert grows == ["home"]  # home is last → the only one that grows without a policy
+
+
+def test_grow_policy_needs_lvm_for_multiple_volumes():
+    root = Volume(role="root", fs_type="ext4", size_bytes=10 * GiB, used_bytes=4 * GiB, partition=2, mountpoint="/")
+    var = Volume(role="var", fs_type="ext4", size_bytes=10 * GiB, used_bytes=2 * GiB, partition=3, mountpoint="/var")
+    layout = SourceLayout(disk_size=50 * GiB, volumes=(BOOT, root, var))
+    with pytest.raises(ImagingError):
+        plan_restore(layout, Disk("sdb", 100 * GiB), grow_policy={"root": 60, "var": 40})
+
+
+def test_grow_policy_unknown_roles_raise():
+    with pytest.raises(ImagingError):
+        plan_restore(_lvm_rvh(), Disk("vda", 200 * GiB), grow_policy={"database": 100})
+
+
+def test_lvm_commands_size_each_growable_lv_with_one_free():
+    layout = _lvm_rvh()
+    plan = plan_restore(layout, Disk("vda", 200 * GiB), grow_policy={"root": 50, "var": 30, "home": 20})
+    cmds = lvm_commands(layout, pv_device="/dev/vda3", plan=plan)
+    lvcreates = [c for c in cmds if c and c[0] == "lvcreate"]
+    free = [c for c in lvcreates if "100%FREE" in c]
+    explicit = [c for c in lvcreates if "-L" in c]
+    assert len(free) == 1                 # exactly one LV takes the remainder
+    assert len(explicit) == len(lvcreates) - 1   # the other growable LVs are sized explicitly
+    assert len(lvcreates) == 3            # root, var, home

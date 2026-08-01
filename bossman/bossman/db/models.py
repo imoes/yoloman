@@ -1621,10 +1621,19 @@ class DiskImage(Base):
     manifest: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
     files: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
     error: Mapped[str | None] = mapped_column(Text)
+    # The one template a bare-metal target restores when it netboots. Only one image is active at a
+    # time (partial unique index below), so "install the active template" needs no per-target choice.
+    is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    # How the leftover target space is split across the growable volumes: a role→percent map like
+    # {"root":50,"var":30,"home":20}, consumed by imaging.plan_restore. Empty = grow only the last
+    # volume (the default). /boot and the ESP are never grown.
+    grow_policy: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
     created_at: Mapped[datetime] = mapped_column(TZ_DATETIME, server_default=func.now(), nullable=False)
 
     __table_args__ = (
         CheckConstraint("status IN ('capturing', 'ready', 'failed')", name="ck_disk_images_status"),
+        # At most one active template. A partial unique index on a constant is the standard trick.
+        Index("uq_disk_images_one_active", text("(is_active)"), unique=True, postgresql_where=text("is_active")),
     )
 
 
@@ -1652,6 +1661,9 @@ class RestoreJob(Base):
     target_disk: Mapped[str | None] = mapped_column(String)
     status: Mapped[str] = mapped_column(String, nullable=False, default="pending")
     steps: Mapped[list] = mapped_column(JSONB, nullable=False, default=list)
+    # The grow policy snapshotted at check-in (from the active image), so a retry reproduces the exact
+    # partitioning even if the template's policy changes later — same reasoning as snapshotting `steps`.
+    grow_policy: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
     step_index: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     log: Mapped[str] = mapped_column(Text, nullable=False, default="")
     error: Mapped[str | None] = mapped_column(Text)

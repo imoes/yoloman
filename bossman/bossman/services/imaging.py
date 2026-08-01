@@ -231,6 +231,12 @@ def classify_role(*, mountpoint: str | None, fs_type: str, part_type: str | None
         return "bios_boot"
     if upper == _GPT_SWAP or fs_type.lower() == "swap":
         return "swap"
+    # /var and /home get their own roles (not just "data") so a grow_policy can size each one
+    # independently — the common "give root/var/home a share of the leftover space" layout.
+    if mp == "/var":
+        return "var"
+    if mp == "/home":
+        return "home"
     return "data"
 
 
@@ -374,8 +380,14 @@ def _split_vg_lv(name: str) -> tuple[str, str] | None:
     return vg.replace(marker, "-"), lv.replace(marker, "-")
 
 
-def plan_restore(layout: SourceLayout, target: Disk) -> RestorePlan:
-    """Fit a captured layout onto `target`, giving the last volume whatever is left over.
+def plan_restore(layout: SourceLayout, target: Disk, grow_policy: dict[str, int] | None = None) -> RestorePlan:
+    """Fit a captured layout onto `target`.
+
+    Without `grow_policy` the last volume gets whatever is left over (the default). With a
+    `grow_policy` — a role→percent map like ``{"root":50,"var":30,"home":20}`` — the leftover space
+    is split across those volumes by percentage while the rest (esp/boot/swap) stay fixed. Multi-
+    volume grow only works when the growable volumes live on **LVM** (root/var/home as LVs in a VG):
+    a VG allocates each LV from free extents, whereas raw partitions can only grow at the end.
 
     Rules, and each exists because of a way this goes wrong:
 
@@ -398,46 +410,82 @@ def plan_restore(layout: SourceLayout, target: Disk) -> RestorePlan:
             f"{layout.used_total} bytes of data"
         )
 
-    fixed = layout.volumes[:-1]
-    last = layout.volumes[-1]
     overhead = ALIGN + (GPT_TAIL_RESERVE if layout.label == "gpt" else 0)
-    fixed_total = sum(v.size_bytes for v in fixed)
-    remaining = target.size - overhead - fixed_total
 
-    if remaining < last.used_bytes:
+    # Which volumes absorb the leftover space: by policy (root/var/home…) or, by default, just the
+    # last one. A policy that names a role the layout doesn't have is simply ignored.
+    if grow_policy:
+        growable = [v for v in layout.volumes if v.role in grow_policy]
+        if not growable:
+            raise ImagingError(
+                "grow_policy names none of this image's volume roles "
+                f"({', '.join(sorted({v.role for v in layout.volumes}))})"
+            )
+        raw_growable = [v for v in growable if not (v.vg and v.lv)]
+        if len(growable) > 1 and raw_growable:
+            raise ImagingError(
+                "multi-volume grow needs the growable volumes on LVM; these are raw partitions: "
+                + ", ".join(v.role for v in raw_growable)
+            )
+    else:
+        growable = [layout.volumes[-1]]
+
+    fixed = [v for v in layout.volumes if v not in growable]
+    remaining = target.size - overhead - sum(v.size_bytes for v in fixed)
+    used_growable = sum(int(v.used_bytes or 0) for v in growable)
+    if remaining < used_growable:
         raise ImagingError(
-            f"target disk {target.name} leaves {remaining} bytes for {last.role!r}, which holds "
-            f"{last.used_bytes} bytes of data"
+            f"target disk {target.name} leaves {remaining} bytes for "
+            f"{', '.join(v.role for v in growable)}, which hold {used_growable} bytes of data"
         )
 
-    last_size = _align_down(remaining)
-    plan = RestorePlan(target_disk=target.name, target_size=target.size)
-    for v in fixed:
-        plan.volumes.append(PlannedVolume(volume=v, size_bytes=v.size_bytes, grow=False))
-
-    if last_size > last.size_bytes:
-        if last.fs_type not in GROWABLE:
-            plan.notes.append(
-                f"{last.role}: {last.fs_type} cannot be grown — restoring at its original size "
-                f"and leaving {last_size - last.size_bytes} bytes unused"
+    # Target size per growable volume: split `remaining` by percentage (single volume → all of it).
+    idx = {id(v): i for i, v in enumerate(layout.volumes)}
+    sizes: dict[int, int] = {}
+    if len(growable) > 1:
+        pct_total = sum(grow_policy[v.role] for v in growable) or 1
+        allotted = 0
+        for v in growable[:-1]:
+            share = max(_align_down(remaining * grow_policy[v.role] // pct_total),
+                        _align_down(int(v.used_bytes or 0)) or ALIGN)
+            sizes[idx[id(v)]] = share
+            allotted += share
+        last_share = _align_down(remaining - allotted)
+        if last_share < int(growable[-1].used_bytes or 0):
+            raise ImagingError(
+                f"grow_policy leaves too little for {growable[-1].role}: {last_share} bytes < "
+                f"{growable[-1].used_bytes} bytes of data"
             )
-            last_size = last.size_bytes
+        sizes[idx[id(growable[-1])]] = last_share
+    else:
+        sizes[idx[id(growable[0])]] = _align_down(remaining)
+
+    plan = RestorePlan(target_disk=target.name, target_size=target.size)
+    for i, v in enumerate(layout.volumes):
+        if i not in sizes:
+            plan.volumes.append(PlannedVolume(volume=v, size_bytes=v.size_bytes, grow=False))
+            continue
+        size = sizes[i]
+        grow = True
+        if size > v.size_bytes:
+            if v.fs_type not in GROWABLE:
+                plan.notes.append(
+                    f"{v.role}: {v.fs_type} cannot be grown — restoring at its original size and "
+                    f"leaving {size - v.size_bytes} bytes unused"
+                )
+                size, grow = v.size_bytes, False
+        elif size < v.size_bytes:
+            if v.fs_type == "xfs":
+                # The one case that is genuinely impossible: xfs has no shrink, at all.
+                raise ImagingError(
+                    f"{v.role} is xfs and would have to shrink from {v.size_bytes} to {size} bytes; "
+                    f"xfs cannot be shrunk"
+                )
+            plan.notes.append(f"{v.role}: restoring into a smaller container ({size} bytes)")
             grow = False
         else:
-            grow = True
-    elif last_size < last.size_bytes:
-        if last.fs_type == "xfs":
-            # The one case that is genuinely impossible: xfs has no shrink, at all.
-            raise ImagingError(
-                f"{last.role} is xfs and would have to shrink from {last.size_bytes} to "
-                f"{last_size} bytes; xfs cannot be shrunk"
-            )
-        plan.notes.append(f"{last.role}: restoring into a smaller container ({last_size} bytes)")
-        grow = False
-    else:
-        grow = False
-
-    plan.volumes.append(PlannedVolume(volume=last, size_bytes=last_size, grow=grow))
+            grow = False
+        plan.volumes.append(PlannedVolume(volume=v, size_bytes=size, grow=grow))
     if layout.lvm_on_raw_disk:
         plan.notes.append("source had LVM directly on the disk (no partition table) — reproduced as such")
     return plan
@@ -565,29 +613,46 @@ def sfdisk_script(layout: SourceLayout) -> str:
     return "\n".join(lines) + "\n"
 
 
-def lvm_commands(layout: SourceLayout, *, pv_device: str) -> list[list[str]]:
+def lvm_commands(layout: SourceLayout, *, pv_device: str, plan: RestorePlan | None = None) -> list[list[str]]:
     """Recreate the volume groups and logical volumes on the target.
 
-    The last LV of each group is created with `-l 100%FREE` instead of an explicit size — the same
-    reasoning as the partition table: LVM knows exactly how much room is left after its own
-    metadata, and asking it beats computing it. That is also what makes the target's larger disk
-    end up used rather than merely partitioned.
-
-    Volumes are created in captured order, so "last" means the one that was last on the source —
-    which is the one `plan_restore` marked as growable.
+    One LV per group is created with `-l 100%FREE` instead of an explicit size, so the target's
+    larger disk ends up used rather than merely partitioned — and it is created LAST, after the
+    explicitly-sized LVs have claimed their share. Without a `plan` that free LV is the last member
+    (the source's last LV, which `plan_restore` grows); with a `plan` each growable LV is sized to
+    its planned bytes and the **last growable** LV of the group takes `100%FREE` (absorbing rounding),
+    so root/var/home can each get their slice.
     """
     lvs = [v for v in layout.volumes if v.vg and v.lv]
     if not lvs:
         return []
+    # Planned target size + grow flag per (vg, lv), when a plan is given.
+    plan_size: dict[tuple[str, str], int] = {}
+    grow_flag: dict[tuple[str, str], bool] = {}
+    if plan is not None:
+        for pv in plan.volumes:
+            v = pv.volume
+            if v.vg and v.lv:
+                plan_size[(str(v.vg), str(v.lv))] = pv.size_bytes
+                grow_flag[(str(v.vg), str(v.lv))] = pv.grow
+
     cmds: list[list[str]] = [["pvcreate", "-ff", "-y", pv_device]]
     by_vg: dict[str, list[Volume]] = {}
     for v in lvs:
         by_vg.setdefault(str(v.vg), []).append(v)
     for vg, members in by_vg.items():
         cmds.append(["vgcreate", vg, pv_device])
-        for v in members[:-1]:
-            cmds.append(["lvcreate", "-L", f"{v.size_bytes // (1024 * 1024)}m", "-n", str(v.lv), vg])
-        cmds.append(["lvcreate", "-l", "100%FREE", "-n", str(members[-1].lv), vg])
+        # The LV to receive 100%FREE: the last growable one, else the last member. It is emitted last.
+        free_lv = members[-1]
+        for v in members:
+            if grow_flag.get((vg, str(v.lv))):
+                free_lv = v
+        for v in members:
+            if v is free_lv:
+                continue
+            size = plan_size.get((vg, str(v.lv)), v.size_bytes)
+            cmds.append(["lvcreate", "-L", f"{size // (1024 * 1024)}m", "-n", str(v.lv), vg])
+        cmds.append(["lvcreate", "-l", "100%FREE", "-n", str(free_lv.lv), vg])
     return cmds
 
 
@@ -776,7 +841,7 @@ def restore_steps(
         steps.append(Step(name="write partition table", shell=f"sfdisk {shlex.quote(disk)} < /tmp/target.sfdisk"))
         steps.append(Step(name="settle device nodes", argv=("udevadm", "settle")))
     pv = disk if layout.lvm_on_raw_disk else f"{disk}{_part_suffix(plan.target_disk, pv_partition or len(layout.partitions))}"
-    for argv in lvm_commands(layout, pv_device=pv):
+    for argv in lvm_commands(layout, pv_device=pv, plan=plan):
         steps.append(Step(name=f"lvm: {' '.join(argv[:2])}", argv=tuple(argv)))
 
     # 2. Restore each volume, growing the one that is meant to grow right after its own restore.
