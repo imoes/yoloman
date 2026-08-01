@@ -372,6 +372,13 @@ async def netboot_checkin(
     # The grow policy comes from the template (root/var/home percentages) and is snapshotted onto the
     # job, so a retry reproduces the exact partitioning even if the template is edited later.
     grow_policy = dict(img.grow_policy or {})
+    # The FINAL network the target should boot onto (from the planned host's config), written into the
+    # restored root so it comes up on its destination segment, not the rollout/PXE one.
+    net = None
+    if job.agent_id is not None:
+        planned = await session.get(Agent, job.agent_id)
+        if planned is not None:
+            net = (planned.agent_metadata or {}).get("provision_network")
     try:
         layout = imaging.layout_from_dict(img.manifest or {})
         target = imaging.select_target_disk(body.blockdevices, prefer=job.target_disk)
@@ -385,9 +392,9 @@ async def netboot_checkin(
             plan,
             image_url=_image_url(settings, img),
             hostname=job.target_hostname,
-            configure_steps=offline_enroll.offline_install_steps(
-                install, deb_url=_agent_deb_url(settings)
-            ),
+            # Network config first (so the target boots onto its final net), then the agent install.
+            configure_steps=offline_enroll.network_steps(net)
+            + offline_enroll.offline_install_steps(install, deb_url=_agent_deb_url(settings)),
         )
     except imaging.ImagingError as exc:
         # A plan that cannot be made is the job's failure, recorded where an operator will look,

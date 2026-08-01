@@ -207,6 +207,36 @@ def offline_install_steps(plan: OfflineInstall, *, deb_url: str) -> list[Step]:
     return steps
 
 
+def network_steps(network: dict | None) -> list[Step]:
+    """Write the target's FINAL network config into the restored root (systemd-networkd), so it boots
+    onto its destination network — NOT the rollout/PXE segment it netbooted from. This is why roles
+    converge only after that first boot: the target network's firewall/repos are the real ones.
+
+    A DHCP target needs nothing written (the default). A static one gets a 10-provision.network file and
+    systemd-networkd enabled. `network` = {mode: 'dhcp'|'static', interface?, address (CIDR), gateway?,
+    dns: [...]}. Deliberately systemd-networkd only for now (the modern default); netplan/ifupdown
+    variants can layer on when a template needs them.
+    """
+    if not network or network.get("mode", "dhcp") == "dhcp":
+        return []
+    iface = str(network.get("interface") or "").strip()
+    lines = ["[Match]", f"Name={iface}" if iface else "Type=ether", "", "[Network]"]
+    if network.get("address"):
+        lines.append(f"Address={network['address']}")     # CIDR, e.g. 192.0.2.60/24
+    if network.get("gateway"):
+        lines.append(f"Gateway={network['gateway']}")
+    for dns in network.get("dns") or []:
+        lines.append(f"DNS={dns}")
+    content = "\n".join(lines) + "\n"
+    dest = f"{TARGET_ROOT}/etc/systemd/network/10-provision.network"
+    return [
+        Step(name="write target network config",
+             shell=f"mkdir -p {TARGET_ROOT}/etc/systemd/network && "
+                   f"printf %s {shlex.quote(content)} > {shlex.quote(dest)}"),
+        Step(name="enable systemd-networkd on the target", argv=("systemctl", "enable", "systemd-networkd"), chroot=True),
+    ]
+
+
 def install_succeeded(output: str) -> bool:
     """True when the script's output ends in the enablement we asked for.
 

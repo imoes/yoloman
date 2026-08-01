@@ -425,3 +425,29 @@ def test_no_configure_steps_leaves_the_plan_exactly_as_before(settings):
     base = imaging.restore_steps(layout, plan, image_url="https://s/i", hostname="h")
     assert [s.name for s in base] == [s.name for s in _plan_with(settings, configure=False)][: len(base)]
     assert len(base) == len(_plan_with(settings, configure=False))
+
+
+# ── network_steps (Block 4b): the target's final network written into the restored root ────────────
+
+def test_network_steps_dhcp_or_empty_writes_nothing():
+    assert offline_enroll.network_steps(None) == []
+    assert offline_enroll.network_steps({}) == []
+    assert offline_enroll.network_steps({"mode": "dhcp"}) == []
+
+
+def test_network_steps_static_writes_networkd_and_enables_it():
+    steps = offline_enroll.network_steps(
+        {"mode": "static", "interface": "eth0", "address": "192.0.2.60/24",
+         "gateway": "192.0.2.1", "dns": ["192.0.2.1", "1.1.1.1"]}
+    )
+    assert len(steps) == 2
+    write = steps[0].shell
+    assert "10-provision.network" in write
+    for token in ("Name=eth0", "Address=192.0.2.60/24", "Gateway=192.0.2.1", "DNS=192.0.2.1", "DNS=1.1.1.1"):
+        assert token in write
+    assert steps[1].argv == ("systemctl", "enable", "systemd-networkd") and steps[1].chroot is True
+
+
+def test_network_steps_static_without_interface_matches_any_ether():
+    steps = offline_enroll.network_steps({"mode": "static", "address": "10.0.0.5/24"})
+    assert "Type=ether" in steps[0].shell and "Name=" not in steps[0].shell
