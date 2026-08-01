@@ -9,6 +9,12 @@ ARG https_proxy
 ARG no_proxy
 ENV http_proxy=$http_proxy https_proxy=$https_proxy no_proxy=$no_proxy
 
+# The docker CLI so Bossman can drive the PXE nested-virt lab via `docker exec <pxe> vm-control.sh`
+# (services/vm_lab.py). Only used when BOSSMAN_PXE_CONTAINER is set and the docker socket is mounted;
+# harmless otherwise. docker-cli only (no daemon) — it talks to the host's socket.
+RUN apt-get update && apt-get install -y --no-install-recommends docker.io \
+    && rm -rf /var/lib/apt/lists/*
+
 # Copied from the official uv image rather than `pip install uv` — avoids
 # a pypi.org round trip during the build (unreliable/slow in some Docker
 # build-network setups even when the host itself reaches pypi.org fine).

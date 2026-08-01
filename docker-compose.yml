@@ -58,6 +58,14 @@ services:
       # Enrollment is open (no secret). Enrolling a real host needs
       # BOSSMAN_PUBLIC_URL set to a reachable address, which is host-specific
       # and belongs in docker-compose.override.yml.
+      # PXE nested-virt lab (opt-in). Empty pxe-container → the /vm/* endpoints 503 and the docker-socket
+      # mount below stays inert; set BOSSMAN_PXE_CONTAINER=agentic-mcp-pxe (and run the `pxe` profile) to
+      # enable it. NETBOOT_SECRET also gates /netboot/checkin; IMAGE_BASE_URL is the pxe HTTP root the
+      # target fetches images from. See docs/pxe-baremetal-imaging.md.
+      BOSSMAN_PXE_CONTAINER: ${BOSSMAN_PXE_CONTAINER:-}
+      BOSSMAN_PXE_VNC_HOST: ${BOSSMAN_PXE_VNC_HOST:-192.0.2.130}
+      BOSSMAN_NETBOOT_SECRET: ${BOSSMAN_NETBOOT_SECRET:-}
+      BOSSMAN_IMAGE_BASE_URL: ${BOSSMAN_IMAGE_BASE_URL:-}
     command: ["uv", "run", "uvicorn", "bossman.main:app", "--host", "0.0.0.0", "--port", "8000"]
     # Event Console (gap #2): expose the passive syslog/SNMP-trap UDP listeners.
     # Privileged 514/162 on the host map to the unprivileged in-container ports;
@@ -82,6 +90,9 @@ services:
       - bossman-cve-cache:/etc/bossman/cve-cache
       # Captured disk images (image_store_dir): shared with the pxe container, which serves them over HTTP.
       - bossman-images:/etc/bossman/images
+      # Lets Bossman `docker exec` into the pxe container to drive QEMU (services/vm_lab.py). Privileged
+      # (host docker socket) — only meaningful with BOSSMAN_PXE_CONTAINER set; inert otherwise.
+      - /var/run/docker.sock:/var/run/docker.sock
     depends_on:
       migrate:
         condition: service_completed_successfully
@@ -116,6 +127,7 @@ services:
   # docs/pxe-baremetal-imaging.md. Host-specific NIC/IP/secret/DHCP settings live in the override file.
   pxe:
     profiles: ["pxe"]
+    container_name: agentic-mcp-pxe   # stable name so Bossman can `docker exec` it (BOSSMAN_PXE_CONTAINER)
     build:
       context: .
       dockerfile: deploy/pxe/Dockerfile
@@ -131,6 +143,11 @@ services:
       PXE_LISTEN_IP: 192.0.2.130
       DHCP_MODE: proxy      # proxy | full
       NETBOOT_SECRET: ${BOSSMAN_NETBOOT_SECRET:-}
+      # QEMU lab (vm-control.sh): where install ISOs and template/target disks live, and the L2 bridge
+      # on ens19 a diskless PXE-test VM attaches to (create it on the host, enslave ens19).
+      ISO_DIR: /srv/iso
+      DISK_DIR: /srv/templates
+      VM_BRIDGE: ${PXE_VM_BRIDGE:-br-ens19}
     volumes:
       - bossman-images:/srv/http/images   # the same bytes Bossman writes to /etc/bossman/images
       - pxe-tftp:/srv/tftp
