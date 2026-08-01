@@ -29,7 +29,15 @@ COPY deploy-artifacts/agent.deb /srv/http/agent.deb
 COPY deploy/pxe/entrypoint.sh /entrypoint.sh
 COPY deploy/pxe/build-pe.sh /usr/local/sbin/build-pe.sh
 COPY deploy/pxe/pe-init.sh /usr/local/sbin/pe-init.sh
-RUN chmod +x /entrypoint.sh /usr/local/sbin/build-pe.sh /usr/local/sbin/pe-init.sh /usr/bin/agentic-mcpd
+COPY deploy/pxe/vm-control.sh /usr/local/bin/vm-control.sh
+RUN chmod +x /entrypoint.sh /usr/local/sbin/build-pe.sh /usr/local/sbin/pe-init.sh \
+        /usr/local/bin/vm-control.sh /usr/bin/agentic-mcpd
+
+# QEMU's bridge helper (for the diskless PXE-test VM on the ens19 bridge) is ACL-gated: whitelist the
+# bridge and give the helper the net cap. VM_BRIDGE defaults to br-ens19 (create it on the host, enslave
+# ens19). The container also needs cap_add NET_ADMIN + /dev/kvm (compose, Block 6).
+RUN mkdir -p /etc/qemu && echo "allow br-ens19" > /etc/qemu/bridge.conf \
+    && setcap cap_net_admin+ep /usr/lib/qemu/qemu-bridge-helper 2>/dev/null || true
 
 # HTTP root (nginx serves this): pe.squashfs, images/<id>/, agent.deb. TFTP root: kernel + initrd + loader.
 RUN mkdir -p /srv/http/images /srv/tftp

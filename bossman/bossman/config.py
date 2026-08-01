@@ -192,6 +192,12 @@ class Settings(BaseSettings):
     # The base URL a netbooted target uses to fetch images. Empty falls back to public_url, which is
     # the same address the agent enrolment uses.
     image_base_url: str = ""
+    # PXE nested-virt lab (services/vm_lab.py): Bossman drives QEMU inside the pxe container via
+    # `docker exec <pxe_container> vm-control.sh …` to install a template from an ISO or PXE-test a
+    # target end-to-end. Empty pxe_container disables the /vm/* endpoints (they 503) — the deploy sets
+    # it once the pxe profile is up. Needs the docker socket + docker CLI in the bossman image (Block 6).
+    pxe_container: str = ""
+    docker_bin: str = "docker"
     # L4: the clock a notification time period is read in. NOT UTC, and not the
     # container's local zone either: this container runs UTC (verified: host 18:30 CEST,
     # container 16:30 UTC), so an 08:00-17:00 "business hours" window silently reported
