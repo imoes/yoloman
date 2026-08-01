@@ -80,6 +80,8 @@ services:
       # restarts/rebuilds so it isn't re-fetched (78MB) and CVE descriptions
       # survive a container restart.
       - bossman-cve-cache:/etc/bossman/cve-cache
+      # Captured disk images (image_store_dir): shared with the pxe container, which serves them over HTTP.
+      - bossman-images:/etc/bossman/images
     depends_on:
       migrate:
         condition: service_completed_successfully
@@ -108,9 +110,41 @@ services:
     depends_on:
       - bossman
 
+  # PXE bare-metal lab: dnsmasq DHCP+TFTP, an HTTP server for the PE squashfs + images + agent.deb, and a
+  # nested-virt QEMU with a noVNC console. Opt-in via the `pxe` profile (it needs host networking on ens19,
+  # /dev/kvm, and a netboot secret — it must NOT start on a plain `docker compose up`). See
+  # docs/pxe-baremetal-imaging.md. Host-specific NIC/IP/secret/DHCP settings live in the override file.
+  pxe:
+    profiles: ["pxe"]
+    build:
+      context: .
+      dockerfile: deploy/pxe/Dockerfile
+    # DHCP/TFTP are layer-2 on a specific segment (ens19) — a bridged container can't serve them.
+    network_mode: host
+    devices:
+      - /dev/kvm            # nested-virt QEMU
+    cap_add:
+      - NET_ADMIN
+    environment:
+      BOSSMAN_URL: http://bossman:8000
+      PXE_INTERFACE: ens19
+      PXE_LISTEN_IP: 192.0.2.130
+      DHCP_MODE: proxy      # proxy | full
+      NETBOOT_SECRET: ${BOSSMAN_NETBOOT_SECRET:-}
+    volumes:
+      - bossman-images:/srv/http/images   # the same bytes Bossman writes to /etc/bossman/images
+      - pxe-tftp:/srv/tftp
+      - pxe-pe:/pe-root
+      # Bind mounts for the QEMU install path (ISO to install from, template disk to install into):
+      - ./deploy/pxe/iso:/srv/iso
+      - ./deploy/pxe/templates:/srv/templates
+
 volumes:
   bossman-db-data:
   bossman-tls:
   bossman-cve-cache:
   bossman-poller-conf:
   bossman-poller-data:
+  bossman-images:
+  pxe-tftp:
+  pxe-pe:
