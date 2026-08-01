@@ -286,8 +286,13 @@ async def create_restore_job(
         raise HTTPException(
             status_code=409, detail=f"{mac} already has an active job ({existing.status})"
         )
+    # Link the job to a pre-planned host (an Agent already created + configured with roles/network) if one
+    # exists for this hostname, so its config is in place before the install and check-in only has to
+    # enrol-link it. The netboot check-in enrols by the same hostname, flipping 'planned' → 'enrolled'.
+    planned = await session.scalar(select(Agent).where(Agent.name == hostname))
     job = RestoreJob(
-        image_id=img.id, target_mac=mac, target_hostname=hostname, target_disk=body.target_disk
+        image_id=img.id, target_mac=mac, target_hostname=hostname, target_disk=body.target_disk,
+        agent_id=planned.id if planned is not None else None,
     )
     session.add(job)
     await session.commit()

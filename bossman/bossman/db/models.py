@@ -167,7 +167,10 @@ class Agent(Base):
     __table_args__ = (
         CheckConstraint("mode IN ('standalone', 'satellite', 'proxy')", name="ck_agents_mode"),
         CheckConstraint(
-            "enrollment_state IN ('pending', 'enrolled', 'revoked')", name="ck_agents_enrollment_state"
+            # 'planned' = a bare-metal target configured (roles/network/disk) but not yet installed; it
+            # becomes 'enrolled' when the netbooted machine checks in and is enrol-linked by hostname.
+            "enrollment_state IN ('planned', 'pending', 'enrolled', 'revoked')",
+            name="ck_agents_enrollment_state",
         ),
         CheckConstraint(
             "criticality IS NULL OR criticality IN ('test', 'stage', 'prod')", name="ck_agents_criticality"
