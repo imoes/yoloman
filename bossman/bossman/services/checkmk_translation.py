@@ -257,8 +257,24 @@ them even though the source you are translating is Python. Rewrite as shown:
     RIGHT:  acc = {"total": 0}          # mutating a dict/list is allowed
             def add(n): acc["total"] += n
 - NO `while` loops (use `for ... in`), NO `class`, NO `lambda`, NO f-strings
-  (use `"%s" % x` or `"...".format(...)`), NO `import`, NO `re`, NO `is`/`is not`
-  (use `== None` / `!= None`), NO comprehension `if` with walrus, NO `assert`.
+  (use `"%s" % x` or `"...".format(...)`), NO `import`, NO Python `re` module,
+  NO `is`/`is not` (use `== None` / `!= None`), NO comprehension `if` with walrus,
+  NO `assert`.
+- REGEX — there is no `re` module, but a predeclared `regex` global IS available
+  (Go RE2, no import needed). Use it for ANY pattern matching; never stub a match
+  to always-False:
+    * `regex.test(pattern, text)` -> bool, matches ANYWHERE. This is exactly what a
+      Checkmk `~pattern` service/description filter means, so
+      `n.startswith("~")` -> `regex.test(n[1:], name)`, and a bare name is an
+      equality (`n == name`).
+    * `regex.search(pattern, text)` -> the matched substring, or None.
+    * `regex.match(pattern, text)` -> bool anchored at the START of text.
+    * `regex.findall(pattern, text)` -> list of the full matches.
+    * `regex.sub(pattern, repl, text)` -> text with matches replaced (repl uses RE2
+      group syntax `$1`/`${name}`, NOT Python's `\1`).
+    * `regex.escape(text)` -> quote metacharacters.
+  RE2 has no backreferences or lookaround; these checks never need them. (The other
+  predeclared global is `json` — `json.decode`/`json.encode`, also no import.)
 - Every CONSTANT/name you reference (e.g. a metrics map) MUST be DEFINED at the
   module top level or bound before use — a name defined only inside an `if`
   branch and used elsewhere is `undefined:` at runtime. Define maps at top level.
@@ -401,7 +417,8 @@ Rules for your answer:
 - Output ONLY the Starlark module code — no prose, no JSON. One ```python fenced block.
 - The module is READ-ONLY: never mutates=True, never ctx.file_write, always changed=False.
 - Starlark is NOT Python (see the addendum's forbidden-constructs block): NO try/except/finally/\
-raise, NO nonlocal/global, NO while/class/lambda/f-strings/imports/regex, NO `is`/`is not` \
+raise, NO nonlocal/global, NO while/class/lambda/f-strings/imports, NO Python `re` (use the predeclared \
+`regex` module — regex.test/search/findall/sub), NO `is`/`is not` \
 (use `== None`). Guard instead of try; use d.get(k) for optional keys; define every constant at \
 module top level.
 - Gather data ONLY through ctx.* builtins; map warn/crit from params.

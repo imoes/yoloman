@@ -31,7 +31,9 @@ package starmod
 import (
 	"encoding/json"
 	"fmt"
+	"regexp"
 	"sort"
+	"sync"
 
 	starlarkjson "go.starlark.net/lib/json"
 	"go.starlark.net/starlark"
@@ -104,7 +106,126 @@ func predeclared() starlark.StringDict {
 		// execution (predeclared is the single source), so "validate ≡ execute"
 		// holds. Ansible action modules don't need it but it's harmless there.
 		"json": starlarkjson.Module,
+		// regex.search/test/match/findall/sub (Go RE2): Starlark has no `re`
+		// module, yet Checkmk checks routinely match service names/descriptions
+		// with `~pattern` regexes. A pure language utility (no host access), so it
+		// belongs here beside json — NOT on ctx. RE2 is linear-time (no ReDoS),
+		// which is exactly right for patterns running on hosts; it lacks
+		// backreferences/lookaround, which these checks never use. Predeclared, so
+		// "validate ≡ execute" holds (the same module backs the stub gate and the
+		// real runtime).
+		"regex": regexModule,
 	}
+}
+
+// regexCache memoises compiled patterns; RE2 compile is cheap but checks re-run
+// often. sync.Map is enough — the entries are write-once and never invalidated.
+var regexCache sync.Map // pattern string -> regexEntry
+
+type regexEntry struct {
+	re  *regexp.Regexp
+	err error
+}
+
+func compileRegex(pattern string) (*regexp.Regexp, error) {
+	if v, ok := regexCache.Load(pattern); ok {
+		e := v.(regexEntry)
+		return e.re, e.err
+	}
+	re, err := regexp.Compile(pattern)
+	regexCache.Store(pattern, regexEntry{re: re, err: err})
+	return re, err
+}
+
+// regexModule is the predeclared `regex` global — a small, Python-re-shaped API
+// backed by Go's regexp (RE2). An invalid pattern fails LOUDLY (returns an error
+// that becomes a Starlark error) rather than silently not matching.
+var regexModule = &starlarkstruct.Module{
+	Name: "regex",
+	Members: starlark.StringDict{
+		// regex.test(pattern, text) -> bool: does the pattern match ANYWHERE in
+		// text (re.search semantics). This is what a Checkmk `~pattern` filter means.
+		"test": starlark.NewBuiltin("regex.test", func(_ *starlark.Thread, _ *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
+			var pattern, text string
+			if err := starlark.UnpackPositionalArgs("regex.test", args, kwargs, 2, &pattern, &text); err != nil {
+				return nil, err
+			}
+			re, err := compileRegex(pattern)
+			if err != nil {
+				return nil, fmt.Errorf("regex.test: bad pattern %q: %w", pattern, err)
+			}
+			return starlark.Bool(re.MatchString(text)), nil
+		}),
+		// regex.search(pattern, text) -> the matched substring, or None on no match
+		// (so `regex.search(p, s) or default` works, the common idiom).
+		"search": starlark.NewBuiltin("regex.search", func(_ *starlark.Thread, _ *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
+			var pattern, text string
+			if err := starlark.UnpackPositionalArgs("regex.search", args, kwargs, 2, &pattern, &text); err != nil {
+				return nil, err
+			}
+			re, err := compileRegex(pattern)
+			if err != nil {
+				return nil, fmt.Errorf("regex.search: bad pattern %q: %w", pattern, err)
+			}
+			loc := re.FindStringIndex(text)
+			if loc == nil {
+				return starlark.None, nil
+			}
+			return starlark.String(text[loc[0]:loc[1]]), nil
+		}),
+		// regex.match(pattern, text) -> bool: does the pattern match at the START
+		// of text (re.match semantics).
+		"match": starlark.NewBuiltin("regex.match", func(_ *starlark.Thread, _ *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
+			var pattern, text string
+			if err := starlark.UnpackPositionalArgs("regex.match", args, kwargs, 2, &pattern, &text); err != nil {
+				return nil, err
+			}
+			re, err := compileRegex(pattern)
+			if err != nil {
+				return nil, fmt.Errorf("regex.match: bad pattern %q: %w", pattern, err)
+			}
+			loc := re.FindStringIndex(text)
+			return starlark.Bool(loc != nil && loc[0] == 0), nil
+		}),
+		// regex.findall(pattern, text) -> list of every non-overlapping full match.
+		"findall": starlark.NewBuiltin("regex.findall", func(_ *starlark.Thread, _ *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
+			var pattern, text string
+			if err := starlark.UnpackPositionalArgs("regex.findall", args, kwargs, 2, &pattern, &text); err != nil {
+				return nil, err
+			}
+			re, err := compileRegex(pattern)
+			if err != nil {
+				return nil, fmt.Errorf("regex.findall: bad pattern %q: %w", pattern, err)
+			}
+			matches := re.FindAllString(text, -1)
+			vals := make([]starlark.Value, len(matches))
+			for i, m := range matches {
+				vals[i] = starlark.String(m)
+			}
+			return starlark.NewList(vals), nil
+		}),
+		// regex.sub(pattern, repl, text) -> text with every match replaced. repl
+		// uses Go RE2 syntax for groups ($1, ${name}), NOT Python's \1.
+		"sub": starlark.NewBuiltin("regex.sub", func(_ *starlark.Thread, _ *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
+			var pattern, repl, text string
+			if err := starlark.UnpackPositionalArgs("regex.sub", args, kwargs, 3, &pattern, &repl, &text); err != nil {
+				return nil, err
+			}
+			re, err := compileRegex(pattern)
+			if err != nil {
+				return nil, fmt.Errorf("regex.sub: bad pattern %q: %w", pattern, err)
+			}
+			return starlark.String(re.ReplaceAllString(text, repl)), nil
+		}),
+		// regex.escape(text) -> text with every regex metacharacter quoted.
+		"escape": starlark.NewBuiltin("regex.escape", func(_ *starlark.Thread, _ *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
+			var text string
+			if err := starlark.UnpackPositionalArgs("regex.escape", args, kwargs, 1, &text); err != nil {
+				return nil, err
+			}
+			return starlark.String(regexp.QuoteMeta(text)), nil
+		}),
+	},
 }
 
 // isinstanceTypeName maps a Starlark type-constructor builtin (str, int, …) to
