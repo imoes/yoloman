@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import hashlib
 import hmac
+import secrets
 from datetime import datetime, timezone
 from pathlib import Path
 from uuid import UUID
@@ -52,6 +53,15 @@ class ImagePatch(BaseModel):
 
     is_active: bool | None = None
     grow_policy: dict[str, int] | None = None
+
+
+class PlannedHostIn(BaseModel):
+    """A bare-metal target planned before it exists: it becomes an Agent in state 'planned', configured
+    with roles (via the normal Management tab) and network, then armed and installed."""
+
+    hostname: str
+    mac: str = ""
+    network: dict = {}   # {mode: dhcp|static, interface?, address (CIDR), gateway?, dns: [...]}
 
 
 # The volume roles a grow policy may size — the ones imaging.classify_role can grow independently.
@@ -94,6 +104,10 @@ class ImageOut(BaseModel):
                     "fs_type": v.get("fs_type"),
                     "size_bytes": v.get("size_bytes"),
                     "used_bytes": v.get("used_bytes"),
+                    # LVM info so the UI can show the VG/LV structure and which volumes are grow-adjustable.
+                    "vg": v.get("vg"),
+                    "lv": v.get("lv"),
+                    "mountpoint": v.get("mountpoint"),
                 }
                 for v in manifest.get("volumes") or []
             ],
@@ -152,6 +166,35 @@ async def patch_image(
         img.is_active = body.is_active
     await session.commit()
     return ImageOut.from_model(img)
+
+
+@router.post("/api/v1/provisioning/hosts", status_code=201)
+async def create_planned_host(
+    body: PlannedHostIn,
+    session: AsyncSession = Depends(get_session),
+    _identity=Depends(get_current_identity),
+) -> dict:
+    """Create a bare-metal target as an Agent in state 'planned'. It then shows up in the fleet like any
+    host, so roles are assigned through the normal Management tab; the netboot check-in enrol-links it by
+    hostname. The MAC + final network are kept in agent_metadata until the install writes them."""
+    hostname = body.hostname.strip()
+    if not hostname:
+        raise HTTPException(status_code=422, detail="hostname is required")
+    if await session.scalar(select(Agent).where(Agent.name == hostname)) is not None:
+        raise HTTPException(status_code=409, detail=f"a host named {hostname!r} already exists")
+    meta: dict = {}
+    if body.mac:
+        meta["provision_mac"] = normalise_mac(body.mac)
+    if body.network:
+        meta["provision_network"] = body.network
+    agent = Agent(
+        name=hostname, address=None, token=secrets.token_hex(16), mode="standalone",
+        enrollment_state="planned", agent_metadata=meta,
+    )
+    session.add(agent)
+    await session.commit()
+    return {"id": str(agent.id), "hostname": hostname, "enrollment_state": "planned",
+            "mac": meta.get("provision_mac", ""), "network": body.network}
 
 
 @router.post("/api/v1/images", response_model=ImageOut, status_code=201)

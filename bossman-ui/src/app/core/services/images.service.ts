@@ -1,0 +1,81 @@
+import { Injectable, inject } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
+import { environment } from '../../../environments/environment';
+
+/** One volume of a captured template (from the manifest), with the LVM info the disk editor needs. */
+export interface ImageVolume {
+  role: string;            // esp | boot | root | var | home | data | swap | bios_boot
+  fs_type: string;
+  size_bytes: number;
+  used_bytes: number | null;
+  vg: string | null;
+  lv: string | null;
+  mountpoint: string | null;
+}
+
+export interface DiskImage {
+  id: string;
+  name: string;
+  description: string;
+  status: string;          // capturing | ready | failed
+  is_active: boolean;
+  grow_policy: Record<string, number>;
+  disk_size: number;
+  volumes: ImageVolume[];
+  stored_bytes: number;
+  created_at: string;
+}
+
+export interface RestoreJob {
+  id: string;
+  image_id: string;
+  target_mac: string;
+  target_hostname: string;
+  target_disk: string | null;
+  status: string;          // pending | running | done | failed | cancelled
+  step_index: number;
+  log: string;
+  error: string | null;
+  agent_id: string | null;
+}
+
+/** The final network a provisioned host boots onto (its destination segment, not the PXE one). */
+export interface ProvisionNetwork {
+  mode: 'dhcp' | 'static';
+  interface?: string;
+  address?: string;        // CIDR, e.g. 192.0.2.60/24
+  gateway?: string;
+  dns?: string[];
+}
+
+/**
+ * The Disk-Templates / bare-metal provisioning surface: list captured templates, mark one active, set its
+ * grow policy (root/var/home %), create a planned target host, arm a restore job, and watch jobs. The
+ * backend lives in api/images.py; roles are assigned through the normal host Management tab.
+ */
+@Injectable({ providedIn: 'root' })
+export class ImagesService {
+  private http = inject(HttpClient);
+  private base = environment.apiUrl;
+
+  list() { return this.http.get<DiskImage[]>(`${this.base}/images`); }
+  get(id: string) { return this.http.get<DiskImage>(`${this.base}/images/${id}`); }
+
+  /** Mark active and/or set the grow policy (percentages must sum to 100). */
+  patch(id: string, body: { is_active?: boolean; grow_policy?: Record<string, number> }) {
+    return this.http.patch<DiskImage>(`${this.base}/images/${id}`, body);
+  }
+
+  jobs() { return this.http.get<RestoreJob[]>(`${this.base}/restore-jobs`); }
+
+  /** Create a bare-metal target as a 'planned' host (roles get assigned via the Management tab). */
+  createPlannedHost(body: { hostname: string; mac?: string; network?: ProvisionNetwork }) {
+    return this.http.post<{ id: string; hostname: string; enrollment_state: string }>(
+      `${this.base}/provisioning/hosts`, body);
+  }
+
+  /** Arm the install: links the planned host (by hostname) to the template + the machine's MAC. */
+  arm(body: { image_id: string; target_mac: string; target_hostname: string; target_disk?: string }) {
+    return this.http.post<RestoreJob>(`${this.base}/restore-jobs`, body);
+  }
+}

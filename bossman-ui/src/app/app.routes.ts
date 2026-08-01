@@ -20,6 +20,12 @@ export const routes: Routes = [
     loadComponent: () => import('./features/ai-dashboard/ai-dashboard.component').then((m) => m.AiDashboardComponent),
   },
   {
+    path: 'disk-templates',
+    canActivate: [authGuard],
+    loadComponent: () =>
+      import('./features/disk-templates/disk-templates.component').then((m) => m.DiskTemplatesComponent),
+  },
+  {
     path: 'noc',
     canActivate: [authGuard],
     loadComponent: () => import('./features/noc/noc.component').then((m) => m.NocComponent),
