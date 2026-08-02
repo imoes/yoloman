@@ -32,9 +32,9 @@ RESP=$(req --retry 5 --retry-all-errors --retry-delay 3 -X POST "$BOSSMAN/api/v1
     -d "$(jq -cn --arg mac "$MAC" --argjson blk "$BLK" '{mac:$mac, blockdevices:$blk}')") || {
     echo "pe-init: check-in failed for $MAC" >&2; exit 1; }
 
-JOB=$(echo "$RESP" | jq -r '.job_id')
-echo "$RESP" | jq -r '.sfdisk_script // ""' > /tmp/target.sfdisk   # restore_steps reads this file
-echo "pe-init: job $JOB, $(echo "$RESP" | jq '.steps | length') steps"
+JOB=$(printf '%s' "$RESP" | jq -r '.job_id')
+printf '%s' "$RESP" | jq -r '.sfdisk_script // ""' > /tmp/target.sfdisk   # restore_steps reads this file
+echo "pe-init: job $JOB, $(printf '%s' "$RESP" | jq '.steps | length') steps"
 
 progress() {  # step_index, extra jq fields...
     idx=$1; shift
@@ -42,17 +42,17 @@ progress() {  # step_index, extra jq fields...
         -d "$(jq -cn --argjson i "$idx" "$@" '{step_index:$i} + $extra')" >/dev/null 2>&1 || true
 }
 
-N=$(echo "$RESP" | jq '.steps | length')
+N=$(printf '%s' "$RESP" | jq '.steps | length')
 i=0
 while [ "$i" -lt "$N" ]; do
-    NAME=$(echo "$RESP" | jq -r ".steps[$i].name")
-    SHELL_CMD=$(echo "$RESP" | jq -r ".steps[$i].shell // empty")
-    CHROOT=$(echo "$RESP" | jq -r ".steps[$i].chroot // false")
+    NAME=$(printf '%s' "$RESP" | jq -r ".steps[$i].name")
+    SHELL_CMD=$(printf '%s' "$RESP" | jq -r ".steps[$i].shell // empty")
+    CHROOT=$(printf '%s' "$RESP" | jq -r ".steps[$i].chroot // false")
     pre="chroot /mnt/target"; [ "$CHROOT" = "true" ] || pre=""
     if [ -n "$SHELL_CMD" ]; then
         OUT=$($pre /bin/sh -c "$SHELL_CMD" 2>&1); RC=$?
     else
-        ARGV=$(echo "$RESP" | jq -r '.steps['"$i"'].argv | map(@sh) | join(" ")')
+        ARGV=$(printf '%s' "$RESP" | jq -r '.steps['"$i"'].argv | map(@sh) | join(" ")')
         OUT=$(eval "$pre $ARGV" 2>&1); RC=$?
     fi
     if [ "$RC" -ne 0 ]; then
