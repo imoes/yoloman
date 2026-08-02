@@ -95,11 +95,22 @@ mkdir -p "$TFTP_ROOT/pxelinux.cfg"
 stamp_cmdline() {   # $1 = netboot secret (may be empty when netboot is disabled/unset)
     append="boot=live components fetch=http://${PXE_LISTEN_IP}:${PXE_HTTP_PORT}/pe.squashfs ip=dhcp \
 netboot_secret=$1 bossman_url=${BOSSMAN_URL}"
+    # BIOS (PXELINUX)
     cat > "$TFTP_ROOT/pxelinux.cfg/default" <<EOF
 default pe
 label pe
     kernel pe-kernel
     append initrd=pe-initrd ${append}
+EOF
+    # UEFI (GRUB) — same append, loaded by grub/x86_64-efi/core.efi (built by build-pe). grub's \$root is
+    # the TFTP server, so /pe-kernel and /pe-initrd resolve against the TFTP root.
+    mkdir -p "$TFTP_ROOT/grub"
+    cat > "$TFTP_ROOT/grub/grub.cfg" <<EOF
+set timeout=0
+menuentry "Bossman PXE install" {
+    linux /pe-kernel ${append}
+    initrd /pe-initrd
+}
 EOF
 }
 stamp_cmdline ""   # start with no secret; the loop stamps the real one once the WebUI has it
@@ -125,10 +136,13 @@ write_dnsmasq_conf() {   # $1 = on|off
                 # proxy DHCP: no address handout, just PXE boot info alongside the network's own DHCP.
                 echo "dhcp-range=${PXE_LISTEN_IP},proxy"
             fi
-            echo "dhcp-match=set:bios,option:client-arch,0"
+            # Serve BIOS vs UEFI automatically off the client's DHCP arch option (opt 93): the machine
+            # tells us what it is, so both boot the same lab with no manual choice.
+            echo "dhcp-match=set:bios,option:client-arch,0"      # legacy BIOS PC
             echo "dhcp-boot=tag:bios,pxelinux.0"
-            echo "dhcp-match=set:efi64,option:client-arch,7"
-            echo "dhcp-boot=tag:efi64,grubx64.efi"
+            echo "dhcp-match=set:efi64,option:client-arch,7"     # EFI BC (x86-64)
+            echo "dhcp-match=set:efi64,option:client-arch,9"     # EFI x86-64 (some firmwares send 9)
+            echo "dhcp-boot=tag:efi64,grub/x86_64-efi/core.efi"
             echo "pxe-service=x86PC,\"Bossman PXE install\",pxelinux"
         fi
     } > "$DNSMASQ_CONF"

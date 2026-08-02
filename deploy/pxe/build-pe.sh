@@ -62,9 +62,18 @@ mkdir -p "$TFTP_ROOT"
 cp -f "$PE_ROOT"/boot/vmlinuz-* "$TFTP_ROOT/pe-kernel"
 cp -f "$PE_ROOT"/boot/initrd.img-* "$TFTP_ROOT/pe-initrd"
 
-# UEFI loader + grub.cfg (mirrors the PXELINUX append the entrypoint writes).
-cp -f "$PE_ROOT"/usr/lib/grub/x86_64-efi/monolithic/grubnetx64.efi.signed "$TFTP_ROOT/grubx64.efi" 2>/dev/null \
-    || chroot "$PE_ROOT" grub-mknetdir --net-directory="$TFTP_ROOT" --subdir=/ 2>/dev/null || true
+# UEFI netboot loader. grub-mknetdir builds core.efi + its module tree; it needs the grub tools + modules
+# from inside the PE, so run it in the chroot writing to a temp dir, then copy the tree onto the real TFTP
+# root. dnsmasq points UEFI clients at grub/x86_64-efi/core.efi; the entrypoint writes grub/grub.cfg (the
+# same append line as PXELINUX, with the WebUI netboot secret).
+rm -rf "$PE_ROOT/tmp/netboot"
+if chroot "$PE_ROOT" grub-mknetdir --net-directory=/tmp/netboot --subdir=/grub >/dev/null 2>&1; then
+    rm -rf "$TFTP_ROOT/grub"
+    cp -a "$PE_ROOT/tmp/netboot/grub" "$TFTP_ROOT/grub"
+    echo "build-pe: UEFI grub netboot loader at ${TFTP_ROOT}/grub/x86_64-efi/core.efi"
+else
+    echo "build-pe: WARNING grub-mknetdir failed — UEFI PXE boot will not work" >&2
+fi
 
 # Pack the rootfs as the squashfs live-boot fetches into RAM.
 echo "build-pe: mksquashfs → ${HTTP_ROOT}/pe.squashfs…"
