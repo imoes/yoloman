@@ -266,3 +266,20 @@ zwei PXE-Migrationen sind gegen die Dev-DB angewendet. Deploy = schlichtes `alem
 Imports + die 5 `/vm`-Routen; `ng build` grün (noVNC 1.5, kein TLA); `docker compose (--profile pxe)
 config` parst; Alembic-Migrationen angewendet. **Deploy-gebunden** bleibt nur, was `/dev/kvm` + die
 ens19-Bridge braucht (Schritte 1–2, 5–6).
+
+## DHCP nur bei pending Auftrag (Härtung)
+
+Der `pxe`-Container fährt **kein Dauer-DHCP**. TFTP läuft immer; die DHCP-Direktiven schreibt der
+Entrypoint nur, wenn Bossman einen offenen Auftrag meldet. Ablauf (selbstheilend, überlebt Neustarts):
+- Bossman: `GET /api/v1/netboot/pending` (mit `X-Netboot-Secret`) → `{"pending": n, "dhcp": bool}` —
+  `true`, sobald ein `RestoreJob` `pending` **oder** `running` ist.
+- Container: Reconcile-Schleife pollt alle `${DHCP_POLL_SECONDS:-10}`s und schaltet dnsmasqs DHCP an/aus
+  (bei Änderung Conf neu schreiben + dnsmasq neu starten). Ist Bossman kurz nicht erreichbar, wird der
+  aktuelle Zustand gehalten (kein Flackern).
+- Wirkung: Ohne armed Auftrag antwortet der Server keinem PXE-Client; sobald ein Ziel „armed" wird, geht
+  DHCP an; nach `done`/`failed`/`cancel` (und keinem weiteren offenen Job) wieder aus.
+
+**Operator-Detail:** `BOSSMAN_URL` muss aus dem `pxe`-Container (Host-Netz auf ens19) **routbar** sein —
+`http://bossman:8000` (Compose-DNS) greift dort nicht. Im Override auf eine host-erreichbare Adresse
+setzen (z. B. die veröffentlichte Bossman-Adresse). Dieselbe Adresse bekommen die Ziele als
+`bossman_url` auf der Kernel-Cmdline.

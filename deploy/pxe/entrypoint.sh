@@ -42,28 +42,36 @@ EOF
 cp -f /usr/lib/PXELINUX/pxelinux.0 "$TFTP_ROOT/" 2>/dev/null || true
 cp -f /usr/lib/syslinux/modules/bios/ldlinux.c32 "$TFTP_ROOT/" 2>/dev/null || true
 
-# ── 3. dnsmasq: DHCP (proxy or full) + TFTP. Proxy mode augments an existing DHCP server; full mode
-#       hands out addresses itself. Either way it points BIOS at pxelinux.0 and UEFI at grubx64.efi. ──
+# ── 3. dnsmasq conf writer: TFTP is ALWAYS served; DHCP is written only when asked (arg = on). Proxy
+#       mode augments an existing DHCP server; full mode hands out addresses itself. Either way it points
+#       BIOS at pxelinux.0 and UEFI at grubx64.efi. ──────────────────────────────────────────────────
 DNSMASQ_CONF=/etc/dnsmasq.d/pxe.conf
-{
-    echo "interface=${PXE_INTERFACE}"
-    echo "bind-interfaces"
-    echo "enable-tftp"
-    echo "tftp-root=${TFTP_ROOT}"
-    if [ "$DHCP_MODE" = "full" ]; then
-        echo "dhcp-range=${DHCP_RANGE}"
-        echo "dhcp-option=option:router,${DHCP_ROUTER}"
-    else
-        # proxy DHCP: no address handout, just PXE boot info alongside the network's own DHCP.
-        echo "dhcp-range=${PXE_LISTEN_IP},proxy"
-    fi
-    # BIOS vs UEFI boot file (dnsmasq matches the client arch tag).
-    echo "dhcp-match=set:bios,option:client-arch,0"
-    echo "dhcp-boot=tag:bios,pxelinux.0"
-    echo "dhcp-match=set:efi64,option:client-arch,7"
-    echo "dhcp-boot=tag:efi64,grubx64.efi"
-    echo "pxe-service=x86PC,\"Bossman PXE install\",pxelinux"
-} > "$DNSMASQ_CONF"
+write_dnsmasq_conf() {   # $1 = on|off
+    {
+        echo "interface=${PXE_INTERFACE}"
+        echo "bind-interfaces"
+        echo "enable-tftp"
+        echo "tftp-root=${TFTP_ROOT}"
+        if [ "$1" = "on" ]; then
+            if [ "$DHCP_MODE" = "full" ]; then
+                echo "dhcp-range=${DHCP_RANGE}"
+                echo "dhcp-option=option:router,${DHCP_ROUTER}"
+            else
+                # proxy DHCP: no address handout, just PXE boot info alongside the network's own DHCP.
+                echo "dhcp-range=${PXE_LISTEN_IP},proxy"
+            fi
+            echo "dhcp-match=set:bios,option:client-arch,0"
+            echo "dhcp-boot=tag:bios,pxelinux.0"
+            echo "dhcp-match=set:efi64,option:client-arch,7"
+            echo "dhcp-boot=tag:efi64,grubx64.efi"
+            echo "pxe-service=x86PC,\"Bossman PXE install\",pxelinux"
+        fi
+    } > "$DNSMASQ_CONF"
+}
+restart_dnsmasq() {
+    pkill -x dnsmasq 2>/dev/null || true
+    dnsmasq --log-facility=- --conf-file="$DNSMASQ_CONF"   # daemonizes; the reconcile loop below stays foreground
+}
 
 # ── 4. nginx serves the HTTP root (pe.squashfs, images/<id>/, agent.deb). ────────────────────────────
 cat > /etc/nginx/sites-available/default <<EOF
@@ -74,8 +82,28 @@ server {
     location / { }
 }
 EOF
-
-echo "pxe: dnsmasq(${DHCP_MODE}) + TFTP on ${PXE_INTERFACE}/${PXE_LISTEN_IP}, HTTP root ${HTTP_ROOT}, bossman ${BOSSMAN_URL}"
 nginx
-# websockify→noVNC is started per-VM by the QEMU control path; leave the static novnc assets served by nginx.
-exec dnsmasq --keep-in-foreground --log-facility=- --conf-file="$DNSMASQ_CONF"
+
+# ── 5. Start DHCP OFF (TFTP only), then reconcile against Bossman: DHCP is served ONLY while a restore
+#       job is pending/running (GET /netboot/pending), so there is never a standing DHCP/PXE server on
+#       the segment when there is no order to fulfil. BOSSMAN_URL must be reachable from this container
+#       (host network) — the operator sets a routable address in the override. ─────────────────────────
+state=off
+write_dnsmasq_conf off
+restart_dnsmasq
+echo "pxe: TFTP on ${PXE_INTERFACE}/${PXE_LISTEN_IP}, HTTP root ${HTTP_ROOT}; DHCP gated on pending jobs via ${BOSSMAN_URL}"
+while true; do
+    resp="$(curl -fsS -m 5 -H "X-Netboot-Secret: ${NETBOOT_SECRET}" "${BOSSMAN_URL}/api/v1/netboot/pending" 2>/dev/null || true)"
+    case "$resp" in
+        *'"dhcp":true'*|*'"dhcp": true'*) want=on ;;
+        "") want="$state" ;;   # Bossman unreachable → hold current state rather than flap DHCP off/on
+        *) want=off ;;
+    esac
+    if [ "$want" != "$state" ]; then
+        echo "pxe: DHCP ${want} (pending-job state changed)"
+        write_dnsmasq_conf "$want"
+        restart_dnsmasq
+        state="$want"
+    fi
+    sleep "${DHCP_POLL_SECONDS:-10}"
+done

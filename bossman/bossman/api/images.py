@@ -26,7 +26,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Request
 from pydantic import BaseModel
-from sqlalchemy import select, update
+from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from bossman.api.auth import get_current_identity
@@ -386,6 +386,22 @@ def _require_netboot_secret(settings, presented: str | None) -> None:
         raise HTTPException(status_code=403, detail="netboot check-in is disabled (no secret configured)")
     if presented != settings.netboot_secret:
         raise HTTPException(status_code=403, detail="bad netboot secret")
+
+
+@router.get("/api/v1/netboot/pending")
+async def netboot_pending(
+    x_netboot_secret: str | None = Header(default=None),
+    session: AsyncSession = Depends(get_session),
+) -> dict:
+    """Whether the PXE DHCP should be answering right now: true iff a restore job is armed (pending) or
+    mid-flight (running). The pxe container polls this and toggles dnsmasq's DHCP, so it only serves boot
+    requests while there is actually an order to fulfil — no standing DHCP/PXE on the segment otherwise."""
+    settings = get_settings()
+    _require_netboot_secret(settings, x_netboot_secret)
+    count = await session.scalar(
+        select(func.count()).select_from(RestoreJob).where(RestoreJob.status.in_(("pending", "running")))
+    )
+    return {"pending": int(count or 0), "dhcp": bool(count)}
 
 
 @router.post("/api/v1/netboot/checkin", response_model=CheckinOut)
