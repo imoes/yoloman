@@ -18,6 +18,7 @@ export interface DiskImage {
   name: string;
   description: string;
   status: string;          // capturing | ready | failed
+  error?: string | null;
   is_active: boolean;
   grow_policy: Record<string, number>;
   disk_size: number;
@@ -100,4 +101,10 @@ export class ImagesService {
     return this.http.post<string>(`${this.base}/vm/pxe-test`, body);
   }
   stopVm(name: string) { return this.http.post<string>(`${this.base}/vm/${name}/stop`, {}); }
+
+  // ── Import an existing disk image (vmdk/qcow2/raw) staged in the lab as a template ───────────────
+  importSources() { return this.http.get<string[]>(`${this.base}/images/import/sources`); }
+  importImage(body: { name: string; source_file: string; description?: string }) {
+    return this.http.post<DiskImage>(`${this.base}/images/import`, body);
+  }
 }

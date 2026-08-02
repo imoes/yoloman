@@ -98,3 +98,33 @@ async def list_vms(*, spawn: Spawn | None = None) -> list[dict]:
     except json.JSONDecodeError as exc:  # pragma: no cover - defensive
         raise VmLabError(f"vm-control list returned non-JSON: {out!r}") from exc
     return data if isinstance(data, list) else []
+
+
+# ── Importing an existing disk image (import-image.sh in the pxe container) ────────────────────────
+async def list_sources(*, spawn: Spawn | None = None) -> list[str]:
+    """Disk-image files staged in the lab's DISK_DIR (what the WebUI Import picker offers)."""
+    settings = get_settings()
+    if not settings.pxe_container:
+        raise VmLabError("PXE lab is not configured (BOSSMAN_PXE_CONTAINER is empty)")
+    argv = [settings.docker_bin, "exec", settings.pxe_container, "sh", "-c",
+            "ls -1 /srv/templates 2>/dev/null | grep -Ei '\\.(vmdk|qcow2|raw|img)$' || true"]
+    rc, out, err = await (spawn or _default_spawn)(argv)
+    if rc != 0:
+        raise VmLabError(f"listing import sources failed (rc={rc}): {err.strip() or out.strip()}")
+    return [line.strip() for line in out.splitlines() if line.strip()]
+
+
+async def start_import(source: str, image_id: str, token: str, bossman_url: str, *, spawn: Spawn | None = None) -> None:
+    """Kick off import-image.sh DETACHED in the pxe container. It drives the whole capture itself (via
+    the per-image token) and reports completion/failure back through the /images API, so Bossman does
+    not block on the multi-GB partclone here."""
+    settings = get_settings()
+    if not settings.pxe_container:
+        raise VmLabError("PXE lab is not configured (BOSSMAN_PXE_CONTAINER is empty)")
+    if not source or "/" in source:
+        raise VmLabError("source must be a bare filename in the lab's DISK_DIR")
+    argv = [settings.docker_bin, "exec", "-d", settings.pxe_container,
+            "import-image.sh", source, image_id, token, bossman_url]
+    rc, out, err = await (spawn or _default_spawn)(argv)
+    if rc != 0:
+        raise VmLabError(f"could not launch import (rc={rc}): {err.strip() or out.strip()}")

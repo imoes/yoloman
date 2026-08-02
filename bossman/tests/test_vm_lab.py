@@ -95,3 +95,28 @@ def test_nonzero_rc_raises(lab):
 
     with pytest.raises(vm_lab.VmLabError, match="boom"):
         _run(vm_lab.stop("t", spawn=failing))
+
+
+def test_start_import_argv(lab):
+    calls, spawn = lab
+    _run(vm_lab.start_import("base-251130-disk-0.vmdk", "img-1", "tok", "http://boss:8123", spawn=spawn))
+    assert calls[0] == [
+        "docker", "exec", "-d", "agentic-mcp-pxe",
+        "import-image.sh", "base-251130-disk-0.vmdk", "img-1", "tok", "http://boss:8123",
+    ]
+
+
+def test_start_import_rejects_pathy_source(lab):
+    _, spawn = lab
+    with pytest.raises(vm_lab.VmLabError):
+        _run(vm_lab.start_import("../etc/passwd", "img-1", "tok", "http://boss:8123", spawn=spawn))
+
+
+def test_list_sources_parses_lines(lab):
+    _, _spawn = lab
+
+    async def spawn(argv):
+        return 0, "base-251130-disk-0.vmdk\nother.qcow2\n", ""
+
+    out = _run(vm_lab.list_sources(spawn=spawn))
+    assert out == ["base-251130-disk-0.vmdk", "other.qcow2"]

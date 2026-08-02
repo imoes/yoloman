@@ -25,6 +25,31 @@ const GROWABLE = new Set(['root', 'var', 'home', 'data']);
       <!-- ── Templates ────────────────────────────────────────────── -->
       <section class="dt-col">
         <h2>Disk-Templates</h2>
+
+        <!-- Import an existing disk image (vmdk/qcow2/raw) staged in the lab as a golden template. -->
+        <div class="dt-import">
+          @if (!importOpen()) {
+            <button mat-button (click)="openImport()"><mat-icon>upload_file</mat-icon> Bestehendes Image importieren</button>
+          } @else {
+            <div class="dt-import-form">
+              <b>Image importieren</b>
+              <label class="dt-fld"><span>Quelldatei (in /srv/templates)</span>
+                <select [(ngModel)]="imp.source_file">
+                  <option value="" disabled>— wählen —</option>
+                  @for (s of sources(); track s) { <option [value]="s">{{ s }}</option> }
+                </select>
+              </label>
+              <label class="dt-fld"><span>Template-Name</span><input [(ngModel)]="imp.name" placeholder="z. B. debian13-base" /></label>
+              <div class="dt-row">
+                <button mat-flat-button color="primary" [disabled]="!imp.source_file || !imp.name.trim() || importing()" (click)="doImport()">Importieren</button>
+                <button mat-button (click)="importOpen.set(false)">Abbrechen</button>
+              </div>
+              @if (sources().length === 0) { <p class="dt-muted">Keine Images in /srv/templates gefunden (.vmdk/.qcow2/.raw/.img).</p> }
+              @if (importErr()) { <p class="dt-err">{{ importErr() }}</p> }
+            </div>
+          }
+        </div>
+
         @if (images().length === 0) { <p class="dt-muted">Noch keine aufgenommenen Templates.</p> }
         @for (img of images(); track img.id) {
           <div class="dt-card" [class.dt-sel]="selected()?.id === img.id" (click)="select(img)">
@@ -34,6 +59,8 @@ const GROWABLE = new Set(['root', 'var', 'home', 'data']);
               <span class="dt-badge" [class.ready]="img.status === 'ready'">{{ img.status }}</span>
             </div>
             <div class="dt-sub">{{ (img.disk_size / 1073741824) | number: '1.0-1' }} GiB · {{ img.volumes.length }} Volumes</div>
+            @if (img.status === 'capturing') { <div class="dt-sub">⏳ Import läuft…</div> }
+            @if (img.status === 'failed' && img.error) { <div class="dt-err">{{ img.error }}</div> }
             <button mat-button [disabled]="img.status !== 'ready'" (click)="toggleActive(img, $event)">
               {{ img.is_active ? 'Aktiv' : 'Als aktiv markieren' }}
             </button>
@@ -143,6 +170,9 @@ const GROWABLE = new Set(['root', 'var', 'home', 'data']);
     .dt-lab-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin: .5rem 0; }
     .dt-lab-form { display: flex; flex-direction: column; gap: .35rem; border: 1px solid #3334; border-radius: 8px; padding: .7rem; }
     .dt-lab-form input { padding: .3rem; }
+    .dt-import { margin-bottom: .6rem; }
+    .dt-import-form { display: flex; flex-direction: column; gap: .35rem; border: 1px solid #4a90d9; border-radius: 8px; padding: .7rem; }
+    .dt-import-form select, .dt-import-form input { padding: .3rem; }
     .dt-col h2 { font-size: 1rem; margin: 0 0 .5rem; }
     .dt-muted { color: var(--mat-sys-on-surface-variant, #888); font-size: .85rem; }
     .dt-card { border: 1px solid #3334; border-radius: 8px; padding: .6rem; margin-bottom: .5rem; cursor: pointer; }
@@ -176,6 +206,13 @@ export class DiskTemplatesComponent implements OnInit, OnDestroy {
   inst = { name: '', iso: '', disk: '' };
   activeImage = computed(() => this.images().find((i) => i.is_active) ?? null);
 
+  // Import an existing disk image staged in the lab.
+  importOpen = signal(false);
+  sources = signal<string[]>([]);
+  imp = { name: '', source_file: '' };
+  importing = signal(false);
+  importErr = signal('');
+
   host = { hostname: '', mac: '' };
   net: ProvisionNetwork = { mode: 'dhcp' };
   dnsRaw = '';
@@ -191,8 +228,33 @@ export class DiskTemplatesComponent implements OnInit, OnDestroy {
     this.pollVms();
     this.timer = setInterval(() => {
       this.svc.jobs().subscribe((j) => this.jobs.set(j));
+      // Re-list images so an import's capturing → ready (or failed) shows up live.
+      this.svc.list().subscribe((imgs) => this.images.set(imgs));
       this.pollVms();
     }, 3000);
+  }
+
+  openImport(): void {
+    this.importOpen.set(true);
+    this.importErr.set('');
+    this.svc.importSources().subscribe({
+      next: (s) => this.sources.set(s),
+      error: (e) => this.importErr.set(e?.error?.detail || 'Quellen konnten nicht geladen werden'),
+    });
+  }
+
+  doImport(): void {
+    this.importErr.set('');
+    this.importing.set(true);
+    this.svc.importImage({ name: this.imp.name.trim(), source_file: this.imp.source_file }).subscribe({
+      next: () => {
+        this.importing.set(false);
+        this.importOpen.set(false);
+        this.imp = { name: '', source_file: '' };
+        this.reload();   // the new image shows as 'capturing' and the poll flips it to 'ready'
+      },
+      error: (e) => { this.importing.set(false); this.importErr.set(e?.error?.detail || 'Import fehlgeschlagen'); },
+    });
   }
   ngOnDestroy(): void { if (this.timer) clearInterval(this.timer); }
 

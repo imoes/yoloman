@@ -33,7 +33,7 @@ from bossman.api.auth import get_current_identity
 from bossman.config import get_settings
 from bossman.db.models import SYSTEM_SETTINGS_ID, Agent, DiskImage, RestoreJob, SystemSettings
 from bossman.db.session import get_session
-from bossman.services import imaging, offline_enroll
+from bossman.services import imaging, offline_enroll, vm_lab
 
 router = APIRouter()
 
@@ -215,6 +215,127 @@ async def create_image(
         name=name, description=body.description, source_agent_id=body.source_agent_id, status="capturing"
     )
     session.add(img)
+    await session.commit()
+    return ImageOut.from_model(img)
+
+
+class ImageImportIn(BaseModel):
+    """Ingest an existing disk image already staged in the lab's DISK_DIR as a golden template — the
+    'I already have an installed OS' path, parallel to installing from an ISO."""
+
+    name: str
+    source_file: str   # bare filename in the lab's DISK_DIR (vmdk/qcow2/raw/img)
+    description: str = ""
+
+
+@router.get("/api/v1/images/import/sources", response_model=list[str])
+async def list_import_sources(_identity=Depends(get_current_identity)) -> list[str]:
+    """Disk-image files staged in the lab (what the WebUI Import picker offers)."""
+    try:
+        return await vm_lab.list_sources()
+    except vm_lab.VmLabError as exc:
+        code = 503 if "not configured" in str(exc) else 400
+        raise HTTPException(status_code=code, detail=str(exc))
+
+
+@router.post("/api/v1/images/import", response_model=ImageOut, status_code=201)
+async def import_existing_image(
+    body: ImageImportIn,
+    session: AsyncSession = Depends(get_session),
+    _identity=Depends(get_current_identity),
+) -> ImageOut:
+    """Create the DiskImage (capturing) and launch import-image.sh detached in the pxe container; it
+    captures every volume and finishes the image itself (via the per-image token), so the WebUI just
+    watches the image go capturing → ready (or failed)."""
+    settings = get_settings()
+    name = body.name.strip()
+    if not name:
+        raise HTTPException(status_code=422, detail="name is required")
+    source = body.source_file.strip()
+    if not source or "/" in source:
+        raise HTTPException(status_code=422, detail="source_file must be a bare filename in the lab's DISK_DIR")
+    if await session.scalar(select(DiskImage).where(DiskImage.name == name)) is not None:
+        raise HTTPException(status_code=409, detail=f"an image named {name!r} already exists")
+    # The script calls back into this API, so it needs a Bossman URL reachable from the pxe container
+    # (host network) — the same address agent enrolment uses.
+    bossman_url = settings.public_url
+    if not bossman_url:
+        raise HTTPException(status_code=400, detail="set BOSSMAN_PUBLIC_URL (reachable from the pxe container) to import")
+    img = DiskImage(name=name, description=body.description, status="capturing")
+    session.add(img)
+    await session.commit()
+    token = image_upload_token(settings, img.id)
+    try:
+        await vm_lab.start_import(source, str(img.id), token, bossman_url.rstrip("/"))
+    except vm_lab.VmLabError as exc:
+        img.status = "failed"
+        img.error = str(exc)
+        await session.commit()
+        code = 503 if "not configured" in str(exc) else 400
+        raise HTTPException(status_code=code, detail=str(exc))
+    return ImageOut.from_model(img)
+
+
+class CapturePlanIn(BaseModel):
+    lsblk: dict   # `lsblk -b --json -O <disk>` (top-level, with "blockdevices")
+    sfdisk: dict = {}
+
+
+@router.post("/api/v1/images/{image_id}/capture-plan")
+async def capture_plan(
+    image_id: UUID,
+    body: CapturePlanIn,
+    x_image_token: str | None = Header(default=None),
+    session: AsyncSession = Depends(get_session),
+) -> dict:
+    """Plan a capture the same way the restore plans an install: the container reports lsblk+sfdisk and
+    gets back the manifest (layout_to_dict) plus the per-volume list (stem/fs/partclone tool + how to
+    address the volume). Token-auth'd, since it is the capturing import driving it, not an operator."""
+    settings = get_settings()
+    _require_image_token(settings, image_id, x_image_token)
+    img = await _image_or_404(session, image_id)
+    if img.status != "capturing":
+        raise HTTPException(status_code=409, detail=f"image is {img.status}; only a capturing image plans a capture")
+    disks = (body.lsblk or {}).get("blockdevices") or []
+    if not disks:
+        raise HTTPException(status_code=422, detail="lsblk reported no block device")
+    try:
+        layout = imaging.parse_layout(sfdisk=body.sfdisk or None, lsblk_disk=disks[0])
+    except imaging.ImagingError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    volumes = [
+        {
+            "stem": imaging.image_stem(v),
+            "fs": v.fs_type,
+            "tool": imaging.partclone_tool(v.fs_type),
+            "partition": v.partition,
+            "vg": v.vg,
+            "lv": v.lv,
+        }
+        for v in layout.volumes
+    ]
+    return {"manifest": imaging.layout_to_dict(layout), "volumes": volumes}
+
+
+class ImportFailedIn(BaseModel):
+    error: str = "import failed"
+
+
+@router.post("/api/v1/images/{image_id}/import-failed", response_model=ImageOut)
+async def import_failed(
+    image_id: UUID,
+    body: ImportFailedIn,
+    x_image_token: str | None = Header(default=None),
+    session: AsyncSession = Depends(get_session),
+) -> ImageOut:
+    """The import script reports a failure so the WebUI shows the reason instead of a stuck 'capturing'."""
+    settings = get_settings()
+    _require_image_token(settings, image_id, x_image_token)
+    img = await _image_or_404(session, image_id)
+    if img.status == "ready":
+        raise HTTPException(status_code=409, detail="image is already ready")
+    img.status = "failed"
+    img.error = body.error[:2000]
     await session.commit()
     return ImageOut.from_model(img)
 

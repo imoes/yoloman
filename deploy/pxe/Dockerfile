@@ -20,6 +20,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         pxelinux syslinux-common grub-efi-amd64-bin \
         curl ca-certificates iproute2 kmod procps gettext-base \
         linux-image-amd64 \
+        partclone zstd lvm2 jq \
     && rm -rf /var/lib/apt/lists/*
 
 # The static agent, baked into the PE at build-pe time and served at the HTTP root as agent.deb.
@@ -30,8 +31,9 @@ COPY deploy/pxe/entrypoint.sh /entrypoint.sh
 COPY deploy/pxe/build-pe.sh /usr/local/sbin/build-pe.sh
 COPY deploy/pxe/pe-init.sh /usr/local/sbin/pe-init.sh
 COPY deploy/pxe/vm-control.sh /usr/local/bin/vm-control.sh
+COPY deploy/pxe/import-image.sh /usr/local/bin/import-image.sh
 RUN chmod +x /entrypoint.sh /usr/local/sbin/build-pe.sh /usr/local/sbin/pe-init.sh \
-        /usr/local/bin/vm-control.sh /usr/bin/agentic-mcpd
+        /usr/local/bin/vm-control.sh /usr/local/bin/import-image.sh /usr/bin/agentic-mcpd
 
 # QEMU's bridge helper (for the diskless PXE-test VM on the ens19 bridge) is ACL-gated: whitelist the
 # bridge and give the helper the net cap. VM_BRIDGE defaults to br-ens19 (create it on the host, enslave
