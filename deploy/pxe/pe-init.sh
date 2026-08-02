@@ -19,7 +19,16 @@ BLK=$(lsblk -b --json | jq -c '.blockdevices')
 
 req() { curl -fsS -H "X-Netboot-Secret: $SECRET" -H "Content-Type: application/json" "$@"; }
 
-RESP=$(req -X POST "$BOSSMAN/api/v1/netboot/checkin" \
+# Wait for the network to actually be reachable before checking in. live-boot brought the interface up
+# with ip=dhcp in the initramfs, but by the time systemd runs this unit the route/DNS may lag a moment —
+# so poll Bossman until it answers rather than failing on the first try.
+i=0
+while [ "$i" -lt 40 ]; do
+    curl -fsS -m 4 -o /dev/null "$BOSSMAN/healthz" 2>/dev/null && break
+    echo "pe-init: waiting for the network / Bossman ($BOSSMAN)… ($i)"; sleep 3; i=$((i + 1))
+done
+
+RESP=$(req --retry 5 --retry-all-errors --retry-delay 3 -X POST "$BOSSMAN/api/v1/netboot/checkin" \
     -d "$(jq -cn --arg mac "$MAC" --argjson blk "$BLK" '{mac:$mac, blockdevices:$blk}')") || {
     echo "pe-init: check-in failed for $MAC" >&2; exit 1; }
 

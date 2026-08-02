@@ -27,6 +27,7 @@ else
 export DEBIAN_FRONTEND=noninteractive
 apt-get update
 apt-get install -y --no-install-recommends \
+    systemd-sysv udev dbus \
     live-boot live-boot-initramfs-tools \
     linux-image-amd64 \
     partclone lvm2 e2fsprogs xfsprogs dosfstools \
