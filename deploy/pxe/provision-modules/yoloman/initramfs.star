@@ -1,63 +1,72 @@
-# yoloman.initramfs — neutralise the source's swap/resume, then rebuild the initramfs.
-#
-# A PROVISIONING-ONLY module (baked into the PE, not the builtin agent). Run INSIDE the restored
-# root's chroot. partclone images filesystems only, so the source's swap LV is NOT captured and does
-# not exist on the target. Left alone, the source's fstab swap entry + the initramfs resume=<old-swap>
-# make systemd wait ~90s each boot ("waiting for suspend/resume device"), stalling before login. So:
-#   1. comment out swap lines in /etc/fstab,
-#   2. pin RESUME=none (drops the stale resume device),
-#   3. rebuild the initramfs for THIS machine (matches its real devices, drops the stale resume).
-# Idempotent: re-running finds swap already commented + RESUME already none and only rebuilds.
-# Contract: {changed, msg, data}.
-
 def main(ctx, params):
+    actions = []
     changed = False
-    done = []
 
-    # 1. Comment active swap lines in fstab.
-    fstab = "/etc/fstab"
-    if ctx.file_exists(fstab):
-        old = ctx.file_read(fstab)
-        out = []
-        for line in old.split("\n"):
-            s = line.strip()
-            # an active (non-comment) line whose second field or an fs-type field is 'swap'
-            if s and not s.startswith("#") and _is_swap_line(s):
-                out.append("#" + line)
+    # 1. Comment out swap entries in /etc/fstab
+    if ctx.file_exists("/etc/fstab"):
+        fstab_content = ctx.file_read("/etc/fstab")
+        new_lines = []
+        fstab_changed = False
+        for line in fstab_content.split("\n"):
+            stripped = line.strip()
+            if not stripped or stripped.startswith("#"):
+                new_lines.append(line)
+                continue
+
+            fields = stripped.split()
+            if len(fields) >= 3 and (fields[1] == "swap" or fields[2] == "swap"):
+                new_lines.append("#" + line)
+                fstab_changed = True
             else:
-                out.append(line)
-        new = "\n".join(out)
-        if new != old:
-            ctx.file_write(fstab, new, mode="0644")
+                new_lines.append(line)
+
+        if fstab_changed:
+            new_content = "\n".join(new_lines)
+            if new_content != fstab_content:
+                changed = ctx.file_write("/etc/fstab", new_content)
+                if changed:
+                    actions.append("commented_swap_in_fstab")
+    else:
+        actions.append("fstab_not_present")
+
+    # 2. Ensure /etc/initramfs-tools/conf.d/resume contains RESUME=none
+    resume_dir = "/etc/initramfs-tools/conf.d"
+    resume_file = resume_dir + "/resume"
+    expected_resume = "RESUME=none\n"
+
+    ctx.run(["mkdir", "-p", resume_dir], mutates=True)
+
+    resume_exists = ctx.file_exists(resume_file)
+    resume_content = ctx.file_read(resume_file) if resume_exists else ""
+    if resume_content != expected_resume:
+        resume_changed = ctx.file_write(resume_file, expected_resume)
+        if resume_changed:
+            actions.append("set_resume_none")
             changed = True
-            done.append("commented swap in fstab")
 
-    # 2. Pin RESUME=none.
-    resume = "/etc/initramfs-tools/conf.d/resume"
-    want = "RESUME=none\n"
-    cur = ctx.file_read(resume) if ctx.file_exists(resume) else ""
-    if cur != want:
-        ctx.run(["mkdir", "-p", "/etc/initramfs-tools/conf.d"], mutates=True)
-        ctx.file_write(resume, want, mode="0644")
-        changed = True
-        done.append("pinned RESUME=none")
+    # 3. Rebuild initramfs
+    rebuild_msg = None
+    if ctx.check_mode:
+        actions.append("would_rebuild_initramfs")
+        return {"changed": True, "msg": "would rebuild initramfs", "data": {"actions": actions}}
 
-    # 3. Rebuild the initramfs (always — cheap, and the point of the module).
-    res = ctx.run(["sh", "-c", "update-initramfs -u -k all || update-initramfs -u"], mutates=True)
-    if res.rc != 0:
-        fail("update-initramfs failed: %s" % res.stderr)
-    done.append("rebuilt initramfs")
+    res = ctx.run(["update-initramfs", "-u", "-k", "all"], mutates=True)
+    if res.rc == 0:
+        rebuild_msg = "rebuild_ok"
+    else:
+        actions.append("fallback_to_default_kernel")
+        res = ctx.run(["update-initramfs", "-u"], mutates=True)
+        if res.rc == 0:
+            rebuild_msg = "rebuild_ok"
+        else:
+            fail("failed to rebuild initramfs: " + res.stderr)
 
+    if rebuild_msg:
+        actions.append(rebuild_msg)
+
+    # The initramfs was rebuilt (not idempotent), so this run always changed the system.
     return {
         "changed": True,
-        "msg": "neutralised source swap/resume and rebuilt initramfs (%s)" % ", ".join(done),
-        "data": {"actions": done},
+        "msg": "initramfs updated for chroot: " + ";".join(actions),
+        "data": {"actions": actions}
     }
-
-
-# A swap fstab line: fields are <spec> <mount> <type> ...; either the mount point or the type is 'swap'.
-def _is_swap_line(line):
-    fields = line.split()
-    if len(fields) < 3:
-        return False
-    return fields[1] == "swap" or fields[2] == "swap"
