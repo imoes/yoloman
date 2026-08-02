@@ -895,9 +895,15 @@ def restore_steps(
         steps.append(Step(name="install bootloader (BIOS)", chroot=True,
                           argv=("grub-install", "--target=i386-pc", disk)))
     steps.append(Step(name="regenerate grub config", argv=("update-grub",), chroot=True))
-    # Rebuild the initramfs for THIS machine: the source's carried a stale resume/hibernate device (its
-    # old swap UUID), which makes every boot hang ~30s "waiting for suspend/resume device" before giving
-    # up. Regenerating drops it and matches the target's actual devices.
+    # The source's swap LV is NOT captured (partclone images filesystems only), so it doesn't exist on
+    # the target. Its fstab swap entry and the initramfs resume=<old-swap> then make systemd wait ~90s
+    # each boot ("waiting for suspend/resume device") — and the machine can stall before login. Comment
+    # the swap lines and pin RESUME=none so the initramfs rebuild below drops the stale resume device.
+    steps.append(Step(name="neutralise source swap/resume", chroot=True, shell=(
+        r"sed -ri 's/^([^#].*\sswap\s)/#\1/' /etc/fstab 2>/dev/null || true; "
+        "mkdir -p /etc/initramfs-tools/conf.d && printf 'RESUME=none\n' > /etc/initramfs-tools/conf.d/resume"
+    )))
+    # Rebuild the initramfs for THIS machine (drops the stale resume, matches the target's devices).
     steps.append(Step(name="rebuild initramfs", shell="update-initramfs -u -k all || update-initramfs -u", chroot=True))
 
     # 6. Identity: without this every clone is a twin.

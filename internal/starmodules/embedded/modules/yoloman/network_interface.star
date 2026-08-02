@@ -404,9 +404,11 @@ def _configure_ifupdown(ctx, params, name, state):
         lines.append("    hwaddress ether %s" % mac)
     content = "\n".join(lines) + "\n"
     changed = ctx.file_write(path, content, mode="0644")
-    # apply: bring it down (ignore failure if never up) then up
-    ctx.run(["ifdown", name], mutates=True, ok_codes=[0, 1])
-    ctx.run(["ifup", name], mutates=True)
+    # apply: bring it down (ignore failure if never up) then up. Skipped when apply=false (offline
+    # provisioning writes the config into a not-yet-running root; it takes effect on that machine's boot).
+    if params.get("apply", True):
+        ctx.run(["ifdown", name], mutates=True, ok_codes=[0, 1])
+        ctx.run(["ifup", name], mutates=True)
     return {
         "changed": changed,
         "msg": "wrote ifupdown config for %s (%s)" % (name, method),
