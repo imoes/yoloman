@@ -833,12 +833,22 @@ def restore_steps(
        than after the first boot is the whole reason the machine reboots exactly once.
     """
     disk = f"/dev/{plan.target_disk}"
+    qdisk = shlex.quote(disk)
     steps: list[Step] = []
+
+    # 0. A deploy target must be a BLANK disk. Refuse — never wipe — if it already carries a partition
+    #    table or any filesystem/LVM signature: a non-empty target means either the wrong machine or a
+    #    prior failed run, and overwriting it could destroy real data. The operator provisions an empty
+    #    disk; anything else is an error to investigate, not to silently clobber.
+    steps.append(Step(name="require a blank target disk", shell=(
+        f'if [ -n "$(lsblk -rno NAME {qdisk} | tail -n +2)" ] || [ -n "$(wipefs {qdisk} 2>/dev/null)" ]; then '
+        f'echo "target disk {disk} is not blank (found partitions or filesystem/LVM signatures) — '
+        f'a machine being deployed must have an empty disk"; exit 1; fi'
+    )))
 
     # 1. Partition table (unless LVM sits on the raw disk), then the volume group.
     if layout.partitions:
-        steps.append(Step(name="wipe partition table", argv=("wipefs", "-a", disk)))
-        steps.append(Step(name="write partition table", shell=f"sfdisk {shlex.quote(disk)} < /tmp/target.sfdisk"))
+        steps.append(Step(name="write partition table", shell=f"sfdisk {qdisk} < /tmp/target.sfdisk"))
         steps.append(Step(name="settle device nodes", argv=("udevadm", "settle")))
     pv = disk if layout.lvm_on_raw_disk else f"{disk}{_part_suffix(plan.target_disk, pv_partition or len(layout.partitions))}"
     for argv in lvm_commands(layout, pv_device=pv, plan=plan):
