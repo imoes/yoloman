@@ -14,29 +14,32 @@ MIRROR="${PE_MIRROR:-http://deb.debian.org/debian}"
 # reuse it and only re-pack the squashfs — a container recreate loses pe.squashfs (container layer) but
 # NOT the rootfs, so this turns a ~5-min rebuild into a ~30s re-pack.
 if ls "$PE_ROOT"/boot/vmlinuz-* >/dev/null 2>&1; then
-    echo "build-pe: reusing existing rootfs in ${PE_ROOT} (skipping debootstrap + apt)"
+    echo "build-pe: reusing existing rootfs in ${PE_ROOT} (skipping debootstrap)"
 else
     echo "build-pe: debootstrap ${SUITE} into ${PE_ROOT}…"
     # A mounted volume — clear its CONTENTS, never rm the mountpoint itself ("Device or resource busy").
     mkdir -p "$PE_ROOT"
     find "$PE_ROOT" -mindepth 1 -maxdepth 1 -exec rm -rf {} + 2>/dev/null || true
     debootstrap --variant=minbase --include=ca-certificates "$SUITE" "$PE_ROOT" "$MIRROR"
+fi
 
-    # The toolchain the returned restore steps need, plus live-boot (RAM boot) and the kernel.
-    chroot "$PE_ROOT" /bin/sh -eu <<'CHROOT'
+# The toolchain the restore steps run IN THE PE (init, live-boot, the kernel, and the tools the returned
+# steps invoke: sfdisk/wipefs, lvm, partclone, resize2fs/xfs_growfs, curl/zstd, grub for build-pe's own
+# netdir). ALWAYS run (apt is idempotent), so adding a package here takes effect on the next re-pack
+# without wiping the persistent rootfs.
+chroot "$PE_ROOT" /bin/sh -eu <<'CHROOT'
 export DEBIAN_FRONTEND=noninteractive
 apt-get update
 apt-get install -y --no-install-recommends \
     systemd-sysv udev dbus \
     live-boot live-boot-initramfs-tools \
     linux-image-amd64 \
-    partclone lvm2 e2fsprogs xfsprogs dosfstools \
+    partclone lvm2 e2fsprogs xfsprogs dosfstools fdisk \
     grub-pc-bin grub-efi-amd64-bin \
     curl jq gdisk util-linux zstd ca-certificates
 apt-get clean
 rm -rf /var/lib/apt/lists/*
 CHROOT
-fi
 
 # The provisioner + its oneshot unit: run pe-init after the network is up.
 cp -f /usr/local/sbin/pe-init.sh "$PE_ROOT/usr/local/sbin/pe-init.sh"
