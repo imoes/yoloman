@@ -58,6 +58,7 @@ modprobe nbd max_part=16 2>/dev/null || true
 SRC_FMT="$(qemu-img info --output=json "$SRC" | jq -r '.format')"
 rm -f "$OVERLAY"
 qemu-img create -f qcow2 -b "$SRC" -F "$SRC_FMT" "$OVERLAY" >/dev/null || fail "overlay create"
+qemu-nbd -d "$NBD" >/dev/null 2>&1 || true   # clear any stale connection from a previous run
 qemu-nbd --connect="$NBD" "$OVERLAY" || fail "qemu-nbd connect"
 partprobe "$NBD" 2>/dev/null || true
 # The container's /dev has no partition nodes — create nbd0pN (minor N with max_part) so we can read them.

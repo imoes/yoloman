@@ -41,6 +41,13 @@ RUN chmod +x /entrypoint.sh /usr/local/sbin/build-pe.sh /usr/local/sbin/pe-init.
 RUN mkdir -p /etc/qemu && echo "allow br-ens19" > /etc/qemu/bridge.conf \
     && setcap cap_net_admin+ep /usr/lib/qemu/qemu-bridge-helper 2>/dev/null || true
 
+# CRITICAL host safety: a privileged container gets the host's /dev, so LVM here could otherwise see and
+# (de)activate the HOST's own volume groups. Clamp the container's LVM to ONLY /dev/nbd* via a global
+# filter — an ALLOW-list, so it is machine-INDEPENDENT (no need to know the host's disk names) and safe
+# whether a host volume is mounted or not. Every lvm command in the image obeys this, not just ones that
+# remember to pass --config. See deploy/pxe/import-image.sh.
+RUN mkdir -p /etc/lvm && printf 'devices {\n    global_filter = [ "a|/dev/nbd.*|", "r|.*|" ]\n}\n' > /etc/lvm/lvm.conf
+
 # HTTP root (nginx serves this): pe.squashfs, images/<id>/, agent.deb. TFTP root: kernel + initrd + loader.
 RUN mkdir -p /srv/http/images /srv/tftp
 
