@@ -283,3 +283,29 @@ Entrypoint nur, wenn Bossman einen offenen Auftrag meldet. Ablauf (selbstheilend
 `http://bossman:8000` (Compose-DNS) greift dort nicht. Im Override auf eine host-erreichbare Adresse
 setzen (z. B. die veröffentlichte Bossman-Adresse). Dieselbe Adresse bekommen die Ziele als
 `bossman_url` auf der Kernel-Cmdline.
+
+## DHCP-Range als Feature (Config-Template) statt bespoke Setting
+
+Entscheidung (mit Operator): DHCP wird **wie Rollen & Features** konfiguriert, nicht über eigene
+Settings-Felder. Der pxe-Container läuft dafür als **managed host** (`pxe-lab`, Agent im Entrypoint,
+Commit `d4250b6d`). Die Range ist dann eine ganz normale Config-Template-Variable — **kein neuer Code**:
+
+- Config-Template `dnsmasq.conf` hat bereits: `dhcp_enabled` (bool, On/Off), `dhcp_networks`
+  (Liste `{interface, start, end, lease_time}`), `dhcp_gateway`, `dhcp_dns`.
+- Range 192.0.2.223-192.0.2.224 → `dhcp_networks: [{interface: ens19, start: 192.0.2.223,
+  end: 192.0.2.224, lease_time: "12h"}]`, editierbar im WebUI-Config-Editor an `pxe-lab`.
+- Das netboot-**Secret** bleibt Bossman-Setting (WebUI-Karte, Commit `4b43390e`) — es ist Bossman-Auth,
+  keine Host-Config.
+
+**Offene Verdrahtung (deploy-gebunden, bewusst nicht blind gebaut):** Der Container hat **kein systemd**,
+also greift „Agent rendert Config + `service dnsmasq restarted`" nicht. Genau ein Owner muss dnsmasq
+*laufen lassen* und die vom Agenten gerenderte Config aufnehmen. Sauberer Zielentwurf:
+1. Der Agent rendert die DHCP-Config (aus `dnsmasq.conf`, Range aus dem WebUI) in eine dnsmasq.d-Datei.
+2. Der Entrypoint lässt dnsmasq laufen (TFTP-Basis immer) und startet es neu, wenn sich die Agenten-Datei
+   ändert — **ein** laufender dnsmasq, Agent = alleiniger Owner der DHCP-Config.
+3. Gating „DHCP nur bei pending" wandert vom bisherigen Container-Loop (`3b2ade5c`) auf den Config-Wert
+   `dhcp_enabled`, den Bossman aus dem Job-Status setzt (armed → on, erledigt → off).
+
+Das wird gegen den **laufenden** `pxe-lab`-Container verdrahtet (nach Enrollment + Template-Bindung), weil
+die Bindung eines Config-Templates einen Host mit entdeckten Config-Dateien voraussetzt und der genaue
+dnsmasq-Render-Pfad erst dann feststeht. Interim bleibt das committete Loop-Gating aktiv.
