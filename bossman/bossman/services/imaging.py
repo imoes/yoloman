@@ -895,6 +895,10 @@ def restore_steps(
         steps.append(Step(name="install bootloader (BIOS)", chroot=True,
                           argv=("grub-install", "--target=i386-pc", disk)))
     steps.append(Step(name="regenerate grub config", argv=("update-grub",), chroot=True))
+    # Rebuild the initramfs for THIS machine: the source's carried a stale resume/hibernate device (its
+    # old swap UUID), which makes every boot hang ~30s "waiting for suspend/resume device" before giving
+    # up. Regenerating drops it and matches the target's actual devices.
+    steps.append(Step(name="rebuild initramfs", shell="update-initramfs -u -k all || update-initramfs -u", chroot=True))
 
     # 6. Identity: without this every clone is a twin.
     steps.extend(identity_steps(hostname))
