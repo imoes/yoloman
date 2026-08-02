@@ -880,8 +880,20 @@ def restore_steps(
     for src in _BIND_MOUNTS:
         steps.append(Step(name=f"bind {src}", argv=("mount", "--rbind", src, f"{TARGET_ROOT}{src}")))
 
-    # 5. Bootloader.
-    steps.append(Step(name="install bootloader", argv=("grub-install", disk), chroot=True))
+    # 5. Bootloader — for the firmware the IMAGE was built for. An ESP volume (mounted at /boot/efi) means
+    #    the image is UEFI; otherwise it is BIOS (grub to the disk's boot code / bios_boot partition). This
+    #    only works when the target's firmware MATCHES the image: a BIOS image will not boot on UEFI
+    #    firmware and vice versa — capture from the firmware type you deploy to.
+    if any(v.role == "esp" for v in layout.volumes):
+        # UEFI: install grub-efi into the mounted ESP. --removable also writes the firmware's default
+        # fallback path (EFI/BOOT/BOOTX64.EFI), so a freshly imaged machine whose NVRAM has no boot entry
+        # yet still boots off the disk.
+        steps.append(Step(name="install bootloader (UEFI)", chroot=True, argv=(
+            "grub-install", "--target=x86_64-efi", "--efi-directory=/boot/efi",
+            "--bootloader-id=debian", "--removable", "--recheck")))
+    else:
+        steps.append(Step(name="install bootloader (BIOS)", chroot=True,
+                          argv=("grub-install", "--target=i386-pc", disk)))
     steps.append(Step(name="regenerate grub config", argv=("update-grub",), chroot=True))
 
     # 6. Identity: without this every clone is a twin.
