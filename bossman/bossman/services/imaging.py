@@ -930,6 +930,10 @@ def restore_steps(
 
     # 6. Identity: without this every clone is a twin.
     steps.extend(identity_steps(hostname))
+    # machine_identity DROPS the source's SSH host keys so clones don't share a fingerprint, but the image
+    # does not regenerate them on first boot — sshd then fails to start with no host keys. Regenerate fresh
+    # unique keys now with `ssh-keygen -A`, via the builtin `command` module (run in the target chroot).
+    steps.append(_chroot_module_step("regenerate ssh host keys", "command", {"cmd": "ssh-keygen -A"}))
 
     # 7. Configuration, including the target's own agent — after identity, so nothing it writes is
     # invalidated by a hostname or machine-id that changes underneath it.

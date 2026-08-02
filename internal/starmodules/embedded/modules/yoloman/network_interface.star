@@ -370,24 +370,38 @@ def _configure_networkd(ctx, params, name, state):
     }
 
 
-# --- ifupdown (Debian /etc/network/interfaces.d) ---
+# --- ifupdown (Debian /etc/network/interfaces) ---
+#
+# We OWN /etc/network/interfaces (loopback + the one configured interface) and rewrite it wholesale,
+# rather than dropping a separate /etc/network/interfaces.d/ stanza. A separate .d file leaves the
+# image's original `auto <iface>` stanza in place — so ifupdown sees the interface defined twice
+# (networking.service fails on the duplicate) and/or the old address stays alongside the new one. A
+# single authoritative file removes the source clone's addressing cleanly.
 
-def _ifupdown_path(name):
-    return "/etc/network/interfaces.d/yoloman-%s" % name
+_IFUPDOWN_PATH = "/etc/network/interfaces"
+_IFUPDOWN_HEADER = "# Managed by yoloman.network_interface — do not edit by hand\n"
+_LOOPBACK = "auto lo\niface lo inet loopback\n"
 
 
 def _configure_ifupdown(ctx, params, name, state):
-    path = _ifupdown_path(name)
+    path = _IFUPDOWN_PATH
+    # file_write does not create parent dirs; ensure /etc/network exists (it does on any real Debian
+    # target, but be defensive so the write can't fail on a minimal root).
+    ctx.run(["mkdir", "-p", "/etc/network"], mutates=True)
+    # Remove any stale file the older .d-based approach wrote, so it can't re-add the source's address.
+    stale = "/etc/network/interfaces.d/yoloman-%s" % name
+    if ctx.file_exists(stale):
+        ctx.run(["rm", "-f", stale], mutates=True)
+
     if state == "absent":
-        if not ctx.file_exists(path):
-            return {"changed": False, "msg": "ifupdown config for %s already absent" % name, "data": {"name": name, "provider": "ifupdown"}}
-        ctx.run(["ifdown", name], mutates=True)
-        # blank the managed stanza file
-        changed = ctx.file_write(path, "", mode="0644")
-        return {"changed": changed, "msg": "removed ifupdown config for %s" % name, "data": {"name": name, "path": path, "provider": "ifupdown"}}
+        content = _IFUPDOWN_HEADER + "\n" + _LOOPBACK
+        changed = ctx.file_write(path, content, mode="0644")
+        if params.get("apply", True):
+            ctx.run(["ifdown", name], mutates=True, ok_codes=[0, 1])
+        return {"changed": changed, "msg": "reset ifupdown config (loopback only)", "data": {"name": name, "path": path, "provider": "ifupdown"}}
 
     method, address, gateway, dns, mtu, mac = _present_params(params)
-    lines = ["auto %s" % name]
+    lines = [_IFUPDOWN_HEADER.rstrip("\n"), "", "auto lo", "iface lo inet loopback", "", "auto %s" % name]
     if method == "dhcp":
         lines.append("iface %s inet dhcp" % name)
     else:
@@ -403,6 +417,7 @@ def _configure_ifupdown(ctx, params, name, state):
     if mac:
         lines.append("    hwaddress ether %s" % mac)
     content = "\n".join(lines) + "\n"
+    # Overwrite the whole file — this replaces the source clone's interface stanza, not adds to it.
     changed = ctx.file_write(path, content, mode="0644")
     # apply: bring it down (ignore failure if never up) then up. Skipped when apply=false (offline
     # provisioning writes the config into a not-yet-running root; it takes effect on that machine's boot).
@@ -411,6 +426,6 @@ def _configure_ifupdown(ctx, params, name, state):
         ctx.run(["ifup", name], mutates=True)
     return {
         "changed": changed,
-        "msg": "wrote ifupdown config for %s (%s)" % (name, method),
+        "msg": "wrote /etc/network/interfaces for %s (%s)" % (name, method),
         "data": {"name": name, "method": method, "path": path, "provider": "ifupdown"},
     }
