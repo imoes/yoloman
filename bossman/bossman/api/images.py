@@ -182,21 +182,31 @@ async def create_planned_host(
     hostname = body.hostname.strip()
     if not hostname:
         raise HTTPException(status_code=422, detail="hostname is required")
-    if await session.scalar(select(Agent).where(Agent.name == hostname)) is not None:
-        raise HTTPException(status_code=409, detail=f"a host named {hostname!r} already exists")
-    meta: dict = {}
+    new_meta: dict = {}
     if body.mac:
-        meta["provision_mac"] = normalise_mac(body.mac)
+        new_meta["provision_mac"] = normalise_mac(body.mac)
     if body.network:
-        meta["provision_network"] = body.network
+        new_meta["provision_network"] = body.network
+    existing = await session.scalar(select(Agent).where(Agent.name == hostname))
+    if existing is not None:
+        # Re-provisioning (reimage): update the provisioning metadata and move the host back to 'planned'
+        # rather than refusing — so an operator can re-arm an existing host with a fresh MAC/network,
+        # which the check-in's offline-enrol then writes into the freshly restored root.
+        meta = dict(existing.agent_metadata or {})
+        meta.update(new_meta)
+        existing.agent_metadata = meta
+        existing.enrollment_state = "planned"
+        await session.commit()
+        return {"id": str(existing.id), "hostname": hostname, "enrollment_state": "planned",
+                "mac": meta.get("provision_mac", ""), "network": body.network}
     agent = Agent(
         name=hostname, address=None, token=secrets.token_hex(16), mode="standalone",
-        enrollment_state="planned", agent_metadata=meta,
+        enrollment_state="planned", agent_metadata=new_meta,
     )
     session.add(agent)
     await session.commit()
     return {"id": str(agent.id), "hostname": hostname, "enrollment_state": "planned",
-            "mac": meta.get("provision_mac", ""), "network": body.network}
+            "mac": new_meta.get("provision_mac", ""), "network": body.network}
 
 
 @router.post("/api/v1/images", response_model=ImageOut, status_code=201)
