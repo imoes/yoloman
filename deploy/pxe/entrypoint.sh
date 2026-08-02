@@ -135,7 +135,15 @@ write_dnsmasq_conf() {   # $1 = on|off
 }
 restart_dnsmasq() {
     pkill -x dnsmasq 2>/dev/null || true
-    dnsmasq --log-facility=- --conf-file="$DNSMASQ_CONF"   # daemonizes; the reconcile loop below stays foreground
+    # Wait for the old dnsmasq to actually exit and release the bound socket before starting a new one —
+    # otherwise the new one hits "Address already in use", which under set -e would kill the container.
+    i=0; while pgrep -x dnsmasq >/dev/null 2>&1 && [ "$i" -lt 25 ]; do sleep 0.2; i=$((i + 1)); done
+    i=0; while [ "$i" -lt 10 ]; do
+        dnsmasq --log-facility=- --conf-file="$DNSMASQ_CONF" && return 0
+        sleep 0.5; i=$((i + 1))
+    done
+    echo "pxe: WARNING dnsmasq did not (re)start after retries" >&2
+    return 0   # never let a transient bind race take the whole container down
 }
 
 # ── 4. nginx serves the HTTP root (pe.squashfs, images/<id>/, agent.deb). ────────────────────────────
