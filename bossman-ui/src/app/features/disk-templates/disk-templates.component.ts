@@ -109,7 +109,7 @@ const GROWABLE = new Set(['root', 'var', 'home', 'data']);
       <section class="dt-col">
         <h2>Bereitstellen</h2>
         <label class="dt-fld"><span>Hostname</span><input [(ngModel)]="host.hostname" placeholder="web042" /></label>
-        <label class="dt-fld"><span>MAC</span><input [(ngModel)]="host.mac" placeholder="AA:BB:CC:DD:EE:FF" /></label>
+        <label class="dt-fld"><span>MAC <span class="dt-opt">(optional)</span></span><input [(ngModel)]="host.mac" placeholder="leer = nächste bootende Maschine" /></label>
         <label class="dt-fld"><span>Netzwerk</span>
           <select [(ngModel)]="net.mode">
             <option value="dhcp">DHCP</option>
@@ -178,6 +178,7 @@ const GROWABLE = new Set(['root', 'var', 'home', 'data']);
     .dt-import { margin-bottom: .6rem; }
     .dt-import-form { display: flex; flex-direction: column; gap: .35rem; border: 1px solid #4a90d9; border-radius: 8px; padding: .7rem; }
     .dt-import-form select, .dt-import-form input { padding: .3rem; }
+    .dt-opt { color: #888; font-weight: 400; font-size: .8em; }
     .dt-prog { margin: .3rem 0; }
     .dt-prog-bar { height: 6px; background: #8883; border-radius: 3px; overflow: hidden; }
     .dt-prog-bar span { display: block; height: 100%; background: #4a90d9; transition: width .4s ease; }
@@ -352,7 +353,8 @@ export class DiskTemplatesComponent implements OnInit, OnDestroy {
   }
 
   canProvision(): boolean {
-    return !!this.host.hostname.trim() && !!this.host.mac.trim() && !!this.images().find((i) => i.is_active);
+    // MAC is optional: blank arms a wildcard job the next machine to boot claims.
+    return !!this.host.hostname.trim() && !!this.images().find((i) => i.is_active);
   }
 
   provision(): void {

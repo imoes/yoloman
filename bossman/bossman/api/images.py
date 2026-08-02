@@ -393,7 +393,9 @@ async def delete_image(
 
 class RestoreJobIn(BaseModel):
     image_id: UUID
-    target_mac: str
+    # Empty = a wildcard job: the next machine that PXE-boots (and check-ins with no MAC-specific job of
+    # its own) claims it. With a MAC, only that exact machine installs.
+    target_mac: str = ""
     target_hostname: str
     # An explicit disk choice; otherwise the largest non-removable one the target reports.
     target_disk: str | None = None
@@ -459,7 +461,9 @@ async def create_restore_job(
         raise HTTPException(
             status_code=409, detail=f"image {img.name!r} is {img.status}, not ready to deploy"
         )
-    mac = normalise_mac(body.target_mac)
+    # MAC optional: blank arms a wildcard job (target_mac == "") that the next machine to boot claims.
+    raw_mac = (body.target_mac or "").strip()
+    mac = normalise_mac(raw_mac) if raw_mac else ""
     hostname = body.target_hostname.strip()
     if not hostname:
         raise HTTPException(status_code=422, detail="target_hostname is required")
@@ -471,9 +475,12 @@ async def create_restore_job(
     if existing is not None:
         # The database enforces this too (partial unique index); answering here makes it a clear
         # 409 instead of an integrity error.
-        raise HTTPException(
-            status_code=409, detail=f"{mac} already has an active job ({existing.status})"
+        detail = (
+            "a wildcard job is already armed (the next machine to boot claims it) — cancel it first"
+            if mac == ""
+            else f"{mac} already has an active job ({existing.status})"
         )
+        raise HTTPException(status_code=409, detail=detail)
     # Link the job to a pre-planned host (an Agent already created + configured with roles/network) if one
     # exists for this hostname, so its config is in place before the install and check-in only has to
     # enrol-link it. The netboot check-in enrols by the same hostname, flipping 'planned' → 'enrolled'.
@@ -615,6 +622,17 @@ async def netboot_checkin(
         .where(RestoreJob.target_mac == mac, RestoreJob.status.in_(("pending", "running")))
         .order_by(RestoreJob.created_at)
     )
+    if job is None:
+        # No MAC-specific job — fall back to a wildcard job (armed without a MAC). The first machine to
+        # boot claims it: stamp its MAC on now, so it becomes a normal per-MAC job (and progress/retries
+        # find it by MAC like any other).
+        job = await session.scalar(
+            select(RestoreJob)
+            .where(RestoreJob.target_mac == "", RestoreJob.status.in_(("pending", "running")))
+            .order_by(RestoreJob.created_at)
+        )
+        if job is not None:
+            job.target_mac = mac
     if job is None:
         raise HTTPException(status_code=404, detail=f"no job armed for {mac}")
     img = await _image_or_404(session, job.image_id)
