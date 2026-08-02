@@ -75,11 +75,16 @@ chroot. So two valid delivery routes, pick by how fixed the module is:
   LVM is filter-scoped to `/dev/nbd*` (`/etc/lvm/lvm.conf`) so the privileged container never touches the
   host's disks.
 - **Restore**: PXE (dnsmasq DHCP+TFTP, gated on a pending job) → RAM PE (`deploy/pxe/build-pe.sh`, Debian +
-  systemd + partclone/lvm2/fdisk) → `pe-init.sh` checks in → `restore_steps` (require-blank-disk → sfdisk →
-  lvm → partclone restore → grow → grub **firmware-aware BIOS/UEFI** → identity/hostname → **network** →
-  offline-enrol) → one reboot. `deploy/pxe/entrypoint.sh` runs the agent so the container is a managed host.
-- **The provisioning TODO**: the configure phase (network, hostname, timezone, users, packages) should run
-  MODULES via `run-module` in the chroot, not bespoke shell. Network already targets `yoloman.network_interface`.
+  systemd + partclone/lvm2/fdisk) → `pe-init.sh` checks in → `restore_steps` (require-blank-disk →
+  **disk_partition** → lvm → **partclone_restore** → grow → **bootloader** firmware-aware BIOS/UEFI →
+  **initramfs** → **machine_identity** → **network** → offline-enrol) → one reboot. `deploy/pxe/entrypoint.sh`
+  runs the agent so the container is a managed host.
+- **Provisioning modules** = `deploy/pxe/provision-modules/yoloman/` (disk_partition, partclone_restore,
+  bootloader, initramfs, machine_identity): one-shot deploy ops, so they are **baked into the PE**
+  (build-pe.sh), NOT the builtin agent. The restore drives them via `run-module --modules-dir` — PE-level
+  steps (partition, restore) use the PE's baked copy; chroot-level steps (bootloader, initramfs, identity)
+  use the agent + modules staged once into the target. network → `yoloman.network_interface` (embedded, it's
+  a general day-2 capability). LVM stays on embedded lvg/lvol. Add a new provisioning op → a `.star` here.
 
 ## Deploy / run
 
