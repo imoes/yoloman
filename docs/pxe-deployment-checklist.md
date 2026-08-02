@@ -19,7 +19,8 @@ Legende pro Schritt: **Tun** → **Melden** (was du mir schickst) → **Ich prü
 - **Melden:** die Ausgabe.
 - **Ich prüfe:** 192.0.2.130 liegt auf ens19, Interface up.
 
-### A3 — Bridge für die QEMU-PXE-Test-VM (braucht root; auf diesem NM-Host via nmcli)
+### A3 — Bridge ✅ (erledigt: br-ens19 UP mit 192.0.2.130/24, ens19 als forwarding-Port; Override: PXE_INTERFACE=br-ens19)
+<details><summary>nmcli-Befehle (erledigt)</summary>
 - **Hinweis:** Die plattenlose Test-VM hängt per `-netdev bridge,br=br-ens19` an einer Bridge mit Zugang
   zum ens19-Segment (192.0.2.0/24). Der Host nutzt **NetworkManager** (Connection `ens19`), daher
   NM-nativ + persistent per `nmcli`. **Achtung:** die IP 192.0.2.130 wandert von ens19 auf die Bridge;
@@ -36,8 +37,7 @@ Legende pro Schritt: **Tun** → **Melden** (was du mir schickst) → **Ich prü
   Falls ens19 ein Default-Gateway/DNS trug (unwahrscheinlich, da Management auf ens18):
   `ipv4.gateway`/`ipv4.dns` an der br-ens19-Connection ergänzen. Danach in der Override
   `PXE_INTERFACE: br-ens19` setzen (dnsmasq bindet auf die Bridge).
-- **Melden:** `ip -4 addr show br-ens19` + `bridge link show`.
-- **Ich prüfe:** 192.0.2.130 liegt auf br-ens19, ens19 ist Bridge-Port, L2-Pfad VM → dnsmasq stimmig.
+</details>
 
 ### A4 — Agent neu bauen ✅ (erledigt: v0.57.42, `agentic-mcpd` + `agent.deb`/`.rpm` frisch, `regex`-Modul im Binary)
 
