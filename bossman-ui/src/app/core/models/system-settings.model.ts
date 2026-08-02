@@ -10,6 +10,10 @@ export interface SystemSettings {
    * host behind a corp firewall). Empty = no proxy. See SetHelmProxyInput. */
   helm_http_proxy: string;
   helm_no_proxy: string;
+  /** PXE netboot gate. The secret's plaintext is never sent to the client — only
+   * whether one is set (netboot_secret_set) and the enable toggle. See SetNetbootInput. */
+  netboot_enabled: boolean;
+  netboot_secret_set: boolean;
   updated_by: string | null;
   updated_at: string;
 }
@@ -23,4 +27,11 @@ export interface SetYoloModeInput {
 export interface SetHelmProxyInput {
   http_proxy: string;
   no_proxy: string;
+}
+
+/** Matches bossman/api/system_settings.py's SetNetbootIn. Omit `secret` to keep the
+ * existing one; send "" to clear it. */
+export interface SetNetbootInput {
+  enabled: boolean;
+  secret?: string;
 }

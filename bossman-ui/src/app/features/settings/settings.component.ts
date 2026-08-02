@@ -275,6 +275,39 @@ import { EnrollInfo } from '../../core/models/enroll.model';
         </mat-card-content>
       </mat-card>
 
+      <mat-card class="bm-helm-card">
+        <mat-card-header>
+          <mat-card-title>PXE netboot</mat-card-title>
+        </mat-card-header>
+        <mat-card-content>
+          <p>
+            The shared secret a netbooted target presents on its kernel command line to check in and
+            receive its install plan. Turn netboot <b>on</b> only while you are provisioning — off, the
+            <code>/netboot/*</code> endpoints refuse every request regardless of the secret. The current
+            secret is never shown here; leave the field blank to keep it, type a new one to rotate it.
+          </p>
+          <div class="bm-llm-row">
+            <label class="bm-netboot-toggle">
+              <input type="checkbox" [(ngModel)]="netbootEnabled" />
+              netboot enabled
+            </label>
+            <span class="bm-dim">{{ netbootSet() ? 'a secret is set' : 'no secret set yet' }}</span>
+          </div>
+          <div class="bm-llm-row">
+            <mat-form-field appearance="outline" class="bm-llm-wide">
+              <mat-label>{{ netbootSet() ? 'New secret (blank = keep current)' : 'Secret' }}</mat-label>
+              <input matInput type="password" [(ngModel)]="netbootSecret" placeholder="shared netboot secret" />
+            </mat-form-field>
+          </div>
+          <div class="bm-llm-actions">
+            <button mat-raised-button color="primary" (click)="saveNetboot()" [disabled]="netbootBusy()">Save</button>
+            @if (netbootMsg()) {
+              <span [class.bm-success]="netbootOk()" [class.bm-error]="!netbootOk()">{{ netbootMsg() }}</span>
+            }
+          </div>
+        </mat-card-content>
+      </mat-card>
+
       <!-- Check rules and Host groups live in the OU / Policy view (scoped to
            OUs there); they were removed from Settings to avoid a second,
            unscoped home for the same objects. -->
@@ -452,6 +485,15 @@ export class SettingsComponent implements OnInit, OnDestroy {
   helmBusy = signal(false);
   helmMsg = signal<string | null>(null);
   helmOk = signal(true);
+
+  // PXE netboot gate (DB-backed SystemSettings). The secret plaintext never leaves the server; we only
+  // know whether one is set. Blank secret field on save = keep the current one.
+  netbootEnabled = false;
+  netbootSecret = '';
+  netbootSet = signal(false);
+  netbootBusy = signal(false);
+  netbootMsg = signal<string | null>(null);
+  netbootOk = signal(true);
   // OAuth login (ported from the chat dock, which now only shows already-authed
   // backends — so connecting a new CLI assistant has to live here).
   codexLogin = signal<CodexStartResponse | null>(null);
@@ -474,6 +516,8 @@ export class SettingsComponent implements OnInit, OnDestroy {
     this.systemSettings.get().subscribe((s) => {
       this.helmHttpProxy = s.helm_http_proxy ?? '';
       this.helmNoProxy = s.helm_no_proxy ?? '';
+      this.netbootEnabled = s.netboot_enabled ?? false;
+      this.netbootSet.set(s.netboot_secret_set ?? false);
     });
     this.refreshAuth();
   }
@@ -498,6 +542,31 @@ export class SettingsComponent implements OnInit, OnDestroy {
           this.helmMsg.set(e?.error?.detail ?? 'save failed');
         },
       });
+  }
+
+  saveNetboot(): void {
+    this.netbootBusy.set(true);
+    this.netbootMsg.set(null);
+    // Only send `secret` when the operator typed one, so a blank field keeps the current secret.
+    const body = this.netbootSecret.trim()
+      ? { enabled: this.netbootEnabled, secret: this.netbootSecret.trim() }
+      : { enabled: this.netbootEnabled };
+    this.systemSettings.setNetboot(body).subscribe({
+      next: (s) => {
+        this.netbootEnabled = s.netboot_enabled ?? false;
+        this.netbootSet.set(s.netboot_secret_set ?? false);
+        this.netbootSecret = '';
+        this.netbootBusy.set(false);
+        this.netbootOk.set(true);
+        this.netbootMsg.set('Saved.');
+        setTimeout(() => this.netbootMsg.set(null), 3000);
+      },
+      error: (e) => {
+        this.netbootBusy.set(false);
+        this.netbootOk.set(false);
+        this.netbootMsg.set(e?.error?.detail ?? 'save failed');
+      },
+    });
   }
 
   ngOnDestroy(): void {

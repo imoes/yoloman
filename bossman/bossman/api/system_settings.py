@@ -11,11 +11,12 @@ from __future__ import annotations
 from datetime import datetime
 from uuid import UUID
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from bossman.api.auth import get_current_identity
+from bossman.config import get_settings
 from bossman.db.models import SYSTEM_SETTINGS_ID, SystemSettings
 from bossman.db.session import get_session
 from bossman.services import helm_app
@@ -28,6 +29,9 @@ class SystemSettingsOut(BaseModel):
     yolo_mode: bool
     helm_http_proxy: str
     helm_no_proxy: str
+    # The netboot secret's plaintext is NEVER returned — only whether one is set + the enable toggle.
+    netboot_enabled: bool
+    netboot_secret_set: bool
     updated_by: str | None
     updated_at: datetime
 
@@ -37,6 +41,8 @@ def _out(s: SystemSettings) -> "SystemSettingsOut":
         yolo_mode=s.yolo_mode,
         helm_http_proxy=s.helm_http_proxy or "",
         helm_no_proxy=s.helm_no_proxy or "",
+        netboot_enabled=s.netboot_enabled,
+        netboot_secret_set=bool(s.netboot_secret),
         updated_by=s.updated_by,
         updated_at=s.updated_at,
     )
@@ -74,6 +80,33 @@ async def set_yolo_mode(
 ) -> SystemSettingsOut:
     settings = await _get_or_seed(session)
     settings.yolo_mode = body.enabled
+    settings.updated_by = identity.name
+    await session.commit()
+    return _out(settings)
+
+
+class SetNetbootIn(BaseModel):
+    enabled: bool
+    # Optional: only rotates the stored secret when a non-null value is sent; the UI never receives the
+    # current plaintext, so omitting it keeps the existing secret. "" explicitly clears it.
+    secret: str | None = None
+
+
+@router.put("/api/v1/system/netboot", response_model=SystemSettingsOut)
+async def set_netboot(
+    body: SetNetbootIn,
+    session: AsyncSession = Depends(get_session),
+    identity: Identity = Depends(get_current_identity),
+) -> SystemSettingsOut:
+    """Enter/rotate the PXE netboot secret and turn netboot on/off. Enabling without any secret set
+    (neither here nor the BOSSMAN_NETBOOT_SECRET env fallback) is rejected — an open install endpoint
+    must never be a one-click mistake."""
+    settings = await _get_or_seed(session)
+    if body.secret is not None:
+        settings.netboot_secret = body.secret
+    if body.enabled and not (settings.netboot_secret or get_settings().netboot_secret):
+        raise HTTPException(status_code=400, detail="cannot enable netboot without a secret set")
+    settings.netboot_enabled = body.enabled
     settings.updated_by = identity.name
     await session.commit()
     return _out(settings)

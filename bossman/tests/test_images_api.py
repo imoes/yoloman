@@ -546,3 +546,36 @@ async def test_checkin_also_enrols_the_target_and_shields_it_from_alerting(db_se
     await db_session.execute(text("DELETE FROM agents WHERE id = :i"), {"i": str(agent.id)})
     await db_session.commit()
     await _cleanup(db_session, img, token)
+
+
+async def test_netboot_toggle_disables_checkin_even_with_a_db_secret(db_session, monkeypatch):
+    """Once a secret is entered in the WebUI (DB), the enable toggle is authoritative: off ⇒ /netboot/*
+    refuse even though the presented secret matches. This is the operator's segment-safety switch."""
+    from uuid import UUID as _UUID
+    from bossman.db.models import SYSTEM_SETTINGS_ID, SystemSettings
+
+    # No env secret — the DB row is the only source of truth here.
+    monkeypatch.delenv("BOSSMAN_NETBOOT_SECRET", raising=False)
+    row = await db_session.get(SystemSettings, _UUID(SYSTEM_SETTINGS_ID))
+    if row is None:
+        row = SystemSettings(id=_UUID(SYSTEM_SETTINGS_ID), yolo_mode=False)
+        db_session.add(row)
+    row.netboot_secret = SECRET
+    row.netboot_enabled = False
+    await db_session.commit()
+
+    with TestClient(create_app()) as client:
+        off = client.get("/api/v1/netboot/pending", headers=_secret_headers())
+        assert off.status_code == 403 and "disabled" in off.text
+        # Flip it on → the same correct secret now passes.
+        row.netboot_enabled = True
+        await db_session.commit()
+        on = client.get("/api/v1/netboot/pending", headers=_secret_headers())
+        assert on.status_code == 200 and on.json()["dhcp"] is False  # no armed jobs
+        # A wrong secret is still rejected while enabled.
+        bad = client.get("/api/v1/netboot/pending", headers={"X-Netboot-Secret": "nope"})
+        assert bad.status_code == 403 and "bad netboot secret" in bad.text
+
+    row.netboot_secret = ""
+    row.netboot_enabled = False
+    await db_session.commit()

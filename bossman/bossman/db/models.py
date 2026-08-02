@@ -1226,6 +1226,12 @@ class SystemSettings(Base):
         String, nullable=False, default="",
         server_default=".example.internal,localhost,127.0.0.1,10.0.0.0/8,192.168.0.0/16,.svc,.cluster.local",
     )
+    # PXE netboot gate, DB-backed so the operator sets/rotates the shared secret and turns netboot on/off
+    # from the WebUI without redeploying. `netboot_enabled` off → /netboot/* refuse regardless of the
+    # secret (fail closed). Empty `netboot_secret` falls back to the BOSSMAN_NETBOOT_SECRET env. The
+    # plaintext is never returned by the API (only whether it is set) — see api/system_settings.py.
+    netboot_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="false", default=False)
+    netboot_secret: Mapped[str] = mapped_column(String, nullable=False, server_default="", default="")
     updated_by: Mapped[str | None] = mapped_column(String)
     updated_at: Mapped[datetime] = mapped_column(TZ_DATETIME, server_default=func.now(), nullable=False)
 

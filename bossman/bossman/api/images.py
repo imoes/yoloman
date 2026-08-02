@@ -31,7 +31,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from bossman.api.auth import get_current_identity
 from bossman.config import get_settings
-from bossman.db.models import Agent, DiskImage, RestoreJob
+from bossman.db.models import SYSTEM_SETTINGS_ID, Agent, DiskImage, RestoreJob, SystemSettings
 from bossman.db.session import get_session
 from bossman.services import imaging, offline_enroll
 
@@ -380,11 +380,26 @@ class CheckinOut(BaseModel):
     steps: list[dict]
 
 
-def _require_netboot_secret(settings, presented: str | None) -> None:
-    if not settings.netboot_secret:
-        # Fail closed: deploying this code must not open an unauthenticated install endpoint.
+async def _require_netboot(session: AsyncSession, presented: str | None) -> None:
+    """Gate the /netboot/* endpoints. The DB SystemSettings is authoritative: netboot must be enabled
+    (WebUI toggle) and the presented secret must match the DB secret — or the BOSSMAN_NETBOOT_SECRET env
+    when no DB secret is set (env is the fallback value, not a bypass). Fail closed on every check so
+    deploying this code never opens an unauthenticated install endpoint."""
+    sys = await session.get(SystemSettings, UUID(SYSTEM_SETTINGS_ID))
+    env_secret = get_settings().netboot_secret
+    db_secret = sys.netboot_secret if (sys and sys.netboot_secret) else ""
+    if db_secret:
+        # A secret was entered in the WebUI → the DB is authoritative and the toggle governs on/off.
+        enabled, effective = bool(sys.netboot_enabled), db_secret
+    else:
+        # Legacy/bootstrap: no WebUI secret yet → the BOSSMAN_NETBOOT_SECRET env governs (its presence is
+        # "on"). This keeps env-only deploys working; entering a secret in the UI switches to the toggle.
+        enabled, effective = bool(env_secret), env_secret
+    if not enabled:
+        raise HTTPException(status_code=403, detail="netboot is disabled")
+    if not effective:
         raise HTTPException(status_code=403, detail="netboot check-in is disabled (no secret configured)")
-    if presented != settings.netboot_secret:
+    if presented != effective:
         raise HTTPException(status_code=403, detail="bad netboot secret")
 
 
@@ -396,8 +411,7 @@ async def netboot_pending(
     """Whether the PXE DHCP should be answering right now: true iff a restore job is armed (pending) or
     mid-flight (running). The pxe container polls this and toggles dnsmasq's DHCP, so it only serves boot
     requests while there is actually an order to fulfil — no standing DHCP/PXE on the segment otherwise."""
-    settings = get_settings()
-    _require_netboot_secret(settings, x_netboot_secret)
+    await _require_netboot(session, x_netboot_secret)
     count = await session.scalar(
         select(func.count()).select_from(RestoreJob).where(RestoreJob.status.in_(("pending", "running")))
     )
@@ -417,7 +431,7 @@ async def netboot_checkin(
     is known — and that size is what decides how far the last volume grows.
     """
     settings = get_settings()
-    _require_netboot_secret(settings, x_netboot_secret)
+    await _require_netboot(session, x_netboot_secret)
     mac = normalise_mac(body.mac)
     job = await session.scalar(
         select(RestoreJob)
@@ -514,7 +528,7 @@ async def netboot_progress(
     regressed, and an operator watching a long install would read that as a loop.
     """
     settings = get_settings()
-    _require_netboot_secret(settings, x_netboot_secret)
+    await _require_netboot(session, x_netboot_secret)
     job = await session.get(RestoreJob, job_id)
     if job is None:
         raise HTTPException(status_code=404, detail="no such restore job")
