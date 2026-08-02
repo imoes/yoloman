@@ -794,6 +794,32 @@ class Step:
 # Where the restored system is assembled in the helper.
 TARGET_ROOT = "/mnt/target"
 
+# The provisioning-only modules (yoloman.disk_partition / partclone_restore / bootloader / initramfs /
+# machine_identity) are baked into the PE by deploy/pxe/build-pe.sh at this path (NOT the builtin agent —
+# they are one-shot deploy ops). PE-level steps (partition, restore) run them directly with the PE's own
+# agentic-mcpd; chroot-level steps (bootloader, initramfs, identity) run the copy staged into the target.
+PE_PROVISION_MODULES = "/usr/share/agentic-provision-modules"
+_STAGED_AGENT = "/tmp/.provision-agent"      # inside TARGET_ROOT
+_STAGED_MODULES = "/tmp/.provision-modules"  # inside TARGET_ROOT
+
+
+def _pe_module_step(name: str, module: str, params: dict) -> "Step":
+    """A run-module step executed in the PE (no chroot) against the target's block devices, using the
+    modules baked into the PE."""
+    return Step(name=name, shell=(
+        f"agentic-mcpd run-module {module} --modules-dir {PE_PROVISION_MODULES} "
+        f"--json {shlex.quote(json.dumps(params))}"
+    ))
+
+
+def _chroot_module_step(name: str, module: str, params: dict) -> "Step":
+    """A run-module step executed INSIDE the restored root's chroot, via the agent + modules staged into
+    the target (see the staging step in restore_steps)."""
+    return Step(name=name, shell=(
+        f"chroot {TARGET_ROOT} {_STAGED_AGENT} run-module {module} "
+        f"--modules-dir {_STAGED_MODULES} --json {shlex.quote(json.dumps(params))}"
+    ))
+
 # The pseudo-filesystems a chroot needs before anything inside it works: package tools want
 # /proc, device nodes come from /dev, and grub-install reads /sys to find the disk it is
 # installing onto. Without them the chroot commands fail in ways that look like unrelated bugs.
@@ -847,10 +873,12 @@ def restore_steps(
         f'a machine being deployed must have an empty disk"; exit 1; fi'
     )))
 
-    # 1. Partition table (unless LVM sits on the raw disk), then the volume group.
+    # 1. Partition table (unless LVM sits on the raw disk), then the volume group. The partition table is
+    #    written by the yoloman.disk_partition MODULE (replays the source's sfdisk dump that pe-init.sh
+    #    wrote to /tmp/target.sfdisk); it settles the device nodes itself.
     if layout.partitions:
-        steps.append(Step(name="write partition table", shell=f"sfdisk {qdisk} < /tmp/target.sfdisk"))
-        steps.append(Step(name="settle device nodes", argv=("udevadm", "settle")))
+        steps.append(_pe_module_step("write partition table", "yoloman.disk_partition",
+                                     {"disk": disk, "dump_file": "/tmp/target.sfdisk"}))
     pv = disk if layout.lvm_on_raw_disk else f"{disk}{_part_suffix(plan.target_disk, pv_partition or len(layout.partitions))}"
     for argv in lvm_commands(layout, pv_device=pv, plan=plan):
         steps.append(Step(name=f"lvm: {' '.join(argv[:2])}", argv=tuple(argv)))
@@ -860,12 +888,8 @@ def restore_steps(
         v = planned.volume
         device = lv_device(v) if v.vg else f"{disk}{_part_suffix(plan.target_disk, v.partition or 1)}"
         url = f"{image_url.rstrip('/')}/{_image_name(v)}"
-        steps.append(
-            Step(
-                name=f"restore {v.role}",
-                shell=restore_pipeline(source=fetch_command(url), device=device),
-            )
-        )
+        steps.append(_pe_module_step(f"restore {v.role}", "yoloman.partclone_restore",
+                                     {"device": device, "source_url": url}))
         for argv in grow_commands(planned, device=device, mountpoint=f"{TARGET_ROOT}-grow"):
             steps.append(Step(name=f"grow {v.role}: {argv[0]}", argv=tuple(argv)))
 
@@ -881,31 +905,28 @@ def restore_steps(
     for src in _BIND_MOUNTS:
         steps.append(Step(name=f"bind {src}", argv=("mount", "--rbind", src, f"{TARGET_ROOT}{src}")))
 
-    # 5. Bootloader — for the firmware the IMAGE was built for. An ESP volume (mounted at /boot/efi) means
-    #    the image is UEFI; otherwise it is BIOS (grub to the disk's boot code / bios_boot partition). This
-    #    only works when the target's firmware MATCHES the image: a BIOS image will not boot on UEFI
-    #    firmware and vice versa — capture from the firmware type you deploy to.
-    if any(v.role == "esp" for v in layout.volumes):
-        # UEFI: install grub-efi into the mounted ESP. --removable also writes the firmware's default
-        # fallback path (EFI/BOOT/BOOTX64.EFI), so a freshly imaged machine whose NVRAM has no boot entry
-        # yet still boots off the disk.
-        steps.append(Step(name="install bootloader (UEFI)", chroot=True, argv=(
-            "grub-install", "--target=x86_64-efi", "--efi-directory=/boot/efi",
-            "--bootloader-id=debian", "--removable", "--recheck")))
-    else:
-        steps.append(Step(name="install bootloader (BIOS)", chroot=True,
-                          argv=("grub-install", "--target=i386-pc", disk)))
-    steps.append(Step(name="regenerate grub config", argv=("update-grub",), chroot=True))
-    # The source's swap LV is NOT captured (partclone images filesystems only), so it doesn't exist on
-    # the target. Its fstab swap entry and the initramfs resume=<old-swap> then make systemd wait ~90s
-    # each boot ("waiting for suspend/resume device") — and the machine can stall before login. Comment
-    # the swap lines and pin RESUME=none so the initramfs rebuild below drops the stale resume device.
-    steps.append(Step(name="neutralise source swap/resume", chroot=True, shell=(
-        r"sed -ri 's/^([^#].*\sswap\s)/#\1/' /etc/fstab 2>/dev/null || true; "
-        "mkdir -p /etc/initramfs-tools/conf.d && printf 'RESUME=none\n' > /etc/initramfs-tools/conf.d/resume"
+    # 4b. Stage the agent + the PE-baked provisioning modules INTO the target, so the chroot steps below
+    #     (bootloader, initramfs, identity) can drive them with `run-module` inside the restored root.
+    steps.append(Step(name="stage the provisioning agent + modules into the target", shell=(
+        f"cp /usr/bin/agentic-mcpd {TARGET_ROOT}{_STAGED_AGENT}; "
+        f"rm -rf {TARGET_ROOT}{_STAGED_MODULES}; cp -a {PE_PROVISION_MODULES} {TARGET_ROOT}{_STAGED_MODULES}"
     )))
-    # Rebuild the initramfs for THIS machine (drops the stale resume, matches the target's devices).
-    steps.append(Step(name="rebuild initramfs", shell="update-initramfs -u -k all || update-initramfs -u", chroot=True))
+
+    # 5. Bootloader — for the firmware the IMAGE was built for, via the yoloman.bootloader MODULE. An ESP
+    #    volume (mounted at /boot/efi) means the image is UEFI; otherwise it is BIOS. This only works when
+    #    the target's firmware MATCHES the image: a BIOS image will not boot on UEFI firmware and vice versa.
+    #    The module runs grub-install (firmware-aware) + update-grub in the chroot.
+    if any(v.role == "esp" for v in layout.volumes):
+        steps.append(_chroot_module_step("install bootloader (UEFI)", "yoloman.bootloader",
+                                         {"firmware": "uefi", "efi_directory": "/boot/efi"}))
+    else:
+        steps.append(_chroot_module_step("install bootloader (BIOS)", "yoloman.bootloader",
+                                         {"firmware": "bios", "disk": disk}))
+    # The source's swap LV is NOT captured (partclone images filesystems only), so it doesn't exist on the
+    # target. Left alone, the fstab swap entry + initramfs resume=<old-swap> make systemd wait ~90s each
+    # boot ("waiting for suspend/resume device") — stalling before login. The yoloman.initramfs module
+    # comments the swap lines, pins RESUME=none, and rebuilds the initramfs for THIS machine.
+    steps.append(_chroot_module_step("neutralise swap + rebuild initramfs", "yoloman.initramfs", {}))
 
     # 6. Identity: without this every clone is a twin.
     steps.extend(identity_steps(hostname))
@@ -914,7 +935,10 @@ def restore_steps(
     # invalidated by a hostname or machine-id that changes underneath it.
     steps.extend(configure_steps)
 
-    # Teardown, strictly reversed.
+    # Teardown, strictly reversed. First drop the staged provisioning agent + modules (they must not ride
+    # into the booted system).
+    steps.append(Step(name="clean up staged provisioning agent + modules",
+                      shell=f"rm -rf {TARGET_ROOT}{_STAGED_AGENT} {TARGET_ROOT}{_STAGED_MODULES}"))
     for src in reversed(_BIND_MOUNTS):
         steps.append(Step(name=f"unbind {src}", argv=("umount", "-lR", f"{TARGET_ROOT}{src}")))
     for planned in reversed(_mount_order(plan)):
@@ -928,24 +952,16 @@ def identity_steps(hostname: str) -> list[Step]:
     """Make the restored system a distinct machine rather than a copy of its source.
 
     Drives the agent's own `yoloman.machine_identity` MODULE (run offline via `agentic-mcpd run-module`
-    inside the target chroot) instead of bespoke shell — the module-first path, exactly like network_steps.
-    The module resets machine-id (emptied, not deleted, so systemd regenerates one at boot), the dbus
-    machine-id, the SSH host keys (regenerated on first start, else every clone shares a fingerprint), the
-    hostname, the 127.0.1.1 line in /etc/hosts, and pins cloud-init's preserve_hostname so it does not
-    re-clobber the name from a cached datasource. It is idempotent and chroot-safe (writes files only, no
-    hostnamectl — the offline target has no running systemd). The agent binary is baked into the PE, so we
-    stage it into the target and run it in the chroot, independent of the agent-install step's order.
+    inside the target chroot) instead of bespoke shell — the module-first path, exactly like the bootloader
+    and initramfs steps. The module resets machine-id (emptied, not deleted, so systemd regenerates one at
+    boot), the dbus machine-id, the SSH host keys (regenerated on first start, else every clone shares a
+    fingerprint), the hostname, the 127.0.1.1 line in /etc/hosts, and pins cloud-init's preserve_hostname so
+    it does not re-clobber the name from a cached datasource. It is idempotent and chroot-safe (writes files
+    only, no hostnamectl — the offline target has no running systemd). It uses the agent + provisioning
+    modules already staged into the target by restore_steps' staging step.
     """
-    params_json = json.dumps({"hostname": hostname})
-    staged = f"{TARGET_ROOT}/tmp/.identity-agent"
-    return [
-        Step(name="stage the agent for identity module", shell=f"cp /usr/bin/agentic-mcpd {shlex.quote(staged)}"),
-        Step(name="reset identity (machine_identity module)", shell=(
-            f"chroot {TARGET_ROOT} /tmp/.identity-agent run-module yoloman.machine_identity "
-            f"--json {shlex.quote(params_json)}"
-        )),
-        Step(name="clean up staged identity agent", shell=f"rm -f {shlex.quote(staged)}"),
-    ]
+    return [_chroot_module_step("reset identity (machine_identity module)", "yoloman.machine_identity",
+                                {"hostname": hostname})]
 
 
 def _mount_order(plan: RestorePlan) -> list[PlannedVolume]:

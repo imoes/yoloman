@@ -34,7 +34,6 @@ func TestEmbeddedModulesLoad(t *testing.T) {
 	// a host with the actual tooling.
 	for _, want := range []string{
 		"yoloman.network_interface",
-		"yoloman.machine_identity",
 		"community.general.vdo",
 		"community.general.zfs",
 		"community.general.zfs_facts",

@@ -27,6 +27,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY deploy-artifacts/agentic-mcpd /usr/bin/agentic-mcpd
 COPY deploy-artifacts/agent.deb /srv/http/agent.deb
 
+# Provisioning-only modules (yoloman.disk_partition/partclone_restore/bootloader/initramfs/machine_identity):
+# NOT in the builtin agent — they are one-shot deploy ops. build-pe.sh bakes them into the PE; the restore
+# runs them with `run-module --modules-dir`.
+COPY deploy/pxe/provision-modules /usr/share/agentic-provision-modules
 COPY deploy/pxe/entrypoint.sh /entrypoint.sh
 COPY deploy/pxe/build-pe.sh /usr/local/sbin/build-pe.sh
 COPY deploy/pxe/pe-init.sh /usr/local/sbin/pe-init.sh

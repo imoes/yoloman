@@ -46,14 +46,20 @@ validates + persists + live-registers them into `ModulesDir`). Body `{fqcns: [..
 for the whole translated library. **It requires a running, directly-addressable agent** — a satellite/
 unenrolled host has no address and returns 409.
 
-**Embed vs. push — decide by whether a live Duppy exists yet:**
-- **Before** the target has a running Duppy (bare-metal provisioning: the restore/configure phase runs in
-  the RAM-PE's `run-module`, offline, no agent on the target) → the module MUST be **native Go or embedded
-  Starlark**, i.e. baked into `agentic-mcpd` and therefore into the PE squashfs. Push cannot reach a machine
-  that has no agent. This bucket is a tiny fixed set: `yoloman.network_interface` (done) and identity/
-  hostname. Keep it small and embedded.
-- **After** enrollment (day-2 ops against a live, addressable host) → keep the module **discovered + synced**
-  on demand. Reimplementing the 693-module Ansible library in Go would be pointless; sync serves it fine.
+**Embed vs. push — how a module reaches the bare-metal restore path.** The **PXE container runs a
+Bossman-registered agent** (`deploy/pxe/entrypoint.sh`, mirrors the poller: self-enrols, `write:true`), so
+Bossman CAN `/modules/sync` the discovered library to it. The catch: sync lands the `.star` in the
+*container's* `ModulesDir`, but the **target** restore runs the **RAM-PE**, and `deploy/pxe/build-pe.sh`
+must **bake that ModulesDir into the PE squashfs** for `run-module --modules-dir` to see it in the target
+chroot. So two valid delivery routes, pick by how fixed the module is:
+- **Embedded** (native Go / embedded Starlark, baked into `agentic-mcpd`): always present in the PE, zero
+  wiring, no push/bake step. Right for the tiny always-needed set — `yoloman.network_interface`,
+  `yoloman.machine_identity`, and the storage stack (lvg/lvol/filesystem) already embedded.
+- **Pushed + baked** (Bossman `/modules/sync` → PXE container `ModulesDir` → baked into the PE by
+  build-pe.sh → `run-module --modules-dir`): the broad discovered library (parted, mount, timezone,
+  locale_gen, …) without reimplementing any of it in Go. This is the planned path and is the reason the
+  PXE agent is registered at all — **but the build-pe.sh baking step is the missing wiring today.**
+- **Day-2** (a live, enrolled host) → discovered + synced on demand, no PE involved.
 
 ## Config system (not modules, but adjacent)
 

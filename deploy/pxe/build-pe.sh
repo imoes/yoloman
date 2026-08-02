@@ -49,6 +49,17 @@ chmod +x "$PE_ROOT/usr/local/sbin/pe-init.sh"
 # /usr/bin (baked by the Dockerfile from deploy-artifacts/agentic-mcpd).
 cp -f /usr/bin/agentic-mcpd "$PE_ROOT/usr/bin/agentic-mcpd" 2>/dev/null || true
 chmod +x "$PE_ROOT/usr/bin/agentic-mcpd" 2>/dev/null || true
+# The provisioning-only modules (yoloman.disk_partition / partclone_restore / bootloader / initramfs /
+# machine_identity): baked into the PE, NOT the builtin agent — they are one-shot deploy ops. The restore
+# runs them via `agentic-mcpd run-module <name> --modules-dir <this dir>` (PE-level ops directly, chroot-level
+# ops after staging this tree into the target). Copied from the container (Dockerfile COPY).
+PROV_MODULES="/usr/share/agentic-provision-modules"
+if [ -d "$PROV_MODULES" ]; then
+    rm -rf "${PE_ROOT}${PROV_MODULES}"
+    mkdir -p "${PE_ROOT}$(dirname "$PROV_MODULES")"
+    cp -a "$PROV_MODULES" "${PE_ROOT}${PROV_MODULES}"
+    echo "build-pe: baked provisioning modules into ${PE_ROOT}${PROV_MODULES}"
+fi
 mkdir -p "$PE_ROOT/etc/systemd/system"
 cat > "$PE_ROOT/etc/systemd/system/pe-provision.service" <<'UNIT'
 [Unit]

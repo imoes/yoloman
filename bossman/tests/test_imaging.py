@@ -6,6 +6,7 @@ disk with no partition table (sdb → data--vg).
 """
 
 import json
+import re
 import shlex
 import shutil
 import subprocess
@@ -610,7 +611,8 @@ def test_the_chroot_has_its_pseudo_filesystems_before_any_chroot_step():
     """grub-install reads /sys to find the disk; without the binds it fails in a way that reads
     like an unrelated bug."""
     steps = _run()
-    first_chroot = min(i for i, s in enumerate(steps) if s.chroot)
+    # The chroot steps are now module runs whose shell does `chroot /mnt/target … run-module …`.
+    first_chroot = min(i for i, s in enumerate(steps) if s.shell and f"chroot {TARGET_ROOT}" in s.shell)
     for src in ("/dev", "/proc", "/sys"):
         assert _index(steps, f"bind {src}") < first_chroot
 
@@ -623,24 +625,20 @@ def test_dev_pts_is_not_bound_separately():
 
 
 def test_the_bootloader_is_installed_inside_the_target_not_the_helper():
-    """Without the chroot flag, grub-install would write the helper's initramfs bootloader — the
-    single most consequential mistake in this whole sequence."""
+    """grub must run INSIDE the target chroot, else it would write the helper's bootloader — the
+    single most consequential mistake in this whole sequence. Now the yoloman.bootloader module."""
     steps = _run()
     grub = [s for s in steps if "bootloader" in s.name]
     assert len(grub) == 1
-    assert grub[0].chroot is True
-    # The fixture layout has an ESP → UEFI path (firmware-aware bootloader): grub-efi into the
-    # mounted ESP, --removable so a machine with empty NVRAM still boots. (UEFI grub takes no disk
-    # argument; the BIOS i386-pc-to-disk path is covered by test_bios_layout_installs_grub_to_disk.)
-    assert grub[0].argv == (
-        "grub-install", "--target=x86_64-efi", "--efi-directory=/boot/efi",
-        "--bootloader-id=debian", "--removable", "--recheck",
-    )
+    # Runs in the target chroot; the fixture layout has an ESP → UEFI (firmware-aware).
+    assert f"chroot {TARGET_ROOT}" in grub[0].shell
+    assert "run-module yoloman.bootloader" in grub[0].shell
+    assert '"firmware": "uefi"' in grub[0].shell
 
 
 def test_bios_layout_installs_grub_to_disk():
-    """The real deployment case: a BIOS VM (no ESP) restored to /dev/sda → i386-pc grub written to
-    the disk's boot code, in the chroot."""
+    """The real deployment case: a BIOS VM (no ESP) restored to /dev/sda → the module gets
+    firmware=bios + the disk, and installs i386-pc grub to the disk's boot code in the chroot."""
     layout = SourceLayout(disk_size=50 * GiB, volumes=(BOOT, ROOT_EXT4))
     steps = restore_steps(
         layout, plan_restore(layout, Disk("sda", 200 * GiB)),
@@ -648,8 +646,10 @@ def test_bios_layout_installs_grub_to_disk():
     )
     grub = [s for s in steps if "bootloader" in s.name]
     assert len(grub) == 1
-    assert grub[0].chroot is True
-    assert grub[0].argv == ("grub-install", "--target=i386-pc", "/dev/sda")
+    assert f"chroot {TARGET_ROOT}" in grub[0].shell
+    assert "run-module yoloman.bootloader" in grub[0].shell
+    assert '"firmware": "bios"' in grub[0].shell
+    assert "/dev/sda" in grub[0].shell
 
 
 def test_identity_is_reset_before_the_target_is_unmounted():
@@ -663,16 +663,26 @@ def test_identity_is_reset_before_the_target_is_unmounted():
 
 def test_identity_runs_the_machine_identity_module_in_the_chroot():
     """The machine-id-empty / ssh-keys / hostname / hosts / cloud-init logic lives in the module
-    (proven idempotent in its own runtime test); the plan's job is only to stage the agent and invoke
-    it in the target chroot with the hostname."""
+    (proven idempotent in its own runtime test); identity_steps is just its chroot invocation. The
+    agent + modules are staged into the target once by restore_steps (shared with bootloader/initramfs),
+    so identity_steps itself is a single step."""
     steps = identity_steps("h")
-    run = next(s for s in steps if s.name == "reset identity (machine_identity module)")
+    assert len(steps) == 1
+    run = steps[0]
     assert f"chroot {TARGET_ROOT}" in run.shell
     assert "run-module yoloman.machine_identity" in run.shell
-    # the agent must be staged before, and cleaned up after, the module run
-    names = [s.name for s in steps]
-    assert names.index("stage the agent for identity module") < names.index("reset identity (machine_identity module)")
-    assert names.index("reset identity (machine_identity module)") < names.index("clean up staged identity agent")
+    assert "--modules-dir" in run.shell
+
+
+def test_restore_stages_and_cleans_up_the_provisioning_agent_and_modules():
+    """The chroot module steps need the agent + PE-baked modules inside the target; they are staged
+    once after the bind mounts and removed before the unmount so they never ride into the booted OS."""
+    steps = _run()
+    stage = _index(steps, "stage the provisioning agent + modules into the target")
+    clean = _index(steps, "clean up staged provisioning agent + modules")
+    ident = _index(steps, "reset identity (machine_identity module)")
+    assert stage < ident < clean
+    assert clean < _index(steps, "umount root")
 
 
 def test_the_hostname_is_quoted():
@@ -703,10 +713,11 @@ def test_each_volumes_image_has_a_distinct_name():
     }
     layout = parse_layout(sfdisk=None, lsblk_disk=two)
     plan = plan_restore(layout, Disk("sdc", 400 * GiB))
-    urls = [s.shell for s in restore_steps(layout, plan, image_url="https://b/i", hostname="h") if "restore" in s.name]
-    assert len(urls) == 2
-    # Pick the URL by shape, not by position: the curl flags shift as soon as one is added.
-    found = {tok for u in urls for tok in u.split() if tok.startswith("https://")}
+    shells = [s.shell for s in restore_steps(layout, plan, image_url="https://b/i", hostname="h") if "restore" in s.name]
+    assert len(shells) == 2
+    # The restore is now a run-module step; the source_url lives inside its JSON params. Pull the image
+    # URLs out and assert they are distinct (else two data LVs overwrite each other in the store).
+    found = {m for u in shells for m in re.findall(r'https://[^"]+\.pcl\.zst', u)}
     assert len(found) == 2, f"two distinct image URLs, got {found}"
 
 
@@ -786,7 +797,7 @@ def test_the_usage_key_matches_the_image_file_name():
     layout = parse_layout(sfdisk=SFDISK, lsblk_disk=SDA)
     plan = plan_restore(layout, Disk("sdb", 200 * GiB))
     steps = restore_steps(layout, plan, image_url="https://b/i", hostname="h")
-    urls = [tok for s in steps if s.shell for tok in s.shell.split() if tok.startswith("https://")]
+    urls = [m for s in steps if s.shell for m in re.findall(r'https://[^"]+\.pcl\.zst', s.shell)]
     assert any(u.endswith("/root-ubuntu-lv.pcl.zst") for u in urls)
     # and that stem is exactly what with_measured_usage accepts
     assert with_measured_usage(
