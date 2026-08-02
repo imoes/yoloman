@@ -32,10 +32,10 @@ interface RunbookRow { id: string; name: string; folder: string }
   template: `
     <div class="bm-page">
       <div class="bm-head">
-        <h1>Blueprint <span class="bm-tag">Prototyp</span></h1>
+        <h1>Blueprint <span class="bm-tag">Prototype</span></h1>
         <span class="bm-subtitle">
-          Infrastruktur als Docker-Compose-Dokument: Dienst platzieren → Rolle wählen → Variablen füllen →
-          verbinden. Die Kante schreibt die Wiring-Variablen. Nichts wird ausgeführt.
+          Infrastructure as a Docker Compose document: place a service → pick a role → fill its variables →
+          connect. The edge writes the wiring variables. Nothing is executed.
         </span>
       </div>
 
@@ -44,31 +44,31 @@ interface RunbookRow { id: string; name: string; folder: string }
       <div class="bm-cols">
         <!-- Palette -->
         <aside class="bm-pal">
-          <div class="bm-pal-h">Komponenten</div>
+          <div class="bm-pal-h">Components</div>
           @for (p of palette; track p.icon) {
             <button type="button" class="bm-pal-i" (click)="place(p)"
                     draggable="true" (dragstart)="onDragStart($event, p)"
-                    [title]="p.kind + ' — ziehen oder klicken'">
+                    [title]="p.kind + ' — drag or click'">
               <img [src]="'assets/blueprint/' + p.icon + '.svg'" [alt]="p.label" />
               <span>{{ p.label }}</span>
               <small>{{ p.kind }}</small>
             </button>
           }
-          <div class="bm-pal-h" style="margin-top:14px">Dokument</div>
-          <label class="bm-fld"><span>Stack-Name</span>
+          <div class="bm-pal-h" style="margin-top:14px">Document</div>
+          <label class="bm-fld"><span>Stack name</span>
             <input [ngModel]="store.blueprint().name" (ngModelChange)="store.setName($event)" />
           </label>
           <button mat-stroked-button class="bm-w" (click)="download('json')"
-                  title="Vollständiges Blueprint — enthält Rolle, Platzierung und Layout; kann wieder importiert werden">
+                  title="Full blueprint — includes role, placement and layout; can be re-imported">
             <mat-icon>download</mat-icon> Blueprint (JSON)
           </button>
           <button mat-stroked-button class="bm-w" (click)="download('yaml')"
-                  title="Reines Compose für docker compose — ohne Editor-Metadaten (Layout/Rolle gehen dabei verloren)">
+                  title="Plain Compose for docker compose — without editor metadata (layout/role are lost)">
             <mat-icon>description</mat-icon> compose.yaml
           </button>
           <button mat-stroked-button class="bm-w" (click)="fileInput.click()"><mat-icon>upload</mat-icon> Import</button>
           <input #fileInput type="file" accept=".yml,.yaml,.json" hidden (change)="onFile($event)" />
-          <button mat-stroked-button class="bm-w" (click)="store.reset()"><mat-icon>delete_sweep</mat-icon> Leeren</button>
+          <button mat-stroked-button class="bm-w" (click)="store.reset()"><mat-icon>delete_sweep</mat-icon> Clear</button>
         </aside>
 
         <!-- Canvas + document -->
@@ -83,9 +83,9 @@ interface RunbookRow { id: string; name: string; folder: string }
             (removeNode)="store.remove($event)" />
 
           @if (order().cycle.length) {
-            <p class="bm-err">Zyklus in depends_on: {{ order().cycle.join(' → ') }}</p>
+            <p class="bm-err">Cycle in depends_on: {{ order().cycle.join(' → ') }}</p>
           } @else if (order().order.length > 1) {
-            <p class="bm-dim">Startreihenfolge (depends_on, topologisch): <code>{{ order().order.join(' → ') }}</code></p>
+            <p class="bm-dim">Start order (depends_on, topological): <code>{{ order().order.join(' → ') }}</code></p>
           }
 
           <!-- The document is the payoff, so it stays visible by default — but it
@@ -93,7 +93,7 @@ interface RunbookRow { id: string; name: string; folder: string }
           <div class="bm-doc">
             <div class="bm-doc-tabs">
               <button type="button" class="bm-doc-fold" (click)="docOpen.set(!docOpen())"
-                      [title]="docOpen() ? 'Dokument einklappen' : 'Dokument ausklappen'">
+                      [title]="docOpen() ? 'Collapse document' : 'Expand document'">
                 <mat-icon>{{ docOpen() ? 'expand_more' : 'chevron_right' }}</mat-icon>
               </button>
               <button type="button" [class.on]="view() === 'yaml'" (click)="view.set('yaml'); docOpen.set(true)">compose.yaml</button>
@@ -115,7 +115,7 @@ interface RunbookRow { id: string; name: string; folder: string }
               <span class="bm-tag">{{ s.kind }}</span>
             </div>
 
-            <label class="bm-fld"><span>Servicename (= Adresse für andere Dienste)</span>
+            <label class="bm-fld"><span>Service name (= address for other services)</span>
               <input [ngModel]="s.name" (ngModelChange)="store.rename(s.name, $event)" />
             </label>
 
@@ -124,112 +124,112 @@ interface RunbookRow { id: string; name: string; folder: string }
                  template schema is where the typed variables come from, whether
                  the service ends up as a package or a container. -->
             <label class="bm-fld">
-              <span>Rolle / Template — liefert die Variablen
-                @if (categoryHint(s.icon); as c) { <em class="bm-cat">nur {{ c }}</em> }
+              <span>Role / template — supplies the variables
+                @if (categoryHint(s.icon); as c) { <em class="bm-cat">{{ c }} only</em> }
               </span>
               <select [ngModel]="s.role ?? ''" (ngModelChange)="pickRole(s.name, $event)">
-                <option value="">— keine —</option>
+                <option value="">— none —</option>
                 @for (r of rolesFor(s.icon); track r.id) { <option [value]="r.name">{{ r.label }}</option> }
               </select>
             </label>
 
             @if (s.kind === 'docker') {
-              <label class="bm-fld"><span>Image (Artefakt für den Docker-Tier)</span>
+              <label class="bm-fld"><span>Image (artifact for the Docker tier)</span>
                 <input [ngModel]="s.image ?? ''" (ngModelChange)="store.update(s.name, { image: $event })"
-                       placeholder="z.B. redis:7" />
+                       placeholder="e.g. redis:7" />
               </label>
             }
 
-            <label class="bm-fld"><span>Host (x-yolo-host) — wo der Dienst läuft</span>
+            <label class="bm-fld"><span>Host (x-yolo-host) — where the service runs</span>
               <input [ngModel]="s.host ?? ''" (ngModelChange)="store.update(s.name, { host: $event })"
-                     placeholder="z.B. docker-test" />
+                     placeholder="e.g. docker-test" />
             </label>
 
             @if (s.kind === 'native') {
-              <label class="bm-fld"><span>Geplante Adresse (IP/FQDN)</span>
+              <label class="bm-fld"><span>Planned address (IP/FQDN)</span>
                 <input [ngModel]="s.address ?? ''" (ngModelChange)="store.update(s.name, { address: $event })"
-                       placeholder="z.B. 192.0.2.60" />
+                       placeholder="e.g. 192.0.2.60" />
               </label>
               @if (!s.address && !s.host) {
-                <p class="bm-warn">Adresse noch offen — Compose-DNS greift für native Dienste nicht. Die IP wird
-                  vorab im IPAM vergeben; den DNS-Namen legt das verwaltete BIND an.</p>
+                <p class="bm-warn">Address still open — Compose DNS does not apply to native services. The IP is
+                  allocated up front in IPAM; the DNS name is created by the managed BIND.</p>
               }
             }
 
-            <label class="bm-fld"><span>Ports (Komma-getrennt, host:container)</span>
+            <label class="bm-fld"><span>Ports (comma-separated, host:container)</span>
               <input [ngModel]="s.ports.join(', ')" (ngModelChange)="setPorts(s.name, $event)" placeholder="8080:80" />
             </label>
 
             @if (store.openRequirementCaps(s.name); as open) {
               @if (open.length) {
-                <div class="bm-insp-sec">Offene Anforderungen</div>
+                <div class="bm-insp-sec">Open requirements</div>
                 @for (req of open; track req.capability) {
                   <div class="bm-req-block">
-                    <p class="bm-warn">Braucht <code class="bm-req">{{ req.capability }}</code>@if (req.backends?.length) { <span class="bm-req-be">({{ req.backends!.join(' | ') }})</span> }</p>
+                    <p class="bm-warn">Needs <code class="bm-req">{{ req.capability }}</code>@if (req.backends?.length) { <span class="bm-req-be">({{ req.backends!.join(' | ') }})</span> }</p>
                     @if (suggestionFor(req.capability); as sug) {
                       @if (sug.providers.length) {
-                        <div class="bm-sug-sec">Im Inventar vorhanden:</div>
+                        <div class="bm-sug-sec">Available in inventory:</div>
                         @for (p of sug.providers; track p.agent_id) {
                           <div class="bm-sug"><code>{{ p.hostname || p.address }}</code>
                             <span class="bm-sug-be">{{ p.backend }}{{ p.port ? ':' + p.port : '' }}</span>
                           </div>
                         }
                       } @else if (sug.roles.length) {
-                        <div class="bm-sug-sec">Kein Host liefert das — neuer Server mit Rolle:</div>
+                        <div class="bm-sug-sec">No host provides it — new server with role:</div>
                         @for (r of sug.roles; track r.role) {
                           <div class="bm-sug"><code>{{ r.label || r.role }}</code>
                             <span class="bm-sug-be">{{ r.backend }}</span>
                           </div>
                         }
                       } @else {
-                        <p class="bm-hint">Noch kein Anbieter bekannt (Katalog wird angereichert).</p>
+                        <p class="bm-hint">No provider known yet (catalog is being enriched).</p>
                       }
                     }
                   </div>
                 }
-                <p class="bm-hint">Verbinde die Rolle mit einem Dienst, der das bietet.</p>
+                <p class="bm-hint">Connect the role to a service that provides it.</p>
               }
             }
 
             @if (s.dependsOn.length) {
-              <div class="bm-insp-sec">Abhängig von</div>
+              <div class="bm-insp-sec">Depends on</div>
               @for (d of s.dependsOn; track d) {
                 <div class="bm-dep">
                   <code>{{ d }}</code>
-                  <button mat-button (click)="store.disconnect(s.name, d)">Trennen</button>
+                  <button mat-button (click)="store.disconnect(s.name, d)">Disconnect</button>
                 </div>
               }
             }
 
-            <div class="bm-insp-sec">Variablen
-              @if (loadingSchema()) { <span class="bm-dim">· lade Schema…</span> }
+            <div class="bm-insp-sec">Variables
+              @if (loadingSchema()) { <span class="bm-dim">· loading schema…</span> }
             </div>
             @if (schemaFor(s.role); as sch) {
               <app-param-form [params]="sch" [initial]="store.formValuesOf(s)" (valuesChange)="store.setValues(s.name, $event)" />
-              <p class="bm-dim">Diese Werte rendert das Config-Template (<code>x-yolo-values</code>) — es sind
-                Direktiven, keine Umgebungsvariablen. In <code>environment:</code> stehen nur die Wiring-Variablen
-                der Kanten.</p>
+              <p class="bm-dim">These values are rendered by the config template (<code>x-yolo-values</code>) — they are
+                directives, not environment variables. <code>environment:</code> holds only the wiring variables
+                from the edges.</p>
               @if (badEnvKeys(s); as bad) {
-                <p class="bm-warn">Kein gültiger Env-Name: <code>{{ bad }}</code> — als Umgebungsvariable nicht
-                  anwendbar.</p>
+                <p class="bm-warn">Not a valid env name: <code>{{ bad }}</code> — cannot be applied as an environment
+                  variable.</p>
               }
             } @else if (!s.role) {
-              <p class="bm-dim">Wähle eine Rolle / ein Template — ihr <code>schema.json</code> liefert die
-                typisierten Variablen (Enums werden zu Dropdowns). Die Wiring-Variablen kommen zusätzlich
-                aus den Kanten.</p>
+              <p class="bm-dim">Pick a role / template — its <code>schema.json</code> supplies the
+                typed variables (enums become dropdowns). The wiring variables come additionally
+                from the edges.</p>
             } @else {
-              <p class="bm-dim">Diese Rolle hat kein Parameter-Schema — Variablen kommen nur aus den Kanten.</p>
+              <p class="bm-dim">This role has no parameter schema — variables come only from the edges.</p>
             }
 
             @if (resolved(s.name).length) {
-              <div class="bm-insp-sec">Auflösung (Vorschau)</div>
+              <div class="bm-insp-sec">Resolution (preview)</div>
               <table class="bm-res">
                 @for (v of resolved(s.name); track v.key) {
                   <tr [class.un]="v.state === 'unresolved'">
                     <td><code>{{ v.key }}</code></td>
                     <td>
-                      @if (v.state === 'unresolved') { <em>nicht auflösbar</em> } @else { {{ v.value }} }
-                      @if (v.from) { <span class="bm-from">von {{ v.from }}</span> }
+                      @if (v.state === 'unresolved') { <em>unresolvable</em> } @else { {{ v.value }} }
+                      @if (v.from) { <span class="bm-from">from {{ v.from }}</span> }
                       @if (v.note) { <span class="bm-note">{{ v.note }}</span> }
                     </td>
                   </tr>
@@ -244,35 +244,35 @@ interface RunbookRow { id: string; name: string; folder: string }
               <mat-icon>arrow_downward</mat-icon>
               <strong>{{ e.from }} → {{ e.to }}</strong>
             </div>
-            <p class="bm-dim"><code>{{ e.from }}</code> hängt von <code>{{ e.to }}</code> ab
-              (<code>depends_on</code>). Diese Variablen schreibt die Kante:</p>
+            <p class="bm-dim"><code>{{ e.from }}</code> depends on <code>{{ e.to }}</code>
+              (<code>depends_on</code>). The edge writes these variables:</p>
 
             @for (b of store.bindingsOf(e.from, e.to); track b.key) {
               <div class="bm-bind">
                 <input class="bm-bind-k" [ngModel]="b.key"
                        (ngModelChange)="store.renameBinding(e.from, b.key, $event)"
-                       title="Variablenname, den der Konsument erwartet" />
+                       title="Variable name the consumer expects" />
                 <input class="bm-bind-v" [ngModel]="b.value"
                        (ngModelChange)="store.setBindingValue(e.from, b.key, $event)"
-                       title="Wert — ein Servicename wird zur Adresse aufgelöst" />
-                <button mat-button (click)="store.removeBinding(e.from, b.key)" title="Variable entfernen">×</button>
+                       title="Value — a service name is resolved to an address" />
+                <button mat-button (click)="store.removeBinding(e.from, b.key)" title="Remove variable">×</button>
               </div>
             } @empty {
-              <p class="bm-dim">Diese Kante schreibt noch keine Variable.</p>
+              <p class="bm-dim">This edge does not write any variable yet.</p>
             }
 
             <div class="bm-bind">
               <input class="bm-bind-k" [ngModel]="newVarKey()" (ngModelChange)="newVarKey.set($event)"
-                     placeholder="NEUE_VARIABLE" />
-              <button mat-stroked-button (click)="addVar(e)" [disabled]="!newVarKey().trim()">Hinzufügen</button>
+                     placeholder="NEW_VARIABLE" />
+              <button mat-stroked-button (click)="addVar(e)" [disabled]="!newVarKey().trim()">Add</button>
             </div>
 
             <button mat-stroked-button class="bm-w" (click)="store.disconnect(e.from, e.to); selectedEdge.set(null)">
-              <mat-icon>link_off</mat-icon> Verbindung trennen
+              <mat-icon>link_off</mat-icon> Disconnect
             </button>
           } @else {
-            <p class="bm-dim">Nichts ausgewählt. Zieh links eine Komponente auf die Fläche — oder klick eine
-              Kante an, um ihre Variablen zu definieren.</p>
+            <p class="bm-dim">Nothing selected. Drag a component from the left onto the canvas — or click an
+              edge to define its variables.</p>
           }
         </aside>
       </div>
@@ -385,7 +385,7 @@ export class BlueprintComponent implements OnInit {
       next: (r) => this.roles.set((r.runbooks || [])
         .filter((x) => (x.folder || '').startsWith('wizard'))
         .sort((a, b) => a.name.localeCompare(b.name))),
-      error: () => this.store.error.set('Rollen konnten nicht geladen werden.'),
+      error: () => this.store.error.set('Failed to load roles.'),
     });
     // The catalog tells us which of those wizards are actually installable SERVER
     // ROLES (kind==='role') and what category they are — the 14 kind==='config'
@@ -398,7 +398,7 @@ export class BlueprintComponent implements OnInit {
   }
 
   /** Roles offered for a component: catalog kind==='role', and — when the palette
-   * entry declares categories — only those categories. Placing a Datenbank must not
+   * entry declares categories — only those categories. Placing a database must not
    * offer a firewall role. */
   rolesFor(icon: string): { id: string; name: string; label: string }[] {
     const entry = paletteFor(icon);
@@ -516,7 +516,7 @@ export class BlueprintComponent implements OnInit {
       error: () => {
         this.loadingSchema.set(false);
         this.requested.delete(role);   // allow a retry
-        this.store.error.set(`Schema für ${role} nicht ladbar.`);
+        this.store.error.set(`Failed to load schema for ${role}.`);
       },
     });
   }

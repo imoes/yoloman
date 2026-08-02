@@ -45,16 +45,16 @@ export interface ResolvedVar {
  */
 export function addressOf(s: BlueprintService): { address: string; state: ResolutionState; note?: string } {
   if (s.kind === 'docker') {
-    return { address: s.name, state: 'resolved', note: 'Compose-DNS im gemeinsamen Netz' };
+    return { address: s.name, state: 'resolved', note: 'Compose DNS on the shared network' };
   }
   if (s.address) {
-    return { address: s.address, state: 'resolved', note: 'geplante Adresse (aus dem IPAM; DNS-Name via verwaltetes BIND)' };
+    return { address: s.address, state: 'resolved', note: 'planned address (from IPAM; DNS name via managed BIND)' };
   }
-  if (s.host) return { address: s.host, state: 'resolved', note: 'platzierter Host (x-yolo-host)' };
+  if (s.host) return { address: s.host, state: 'resolved', note: 'placed host (x-yolo-host)' };
   return {
     address: '',
     state: 'unresolved',
-    note: 'native Dienst ohne geplante Adresse — Compose-DNS greift hier nicht: IP im IPAM vergeben, DNS-Name über das verwaltete BIND anlegen',
+    note: 'native service without a planned address — Compose DNS does not apply here: allocate an IP in IPAM, create the DNS name via the managed BIND',
   };
 }
 
@@ -109,7 +109,7 @@ export function resolveService(bp: Blueprint, svc: BlueprintService): ResolvedVa
   return out.sort((a, b) => a.key.localeCompare(b.key));
 }
 
-/** Every service's resolution, keyed by service name — the "was würde passieren"
+/** Every service's resolution, keyed by service name — the "what would happen"
  * preview for the whole blueprint. */
 export function resolveBlueprint(bp: Blueprint): Record<string, ResolvedVar[]> {
   const out: Record<string, ResolvedVar[]> = {};

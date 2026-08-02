@@ -43,7 +43,7 @@ const MAIN_NAV: NavItem[] = [
   { path: '/apps', label: 'App Store', icon: 'apps' },
   { path: '/systems', label: 'Systems', icon: 'lan' },
   { path: '/blueprint', label: 'Blueprint', icon: 'schema' },
-  { path: '/disk-templates', label: 'Bereitstellung', icon: 'install_desktop' },
+  { path: '/disk-templates', label: 'Provisioning', icon: 'install_desktop' },
   { path: '/problems', label: 'Problems', icon: 'report_problem' },
   { path: '/business-services', label: 'Business services', icon: 'hub' },
   { path: '/capacity', label: 'Capacity', icon: 'trending_up' },

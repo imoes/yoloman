@@ -33,7 +33,7 @@ import { ModuleCatalog, ModuleDetail, ModuleInfo, ModuleOptionSpec } from '../..
         <div class="bm-toolbar">
           <mat-form-field appearance="outline" class="bm-search">
             <mat-label>Search modules</mat-label>
-            <input matInput [(ngModel)]="search" placeholder="docker_container, sysctl, x509…" />
+            <input matInput [ngModel]="search()" (ngModelChange)="search.set($event)" placeholder="docker_container, sysctl, x509…" />
           </mat-form-field>
         </div>
 
@@ -260,14 +260,17 @@ export class ModulesListComponent implements OnInit {
   private moduleService = inject(ModuleService);
 
   catalog = signal<ModuleCatalog | null>(null);
-  search = '';
+  // A signal, not a plain field: visibleModules() is a computed(), and a computed
+  // only re-runs when a signal it reads changes. A plain `search` mutated through
+  // ngModel would never re-filter the table (the search was silently dead).
+  search = signal('');
   expanded = signal<string | null>(null);
   detail = signal<ModuleDetail | null>(null);
 
   visibleModules = computed(() => {
     const cat = this.catalog();
     if (!cat) return [];
-    const q = this.search.trim().toLowerCase();
+    const q = this.search().trim().toLowerCase();
     return cat.modules.filter((m) => {
       if (m.fqcn.startsWith('checkmk.')) return false; // checks, not modules — on the Checks page
       if (q && !m.fqcn.toLowerCase().includes(q) && !(m.short_description ?? '').toLowerCase().includes(q)) return false;

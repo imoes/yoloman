@@ -31,14 +31,14 @@ const EDGE_COLOUR = BM_UNKNOWN;
     <div class="bm-bpc-wrap">
       <div class="bm-bpc-bar">
         <button type="button" class="bm-bpc-btn" [class.on]="connectMode()"
-                (click)="toggleConnect()" title="Zwei Dienste verbinden (depends_on)">
-          {{ connectMode() ? (pending() ? 'Ziel wählen…' : 'Quelle wählen…') : 'Verbinden' }}
+                (click)="toggleConnect()" title="Connect two services (depends_on)">
+          {{ connectMode() ? (pending() ? 'Pick target…' : 'Pick source…') : 'Connect' }}
         </button>
-        <button type="button" class="bm-bpc-btn" (click)="autoLayout()" title="Nach Abhängigkeiten anordnen">Anordnen</button>
-        <button type="button" class="bm-bpc-btn" (click)="fit()">Einpassen</button>
+        <button type="button" class="bm-bpc-btn" (click)="autoLayout()" title="Arrange by dependencies">Arrange</button>
+        <button type="button" class="bm-bpc-btn" (click)="fit()">Fit</button>
         <span class="bm-bpc-hint">
-          @if (connectMode()) { Klick auf Quelle, dann auf Ziel · Esc bricht ab }
-          @else { Komponente von links hierher ziehen · Klick = auswählen · Doppelklick = löschen · Kante anklicken = Variablen }
+          @if (connectMode()) { Click the source, then the target · Esc cancels }
+          @else { Drag a component here from the left · Click = select · Double-click = delete · Click an edge = variables }
         </span>
       </div>
       <div class="bm-bpc" #host

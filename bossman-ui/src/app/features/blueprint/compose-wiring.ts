@@ -93,11 +93,11 @@ export function openRequirements(service: BlueprintService, services: BlueprintS
 
 /** `from` depends on `to`; wire the variables the consumer needs to reach it. */
 export function wireEdge(services: BlueprintService[], from: string, to: string): WireResult {
-  if (from === to) return { services, error: 'Ein Dienst kann nicht von sich selbst abhängen.' };
+  if (from === to) return { services, error: 'A service cannot depend on itself.' };
   const src = services.find((s) => s.name === from);
   const dst = services.find((s) => s.name === to);
-  if (!src || !dst) return { services, error: `Unbekannter Dienst (${from} → ${to}).` };
-  if (src.dependsOn.includes(to)) return { services, error: `${from} hängt schon von ${to} ab.` };
+  if (!src || !dst) return { services, error: `Unknown service (${from} → ${to}).` };
+  if (src.dependsOn.includes(to)) return { services, error: `${from} already depends on ${to}.` };
 
   // Plausibility: an edge is only allowed when the target provides a capability the source requires.
   // A source that declares NO requirements is unconstrained (a generic Server/Container can depend on
@@ -107,7 +107,7 @@ export function wireEdge(services: BlueprintService[], from: string, to: string)
     const got = providesOf(dst).join(', ') || '—';
     return {
       services,
-      error: `${from} braucht [${need}], aber ${to} bietet [${got}]. Verbinde ${from} mit einem passenden Dienst.`,
+      error: `${from} needs [${need}], but ${to} provides [${got}]. Connect ${from} to a matching service.`,
     };
   }
 

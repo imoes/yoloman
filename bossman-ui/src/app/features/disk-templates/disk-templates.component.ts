@@ -10,7 +10,7 @@ import { DiskImage, ImageVolume, ImagesService, ProvisionNetwork, RestoreJob, Vm
 const GROWABLE = new Set(['root', 'var', 'home', 'data']);
 
 /**
- * Disk-Templates / bare-metal provisioning. Left: captured templates (mark one active). Middle: the
+ * Disk templates / bare-metal provisioning. Left: captured templates (mark one active). Middle: the
  * active template's disk — fixed volumes locked, growable ones (root/var/home, LVM-aware) as percentage
  * inputs that must sum to 100. Right: plan a target host (hostname/MAC/network) + arm the install, and
  * the live restore-jobs list. Roles are assigned through the host's Management tab (link per job).
@@ -24,33 +24,33 @@ const GROWABLE = new Set(['root', 'var', 'home', 'data']);
     <div class="dt-wrap">
       <!-- ── Templates ────────────────────────────────────────────── -->
       <section class="dt-col">
-        <h2>Disk-Templates</h2>
+        <h2>Disk templates</h2>
 
         <!-- Import an existing disk image (vmdk/qcow2/raw) staged in the lab as a golden template. -->
         <div class="dt-import">
           @if (!importOpen()) {
-            <button mat-button (click)="openImport()"><mat-icon>upload_file</mat-icon> Bestehendes Image importieren</button>
+            <button mat-button (click)="openImport()"><mat-icon>upload_file</mat-icon> Import existing image</button>
           } @else {
             <div class="dt-import-form">
-              <b>Image importieren</b>
-              <label class="dt-fld"><span>Quelldatei (in /srv/templates)</span>
+              <b>Import image</b>
+              <label class="dt-fld"><span>Source file (in /srv/templates)</span>
                 <select [(ngModel)]="imp.source_file">
-                  <option value="" disabled>— wählen —</option>
+                  <option value="" disabled>— select —</option>
                   @for (s of sources(); track s) { <option [value]="s">{{ s }}</option> }
                 </select>
               </label>
-              <label class="dt-fld"><span>Template-Name</span><input [(ngModel)]="imp.name" placeholder="z. B. debian13-base" /></label>
+              <label class="dt-fld"><span>Template name</span><input [(ngModel)]="imp.name" placeholder="e.g. debian13-base" /></label>
               <div class="dt-row">
-                <button mat-flat-button color="primary" [disabled]="!imp.source_file || !imp.name.trim() || importing()" (click)="doImport()">Importieren</button>
-                <button mat-button (click)="importOpen.set(false)">Abbrechen</button>
+                <button mat-flat-button color="primary" [disabled]="!imp.source_file || !imp.name.trim() || importing()" (click)="doImport()">Import</button>
+                <button mat-button (click)="importOpen.set(false)">Cancel</button>
               </div>
-              @if (sources().length === 0) { <p class="dt-muted">Keine Images in /srv/templates gefunden (.vmdk/.qcow2/.raw/.img).</p> }
+              @if (sources().length === 0) { <p class="dt-muted">No images found in /srv/templates (.vmdk/.qcow2/.raw/.img).</p> }
               @if (importErr()) { <p class="dt-err">{{ importErr() }}</p> }
             </div>
           }
         </div>
 
-        @if (images().length === 0) { <p class="dt-muted">Noch keine aufgenommenen Templates.</p> }
+        @if (images().length === 0) { <p class="dt-muted">No captured templates yet.</p> }
         @for (img of images(); track img.id) {
           <div class="dt-card" [class.dt-sel]="selected()?.id === img.id" (click)="select(img)">
             <div class="dt-row">
@@ -62,12 +62,12 @@ const GROWABLE = new Set(['root', 'var', 'home', 'data']);
             @if (img.status === 'capturing') {
               <div class="dt-prog">
                 <div class="dt-prog-bar"><span [style.width.%]="progressPct(img)"></span></div>
-                <div class="dt-sub">{{ img.progress || 'Import läuft…' }}</div>
+                <div class="dt-sub">{{ img.progress || 'Import running…' }}</div>
               </div>
             }
             @if (img.status === 'failed' && img.error) { <div class="dt-err">{{ img.error }}</div> }
             <button mat-button [disabled]="img.status !== 'ready'" (click)="toggleActive(img, $event)">
-              {{ img.is_active ? 'Aktiv' : 'Als aktiv markieren' }}
+              {{ img.is_active ? 'Active' : 'Mark active' }}
             </button>
           </div>
         }
@@ -75,10 +75,10 @@ const GROWABLE = new Set(['root', 'var', 'home', 'data']);
 
       <!-- ── Disk / grow policy of the selected template ──────────── -->
       <section class="dt-col">
-        <h2>Disk-Geometrie</h2>
-        @if (!selected()) { <p class="dt-muted">Ein Template wählen.</p> }
+        <h2>Disk geometry</h2>
+        @if (!selected()) { <p class="dt-muted">Select a template.</p> }
         @if (selected(); as img) {
-          <p class="dt-muted">Struktur kommt aus dem Image (partclone). Nur die Größen der wachsenden Volumes sind einstellbar.</p>
+          <p class="dt-muted">Layout comes from the image (partclone). Only the sizes of the growable volumes are editable.</p>
           @for (v of img.volumes; track v.role + (v.lv || '')) {
             <div class="dt-vol">
               <span class="dt-vol-name">
@@ -97,46 +97,46 @@ const GROWABLE = new Set(['root', 'var', 'home', 'data']);
             </div>
           }
           @if (growableRoles().length) {
-            <div class="dt-sum" [class.bad]="sum() !== 100">Summe: {{ sum() }} % @if (sum() !== 100) { — muss 100 sein }</div>
-            <button mat-button [disabled]="sum() !== 100" (click)="saveGrow()">Grow-Policy speichern</button>
+            <div class="dt-sum" [class.bad]="sum() !== 100">Sum: {{ sum() }} % @if (sum() !== 100) { — must be 100 }</div>
+            <button mat-button [disabled]="sum() !== 100" (click)="saveGrow()">Save grow policy</button>
           } @else {
-            <p class="dt-muted">Keine wachsenden Volumes (root/var/home) — das letzte Volume füllt die Platte.</p>
+            <p class="dt-muted">No growable volumes (root/var/home) — the last volume fills the disk.</p>
           }
         }
       </section>
 
       <!-- ── Provision a target + jobs ────────────────────────────── -->
       <section class="dt-col">
-        <h2>Bereitstellen</h2>
+        <h2>Provision</h2>
         <label class="dt-fld"><span>Hostname</span><input [(ngModel)]="host.hostname" placeholder="web042" /></label>
-        <label class="dt-fld"><span>MAC <span class="dt-opt">(optional)</span></span><input [(ngModel)]="host.mac" placeholder="leer = nächste bootende Maschine" /></label>
-        <label class="dt-fld"><span>Netzwerk</span>
+        <label class="dt-fld"><span>MAC <span class="dt-opt">(optional)</span></span><input [(ngModel)]="host.mac" placeholder="empty = next machine that boots" /></label>
+        <label class="dt-fld"><span>Network</span>
           <select [(ngModel)]="net.mode">
             <option value="dhcp">DHCP</option>
-            <option value="static">statisch</option>
+            <option value="static">static</option>
           </select>
         </label>
         @if (net.mode === 'static') {
-          <label class="dt-fld"><span>Adresse (CIDR)</span><input [(ngModel)]="net.address" placeholder="192.0.2.60/24" /></label>
+          <label class="dt-fld"><span>Address (CIDR)</span><input [(ngModel)]="net.address" placeholder="192.0.2.60/24" /></label>
           <label class="dt-fld"><span>Gateway</span><input [(ngModel)]="net.gateway" placeholder="192.0.2.1" /></label>
-          <label class="dt-fld"><span>DNS (Komma)</span><input [(ngModel)]="dnsRaw" placeholder="192.0.2.1, 1.1.1.1" /></label>
+          <label class="dt-fld"><span>DNS (comma)</span><input [(ngModel)]="dnsRaw" placeholder="192.0.2.1, 1.1.1.1" /></label>
         }
         <button mat-flat-button color="primary" [disabled]="!canProvision()" (click)="provision()">
-          Host anlegen + für Installation armen
+          Create host + arm for install
         </button>
         @if (err()) { <p class="dt-err">{{ err() }}</p> }
-        <p class="dt-muted">Rollen weist du danach im <b>Management</b>-Tab des Hosts zu (konvergieren nach dem ersten Boot).</p>
+        <p class="dt-muted">Assign roles afterwards in the host's <b>Management</b> tab (they converge after the first boot).</p>
 
-        <h3>Restore-Jobs</h3>
+        <h3>Restore jobs</h3>
         @for (j of jobs(); track j.id) {
           <div class="dt-job">
             <span class="dt-badge" [class.ready]="j.status === 'done'" [class.bad]="j.status === 'failed'">{{ j.status }}</span>
-            <b>{{ j.target_hostname }}</b> <span class="dt-muted">{{ j.target_mac || '(wildcard)' }}</span> · Schritt {{ j.step_index }}
+            <b>{{ j.target_hostname }}</b> <span class="dt-muted">{{ j.target_mac || '(wildcard)' }}</span> · step {{ j.step_index }}
             @if (j.agent_id) { <a mat-button [routerLink]="['/hosts', j.agent_id]">Management</a> }
             @if (j.status === 'pending' || j.status === 'running') {
-              <button mat-button (click)="cancelJob(j)">Abbrechen</button>
+              <button mat-button (click)="cancelJob(j)">Cancel</button>
             } @else {
-              <button mat-icon-button title="Löschen" (click)="deleteJob(j)"><mat-icon>delete</mat-icon></button>
+              <button mat-icon-button title="Delete" (click)="deleteJob(j)"><mat-icon>delete</mat-icon></button>
             }
             @if (j.error) { <div class="dt-err">{{ j.error }}</div> }
           </div>
@@ -146,30 +146,30 @@ const GROWABLE = new Set(['root', 'var', 'home', 'data']);
 
     <!-- ── Nested-virt lab (QEMU im pxe-Container) ──────────────────────── -->
     <section class="dt-lab">
-      <h2>Labor (nested-virt)</h2>
-      <p class="dt-muted">Template von einer ISO bauen oder das aktive Template über ein plattenloses PXE-Ziel end-to-end testen — QEMU läuft im pxe-Container, Konsole per noVNC.</p>
+      <h2>Lab (nested virt)</h2>
+      <p class="dt-muted">Build a template from an ISO, or end-to-end test the active template via a diskless PXE target — QEMU runs in the pxe container, console over noVNC.</p>
       <div class="dt-lab-actions">
         <div class="dt-lab-form">
-          <b>Template von ISO installieren</b>
-          <input [(ngModel)]="inst.name" placeholder="VM-Name (z. B. tmpl-deb12)" />
-          <input [(ngModel)]="inst.iso" placeholder="ISO-Datei (im ISO-Verzeichnis)" />
-          <input [(ngModel)]="inst.disk" placeholder="Disk-Datei (z. B. tmpl-deb12.raw)" />
-          <button mat-flat-button color="primary" [disabled]="!inst.name || !inst.iso || !inst.disk" (click)="startInstall()">Installieren + Konsole</button>
+          <b>Install template from ISO</b>
+          <input [(ngModel)]="inst.name" placeholder="VM name (e.g. tmpl-deb12)" />
+          <input [(ngModel)]="inst.iso" placeholder="ISO file (in the ISO dir)" />
+          <input [(ngModel)]="inst.disk" placeholder="Disk file (e.g. tmpl-deb12.raw)" />
+          <button mat-flat-button color="primary" [disabled]="!inst.name || !inst.iso || !inst.disk" (click)="startInstall()">Install + console</button>
         </div>
         <div class="dt-lab-form">
-          <b>PXE-Test des aktiven Templates</b>
-          <p class="dt-muted">Erzeugt eine plattenlose VM auf dem ens19-Segment, die das aktive Template per PXE restauriert.</p>
-          <button mat-flat-button [disabled]="!activeImage()" (click)="startPxeTest()">PXE-Test starten</button>
+          <b>PXE-test the active template</b>
+          <p class="dt-muted">Creates a diskless VM on the ens19 segment that PXE-restores the active template.</p>
+          <button mat-flat-button [disabled]="!activeImage()" (click)="startPxeTest()">Start PXE test</button>
         </div>
       </div>
       @if (labErr()) { <p class="dt-err">{{ labErr() }}</p> }
-      <h3>Laufende VMs</h3>
-      @if (vms().length === 0) { <p class="dt-muted">Keine laufenden Lab-VMs.</p> }
+      <h3>Running VMs</h3>
+      @if (vms().length === 0) { <p class="dt-muted">No running lab VMs.</p> }
       @for (v of vms(); track v.name) {
         <div class="dt-job">
           <span class="dt-badge ready">{{ v.kind }}</span>
           <b>{{ v.name }}</b> <span class="dt-muted">Display :{{ v.display }} · {{ v.disk }}</span>
-          <button mat-button (click)="openConsole(v.name)">Konsole</button>
+          <button mat-button (click)="openConsole(v.name)">Console</button>
           <button mat-button (click)="stopVm(v.name)">Stop</button>
         </div>
       }
@@ -254,7 +254,7 @@ export class DiskTemplatesComponent implements OnInit, OnDestroy {
     this.importErr.set('');
     this.svc.importSources().subscribe({
       next: (s) => this.sources.set(s),
-      error: (e) => this.importErr.set(e?.error?.detail || 'Quellen konnten nicht geladen werden'),
+      error: (e) => this.importErr.set(e?.error?.detail || 'Could not load sources'),
     });
   }
 
@@ -268,7 +268,7 @@ export class DiskTemplatesComponent implements OnInit, OnDestroy {
         this.imp = { name: '', source_file: '' };
         this.reload();   // the new image shows as 'capturing' and the poll flips it to 'ready'
       },
-      error: (e) => { this.importing.set(false); this.importErr.set(e?.error?.detail || 'Import fehlgeschlagen'); },
+      error: (e) => { this.importing.set(false); this.importErr.set(e?.error?.detail || 'Import failed'); },
     });
   }
   ngOnDestroy(): void { if (this.timer) clearInterval(this.timer); }
@@ -293,7 +293,7 @@ export class DiskTemplatesComponent implements OnInit, OnDestroy {
     this.labErr.set('');
     this.svc.install({ name: this.inst.name.trim(), iso: this.inst.iso.trim(), disk: this.inst.disk.trim() }).subscribe({
       next: () => { const n = this.inst.name.trim(); this.inst = { name: '', iso: '', disk: '' }; this.pollVms(); this.openConsole(n); },
-      error: (e) => this.labErr.set(e?.error?.detail || 'Installation fehlgeschlagen'),
+      error: (e) => this.labErr.set(e?.error?.detail || 'Install failed'),
     });
   }
 
@@ -302,19 +302,19 @@ export class DiskTemplatesComponent implements OnInit, OnDestroy {
     const name = `pxe-test-${this.slug()}`;
     this.svc.pxeTest({ name, mac: this.randMac(), disk: `${name}.raw` }).subscribe({
       next: () => { this.pollVms(); this.openConsole(name); },
-      error: (e) => this.labErr.set(e?.error?.detail || 'PXE-Test fehlgeschlagen'),
+      error: (e) => this.labErr.set(e?.error?.detail || 'PXE test failed'),
     });
   }
 
   stopVm(name: string): void {
-    this.svc.stopVm(name).subscribe({ next: () => this.pollVms(), error: (e) => this.labErr.set(e?.error?.detail || 'Stop fehlgeschlagen') });
+    this.svc.stopVm(name).subscribe({ next: () => this.pollVms(), error: (e) => this.labErr.set(e?.error?.detail || 'Stop failed') });
   }
 
   cancelJob(j: RestoreJob): void {
-    this.svc.cancelJob(j.id).subscribe({ next: () => this.svc.jobs().subscribe((x) => this.jobs.set(x)), error: (e) => this.err.set(e?.error?.detail || 'Abbrechen fehlgeschlagen') });
+    this.svc.cancelJob(j.id).subscribe({ next: () => this.svc.jobs().subscribe((x) => this.jobs.set(x)), error: (e) => this.err.set(e?.error?.detail || 'Cancel failed') });
   }
   deleteJob(j: RestoreJob): void {
-    this.svc.deleteJob(j.id).subscribe({ next: () => this.svc.jobs().subscribe((x) => this.jobs.set(x)), error: (e) => this.err.set(e?.error?.detail || 'Löschen fehlgeschlagen') });
+    this.svc.deleteJob(j.id).subscribe({ next: () => this.svc.jobs().subscribe((x) => this.jobs.set(x)), error: (e) => this.err.set(e?.error?.detail || 'Delete failed') });
   }
 
   private reload(): void {
@@ -350,7 +350,7 @@ export class DiskTemplatesComponent implements OnInit, OnDestroy {
     ev.stopPropagation();
     this.svc.patch(img.id, { is_active: !img.is_active }).subscribe({
       next: () => this.reload(),
-      error: (e) => this.err.set(e?.error?.detail || 'Aktivieren fehlgeschlagen'),
+      error: (e) => this.err.set(e?.error?.detail || 'Activation failed'),
     });
   }
 
@@ -361,7 +361,7 @@ export class DiskTemplatesComponent implements OnInit, OnDestroy {
     for (const r of this.growableRoles()) policy[r] = Number(this.pct[r]) || 0;
     this.svc.patch(img.id, { grow_policy: policy }).subscribe({
       next: (updated) => { this.selected.set(updated); this.reload(); },
-      error: (e) => this.err.set(e?.error?.detail || 'Speichern fehlgeschlagen'),
+      error: (e) => this.err.set(e?.error?.detail || 'Save failed'),
     });
   }
 
@@ -373,7 +373,7 @@ export class DiskTemplatesComponent implements OnInit, OnDestroy {
   provision(): void {
     this.err.set('');
     const active = this.images().find((i) => i.is_active);
-    if (!active) { this.err.set('Kein aktives Template'); return; }
+    if (!active) { this.err.set('No active template'); return; }
     const network: ProvisionNetwork = { mode: this.net.mode };
     if (this.net.mode === 'static') {
       network.address = this.net.address;
@@ -384,9 +384,9 @@ export class DiskTemplatesComponent implements OnInit, OnDestroy {
       next: () => this.svc.arm({ image_id: active.id, target_mac: this.host.mac.trim(), target_hostname: this.host.hostname.trim() })
         .subscribe({
           next: () => { this.host = { hostname: '', mac: '' }; this.net = { mode: 'dhcp' }; this.dnsRaw = ''; this.reload(); },
-          error: (e) => this.err.set(e?.error?.detail || 'Armen fehlgeschlagen'),
+          error: (e) => this.err.set(e?.error?.detail || 'Arming failed'),
         }),
-      error: (e) => this.err.set(e?.error?.detail || 'Host anlegen fehlgeschlagen'),
+      error: (e) => this.err.set(e?.error?.detail || 'Creating host failed'),
     });
   }
 }
