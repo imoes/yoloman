@@ -37,11 +37,15 @@ class VmLabError(RuntimeError):
 
 
 async def _default_spawn(argv: list[str]) -> tuple[int, str, str]:
-    proc = await asyncio.create_subprocess_exec(
-        *argv,
-        stdout=asyncio.subprocess.PIPE,
-        stderr=asyncio.subprocess.PIPE,
-    )
+    try:
+        proc = await asyncio.create_subprocess_exec(
+            *argv,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+    except FileNotFoundError as exc:
+        # e.g. the docker CLI isn't in this image — surface it as a clean lab error (400), not a 500.
+        raise VmLabError(f"{argv[0]!r} not found (is the docker CLI installed in the bossman image?)") from exc
     out, err = await proc.communicate()
     return proc.returncode or 0, out.decode("utf-8", "replace"), err.decode("utf-8", "replace")
 

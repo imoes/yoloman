@@ -539,6 +539,38 @@ async def netboot_pending(
     return {"pending": int(count or 0), "dhcp": bool(count)}
 
 
+@router.get("/api/v1/netboot/config")
+async def netboot_config(
+    authorization: str | None = Header(default=None),
+    session: AsyncSession = Depends(get_session),
+) -> dict:
+    """The effective netboot state for the pxe container to consume, so the WebUI is the ONLY source of
+    the secret — no env/override to keep in sync. Returns the secret only to an ENROLLED agent (the
+    pxe-lab host proving itself with its own token) and only while netboot is enabled; the container
+    stamps it onto the PXE kernel cmdline and gates DHCP on `dhcp`."""
+    token = (authorization or "").removeprefix("Bearer ").strip()
+    if not token:
+        raise HTTPException(status_code=401, detail="missing agent token")
+    agent = await session.scalar(select(Agent).where(Agent.token == token))
+    if agent is None:
+        raise HTTPException(status_code=403, detail="not an enrolled agent")
+    sys = await session.get(SystemSettings, UUID(SYSTEM_SETTINGS_ID))
+    env_secret = get_settings().netboot_secret
+    db_secret = sys.netboot_secret if (sys and sys.netboot_secret) else ""
+    if db_secret:
+        enabled, secret = bool(sys.netboot_enabled), db_secret
+    else:
+        enabled, secret = bool(env_secret), env_secret
+    pending = await session.scalar(
+        select(func.count()).select_from(RestoreJob).where(RestoreJob.status.in_(("pending", "running")))
+    )
+    return {
+        "enabled": enabled,
+        "secret": secret if enabled else "",
+        "dhcp": bool(enabled and (pending or 0) > 0),
+    }
+
+
 @router.post("/api/v1/netboot/checkin", response_model=CheckinOut)
 async def netboot_checkin(
     body: CheckinIn,

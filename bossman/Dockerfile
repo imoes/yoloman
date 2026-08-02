@@ -11,8 +11,10 @@ ENV http_proxy=$http_proxy https_proxy=$https_proxy no_proxy=$no_proxy
 
 # The docker CLI so Bossman can drive the PXE nested-virt lab via `docker exec <pxe> vm-control.sh`
 # (services/vm_lab.py). Only used when BOSSMAN_PXE_CONTAINER is set and the docker socket is mounted;
-# harmless otherwise. docker-cli only (no daemon) — it talks to the host's socket.
-RUN apt-get update && apt-get install -y --no-install-recommends docker.io \
+# harmless otherwise. `docker-cli` is the client only (no daemon) — it provides /usr/bin/docker and
+# talks to the host's socket. (docker.io's CLI lives in this separate package, which --no-install-
+# recommends would otherwise skip, leaving docker.io "installed" but no /usr/bin/docker.)
+RUN apt-get update && apt-get install -y --no-install-recommends docker-cli \
     && rm -rf /var/lib/apt/lists/*
 
 # Copied from the official uv image rather than `pip install uv` — avoids

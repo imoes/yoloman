@@ -10,12 +10,20 @@ TFTP_ROOT="${TFTP_ROOT:-/srv/tftp}"
 SUITE="${PE_SUITE:-trixie}"
 MIRROR="${PE_MIRROR:-http://deb.debian.org/debian}"
 
-echo "build-pe: debootstrap ${SUITE} into ${PE_ROOT}…"
-rm -rf "$PE_ROOT"
-debootstrap --variant=minbase --include=ca-certificates "$SUITE" "$PE_ROOT" "$MIRROR"
+# Fast path: /pe-root is a persistent volume. If the rootfs was already fully built (kernel present),
+# reuse it and only re-pack the squashfs — a container recreate loses pe.squashfs (container layer) but
+# NOT the rootfs, so this turns a ~5-min rebuild into a ~30s re-pack.
+if ls "$PE_ROOT"/boot/vmlinuz-* >/dev/null 2>&1; then
+    echo "build-pe: reusing existing rootfs in ${PE_ROOT} (skipping debootstrap + apt)"
+else
+    echo "build-pe: debootstrap ${SUITE} into ${PE_ROOT}…"
+    # A mounted volume — clear its CONTENTS, never rm the mountpoint itself ("Device or resource busy").
+    mkdir -p "$PE_ROOT"
+    find "$PE_ROOT" -mindepth 1 -maxdepth 1 -exec rm -rf {} + 2>/dev/null || true
+    debootstrap --variant=minbase --include=ca-certificates "$SUITE" "$PE_ROOT" "$MIRROR"
 
-# The toolchain the returned restore steps need, plus live-boot (RAM boot) and the kernel.
-chroot "$PE_ROOT" /bin/sh -eu <<'CHROOT'
+    # The toolchain the returned restore steps need, plus live-boot (RAM boot) and the kernel.
+    chroot "$PE_ROOT" /bin/sh -eu <<'CHROOT'
 export DEBIAN_FRONTEND=noninteractive
 apt-get update
 apt-get install -y --no-install-recommends \
@@ -27,6 +35,7 @@ apt-get install -y --no-install-recommends \
 apt-get clean
 rm -rf /var/lib/apt/lists/*
 CHROOT
+fi
 
 # The provisioner + its oneshot unit: run pe-init after the network is up.
 cp -f /usr/local/sbin/pe-init.sh "$PE_ROOT/usr/local/sbin/pe-init.sh"
