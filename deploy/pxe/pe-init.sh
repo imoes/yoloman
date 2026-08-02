@@ -64,7 +64,7 @@ while [ "$i" -lt "$N" ]; do
     i=$((i + 1))
 done
 
-progress "$N" --argjson extra '{done:true, log:"restore complete"}'
+progress "$N" --argjson extra '{"done":true,"log":"restore complete"}'
 echo "pe-init: restore complete — rebooting into the installed system"
 sync
 sleep 2

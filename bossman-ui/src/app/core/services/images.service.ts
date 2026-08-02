@@ -79,6 +79,8 @@ export class ImagesService {
   }
 
   jobs() { return this.http.get<RestoreJob[]>(`${this.base}/restore-jobs`); }
+  cancelJob(id: string) { return this.http.post<RestoreJob>(`${this.base}/restore-jobs/${id}/cancel`, {}); }
+  deleteJob(id: string) { return this.http.delete<void>(`${this.base}/restore-jobs/${id}`); }
 
   /** Create a bare-metal target as a 'planned' host (roles get assigned via the Management tab). */
   createPlannedHost(body: { hostname: string; mac?: string; network?: ProvisionNetwork }) {

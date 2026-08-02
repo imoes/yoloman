@@ -131,8 +131,14 @@ const GROWABLE = new Set(['root', 'var', 'home', 'data']);
         @for (j of jobs(); track j.id) {
           <div class="dt-job">
             <span class="dt-badge" [class.ready]="j.status === 'done'" [class.bad]="j.status === 'failed'">{{ j.status }}</span>
-            <b>{{ j.target_hostname }}</b> <span class="dt-muted">{{ j.target_mac }}</span> · Schritt {{ j.step_index }}
+            <b>{{ j.target_hostname }}</b> <span class="dt-muted">{{ j.target_mac || '(wildcard)' }}</span> · Schritt {{ j.step_index }}
             @if (j.agent_id) { <a mat-button [routerLink]="['/hosts', j.agent_id]">Management</a> }
+            @if (j.status === 'pending' || j.status === 'running') {
+              <button mat-button (click)="cancelJob(j)">Abbrechen</button>
+            } @else {
+              <button mat-icon-button title="Löschen" (click)="deleteJob(j)"><mat-icon>delete</mat-icon></button>
+            }
+            @if (j.error) { <div class="dt-err">{{ j.error }}</div> }
           </div>
         }
       </section>
@@ -302,6 +308,13 @@ export class DiskTemplatesComponent implements OnInit, OnDestroy {
 
   stopVm(name: string): void {
     this.svc.stopVm(name).subscribe({ next: () => this.pollVms(), error: (e) => this.labErr.set(e?.error?.detail || 'Stop fehlgeschlagen') });
+  }
+
+  cancelJob(j: RestoreJob): void {
+    this.svc.cancelJob(j.id).subscribe({ next: () => this.svc.jobs().subscribe((x) => this.jobs.set(x)), error: (e) => this.err.set(e?.error?.detail || 'Abbrechen fehlgeschlagen') });
+  }
+  deleteJob(j: RestoreJob): void {
+    this.svc.deleteJob(j.id).subscribe({ next: () => this.svc.jobs().subscribe((x) => this.jobs.set(x)), error: (e) => this.err.set(e?.error?.detail || 'Löschen fehlgeschlagen') });
   }
 
   private reload(): void {

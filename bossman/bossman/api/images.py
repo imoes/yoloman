@@ -523,6 +523,23 @@ async def cancel_restore_job(
     return RestoreJobOut.from_model(job)
 
 
+@router.delete("/api/v1/restore-jobs/{job_id}", status_code=204)
+async def delete_restore_job(
+    job_id: UUID,
+    session: AsyncSession = Depends(get_session),
+    _identity=Depends(get_current_identity),
+) -> None:
+    """Remove a finished job from the list. A still-active job must be cancelled first — deleting one
+    mid-install would just lose the record of what a machine is currently doing."""
+    job = await session.get(RestoreJob, job_id)
+    if job is None:
+        raise HTTPException(status_code=404, detail="no such restore job")
+    if job.status in ("pending", "running"):
+        raise HTTPException(status_code=409, detail=f"job is {job.status}; cancel it before deleting")
+    await session.delete(job)
+    await session.commit()
+
+
 # ---------------------------------------------------------------------------
 # The netboot helper's side
 

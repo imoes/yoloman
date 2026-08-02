@@ -912,14 +912,31 @@ def identity_steps(hostname: str) -> list[Step]:
     every machine from this image presents the same fingerprint — a warning your operators would
     learn to click through, which is worse than the inconvenience.
     """
+    root = shlex.quote(TARGET_ROOT)
+    h = shlex.quote(hostname)
+    short = shlex.quote(hostname.split(".", 1)[0])
     return [
         Step(name="reset machine-id", argv=("truncate", "-s", "0", f"{TARGET_ROOT}/etc/machine-id")),
         Step(name="reset dbus machine-id", shell=f"rm -f {shlex.quote(TARGET_ROOT)}/var/lib/dbus/machine-id"),
         Step(name="drop ssh host keys", shell=f"rm -f {shlex.quote(TARGET_ROOT)}/etc/ssh/ssh_host_*"),
-        Step(
-            name="set hostname",
-            shell=f"printf '%s\\n' {shlex.quote(hostname)} > {shlex.quote(TARGET_ROOT)}/etc/hostname",
-        ),
+        Step(name="set hostname", shell=f"printf '%s\\n' {h} > {root}/etc/hostname"),
+        # /etc/hosts: point 127.0.1.1 (Debian's convention for the local FQDN) at the new name, so tools
+        # that resolve the hostname don't still see the source's. Replace any existing line, else append.
+        Step(name="set /etc/hosts name", shell=(
+            f"f={root}/etc/hosts; "
+            f"if grep -q '^127.0.1.1' \"$f\" 2>/dev/null; then "
+            f"sed -i \"s/^127\\\\.0\\\\.1\\\\.1.*/127.0.1.1\\t{hostname} {hostname.split('.',1)[0]}/\" \"$f\"; "
+            f"else printf '127.0.1.1\\t%s %s\\n' {h} {short} >> \"$f\"; fi"
+        )),
+        # If the image uses cloud-init, it will otherwise re-set the hostname from its (cached) datasource
+        # on first boot and clobber the one we just wrote. Tell it to preserve ours, and drop its cached
+        # instance identity so it re-initialises as a fresh machine.
+        Step(name="stop cloud-init clobbering the hostname", shell=(
+            f"if [ -d {root}/etc/cloud ]; then "
+            f"mkdir -p {root}/etc/cloud/cloud.cfg.d && "
+            f"printf 'preserve_hostname: true\\n' > {root}/etc/cloud/cloud.cfg.d/99-preserve-hostname.cfg; "
+            f"rm -rf {root}/var/lib/cloud/instance {root}/var/lib/cloud/instances 2>/dev/null || true; fi"
+        )),
     ]
 
 
