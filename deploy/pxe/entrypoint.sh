@@ -13,10 +13,69 @@ NETBOOT_SECRET="${NETBOOT_SECRET:-}"
 BOSSMAN_URL="${BOSSMAN_URL:-http://bossman:8000}"
 TFTP_ROOT="${TFTP_ROOT:-/srv/tftp}"
 HTTP_ROOT="${HTTP_ROOT:-/srv/http}"
+# Node agent: makes this lab container a MANAGED HOST so Bossman can apply Features/config to it — e.g.
+# the dnsmasq DHCP config-template whose range is edited in the WebUI. Reachability (host network on
+# ens19): ENROLL_URL and PXE_AGENT_ADDRESS must be routable from the Bossman container. Set PXE_RUN_AGENT=0
+# to skip (config falls back to the entrypoint-written dnsmasq conf).
+PXE_RUN_AGENT="${PXE_RUN_AGENT:-1}"
+ENROLL_URL="${ENROLL_URL:-$BOSSMAN_URL}"
+PXE_AGENT_NAME="${PXE_AGENT_NAME:-pxe-lab}"
+PXE_AGENT_LISTEN="${PXE_AGENT_LISTEN:-0.0.0.0:8051}"
+PXE_AGENT_ADDRESS="${PXE_AGENT_ADDRESS:-${PXE_LISTEN_IP}:8051}"
 
 if [ -z "$NETBOOT_SECRET" ]; then
     echo "pxe: NETBOOT_SECRET is empty — refusing to start (the same secret Bossman validates on /netboot/checkin)" >&2
     exit 1
+fi
+
+# ── Node-agent bootstrap (mirrors deploy/poller/entrypoint.sh): first-boot config.yaml with a fresh
+#    token + self-signed TLS, enroll with Bossman, then run the daemon. write:true so Bossman can PUSH
+#    the dnsmasq config-template. Idempotent — an existing config.yaml is reused. ─────────────────────
+start_agent() {
+    conf=/etc/agentic-mcp/config.yaml
+    mkdir -p /etc/agentic-mcp/trusted /var/lib/agentic-mcp
+    if [ ! -f "$conf" ]; then
+        openssl req -x509 -newkey ec -pkeyopt ec_paramgen_curve:prime256v1 -nodes \
+            -keyout /etc/agentic-mcp/tls.key -out /etc/agentic-mcp/tls.crt \
+            -days 3650 -subj "/CN=${PXE_AGENT_NAME}" >/dev/null 2>&1
+        token="$(agentic-mcpd --generate-token)"
+        cat > "$conf" <<EOF
+listen: "${PXE_AGENT_LISTEN}"
+token: "${token}"
+write: true
+tls:
+  enabled: true
+  cert_file: /etc/agentic-mcp/tls.crt
+  key_file: /etc/agentic-mcp/tls.key
+  trusted_client_keys:
+    - name: enroller
+      public_key_path: /etc/agentic-mcp/trusted/enroller.pub.pem
+ebpf:
+  enabled: false
+db:
+  driver: sqlite
+  path: /var/lib/agentic-mcp/agentic-mcp.db
+pam:
+  enabled: false
+ui:
+  enabled: false
+EOF
+        chmod 0600 "$conf"
+    fi
+    i=0
+    while [ "$i" -lt 40 ]; do
+        if agentic-mcpd register --enroll-url "$ENROLL_URL" \
+                --name "$PXE_AGENT_NAME" --address "$PXE_AGENT_ADDRESS" --config "$conf"; then
+            echo "pxe: agent enrolled as ${PXE_AGENT_NAME} with ${ENROLL_URL}"
+            break
+        fi
+        i=$((i + 1)); echo "pxe: agent enroll attempt $i failed, retrying in 3s…"; sleep 3
+    done
+    exec agentic-mcpd --config "$conf"
+}
+if [ "$PXE_RUN_AGENT" = "1" ]; then
+    ( start_agent ) &
+    echo "pxe: node agent starting in background (managed-host mode)"
 fi
 
 # ── 1. Build the PE once (debootstrap + mksquashfs + kernel/initrd) if it is not there yet. ──────────
