@@ -133,6 +133,11 @@ services:
       dockerfile: deploy/pxe/Dockerfile
     # DHCP/TFTP are layer-2 on a specific segment (ens19) — a bridged container can't serve them.
     network_mode: host
+    # Privileged: this lab container already does nested-virt (/dev/kvm) + host networking, and the
+    # image IMPORT needs qemu-nbd — which requires loading the `nbd` kernel module and accessing
+    # /dev/nbd* (block-device + SYS_ADMIN territory). Simplest correct posture for a bare-metal imaging
+    # lab on the operator's own host. /lib/modules is mounted so `modprobe nbd` finds the module.
+    privileged: true
     devices:
       - /dev/kvm            # nested-virt QEMU
     cap_add:
@@ -159,6 +164,12 @@ services:
       # Node-agent config + state, so the enrollment/token survive a restart (managed-host mode).
       - pxe-agent-conf:/etc/agentic-mcp
       - pxe-agent-data:/var/lib/agentic-mcp
+      # So `modprobe nbd` (for the qemu-nbd image import) finds the module for the host kernel.
+      - /lib/modules:/lib/modules:ro
+      # NB: host /dev is deliberately NOT mounted. That would expose the HOST's real disks (sda/sdb) and
+      # LVM VGs to a privileged container running vgchange — a foot-gun that can deactivate the host's own
+      # volumes. Instead the import creates the nbd device nodes it needs (mknod) and activates only the
+      # source's VG (vgchange --mknodes), so the host's disks stay invisible. See deploy/pxe/import-image.sh.
 
 volumes:
   bossman-db-data:

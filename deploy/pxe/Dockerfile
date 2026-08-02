@@ -20,7 +20,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         pxelinux syslinux-common grub-efi-amd64-bin \
         curl ca-certificates iproute2 kmod procps gettext-base \
         linux-image-amd64 \
-        partclone zstd lvm2 jq \
+        partclone zstd lvm2 jq fdisk parted \
     && rm -rf /var/lib/apt/lists/*
 
 # The static agent, baked into the PE at build-pe time and served at the HTTP root as agent.deb.

@@ -59,7 +59,12 @@ const GROWABLE = new Set(['root', 'var', 'home', 'data']);
               <span class="dt-badge" [class.ready]="img.status === 'ready'">{{ img.status }}</span>
             </div>
             <div class="dt-sub">{{ (img.disk_size / 1073741824) | number: '1.0-1' }} GiB · {{ img.volumes.length }} Volumes</div>
-            @if (img.status === 'capturing') { <div class="dt-sub">⏳ Import läuft…</div> }
+            @if (img.status === 'capturing') {
+              <div class="dt-prog">
+                <div class="dt-prog-bar"><span [style.width.%]="progressPct(img)"></span></div>
+                <div class="dt-sub">{{ img.progress || 'Import läuft…' }}</div>
+              </div>
+            }
             @if (img.status === 'failed' && img.error) { <div class="dt-err">{{ img.error }}</div> }
             <button mat-button [disabled]="img.status !== 'ready'" (click)="toggleActive(img, $event)">
               {{ img.is_active ? 'Aktiv' : 'Als aktiv markieren' }}
@@ -173,6 +178,9 @@ const GROWABLE = new Set(['root', 'var', 'home', 'data']);
     .dt-import { margin-bottom: .6rem; }
     .dt-import-form { display: flex; flex-direction: column; gap: .35rem; border: 1px solid #4a90d9; border-radius: 8px; padding: .7rem; }
     .dt-import-form select, .dt-import-form input { padding: .3rem; }
+    .dt-prog { margin: .3rem 0; }
+    .dt-prog-bar { height: 6px; background: #8883; border-radius: 3px; overflow: hidden; }
+    .dt-prog-bar span { display: block; height: 100%; background: #4a90d9; transition: width .4s ease; }
     .dt-col h2 { font-size: 1rem; margin: 0 0 .5rem; }
     .dt-muted { color: var(--mat-sys-on-surface-variant, #888); font-size: .85rem; }
     .dt-card { border: 1px solid #3334; border-radius: 8px; padding: .6rem; margin-bottom: .5rem; cursor: pointer; }
@@ -305,6 +313,12 @@ export class DiskTemplatesComponent implements OnInit, OnDestroy {
   }
 
   isGrowable(v: ImageVolume): boolean { return GROWABLE.has(v.role); }
+
+  /** Percent parsed from the trailing "· NN%" of the progress string (0 if none), for the bar width. */
+  progressPct(img: DiskImage): number {
+    const m = (img.progress || '').match(/(\d+)\s*%\s*$/);
+    return m ? Math.max(0, Math.min(100, +m[1])) : 0;
+  }
 
   select(img: DiskImage): void {
     this.selected.set(img);

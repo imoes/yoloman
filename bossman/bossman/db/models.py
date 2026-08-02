@@ -1630,6 +1630,9 @@ class DiskImage(Base):
     manifest: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
     files: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
     error: Mapped[str | None] = mapped_column(Text)
+    # Human-readable capture/import progress (e.g. "Sichere root (2/4) · 63%"), updated by the import
+    # script so the WebUI can show a live progress bar while status is 'capturing'. Just a display string.
+    progress: Mapped[str] = mapped_column(String, nullable=False, server_default="", default="")
     # The one template a bare-metal target restores when it netboots. Only one image is active at a
     # time (partial unique index below), so "install the active template" needs no per-target choice.
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)

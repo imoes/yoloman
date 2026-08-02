@@ -19,6 +19,7 @@ export interface DiskImage {
   description: string;
   status: string;          // capturing | ready | failed
   error?: string | null;
+  progress?: string;       // live capture/import progress, e.g. "Sichere root (2/4) · 63%"
   is_active: boolean;
   grow_policy: Record<string, number>;
   disk_size: number;

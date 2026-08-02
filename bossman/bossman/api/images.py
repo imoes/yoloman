@@ -76,6 +76,7 @@ class ImageOut(BaseModel):
     status: str
     created_at: datetime
     error: str | None = None
+    progress: str = ""
     is_active: bool = False
     grow_policy: dict = {}
     # Derived, so the caller does not have to understand the manifest to see the shape of an image.
@@ -95,6 +96,7 @@ class ImageOut(BaseModel):
             status=img.status,
             created_at=img.created_at,
             error=img.error,
+            progress=img.progress or "",
             is_active=bool(img.is_active),
             grow_policy=dict(img.grow_policy or {}),
             disk_size=int(manifest.get("disk_size") or 0),
@@ -315,6 +317,28 @@ async def capture_plan(
         for v in layout.volumes
     ]
     return {"manifest": imaging.layout_to_dict(layout), "volumes": volumes}
+
+
+class ImportProgressIn(BaseModel):
+    message: str = ""
+    percent: int | None = None
+
+
+@router.post("/api/v1/images/{image_id}/import-progress", response_model=ImageOut)
+async def import_progress(
+    image_id: UUID,
+    body: ImportProgressIn,
+    x_image_token: str | None = Header(default=None),
+    session: AsyncSession = Depends(get_session),
+) -> ImageOut:
+    """The import script reports progress so the WebUI can show a live bar while status is 'capturing'."""
+    settings = get_settings()
+    _require_image_token(settings, image_id, x_image_token)
+    img = await _image_or_404(session, image_id)
+    pct = "" if body.percent is None else f" · {max(0, min(100, int(body.percent)))}%"
+    img.progress = (body.message + pct)[:200]
+    await session.commit()
+    return ImageOut.from_model(img)
 
 
 class ImportFailedIn(BaseModel):
