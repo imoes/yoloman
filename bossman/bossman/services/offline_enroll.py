@@ -29,6 +29,7 @@ Three things are genuinely different offline, and each is a correctness issue ra
 from __future__ import annotations
 
 import base64
+import json
 import secrets
 import shlex
 from dataclasses import dataclass
@@ -208,32 +209,45 @@ def offline_install_steps(plan: OfflineInstall, *, deb_url: str) -> list[Step]:
 
 
 def network_steps(network: dict | None) -> list[Step]:
-    """Write the target's FINAL network config into the restored root (systemd-networkd), so it boots
-    onto its destination network — NOT the rollout/PXE segment it netbooted from. This is why roles
-    converge only after that first boot: the target network's firewall/repos are the real ones.
+    """Write the target's FINAL network config into the restored root, so it boots onto its destination
+    network — NOT the rollout/PXE segment it netbooted from. This is why roles converge only after that
+    first boot: the target network's firewall/repos are the real ones.
 
-    A DHCP target needs nothing written (the default). A static one gets a 10-provision.network file and
-    systemd-networkd enabled. `network` = {mode: 'dhcp'|'static', interface?, address (CIDR), gateway?,
-    dns: [...]}. Deliberately systemd-networkd only for now (the modern default); netplan/ifupdown
-    variants can layer on when a template needs them.
+    Uses the agent's own `yoloman.network_interface` MODULE (run offline via `agentic-mcpd run-module`),
+    which auto-detects the restored image's actual stack — NetworkManager / netplan / systemd-networkd /
+    ifupdown — and writes the config in the right place, with no per-image special-casing. `apply=false`
+    so it only WRITES (the target isn't running yet; it applies on boot). We stage the PE's agent binary
+    into the target and run it in the chroot, so this doesn't depend on the agent-install step's order.
+
+    `network` = {mode: 'dhcp'|'static', interface?, address (CIDR), gateway?, dns: [...]}.
     """
-    if not network or network.get("mode", "dhcp") == "dhcp":
+    if not network:
         return []
+    mode = network.get("mode", "dhcp")
+    if mode not in ("dhcp", "static"):
+        return []
+    params: dict = {"state": "present", "apply": False, "method": mode}
+    if mode == "static":
+        if network.get("address"):
+            params["address"] = network["address"]     # CIDR, e.g. 192.0.2.60/24
+        if network.get("gateway"):
+            params["gateway"] = network["gateway"]
+        if network.get("dns"):
+            params["dns"] = list(network["dns"])
+    params_json = json.dumps(params)
     iface = str(network.get("interface") or "").strip()
-    lines = ["[Match]", f"Name={iface}" if iface else "Type=ether", "", "[Network]"]
-    if network.get("address"):
-        lines.append(f"Address={network['address']}")     # CIDR, e.g. 192.0.2.60/24
-    if network.get("gateway"):
-        lines.append(f"Gateway={network['gateway']}")
-    for dns in network.get("dns") or []:
-        lines.append(f"DNS={dns}")
-    content = "\n".join(lines) + "\n"
-    dest = f"{TARGET_ROOT}/etc/systemd/network/10-provision.network"
+    staged = f"{TARGET_ROOT}/tmp/.provision-agent"
     return [
-        Step(name="write target network config",
-             shell=f"mkdir -p {TARGET_ROOT}/etc/systemd/network && "
-                   f"printf %s {shlex.quote(content)} > {shlex.quote(dest)}"),
-        Step(name="enable systemd-networkd on the target", argv=("systemctl", "enable", "systemd-networkd"), chroot=True),
+        Step(name="stage the agent for module runs", shell=f"cp /usr/bin/agentic-mcpd {shlex.quote(staged)}"),
+        Step(name="configure target network (network_interface module)", shell=(
+            # Pick the interface: the provisioned one, else the first real NIC the machine has (the PE sees
+            # the same hardware, so the name matches the restored OS's predictable name).
+            f"IFACE={shlex.quote(iface)}; "
+            f'[ -n "$IFACE" ] || IFACE=$(ls /sys/class/net | grep -vE \'^(lo|docker|veth|br-|virbr|dummy)\' | head -1); '
+            f"P=$(printf %s {shlex.quote(params_json)} | jq -c --arg n \"$IFACE\" '. + {{name:$n}}'); "
+            f"chroot {TARGET_ROOT} /tmp/.provision-agent run-module yoloman.network_interface --json \"$P\""
+        )),
+        Step(name="clean up staged agent", shell=f"rm -f {shlex.quote(staged)}"),
     ]
 
 

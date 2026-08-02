@@ -44,6 +44,11 @@ CHROOT
 # The provisioner + its oneshot unit: run pe-init after the network is up.
 cp -f /usr/local/sbin/pe-init.sh "$PE_ROOT/usr/local/sbin/pe-init.sh"
 chmod +x "$PE_ROOT/usr/local/sbin/pe-init.sh"
+# The agent binary itself, so the restore can drive MODULES offline in the target chroot
+# (`agentic-mcpd run-module …` — see services/offline_enroll.network_steps). Copied from the container's
+# /usr/bin (baked by the Dockerfile from deploy-artifacts/agentic-mcpd).
+cp -f /usr/bin/agentic-mcpd "$PE_ROOT/usr/bin/agentic-mcpd" 2>/dev/null || true
+chmod +x "$PE_ROOT/usr/bin/agentic-mcpd" 2>/dev/null || true
 mkdir -p "$PE_ROOT/etc/systemd/system"
 cat > "$PE_ROOT/etc/systemd/system/pe-provision.service" <<'UNIT'
 [Unit]

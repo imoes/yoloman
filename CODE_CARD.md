@@ -1,10 +1,12 @@
 # CODE CARD — agentic-mcp (Bossman + Duppy)
 
-> **The one rule I keep forgetting: DON'T reinvent. The agent ships ~700 modules (≈2000 counting every
-> collection variant) for host tasks. Before writing bespoke shell/Python for anything a host does
-> — partitioning, LVM, filesystems, mounts, network, hostname, timezone, users, packages, services —
-> look for a MODULE first.** List them: `agentic-mcpd run-module --list` (add `--modules-dir configs/modules.d`
-> for the discovered collections), or the agent's MCP `tools/list` / `GET /api/v1/modules`.
+> **THE PROJECT'S CORE IDEA: every host task is a MODULE.** Don't reinvent as bespoke shell/Python — the
+> agent already ships ~700 modules (≈2000 counting every collection variant) for partitioning, LVM,
+> filesystems, mounts, network, hostname, timezone, users, packages, services. **Look for a module first**
+> (`agentic-mcpd run-module --list`, `--modules-dir configs/modules.d` for the discovered set; or MCP
+> `tools/list` / `GET /api/v1/modules`). **And if a task has NO module yet — build one** (a native Go
+> module in `internal/modules/`, or a Starlark module). That is the whole point of the project: the fleet
+> is driven by a growing, reusable module library, not one-off scripts.
 
 ## The three pieces
 
