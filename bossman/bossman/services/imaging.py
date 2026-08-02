@@ -20,6 +20,7 @@ plan, which is the part worth unit-testing, and leaves execution to the caller.
 
 from __future__ import annotations
 
+import json
 import shlex
 from collections.abc import Sequence
 from dataclasses import dataclass, field
@@ -926,39 +927,24 @@ def restore_steps(
 def identity_steps(hostname: str) -> list[Step]:
     """Make the restored system a distinct machine rather than a copy of its source.
 
-    Deliberately truncating `/etc/machine-id` rather than deleting it: systemd generates a new id
-    at boot when the file exists and is EMPTY, while a missing file is a different (and on some
-    images fatal) condition. `/var/lib/dbus/machine-id` follows it.
-
-    SSH host keys are removed so the service regenerates them on first start. Leaving them means
-    every machine from this image presents the same fingerprint — a warning your operators would
-    learn to click through, which is worse than the inconvenience.
+    Drives the agent's own `yoloman.machine_identity` MODULE (run offline via `agentic-mcpd run-module`
+    inside the target chroot) instead of bespoke shell — the module-first path, exactly like network_steps.
+    The module resets machine-id (emptied, not deleted, so systemd regenerates one at boot), the dbus
+    machine-id, the SSH host keys (regenerated on first start, else every clone shares a fingerprint), the
+    hostname, the 127.0.1.1 line in /etc/hosts, and pins cloud-init's preserve_hostname so it does not
+    re-clobber the name from a cached datasource. It is idempotent and chroot-safe (writes files only, no
+    hostnamectl — the offline target has no running systemd). The agent binary is baked into the PE, so we
+    stage it into the target and run it in the chroot, independent of the agent-install step's order.
     """
-    root = shlex.quote(TARGET_ROOT)
-    h = shlex.quote(hostname)
-    short = shlex.quote(hostname.split(".", 1)[0])
+    params_json = json.dumps({"hostname": hostname})
+    staged = f"{TARGET_ROOT}/tmp/.identity-agent"
     return [
-        Step(name="reset machine-id", argv=("truncate", "-s", "0", f"{TARGET_ROOT}/etc/machine-id")),
-        Step(name="reset dbus machine-id", shell=f"rm -f {shlex.quote(TARGET_ROOT)}/var/lib/dbus/machine-id"),
-        Step(name="drop ssh host keys", shell=f"rm -f {shlex.quote(TARGET_ROOT)}/etc/ssh/ssh_host_*"),
-        Step(name="set hostname", shell=f"printf '%s\\n' {h} > {root}/etc/hostname"),
-        # /etc/hosts: point 127.0.1.1 (Debian's convention for the local FQDN) at the new name, so tools
-        # that resolve the hostname don't still see the source's. Replace any existing line, else append.
-        Step(name="set /etc/hosts name", shell=(
-            f"f={root}/etc/hosts; "
-            f"if grep -q '^127.0.1.1' \"$f\" 2>/dev/null; then "
-            f"sed -i \"s/^127\\\\.0\\\\.1\\\\.1.*/127.0.1.1\\t{hostname} {hostname.split('.',1)[0]}/\" \"$f\"; "
-            f"else printf '127.0.1.1\\t%s %s\\n' {h} {short} >> \"$f\"; fi"
+        Step(name="stage the agent for identity module", shell=f"cp /usr/bin/agentic-mcpd {shlex.quote(staged)}"),
+        Step(name="reset identity (machine_identity module)", shell=(
+            f"chroot {TARGET_ROOT} /tmp/.identity-agent run-module yoloman.machine_identity "
+            f"--json {shlex.quote(params_json)}"
         )),
-        # If the image uses cloud-init, it will otherwise re-set the hostname from its (cached) datasource
-        # on first boot and clobber the one we just wrote. Tell it to preserve ours, and drop its cached
-        # instance identity so it re-initialises as a fresh machine.
-        Step(name="stop cloud-init clobbering the hostname", shell=(
-            f"if [ -d {root}/etc/cloud ]; then "
-            f"mkdir -p {root}/etc/cloud/cloud.cfg.d && "
-            f"printf 'preserve_hostname: true\\n' > {root}/etc/cloud/cloud.cfg.d/99-preserve-hostname.cfg; "
-            f"rm -rf {root}/var/lib/cloud/instance {root}/var/lib/cloud/instances 2>/dev/null || true; fi"
-        )),
+        Step(name="clean up staged identity agent", shell=f"rm -f {shlex.quote(staged)}"),
     ]
 
 

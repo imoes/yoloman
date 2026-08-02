@@ -29,8 +29,23 @@ func runModuleCLI(args []string) error {
 	modulesDir := fs.String("modules-dir", "", "also load discovered modules from this dir (native + embedded always load)")
 	dryRun := fs.Bool("dry-run", false, "check mode: report what would change without changing it")
 	list := fs.Bool("list", false, "list available module names and exit")
+	// The module name is the first positional, but callers (and our own docs + the
+	// offline provisioner) write `run-module <module> --json '{…}'` with the flags
+	// AFTER it. Go's flag package stops at the first positional, so a single
+	// fs.Parse(args) would leave those trailing flags unparsed — every module would
+	// then run with empty params (and --modules-dir would be ignored). Parse once to
+	// reach the module name, then parse the flags that followed it, so flag order
+	// (before or after the name) no longer matters — and both passes complete before
+	// we load modules, so a trailing --modules-dir is still honoured.
 	if err := fs.Parse(args); err != nil {
 		return err
+	}
+	var moduleName string
+	if rest := fs.Args(); len(rest) >= 1 {
+		moduleName = rest[0]
+		if err := fs.Parse(rest[1:]); err != nil {
+			return err
+		}
 	}
 
 	reg := server.NewDefaultModuleRegistry() // native Go modules
@@ -57,17 +72,16 @@ func runModuleCLI(args []string) error {
 		}
 		return nil
 	}
-	rest := fs.Args()
-	if len(rest) < 1 {
+	if moduleName == "" {
 		return fmt.Errorf("usage: agentic-mcpd run-module <module> [--json '{…}'] [--modules-dir DIR] [--dry-run] | --list")
 	}
 	var params map[string]any
 	if err := json.Unmarshal([]byte(*jsonParams), &params); err != nil {
 		return fmt.Errorf("--json: %w", err)
 	}
-	m, ok := reg.Get(rest[0])
+	m, ok := reg.Get(moduleName)
 	if !ok {
-		return fmt.Errorf("module %q not found (try --list, or --modules-dir to load discovered modules)", rest[0])
+		return fmt.Errorf("module %q not found (try --list, or --modules-dir to load discovered modules)", moduleName)
 	}
 	res, err := m.Run(context.Background(), params, *dryRun)
 	if err != nil {

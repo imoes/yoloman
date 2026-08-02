@@ -39,6 +39,22 @@ loads native + embedded + discovered — for running any module inside a chroot)
 running host (e.g. `network_interface` runs `ifup`/`netplan apply`) accept **`"apply": false`** to write
 config only — used by the offline provisioner, where the target isn't running yet.
 
+**Distributing the discovered set — Bossman pushes on demand.** A Duppy does not ship the 693 `.star`
+library; Bossman delivers them over mTLS with **`POST /api/v1/agents/{id}/modules/sync`** (`api/agents.py`
+`sync_agent_modules` → `agent_client.push_modules` → the agent's `POST /api/v1/modules/apply`, which
+validates + persists + live-registers them into `ModulesDir`). Body `{fqcns: [...]}` for a subset, or none
+for the whole translated library. **It requires a running, directly-addressable agent** — a satellite/
+unenrolled host has no address and returns 409.
+
+**Embed vs. push — decide by whether a live Duppy exists yet:**
+- **Before** the target has a running Duppy (bare-metal provisioning: the restore/configure phase runs in
+  the RAM-PE's `run-module`, offline, no agent on the target) → the module MUST be **native Go or embedded
+  Starlark**, i.e. baked into `agentic-mcpd` and therefore into the PE squashfs. Push cannot reach a machine
+  that has no agent. This bucket is a tiny fixed set: `yoloman.network_interface` (done) and identity/
+  hostname. Keep it small and embedded.
+- **After** enrollment (day-2 ops against a live, addressable host) → keep the module **discovered + synced**
+  on demand. Reimplementing the 693-module Ansible library in Go would be pointless; sync serves it fine.
+
 ## Config system (not modules, but adjacent)
 
 - **config-templates** — `configs/config_templates/<name>/` = `template.j2` (gonja/Jinja2) + `schema.json`

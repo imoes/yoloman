@@ -409,7 +409,7 @@ def test_configure_steps_land_after_identity_and_before_the_unmount(settings):
     names = [s.name for s in _plan_with(settings)]
     agent_install = names.index("install the agent into the target")
     assert names.index("bind /proc") < agent_install, "dpkg needs /proc"
-    assert names.index("reset machine-id") < agent_install, "identity settles first"
+    assert names.index("reset identity (machine_identity module)") < agent_install, "identity settles first"
     assert agent_install < names.index("unbind /proc")
     assert names.index("unbind /proc") < names.index("umount root")
 
@@ -429,25 +429,39 @@ def test_no_configure_steps_leaves_the_plan_exactly_as_before(settings):
 
 # ── network_steps (Block 4b): the target's final network written into the restored root ────────────
 
-def test_network_steps_dhcp_or_empty_writes_nothing():
+def test_network_steps_no_network_writes_nothing():
+    # No network dict at all → leave the image's own config untouched.
     assert offline_enroll.network_steps(None) == []
     assert offline_enroll.network_steps({}) == []
-    assert offline_enroll.network_steps({"mode": "dhcp"}) == []
 
 
-def test_network_steps_static_writes_networkd_and_enables_it():
+def test_network_steps_drive_the_network_interface_module():
+    # dhcp and static both go through the yoloman.network_interface MODULE (auto-detects the
+    # restored image's real stack — ifupdown/netplan/networkd/NM), run offline in the chroot with
+    # apply=false. The plan just stages the agent, invokes the module, and cleans up.
+    for mode in ("dhcp", "static"):
+        steps = offline_enroll.network_steps({"mode": mode, "address": "10.0.0.5/24"})
+        assert [s.name for s in steps] == [
+            "stage the agent for module runs",
+            "configure target network (network_interface module)",
+            "clean up staged agent",
+        ]
+        assert "run-module yoloman.network_interface" in steps[1].shell
+
+
+def test_network_steps_static_passes_the_addressing_to_the_module():
     steps = offline_enroll.network_steps(
         {"mode": "static", "interface": "eth0", "address": "192.0.2.60/24",
          "gateway": "192.0.2.1", "dns": ["192.0.2.1", "1.1.1.1"]}
     )
-    assert len(steps) == 2
-    write = steps[0].shell
-    assert "10-provision.network" in write
-    for token in ("Name=eth0", "Address=192.0.2.60/24", "Gateway=192.0.2.1", "DNS=192.0.2.1", "DNS=1.1.1.1"):
-        assert token in write
-    assert steps[1].argv == ("systemctl", "enable", "systemd-networkd") and steps[1].chroot is True
+    configure = steps[1].shell
+    assert "run-module yoloman.network_interface" in configure
+    # apply=false (target not running yet) + the static addressing, passed as the module's JSON params
+    for token in ('"apply": false', "static", "192.0.2.60/24", "192.0.2.1", "1.1.1.1", "eth0"):
+        assert token in configure
 
 
-def test_network_steps_static_without_interface_matches_any_ether():
+def test_network_steps_without_interface_autodetects_the_first_real_nic():
     steps = offline_enroll.network_steps({"mode": "static", "address": "10.0.0.5/24"})
-    assert "Type=ether" in steps[0].shell and "Name=" not in steps[0].shell
+    # No interface given → pick the first non-virtual NIC the machine has (the PE sees the same hardware).
+    assert "ls /sys/class/net" in steps[1].shell

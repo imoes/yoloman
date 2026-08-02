@@ -6,6 +6,7 @@ disk with no partition table (sdb → data--vg).
 """
 
 import json
+import shlex
 import shutil
 import subprocess
 
@@ -558,9 +559,12 @@ def test_real_sfdisk_accepts_the_script_and_fills_a_bigger_disk(tmp_path):
 # The whole run. Order is the substance: a wrong order gives an unbootable machine, not an error.
 
 
-def _run(target_gib: int = 200, hostname: str = "web07") -> list[Step]:
+def _run(target_gib: int = 200, hostname: str = "web07", disk: str = "sda") -> list[Step]:
+    # Default target is /dev/sda — the real deployment case (the targets are VMs). The nvme
+    # partition-suffix path (/dev/nvme0n1 -> p3) is exercised by test_nvme_partitions_get_their_p,
+    # which passes disk="nvme0n1"; nvme is a test input there, never a deployment default.
     layout = parse_layout(sfdisk=SFDISK, lsblk_disk=SDA)
-    plan = plan_restore(layout, Disk("nvme0n1", target_gib * GiB))
+    plan = plan_restore(layout, Disk(disk, target_gib * GiB))
     return restore_steps(layout, plan, image_url="https://b/img/42", hostname=hostname)
 
 
@@ -625,34 +629,63 @@ def test_the_bootloader_is_installed_inside_the_target_not_the_helper():
     grub = [s for s in steps if "bootloader" in s.name]
     assert len(grub) == 1
     assert grub[0].chroot is True
-    assert grub[0].argv == ("grub-install", "/dev/nvme0n1")
+    # The fixture layout has an ESP → UEFI path (firmware-aware bootloader): grub-efi into the
+    # mounted ESP, --removable so a machine with empty NVRAM still boots. (UEFI grub takes no disk
+    # argument; the BIOS i386-pc-to-disk path is covered by test_bios_layout_installs_grub_to_disk.)
+    assert grub[0].argv == (
+        "grub-install", "--target=x86_64-efi", "--efi-directory=/boot/efi",
+        "--bootloader-id=debian", "--removable", "--recheck",
+    )
+
+
+def test_bios_layout_installs_grub_to_disk():
+    """The real deployment case: a BIOS VM (no ESP) restored to /dev/sda → i386-pc grub written to
+    the disk's boot code, in the chroot."""
+    layout = SourceLayout(disk_size=50 * GiB, volumes=(BOOT, ROOT_EXT4))
+    steps = restore_steps(
+        layout, plan_restore(layout, Disk("sda", 200 * GiB)),
+        image_url="https://b/img/42", hostname="web07",
+    )
+    grub = [s for s in steps if "bootloader" in s.name]
+    assert len(grub) == 1
+    assert grub[0].chroot is True
+    assert grub[0].argv == ("grub-install", "--target=i386-pc", "/dev/sda")
 
 
 def test_identity_is_reset_before_the_target_is_unmounted():
     """It has to be written into the mounted target, and skipping it produces twins that fight
     over DHCP leases and present the same SSH fingerprint."""
     steps = _run()
-    assert _index(steps, "reset machine-id") < _index(steps, "umount root")
-    assert _index(steps, "drop ssh host keys") < _index(steps, "umount root")
-    assert _index(steps, "install bootloader") < _index(steps, "reset machine-id")
+    # Identity is now the yoloman.machine_identity module (run in the chroot), not bespoke shell.
+    assert _index(steps, "reset identity (machine_identity module)") < _index(steps, "umount root")
+    assert _index(steps, "install bootloader") < _index(steps, "reset identity (machine_identity module)")
 
 
-def test_machine_id_is_truncated_not_deleted():
-    """systemd generates a new id when the file exists and is EMPTY; a missing file is a different
-    condition, and on some images a fatal one."""
-    step = next(s for s in identity_steps("h") if "machine-id" in s.name and "dbus" not in s.name)
-    assert step.argv == ("truncate", "-s", "0", f"{TARGET_ROOT}/etc/machine-id")
+def test_identity_runs_the_machine_identity_module_in_the_chroot():
+    """The machine-id-empty / ssh-keys / hostname / hosts / cloud-init logic lives in the module
+    (proven idempotent in its own runtime test); the plan's job is only to stage the agent and invoke
+    it in the target chroot with the hostname."""
+    steps = identity_steps("h")
+    run = next(s for s in steps if s.name == "reset identity (machine_identity module)")
+    assert f"chroot {TARGET_ROOT}" in run.shell
+    assert "run-module yoloman.machine_identity" in run.shell
+    # the agent must be staged before, and cleaned up after, the module run
+    names = [s.name for s in steps]
+    assert names.index("stage the agent for identity module") < names.index("reset identity (machine_identity module)")
+    assert names.index("reset identity (machine_identity module)") < names.index("clean up staged identity agent")
 
 
 def test_the_hostname_is_quoted():
-    step = next(s for s in identity_steps("web07; rm -rf /") if "hostname" in s.name)
-    assert "'web07; rm -rf /'" in step.shell
+    step = next(s for s in identity_steps("web07; rm -rf /") if s.name == "reset identity (machine_identity module)")
+    # The hostname reaches the module as shell-quoted JSON, so shell metacharacters cannot inject.
+    assert shlex.quote(json.dumps({"hostname": "web07; rm -rf /"})) in step.shell
+    assert "; rm -rf /'" not in step.shell.replace(shlex.quote(json.dumps({"hostname": "web07; rm -rf /"})), "")
 
 
 def test_nvme_partitions_get_their_p():
     """`/dev/nvme0n13` does not exist, so this fails loudly rather than writing somewhere wrong —
-    but being right about it is cheaper than the confusion."""
-    steps = _run()
+    but being right about it is cheaper than the confusion. nvme is only a test input here."""
+    steps = _run(disk="nvme0n1")
     assert any("/dev/nvme0n1p3" in " ".join(s.argv) for s in steps if s.argv)
     assert not any("nvme0n13" in " ".join(s.argv) + s.shell for s in steps)
 
