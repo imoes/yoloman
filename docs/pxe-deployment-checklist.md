@@ -19,29 +19,27 @@ Legende pro Schritt: **Tun** → **Melden** (was du mir schickst) → **Ich prü
 - **Melden:** die Ausgabe.
 - **Ich prüfe:** 192.0.2.130 liegt auf ens19, Interface up.
 
-### A3 — Bridge für die QEMU-PXE-Test-VM (nur nötig, wenn ohne echte Hardware getestet wird)
-- **Hinweis:** Die plattenlose Test-VM hängt per `-netdev bridge,br=br-ens19` an einer Bridge, die
-  Zugang zum ens19-Segment (192.0.2.0/24) hat. Wenn du zuerst mit **echter** Hardware am ens19-Netz
-  testest, kannst du A3 überspringen.
-- **Tun (falls QEMU-Test):** Bridge anlegen und ens19 einhängen — **Achtung:** die IP wandert dabei auf
-  die Bridge. Vorschlag (anpassen an dein Setup):
+### A3 — Bridge für die QEMU-PXE-Test-VM (braucht root; auf diesem NM-Host via nmcli)
+- **Hinweis:** Die plattenlose Test-VM hängt per `-netdev bridge,br=br-ens19` an einer Bridge mit Zugang
+  zum ens19-Segment (192.0.2.0/24). Der Host nutzt **NetworkManager** (Connection `ens19`), daher
+  NM-nativ + persistent per `nmcli`. **Achtung:** die IP 192.0.2.130 wandert von ens19 auf die Bridge;
+  kurzer Blip **nur** auf dem ens19-Segment (Management liegt auf ens18 → Session bleibt).
+- **Tun (als root):**
   ```
-  ip link add br-ens19 type bridge
-  ip addr flush dev ens19
-  ip link set ens19 master br-ens19
-  ip addr add 192.0.2.130/24 dev br-ens19
-  ip link set br-ens19 up
+  sudo nmcli con add type bridge con-name br-ens19 ifname br-ens19 \
+      ipv4.method manual ipv4.addresses 192.0.2.130/24 bridge.stp no
+  sudo nmcli con add type ethernet con-name br-ens19-slave ifname ens19 master br-ens19
+  sudo nmcli con down ens19            # gibt die IP von der reinen ens19-Connection frei
+  sudo nmcli con up br-ens19-slave
+  sudo nmcli con up br-ens19
   ```
-  Dann in der `docker-compose.override.yml` `PXE_INTERFACE: br-ens19` setzen (dnsmasq bindet dann auf die
-  Bridge statt auf den Bridge-Port).
-- **Melden:** `ip -4 addr show br-ens19` + `bridge link show` (oder dass du A3 überspringst).
-- **Ich prüfe:** L2-Pfad VM → dnsmasq stimmig (IP auf der Bridge, ens19 als Port).
+  Falls ens19 ein Default-Gateway/DNS trug (unwahrscheinlich, da Management auf ens18):
+  `ipv4.gateway`/`ipv4.dns` an der br-ens19-Connection ergänzen. Danach in der Override
+  `PXE_INTERFACE: br-ens19` setzen (dnsmasq bindet auf die Bridge).
+- **Melden:** `ip -4 addr show br-ens19` + `bridge link show`.
+- **Ich prüfe:** 192.0.2.130 liegt auf br-ens19, ens19 ist Bridge-Port, L2-Pfad VM → dnsmasq stimmig.
 
-### A4 — Agent neu bauen (damit PE + Ziele + der pxe-Container das aktuelle `agentic-mcpd` inkl. `regex`-Modul bekommen)
-- **Tun:** im Repo: `scripts/build-agent-deb.sh` (legt `deploy-artifacts/agentic-mcpd` + `agent.deb` an —
-  die kopiert der pxe-Dockerfile hinein).
-- **Melden:** `ls -l deploy-artifacts/agentic-mcpd deploy-artifacts/agent.deb` (Zeitstempel/Größe).
-- **Ich prüfe:** beide Artefakte frisch gebaut und vorhanden.
+### A4 — Agent neu bauen ✅ (erledigt: v0.57.42, `agentic-mcpd` + `agent.deb`/`.rpm` frisch, `regex`-Modul im Binary)
 
 ---
 
