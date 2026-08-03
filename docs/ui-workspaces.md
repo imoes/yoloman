@@ -187,10 +187,27 @@ registry, per-step condition editor, lossless view switching (tree ⇄ graph ⇄
 and back leaves the document byte-identical.
 
 **Slice 4 — Deployment as a first-class object (backend + UI edges).**
-Model + migration (Resource ref, target, desired values, state) + generations, `GET/POST
-/api/v1/deployments`, the Deploy workspace list. The Deployments tab comes for free from slice 2.
-*Verify:* deploy a role to a group → it appears in the Deploy list, on the group, on each member host, and
-links back to the role; rollback restores the previous generation; pytest for the API + target expansion.
+
+> **Corrected while building (2026-08-03): the object already exists — do NOT add a table.** The survey
+> found `DeploymentRun` ("one multi-host deployment: a plan/runbook fanned out … into a single trackable
+> unit", with per-host `results`), `GET/POST /api/v1/deployments` + `/{id}`, a UI `deployment.service.ts`,
+> and the `/runs` page already listing deployments — plus `ConfigPolicy` (scoped config desired state),
+> `CheckAssignment`, `Rollout` and `ResourceGeneration` (the apply/rollback history). Adding a generic
+> `Deployment` table would have created a FIFTH parallel binding concept, i.e. exactly the fragmentation
+> this plan exists to remove. What was genuinely missing is what the plan's problem statement named: the
+> **navigable edges**.
+
+So the slice is: two filters + one component, no new table, no migration, no second source of truth.
+- `GET /api/v1/deployments?agent_id=…` → what is deployed on THIS host (JSONB containment on `results`).
+- `GET /api/v1/deployments?target_ref=…` → where is THIS artefact deployed.
+- The brief list form also carries `host_names`, so the artefact edge can name the hosts without an N+1
+  fetch of every deployment's detail.
+- `shared/deployment-edges` renders either direction; mounted on the host (Resources → "Deployed here")
+  and on a role (Roles → "Deployed to").
+
+*Verified:* pytest against the real DB (host filter, artefact filter, both filters intersecting rather than
+unioning, unfiltered trail unchanged); live — the host page lists the deployment that targeted it, and the
+role page lists it back with its host names.
 
 Order: 1 → 2 → 3 → 4 as numbered above. Two deliberate choices: the polymorphic inspector (2) comes first
 because it supplies the step forms and the type palette the tree needs — building the tree first would write

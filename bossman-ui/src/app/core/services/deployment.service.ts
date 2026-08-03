@@ -33,6 +33,8 @@ export interface DeploymentHostResult {
 }
 
 export interface DeploymentRun {
+  /** Brief-form only: the hosts this deployment went to (the list endpoint omits full `results`). */
+  host_names?: string[];
   id: string;
   kind: string;
   target_ref: string;
@@ -56,8 +58,17 @@ export class DeploymentService {
     return this.http.post<DeploymentRun>(`${this.base}/run`, body);
   }
 
-  list(limit = 50) {
-    return this.http.get<{ deployments: DeploymentRun[] }>(`${this.base}?limit=${limit}`);
+  /**
+   * The deployment audit trail, optionally filtered to one EDGE (docs/ui-workspaces.md):
+   *   `agentId`   → what is deployed on THIS host
+   *   `targetRef` → where is THIS artefact deployed
+   * Those two answers are the links that were missing between the Library and the Fleet.
+   */
+  list(limit = 50, filter?: { agentId?: string; targetRef?: string }) {
+    let url = `${this.base}?limit=${limit}`;
+    if (filter?.agentId) url += `&agent_id=${encodeURIComponent(filter.agentId)}`;
+    if (filter?.targetRef) url += `&target_ref=${encodeURIComponent(filter.targetRef)}`;
+    return this.http.get<{ deployments: DeploymentRun[] }>(url);
   }
 
   get(id: string) {

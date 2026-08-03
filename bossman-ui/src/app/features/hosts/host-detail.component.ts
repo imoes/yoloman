@@ -40,6 +40,7 @@ import { HostConsoleComponent } from './host-console.component';
 import { TopologyComponent } from '../topology/topology.component';
 import { HostManagementComponent } from './management/host-management.component';
 import { HostResourcesComponent } from './host-resources.component';
+import { DeploymentEdgesComponent } from '../../shared/deployment-edges/deployment-edges.component';
 import { KubernetesDeployComponent } from './kubernetes-deploy.component';
 import { StandaloneOverviewComponent } from '../../standalone/standalone-overview.component';
 import { ResourceNodeComponent } from '../../shared/resource-node/resource-node.component';
@@ -145,6 +146,7 @@ function serviceMetricSpec(name: string, metric: string): { members: string[]; m
     TopologyComponent,
     HostManagementComponent,
     HostResourcesComponent,
+    DeploymentEdgesComponent,
     KubernetesDeployComponent,
     MetricChartComponent,
     MetricGaugeComponent,
@@ -1297,6 +1299,11 @@ function serviceMetricSpec(name: string, metric: string): { members: string[]; m
           <mat-tab label="Resources"><ng-template matTabContent>
             <div class="bm-tab-content">
               <app-host-resources [agentId]="agent.id" />
+              <!-- Slice 4: the missing edge — what has been deployed TO this host. A Deployment is the
+                   recorded apply() of an artefact onto a target, so this is the same audit trail the Deploy
+                   workspace shows, filtered to this machine. -->
+              <h3 class="bm-sec-h">Deployed here</h3>
+              <app-deployment-edges [agentId]="agent.id" />
             </div>
           </ng-template></mat-tab>
           <mat-tab label="Kubernetes"><ng-template matTabContent>

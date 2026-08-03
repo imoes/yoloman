@@ -7,6 +7,7 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import * as monaco from 'monaco-editor';
 import { PlanDocument, PlanService, PlanVersion, StoredPlan } from '../../core/services/plan.service';
 import { DialogService } from '../../shared/dialogs/dialog.service';
+import { DeploymentEdgesComponent } from '../../shared/deployment-edges/deployment-edges.component';
 
 (self as unknown as { MonacoEnvironment: unknown }).MonacoEnvironment = {
   getWorker() {
@@ -25,7 +26,7 @@ interface Row { kind: 'folder' | 'plan'; label: string; depth: number; path?: st
 @Component({
   selector: 'app-plan-library',
   standalone: true,
-  imports: [FormsModule, MatButtonModule, MatIconModule, MatButtonToggleModule, MatProgressSpinnerModule],
+  imports: [DeploymentEdgesComponent, FormsModule, MatButtonModule, MatIconModule, MatButtonToggleModule, MatProgressSpinnerModule],
   template: `
     <div class="bm-pl">
       <aside class="bm-pl-tree">
@@ -114,10 +115,18 @@ interface Row { kind: 'folder' | 'plan'; label: string; depth: number; path?: st
              lifetime); hidden until a plan is opened or when diffing. -->
         <div class="bm-pl-mon" #editor [style.display]="doc() && !diffMode() ? 'block' : 'none'"></div>
         <div class="bm-pl-mon" #diffEditor [style.display]="diffMode() ? 'block' : 'none'"></div>
+        <!-- Slice 4 (docs/ui-workspaces.md): the other direction of the deployment edge — where has THIS
+             artefact been deployed. Together with the host's "Deployed here" list this is the Library ⇄
+             Fleet link the UI was missing. -->
+        @if (doc(); as d) {
+          <h3 class="bm-pl-sec">Deployed to</h3>
+          <app-deployment-edges [targetRef]="d.name" />
+        }
       </section>
     </div>
   `,
   styles: [
+    `.bm-pl-sec { font-size: 11px; text-transform: uppercase; letter-spacing: .05em; opacity: .55; margin: 16px 0 4px; }`,
     `
       .bm-pl { display: grid; grid-template-columns: 320px 1fr; gap: 12px; height: calc(100vh - 120px); padding: 12px; }
       @media (max-width: 900px) { .bm-pl { grid-template-columns: 1fr; height: auto; } }

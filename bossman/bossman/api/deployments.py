@@ -148,15 +148,29 @@ async def run_deployment(
 
 @router.get("/api/v1/deployments")
 async def list_deployments(
-    limit: int = 50, session: AsyncSession = Depends(get_session), _identity=Depends(get_current_identity),
+    limit: int = 50,
+    agent_id: UUID | None = None,
+    target_ref: str | None = None,
+    session: AsyncSession = Depends(get_session),
+    _identity=Depends(get_current_identity),
 ) -> dict[str, Any]:
-    """The multi-host deployment audit trail, newest first."""
-    rows = (
-        await session.scalars(
-            select(DeploymentRun).where(DeploymentRun.tenant_id == DEFAULT_TENANT_ID)
-            .order_by(DeploymentRun.created_at.desc()).limit(limit)
-        )
-    ).all()
+    """The multi-host deployment audit trail, newest first.
+
+    The two optional filters are the navigable EDGES the UI needs (docs/ui-workspaces.md): they answer
+    "what is deployed on THIS host" and "where is THIS artefact deployed" — the links that were missing
+    between the Library and the Fleet. Without them the operator can only read the flat audit trail.
+
+    - `agent_id`   → deployments whose per-host results include that host. `results` is JSONB
+      `[{agent_id, …}]`, so this is a containment match (`@>`), which the GIN-indexable operator, not a
+      Python-side scan of every row.
+    - `target_ref` → deployments of one artefact (the plan/runbook name).
+    """
+    q = select(DeploymentRun).where(DeploymentRun.tenant_id == DEFAULT_TENANT_ID)
+    if agent_id is not None:
+        q = q.where(DeploymentRun.results.contains([{"agent_id": str(agent_id)}]))
+    if target_ref:
+        q = q.where(DeploymentRun.target_ref == target_ref)
+    rows = (await session.scalars(q.order_by(DeploymentRun.created_at.desc()).limit(limit))).all()
     return {"deployments": [_serialize(d, brief=True) for d in rows]}
 
 
@@ -179,4 +193,11 @@ def _serialize(d: DeploymentRun, *, brief: bool = False) -> dict[str, Any]:
     }
     if not brief:
         out["results"] = d.results
+    else:
+        # The brief form deliberately omits the per-host `results` (they can be large), but WHICH hosts an
+        # artefact went to is the whole point of the "where is this deployed" edge — so carry just the
+        # names. Cheap, and it saves the UI an N+1 fetch of every deployment's detail.
+        out["host_names"] = [
+            r.get("agent_name") for r in (d.results or []) if isinstance(r, dict) and r.get("agent_name")
+        ]
     return out
