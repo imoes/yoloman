@@ -1,185 +1,153 @@
 package runbook
 
 import (
+	"encoding/json"
 	"fmt"
 	"regexp"
 	"strings"
+
+	"github.com/mutkluge/agentic-mcp/internal/modules"
+	"github.com/nikolalohinski/gonja/v2"
+	"github.com/nikolalohinski/gonja/v2/exec"
 )
 
-// placeholderRe matches {{ dotted.path }} — a superset of the tasks package's
-// simple {{ name }} (runbook vars include dotted registered results).
-var placeholderRe = regexp.MustCompile(`\{\{\s*([a-zA-Z_][a-zA-Z0-9_.]*)\s*\}\}`)
+// The runbook surface is Ansible task syntax, so its templating is REAL Jinja2 — filters
+// (`| default(...)`, `| to_json`, …), tests (`is defined`), expressions and conditionals — not a
+// hand-rolled subset. We route every arg / when / loop through gonja, the same Jinja2 engine + Ansible
+// filter set the config-template renderer uses (internal/modules), so what renders in a playbook renders
+// here identically. That is the "100% Ansible-compatible" contract for the runbook layer.
+//
+// Native types: Ansible yields the NATIVE value (list/dict/int/bool) when a value is EXACTLY one
+// `{{ expr }}`, and a string when the placeholder is embedded in surrounding text. gonja's public API
+// only renders to strings, so for the whole-expression case we evaluate `{{ (expr) | to_json }}` and
+// json-decode the result — an engine-faithful way to recover the native type (this is how e.g.
+// `dns: "{{ net.dns }}"` arrives as a real list, not its string repr).
 
-// resolvePath walks a dotted path against the context. Returns (value, true)
-// or (nil, false) if any segment is missing.
-func resolvePath(path string, ctx map[string]any) (any, bool) {
-	var cur any = ctx
-	for _, part := range strings.Split(path, ".") {
-		m, ok := cur.(map[string]any)
-		if !ok {
-			return nil, false
-		}
-		v, ok := m[part]
-		if !ok {
-			return nil, false
-		}
-		cur = v
+func init() { modules.RegisterAnsibleFilters() }
+
+// wholeExprRe matches a string that is exactly one {{ … }} (possibly with surrounding whitespace).
+var wholeExprRe = regexp.MustCompile(`(?s)^\s*\{\{(.+)\}\}\s*$`)
+
+func renderTemplate(tmpl string, ctx map[string]any) (string, error) {
+	t, err := gonja.FromString(tmpl)
+	if err != nil {
+		return "", fmt.Errorf("template parse %q: %w", tmpl, err)
 	}
-	return cur, true
+	out, err := t.ExecuteToString(exec.NewContext(ctx))
+	if err != nil {
+		return "", fmt.Errorf("template render %q: %w", tmpl, err)
+	}
+	return out, nil
 }
 
-// substitute walks val replacing every {{ path }} with the resolved value: a
-// string that is *entirely* one placeholder becomes the native-typed value; an
-// embedded placeholder is stringified. An unresolved reference is an error.
+// evalExpr evaluates one Jinja expression to a native Go value via a to_json round-trip.
+func evalExpr(expr string, ctx map[string]any) (any, error) {
+	js, err := renderTemplate("{{ ("+expr+") | to_json }}", ctx)
+	if err != nil {
+		return nil, err
+	}
+	js = strings.TrimSpace(js)
+	var v any
+	if err := json.Unmarshal([]byte(js), &v); err != nil {
+		// to_json should always emit JSON; if not, fall back to the raw rendered text.
+		return js, nil
+	}
+	return v, nil
+}
+
+// substitute walks val: a string that is exactly one {{ expr }} becomes the native-typed value; a
+// string with embedded placeholders (or {% %}) is rendered to a string; containers recurse; other
+// scalars pass through unchanged.
 func substitute(val any, ctx map[string]any) (any, error) {
 	switch v := val.(type) {
 	case string:
-		trimmed := strings.TrimSpace(v)
-		if m := placeholderRe.FindStringSubmatch(trimmed); m != nil && m[0] == trimmed {
-			rv, ok := resolvePath(m[1], ctx)
-			if !ok {
-				return nil, fmt.Errorf("unresolved parameter reference {{ %s }}", m[1])
-			}
-			return rv, nil
+		if m := wholeExprRe.FindStringSubmatch(v); m != nil {
+			return evalExpr(strings.TrimSpace(m[1]), ctx)
 		}
-		var subErr error
-		out := placeholderRe.ReplaceAllStringFunc(v, func(match string) string {
-			name := placeholderRe.FindStringSubmatch(match)[1]
-			rv, ok := resolvePath(name, ctx)
-			if !ok {
-				subErr = fmt.Errorf("unresolved parameter reference {{ %s }}", name)
-				return match
-			}
-			return fmt.Sprintf("%v", rv)
-		})
-		if subErr != nil {
-			return nil, subErr
+		if strings.Contains(v, "{{") || strings.Contains(v, "{%") {
+			return renderTemplate(v, ctx)
 		}
-		return out, nil
+		return v, nil
 	case map[string]any:
 		out := make(map[string]any, len(v))
-		for k, vv := range v {
-			sv, err := substitute(vv, ctx)
+		for k, e := range v {
+			r, err := substitute(e, ctx)
 			if err != nil {
 				return nil, err
 			}
-			out[k] = sv
+			out[k] = r
 		}
 		return out, nil
 	case []any:
 		out := make([]any, len(v))
-		for i, vv := range v {
-			sv, err := substitute(vv, ctx)
+		for i, e := range v {
+			r, err := substitute(e, ctx)
 			if err != nil {
 				return nil, err
 			}
-			out[i] = sv
+			out[i] = r
 		}
 		return out, nil
 	default:
-		return val, nil
+		return v, nil
 	}
 }
 
-var (
-	reIsNotDefined = regexp.MustCompile(`^([\w.]+)\s+is\s+not\s+defined$`)
-	reIsDefined    = regexp.MustCompile(`^([\w.]+)\s+is\s+defined$`)
-	reCmp          = regexp.MustCompile(`^([\w.]+)\s*(==|!=|>=|<=|>|<)\s*(.+)$`)
-	reBarePath     = regexp.MustCompile(`^[\w.]+$`)
-)
-
-// evalWhen evaluates one when/assert condition against ctx, using the same
-// deliberately-small grammar as Bossman's when_eval (not a Jinja/eval): `not`,
-// `is defined`, `is not defined`, ==/!=/>/>=/</<=, and a bare truthy path.
+// evalWhen evaluates an Ansible `when:` — a bare Jinja expression — to a boolean.
 func evalWhen(expr string, ctx map[string]any) (bool, error) {
-	expr = strings.TrimSpace(expr)
-	if strings.HasPrefix(expr, "not ") {
-		v, err := evalWhen(expr[4:], ctx)
-		return !v, err
+	v, err := evalExpr(expr, ctx)
+	if err != nil {
+		return false, err
 	}
-	if m := reIsNotDefined.FindStringSubmatch(expr); m != nil {
-		_, ok := resolvePath(m[1], ctx)
-		return !ok, nil
-	}
-	if m := reIsDefined.FindStringSubmatch(expr); m != nil {
-		_, ok := resolvePath(m[1], ctx)
-		return ok, nil
-	}
-	if m := reCmp.FindStringSubmatch(expr); m != nil {
-		path, op, litText := m[1], m[2], m[3]
-		lhs, ok := resolvePath(path, ctx)
-		lit := parseLiteral(litText)
-		switch op {
-		case "==":
-			return ok && equalish(lhs, lit), nil
-		case "!=":
-			return !ok || !equalish(lhs, lit), nil
-		case ">", ">=", "<", "<=":
-			ln, lok := numeric(lhs)
-			rn, rok := numeric(lit)
-			if !ok || !lok || !rok {
-				return false, nil
-			}
-			switch op {
-			case ">":
-				return ln > rn, nil
-			case ">=":
-				return ln >= rn, nil
-			case "<":
-				return ln < rn, nil
-			default:
-				return ln <= rn, nil
-			}
-		}
-	}
-	if reBarePath.MatchString(expr) {
-		v, ok := resolvePath(expr, ctx)
-		if !ok {
-			return false, nil
-		}
-		return truthy(v), nil
-	}
-	return false, fmt.Errorf("unsupported when-expression %q", expr)
+	return truthy(v), nil
 }
 
-func parseLiteral(text string) any {
-	text = strings.TrimSpace(text)
-	switch text {
-	case "true":
-		return true
-	case "false":
-		return false
+// resolveLoop evaluates a `loop:` value to a list: a literal list passes through; a string is a Jinja
+// expression (a bare name or a {{ … }}) that must yield a list.
+func resolveLoop(loop any, ctx map[string]any) ([]any, error) {
+	if loop == nil {
+		return []any{nil}, nil
 	}
-	if len(text) >= 2 && (text[0] == '\'' || text[0] == '"') && text[len(text)-1] == text[0] {
-		return text[1 : len(text)-1]
-	}
-	if n, ok := numeric(text); ok {
-		return n
-	}
-	return text
-}
-
-func equalish(a, b any) bool {
-	if an, aok := numeric(a); aok {
-		if bn, bok := numeric(b); bok {
-			return an == bn
-		}
-	}
-	return fmt.Sprintf("%v", a) == fmt.Sprintf("%v", b)
-}
-
-func truthy(v any) bool {
-	switch t := v.(type) {
-	case bool:
-		return t
+	switch l := loop.(type) {
+	case []any:
+		return l, nil
 	case string:
-		return t != "" && t != "false"
+		expr := strings.TrimSpace(l)
+		if m := wholeExprRe.FindStringSubmatch(expr); m != nil {
+			expr = strings.TrimSpace(m[1])
+		}
+		v, err := evalExpr(expr, ctx)
+		if err != nil {
+			return nil, err
+		}
+		lst, ok := v.([]any)
+		if !ok {
+			return nil, fmt.Errorf("loop %q did not resolve to a list", l)
+		}
+		return lst, nil
+	default:
+		return nil, fmt.Errorf("loop must be a list or an expression string")
+	}
+}
+
+// truthy applies Ansible/Python truthiness to a rendered value.
+func truthy(v any) bool {
+	switch x := v.(type) {
 	case nil:
 		return false
+	case bool:
+		return x
+	case string:
+		return x != "" && strings.ToLower(x) != "false"
+	case float64:
+		return x != 0
+	case int:
+		return x != 0
+	case []any:
+		return len(x) > 0
+	case map[string]any:
+		return len(x) > 0
 	default:
-		if n, ok := numeric(v); ok {
-			return n != 0
-		}
 		return true
 	}
 }

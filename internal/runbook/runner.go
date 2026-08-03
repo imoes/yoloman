@@ -203,34 +203,7 @@ func cloneWith(base map[string]any, k string, v any) map[string]any {
 	return out
 }
 
-func resolveLoop(loop any, vars map[string]any) ([]any, error) {
-	if loop == nil {
-		return []any{nil}, nil
-	}
-	switch l := loop.(type) {
-	case []any:
-		return l, nil
-	case string:
-		// Accept both a bare dotted-path (`volume_groups`) and an Ansible `{{ volume_groups }}`
-		// placeholder — the playbook surface is Ansible syntax, so a loop written the Ansible way
-		// (`loop: "{{ vols }}"`) must resolve just like the args do via substitute().
-		path := l
-		if m := placeholderRe.FindStringSubmatch(strings.TrimSpace(l)); m != nil && m[0] == strings.TrimSpace(l) {
-			path = m[1]
-		}
-		v, ok := resolvePath(path, vars)
-		if !ok {
-			return nil, fmt.Errorf("loop: %q is not defined", l)
-		}
-		list, ok := v.([]any)
-		if !ok {
-			return nil, fmt.Errorf("loop: %q did not resolve to a list", l)
-		}
-		return list, nil
-	default:
-		return nil, fmt.Errorf("loop must be a list or a dotted-path string")
-	}
-}
+// resolveLoop lives in expr.go now (gonja-backed, so `loop: "{{ vols | selectattr(...) }}"` works too).
 
 // numeric coerces a value to float64 for numeric comparisons where possible.
 func numeric(v any) (float64, bool) {
