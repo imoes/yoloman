@@ -23,8 +23,10 @@ const COLLAPSED = new Set<string>();
   template: `
     <div class="bm-seq-list" cdkDropList [cdkDropListData]="nodes()" (cdkDropListDropped)="onDrop($event)">
       @for (n of nodes(); track n.id) {
+        @if (shown(n)) {
         <div class="bm-seq-item" cdkDrag [cdkDragData]="n">
-          <div class="bm-seq-row" [class.on]="selectedId() === n.id" (click)="select.emit(n.id)">
+          <div class="bm-seq-row" [class.on]="selectedId() === n.id" [class.hit]="matchIds().has(n.id)"
+               (click)="select.emit(n.id)">
             <span class="bm-seq-grip" cdkDragHandle title="Drag to reorder or move into a group">
               <mat-icon>drag_indicator</mat-icon>
             </span>
@@ -48,6 +50,7 @@ const COLLAPSED = new Set<string>();
           @if (n.kind === 'group' && !isCollapsed(n.id)) {
             <div class="bm-seq-children">
               <app-sequence-tree [nodes]="childrenOf(n)" [selectedId]="selectedId()"
+                                 [matchIds]="matchIds()" [visibleIds]="visibleIds()"
                                  (select)="select.emit($event)" (remove)="remove.emit($event)"
                                  (changed)="changed.emit()" />
               @if (!childrenOf(n).length) {
@@ -61,6 +64,7 @@ const COLLAPSED = new Set<string>();
                   <span class="bm-seq-bhint">runs only if the group failed</span>
                 </div>
                 <app-sequence-tree [nodes]="rescueOf(n)" [selectedId]="selectedId()"
+                                   [matchIds]="matchIds()" [visibleIds]="visibleIds()"
                                    (select)="select.emit($event)" (remove)="remove.emit($event)"
                                    (changed)="changed.emit()" />
               }
@@ -70,12 +74,14 @@ const COLLAPSED = new Set<string>();
                   <span class="bm-seq-bhint">runs either way</span>
                 </div>
                 <app-sequence-tree [nodes]="alwaysOf(n)" [selectedId]="selectedId()"
+                                   [matchIds]="matchIds()" [visibleIds]="visibleIds()"
                                    (select)="select.emit($event)" (remove)="remove.emit($event)"
                                    (changed)="changed.emit()" />
               }
             </div>
           }
         </div>
+        }
       }
     </div>
   `,
@@ -87,6 +93,10 @@ const COLLAPSED = new Set<string>();
     .bm-seq-row:hover { background: color-mix(in srgb, var(--mat-sys-on-surface) 5%, transparent); }
     .bm-seq-row.on { background: color-mix(in srgb, var(--mat-sys-primary) 12%, transparent);
       border-color: color-mix(in srgb, var(--mat-sys-primary) 30%, transparent); }
+    /* A search hit. SCCM paints the row yellow; the design philosophy reserves colour fills for status, so
+       this is a gold left accent + a faint tint instead of a block of colour behind the text. */
+    .bm-seq-row.hit { box-shadow: inset 3px 0 0 var(--bm-gold, #b8860b);
+      background: color-mix(in srgb, var(--bm-gold, #b8860b) 10%, transparent); }
     .bm-seq-grip { display: inline-flex; opacity: .35; cursor: grab; }
     .bm-seq-grip mat-icon { font-size: 17px; width: 17px; height: 17px; }
     .bm-seq-glyph { font-size: 13px; }
@@ -117,6 +127,16 @@ const COLLAPSED = new Set<string>();
 export class SequenceTreeComponent {
   nodes = input.required<SeqNode[]>();
   selectedId = input<string | null>(null);
+  /** Search hits, highlighted in place (SCCM highlights rather than hides, which keeps the order readable). */
+  matchIds = input<Set<string>>(new Set<string>());
+  /** Ids to show when a "Filter By" is active; null means no filtering. */
+  visibleIds = input<Set<string> | null>(null);
+
+  /** A filtered-out node is not rendered; without an active filter everything shows. */
+  shown(n: SeqNode): boolean {
+    const v = this.visibleIds();
+    return !v || v.has(n.id);
+  }
 
   select = output<string>();
   remove = output<string>();

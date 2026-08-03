@@ -27,7 +27,8 @@ import { CdkDropListGroup } from '@angular/cdk/drag-drop';
 import { SequenceTreeComponent } from './sequence/sequence-tree.component';
 import { VariablesPanelComponent } from './sequence/variables-panel.component';
 import { BUILTIN_VARIABLES } from './blockly/ansibleFacts';
-import { SeqNode, findNode, nextId, removeNode, tasksToTree, treeToTasks } from './sequence/sequence-model';
+import { SEARCH_SCOPES, SeqNode, SearchScope, TreeFilters, filterTree, findNode, nextId,
+         removeNode, searchTree, tasksToTree, treeToTasks } from './sequence/sequence-model';
 import { jsonSchemaToParamSchema, optionsToParamSchema } from './sequence/module-schema';
 import { importTasksYaml } from './blockly/playbookImporter';
 
@@ -173,12 +174,56 @@ const MAGIC_VAR_GROUPS = (() => {
           <!-- Sequence view (slice 3): the SAME document as a tree of groups + steps, drag & drop to
                reorder. One cdkDropListGroup wraps the whole tree so a step can move between groups. -->
           @if (mode() === 'tree') {
+            <!-- Toolbar + scoped search + filters, after SCCM's task-sequence editor. All three are pure
+                 projections of the document: nothing here can change what runs. -->
             <div class="bm-seq-bar">
               <button mat-stroked-button (click)="addGroup()"><mat-icon>create_new_folder</mat-icon> Group</button>
               <button mat-stroked-button (click)="addStep()"><mat-icon>add</mat-icon> Step</button>
-              <span class="bm-dim">Groups become Ansible <code>block:</code>, steps become module tasks — the
-                playbook YAML stays in sync, so Text and Visual show the same document.</span>
+              <button mat-icon-button (click)="moveSel(-1)" [disabled]="!seqSelected()"
+                      title="Move up"><mat-icon>arrow_upward</mat-icon></button>
+              <button mat-icon-button (click)="moveSel(1)" [disabled]="!seqSelected()"
+                      title="Move down"><mat-icon>arrow_downward</mat-icon></button>
+              <button mat-icon-button (click)="removeSeqNode(seqSelected()!)" [disabled]="!seqSelected()"
+                      title="Remove"><mat-icon>delete_outline</mat-icon></button>
+              <span class="bm-spacer"></span>
+              <input class="bm-seq-search" type="search" [ngModel]="seqQuery()"
+                     (ngModelChange)="seqQuery.set($event)" placeholder="Search the sequence…" />
+              <button mat-icon-button (click)="seqSearchOpen.set(!seqSearchOpen())"
+                      [title]="seqSearchOpen() ? 'Hide search options' : 'Search within / filter by'">
+                <mat-icon>tune</mat-icon>
+              </button>
+              @if (seqQuery().trim()) {
+                <span class="bm-dim">{{ seqMatches().size }} match(es)</span>
+              }
             </div>
+            @if (seqSearchOpen()) {
+              <div class="bm-seq-scopes">
+                <div>
+                  <div class="bm-vg">Search within</div>
+                  @for (s of searchScopes; track s.key) {
+                    <label class="bm-seq-chk">
+                      <input type="checkbox" [checked]="seqScopes().includes(s.key)"
+                             (change)="toggleScope(s.key)" /> {{ s.label }}
+                    </label>
+                  }
+                </div>
+                <div>
+                  <div class="bm-vg">Filter by</div>
+                  <label class="bm-seq-chk" title="Steps that record a failure and carry on (ignore_errors)">
+                    <input type="checkbox" [checked]="seqFilters().continueOnError"
+                           (change)="toggleFilter('continueOnError')" /> Continue on error
+                  </label>
+                  <label class="bm-seq-chk" title="Steps with a when: / failed_when: / changed_when:">
+                    <input type="checkbox" [checked]="seqFilters().hasConditions"
+                           (change)="toggleFilter('hasConditions')" /> Has conditions
+                  </label>
+                  <p class="bm-dim">A group stays visible when anything inside it matches — dropping it would
+                    misrepresent the order its steps run in.</p>
+                </div>
+              </div>
+            }
+            <p class="bm-dim">Groups become Ansible <code>block:</code>, steps become module tasks — the
+              playbook YAML stays in sync, so Text and Visual show the same document.</p>
             <!-- Tree LEFT, inspector RIGHT, variables far right — docs/design-philosophy.md #4
                  (source list → content → inspector). The form used to sit BELOW the tree as six
                  outline mat-form-fields, which is the Material default the philosophy warns about:
@@ -186,6 +231,7 @@ const MAGIC_VAR_GROUPS = (() => {
             <div class="bm-seq-layout">
               <div class="bm-seq-wrap" cdkDropListGroup>
                 <app-sequence-tree [nodes]="seqNodes()" [selectedId]="seqSelected()"
+                                   [matchIds]="seqMatches()" [visibleIds]="seqVisible()"
                                    (select)="selectSeqNode($event)" (remove)="removeSeqNode($event)"
                                    (changed)="syncSequence()" />
                 @if (!seqNodes().length) {
@@ -404,6 +450,12 @@ const MAGIC_VAR_GROUPS = (() => {
       .bm-canvas-row { display: block; margin-bottom: 10px; }
       /* Sequence view (slice 3) */
       .bm-seq-bar { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; flex-wrap: wrap; }
+      .bm-seq-search { padding: 5px 8px; font-size: 12.5px; color: inherit; min-width: 150px;
+        background: var(--mat-sys-surface); border: 1px solid var(--mat-sys-outline-variant);
+        border-radius: 6px; }
+      .bm-seq-scopes { display: flex; gap: 24px; flex-wrap: wrap; margin: 0 0 10px; padding: 10px;
+        border: 1px solid var(--mat-sys-outline-variant); border-radius: 8px; }
+      .bm-seq-scopes > div { display: flex; flex-direction: column; gap: 3px; max-width: 300px; }
       .bm-seq-wrap { border: 1px solid var(--mat-sys-outline-variant); border-radius: 10px; padding: 8px;
         min-height: 140px; max-height: 420px; overflow: auto; }
       /* Tree | inspector | variables, wrapping when there is not room for three.
@@ -555,6 +607,53 @@ export class RunbookEditorComponent implements OnInit, AfterViewInit, OnDestroy 
   private seqEnvelope: Record<string, unknown> = {};
   /** Signal mirror of the envelope, so the Variables panel recomputes when `parameters:` changes. */
   private seqEnvelopeSignal = signal<Record<string, unknown>>({});
+
+  // ---- SCCM-style search + filter. Pure projections; no document is touched. -------------------------
+  searchScopes = SEARCH_SCOPES;
+  seqQuery = signal('');
+  seqSearchOpen = signal(false);
+  /** Default scopes: what an operator most often looks for. All of them are reachable via the panel. */
+  seqScopes = signal<SearchScope[]>(['stepName', 'stepType', 'groupName']);
+  seqFilters = signal<TreeFilters>({});
+
+  seqMatches = computed(() => searchTree(this.seqNodes(), this.seqQuery(), this.seqScopes()));
+  seqVisible = computed(() => filterTree(this.seqNodes(), this.seqFilters()));
+
+  toggleScope(key: SearchScope): void {
+    const cur = this.seqScopes();
+    this.seqScopes.set(cur.includes(key) ? cur.filter((k) => k !== key) : [...cur, key]);
+  }
+  toggleFilter(key: keyof TreeFilters): void {
+    this.seqFilters.set({ ...this.seqFilters(), [key]: !this.seqFilters()[key] });
+  }
+
+  /**
+   * Move the selected node within its own sibling list. Keyboard/button reordering next to drag & drop: a
+   * long sequence is painful to drag, and SCCM offers exactly these two buttons. Staying inside the sibling
+   * list is deliberate — moving across groups changes which `block:` a step belongs to, i.e. which shared
+   * `when:` and error handling apply to it, so that stays an explicit drag.
+   */
+  moveSel(delta: number): void {
+    const id = this.seqSelected();
+    if (!id) return;
+    const findList = (list: SeqNode[]): SeqNode[] | null => {
+      if (list.some((n) => n.id === id)) return list;
+      for (const n of list) {
+        for (const branch of [n.children, n.rescue, n.always]) {
+          const hit = branch && findList(branch);
+          if (hit) return hit;
+        }
+      }
+      return null;
+    };
+    const list = findList(this.seqNodes());
+    if (!list) return;
+    const from = list.findIndex((n) => n.id === id);
+    const to = from + delta;
+    if (to < 0 || to >= list.length) return;
+    [list[from], list[to]] = [list[to], list[from]];
+    this.syncSequence();
+  }
 
   /** Whether the inspector's Advanced block is open (loop/register/failed_when/ignore_errors). */
   seqAdvanced = signal(false);

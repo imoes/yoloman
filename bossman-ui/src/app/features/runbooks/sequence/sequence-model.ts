@@ -211,3 +211,122 @@ export function flatten(nodes: SeqNode[], depth = 0, parentId: string | null = n
   }
   return out;
 }
+
+// ---- Search + filter (SCCM's "Search Within" / "Filter By") -------------------------------------------
+//
+// SCCM's task-sequence editor scopes a search to Step Name, Step Type, Group Name, Variable Name,
+// Conditions, Other Contents — and filters by "Continue On Error" / "Has Conditions". That vocabulary is a
+// good fit because it is the same document: a step's type IS its module, a condition IS `when:`, a variable
+// IS a `register:` name or a `{{ ... }}` reference, and Continue On Error IS `ignore_errors`.
+//
+// SCCM also offers Step Description and Group Description. We do NOT: a step in our model has no description
+// field, so offering the scope would be offering something that can never match.
+//
+// Both are pure projections of the tree — no document is touched, so switching them can never change what
+// runs.
+
+/** Which parts of a node a search looks at. */
+export type SearchScope = 'stepName' | 'stepType' | 'groupName' | 'variableName' | 'conditions' | 'contents';
+
+export const SEARCH_SCOPES: { key: SearchScope; label: string }[] = [
+  { key: 'stepName', label: 'Step name' },
+  { key: 'stepType', label: 'Step type' },
+  { key: 'groupName', label: 'Group name' },
+  { key: 'variableName', label: 'Variable name' },
+  { key: 'conditions', label: 'Conditions' },
+  { key: 'contents', label: 'Other contents' },
+];
+
+/** Every `{{ name }}` / `{{ name.attr }}` reference in a value, however deeply nested. */
+function varRefs(value: unknown, out: string[] = []): string[] {
+  if (typeof value === 'string') {
+    for (const m of value.matchAll(/\{\{\s*([A-Za-z_][\w.\[\]'"]*)/g)) out.push(m[1]);
+  } else if (Array.isArray(value)) {
+    for (const v of value) varRefs(v, out);
+  } else if (value && typeof value === 'object') {
+    for (const v of Object.values(value)) varRefs(v, out);
+  }
+  return out;
+}
+
+/** The searchable text of one node, per scope. */
+function haystack(n: SeqNode, scope: SearchScope): string {
+  switch (scope) {
+    case 'stepName':
+      return n.kind === 'step' ? n.name ?? '' : '';
+    case 'groupName':
+      return n.kind === 'group' ? n.name ?? '' : '';
+    case 'stepType':
+      return n.module ?? '';
+    case 'variableName':
+      // A register defines a variable; a `{{ ... }}` in args/when/loop uses one. Both are what an operator
+      // means by "where is this variable used".
+      return [n.register ?? '', ...varRefs(n.args), ...varRefs(n.when), ...varRefs(n.loop)].join(' ');
+    case 'conditions':
+      return [n.when ?? '', String(n.extra?.['failed_when'] ?? ''), String(n.extra?.['changed_when'] ?? '')]
+        .join(' ');
+    case 'contents':
+      return JSON.stringify(n.args ?? {});
+  }
+}
+
+/** Ids of every node matching `query` in any of `scopes`. An empty query matches nothing (not everything) —
+ *  a search box that highlights the whole tree when empty tells the operator nothing. */
+export function searchTree(nodes: SeqNode[], query: string, scopes: SearchScope[]): Set<string> {
+  const hits = new Set<string>();
+  const q = query.trim().toLowerCase();
+  if (!q || !scopes.length) return hits;
+  const walk = (list: SeqNode[]): void => {
+    for (const n of list) {
+      if (scopes.some((s) => haystack(n, s).toLowerCase().includes(q))) hits.add(n.id);
+      walk(n.children ?? []);
+      walk(n.rescue ?? []);
+      walk(n.always ?? []);
+    }
+  };
+  walk(nodes);
+  return hits;
+}
+
+/** SCCM's "Filter By" checkboxes. */
+export interface TreeFilters {
+  /** Continue On Error — a step that records a failure and carries on (`ignore_errors`). */
+  continueOnError?: boolean;
+  /** Has Conditions — a `when:` (or failed_when/changed_when). */
+  hasConditions?: boolean;
+}
+
+function passes(n: SeqNode, f: TreeFilters): boolean {
+  if (f.continueOnError && !n.extra?.['ignore_errors']) return false;
+  if (f.hasConditions && !(n.when || n.extra?.['failed_when'] || n.extra?.['changed_when'])) return false;
+  return true;
+}
+
+/**
+ * Ids of the nodes to SHOW under `filters`. A group is kept when it passes itself or when anything beneath it
+ * does — dropping an ancestor would detach its matching children and misrepresent the order they run in,
+ * which is the one thing a sequence view must not do. No active filter means everything is visible.
+ */
+export function filterTree(nodes: SeqNode[], filters: TreeFilters): Set<string> | null {
+  if (!filters.continueOnError && !filters.hasConditions) return null;   // null = no filtering at all
+  const visible = new Set<string>();
+  const walk = (list: SeqNode[]): boolean => {
+    let anyHere = false;
+    for (const n of list) {
+      // Each branch must be walked, so `||` would be wrong: it short-circuits, and a matching node in
+      // `rescue`/`always` would then never be added to `visible` at all.
+      const inChildren = walk(n.children ?? []);
+      const inRescue = walk(n.rescue ?? []);
+      const inAlways = walk(n.always ?? []);
+      const below = inChildren || inRescue || inAlways;
+      const self = passes(n, filters);
+      if (self || below) {
+        visible.add(n.id);
+        anyHere = true;
+      }
+    }
+    return anyHere;
+  };
+  walk(nodes);
+  return visible;
+}
