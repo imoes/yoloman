@@ -21,9 +21,39 @@ def main(ctx, params):
         fail("state must be one of: gathered, present, absent")
     name = params.get("name")
     if not name:
-        fail("name (the interface / connection) is required for state=%s" % state)
+        # No explicit interface (the restore armed none): read the correct one from the network facts —
+        # the interface carrying the DEFAULT route (Ansible's ansible_default_ipv4.interface). During the
+        # offline restore the PE's netlink is the target's own hardware, so this is the NIC the machine
+        # will actually boot onto — a far better answer than a first-NIC guess.
+        name = _default_route_iface(ctx)
+    if not name:
+        fail("name (the interface / connection) is required for state=%s and no default-route interface was found in the facts" % state)
     provider = params.get("provider") or _detect_provider(ctx)
     return _configure(ctx, params, name, state, provider)
+
+
+# _default_route_iface returns the interface of the default route (the primary NIC), or "" if there is
+# none. Reads the same routing facts _gather() exposes, focused on the default route.
+def _default_route_iface(ctx):
+    res = ctx.run(["ip", "-o", "route", "show", "default"], mutates=False)
+    if res.rc == 0:
+        for line in res.stdout.split("\n"):
+            toks = line.split()
+            for i in range(len(toks) - 1):
+                if toks[i] == "dev":
+                    return toks[i + 1]
+    # Fallback: the first real, non-virtual interface from the gathered link facts.
+    skip = ["lo", "docker", "veth", "br-", "virbr", "dummy", "bond", "tun", "tap", "sit"]
+    for iface in _gather_interfaces(ctx):
+        n = iface["name"]
+        virtual = False
+        for s in skip:
+            if n == s or n.startswith(s):
+                virtual = True
+                break
+        if not virtual:
+            return n
+    return ""
 
 
 # ---- read (gathered) ------------------------------------------------------
