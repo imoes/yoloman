@@ -406,12 +406,17 @@ const MAGIC_VAR_GROUPS = (() => {
       .bm-seq-bar { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; flex-wrap: wrap; }
       .bm-seq-wrap { border: 1px solid var(--mat-sys-outline-variant); border-radius: 10px; padding: 8px;
         min-height: 140px; max-height: 420px; overflow: auto; }
-      /* Tree | inspector | variables. Collapses to one column when there is no room for three. */
-      .bm-seq-layout { display: grid; grid-template-columns: minmax(0, 1fr) 300px 240px; gap: 12px;
-        align-items: start; }
-      @media (max-width: 1200px) { .bm-seq-layout { grid-template-columns: 1fr; } }
+      /* Tree | inspector | variables, wrapping when there is not room for three.
+         This is FLEX, not grid with a viewport media query: the editor pane is only ~450px wide (library
+         sidebar left, runs sidebar right), so a "minmax(0, 1fr) 300px 240px" grid gave the tree column 0px
+         and hid it entirely — measured, not guessed. A viewport breakpoint cannot see that, because the
+         viewport was 1280px while the container was 450px. flex-basis + wrap can never collapse a column. */
+      .bm-seq-layout { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-start; }
+      .bm-seq-wrap { flex: 1 1 320px; min-width: 0; }
+      .bm-seq-insp { flex: 1 1 280px; }
+      .bm-seq-vars { flex: 1 1 220px; }
       .bm-seq-insp, .bm-seq-vars { border: 1px solid var(--mat-sys-outline-variant); border-radius: 10px;
-        padding: 10px; display: flex; flex-direction: column; gap: 8px; }
+        padding: 10px; display: flex; flex-direction: column; gap: 8px; box-sizing: border-box; }
       .bm-seq-vars { max-height: 520px; }
       .bm-seq-vh { margin: 0; font-size: 11px; text-transform: uppercase; letter-spacing: .04em; opacity: .55; }
       /* One compact field: a small label above a plain input. Replaces mat-form-field appearance="outline",

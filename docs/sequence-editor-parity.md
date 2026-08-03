@@ -80,6 +80,19 @@ kopieren" gilt für die **Logik**-Module (framework-frei, mit Jest-Tests: ~2400 
 die Shells brauchen Angular-Entsprechungen. `BlocklyWorkspace` existiert in yolo-man bereits als
 `blockly-workspace.component.ts`.
 
+## Beim Bauen gefunden (offen)
+
+- **Kein Host gewählt → keine typisierte Argumentmaske für native Module.** `loadAgentSchemas` braucht eine
+  `agentId`; ohne gewählten Host ist `agentSchemas` leer, also fällt `apt`/`service`/`file` auf den Katalog
+  zurück — und dort liegen native Go-Builtins nicht (`GET /api/v1/modules/apt` → 404, sichtbar als
+  Console-Error). Der Fallback auf den JSON-Editor funktioniert, aber die Maske fehlt genau bei den
+  häufigsten Modulen. Die Builtin-Argspecs sind host-*unabhängig* (jeder Agent hat dieselben), also wäre die
+  Lösung ein host-freier Endpunkt für die Builtin-Schemas — oder ein Hinweis „Host wählen für typisierte
+  Argumente" statt eines stummen 404.
+- **Der Editor-Bereich ist nur ~450px breit** (Bibliothek links, Runs-Sidebar rechts), deshalb stapeln sich
+  Tree/Inspector/Variablen statt nebeneinander zu stehen. Die rechte Sidebar zeigt jetzt *dieselbe*
+  Variablenliste wie das neue Panel — sie zusammenzulegen würde die Breite freigeben.
+
 ## Verifikation
 
 1. Rolle mit `parameters:` öffnen → Variablen-Panel zeigt sie; eine per Klick in ein Argument einfügen und in
