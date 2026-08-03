@@ -218,7 +218,17 @@ const MAGIC_VARS = [
                   <input matInput [ngModel]="sel.when || ''" (ngModelChange)="editSeq(sel, 'when', $event)"
                          placeholder="has_partitions" />
                 </mat-form-field>
+                <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                  <mat-label>loop (optional)</mat-label>
+                  <input matInput [ngModel]="loopText(sel)" (ngModelChange)="editLoop(sel, $event)"
+                         placeholder="{{ '{{ volume_groups }}' }}" />
+                </mat-form-field>
                 @if (sel.kind === 'step') {
+                  <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                    <mat-label>register (optional)</mat-label>
+                    <input matInput [ngModel]="sel.register || ''"
+                           (ngModelChange)="editRegister(sel, $event)" placeholder="result" />
+                  </mat-form-field>
                   <mat-form-field appearance="outline" subscriptSizing="dynamic">
                     <mat-label>failed_when (optional)</mat-label>
                     <input matInput [ngModel]="sel.extra?.['failed_when'] || ''"
@@ -676,6 +686,42 @@ export class RunbookEditorComponent implements OnInit, AfterViewInit, OnDestroy 
     const extra = { ...(node.extra ?? {}) };
     if (value.trim()) extra[key] = value; else delete extra[key];
     node.extra = Object.keys(extra).length ? extra : undefined;
+    this.seqNodes.set([...this.seqNodes()]);
+    this.syncSequence();
+  }
+
+  /** A loop is either a Jinja expression over a list, or a literal list — show whichever it is. */
+  loopText(node: SeqNode): string {
+    const l = node.loop;
+    if (l === undefined || l === null) return '';
+    return typeof l === 'string' ? l : JSON.stringify(l);
+  }
+
+  /**
+   * Edit the loop. A `[…]` value is taken as a literal list (so a short inline list stays a list in the
+   * YAML), anything else is kept as the expression the operator typed — `{{ volume_groups }}` is the form
+   * the restore playbooks use, and the runner resolves it through the same Jinja engine as the args.
+   */
+  editLoop(node: SeqNode, value: string): void {
+    const text = value.trim();
+    if (!text) {
+      node.loop = undefined;
+    } else if (text.startsWith('[')) {
+      try {
+        node.loop = JSON.parse(text);
+      } catch {
+        node.loop = text;   // not valid JSON yet — keep the text so typing isn't fought
+      }
+    } else {
+      node.loop = text;
+    }
+    this.seqNodes.set([...this.seqNodes()]);
+    this.syncSequence();
+  }
+
+  /** `register` names this step's result so later steps (and `when:`) can read it. */
+  editRegister(node: SeqNode, value: string): void {
+    node.register = value.trim() || undefined;
     this.seqNodes.set([...this.seqNodes()]);
     this.syncSequence();
   }
