@@ -110,5 +110,17 @@ def main(ctx, params):
             actions.append("removed cloud instance data")
             changed = True
 
+    # Regenerate fresh, unique SSH host keys LAST — the keys were dropped above so clones don't share a
+    # fingerprint, but the image does not regenerate them on first boot, so sshd would fail to start with
+    # no host keys. ssh-keygen -A creates the missing default key types. Done at the end so the file-based
+    # identity (machine-id/hostname/hosts/cloud) is already set even in the unlikely event this fails.
+    # Runs in the target chroot when _target_root is set.
+    gen = ctx.run(["ssh-keygen", "-A"], mutates=True)
+    if not gen.skipped:
+        if gen.rc != 0:
+            fail("ssh-keygen -A failed: " + gen.stderr)
+        actions.append("regenerated SSH host keys")
+        changed = True
+
     msg = "machine identity reset" if changed else "machine identity already correct"
     return {"changed": changed, "msg": msg, "data": {"hostname": hostname, "actions": actions}}

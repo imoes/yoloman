@@ -60,6 +60,9 @@ func run(args []string) error {
 	if len(args) > 0 && args[0] == "run-module" {
 		return runModuleCLI(args[1:])
 	}
+	if len(args) > 0 && args[0] == "run-runbook" {
+		return runRunbookCLI(args[1:])
+	}
 
 	fs := flag.NewFlagSet("agentic-mcpd", flag.ContinueOnError)
 	configPath := fs.String("config", "/etc/agentic-mcp/config.yaml", "path to config.yaml")

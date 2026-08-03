@@ -25,12 +25,9 @@
     - name: Neutralise the source's swap/resume and rebuild the initramfs
       yoloman.initramfs: {}
 
-    - name: Reset the machine identity (machine-id, SSH host keys, hostname, hosts, cloud-init)
+    - name: Reset the machine identity (machine-id, SSH host keys incl. regeneration, hostname, hosts, cloud-init)
       yoloman.machine_identity:
         hostname: "{{ target_hostname }}"
-
-    - name: Regenerate the SSH host keys dropped by the identity reset
-      ansible.builtin.command: ssh-keygen -A
 
     - name: Write the target's final network config (applied on the target's own first boot)
       yoloman.network_interface:
