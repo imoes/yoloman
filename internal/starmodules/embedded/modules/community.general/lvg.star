@@ -19,7 +19,13 @@ def main(ctx, params):
         return res
 
     def get_vg(name):
-        res = run_cmd(["vgs", "--noheadings", "-o", "vg_name,pv_count,lv_count", "--separator", ";", name])
+        # vgs exits 5 ("Volume group not found") when the VG does not exist yet — that is the normal
+        # "absent" answer (a fresh restore always hits it), NOT a hard failure. Tolerate it and report
+        # the VG as missing so the caller creates it.
+        res = run_cmd(["vgs", "--noheadings", "-o", "vg_name,pv_count,lv_count", "--separator", ";", name],
+                      ok_codes=[0, 5])
+        if res.rc != 0:
+            return None
         lines = res.stdout.strip().split("\n")
         for line in lines:
             parts = line.strip().split(";")
