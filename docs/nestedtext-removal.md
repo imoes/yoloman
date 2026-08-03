@@ -90,9 +90,14 @@ bevorzugt statt `.nt`: die Reihenfolge war vorher umgekehrt und hat still Typen 
 root-Dateien inert; ihr Löschen ist reine Aufräumarbeit:
 `sudo find configs/modules.d -name '*.nt' -delete`.
 
-Ein **Datenfund**, bewusst nicht mitgefixt (eine Formatkonvertierung, die auch Inhalte ändert, ist als
-Formatkonvertierung nicht mehr verifizierbar): 3 Optionen deklarieren `type: str` statt `string`, was
-`_PARAM_TYPES` gar nicht kennt — `check_plugin` (`item`, `force_format`) und `checkmk_local` (`item`).
+**Korrektur eines eigenen Fehlbefunds:** der Konverter meldete zunächst 3 Optionen mit `type: str` als
+Datenfehler und berief sich auf `nt_runbook._PARAM_TYPES`. Das war doppelt falsch — `_PARAM_TYPES` validiert
+die `parameters:` eines Runbooks/einer Rolle, ein anderes Schema, das eine Check-Option nie sieht
+(`_parse_check_metadata` prüft den `type` einer Option überhaupt nicht), und `str` ist Ansibles **kanonische**
+Argspec-Schreibweise: die UI bildet sie wie jede andere auf ein Textfeld ab (`module-schema.mapType`, das
+`str` ausdrücklich behandelt), und die Modulliste zeigt `type || 'str'` als Default. Es gibt hier nichts zu
+korrigieren; die Meldung ist aus dem Skript entfernt. Dass 2852 Optionen `string` und 3 `str` sagen, ist eine
+kosmetische Inkonsistenz, die beide Leser gleich behandeln — Angleichen wäre Churn ohne Nutzen.
 
 ## Teil B — der Ansatz (Referenz; Stand siehe oben)
 
