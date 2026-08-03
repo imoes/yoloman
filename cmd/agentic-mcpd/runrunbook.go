@@ -105,6 +105,11 @@ type canonStep struct {
 	Block  []canonStep `json:"block"`
 	Rescue []canonStep `json:"rescue"`
 	Always []canonStep `json:"always"`
+	// What counts as failure / as a change (see runbook.Step) — these change EXECUTION, so dropping them
+	// would run the operator's document with different semantics than they wrote.
+	FailedWhen   string `json:"failed_when"`
+	ChangedWhen  string `json:"changed_when"`
+	IgnoreErrors bool   `json:"ignore_errors"`
 }
 
 type canonDoc struct {
@@ -135,15 +140,18 @@ func canonSteps(steps []canonStep, chroot string) []runbook.Step {
 			params["_target_root"] = chroot
 		}
 		out = append(out, runbook.Step{
-			Name:     s.Name,
-			Module:   s.Module,
-			Params:   params,
-			Loop:     s.Loop,
-			When:     s.When,
-			Register: s.Register,
-			Block:    canonSteps(s.Block, chroot),
-			Rescue:   canonSteps(s.Rescue, chroot),
-			Always:   canonSteps(s.Always, chroot),
+			Name:         s.Name,
+			Module:       s.Module,
+			Params:       params,
+			Loop:         s.Loop,
+			When:         s.When,
+			Register:     s.Register,
+			FailedWhen:   s.FailedWhen,
+			ChangedWhen:  s.ChangedWhen,
+			IgnoreErrors: s.IgnoreErrors,
+			Block:        canonSteps(s.Block, chroot),
+			Rescue:       canonSteps(s.Rescue, chroot),
+			Always:       canonSteps(s.Always, chroot),
 		})
 	}
 	return out

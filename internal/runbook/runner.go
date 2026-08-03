@@ -48,6 +48,17 @@ type Step struct {
 	Block  []Step `json:"block,omitempty"`
 	Rescue []Step `json:"rescue,omitempty"`
 	Always []Step `json:"always,omitempty"`
+
+	// What counts as failure / as a change. Evaluated against the step's OWN result, so
+	// `failed_when: "rc != 0"` reads the module's rc directly, as in Ansible.
+	//
+	// FailedWhen fully replaces the failure condition (both directions: it can fail a successful step and
+	// clear a failed one). ChangedWhen overrides the reported `changed`. IgnoreErrors keeps a failure in
+	// the audit trail but does not abort the run — it was already expressible in the canonical document
+	// (services/nt_runbook), which made its absence here a silent semantic difference.
+	FailedWhen   string `json:"failed_when,omitempty"`
+	ChangedWhen  string `json:"changed_when,omitempty"`
+	IgnoreErrors bool   `json:"ignore_errors,omitempty"`
 }
 
 // Runbook is a named, ordered list of steps with optional default params.
@@ -161,6 +172,46 @@ func runSteps(ctx context.Context, reg *modules.Registry, steps []Step, vars map
 			res := runOne(ctx, reg, step, sctx, dryRun)
 			res.Index = i
 			res.Name = label
+
+			// failed_when / changed_when are evaluated against the step's own result, so the module's
+			// output fields (rc, stdout, …) plus changed/msg/failed are in scope — that is what makes
+			// `failed_when: "rc != 0"` work for a module (like `command`) that deliberately reports a
+			// non-zero exit as DATA rather than as an error.
+			if step.FailedWhen != "" || step.ChangedWhen != "" {
+				rctx := resultContext(sctx, res)
+				if step.FailedWhen != "" {
+					failed, ferr := evalWhen(step.FailedWhen, rctx)
+					switch {
+					case ferr != nil:
+						res.Error = "failed_when: " + ferr.Error()
+					case failed:
+						res.Error = "failed_when: " + step.FailedWhen
+					case res.Error != "":
+						// The expression says this is NOT a failure — keep the original text as the message
+						// so the diagnosis is not lost, but let the run continue.
+						res.Msg = strings.TrimSpace(res.Msg + " (failed_when cleared: " + res.Error + ")")
+						res.Error = ""
+					}
+				}
+				if step.ChangedWhen != "" {
+					changed, cerr := evalWhen(step.ChangedWhen, rctx)
+					if cerr != nil {
+						res.Error = "changed_when: " + cerr.Error()
+					} else {
+						res.Changed = changed
+					}
+				}
+			}
+
+			// ignore_errors: record the failure, do not abort. Marked in the message so a green run that
+			// contains a swallowed error cannot be mistaken for a clean one.
+			ignored := res.Error != "" && step.IgnoreErrors
+			if ignored {
+				res.Msg = strings.TrimSpace(res.Msg + " (ignored error: " + res.Error + ")")
+				res.Error = ""
+				res.Skipped = false
+			}
+
 			out.Steps = append(out.Steps, res)
 			if res.Changed {
 				out.Changed = true
@@ -244,6 +295,34 @@ func cloneWith(base map[string]any, k string, v any) map[string]any {
 		out[bk] = bv
 	}
 	out[k] = v
+	return out
+}
+
+/*
+resultContext is the scope failed_when / changed_when are evaluated in: the surrounding variables PLUS the
+step's own result — its data fields hoisted to the top level (so `rc != 0` works, as in Ansible) and the
+`changed` / `msg` / `failed` facts about the step itself.
+
+The step's result deliberately shadows a same-named outer variable: inside failed_when, `rc` must mean THIS
+step's rc.
+*/
+func resultContext(sctx map[string]any, res StepResult) map[string]any {
+	out := make(map[string]any, len(sctx)+6)
+	for k, v := range sctx {
+		out[k] = v
+	}
+	if data, ok := res.Data.(map[string]any); ok {
+		for k, v := range data {
+			out[k] = v
+		}
+	}
+	out["changed"] = res.Changed
+	out["msg"] = res.Msg
+	out["failed"] = res.Error != ""
+	// `result.rc` style access, for a document that prefers to be explicit.
+	out["result"] = map[string]any{
+		"changed": res.Changed, "msg": res.Msg, "failed": res.Error != "", "data": res.Data,
+	}
 	return out
 }
 

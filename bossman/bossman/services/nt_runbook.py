@@ -56,6 +56,11 @@ class Step:
     # a literal list, or a "${var}"-style string resolving to a list at run time
     loop: list[Any] | str | None = None
     register: str | None = None
+    # What counts as failure / as a change. Both are Ansible task keywords; they were recognised by the
+    # playbook parser (so they were not mistaken for the module key) but never carried into the document,
+    # which meant the runner could not honour what the operator wrote.
+    failed_when: str | None = None
+    changed_when: str | None = None
     ignore_errors: bool = False
     # Ansible task keywords (surface parity). Carried through the canonical doc;
     # `become` is a label (the agent already runs as root), `tags` gates run-time
@@ -108,6 +113,12 @@ class Step:
         d = {"name": self.name, "module": self.module, "args": self.args}
         if self.loop is not None:
             d["loop"] = self.loop
+        # These decide what counts as failure / as a change, so they must survive the round-trip — a
+        # dropped failed_when means the run silently uses different semantics than the document states.
+        if self.failed_when:
+            d["failed_when"] = self.failed_when
+        if self.changed_when:
+            d["changed_when"] = self.changed_when
         return self._extras(d)
 
 
@@ -154,7 +165,7 @@ class Role:
 
 
 _STEP_KEYS = {"name", "module", "args", "run", "runbook", "vars", "when", "loop", "register", "ignore_errors",
-              "become", "tags", "notify", "block", "rescue", "always"}
+              "failed_when", "changed_when", "become", "tags", "notify", "block", "rescue", "always"}
 
 _PARAM_TYPES = {"string", "number", "bool", "list", "object"}
 
@@ -203,6 +214,7 @@ def _parse_step(raw: Any, idx: int) -> Step:
         block_steps = _parse_steps(raw["block"])
         return Step(
             module="block", name=name, when=raw.get("when"),
+            failed_when=raw.get("failed_when"), changed_when=raw.get("changed_when"),
             ignore_errors=_as_bool(raw.get("ignore_errors")),
             become=_as_bool(raw.get("become")), tags=_str_list(raw.get("tags")),
             block=block_steps,
@@ -237,6 +249,8 @@ def _parse_step(raw: Any, idx: int) -> Step:
         if not isinstance(args, dict):
             raise NTRunbookError(f"step {idx + 1} ({name!r}): 'args' must be a mapping")
 
+    failed_when = raw.get("failed_when")
+    changed_when = raw.get("changed_when")
     loop = raw.get("loop")
     if loop is not None and not isinstance(loop, (list, str)):
         raise NTRunbookError(f"step {idx + 1} ({name!r}): 'loop' must be a list or a ${{var}} string")
@@ -244,6 +258,7 @@ def _parse_step(raw: Any, idx: int) -> Step:
     return Step(
         module=module, args=args, name=name,
         when=raw.get("when"), loop=loop, register=raw.get("register"),
+        failed_when=failed_when, changed_when=changed_when,
         ignore_errors=_as_bool(raw.get("ignore_errors")),
         become=_as_bool(raw.get("become")),
         tags=_str_list(raw.get("tags")),

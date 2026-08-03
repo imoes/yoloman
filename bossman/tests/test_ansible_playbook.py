@@ -139,3 +139,41 @@ def test_round_trip_doc_yaml_doc():
     yaml_out = ap.doc_to_playbook(doc1)
     doc2 = _doc(yaml_out)
     assert doc1 == doc2   # parse → serialize → parse is stable
+
+
+def test_failure_semantics_survive_the_whole_chain():
+    """failed_when / changed_when / ignore_errors decide what counts as failure and as a change, so they
+    must reach the runner. They were recognised as task keywords (not mistaken for the module) but dropped
+    from the document — a silent semantic change: the run behaved differently than the playbook stated."""
+    from bossman.services.ansible_playbook import doc_to_playbook, parse_playbook
+
+    text = """
+- name: risky
+  command:
+    cmd: /bin/false
+  failed_when: rc != 0
+  changed_when: rc == 0
+  ignore_errors: true
+- name: grouped
+  block:
+    - name: inner
+      command:
+        cmd: /bin/false
+      failed_when: rc != 0
+  rescue:
+    - name: recover
+      ping: {}
+"""
+    doc = parse_playbook(text).to_dict()
+    first, group = doc["steps"][0], doc["steps"][1]
+    assert first["failed_when"] == "rc != 0"
+    assert first["changed_when"] == "rc == 0"
+    assert first["ignore_errors"] is True
+    # and inside a group, where a rescue actually needs it
+    assert group["block"][0]["failed_when"] == "rc != 0"
+    assert [c["name"] for c in group["rescue"]] == ["recover"]
+
+    # round-trip: writing the doc back out must not lose them either
+    again = parse_playbook(doc_to_playbook(doc)).to_dict()
+    assert again["steps"][0]["failed_when"] == "rc != 0"
+    assert again["steps"][1]["block"][0]["failed_when"] == "rc != 0"

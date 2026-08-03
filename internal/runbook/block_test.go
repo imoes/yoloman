@@ -117,8 +117,8 @@ func TestAlwaysRunsWhetherOrNotTheBlockFailed(t *testing.T) {
 		wantStatus string
 		wantTrace  string
 	}{
-		{"block succeeded", "ok", "succeeded", "ok,ok,ok"},     // block, always, after
-		{"block failed", "boom", "failed", "boom,ok"},          // block, always — then abort
+		{"block succeeded", "ok", "succeeded", "ok,ok,ok"}, // block, always, after
+		{"block failed", "boom", "failed", "boom,ok"},      // block, always — then abort
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			var trace []string
@@ -193,5 +193,121 @@ func TestNestedGroups(t *testing.T) {
 	res := Run(context.Background(), regWith(&trace), rb, nil, false)
 	if res.Status != "succeeded" || strings.Join(trace, ",") != "ok,ok" {
 		t.Errorf("status=%q trace=%v — nested groups must execute depth-first", res.Status, trace)
+	}
+}
+
+// ---- what counts as failure / as a change -------------------------------------------------------
+//
+// These three keywords change EXECUTION, so each needs its own pin. `ignore_errors` was already
+// expressible in the canonical document while the runner ignored it — the worst kind of gap, because the
+// document said one thing and the run did another.
+
+// dataModule succeeds but reports a payload — the shape a module like `command` has, which deliberately
+// returns a non-zero exit as DATA rather than as an error.
+type dataModule struct {
+	name  string
+	data  map[string]any
+	trace *[]string
+}
+
+func (m *dataModule) Name() string        { return m.name }
+func (m *dataModule) Description() string { return m.name }
+func (m *dataModule) InputSchema() map[string]any {
+	return map[string]any{"type": "object", "properties": map[string]any{}}
+}
+func (m *dataModule) Writes() bool { return false }
+func (m *dataModule) Run(_ context.Context, _ map[string]any, _ bool) (modules.Result, error) {
+	*m.trace = append(*m.trace, m.name)
+	return modules.Result{Changed: false, Msg: "executed", Data: m.data}, nil
+}
+
+func TestFailedWhenTurnsAModuleResultIntoAFailure(t *testing.T) {
+	var trace []string
+	reg := regWith(&trace)
+	_ = reg.Register(&dataModule{name: "rc1", data: map[string]any{"rc": 1}, trace: &trace})
+	rb := Runbook{Name: "fw", Steps: []Step{
+		{Name: "cmd", Module: "rc1", FailedWhen: "rc != 0"},
+		step("after", "ok"),
+	}}
+	res := Run(context.Background(), reg, rb, nil, false)
+	if res.Status != "failed" {
+		t.Fatalf("status = %q, want failed — failed_when must be able to fail a 'successful' step", res.Status)
+	}
+	if strings.Join(trace, ",") != "rc1" {
+		t.Errorf("ran %v — nothing may run after the step failed_when failed", trace)
+	}
+}
+
+func TestFailedWhenMakesRescueUsableForACommandLikeModule(t *testing.T) {
+	var trace []string
+	reg := regWith(&trace)
+	_ = reg.Register(&dataModule{name: "rc1", data: map[string]any{"rc": 1}, trace: &trace})
+	rb := Runbook{Name: "fw", Steps: []Step{
+		{
+			Name:   "Risky",
+			Block:  []Step{{Name: "cmd", Module: "rc1", FailedWhen: "rc != 0"}},
+			Rescue: []Step{step("recover", "ok")},
+		},
+		step("after", "ok"),
+	}}
+	res := Run(context.Background(), reg, rb, nil, false)
+	if res.Status != "succeeded" {
+		t.Fatalf("status = %q, want succeeded (rescue handled it)", res.Status)
+	}
+	if got := strings.Join(trace, ","); got != "rc1,ok,ok" {
+		t.Errorf("ran %q, want the command, then rescue, then the step after the group", got)
+	}
+}
+
+func TestFailedWhenFalseClearsARealFailureButKeepsTheReason(t *testing.T) {
+	var trace []string
+	rb := Runbook{Name: "fw", Steps: []Step{
+		{Name: "boom", Module: "boom", FailedWhen: "false"},
+		step("after", "ok"),
+	}}
+	res := Run(context.Background(), regWith(&trace), rb, nil, false)
+	if res.Status != "succeeded" {
+		t.Fatalf("status = %q, want succeeded — failed_when overrides in BOTH directions", res.Status)
+	}
+	if strings.Join(trace, ",") != "boom,ok" {
+		t.Errorf("ran %v, want the run to continue past the cleared failure", trace)
+	}
+	if !strings.Contains(res.Steps[0].Msg, "boom") {
+		t.Errorf("msg = %q — a cleared failure must keep its reason, or the diagnosis is lost", res.Steps[0].Msg)
+	}
+}
+
+func TestChangedWhenOverridesTheReportedChange(t *testing.T) {
+	var trace []string
+	reg := regWith(&trace)
+	_ = reg.Register(&dataModule{name: "rc0", data: map[string]any{"rc": 0, "stdout": ""}, trace: &trace})
+	// `ok` reports changed=true; changed_when:false must make the whole run report no change.
+	rb := Runbook{Name: "cw", Steps: []Step{{Name: "probe", Module: "ok", ChangedWhen: "false"}}}
+	if res := Run(context.Background(), reg, rb, nil, false); res.Changed {
+		t.Error("changed_when:false must clear the change flag")
+	}
+	// and the other way: a module that reports no change can be declared changed.
+	rb2 := Runbook{Name: "cw2", Steps: []Step{{Name: "probe", Module: "rc0", ChangedWhen: "rc == 0"}}}
+	if res := Run(context.Background(), reg, rb2, nil, false); !res.Changed {
+		t.Error("changed_when must be able to declare a change the module did not report")
+	}
+}
+
+func TestIgnoreErrorsRecordsTheFailureWithoutAbortingTheRun(t *testing.T) {
+	var trace []string
+	rb := Runbook{Name: "ie", Steps: []Step{
+		{Name: "optional", Module: "boom", IgnoreErrors: true},
+		step("after", "ok"),
+	}}
+	res := Run(context.Background(), regWith(&trace), rb, nil, false)
+	if res.Status != "succeeded" {
+		t.Fatalf("status = %q, want succeeded", res.Status)
+	}
+	if got := strings.Join(trace, ","); got != "boom,ok" {
+		t.Errorf("ran %q — ignore_errors must let the following steps run", got)
+	}
+	if !strings.Contains(res.Steps[0].Msg, "ignored error") {
+		t.Errorf("msg = %q — a swallowed error must stay visible, or a green run hides a real problem",
+			res.Steps[0].Msg)
 	}
 }

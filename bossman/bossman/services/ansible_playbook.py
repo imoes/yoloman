@@ -69,6 +69,7 @@ def _task_to_step(task: Any, idx: int) -> Step:
             module="block", name=task.get("name", ""),
             when=(str(task["when"]) if task.get("when") is not None else None),
             ignore_errors=_as_bool(task.get("ignore_errors")),
+            failed_when=task.get("failed_when"), changed_when=task.get("changed_when"),
             become=_as_bool(task.get("become")), tags=_str_list(task.get("tags")),
             block=[_task_to_step(t, i) for i, t in enumerate(task["block"])],
             rescue=[_task_to_step(t, i) for i, t in enumerate(task.get("rescue") or [])],
@@ -91,7 +92,8 @@ def _task_to_step(task: Any, idx: int) -> Step:
         return Step(module="runbook", args={"name": ref, "vars": task.get("vars") or {}},
                     name=task.get("name", ""),
                     when=(str(task["when"]) if task.get("when") is not None else None),
-                    register=task.get("register"), ignore_errors=_as_bool(task.get("ignore_errors")))
+                    register=task.get("register"), ignore_errors=_as_bool(task.get("ignore_errors")),
+                    failed_when=task.get("failed_when"), changed_when=task.get("changed_when"))
 
     raw_val = task[mkey]
     if isinstance(raw_val, dict):
@@ -123,6 +125,7 @@ def _task_to_step(task: Any, idx: int) -> Step:
         when=(str(task["when"]) if task.get("when") is not None else None),
         loop=loop, register=task.get("register"),
         ignore_errors=_as_bool(task.get("ignore_errors")),
+            failed_when=task.get("failed_when"), changed_when=task.get("changed_when"),
         become=_as_bool(task.get("become")),
         tags=_str_list(task.get("tags")),
         notify=_str_list(task.get("notify")),
@@ -192,7 +195,7 @@ def _step_to_task(step: dict[str, Any]) -> dict[str, Any]:
             task["rescue"] = [_step_to_task(c) for c in step["rescue"]]
         if step.get("always"):
             task["always"] = [_step_to_task(c) for c in step["always"]]
-        for key in ("when", "become", "tags", "ignore_errors"):
+        for key in ("when", "become", "tags", "ignore_errors", "failed_when", "changed_when"):
             if key in step and step[key] not in (None, [], {}, False):
                 task[key] = step[key]
         return task
@@ -207,7 +210,10 @@ def _step_to_task(step: dict[str, Any]) -> dict[str, Any]:
         task["shell"] = {"cmd": step["run"]}
     else:
         task[module or "shell"] = step.get("args", {}) or {}
-    for key in ("when", "loop", "register", "ignore_errors", "become", "tags", "notify", "vars"):
+    # failed_when / changed_when belong here too: they decide what counts as failure and as a change, so
+    # omitting them on the way out would hand back a playbook that runs differently than the one imported.
+    for key in ("when", "loop", "register", "ignore_errors", "failed_when", "changed_when",
+                "become", "tags", "notify", "vars"):
         if key in step and step[key] not in (None, [], {}, False):
             task[key] = step[key]
     return task
