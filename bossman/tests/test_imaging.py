@@ -40,6 +40,7 @@ from bossman.services.imaging import (
     required_tools,
     restore_pipeline,
     restore_steps,
+    restore_vars,
     select_target_disk,
     with_measured_usage,
     sfdisk_script,
@@ -873,3 +874,38 @@ def test_lvm_commands_size_each_growable_lv_with_one_free():
     assert len(free) == 1                 # exactly one LV takes the remainder
     assert len(explicit) == len(lvcreates) - 1   # the other growable LVs are sized explicitly
     assert len(lvcreates) == 3            # root, var, home
+
+
+# ── Playbook-driven restore: restore_vars() resolves the layout+plan into playbook vars ──────────
+def test_restore_vars_resolves_playbook_vars_and_mounts():
+    """restore_vars is the data behind the two Ansible restore playbooks; it must resolve the same
+    devices/URLs/mounts restore_steps uses, as loopable vars."""
+    layout = parse_layout(sfdisk=SFDISK, lsblk_disk=SDA)
+    plan = plan_restore(layout, Disk("sda", 200 * GiB))
+    v = restore_vars(layout, plan, image_url="https://b/i", hostname="web.example.internal",
+                     network={"mode": "static", "interface": "eth0", "address": "192.0.2.60/24",
+                              "gateway": "192.0.2.1", "dns": ["192.0.2.1"]})
+    pe, tgt, mounts = v["pe_vars"], v["target_vars"], v["mounts"]
+    assert pe["target_disk"] == "/dev/sda"
+    # every restore target has a device + a .pcl.zst image URL
+    assert pe["restore_volumes"] and all(r["device"] and r["source_url"].endswith(".pcl.zst") for r in pe["restore_volumes"])
+    # the LVM root: last LV of the group takes 100%FREE so the bigger target disk is used
+    if pe["logical_volumes"]:
+        assert pe["logical_volumes"][-1]["size"] == "100%FREE"
+    # mounts are parents-first (root's mountpoint is the shortest) and under /mnt/target
+    assert mounts and mounts[0]["mountpoint"] == "/mnt/target"
+    assert all(m["mountpoint"].startswith("/mnt/target") for m in mounts)
+    # target phase: firmware resolved, network mapped to the module's shape
+    assert tgt["firmware"] in ("bios", "uefi")
+    assert tgt["target_hostname"] == "web.example.internal"
+    assert tgt["network"] == {"method": "static", "name": "eth0", "address": "192.0.2.60/24",
+                              "gateway": "192.0.2.1", "dns": ["192.0.2.1"]}
+
+
+def test_restore_vars_nvme_devices_get_their_p():
+    layout = parse_layout(sfdisk=SFDISK, lsblk_disk=SDA)
+    v = restore_vars(layout, plan_restore(layout, Disk("nvme0n1", 200 * GiB)),
+                     image_url="https://b/i", hostname="h")
+    blob = str(v)
+    assert "nvme0n1" in v["pe_vars"]["target_disk"]
+    assert "nvme0n13" not in blob  # partition suffix must be p3, never bare

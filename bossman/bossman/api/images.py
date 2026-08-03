@@ -556,7 +556,19 @@ class CheckinOut(BaseModel):
     target_disk: str
     image_base_url: str
     sfdisk_script: str
+    # Coarse phase list for progress/audit (RestoreJobOut.step_count). The real work is the two
+    # Ansible restore runbooks below, run by the PE via `agentic-mcpd run-runbook`.
     steps: list[dict]
+    # Phase 1 (PE context): canonical runbook doc + the vars it loops over (resolved from the layout).
+    pe_runbook: dict = {}
+    pe_vars: dict = {}
+    # The ephemeral target-tree mounts the PE sets up between the two phases (parents-first).
+    mounts: list[dict] = []
+    # Phase 2 (chroot /mnt/target): canonical runbook doc + vars (firmware/hostname/network).
+    target_runbook: dict = {}
+    target_vars: dict = {}
+    # The offline agent enrol, kept as chroot shell steps (token-specific dpkg install) run after phase 2.
+    agent_install_steps: list[dict] = []
 
 
 async def _require_netboot(session: AsyncSession, presented: str | None) -> None:
@@ -682,15 +694,16 @@ async def netboot_checkin(
         # here rather than when the job was armed, because a token handed out before the machine even
         # netbooted would be a live credential sitting in the database for however long the job waited.
         install = offline_enroll.plan_offline_install(settings, job.target_hostname)
-        steps = imaging.restore_steps(
-            layout,
-            plan,
-            image_url=_image_url(settings, img),
-            hostname=job.target_hostname,
-            # Network config first (so the target boots onto its final net), then the agent install.
-            configure_steps=offline_enroll.network_steps(net)
-            + offline_enroll.offline_install_steps(install, deb_url=_agent_deb_url(settings)),
+        # Playbook-driven restore: resolve the layout into the vars the two Ansible restore playbooks
+        # loop over, and load the playbooks as canonical runbook docs. The PE runs them with run-runbook
+        # (phase 1 in the PE, phase 2 chroot'd into /mnt/target). Network is a task in phase 2
+        # (yoloman.network_interface, via target_vars.network); the agent enrol stays as chroot shell steps.
+        rvars = imaging.restore_vars(
+            layout, plan, image_url=_image_url(settings, img), hostname=job.target_hostname, network=net,
         )
+        pe_runbook = _restore_runbook(settings, "restore-pe-phase")
+        target_runbook = _restore_runbook(settings, "restore-target-phase")
+        agent_install = offline_enroll.offline_install_steps(install, deb_url=_agent_deb_url(settings))
     except imaging.ImagingError as exc:
         # A plan that cannot be made is the job's failure, recorded where an operator will look,
         # rather than a 500 that only exists in a log.
@@ -703,8 +716,12 @@ async def netboot_checkin(
     job.status = "running"
     job.target_disk = target.name
     job.grow_policy = grow_policy
+    # Coarse phase list — the PE reports progress per phase (the fine-grained per-module results live in
+    # each run-runbook's own output). Keeps RestoreJobOut.step_count meaningful without tracking every task.
     job.steps = [
-        {"name": s.name, "argv": list(s.argv), "shell": s.shell, "chroot": s.chroot} for s in steps
+        {"name": "restore (PE phase): partition, LVM, image, grow"},
+        {"name": "configure (target phase): bootloader, initramfs, identity, network"},
+        {"name": "enrol the agent into the target"},
     ]
     job.step_index = 0
     job.started_at = job.started_at or datetime.now(timezone.utc)
@@ -726,6 +743,14 @@ async def netboot_checkin(
         image_base_url=_image_url(settings, img),
         sfdisk_script=imaging.sfdisk_script(layout) if layout.partitions else "",
         steps=job.steps,
+        pe_runbook=pe_runbook,
+        pe_vars=rvars["pe_vars"],
+        mounts=rvars["mounts"],
+        target_runbook=target_runbook,
+        target_vars=rvars["target_vars"],
+        agent_install_steps=[
+            {"name": s.name, "argv": list(s.argv), "shell": s.shell, "chroot": s.chroot} for s in agent_install
+        ],
     )
 
 
@@ -928,6 +953,15 @@ async def _image_or_404(session: AsyncSession, image_id: UUID) -> DiskImage:
     if img is None:
         raise HTTPException(status_code=404, detail="no such image")
     return img
+
+
+def _restore_runbook(settings, name: str) -> dict:
+    """Load one of the bare-metal restore playbooks and parse it into the canonical runbook doc the PE's
+    `run-runbook` consumes. The playbooks live beside the wizard playbooks (configs/wizard_playbooks/)."""
+    from bossman.services.ansible_playbook import parse_playbook
+
+    path = Path(settings.config_templates_dir).parent / "wizard_playbooks" / f"{name}.yml"
+    return parse_playbook(path.read_text()).to_dict()
 
 
 def _image_url(settings, img: DiskImage) -> str:

@@ -952,6 +952,104 @@ def restore_steps(
     return steps
 
 
+def restore_vars(
+    layout: SourceLayout,
+    plan: RestorePlan,
+    *,
+    image_url: str,
+    hostname: str,
+    network: dict | None = None,
+    pv_partition: int | None = None,
+) -> dict:
+    """The playbook-driven counterpart to restore_steps: resolve the layout + plan into the vars the two
+    Ansible restore playbooks loop over (configs/wizard_playbooks/restore-{pe,target}-phase.yml), plus the
+    ephemeral target-tree mount list the PE runs between the two phases.
+
+    Pure data (no shell), mirroring restore_steps' exact device/PV/LV/mount computations so the playbook
+    path installs the same bytes to the same places. Returned keys:
+      - pe_vars:      target_disk, has_partitions, volume_groups, logical_volumes, restore_volumes, growable_volumes
+      - mounts:       [{device, mountpoint}] parents-first (the PE mounts these, then bind-mounts /dev,/proc,/sys)
+      - target_vars:  firmware (uefi iff an ESP is present), target_disk, efi_directory, target_hostname, network
+    """
+    disk = f"/dev/{plan.target_disk}"
+    pv = disk if layout.lvm_on_raw_disk else f"{disk}{_part_suffix(plan.target_disk, pv_partition or len(layout.partitions))}"
+
+    # LVM: mirror lvm_commands — explicit sizes for the fixed LVs, 100%FREE for the last growable LV of
+    # each group so the target's larger disk gets used.
+    plan_size: dict[tuple[str, str], int] = {}
+    grow_flag: dict[tuple[str, str], bool] = {}
+    for pvv in plan.volumes:
+        v = pvv.volume
+        if v.vg and v.lv:
+            plan_size[(str(v.vg), str(v.lv))] = pvv.size_bytes
+            grow_flag[(str(v.vg), str(v.lv))] = pvv.grow
+    volume_groups: list[dict] = []
+    logical_volumes: list[dict] = []
+    by_vg: dict[str, list[Volume]] = {}
+    for v in [v for v in layout.volumes if v.vg and v.lv]:
+        by_vg.setdefault(str(v.vg), []).append(v)
+    for vg, members in by_vg.items():
+        volume_groups.append({"vg": vg, "pvs": pv})
+        free_lv = members[-1]
+        for v in members:
+            if grow_flag.get((vg, str(v.lv))):
+                free_lv = v
+        for v in members:
+            if v is free_lv:
+                continue
+            size = plan_size.get((vg, str(v.lv)), v.size_bytes)
+            logical_volumes.append({"vg": vg, "lv": str(v.lv), "size": f"{size // (1024 * 1024)}m"})
+        logical_volumes.append({"vg": vg, "lv": str(free_lv.lv), "size": "100%FREE"})
+
+    def _device(v: Volume) -> str:
+        return lv_device(v) if v.vg else f"{disk}{_part_suffix(plan.target_disk, v.partition or 1)}"
+
+    restore_volumes: list[dict] = []
+    growable_volumes: list[dict] = []
+    for planned in plan.volumes:
+        v = planned.volume
+        device = _device(v)
+        restore_volumes.append({"device": device, "source_url": f"{image_url.rstrip('/')}/{_image_name(v)}"})
+        if planned.grow:
+            growable_volumes.append({"device": device, "fstype": v.fs_type})
+
+    mounts = [
+        {"device": _device(p.volume),
+         "mountpoint": TARGET_ROOT if p.volume.mountpoint == "/" else f"{TARGET_ROOT}{p.volume.mountpoint}"}
+        for p in _mount_order(plan)
+    ]
+
+    net_var: dict = {}
+    if network and network.get("mode") in ("dhcp", "static"):
+        net_var = {"method": network["mode"]}
+        if network.get("interface"):
+            net_var["name"] = network["interface"]
+        for k in ("address", "gateway"):
+            if network.get(k):
+                net_var[k] = network[k]
+        if network.get("dns"):
+            net_var["dns"] = list(network["dns"])
+
+    return {
+        "pe_vars": {
+            "target_disk": disk,
+            "has_partitions": bool(layout.partitions),
+            "volume_groups": volume_groups,
+            "logical_volumes": logical_volumes,
+            "restore_volumes": restore_volumes,
+            "growable_volumes": growable_volumes,
+        },
+        "mounts": mounts,
+        "target_vars": {
+            "firmware": "uefi" if any(v.role == "esp" for v in layout.volumes) else "bios",
+            "target_disk": disk,
+            "efi_directory": "/boot/efi",
+            "target_hostname": hostname,
+            "network": net_var,
+        },
+    }
+
+
 def identity_steps(hostname: str) -> list[Step]:
     """Make the restored system a distinct machine rather than a copy of its source.
 

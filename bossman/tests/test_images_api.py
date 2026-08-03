@@ -241,17 +241,28 @@ async def test_checkin_plans_the_restore_against_the_disk_the_target_reports(db_
         assert body["target_disk"] == "nvme0n1", "the largest non-removable disk, not sda"
         assert body["hostname"] == "web07"
         assert body["sfdisk_script"].startswith("label: gpt")
-        names = [s["name"] for s in body["steps"]]
-        assert "install bootloader" in names
-        assert any(s["chroot"] for s in body["steps"])
-        assert names.index("mount root") < names.index("mount boot")
-        assert f"/images/{img.id}" in " ".join(s["shell"] for s in body["steps"] if s["shell"])
+        # Playbook-driven restore: the response carries the two canonical runbooks + the resolved vars,
+        # not a shell-step list. Phase 1 (PE) restores the images; phase 2 (chroot) installs the bootloader.
+        pe = body["pe_vars"]
+        assert pe["target_disk"] == "/dev/nvme0n1"
+        assert pe["restore_volumes"], "at least one volume to restore"
+        assert any(f"/images/{img.id}" in r["source_url"] for r in pe["restore_volumes"])
+        # Mounts are parents-first: root (/mnt/target) before /boot (/mnt/target/boot).
+        mps = [m["mountpoint"] for m in body["mounts"]]
+        assert mps and mps[0] == "/mnt/target"
+        assert all(m.startswith("/mnt/target") for m in mps)
+        # The bootloader is a task in the chroot-phase runbook.
+        tgt_modules = [s.get("module") for s in body["target_runbook"]["steps"]]
+        assert "yoloman.bootloader" in tgt_modules
+        assert body["target_vars"]["firmware"] in ("bios", "uefi")
+        assert body["target_vars"]["target_hostname"] == "web07"
+        assert body["pe_runbook"]["steps"], "PE-phase runbook has steps"
 
         job = await db_session.scalar(select(RestoreJob).where(RestoreJob.target_mac == "aa:bb:cc:dd:ee:12"))
         await db_session.refresh(job)
         assert job.status == "running"
         assert job.target_disk == "nvme0n1"
-        assert len(job.steps) == len(body["steps"]), "the plan is stored, so a retry repeats it"
+        assert len(job.steps) == len(body["steps"]), "the coarse phase list is stored for progress"
     await _cleanup(db_session, img, token)
 
 
@@ -526,7 +537,8 @@ async def test_checkin_also_enrols_the_target_and_shields_it_from_alerting(db_se
             headers=_secret_headers(),
         )
     assert resp.status_code == 200, resp.text
-    names = [s["name"] for s in resp.json()["steps"]]
+    # The agent enrol is served as its own chroot shell steps (run after the two restore playbooks).
+    names = [s["name"] for s in resp.json()["agent_install_steps"]]
     assert "install the agent into the target" in names
     assert "fetch the agent package" in names
 
@@ -539,7 +551,7 @@ async def test_checkin_also_enrols_the_target_and_shields_it_from_alerting(db_se
     assert await is_in_downtime(db_session, agent.id, "Host alive", now), "an install must not page"
 
     # The token in the plan is the one the enrolled agent will present, not a second unrelated one.
-    install_step = next(s for s in resp.json()["steps"] if s["name"] == "install the agent into the target")
+    install_step = next(s for s in resp.json()["agent_install_steps"] if s["name"] == "install the agent into the target")
     assert install_step["chroot"] is True, "the install runs inside the target, not on the helper"
 
     await db_session.execute(text("DELETE FROM downtimes WHERE agent_id = :i"), {"i": str(agent.id)})
