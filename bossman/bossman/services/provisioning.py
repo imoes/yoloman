@@ -41,21 +41,26 @@ from pathlib import Path
 from typing import Any
 
 import nestedtext
+import yaml
 
 
 def recipe_path(checks_dir: str | Path, name: str) -> Path:
-    return Path(checks_dir) / f"{name}.provision.nt"
+    """The recipe sidecar: `.provision.yaml`, or the legacy `.provision.nt` while a tree is unconverted."""
+    base = Path(checks_dir)
+    yml = base / f"{name}.provision.yaml"
+    nt = base / f"{name}.provision.nt"
+    return nt if not yml.exists() and nt.exists() else yml
 
 
 def load_recipe(checks_dir: str | Path, name: str) -> dict[str, Any] | None:
-    """The provisioning recipe for a check (NestedText), or None if it ships
-    none / is unparseable."""
+    """The provisioning recipe for a check, or None if it ships none / is unparseable."""
     p = recipe_path(checks_dir, name)
     if not p.exists():
         return None
     try:
-        r = nestedtext.loads(p.read_text(encoding="utf-8"), top="dict")
-    except (OSError, nestedtext.NestedTextError):
+        text = p.read_text(encoding="utf-8")
+        r = nestedtext.loads(text, top="dict") if p.suffix == ".nt" else yaml.safe_load(text)
+    except (OSError, yaml.YAMLError, nestedtext.NestedTextError):
         return None
     return r if isinstance(r, dict) else None
 

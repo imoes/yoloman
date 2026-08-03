@@ -9,6 +9,7 @@ from typing import Any
 from uuid import UUID
 
 import nestedtext
+import yaml
 import asyncio
 
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -265,12 +266,14 @@ def _load_candidate_checks(
         entry = catalog.get(name)
         if not entry:
             continue
-        yaml_path, star_path = checks_library.check_paths(settings.checks_dir, name)
+        meta_path, star_path = checks_library.check_paths(settings.checks_dir, name)
         try:
             star = star_path.read_text(encoding="utf-8")
-            sidecar = Path(yaml_path).read_text(encoding="utf-8")
+            sidecar = Path(meta_path).read_text(encoding="utf-8")
         except OSError:
             continue
+        # check_paths returns whichever sidecar exists, so the format follows the extension.
+        meta_format = "nt" if Path(meta_path).suffix == ".nt" else "yaml"
         # Relevance pre-filter by data source (skipped for an explicit re-scan).
         if not names and _check_datasource(star) != datasource:
             continue
@@ -289,17 +292,17 @@ def _load_candidate_checks(
         # re-scan too — the platform doesn't change because someone re-scans.
         if check_platform.verdict(name, platform, settings.checkmk_sections_path, datasource) == "impossible":
             continue
-        # The sidecar is NestedText (.nt); the agent registers the tool under
-        # its fqcn, so parse it out and pass it through (call_tool needs it).
+        # The agent registers the tool under its fqcn, so parse it out of the sidecar and pass it through
+        # (call_tool needs it). Sidecars are YAML now; a not-yet-converted `.nt` is still accepted.
         fqcn = name
         try:
-            meta = nestedtext.loads(sidecar, top="dict")
+            meta = yaml.safe_load(sidecar) if meta_format == "yaml" else nestedtext.loads(sidecar, top="dict")
             if isinstance(meta, dict) and meta.get("fqcn"):
                 fqcn = str(meta["fqcn"])
-        except nestedtext.NestedTextError:
+        except (yaml.YAMLError, nestedtext.NestedTextError):
             pass
         out.append({
-            "name": name, "fqcn": fqcn, "star": star, "sidecar": sidecar, "sidecar_format": "nt",
+            "name": name, "fqcn": fqcn, "star": star, "sidecar": sidecar, "sidecar_format": meta_format,
             "options": entry.get("options", {}), "short_description": entry.get("short_description", ""),
         })
     return out

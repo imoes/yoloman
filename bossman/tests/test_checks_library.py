@@ -52,7 +52,8 @@ def test_submit_list_load_and_status(tmp_path):
     res = checks_library.submit_check(tmp_path, _VALIDATOR, "probe_size", _META, _GOOD_CHECK, {})
     assert res["stored"] is True, res
     assert (tmp_path / "probe_size.star").exists()
-    assert (tmp_path / "probe_size.nt").exists()
+    # Sidecars are YAML now (they were NestedText); check_paths writes the .yaml.
+    assert (tmp_path / "probe_size.yaml").exists()
 
     listing = checks_library.list_checks(tmp_path)
     assert [c["name"] for c in listing] == ["probe_size"]

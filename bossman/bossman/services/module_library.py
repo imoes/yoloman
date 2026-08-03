@@ -303,13 +303,20 @@ def module_paths(modules_dir: str | Path, fqcn: str) -> tuple[Path, Path]:
 
 
 def metadata_path(modules_dir: str | Path, fqcn: str) -> Path:
-    """The metadata sidecar to READ for one fqcn: a NestedText `.nt` when it
-    exists (Block NT-5's additive conversion), otherwise the `.yaml`. Returns
-    the `.yaml` path when neither exists (callers check .exists())."""
+    """The metadata sidecar to READ for one fqcn: the `.yaml`, falling back to a legacy `.nt`.
+
+    The preference used to be the other way round, which quietly cost type information: the `.nt` files in
+    configs/modules.d were generated FROM these `.yaml` originals by an additive pass, and NestedText is
+    all-strings — so preferring them meant reading `true` as the string "true" and `8080` as "8080" for
+    modules whose real argspec had a bool and an int. Reading the original is both more correct and one
+    format less. Returns the `.yaml` path when neither exists (callers check .exists())."""
     collection, _, name = fqcn.rpartition(".")
     base = Path(modules_dir) / collection
+    yml = base / f"{name}.yaml"
+    if yml.exists():
+        return yml
     nt = base / f"{name}.nt"
-    return nt if nt.exists() else base / f"{name}.yaml"
+    return nt if nt.exists() else yml
 
 
 def _as_bool(value: Any, default: bool = False) -> bool:

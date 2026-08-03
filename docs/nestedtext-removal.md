@@ -57,21 +57,44 @@ gelöscht — ihr Kern gehört aber festgehalten, denn die Nachteile von YAML si
 - **`nt_engine`/`nt_vars`/`nt_compile` bleiben** — die heißen nur `nt_*`, parsen aber kein NestedText
   (Engine, Variablen-Substitution, Role-Compiler).
 
-### Rest von Teil A
+### Rest von Teil A — erledigt
 
-1. **`bossman/tests/test_nt_vars.py`** (~10 Tests auf dem Shim) → Jinja-Äquivalente: `$host`/`${host}` →
+1. ✅ **`bossman/tests/test_nt_vars.py`** (~10 Tests auf dem Shim) → Jinja-Äquivalente: `$host`/`${host}` →
    `{{ host }}`, `${x:-d}` → `{{ x | default('d', true) }}`, `${x:?msg}` → `{{ x | mandatory('msg') }}`.
    **Plus neuer Regressionstest** für Fehler 3: `echo $HOME` und `awk "{print $2}"` gehen unverändert durch.
-2. **Drei Reste:** `services/plan_store.py` `_FORMAT_BY_EXT` mappt noch `.nt → "nestedtext"` (**aktiver
+2. ✅ **Drei Reste:** `services/plan_store.py` `_FORMAT_BY_EXT` mappt noch `.nt → "nestedtext"` (**aktiver
    Code** — eine `.nt`-Datei würde als nicht mehr unterstütztes Format klassifiziert); `api/plans.py` und
    `db/models.py` nennen `nestedtext` in Kommentar/Docstring.
-3. **Doku:** `docs/nt-format.md` (267 Z.) und `docs/nestedtext-playbooks.md` (176 Z.) spezifizieren ein
+3. ✅ **Doku:** `docs/nt-format.md` (267 Z.) und `docs/nestedtext-playbooks.md` (176 Z.) spezifizieren ein
    entferntes Format → löschen. Erwähnungen bereinigen in `docs/ui-parity.md`, `docs/resource-protocol.md`,
    `docs/backlog.md`, `docs/ui-workspaces.md`, `docs/zielbestimmung.md`, `README.md`. `CODE_CARD.md` bekommt
    den Satz „Ansible-Task-Syntax ist das einzige Autorenformat" plus die drei Fehler als Begründung.
-4. Volle Suite + UI-Build, `docker compose up -d --build`, committen.
+4. ✅ Volle Suite (1265 grün) + UI-Build, deployed, committed (`08cb867e`).
 
-## Teil B — die 2054 Argspec-Sidecars auf YAML (deterministisch, ohne LLM)
+## Teil B — Stand: checks.d konvertiert, modules.d wartet auf root
+
+**Erledigt (1431 Dateien).** `configs/checks.d/*.nt` → `*.yaml`, verifiziert *durch den Reader* statt
+bytegleich: `_coerce_metadata(alt) == _coerce_metadata(neu)`, also „identisch, wie das System es liest".
+`writes` und jedes `required` sind echte Booleans; `default`/`type`/`choices` bleiben Strings, weil der
+Reader sie bewusst so lässt und das Modul an seiner eigenen Grenze coerct — sie hier zu typisieren wäre eine
+Verhaltensänderung im Gewand einer Formatänderung. Lint: 1431/1431 parsen, laden durch
+`load_metadata`, Katalog lädt weiter 1430 Checks (die 1431. Datei ist `mysql.provision.yaml`, ein Rezept).
+Leser umgestellt: `checks_library` (Pfad + Parser + Schreibpfad), `provisioning`, `api/checks`,
+`module_library.metadata_path`.
+
+**Offen: die 623 `.nt` in `configs/modules.d/` gehören `root`** (vom Container geschrieben), Löschen braucht
+also sudo. Sie sind beweisbar redundant — pro Datei geprüft: `nt == stringify(yaml)`, 623/623 —, die
+typrichtigen `.yaml`-Originale liegen daneben. **Nicht mehr dringend**, weil `metadata_path` jetzt `.yaml`
+bevorzugt statt `.nt`: die Reihenfolge war vorher umgekehrt und hat still Typen gekostet (`true` als String
+`"true"`, `8080` als `"8080"` bei Modulen, deren Argspec echte Bools/Ints hatte). Damit sind die
+root-Dateien inert; ihr Löschen ist reine Aufräumarbeit:
+`sudo find configs/modules.d -name '*.nt' -delete`.
+
+Ein **Datenfund**, bewusst nicht mitgefixt (eine Formatkonvertierung, die auch Inhalte ändert, ist als
+Formatkonvertierung nicht mehr verifizierbar): 3 Optionen deklarieren `type: str` statt `string`, was
+`_PARAM_TYPES` gar nicht kennt — `check_plugin` (`item`, `force_format`) und `checkmk_local` (`item`).
+
+## Teil B — der Ansatz (Referenz; Stand siehe oben)
 
 Das sind **keine** Runbooks, sondern Metadaten (`name`/`fqcn`/`options`): 1431 in `configs/checks.d/`,
 ~620 in `configs/modules.d/`. Die Konvertierung ist `nestedtext.loads()` → `yaml.safe_dump()` und damit

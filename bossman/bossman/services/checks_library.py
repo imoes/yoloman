@@ -19,7 +19,7 @@ import re
 from pathlib import Path
 from typing import Any
 
-import nestedtext
+import yaml
 
 from bossman.services.module_library import ModuleLibraryError, load_metadata, validate_star
 
@@ -64,19 +64,24 @@ def check_datasource(star: str) -> str:
 
 
 def check_paths(checks_dir: str | Path, name: str) -> tuple[Path, Path]:
-    """The flat <checks_dir>/<name>.{nt,star} pair for one check. Metadata is
-    NestedText (project convention — no YAML)."""
+    """The flat <checks_dir>/<name>.{yaml,star} pair for one check.
+
+    Metadata is YAML. It used to be NestedText; the `.nt` path is still accepted when only that exists, so a
+    tree that has not been converted yet keeps loading (see scripts/convert_sidecars_to_yaml.py). WRITES go
+    to `.yaml` — the first element is what callers create."""
     base = Path(checks_dir)
-    return base / f"{name}.nt", base / f"{name}.star"
+    yml = base / f"{name}.yaml"
+    nt = base / f"{name}.nt"
+    return (nt if not yml.exists() and nt.exists() else yml), base / f"{name}.star"
 
 
 def _parse_check_metadata(metadata_text: str, name: str) -> dict[str, Any]:
     try:
-        meta = nestedtext.loads(metadata_text, top="dict")
-    except nestedtext.NestedTextError as exc:
-        raise ModuleLibraryError(f"check metadata is not valid NestedText: {exc}") from exc
+        meta = yaml.safe_load(metadata_text)
+    except yaml.YAMLError as exc:
+        raise ModuleLibraryError(f"check metadata is not valid YAML: {exc}") from exc
     if not isinstance(meta, dict):
-        raise ModuleLibraryError("check metadata must be a NestedText mapping")
+        raise ModuleLibraryError("check metadata must be a YAML mapping")
     for key in ("name", "short_description", "options", "runtime"):
         if key not in meta:
             raise ModuleLibraryError(f"check metadata is missing required key: {key}")
@@ -98,16 +103,17 @@ def submit_check(
     params: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Validate (hard gate) then persist one check flat in checks_dir.
-    `metadata_text` is NestedText. Returns {stored, paths, validation}."""
+    `metadata_text` is YAML. Returns {stored, paths, validation}."""
     _parse_check_metadata(metadata_text, name)
     result = validate_star(starlark_check_path, star_code, params)
     if not result.ok:
         return {"stored": False, "validation": result.to_dict()}
-    nt_path, star_path = check_paths(checks_dir, name)
-    nt_path.parent.mkdir(parents=True, exist_ok=True)
-    nt_path.write_text(metadata_text, encoding="utf-8")
+    meta_path, star_path = check_paths(checks_dir, name)
+    meta_path.parent.mkdir(parents=True, exist_ok=True)
+    meta_path.write_text(metadata_text, encoding="utf-8")
     star_path.write_text(star_code, encoding="utf-8")
-    return {"stored": True, "paths": {"metadata": str(nt_path), "star": str(star_path)}, "validation": result.to_dict()}
+    return {"stored": True, "paths": {"metadata": str(meta_path), "star": str(star_path)},
+            "validation": result.to_dict()}
 
 
 def _summary(description: str, limit: int = 240) -> str:
@@ -143,12 +149,15 @@ def list_checks(checks_dir: str | Path) -> list[dict[str, Any]]:
         return out
     for star in sorted(base.glob("*.star")):
         name = star.stem
-        nt_path = base / f"{name}.nt"
-        if not nt_path.exists():
+        # Prefer the YAML sidecar; fall back to a not-yet-converted `.nt`.
+        meta_path = base / f"{name}.yaml"
+        if not meta_path.exists():
+            meta_path = base / f"{name}.nt"
+        if not meta_path.exists():
             continue
         entry: dict[str, Any] = {"name": name, "kind": "check", "source": "translated"}
         try:
-            meta = load_metadata(nt_path)
+            meta = load_metadata(meta_path)
             entry["short_description"] = meta.get("short_description", "")
             entry["source"] = meta.get("source", "translated")
             entry["options"] = meta.get("options", {}) or {}

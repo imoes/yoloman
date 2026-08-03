@@ -1,0 +1,52 @@
+name: ceph_status
+fqcn: checkmk.ceph_status
+collection: checkmk
+short_description: Ceph Status
+description: '## Overview
+
+  Monitors the overall health status of a Ceph cluster by executing `ceph status --format
+  json` and translating the `health.status` field into monitoring states (OK/WARN/CRIT/UNKNOWN).
+
+
+  ## What it monitors
+
+  - Ceph cluster health status (`health.status`)
+
+  - Ceph election epoch (as a metric)
+
+  - Error messages from `health.checks` when the status is not OK
+
+
+  ## How it works
+
+  Executes `ceph status --format json`, parses the JSON response, and maps `health.status`
+  (e.g., `HEALTH_OK`, `HEALTH_WARN`) to yolo-man states. If the status is not OK,
+  it extracts and includes relevant error messages from `health.checks`. Discovery
+  mode is disabled (no service enumeration).
+
+
+  ## Parameters
+
+  None.
+
+
+  ## States
+
+  - **OK**: `health.status == "HEALTH_OK"`
+
+  - **WARN**: `health.status == "HEALTH_WARN"`
+
+  - **CRIT**: `health.status` is `"HEALTH_CRIT"` or `"HEALTH_ERR"`
+
+  - **UNKNOWN**: command fails, status field missing, or unrecognized status
+
+
+  ## Metrics
+
+  - `election_epoch` — Ceph election epoch (integer, unitless)'
+options: {}
+writes: false
+runtime: starlark
+source: translated
+kind: check
+category: Storage

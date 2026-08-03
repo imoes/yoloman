@@ -1,6 +1,5 @@
-"""Block NT-5: the module library reads NestedText metadata sidecars,
-preferring .nt over .yaml, and coerces the schema's booleans (which arrive
-as all-strings from NestedText).
+"""The module library reads metadata sidecars, preferring .yaml over a legacy .nt, and coerces the schema's
+booleans (which arrive as all-strings from NestedText).
 """
 
 from bossman.services.module_library import load_metadata, metadata_path
@@ -30,10 +29,14 @@ def test_load_metadata_yaml_still_works(tmp_path):
     assert load_metadata(y)["writes"] is True
 
 
-def test_metadata_path_prefers_nt_over_yaml(tmp_path):
+def test_metadata_path_prefers_yaml_over_legacy_nt(tmp_path):
+    """The .yaml is the ORIGINAL; the .nt files in configs/modules.d were generated from them by an additive
+    pass, and NestedText is all-strings — so preferring .nt read `true` as "true" and `8080` as "8080" for
+    modules whose argspec really had a bool and an int. The .nt is only a fallback now, for a tree that has
+    not been converted."""
     base = tmp_path / "posix"
     base.mkdir()
-    (base / "acl.yaml").write_text("name: acl\n")
-    assert metadata_path(tmp_path, "posix.acl").name == "acl.yaml"
     (base / "acl.nt").write_text("name: acl\n")
-    assert metadata_path(tmp_path, "posix.acl").name == "acl.nt"
+    assert metadata_path(tmp_path, "posix.acl").name == "acl.nt"      # only the .nt exists
+    (base / "acl.yaml").write_text("name: acl\n")
+    assert metadata_path(tmp_path, "posix.acl").name == "acl.yaml"    # the original wins
