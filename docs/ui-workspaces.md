@@ -60,9 +60,63 @@ Why this fixes the complaint: **Library** is the single home for everything auth
 sequence, a blueprint, a template and a module are all "things you can apply"), and **Deploy** holds the
 object that binds Library to Fleet.
 
+## Alignment with the object model (`docs/resource-protocol.md`) — non-negotiable
+
+This IA must be **derived from** the Resource/Deployable spine, not invented beside it. A *Resource* is
+anything the system can bring to a desired state, and it answers five verbs:
+
+```
+schema() -> Schema      # typed fields   → renders the form
+observe() -> State      # what IS        → the state shown on the object
+plan(desired) -> Diff   # what WOULD change → the preview
+apply(dry_run) -> Result# make it so     → records a generation
+rollback(generation)    # undo           → forgiveness
+```
+
+Three consequences that **correct** the sections below:
+
+**1. Library = the Resource type registry.** Roles, Sequences, Blueprints, Config templates, Modules,
+Checks and Disk images are not seven unrelated page types — they are the Resource *implementations*
+(`NativeRole`, `RunbookStep`, `ConfigResource`, `TemplateResource`, `DockerContainer`, …). The Library
+tree is that registry, and every list row is a Resource answering the same verbs. Adding a tier means
+implementing the interface, not adding a page.
+
+**2. ONE canvas, several views — not a third editor.** The protocol is explicit: *"A node is a Resource;
+an edge is a dependency/order. A Runbook, an App deploy, a System — all are just graphs of Resource
+nodes. One canvas edits [them all]."* So the Sequence tree is **a view over the same Resource graph** the
+Blueprint canvas and the runbook designer edit — not a separate tool:
+
+| View | Best for | Same underlying graph |
+|---|---|---|
+| **Tree** (new) | ordered operational sequences (restore, install) | nodes + order edges |
+| **Graph** (Blueprint/cytoscape) | dependency stacks, placement | nodes + dependency edges |
+| **Text** (Ansible-task YAML / NestedText) | review, git, diffing | the lossless round-trip |
+
+Switching the view must not change the document. The existing `POST /runbooks/lint` round-trip is the
+guarantee.
+
+**3. The inspector is polymorphic — its tabs ARE the verbs.** Do not hand-build a detail pane per page;
+build one generic Resource inspector whose tabs come from the interface:
+
+| Tab | Verb | Reuses |
+|---|---|---|
+| Values | `schema()` | `param-form.component.ts` (schema → form) |
+| State | `observe()` | observed-state cache |
+| Preview | `plan(desired)` | `state/plan`, `chat-plan-graph` for the diff |
+| Deployments / Generations | `apply()` | generations + `blast_radius` |
+| Undo | `rollback(generation)` | existing generation restore |
+
+Every object (host, group, role, sequence, blueprint, template) then gets the same tabs for free, which is
+also what "all information at a glance" in the design philosophy asks for.
+
 ## The missing object: Deployment
 
-A `Deployment` row = (library artifact, target, schedule/mode, state). It gives the UI its missing edges:
+In protocol terms a Deployment is **not a new concept**: it is the recorded `apply()` of a Resource onto a
+target, and its generations are what `rollback()` undoes. The row is the *binding* (Resource + target +
+desired values); the generations are its history.
+
+A `Deployment` row = (Resource ref, target, desired values, schedule/mode, state). It gives the UI its
+missing edges:
 
 - Role/Sequence/Blueprint inspector → **Deployments tab**: where is this applied, and is it healthy.
 - Host/Group inspector → **Deployments tab**: what is applied here, from which artifact.
@@ -72,9 +126,11 @@ A `Deployment` row = (library artifact, target, schedule/mode, state). It gives 
 Targets reuse the existing `scope` vocabulary (`all | host | host_group`), so groups become the
 collection equivalent without a new concept.
 
-## The Sequence editor (tree + drag & drop)
+## The Sequence editor (tree + drag & drop) — a VIEW on the one canvas
 
-The authoring artifact the operator asked for — SCCM's task sequence, in our form:
+The authoring artifact the operator asked for — SCCM's task sequence, in our form. Per the object model
+above this is the **tree view of the shared Resource graph**, not a separate editor: every node is a
+Resource (answering the five verbs), every edge is order or dependency.
 
 ```
 Sequence: deploy-webserver
@@ -88,13 +144,17 @@ Sequence: deploy-webserver
     └─ ✅ Check http_response
 ```
 
-- **Groups + steps in a tree**, reorderable by drag & drop; a step is a Role, a Module task, a Check, or
-  a nested Sequence. Per-step `when` / `loop` / `register`.
+- **Groups + steps in a tree**, reorderable by drag & drop; a step is any Resource — a Role, a Module
+  task, a Check, a Config/Template resource, a container, or a nested Sequence. Per-step `when` / `loop` /
+  `register`. A step's form comes from its `schema()`, its badge from `observe()` — so the palette is the
+  Resource type registry, and a new Resource type appears in the editor without touching it.
 - It maps 1:1 onto the runbook model we already execute: groups are `block` (with `rescue`/`always`),
   steps are module tasks — so a Sequence **serialises to an Ansible-task playbook** via
   `services/ansible_playbook.doc_to_playbook` and runs on the gonja-backed runbook runner unchanged.
-- Relationship to the Blockly designer (`/runbooks`): Blockly stays for branching logic; the tree is the
-  better editor for ordered operational sequences (and is what the restore playbooks look like).
+- Relationship to the existing editors: the tree is a **view**, so Blueprint's graph view and the Blockly
+  designer keep working on the same document; switching view must never change it (guaranteed by the
+  `POST /runbooks/lint` round-trip). The tree is simply the right view for ordered operations (it is what
+  the restore playbooks look like), the graph for dependency stacks.
 - Deployable directly: a Sequence in the Library gets the same **Deploy** action as a Role.
 
 ## Slices (each independently shippable + verifiable)
@@ -104,20 +164,27 @@ Group the existing routes into the five workspaces with a switcher + per-workspa
 *Verify:* every current route reachable in ≤2 clicks; Playwright walk of one route per workspace; nav
 never longer than the viewport.
 
-**Slice 2 — Deployment as a first-class object (backend + UI edges).**
-Model + migration, `GET/POST /api/v1/deployments`, the Deploy workspace list, and the **Deployments tab**
-on the host, group, role and sequence inspectors.
-*Verify:* deploy a role to a group → it appears in the Deploy list, on the group, on each member host,
-and links back to the role; pytest for the API + the target expansion.
+**Slice 2 — the generic Resource inspector (the polymorphic detail pane).**
+One inspector component whose tabs are the verbs (Values / State / Preview / Generations / Undo), driven by
+a small `ResourceDescriptor` per type; adopt it on the host, role and template pages first.
+*Verify:* the same component renders ≥3 different Resource types with no type-specific code in it; the
+Values tab is `param-form` fed by `schema()`; the Preview tab shows a real `plan()` diff.
 
-**Slice 3 — Sequence tree editor.**
-Tree component with drag & drop, step palette (roles / modules / checks), per-step condition editor,
-round-trip to the canonical runbook doc and to Ansible-task YAML.
+**Slice 3 — Deployment as a first-class object (backend + UI edges).**
+Model + migration (Resource ref, target, desired values, state) + generations, `GET/POST
+/api/v1/deployments`, the Deploy workspace list. The Deployments tab comes for free from slice 2.
+*Verify:* deploy a role to a group → it appears in the Deploy list, on the group, on each member host, and
+links back to the role; rollback restores the previous generation; pytest for the API + target expansion.
+
+**Slice 4 — Sequence tree view on the shared canvas.**
+Tree component with drag & drop over the existing runbook document, palette fed by the Resource type
+registry, per-step condition editor, lossless view switching (tree ⇄ graph ⇄ text).
 *Verify:* build a sequence in the UI → exported YAML parses via `parse_playbook` and runs with
-`run-runbook --dry-run`; reorder persists; a nested group serialises to `block`.
+`run-runbook --dry-run`; reorder persists; a nested group serialises to `block`; switching to the graph view
+and back leaves the document byte-identical.
 
-Recommended order: 1 → 2 → 3 (a sequence wants a Deploy action to be useful, and Deploy needs the object
-from slice 2).
+Recommended order: 1 → 2 → 3 → 4. Slice 2 moved ahead of Deployment deliberately: with the polymorphic
+inspector in place, the Deployments tab and every later object type are free instead of hand-built.
 
 ## Explicitly out of scope here
 
