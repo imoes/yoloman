@@ -13,6 +13,9 @@ import { SeqNode, isDescendant } from './sequence-model';
  * It edits the SeqNode arrays in place (they are the view model) and emits `changed` so the editor can
  * serialise back to the Ansible-task document — the tree never talks YAML itself.
  */
+// Fold state for groups, shared across the recursive instances (see isCollapsed).
+const COLLAPSED = new Set<string>();
+
 @Component({
   selector: 'app-sequence-tree',
   standalone: true,
@@ -25,15 +28,24 @@ import { SeqNode, isDescendant } from './sequence-model';
             <span class="bm-seq-grip" cdkDragHandle title="Drag to reorder or move into a group">
               <mat-icon>drag_indicator</mat-icon>
             </span>
+            @if (n.kind === 'group') {
+              <button type="button" class="bm-seq-caret" (click)="toggle(n.id); $event.stopPropagation()"
+                      [title]="isCollapsed(n.id) ? 'Expand group' : 'Collapse group'">
+                <mat-icon>{{ isCollapsed(n.id) ? 'chevron_right' : 'expand_more' }}</mat-icon>
+              </button>
+            }
             <span class="bm-seq-glyph">{{ n.kind === 'group' ? '📁' : glyph(n.module) }}</span>
             <span class="bm-seq-name">{{ n.name || (n.kind === 'group' ? '(group)' : n.module || '(step)') }}</span>
             @if (n.kind === 'step' && n.module) { <code class="bm-seq-mod">{{ n.module }}</code> }
+            @if (n.kind === 'group' && isCollapsed(n.id)) {
+              <span class="bm-seq-when">{{ countOf(n) }} step(s) hidden</span>
+            }
             @if (n.when) { <span class="bm-seq-when">when: {{ n.when }}</span> }
             @if (n.loop !== undefined) { <span class="bm-seq-when">loop</span> }
             <button type="button" class="bm-seq-del" (click)="remove.emit(n.id); $event.stopPropagation()"
                     title="Remove">×</button>
           </div>
-          @if (n.kind === 'group') {
+          @if (n.kind === 'group' && !isCollapsed(n.id)) {
             <div class="bm-seq-children">
               <app-sequence-tree [nodes]="childrenOf(n)" [selectedId]="selectedId()"
                                  (select)="select.emit($event)" (remove)="remove.emit($event)"
@@ -88,6 +100,10 @@ import { SeqNode, isDescendant } from './sequence-model';
     .bm-seq-children { margin-left: 22px; border-left: 1px dashed var(--mat-sys-outline-variant);
       padding-left: 8px; }
     .bm-seq-empty { font-size: 11.5px; opacity: .45; margin: 2px 0 2px 4px; }
+    .bm-seq-caret { background: none; border: 0; color: inherit; opacity: .5; cursor: pointer;
+      display: inline-flex; padding: 0; margin-right: -3px; }
+    .bm-seq-caret:hover { opacity: 1; }
+    .bm-seq-caret mat-icon { font-size: 18px; width: 18px; height: 18px; }
     .bm-seq-branch { display: flex; align-items: center; gap: 7px; margin: 5px 0 1px; }
     .bm-seq-btag { font-size: 10.5px; font-family: ui-monospace, monospace; padding: 1px 7px;
       border-radius: 999px; }
@@ -106,6 +122,24 @@ export class SequenceTreeComponent {
   remove = output<string>();
   /** Emitted whenever the tree structure changed, so the editor re-serialises. */
   changed = output<void>();
+
+  /**
+   * Which groups are folded. A module-level set shared by every instance of this recursive component, keyed
+   * by node id: the tree renders itself recursively, so per-instance state would forget a nested group's
+   * fold the moment its parent re-rendered. Ids are view state, so nothing here reaches the document.
+   */
+  isCollapsed(id: string): boolean {
+    return COLLAPSED.has(id);
+  }
+  toggle(id: string): void {
+    if (COLLAPSED.has(id)) COLLAPSED.delete(id); else COLLAPSED.add(id);
+  }
+  /** How much a folded group hides, so the row still tells you the size. */
+  countOf(n: SeqNode): number {
+    const walk = (list?: SeqNode[]): number =>
+      (list ?? []).reduce((sum, c) => sum + 1 + walk(c.children) + walk(c.rescue) + walk(c.always), 0);
+    return walk(n.children) + walk(n.rescue) + walk(n.always);
+  }
 
   childrenOf(n: SeqNode): SeqNode[] {
     return (n.children ??= []);
