@@ -170,21 +170,24 @@ a small `ResourceDescriptor` per type; adopt it on the host, role and template p
 *Verify:* the same component renders ≥3 different Resource types with no type-specific code in it; the
 Values tab is `param-form` fed by `schema()`; the Preview tab shows a real `plan()` diff.
 
-**Slice 3 — Deployment as a first-class object (backend + UI edges).**
-Model + migration (Resource ref, target, desired values, state) + generations, `GET/POST
-/api/v1/deployments`, the Deploy workspace list. The Deployments tab comes for free from slice 2.
-*Verify:* deploy a role to a group → it appears in the Deploy list, on the group, on each member host, and
-links back to the role; rollback restores the previous generation; pytest for the API + target expansion.
-
-**Slice 4 — Sequence tree view on the shared canvas.**
+**Slice 3 — Sequence tree view on the shared canvas.** *(pulled ahead of Deployment on the operator's
+request — it is the artefact they most want, and slice 2 already supplies its step forms + palette.)*
 Tree component with drag & drop over the existing runbook document, palette fed by the Resource type
 registry, per-step condition editor, lossless view switching (tree ⇄ graph ⇄ text).
 *Verify:* build a sequence in the UI → exported YAML parses via `parse_playbook` and runs with
 `run-runbook --dry-run`; reorder persists; a nested group serialises to `block`; switching to the graph view
 and back leaves the document byte-identical.
 
-Recommended order: 1 → 2 → 3 → 4. Slice 2 moved ahead of Deployment deliberately: with the polymorphic
-inspector in place, the Deployments tab and every later object type are free instead of hand-built.
+**Slice 4 — Deployment as a first-class object (backend + UI edges).**
+Model + migration (Resource ref, target, desired values, state) + generations, `GET/POST
+/api/v1/deployments`, the Deploy workspace list. The Deployments tab comes for free from slice 2.
+*Verify:* deploy a role to a group → it appears in the Deploy list, on the group, on each member host, and
+links back to the role; rollback restores the previous generation; pytest for the API + target expansion.
+
+Order: 1 → 2 → 3 → 4 as numbered above. Two deliberate choices: the polymorphic inspector (2) comes first
+because it supplies the step forms and the type palette the tree needs — building the tree first would write
+both twice; and the Deployment object (4) goes last because it is backend-only and blocks nothing else (the
+sequence editor's "Deploy" button lands with it).
 
 ## Explicitly out of scope here
 

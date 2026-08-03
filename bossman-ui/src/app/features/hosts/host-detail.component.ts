@@ -39,6 +39,7 @@ import { HostChecksComponent } from './host-checks.component';
 import { HostConsoleComponent } from './host-console.component';
 import { TopologyComponent } from '../topology/topology.component';
 import { HostManagementComponent } from './management/host-management.component';
+import { HostResourcesComponent } from './host-resources.component';
 import { KubernetesDeployComponent } from './kubernetes-deploy.component';
 import { StandaloneOverviewComponent } from '../../standalone/standalone-overview.component';
 import { ResourceNodeComponent } from '../../shared/resource-node/resource-node.component';
@@ -143,6 +144,7 @@ function serviceMetricSpec(name: string, metric: string): { members: string[]; m
     HostConsoleComponent,
     TopologyComponent,
     HostManagementComponent,
+    HostResourcesComponent,
     KubernetesDeployComponent,
     MetricChartComponent,
     MetricGaugeComponent,
@@ -1287,6 +1289,14 @@ function serviceMetricSpec(name: string, metric: string): { members: string[]; m
           <mat-tab label="Management"><ng-template matTabContent>
             <div class="bm-tab-content">
               <app-host-management [agentId]="agent.id" />
+            </div>
+          </ng-template></mat-tab>
+          <!-- Slice 2 (docs/ui-workspaces.md): everything on this host that answers the Resource
+               protocol — config files, containers, Helm releases — each opened in the ONE generic
+               inspector whose tabs are the verbs. -->
+          <mat-tab label="Resources"><ng-template matTabContent>
+            <div class="bm-tab-content">
+              <app-host-resources [agentId]="agent.id" />
             </div>
           </ng-template></mat-tab>
           <mat-tab label="Kubernetes"><ng-template matTabContent>
