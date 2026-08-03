@@ -99,6 +99,12 @@ type canonStep struct {
 	Loop     any            `json:"loop"`
 	When     string         `json:"when"`
 	Register string         `json:"register"`
+	// A GROUP round-trips as block/rescue/always child lists (no module) — see
+	// services/nt_runbook.Step.to_dict. Without these fields a grouped task would arrive with an empty
+	// module and the run would abort on `unknown module ""`.
+	Block  []canonStep `json:"block"`
+	Rescue []canonStep `json:"rescue"`
+	Always []canonStep `json:"always"`
 }
 
 type canonDoc struct {
@@ -111,8 +117,14 @@ func canonToRunbook(raw []byte, chroot string) (runbook.Runbook, error) {
 	if err := json.Unmarshal(raw, &doc); err != nil {
 		return runbook.Runbook{}, fmt.Errorf("parse runbook json: %w", err)
 	}
-	rb := runbook.Runbook{Name: doc.Name}
-	for _, s := range doc.Steps {
+	return runbook.Runbook{Name: doc.Name, Steps: canonSteps(doc.Steps, chroot)}, nil
+}
+
+// canonSteps maps the canonical doc's steps to runner steps, recursing into groups so a block's children
+// (and its rescue/always branches) get the same treatment — including the chroot stamp.
+func canonSteps(steps []canonStep, chroot string) []runbook.Step {
+	var out []runbook.Step
+	for _, s := range steps {
 		params := s.Args
 		if params == nil {
 			params = map[string]any{}
@@ -122,14 +134,17 @@ func canonToRunbook(raw []byte, chroot string) (runbook.Runbook, error) {
 			// this reserved key (→ NewChrootCaps); it is inert for anything that ignores it.
 			params["_target_root"] = chroot
 		}
-		rb.Steps = append(rb.Steps, runbook.Step{
+		out = append(out, runbook.Step{
 			Name:     s.Name,
 			Module:   s.Module,
 			Params:   params,
 			Loop:     s.Loop,
 			When:     s.When,
 			Register: s.Register,
+			Block:    canonSteps(s.Block, chroot),
+			Rescue:   canonSteps(s.Rescue, chroot),
+			Always:   canonSteps(s.Always, chroot),
 		})
 	}
-	return rb, nil
+	return out
 }

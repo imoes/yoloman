@@ -162,12 +162,24 @@ Sequence: deploy-webserver
 > `if step.module == "block"`), but the **Go agent's local runbook runner does not**: `internal/runbook.Step`
 > has no Block/Rescue/Always field, so a grouped task arrives with no module.
 >
-> It does **not** silently drop it — verified with the real binary, `agentic-mcpd run-runbook` on a grouped
-> document fails loudly at that step (`unknown module ""`) and aborts the run, so the following steps do not
-> execute either. Loud beats silent, but it means a grouped sequence must go through Bossman (Deploy / the
-> editor's dry-run), never the agent-local CLI. The PXE restore playbooks are flat today, so nothing is
-> broken; teaching the Go runner blocks (a Block/Rescue/Always field + recursive execution) is the fix if we
-> ever want offline grouped playbooks.
+> It did **not** silently drop it — measured with the real binary, `run-runbook` on a grouped document
+> failed loudly at that step (`unknown module ""`) and aborted the run.
+>
+> **CLOSED (2026-08-03):** the Go runner now implements groups. `runbook.Step` gained `Block/Rescue/Always`,
+> `Run` became a recursive `runSteps` that RETURNS failure instead of writing it straight out — which is what
+> lets a group catch its children's failure — and `run-runbook`'s canonical-doc mapping recurses into the
+> branches (stamping `_target_root` all the way down, so a chroot phase can use groups too). Ansible
+> semantics, each pinned by a test: a group's `when` gates every child; `rescue` is catch and a completed
+> rescue makes the run continue while the failure stays visible in the trail; `always` is finally and its own
+> failure is a real failure; an unrescued failure still aborts; `register` inside a group is visible after it;
+> groups nest. Verified end to end: the editor's grouped YAML → `parse_playbook` → `run-runbook` succeeds,
+> with the group, its indented children and the trailing step all reported.
+>
+> One Ansible divergence remains, deliberate and pre-existing: the native `command` module documents that
+> "a non-zero rc is **not** raised as a tool error — check data.rc yourself", so a failing shell command does
+> not trigger `rescue`. Expressing "this counts as failed" needs `failed_when`, which the Go runner does not
+> have yet — that is the next parity candidate, and changing `command` itself would break every runbook that
+> reads `rc`.
 - Deployable directly: a Sequence in the Library gets the same **Deploy** action as a Role.
 
 ## Slices (each independently shippable + verifiable)

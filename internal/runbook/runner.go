@@ -41,6 +41,13 @@ type Step struct {
 	// Loop: a literal []any, or a dotted-path string resolving to a list in
 	// the context. Each iteration exposes the element as `item`.
 	Loop any `json:"loop,omitempty"`
+
+	// Block/Rescue/Always make this step a GROUP — Ansible's block keyword. The group's `When` gates all
+	// of its children at once, `Rescue` runs only if the block failed (catch), and `Always` runs whatever
+	// happened (finally). A group has no Module of its own.
+	Block  []Step `json:"block,omitempty"`
+	Rescue []Step `json:"rescue,omitempty"`
+	Always []Step `json:"always,omitempty"`
 }
 
 // Runbook is a named, ordered list of steps with optional default params.
@@ -85,32 +92,70 @@ func Run(ctx context.Context, reg *modules.Registry, rb Runbook, explicit map[st
 	}
 
 	out := RunResult{Runbook: rb.Name, Status: "succeeded"}
-	for i, step := range rb.Steps {
+	if runSteps(ctx, reg, rb.Steps, vars, dryRun, &out, "") {
+		out.Status = "failed"
+	}
+	return out
+}
+
+/*
+runSteps executes one step list and reports whether it FAILED (and therefore stopped).
+
+Returning the failure instead of writing it straight into the result is what makes `block`/`rescue`
+possible: a group needs to catch its children's failure, decide whether `rescue` repaired it, and only
+then let it propagate. The per-step results stay honest either way — a rescued failure is still recorded
+with its error, exactly as Ansible reports it, while the run as a whole continues.
+
+`vars` is shared by reference on purpose: `register` and gathered facts from a step inside a group must be
+visible to the steps after it, including outside the group.
+*/
+func runSteps(ctx context.Context, reg *modules.Registry, steps []Step, vars map[string]any,
+	dryRun bool, out *RunResult, prefix string) bool {
+	for i, step := range steps {
 		items, err := resolveLoop(step.Loop, vars)
 		if err != nil {
-			out.Steps = append(out.Steps, StepResult{Index: i, Name: step.Name, Error: err.Error()})
-			out.Status = "failed"
-			return out
+			out.Steps = append(out.Steps, StepResult{Index: i, Name: prefix + step.Name, Error: err.Error()})
+			return true
 		}
 		for _, item := range items {
 			sctx := vars
-			label := step.Name
+			label := prefix + step.Name
 			if step.Loop != nil {
 				sctx = cloneWith(vars, "item", item)
-				label = fmt.Sprintf("%s [item=%v]", step.Name, item)
+				label = fmt.Sprintf("%s [item=%v]", prefix+step.Name, item)
 			}
 
 			if step.When != "" {
 				ok, werr := evalWhen(step.When, sctx)
 				if werr != nil {
 					out.Steps = append(out.Steps, StepResult{Index: i, Name: label, Error: werr.Error()})
-					out.Status = "failed"
-					return out
+					return true
 				}
 				if !ok {
 					out.Steps = append(out.Steps, StepResult{Index: i, Name: label, Skipped: true, Msg: "when: " + step.When + " evaluated false"})
 					continue
 				}
+			}
+
+			// A GROUP (Ansible `block:`) — no module of its own; its children carry the work.
+			if len(step.Block) > 0 || len(step.Rescue) > 0 || len(step.Always) > 0 {
+				out.Steps = append(out.Steps, StepResult{Index: i, Name: label, Module: "block",
+					Msg: fmt.Sprintf("group of %d step(s)", len(step.Block))})
+				failed := runSteps(ctx, reg, step.Block, vars, dryRun, out, label+" › ")
+				if failed && len(step.Rescue) > 0 {
+					// rescue = catch: if it completes, the block's failure is handled and the run goes on.
+					failed = runSteps(ctx, reg, step.Rescue, vars, dryRun, out, label+" ⟲ ")
+				}
+				if len(step.Always) > 0 {
+					// always = finally: it runs whatever happened, and its own failure is a real failure.
+					if runSteps(ctx, reg, step.Always, vars, dryRun, out, label+" ⤓ ") {
+						failed = true
+					}
+				}
+				if failed {
+					return true
+				}
+				continue
 			}
 
 			res := runOne(ctx, reg, step, sctx, dryRun)
@@ -121,8 +166,7 @@ func Run(ctx context.Context, reg *modules.Registry, rb Runbook, explicit map[st
 				out.Changed = true
 			}
 			if res.Error != "" {
-				out.Status = "failed"
-				return out
+				return true
 			}
 			// register + yoloman_facts publish into the shared context.
 			if step.Register != "" {
@@ -135,7 +179,7 @@ func Run(ctx context.Context, reg *modules.Registry, rb Runbook, explicit map[st
 			}
 		}
 	}
-	return out
+	return false
 }
 
 func runOne(ctx context.Context, reg *modules.Registry, step Step, sctx map[string]any, dryRun bool) StepResult {
