@@ -83,8 +83,12 @@ def test_step_without_module_errors():
 
 
 def test_unknown_step_key_errors():
-    with pytest.raises(NTRunbookError):
-        parse_document("name: x\nsteps:\n  -\n    module: ping\n    notify: someone\n")
+    # `notify` used to be the example here, but notify IS a known step key (see _STEP_KEYS) — the test only
+    # passed because _str_list refused a scalar, i.e. it was asserting the wrong thing. Ansible's scalar
+    # shorthand `notify: restart nginx` is now accepted, so use a key that really is unknown.
+    with pytest.raises(NTRunbookError) as exc:
+        parse_document("name: x\nsteps:\n  -\n    module: ping\n    nofity: someone\n")
+    assert "nofity" in str(exc.value)
 
 
 def test_runbook_needs_name():

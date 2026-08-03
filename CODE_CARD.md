@@ -68,6 +68,28 @@ chroot. So two valid delivery routes, pick by how fixed the module is:
 - **config codecs** — `configs/config_codecs.json`: parse⇄generate real config files (man-page-derived).
 - **checks** — `configs/checks.d/`: Starlark monitoring checks (Checkmk-translated + custom).
 
+## Plans vs. runbooks — two stores with different surfaces
+
+Both hold "a list of steps", and which one an import belongs in is decided by *how much Ansible it uses*:
+
+| | **Runbook** (`runbooks` table) | **Plan** (`plan_documents`) |
+|---|---|---|
+| Parser | `services/nt_runbook.py`, `services/ansible_playbook.py` | `services/plan_loader.py` |
+| Engine | the Go runner (`internal/runbook/`) | the orchestration engine |
+| Step shape | `{module, args, …}` | `{name, <module>: {args}}` (module-as-key) |
+| Task vocabulary | **full**: `block`/`rescue`/`always`, `when`, `loop`, `register`, `notify`, `tags`, `become`, `failed_when`, `changed_when`, `ignore_errors`, `key=value` free-form | narrow: `when`, `loop`, `register`, `check_mode`, `on_failure` + `pipeline`/`upload`/`assert` |
+
+Measured on `geerlingguy.nginx`: the runbook parser accepts **10 of 10** task files, the plan loader 4 — so
+**Ansible imports go to the runbook store**, Salt/Puppet/Chef to the plan store (their parsers emit plan
+bodies). `POST /api/v1/plans/import-bulk` routes on that rule; see `docs/orchestration-import.md` for the
+per-framework coverage measurements and the remaining parser gaps.
+
+- **Bulk / directory import** — `POST /api/v1/plans/import-bulk` `{files:[{path,text}], folder, dry_run}` →
+  `{imported:[{path,prefix,name,version,kind}], skipped:[{path,reason}], failed:[{path,error}]}`. Classifies
+  each path itself (`plan_store.detect_plan_format`, positive dir+ext rules), isolates failures per file, and
+  `dry_run` parses without writing so a preview cannot claim a file is importable when it isn't. UI: the
+  "Import" panel of the plan library (`features/plans/plan-library.component.ts`), directory picker.
+
 ## PXE bare-metal imaging (the current build)
 
 - **Capture / import**: `services/imaging.py` (pure plan) + `api/images.py` + `deploy/pxe/import-image.sh`

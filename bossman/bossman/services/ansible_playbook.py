@@ -50,6 +50,54 @@ _FREE_FORM = {"shell", "command", "raw", "script", "ansible.builtin.shell",
 _ROLE_CALL_KEYS = {"import_tasks", "include_tasks", "import_role", "include_role"}
 
 
+# Modules whose free-form scalar has ONE documented meaning, so the shorthand can be expanded safely.
+# Anything not listed here would land in Ansible's `_raw_params`, which only the module itself can decode —
+# guessing there would silently run a different task than the author wrote.
+_BARE_VALUE_ARG = {
+    "include_vars": "file", "ansible.builtin.include_vars": "file",
+    "include_tasks": "file", "ansible.builtin.include_tasks": "file",
+    "import_tasks": "file", "ansible.builtin.import_tasks": "file",
+    "debug": "msg", "ansible.builtin.debug": "msg",
+}
+# Ansible's boolean literals. k=v form carries no types (everything is a string), and Ansible's own argspec
+# coerces these tokens per module — so a bare `update_cache=yes` must become True or the module rejects it.
+_KV_TRUE = {"yes", "true", "on"}
+_KV_FALSE = {"no", "false", "off"}
+
+
+def _parse_key_value(text: str, idx: int, module: str) -> dict[str, Any]:
+    """Ansible's `key=value key2="v 2"` free-form task syntax → an args mapping.
+
+    Every module accepts this form (`apt: update_cache=yes cache_valid_time=86400`), and real roles use it
+    constantly, so refusing it means refusing most upstream Ansible. shlex handles the quoting rules; the
+    value coercion below is deliberately narrow (only Ansible's own boolean literals and plain integers)
+    because k=v is untyped and blindly guessing types would corrupt string arguments.
+    """
+    import shlex
+
+    try:
+        tokens = shlex.split(text)
+    except ValueError as exc:                                       # unbalanced quotes
+        raise PlaybookError(f"task {idx + 1} ({module}): cannot parse key=value form: {exc}") from exc
+    args: dict[str, Any] = {}
+    for token in tokens:
+        if "=" not in token:
+            raise PlaybookError(
+                f"task {idx + 1} ({module}): {token!r} in the key=value form has no '=' — mixing a bare "
+                "value with key=value pairs is not supported (Ansible would pass it as _raw_params)")
+        key, _, value = token.partition("=")
+        low = value.lower()
+        if low in _KV_TRUE:
+            args[key] = True
+        elif low in _KV_FALSE:
+            args[key] = False
+        elif value.lstrip("-").isdigit():
+            args[key] = int(value)
+        else:
+            args[key] = value
+    return args
+
+
 def _norm_module(key: str) -> str:
     """The registry key the Go agent uses: native builtins by short name
     (ansible.builtin.copy → copy), collection modules by fqcn (kept as-is)."""
@@ -103,8 +151,16 @@ def _task_to_step(task: Any, idx: int) -> Step:
     elif isinstance(raw_val, str):
         if mkey in _FREE_FORM:
             args = {"cmd": raw_val}
+        elif mkey in _BARE_VALUE_ARG:
+            # A module whose free-form scalar has a documented meaning (`include_vars: x.yml` == `file: x.yml`).
+            args = {_BARE_VALUE_ARG[mkey]: raw_val}
+        elif "=" in raw_val:
+            args = _parse_key_value(raw_val, idx, module)
         else:
-            raise PlaybookError(f"task {idx + 1} ({module}): scalar free-form value is only allowed for shell/command/raw/script")
+            raise PlaybookError(
+                f"task {idx + 1} ({module}): scalar free-form value is only allowed for shell/command/raw/"
+                f"script, as `key=value` pairs, or for modules with a documented bare argument — Ansible "
+                f"would pass {raw_val!r} as _raw_params, which only the module itself can interpret")
     else:
         raise PlaybookError(f"task {idx + 1} ({module}): module value must be a mapping (or a command string for shell/command)")
     # `args:` sibling merges over the free-form/base args (Ansible semantics).

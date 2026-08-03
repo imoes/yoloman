@@ -5,7 +5,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatButtonToggleModule } from '@angular/material/button-toggle';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import * as monaco from 'monaco-editor';
-import { PlanDocument, PlanService, PlanVersion, StoredPlan } from '../../core/services/plan.service';
+import { BulkImportResult, PlanDocument, PlanService, PlanVersion, StoredPlan } from '../../core/services/plan.service';
 import { DialogService } from '../../shared/dialogs/dialog.service';
 import { DeploymentEdgesComponent } from '../../shared/deployment-edges/deployment-edges.component';
 
@@ -107,6 +107,52 @@ interface Row { kind: 'folder' | 'plan'; label: string; depth: number; path?: st
               <button mat-stroked-button (click)="importOpen.set(false)" [disabled]="impBusy()">Cancel</button>
             </div>
             @if (impErr()) { <p class="bm-err">{{ impErr() }}</p> }
+
+            <!-- Directory import. A role/formula/cookbook is a TREE, not a file, so pasting one source at a
+                 time is not how anyone actually onboards existing automation. The server classifies each
+                 path, so nothing here needs to know which framework the tree belongs to. -->
+            <h3 class="bm-bulk-h">…or import a whole directory</h3>
+            <p class="bm-dim">
+              Pick a checked-out Ansible role, Salt formula, Puppet module or Chef cookbook. Bossman decides
+              per file what is a plan — templates, defaults and fixtures are skipped, not failed.
+            </p>
+            <div class="bm-import-actions">
+              <button mat-stroked-button (click)="dirInput.click()" [disabled]="bulkBusy()">
+                <mat-icon>folder_open</mat-icon> Choose directory…
+              </button>
+              <input #dirInput type="file" webkitdirectory multiple hidden (change)="onDirPicked($event)" />
+              <label class="bm-inline">Folder
+                <input type="text" [(ngModel)]="bulkFolder" placeholder="e.g. imported/nginx" />
+              </label>
+            </div>
+            @if (bulkFiles().length) {
+              <p class="bm-dim">{{ bulkFiles().length }} file(s) selected from <code>{{ bulkRoot() }}</code></p>
+              <div class="bm-import-actions">
+                <button mat-stroked-button (click)="runBulk(true)" [disabled]="bulkBusy()">
+                  <mat-icon>preview</mat-icon> Preview
+                </button>
+                <button mat-raised-button color="primary" (click)="runBulk(false)" [disabled]="bulkBusy()">
+                  <mat-icon>drive_folder_upload</mat-icon> Import {{ bulkFiles().length }} file(s)
+                </button>
+              </div>
+            }
+            @if (bulkBusy()) { <mat-spinner diameter="22" /> }
+            @if (bulkResult(); as r) {
+              <p class="bm-ok">
+                {{ bulkDry() ? 'Preview:' : 'Imported:' }} {{ r.imported.length }} plan(s) ·
+                {{ r.skipped.length }} not a plan · {{ r.failed.length }} refused
+              </p>
+              @if (r.failed.length) {
+                <!-- Failures are listed in full: an import that silently drops files is worse than one that
+                     refuses them loudly, because the operator would ship an incomplete role believing it ran. -->
+                <ul class="bm-bulk-fails">
+                  @for (f of r.failed; track f.path) {
+                    <li><code>{{ f.path }}</code> — {{ f.error }}</li>
+                  }
+                </ul>
+              }
+            }
+            @if (bulkErr()) { <p class="bm-err">{{ bulkErr() }}</p> }
           </div>
         } @else {
           <p class="bm-empty bm-pad">Select a plan from the tree to view / edit it (NT · YAML · JSON), or import one.</p>
@@ -163,7 +209,14 @@ interface Row { kind: 'folder' | 'plan'; label: string; depth: number; path?: st
         background: var(--mat-sys-surface); color: inherit; font-size: 13px; font-weight: 400;
       }
       .bm-import textarea { font-family: monospace; font-size: 12.5px; resize: vertical; }
-      .bm-import-actions { display: flex; gap: 10px; }
+      .bm-import-actions { display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap; }
+      .bm-bulk-h { margin-top: 10px !important; padding-top: 12px;
+        border-top: 1px solid var(--mat-sys-outline-variant); }
+      .bm-inline { flex-direction: column; }
+      .bm-inline input { width: 190px; }
+      .bm-bulk-fails { margin: 0; padding-left: 18px; font-size: 11.5px; opacity: .75;
+        max-height: 190px; overflow: auto; }
+      .bm-bulk-fails code { font-size: 11px; }
     `,
   ],
 })
@@ -260,6 +313,63 @@ export class PlanLibraryComponent implements AfterViewInit, OnDestroy {
     const s = new Set(this.expanded());
     s.has(path) ? s.delete(path) : s.add(path);
     this.expanded.set(s);
+  }
+
+  /** Directory-import state. `bulkFiles` holds what the picker handed us, already read as text — the
+   *  server needs the relative path (it classifies by path) plus the content, nothing else. */
+  bulkFiles = signal<{ path: string; text: string }[]>([]);
+  bulkRoot = signal('');
+  bulkFolder = '';
+  bulkBusy = signal(false);
+  bulkDry = signal(true);
+  bulkResult = signal<BulkImportResult | null>(null);
+  bulkErr = signal<string | null>(null);
+
+  /**
+   * Read a picked directory. `webkitDirectory` gives every file including binaries and huge fixtures, so we
+   * drop what cannot be a plan source here rather than uploading a whole git checkout: no `.git`, and a size
+   * cap. Classification proper stays on the server (one implementation, shared with the CLI).
+   */
+  async onDirPicked(ev: Event): Promise<void> {
+    const input = ev.target as HTMLInputElement;
+    const picked = Array.from(input.files ?? []);
+    input.value = '';                                   // so re-picking the same directory fires again
+    this.bulkResult.set(null);
+    this.bulkErr.set(null);
+    const MAX = 512 * 1024;                             // no plan source is half a megabyte
+    const usable = picked.filter((f) => f.size <= MAX && !f.webkitRelativePath.includes('/.git/'));
+    const root = usable[0]?.webkitRelativePath.split('/')[0] ?? '';
+    const files = await Promise.all(
+      usable.map(async (f) => ({
+        // Strip the directory's own name so paths are relative to the tree root — `tasks/main.yml`, which is
+        // what the classifier expects, not `ansible-role-nginx-3.1.4/tasks/main.yml`.
+        path: f.webkitRelativePath.split('/').slice(1).join('/') || f.name,
+        text: await f.text(),
+      })),
+    );
+    this.bulkRoot.set(root);
+    this.bulkFiles.set(files);
+    if (!files.length) this.bulkErr.set('nothing usable in that directory');
+  }
+
+  runBulk(dryRun: boolean): void {
+    const files = this.bulkFiles();
+    if (!files.length) return;
+    this.bulkBusy.set(true);
+    this.bulkDry.set(dryRun);
+    this.bulkErr.set(null);
+    this.bulkResult.set(null);
+    this.planService.importBulk(files, this.bulkFolder.trim(), dryRun).subscribe({
+      next: (r) => {
+        this.bulkBusy.set(false);
+        this.bulkResult.set(r);
+        if (!dryRun && r.imported.length) this.reload();  // the tree gained plans
+      },
+      error: (e) => {
+        this.bulkBusy.set(false);
+        this.bulkErr.set(e?.error?.detail ?? 'bulk import failed');
+      },
+    });
   }
 
   isSel(p: StoredPlan): boolean { const d = this.doc(); return !!d && d.prefix === p.prefix && d.name === p.name; }

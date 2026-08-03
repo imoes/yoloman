@@ -75,6 +75,18 @@ export class PlanService {
     );
   }
 
+  /**
+   * Import a whole checked-out tree (role / formula / cookbook / module) in one call. The server classifies
+   * each path itself — a tree is mostly NOT plans (templates, defaults, fixtures, metadata) — so the UI
+   * uploads everything it was handed and reads the verdict back per file.
+   *
+   * `dryRun` parses without storing, which is how the operator sees what a tree would produce (and what it
+   * would refuse) before anything is written.
+   */
+  importBulk(files: { path: string; text: string }[], folder: string, dryRun: boolean) {
+    return this.http.post<BulkImportResult>(`${this.base}/import-bulk`, { files, folder, dry_run: dryRun });
+  }
+
   /** Import a foreign-DSL source (ansible/salt/puppet/chef) as a stored plan.
    * The backend parses source_format into the canonical body. prefix picks the
    * origin system; source_format is the DSL/authoring syntax. */
@@ -88,6 +100,13 @@ export class PlanService {
 export interface PlanBriefing { markdown: string | null; error: string | null; }
 export interface StoredPlan { prefix: string; name: string; version: number; source_format: string; content_hash: string; folder: string; }
 export interface PlanVersion { version: number; source_format: string; content_hash: string; created_at: string | null; created_by: string | null; }
+/** Per-file verdict of a bulk/directory import. Three buckets, never a single yes/no: a real tree always
+ *  contains files that are not plans at all (`skipped`) next to ones a parser refuses (`failed`). */
+export interface BulkImportResult {
+  imported: { path: string; prefix: string; name: string; version: number }[];
+  skipped: { path: string; reason: string }[];
+  failed: { path: string; error: string }[];
+}
 export interface PlanDocument {
   prefix: string; name: string; version: number; source_format: string; folder: string;
   formats: { nt: string; yaml: string; json: string };

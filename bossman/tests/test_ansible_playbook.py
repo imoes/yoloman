@@ -177,3 +177,39 @@ def test_failure_semantics_survive_the_whole_chain():
     again = parse_playbook(doc_to_playbook(doc)).to_dict()
     assert again["steps"][0]["failed_when"] == "rc != 0"
     assert again["steps"][1]["block"][0]["failed_when"] == "rc != 0"
+
+
+def test_key_value_free_form_is_accepted_for_any_module():
+    """`apt: update_cache=yes cache_valid_time=86400` — Ansible's untyped k=v task form. Every module
+    accepts it and real roles use it constantly (geerlingguy.nginx does), so refusing it meant refusing most
+    upstream Ansible. The narrow coercion is the point: Ansible's own boolean literals and plain integers
+    become typed values (a module argspec would reject the string "yes" for a bool), everything else stays a
+    string so quoted values survive intact."""
+    from bossman.services.ansible_playbook import parse_playbook
+
+    rb = parse_playbook('- name: Update apt cache.\n  apt: update_cache=yes cache_valid_time=86400\n')
+    assert rb.steps[0].args == {"update_cache": True, "cache_valid_time": 86400}
+
+    rb = parse_playbook('- name: restart\n  service: name="my svc" state=restarted enabled=no\n')
+    assert rb.steps[0].args == {"name": "my svc", "state": "restarted", "enabled": False}
+
+
+def test_documented_bare_scalar_shorthands_expand():
+    """`include_vars: x.yml` means `file: x.yml` — documented, single-meaning shorthand, so it can be
+    expanded. Anything else would land in Ansible's `_raw_params`, which only the module itself can decode."""
+    from bossman.services.ansible_playbook import parse_playbook
+
+    rb = parse_playbook('- name: vars\n  include_vars: "{{ ansible_facts.os_family }}.yml"\n')
+    assert rb.steps[0].args["file"] == "{{ ansible_facts.os_family }}.yml"
+
+
+def test_undocumented_bare_scalar_is_refused_with_a_reason():
+    """The one case we must NOT guess: a bare value for a module whose free-form meaning we don't know.
+    Guessing would silently run a different task than the author wrote, so it fails loudly instead."""
+    import pytest
+
+    from bossman.services.ansible_playbook import PlaybookError, parse_playbook
+
+    with pytest.raises(PlaybookError) as exc:
+        parse_playbook("- name: nope\n  some_module: just-a-value\n")
+    assert "_raw_params" in str(exc.value)

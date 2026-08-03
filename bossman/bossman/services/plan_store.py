@@ -81,6 +81,12 @@ def canonical_from_source(source_format: str, source_text: str, *, name: str | N
             raw = yaml.safe_load(source_text)
         except yaml.YAMLError as exc:
             raise PlanError(f"invalid YAML: {exc}") from exc
+        if isinstance(raw, list):
+            # A bare LIST is an Ansible task file (roles/*/tasks/main.yml) or a playbook — the single most
+            # common real-world import, and it is not a plan mapping, so it used to be rejected outright
+            # ("plan must be a mapping"). A plan STEP is already Ansible-task-shaped (module-as-key, see
+            # plan_loader), so the list simply becomes the step list — no translation needed.
+            raw = {"name": name or "tasks", "steps": raw}
     elif fmt == "json":
         try:
             raw = json.loads(source_text)
@@ -287,3 +293,78 @@ async def list_plans(
             "created_at": r.created_at.isoformat() if r.created_at else None,
         }
     return list(latest.values())
+
+
+# --- bulk / directory import -----------------------------------------------------------------------
+
+# Which orchestration DSL a file belongs to. Detection is POSITIVE — it names the directories where each
+# framework keeps executable code — because real checkouts proved a negative (skip-list) approach unusable:
+# geerlingguy/ansible-role-nginx, saltstack-formulas/apache-formula, puppetlabs-apache and sous-chefs/nginx
+# between them contain kitchen.yml / pdk.yaml / hiera.yaml (tool config that is not a playbook),
+# lib/puppet/functions/*.rb (PUPPET ruby, which an extension rule reads as Chef), test/**/\*_spec.rb (InSpec)
+# and test/salt/pillar/*.sls (data, not states). Every one of those would have imported as a bogus plan.
+#
+# NOTE the sibling map below: _FORMAT_BY_EXT covers the NATIVE authoring formats (yaml/nt/json) for the
+# file-based plans_dir import. This is for FOREIGN orchestration sources in a directory import, so it also
+# carries the origin prefix.
+#
+# (dir, extension) -> (prefix, source_format). `dir` must appear as a path component.
+_PLAN_RULES: tuple[tuple[str, str, str, str], ...] = (
+    # Ansible: task files and playbooks — NOT vars/defaults/meta/templates, and not repo tooling.
+    ("tasks", ".yml", "ansible", "yaml"),
+    ("tasks", ".yaml", "ansible", "yaml"),
+    ("handlers", ".yml", "ansible", "yaml"),
+    ("handlers", ".yaml", "ansible", "yaml"),
+    ("playbooks", ".yml", "ansible", "yaml"),
+    ("playbooks", ".yaml", "ansible", "yaml"),
+    # Salt: states live at the formula root or in a state dir; pillars are DATA, tests are fixtures.
+    ("", ".sls", "salt", "salt"),
+    # Puppet: classes/defines in manifests/. types/ holds data types, lib/ holds ruby — neither is a manifest.
+    ("manifests", ".pp", "puppet", "puppet"),
+    # Chef: recipes and custom resources. lib/, spec/, test/ are not the cookbook's code.
+    ("recipes", ".rb", "chef", "chef"),
+    ("resources", ".rb", "chef", "chef"),
+)
+
+# Directory components that disqualify a file whatever else matches: fixtures, tests and vendored copies.
+_NEVER = ("test", "tests", "spec", "molecule", "pillar", "vendor", "node_modules", ".git", "fixtures")
+
+
+def detect_plan_format(path: str) -> tuple[str, str] | None:
+    """(prefix, source_format) for a file in a bulk import, or None to skip it.
+
+    Pure, so the rules are testable against a real checkout without a database — and they were: the four
+    upstream samples above are what shaped them.
+    """
+    low = path.replace("\\", "/").lower().lstrip("./")
+    parts = low.split("/")
+    base = parts[-1]
+    if base.startswith("."):
+        return None
+    if any(p in _NEVER for p in parts[:-1]):
+        return None
+    for want_dir, ext, prefix, fmt in _PLAN_RULES:
+        if not base.endswith(ext):
+            continue
+        if want_dir == "" or want_dir in parts[:-1]:
+            return (prefix, fmt)
+    return None
+
+
+def plan_name_from_path(path: str) -> str:
+    """A plan name from a file path, unique BY CONSTRUCTION: the whole relative path minus the extension,
+    joined with dashes.
+
+    The clever version — drop the conventional container dir and keep the stem — collides, and a collision
+    here silently OVERWRITES a plan (store_plan keys on name). The real apache-formula contains both
+    `apache/clean.sls` and `apache/config/certificates/clean.sls`; an Ansible role has both `tasks/main.yml`
+    and `handlers/main.yml`. Longer names beat losing a plan.
+    """
+    clean = path.replace("\\", "/").strip("/").lstrip("./")
+    parts = [p for p in clean.split("/") if p not in (".", "")]
+    if not parts:
+        return "plan"
+    parts[-1] = parts[-1].rsplit(".", 1)[0] or parts[-1]
+    joined = "-".join(parts)
+    safe = "".join(c if (c.isalnum() or c in "-_.") else "-" for c in joined).strip("-")
+    return safe or "plan"

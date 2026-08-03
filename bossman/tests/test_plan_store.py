@@ -132,3 +132,84 @@ async def test_list_plans_returns_latest_per_name(db_session):
     entries = [e for e in await list_plans(db_session, prefix="ansible") if e["name"] == "listed"]
     assert len(entries) == 1 and entries[0]["version"] == 2
     await _cleanup(db_session, "ansible", "listed")
+
+
+# ── Bulk / directory import (docs/foreign-dsl-import.md) ───────────────────────────────────────────
+#
+# The rules below were shaped by four REAL upstream checkouts (geerlingguy/ansible-role-nginx,
+# saltstack-formulas/apache-formula, puppetlabs-apache, sous-chefs/nginx — 721 files). A directory import is
+# mostly NOT plans, and an extension-only rule misclassifies badly: lib/puppet/functions/*.rb reads as Chef,
+# kitchen.yml/pdk.yaml/hiera.yaml read as Ansible playbooks, test/**/*_spec.rb reads as Chef. Hence positive
+# rules keyed on the directory where each framework keeps executable code.
+
+
+def test_detection_only_picks_each_framework_s_own_code():
+    from bossman.services.plan_store import detect_plan_format
+
+    picks = {
+        "role/tasks/main.yml": ("ansible", "yaml"),
+        "role/handlers/main.yml": ("ansible", "yaml"),
+        "playbooks/site.yml": ("ansible", "yaml"),
+        "apache/init.sls": ("salt", "salt"),
+        "manifests/vhost.pp": ("puppet", "puppet"),
+        "cookbook/recipes/default.rb": ("chef", "chef"),
+        "cookbook/resources/config.rb": ("chef", "chef"),
+    }
+    for path, want in picks.items():
+        assert detect_plan_format(path) == want, path
+
+    # …and skips everything a real checkout carries alongside it
+    for path in (
+        "role/meta/main.yml", "role/defaults/main.yml", "role/vars/main.yml",
+        "role/templates/nginx.conf.j2", "kitchen.yml", "hiera.yaml", "pdk.yaml", ".kitchen.yml",
+        "lib/puppet/functions/apache_pw_hash.rb",      # PUPPET ruby, not a Chef recipe
+        "spec/unit/foo_spec.rb", "test/integration/controls/packages_spec.rb",   # tests
+        "test/salt/pillar/default.sls",                # pillar DATA, not a state
+        "types/loglevel.pp",                           # a data type, not a manifest
+        "README.md", "metadata.rb", "Berksfile",
+    ):
+        assert detect_plan_format(path) is None, path
+
+
+def test_plan_names_are_unique_by_construction():
+    """A collision silently OVERWRITES a plan, and real trees collide: apache-formula has apache/clean.sls
+    AND apache/config/certificates/clean.sls; an Ansible role has tasks/main.yml AND handlers/main.yml."""
+    from bossman.services.plan_store import plan_name_from_path
+
+    names = [
+        plan_name_from_path("apache/clean.sls"),
+        plan_name_from_path("apache/config/certificates/clean.sls"),
+        plan_name_from_path("role/tasks/main.yml"),
+        plan_name_from_path("role/handlers/main.yml"),
+    ]
+    assert len(set(names)) == len(names), names
+
+
+def test_a_bare_task_list_imports_as_a_plan():
+    """roles/*/tasks/main.yml is a bare LIST, which is the most common import there is — and it is not a plan
+    mapping, so it used to be rejected with 'plan must be a mapping'."""
+    from bossman.services.plan_store import canonical_from_source
+
+    body = canonical_from_source("yaml", "- name: install\n  apt:\n    name: nginx\n", name="nginx-tasks")
+    assert body["name"] == "nginx-tasks"
+    # A plan step is module-as-key (see plan_loader), the same shape an Ansible task has — so the list needs
+    # no translation, only the plan envelope. (The RUNBOOK canonical doc differs: {module, args}.)
+    assert body["steps"][0]["apt"] == {"name": "nginx"}
+
+
+def test_notify_in_a_plan_fails_loudly_rather_than_being_swallowed():
+    """A known gap, pinned deliberately: the PLAN schema (plan_loader._STEP_META_KEYS) does not know
+    `notify`, so a task carrying one is refused. Accepting a keyword the plan engine then ignores would be
+    worse — the document would promise a handler that never runs. Real Ansible roles use notify heavily, so
+    importing them needs handler support in the plan engine; until then the error must stay visible.
+
+    (The RUNBOOK path DOES accept it, including Ansible's scalar shorthand — see nt_runbook._str_list.)
+    """
+    import pytest
+
+    from bossman.services.plan_store import PlanError, canonical_from_source
+
+    with pytest.raises(PlanError) as exc:
+        canonical_from_source(
+            "yaml", "- name: drop config\n  copy:\n    dest: /etc/x\n  notify: restart nginx\n", name="t")
+    assert "notify" in str(exc.value)

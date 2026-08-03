@@ -29,6 +29,9 @@ from bossman.services.plan_loader import Plan, PlanError, PlanStep, load_host_va
 from bossman.services.plan_search import index_plan_catalog, search_plans
 from bossman.services.plan_store import (
     VALID_PREFIXES,
+    canonical_from_source,
+    detect_plan_format,
+    plan_name_from_path,
     delete_plan as store_delete_plan,
     import_plans_dir as store_import_plans_dir,
     list_plans as store_list_plans,
@@ -36,9 +39,10 @@ from bossman.services.plan_store import (
     store_plan,
 )
 from bossman.services import plan_library
+from bossman.services.ansible_playbook import parse_playbook
 from bossman.services.nt_convert import doc_to_nt, doc_to_yaml
 from bossman.services.chat_client import ChatClient, ChatClientError
-from bossman.db.models import PlanDocument
+from bossman.db.models import DEFAULT_TENANT_ID, PlanDocument, Runbook
 
 router = APIRouter()
 
@@ -348,6 +352,99 @@ async def list_stored_plans(
         raise HTTPException(status_code=400, detail=f"invalid prefix {prefix!r}")
     entries = await store_list_plans(session, prefix=prefix)
     return [StoredPlanOut(**{k: e[k] for k in ("prefix", "name", "version", "source_format", "content_hash")}) for e in entries]
+
+
+class BulkFile(BaseModel):
+    """One file of a directory import: its path (relative, as the browser reports it) and its text."""
+    path: str
+    text: str
+
+
+class BulkImportRequest(BaseModel):
+    files: list[BulkFile]
+    folder: str = ""            # ltree folder the imported plans land in
+    dry_run: bool = False       # report what WOULD be imported, touch nothing
+
+
+class BulkImportResult(BaseModel):
+    imported: list[dict] = []   # [{path, prefix, name, version, kind}] — kind ∈ runbook|plan, see below
+    skipped: list[dict] = []    # [{path, reason}] — not a plan we can parse
+    failed: list[dict] = []     # [{path, error}]  — recognised but the parser refused it
+
+
+@router.post("/api/v1/plans/import-bulk", response_model=BulkImportResult)
+async def import_plans_bulk(
+    body: BulkImportRequest,
+    session: AsyncSession = Depends(get_session),
+    identity=Depends(get_current_identity),
+) -> BulkImportResult:
+    """Import a whole directory of foreign orchestration sources — Ansible, Salt, Puppet, Chef — in one call.
+
+    A checked-out role/cookbook tree is mostly NOT plans (templates, defaults, metadata, fixtures), so each
+    file is classified first (services/plan_store.detect_plan_format) and anything unrecognised is SKIPPED
+    with a reason instead of failing the import. One unparseable file likewise lands in `failed` and the rest
+    still import — a 400-file tree must not be lost because file 3 is exotic.
+
+    `dry_run` classifies without writing, so the operator can see what a tree would produce first.
+    """
+    out = BulkImportResult()
+    for f in body.files:
+        spec = detect_plan_format(f.path)
+        if spec is None:
+            out.skipped.append({"path": f.path, "reason": "not a recognised plan file"})
+            continue
+        prefix, fmt = spec
+        name = plan_name_from_path(f.path)
+
+        # Ansible task files go to the RUNBOOK store, not the plan store. The two engines have different
+        # surfaces: a runbook carries Ansible's full task vocabulary (block/rescue/always, notify, tags,
+        # become, failed_when/changed_when, key=value free-form), a plan carries the narrower
+        # pipeline/upload/assert shape. Measured on geerlingguy.nginx: the runbook parser takes 10 of 10 task
+        # files, the plan loader 4 — so routing a role through the plan store would refuse most of real
+        # upstream Ansible for no reason. Salt/Puppet/Chef keep going to the plan store (their parsers emit
+        # plan bodies).
+        if prefix == "ansible" and fmt in ("yaml", "yml"):
+            try:
+                doc = parse_playbook(f.text).to_dict()
+                doc["name"] = name
+                if not body.dry_run:
+                    existing = await session.scalar(
+                        select(Runbook).where(Runbook.tenant_id == DEFAULT_TENANT_ID, Runbook.name == name))
+                    if existing is None:
+                        session.add(Runbook(tenant_id=DEFAULT_TENANT_ID, name=name, kind="runbook",
+                                            folder=(body.folder or "").strip("/"), doc=doc,
+                                            created_by=identity.name))
+                    else:
+                        existing.doc = doc          # re-importing the same tree updates, it does not 409
+                out.imported.append({"path": f.path, "prefix": prefix, "name": name, "version": 1,
+                                     "kind": "runbook"})
+            except Exception as exc:  # noqa: BLE001 — per-file isolation, see below
+                out.failed.append({"path": f.path, "error": f"{type(exc).__name__}: {exc}"[:300]})
+            continue
+
+        try:
+            if body.dry_run:
+                # A preview must still PARSE, otherwise it reports files as importable that the real run then
+                # rejects — the whole point of the preview is seeing the failures before writing anything.
+                canonical_from_source(fmt, f.text, name=name)
+                out.imported.append({"path": f.path, "prefix": prefix, "name": name, "version": 0,
+                                     "kind": "plan"})
+                continue
+            doc = await store_plan(session, prefix, name, fmt, f.text, created_by=identity.name)
+            if body.folder:
+                await plan_library.set_placement(session, prefix, name, body.folder)
+            out.imported.append({"path": f.path, "prefix": prefix, "name": name, "version": doc.version,
+                                 "kind": "plan"})
+        except Exception as exc:  # noqa: BLE001 — deliberately broad, see below
+            # Per-file failure: keep going. A 400-file tree must not be lost because one file is exotic, and
+            # the foreign parsers raise their OWN exception types (PlaybookError, NTRunbookError, and
+            # whatever a DSL parser throws on malformed input) — catching only PlanError let one bad file
+            # 500 the entire request, which is how this was found. The report names the file and the reason,
+            # so nothing is swallowed silently.
+            out.failed.append({"path": f.path, "error": f"{type(exc).__name__}: {exc}"[:300]})
+    if not body.dry_run and out.imported:
+        await session.commit()
+    return out
 
 
 @router.post("/api/v1/plans/stored", response_model=StoredPlanOut)

@@ -283,11 +283,19 @@ def _parse_handlers(raw: Any) -> list[Step]:
 
 
 def _str_list(raw: Any) -> list[str]:
+    """A list of strings, accepting Ansible's scalar shorthand.
+
+    `notify: restart nginx` and `tags: setup` are valid Ansible — a bare scalar means a one-element list.
+    Demanding a list rejected real upstream content: every handler notification in
+    geerlingguy/ansible-role-nginx is written this way, so importing that role failed outright.
+    """
     if raw is None:
         return []
     if isinstance(raw, list):
         return [str(x) for x in raw]
-    raise NTRunbookError("expected a list")
+    if isinstance(raw, (str, int, float, bool)):
+        return [str(raw)]
+    raise NTRunbookError("expected a list or a single value")
 
 
 def parse_document(text: str, source: str = "<string>") -> Runbook | Role:
