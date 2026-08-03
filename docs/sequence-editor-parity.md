@@ -88,13 +88,22 @@ die Shells brauchen Angular-Entsprechungen. `BlocklyWorkspace` existiert in yolo
 
 ## Beim Bauen gefunden (offen)
 
-- **Kein Host gewählt → keine typisierte Argumentmaske für native Module.** `loadAgentSchemas` braucht eine
-  `agentId`; ohne gewählten Host ist `agentSchemas` leer, also fällt `apt`/`service`/`file` auf den Katalog
-  zurück — und dort liegen native Go-Builtins nicht (`GET /api/v1/modules/apt` → 404, sichtbar als
-  Console-Error). Der Fallback auf den JSON-Editor funktioniert, aber die Maske fehlt genau bei den
-  häufigsten Modulen. Die Builtin-Argspecs sind host-*unabhängig* (jeder Agent hat dieselben), also wäre die
-  Lösung ein host-freier Endpunkt für die Builtin-Schemas — oder ein Hinweis „Host wählen für typisierte
-  Argumente" statt eines stummen 404.
+- ✅ **Builtins sind jetzt im Katalog** (war: ohne gewählten Host keine typisierte Maske für `apt`/`service`/
+  `file`, `GET /api/v1/modules/apt` → 404). Der Katalog kannte nur, was aus Ansible-Quellen übersetzt wurde —
+  die 65 native Go-Module waren gar nicht drin. `agentic-mcpd run-module --list-json` gibt die Registry aus
+  (die einzige Wahrheit über deren Argspec: kein Starlark, kein Source-Dump),
+  `scripts/generate_builtin_sidecars.py` schreibt daraus `configs/modules.d/builtin/<name>.yaml` mit
+  `native: true`, und `load_module`/`list_modules` akzeptieren ein Modul ohne `.star`. Sammlung heißt
+  `builtin`, **nicht** `ansible.builtin` — nichts im Repo belegt, welche unserer Natives echte
+  Ansible-Builtins sind (Dump und UI-Katalog kennen davon je 3), und eine unbelegte Parität im Katalog wäre
+  eine Lüge. Verifiziert: `apt` zeigt `Name*`, `State` als Dropdown, `update_cache` hinter *Advanced*;
+  0 Console-Errors.
+- **Namenskollisionen aufgelöst:** `dnf`, `yum` und `timezone` existieren doppelt (native **und** übersetzt).
+  Zur Laufzeit gewinnt das native Modul — `Registry.Register` lehnt Duplikate ab und Natives werden zuerst
+  registriert (durch einen Go-Test festgenagelt). Der Kurznamen-Index der UI bevorzugt deshalb den nativen
+  Eintrag; vorher hätte er die Argspec des übersetzten Moduls gezeigt, also eine Maske mit Feldern, die das
+  laufende Modul nicht annimmt. `apt` und `iptables` kollidieren nur mit `checkmk.*`-Checks, die der Index
+  ohnehin überspringt.
 - **Der Editor-Bereich ist nur ~450px breit** (Bibliothek links, Runs-Sidebar rechts), deshalb stapeln sich
   Tree/Inspector/Variablen statt nebeneinander zu stehen. Die rechte Sidebar zeigt jetzt *dieselbe*
   Variablenliste wie das neue Panel — sie zusammenzulegen würde die Breite freigeben.

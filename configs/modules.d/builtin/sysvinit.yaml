@@ -1,0 +1,50 @@
+name: sysvinit
+fqcn: builtin.sysvinit
+collection: builtin
+short_description: Manage a legacy SysV init script's running state (start/stop/restart/reload)
+  and its enabled-at-boot state, via /etc/init.d/<name> and update-rc.d
+description: 'Manage a legacy SysV init script''s running state (start/stop/restart/reload)
+  and its enabled-at-boot state, via /etc/init.d/<name> and update-rc.d. Idempotent:
+  queries the init script''s own "status" action (LSB convention: exit 0 means running)
+  and the presence of an S## runlevel symlink before deciding whether to act — except
+  state=restarted/reloaded, always treated as changed, matching systemd''s module
+  behavior for the same reason. Supports check_mode via dry_run=true. This agent''s
+  primary target is systemd (see the systemd/service modules); sysvinit exists for
+  hosts or individual services that still predate it.
+
+
+  Cross-tool equivalents:
+
+  - Ansible: ansible.builtin.sysvinit. Same name/state/enabled parameter names.
+
+  - Chef: the `service` resource with `provider Chef::Provider::Service::Init`.
+
+  - Puppet: the `service` type with `provider => init`.
+
+  - Salt: the `service.running`/`service.dead` states with the init provider selected.
+
+  - Terraform: not applicable — see the systemd module''s description for the general
+  reasoning (Terraform does not manage live service state on a running host).'
+options:
+  enabled:
+    type: bool
+    default: false
+    description: Whether the service should start at boot. Omit to leave the current
+      enabled state untouched.
+  name:
+    type: string
+    description: Init script name under /etc/init.d, e.g. "nginx".
+    required: true
+  state:
+    type: string
+    choices:
+    - started
+    - stopped
+    - restarted
+    - reloaded
+    description: Desired running state. Omit to only manage "enabled" without touching
+      running state.
+native: true
+writes: true
+runtime: native
+source: agent-registry

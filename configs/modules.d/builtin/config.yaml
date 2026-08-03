@@ -1,0 +1,61 @@
+name: config
+fqcn: builtin.config
+collection: builtin
+short_description: Read or write a structured config file as JSON (Class-A codec)
+description: 'Read or write a structured config file as JSON (Class-A codec). `path`
+  + `format` (keyvalue | json | yaml). With no `values`: parses the file and returns
+  its structured data (read-only). With `values`: merges them into the file (manage=merge,
+  default) or makes the file contain exactly them (manage=exact), preserving comments/order
+  for keyvalue and deep-merging json/yaml; writes only on change (idempotent, dry_run-aware).
+  keyvalue tuning: `separator` (default " ", e.g. "=") and `comment` (default "#").
+  This is how a config file round-trips into the server-as-a-document model.
+
+
+  Cross-tool equivalents:
+
+  - Ansible: ansible.builtin.ini_file / lineinfile / template, or community.general
+  codecs.
+
+  - Augeas: the same file↔tree idea (this ships the codecs in-process, no C dependency).
+
+  - Salt/Puppet: file.serialize / augeas providers.'
+options:
+  comment:
+    type: string
+    description: keyvalue comment marker (default "#").
+  format:
+    type: string
+    choices:
+    - keyvalue
+    - ini
+    - json
+    - yaml
+    - xml
+    - fstab
+    - zonefile
+    - exports
+    - dhcpd
+    description: Config codec.
+    required: true
+  manage:
+    type: string
+    choices:
+    - merge
+    - exact
+    description: merge = set the given keys, keep the rest (default); exact = file
+      holds exactly `values`.
+  path:
+    type: string
+    description: Config file path, e.g. /etc/ssh/sshd_config.
+    required: true
+  separator:
+    type: string
+    description: keyvalue key/value separator (default " "; use "=" for key=value
+      files).
+  values:
+    type: object
+    description: Desired values. Omit to read (parse) only.
+native: true
+writes: true
+runtime: native
+source: agent-registry

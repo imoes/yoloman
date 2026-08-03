@@ -1,0 +1,63 @@
+name: wait_for
+fqcn: builtin.wait_for
+collection: builtin
+short_description: 'Block until a condition is met: either a TCP port accepts connections
+  (state=started, the default, when `port` is given) or stops accepting them (state=stopped),
+  or a file exists (state=present, when '
+description: 'Block until a condition is met: either a TCP port accepts connections
+  (state=started, the default, when `port` is given) or stops accepting them (state=stopped),
+  or a file exists (state=present, when `path` is given instead of `port`) or doesn''t
+  (state=absent). Polls every `sleep` seconds (default 1) until `timeout` seconds
+  elapse (default 300, capped at 600 here to bound how long a single tool call can
+  block). Read-only — it never changes system state, only observes it, so it does
+  not require write:true.
+
+
+  Cross-tool equivalents:
+
+  - Ansible: ansible.builtin.wait_for. Same host/port/path/state/timeout/delay/sleep
+  semantics (a focused subset — Ansible also supports regex content matching inside
+  the file and searching for a string in the port''s banner, not implemented here).
+
+  - Chef: no single built-in resource; typically a custom resource polling in a loop,
+  or the community ''wait_for_port''-style helpers.
+
+  - Puppet: no core equivalent; typically handled by an external orchestration tool
+  rather than the Puppet run itself.
+
+  - Salt: no single built-in state; typically a custom module or an `cmd.run` loop.
+
+  - Terraform: the `time_sleep` resource (fixed delay only, no actual condition-polling)
+  or a provisioner script loop.'
+options:
+  delay:
+    type: string
+    description: Seconds to wait before the first check. Default "0".
+  host:
+    type: string
+    description: Host to connect to when checking a port. Default "127.0.0.1".
+  path:
+    type: string
+    description: File path to wait for. Mutually exclusive with port.
+  port:
+    type: string
+    description: TCP port to wait for. Mutually exclusive with path.
+  sleep:
+    type: string
+    description: Seconds between checks. Default "1".
+  state:
+    type: string
+    choices:
+    - started
+    - stopped
+    - present
+    - absent
+    description: Condition to wait for. Default "started".
+  timeout:
+    type: string
+    description: Maximum seconds to wait before failing. Default "300", capped at
+      600.
+native: true
+writes: false
+runtime: native
+source: agent-registry

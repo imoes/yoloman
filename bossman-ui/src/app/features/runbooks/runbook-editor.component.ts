@@ -795,10 +795,14 @@ export class RunbookEditorComponent implements OnInit, AfterViewInit, OnDestroy 
   private agentSchemas = new Map<string, ParamSchema | null>();
 
   /**
-   * Load the selected host's module registry. This is the schema source for the NATIVE Go builtins
-   * (`apt`, `service`, `command`, …) and the embedded `yoloman.*` modules — Bossman's module library only
-   * holds the ~693 discovered collection modules, so without this every builtin step would fall back to
-   * raw JSON. The agent publishes each one as JSON Schema via /agents/{id}/tools.
+   * Load the selected host's module registry, which is the truth about what THIS machine can run — a host
+   * may carry pushed or discovered modules the catalog does not have. It therefore still wins over the
+   * catalog in loadStepSchema.
+   *
+   * It is no longer the only source for the native builtins: the catalog now carries all 65 of them as
+   * `builtin.*` sidecars generated from this same registry (bossman/scripts/generate_builtin_sidecars.py), so
+   * `apt` gets a typed argument form before any host is selected. Before that, picking no host meant a raw
+   * JSON box for the most common modules in any runbook.
    */
   private loadAgentSchemas(agentId: string): void {
     if (!agentId) { this.agentSchemas.clear(); return; }
@@ -1023,12 +1027,24 @@ export class RunbookEditorComponent implements OnInit, AfterViewInit, OnDestroy 
         // (`ansible.builtin.apt`), so index both — otherwise the step form falls back to raw JSON for
         // every builtin, which is most of them.
         const idx = new Map<string, string>();
+        const nativeShort = new Set<string>();
         for (const m of mods) {
           // checkmk.* entries are CHECKS, not modules (the Modules page hides them too) — indexing them
           // would resolve a step's `apt` to `checkmk.apt`, i.e. the wrong thing entirely.
           if (m.fqcn.startsWith('checkmk.')) continue;
           idx.set(m.fqcn, m.fqcn);
-          if (m.name && !idx.has(m.name)) idx.set(m.name, m.fqcn);
+          if (!m.name) continue;
+          // A NATIVE module wins the short name, even against an already-indexed translated one. Three names
+          // exist twice — dnf, yum, timezone — and at run time the agent's native Go module is what executes
+          // them: internal/modules.Registry.Register REFUSES a duplicate, and the natives are registered
+          // before the Starlark ones. Showing the translated module's argspec would put a form on screen
+          // whose fields the running module does not accept.
+          if (m.native) {
+            idx.set(m.name, m.fqcn);
+            nativeShort.add(m.name);
+          } else if (!idx.has(m.name) && !nativeShort.has(m.name)) {
+            idx.set(m.name, m.fqcn);
+          }
         }
         this.moduleIndex = idx;
         // The selected step may have been waiting on this index.

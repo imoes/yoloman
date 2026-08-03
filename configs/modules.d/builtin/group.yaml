@@ -1,0 +1,47 @@
+name: group
+fqcn: builtin.group
+collection: builtin
+short_description: Ensure a system group exists (optionally with a specific gid) or
+  is absent
+description: 'Ensure a system group exists (optionally with a specific gid) or is
+  absent. Idempotent — checks the group''s current state via getent first and only
+  calls groupadd/groupmod/groupdel when something actually needs to change. Supports
+  check_mode via dry_run=true.
+
+
+  Cross-tool equivalents:
+
+  - Ansible: ansible.builtin.group. Same name/gid/state/system parameter names (a
+  focused subset — Ansible also supports non_unique/local, not yet implemented here).
+
+  - Chef: the `group` resource.
+
+  - Puppet: the `group` type.
+
+  - Salt: the `group.present`/`group.absent` states.
+
+  - Terraform: not applicable — Terraform does not manage OS-level accounts on a running
+  host.'
+options:
+  gid:
+    type: string
+    description: Optional specific numeric gid to assign/enforce.
+  name:
+    type: string
+    description: Group name, e.g. "deploy".
+    required: true
+  state:
+    type: string
+    choices:
+    - present
+    - absent
+    description: Whether the group should be present or absent. Default "present".
+  system:
+    type: bool
+    default: false
+    description: 'For state=present when creating a new group: create it as a system
+      group. Default false.'
+native: true
+writes: true
+runtime: native
+source: agent-registry

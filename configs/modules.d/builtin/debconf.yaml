@@ -1,0 +1,61 @@
+name: debconf
+fqcn: builtin.debconf
+collection: builtin
+short_description: Set a debconf database value for a Debian package (pre-seeding
+  an answer a package's postinst script would otherwise prompt for interactively),
+  via debconf-set-selections
+description: 'Set a debconf database value for a Debian package (pre-seeding an answer
+  a package''s postinst script would otherwise prompt for interactively), via debconf-set-selections.
+  Idempotent — reads the current value via `debconf-show <name>` first and only sets
+  it when it differs. Setting a value does not by itself re-run a package''s postinst;
+  that remains a separate `dpkg-reconfigure` step if the package needs to react immediately.
+  Supports check_mode via dry_run=true.
+
+
+  Cross-tool equivalents:
+
+  - Ansible: ansible.builtin.debconf. Same name/question/vtype/value/unseen parameter
+  names.
+
+  - Chef: the `execute` resource shelling out to debconf-set-selections — no dedicated
+  resource exists.
+
+  - Puppet: no dedicated core type; typically a `exec` resource wrapping debconf-set-selections,
+  same as Chef.
+
+  - Salt: the `debconf.set` state.
+
+  - Terraform: not applicable — Terraform does not manage package installer prompts
+  on a running host.'
+options:
+  name:
+    type: string
+    description: Package name the question belongs to, e.g. "postfix".
+    required: true
+  question:
+    type: string
+    description: Debconf question name, e.g. "postfix/main_mailer_type".
+    required: true
+  unseen:
+    type: bool
+    default: false
+    description: When true, also clear the question's "seen" flag so the package will
+      prompt for it again if reconfigured. Default false.
+  value:
+    type: string
+    description: Desired value for the question.
+    required: true
+  vtype:
+    type: string
+    choices:
+    - string
+    - boolean
+    - select
+    - multiselect
+    - note
+    - password
+    description: Debconf value type. Default "string".
+native: true
+writes: true
+runtime: native
+source: agent-registry

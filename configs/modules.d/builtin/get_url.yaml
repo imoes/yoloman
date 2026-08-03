@@ -1,0 +1,57 @@
+name: get_url
+fqcn: builtin.get_url
+collection: builtin
+short_description: Download a file from an HTTP(S) URL to a destination path
+description: 'Download a file from an HTTP(S) URL to a destination path. Conservative
+  idempotency, matching real Ansible: if `dest` already exists, it is left alone entirely
+  unless `force=true` or a `checksum` is given that doesn''t match the existing file''s
+  hash — there is no download at all just to "check", to avoid needless network traffic
+  for a file that''s presumably already correct. Supports check_mode via dry_run=true.
+
+
+  Cross-tool equivalents:
+
+  - Ansible: ansible.builtin.get_url. Same url/dest/checksum/force/owner/group/mode
+  semantics (a focused subset — Ansible also supports headers/url_username/timeout
+  and more, not yet implemented here).
+
+  - Chef: the `remote_file` resource.
+
+  - Puppet: the `archive` module (voxpupuli-archive) or an `exec` wrapping curl/wget.
+
+  - Salt: the `file.managed` state''s `source` parameter with an `http://`/`https://`
+  URL.
+
+  - Terraform: not applicable at apply time for a running host; closest analogue is
+  a provisioner shelling out to curl/wget.'
+options:
+  checksum:
+    type: string
+    description: Optional expected checksum as "sha256:<hex>". If dest exists and
+      matches, no download occurs.
+  dest:
+    type: string
+    description: Destination path to write to, e.g. "/opt/app/release.tar.gz".
+    required: true
+  force:
+    type: bool
+    default: false
+    description: When true, always (re-)download and overwrite dest even if it already
+      exists. Default false.
+  group:
+    type: string
+    description: Optional desired group (group name or numeric gid).
+  mode:
+    type: string
+    description: Optional desired permission mode as an octal string, e.g. "0644".
+  owner:
+    type: string
+    description: Optional desired owner (username or numeric uid).
+  url:
+    type: string
+    description: Source URL to download from.
+    required: true
+native: true
+writes: true
+runtime: native
+source: agent-registry

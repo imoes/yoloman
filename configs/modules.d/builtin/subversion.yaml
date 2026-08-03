@@ -1,0 +1,49 @@
+name: subversion
+fqcn: builtin.subversion
+collection: builtin
+short_description: Ensure a Subversion working copy is checked out at dest and updated
+  to a desired revision
+description: 'Ensure a Subversion working copy is checked out at dest and updated
+  to a desired revision. Idempotent — if dest is already a working copy, only runs
+  `svn update` (and reports changed based on whether the revision actually moved);
+  otherwise checks out fresh. Supports check_mode via dry_run=true (a real check requires
+  contacting the server to know its current revision, so dry_run against an existing
+  checkout conservatively predicts changed=true, the same trade-off documented for
+  git/state=latest package modules).
+
+
+  Cross-tool equivalents:
+
+  - Ansible: ansible.builtin.subversion. Same repo/dest/revision parameter names (a
+  focused subset — Ansible also supports username/password/export, not implemented
+  here).
+
+  - Chef: the `subversion` resource.
+
+  - Puppet: the puppetlabs-vcsrepo module''s `vcsrepo` type with `provider => svn`.
+
+  - Salt: the `svn.latest` state.
+
+  - Terraform: not applicable — see the git module''s description for the general
+  reasoning.'
+options:
+  dest:
+    type: string
+    description: Destination directory, e.g. "/opt/app".
+    required: true
+  force:
+    type: bool
+    default: false
+    description: When true, discard any local modifications before updating (svn revert).
+      Default false.
+  repo:
+    type: string
+    description: Subversion repository URL to check out from.
+    required: true
+  revision:
+    type: string
+    description: Revision to check out, e.g. "HEAD" or "1234". Default "HEAD".
+native: true
+writes: true
+runtime: native
+source: agent-registry

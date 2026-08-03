@@ -1,0 +1,61 @@
+name: deb822_repository
+fqcn: builtin.deb822_repository
+collection: builtin
+short_description: Ensure a modern RFC822-style ("deb822") APT source stanza is present
+  or absent in /etc/apt/sources.list.d/<name>.sources — the format used by apt 2.4+
+  (Debian 12+, Ubuntu 24.04+) in place of the older
+description: 'Ensure a modern RFC822-style ("deb822") APT source stanza is present
+  or absent in /etc/apt/sources.list.d/<name>.sources — the format used by apt 2.4+
+  (Debian 12+, Ubuntu 24.04+) in place of the older one-line "deb ..." syntax that
+  apt_repository manages. Idempotent — only writes when the rendered stanza differs
+  from the file''s current content. Supports check_mode via dry_run=true.
+
+
+  Cross-tool equivalents:
+
+  - Ansible: ansible.builtin.deb822_repository. Covers the common types/uris/suites/components/signed_by
+  fields (a focused subset — Ansible''s real module also supports per-field options
+  like Architectures/Languages/trust overrides, not implemented here).
+
+  - Chef: the `apt_repository` resource with deb822-style options on newer releases,
+  or a hand-written `file` resource for the stanza.
+
+  - Puppet: no core equivalent yet at this format''s release cadence; typically a
+  `file` resource with templated content.
+
+  - Salt: the `pkgrepo.managed` state''s `key_url`/`aptkey`-adjacent deb822 support,
+  or a templated `file.managed`.
+
+  - Terraform: not applicable — Terraform does not manage a running host''s package
+  manager configuration.'
+options:
+  components:
+    type: list
+    description: Components (e.g. main, contrib). Optional.
+  name:
+    type: string
+    description: Target file name (without .sources) under /etc/apt/sources.list.d/,
+      e.g. "myrepo".
+    required: true
+  signed_by:
+    type: string
+    description: Optional path to the repository's signing key.
+  state:
+    type: string
+    choices:
+    - present
+    - absent
+    description: Whether the entry should be present or absent. Default "present".
+  suites:
+    type: list
+    description: Suite names (e.g. distribution codenames). Required for state=present.
+  types:
+    type: list
+    description: Entry types. Default ["deb"].
+  uris:
+    type: list
+    description: Repository URIs. Required for state=present.
+native: true
+writes: true
+runtime: native
+source: agent-registry

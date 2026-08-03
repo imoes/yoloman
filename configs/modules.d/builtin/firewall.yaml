@@ -1,0 +1,85 @@
+name: firewall
+fqcn: builtin.firewall
+collection: builtin
+short_description: Backend-agnostic host firewall manager with the simplicity of firewall-cmd
+description: 'Backend-agnostic host firewall manager with the simplicity of firewall-cmd.
+  Auto-detects firewalld / ufw / iptables and translates a small set of high-level
+  operations to that backend. Operations (op): detect (report backend + state), enable
+  (turn firewall on; on the iptables backend this installs iptables-persistent and
+  saves current rules), disable, allow / deny (a port like 8080/tcp or a named service
+  like ssh, optionally from a source CIDR), snat (masquerade or SNAT outgoing traffic
+  — needs to_source and out_interface), dnat (port-forward incoming traffic — needs
+  protocol, dest_port, to_dest, in_interface), set_mode (server = no IP forwarding;
+  router = enable net.ipv4.ip_forward via a persistent /etc/sysctl.d drop-in AND masquerade
+  the LAN out the WAN interface), and list (current rules).
+
+
+  Cross-tool equivalents: Ansible ansible.builtin.iptables / posix.firewalld / community.general.ufw;
+  Salt firewalld/iptables states. This module is the one-stop simplified front-end
+  over all three.'
+options:
+  agent_port:
+    type: string
+    description: Management (Yoloman) TCP port to whitelist first on enable. Defaults
+      to the daemon's own listen port.
+  backend:
+    type: string
+    choices:
+    - firewalld
+    - ufw
+    - iptables
+    description: Force a backend instead of auto-detecting.
+  dest_port:
+    type: string
+    description: Incoming port to forward (dnat).
+  in_interface:
+    type: string
+    description: Inbound/WAN interface (dnat / router masquerade).
+  lan_subnet:
+    type: string
+    description: LAN subnet to masquerade in router mode, e.g. "10.0.0.0/24".
+  mode:
+    type: string
+    choices:
+    - server
+    - router
+    description: Host mode for set_mode.
+  op:
+    type: string
+    choices:
+    - detect
+    - enable
+    - disable
+    - allow
+    - deny
+    - snat
+    - dnat
+    - set_mode
+    - list
+    description: Operation to perform.
+    required: true
+  out_interface:
+    type: string
+    description: Outbound/WAN interface (snat / router masquerade).
+  port:
+    type: string
+    description: Port spec for allow/deny, e.g. "8080/tcp" or "53/udp".
+  protocol:
+    type: string
+    description: Protocol for dnat, e.g. "tcp" or "udp". Default "tcp".
+  service:
+    type: string
+    description: Named service for allow/deny, e.g. "ssh", "http", "https", "dns".
+  source:
+    type: string
+    description: Optional source address/CIDR to scope an allow/deny or SNAT rule.
+  to_dest:
+    type: string
+    description: DNAT target "ip" or "ip:port" (dnat).
+  to_source:
+    type: string
+    description: SNAT target IP, or "masquerade" for dynamic source NAT (snat).
+native: true
+writes: true
+runtime: native
+source: agent-registry

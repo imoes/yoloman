@@ -1,0 +1,47 @@
+name: tempfile
+fqcn: builtin.tempfile
+collection: builtin
+short_description: Create a temporary file or directory with a unique name and return
+  its path — for staging a scratch location before a later step (e.g
+description: 'Create a temporary file or directory with a unique name and return its
+  path — for staging a scratch location before a later step (e.g. download or render
+  something there, then move/copy it into place). Not idempotent by nature (like `mktemp`,
+  every real call creates a brand-new uniquely named path and reports changed=true);
+  under check_mode (dry_run=true) nothing is created and a predicted path is returned
+  instead.
+
+
+  Cross-tool equivalents:
+
+  - Ansible: ansible.builtin.tempfile. Same state/path/prefix/suffix semantics.
+
+  - Chef: the `directory`/`file` resources combined with Ruby''s `Dir.mktmpdir`/`Tempfile`
+  in a custom resource — no single built-in resource.
+
+  - Puppet: no core equivalent; typically an `exec` wrapping `mktemp`.
+
+  - Salt: the `temp.dir`/`temp.file` execution module functions.
+
+  - Terraform: not applicable — Terraform manages declared infrastructure, not ephemeral
+  scratch paths created during a run.'
+options:
+  path:
+    type: string
+    description: 'Directory under which to create the temp path. Default: the system
+      temp directory.'
+  prefix:
+    type: string
+    description: Filename prefix. Default "tmp".
+  state:
+    type: string
+    choices:
+    - file
+    - directory
+    description: Whether to create a "file" or a "directory". Default "file".
+  suffix:
+    type: string
+    description: Filename suffix. Default "" (none).
+native: true
+writes: true
+runtime: native
+source: agent-registry

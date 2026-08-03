@@ -1,0 +1,60 @@
+name: lineinfile
+fqcn: builtin.lineinfile
+collection: builtin
+short_description: Ensure a single line is present or absent in a text file, without
+  rewriting the rest of the file — the classic 'make sure this one config line is
+  set' operation (e.g
+description: 'Ensure a single line is present or absent in a text file, without rewriting
+  the rest of the file — the classic ''make sure this one config line is set'' operation
+  (e.g. a sysctl setting, a single key=value pair, an /etc/hosts entry). If `regexp`
+  is given, the first line matching it is replaced (state=present) or every matching
+  line is removed (state=absent); without `regexp`, an exact line match is used. Idempotent
+  — a repeat call with the same parameters reports changed=false. Supports check_mode
+  via dry_run=true.
+
+
+  Cross-tool equivalents:
+
+  - Ansible: ansible.builtin.lineinfile. Same path/regexp/line/state/create parameter
+  names and matching semantics (a focused subset — Ansible also supports insertafter/insertbefore/backrefs,
+  not yet implemented here).
+
+  - Chef: no single built-in resource; typically composed from `Chef::Util::FileEdit`
+  in a custom resource/library, or the community `line` cookbook''s `replace_or_add`
+  resource.
+
+  - Puppet: the `file_line` type from the puppetlabs-stdlib module.
+
+  - Salt: the `file.line` or `file.replace` state.
+
+  - Terraform: not applicable — Terraform has no line-level file-editing primitive;
+  the closest analogue is templating the whole file with `local_file`/`templatefile()`.'
+options:
+  create:
+    type: bool
+    default: false
+    description: 'For state=present: if the file does not exist, create it instead
+      of failing. Default false.'
+  line:
+    type: string
+    description: The line's exact desired content (for state=present) or the exact
+      line to remove when no regexp is given (for state=absent).
+  path:
+    type: string
+    description: File to edit, e.g. "/etc/sysctl.conf".
+    required: true
+  regexp:
+    type: string
+    description: Optional RE2 regular expression. For state=present, matches the line
+      to replace with `line` (appends `line` if no match). For state=absent, every
+      matching line is removed.
+  state:
+    type: string
+    choices:
+    - present
+    - absent
+    description: Whether the line should be present or absent. Default "present".
+native: true
+writes: true
+runtime: native
+source: agent-registry

@@ -1,0 +1,50 @@
+name: apt_key
+fqcn: builtin.apt_key
+collection: builtin
+short_description: Ensure an APT signing key is present or absent, identified by `id`
+  (used as the keyring filename)
+description: 'Ensure an APT signing key is present or absent, identified by `id` (used
+  as the keyring filename). Provide the key as armored text via `data`, or fetch it
+  from `url`. Implemented via `gpg --dearmor` writing to /etc/apt/trusted.gpg.d/<id>.gpg
+  rather than the `apt-key` command itself, which upstream Debian/Ubuntu have deprecated
+  and removed from newer releases — this is the same replacement approach Debian''s
+  own release notes recommend. Idempotent — only writes when the dearmored key bytes
+  differ from the keyring file''s current content. Supports check_mode via dry_run=true.
+
+
+  Cross-tool equivalents:
+
+  - Ansible: ansible.builtin.apt_key. Ansible''s own module is itself marked deprecated
+  for the same reason (apt-key removal); same id/data/url/state parameter names.
+
+  - Chef: the `apt_repository` resource''s `key` property, or a `execute` resource
+  wrapping `gpg --dearmor`.
+
+  - Puppet: the puppetlabs-apt module''s `apt::key` type.
+
+  - Salt: the `pkgrepo.managed` state''s `key_url`/`aptkey_id` handling.
+
+  - Terraform: not applicable — Terraform does not manage a running host''s package
+  manager trust store.'
+options:
+  data:
+    type: string
+    description: Armored (ASCII) key text. Mutually exclusive with url. Required for
+      state=present unless url is given.
+  id:
+    type: string
+    description: Key identifier, used as the keyring filename (<id>.gpg), e.g. "docker".
+    required: true
+  state:
+    type: string
+    choices:
+    - present
+    - absent
+    description: Whether the key should be present or absent. Default "present".
+  url:
+    type: string
+    description: URL to fetch the armored key from. Mutually exclusive with data.
+native: true
+writes: true
+runtime: native
+source: agent-registry

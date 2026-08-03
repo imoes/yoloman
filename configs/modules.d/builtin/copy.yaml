@@ -1,0 +1,55 @@
+name: copy
+fqcn: builtin.copy
+collection: builtin
+short_description: Ensure a destination file's content, owner, group, and mode match
+  a desired value
+description: 'Ensure a destination file''s content, owner, group, and mode match a
+  desired value. Provide exactly one content source: `content` (a literal string,
+  e.g. a rendered config file or a message-of-the-day banner) or `src` (a path to
+  an existing file on this same host to copy from). Idempotent — compares the destination''s
+  current bytes against the desired content and only writes when they differ; reports
+  changed=false on a repeat call with the same content. Supports check_mode via dry_run=true.
+
+
+  Cross-tool equivalents:
+
+  - Ansible: ansible.builtin.copy. Same dest/content/src/owner/group/mode semantics
+  (a subset — Ansible''s copy also supports remote_src, backup, validate, which are
+  not yet implemented here).
+
+  - Chef: the `file` resource with a `content` property (for literal content) or the
+  `cookbook_file`/`remote_file` resources (for copying a source file).
+
+  - Puppet: the `file` type with `content => ...` (literal) or `source => ...` (copy
+  from a module file).
+
+  - Salt: the `file.managed` state, using its `contents` parameter (literal) or `source`
+  parameter (copy from a file).
+
+  - Terraform: the `local_file` resource (for files local to the machine running Terraform)
+  or a provisioner''s `file` block for copying to a remote managed host.'
+options:
+  content:
+    type: string
+    description: Literal content to write to dest. Mutually exclusive with src.
+  dest:
+    type: string
+    description: Destination path to write, e.g. "/etc/motd" or "/etc/nginx/conf.d/app.conf".
+    required: true
+  group:
+    type: string
+    description: Optional desired group (group name or numeric gid).
+  mode:
+    type: string
+    description: Optional desired permission mode as an octal string, e.g. "0644".
+  owner:
+    type: string
+    description: Optional desired owner (username or numeric uid).
+  src:
+    type: string
+    description: Path to an existing local file whose content should be copied to
+      dest. Mutually exclusive with content.
+native: true
+writes: true
+runtime: native
+source: agent-registry

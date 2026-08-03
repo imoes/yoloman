@@ -1,0 +1,52 @@
+name: git
+fqcn: builtin.git
+collection: builtin
+short_description: Ensure a git repository is cloned at dest and checked out to a
+  desired version (branch, tag, or commit)
+description: 'Ensure a git repository is cloned at dest and checked out to a desired
+  version (branch, tag, or commit). Idempotent — if dest is already a working copy,
+  only fetches/checks out when the resolved commit differs from the current HEAD;
+  otherwise clones fresh. Supports check_mode via dry_run=true (a real check requires
+  a network fetch to know the remote''s current state, so dry_run against an existing
+  clone conservatively predicts changed=true — the same trade-off documented for the
+  RPM package modules'' state=latest).
+
+
+  Cross-tool equivalents:
+
+  - Ansible: ansible.builtin.git. Same repo/dest/version/depth/force parameter names
+  (a focused subset — Ansible also supports refspec/key_file/accept_hostkey and more,
+  not implemented here).
+
+  - Chef: the `git` resource.
+
+  - Puppet: the puppetlabs-vcsrepo module''s `vcsrepo` type with `provider => git`.
+
+  - Salt: the `git.latest` state.
+
+  - Terraform: not applicable — Terraform does not manage arbitrary file-tree state
+  on a running host; the closest analogue is a provisioner shelling out to git.'
+options:
+  depth:
+    type: string
+    description: Optional shallow-clone depth, as a string, e.g. "1".
+  dest:
+    type: string
+    description: Destination directory, e.g. "/opt/app".
+    required: true
+  force:
+    type: bool
+    default: false
+    description: When true, discard any local modifications before checking out. Default
+      false.
+  repo:
+    type: string
+    description: Repository URL to clone from.
+    required: true
+  version:
+    type: string
+    description: Branch, tag, or commit to check out. Default "HEAD".
+native: true
+writes: true
+runtime: native
+source: agent-registry

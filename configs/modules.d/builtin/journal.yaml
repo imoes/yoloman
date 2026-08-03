@@ -1,0 +1,56 @@
+name: journal
+fqcn: builtin.journal
+collection: builtin
+short_description: Read the systemd journal (journald) via `journalctl -o json`, optionally
+  filtered by unit, priority, a time window, or a message pattern
+description: 'Read the systemd journal (journald) via `journalctl -o json`, optionally
+  filtered by unit, priority, a time window, or a message pattern. Returns the most
+  recent N entries (newest last), each as {timestamp, unit, priority, message, pid,
+  hostname}. Read-only — it never writes and always reports changed=false. Use this
+  to answer ''what has this service been logging'' / ''why did it fail'' without shell
+  access, as the Logs section of the host-management page and as an MCP tool.
+
+
+  Parameters: lines (default 200, capped at 5000), unit (a systemd unit like "nginx"),
+  priority (0-7 or a name like "err"; shows that level and worse), since (any journalctl
+  time spec, e.g. "2024-01-01 10:00", "-1h", "yesterday"), boot (true = current boot
+  only), grep (a message regex).
+
+
+  Cross-tool equivalents:
+
+  - Ansible: no first-class module; typically `ansible.builtin.command: journalctl
+  ...` then parse, or the community `syslog`/log-reading roles. This module makes
+  it structured.
+
+  - Chef/Puppet/Salt: normally a `shell_out`/`cmd.run` around journalctl; none ship
+  a dedicated journald-reading resource.
+
+  - Terraform: not applicable — Terraform does not read live host logs.'
+options:
+  boot:
+    type: bool
+    default: false
+    description: When true, restrict to the current boot only (journalctl --boot).
+  grep:
+    type: string
+    description: Only entries whose MESSAGE matches this (journalctl --grep, a regex).
+  lines:
+    type: number
+    description: How many of the most recent entries to return (default 200, capped
+      at 5000).
+  priority:
+    type: string
+    description: 'Restrict to this syslog priority and worse: 0-7 (emerg..debug) or
+      a name like "err", "warning", "info".'
+  since:
+    type: string
+    description: 'Only entries at/after this time. Any journalctl time spec: "2024-01-01
+      10:00", "-1h", "yesterday".'
+  unit:
+    type: string
+    description: Restrict to one systemd unit, e.g. "nginx" or "nginx.service".
+native: true
+writes: false
+runtime: native
+source: agent-registry

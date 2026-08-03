@@ -1,0 +1,50 @@
+name: apt_repository
+fqcn: builtin.apt_repository
+collection: builtin
+short_description: Ensure a one-line APT source entry (e.g
+description: 'Ensure a one-line APT source entry (e.g. "deb https://example.com/repo
+  stable main") is present or absent in /etc/apt/sources.list.d/<filename>.list. Idempotent
+  — only writes when the exact line isn''t already there (state=present) or is there
+  (state=absent). Optionally runs `apt-get update` afterward when update_cache=true
+  and something changed. Supports check_mode via dry_run=true.
+
+
+  Cross-tool equivalents:
+
+  - Ansible: ansible.builtin.apt_repository. Similar repo/state/update_cache semantics
+  — a focused subset: `filename` is required here rather than auto-derived, and state=absent
+  only searches the given file rather than every configured source file.
+
+  - Chef: the `apt_repository` resource (part of the apt cookbook).
+
+  - Puppet: the puppetlabs-apt module''s `apt::source` type.
+
+  - Salt: the `pkgrepo.managed`/`pkgrepo.absent` states.
+
+  - Terraform: not applicable — Terraform does not manage a running host''s package
+  manager configuration.'
+options:
+  filename:
+    type: string
+    description: Target file name (without .list) under /etc/apt/sources.list.d/,
+      e.g. "myrepo".
+    required: true
+  repo:
+    type: string
+    description: The full one-line source entry, e.g. "deb https://example.com/repo
+      stable main". Required for state=present.
+  state:
+    type: string
+    choices:
+    - present
+    - absent
+    description: Whether the entry should be present or absent. Default "present".
+  update_cache:
+    type: bool
+    default: false
+    description: When true and something changed, run apt-get update afterward. Default
+      false.
+native: true
+writes: true
+runtime: native
+source: agent-registry

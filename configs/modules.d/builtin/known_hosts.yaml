@@ -1,0 +1,52 @@
+name: known_hosts
+fqcn: builtin.known_hosts
+collection: builtin
+short_description: Ensure an SSH known_hosts entry is present or absent, identified
+  by hostname (the entry's first field) rather than its full line — so re-running
+  with a different host key replaces the same entry inste
+description: 'Ensure an SSH known_hosts entry is present or absent, identified by
+  hostname (the entry''s first field) rather than its full line — so re-running with
+  a different host key replaces the same entry instead of adding a duplicate stale
+  one. Idempotent — a repeat call with the same key reports changed=false. Supports
+  check_mode via dry_run=true. Host key hashing (ssh-keygen -H style) is not implemented
+  — entries are always written in plain hostname form, matching this module''s real
+  Ansible default (hash_host=false).
+
+
+  Cross-tool equivalents:
+
+  - Ansible: ansible.builtin.known_hosts. Same name/key/path/state parameter names
+  (a focused subset — Ansible also supports hash_host, not implemented here).
+
+  - Chef: no single built-in resource; typically composed from `Chef::Util::FileEdit`
+  in a custom resource, or the community ''ssh_known_hosts'' cookbook.
+
+  - Puppet: the puppetlabs-stdlib module conventions, or the sshkeys core type on
+  some platforms.
+
+  - Salt: the `ssh.set_known_host`/`ssh.rm_known_host` execution modules.
+
+  - Terraform: not applicable — Terraform does not manage a running host''s SSH trust
+  store.'
+options:
+  key:
+    type: string
+    description: The full known_hosts line, e.g. "github.com ssh-ed25519 AAAA...".
+      Required for state=present.
+  name:
+    type: string
+    description: Hostname the entry is for, e.g. "github.com".
+    required: true
+  path:
+    type: string
+    description: Target known_hosts file. Default "/etc/ssh/ssh_known_hosts".
+  state:
+    type: string
+    choices:
+    - present
+    - absent
+    description: Whether the entry should be present or absent. Default "present".
+native: true
+writes: true
+runtime: native
+source: agent-registry

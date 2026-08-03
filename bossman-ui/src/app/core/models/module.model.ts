@@ -6,6 +6,9 @@ export interface ModuleInfo {
   collection: string;
   name: string;
   translated: boolean;
+  /** Implemented in the agent's Go registry (no Starlark). A native module WINS its short name: the agent
+   *  registers natives first and refuses duplicates, so it is the native one that actually runs. */
+  native?: boolean;
   short_description?: string;
   writes?: boolean;
 }

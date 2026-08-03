@@ -1,0 +1,49 @@
+name: rpm_key
+fqcn: builtin.rpm_key
+collection: builtin
+short_description: Ensure an RPM package-signing key is present or absent, via `rpm
+  --import`/`rpm -e`
+description: 'Ensure an RPM package-signing key is present or absent, via `rpm --import`/`rpm
+  -e`. `key` is a path or URL to the key file — rpm --import accepts both directly.
+  `fingerprint` (the key''s full hex fingerprint) is required so the module can check
+  whether it''s already imported (via its last-8-hex-chars key ID, the identifier
+  rpm itself stores imported keys under as a `gpg-pubkey-<keyid>-<date>` pseudo-package)
+  without re-importing it. Idempotent — only calls rpm when the key''s presence doesn''t
+  already match state. Supports check_mode via dry_run=true. Unit-tested only in this
+  project — no RPM-based host in the real verification environment (contrast with
+  apt_key, which is real-tested on Debian).
+
+
+  Cross-tool equivalents:
+
+  - Ansible: ansible.builtin.rpm_key. Same key/fingerprint/state semantics.
+
+  - Chef: the `yum_repository` resource''s `gpgkey` property (imported implicitly
+  on first repo use), or a `execute` resource wrapping `rpm --import`.
+
+  - Puppet: the puppetlabs-stdlib module conventions or a raw `exec` wrapping `rpm
+  --import` — no core equivalent.
+
+  - Salt: the `pkgrepo.managed` state''s `gpgkey` handling on RPM-based minions.
+
+  - Terraform: not applicable — Terraform does not manage a running host''s package
+  manager trust store.'
+options:
+  fingerprint:
+    type: string
+    description: The key's full hex fingerprint, used to check presence via its last-8-hex-char
+      key ID.
+    required: true
+  key:
+    type: string
+    description: Path or URL to the key file. Required for state=present.
+  state:
+    type: string
+    choices:
+    - present
+    - absent
+    description: Whether the key should be present or absent. Default "present".
+native: true
+writes: true
+runtime: native
+source: agent-registry

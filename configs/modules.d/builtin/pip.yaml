@@ -1,0 +1,53 @@
+name: pip
+fqcn: builtin.pip
+collection: builtin
+short_description: Ensure one or more Python packages are present, absent, or upgraded
+  to the latest available version, via pip
+description: 'Ensure one or more Python packages are present, absent, or upgraded
+  to the latest available version, via pip. Idempotent: queries `pip show <pkg>` (a
+  read-only query, safe under check_mode) before deciding whether to act. A package
+  spec may pin an exact version with "pkg==1.2.3" (checked for state=present); state=latest
+  always attempts `pip install --upgrade` and reports changed based on the version
+  actually observed before vs. after. An optional `virtualenv` path is created via
+  `python3 -m venv` if it doesn''t yet exist, and that venv''s own pip is used instead
+  of a system-wide one. Supports check_mode via dry_run=true.
+
+
+  Cross-tool equivalents:
+
+  - Ansible: ansible.builtin.pip. Same name/state/version/virtualenv parameter names
+  (a focused subset — Ansible also supports requirements files, extra_args, and more,
+  not implemented here).
+
+  - Chef: the `pip_package` resource (poise-python / python cookbook).
+
+  - Puppet: the puppet-python module''s `package` type with `provider => pip`.
+
+  - Salt: the `pip.installed`/`pip.removed` states.
+
+  - Terraform: not applicable — Terraform does not manage language-level package managers
+  on a running host.'
+options:
+  executable:
+    type: string
+    description: Pip binary to use when virtualenv is not set. Default "pip3".
+  name:
+    type: list
+    description: One or more package names, e.g. ["requests"] or ["requests==2.31.0"]
+      (an "==version" suffix pins an exact version for state=present).
+    required: true
+  state:
+    type: string
+    choices:
+    - present
+    - absent
+    - latest
+    description: Desired package state. Default "present".
+  virtualenv:
+    type: string
+    description: Optional path to a virtualenv; created via `python3 -m venv` if it
+      doesn't exist yet, and used instead of the system pip.
+native: true
+writes: true
+runtime: native
+source: agent-registry

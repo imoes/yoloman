@@ -1,0 +1,47 @@
+name: unarchive
+fqcn: builtin.unarchive
+collection: builtin
+short_description: Extract a zip or tar archive (optionally .tar.gz/.tgz or .tar.bz2)
+  already present on this host to a destination directory
+description: 'Extract a zip or tar archive (optionally .tar.gz/.tgz or .tar.bz2) already
+  present on this host to a destination directory. Archive type is detected from the
+  `src` file''s extension. Idempotency relies on `creates`: if given and that path
+  already exists, extraction is skipped entirely; without it, every call extracts
+  (there is no cheap way to know in advance whether an archive''s contents already
+  match dest without extracting it — the same practical limitation real Ansible has
+  without a working `creates` check). Supports check_mode via dry_run=true. There
+  is no separate control-node filesystem in this agent''s model, so `src` is always
+  a path on this same host (equivalent to Ansible''s remote_src=true).
+
+
+  Cross-tool equivalents:
+
+  - Ansible: ansible.builtin.unarchive. Same src/dest/creates semantics (a focused
+  subset — Ansible also supports owner/group/mode/exclude/include, not implemented
+  here).
+
+  - Chef: the `archive_file` resource.
+
+  - Puppet: the voxpupuli-archive module''s `archive` type.
+
+  - Salt: the `archive.extracted` state.
+
+  - Terraform: the `archive_file` data source works in the opposite direction (creating
+  an archive, not extracting one) — not applicable here.'
+options:
+  creates:
+    type: string
+    description: Optional path; if it already exists, extraction is skipped (the idempotency
+      mechanism).
+  dest:
+    type: string
+    description: Destination directory to extract into, e.g. "/opt/app".
+    required: true
+  src:
+    type: string
+    description: Archive file already on this host, e.g. "/tmp/release.tar.gz".
+    required: true
+native: true
+writes: true
+runtime: native
+source: agent-registry

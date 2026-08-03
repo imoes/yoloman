@@ -1,0 +1,54 @@
+name: logfiles
+fqcn: builtin.logfiles
+collection: builtin
+short_description: List and tail plain-text log files under /var/log and any operator-configured
+  custom log paths
+description: 'List and tail plain-text log files under /var/log and any operator-configured
+  custom log paths. Read-only and path-jailed: a file can only be listed/read if it
+  resolves to within an allowed root (/var/log plus extra_paths), so it can never
+  read arbitrary files like /etc/shadow.
+
+
+  state=list (default) enumerates the log files (path, size, modified) under the roots,
+  skipping the binary journal dir and utmp/wtmp-style databases. state=read tails
+  a single file — the last `lines` lines (default 200, capped at 5000), optionally
+  filtered by `grep`: a plain substring, an extended regular expression when regex=true
+  (like grep -E), and inverted when invert=true (keep non-matching lines, like grep
+  -v).
+
+
+  Companion to the `journal` module (journald); together they give the operator a
+  full log view and feed the AI''s error-source analysis alongside the eBPF metrics.'
+options:
+  extra_paths:
+    type: list
+    description: Additional custom log files or directories to include (operator-configured).
+  grep:
+    type: string
+    description: 'For state=read: keep only lines matching this pattern (plain substring
+      by default; an extended regular expression when regex=true). Like grep''s PATTERN.'
+  invert:
+    type: bool
+    default: false
+    description: 'For state=read: return the lines that do NOT match `grep` (like
+      grep -v).'
+  lines:
+    type: number
+    description: 'For state=read: how many trailing lines (default 200, capped at
+      5000).'
+  path:
+    type: string
+    description: 'For state=read: the log file to tail (must resolve within an allowed
+      root).'
+  regex:
+    type: bool
+    default: false
+    description: 'For state=read: interpret `grep` as an extended regular expression
+      (like grep -E) instead of a plain substring.'
+  state:
+    type: string
+    description: '"list" (default) enumerates log files; "read" tails one file.'
+native: true
+writes: false
+runtime: native
+source: agent-registry

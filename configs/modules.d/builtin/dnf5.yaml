@@ -1,0 +1,45 @@
+name: dnf5
+fqcn: builtin.dnf5
+collection: builtin
+short_description: Ensure one or more RPM packages are present, absent, or upgraded
+  to the latest available version, via dnf5
+description: 'Ensure one or more RPM packages are present, absent, or upgraded to
+  the latest available version, via dnf5. Idempotent: queries the rpm database''s
+  current status before deciding whether to act. Unit-tested only in this project
+  (no RPM-based host in the real verification environment — contrast with apt, this
+  agent''s real-tested primary target). Supports check_mode via dry_run=true, with
+  one caveat: for state=latest, dry_run against an already-installed package conservatively
+  predicts changed=true, since determining whether a newer version is truly available
+  would itself require a repository query.
+
+
+  Cross-tool equivalents:
+
+  - Ansible: ansible.builtin.dnf5. Same name/state parameter names (name accepts either
+  a single package or a list); a focused subset — Ansible''s own module also supports
+  enablerepo/disablerepo/update_cache and more, not yet implemented here.
+
+  - Chef: the `dnf_package`/`package` resources.
+
+  - Puppet: the `package` type with `provider => dnf5`.
+
+  - Salt: the `pkg.installed`/`pkg.removed`/`pkg.latest` states.
+
+  - Terraform: not applicable — Terraform does not manage OS packages on a running
+  host.'
+options:
+  name:
+    type: list
+    description: One or more package names, e.g. ["httpd"] or ["httpd", "curl"].
+    required: true
+  state:
+    type: string
+    choices:
+    - present
+    - absent
+    - latest
+    description: Desired package state. Default "present".
+native: true
+writes: true
+runtime: native
+source: agent-registry

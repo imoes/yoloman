@@ -1,0 +1,50 @@
+name: find
+fqcn: builtin.find
+collection: builtin
+short_description: Search one or more directories for entries matching a glob pattern
+  and/or type, optionally recursing into subdirectories
+description: 'Search one or more directories for entries matching a glob pattern and/or
+  type, optionally recursing into subdirectories. Returns a list of {path, isdir,
+  size} for every match. Use this to discover what already exists on disk before deciding
+  what file/copy/template operations are needed (e.g. "find all *.conf files under
+  /etc/nginx/conf.d"), or to answer an inventory question about the filesystem.
+
+
+  Cross-tool equivalents:
+
+  - Ansible: ansible.builtin.find. Same paths/pattern/recurse/file_type parameter
+  names and meaning (a subset of Ansible''s fuller option set).
+
+  - Chef: `Dir.glob(pattern)` in recipe/library Ruby code.
+
+  - Puppet: the `fileset()` built-in function, or a custom fact enumerating files.
+
+  - Salt: the `file.find` execution module.
+
+  - Terraform: the `fileset()` built-in configuration function (evaluated against
+  the machine running `terraform plan`, not a remote managed host).'
+options:
+  file_type:
+    type: string
+    choices:
+    - any
+    - file
+    - directory
+    description: Restrict matches by entry type. Default "any".
+  paths:
+    type: list
+    description: One or more directories to search, e.g. ["/etc/nginx/conf.d"].
+    required: true
+  pattern:
+    type: string
+    description: Optional glob pattern matched against each entry's base name, e.g.
+      "*.conf". Empty means match everything.
+  recurse:
+    type: bool
+    default: false
+    description: Whether to descend into subdirectories. Default false (only direct
+      children of each path).
+native: true
+writes: false
+runtime: native
+source: agent-registry

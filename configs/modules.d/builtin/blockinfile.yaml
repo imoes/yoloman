@@ -1,0 +1,57 @@
+name: blockinfile
+fqcn: builtin.blockinfile
+collection: builtin
+short_description: Insert, update, or remove a multi-line block of text surrounded
+  by marker comments in a file, without touching the rest of the file's content —
+  the block is identified by its markers, so re-running wi
+description: 'Insert, update, or remove a multi-line block of text surrounded by marker
+  comments in a file, without touching the rest of the file''s content — the block
+  is identified by its markers, so re-running with different content replaces the
+  old block in place rather than appending a duplicate. If the markers aren''t found
+  yet, the block (with markers) is appended at the end of the file. Idempotent — a
+  repeat call with the same content reports changed=false. Supports check_mode via
+  dry_run=true.
+
+
+  Cross-tool equivalents:
+
+  - Ansible: ansible.builtin.blockinfile. Same path/block/state/marker/create semantics
+  (a focused subset — Ansible also supports insertafter/insertbefore/backup, not yet
+  implemented here; a missing block is always appended at end of file).
+
+  - Chef: no single built-in resource; typically hand-rolled with Ruby string manipulation
+  in a custom resource.
+
+  - Puppet: no core equivalent; third-party modules (e.g. augeasproviders) or puppetlabs-stdlib''s
+  `file_line` used repeatedly approximate it.
+
+  - Salt: the `file.blockreplace` state — nearly identical marker-comment-block model.
+
+  - Terraform: not applicable — no line/block-level file-editing primitive.'
+options:
+  block:
+    type: string
+    description: The desired block content, without markers. Required for state=present.
+  create:
+    type: bool
+    default: false
+    description: 'For state=present: if the file does not exist, create it instead
+      of failing. Default false.'
+  marker:
+    type: string
+    description: Marker line template; the literal "{mark}" is replaced with BEGIN/END.
+      Default "# {mark} ANSIBLE MANAGED BLOCK".
+  path:
+    type: string
+    description: File to edit, e.g. "/etc/ssh/sshd_config".
+    required: true
+  state:
+    type: string
+    choices:
+    - present
+    - absent
+    description: Whether the block should be present or absent. Default "present".
+native: true
+writes: true
+runtime: native
+source: agent-registry

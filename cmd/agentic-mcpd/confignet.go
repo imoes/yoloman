@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"os"
 
 	"github.com/mutkluge/agentic-mcp/internal/server"
 	"github.com/mutkluge/agentic-mcp/internal/starmodules"
@@ -29,6 +30,8 @@ func runModuleCLI(args []string) error {
 	modulesDir := fs.String("modules-dir", "", "also load discovered modules from this dir (native + embedded always load)")
 	dryRun := fs.Bool("dry-run", false, "check mode: report what would change without changing it")
 	list := fs.Bool("list", false, "list available module names and exit")
+	listJSON := fs.Bool("list-json", false,
+		"dump every registered module as JSON (name, description, input_schema, writes) and exit")
 	// The module name is the first positional, but callers (and our own docs + the
 	// offline provisioner) write `run-module <module> --json '{…}'` with the flags
 	// AFTER it. Go's flag package stops at the first positional, so a single
@@ -71,6 +74,25 @@ func runModuleCLI(args []string) error {
 			fmt.Println(m.Name())
 		}
 		return nil
+	}
+	if *listJSON {
+		// The registry is the ONLY truth about what our modules accept: a native Go module has no Starlark
+		// and no Ansible source dump, so its argspec exists nowhere else. Dumping it is what lets the
+		// Bossman catalog carry the builtins (scripts/generate_builtin_sidecars.py), which is why a step
+		// using `apt` had no typed argument form.
+		type entry struct {
+			Name        string         `json:"name"`
+			Description string         `json:"description"`
+			InputSchema map[string]any `json:"input_schema"`
+			Writes      bool           `json:"writes"`
+		}
+		out := make([]entry, 0, len(reg.All()))
+		for _, m := range reg.All() {
+			out = append(out, entry{m.Name(), m.Description(), m.InputSchema(), m.Writes()})
+		}
+		enc := json.NewEncoder(os.Stdout)
+		enc.SetIndent("", "  ")
+		return enc.Encode(out)
 	}
 	if moduleName == "" {
 		return fmt.Errorf("usage: agentic-mcpd run-module <module> [--json '{…}'] [--modules-dir DIR] [--dry-run] | --list")

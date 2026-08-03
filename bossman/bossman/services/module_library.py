@@ -405,12 +405,21 @@ def load_source(module_sources_dir: str | Path, fqcn: str) -> dict[str, Any]:
         raise ModuleLibraryError(f"cannot read dumped source for {fqcn!r}: {exc}") from exc
 
 
+def is_native(meta: dict[str, Any]) -> bool:
+    """A NATIVE module is implemented in the agent's Go registry, so it has metadata but no Starlark.
+    scripts/generate_builtin_sidecars.py writes these from `agentic-mcpd run-module --list-json`."""
+    return _as_bool(meta.get("native"), False)
+
+
 def list_modules(modules_dir: str | Path, module_sources_dir: str | Path) -> list[dict[str, Any]]:
-    """The catalog listing for the module-management UI (Block H4): one
-    entry per known module (the source dump defines the universe), cheap
-    by design — translated modules are enriched from their small metadata
-    YAML; untranslated ones stay name-only (their details load on demand
-    via load_source, never by bulk-reading the 15MB dump)."""
+    """The catalog listing for the module-management UI (Block H4): one entry per known module, cheap by
+    design — translated modules are enriched from their small metadata YAML; untranslated ones stay name-only
+    (their details load on demand via load_source, never by bulk-reading the 15MB dump).
+
+    Two universes, because there are two kinds of module. The Ansible source dump defines the *translated*
+    ones. The agent's **native** Go modules (`apt`, `service`, `file`, …) are not in that dump at all — they
+    were never Ansible source — so their sidecars in modules_dir are scanned too. Without that the 65 builtins
+    were absent from the catalog entirely and `GET /modules/apt` was a 404."""
     out: list[dict[str, Any]] = []
     for path in sorted(Path(module_sources_dir).glob("*.json")):
         fqcn = path.stem
@@ -427,16 +436,46 @@ def list_modules(modules_dir: str | Path, module_sources_dir: str | Path) -> lis
             except (OSError, yaml.YAMLError, ModuleLibraryError):
                 pass
         out.append(entry)
+
+    # Native modules: metadata with no Starlark and no source-dump entry.
+    seen = {e["fqcn"] for e in out}
+    for meta_file in sorted(Path(modules_dir).glob("*/*.yaml")):
+        fqcn = f"{meta_file.parent.name}.{meta_file.stem}"
+        if fqcn in seen:
+            continue
+        try:
+            meta = load_metadata(meta_file)
+        except (OSError, yaml.YAMLError, ModuleLibraryError):
+            continue
+        if not is_native(meta):
+            continue      # a translated module without a dump entry is not our business here
+        out.append({
+            "fqcn": fqcn, "collection": meta_file.parent.name, "name": meta_file.stem,
+            "translated": True, "native": True,
+            "short_description": meta.get("short_description", ""),
+            "writes": _as_bool(meta.get("writes"), True),
+        })
     return out
 
 
 def load_module(modules_dir: str | Path, fqcn: str) -> dict[str, Any]:
-    """One translated module's stored pair: parsed metadata + the Starlark
-    source. Raises for a module not (yet) in the library."""
+    """One module's stored detail: parsed metadata plus the Starlark source, if it has any.
+
+    A **native** module (`native: true`) is implemented in the agent's Go registry, so requiring a `.star`
+    would exclude every builtin — which is exactly why `GET /modules/apt` used to 404 and the Sequence editor
+    fell back to a raw JSON box for the most common modules. Its `star` is empty."""
     meta_path = metadata_path(modules_dir, fqcn)
     _, star_path = module_paths(modules_dir, fqcn)
-    if not meta_path.exists() or not star_path.exists():
+    if not meta_path.exists():
         raise ModuleLibraryError(f"module {fqcn!r} is not in the library")
+    if not star_path.exists():
+        try:
+            meta = load_metadata(meta_path)
+        except (OSError, yaml.YAMLError) as exc:
+            raise ModuleLibraryError(f"cannot read metadata for {fqcn!r}: {exc}") from exc
+        if not is_native(meta):
+            raise ModuleLibraryError(f"module {fqcn!r} is not in the library")
+        return {"fqcn": fqcn, "metadata": meta, "star": "", "native": True}
     try:
         metadata = load_metadata(meta_path)
         star_code = star_path.read_text(encoding="utf-8")

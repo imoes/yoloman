@@ -1,0 +1,60 @@
+name: assemble
+fqcn: builtin.assemble
+collection: builtin
+short_description: Concatenate every file in a source directory — sorted by filename,
+  optionally filtered to names matching a regexp — into a single destination file
+description: 'Concatenate every file in a source directory — sorted by filename, optionally
+  filtered to names matching a regexp — into a single destination file. The classic
+  use case is a conf.d-style fragment directory (e.g. /etc/myapp/conf.d/*.conf) assembled
+  into the application''s single real config file. Idempotent — only writes dest when
+  the assembled content actually differs from what''s already there. Supports check_mode
+  via dry_run=true.
+
+
+  Cross-tool equivalents:
+
+  - Ansible: ansible.builtin.assemble. Same src/dest/regexp/delimiter/owner/group/mode
+  semantics (a focused subset — Ansible also supports remote_src=false to assemble
+  from the control node, not applicable here since there is no separate control-node
+  filesystem in this agent''s single-host model; ignore_hidden/validate not yet implemented).
+
+  - Chef: no single built-in resource; typically hand-rolled by reading a directory
+  glob and writing a `file` resource''s content in a custom recipe/library.
+
+  - Puppet: no core equivalent; the `concat` module (puppetlabs-concat) provides the
+  same fragment-directory-to-single-file pattern.
+
+  - Salt: no single built-in state; typically composed with Jinja `{% include %}`/glob
+  logic inside a `file.managed` template, or a custom module.
+
+  - Terraform: not applicable — no file-fragment-assembly primitive.'
+options:
+  delimiter:
+    type: string
+    description: 'Optional string inserted between fragments. Default: none.'
+  dest:
+    type: string
+    description: Destination file to write the assembled content to, e.g. "/etc/myapp/myapp.conf".
+    required: true
+  group:
+    type: string
+    description: Optional desired group (group name or numeric gid) for dest.
+  mode:
+    type: string
+    description: Optional desired permission mode for dest as an octal string, e.g.
+      "0644".
+  owner:
+    type: string
+    description: Optional desired owner (username or numeric uid) for dest.
+  regexp:
+    type: string
+    description: 'Optional RE2 regular expression; only filenames matching it are
+      included. Default: all files.'
+  src:
+    type: string
+    description: Source directory of fragment files, e.g. "/etc/myapp/conf.d".
+    required: true
+native: true
+writes: true
+runtime: native
+source: agent-registry
