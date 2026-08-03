@@ -74,6 +74,28 @@ func TestSetup_GathersFacts(t *testing.T) {
 			t.Errorf("facts[%q] = %v (%T), want %v (%T)", k, facts[k], facts[k], v, v)
 		}
 	}
+
+	// The MODERN Ansible form, `ansible_facts['distribution']`, must resolve too. It was missing: an
+	// imported role templating it hit StrictUndefined and failed, even though the same value was already
+	// available under two other names. Importing upstream roles is a headline promise, so the form those
+	// roles actually use has to work.
+	nested, ok := facts["ansible_facts"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected facts[\"ansible_facts\"] to be a map, got %T", facts["ansible_facts"])
+	}
+	for _, k := range []string{"hostname", "architecture", "kernel", "distribution", "distribution_version"} {
+		if nested[k] == nil {
+			t.Errorf("ansible_facts[%q] missing", k)
+		}
+		// Same value under all three spellings, or the three would drift apart.
+		if nested[k] != facts["ansible_"+k] || nested[k] != facts["yoloman_"+k] {
+			t.Errorf("ansible_facts[%q]=%v disagrees with ansible_%s=%v / yoloman_%s=%v",
+				k, nested[k], k, facts["ansible_"+k], k, facts["yoloman_"+k])
+		}
+	}
+	if _, leaked := nested["facts"]; leaked {
+		t.Error("ansible_facts must not contain itself (the mirror loop would have nested it)")
+	}
 }
 
 func TestSetup_ModuleIsReadOnly(t *testing.T) {

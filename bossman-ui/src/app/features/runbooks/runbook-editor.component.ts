@@ -25,6 +25,8 @@ import { buildToolbox } from './blockly/toolbox';
 import { serializeWorkspace } from './blockly/ansibleGenerator';
 import { CdkDropListGroup } from '@angular/cdk/drag-drop';
 import { SequenceTreeComponent } from './sequence/sequence-tree.component';
+import { VariablesPanelComponent } from './sequence/variables-panel.component';
+import { BUILTIN_VARIABLES } from './blockly/ansibleFacts';
 import { SeqNode, findNode, nextId, removeNode, tasksToTree, treeToTasks } from './sequence/sequence-model';
 import { jsonSchemaToParamSchema, optionsToParamSchema } from './sequence/module-schema';
 import { importTasksYaml } from './blockly/playbookImporter';
@@ -64,16 +66,21 @@ tasks:
     when: dropped_config.changed
 `;
 
-// Native fact names use the yoloman_ prefix (the agent also emits ansible_
-// aliases for imported Ansible content, but these are what we advertise).
-const MAGIC_VARS = [
-  'inventory_hostname', 'yoloman_hostname', 'yoloman_distribution', 'yoloman_kernel',
-  'yoloman_architecture', 'yoloman_memtotal_mb', 'yoloman_processor_vcpus',
-  'yoloman_board_vendor', 'yoloman_board_name', 'yoloman_product_serial',
-  'yoloman_system_vendor', 'yoloman_bios_vendor', 'yoloman_chassis_vendor',
-  'inventory.system.serial_number', 'inventory.cpu.model', 'inventory.memory_mb',
-  'inventory.os.pretty_name', 'inventory.disks', 'inventory.nics',
-];
+// The sidebar reference list comes from blockly/ansibleFacts — ONE source shared with the Variables panel.
+// It used to be a second hardcoded array here, and it had drifted twice over: it advertised only the
+// `yoloman_*` spelling (not `ansible_facts['x']`, which is what imported roles use), and it invented
+// inventory paths (`inventory.system.serial_number`, `inventory.memory_mb`) that runbook_exec never binds.
+// Two lists of the same thing is how both happened.
+const MAGIC_VAR_GROUPS = (() => {
+  const groups = [];
+  for (const v of BUILTIN_VARIABLES) {
+    const last = groups[groups.length - 1];
+    if (last && last.source === v.source) last.vars.push(v);
+    else groups.push({ source: v.source, vars: [v] });
+  }
+  // The flat `ansible_<name>` aliases exist for imported content but would triple the list for no gain here.
+  return groups.filter((g) => g.source !== 'ansible fact (flat alias)');
+})();
 
 /**
  * Block G11 — the Workflow designer. Two synced views of one runbook:
@@ -88,7 +95,7 @@ const MAGIC_VARS = [
 @Component({
   selector: 'app-runbook-editor',
   standalone: true,
-  imports: [DatePipe, FormsModule, MatButtonModule, MatIconModule, MatFormFieldModule, MatInputModule, MatSelectModule, ParamFormComponent, BlocklyWorkspaceComponent, SequenceTreeComponent, CdkDropListGroup],
+  imports: [DatePipe, FormsModule, MatButtonModule, MatIconModule, MatFormFieldModule, MatInputModule, MatSelectModule, ParamFormComponent, BlocklyWorkspaceComponent, SequenceTreeComponent, VariablesPanelComponent, CdkDropListGroup],
   template: `
     <div class="bm-page">
       <div class="bm-header-row">
@@ -172,88 +179,118 @@ const MAGIC_VARS = [
               <span class="bm-dim">Groups become Ansible <code>block:</code>, steps become module tasks — the
                 playbook YAML stays in sync, so Text and Visual show the same document.</span>
             </div>
-            <div class="bm-seq-wrap" cdkDropListGroup>
-              <app-sequence-tree [nodes]="seqNodes()" [selectedId]="seqSelected()"
-                                 (select)="selectSeqNode($event)" (remove)="removeSeqNode($event)"
-                                 (changed)="syncSequence()" />
-              @if (!seqNodes().length) {
-                <p class="bm-dim">No tasks yet — add a Group or a Step.</p>
-              }
-            </div>
-            @if (selectedSeqNode(); as sel) {
-              <div class="bm-seq-form">
-                <mat-form-field appearance="outline" subscriptSizing="dynamic">
-                  <mat-label>Name</mat-label>
-                  <input matInput [ngModel]="sel.name" (ngModelChange)="editSeq(sel, 'name', $event)" />
-                </mat-form-field>
-                @if (sel.kind === 'step') {
-                  <mat-form-field appearance="outline" subscriptSizing="dynamic">
-                    <mat-label>Module</mat-label>
-                    <input matInput [ngModel]="sel.module" (ngModelChange)="editSeq(sel, 'module', $event)"
-                           list="bm-seq-modules" placeholder="community.general.lvg" />
-                  </mat-form-field>
-                }
-                <mat-form-field appearance="outline" subscriptSizing="dynamic">
-                  <mat-label>when (optional)</mat-label>
-                  <input matInput [ngModel]="sel.when || ''" (ngModelChange)="editSeq(sel, 'when', $event)"
-                         placeholder="has_partitions" />
-                </mat-form-field>
-                <mat-form-field appearance="outline" subscriptSizing="dynamic">
-                  <mat-label>loop (optional)</mat-label>
-                  <input matInput [ngModel]="loopText(sel)" (ngModelChange)="editLoop(sel, $event)"
-                         placeholder="{{ '{{ volume_groups }}' }}" />
-                </mat-form-field>
-                @if (sel.kind === 'step') {
-                  <mat-form-field appearance="outline" subscriptSizing="dynamic">
-                    <mat-label>register (optional)</mat-label>
-                    <input matInput [ngModel]="sel.register || ''"
-                           (ngModelChange)="editRegister(sel, $event)" placeholder="result" />
-                  </mat-form-field>
-                  <mat-form-field appearance="outline" subscriptSizing="dynamic">
-                    <mat-label>failed_when (optional)</mat-label>
-                    <input matInput [ngModel]="sel.extra?.['failed_when'] || ''"
-                           (ngModelChange)="editExtra(sel, 'failed_when', $event)" placeholder="rc != 0" />
-                  </mat-form-field>
-                  <label class="bm-seq-chk" title="Record a failure here but keep going">
-                    <input type="checkbox" [checked]="!!sel.extra?.['ignore_errors']"
-                           (change)="toggleIgnoreErrors(sel, $event)" /> ignore_errors
-                  </label>
-                }
-                @if (sel.kind === 'group') {
-                  <!-- Error handling can now be BUILT here, not only in the text view. -->
-                  <button mat-stroked-button (click)="addBranchStep(sel, 'rescue')"
-                          title="Steps that run only if this group failed (catch)">
-                    <mat-icon>replay</mat-icon> rescue step
-                  </button>
-                  <button mat-stroked-button (click)="addBranchStep(sel, 'always')"
-                          title="Steps that run whichever way the group went (finally)">
-                    <mat-icon>vertical_align_bottom</mat-icon> always step
-                  </button>
+            <!-- Tree LEFT, inspector RIGHT, variables far right — docs/design-philosophy.md #4
+                 (source list → content → inspector). The form used to sit BELOW the tree as six
+                 outline mat-form-fields, which is the Material default the philosophy warns about:
+                 ~56px of chrome per field for a one-word value. -->
+            <div class="bm-seq-layout">
+              <div class="bm-seq-wrap" cdkDropListGroup>
+                <app-sequence-tree [nodes]="seqNodes()" [selectedId]="seqSelected()"
+                                   (select)="selectSeqNode($event)" (remove)="removeSeqNode($event)"
+                                   (changed)="syncSequence()" />
+                @if (!seqNodes().length) {
+                  <p class="bm-dim">No tasks yet — add a Group or a Step.</p>
                 }
               </div>
-              <!-- The step's arguments as a TYPED form, generated from the module's argspec (its schema()) —
-                   choices become dropdowns. A module the catalog does not know keeps the raw JSON editor so
-                   it stays editable. -->
-              @if (sel.kind === 'step') {
-                <div class="bm-seq-args-box">
-                  @if (stepSchema(); as sch) {
-                    <app-param-form [params]="sch" [initial]="sel.args || {}"
-                                    (valuesChange)="setStepArgs(sel, $event)" />
-                  } @else {
-                    <mat-form-field appearance="outline" class="bm-seq-args" subscriptSizing="dynamic">
-                      <mat-label>Arguments (JSON — this module has no argspec)</mat-label>
-                      <textarea matInput rows="3" [ngModel]="argsText(sel)"
-                                (ngModelChange)="editArgs(sel, $event)"></textarea>
-                    </mat-form-field>
-                    @if (argsError()) { <span class="bm-err">{{ argsError() }}</span> }
-                    @if (schemaLoading()) { <span class="bm-dim">loading the module's argspec…</span> }
+
+              <div class="bm-seq-insp">
+                @if (selectedSeqNode(); as sel) {
+                  <label class="bm-f">
+                    <span>Name</span>
+                    <input type="text" [ngModel]="sel.name" (ngModelChange)="editSeq(sel, 'name', $event)"
+                           (focus)="focusField('name')" placeholder="what this step does" />
+                  </label>
+                  @if (sel.kind === 'step') {
+                    <label class="bm-f">
+                      <span>Module</span>
+                      <input type="text" [ngModel]="sel.module" (ngModelChange)="editSeq(sel, 'module', $event)"
+                             list="bm-seq-modules" placeholder="community.general.lvg" />
+                    </label>
                   }
-                </div>
-              }
-              <datalist id="bm-seq-modules">
-                @for (m of moduleNames(); track m) { <option [value]="m"></option> }
-              </datalist>
-            }
+                  <label class="bm-f">
+                    <span>when</span>
+                    <input type="text" [ngModel]="sel.when || ''" (ngModelChange)="editSeq(sel, 'when', $event)"
+                           (focus)="focusField('when')" placeholder="ansible_facts['os_family'] == 'Debian'" />
+                  </label>
+
+                  <!-- Progressive disclosure (philosophy #10): the common path is Name + Module + when;
+                       everything with a safe default hides until asked for. -->
+                  <button type="button" class="bm-seq-adv" (click)="seqAdvanced.set(!seqAdvanced())">
+                    <mat-icon>{{ seqAdvanced() ? 'expand_more' : 'chevron_right' }}</mat-icon> Advanced
+                  </button>
+                  @if (seqAdvanced()) {
+                    <label class="bm-f">
+                      <span>loop</span>
+                      <input type="text" [ngModel]="loopText(sel)" (ngModelChange)="editLoop(sel, $event)"
+                             (focus)="focusField('loop')" placeholder="{{ '{{ volume_groups }}' }}" />
+                    </label>
+                    @if (sel.kind === 'step') {
+                      <label class="bm-f">
+                        <span>register</span>
+                        <input type="text" [ngModel]="sel.register || ''"
+                               (ngModelChange)="editRegister(sel, $event)" placeholder="result" />
+                      </label>
+                      <label class="bm-f">
+                        <span>failed_when</span>
+                        <input type="text" [ngModel]="sel.extra?.['failed_when'] || ''"
+                               (ngModelChange)="editExtra(sel, 'failed_when', $event)"
+                               (focus)="focusField('failed_when')" placeholder="rc != 0" />
+                      </label>
+                      <label class="bm-seq-chk" title="Record a failure here but keep going">
+                        <input type="checkbox" [checked]="!!sel.extra?.['ignore_errors']"
+                               (change)="toggleIgnoreErrors(sel, $event)" /> ignore_errors
+                      </label>
+                    }
+                  }
+                  @if (sel.kind === 'group') {
+                    <div class="bm-seq-branches">
+                      <button mat-stroked-button (click)="addBranchStep(sel, 'rescue')"
+                              title="Steps that run only if this group failed (catch)">
+                        <mat-icon>replay</mat-icon> rescue step
+                      </button>
+                      <button mat-stroked-button (click)="addBranchStep(sel, 'always')"
+                              title="Steps that run whichever way the group went (finally)">
+                        <mat-icon>vertical_align_bottom</mat-icon> always step
+                      </button>
+                    </div>
+                  }
+                  <!-- The step's arguments as a TYPED form, generated from the module's argspec (its
+                       schema()) — choices become dropdowns. A module the catalog does not know keeps the raw
+                       JSON editor so it stays editable. -->
+                  @if (sel.kind === 'step') {
+                    <div class="bm-seq-args-box">
+                      @if (stepSchema(); as sch) {
+                        <app-param-form [params]="sch" [initial]="sel.args || {}"
+                                        (valuesChange)="setStepArgs(sel, $event)" />
+                      } @else {
+                        <label class="bm-f">
+                          <span>Arguments (JSON — this module has no argspec)</span>
+                          <textarea rows="3" [ngModel]="argsText(sel)"
+                                    (ngModelChange)="editArgs(sel, $event)"></textarea>
+                        </label>
+                        @if (argsError()) { <span class="bm-err">{{ argsError() }}</span> }
+                        @if (schemaLoading()) { <span class="bm-dim">loading the module\'s argspec…</span> }
+                      }
+                    </div>
+                  }
+                } @else {
+                  <p class="bm-dim">Select a step to edit it.</p>
+                }
+              </div>
+
+              <!-- Variables. A role is not usable without them, and this panel was the piece the Blockly
+                   port left behind. -->
+              <div class="bm-seq-vars">
+                <h4 class="bm-seq-vh">Variables</h4>
+                <app-variables-panel [parameters]="docParameters()" [registers]="registerNames()"
+                                     [inLoop]="selectedHasLoop()"
+                                     (insert)="insertVariable($event)"
+                                     (create)="createParameter($event)" />
+              </div>
+            </div>
+            <datalist id="bm-seq-modules">
+              @for (m of moduleNames(); track m) { <option [value]="m"></option> }
+            </datalist>
           }
           <div #editor class="bm-editor" [style.display]="mode() === 'text' ? 'block' : 'none'"></div>
 
@@ -315,9 +352,14 @@ const MAGIC_VARS = [
         <div class="bm-right" [style.display]="mode() === 'visual' ? 'none' : 'block'">
           <div class="bm-panel-title">Magic variables</div>
           <p class="bm-dim">Agent facts, available as <code ngNonBindable>{{ var }}</code> in args/when — no declaration:</p>
-          <ul class="bm-vars">
-            @for (v of magicVars; track v) { <li class="bm-mono">{{ ref(v) }}</li> }
-          </ul>
+          @for (g of magicVarGroups; track g.source) {
+            <div class="bm-vg">{{ g.source }}</div>
+            <ul class="bm-vars">
+              @for (v of g.vars; track v.name) {
+                <li class="bm-mono" [title]="v.preview">{{ ref(v.name) }}</li>
+              }
+            </ul>
+          }
           <p class="bm-dim">Also any host/group/OU var, role parameters, and <code ngNonBindable>{{ item }}</code> in a loop.</p>
 
           <div class="bm-panel-title" style="margin-top:16px;">Recent runs @if (hostId()) { <span class="bm-dim">· this host</span> }</div>
@@ -339,6 +381,8 @@ const MAGIC_VARS = [
   styles: [
     `
       .bm-page { padding: 24px; }
+      .bm-vg { font-size: 10.5px; text-transform: uppercase; letter-spacing: .04em; opacity: .5;
+        margin: 10px 0 2px; }
       .bm-header-row { display: flex; align-items: baseline; gap: 14px; }
       .bm-subtitle { opacity: 0.7; }
       .bm-split { display: flex; gap: 16px; margin-top: 12px; align-items: flex-start; }
@@ -362,8 +406,31 @@ const MAGIC_VARS = [
       .bm-seq-bar { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; flex-wrap: wrap; }
       .bm-seq-wrap { border: 1px solid var(--mat-sys-outline-variant); border-radius: 10px; padding: 8px;
         min-height: 140px; max-height: 420px; overflow: auto; }
-      .bm-seq-form { display: flex; align-items: flex-start; gap: 10px; margin-top: 10px; flex-wrap: wrap; }
-      .bm-seq-form mat-form-field { min-width: 170px; }
+      /* Tree | inspector | variables. Collapses to one column when there is no room for three. */
+      .bm-seq-layout { display: grid; grid-template-columns: minmax(0, 1fr) 300px 240px; gap: 12px;
+        align-items: start; }
+      @media (max-width: 1200px) { .bm-seq-layout { grid-template-columns: 1fr; } }
+      .bm-seq-insp, .bm-seq-vars { border: 1px solid var(--mat-sys-outline-variant); border-radius: 10px;
+        padding: 10px; display: flex; flex-direction: column; gap: 8px; }
+      .bm-seq-vars { max-height: 520px; }
+      .bm-seq-vh { margin: 0; font-size: 11px; text-transform: uppercase; letter-spacing: .04em; opacity: .55; }
+      /* One compact field: a small label above a plain input. Replaces mat-form-field appearance="outline",
+         whose floating label + subscript reserve ~56px per field — the Material default the design
+         philosophy calls out ("chrome is minimal"; an ops tool is dense in DATA, not chrome). */
+      .bm-f { display: flex; flex-direction: column; gap: 3px; font-size: 11px; }
+      .bm-f > span { opacity: .6; }
+      .bm-f input, .bm-f textarea, .bm-f select {
+        padding: 5px 8px; font-size: 12.5px; color: inherit; background: var(--mat-sys-surface);
+        border: 1px solid var(--mat-sys-outline-variant); border-radius: 6px; width: 100%;
+        box-sizing: border-box; font-family: inherit;
+      }
+      .bm-f textarea { font-family: ui-monospace, monospace; font-size: 12px; resize: vertical; }
+      .bm-seq-adv { display: inline-flex; align-items: center; gap: 3px; align-self: flex-start;
+        background: none; border: 0; color: inherit; opacity: .65; cursor: pointer; font-size: 11.5px;
+        padding: 2px 0; }
+      .bm-seq-adv:hover { opacity: 1; }
+      .bm-seq-adv mat-icon { font-size: 17px; width: 17px; height: 17px; }
+      .bm-seq-branches { display: flex; gap: 8px; flex-wrap: wrap; }
       .bm-seq-args { min-width: 320px; flex: 1 1 320px; }
       .bm-err { color: var(--mat-sys-error, #c62828); font-size: 12px; align-self: center; }
       .bm-seq-chk { display: inline-flex; align-items: center; gap: 5px; font-size: 12.5px; opacity: .85;
@@ -415,7 +482,7 @@ export class RunbookEditorComponent implements OnInit, AfterViewInit, OnDestroy 
   currentId = signal<string>('');
   saveMsg = signal<string>('');
   runs = signal<RunRow[]>([]);
-  magicVars = MAGIC_VARS;
+  magicVarGroups = MAGIC_VAR_GROUPS;
   // Library folder tree (mirrors Plan library): runbooks grouped by `folder`.
   expanded = signal<Set<string>>(new Set(['']));
   moveFolder = ''; // folder the current runbook is saved into
@@ -481,6 +548,65 @@ export class RunbookEditorComponent implements OnInit, AfterViewInit, OnDestroy 
   moduleNames = signal<string[]>([]);
   /** The document envelope around `tasks:` — kept so serialising back preserves name/targets/handlers. */
   private seqEnvelope: Record<string, unknown> = {};
+  /** Signal mirror of the envelope, so the Variables panel recomputes when `parameters:` changes. */
+  private seqEnvelopeSignal = signal<Record<string, unknown>>({});
+
+  /** Whether the inspector's Advanced block is open (loop/register/failed_when/ignore_errors). */
+  seqAdvanced = signal(false);
+  /** Which inspector field last had focus, so a clicked variable lands in the right place. */
+  private lastField = signal<'name' | 'when' | 'loop' | 'failed_when' | null>(null);
+  focusField(f: 'name' | 'when' | 'loop' | 'failed_when'): void { this.lastField.set(f); }
+
+  /** The document's own `parameters:` — a role's inputs. */
+  docParameters = computed<Record<string, unknown>>(() => {
+    const p = this.seqEnvelopeSignal()['parameters'];
+    return p && typeof p === 'object' ? (p as Record<string, unknown>) : {};
+  });
+
+  /** Every `register:` name in the document, so the panel can offer them. */
+  registerNames = computed<string[]>(() => {
+    const out: string[] = [];
+    const walk = (nodes: SeqNode[]): void => {
+      for (const n of nodes) {
+        if (n.register) out.push(n.register);
+        walk(n.children ?? []);
+        walk(n.rescue ?? []);
+        walk(n.always ?? []);
+      }
+    };
+    walk(this.seqNodes());
+    return [...new Set(out)];
+  });
+
+  /** `item` is only bound inside a loop, so the panel only offers it there. */
+  selectedHasLoop = computed(() => this.selectedSeqNode()?.loop !== undefined);
+
+  /**
+   * Insert `{{ name }}` into the field the operator last touched. Clicking a variable has to put it
+   * SOMEWHERE, and the last-focused field is the only honest guess; when nothing was focused we fall back to
+   * `when:`, which is what conditions are written in and the reason SCCM makes variables searchable at all.
+   */
+  insertVariable(name: string): void {
+    const sel = this.selectedSeqNode();
+    if (!sel) return;
+    const ref = `{{ ${name} }}`;
+    const field = this.lastField() ?? 'when';
+    if (field === 'name') this.editSeq(sel, 'name', `${sel.name ?? ''}${ref}`);
+    else if (field === 'loop') this.editLoop(sel, ref);
+    else if (field === 'failed_when') this.editExtra(sel, 'failed_when', `${sel.extra?.['failed_when'] ?? ''}${ref}`);
+    else this.editSeq(sel, 'when', `${sel.when ?? ''}${ref}`);
+  }
+
+  /** Add a parameter to the document itself, so a role can declare its own inputs from here. */
+  createParameter(v: { name: string; value: string }): void {
+    const params = { ...this.docParameters() };
+    // A bare default rather than a typed spec: the operator typed a value, not a schema, and nt_runbook's
+    // _parse_parameters passes a non-spec value through unchanged (the legacy free-form Role shape).
+    params[v.name] = v.value;
+    this.seqEnvelope = { ...this.seqEnvelope, parameters: params };
+    this.seqEnvelopeSignal.set(this.seqEnvelope);
+    this.syncSequence();
+  }
 
   selectedSeqNode = computed(() => {
     const id = this.seqSelected();
@@ -493,6 +619,7 @@ export class RunbookEditorComponent implements OnInit, AfterViewInit, OnDestroy 
     try { doc = (yaml.load(this.source()) ?? {}) as Record<string, unknown>; } catch { doc = {}; }
     const tasks = Array.isArray(doc) ? doc : doc['tasks'];
     this.seqEnvelope = Array.isArray(doc) ? {} : { ...doc };
+    this.seqEnvelopeSignal.set(this.seqEnvelope);
     this.seqNodes.set(tasksToTree(tasks));
     this.seqSelected.set(null);
     this.argsError.set('');

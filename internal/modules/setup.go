@@ -138,16 +138,25 @@ func (s *Setup) Run(ctx context.Context, params map[string]any, dryRun bool) (Re
 		}
 	}
 
-	// yolo-man's native fact names use the yoloman_ prefix (the product is
-	// yolo-man, not Ansible) — expose those as the primary names. The ansible_
-	// keys are kept as compat aliases so imported Ansible content
-	// ({{ ansible_distribution }}) and existing runbook when: clauses keep
-	// resolving. Runbooks/plans and the UI are authored against yoloman_*.
+	// Three names for every fact, because three things need to resolve:
+	//
+	//   ansible_distribution              flat, Ansible <2.5 style — what we already emitted
+	//   ansible_facts['distribution']     the MODERN Ansible form; this is what imported roles use
+	//   yoloman_distribution              our native prefix
+	//
+	// The nested `ansible_facts` dict was missing, so an imported role templating
+	// `{{ ansible_facts['distribution'] }}` failed against a StrictUndefined engine even though we had the
+	// value under two other names. Ansible-task syntax is the only authoring format now and importing
+	// upstream roles is a headline promise, so the form those roles actually use has to work.
+	nested := make(map[string]any, len(facts))
 	for k, v := range facts {
 		if strings.HasPrefix(k, "ansible_") {
-			facts["yoloman_"+strings.TrimPrefix(k, "ansible_")] = v
+			bare := strings.TrimPrefix(k, "ansible_")
+			facts["yoloman_"+bare] = v
+			nested[bare] = v
 		}
 	}
+	facts["ansible_facts"] = nested
 
 	return Result{Changed: false, Data: facts}, nil
 }
