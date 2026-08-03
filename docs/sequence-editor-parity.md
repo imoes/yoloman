@@ -104,9 +104,14 @@ die Shells brauchen Angular-Entsprechungen. `BlocklyWorkspace` existiert in yolo
   Eintrag; vorher hätte er die Argspec des übersetzten Moduls gezeigt, also eine Maske mit Feldern, die das
   laufende Modul nicht annimmt. `apt` und `iptables` kollidieren nur mit `checkmk.*`-Checks, die der Index
   ohnehin überspringt.
-- **Der Editor-Bereich ist nur ~450px breit** (Bibliothek links, Runs-Sidebar rechts), deshalb stapeln sich
-  Tree/Inspector/Variablen statt nebeneinander zu stehen. Die rechte Sidebar zeigt jetzt *dieselbe*
-  Variablenliste wie das neue Panel — sie zusammenzulegen würde die Breite freigeben.
+- ✅ **Rechte Sidebar zusammengelegt.** Die statische „Magic variables"-Referenz erschien in Tree-Mode
+  doppelt — einmal dort, einmal als interaktives Panel im Seq-Layout. In Tree-Mode ist die statische Liste
+  jetzt weg (das interaktive Panel ist die Quelle) und die rechte Leiste wird zur schmalen „Recent runs"-
+  Schiene (308→220px), „Recent runs" bleibt in allen Modi. Dadurch wuchs der linke Bereich (450→538px) und
+  **Tree + Inspector stehen nebeneinander**, Variablen darunter in voller Breite. Der eigentliche Blocker
+  war ein Flexbox-Fehler, nicht die Breite: `.bm-seq-insp` hatte `min-width: auto`, konnte also nicht unter
+  seine Inhaltsbreite schrumpfen und brach immer um — `min-width: 0` behebt es. Gemessen: Tree 282px /
+  Inspector 244px, gleiches `top`; 0 Console-Errors.
 
 ## Verifikation
 

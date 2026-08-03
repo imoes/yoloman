@@ -395,20 +395,26 @@ const MAGIC_VAR_GROUPS = (() => {
 
         <!-- Hidden in visual mode: the canvas needs the width (a squeezed
              designer falls into its cramped mobile layout). -->
-        <div class="bm-right" [style.display]="mode() === 'visual' ? 'none' : 'block'">
-          <div class="bm-panel-title">Magic variables</div>
-          <p class="bm-dim">Agent facts, available as <code ngNonBindable>{{ var }}</code> in args/when — no declaration:</p>
-          @for (g of magicVarGroups; track g.source) {
-            <div class="bm-vg">{{ g.source }}</div>
-            <ul class="bm-vars">
-              @for (v of g.vars; track v.name) {
-                <li class="bm-mono" [title]="v.preview">{{ ref(v.name) }}</li>
-              }
-            </ul>
+        <div class="bm-right" [class.bm-right-thin]="mode() === 'tree'"
+             [style.display]="mode() === 'visual' ? 'none' : 'block'">
+          <!-- The Magic-variables REFERENCE is only for the text view: in tree mode the sequence layout
+               carries an interactive variables panel (the same list, but clickable and scoped to the open
+               document), so a second static copy here only ate the width the three tree columns need. -->
+          @if (mode() !== 'tree') {
+            <div class="bm-panel-title">Magic variables</div>
+            <p class="bm-dim">Agent facts, available as <code ngNonBindable>{{ var }}</code> in args/when — no declaration:</p>
+            @for (g of magicVarGroups; track g.source) {
+              <div class="bm-vg">{{ g.source }}</div>
+              <ul class="bm-vars">
+                @for (v of g.vars; track v.name) {
+                  <li class="bm-mono" [title]="v.preview">{{ ref(v.name) }}</li>
+                }
+              </ul>
+            }
+            <p class="bm-dim">Also any host/group/OU var, role parameters, and <code ngNonBindable>{{ item }}</code> in a loop.</p>
           }
-          <p class="bm-dim">Also any host/group/OU var, role parameters, and <code ngNonBindable>{{ item }}</code> in a loop.</p>
 
-          <div class="bm-panel-title" style="margin-top:16px;">Recent runs @if (hostId()) { <span class="bm-dim">· this host</span> }</div>
+          <div class="bm-panel-title" [style.margin-top]="mode() === 'tree' ? '0' : '16px'">Recent runs @if (hostId()) { <span class="bm-dim">· this host</span> }</div>
           @if (runs().length === 0) { <p class="bm-dim">No runs recorded yet.</p> }
           <ul class="bm-vars">
             @for (r of runs(); track r.id) {
@@ -442,6 +448,9 @@ const MAGIC_VAR_GROUPS = (() => {
       .bm-rb.bm-sel { background: color-mix(in srgb, var(--mat-sys-primary) 14%, transparent); }
       .bm-left { flex: 1 1 60%; min-width: 0; }
       .bm-right { flex: 1 1 30%; border: 1px solid var(--mat-sys-outline-variant); border-radius: 8px; padding: 12px 14px; }
+      /* Tree mode: variables live in the sequence panel, so the right rail is just Recent runs and can be
+         narrow — that returns the width the tree/inspector/variables columns need to sit side by side. */
+      .bm-right-thin { flex: 0 0 190px; }
       .bm-editor { height: 520px; border: 1px solid var(--mat-sys-outline-variant); border-radius: 8px; overflow: hidden; }
       .bm-mode { display: inline-flex; border: 1px solid var(--mat-sys-outline-variant); border-radius: 8px; overflow: hidden; margin-left: auto; }
       .bm-mode button { border-radius: 0; }
@@ -464,9 +473,13 @@ const MAGIC_VAR_GROUPS = (() => {
          and hid it entirely — measured, not guessed. A viewport breakpoint cannot see that, because the
          viewport was 1280px while the container was 450px. flex-basis + wrap can never collapse a column. */
       .bm-seq-layout { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-start; }
-      .bm-seq-wrap { flex: 1 1 320px; min-width: 0; }
-      .bm-seq-insp { flex: 1 1 280px; }
-      .bm-seq-vars { flex: 1 1 220px; }
+      /* Bases chosen so tree + inspector sit side by side and variables flows onto the next row: the editor
+         pane is only ~540px wide (library tree + right rail + assistant panel take the rest), so three
+         220px+ columns across would need ~860px and just stack one-per-row. Tree+inspector ≈ 500px fits;
+         variables wraps below at full width. */
+      .bm-seq-wrap { flex: 1 1 250px; min-width: 0; }
+      .bm-seq-insp { flex: 1 1 230px; min-width: 0; }   /* min-width:0 or auto min-content blocks the shrink */
+      .bm-seq-vars { flex: 1 1 100%; min-width: 0; }
       .bm-seq-insp, .bm-seq-vars { border: 1px solid var(--mat-sys-outline-variant); border-radius: 10px;
         padding: 10px; display: flex; flex-direction: column; gap: 8px; box-sizing: border-box; }
       .bm-seq-vars { max-height: 520px; }
