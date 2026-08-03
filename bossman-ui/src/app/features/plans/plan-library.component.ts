@@ -15,7 +15,8 @@ import { DeploymentEdgesComponent } from '../../shared/deployment-edges/deployme
   },
 };
 
-type Fmt = 'nt' | 'yaml' | 'json';
+/** The two encodings of a stored plan body. (A NestedText view sat here too; the format is gone.) */
+type Fmt = 'yaml' | 'json';
 interface Row { kind: 'folder' | 'plan'; label: string; depth: number; path?: string; plan?: StoredPlan; expanded?: boolean; }
 
 /** Plan library (block 2): plans/roles organized in an ltree folder tree on the
@@ -65,7 +66,6 @@ interface Row { kind: 'folder' | 'plan'; label: string; depth: number; path?: st
           <div class="bm-pl-bar">
             <span class="bm-pl-name">{{ d.prefix }}/{{ d.name }} <span class="bm-dim">v{{ d.version }}</span></span>
             <mat-button-toggle-group [value]="fmt()" (change)="setFmt($event.value)" hideSingleSelectionIndicator [disabled]="diffMode()">
-              <mat-button-toggle value="nt">NT</mat-button-toggle>
               <mat-button-toggle value="yaml">YAML</mat-button-toggle>
               <mat-button-toggle value="json">JSON</mat-button-toggle>
             </mat-button-toggle-group>
@@ -155,7 +155,7 @@ interface Row { kind: 'folder' | 'plan'; label: string; depth: number; path?: st
             @if (bulkErr()) { <p class="bm-err">{{ bulkErr() }}</p> }
           </div>
         } @else {
-          <p class="bm-empty bm-pad">Select a plan from the tree to view / edit it (NT · YAML · JSON), or import one.</p>
+          <p class="bm-empty bm-pad">Select a plan from the tree to view / edit it (YAML · JSON), or import one.</p>
         }
         <!-- Single, stable editor element (Monaco lives here for the panel's
              lifetime); hidden until a plan is opened or when diffing. -->
@@ -235,7 +235,7 @@ export class PlanLibraryComponent implements AfterViewInit, OnDestroy {
   loadErr = signal<string | null>(null);
   expanded = signal<Set<string>>(new Set(['']));
   doc = signal<PlanDocument | null>(null);
-  fmt = signal<Fmt>('nt');
+  fmt = signal<Fmt>('yaml');
   busy = signal(false);
   msg = signal<string | null>(null);
   saveErr = signal<string | null>(null);
@@ -246,7 +246,6 @@ export class PlanLibraryComponent implements AfterViewInit, OnDestroy {
   readonly importKinds = [
     { label: 'Ansible (YAML)', prefix: 'ansible', format: 'yaml' },
     { label: 'Ansible (JSON)', prefix: 'ansible', format: 'json' },
-    { label: 'Ansible (NestedText)', prefix: 'ansible', format: 'nestedtext' },
     { label: 'Salt (SLS)', prefix: 'salt', format: 'salt' },
     { label: 'Puppet (manifest)', prefix: 'puppet', format: 'puppet' },
     { label: 'Chef (recipe)', prefix: 'chef', format: 'chef' },
@@ -380,7 +379,7 @@ export class PlanLibraryComponent implements AfterViewInit, OnDestroy {
       next: (d) => {
         this.doc.set(d);
         this.moveFolder = d.folder;
-        this.fmt.set(d.source_format === 'yaml' ? 'yaml' : d.source_format === 'json' ? 'json' : 'nt');
+        this.fmt.set(d.source_format === 'json' ? 'json' : 'yaml');
         this.applyFmt();
       },
       error: (e) => this.saveErr.set(e?.error?.detail ?? 'failed to load document'),
@@ -527,10 +526,8 @@ export class PlanLibraryComponent implements AfterViewInit, OnDestroy {
   doSave(): void {
     const d = this.doc();
     if (!d || !this.ed) return;
-    const f = this.fmt();
-    const sourceFormat = f === 'nt' ? 'nestedtext' : f;
     this.busy.set(true); this.msg.set(null); this.saveErr.set(null);
-    this.planService.save(d.prefix, d.name, sourceFormat, this.ed.getValue()).subscribe({
+    this.planService.save(d.prefix, d.name, this.fmt(), this.ed.getValue()).subscribe({
       next: (r) => { this.busy.set(false); this.msg.set(`saved as v${r.version}`); this.open({ prefix: d.prefix, name: d.name }); this.reload(); },
       error: (e) => { this.busy.set(false); this.saveErr.set(e?.error?.detail ?? 'save failed'); },
     });

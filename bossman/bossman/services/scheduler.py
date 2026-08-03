@@ -23,7 +23,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from bossman.config import Settings
 from bossman.db.models import Agent, ScheduledJob
-from bossman.services import nt_convert, nt_runbook
+from bossman.services import nt_runbook
 from bossman.services.compiler import affected_agent_ids
 from bossman.services.cron import cron_matches
 from bossman.services.runbook_exec import execute_runbook
@@ -40,7 +40,7 @@ async def _run_job_on_scope(session: AsyncSession, settings: Settings, job: Sche
     if rb is None:
         return "failed", f"no such runbook {job.runbook_name!r}"
     try:
-        doc = nt_runbook.parse_document(nt_convert.doc_to_nt(rb.doc))
+        doc = nt_runbook.parse_data(rb.doc, source=f"runbook {job.runbook_name!r}")
     except Exception as exc:  # noqa: BLE001
         return "failed", f"runbook parse failed: {exc}"[:500]
     if not isinstance(doc, nt_runbook.Runbook):

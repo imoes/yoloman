@@ -14,7 +14,8 @@ export interface WizardContext {
 export interface WizardRunbook {
   id: string;
   name: string;
-  nt: string;
+  /** The runbook rendered as Ansible task YAML — the only authoring format. */
+  playbook: string;
   parameters: ParamSchema;
 }
 
@@ -43,27 +44,27 @@ export class WizardService {
     return this.http.get<WizardContext>(`${this.base}/agents/${agentId}/package-wizard/context${refresh ? '?refresh=true' : ''}`);
   }
 
-  /** Resolve a seeded runbook by name → its id, NT source and parameter mask. */
+  /** Resolve a seeded runbook by name → its id, Ansible-YAML source and parameter mask. */
   runbookByName(name: string): Observable<WizardRunbook | null> {
     return this.http.get<{ runbooks: { id: string; name: string }[] }>(`${this.base}/runbooks`).pipe(
       map((r) => r.runbooks.find((x) => x.name === name)),
       switchMap((rb) => rb
-        ? this.http.get<{ id: string; name: string; nt: string; parameters: ParamSchema }>(`${this.base}/runbooks/${rb.id}`)
-            .pipe(map((full) => ({ id: full.id, name: full.name, nt: full.nt, parameters: full.parameters || {} })))
+        ? this.http.get<{ id: string; name: string; playbook: string; parameters: ParamSchema }>(`${this.base}/runbooks/${rb.id}`)
+            .pipe(map((full) => ({ id: full.id, name: full.name, playbook: full.playbook, parameters: full.parameters || {} })))
         : of(null)),
     );
   }
 
-  run(agentId: string, nt: string, variables: Record<string, unknown>, dryRun: boolean) {
+  run(agentId: string, playbook: string, variables: Record<string, unknown>, dryRun: boolean) {
     // The endpoint spreads the run result at the top level (run_id, steps, ok, …).
     return this.http.post<RunbookRunResult & { run_id: string; runbook: string }>(
-      `${this.base}/agents/${agentId}/runbook/run`, { nt, variables, dry_run: dryRun },
+      `${this.base}/agents/${agentId}/runbook/run`, { playbook, variables, dry_run: dryRun },
     );
   }
 
-  /** Save a runbook (NestedText) to the library — the wizard's "Save as
-   * template" (folder "templates"). 409 if the name is taken. */
-  saveRunbook(nt: string, folder = 'templates') {
-    return this.http.post<{ id: string; name: string }>(`${this.base}/runbooks`, { nt, folder });
+  /** Save a runbook (Ansible task YAML) to the library — the wizard's "Save as template" (folder
+   * "templates"). 409 if the name is taken. */
+  saveRunbook(playbook: string, folder = 'templates') {
+    return this.http.post<{ id: string; name: string }>(`${this.base}/runbooks`, { playbook, folder });
   }
 }

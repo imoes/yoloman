@@ -84,7 +84,6 @@ async def _expand_role_calls(
     guards; the agent never sees a "runbook" module. v1: contributed vars share
     the flat run scope (fine for the wizard's single-role calls)."""
     from bossman.db.models import Runbook
-    from bossman.services import nt_convert
     from sqlalchemy import select
 
     if depth > 8:
@@ -103,7 +102,9 @@ async def _expand_role_calls(
         )
         if row is None:
             raise nt_runbook.NTRunbookError(f"runbook step: no such runbook {ref!r}")
-        sub = nt_runbook.parse_document(nt_convert.doc_to_nt(row.doc))
+        # Validate the stored doc directly. This used to serialise it to NestedText and re-parse that,
+        # purely to reach the validator — a round-trip through a text format the system no longer has.
+        sub = nt_runbook.parse_data(row.doc, source=f"runbook {ref!r}")
         if not isinstance(sub, nt_runbook.Runbook):
             raise nt_runbook.NTRunbookError(f"runbook step: {ref!r} is a role, not a runbook")
         # Callee parameter defaults (weakest), then the call's explicit vars.

@@ -21,7 +21,7 @@ from bossman.api.plans import get_client_factory
 from bossman.config import Settings, get_settings
 from bossman.db.models import DEFAULT_TENANT_ID, Agent, DeploymentRun
 from bossman.db.session import get_session
-from bossman.services import nt_runbook
+from bossman.services import ansible_playbook, nt_runbook
 from bossman.services.auth import Identity, user_can_manage_agent
 from bossman.services.plan_engine import run_plan
 from bossman.services.plan_loader import PlanError, load_host_vars
@@ -45,8 +45,8 @@ class DeploymentRunRequest(BaseModel):
     # stored_plan:
     prefix: str | None = None
     name: str | None = None
-    # runbook (NestedText source, like POST /agents/{id}/runbook/run):
-    runbook_nt: str | None = None
+    # runbook (same source as POST /agents/{id}/runbook/run):
+    runbook_playbook: str | None = None    # Ansible task YAML (the only authoring format)
     runbook_name: str | None = None
     params: dict[str, Any] = {}
     dry_run: bool = True
@@ -76,11 +76,11 @@ async def run_deployment(
             raise HTTPException(status_code=422, detail="stored_plan needs prefix + name")
         target_ref = f"{body.prefix}/{body.name}"
     else:
-        if not body.runbook_nt:
-            raise HTTPException(status_code=422, detail="runbook needs runbook_nt (NestedText source)")
+        if not body.runbook_playbook:
+            raise HTTPException(status_code=422, detail="runbook needs runbook_playbook (Ansible task YAML)")
         try:
-            doc = nt_runbook.parse_document(body.runbook_nt)
-        except nt_runbook.NTRunbookError as exc:
+            doc = ansible_playbook.parse_playbook(body.runbook_playbook)
+        except (nt_runbook.NTRunbookError, ansible_playbook.PlaybookError) as exc:
             raise HTTPException(status_code=422, detail=str(exc)) from exc
         if not isinstance(doc, nt_runbook.Runbook):
             raise HTTPException(status_code=422, detail="that is a role, not a runbook — bind it in OU / Policy instead")

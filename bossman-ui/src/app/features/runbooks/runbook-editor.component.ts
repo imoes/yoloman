@@ -50,26 +50,6 @@ interface RunRow { id: string; runbook: string; status: string; dry_run: boolean
 interface RbRow { kind: 'folder' | 'rb'; label: string; depth: number; path?: string; rb?: { id: string; name: string; kind: string; folder: string } }
 interface ArgField { key: string; spec: ModuleOptionSpec; }
 
-/** Serialize a params object as indented NestedText (the fleet runbook format:
- * `key: value`, nested dicts indented, arrays as `- item`). Handles the common
- * flat string-map args plus one level of nesting / scalar lists. */
-function ntBlock(obj: Record<string, unknown>, indent: number): string {
-  const pad = ' '.repeat(indent);
-  const out: string[] = [];
-  for (const [k, v] of Object.entries(obj || {})) {
-    if (Array.isArray(v)) {
-      out.push(`${pad}${k}:`);
-      for (const item of v) out.push(`${pad}  - ${item}`);
-    } else if (v && typeof v === 'object') {
-      out.push(`${pad}${k}:`);
-      out.push(ntBlock(v as Record<string, unknown>, indent + 2));
-    } else {
-      out.push(`${pad}${k}: ${v}`);
-    }
-  }
-  return out.join('\n');
-}
-
 const STARTER = `name: web baseline
 targets: group:web-servers
 tasks:
@@ -450,9 +430,9 @@ export class RunbookEditorComponent implements OnInit, AfterViewInit, OnDestroy 
     return Object.keys(visible).length ? (visible as ParamSchema) : null;
   });
 
-  // F-10: visual authoring mode, now ROUND-TRIP: text→visual parses the current
-  // NestedText via /runbooks/lint (which returns the canonical doc); visual→text
-  // serialises back into Monaco (the single source lint/dry-run/apply read).
+  // Visual authoring mode, ROUND-TRIP: text→visual parses the current Ansible task YAML via
+  // /runbooks/lint (which returns the canonical doc); visual→text serialises back into Monaco (the single
+  // source lint/dry-run/apply read).
   mode = signal<'text' | 'visual' | 'tree'>('text');
   // The designer measures its workspace at init — instantiate it one tick AFTER
   // the visual layout settles, or it caches a tiny pre-layout size (steps end up
@@ -896,8 +876,8 @@ export class RunbookEditorComponent implements OnInit, AfterViewInit, OnDestroy 
     this.currentId.set(id);
     this.saveMsg.set('');
     if (!id) { this.ed?.setValue(STARTER); this.moveFolder = ''; this.refreshVisual(); return; }
-    this.http.get<{ playbook: string; nt: string; folder: string }>(`${this.base}/runbooks/${id}`).subscribe((r) => {
-      this.ed?.setValue(r.playbook || r.nt || '');
+    this.http.get<{ playbook: string; folder: string }>(`${this.base}/runbooks/${id}`).subscribe((r) => {
+      this.ed?.setValue(r.playbook || '');
       this.moveFolder = r.folder || '';
       this.doLint();   // validity + markers (+ parameter mask if any)
       this.refreshVisual();   // if the canvas is showing, rebuild it from the loaded YAML
@@ -939,7 +919,7 @@ export class RunbookEditorComponent implements OnInit, AfterViewInit, OnDestroy 
     const dark = matchMedia('(prefers-color-scheme: dark)').matches;
     this.ed = monaco.editor.create(this.editorEl.nativeElement, {
       value: STARTER,
-      language: 'yaml', // NestedText highlights well as YAML; validation is server-side
+      language: 'yaml', // Ansible task syntax IS YAML; validation is server-side
       theme: dark ? 'vs-dark' : 'vs',
       minimap: { enabled: false },
       automaticLayout: true,

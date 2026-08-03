@@ -29,14 +29,14 @@ export class PlanService {
     return this.http.post<{ reloaded: boolean; catalog_length: number }>(`${this.base}/reload`, {});
   }
 
-  // ---- plan library (folder tree + NT/YAML/JSON documents) ----
+  // ---- plan library (folder tree + YAML/JSON documents) ----
 
   /** Every stored plan/role (latest version) + its folder placement. */
   library() {
     return this.http.get<{ plans: StoredPlan[]; folders: string[] }>(`${environment.apiUrl}/plan-library`);
   }
 
-  /** A stored version rendered in all three authoring formats (latest by default). */
+  /** A stored version rendered as YAML + JSON (latest by default). */
   document(prefix: string, name: string, version?: number) {
     const q = version ? `?version=${version}` : '';
     return this.http.get<PlanDocument>(`${this.base}/stored/${prefix}/${encodeURIComponent(name)}/document${q}`);
@@ -54,7 +54,7 @@ export class PlanService {
     );
   }
 
-  /** Save an edited plan as a new stored version (source_format ∈ nestedtext|yaml|json). */
+  /** Save an edited plan as a new stored version (source_format ∈ yaml|json). */
   save(prefix: string, name: string, source_format: string, source_text: string) {
     return this.http.post<{ prefix: string; name: string; version: number }>(
       `${this.base}/stored`, { prefix, name, source_format, source_text },
@@ -109,6 +109,6 @@ export interface BulkImportResult {
 }
 export interface PlanDocument {
   prefix: string; name: string; version: number; source_format: string; folder: string;
-  formats: { nt: string; yaml: string; json: string };
+  formats: { yaml: string; json: string };
   source_text: string;
 }

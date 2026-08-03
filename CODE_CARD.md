@@ -68,6 +68,27 @@ chroot. So two valid delivery routes, pick by how fixed the module is:
 - **config codecs** — `configs/config_codecs.json`: parse⇄generate real config files (man-page-derived).
 - **checks** — `configs/checks.d/`: Starlark monitoring checks (Checkmk-translated + custom).
 
+## Authoring format: Ansible task syntax, and only that
+
+Runbooks, roles and plans are written in real Ansible task syntax (`services/ansible_playbook.py`) — the
+only text format the system reads or writes. A **role** is the same syntax under a `role:` key plus
+`monitoring.checks` / `notifications.routes`; a **runbook** may add `targets:`. Both parse into the canonical
+JSON document (`services/nt_runbook.py` — the doc model + validator, despite the `nt_` name).
+
+A NestedText authoring surface existed beside it and was removed (`docs/nestedtext-removal.md`). Keeping two
+grammars caused three real bugs, all fixed with it: NT was used as an internal round-trip just to reach the
+validator; a stored **role** re-validated as a *runbook* (losing its checks/routes, and slipping past the
+"that is a role, not a runbook" guard) because only the authoring key `role:` was recognised, not
+`kind: role`; and the `${var}` shim rewrote `$word` in *every* string, so `echo $HOME` failed and
+`awk "{print $2}"` was silently corrupted. Templating is Jinja2 only (`services/nt_vars.py`, sandboxed,
+StrictUndefined).
+
+`nt_engine` / `nt_vars` / `nt_compile` keep their names but parse no NestedText — they are the run engine,
+variable substitution, and the role→OrchestrationPlan compiler. Still NestedText today: the **argspec
+sidecars** (`configs/checks.d/*.nt`, `configs/modules.d/**/*.nt`, `*.provision.nt`) — metadata, not an
+authoring format; conversion to YAML is part B of the removal doc, and the Go agent already reads `.yaml`
+sidecars (`internal/starmodules/loader.go`).
+
 ## Plans vs. runbooks — two stores with different surfaces
 
 Both hold "a list of steps", and which one an import belongs in is decided by *how much Ansible it uses*:

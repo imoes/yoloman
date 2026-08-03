@@ -40,7 +40,7 @@ from bossman.services.plan_store import (
 )
 from bossman.services import plan_library
 from bossman.services.ansible_playbook import parse_playbook
-from bossman.services.nt_convert import doc_to_nt, doc_to_yaml
+from bossman.services.nt_convert import doc_to_yaml
 from bossman.services.chat_client import ChatClient, ChatClientError
 from bossman.db.models import DEFAULT_TENANT_ID, PlanDocument, Runbook
 
@@ -330,7 +330,7 @@ async def run_plan_route(
 class StorePlanRequest(BaseModel):
     prefix: str  # ansible | salt | puppet | chef
     name: str
-    source_format: str  # nestedtext | yaml | json (foreign DSLs as parsers land)
+    source_format: str  # yaml | json (native), or salt | puppet | chef (imported)
     source_text: str
 
 
@@ -552,10 +552,9 @@ async def plan_document(
     session: AsyncSession = Depends(get_session),
     _identity=Depends(get_current_identity),
 ) -> dict[str, Any]:
-    """A stored plan version rendered in ALL THREE authoring formats (NestedText
-    / YAML / JSON) from the one canonical JSON body, so the editor's format
-    toggle is instant. Defaults to the latest version; `version` selects an
-    older one (for diffing). Also returns source_text + source_format + folder."""
+    """A stored plan version rendered as YAML + JSON from the one canonical JSON body, so the editor's
+    format toggle is instant. Defaults to the latest version; `version` selects an older one (for diffing).
+    Also returns source_text + source_format + folder."""
     if prefix not in VALID_PREFIXES:
         raise HTTPException(status_code=400, detail=f"invalid prefix {prefix!r}")
     q = select(PlanDocument).where(PlanDocument.prefix == prefix, PlanDocument.name == name)
@@ -566,12 +565,8 @@ async def plan_document(
         raise HTTPException(status_code=404, detail=f"no stored plan {prefix}/{name}")
     folders = await plan_library.placement_map(session)
     try:
-        nt = doc_to_nt(doc.body)
-    except Exception:  # noqa: BLE001 — never let one renderer break the view
-        nt = ""
-    try:
         yml = doc_to_yaml(doc.body)
-    except Exception:  # noqa: BLE001
+    except Exception:  # noqa: BLE001 — never let one renderer break the view
         yml = ""
     return {
         "prefix": prefix,
@@ -579,7 +574,9 @@ async def plan_document(
         "version": doc.version,
         "source_format": doc.source_format,
         "folder": folders.get((prefix, name), ""),
-        "formats": {"nt": nt, "yaml": yml, "json": json.dumps(doc.body, indent=2, ensure_ascii=False)},
+        # Two views of one stored body: the doc as YAML and as JSON. (A NestedText view sat here too; the
+        # format is gone, and a third rendering of the same document was never a third source of truth.)
+        "formats": {"yaml": yml, "json": json.dumps(doc.body, indent=2, ensure_ascii=False)},
         "source_text": doc.source_text,
     }
 

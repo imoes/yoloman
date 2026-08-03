@@ -90,7 +90,7 @@ Blueprint canvas and the runbook designer edit — not a separate tool:
 |---|---|---|
 | **Tree** (new) | ordered operational sequences (restore, install) | nodes + order edges |
 | **Graph** (Blueprint/cytoscape) | dependency stacks, placement | nodes + dependency edges |
-| **Text** (Ansible-task YAML / NestedText) | review, git, diffing | the lossless round-trip |
+| **Text** (Ansible-task YAML) | review, git, diffing | the lossless round-trip |
 
 Switching the view must not change the document. The existing `POST /runbooks/lint` round-trip is the
 guarantee.

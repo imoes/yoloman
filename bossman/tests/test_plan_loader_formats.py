@@ -1,6 +1,7 @@
-"""JSON as a first-class plan format + multi-format load_plans_dir
-(docs/zielbestimmung.md roadmap 2). NestedText stays the primary human
-format; JSON is the canonical internal form on disk.
+"""JSON as a first-class plan format + multi-format load_plans_dir (docs/zielbestimmung.md roadmap 2).
+
+YAML is the human format; JSON is the canonical internal form on disk. (A NestedText format was a third
+option here and is gone.)
 """
 
 import json
@@ -30,9 +31,6 @@ def test_parse_plan_json_rejects_bad():
         parse_plan_json("[1,2,3]", Path("x.json"))
 
 
-# NestedText module body: nested keys (not inline `{}`, which NestedText
-# reads as the string "{}").
-_NT = "name: {n}\nsteps:\n    -\n        name: s\n        file:\n            path: /x\n            state: directory\n"
 _YAML = "name: {n}\nsteps:\n  - name: s\n    file:\n      path: /x\n      state: directory\n"
 
 
@@ -40,19 +38,16 @@ def test_load_plan_file_dispatches_by_extension(tmp_path):
     j = tmp_path / "a.json"
     j.write_text(json.dumps(PLAN))
     assert load_plan_file(j).name == "jdemo"
-    nt = tmp_path / "b.nt"
-    nt.write_text(_NT.format(n="ntdemo"))
-    assert load_plan_file(nt).name == "ntdemo"
     y = tmp_path / "c.yaml"
     y.write_text(_YAML.format(n="ydemo"))
     assert load_plan_file(y).name == "ydemo"
 
 
 def test_load_plans_dir_picks_up_all_formats(tmp_path):
-    assert set(PLAN_FILE_SUFFIXES) == {".nt", ".yaml", ".yml", ".json"}
+    assert set(PLAN_FILE_SUFFIXES) == {".yaml", ".yml", ".json"}
     (tmp_path / "a.json").write_text(json.dumps(PLAN))
     (tmp_path / "b.yaml").write_text(_YAML.format(n="yy"))
-    (tmp_path / "c.nt").write_text(_NT.format(n="nn"))
+    (tmp_path / "c.yml").write_text(_YAML.format(n="cc"))
     (tmp_path / "ignored.txt").write_text("not a plan")
     names = sorted(p.name for p in load_plans_dir(tmp_path))
-    assert names == ["jdemo", "nn", "yy"]
+    assert names == ["cc", "jdemo", "yy"]

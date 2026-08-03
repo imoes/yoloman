@@ -14,25 +14,6 @@ from bossman.services.plan_store import canonical_from_source, list_plans, load_
 # canonical body (and thus the same content_hash) — the format-equivalence
 # case. (Where YAML uses real bools/ints, the bodies legitimately differ,
 # which is the intended NestedText semantics.)
-NT_PLAN = """\
-name: eqdemo
-description:
-    > A demo.
-steps:
-    -
-        name: make_dir
-        file:
-            path: /etc/demo
-            state: directory
-            mode: 0755
-    -
-        name: reload
-        pipeline:
-            -
-                - systemctl
-                - daemon-reload
-"""
-
 YAML_PLAN = """\
 name: eqdemo
 description: >
@@ -54,24 +35,27 @@ def _version(source_format, text):
     return build_plan_from_raw(body, __import__("pathlib").Path("eqdemo")).version()
 
 
-def test_canonical_from_source_accepts_nt_yaml_json():
-    for fmt, text in (("nestedtext", NT_PLAN), ("yaml", YAML_PLAN)):
-        body = canonical_from_source(fmt, text)
-        assert body["name"] == "eqdemo"
-        assert body["steps"][0]["name"] == "make_dir"
+def test_canonical_from_source_accepts_yaml_and_json():
+    body = canonical_from_source("yaml", YAML_PLAN)
+    assert body["name"] == "eqdemo"
+    assert body["steps"][0]["name"] == "make_dir"
     # JSON round-trips the same structure.
     j = canonical_from_source("json", '{"name":"j","steps":[{"name":"s","file":{"path":"/x"}}]}')
     assert j["name"] == "j"
 
 
-def test_string_valued_nt_and_yaml_are_content_identical():
-    # Same plan, string-only values → identical canonical hash across formats.
-    assert _version("nestedtext", NT_PLAN) == _version("yaml", YAML_PLAN)
+def test_yaml_and_json_of_the_same_plan_hash_identically():
+    """The canonical hash must depend on the plan, not on which encoding it arrived in — otherwise re-storing
+    the same plan from a different file would look like a new version."""
+    import json as _json
+
+    body = canonical_from_source("yaml", YAML_PLAN)
+    assert _version("yaml", YAML_PLAN) == _version("json", _json.dumps(body))
 
 
 def test_canonical_rejects_bad_input():
-    with pytest.raises(PlanError):
-        canonical_from_source("nestedtext", "- just\n- a list\n")
+    with pytest.raises(PlanError, match="unsupported source_format"):
+        canonical_from_source("nestedtext", YAML_PLAN)   # the NestedText surface is gone
     with pytest.raises(PlanError):
         canonical_from_source("json", "{not json")
     with pytest.raises(PlanError, match="unsupported source_format"):
@@ -87,7 +71,7 @@ async def _cleanup(db_session, prefix, name):
 
 
 async def test_store_and_load_roundtrip(db_session):
-    await store_plan(db_session, "ansible", "eqdemo", "nestedtext", NT_PLAN)
+    await store_plan(db_session, "ansible", "eqdemo", "yaml", YAML_PLAN)
     plan = await load_plan(db_session, "ansible", "eqdemo")
     assert plan.name == "eqdemo"
     assert [c.name for c in plan.chunks] == ["main"]
@@ -100,8 +84,8 @@ async def test_store_and_load_roundtrip(db_session):
 
 
 async def test_restore_same_content_is_idempotent(db_session):
-    d1 = await store_plan(db_session, "ansible", "idem", "nestedtext", NT_PLAN)
-    d2 = await store_plan(db_session, "ansible", "idem", "nestedtext", NT_PLAN)
+    d1 = await store_plan(db_session, "ansible", "idem", "yaml", YAML_PLAN)
+    d2 = await store_plan(db_session, "ansible", "idem", "yaml", YAML_PLAN)
     assert d1.id == d2.id and d2.version == 1
     rows = (await db_session.scalars(select(PlanDocument).where(PlanDocument.name == "idem"))).all()
     assert len(rows) == 1
@@ -109,9 +93,9 @@ async def test_restore_same_content_is_idempotent(db_session):
 
 
 async def test_changed_content_bumps_version(db_session):
-    await store_plan(db_session, "ansible", "ver", "nestedtext", NT_PLAN)
-    changed = NT_PLAN.replace("/etc/demo", "/etc/demo2")
-    d2 = await store_plan(db_session, "ansible", "ver", "nestedtext", changed)
+    await store_plan(db_session, "ansible", "ver", "yaml", YAML_PLAN)
+    changed = YAML_PLAN.replace("/etc/demo", "/etc/demo2")
+    d2 = await store_plan(db_session, "ansible", "ver", "yaml", changed)
     assert d2.version == 2
     # load newest vs a specific version
     newest = await load_plan(db_session, "ansible", "ver")
@@ -123,12 +107,12 @@ async def test_changed_content_bumps_version(db_session):
 
 async def test_invalid_prefix_rejected(db_session):
     with pytest.raises(PlanError, match="invalid prefix"):
-        await store_plan(db_session, "terraform", "x", "nestedtext", NT_PLAN)
+        await store_plan(db_session, "terraform", "x", "yaml", YAML_PLAN)
 
 
 async def test_list_plans_returns_latest_per_name(db_session):
-    await store_plan(db_session, "ansible", "listed", "nestedtext", NT_PLAN)
-    await store_plan(db_session, "ansible", "listed", "nestedtext", NT_PLAN.replace("/etc/demo", "/etc/demo9"))
+    await store_plan(db_session, "ansible", "listed", "yaml", YAML_PLAN)
+    await store_plan(db_session, "ansible", "listed", "yaml", YAML_PLAN.replace("/etc/demo", "/etc/demo9"))
     entries = [e for e in await list_plans(db_session, prefix="ansible") if e["name"] == "listed"]
     assert len(entries) == 1 and entries[0]["version"] == 2
     await _cleanup(db_session, "ansible", "listed")

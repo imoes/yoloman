@@ -18,17 +18,24 @@ genügt.
    TimescaleDB für Zeitreihen) und der Plan-Cache. Alles andere ist Oberfläche
    darüber.
 
-2. **NestedText ist das Hauptformat für Menschen** — das primäre Autoren- und
-   Bedienformat für Pläne, `tools.d`-Tasks und Modul-Sidecars. NestedText hat
-   keine implizite Typisierung, kein Quoting, kein Escaping ("Norway-Problem"
-   ausgeschlossen). JSON ist das Maschinen-/Speicherformat; NestedText das, was
-   ein Mensch schreibt und liest.
+2. **Ansible-Task-Syntax ist das Hauptformat für Menschen** — das einzige Autoren-
+   und Bedienformat für Runbooks, Rollen und Pläne. JSON ist das Maschinen-/
+   Speicherformat; Ansible-YAML das, was ein Mensch schreibt und liest.
 
-3. **Multi-Format-Import:** yolo-man akzeptiert Pläne aus **NestedText (primär),
-   YAML, JSON** sowie **Chef, Puppet und Salt** und konvertiert jeden
-   **deterministisch** in den kanonischen JSON-Plan — damit die KI so wenig wie
-   möglich arbeiten muss. KI-Übersetzung ist die Ausnahme (nur wo keine
-   deterministische Abbildung existiert), nicht die Regel.
+   > Ursprünglich stand hier **NestedText**, wegen fehlender impliziter Typisierung
+   > (kein "Norway-Problem", kein Quoting). Das ist gestrichen: ein Format, das nur
+   > dieses System lesen kann, kauft Typsicherheit gegen Interoperabilität — und
+   > Interoperabilität ist der Punkt. Die Typ-Coercion sitzt jetzt an der
+   > Modulgrenze statt im Dateiformat, genau wie bei Ansible. Begründung und die
+   > drei Fehler, die die Doppelspurigkeit verursacht hatte:
+   > `docs/nestedtext-removal.md`.
+
+3. **Multi-Format-Import:** yolo-man akzeptiert Pläne aus **YAML und JSON** sowie
+   **Chef, Puppet und Salt** und konvertiert jeden **deterministisch** in den
+   kanonischen JSON-Plan — damit die KI so wenig wie möglich arbeiten muss.
+   KI-Übersetzung ist die Ausnahme (nur wo keine deterministische Abbildung
+   existiert), nicht die Regel. Gemessene Abdeckung pro Framework:
+   `docs/orchestration-import.md`.
 
 4. **Kanonische Dokumenten-Datenbank für Pläne:** alle Pläne liegen in *einer*
    JSONB-Tabelle, **präfix-keyed** nach Herkunftssystem
@@ -71,7 +78,7 @@ Stand der Prüfung (drei Code-Audits). ✓ = konsistent umgesetzt,
 
 Es existieren **zwei getrennte Plan-Welten**:
 
-- **file-basiert** — `plans_dir`-Pläne (YAML/NestedText), nur im Speicher
+- **file-basiert** — `plans_dir`-Pläne (YAML/JSON), nur im Speicher
   gecacht, kein DB-Eintrag außer dem Ausführungs-Audit (`plan_runs`);
 - **DB-basiert** — `orchestration_plans` / `orchestration_plan_versions`
   (JSONB, versioniert), ein höheres Rollen-/Deployment-Konstrukt.
@@ -86,7 +93,7 @@ JSON-Plan-Store. Das ist die erste zu schließende Lücke.
    (`prefix=ansible`). *(erledigt: `services/plan_store.py`, Migration
    `a3d7f0c2b915`, `scripts/import_plans_dir.py`.)*
 2. **JSON first-class** als Eingabeformat. *(erledigt: `parse_plan_json`,
-   `load_plan_file` dispatcht `.nt`/`.json`/YAML, `load_plans_dir` +
+   `load_plan_file` dispatcht `.json`/YAML, `load_plans_dir` +
    `yolo-man convert/lint` verstehen `.json`; Store akzeptiert
    `source_format=json`.)*
 3. **Deterministische Fremdformat-Parser** → kanonisches Plan-Dict, je ein

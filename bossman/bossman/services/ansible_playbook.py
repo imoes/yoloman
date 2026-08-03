@@ -1,17 +1,16 @@
-"""Ansible-task YAML ↔ canonical runbook doc (Block G11, Ansible-syntax surface).
+"""Ansible-task YAML ↔ canonical runbook doc — **the** authoring format.
 
-We offer real Ansible **task** syntax as the authoring/interchange format while
-keeping the Go agent + Starlark runtime. A task is module-as-key
-(`ansible.builtin.copy: {src, dest}`) plus task keywords (when/loop/register/
-become/tags/notify/vars/…). This parses that into the SAME canonical doc the
-NestedText parser produces (services/nt_runbook), so execution is unchanged.
+Real Ansible **task** syntax is the only text format the system reads or writes; the runtime stays the Go
+agent + Starlark. A task is module-as-key (`ansible.builtin.copy: {src, dest}`) plus task keywords
+(when/loop/register/become/tags/notify/…), parsed into the canonical doc model in services/nt_runbook, so
+execution is unchanged. (A NestedText surface existed alongside this one and was removed — two authoring
+formats meant two grammars to keep correct, and only one of them was a format anyone else can read.)
 
-Structure = a **task list** (one implicit play): either a bare YAML list of
-tasks, or a mapping `{name?, targets?/hosts?, tasks: [...], handlers?: [...]}`.
-Supported: module-as-key tasks, when/loop/register/become/tags/notify/vars,
-`block`/`rescue`/`always` grouped error handling, `set_fact`, role/task includes,
-and a `handlers:` section. Out of scope: multi-play playbooks, dynamic includes,
-strategy/lookup plugins.
+Structure = a **task list** (one implicit play): a bare YAML list of tasks, or a mapping
+`{name?, targets?/hosts?, tasks: [...], handlers?: [...]}`, or a **role**: `{role, tasks, monitoring.checks?,
+notifications.routes?}`. Supported: module-as-key tasks, `key=value` free-form, when/loop/register/become/
+tags/notify/vars, `block`/`rescue`/`always`, `set_fact`, role/task includes, `handlers:`. Out of scope:
+multi-play playbooks, dynamic includes, strategy/lookup plugins.
 """
 
 from __future__ import annotations
@@ -20,7 +19,7 @@ from typing import Any
 
 import yaml
 
-from bossman.services.nt_runbook import Runbook, Step, _as_bool, _str_list
+from bossman.services.nt_runbook import Role, Runbook, Step, _as_bool, _parse_parameters, _str_list
 
 
 class PlaybookError(Exception):
@@ -55,8 +54,6 @@ _ROLE_CALL_KEYS = {"import_tasks", "include_tasks", "import_role", "include_role
 # guessing there would silently run a different task than the author wrote.
 _BARE_VALUE_ARG = {
     "include_vars": "file", "ansible.builtin.include_vars": "file",
-    "include_tasks": "file", "ansible.builtin.include_tasks": "file",
-    "import_tasks": "file", "ansible.builtin.import_tasks": "file",
     "debug": "msg", "ansible.builtin.debug": "msg",
 }
 # Ansible's boolean literals. k=v form carries no types (everything is a string), and Ansible's own argspec
@@ -189,11 +186,16 @@ def _task_to_step(task: Any, idx: int) -> Step:
     )
 
 
-def parse_playbook(text: str) -> Runbook:
-    """Ansible-task YAML → a Runbook (same object parse_document returns, so the
-    lint/run endpoints handle it uniformly). Accepts a bare task list, or a
-    `{name?, targets?/hosts?, tasks: [...]}` mapping, or a single-play list
-    `[{hosts?, name?, tasks: [...]}]` (first play only; more raise)."""
+def parse_playbook(text: str) -> Runbook | Role:
+    """Ansible-task YAML → a Runbook (or a Role), so the lint/run endpoints handle every document uniformly.
+
+    Accepts a bare task list, a `{name?, targets?/hosts?, tasks: [...]}` mapping, or a single-play list
+    `[{hosts?, name?, tasks: [...]}]` (first play only; more raise).
+
+    A **role** is the same task syntax under a `role:` key, plus the two envelope sections a role owns —
+    `monitoring.checks` and `notifications.routes` ("what is orchestrated is monitored"). Ansible has no
+    concept for those, so they are ours, exactly like `targets:`; the tasks inside are plain Ansible.
+    """
     try:
         data = yaml.safe_load(text)
     except yaml.YAMLError as exc:
@@ -205,6 +207,19 @@ def parse_playbook(text: str) -> Runbook:
     targets: str | None = None
     tasks: Any
     handlers_raw: Any = None
+
+    if isinstance(data, dict) and "role" in data:
+        role_tasks = data.get("tasks")
+        if not isinstance(role_tasks, list) or not role_tasks:
+            raise PlaybookError("a role needs a non-empty 'tasks' list")
+        return Role(
+            name=str(data["role"]),
+            description=str(data.get("description", "") or ""),
+            parameters=_parse_parameters(data.get("parameters")),
+            steps=[_task_to_step(t, i) for i, t in enumerate(role_tasks)],
+            checks=_str_list((data.get("monitoring") or {}).get("checks")),
+            notification_routes=_str_list((data.get("notifications") or {}).get("routes")),
+        )
 
     if isinstance(data, dict) and "tasks" in data:
         name = data.get("name", "") or ""
@@ -233,12 +248,13 @@ def parse_playbook(text: str) -> Runbook:
     targets = str(targets) if targets is not None else None
     steps = [_task_to_step(t, i) for i, t in enumerate(tasks)]
     handlers = [_task_to_step(h, i) for i, h in enumerate(handlers_raw or [])]
-    return Runbook(name=name, steps=steps, targets=targets, handlers=handlers)
+    return Runbook(name=name, steps=steps, targets=targets, handlers=handlers,
+                   parameters=_parse_parameters(data.get("parameters")) if isinstance(data, dict) else {})
 
 
 def _step_to_task(step: dict[str, Any]) -> dict[str, Any]:
     """One canonical doc step → an Ansible task dict (module-as-key). Handles the
-    loose NestedText sugar some stored docs carry (a step with `run:` or
+    shorthand some stored docs carry (a step with `run:` or
     `runbook:` instead of `module:` — e.g. wizard-seeded runbooks)."""
     task: dict[str, Any] = {}
     if step.get("name"):
@@ -276,15 +292,34 @@ def _step_to_task(step: dict[str, Any]) -> dict[str, Any]:
 
 
 def doc_to_playbook(doc: dict[str, Any]) -> str:
-    """Canonical doc → Ansible-task YAML (a `{name, targets, tasks: [...]}`
-    envelope carrying our name/targets metadata + a real Ansible task list)."""
+    """Canonical doc → Ansible-task YAML: a `{name|role, targets?, tasks: [...]}` envelope carrying our own
+    metadata plus a real Ansible task list.
+
+    A **role** must render with its `role:` key and its `monitoring`/`notifications` sections. Emitting a role
+    as `{name, tasks}` would round-trip it into a *runbook*: the text view is editable, so saving what was
+    rendered would silently drop the role's checks and notification routes — the same identity loss that
+    `parse_data` had in the other direction."""
     tasks = [_step_to_task(s) for s in (doc.get("steps") or [])]
     out: dict[str, Any] = {}
-    if doc.get("name"):
+    is_role = doc.get("kind") == "role"
+    if is_role:
+        out["role"] = doc.get("name", "")
+        if doc.get("description"):
+            out["description"] = doc["description"]
+    elif doc.get("name"):
         out["name"] = doc["name"]
     if doc.get("targets"):
         out["targets"] = doc["targets"]
+    if doc.get("parameters"):
+        out["parameters"] = doc["parameters"]
     out["tasks"] = tasks
     if doc.get("handlers"):
         out["handlers"] = [_step_to_task(h) for h in doc["handlers"]]
+    if is_role:
+        checks = (doc.get("monitoring") or {}).get("checks") or []
+        if checks:
+            out["monitoring"] = {"checks": checks}
+        routes = (doc.get("notifications") or {}).get("routes") or []
+        if routes:
+            out["notifications"] = {"routes": routes}
     return yaml.safe_dump(out, sort_keys=False, default_flow_style=False, allow_unicode=True)

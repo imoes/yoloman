@@ -1,10 +1,12 @@
-"""Block G11 (NT format, step 2): variable substitution — now real Jinja2 in a
-SANDBOX (the pivot to full Ansible semantics), with a back-compat shim for the
-legacy bracket styles so existing runbooks keep working:
+"""Variable substitution: real Jinja2 in a SANDBOX — Ansible semantics.
 
-    {{ var }}   {{ var | filter }}   {{ a if b else c }}   ← real Jinja (Ansible)
-    $var        ${var}                                     ← legacy → {{ var }}
-    ${var:-default}   ${var:?message}                      ← legacy bash modifiers
+    {{ var }}   {{ var | filter }}   {{ a if b else c }}   ← the only templating syntax
+
+A `$var` / `${var}` / `${var:-default}` / `${var:?msg}` shim used to be rewritten to Jinja here. It is gone,
+for two reasons: it was a second templating syntax (nothing but Ansible's remains), and it rewrote `$word`
+inside *every* string — so `echo $HOME` failed with "HOME is undefined" and `awk "{print $2}"` was silently
+corrupted to `awk "{print 2}"`. Shell arguments are the most common thing in a runbook; a templating engine
+must not touch their `$`. Use `{{ var }}`, and `| default(x, true)` / `| mandatory(msg)` for the modifiers.
 
 A string that is *entirely* one `{{ … }}` expression yields the expression's
 native value (so `port: {{ mysql_port }}` stays an int); an embedded placeholder
@@ -42,8 +44,7 @@ class StrictChainableUndefined(ChainableUndefined, StrictUndefined):
 
 
 def _mandatory(value: Any, message: str = "mandatory variable is undefined or empty") -> Any:
-    """`| mandatory(msg)` — the legacy `${var:?msg}` modifier: raise if the value
-    is undefined / None / empty, otherwise pass it through."""
+    """`| mandatory(msg)` — raise if the value is undefined / None / empty, otherwise pass it through."""
     if isinstance(value, Undefined) or value is None or value == "":
         raise NTVarError(message)
     return value
@@ -54,39 +55,13 @@ def _mandatory(value: Any, message: str = "mandatory variable is undefined or em
 _ENV = SandboxedEnvironment(undefined=StrictChainableUndefined, autoescape=False, keep_trailing_newline=True)
 _ENV.filters["mandatory"] = _mandatory
 
-_NAME = r"\w+(?:\.\w+)*"
-# Legacy `$name` / `${name}` / `${name:-arg}` / `${name:?arg}` — NOT `{{ }}`
-# (those are already Jinja). Rewritten to the Jinja equivalent before rendering.
-_LEGACY = re.compile(
-    r"\$\{(?P<b>" + _NAME + r")(?:(?P<op>:-|:\?)(?P<arg>[^}]*))?\}"
-    r"|\$(?P<s>" + _NAME + r")"
-)
-
-
-def _q(s: str) -> str:
-    return "'" + s.replace("\\", "\\\\").replace("'", "\\'") + "'"
-
-
-def _legacy_to_jinja(s: str) -> str:
-    def repl(m: re.Match) -> str:
-        name = m.group("b") or m.group("s")
-        op, arg = m.group("op"), m.group("arg")
-        if op == ":-":   # default on undefined OR empty (the true= second-arg form)
-            return "{{ " + name + " | default(" + _q(arg or "") + ", true) }}"
-        if op == ":?":   # required, with a custom message
-            return "{{ " + name + " | mandatory(" + _q(arg or f"required variable {name!r} is unset") + ") }}"
-        return "{{ " + name + " }}"
-    return _LEGACY.sub(repl, s)
-
-
 _WHOLE = re.compile(r"^\{\{(?P<e>.*)\}\}$", re.S)
 
 
 def substitute_str(s: str, vars: dict[str, Any]) -> Any:
     """Substitute one string. Exactly one `{{ … }}` expression → its native value;
     otherwise the interpolated string."""
-    tmpl = _legacy_to_jinja(s)
-    stripped = tmpl.strip()
+    stripped = s.strip()
     whole = _WHOLE.match(stripped)
     single = bool(whole) and stripped.count("{{") == 1 and stripped.count("}}") == 1
     try:
@@ -95,7 +70,7 @@ def substitute_str(s: str, vars: dict[str, Any]) -> Any:
             if isinstance(value, Undefined):
                 raise NTVarError(f"unresolved variable reference in {s!r}")
             return value
-        return _ENV.from_string(tmpl).render(**vars)
+        return _ENV.from_string(s).render(**vars)
     except NTVarError:
         raise
     except (UndefinedError, TemplateError) as exc:

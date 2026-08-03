@@ -22,7 +22,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from bossman.config import Settings
 from bossman.db.models import Agent, Rollout, Service
-from bossman.services import nt_convert, nt_runbook
+from bossman.services import nt_runbook
 from bossman.services.runbook_exec import execute_runbook
 
 logger = logging.getLogger(__name__)
@@ -60,7 +60,7 @@ async def _run_wave(session: AsyncSession, settings: Settings, rollout: Rollout,
     from bossman.db.models import Runbook
 
     rb = await session.scalar(select(Runbook).where(Runbook.name == rollout.runbook_name))
-    doc = nt_runbook.parse_document(nt_convert.doc_to_nt(rb.doc)) if rb else None
+    doc = nt_runbook.parse_data(rb.doc, source=f"runbook {rollout.runbook_name!r}") if rb else None
     res = {"name": wave["name"], "ok": 0, "failed": 0, "hosts": []}
     if not isinstance(doc, nt_runbook.Runbook):
         res["failed"] = len(wave["agent_ids"])

@@ -127,11 +127,11 @@ core loop. Follow-up: OU/group-scoped config-policy authoring as an MCP tool
   config.yaml (existing model, no new vault). Verified live: added vpp0221's own
   Proxmox API → reachable, 6 guests, persisted; removed cleanly.
 - ~~**F-10** Runbooks: port the visual SWD builder from agent-ui into the fleet
-  Runbooks page (currently text-only NestedText).~~ ✅ DONE — the fleet runbook
+  Runbooks page (currently text-only).~~ ✅ DONE — the fleet runbook
   editor now has a Text ⇄ Visual toggle. Visual mode is the Sequential Workflow
   Designer (module/set_fact/debug steps, per-step module/args/when/register
   editors) ported from agent-ui; every edit serialises the definition into the
-  same Monaco NestedText the existing lint/dry-run/apply/save read (Monaco stays
+  same Monaco buffer the existing lint/dry-run/apply/save read (Monaco stays
   the single source of truth; visual is an authoring overlay, one-way
   visual→text). SWD CSS added to the bossman-ui build. Verified live via
   Playwright: designer + toolbox render, no console errors.

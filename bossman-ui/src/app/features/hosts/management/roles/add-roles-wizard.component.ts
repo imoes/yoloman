@@ -1,4 +1,5 @@
 import { Component, Inject, computed, inject, signal, viewChildren } from '@angular/core';
+import * as yaml from 'js-yaml';
 import { FormsModule } from '@angular/forms';
 import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { MatButtonModule } from '@angular/material/button';
@@ -161,7 +162,7 @@ interface RunState { pkg: string; result?: RunbookRunResult; error?: string; run
                   <button mat-stroked-button (click)="saveAsTemplate()"><mat-icon>save</mat-icon> Save as template</button>
                   @if (savedMsg()) { <span class="bm-wz-saved">{{ savedMsg() }}</span> }
                 </div>
-                <pre class="bm-wz-nt">{{ templateNt() }}</pre>
+                <pre class="bm-wz-nt">{{ templatePlaybook() }}</pre>
               </details>
             }
             @case ('results') {
@@ -429,53 +430,36 @@ export class AddRolesWizardComponent {
   templateName = signal('');
   savedMsg = signal('');
 
-  /** The wizard as a plaintext runbook: one `runbook:` role call per selected
-   * package, carrying the configured variables — exactly what runs, editable
-   * later in the Workflow editor. This IS the template you save. */
-  templateNt(): string {
+  /**
+   * The wizard as an Ansible task list: one role call (`import_tasks`) per selected package, carrying the
+   * configured variables — exactly what runs, editable later in the Workflow editor. This IS the template
+   * you save.
+   *
+   * Built as an object and dumped by js-yaml. It used to hand-roll NestedText line by line with its own
+   * indent arithmetic, which is both a second authoring format and a serialiser we would have to keep
+   * correct ourselves; Ansible task syntax is the only format now, and a real emitter handles the quoting.
+   */
+  templatePlaybook(): string {
     const pkgs = this.toInstall();
-    const lines = [`name: ${this.templateName().trim() || 'install ' + pkgs.join(' ')}`, `targets: host:${this.data.hostName}`, 'steps:'];
-    for (const p of pkgs) {
-      lines.push('    -');
-      lines.push(`        name: ${this.catLabel(p)}`);
-      lines.push(`        runbook: install-${p}`);
+    const tasks = pkgs.map((p) => {
       const vars = this.values()[p] || {};
       const keys = Object.keys(vars).filter((k) => !k.startsWith('_') && vars[k] !== undefined && vars[k] !== '');
-      if (keys.length) {
-        lines.push('        vars:');
-        for (const k of keys) lines.push(...this.ntValue(k, vars[k], 12));
-      }
-    }
-    return lines.join('\n') + '\n';
-  }
-
-  /** Serialise one variable to NestedText at the given indent (scalars inline,
-   * lists as `- item`, dicts nested). */
-  private ntValue(key: string, v: unknown, indent: number): string[] {
-    const pad = ' '.repeat(indent);
-    if (Array.isArray(v)) {
-      if (!v.length) return [`${pad}${key}: []`];
-      const out = [`${pad}${key}:`];
-      for (const el of v) {
-        if (el !== null && typeof el === 'object') {
-          out.push(`${pad}    -`);
-          for (const [ek, ev] of Object.entries(el)) out.push(...this.ntValue(ek, ev, indent + 8));
-        } else {
-          out.push(`${pad}    - ${el}`);
-        }
-      }
-      return out;
-    }
-    if (v !== null && typeof v === 'object') {
-      const out = [`${pad}${key}:`];
-      for (const [ek, ev] of Object.entries(v as Record<string, unknown>)) out.push(...this.ntValue(ek, ev, indent + 4));
-      return out;
-    }
-    return [`${pad}${key}: ${v}`];
+      const task: Record<string, unknown> = { name: this.catLabel(p), import_tasks: `install-${p}` };
+      if (keys.length) task['vars'] = Object.fromEntries(keys.map((k) => [k, vars[k]]));
+      return task;
+    });
+    return yaml.dump(
+      {
+        name: this.templateName().trim() || 'install ' + pkgs.join(' '),
+        targets: `host:${this.data.hostName}`,
+        tasks,
+      },
+      { lineWidth: 120, noRefs: true },
+    );
   }
 
   copyTemplate(): void {
-    navigator.clipboard?.writeText(this.templateNt()).then(
+    navigator.clipboard?.writeText(this.templatePlaybook()).then(
       () => { this.savedMsg.set('Copied to clipboard'); setTimeout(() => this.savedMsg.set(''), 2500); },
       () => {},
     );
@@ -483,7 +467,7 @@ export class AddRolesWizardComponent {
 
   saveAsTemplate(): void {
     this.savedMsg.set('');
-    this.wizard.saveRunbook(this.templateNt(), 'templates').subscribe({
+    this.wizard.saveRunbook(this.templatePlaybook(), 'templates').subscribe({
       next: (r) => this.savedMsg.set(`Saved as template "${r.name}" — editable in the Workflow designer`),
       error: (e: { error?: { detail?: string } }) => this.savedMsg.set(e?.error?.detail || 'save failed (name may already exist)'),
     });
@@ -521,7 +505,7 @@ export class AddRolesWizardComponent {
       concatMap((p) => {
         const r = this.runbooks()[p];
         if (!r) return of<RunState>({ pkg: p, error: 'no install runbook (template missing)' });
-        return this.wizard.run(this.data.agentId, r.nt, this.varsFor(p), dry).pipe(
+        return this.wizard.run(this.data.agentId, r.playbook, this.varsFor(p), dry).pipe(
           map((resp): RunState => ({ pkg: p, result: resp })),
           catchError((e: { error?: { detail?: string } }) => of<RunState>({ pkg: p, error: e?.error?.detail || 'run failed' })),
         );

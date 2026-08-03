@@ -81,7 +81,7 @@ tabs + 8 Management sub-tabs against the live stack (2026-07-15, docker-test).
   stack" although Docker runs and the piggyback Docker collector reports
   containers as hosts. Piggyback sources are neither visible nor
   configurable anywhere.
-- **F-10** Runbooks: fleet UI is text-only (NestedText); the visual SWD
+- **F-10** Runbooks: fleet UI is text-only (Ansible task YAML); the visual SWD
   builder exists only in agent-ui. Library empty ("No saved runbooks").
 
 ### Data hygiene

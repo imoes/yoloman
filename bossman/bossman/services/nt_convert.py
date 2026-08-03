@@ -1,9 +1,9 @@
-"""Block G11 (runbook persistence): convert between the DB's canonical JSON
-and the NestedText (or YAML) authoring form.
+"""Render the DB's canonical JSON doc for display.
 
-Runbooks live in the database as JSON (the parsed Runbook/Role document);
-NestedText is the authoring/display format. On save we parse NT/YAML → the
-canonical doc; on read we render the doc → NestedText for the editor.
+Runbooks live in the database as JSON (the parsed Runbook/Role document). Authoring is Ansible task syntax
+(services/ansible_playbook.doc_to_playbook renders that); what remains here is the **doc-shaped** YAML view —
+the canonical document itself, printed as YAML, for inspecting a stored doc as-is. A NestedText renderer used
+to live beside it and is gone: NestedText was a second authoring format nobody outside this system reads.
 (Modules and checks stay on the filesystem — only runbooks are DB-backed.)
 """
 
@@ -11,21 +11,14 @@ from __future__ import annotations
 
 from typing import Any
 
-import nestedtext
 import yaml
 
-from bossman.services.nt_runbook import NTRunbookError, parse_data, parse_document
-
-
-def nt_to_doc(nt_text: str) -> dict[str, Any]:
-    """NestedText authoring text → canonical JSON doc (validated)."""
-    return parse_document(nt_text).to_dict()
+from bossman.services.nt_runbook import NTRunbookError, parse_data
 
 
 def yaml_to_doc(yaml_text: str) -> dict[str, Any]:
-    """YAML authoring text → canonical JSON doc (validated). Handy for
-    importing an existing YAML playbook; it is canonicalized to the runbook
-    model (and will render back as NestedText)."""
+    """Doc-shaped YAML → canonical JSON doc (validated). This is NOT the Ansible-task surface (that is
+    services/ansible_playbook.parse_playbook) — it reads the canonical document written as YAML."""
     try:
         data = yaml.safe_load(yaml_text)
     except yaml.YAMLError as exc:
@@ -34,8 +27,8 @@ def yaml_to_doc(yaml_text: str) -> dict[str, Any]:
 
 
 def _authoring_dict(doc: dict[str, Any]) -> dict[str, Any]:
-    """The canonical doc reshaped into the authoring mapping (drop internal
-    `kind`, promote role/name, keep only set fields) for NestedText output."""
+    """The canonical doc reshaped for display (drop internal `kind`, promote role/name, keep only set
+    fields)."""
     out: dict[str, Any] = {}
     if doc.get("kind") == "role":
         out["role"] = doc.get("name", "")
@@ -78,14 +71,6 @@ def _authoring_dict(doc: dict[str, Any]) -> dict[str, Any]:
     return out
 
 
-def doc_to_nt(doc: dict[str, Any]) -> str:
-    """Canonical JSON doc → NestedText authoring text (for the editor).
-    NestedText leaves must be strings; default=str coerces bools/numbers."""
-    return nestedtext.dumps(_authoring_dict(doc), default=str)
-
-
 def doc_to_yaml(doc: dict[str, Any]) -> str:
-    """Canonical JSON doc → YAML authoring text (for the editor's YAML view).
-    Uses the same authoring reshape as NestedText, so all three formats
-    (NT/YAML/JSON) round-trip through the same canonical body."""
+    """Canonical JSON doc → doc-shaped YAML (the editor's YAML view of the stored document)."""
     return yaml.safe_dump(_authoring_dict(doc), sort_keys=False, default_flow_style=False, allow_unicode=True)

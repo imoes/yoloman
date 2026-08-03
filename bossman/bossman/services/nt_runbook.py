@@ -1,20 +1,25 @@
-"""Block G11 (NT format, step 1): parse a NestedText runbook or role into a
-typed model.
+"""The canonical runbook/role document model + its validator.
 
-One grammar, two documents (docs/nt-format.md):
+Authoring is **Ansible task syntax** (services/ansible_playbook); this module owns the typed model that
+syntax parses into, and the shape rules every input shares. It used to also parse NestedText — that surface
+is gone, so the only text format in the system is Ansible YAML. What remains here is format-agnostic: it
+validates an already-parsed mapping, whether that came from the Ansible parser or straight out of the DB's
+canonical JSON.
+
+Two documents, one grammar:
 - a **role** has a top-level `role:` key — it bundles steps + the monitoring
   (`monitoring.checks`) and alerting (`notifications.routes`) a kind of host
   carries; it's the authoring surface for an OrchestrationPlan.
 - everything else is a **runbook** — an ordered procedure you run
   (`yolo-man run …`).
 
-A step is explicit: `name`, `module`, `args` (+ optional `when` / `loop` /
-`register` / `ignore_errors`). `run: <cmd>` is sugar for `module: shell` with
-`args.cmd`. There is no `become` — the agent runs as root.
+A step is explicit: `name`, `module`, `args` (+ optional `when` / `loop` / `register` / `ignore_errors` /
+`failed_when` / `changed_when` / `block`+`rescue`+`always`). `run: <cmd>` is sugar for `module: shell` with
+`args.cmd`.
 
-Parsing only builds the model + validates shape; variable substitution
-(services/nt_vars) and the run engine (step 4) come later. All NestedText
-leaves are strings; the few boolean step keys are coerced here.
+Validation only builds the model + checks shape; variable substitution (services/nt_vars) and the run engine
+(services/nt_engine) come after. Boolean step keys are coerced from strings too, because Ansible's untyped
+`key=value` task form yields strings.
 """
 
 from __future__ import annotations
@@ -23,12 +28,10 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-import nestedtext
-
 
 class NTRunbookError(Exception):
-    """A malformed runbook/role document — carries a human-readable message
-    and, for NestedText syntax errors, the 1-based line for editor markers."""
+    """A malformed runbook/role document — carries a human-readable message and, where the source format
+    could report one, the 1-based line for editor markers."""
 
     def __init__(self, message: str, line: int | None = None):
         super().__init__(message)
@@ -298,26 +301,20 @@ def _str_list(raw: Any) -> list[str]:
     raise NTRunbookError("expected a list or a single value")
 
 
-def parse_document(text: str, source: str = "<string>") -> Runbook | Role:
-    """Parse NestedText into a Runbook or a Role (Role iff it has `role:`)."""
-    try:
-        data = nestedtext.loads(text, top="dict")
-    except nestedtext.NestedTextError as exc:
-        line = getattr(exc, "lineno", None)
-        raise NTRunbookError(f"{source}: not valid NestedText: {exc}", line=line) from exc
-    return parse_data(data, source)
-
-
 def parse_data(data: Any, source: str = "<data>") -> Runbook | Role:
-    """Validate an already-parsed mapping (from NestedText, YAML, or the DB's
-    canonical JSON) into a Runbook/Role. The shape rules live here so every
-    input format shares one validator."""
+    """Validate an already-parsed mapping — from the Ansible-task parser or the DB's canonical JSON — into a
+    Runbook/Role. The shape rules live here so every input shares one validator, and so a doc loaded from the
+    database is checked by exactly the same code that checked it on the way in."""
     if not isinstance(data, dict):
         raise NTRunbookError(f"{source}: top level must be a mapping")
 
-    if "role" in data:
+    # A role is marked either by the authoring key `role:` or by the canonical doc's own `kind: role` — a doc
+    # loaded back from the database carries the latter, not the former. Recognising only `role:` made a stored
+    # role re-validate as a *runbook*, silently dropping its checks and notification routes and slipping past
+    # the "that is a role, not a runbook" guard in the scheduler and rollout paths.
+    if "role" in data or data.get("kind") == "role":
         return Role(
-            name=str(data["role"]),
+            name=str(data.get("role") or data.get("name") or ""),
             description=str(data.get("description", "") or ""),
             parameters=_parse_parameters(data.get("parameters")),
             steps=_parse_steps(data.get("steps")),
@@ -335,9 +332,15 @@ def parse_data(data: Any, source: str = "<data>") -> Runbook | Role:
 
 
 def parse_file(path: str | Path) -> Runbook | Role:
+    """Load an Ansible-task YAML file as a Runbook/Role."""
+    from bossman.services.ansible_playbook import PlaybookError, parse_playbook
+
     p = Path(path)
     try:
         text = p.read_text(encoding="utf-8")
     except OSError as exc:
         raise NTRunbookError(f"cannot read {p}: {exc}") from exc
-    return parse_document(text, source=str(p))
+    try:
+        return parse_playbook(text)
+    except PlaybookError as exc:
+        raise NTRunbookError(f"{p}: {exc}") from exc

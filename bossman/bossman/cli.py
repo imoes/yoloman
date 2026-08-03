@@ -1,17 +1,16 @@
-"""yolo-man — a small ansible-playbook-style CLI over the plan engine
-(Block NT-4). It reuses the exact same Plan/Chunk/PlanStep model and engine
-as Bossman; the only thing new is a command-line front door and NestedText
-as a first-class playbook syntax alongside YAML.
+"""yolo-man — a small ansible-playbook-style CLI over the plan engine. It reuses the exact same
+Plan/Chunk/PlanStep model and engine as Bossman; the only thing new is a command-line front door.
 
-    yolo-man lint    playbook.nt
-    yolo-man show    playbook.nt
-    yolo-man convert playbook.yaml playbook.nt      # deterministic, either way
-    yolo-man run     playbook.nt --host web01 --param msg=hi [--check]
+    yolo-man lint    playbook.yaml
+    yolo-man show    playbook.yaml
+    yolo-man convert playbook.yaml playbook.json    # deterministic, either way
+    yolo-man run     playbook.yaml --host web01 --param msg=hi [--check]
 
-Format is chosen by extension: .nt → NestedText, anything else → YAML. The
-`run` command drives the real engine against an enrolled agent (recording a
-PlanRun like the API does), so it needs Bossman's database + TLS identity
-configured in the environment, exactly like the server.
+Format is chosen by extension: .json → JSON, anything else → YAML. (A NestedText syntax used to sit beside
+YAML here; it is gone — Ansible syntax is the one authoring format, so `convert` now only moves between the
+two machine encodings of the same document.) The `run` command drives the real engine against an enrolled
+agent (recording a PlanRun like the API does), so it needs Bossman's database + TLS identity configured in
+the environment, exactly like the server.
 """
 
 from __future__ import annotations
@@ -23,23 +22,14 @@ import sys
 from pathlib import Path
 from typing import Any
 
-import nestedtext
 import yaml
 
 from bossman.services.plan_loader import PlanError, load_plan_file
 
 
-def _is_nt(path: Path) -> bool:
-    return path.suffix.lower() == ".nt"
-
-
-# load_plan_file already dispatches .nt/.json/YAML — kept as an alias so the
-# command handlers read clearly ("load a plan in any accepted format").
+# load_plan_file already dispatches .json/YAML — kept as an alias so the command handlers read clearly
+# ("load a plan in any accepted format").
 load_plan_any = load_plan_file
-
-
-def _bool_to_nt(value: bool) -> str:  # NestedText is all-strings; keep bools lowercase.
-    return "true" if value else "false"
 
 
 def _cmd_lint(args: argparse.Namespace) -> int:
@@ -80,9 +70,7 @@ def _cmd_show(args: argparse.Namespace) -> int:
 
 
 def _read_raw(path: Path) -> Any:
-    """Read a plan file into a raw dict, by extension (.nt / .json / YAML)."""
-    if _is_nt(path):
-        return nestedtext.loads(path.read_text(), top="dict")
+    """Read a plan file into a raw dict, by extension (.json / YAML)."""
     if path.suffix.lower() == ".json":
         return json.loads(path.read_text())
     return yaml.safe_load(path.read_bytes())
@@ -92,19 +80,15 @@ def _cmd_convert(args: argparse.Namespace) -> int:
     src, dst = Path(args.src), Path(args.dst)
     try:
         raw: Any = _read_raw(src)
-    except (nestedtext.NestedTextError, yaml.YAMLError, json.JSONDecodeError, OSError) as exc:
+    except (yaml.YAMLError, json.JSONDecodeError, OSError) as exc:
         print(f"cannot read {src}: {exc}", file=sys.stderr)
         return 1
     try:
-        if _is_nt(dst):
-            # NestedText leaves must be strings: stringify scalars, keeping
-            # bools lowercase so they round-trip through the boolean coercion.
-            out = nestedtext.dumps(raw, converters={bool: _bool_to_nt, type(None): lambda _n: ""}, default=str)
-        elif dst.suffix.lower() == ".json":
+        if dst.suffix.lower() == ".json":
             out = json.dumps(raw, indent=2)
         else:
             out = yaml.safe_dump(raw, sort_keys=False, default_flow_style=False)
-    except (nestedtext.NestedTextError, yaml.YAMLError, TypeError) as exc:
+    except (yaml.YAMLError, TypeError) as exc:
         print(f"cannot convert: {exc}", file=sys.stderr)
         return 1
     dst.write_text(out if out.endswith("\n") else out + "\n")
@@ -183,7 +167,7 @@ def _cmd_runbook_lint(args: argparse.Namespace) -> int:
     from bossman.services import nt_runbook
 
     try:
-        doc = nt_runbook.parse_document(Path(args.file).read_text(encoding="utf-8"))
+        doc = nt_runbook.parse_file(args.file)
     except (nt_runbook.NTRunbookError, OSError) as exc:
         line = getattr(exc, "line", None)
         print(f"INVALID: {exc}" + (f" (line {line})" if line else ""), file=sys.stderr)
@@ -205,7 +189,7 @@ async def _run_runbook_cli(args: argparse.Namespace) -> int:
     from bossman.services.runbook_exec import execute_runbook
 
     try:
-        doc = nt_runbook.parse_document(Path(args.file).read_text(encoding="utf-8"))
+        doc = nt_runbook.parse_file(args.file)
     except (nt_runbook.NTRunbookError, OSError) as exc:
         print(f"INVALID: {exc}", file=sys.stderr)
         return 1
@@ -265,7 +249,6 @@ def _cmd_runbook_run(args: argparse.Namespace) -> int:
 
 # Map a file extension to (prefix, source_format) for `store` auto-detection.
 _EXT_ORIGIN = {
-    ".nt": ("ansible", "nestedtext"),
     ".yaml": ("ansible", "yaml"),
     ".yml": ("ansible", "yaml"),
     ".json": ("ansible", "json"),
@@ -346,7 +329,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_show.add_argument("file")
     p_show.set_defaults(func=_cmd_show)
 
-    p_conv = sub.add_parser("convert", help="convert a playbook between YAML and NestedText")
+    p_conv = sub.add_parser("convert", help="convert a playbook between YAML and JSON")
     p_conv.add_argument("src")
     p_conv.add_argument("dst")
     p_conv.set_defaults(func=_cmd_convert)
@@ -364,7 +347,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_store.add_argument("file", help="plan file (.nt/.yaml/.json/.sls/.rb/.pp)")
     p_store.add_argument("--prefix", help="origin system (default from extension: ansible|salt|puppet|chef)")
     p_store.add_argument("--name", help="plan name (default: file stem)")
-    p_store.add_argument("--format", help="source format override (nestedtext|yaml|json|salt|chef|puppet)")
+    p_store.add_argument("--format", help="source format override (yaml|json|salt|chef|puppet)")
     p_store.set_defaults(func=_cmd_store)
 
     p_ls = sub.add_parser("ls", help="list plans in the canonical store")

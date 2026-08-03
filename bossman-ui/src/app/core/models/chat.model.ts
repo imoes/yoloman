@@ -124,7 +124,7 @@ export interface GeneratedPlan {
   prefix: string;
   name: string;
   plan_body?: unknown;
-  source_format?: string; // json | nestedtext | yaml
+  source_format?: string; // json | yaml
   source_text?: string;
 }
 export interface ChatForm {

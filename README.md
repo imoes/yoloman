@@ -35,7 +35,7 @@ Two cooperating components:
 
 ---
 
-## Why Starlark, and why NestedText?
+## Why Starlark, and why Ansible syntax?
 
 Two deliberate language choices sit at the centre of this project. They're worth explaining up
 front because everything else — the module library, the checks, the runbooks and roles — is
@@ -67,26 +67,30 @@ So a "module" or a "check" is one `.star` file defining `def main(ctx, params)`.
 return `{"changed": bool, "msg": str}`; checks are read-only and return
 `{"changed": False, "msg": str, "data": {"state": "OK|WARN|CRIT|UNKNOWN", "metrics": {...}}}`.
 
-### NestedText for configuration — "no quoting, no typing footguns, no YAML surprises"
+### Ansible task syntax for authoring — "the format your team already knows"
 
-Every human-authored *configuration* — module metadata, runbooks, roles, provisioning recipes — is
-written in **[NestedText](https://nestedtext.org)**, not YAML. NestedText is YAML's readable subset
-with the sharp edges removed:
+Runbooks, roles and plans are written in **real Ansible task syntax** — module-as-key plus the task
+keywords (`when`, `loop`, `register`, `notify`, `tags`, `block`/`rescue`/`always`,
+`failed_when`/`changed_when`, and `key=value` free-form). It is the *only* authoring format, and the
+reason is interoperability: an existing role imports and runs, so onboarding a shop means ingesting
+the automation it already has rather than rewriting it. Measured against upstream
+`geerlingguy.nginx`: **10 of 10** task files parse (see
+[`docs/orchestration-import.md`](docs/orchestration-import.md), which also records what the Salt,
+Puppet and Chef importers still refuse).
 
-- **Everything is a string, a list, or a dictionary. Full stop.** There is no implicit typing, so
-  the [Norway problem](https://hitchdev.com/strictyaml/why/implicit-typing-removed/) (`no` becoming
-  `false`, `3.10` becoming `3.1`, `on`/`off`/`yes` surprises) simply cannot happen. A version is
-  `"3.10"` because it's *always* text; the module coerces where it means a number.
-- **No quoting, no escaping.** A value runs to the end of the line verbatim — SQL, a regex, a shell
-  fragment, a password with `:` and `#` in it — no quotes, no backslashes. This matters enormously
-  for check thresholds and provisioning commands.
-- **Whitespace-only structure, like YAML, so it reads the same** — but the grammar is tiny and
-  unambiguous, which means both a human and an LLM produce valid documents on the first try far more
-  often.
+The runtime is unchanged — Ansible is the *syntax*, not the engine. A task parses into a canonical
+JSON document, and the Go agent executes it against the Starlark/native module library. No Python,
+no SSH-per-task, no control node.
 
-NestedText carries no behaviour; it's pure data. The *behaviour* is the Starlark. This split —
-**declarative data in NestedText, sandboxed logic in Starlark** — is the core of how yolo-man stays
-both AI-authorable and safe.
+> A NestedText authoring format used to sit beside this one, chosen because it has no implicit typing
+> (no [Norway problem](https://hitchdev.com/strictyaml/why/implicit-typing-removed/): `no` staying
+> `no`, `0755` staying a string). It was removed — a format only this system can read trades
+> interoperability for type safety, and maintaining two grammars caused three real bugs. Type
+> coercion now happens at the module boundary, exactly where Ansible does it. The full rationale is
+> in [`docs/nestedtext-removal.md`](docs/nestedtext-removal.md).
+
+The *behaviour* is the Starlark. This split — **declarative data in the task document, sandboxed
+logic in Starlark** — is the core of how yolo-man stays both AI-authorable and safe.
 
 ---
 
@@ -282,81 +286,74 @@ assigning.
 
 ---
 
-## Working with NestedText: runbooks and roles
-
-> **Status: proposed format, under active design.** The examples below show where the NestedText
-> runbook/role format is heading — Ansible-shaped but flatter and quoting-free. See
-> [`docs/nestedtext-playbooks.md`](docs/nestedtext-playbooks.md) for the agent-side NT playbook CLI
-> that exists today, and the "NT format" discussion in the project notes for the open questions.
+## Working with runbooks and roles
 
 ### A runbook
 
-A **runbook** is an ordered list of named steps; each step is one module call. Like an Ansible
-playbook, but every value is plain text (no quoting, no `yes→true` surprises) and the structure is
-flatter.
+A **runbook** is an ordered list of named tasks; each task is one module call. It is an Ansible task
+list, with one addition of ours — `targets:`, which says *where* it runs (Ansible puts that in an
+inventory; here the fleet database is the inventory).
 
-```nestedtext
+```yaml
 name: web baseline
 targets: group:web-servers
-steps:
-  -
-    name: install nginx
-    module: apt
-    args:
+tasks:
+  - name: install nginx
+    apt:
       name: nginx
       state: present
-  -
-    name: drop the vhost config
-    module: config_template
-    args:
+  - name: drop the vhost config
+    config_template:
       template: apache2
       dest: /etc/apache2/sites-available/site.conf
       vars:
         server_name: example.com
-  -
-    name: enable and start nginx
-    module: service
-    args:
+    notify: reload nginx
+  - name: enable and start nginx
+    service:
       name: nginx
       state: started
       enabled: true
+handlers:
+  - name: reload nginx
+    service:
+      name: nginx
+      state: reloaded
 ```
 
 Run it dry (preview) then for real:
 
 ```bash
-yolo-man runbook run web-baseline.nt --host web01 --check   # dry run: shows exactly what would change
-yolo-man runbook run web-baseline.nt --host web01           # apply
+yolo-man runbook run web-baseline.yaml --host web01 --check   # dry run: shows exactly what would change
+yolo-man runbook run web-baseline.yaml --host web01           # apply
 ```
 
-The agent's own facts (hostname, distribution, and hardware/DMI like the
-motherboard vendor) are available as magic variables — `${inventory_hostname}`,
-`${yoloman_distribution}`, `${yoloman_board_vendor}` — with no declaration.
-Every run is recorded as an audit trail (visible in the UI's runbook editor).
+The agent's own facts (hostname, distribution, and hardware/DMI like the motherboard vendor) are
+available as Jinja variables — `{{ inventory_hostname }}`, `{{ yoloman_distribution }}`,
+`{{ yoloman_board_vendor }}` — with no declaration. Every run is recorded as an audit trail (visible
+in the UI's runbook editor).
 
 ### A role
 
-A **role** bundles what a *kind of host* should be — its steps **and** the monitoring and
+A **role** bundles what a *kind of host* should be — its tasks **and** the monitoring and
 notifications that come with it ("what is orchestrated is monitored"). You bind a role to an OU,
-group, or host; Bossman compiles it into the host's desired state.
+group, or host; Bossman compiles it into the host's desired state. It is the same task syntax under a
+`role:` key, plus the two sections a role owns (`monitoring.checks`, `notifications.routes`) — Ansible
+has no concept for those, so they are ours, exactly like `targets:`.
 
-```nestedtext
+```yaml
 role: mysql_server
 description: A MySQL database server — package, service, monitoring, alerting.
 parameters:
   bind_address: 127.0.0.1
   monitor_user: monitor
-steps:
-  -
-    name: install mysql-server
-    module: apt
-    args:
+tasks:
+  - name: install mysql-server
+    apt:
       name: mysql-server
       state: present
-  -
-    name: ensure it is running
-    module: service
-    args:
+  - name: ensure it is running
+    service:
       name: mysql
       state: started
       enabled: true

@@ -317,7 +317,7 @@ class PlanDocument(Base):
     origin system: ansible/salt/puppet/chef), `name`, and an immutable
     `version` (mirroring OrchestrationPlanVersion's versioning). `source_text`
     keeps the original for re-parse/diff; `source_format` records how it was
-    authored/imported (nestedtext/yaml/json/salt/puppet/chef). Content-
+    authored/imported (yaml/json/salt/puppet/chef). Content-
     addressed like the translation caches (ChunkEmbedding.source_hash/chunk_id):
     `source_hash` over the source text, `content_hash` over the canonical body
     (== Plan.version()) so an unchanged re-store is a no-op."""

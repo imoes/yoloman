@@ -213,3 +213,28 @@ def test_undocumented_bare_scalar_is_refused_with_a_reason():
     with pytest.raises(PlaybookError) as exc:
         parse_playbook("- name: nope\n  some_module: just-a-value\n")
     assert "_raw_params" in str(exc.value)
+
+
+def test_a_role_survives_the_text_round_trip():
+    """A role rendered back to YAML must keep its `role:` key and its monitoring/notification sections.
+
+    The text view is editable: if a role rendered as `{name, tasks}`, saving what was shown would turn it
+    into a runbook and silently drop its checks and routes. That identity loss existed in the parse
+    direction too (parse_data only recognised the authoring key `role:`, not the stored `kind: role`), so
+    both directions are pinned here.
+    """
+    from bossman.services.ansible_playbook import doc_to_playbook, parse_playbook
+    from bossman.services.nt_runbook import Role, parse_data
+
+    src = ("role: db\ndescription: A database host.\nparameters:\n  port: 3306\n"
+           "tasks:\n  - name: install\n    apt:\n      name: mysql-server\n"
+           "monitoring:\n  checks:\n    - mysql\n    - disk\n"
+           "notifications:\n  routes:\n    - dba-oncall\n")
+    doc = parse_playbook(src).to_dict()
+
+    again = parse_playbook(doc_to_playbook(doc))
+    assert isinstance(again, Role)
+    assert again.to_dict() == doc                      # text round-trip is lossless
+
+    # and the stored canonical doc re-validates as a role, not a runbook
+    assert parse_data(doc).kind == "role"

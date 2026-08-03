@@ -335,7 +335,7 @@ def _parse_chunk(plan_name: str, raw: dict[str, Any]) -> Chunk:
 
 def parse_plan(data: bytes, source_path: Path) -> Plan:
     """Parse a YAML plan file. The format-specific step (YAML → dict) is the
-    only thing here; everything downstream is shared with parse_plan_nt (the
+    only thing here; everything downstream is shared with the JSON loader (the
     NestedText front-end) via build_plan_from_raw, so both syntaxes produce
     identical Plan/Chunk/PlanStep structures."""
     raw = yaml.safe_load(data)
@@ -403,24 +403,17 @@ def parse_plan_json(data: bytes | str, source_path: Path) -> Plan:
 
 
 def load_plan_file(path: str | Path) -> Plan:
-    """Load a plan file, dispatching by extension: .nt (NestedText), .json,
-    or YAML (.yaml/.yml/other). NestedText is the primary human format; all
-    three normalize to the same Plan."""
+    """Load a plan file, dispatching by extension: .json or YAML (.yaml/.yml/other). Both normalize to the
+    same Plan. (A NestedText front-end used to sit here as the primary format; it is gone — Ansible syntax is
+    the one authoring format, and every plan on disk was already YAML.)"""
     path = Path(path)
-    suffix = path.suffix.lower()
-    if suffix == ".nt":
-        # Lazy import: nt_plan_loader imports from this module.
-        from bossman.services.nt_plan_loader import parse_plan_nt
-
-        return parse_plan_nt(path.read_bytes(), path)
-    if suffix == ".json":
+    if path.suffix.lower() == ".json":
         return parse_plan_json(path.read_bytes(), path)
     return parse_plan(path.read_bytes(), path)
 
 
-# Plan file extensions load_plans_dir recognizes (NestedText primary, then
-# YAML and first-class JSON).
-PLAN_FILE_SUFFIXES = (".nt", ".yaml", ".yml", ".json")
+# Plan file extensions load_plans_dir recognizes.
+PLAN_FILE_SUFFIXES = (".yaml", ".yml", ".json")
 
 
 def load_plans_dir(plans_dir: str | Path) -> list[Plan]:

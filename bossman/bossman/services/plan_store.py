@@ -5,10 +5,9 @@ plan_loader.Plan — so the engine, CLI, and API all read plans from ONE store
 instead of the previous split between file-based plans_dir and the
 orchestration_plans tables.
 
-Canonical body = the (coerced) raw dict that plan_loader.build_plan_from_raw
-consumes. NestedText/YAML/JSON produce it deterministically; the future
-Chef/Puppet/Salt parsers (docs/zielbestimmung.md roadmap) will feed the same
-store via canonical_from_source with their own prefix.
+Canonical body = the raw dict that plan_loader.build_plan_from_raw consumes. YAML/JSON produce it
+deterministically; the Salt/Chef/Puppet parsers feed the same store via canonical_from_source with their own
+prefix (see docs/orchestration-import.md for their measured coverage).
 """
 
 from __future__ import annotations
@@ -19,22 +18,21 @@ import uuid
 from pathlib import Path
 from typing import Any
 
-import nestedtext
 import yaml
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from bossman.db.models import DEFAULT_TENANT_ID, PlanDocument, PlanPlacement
-from bossman.services.nt_plan_loader import _coerce_plan_raw
 from bossman.services.plan_loader import Plan, PlanError, build_plan_from_raw
 
 # Origin systems a plan can come from (the `prefix`). NestedText/YAML/JSON are
 # all "ansible" (the Ansible-shaped native plan); the others are foreign DSLs
 # imported by deterministic parsers (roadmap).
 VALID_PREFIXES = ("ansible", "salt", "puppet", "chef")
-# Source syntaxes convertible today. Foreign DSLs land here as parsers arrive
-# (salt done; puppet/chef on the roadmap).
-SUPPORTED_FORMATS = ("nestedtext", "yaml", "json", "salt", "chef", "puppet")
+# Source syntaxes convertible today. Native authoring is Ansible YAML; the rest are foreign DSLs handled by
+# their own parsers. (A "nestedtext" surface sat here and was removed — nothing on disk or in the database
+# used it, and one authoring format is the point.)
+SUPPORTED_FORMATS = ("yaml", "json", "salt", "chef", "puppet")
 
 
 _ANSIBLE_BUILTIN_PREFIX = "ansible.builtin."
@@ -70,13 +68,7 @@ def canonical_from_source(source_format: str, source_text: str, *, name: str | N
     source carries no plan name (salt/puppet/chef); NestedText/YAML/JSON take
     the name from the source itself."""
     fmt = source_format.lower()
-    if fmt in ("nt", "nestedtext"):
-        try:
-            raw = nestedtext.loads(source_text, top="dict")
-        except nestedtext.NestedTextError as exc:
-            raise PlanError(f"invalid NestedText: {exc}") from exc
-        raw = _coerce_plan_raw(raw if isinstance(raw, dict) else {})
-    elif fmt in ("yaml", "yml"):
+    if fmt in ("yaml", "yml"):
         try:
             raw = yaml.safe_load(source_text)
         except yaml.YAMLError as exc:
@@ -234,7 +226,7 @@ async def load_plan(
 
 
 # File extension → source_format, for importing a plans_dir into the store.
-_FORMAT_BY_EXT = {".yaml": "yaml", ".yml": "yaml", ".nt": "nestedtext", ".json": "json"}
+_FORMAT_BY_EXT = {".yaml": "yaml", ".yml": "yaml", ".json": "json"}
 
 
 async def import_plans_dir(

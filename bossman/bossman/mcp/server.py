@@ -1068,7 +1068,7 @@ def build_mcp_server(
                 )
 
             # parse_data reconstructs the canonical doc verbatim (handlers,
-            # block/rescue/always, params) — no lossy NestedText round-trip.
+            # block/rescue/always, params) — straight from the canonical doc, no lossy round-trip.
             doc = nt_runbook.parse_data(rb.doc)
             if not isinstance(doc, nt_runbook.Runbook):
                 raise ValueError(f"{runbook!r} is a role, not a runbook — bind it in OU/Policy")
@@ -1136,7 +1136,6 @@ def build_mcp_server(
                 "name": rb.name, "kind": rb.kind, "folder": rb.folder or "",
                 "parameters": (rb.doc or {}).get("parameters", {}),
                 "steps": (rb.doc or {}).get("steps", []),
-                "nt": nt_convert.doc_to_nt(rb.doc),
             }
             # The Ansible-task YAML surface (only meaningful for runbooks, not roles).
             if rb.kind == "runbook":

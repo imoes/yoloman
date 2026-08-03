@@ -25,7 +25,7 @@ from bossman.api.plans import get_client_factory
 from bossman.config import Settings, get_settings
 from bossman.db.models import Agent, Runbook, RunbookRun, ScopeVars
 from bossman.db.session import get_session
-from bossman.services import ansible_playbook, nt_compile, nt_convert, nt_runbook
+from bossman.services import ansible_playbook, nt_compile, nt_runbook
 from bossman.services.auth import Identity, user_can_manage_agent
 from bossman.services.runbook_exec import execute_runbook
 from bossman.services.vault import Vault
@@ -35,13 +35,14 @@ router = APIRouter()
 DEFAULT_TENANT_ID = UUID("00000000-0000-0000-0000-000000000001")
 
 
-# ── Runbook CRUD (stored as canonical JSON, authored as NestedText) ────────
+# ── Runbook CRUD (stored as canonical JSON, authored in Ansible task syntax) ─
 
 
 class SaveRunbookBody(BaseModel):
-    nt: str | None = None
-    yaml: str | None = None  # import a doc-shaped YAML (legacy)
-    playbook: str | None = None  # author as Ansible-task YAML (the Blockly surface)
+    """Ansible task syntax is the only authoring format (`playbook`). `doc` accepts the canonical JSON
+    directly, for callers that already hold a parsed document (the visual editor, the AI author)."""
+    playbook: str | None = None
+    doc: dict[str, Any] | None = None
     folder: str | None = None  # library folder path ("linux/base"); "" = root
 
 
@@ -51,11 +52,11 @@ def _to_doc(body: SaveRunbookBody) -> dict[str, Any]:
             return ansible_playbook.parse_playbook(body.playbook).to_dict()
         except ansible_playbook.PlaybookError as exc:
             raise HTTPException(status_code=422, detail=str(exc)) from exc
-    if body.nt is not None:
-        return nt_convert.nt_to_doc(body.nt)
-    if body.yaml is not None:
-        return nt_convert.yaml_to_doc(body.yaml)
-    raise HTTPException(status_code=422, detail="provide `nt`, `playbook` or `yaml`")
+    if body.doc is not None:
+        # Validate it through the same shape rules the text path uses — a doc coming in over the wire is no
+        # more trustworthy than a document someone typed.
+        return nt_runbook.parse_data(body.doc, source="doc").to_dict()
+    raise HTTPException(status_code=422, detail="provide `playbook` or `doc`")
 
 
 @router.get("/api/v1/runbook-runs")
@@ -98,7 +99,7 @@ async def get_runbook(runbook_id: UUID, session: AsyncSession = Depends(get_sess
         raise HTTPException(status_code=404, detail="no such runbook")
     return {"id": str(r.id), "name": r.name, "kind": r.kind, "folder": r.folder or "",
             "parameters": (r.doc or {}).get("parameters", {}), "doc": r.doc,
-            "nt": nt_convert.doc_to_nt(r.doc), "playbook": ansible_playbook.doc_to_playbook(r.doc or {})}
+            "playbook": ansible_playbook.doc_to_playbook(r.doc or {})}
 
 
 @router.post("/api/v1/runbooks")
@@ -145,24 +146,20 @@ async def delete_runbook(runbook_id: UUID, session: AsyncSession = Depends(get_s
     await session.commit()
 
 
-class NTBody(BaseModel):
-    nt: str | None = None
-    playbook: str | None = None  # Ansible-task YAML (the Blockly surface)
+class LintBody(BaseModel):
+    playbook: str | None = None  # Ansible-task YAML — the only authoring format
 
 
 @router.post("/api/v1/runbooks/lint")
-async def lint_runbook(body: NTBody, _identity=Depends(get_current_identity)) -> dict[str, Any]:
-    """Parse + shape-validate a runbook — Ansible-task YAML (`playbook`) or the
-    legacy NestedText (`nt`). Returns {ok, kind, name, doc, playbook} (the
-    canonical `doc` rebuilds the visual canvas; `playbook` is the doc rendered
-    back to Ansible YAML for the text view) or {ok: false, error}."""
+async def lint_runbook(body: LintBody, _identity=Depends(get_current_identity)) -> dict[str, Any]:
+    """Parse + shape-validate a runbook written in Ansible task syntax. Returns {ok, kind, name, doc,
+    playbook} (the canonical `doc` rebuilds the visual canvas; `playbook` is the doc rendered back to Ansible
+    YAML for the text view) or {ok: false, error}."""
     try:
         if body.playbook is not None:
             doc = ansible_playbook.parse_playbook(body.playbook)
-        elif body.nt is not None:
-            doc = nt_runbook.parse_document(body.nt)
         else:
-            return {"ok": False, "error": "provide `playbook` or `nt`"}
+            return {"ok": False, "error": "provide `playbook`"}
     except (nt_runbook.NTRunbookError, ansible_playbook.PlaybookError) as exc:
         return {"ok": False, "error": str(exc), "line": getattr(exc, "line", None)}
     d = doc.to_dict()
@@ -172,8 +169,7 @@ async def lint_runbook(body: NTBody, _identity=Depends(get_current_identity)) ->
 
 
 class RunBody(BaseModel):
-    nt: str | None = None
-    playbook: str | None = None
+    playbook: str | None = None       # Ansible task YAML
     variables: dict[str, Any] = {}
     dry_run: bool = True
 
@@ -187,8 +183,8 @@ async def run_runbook(
     identity: Identity = Depends(get_current_identity),
     client_factory=Depends(get_client_factory),
 ) -> dict[str, Any]:
-    """Run a NestedText runbook against a host. dry_run (default true) previews
-    every step in check_mode. Needs manage rights on the host."""
+    """Run a runbook (Ansible task YAML) against a host. dry_run (default true) previews every step in
+    check_mode. Needs manage rights on the host."""
     if not await user_can_manage_agent(session, identity, agent_id):
         raise HTTPException(status_code=403, detail="not authorized to manage this host")
     agent = await session.get(Agent, agent_id)
@@ -197,12 +193,9 @@ async def run_runbook(
     if not agent.address:
         raise HTTPException(status_code=422, detail="agent has no address to reach")
     try:
-        if body.playbook is not None:
-            doc = ansible_playbook.parse_playbook(body.playbook)
-        elif body.nt is not None:
-            doc = nt_runbook.parse_document(body.nt)
-        else:
-            raise HTTPException(status_code=422, detail="provide `playbook` or `nt`")
+        if body.playbook is None:
+            raise HTTPException(status_code=422, detail="provide `playbook`")
+        doc = ansible_playbook.parse_playbook(body.playbook)
     except (nt_runbook.NTRunbookError, ansible_playbook.PlaybookError) as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     if not isinstance(doc, nt_runbook.Runbook):
@@ -339,13 +332,16 @@ async def get_runbook_run(run_id: UUID, session: AsyncSession = Depends(get_sess
 
 
 @router.post("/api/v1/runbooks/role/compile")
-async def compile_role(body: NTBody, _identity=Depends(get_current_identity)) -> dict[str, Any]:
-    """Compile a NestedText role into an OrchestrationPlan create-payload
-    (name/display_name/plan_type/version with steps + generated_monitoring +
-    notifications) — POST it to /api/v1/orchestration/plans to store it."""
+async def compile_role(body: LintBody, _identity=Depends(get_current_identity)) -> dict[str, Any]:
+    """Compile a role into an OrchestrationPlan create-payload (name/display_name/plan_type/version with
+    steps + generated_monitoring + notifications) — POST it to /api/v1/orchestration/plans to store it.
+
+    A role is Ansible task syntax under a `role:` key, plus `monitoring.checks` / `notifications.routes`."""
+    if body.playbook is None:
+        raise HTTPException(status_code=422, detail="provide `playbook`")
     try:
-        doc = nt_runbook.parse_document(body.nt)
-    except nt_runbook.NTRunbookError as exc:
+        doc = ansible_playbook.parse_playbook(body.playbook)
+    except (nt_runbook.NTRunbookError, ansible_playbook.PlaybookError) as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     if not isinstance(doc, nt_runbook.Role):
         raise HTTPException(status_code=422, detail="that is a runbook, not a role (needs a top-level `role:`)")

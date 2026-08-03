@@ -23,7 +23,7 @@ import { ResourceNodeComponent } from '../../../../shared/resource-node/resource
     @if (loading()) { <p class="bm-dim">Loading roles…</p> }
     @if (err()) { <p class="bm-err">{{ err() }}</p> }
     @if (!loading() && !roles().length) {
-      <p class="bm-dim">No roles defined yet. Author a role (NestedText) and compile it via the Workflow designer / <code>POST /runbooks/role/compile</code>.</p>
+      <p class="bm-dim">No roles defined yet. Author a role (Ansible task syntax under a <code>role:</code> key) and compile it via the Workflow designer / <code>POST /runbooks/role/compile</code>.</p>
     }
 
     <div class="bm-rb-list">

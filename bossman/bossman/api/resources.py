@@ -278,7 +278,7 @@ async def _role_resource(agent_id: UUID, name: str, session, settings, client_fa
         raise HTTPException(
             status_code=404,
             detail=f"no such role: {name!r} — a role is an OrchestrationPlan of type 'role' "
-                   f"(author it as NestedText and compile via POST /api/v1/runbooks/role/compile)")
+                   f"(author it in Ansible task syntax under a `role:` key and compile via POST /api/v1/runbooks/role/compile)")
     return r
 
 
