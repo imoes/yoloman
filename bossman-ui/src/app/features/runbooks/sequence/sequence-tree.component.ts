@@ -1,0 +1,129 @@
+import { Component, input, output } from '@angular/core';
+import { CdkDrag, CdkDropList, CdkDropListGroup, CdkDragDrop, moveItemInArray, transferArrayItem } from '@angular/cdk/drag-drop';
+import { MatIconModule } from '@angular/material/icon';
+import { SeqNode, isDescendant } from './sequence-model';
+
+/**
+ * The Sequence tree — groups and steps, reorderable by drag & drop (docs/ui-workspaces.md slice 3).
+ *
+ * Recursive by design: a group renders another instance of this component for its children, and every
+ * children-array is a CDK drop list. All of them sit inside one `cdkDropListGroup` in the parent editor,
+ * which is what lets a step be dragged from one group into another without wiring list ids by hand.
+ *
+ * It edits the SeqNode arrays in place (they are the view model) and emits `changed` so the editor can
+ * serialise back to the Ansible-task document — the tree never talks YAML itself.
+ */
+@Component({
+  selector: 'app-sequence-tree',
+  standalone: true,
+  imports: [CdkDrag, CdkDropList, MatIconModule],
+  template: `
+    <div class="bm-seq-list" cdkDropList [cdkDropListData]="nodes()" (cdkDropListDropped)="onDrop($event)">
+      @for (n of nodes(); track n.id) {
+        <div class="bm-seq-item" cdkDrag [cdkDragData]="n">
+          <div class="bm-seq-row" [class.on]="selectedId() === n.id" (click)="select.emit(n.id)">
+            <span class="bm-seq-grip" cdkDragHandle title="Drag to reorder or move into a group">
+              <mat-icon>drag_indicator</mat-icon>
+            </span>
+            <span class="bm-seq-glyph">{{ n.kind === 'group' ? '📁' : glyph(n.module) }}</span>
+            <span class="bm-seq-name">{{ n.name || (n.kind === 'group' ? '(group)' : n.module || '(step)') }}</span>
+            @if (n.kind === 'step' && n.module) { <code class="bm-seq-mod">{{ n.module }}</code> }
+            @if (n.when) { <span class="bm-seq-when">when: {{ n.when }}</span> }
+            @if (n.loop !== undefined) { <span class="bm-seq-when">loop</span> }
+            <button type="button" class="bm-seq-del" (click)="remove.emit(n.id); $event.stopPropagation()"
+                    title="Remove">×</button>
+          </div>
+          @if (n.kind === 'group') {
+            <div class="bm-seq-children">
+              <app-sequence-tree [nodes]="childrenOf(n)" [selectedId]="selectedId()"
+                                 (select)="select.emit($event)" (remove)="remove.emit($event)"
+                                 (changed)="changed.emit()" />
+              @if (!childrenOf(n).length) {
+                <p class="bm-seq-empty">empty group — drag a step in here</p>
+              }
+            </div>
+          }
+        </div>
+      }
+    </div>
+  `,
+  styles: [`
+    .bm-seq-list { min-height: 12px; }
+    .bm-seq-item { }
+    .bm-seq-row { display: flex; align-items: center; gap: 7px; padding: 4px 6px; border-radius: 6px;
+      cursor: pointer; border: 1px solid transparent; }
+    .bm-seq-row:hover { background: color-mix(in srgb, var(--mat-sys-on-surface) 5%, transparent); }
+    .bm-seq-row.on { background: color-mix(in srgb, var(--mat-sys-primary) 12%, transparent);
+      border-color: color-mix(in srgb, var(--mat-sys-primary) 30%, transparent); }
+    .bm-seq-grip { display: inline-flex; opacity: .35; cursor: grab; }
+    .bm-seq-grip mat-icon { font-size: 17px; width: 17px; height: 17px; }
+    .bm-seq-glyph { font-size: 13px; }
+    .bm-seq-name { font-size: 13px; }
+    .bm-seq-mod { font-size: 11px; opacity: .6; font-family: ui-monospace, monospace; }
+    .bm-seq-when { font-size: 10.5px; opacity: .6; padding: 0 6px; border-radius: 999px;
+      background: color-mix(in srgb, var(--mat-sys-on-surface) 10%, transparent); }
+    .bm-seq-del { margin-left: auto; background: none; border: 0; color: inherit; opacity: .4;
+      cursor: pointer; font-size: 15px; line-height: 1; padding: 0 4px; }
+    .bm-seq-del:hover { opacity: 1; color: var(--mat-sys-error, #c62828); }
+    .bm-seq-children { margin-left: 22px; border-left: 1px dashed var(--mat-sys-outline-variant);
+      padding-left: 8px; }
+    .bm-seq-empty { font-size: 11.5px; opacity: .45; margin: 2px 0 2px 4px; }
+    .cdk-drag-preview .bm-seq-row { background: var(--mat-sys-surface); box-shadow: 0 3px 10px rgba(0,0,0,.25); }
+    .cdk-drop-list-dragging .bm-seq-row { transition: transform .16s ease; }
+  `],
+})
+export class SequenceTreeComponent {
+  nodes = input.required<SeqNode[]>();
+  selectedId = input<string | null>(null);
+
+  select = output<string>();
+  remove = output<string>();
+  /** Emitted whenever the tree structure changed, so the editor re-serialises. */
+  changed = output<void>();
+
+  childrenOf(n: SeqNode): SeqNode[] {
+    return (n.children ??= []);
+  }
+
+  /** A rough glyph per module family, purely to make the tree scannable. */
+  glyph(module?: string): string {
+    if (!module) return '⚙';
+    if (module.includes('check')) return '✅';
+    if (module.includes('role')) return '🎭';
+    return '⚙';
+  }
+
+  /**
+   * CDK drop. Within one list it is a reorder; across lists it is a move. The one illegal case is dragging
+   * a group into its own subtree — CDK cannot know that, and allowing it would detach the tree from the
+   * document, so refuse it here.
+   */
+  onDrop(ev: CdkDropList extends never ? never : CdkDragDrop<SeqNode[]>): void {
+    const from = ev.previousContainer.data as SeqNode[];
+    const to = ev.container.data as SeqNode[];
+    const moving = from[ev.previousIndex];
+    if (!moving) return;
+    if (ev.previousContainer === ev.container) {
+      moveItemInArray(to, ev.previousIndex, ev.currentIndex);
+    } else {
+      // Would the target list live inside the node being moved?
+      if (moving.kind === 'group' && to.some((n) => n.id === moving.id) === false && containsList(moving, to)) return;
+      transferArrayItem(from, to, ev.previousIndex, ev.currentIndex);
+    }
+    this.changed.emit();
+  }
+}
+
+/** True when `list` is one of the arrays inside `node`'s subtree (identity, not value). */
+function containsList(node: SeqNode, list: SeqNode[]): boolean {
+  for (const branch of [node.children, node.rescue, node.always]) {
+    if (!branch) continue;
+    if (branch === list) return true;
+    for (const c of branch) {
+      if (containsList(c, list)) return true;
+    }
+  }
+  return false;
+}
+
+export { isDescendant };

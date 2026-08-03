@@ -23,6 +23,9 @@ import yaml from 'js-yaml';
 import { registerBlocks } from './blockly/blocks';
 import { buildToolbox } from './blockly/toolbox';
 import { serializeWorkspace } from './blockly/ansibleGenerator';
+import { CdkDropListGroup } from '@angular/cdk/drag-drop';
+import { SequenceTreeComponent } from './sequence/sequence-tree.component';
+import { SeqNode, findNode, nextId, removeNode, tasksToTree, treeToTasks } from './sequence/sequence-model';
 import { importTasksYaml } from './blockly/playbookImporter';
 
 // Monaco locally (no CDN). We lint server-side (/runbooks/lint), so Monaco's
@@ -104,7 +107,7 @@ const MAGIC_VARS = [
 @Component({
   selector: 'app-runbook-editor',
   standalone: true,
-  imports: [DatePipe, FormsModule, MatButtonModule, MatIconModule, MatFormFieldModule, MatInputModule, MatSelectModule, ParamFormComponent, BlocklyWorkspaceComponent],
+  imports: [DatePipe, FormsModule, MatButtonModule, MatIconModule, MatFormFieldModule, MatInputModule, MatSelectModule, ParamFormComponent, BlocklyWorkspaceComponent, SequenceTreeComponent, CdkDropListGroup],
   template: `
     <div class="bm-page">
       <div class="bm-header-row">
@@ -148,6 +151,9 @@ const MAGIC_VARS = [
               <button mat-button [class.bm-mode-on]="mode() === 'visual'" (click)="setMode('visual')">
                 <mat-icon>account_tree</mat-icon> Visual
               </button>
+              <button mat-button [class.bm-mode-on]="mode() === 'tree'" (click)="setMode('tree')">
+                <mat-icon>list</mat-icon> Sequence
+              </button>
             </span>
             @if (saveMsg()) { <span class="bm-dim">{{ saveMsg() }}</span> }
           </div>
@@ -175,6 +181,55 @@ const MAGIC_VARS = [
                 <div class="bm-designer bm-designer-loading"><span class="bm-dim">Preparing canvas…</span></div>
               }
             </div>
+          }
+          <!-- Sequence view (slice 3): the SAME document as a tree of groups + steps, drag & drop to
+               reorder. One cdkDropListGroup wraps the whole tree so a step can move between groups. -->
+          @if (mode() === 'tree') {
+            <div class="bm-seq-bar">
+              <button mat-stroked-button (click)="addGroup()"><mat-icon>create_new_folder</mat-icon> Group</button>
+              <button mat-stroked-button (click)="addStep()"><mat-icon>add</mat-icon> Step</button>
+              <span class="bm-dim">Groups become Ansible <code>block:</code>, steps become module tasks — the
+                playbook YAML stays in sync, so Text and Visual show the same document.</span>
+            </div>
+            <div class="bm-seq-wrap" cdkDropListGroup>
+              <app-sequence-tree [nodes]="seqNodes()" [selectedId]="seqSelected()"
+                                 (select)="seqSelected.set($event)" (remove)="removeSeqNode($event)"
+                                 (changed)="syncSequence()" />
+              @if (!seqNodes().length) {
+                <p class="bm-dim">No tasks yet — add a Group or a Step.</p>
+              }
+            </div>
+            @if (selectedSeqNode(); as sel) {
+              <div class="bm-seq-form">
+                <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                  <mat-label>Name</mat-label>
+                  <input matInput [ngModel]="sel.name" (ngModelChange)="editSeq(sel, 'name', $event)" />
+                </mat-form-field>
+                @if (sel.kind === 'step') {
+                  <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                    <mat-label>Module</mat-label>
+                    <input matInput [ngModel]="sel.module" (ngModelChange)="editSeq(sel, 'module', $event)"
+                           list="bm-seq-modules" placeholder="community.general.lvg" />
+                  </mat-form-field>
+                }
+                <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                  <mat-label>when (optional)</mat-label>
+                  <input matInput [ngModel]="sel.when || ''" (ngModelChange)="editSeq(sel, 'when', $event)"
+                         placeholder="has_partitions" />
+                </mat-form-field>
+                @if (sel.kind === 'step') {
+                  <mat-form-field appearance="outline" class="bm-seq-args" subscriptSizing="dynamic">
+                    <mat-label>Arguments (JSON)</mat-label>
+                    <textarea matInput rows="3" [ngModel]="argsText(sel)"
+                              (ngModelChange)="editArgs(sel, $event)"></textarea>
+                  </mat-form-field>
+                  @if (argsError()) { <span class="bm-err">{{ argsError() }}</span> }
+                }
+              </div>
+              <datalist id="bm-seq-modules">
+                @for (m of moduleNames(); track m) { <option [value]="m"></option> }
+              </datalist>
+            }
           }
           <div #editor class="bm-editor" [style.display]="mode() === 'text' ? 'block' : 'none'"></div>
 
@@ -279,6 +334,14 @@ const MAGIC_VARS = [
       .bm-mode-on { background: color-mix(in srgb, var(--mat-sys-primary) 16%, transparent); font-weight: 600; }
       .bm-vbar { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; flex-wrap: wrap; }
       .bm-canvas-row { display: block; margin-bottom: 10px; }
+      /* Sequence view (slice 3) */
+      .bm-seq-bar { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; flex-wrap: wrap; }
+      .bm-seq-wrap { border: 1px solid var(--mat-sys-outline-variant); border-radius: 10px; padding: 8px;
+        min-height: 140px; max-height: 420px; overflow: auto; }
+      .bm-seq-form { display: flex; align-items: flex-start; gap: 10px; margin-top: 10px; flex-wrap: wrap; }
+      .bm-seq-form mat-form-field { min-width: 170px; }
+      .bm-seq-args { min-width: 320px; flex: 1 1 320px; }
+      .bm-err { color: var(--mat-sys-error, #c62828); font-size: 12px; align-self: center; }
       .bm-designer { display: block; height: 560px; border: 1px solid var(--mat-sys-outline-variant); border-radius: 8px; overflow: hidden; min-width: 0; }
       .bm-designer-loading { display: flex; align-items: center; justify-content: center; }
       .bm-params { border: 1px solid var(--mat-sys-outline-variant); border-radius: 8px; padding: 12px 14px; margin-top: 10px; }
@@ -344,7 +407,7 @@ export class RunbookEditorComponent implements OnInit, AfterViewInit, OnDestroy 
   // F-10: visual authoring mode, now ROUND-TRIP: text→visual parses the current
   // NestedText via /runbooks/lint (which returns the canonical doc); visual→text
   // serialises back into Monaco (the single source lint/dry-run/apply read).
-  mode = signal<'text' | 'visual'>('text');
+  mode = signal<'text' | 'visual' | 'tree'>('text');
   // The designer measures its workspace at init — instantiate it one tick AFTER
   // the visual layout settles, or it caches a tiny pre-layout size (steps end up
   // in a 180px strip behind the toolbox).
@@ -363,8 +426,10 @@ export class RunbookEditorComponent implements OnInit, AfterViewInit, OnDestroy 
   private pendingText = '';   // Ansible-task YAML to import once the canvas mounts
 
   /** Switch views. text→visual imports the current Ansible-task YAML into blocks
-   * (client-side, via the ported importer); visual→text serialises back. */
-  setMode(m: 'text' | 'visual'): void {
+   * (client-side, via the ported importer); visual→text serialises back. text→tree parses the same YAML
+   * into the sequence tree; every edit there writes the YAML straight back, so all three views are views
+   * of ONE document (docs/ui-workspaces.md). */
+  setMode(m: 'text' | 'visual' | 'tree'): void {
     this.blocklyWs = undefined;   // canvas is recreated; wait for onBlocklyReady
     if (m === 'visual') {
       this.pendingText = this.source();
@@ -373,9 +438,85 @@ export class RunbookEditorComponent implements OnInit, AfterViewInit, OnDestroy 
       setTimeout(() => this.visualReady.set(true), 60);
       return;
     }
+    if (m === 'tree') {
+      this.loadSequenceFromText();
+      this.mode.set('tree');
+      return;
+    }
     this.mode.set(m);
     // Monaco mis-measures while display:none; relayout once it's visible again.
     setTimeout(() => this.ed?.layout(), 0);
+  }
+
+  // ---- Sequence view (slice 3) -------------------------------------------------------------------
+  seqNodes = signal<SeqNode[]>([]);
+  seqSelected = signal<string | null>(null);
+  argsError = signal('');
+  moduleNames = signal<string[]>([]);
+  /** The document envelope around `tasks:` — kept so serialising back preserves name/targets/handlers. */
+  private seqEnvelope: Record<string, unknown> = {};
+
+  selectedSeqNode = computed(() => {
+    const id = this.seqSelected();
+    return id ? findNode(this.seqNodes(), id) : null;
+  });
+
+  /** text → tree. */
+  private loadSequenceFromText(): void {
+    let doc: Record<string, unknown> = {};
+    try { doc = (yaml.load(this.source()) ?? {}) as Record<string, unknown>; } catch { doc = {}; }
+    const tasks = Array.isArray(doc) ? doc : doc['tasks'];
+    this.seqEnvelope = Array.isArray(doc) ? {} : { ...doc };
+    this.seqNodes.set(tasksToTree(tasks));
+    this.seqSelected.set(null);
+    this.argsError.set('');
+  }
+
+  /** tree → text. The single write path for every sequence edit. */
+  syncSequence(): void {
+    const tasks = treeToTasks(this.seqNodes());
+    const doc: Record<string, unknown> = { ...this.seqEnvelope, tasks };
+    this.ed?.setValue(yaml.dump(doc, { lineWidth: -1, noRefs: true }));
+  }
+
+  addGroup(): void {
+    this.seqNodes.update((ns) => [...ns, { id: nextId(), kind: 'group', name: 'New group', children: [] }]);
+    this.syncSequence();
+  }
+  addStep(): void {
+    this.seqNodes.update((ns) => [...ns, { id: nextId(), kind: 'step', name: 'New step', module: '', args: {} }]);
+    this.syncSequence();
+  }
+  removeSeqNode(id: string): void {
+    const ns = [...this.seqNodes()];
+    removeNode(ns, id);
+    this.seqNodes.set(ns);
+    if (this.seqSelected() === id) this.seqSelected.set(null);
+    this.syncSequence();
+  }
+  /** Edit one scalar field of a node, then re-serialise. Empty `when` removes the key entirely. */
+  editSeq(node: SeqNode, field: 'name' | 'module' | 'when', value: string): void {
+    if (field === 'when') node.when = value.trim() ? value : undefined;
+    else node[field] = value;
+    this.seqNodes.set([...this.seqNodes()]);
+    this.syncSequence();
+  }
+  argsText(node: SeqNode): string {
+    const a = node.args ?? {};
+    return Object.keys(a).length ? JSON.stringify(a, null, 1) : '{}';
+  }
+  /** Args are edited as JSON; invalid JSON is reported and NOT written, so a typo cannot corrupt the doc. */
+  editArgs(node: SeqNode, text: string): void {
+    try {
+      const parsed = JSON.parse(text || '{}');
+      if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) throw new Error('expected an object');
+      node.args = parsed as Record<string, unknown>;
+      this.argsError.set('');
+      this.seqNodes.set([...this.seqNodes()]);
+      this.syncSequence();
+    } catch (e) {
+      this.argsError.set('invalid JSON — not applied: ' + (e as Error).message);
+    }
   }
 
   /** Serialize the Blockly workspace back into the Ansible-task YAML envelope
@@ -427,6 +568,12 @@ export class RunbookEditorComponent implements OnInit, AfterViewInit, OnDestroy 
     this.agentService.list().subscribe((a) => this.hosts.set(a));
     this.reloadList();
     this.loadRuns();
+    // The Sequence view's step palette IS the module registry (docs/resource-protocol.md: the Library is
+    // the Resource type registry) — so a newly translated module shows up in the editor with no UI change.
+    this.moduleService.catalog().subscribe({
+      next: (c) => this.moduleNames.set((c.modules || []).map((m) => m.fqcn).sort()),
+      error: () => this.moduleNames.set([]),
+    });
   }
 
   // ---- Blockly visual designer wiring ----

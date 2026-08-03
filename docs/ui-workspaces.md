@@ -155,6 +155,14 @@ Sequence: deploy-webserver
   designer keep working on the same document; switching view must never change it (guaranteed by the
   `POST /runbooks/lint` round-trip). The tree is simply the right view for ordered operations (it is what
   the restore playbooks look like), the graph for dependency stacks.
+
+> **Gap found while building this (2026-08-03):** groups serialise to Ansible `block:`, and **Bossman's
+> engine executes blocks** (`services/nt_engine.py`: `if step.module == "block"`), but the **Go agent's
+> local runbook runner does not** — `internal/runbook.Step` has no Block/Rescue/Always field, so
+> `agentic-mcpd run-runbook` silently drops a grouped task. Consequence: a grouped sequence runs through
+> Bossman (Deploy / the editor's dry-run) but not through the agent-local CLI. Either teach the Go runner
+> blocks, or keep the PXE-style offline playbooks flat — the restore playbooks are flat today, so nothing
+> is broken right now, but a grouped sequence must not be handed to `run-runbook` expecting it to work.
 - Deployable directly: a Sequence in the Library gets the same **Deploy** action as a Role.
 
 ## Slices (each independently shippable + verifiable)
